@@ -55,6 +55,61 @@ let autoRestartTimer: ReturnType<typeof setTimeout> | null = null
 let manualShutdown = false
 let shutdownToken = ''
 
+// Attached-backend supervision: an attached backend is not our child, so
+// the exit handler never fires and backendStatus would stay 'running'
+// forever — with the single-instance lock held, later launches hand off
+// and exit, leaving a dead backend with no recovery path.  The monitor
+// re-checks the same attach invariant (healthy backend + live supervisor)
+// and routes a sustained loss through the normal auto-restart path.
+const ATTACHED_MONITOR_INTERVAL_MS = 10_000
+const ATTACHED_MONITOR_FAILURE_LIMIT = 3
+let attachedMonitorTimer: ReturnType<typeof setInterval> | null = null
+let attachedMonitorFailures = 0
+let attachedMonitorActive = false
+
+function stopAttachedMonitor(): void {
+  if (attachedMonitorTimer) {
+    clearInterval(attachedMonitorTimer)
+    attachedMonitorTimer = null
+  }
+  attachedMonitorFailures = 0
+  attachedMonitorActive = false
+}
+
+function startAttachedMonitor(): void {
+  stopAttachedMonitor()
+  attachedMonitorTimer = setInterval(() => {
+    void (async () => {
+      if (manualShutdown || attachedMonitorActive) return
+      if (pythonProcess || backendStatus !== 'running') {
+        stopAttachedMonitor()
+        return
+      }
+      attachedMonitorActive = true
+      try {
+        const alive =
+          (await probeExistingBackend()) &&
+          (await hasLiveSupervisor(getRuntimePathLibrary()))
+        if (alive) {
+          attachedMonitorFailures = 0
+          return
+        }
+        attachedMonitorFailures++
+        if (attachedMonitorFailures < ATTACHED_MONITOR_FAILURE_LIMIT) return
+        stopAttachedMonitor()
+        backendStatus = 'error'
+        backendMessage =
+          'attached governed backend lost (health/supervisor probe failed), auto-restarting...'
+        console.warn(`[Python Backend Manager] ${backendMessage}`)
+        scheduleAutoRestart()
+      } finally {
+        attachedMonitorActive = false
+      }
+    })()
+  }, ATTACHED_MONITOR_INTERVAL_MS)
+  attachedMonitorTimer.unref?.()
+}
+
 async function probeExistingBackend(): Promise<boolean> {
   const backendPort = await resolveBackendPort()
   return new Promise((resolve) => {
@@ -178,6 +233,9 @@ function spawnBootCore(
   }
   backendMessage = 'spawning boot_core (startup core)'
   backendLastError = ''
+  // Owned process — the exit handler supervises it, so the attached-mode
+  // monitor is redundant from here on.
+  stopAttachedMonitor()
   console.log('[Python Backend Manager] Spawning boot_core...')
 
   try {
@@ -305,6 +363,7 @@ export async function startBackend(forceReplacement = false) {
     backendStatus = 'running'
     backendReadyAt = Date.now()
     backendMessage = 'attached to existing governed backend'
+    startAttachedMonitor()
     return
   }
 
@@ -360,6 +419,7 @@ export async function ensureBackendStarted(): Promise<BackendStatus> {
 
 export async function stopBackend() {
   manualShutdown = true
+  stopAttachedMonitor()
   if (autoRestartTimer) {
     clearTimeout(autoRestartTimer)
     autoRestartTimer = null

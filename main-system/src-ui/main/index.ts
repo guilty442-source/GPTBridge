@@ -4,6 +4,7 @@ import path from 'node:path'
 import { AdaptiveZoomController } from './adaptiveZoom'
 import { getRuntimePathLibrary } from './pathLibrary'
 import {
+  ensureBackendStarted,
   startBackend,
   stopBackend,
 } from './python-backend'
@@ -245,6 +246,12 @@ if (!hasSingleInstanceLock) {
   app.exit(0)
 } else {
   app.on('second-instance', () => {
+    // A relaunch while this instance holds the lock means the user expects
+    // the system to come up — re-check the managed backend immediately
+    // rather than waiting for the attached-backend monitor interval.
+    if (shouldManageBackend) {
+      void ensureBackendStarted()
+    }
     if (!mainWindow || mainWindow.isDestroyed()) {
       void createWindow()
       return

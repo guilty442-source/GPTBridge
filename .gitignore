@@ -35,6 +35,7 @@ main-system/runtime/state/codex-health-actions.jsonl
 main-system/runtime/state/native-capability-tasks.jsonl
 main-system/runtime/state/tool-isolation-audit.jsonl
 main-system/data/automatic-repair/**/*.sqlite3*
+main-system/data/rag/
 ai-assistant/data/business/
 src-core/runtime/
 main-system/shared-layer/data/

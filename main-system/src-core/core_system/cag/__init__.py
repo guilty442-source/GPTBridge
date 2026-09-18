@@ -22,6 +22,25 @@ from ..rag.orchestration.evidence import RagEvidence, RagArchitecture
 _logger = logging.getLogger("gptbridge.cag")
 
 
+def _evidence_score(doc: Any) -> float:
+    """Best available relevance score across the evidence channels."""
+    return max(
+        float(getattr(doc, "dense_score", 0.0) or 0.0),
+        float(getattr(doc, "sparse_score", 0.0) or 0.0),
+        float(getattr(doc, "reranker_score", 0.0) or 0.0),
+        float(getattr(doc, "memory_score", 0.0) or 0.0),
+        float(getattr(doc, "score", 0.0) or 0.0),
+    )
+
+
+def _evidence_tokens(doc: Any) -> int:
+    """Token estimate — RagEvidence has no token_count field."""
+    explicit = int(getattr(doc, "token_count", 0) or 0)
+    if explicit:
+        return explicit
+    return max(1, len(str(getattr(doc, "content", "") or "")) // 4)
+
+
 @dataclass(frozen=True, slots=True)
 class CAGContext:
     """Pre-loaded context bundle."""
@@ -88,20 +107,25 @@ class ContextLoader:
                 seen.add(content_hash)
                 unique_docs.append(doc)
 
-        # Filter by relevance
-        filtered = [d for d in unique_docs if d.score >= self._config.min_relevance_score]
+        # Filter by relevance — RagEvidence carries per-channel scores
+        # (dense/sparse/reranker), not a single ``.score``.
+        filtered = [
+            d for d in unique_docs
+            if _evidence_score(d) >= self._config.min_relevance_score
+        ]
 
-        total_tokens = sum(d.token_count for d in filtered)
+        total_tokens = sum(_evidence_tokens(d) for d in filtered)
 
         # Truncate if over budget
         if total_tokens > self._config.max_context_tokens:
-            filtered.sort(key=lambda d: d.score, reverse=True)
+            filtered.sort(key=_evidence_score, reverse=True)
             running = 0
             kept = []
             for d in filtered:
-                if running + d.token_count <= self._config.max_context_tokens:
+                tokens = _evidence_tokens(d)
+                if running + tokens <= self._config.max_context_tokens:
                     kept.append(d)
-                    running += d.token_count
+                    running += tokens
             filtered = kept
             total_tokens = running
 
@@ -156,9 +180,14 @@ class ContextManager:
         return None
 
     def find_by_modules(self, module_ids: tuple[str, ...]) -> Optional[CAGContext]:
-        """Find existing context for modules."""
+        """Find a usable context for modules — an empty context must not
+        hijack queries that real retrieval could answer."""
         for ctx in self._contexts.values():
-            if not ctx.is_expired() and set(ctx.module_ids) == set(module_ids):
+            if (
+                not ctx.is_expired()
+                and ctx.documents
+                and set(ctx.module_ids) == set(module_ids)
+            ):
                 return ctx
         return None
 
@@ -217,7 +246,7 @@ class ContextRouter:
             context = self._loader.load_context(module_ids)
             self._manager.store(context)
 
-        if context and not context.is_expired():
+        if context and context.documents and not context.is_expired():
             # Use pre-loaded context
             _logger.info("CAG: using pre-loaded context %s (%d docs, %d tokens)",
                          context.context_id, len(context.documents), context.total_tokens)

@@ -124,6 +124,14 @@ class GPTBridgeAppShutdownMixin:
         except Exception:
             pass
 
+        # Stop the canonical RAG runtime after its CAG consumer
+        try:
+            rag_runtime = getattr(self, "rag_runtime", None)
+            if rag_runtime is not None:
+                await rag_runtime.stop()
+        except Exception:
+            pass
+
         watcher = self.hot_reload_watcher  # type: ignore[attr-defined]
         if watcher is not None:
             await watcher.stop()

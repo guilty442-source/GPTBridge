@@ -43,6 +43,7 @@ from governance.sovereigns import (
 
 from main_shutdown import GPTBridgeAppShutdownMixin
 from core_system.maintenance_controller_integration import create_maintenance_controller_integration
+from core_system.rag_runtime_integration import create_rag_runtime_integration
 from core_system.cag_integration import create_cag_integration
 
 
@@ -72,6 +73,9 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
 
         # Maintenance controller integration (Database Auto Maintenance v1)
         self.maintenance_controller_integration = create_maintenance_controller_integration(self)
+        self.rag_ready = False
+        self.cag_ready = False
+        self.rag_runtime = create_rag_runtime_integration(self)
         self.cag_integration = create_cag_integration(self)
 
         # New governance architecture sovereigns (A63/A64/A12/A128)
@@ -465,6 +469,19 @@ class GPTBridgeApp(GPTBridgeAppShutdownMixin):
         except Exception as error:
             self._record_startup_failure("maintenance_controller", error)
         self._mark_startup_phase("maintenance_controller_started")
+
+        # Start the canonical RAG runtime (DAG+CAG+RAG hybrid architecture)
+        # Must precede CAG: cag_integration reads app.rag_orchestrator.
+        try:
+            result = await self.rag_runtime.start()
+            if result.get("ok"):
+                self.rag_ready = True
+                self._log({"type": "status", "message": "RAG runtime started", **result})
+            else:
+                self._record_startup_failure("rag_runtime", RuntimeError(result.get("reason", "unknown")))
+        except Exception as error:
+            self._record_startup_failure("rag_runtime", error)
+        self._mark_startup_phase("rag_runtime_started")
 
         # Start CAG context preloading (DAG+CAG+RAG hybrid architecture)
         # Starts after RAG orchestrator is available

@@ -291,11 +291,51 @@ class PostgreSQLMetadataAuthority(
             return False
 
     async def _ensure_schema(self) -> None:
-        """Ensure canonical tables exist (A374)."""
+        """Ensure canonical tables exist (A374).
+
+        The migration chain is the sole schema evolution authority, so the
+        least-privilege runtime login may lack DDL rights.  When DDL is denied
+        the bootstrap degrades to verify-only: the canonical objects must
+        already exist or initialization fails with the missing set named.
+        """
         if not self._conn:
             return
-        await self._ensure_index_state_schema()
-        await self._ensure_saga_tables()
+        try:
+            await self._ensure_index_state_schema()
+            await self._ensure_saga_tables()
+        except psycopg.errors.InsufficientPrivilege:
+            await self._verify_schema_only()
+
+    _REQUIRED_SCHEMA_OBJECTS: tuple[str, ...] = (
+        "gptbridge_rag.index_state",
+        "gptbridge_rag.chunk",
+        "gptbridge_rag.reconciliation_queue",
+        "gptbridge_rag.outbox_step",
+        "gptbridge_rag.generation",
+        "gptbridge_rag.rag_chunk_fts_idx",
+    )
+
+    async def _verify_schema_only(self) -> None:
+        """Read-only schema check for least-privilege runtimes (A501/A515)."""
+        if not self._conn:
+            return
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                "SELECT " + ", ".join(
+                    f"to_regclass('{name}')" for name in self._REQUIRED_SCHEMA_OBJECTS
+                )
+            )
+            row = await cur.fetchone()
+        missing = [
+            name
+            for name, resolved in zip(self._REQUIRED_SCHEMA_OBJECTS, row or ())
+            if resolved is None
+        ]
+        if missing:
+            raise RuntimeError(
+                "RAG canonical schema objects missing under least-privilege "
+                f"runtime (migration chain owns DDL): {', '.join(missing)}"
+            )
 
     async def _ensure_index_state_schema(self) -> None:
         """index_state shape: migration-managed columns + A374 provenance."""
