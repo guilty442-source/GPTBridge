@@ -14,15 +14,15 @@ from typing import Any
 from shared_layer.database.config import DatabaseSettings
 from shared_layer.database.connection import get_connection_manager
 from shared_layer.database.sqlite_classification import list_by_class
-from main_system.src_core.core_system.rag.orchestration.orchestrator import RagOrchestrator
-from main_system.src_core.core_system.cag import (
+from .rag.orchestration.orchestrator import RagOrchestrator
+from .cag import (
     CAGConfig,
     ContextLoader,
     ContextManager,
     ContextRouter,
     create_cag_pipeline,
 )
-from main_system.src_core.core_system.hybrid import (
+from .hybrid import (
     HybridConfig,
     HybridOrchestrator,
     create_hybrid_orchestrator,
