@@ -86,14 +86,34 @@ def _benchmark_callable(
     *args: Any,
     sample_count: int = 20,
     warmup_count: int = 5,
+    budget_seconds: float | None = 1.5,
 ) -> dict[str, Any]:
-    """Benchmark a single callable and return summary stats."""
+    """Benchmark a single callable and return summary stats.
+
+    ``budget_seconds`` bounds the total measurement time so a slow
+    pure-Python fallback (large matmul/attention) cannot push the whole
+    benchmark past the test-suite deadline; at least one sample is always
+    taken so the statistics stay honest.
+    """
     sampler = ProfileSampler(name)
+    started = time.monotonic()
+
+    def within_budget() -> bool:
+        if budget_seconds is None:
+            return True
+        return (time.monotonic() - started) < float(budget_seconds)
+
     # Warmup
     for _ in range(warmup_count):
+        if not within_budget():
+            break
         func(*args)
     # Sample
-    for _ in range(sample_count):
+    samples = 0
+    while samples < sample_count and within_budget():
+        sampler.sample(func, *args)
+        samples += 1
+    if samples == 0:
         sampler.sample(func, *args)
     summary = sampler.summary()
     return {
