@@ -311,6 +311,7 @@ class PostgreSQLMetadataAuthority(
         "gptbridge_rag.chunk",
         "gptbridge_rag.reconciliation_queue",
         "gptbridge_rag.outbox_step",
+        "gptbridge_rag.outbox_event",
         "gptbridge_rag.generation",
         "gptbridge_rag.rag_chunk_fts_idx",
     )

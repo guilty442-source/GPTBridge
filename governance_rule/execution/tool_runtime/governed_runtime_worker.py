@@ -21,6 +21,10 @@ from .governed_runtime_constants import (
     permission_denied,
 )
 
+import websockets  # type: ignore
+
+from websockets.exceptions import ConnectionClosed  # type: ignore
+
 
 class GovernedRuntimeWorkerMixin:
     """Worker/handler methods for GovernedToolRuntime."""
@@ -213,6 +217,15 @@ class GovernedRuntimeWorkerMixin:
                     await self.send(websocket, event, result)
 
     async def _handler(self, websocket: Any) -> None:
+        try:
+            await self._drain_messages(websocket)
+        except ConnectionClosed:
+            # Client disconnected mid-stream — a connection lifecycle event,
+            # not a fault.  The sync message walker drains the waiters when
+            # the socket closes, so nothing to diagnose or repair here.
+            pass
+
+    async def _drain_messages(self, websocket: Any) -> None:
         async for raw_message in websocket:
             command = ""
             request_id = ""

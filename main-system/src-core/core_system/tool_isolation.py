@@ -58,6 +58,26 @@ def _iso_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _manifest_independent_tool(tool_dir: Path | None) -> bool:
+    """Independent tools declare ``main_system_independent_tool: true``.
+
+    The lifecycle contract (see ``main_shutdown``): independent standalone
+    tools run in their own processes, manage their own lifecycle, and must
+    NOT be force-closed when the backend exits.  ``register_tool`` binds
+    that manifest flag to the Job Object below (no kill-on-close), so a
+    backend restart or generation handover can never terminate them.
+    """
+    if tool_dir is None:
+        return False
+    try:
+        manifest = json.loads(
+            (tool_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        return manifest.get("main_system_independent_tool") is True
+    except (OSError, json.JSONDecodeError):
+        return False
+
+
 def _record_isolation_audit(
     *, tool_id: str, event: str, detail: dict[str, Any] | None = None
 ) -> None:
@@ -142,10 +162,17 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
         if policy is None:
             policy = self.resolve_policy(tool_id)
 
+        project_root = self.project_root
+        if tool_dir is None:
+            tool_dir = project_root / "Standalone tools" / tool_id
+
+        independent = _manifest_independent_tool(tool_dir)
+        kill_on_close = policy.kill_on_job_close and not independent
+
         job_handle = _create_job_object(
             memory_limit_mb=policy.memory_limit_mb,
             cpu_percent=policy.cpu_percent_limit,
-            kill_on_close=policy.kill_on_job_close,
+            kill_on_close=kill_on_close,
         )
 
         job_assigned = False
@@ -174,9 +201,6 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
             )
 
         runtime_generation = uuid.uuid4().hex[:12]
-        project_root = self.project_root
-        if tool_dir is None:
-            tool_dir = project_root / "Standalone tools" / tool_id
 
         data_root = str(project_root / "main-system" / "runtime" / "data" / "tools" / tool_id)
         config_root = str(tool_dir / "config")
@@ -218,6 +242,8 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
                 "memory_limit_mb": policy.memory_limit_mb,
                 "cpu_percent_limit": policy.cpu_percent_limit,
                 "job_assigned": job_assigned,
+                "independent": independent,
+                "kill_on_close": kill_on_close,
                 "network_policy": policy.network_policy,
                 "filesystem_policy": policy.filesystem_policy,
                 "runtime_generation": runtime_generation,
@@ -226,10 +252,10 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
 
         _logger.info(
             "tool_isolated tool_id=%s pid=%d memory_limit=%dMB cpu_limit=%d%% "
-            "job_object=%s network=%s filesystem=%s runtime_gen=%s",
+            "job_object=%s independent=%s kill_on_close=%s network=%s filesystem=%s runtime_gen=%s",
             tool_id, process.pid, policy.memory_limit_mb, policy.cpu_percent_limit,
-            bool(job_handle), policy.network_policy, policy.filesystem_policy,
-            runtime_generation,
+            bool(job_handle), independent, kill_on_close, policy.network_policy,
+            policy.filesystem_policy, runtime_generation,
         )
         return entry
 

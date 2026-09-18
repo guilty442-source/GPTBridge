@@ -198,7 +198,9 @@ class StartSpawnMixin(SpawnProcessMixin):
         cancel_pending = await self._register_tool_process(request_id, process)
         try:
             isolation_mgr = get_isolation_manager(self.project_root)
-            await asyncio.to_thread(isolation_mgr.register_tool, tool_id, process)
+            await asyncio.to_thread(
+                isolation_mgr.register_tool, tool_id, process, None, tool_dir
+            )
         except Exception:
             pass
         asyncio.create_task(
