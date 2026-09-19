@@ -150,9 +150,11 @@ class InferTransformerMixin:
                 "reasoning_effort": inference_payload.get("reasoning_effort"),
                 "task_intensity": task_intensity,
                 "requested_model": direct_runtime_model or automatic_runtime_model or None,
+                "_user_designated_model": bool(direct_runtime_model),
                 "images": visual_inputs,
                 "complex_pipeline": (
                     not direct_runtime_model
+                    and resolved_intent != "conversation"
                     and str(
                         inference_payload.get("reasoning_effort") or "medium"
                     ).strip().casefold() != "none"
@@ -217,7 +219,7 @@ class InferTransformerMixin:
             }.get(task_intensity, 2)
             if resolved_intent in (
                 self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
-            ):
+            ) or resolved_intent == "conversation":
                 collaboration_limit = 1
             auxiliary_specs: list[dict[str, str]] = []
             if not direct_runtime_model and collaboration_limit > 1:
@@ -327,7 +329,7 @@ class InferTransformerMixin:
             }
             if successful_parallel_branches and transformer_result.get("ok") is True:
                 integration_model = (
-                    self.DATA_COORDINATOR_MODEL
+                    str(transformer_result.get("model") or "")
                     if task_intensity == "normal"
                     else self.FINAL_COORDINATOR_MODEL
                 )

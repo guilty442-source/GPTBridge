@@ -124,7 +124,11 @@ class LocalAiEmbeddingMixin:
         intent: str,
     ) -> dict[str, Any]:
         semantic = dict(payload.get("_semantic_plan") or {})
-        embedding_retrieval = self._embedding_retrieval(payload, prompt)
+        embedding_retrieval = (
+            []
+            if str(payload.get("runtime_model") or "").strip()
+            else self._embedding_retrieval(payload, prompt)
+        )
         analysis = (
             analyze_investments(payload)
             if intent in {"analysis", "risk"}

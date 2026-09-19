@@ -47,12 +47,47 @@ def test_prepare_model_releases_old_model_preloads_and_verifies() -> None:
     ollama = FakeOllama(["old-model"])
     manager = ResourceManager(transport=ollama)
     manager._nvidia_rows = lambda: []  # type: ignore[method-assign]
+    manager.get_ram_usage = lambda: {  # type: ignore[method-assign]
+        "total_bytes": 100, "used_bytes": 90, "available_bytes": 10,
+        "percent": 90.0,
+    }
 
     result = manager.prepare_model("new-model")
 
     assert result["device"] == "cpu"
     assert result["released_models"] == ("old-model",)
     assert result["resident"] is True
+    assert ollama.running == ["new-model"]
+
+
+def test_prepare_model_keeps_running_models_when_memory_is_free() -> None:
+    ollama = FakeOllama(["old-model"])
+    manager = ResourceManager(transport=ollama)
+    manager._nvidia_rows = lambda: []  # type: ignore[method-assign]
+    manager.get_ram_usage = lambda: {  # type: ignore[method-assign]
+        "total_bytes": 100, "used_bytes": 30, "available_bytes": 70,
+        "percent": 30.0,
+    }
+
+    result = manager.prepare_model("new-model")
+
+    assert result["released_models"] == ()
+    assert result["resident"] is True
+    assert ollama.running == ["old-model", "new-model"]
+
+
+def test_prepare_model_evicts_when_required_bytes_do_not_fit() -> None:
+    ollama = FakeOllama(["old-model"])
+    manager = ResourceManager(transport=ollama)
+    manager._nvidia_rows = lambda: []  # type: ignore[method-assign]
+    manager.get_ram_usage = lambda: {  # type: ignore[method-assign]
+        "total_bytes": 100, "used_bytes": 60, "available_bytes": 40,
+        "percent": 60.0,
+    }
+
+    result = manager.prepare_model("new-model", required_bytes=80)
+
+    assert result["released_models"] == ("old-model",)
     assert ollama.running == ["new-model"]
 
 
@@ -114,7 +149,8 @@ def test_residency_policy_is_owned_by_resource_manager() -> None:
     )
 
     assert manager.keep_alive_for("commander", -1, release_after_request=True) == -1
-    assert manager.keep_alive_for("worker", -1, release_after_request=True) == 0
+    assert manager.keep_alive_for("worker", -1, release_after_request=True) == -1
+    assert manager.keep_alive_for("worker", 0, release_after_request=True) == "5m"
     assert manager.keep_alive_for("worker", "5m") == "5m"
 
 

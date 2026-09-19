@@ -298,7 +298,12 @@ class ResourceManager:
         """Centralize model residency policy for every Ollama request."""
         if str(model).strip() in self._resident_models:
             return configured_keep_alive
-        return 0 if release_after_request else configured_keep_alive
+        # prepare_model() now evicts lazily on real memory pressure, so an
+        # immediate unload (keep_alive=0) after every call only forces a full
+        # reload storm on the next request.  Keep non-resident models warm.
+        if not configured_keep_alive:
+            return "5m"
+        return configured_keep_alive
 
     def switch_to_gpu(self) -> str:
         if not self._nvidia_rows():
@@ -318,6 +323,21 @@ class ResourceManager:
         name = str(model or "").strip()
         return name in self._running_models()
 
+    def _eviction_required(self, required_bytes: int) -> bool:
+        """Evict other models only when memory cannot host one more model.
+
+        Ollama already unloads least-recently-used models under pressure; the
+        eager unload-everything pass here turned every model switch into a
+        full unload+load cycle, which dominated dialogue latency.  Evict only
+        when the incoming model demonstrably does not fit (or RAM is already
+        tight when its size is unknown).
+        """
+        ram = self.get_ram_usage()
+        if required_bytes > 0:
+            available = int(ram.get("available_bytes") or 0)
+            return available < required_bytes * 1.1
+        return float(ram.get("percent") or 0.0) >= 85.0
+
     def prepare_model(
         self, model: str, *, keep_alive: int | str = -1, required_bytes: int = 0
     ) -> dict[str, Any]:
@@ -327,12 +347,14 @@ class ResourceManager:
             self._active_model = model
             return {"model": model, "device": self._mode, "released_models": (),
                     "resources_before": before, "resident": True, "already_loaded": True}
-        old_models = tuple(
-            name for name in running
-            if name != model and name not in self._resident_models
-        )
-        for old_model in dict.fromkeys(filter(None, old_models)):
-            self.unload_model(old_model)
+        old_models: tuple[str, ...] = ()
+        if self._eviction_required(int(required_bytes)):
+            old_models = tuple(
+                name for name in running
+                if name != model and name not in self._resident_models
+            )
+            for old_model in dict.fromkeys(filter(None, old_models)):
+                self.unload_model(old_model)
         selected_mode = self._mode
         if selected_mode == "auto":
             gpus = self._nvidia_rows()

@@ -171,11 +171,15 @@ class TransformerRuntimeResultMixin:
         commander_adjudication = (
             {
                 "adjudicator_model": self.FAILURE_ADJUDICATOR_MODEL,
-                "decision": "stop-after-maximum-dynamic-reassignments",
+                "decision": (
+                    "stop-fixed-model-selection"
+                    if plan.user_designated_model
+                    else "stop-after-maximum-dynamic-reassignments"
+                ),
                 "assigned_model": "",
                 "dynamic_reassignment": False,
             }
-            if plan.automatic_model_override
+            if plan.automatic_model_override or plan.user_designated_model
             else self._commander_adjudicate_model_failure(
                 failed_model=plan.selected_model,
                 failure=failure,
@@ -254,6 +258,7 @@ class TransformerRuntimeResultMixin:
         if (
             not assigned_model
             or plan.automatic_model_override
+            or plan.user_designated_model
             or (plan.cancel_event is not None and plan.cancel_event.is_set())
         ):
             return failure, None

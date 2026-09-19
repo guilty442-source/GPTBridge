@@ -231,7 +231,10 @@ def test_official_generation_defaults_are_not_overridden() -> None:
     assert result["ok"] is True
     assert set(chat[2]["options"]) == {"num_ctx", "num_predict"}
     assert chat[2]["options"]["num_predict"] == 4_096
-    assert chat[2]["keep_alive"] == 0
+    # Non-resident models stay warm (keep_alive floor) so back-to-back
+    # requests do not pay a full reload; lazy eviction in prepare_model
+    # handles real memory pressure instead.
+    assert chat[2]["keep_alive"] == "5m"
     assert result["parameter_profile"]["context_limit"] == 153_600
 
 
