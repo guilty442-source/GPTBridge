@@ -3,9 +3,20 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
+from .chinese_semantic_engine import ChineseSemanticEngine
+
 
 class StarNativePlanMixin:
     """Semantic plan construction that orchestrates all understanding layers."""
+
+    _CHINESE_SEMANTIC_ENGINE = ChineseSemanticEngine()
+
+    #: Engine intents that widen to a governed native intent.  Unlisted
+    #: engine intents pass through verbatim — the downstream planners ignore
+    #: intents they do not recognize.
+    _ENGINE_INTENT_MAP: Mapping[str, str] = {
+        "investment": "analysis",
+    }
 
     @classmethod
     def semantic_plan(
@@ -16,16 +27,56 @@ class StarNativePlanMixin:
         confirmed: bool = False,
     ) -> dict[str, Any]:
         raw_input = str(prompt or "")
-        normalization = cls._normalize_chinese_semantics(raw_input)
+        analysis = cls._CHINESE_SEMANTIC_ENGINE.analyze(raw_input, context=context)
+        normalization = cls._normalize_chinese_semantics(
+            str(analysis.normalized_text or raw_input)
+        )
+        normalization["changes"] = [
+            *(
+                {
+                    "from": source,
+                    "to": target,
+                    "stage": "chinese-semantic-engine",
+                }
+                for source, target in (*analysis.synonyms, *analysis.repairs)
+            ),
+            *normalization["changes"],
+        ]
+        normalization["engine_schema"] = analysis.schema
         normalized = str(normalization["text"])
         intents = cls.classify_intents(normalized)
+        engine_intents = [
+            mapped
+            for intent in analysis.intents
+            if intent != "conversation"
+            for mapped in [cls._ENGINE_INTENT_MAP.get(intent, intent)]
+            if mapped and mapped != "conversation"
+        ]
+        if intents == ["conversation"] and engine_intents:
+            # The native lexicon missed every domain marker; let the engine's
+            # lexicon lead rather than lose the intent entirely.
+            intents = list(dict.fromkeys([*engine_intents, *intents]))
+        else:
+            intents = [
+                *intents,
+                *(intent for intent in engine_intents if intent not in intents),
+            ]
         _, prohibited_intents = cls._matched_intents(normalized.casefold())
+        prohibited_intents = set(prohibited_intents) | {
+            str(surface) for surface in analysis.prohibited_intents
+        }
         tokenized = cls._tokenize(normalized)
         matched_terms = {
             intent: [token for token in tokens if token.casefold() in normalized.casefold()]
             for intent, tokens in cls._INTENTS
             if intent in intents
         }
+        for intent, terms in analysis.matched_terms.items():
+            mapped = cls._ENGINE_INTENT_MAP.get(intent, intent)
+            if mapped in intents and mapped not in matched_terms:
+                matched_terms[mapped] = [
+                    term for term in terms if term.casefold() in normalized.casefold()
+                ] or list(terms)
         symbols = list(
             dict.fromkeys(
                 match.upper()
@@ -65,6 +116,29 @@ class StarNativePlanMixin:
             "unspecified",
         )
         comprehension = cls._comprehension_features(normalized)
+        for key, values in (
+            ("questions", analysis.questions),
+            ("requested_outputs", analysis.requested_outputs),
+            ("constraints", analysis.constraints),
+        ):
+            merged = list(comprehension.get(key) or [])
+            merged.extend(str(value) for value in values if str(value) not in merged)
+            comprehension[key] = merged[:30]
+        if analysis.negations:
+            existing_negations = list(comprehension.get("negations") or [])
+            seen_markers = {
+                str(item.get("marker") or item)
+                for item in existing_negations
+                if isinstance(item, Mapping)
+            }
+            comprehension["negations"] = [
+                *existing_negations,
+                *(
+                    dict(item)
+                    for item in analysis.negations
+                    if str(item.get("marker") or "") not in seen_markers
+                ),
+            ][:30]
         actions = cls._extract_command_actions(normalized)
         if actions:
             comprehension["command"]["recognized"] = True
@@ -96,6 +170,21 @@ class StarNativePlanMixin:
             )
         operation_objects = cls._extract_operation_objects(normalized)
         parameters = cls._extract_command_parameters(raw_input)
+        for parameter_key, entity_key in (
+            ("paths", "paths"),
+            ("filenames", "filenames"),
+            ("model_names", "model_names"),
+            ("versions", "versions"),
+            ("quantization_formats", "quantization"),
+        ):
+            parameters[parameter_key] = list(
+                dict.fromkeys(
+                    [
+                        *list(parameters.get(parameter_key) or []),
+                        *list(analysis.entities.get(entity_key) or ()),
+                    ]
+                )
+            )[:20]
         specific_constraints = cls._specific_constraint_flags(normalized)
         context_completion = cls._context_completion(
             command=raw_input.strip(),
@@ -176,6 +265,11 @@ class StarNativePlanMixin:
                 text=normalized,
             )
         ambiguities = list(safety["remaining_ambiguities"])
+        ambiguities.extend(
+            str(item)
+            for item in analysis.safety.get("remaining_ambiguities") or ()
+            if str(item) not in ambiguities
+        )
         if not matched_terms and not actions:
             ambiguities.append("intent-not-explicit")
         task_intensity = cls._task_intensity(
@@ -232,26 +326,74 @@ class StarNativePlanMixin:
             "intents": intents,
             "prohibited_intents": sorted(prohibited_intents),
             "entities": {
-                "symbols": symbols,
-                "isins": isins,
-                "markets": list(dict.fromkeys(markets)),
-                "numbers": [float(value) for value in re.findall(r"\d+(?:\.\d+)?", normalized)[:30]],
-                "dates": re.findall(
-                    r"(?<!\d)(?:19|20)\d{2}[-/.年](?:0?[1-9]|1[0-2])(?:[-/.月](?:0?[1-9]|[12]\d|3[01])日?)?(?!\d)",
-                    normalized,
+                "symbols": list(
+                    dict.fromkeys([*symbols, *analysis.entities.get("symbols", ())])
+                ),
+                "isins": list(
+                    dict.fromkeys([*isins, *analysis.entities.get("isins", ())])
+                ),
+                "markets": list(
+                    dict.fromkeys([*markets, *analysis.entities.get("markets", ())])
+                ),
+                "numbers": list(
+                    dict.fromkeys(
+                        [
+                            *[float(value) for value in re.findall(r"\d+(?:\.\d+)?", normalized)[:30]],
+                            *[float(value) for value in analysis.entities.get("numbers", ())[:30]],
+                        ]
+                    )
+                )[:30],
+                "dates": list(
+                    dict.fromkeys(
+                        [
+                            *re.findall(
+                                r"(?<!\d)(?:19|20)\d{2}[-/.年](?:0?[1-9]|1[0-2])(?:[-/.月](?:0?[1-9]|[12]\d|3[01])日?)?(?!\d)",
+                                normalized,
+                            )[:20],
+                            *list(analysis.entities.get("dates") or ()),
+                        ]
+                    )
                 )[:20],
-                "percentages": re.findall(r"(?<!\w)[+-]?\d+(?:\.\d+)?%", normalized)[:20],
-                "money": re.findall(
-                    r"(?:NT\$|US\$|\$|新台幣|美元)\s?\d[\d,.]*",
-                    normalized,
-                    flags=re.IGNORECASE,
+                "percentages": list(
+                    dict.fromkeys(
+                        [
+                            *re.findall(r"(?<!\w)[+-]?\d+(?:\.\d+)?%", normalized)[:20],
+                            *list(analysis.entities.get("percentages") or ()),
+                        ]
+                    )
                 )[:20],
-                "urls": re.findall(
-                    r"https?://[^\s)\]>，。！？；]+", normalized
+                "money": list(
+                    dict.fromkeys(
+                        [
+                            *re.findall(
+                                r"(?:NT\$|US\$|\$|新台幣|美元)\s?\d[\d,.]*",
+                                normalized,
+                                flags=re.IGNORECASE,
+                            )[:20],
+                            *list(analysis.entities.get("money") or ()),
+                        ]
+                    )
                 )[:20],
-                "emails": re.findall(
-                    r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])",
-                    normalized,
+                "urls": list(
+                    dict.fromkeys(
+                        [
+                            *re.findall(
+                                r"https?://[^\s)\]>，。！？；]+", normalized
+                            )[:20],
+                            *list(analysis.entities.get("urls") or ()),
+                        ]
+                    )
+                )[:20],
+                "emails": list(
+                    dict.fromkeys(
+                        [
+                            *re.findall(
+                                r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])",
+                                normalized,
+                            )[:20],
+                            *list(analysis.entities.get("emails") or ()),
+                        ]
+                    )
                 )[:20],
                 "time_horizon": time_horizon,
             },
@@ -275,4 +417,10 @@ class StarNativePlanMixin:
             "safety": safety,
             "tasks": tasks,
             "ambiguities": list(dict.fromkeys(ambiguities)),
+            "chinese_semantics": analysis.to_record(),
+            "engine": {
+                "schema": analysis.schema,
+                "digest": analysis.digest,
+                "layer": "chinese-semantic-engine+native-domain-planner",
+            },
         }

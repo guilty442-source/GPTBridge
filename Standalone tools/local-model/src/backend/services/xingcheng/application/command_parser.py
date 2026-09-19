@@ -76,6 +76,16 @@ class CommandSpec:
     hidden: bool = False
     permission_required: str = ""
 
+    def __post_init__(self) -> None:
+        # Callers may declare the category by its wire value ("git",
+        # "platform", ...); normalize to the enum so the registry index and
+        # listing stay consistent.
+        if not isinstance(self.category, CommandCategory):
+            try:
+                self.category = CommandCategory(str(self.category))
+            except ValueError:
+                self.category = CommandCategory.SYSTEM
+
     def matches(self, command: str) -> bool:
         """Check if command matches this spec (name or alias)."""
         return command == self.name or command in self.aliases
