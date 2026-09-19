@@ -94,62 +94,56 @@ def test_python_gateway_is_default_deny_and_xingcheng_read_only() -> None:
     assert allowed.decide(star, "execute", "governance_rule").allowed is False
 
 
-def test_local_rag_runtime_is_fixed_location(tmp_path: Path) -> None:
-    sys.path.insert(
-        0,
-        str(
-            ROOT.parent
-            / "Standalone tools"
-            / "local-model"
-            / "src"
-            / "backend"
-            / "services"
-        ),
-    )
-    from xingcheng.infrastructure.rag_bridge import local_runtime as module
+def test_local_vector_store_is_fixed_location(tmp_path: Path) -> None:
+    """The degraded local cache lives at one fixed path and fails closed on drift."""
 
-    runtime = module.runtime_for(tmp_path)
-    assert runtime.index_root == (tmp_path / "shared-layer" / "runtime" / "semantic-index").resolve()
+    from shared_layer.local.vector_store import LocalVectorStore, embed_vector
+
+    store = LocalVectorStore(tmp_path)
+    assert store.database_path == (tmp_path / "local-rag-vectors.sqlite3").resolve()
+    assert store.status()["canonical"] is False
+    assert store.status()["reconciliation_required"] is True
+
+    vector = embed_vector("alpha beta")
+    store.replace_document(
+        "doc-1",
+        [{"id": "p1", "vector": vector, "module_id": "vaultly"}],
+        module_id="vaultly",
+    )
+    store.ensure_collection(len(vector))
     try:
-        module.LocalRagRuntime(tmp_path / "private" / "runtime" / "qdrant")
-    except ValueError as exc:
-        assert str(exc) == "LOCAL_SEMANTIC_INDEX_LOCATION_INVALID"
+        store.ensure_collection(len(vector) + 1)
+    except RuntimeError as exc:
+        assert "RAG_VECTOR_DIMENSION_MISMATCH" in str(exc)
     else:
-        raise AssertionError("out-of-contract index root accepted")
+        raise AssertionError("dimension mismatch accepted")
 
 
-def test_local_hits_require_authorization_and_no_content_payload() -> None:
-    sys.path.insert(
-        0,
-        str(
-            ROOT.parent
-            / "Standalone tools"
-            / "local-model"
-            / "src"
-            / "backend"
-            / "services"
-        ),
+def test_local_hits_require_module_scope_and_stay_in_scope(tmp_path: Path) -> None:
+    """Degraded local hits obey the same module-scope discipline as Qdrant."""
+
+    from shared_layer.local.vector_store import LocalVectorStore, embed_vector
+    from shared_layer.security.qdrant_scope import QdrantScopeError
+
+    store = LocalVectorStore(tmp_path)
+    store.replace_document(
+        "doc-1",
+        [{"id": "p1", "text": "alpha beta", "module_id": "vaultly"}],
+        module_id="vaultly",
     )
-    from xingcheng.infrastructure.rag_bridge import bridge as module
+    vector = embed_vector("alpha beta")
 
-    hits = (
-        module.QdrantHit("R1", "C1", "vaultly", 0.9),
-        module.QdrantHit("R2", "C2", "file-sorter", 0.8),
-    )
-    bridge = module.RagAuthorizationBridge(lambda _actor, resource: resource == "R2")
-    assert tuple(hit.resource_id for hit in bridge.filter_authorized("xingcheng", hits)) == ("R2",)
-
-    class Store:
-        def replace_document(self, *_args, **_kwargs):
-            raise AssertionError("invalid payload reached the index")
-
-    coordinator = module.RagIndexCoordinator(Store(), lambda *_: None, lambda *_: None)
     try:
-        coordinator.upsert("R1", "vaultly", [{"id": "P1", "payload": {"chunk_id": "C1", "content": "secret"}}])
-    except ValueError as exc:
-        assert str(exc) == "RAG_PAYLOAD_MUST_NOT_CONTAIN_PHYSICAL_CONTENT_OR_PATH"
+        store.query(vector, limit=5)
+    except QdrantScopeError as exc:
+        assert "QDRANT_MODULE_SCOPE_REQUIRED" in str(exc)
     else:
-        raise AssertionError("physical content was accepted into index payload")
+        raise AssertionError("empty module scope accepted")
+
+    hits = store.query(vector, limit=5, module_ids=("vaultly",))
+    assert hits
+    assert hits[0]["module_id"] == "vaultly"
+    assert store.query(vector, limit=5, module_ids=("file-sorter",)) == []
 
 
 def test_no_installer_or_docker_dependency_in_python_core() -> None:
