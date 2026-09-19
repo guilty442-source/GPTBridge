@@ -15,22 +15,30 @@ from ..config import XingChengConfig
 from ..execution.backend import resolve_device, default_dtype
 from ..modules.model import XingChengForCausalLM
 from .kv_cache import KVCache
+from .prefix_cache import PrefixKVStore
 from .sampler import Sampler, SamplingConfig
 
 
 class Generator:
-    """星澄文字生成器。"""
+    """星澄文字生成器。
+
+    ``prefix_store``：跨請求 prefix K/V 重用（僅 batch_size==1 且
+    use_cache 時啟用）；``last_prefix_reuse`` 記錄最近一次命中長度。
+    """
 
     def __init__(
         self,
         model: XingChengForCausalLM,
         sampler: Sampler | None = None,
         device: torch.device | None = None,
+        prefix_store: PrefixKVStore | None = None,
     ) -> None:
         self.model = model
         self.config: XingChengConfig = model.config
         self.sampler = sampler or Sampler(SamplingConfig())
         self.device = resolve_device(device)
+        self.prefix_store = prefix_store
+        self.last_prefix_reuse = 0
 
     @torch.no_grad()
     def generate(
@@ -54,16 +62,57 @@ class Generator:
             attention_mask = torch.ones_like(input_ids)
         attention_mask = attention_mask.to(self.device)
 
+        # ── Prefix cache：b==1 + use_cache 時重用已存前綴 K/V ─────
+        self.last_prefix_reuse = 0
+        stored_kv: list[tuple[torch.Tensor, torch.Tensor]] | None = None
+        reuse = 0
+        if use_cache and b == 1 and self.prefix_store is not None:
+            hit_len, stored_kv = self.prefix_store.longest_prefix_match(
+                input_ids[0].tolist()
+            )
+            # 至少留 1 token 走 forward 產生 logits
+            reuse = min(hit_len, prefix_len - 1)
+            if reuse <= 0:
+                reuse = 0
+                stored_kv = None
+            else:
+                stored_kv = [
+                    (k[:, :, :reuse, :], v[:, :, :reuse, :]) for k, v in stored_kv
+                ]
+                self.last_prefix_reuse = reuse
+
         # ── Prefill ─────────────────────────────────────────────
-        position_ids = (
-            torch.arange(prefix_len, device=self.device).unsqueeze(0).expand(b, -1)
-        )
-        out = self.model(
-            input_ids,
-            position_ids=position_ids,
-            attention_mask=attention_mask,
-            use_cache=use_cache,
-        )
+        if stored_kv is not None:
+            prefill_ids = input_ids[:, reuse:]
+            position_ids = (
+                torch.arange(reuse, prefix_len, device=self.device)
+                .unsqueeze(0)
+                .expand(b, -1)
+            )
+            prefill_mask = torch.cat(
+                [
+                    torch.ones((b, reuse), device=self.device, dtype=attention_mask.dtype),
+                    attention_mask[:, reuse:],
+                ],
+                dim=-1,
+            )
+            out = self.model(
+                prefill_ids,
+                position_ids=position_ids,
+                attention_mask=prefill_mask,
+                kv_caches=stored_kv,
+                use_cache=use_cache,
+            )
+        else:
+            position_ids = (
+                torch.arange(prefix_len, device=self.device).unsqueeze(0).expand(b, -1)
+            )
+            out = self.model(
+                input_ids,
+                position_ids=position_ids,
+                attention_mask=attention_mask,
+                use_cache=use_cache,
+            )
         logits = out["logits"][:, -1, :]
         next_token = sampler.sample(logits, prev_tokens=input_ids)
         generated = [next_token]
@@ -72,8 +121,20 @@ class Generator:
         if use_cache:
             dtype = next(self.model.parameters()).dtype
             cache = KVCache(cfg, b, total_len, self.device, dtype)
+            if stored_kv is not None:
+                for idx, (k, v) in enumerate(stored_kv):
+                    cache.update(idx, k, v, 0)
             for idx, (k, v) in enumerate(out.get("kv_caches") or []):
-                cache.update(idx, k, v, 0)
+                cache.update(idx, k, v, reuse)
+            # 提交 prompt 段 K/V（生成段不入庫）；mask 全 1 才提交
+            if (
+                self.prefix_store is not None
+                and b == 1
+                and bool(attention_mask.all().item())
+            ):
+                self.prefix_store.put(
+                    input_ids[0].tolist(), cache.slice(prefix_len)
+                )
 
         # ── Decode ──────────────────────────────────────────────
         for step in range(max_new - 1):

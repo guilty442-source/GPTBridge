@@ -343,6 +343,9 @@ class TrainingJobExecutor:
         device = raw.get("device")
         configuration["device"] = str(device) if device else None
 
+        model_id = str(raw.get("model_id") or "xingcheng-native").strip()
+        configuration["model_id"] = model_id or "xingcheng-native"
+
         tokenizer_dir = str(raw.get("tokenizer_dir") or "").strip()
         if not tokenizer_dir:
             raise TrainingJobExecutorError(
@@ -409,6 +412,49 @@ class TrainingJobExecutor:
 
     # ------------------------------------------------------------ execution
 
+    def _lifecycle(self, model_id: str):
+        """載入（或建立）模型線的生命週期紀錄。"""
+        from .native_transformer.lifecycle import ModelLifecycle
+
+        directory = (
+            self.tool_root / "runtime" / "models" / "lifecycle" / model_id
+        ).resolve()
+        if not directory.is_relative_to(self.tool_root):
+            raise TrainingJobExecutorError(
+                "EXECUTOR_LIFECYCLE_SCOPE_DENIED", "lifecycle path escapes tool root"
+            )
+        return ModelLifecycle.load_or_create(directory, model_id)
+
+    @staticmethod
+    def _lifecycle_dir(tool_root: Path, model_id: str) -> Path:
+        return tool_root / "runtime" / "models" / "lifecycle" / model_id
+
+    def _lifecycle_advance(self, lifecycle, target: str, reason: str) -> None:
+        """把生命週期推進到目標態；FAILED／UNINITIALIZED 先恢復。
+
+        轉移被拒（例如 READY→PRETRAINING 不可直達）時僅跳過記帳——
+        生命週期是稽核簿記，不得因此中斷受管訓練任務。
+        """
+        if lifecycle.state == target:
+            return
+        try:
+            if lifecycle.state == "FAILED":
+                lifecycle.transition("INITIALIZED", reason="recovery after failure")
+            if lifecycle.state == "UNINITIALIZED":
+                lifecycle.transition("INITIALIZED", reason="bootstrap")
+            lifecycle.transition(target, reason=reason)
+        except ValueError:
+            return
+        lifecycle.save(self._lifecycle_dir(self.tool_root, lifecycle.model_id))
+
+    def _lifecycle_fail(self, configuration, reason: str) -> None:
+        try:
+            lifecycle = self._lifecycle(str(configuration.get("model_id") or "xingcheng-native"))
+            lifecycle.fail(reason[:200])
+            lifecycle.save(self._lifecycle_dir(self.tool_root, lifecycle.model_id))
+        except Exception:
+            pass
+
     def _fail_job(self, job_id: str, code: str, message: str) -> dict[str, Any]:
         try:
             row = self.repository.transition_training_job(
@@ -465,11 +511,20 @@ class TrainingJobExecutor:
                 f"job is {row['status']}, not queued",
             )
         self.repository.transition_training_job(job_id, "preflight")
+        lifecycle = None
         try:
             configuration = self._normalize_configuration(row)
             dataset, splits = self._dataset_and_splits(str(row["dataset_id"]))
             train_docs, val_docs = self._load_split_documents(dataset, splits)
 
+            lifecycle = self._lifecycle(str(configuration["model_id"]))
+            self._lifecycle_advance(
+                lifecycle,
+                "SFT_TRAINING"
+                if configuration["training_kind"] == "sft"
+                else "PRETRAINING",
+                f"job {job_id} started",
+            )
             self.repository.transition_training_job(job_id, "training")
             output_dir = (
                 self.tool_root / "runtime" / "models" / "jobs" / job_id
@@ -514,6 +569,27 @@ class TrainingJobExecutor:
                 job_id, "completed", output_path=str(final_checkpoint)
             )
             self._record_execution_audit(completed, summary or {})
+            if lifecycle is not None:
+                try:
+                    lifecycle.register_artifact(
+                        "weights",
+                        final_checkpoint,
+                        metadata={
+                            "job_id": job_id,
+                            "dataset_id": str(row["dataset_id"]),
+                            "steps": (summary or {}).get("steps"),
+                        },
+                        activate=True,
+                    )
+                    self._lifecycle_advance(
+                        lifecycle,
+                        "INSTRUCT_READY"
+                        if configuration["training_kind"] == "sft"
+                        else "PRETRAINED",
+                        f"job {job_id} completed",
+                    )
+                except Exception:
+                    pass  # 生命週期紀錄失敗不影響已完成的訓練結果
             return {
                 "ok": True,
                 "job": completed,
@@ -524,6 +600,14 @@ class TrainingJobExecutor:
                 ),
             }
         except TrainingJobExecutorError as exc:
+            if lifecycle is not None:
+                try:
+                    lifecycle.fail(exc.error_code)
+                    lifecycle.save(
+                        self._lifecycle_dir(self.tool_root, lifecycle.model_id)
+                    )
+                except Exception:
+                    pass
             failed = self._fail_job(job_id, exc.error_code, str(exc))
             return {
                 "ok": False,

@@ -47,7 +47,9 @@ _TRANSITIONS: dict[str, frozenset[str]] = {
     "UNINITIALIZED": frozenset({"INITIALIZED"}),
     "INITIALIZED": frozenset({"PRETRAINING", "SFT_TRAINING", "FAILED"}),
     "PRETRAINING": frozenset({"PRETRAINED", "FAILED"}),
-    "PRETRAINED": frozenset({"SFT_TRAINING", "EVALUATING", "READY", "FAILED"}),
+    "PRETRAINED": frozenset(
+        {"SFT_TRAINING", "EVALUATING", "READY", "PRETRAINING", "FAILED"}
+    ),
     "SFT_TRAINING": frozenset({"INSTRUCT_READY", "FAILED"}),
     "INSTRUCT_READY": frozenset({"EVALUATING", "READY", "SFT_TRAINING", "FAILED"}),
     "EVALUATING": frozenset({"READY", "INSTRUCT_READY", "FAILED"}),
