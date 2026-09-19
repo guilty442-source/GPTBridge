@@ -19,7 +19,9 @@ from typing import Any, Callable, Mapping
 from .transformer_training_repository import TransformerTrainingRepository
 
 
-_ALLOWED_PRESETS = frozenset({"small", "base", "large"})
+_ALLOWED_PRESETS = frozenset({"small", "medium", "base", "large"})
+
+_ALLOWED_TRAINING_KINDS = frozenset({"pretrain", "sft"})
 
 _INT_BOUNDS = {
     "block_size": (512, 1, 4_096),
@@ -33,6 +35,7 @@ _INT_BOUNDS = {
     "log_every": (10, 0, 10_000),
     "seed": (42, 0, 2**63 - 1),
     "max_train_documents": (0, 0, 10_000_000),
+    "max_length": (512, 64, 4_096),
 }
 
 
@@ -66,14 +69,64 @@ def _read_snapshot_documents(path: Path) -> list[dict[str, str]]:
                     "EXECUTOR_SNAPSHOT_UNREADABLE",
                     f"snapshot line is not valid JSON: {exc}",
                 ) from exc
-            documents.append(
-                {
-                    "source": str(record.get("source") or ""),
-                    "text": str(record["text"]),
-                    "sha256": str(record["sha256"]),
-                }
-            )
+            document = {
+                "source": str(record.get("source") or ""),
+                "text": str(record["text"]),
+                "sha256": str(record["sha256"]),
+            }
+            if record.get("prompt"):
+                document["prompt"] = str(record["prompt"])
+            if record.get("completion"):
+                document["completion"] = str(record["completion"])
+            documents.append(document)
     return documents
+
+
+def _default_sft_train_fn(
+    train_documents: list,
+    val_documents: list,
+    configuration: Mapping[str, Any],
+    *,
+    output_dir: Path,
+    resume: Path | None,
+) -> dict[str, Any]:
+    """SFT job trainer: tokenizer + optional init checkpoint + masked loss."""
+    from .native_transformer.bpe import NativeBPETokenizer
+    from .native_transformer.checkpoint import load_checkpoint
+    from .native_transformer.modules.model import XingChengForCausalLM
+    from .native_transformer.training.pretrain import build_model_config
+    from .native_transformer.training.sft import SFTConfig, sft_train
+
+    tokenizer = NativeBPETokenizer.load(configuration["tokenizer_dir"])
+    init_checkpoint = configuration.get("init_checkpoint") or resume
+    if init_checkpoint:
+        model = load_checkpoint(init_checkpoint, map_location="cpu")["model"]
+    else:
+        model = XingChengForCausalLM(
+            build_model_config(
+                str(configuration.get("preset") or "small"),
+                tokenizer,
+                int(configuration.get("max_length") or 512),
+            )
+        )
+    config = SFTConfig(
+        **{
+            key: configuration[key]
+            for key in SFTConfig.__dataclass_fields__
+            if key in configuration
+        }
+    )
+    summary = sft_train(
+        model,
+        tokenizer,
+        train_documents,
+        val_documents,
+        config,
+        output_dir=output_dir,
+        resume=resume,
+    )
+    summary["final_checkpoint"] = str(Path(output_dir) / "final.pt")
+    return summary
 
 
 def _default_train_fn(
@@ -84,7 +137,15 @@ def _default_train_fn(
     output_dir: Path,
     resume: Path | None,
 ) -> dict[str, Any]:
-    """Default trainer: native BPE tokenizer + packed pretraining."""
+    """Default trainer: pretraining, or masked-loss SFT when requested."""
+    if str(configuration.get("training_kind") or "pretrain") == "sft":
+        return _default_sft_train_fn(
+            train_documents,
+            val_documents,
+            configuration,
+            output_dir=output_dir,
+            resume=resume,
+        )
     import numpy as np
     import torch
 
@@ -257,6 +318,27 @@ class TrainingJobExecutor:
                 "EXECUTOR_CONFIG_INVALID", f"unknown preset: {preset}"
             )
         configuration["preset"] = preset
+
+        training_kind = str(raw.get("training_kind") or "pretrain").strip().casefold()
+        if training_kind not in _ALLOWED_TRAINING_KINDS:
+            raise TrainingJobExecutorError(
+                "EXECUTOR_CONFIG_INVALID", f"unknown training_kind: {training_kind}"
+            )
+        configuration["training_kind"] = training_kind
+
+        init_checkpoint = raw.get("init_checkpoint")
+        if init_checkpoint:
+            init_path = self._resolve_under_root(
+                str(init_checkpoint), "EXECUTOR_INIT_CHECKPOINT_SCOPE_DENIED"
+            )
+            if not init_path.is_file():
+                raise TrainingJobExecutorError(
+                    "EXECUTOR_INIT_CHECKPOINT_MISSING",
+                    f"initial checkpoint missing: {init_path}",
+                )
+            configuration["init_checkpoint"] = init_path
+        else:
+            configuration["init_checkpoint"] = None
 
         device = raw.get("device")
         configuration["device"] = str(device) if device else None

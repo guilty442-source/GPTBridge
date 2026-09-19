@@ -13,7 +13,7 @@ import math
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import torch
@@ -46,6 +46,12 @@ class PretrainConfig:
     max_train_documents: int = 0
 
 
+def _document_text(document: Any) -> str:
+    if isinstance(document, Mapping):
+        return str(document.get("text") or "")
+    return str(getattr(document, "text", "") or "")
+
+
 def encode_documents(
     documents: list,
     tokenizer: Any,
@@ -57,7 +63,10 @@ def encode_documents(
     dtype = np.uint16 if tokenizer.vocab_size <= 65_535 else np.uint32
     chunks: list[np.ndarray] = []
     for document in selected:
-        ids = tokenizer.encode(document.text, add_bos=True, add_eos=True)
+        text = _document_text(document)
+        if not text:
+            continue
+        ids = tokenizer.encode(text, add_bos=True, add_eos=True)
         if not ids:
             continue
         chunks.append(np.asarray(ids, dtype=dtype))
