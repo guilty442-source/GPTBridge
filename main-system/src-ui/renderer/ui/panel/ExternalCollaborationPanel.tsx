@@ -74,7 +74,7 @@ function ExternalCollaborationPanelContent({
     setStatus('running')
     const requestId = generateRequestId('ai-collaboration:start')
     try {
-      const waitResult = waitForEvent('toolbox_start_tool_result', COLLABORATION_ACTION_TIMEOUT_MS, (payload) =>
+      const waitResult = waitForEvent('toolbox_start_tool_result', COLLABORATION_ACTION_TIMEOUT_MS, (payload: Record<string, unknown>) =>
         String(payload.request_id || '') === requestId
       )
       const sent = send('toolbox_start_tool', { tool_id: 'ai-collaboration', request_id: requestId })
@@ -97,7 +97,7 @@ function ExternalCollaborationPanelContent({
     clearError()
     const requestId = generateRequestId('ai-collaboration:stop')
     try {
-      const waitResult = waitForEvent('toolbox_force_close_tool_result', COLLABORATION_ACTION_TIMEOUT_MS, (payload) =>
+      const waitResult = waitForEvent('toolbox_force_close_tool_result', COLLABORATION_ACTION_TIMEOUT_MS, (payload: Record<string, unknown>) =>
         String(payload.request_id || '') === requestId
       )
       const sent = send('toolbox_force_close_tool', { tool_id: 'ai-collaboration', request_id: requestId })

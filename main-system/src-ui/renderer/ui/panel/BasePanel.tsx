@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { PanelDrawer } from './PanelDrawer'
 import { mainSystemLocale } from '@/locales/main-system'
+import './BasePanel.css'
 
 const t = mainSystemLocale.toolbox
 
@@ -39,7 +40,7 @@ interface BasePanelContextValue {
     refresh: string
     loading: string
   }
-  send: (command: string, payload?: Record<string, unknown>) => Promise<{ ok: boolean; queued: boolean; message?: string }>
+  send: (command: string, payload?: Record<string, unknown>) => { ok: boolean; queued: boolean; message?: string }
   waitForEvent: (eventName: string, timeoutMs?: number, predicate?: (payload: Record<string, unknown>) => boolean) => Promise<Record<string, unknown>>
   generateRequestId: (prefix?: string) => string
   setLoading: (loading: boolean) => void
@@ -53,7 +54,7 @@ interface BasePanelPropsExtended extends BasePanelProps {
   title: string
   eyebrow?: string
   icon?: string
-  children: ReactNode
+  children: (ctx: BasePanelContextValue) => ReactNode
   headerActions?: ReactNode
   side?: 'right' | 'bottom'
 }
@@ -103,7 +104,7 @@ export function BasePanel({
     setState(prev => ({ ...prev, error: '' }))
   }, [])
 
-  const send = useCallback(async (command: string, payload?: Record<string, unknown>) => {
+  const send = useCallback((command: string, payload?: Record<string, unknown>) => {
     return sendCommand(command, payload)
   }, [sendCommand])
 
@@ -121,10 +122,10 @@ export function BasePanel({
 
   // Extract locale strings for common actions
   const locale = {
-    launch: mainSystemLocale.toolbox.launch || '啟動',
-    launching: mainSystemLocale.toolbox.launching || '啟動中…',
+    launch: mainSystemLocale.toolbox.start || '啟動',
+    launching: mainSystemLocale.toolbox.starting || '啟動中…',
     stop: mainSystemLocale.toolbox.stop || '停止',
-    closing: mainSystemLocale.toolbox.closing || '關閉中…',
+    closing: mainSystemLocale.toolbox.stopping || '關閉中…',
     status: mainSystemLocale.toolbox.status || '狀態',
     statusStopped: mainSystemLocale.toolbox.statusStopped || '未啟動',
     statusRunning: mainSystemLocale.toolbox.statusRunning || '執行中',
@@ -168,7 +169,7 @@ export function BasePanel({
           state,
           locale,
           send,
-          waitForEvent: waitForIpcEvent,
+          waitForEvent,
           generateRequestId,
           setLoading,
           setError,
@@ -181,4 +182,4 @@ export function BasePanel({
   )
 }
 
-export { BasePanel, type BasePanelProps, type BasePanelState, type BasePanelContextValue }
+export { type BasePanelProps, type BasePanelState, type BasePanelContextValue }

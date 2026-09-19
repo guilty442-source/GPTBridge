@@ -65,7 +65,7 @@ const AUTO_MODEL: ModelOption = {
 }
 const STAR_NATIVE_MODEL: ModelOption = {
   name: 'star-main-native-model',
-  label: '星澄（原生本地模型）',
+  label: '星澄（自動路由統籌）',
   parameterCount: 'Star native',
   quantization: '原生統合引擎',
   isDefault: false,
@@ -156,7 +156,7 @@ const GOVERNED_LOCAL_MODELS: ModelOption[] = [
 ]
 const DEFAULT_MODELS: ModelOption[] = [AUTO_MODEL, ...GOVERNED_LOCAL_MODELS]
 const MODEL_GROUPS = [
-  ['native', '星澄原生本地模型'],
+  ['native', '星澄（自動路由統籌）'],
   ['daily:fast', '一般日常與快速任務 · Gemma 4 E2B'],
   ['search-agent', '命令理解與搜尋 · Qwen3.5'],
   ['command-backup', '命令理解備援 · Nemotron 3 Nano'],
@@ -403,7 +403,7 @@ export function StarChatWindowApp() {
           message,
           history,
           max_output_tokens: maxOutputTokens,
-          runtime_model: selectedModel,
+          runtime_model: selectedModel === STAR_NATIVE_MODEL.name ? '' : selectedModel,
           reasoning_level: reasoningLevel,
           reasoning_effort: REASONING_EFFORT_BY_LEVEL[reasoningLevel],
           generation_speed: generationSpeed,

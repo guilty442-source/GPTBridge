@@ -7,6 +7,8 @@ across all sovereign/gateway/runtime boundaries.
 from __future__ import annotations
 
 import contextvars
+import json
+import os
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -113,7 +115,14 @@ class CorrelationContext:
 
 def get_correlation_id() -> str:
     """Get the current correlation ID from context."""
-    return _correlation_id_var.get("")
+    cid = _correlation_id_var.get("")
+    if not cid:
+        env_ctx = _context_from_env()
+        if env_ctx:
+            _correlation_id_var.set(env_ctx["correlation_id"])
+            _correlation_context_var.set(env_ctx)
+            cid = env_ctx["correlation_id"]
+    return cid
 
 
 def set_correlation_id(correlation_id: str) -> None:
@@ -126,9 +135,46 @@ def clear_correlation_id() -> None:
     _correlation_id_var.set("")
 
 
+def _context_from_env() -> dict[str, Any] | None:
+    """Restore correlation context injected via process environment.
+
+    Spawned governed tools receive GPTBRIDGE_CORRELATION_ID / TRACE_ID /
+    SPAN_ID / PARENT_ID / BAGGAGE from the parent's environment builder;
+    this lazily hydrates the contextvar so children continue the parent
+    trace instead of starting orphaned ones.
+    """
+    cid = os.environ.get("GPTBRIDGE_CORRELATION_ID", "")
+    if not cid:
+        return None
+    baggage: dict[str, str] = {}
+    raw_baggage = os.environ.get("GPTBRIDGE_BAGGAGE", "")
+    if raw_baggage:
+        try:
+            parsed = json.loads(raw_baggage)
+            if isinstance(parsed, dict):
+                baggage = {str(k): str(v) for k, v in parsed.items()}
+        except Exception:
+            pass
+    return {
+        "correlation_id": cid,
+        "trace_id": os.environ.get("GPTBRIDGE_TRACE_ID", ""),
+        "span_id": os.environ.get("GPTBRIDGE_SPAN_ID", ""),
+        "parent_id": os.environ.get("GPTBRIDGE_PARENT_ID", ""),
+        "baggage": baggage,
+    }
+
+
 def get_correlation_context() -> dict[str, Any]:
     """Get the full correlation context."""
-    return _correlation_context_var.get({})
+    ctx = _correlation_context_var.get({})
+    if not ctx.get("correlation_id"):
+        env_ctx = _context_from_env()
+        if env_ctx:
+            _correlation_context_var.set(env_ctx)
+            if not _correlation_id_var.get(""):
+                _correlation_id_var.set(env_ctx["correlation_id"])
+            return env_ctx
+    return ctx
 
 
 def set_correlation_context(context: dict[str, Any]) -> None:

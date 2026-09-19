@@ -30,15 +30,19 @@ class UIShell:
             return
 
     async def send_event(self, event: str, payload: Dict[str, Any]) -> None:
-        # Inject trace context into outgoing event
+        # Inject trace context into outgoing event — copy the payload so
+        # callers that reuse their dict are not mutated.
         trace_ctx = get_correlation_context()
         if trace_ctx.get("correlation_id"):
-            payload["_trace_context"] = {
-                "correlation_id": trace_ctx.get("correlation_id", ""),
-                "trace_id": trace_ctx.get("trace_id", ""),
-                "span_id": trace_ctx.get("span_id", ""),
-                "parent_id": trace_ctx.get("parent_id", ""),
-                "baggage": trace_ctx.get("baggage", {}),
+            payload = {
+                **payload,
+                "_trace_context": {
+                    "correlation_id": trace_ctx.get("correlation_id", ""),
+                    "trace_id": trace_ctx.get("trace_id", ""),
+                    "span_id": trace_ctx.get("span_id", ""),
+                    "parent_id": trace_ctx.get("parent_id", ""),
+                    "baggage": trace_ctx.get("baggage", {}),
+                },
             }
         message = json.dumps({"event": event, "payload": payload}, ensure_ascii=False)
         await self._send(message)

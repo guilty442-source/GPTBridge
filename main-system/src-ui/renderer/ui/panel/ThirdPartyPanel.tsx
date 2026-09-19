@@ -52,8 +52,6 @@ interface ThirdPartyStatus {
   live_status?: Record<string, unknown>
 }
 
-type LoadingState = 'idle' | 'loading' | 'success' | 'error'
-
 interface ThirdPartyPanelProps {
   open: boolean
   onClose: () => void
@@ -64,7 +62,7 @@ interface ThirdPartyPanelProps {
     predicate?: (payload: Record<string, unknown>) => boolean
   ) => Promise<Record<string, unknown>>
   backendSocket: { status: string }
-
+}
 
 export function ThirdPartyPanel({
   open,
@@ -119,16 +117,13 @@ function ThirdPartyPanelContent({
   const refreshStatus = useCallback(async () => {
     setLoadingState('loading')
     const result = send('app:get-third-party-status', {})
-    if (!result.ok) {
+    if (!result.ok && !result.queued) {
       setLoadingState('error')
       setErrorMsg(result.message || '獲取狀態失敗')
       return
     }
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent).detail
-      if (detail.event !== 'app:get-third-party-status_result') return
-      window.removeEventListener('ipc_event', handler)
-      const payload = detail.payload as ThirdPartyStatus
+    try {
+      const payload = (await waitForEvent('app:get-third-party-status_result', 10000)) as unknown as ThirdPartyStatus
       if (payload.ok) {
         setStatus(payload)
         setLoadingState('success')
@@ -136,30 +131,25 @@ function ThirdPartyPanelContent({
         setLoadingState('error')
         setErrorMsg(payload.status ? '載入狀態失敗' : '獲取狀態失敗')
       }
+    } catch {
+      setLoadingState('error')
+      setErrorMsg('操作超時')
     }
-    window.addEventListener('ipc_event', handler)
-    setTimeout(() => {
-      window.removeEventListener('ipc_event', handler)
-      if (loadingState === 'loading') {
-        setLoadingState('error')
-        setErrorMsg('操作超時')
-      }
-    }, 10000)
-  }, [send])
+  }, [send, waitForEvent])
 
   const probeVersions = useCallback(async () => {
     setLoadingState('loading')
     const result = send('app:probe-third-party-versions', {})
-    if (!result.ok) {
+    if (!result.ok && !result.queued) {
       setLoadingState('error')
       setErrorMsg(result.message || '探測版本失敗')
       return
     }
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent).detail
-      if (detail.event !== 'app:probe-third-party-versions_result') return
-      window.removeEventListener('ipc_event', handler)
-      const payload = detail.payload as { ok: boolean; versions: Record<string, ToolVersionInfo> }
+    try {
+      const payload = (await waitForEvent('app:probe-third-party-versions_result', 60000)) as {
+        ok: boolean
+        versions: Record<string, ToolVersionInfo>
+      }
       if (payload.ok) {
         setStatus((prev) => ({
           ok: true,
@@ -182,23 +172,25 @@ function ThirdPartyPanelContent({
         setLoadingState('error')
         setErrorMsg('探測失敗')
       }
+    } catch {
+      setLoadingState('error')
+      setErrorMsg('操作超時')
     }
-    window.addEventListener('ipc_event', handler)
-  }, [send])
+  }, [send, waitForEvent])
 
   const checkUpdates = useCallback(async () => {
     setLoadingState('loading')
     const result = send('app:check-third-party-updates', {})
-    if (!result.ok) {
+    if (!result.ok && !result.queued) {
       setLoadingState('error')
       setErrorMsg(result.message || '檢查更新失敗')
       return
     }
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent).detail
-      if (detail.event !== 'app:check-third-party-updates_result') return
-      window.removeEventListener('ipc_event', handler)
-      const payload = detail.payload as { ok: boolean; updates: Record<string, UpdateCheckResult> }
+    try {
+      const payload = (await waitForEvent('app:check-third-party-updates_result', 120000)) as {
+        ok: boolean
+        updates: Record<string, UpdateCheckResult>
+      }
       if (payload.ok) {
         setStatus((prev) => ({
           ok: true,
@@ -221,31 +213,34 @@ function ThirdPartyPanelContent({
         setLoadingState('error')
         setErrorMsg('檢查更新失敗')
       }
+    } catch {
+      setLoadingState('error')
+      setErrorMsg('操作超時')
     }
-    window.addEventListener('ipc_event', handler)
-  }, [send])
+  }, [send, waitForEvent])
 
   const updateTool = useCallback(
     async (toolId: string) => {
-      const result = send('app:update-third-party-tool', {
-        tool_id: toolId,
-        approval_token: 'governance-auto-approve',
-      })
-      if (!result.ok && !result.queued) {
-        setErrorMsg(result.message || '更新失敗')
-        return
-      }
-      const handler = (event: Event) => {
-        const detail = (event as CustomEvent).detail
-        if (detail.event !== 'app:update-third-party-tool_result') return
-        window.removeEventListener('ipc_event', handler)
-        const payload = detail.payload
+      setUpdatingTool(toolId)
+      try {
+        const result = send('app:update-third-party-tool', {
+          tool_id: toolId,
+          approval_token: 'governance-auto-approve',
+        })
+        if (!result.ok && !result.queued) {
+          setErrorMsg(result.message || '更新失敗')
+          return
+        }
+        const payload = (await waitForEvent('app:update-third-party-tool_result', 120000)) as UpdateExecutionResult
         setUpdateResults((prev) => ({ ...prev, [toolId]: payload }))
         void probeVersions()
+      } catch {
+        setErrorMsg('操作超時')
+      } finally {
+        setUpdatingTool(null)
       }
-      window.addEventListener('ipc_event', handler)
     },
-    [send, probeVersions]
+    [send, waitForEvent, probeVersions]
   )
 
   useEffect(() => {
@@ -258,28 +253,29 @@ function ThirdPartyPanelContent({
   const toolIds = Object.keys(versions).sort()
 
   return (
-          <section className="base-panel-section">
-        <div className="base-panel-section__header">
-          <h4 className="base-panel-section__title-text">{tp.title}</h4>
+    <>
+      <section className='base-panel-section'>
+        <div className='base-panel-section__header'>
+          <h4 className='base-panel-section__title-text'>{tp.title}</h4>
           <p>{tp.subtitle}</p>
         </div>
-        <div className="base-panel-actions">
+        <div className='base-panel-actions'>
           <button
-            className="base-panel-btn base-panel-btn--secondary"
+            className='base-panel-btn base-panel-btn--secondary'
             onClick={() => void probeVersions()}
             disabled={loadingState === 'loading' || state.loading}
           >
             {tp.refreshVersions}
           </button>
           <button
-            className="base-panel-btn base-panel-btn--secondary"
+            className='base-panel-btn base-panel-btn--secondary'
             onClick={() => void checkUpdates()}
             disabled={loadingState === 'loading' || state.loading}
           >
             {tp.checkUpdates}
           </button>
           <button
-            className="base-panel-btn base-panel-btn--primary"
+            className='base-panel-btn base-panel-btn--primary'
             onClick={() => void refreshStatus()}
             disabled={loadingState === 'loading' || state.loading}
           >
@@ -289,42 +285,41 @@ function ThirdPartyPanelContent({
       </section>
 
       {errorMsg && (
-        <div className="base-panel__error" role="alert">
+        <div className='base-panel__error' role='alert'>
           {errorMsg}
-          <button type="button" className="base-panel__error-dismiss" onClick={() => {}} aria-label="關閉">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M4 4L10 10M10 4L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <button type='button' className='base-panel__error-dismiss' onClick={() => {}} aria-label='關閉'>
+            <svg width='14' height='14' viewBox='0 0 14 14' fill='none'>
+              <path d='M4 4L10 10M10 4L4 10' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
             </svg>
           </button>
         </div>
       )}
 
       {status?.status && (
-        <section className="base-panel-section">
-          <div className="base-panel-meta">
-            <div className="base-panel-meta__item">
-              <span className="base-panel-meta__label">服務版本</span>
-              <strong className="base-panel-meta__value">{status.status.version}</strong>
+        <section className='base-panel-section'>
+          <div className='base-panel-meta'>
+            <div className='base-panel-meta__item'>
+              <span className='base-panel-meta__label'>服務版本</span>
+              <strong className='base-panel-meta__value'>{status.status.version}</strong>
             </div>
-            <div className="base-panel-meta__item">
-              <span className="base-panel-meta__label">自動更新</span>
-              <strong className="base-panel-meta__value">{autoUpdatable.join(', ') || '—'}</strong>
+            <div className='base-panel-meta__item'>
+              <span className='base-panel-meta__label'>自動更新</span>
+              <strong className='base-panel-meta__value'>{autoUpdatable.join(', ') || '—'}</strong>
             </div>
             {status.status.last_full_probe_at && (
-              <div className="base-panel-meta__item">
-                <span className="base-panel-meta__label">上次探測</span>
-                <strong className="base-panel-meta__value base-panel-meta__time">
+              <div className='base-panel-meta__item'>
+                <span className='base-panel-meta__label'>上次探測</span>
+                <strong className='base-panel-meta__value base-panel-meta__time'>
                   {new Date(status.status.last_full_probe_at).toLocaleString('zh-TW', { hour12: false })}
                 </strong>
               </div>
             )}
           </div>
-        </se
-      )ction>
+        </section>
       )}
 
-      <div className="base-panel-table-wrap">
-        <table className="base-panel-table">
+      <div className='base-panel-table-wrap'>
+        <table className='base-panel-table'>
           <thead>
             <tr>
               <th>工具</th>
@@ -339,12 +334,12 @@ function ThirdPartyPanelContent({
           <tbody>
             {toolIds.length === 0 && (
               <tr>
-                <td colSpan={7} className="base-panel-empty">
+                <td colSpan={7} className='base-panel-empty'>
                   {loadingState === 'loading' ? '載入中…' : '無第三方軟體'}
                 </td>
               </tr>
             )}
-            {toolIds.map((toolId) => {t
+            {toolIds.map((toolId) => {
               const info = versions[toolId]
               const update = updateChecks[toolId]
               const canUpdate = autoUpdatable.includes(toolId)
@@ -355,26 +350,26 @@ function ThirdPartyPanelContent({
               const tone = statusLabels[statusKey] ? 'success' : 'muted'
               return (
                 <tr key={toolId}>
-                  <td className="base-panel-table__tool-id">{toolId}</td>
-                  <td className="base-panel-table__version">{info?.recorded_version || '—'}</td>
-                  <td className="base-panel-table__version">{info?.detected_version || '—'}</td>
+                  <td className='base-panel-table__tool-id'>{toolId}</td>
+                  <td className='base-panel-table__version'>{info?.recorded_version || '—'}</td>
+                  <td className='base-panel-table__version'>{info?.detected_version || '—'}</td>
                   <td>
-                    <span className={`base-panel-status tp-status--${tone}`}>
+                    <span className={'base-panel-status tp-status--' + tone}>
                       {statusLabels[statusKey] || info?.status || '—'}
                     </span>
                   </td>
-                  <td className="base-panel-table__version">{update?.latest_version || '—'}</td>
+                  <td className='base-panel-table__version'>{update?.latest_version || '—'}</td>
                   <td>
                     {canUpdate ? (
-                      <span className="base-panel-badge base-panel-badge--yes">自動更新</span>
+                      <span className='base-panel-badge base-panel-badge--yes'>自動更新</span>
                     ) : (
-                      <span className="base-panel-badge base-panel-badge--no">手動</span>
+                      <span className='base-panel-badge base-panel-badge--no'>手動</span>
                     )}
                   </td>
                   <td>
                     {canUpdate && (
                       <button
-                        className="base-panel-btn base-panel-btn--small base-panel-btn--update"
+                        className='base-panel-btn base-panel-btn--small base-panel-btn--update'
                         onClick={() => void updateTool(toolId)}
                         disabled={isUpdating}
                       >
@@ -382,21 +377,21 @@ function ThirdPartyPanelContent({
                       </button>
                     )}
                     {result && (
-                      <span className={`base-panel-update-result ${result.ok ? 'base-panel-update-result--ok' : 'base-panel-update-result--fail'}`}>
+                      <span className={'base-panel-update-result ' + (result.ok ? 'base-panel-update-result--ok' : 'base-panel-update-result--fail')}>
                         {result.ok
-                          ? `✓ ${result.after_version || '更新完成'}`
-                          : `✗ ${result.error || '更新失敗'}`}
+                          ? '✓ ' + (result.after_version || '更新完成')
+                          : '✗ ' + (result.error || '更新失敗')}
                       </span>
                     )}
                   </td>
                 </tr>
-            )
-
-
-</tbody>
-</table>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
-      )
+    </>
+  )
 }
 
 export { ThirdPartyPanel as default }

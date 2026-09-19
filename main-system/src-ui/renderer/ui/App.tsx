@@ -3,12 +3,12 @@ import { useToolboxApplications } from '@/ui/toolbox/useToolboxApplications'
 import { ToolboxEntry } from '@/ui/toolbox/ToolboxEntry'
 import { SovereignDashboard } from '@/ui/sovereign/SovereignDashboard'
 import { Drawer } from '@/ui/drawer/Drawer'
-import { ThirdPartyPanel } from '@/ui/third-party/ThirdPartyPanel'
+import { ThirdPartyPanel } from '@/ui/panel/ThirdPartyPanel'
 import { mainSystemLocale } from '@/locales/main-system'
 import { useAppState } from '@/ui/useAppState'
 import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
 import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
-import { ExternalCollaborationDrawer } from '@/ui/AppExternalCollaborationDrawer'
+import { ExternalCollaborationPanel } from '@/ui/panel/ExternalCollaborationPanel'
 import { ModuleBoundary } from '@/shared/components/ModuleBoundary'
 import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
 import { filterActiveFaults } from '@/shared/utils/faultPresentation'
@@ -368,33 +368,25 @@ export default function App() {
         </ModuleBoundary>
       </Drawer>
 
-      <Drawer
-        open={drawerThirdParty}
-        onClose={() => setDrawerThirdParty(false)}
-        title={tp.title}
-        eyebrow={tp.subtitle}
-        icon="T"
-      >
-        <ModuleBoundary name="第三方軟體">
-          <ThirdPartyPanel />
-        </ModuleBoundary>
-      </Drawer>
+      <ModuleBoundary name="第三方軟體">
+        <ThirdPartyPanel
+          open={drawerThirdParty}
+          onClose={() => setDrawerThirdParty(false)}
+          sendCommand={sendCommand}
+          waitForIpcEvent={waitForIpcEvent}
+          backendSocket={backendSocket}
+        />
+      </ModuleBoundary>
 
-      <Drawer
-        open={drawerExternalCollaboration}
-        onClose={() => setDrawerExternalCollaboration(false)}
-        title={ec.title}
-        eyebrow={ec.eyebrow}
-        icon={ec.icon}
-      >
-        <ModuleBoundary name={ec.moduleBoundaryName}>
-          <ExternalCollaborationDrawer
-            sendCommand={sendCommand}
-            waitForIpcEvent={waitForIpcEvent}
-            backendSocket={backendSocket}
-          />
-        </ModuleBoundary>
-      </Drawer>
+      <ModuleBoundary name={ec.moduleBoundaryName}>
+        <ExternalCollaborationPanel
+          open={drawerExternalCollaboration}
+          onClose={() => setDrawerExternalCollaboration(false)}
+          sendCommand={sendCommand}
+          waitForIpcEvent={waitForIpcEvent}
+          backendSocket={backendSocket}
+        />
+      </ModuleBoundary>
 
       <ModuleBoundary name="容量資訊">
         <CapacityDrawer

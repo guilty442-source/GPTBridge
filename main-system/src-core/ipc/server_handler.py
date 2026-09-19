@@ -22,8 +22,11 @@ from tasks.state_change_notifier import StateChangeNotifier
 from tasks.state_outbox import OutboxPublisher
 from .server_commands import process_command_task
 from .server_handler_helpers import _run_heartbeat_monitor, _cleanup_connection
-from shared_layer.observability.tracing import extract_correlation_headers, inject_correlation_headers
-from shared_layer.observability.opentelemetry import instrument_ipc_handler
+from shared_layer.observability.tracing import (
+    CorrelationContext,
+    set_correlation_context,
+    set_correlation_id,
+)
 
 
 MAX_CONNECTION_COMMAND_TASKS = 32
@@ -167,12 +170,27 @@ async def handler(websocket, app_instance):
                 if not isinstance(payload, dict):
                     raise ValueError("IPC payload must be a JSON object")
 
-                # Extract trace context from payload and set in current context
+                # Establish trace context for this command: honour an inbound
+                # _trace_context when the caller propagates one, otherwise
+                # start a fresh correlation so downstream injection (outbound
+                # events, spawned-tool env, otel spans) has real values.
                 trace_context = payload.pop("_trace_context", None)
-                if trace_context:
-                    from shared_layer.observability.tracing import set_correlation_id, set_correlation_context
+                if trace_context and trace_context.get("correlation_id"):
                     set_correlation_id(trace_context.get("correlation_id", ""))
                     set_correlation_context(trace_context)
+                else:
+                    fresh = CorrelationContext.new()
+                    set_correlation_id(fresh.correlation_id)
+                    set_correlation_context(
+                        {
+                            "correlation_id": fresh.correlation_id,
+                            "parent_id": fresh.parent_id,
+                            "trace_id": fresh.trace_id,
+                            "span_id": fresh.span_id,
+                            "baggage": fresh.baggage,
+                            "metadata": fresh.metadata,
+                        }
+                    )
 
                 if command == "task_recovery_decision":
                     resume = bool(payload.get("resume"))
