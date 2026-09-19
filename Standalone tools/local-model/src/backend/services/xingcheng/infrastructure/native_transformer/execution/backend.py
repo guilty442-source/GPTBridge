@@ -187,6 +187,51 @@ def enable_flash_attention(enabled: bool = True) -> None:
         pass
 
 
+def describe_sdpa_backends() -> dict[str, Any]:
+    """回報 SDPA 實際可用的後端與本裝置預期派發結果。
+
+    稽核要求「不得以 API 呼叫成功視為 FlashAttention 已啟用」——
+    此函式查閱 torch.backends 的實際開關狀態與硬體能力，
+    推導 ``scaled_dot_product_attention`` 在本機會走的 kernel；
+    真正的逐次派發仍由 PyTorch dispatcher 依輸入 dtype/shape 決定。
+    """
+    cuda = torch.cuda.is_available()
+    flags: dict[str, bool] = {}
+    for name, getter in (
+        ("flash_sdp", lambda: torch.backends.cuda.flash_sdp_enabled()),
+        ("mem_efficient_sdp", lambda: torch.backends.cuda.mem_efficient_sdp_enabled()),
+        ("math_sdp", lambda: torch.backends.cuda.math_sdp_enabled()),
+        ("cudnn_sdp", lambda: getattr(torch.backends.cuda, "cudnn_sdp_enabled", lambda: False)()),
+    ):
+        try:
+            flags[name] = bool(getter())
+        except Exception:
+            flags[name] = False
+    if not cuda:
+        expected = "math" if flags.get("math_sdp", True) else "unknown"
+        return {
+            "device": "cpu",
+            "flags": flags,
+            "expected_backend": expected,
+            "flash_active": False,
+            "note": "CPU 無 FlashAttention；SDPA 走 math / oneDNN 路徑",
+        }
+    expected = "math"
+    if flags.get("flash_sdp"):
+        expected = "flash_attention"
+    elif flags.get("cudnn_sdp"):
+        expected = "cudnn_attention"
+    elif flags.get("mem_efficient_sdp"):
+        expected = "mem_efficient"
+    return {
+        "device": "cuda",
+        "flags": flags,
+        "expected_backend": expected,
+        "flash_active": expected == "flash_attention",
+        "note": "CUDA 環境；實際派發隨輸入 dtype / head_dim / mask 形狀而定",
+    }
+
+
 def set_gemm_backend(device: torch.device) -> str:
     """提示 GEMM 後端選擇；PyTorch 會依裝置自動調度 cuBLASLt / oneDNN / BLAS。"""
     cap = capabilities()
@@ -212,6 +257,7 @@ __all__ = [
     "reset_capabilities",
     "resolve_device",
     "default_dtype",
+    "describe_sdpa_backends",
     "enable_flash_attention",
     "set_gemm_backend",
 ]

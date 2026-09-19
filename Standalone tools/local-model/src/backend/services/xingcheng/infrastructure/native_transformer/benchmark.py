@@ -18,6 +18,7 @@ from typing import Any
 import torch
 
 from .checkpoint import load_checkpoint
+from .execution.backend import describe_sdpa_backends
 from .inference.sampler import Sampler, SamplingConfig
 
 
@@ -116,6 +117,7 @@ def run_benchmark(
             generated_tokens / max(1e-6, min(latencies) / 1000.0), 2
         ),
         "context_window": int(config.max_position_embeddings),
+        "attention_backend": describe_sdpa_backends(),
         "remote_network_used": False,
     }
     if eval_text:

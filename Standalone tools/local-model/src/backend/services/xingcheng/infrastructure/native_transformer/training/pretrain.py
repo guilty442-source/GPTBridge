@@ -23,6 +23,7 @@ from ..config import XingChengConfig
 from ..execution.backend import default_dtype, resolve_device
 from ..modules.model import XingChengForCausalLM
 from .corpus import read_corpus
+from .precision import resolve_precision
 
 
 @dataclass
@@ -43,6 +44,7 @@ class PretrainConfig:
     seed: int = 42
     device: str | None = None
     use_amp: bool = True
+    precision: str = "auto"
     max_train_documents: int = 0
 
 
@@ -94,10 +96,10 @@ def _lr_scale(step: int, config: PretrainConfig) -> float:
     return config.min_lr_ratio + (1.0 - config.min_lr_ratio) * cosine
 
 
-def _autocast_context(device: torch.device, enabled: bool):
-    return torch.autocast(
-        device_type=device.type, dtype=torch.bfloat16, enabled=enabled
-    )
+def _precision_plan(device: torch.device, config: PretrainConfig):
+    """依硬體能力解析精度策略（``use_amp=False`` 強制 FP32）。"""
+    requested = config.precision if config.use_amp else "fp32"
+    return resolve_precision(device, requested)
 
 
 @torch.no_grad()
@@ -108,7 +110,7 @@ def evaluate(
 ) -> dict[str, float]:
     model.eval()
     device = next(model.parameters()).device
-    amp = config.use_amp and device.type == "cuda"
+    plan = _precision_plan(device, config)
     batches = min(config.eval_batches, max(1, blocks.size(0) // config.batch_size))
     total = 0.0
     for index in range(batches):
@@ -116,7 +118,7 @@ def evaluate(
         batch = blocks[start : start + config.batch_size].to(device)
         if batch.size(0) == 0:
             break
-        with _autocast_context(device, amp):
+        with plan.autocast():
             out = model(batch, labels=batch)
         total += float(out["loss"].item())
     model.train()
@@ -173,7 +175,8 @@ def pretrain(
     checkpoints: list[str] = []
     started = time.time()
     last_eval: dict[str, float] = {}
-    amp = config.use_amp and device.type == "cuda"
+    plan = _precision_plan(device, config)
+    scaler = plan.scaler()
 
     for step in range(start_step, config.max_steps):
         scale = _lr_scale(step, config)
@@ -187,14 +190,23 @@ def pretrain(
                 0, block_count, (config.batch_size,), generator=generator
             )
             batch = train_blocks[picks].to(device)
-            with _autocast_context(device, amp):
+            with plan.autocast():
                 out = model(batch, labels=batch)
                 loss = out["loss"] / config.grad_accum
-            loss.backward()
+            if scaler is not None:
+                scaler.scale(loss).backward()
+            else:
+                loss.backward()
             accumulated += float(loss.item())
         if config.grad_clip > 0:
+            if scaler is not None:
+                scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
-        optimizer.step()
+        if scaler is not None:
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            optimizer.step()
         tokens_seen += (
             config.batch_size * config.grad_accum * config.block_size
         )
@@ -339,6 +351,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--log-every", type=int, default=10)
     parser.add_argument("--device", default=None)
     parser.add_argument("--no-amp", action="store_true")
+    parser.add_argument(
+        "--precision",
+        default="auto",
+        choices=["auto", "bf16", "fp16", "fp32"],
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-train-documents", type=int, default=0)
     args = parser.parse_args(argv)
@@ -374,6 +391,7 @@ def main(argv: list[str] | None = None) -> int:
         log_every=args.log_every,
         device=args.device,
         use_amp=not args.no_amp,
+        precision=args.precision,
         seed=args.seed,
         max_train_documents=args.max_train_documents,
     )

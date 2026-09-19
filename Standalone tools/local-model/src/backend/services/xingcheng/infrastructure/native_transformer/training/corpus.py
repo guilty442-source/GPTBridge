@@ -136,8 +136,14 @@ def build_corpus(
     sources: Sequence[str] = DEFAULT_SOURCES,
     suffixes: Sequence[str] = DEFAULT_SUFFIXES,
     val_permille: int = 5,
+    tokenizer: Any = None,
 ) -> dict:
-    """建立 train/val JSONL 與 manifest；同一內容只保留一次。"""
+    """建立 train/val JSONL 與 manifest；同一內容只保留一次。
+
+    manifest 帶資料集治理欄位：``dataset_id``（內容定址）、
+    ``dataset_version``、``license``（本管線僅收第一方來源）、
+    ``language``；傳入 ``tokenizer`` 時另計 ``token_count``。
+    """
     project_root = Path(root).resolve()
     target = Path(output_dir)
     target.mkdir(parents=True, exist_ok=True)
@@ -188,8 +194,14 @@ def build_corpus(
                 train_documents += 1
                 train_characters += len(document.text)
 
+    train_sha = _file_sha256(train_path)
+    val_sha = _file_sha256(val_path)
     manifest = {
         "created_at": _iso_now(),
+        "dataset_format": "star-corpus/v1",
+        "dataset_id": f"star-corpus-{train_sha[:12]}",
+        "license": "first-party-internal",
+        "language": "zh-TW+en+code",
         "root": str(project_root),
         "sources": list(sources),
         "suffixes": list(suffixes),
@@ -200,16 +212,24 @@ def build_corpus(
             "path": train_path.name,
             "documents": train_documents,
             "characters": train_characters,
-            "sha256": _file_sha256(train_path),
+            "sha256": train_sha,
         },
         "val": {
             "path": val_path.name,
             "documents": val_documents,
             "characters": val_characters,
-            "sha256": _file_sha256(val_path),
+            "sha256": val_sha,
         },
         "source_file_counts": dict(sorted(source_counts.items())),
     }
+    if tokenizer is not None:
+        manifest["token_count"] = sum(
+            len(tokenizer.encode(document.text, add_bos=False, add_eos=False))
+            for document in read_corpus(train_path)
+        ) + sum(
+            len(tokenizer.encode(document.text, add_bos=False, add_eos=False))
+            for document in read_corpus(val_path)
+        )
     (target / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

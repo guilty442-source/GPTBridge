@@ -30,6 +30,15 @@ from .dpo import (
 )
 from .optimizer import build_optimizer
 from .data import TextDataset, collate_batch
+from .precision import PrecisionPlan, resolve_precision
+from .teachers import (
+    TEACHER_ROLES,
+    TeacherRole,
+    assign_teachers,
+    assert_loopback_endpoint,
+    resolve_teacher_model,
+    teacher_role,
+)
 from .pretrain import (
     PretrainConfig,
     encode_documents,
@@ -55,12 +64,17 @@ __all__ = [
     "DEFAULT_TEACHER_MODELS",
     "DistillationTopic",
     "DpoConfig",
+    "PrecisionPlan",
     "PretrainConfig",
     "SFTConfig",
     "SFTDataset",
+    "TEACHER_ROLES",
+    "TeacherRole",
     "TextDataset",
     "Trainer",
     "TrainingConfig",
+    "assert_loopback_endpoint",
+    "assign_teachers",
     "build_corpus",
     "build_distillation_snapshot",
     "build_grounded_topics",
@@ -83,6 +97,9 @@ __all__ = [
     "pretrain",
     "read_corpus",
     "read_sft_jsonl",
+    "resolve_precision",
+    "resolve_teacher_model",
     "sft_text",
     "sft_train",
+    "teacher_role",
 ]

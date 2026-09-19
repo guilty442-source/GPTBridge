@@ -24,6 +24,7 @@ from ..checkpoint import load_checkpoint, save_checkpoint
 from ..config import XingChengConfig
 from ..execution.backend import resolve_device
 from ..modules.model import XingChengForCausalLM
+from .precision import resolve_precision
 
 SFT_TEXT_SEPARATOR = "\n\n"
 
@@ -50,6 +51,7 @@ class SFTConfig:
     seed: int = 42
     device: str | None = None
     use_amp: bool = True
+    precision: str = "auto"
 
 
 def _prompt_prefix(tokenizer, prompt: str) -> list[int]:
@@ -100,13 +102,29 @@ class SFTDataset(Dataset):
         self.samples: list[tuple[list[int], list[int]]] = []
         pad_id = int(getattr(tokenizer, "pad_id", 0))
         for record in records:
-            prompt, completion = _record_texts(record)
-            if not prompt or not completion:
-                continue
-            input_ids, labels = encode_sft_example(
-                tokenizer, prompt, completion, max_length=max_length, pad_id=pad_id
-            )
+            if record.get("messages"):
+                # star-chat-format/v1 多輪對話：只訓練 assistant 輪次
+                from ..chat_format import encode_conversation
+
+                try:
+                    input_ids, labels = encode_conversation(
+                        tokenizer,
+                        record["messages"],
+                        max_length=max_length,
+                        pad_id=pad_id,
+                    )
+                except ValueError:
+                    continue
+            else:
+                prompt, completion = _record_texts(record)
+                if not prompt or not completion:
+                    continue
+                input_ids, labels = encode_sft_example(
+                    tokenizer, prompt, completion, max_length=max_length, pad_id=pad_id
+                )
             if len(input_ids) < 4:
+                continue
+            if not any(label != pad_id for label in labels):
                 continue
             self.samples.append((input_ids, labels))
 
@@ -166,8 +184,9 @@ def read_sft_jsonl(path: str | Path) -> list[dict]:
     return records
 
 
-def _autocast(device: torch.device, enabled: bool):
-    return torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=enabled)
+def _precision_plan(device: torch.device, config: SFTConfig):
+    requested = config.precision if config.use_amp else "fp32"
+    return resolve_precision(device, requested)
 
 
 @torch.no_grad()
@@ -180,7 +199,7 @@ def evaluate_sft(
 ) -> dict[str, float]:
     model.eval()
     device = next(model.parameters()).device
-    amp = config.use_amp and device.type == "cuda"
+    plan = _precision_plan(device, config)
     total = 0.0
     count = 0
     for input_ids, labels, attention in loader:
@@ -189,7 +208,7 @@ def evaluate_sft(
         input_ids = input_ids.to(device)
         labels = labels.to(device)
         attention = attention.to(device)
-        with _autocast(device, amp):
+        with plan.autocast():
             out = model(input_ids, labels=labels, attention_mask=attention)
         total += float(out["loss"].item())
         count += 1
@@ -258,7 +277,8 @@ def sft_train(
         if state is not None:
             optimizer.load_state_dict(state)
 
-    amp = config.use_amp and device.type == "cuda"
+    plan = _precision_plan(device, config)
+    scaler = plan.scaler()
     history: list[float] = []
     checkpoints: list[str] = []
     started = time.time()
@@ -277,14 +297,23 @@ def sft_train(
                 batch_ids = input_ids.to(device)
                 batch_labels = labels.to(device)
                 batch_attention = attention.to(device)
-                with _autocast(device, amp):
+                with plan.autocast():
                     out = model(batch_ids, labels=batch_labels, attention_mask=batch_attention)
                     loss = out["loss"] / config.grad_accum
-                loss.backward()
+                if scaler is not None:
+                    scaler.scale(loss).backward()
+                else:
+                    loss.backward()
                 accumulated += float(loss.item())
             if config.grad_clip > 0:
+                if scaler is not None:
+                    scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
-            optimizer.step()
+            if scaler is not None:
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                optimizer.step()
             step += 1
             history.append(accumulated)
 
@@ -371,6 +400,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--log-every", type=int, default=10)
     parser.add_argument("--val-ratio", type=float, default=0.15)
     parser.add_argument("--device", default=None)
+    parser.add_argument(
+        "--precision",
+        default="auto",
+        choices=["auto", "bf16", "fp16", "fp32"],
+    )
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args(argv)
 
@@ -422,6 +456,7 @@ def main(argv: list[str] | None = None) -> int:
             eval_every=args.eval_every,
             log_every=args.log_every,
             device=args.device,
+            precision=args.precision,
             seed=args.seed,
         ),
         output_dir=args.output,
