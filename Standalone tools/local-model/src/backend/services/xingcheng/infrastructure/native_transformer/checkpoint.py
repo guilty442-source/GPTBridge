@@ -66,8 +66,13 @@ def save_checkpoint(
     tokenizer: XingChengTokenizer | None = None,
     config: XingChengConfig | None = None,
     metadata: Mapping[str, Any] | None = None,
+    optimizer: torch.optim.Optimizer | None = None,
+    extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """將模型權重寫入 checkpoint；原子寫入並輸出 `.sha256` 側檔。"""
+    """將模型權重寫入 checkpoint；原子寫入並輸出 `.sha256` 側檔。
+
+    `optimizer` 與 `extra`（JSON 可序列化的訓練進度）用於續訓。
+    """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     cfg = config or model.config
@@ -85,6 +90,8 @@ def save_checkpoint(
         "tokenizer_state": tokenizer.state_dict() if tokenizer is not None else None,
         "metadata_json": json.dumps(dict(metadata or {}), ensure_ascii=False, sort_keys=True),
         "state_sha256": _state_digest(state),
+        "optimizer_state": optimizer.state_dict() if optimizer is not None else None,
+        "extra_json": json.dumps(dict(extra or {}), ensure_ascii=False, sort_keys=True),
     }
 
     tmp = target.with_name(target.name + ".tmp")
@@ -140,16 +147,21 @@ def load_checkpoint(
     model.eval()
 
     tokenizer_state = payload.get("tokenizer_state")
-    tokenizer = (
-        XingChengTokenizer.from_state(tokenizer_state)
-        if tokenizer_state is not None
-        else None
-    )
+    tokenizer = None
+    if tokenizer_state is not None:
+        if tokenizer_state.get("kind") == "byte-level-bpe" or "tokenizer_json" in tokenizer_state:
+            from .bpe import NativeBPETokenizer
+
+            tokenizer = NativeBPETokenizer.from_state(tokenizer_state)
+        else:
+            tokenizer = XingChengTokenizer.from_state(tokenizer_state)
     return {
         "model": model,
         "config": config,
         "tokenizer": tokenizer,
         "metadata": json.loads(payload.get("metadata_json") or "{}"),
+        "optimizer_state": payload.get("optimizer_state"),
+        "extra": json.loads(payload.get("extra_json") or "{}"),
         "state_sha256": payload.get("state_sha256"),
         "created_at": payload.get("created_at"),
         "format_version": payload["format_version"],

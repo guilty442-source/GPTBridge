@@ -61,6 +61,7 @@ class Trainer:
         self.tokenizer = tokenizer
         self.device = resolve_device(config.device)
         self.dtype = config.dtype or default_dtype(self.device)
+        model.to(self.device)
         self.optimizer = build_optimizer(
             model.parameters(), train_config,
             lr=config.lr, weight_decay=config.weight_decay, kind=config.optimizer,
@@ -109,7 +110,9 @@ class Trainer:
             target,
             self.model,
             tokenizer=self.tokenizer,
+            optimizer=self.optimizer,
             metadata={"step": self._step, "loss": loss, "source": "trainer"},
+            extra={"step": self._step},
         )
         self.checkpoints.append(info["path"])
 

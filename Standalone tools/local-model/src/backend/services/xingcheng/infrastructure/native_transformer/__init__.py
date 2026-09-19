@@ -28,6 +28,7 @@
 
 from __future__ import annotations
 
+from .bpe import NativeBPETokenizer, train_bpe
 from .checkpoint import FORMAT_VERSION, load_checkpoint, save_checkpoint
 from .config import XingChengConfig
 from .modules.model import XingChengForCausalLM
@@ -35,11 +36,13 @@ from .tokenizer import XingChengTokenizer
 
 __all__ = [
     "FORMAT_VERSION",
+    "NativeBPETokenizer",
     "XingChengConfig",
     "XingChengForCausalLM",
     "XingChengTokenizer",
     "load_checkpoint",
     "save_checkpoint",
+    "train_bpe",
     "__version__",
 ]
 

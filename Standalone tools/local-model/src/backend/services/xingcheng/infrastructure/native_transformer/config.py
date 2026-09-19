@@ -111,6 +111,19 @@ class XingChengConfig:
         )
 
     @classmethod
+    def medium(cls) -> "XingChengConfig":
+        """~30M 參數等級，單張消費級 GPU / 長時間 CPU 訓練。"""
+        return cls(
+            vocab_size=8_192,
+            hidden_size=512,
+            intermediate_size=1_376,
+            num_hidden_layers=8,
+            num_attention_heads=8,
+            num_key_value_heads=4,
+            max_position_embeddings=1_024,
+        )
+
+    @classmethod
     def base(cls) -> "XingChengConfig":
         """~120M 參數等級，入門 GPU / 邊緣裝置。"""
         return cls(
