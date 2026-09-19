@@ -126,6 +126,14 @@ class InferTransformerMixin:
                 "intermediate",
                 "difficult",
             }
+            dialogue_interactive = (
+                not direct_runtime_model
+                and str(inference_payload.get("interaction_mode") or "")
+                .strip()
+                .casefold()
+                .startswith("model-dialogue")
+                and task_intensity != "difficult"
+            )
             transformer_started = time.perf_counter()
             self._runtime_metrics["transformer_request_count"] = int(
                 self._runtime_metrics["transformer_request_count"]
@@ -151,9 +159,11 @@ class InferTransformerMixin:
                 "task_intensity": task_intensity,
                 "requested_model": direct_runtime_model or automatic_runtime_model or None,
                 "_user_designated_model": bool(direct_runtime_model),
+                "_dialogue_interactive": dialogue_interactive,
                 "images": visual_inputs,
                 "complex_pipeline": (
                     not direct_runtime_model
+                    and not dialogue_interactive
                     and resolved_intent != "conversation"
                     and str(
                         inference_payload.get("reasoning_effort") or "medium"
@@ -184,6 +194,7 @@ class InferTransformerMixin:
                 ),
                 "reasoning_pipeline": (
                     not direct_runtime_model
+                    and not dialogue_interactive
                     and str(
                         inference_payload.get("reasoning_effort") or "medium"
                     ).strip().casefold() in {"medium", "high"}
@@ -197,6 +208,7 @@ class InferTransformerMixin:
                 ),
                 "division_pipeline": (
                     not direct_runtime_model
+                    and not dialogue_interactive
                     and str(
                         inference_payload.get("reasoning_effort") or "medium"
                     ).strip().casefold() != "none"
@@ -217,9 +229,12 @@ class InferTransformerMixin:
                 "intermediate": 3,
                 "difficult": 4,
             }.get(task_intensity, 2)
-            if resolved_intent in (
-                self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
-            ) or resolved_intent == "conversation":
+            if (
+                dialogue_interactive
+                or resolved_intent
+                in (self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS)
+                or resolved_intent == "conversation"
+            ):
                 collaboration_limit = 1
             auxiliary_specs: list[dict[str, str]] = []
             if not direct_runtime_model and collaboration_limit > 1:

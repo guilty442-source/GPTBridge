@@ -329,7 +329,7 @@ class CommandChannelsMixin:
                         *self.AUTOMATIC_WORKFLOW_SEQUENCE,
                     ],
                     "understanding_authority": {
-                        "primary": "qwen3.5:9b-q4_K_M",
+                        "primary": self.COMMAND_UNDERSTANDING_MODEL,
                         "backup": "nemotron-3-nano:4b",
                     },
                     "allocation_authority": self.GENERALIST_COORDINATOR_MODEL,

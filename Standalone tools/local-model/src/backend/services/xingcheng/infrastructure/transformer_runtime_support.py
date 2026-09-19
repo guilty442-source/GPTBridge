@@ -52,6 +52,7 @@ class _GeneratePlan:
     selected_model: str
     user_selected_model: bool
     user_designated_model: bool
+    dialogue_interactive: bool
     visual_inputs: list[str]
     model_catalog: Mapping[str, Any]
     normalized_prompt: str
@@ -83,6 +84,7 @@ def _generate_request_args(
     use_immutable_base: Any,
     base_default_retry: Any,
     user_designated_model: Any = False,
+    dialogue_interactive: Any = False,
 ) -> dict[str, Any]:
     """Pack the raw generate() arguments into one request mapping."""
     return {
@@ -108,4 +110,5 @@ def _generate_request_args(
         "use_immutable_base": use_immutable_base,
         "base_default_retry": base_default_retry,
         "user_designated_model": user_designated_model,
+        "dialogue_interactive": dialogue_interactive,
     }

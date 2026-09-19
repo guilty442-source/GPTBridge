@@ -58,6 +58,7 @@ class TransformerRuntimeInferenceMixin:
         _automatic_model_override: bool = False,
         _use_immutable_base: bool = False, _base_default_retry: bool = False,
         _user_designated_model: bool = False,
+        _dialogue_interactive: bool = False,
     ) -> dict[str, Any]:
         request = _generate_request_args(
             prompt, intent, model_role, output, max_tokens, temperature,
@@ -66,7 +67,7 @@ class TransformerRuntimeInferenceMixin:
             cancel_event, progress_callback, response_format,
             _release_after_generate, _automatic_model_override,
             _use_immutable_base, _base_default_retry,
-            _user_designated_model,
+            _user_designated_model, _dialogue_interactive,
         )
         denied = self._generate_precheck(request)
         if denied is not None:
@@ -144,6 +145,7 @@ class TransformerRuntimeInferenceMixin:
             "user_selected_model": bool(request["requested_model"])
             and not request["automatic_model_override"],
             "user_designated_model": bool(request["user_designated_model"]),
+            "dialogue_interactive": bool(request["dialogue_interactive"]),
             "selected_model": selected_model,
             "parameter_settings": parameter_settings,
         }
@@ -248,6 +250,7 @@ class TransformerRuntimeInferenceMixin:
             selected_model=route["selected_model"],
             user_selected_model=route["user_selected_model"],
             user_designated_model=route["user_designated_model"],
+            dialogue_interactive=route["dialogue_interactive"],
             visual_inputs=route["visual_inputs"],
             model_catalog=model_catalog,
             normalized_prompt=str(request["prompt"] or "").strip(),

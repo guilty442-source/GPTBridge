@@ -179,7 +179,11 @@ class TransformerRuntimeResultMixin:
                 "assigned_model": "",
                 "dynamic_reassignment": False,
             }
-            if plan.automatic_model_override or plan.user_designated_model
+            if (
+                plan.automatic_model_override
+                or plan.user_designated_model
+                or plan.dialogue_interactive
+            )
             else self._commander_adjudicate_model_failure(
                 failed_model=plan.selected_model,
                 failure=failure,
