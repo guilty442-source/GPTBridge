@@ -12,21 +12,53 @@ class InferEnvelopesMixin:
         assigned_model: str,
         planned_intents: list[str],
     ) -> None:
+        designated_model = str(
+            inference_payload.get("runtime_model") or ""
+        ).strip()
+        manual_selection = bool(designated_model)
+        tasks = (
+            [
+                {
+                    "sequence": index,
+                    "intent": intent,
+                    "assigned_model": assigned_model,
+                    "selection": "user-designated-fixed-model-no-cross",
+                    "project_scope": "all-project-source-excluding-governance-rule",
+                    "star_native_model_included": False,
+                    "external_ai_used": False,
+                }
+                for index, intent in enumerate(
+                    list(
+                        dict.fromkeys(
+                            str(item).strip() for item in planned_intents if item
+                        )
+                    )
+                    or ["conversation"],
+                    start=1,
+                )
+            ]
+            if manual_selection
+            else self._arrange_ollama_tasks(planned_intents)
+        )
         output["task_arrangement"] = {
             "mode": "traditional-chinese-first-governed-workflow",
-            "task_allocation_model": self.GENERALIST_COORDINATOR_MODEL,
-            "integration_model": self.FINAL_COORDINATOR_MODEL,
+            "task_allocation_model": (
+                assigned_model if manual_selection else self.GENERALIST_COORDINATOR_MODEL
+            ),
+            "integration_model": (
+                assigned_model if manual_selection else self.FINAL_COORDINATOR_MODEL
+            ),
             "manual_assignment_allowed": False,
             "star_native_model_included": False,
             "external_ai_used": False,
             "project_scope": "all-project-source-excluding-governance-rule",
-            "tasks": self._arrange_ollama_tasks(planned_intents),
+            "tasks": tasks,
         }
         scheduled_intensity = str(
             inference_payload.get("task_intensity") or "normal"
         ).strip().casefold()
         output["model_scheduling"] = {
-            "automatic": True,
+            "automatic": not manual_selection,
             "selected_model": assigned_model,
             "selection_dimensions": [
                 "intent",
@@ -63,6 +95,9 @@ class InferEnvelopesMixin:
         command_understanding: dict[str, Any],
         autonomous_agent: bool,
     ) -> dict[str, Any]:
+        designated_model = str(
+            inference_payload.get("runtime_model") or ""
+        ).strip()
         return {
             "enabled": autonomous_agent,
             "star_native_model_included": False,
@@ -86,13 +121,13 @@ class InferEnvelopesMixin:
                 *self.AUTOMATIC_WORKFLOW_SEQUENCE,
             ],
             "command_understanding_model": command_understanding_model,
-            "planner_model": self.GENERALIST_COORDINATOR_MODEL,
-            "integration_model": self.FINAL_COORDINATOR_MODEL,
-            "executor_model": self.CODING_EXPERT_MODEL,
-            "inspection_model": self.RELEASE_REVIEW_MODEL,
-            "result_model": self.FINAL_COORDINATOR_MODEL,
+            "planner_model": designated_model or self.GENERALIST_COORDINATOR_MODEL,
+            "integration_model": designated_model or self.FINAL_COORDINATOR_MODEL,
+            "executor_model": designated_model or self.CODING_EXPERT_MODEL,
+            "inspection_model": designated_model or self.RELEASE_REVIEW_MODEL,
+            "result_model": designated_model or self.FINAL_COORDINATOR_MODEL,
             "backup_policy": "none",
-            "failure_adjudicator": self.COMMAND_UNDERSTANDING_MODEL,
+            "failure_adjudicator": designated_model or self.COMMAND_UNDERSTANDING_MODEL,
             "commander_dynamic_reassignment": True,
             "maximum_dynamic_reassignments": 1,
             "governance_checked": True,
@@ -120,6 +155,9 @@ class InferEnvelopesMixin:
         command_understanding_model: str,
         autonomous_agent: bool,
     ) -> dict[str, Any]:
+        designated_model = str(
+            inference_payload.get("runtime_model") or ""
+        ).strip()
         return {
                 "entry": "model-dialogue",
                 "accepted": True,
@@ -153,11 +191,11 @@ class InferEnvelopesMixin:
                 ),
                 "assigned_model": assigned_model,
                 "command_understanding_model": command_understanding_model,
-                "planner_model": self.GENERALIST_COORDINATOR_MODEL,
-                "integration_model": self.FINAL_COORDINATOR_MODEL,
-                "executor_model": self.CODING_EXPERT_MODEL,
-                "inspection_model": self.RELEASE_REVIEW_MODEL,
-                "result_model": self.DATA_COORDINATOR_MODEL,
+                "planner_model": designated_model or self.GENERALIST_COORDINATOR_MODEL,
+                "integration_model": designated_model or self.FINAL_COORDINATOR_MODEL,
+                "executor_model": designated_model or self.CODING_EXPERT_MODEL,
+                "inspection_model": designated_model or self.RELEASE_REVIEW_MODEL,
+                "result_model": designated_model or self.DATA_COORDINATOR_MODEL,
                 "project_scope": "all-project-source-excluding-governance-rule",
                 "governance_checked": True,
                 "status": "executing" if autonomous_agent else "planned",

@@ -85,5 +85,124 @@ def test_selected_transformer_failure_never_falls_back_to_star(
     assert result["error_code"] == "TRANSFORMER_INFERENCE_FAILED"
 
 
+def test_selected_model_never_invokes_cross_model_frontend_worker(
+    tmp_path: Path,
+) -> None:
+    selected = "llama3.1:8b-instruct-q4_K_M"
+    transport = FakeOllamaTransport(
+        models=[
+            {"name": StarTransformerRuntime.MODEL},
+            {"name": StarTransformerRuntime.FRONTEND_WORKER_MODEL},
+            {"name": selected},
+        ]
+    )
+    service = LocalAiService(
+        tmp_path,
+        transformer_runtime=StarTransformerRuntime(enabled=True, transport=transport),
+    )
+
+    _, result = asyncio.run(
+        service.handle(
+            "xingcheng_infer",
+            {
+                "prompt": "請用一段 Python 函式計算平均數",
+                "runtime_model": selected,
+                "_runtime_model_selection_authorized": True,
+                "conversation_mode": "coding",
+                "task_intensity": "difficult",
+                "generation_speed": "medium",
+            },
+        )
+    )
+
+    chat_models = {
+        str(call[2].get("model"))
+        for call in transport.calls
+        if call[1].endswith("/api/chat")
+    }
+    assert result["ok"] is True
+    assert result["generation"]["model"] == selected
+    assert chat_models == {selected}
+    assert result["model_scheduling"]["automatic"] is False
+    assert result["model_scheduling"]["selected_model"] == selected
+    assert {
+        task["assigned_model"] for task in result["task_arrangement"]["tasks"]
+    } == {selected}
+
+
+def test_selected_star_native_model_answers_with_star(tmp_path: Path) -> None:
+    transport = FakeOllamaTransport(
+        models=[{"name": StarTransformerRuntime.MODEL}]
+    )
+    service = LocalAiService(
+        tmp_path,
+        transformer_runtime=StarTransformerRuntime(
+            enabled=True,
+            transport=transport,
+        ),
+    )
+
+    _, result = asyncio.run(
+        service.handle(
+            "xingcheng_infer",
+            {
+                "prompt": "請介紹你自己",
+                "runtime_model": "star-main-native-model",
+                "_runtime_model_selection_authorized": True,
+            },
+        )
+    )
+
+    chat_models = {
+        str(call[2].get("model"))
+        for call in transport.calls
+        if call[1].endswith("/api/chat")
+    }
+    assert result["ok"] is True
+    assert result["model"] == "star-main-native-model"
+    assert result["model_name"] == "星澄"
+    assert result["model_selection"] == "user-selected"
+    assert result["manual_model_selection"] is True
+    assert result["selected_runtime_model"] == "star-main-native-model"
+    assert result["native_database_access"]["enabled"] is True
+    assert result["model_scheduling"]["automatic"] is False
+    assert result["model_scheduling"]["selected_model"] == "star-main-native-model"
+    assert "transformer_inference" not in result
+    assert chat_models == set()
+
+
+def test_automatic_difficult_coding_still_uses_frontend_worker(
+    tmp_path: Path,
+) -> None:
+    transport = FakeOllamaTransport(
+        models=[
+            {"name": StarTransformerRuntime.MODEL},
+            {"name": StarTransformerRuntime.FRONTEND_WORKER_MODEL},
+        ]
+    )
+    service = LocalAiService(
+        tmp_path,
+        transformer_runtime=StarTransformerRuntime(enabled=True, transport=transport),
+    )
+
+    asyncio.run(
+        service.handle(
+            "xingcheng_infer",
+            {
+                "prompt": "請用一段 Python 函式計算平均數",
+                "conversation_mode": "coding",
+                "task_intensity": "difficult",
+                "generation_speed": "medium",
+            },
+        )
+    )
+
+    chat_models = {
+        str(call[2].get("model"))
+        for call in transport.calls
+        if call[1].endswith("/api/chat")
+    }
+    assert StarTransformerRuntime.FRONTEND_WORKER_MODEL in chat_models
+
 
 ########################################################################

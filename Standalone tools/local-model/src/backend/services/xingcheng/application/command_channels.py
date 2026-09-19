@@ -1,10 +1,24 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 
 class CommandChannelsMixin:
+    #: The dialogue UI polls ``xingcheng_status`` every 15s; assembling the
+    #: full payload opens every model database and re-runs the upgrade
+    #: evaluation.  A short TTL keeps polling cheap while volatile fields
+    #: (mode preparation, llm availability) are always refreshed live.
+    STATUS_CACHE_TTL_SECONDS: float = 20.0
+
+    def _status_llm_snapshot(self) -> dict[str, Any]:
+        available = bool(self.transformer_runtime.status().get("available"))
+        return {
+            "engine": "ollama",
+            "available": available,
+            "state": "READY" if available else "RECOVERING",
+        }
     async def _handle_git(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         if command == "xingcheng_git_status":
             return "xingcheng_git_status_result", await asyncio.to_thread(
@@ -178,6 +192,18 @@ class CommandChannelsMixin:
                         "model": preload_model,
                         "error": str(error),
                     }
+            cache = getattr(self, "_status_cache", None)
+            if cache is None:
+                cache = self._status_cache = {}
+            now = time.monotonic()
+            if not requested_mode:
+                cached = cache.get("payload")
+                if cached is not None and (now - cached[0]) < self.STATUS_CACHE_TTL_SECONDS:
+                    result = dict(cached[1])
+                    result["mode_preparation"] = None
+                    result["llm"] = self._status_llm_snapshot()
+                    return "xingcheng_status_result", result
+
             database = self.investment_repository.database_status()
             databases = {
                 profile.role: self._repository_for(profile).database_status()
@@ -197,11 +223,7 @@ class CommandChannelsMixin:
                 "platform_concurrency": "asynchronous-service-isolated",
                 "platform_services": dict(self.PLATFORM_SERVICES),
                 "main_system_companion_tools": ["star-chat"],
-                "llm": {
-                    "engine": "ollama",
-                    "available": bool(self.transformer_runtime.status().get("available")),
-                    "state": "READY" if self.transformer_runtime.status().get("available") else "RECOVERING",
-                },
+                "llm": self._status_llm_snapshot(),
                 "model_dialogue": {
                     "tool_id": "star-chat",
                     "independent_only_in": "main-system",
@@ -471,4 +493,6 @@ class CommandChannelsMixin:
                 "upgrade_optimization": evaluation,
                 "capability_evaluation": evaluation.get("capability_evaluation", {}),
             }
+            if not requested_mode:
+                cache["payload"] = (now, dict(result))
             return "xingcheng_status_result", result

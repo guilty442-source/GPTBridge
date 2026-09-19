@@ -62,6 +62,7 @@ class InferHandleMixin:
             prompt,
             native_model_requested,
             progress_callback,
+            direct_runtime_model,
         )
         if preflight_error is not None:
             return preflight_error

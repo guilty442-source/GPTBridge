@@ -403,7 +403,7 @@ export function StarChatWindowApp() {
           message,
           history,
           max_output_tokens: maxOutputTokens,
-          runtime_model: selectedModel === STAR_NATIVE_MODEL.name ? '' : selectedModel,
+          runtime_model: selectedModel,
           reasoning_level: reasoningLevel,
           reasoning_effort: REASONING_EFFORT_BY_LEVEL[reasoningLevel],
           generation_speed: generationSpeed,

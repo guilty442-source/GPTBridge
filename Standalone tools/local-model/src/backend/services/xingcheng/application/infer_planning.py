@@ -117,13 +117,6 @@ class InferPlanningMixin:
             }), "", False, ""
         requested_runtime_model = str(payload.get("runtime_model") or "").strip()
         native_model_requested = requested_runtime_model == self.NATIVE_MODEL_ID
-        if native_model_requested:
-            return ("xingcheng_infer_result", {
-                "ok": False,
-                "error_code": "STAR_NATIVE_TASK_PARTICIPATION_DENIED",
-                "message": "星澄不參與任務；請使用已分配職責的 Ollama 本地模型。",
-                "star_native_model_used": False,
-            }), "", False, ""
         direct_runtime_model = (
             "" if native_model_requested else requested_runtime_model
         )
@@ -136,7 +129,7 @@ class InferPlanningMixin:
                 "error_code": "RUNTIME_MODEL_SELECTION_DENIED",
                 "message": "只有受治理的模型對話工具可以選擇本機生成模型。",
             }), "", False, ""
-        if requested_runtime_model:
+        if requested_runtime_model and not native_model_requested:
             selectable_names = {
                 str(item.get("name") or "")
                 for item in self.transformer_runtime.selectable_models(refresh=False)
@@ -148,7 +141,11 @@ class InferPlanningMixin:
                     "message": "選擇的模型未安裝或不符合本機模型名稱規則。",
                     "selectable_models": sorted(selectable_names),
                 }), "", False, ""
-        if requested_runtime_model and not self.transformer_runtime.enabled:
+        if (
+            requested_runtime_model
+            and not native_model_requested
+            and not self.transformer_runtime.enabled
+        ):
             return ("xingcheng_infer_result", {
                 "ok": False,
                 "error_code": "LOCAL_MODEL_RUNTIME_REQUIRED",
@@ -243,9 +240,12 @@ class InferPlanningMixin:
         prompt: str,
         native_model_requested: bool,
         progress_callback: Any,
+        direct_runtime_model: str,
     ) -> tuple[str, dict[str, Any]] | None:
         run_frontend_worker = (
-            str(payload.get("task_intensity") or "normal").strip().casefold()
+            not direct_runtime_model
+            and not native_model_requested
+            and str(payload.get("task_intensity") or "normal").strip().casefold()
             == "difficult"
             and
             str(payload.get("generation_speed") or "medium").strip().casefold()
@@ -350,6 +350,18 @@ class InferPlanningMixin:
                 reasoning_effort=str(inference_payload.get("reasoning_effort") or "medium"),
                 task_intensity=str(inference_payload.get("task_intensity") or "normal"),
                 generation_speed=str(inference_payload.get("generation_speed") or "medium"),
+                tier_cap=(
+                    "medium"
+                    if str(inference_payload.get("interaction_mode") or "")
+                    .strip()
+                    .casefold()
+                    .startswith("model-dialogue")
+                    and str(inference_payload.get("task_intensity") or "")
+                    .strip()
+                    .casefold()
+                    != "difficult"
+                    else ""
+                ),
             )
         )
         if (

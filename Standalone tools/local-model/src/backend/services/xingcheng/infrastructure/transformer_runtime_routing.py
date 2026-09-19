@@ -54,6 +54,22 @@ class TransformerRuntimeRoutingMixin:
             return ordered
         return candidates
 
+    @classmethod
+    def _tier_capped_models(cls, installed: set[str], tier_cap: str) -> set[str]:
+        """Restrict the candidate pool to small/medium tiers for latency-
+        sensitive interactive paths.  Empty cap keeps the full pool; an
+        unknown tier or an empty intersection returns an empty set so the
+        caller falls back to the uncapped pool."""
+        normalized = str(tier_cap or "").strip().casefold()
+        if normalized not in cls.MODEL_SIZE_TIERS:
+            return set()
+        allowed: set[str] = set()
+        for tier in cls.MODEL_SIZE_TIERS:
+            allowed.update(cls.MODEL_SIZE_TIERS[tier])
+            if tier == normalized:
+                break
+        return installed & allowed
+
     def preferred_model_for_intent(
         self, intent: str, reasoning_effort: str = "medium"
     ) -> str:
@@ -66,6 +82,7 @@ class TransformerRuntimeRoutingMixin:
         reasoning_effort: str = "medium",
         task_intensity: str = "normal",
         generation_speed: str = "medium",
+        tier_cap: str = "",
     ) -> str:
         """Choose one installed model using role, quality, speed and residency."""
         installed = {
@@ -74,6 +91,9 @@ class TransformerRuntimeRoutingMixin:
         }
         if not installed:
             return ""
+        capped = self._tier_capped_models(installed, tier_cap)
+        if capped:
+            installed = capped
         normalized_intent = str(intent or "conversation").strip().casefold()
         preferred = self.INTENT_MODEL_PREFERENCES.get(normalized_intent, ())
         low_preferred = self.LOW_EFFORT_MODEL_PREFERENCES.get(normalized_intent, ())

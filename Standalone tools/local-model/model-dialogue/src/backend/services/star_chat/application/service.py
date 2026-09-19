@@ -52,8 +52,12 @@ class StarChatService(StarChatHelpersMixin):
         self._target_ready_until = 0.0
 
     #: Liveness probe: a model-owner round trip must answer within this bound.
-    _PROBE_TIMEOUT_SECONDS = 4.0
-    _AVAILABLE_TTL_SECONDS = 30.0
+    #: The probe itself queues behind the owner's serial worker, so a short
+    #: timeout avoids adding seconds of dead time before every send while an
+    #: inference is still in flight; a queued infer request is what triggers
+    #: governed lazy activation anyway.
+    _PROBE_TIMEOUT_SECONDS = 1.2
+    _AVAILABLE_TTL_SECONDS = 120.0
     _UNAVAILABLE_TTL_SECONDS = 3.0
     #: When the model owner is being lazily activated, the infer request may
     #: wait for the governed on-demand start plus model warm-up.
