@@ -413,6 +413,34 @@
     "icon": "外",
     "moduleBoundaryName": "外部協作"
   },
+  "sagaVisualizer": {
+    "title": "Saga 視覺化",
+    "subtitle": "跨引擎操作視覺化追蹤",
+    "refresh": "重新整理",
+    "loading": "載入中…",
+    "noData": "無 Saga 操作資料",
+    "formatLabel": "檢視模式",
+    "mermaid": "Mermaid 圖表",
+    "graphviz": "GraphViz",
+    "json": "JSON",
+    "ascii": "ASCII 圖表",
+    "timeline": "時間軸",
+    "operationId": "操作 ID",
+    "type": "類型",
+    "module": "模組",
+    "status": "狀態",
+    "nodes": "節點",
+    "edges": "連線",
+    "timeline": "時間軸",
+    "refresh": "重新整理",
+    "load": "載入",
+    "clear": "清除",
+    "export": "匯出",
+    "selectOperation": "選擇操作",
+    "noSelection": "請選擇一個操作",
+    "icon": "📊",
+    "moduleBoundaryName": "Saga 視覺化"
+  },
   "moduleBoundary": {
     "fallbackMessage": "此模組暫時無法顯示；其他模組不受影響。"
   }

@@ -128,6 +128,13 @@ OPERATION_STEP_LIST_SQL = (
     "WHERE operation_id = %s ORDER BY step_order, step_id"
 )
 
+# Diagnostic listing (read-only): newest-first bounded summary projection.
+OPERATION_LIST_SQL = (
+    "SELECT operation_id, operation_type, module_id, resource_id, generation, status, "
+    "current_step, correlation_id, created_at, updated_at, completed_at "
+    "FROM gptbridge_workflow.operation ORDER BY created_at DESC, operation_id LIMIT %s"
+)
+
 OPERATION_EVENT_INSERT_SQL = (
     "INSERT INTO gptbridge_workflow.operation_event "
     "(operation_id, event_type, step_id, detail, created_at) "
@@ -151,6 +158,10 @@ class SagaStore(Protocol):
     def create_operation(self, operation: Operation) -> tuple[Operation, bool]: ...
 
     def load_operation(self, operation_id: str) -> Operation | None: ...
+
+    def list_operations(self, limit: int = 50) -> list[dict[str, Any]]: ...
+
+    def list_step_rows(self, operation_id: str) -> list[dict[str, Any]]: ...
 
     def claim_operation(
         self, operation_id: str, *, worker: str, lease_seconds: float
@@ -193,6 +204,34 @@ def _epoch(value: Any) -> float:
     if isinstance(value, (int, float)):
         return float(value)
     return float(value.timestamp())
+
+
+def _operation_summary_from_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "operation_id": str(row["operation_id"]),
+        "operation_type": str(row["operation_type"]),
+        "module_id": str(row["module_id"]),
+        "resource_id": str(row["resource_id"] or ""),
+        "generation": int(row["generation"] or 0),
+        "status": str(row["status"]),
+        "current_step": str(row["current_step"] or ""),
+        "correlation_id": str(row["correlation_id"] or ""),
+        "created_at": _epoch(row["created_at"]),
+        "updated_at": _epoch(row["updated_at"]),
+        "completed_at": _epoch(row["completed_at"]) or None,
+    }
+
+
+def _step_row_projection(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "step_id": str(row["step_id"]),
+        "step_order": int(row["step_order"] or 0),
+        "engine": str(row["engine"] or ""),
+        "action_type": str(row["action_type"] or ""),
+        "status": str(row["status"] or ""),
+        "attempt_count": int(row["attempt_count"] or 0),
+        "error_code": str(row["error_code"] or ""),
+    }
 
 
 def _operation_from_row(row: Mapping[str, Any], step_rows: list[Mapping[str, Any]]) -> Operation:
@@ -292,6 +331,19 @@ class PostgresSagaStore:
             operation = self._load_operation(connection, operation_id)
             connection.commit()
             return operation
+
+    def list_operations(self, limit: int = 50) -> list[dict[str, Any]]:
+        bounded = max(1, min(int(limit), 200))
+        with self._connection() as connection:
+            rows = connection.execute(OPERATION_LIST_SQL, (bounded,)).fetchall()
+            connection.commit()
+            return [_operation_summary_from_row(row) for row in rows or ()]
+
+    def list_step_rows(self, operation_id: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            rows = connection.execute(OPERATION_STEP_LIST_SQL, (operation_id,)).fetchall()
+            connection.commit()
+            return [_step_row_projection(row) for row in rows or ()]
 
     def claim_operation(
         self, operation_id: str, *, worker: str, lease_seconds: float
@@ -505,6 +557,45 @@ class InMemorySagaStore:
         stored = self._operations.get(operation_id)
         return copy.deepcopy(stored) if stored is not None else None
 
+    def list_operations(self, limit: int = 50) -> list[dict[str, Any]]:
+        bounded = max(1, min(int(limit), 200))
+        ordered = sorted(
+            self._operations.values(),
+            key=lambda op: (op.created_at, op.operation_id),
+            reverse=True,
+        )
+        return [
+            {
+                "operation_id": op.operation_id,
+                "operation_type": op.operation_type,
+                "module_id": op.module_id,
+                "resource_id": op.resource_id,
+                "generation": int(op.generation),
+                "status": op.status.value,
+                "current_step": op.current_step,
+                "correlation_id": op.correlation_id,
+                "created_at": op.created_at,
+                "updated_at": op.updated_at,
+                "completed_at": op.completed_at,
+            }
+            for op in ordered[:bounded]
+        ]
+
+    def list_step_rows(self, operation_id: str) -> list[dict[str, Any]]:
+        rows = []
+        for spec, result, attempt in self._steps.get(operation_id, {}).values():
+            rows.append({
+                "step_id": result.step_id or spec.step_id,
+                "step_order": int(spec.step_order),
+                "engine": spec.engine.value,
+                "action_type": spec.action_type,
+                "status": result.status,
+                "attempt_count": max(1, int(attempt)),
+                "error_code": result.error_code,
+            })
+        rows.sort(key=lambda row: (row["step_order"], row["step_id"]))
+        return rows
+
     def claim_operation(
         self, operation_id: str, *, worker: str, lease_seconds: float
     ) -> Operation | None:
@@ -643,6 +734,7 @@ __all__ = [
     "OPERATION_INSERT_SQL",
     "OPERATION_LOAD_BY_FINGERPRINT_SQL",
     "OPERATION_LOAD_BY_KEY_SQL",
+    "OPERATION_LIST_SQL",
     "OPERATION_LOAD_SQL",
     "OPERATION_SAVE_SQL",
     "OPERATION_STEP_LIST_SQL",

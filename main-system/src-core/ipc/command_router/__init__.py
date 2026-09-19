@@ -17,6 +17,7 @@ from .third_party_handler import ThirdPartyHandler
 from .repair_handler import RepairMaintenanceHandler
 from .hot_reload_handler import HotReloadHandler
 from .fault_analysis_handler import FaultAnalysisHandler
+from .saga_handler import SagaOperationsHandler
 from .automation_handler import AutomationSwitchesHandler
 from .xingcheng_handler import XingchengConfirmationHandler
 from .tool_lifecycle_handler import ToolLifecycleHandler
@@ -43,6 +44,7 @@ class CommandRouter:
         self._repair_handler = RepairMaintenanceHandler(app)
         self._hot_reload_handler = HotReloadHandler(app)
         self._fault_analysis_handler = FaultAnalysisHandler(app)
+        self._saga_handler = SagaOperationsHandler(app)
         self._automation_handler = AutomationSwitchesHandler(app)
         self._xingcheng_handler = XingchengConfirmationHandler(app)
         self._tool_lifecycle_handler = ToolLifecycleHandler(app, toolbox_service)
@@ -86,6 +88,10 @@ class CommandRouter:
         # Fault analysis
         if command == "app:get-fault-analysis":
             return await self._fault_analysis_handler.handle(payload)
+
+        # Saga operations (read-only diagnostics)
+        if command in ("app:get-saga-operations", "app:get-saga-operation"):
+            return await self._saga_handler.handle(command, payload)
 
         # Automation switches and pending actions
         if command in (

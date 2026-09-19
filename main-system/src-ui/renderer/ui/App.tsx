@@ -9,6 +9,7 @@ import { useAppState } from '@/ui/useAppState'
 import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
 import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
 import { ExternalCollaborationPanel } from '@/ui/panel/ExternalCollaborationPanel'
+import { SagaVisualizerPanel } from '@/ui/panel/SagaVisualizerPanel'
 import { ModuleBoundary } from '@/shared/components/ModuleBoundary'
 import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
 import { filterActiveFaults } from '@/shared/utils/faultPresentation'
@@ -158,6 +159,7 @@ export default function App() {
   const [drawerCapacity, setDrawerCapacity] = useState(false)
   const [drawerThirdParty, setDrawerThirdParty] = useState(false)
   const [drawerExternalCollaboration, setDrawerExternalCollaboration] = useState(false)
+  const [drawerSagaVisualizer, setDrawerSagaVisualizer] = useState(false)
 
   return (
     <div className="product-shell">
@@ -320,6 +322,20 @@ export default function App() {
               <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
+          <button
+            type="button"
+            className="drawer-trigger"
+            onClick={() => setDrawerSagaVisualizer(true)}
+          >
+            <span className="drawer-trigger__icon" aria-hidden="true">📊</span>
+            <span className="drawer-trigger__text">
+              <strong>Saga 視覺化</strong>
+              <small>跨引擎操作追蹤</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </section>
 
         <ModuleBoundary name={tb.title}>
@@ -382,6 +398,16 @@ export default function App() {
         <ExternalCollaborationPanel
           open={drawerExternalCollaboration}
           onClose={() => setDrawerExternalCollaboration(false)}
+          sendCommand={sendCommand}
+          waitForIpcEvent={waitForIpcEvent}
+          backendSocket={backendSocket}
+        />
+      </ModuleBoundary>
+
+      <ModuleBoundary name="Saga 視覺化">
+        <SagaVisualizerPanel
+          open={drawerSagaVisualizer}
+          onClose={() => setDrawerSagaVisualizer(false)}
           sendCommand={sendCommand}
           waitForIpcEvent={waitForIpcEvent}
           backendSocket={backendSocket}

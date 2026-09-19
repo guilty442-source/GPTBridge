@@ -35,6 +35,8 @@ MAIN_COMMANDS = {
     "app:get-repair-status",
     "app:hot-reload-backend",
     "app:get-fault-analysis",
+    "app:get-saga-operations",
+    "app:get-saga-operation",
     "app:get-pending-actions",
     "app:get-automation-switches",
     "app:set-automation-switch",
