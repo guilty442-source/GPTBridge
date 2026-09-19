@@ -17,7 +17,12 @@ from __future__ import annotations
 from .rmsnorm import rms_norm, rms_norm_weight
 from .rope import apply_rope, build_rope_tables
 from .swiglu import swiglu
-from .quant import quantize_per_tensor, dequantize_per_tensor
+from .quant import (
+    quantize_per_tensor,
+    dequantize_per_tensor,
+    pack_int4,
+    unpack_int4,
+)
 
 __all__ = [
     "rms_norm",
@@ -27,4 +32,6 @@ __all__ = [
     "swiglu",
     "quantize_per_tensor",
     "dequantize_per_tensor",
+    "pack_int4",
+    "unpack_int4",
 ]
