@@ -47,7 +47,11 @@ def _write_checkpoint(tmp_path) -> str:
     return info["path"]
 
 
-def test_flag_defaults_off(monkeypatch) -> None:
+def test_flag_defaults_off(monkeypatch, tmp_path) -> None:
+    # Settings 是正式開關路徑；測試以不存在的 settings 檔隔離環境狀態。
+    from xingcheng.infrastructure import native_engine as module
+
+    monkeypatch.setattr(module, "settings_path", lambda: tmp_path / "absent.json")
     monkeypatch.delenv(NATIVE_ENGINE_ENV, raising=False)
     assert flag_enabled() is False
 
@@ -55,6 +59,39 @@ def test_flag_defaults_off(monkeypatch) -> None:
 def test_flag_enabled(monkeypatch) -> None:
     monkeypatch.setenv(NATIVE_ENGINE_ENV, "1")
     assert flag_enabled() is True
+
+
+def test_settings_file_enables_engine(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    settings = tmp_path / "native-engine.json"
+    settings.write_text('{"enabled": true}', encoding="utf-8")
+    monkeypatch.setattr(module, "settings_path", lambda: settings)
+    monkeypatch.delenv(NATIVE_ENGINE_ENV, raising=False)
+    assert flag_enabled() is True
+
+
+def test_env_off_overrides_enabled_settings(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    settings = tmp_path / "native-engine.json"
+    settings.write_text('{"enabled": true}', encoding="utf-8")
+    monkeypatch.setattr(module, "settings_path", lambda: settings)
+    monkeypatch.setenv(NATIVE_ENGINE_ENV, "0")
+    assert flag_enabled() is False
+
+
+def test_checkpoint_from_settings(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    settings = tmp_path / "native-engine.json"
+    settings.write_text(
+        '{"enabled": true, "checkpoint": "runtime/models/pinned.pt"}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "settings_path", lambda: settings)
+    monkeypatch.delenv(NATIVE_CHECKPOINT_ENV, raising=False)
+    assert configured_checkpoint_path() == module.tool_root() / "runtime" / "models" / "pinned.pt"
 
 
 def test_missing_checkpoint_fails_closed(monkeypatch, tmp_path) -> None:
@@ -66,7 +103,10 @@ def test_missing_checkpoint_fails_closed(monkeypatch, tmp_path) -> None:
     assert result["fallback_required"] is False
 
 
-def test_disabled_flag_fails_closed(monkeypatch) -> None:
+def test_disabled_flag_fails_closed(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    monkeypatch.setattr(module, "settings_path", lambda: tmp_path / "absent.json")
     monkeypatch.delenv(NATIVE_ENGINE_ENV, raising=False)
     result = generate_via_native_engine({"prompt": "星澄"})
     assert result["ok"] is False
@@ -113,7 +153,10 @@ def test_runtime_routes_to_native_when_flag_on(monkeypatch, tmp_path) -> None:
     assert not [call for call in transport.calls if call[1].endswith("/api/chat")]
 
 
-def test_runtime_flag_off_unchanged(monkeypatch) -> None:
+def test_runtime_flag_off_unchanged(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    monkeypatch.setattr(module, "settings_path", lambda: tmp_path / "absent.json")
     monkeypatch.delenv(NATIVE_ENGINE_ENV, raising=False)
     monkeypatch.delenv(NATIVE_CHECKPOINT_ENV, raising=False)
     transport = FakeOllamaTransport(models=[{"name": StarTransformerRuntime.MODEL}])
