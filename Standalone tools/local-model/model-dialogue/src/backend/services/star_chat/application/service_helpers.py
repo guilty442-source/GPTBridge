@@ -157,6 +157,16 @@ class StarChatHelpersMixin:
         cls, payload: dict[str, Any]
     ) -> dict[str, Any]:
         reasoning_level, reasoning_effort = cls._resolve_reasoning(payload)
+        raw_reasoning_level = cls._bounded_text(
+            payload.get("reasoning_level"), 32
+        ).casefold()
+        raw_reasoning_effort = cls._bounded_text(
+            payload.get("reasoning_effort"), 16
+        ).casefold()
+        reasoning_was_requested = (
+            raw_reasoning_level in cls.REASONING_LEVEL_TO_EFFORT
+            or raw_reasoning_effort in {"none", "low", "medium", "high"}
+        )
         generation_speed = cls._bounded_text(
             payload.get("generation_speed"), 16
         ).casefold()
@@ -183,8 +193,11 @@ class StarChatHelpersMixin:
             "runtime_model": cls._bounded_text(payload.get("runtime_model"), 256),
             "reasoning_level": reasoning_level,
             "reasoning_effort": reasoning_effort,
+            "reasoning_was_requested": reasoning_was_requested,
             "generation_speed": generation_speed,
+            "speed_was_requested": speed_was_requested,
             "task_intensity": task_intensity,
+            "intensity_was_requested": intensity_was_requested,
             "intensity_settings": intensity_settings,
             "max_tokens": max_tokens,
         }
@@ -250,8 +263,7 @@ class StarChatHelpersMixin:
         controls: dict[str, Any],
     ) -> dict[str, Any]:
         intensity_settings = controls["intensity_settings"]
-        task_intensity = controls["task_intensity"]
-        return {
+        inference_payload = {
             **self._infer_passthrough(payload),
             "prompt": prompt,
             "entry_mode": "user-command",
@@ -266,12 +278,7 @@ class StarChatHelpersMixin:
             "interaction_mode": f"model-dialogue-{conversation_mode}",
             "persona": self._bounded_text(payload.get("persona"), 4_000),
             "context_budget_characters": self._context_budget(payload),
-            "reasoning_level": controls["reasoning_level"],
-            "reasoning_effort": controls["reasoning_effort"],
-            "generation_speed": controls["generation_speed"],
-            "task_intensity": task_intensity,
             "task_intensity_mode": "automatic",
-            "requested_task_intensity": task_intensity,
             "reasoning_path": intensity_settings["reasoning_path"],
             "model_selection_strategy": intensity_settings[
                 "model_selection_strategy"
@@ -282,6 +289,19 @@ class StarChatHelpersMixin:
             "primary_language": self.PRIMARY_LANGUAGE,
             "_runtime_model_selection_authorized": bool(controls["runtime_model"]),
         }
+        # Only explicit user controls are forwarded: a default must never
+        # masquerade as a request and override the model service's own
+        # traditional-Chinese command assessment (it correctly rates a plain
+        # greeting as simple, which keeps the fast conversation path).
+        if controls["reasoning_was_requested"]:
+            inference_payload["reasoning_level"] = controls["reasoning_level"]
+            inference_payload["reasoning_effort"] = controls["reasoning_effort"]
+        if controls["speed_was_requested"]:
+            inference_payload["generation_speed"] = controls["generation_speed"]
+        if controls["intensity_was_requested"]:
+            inference_payload["task_intensity"] = controls["task_intensity"]
+            inference_payload["requested_task_intensity"] = controls["task_intensity"]
+        return inference_payload
 
 
 __all__ = ["StarChatHelpersMixin"]

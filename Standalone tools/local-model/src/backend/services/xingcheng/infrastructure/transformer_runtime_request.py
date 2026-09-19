@@ -61,6 +61,12 @@ class TransformerRuntimeRequestMixin:
                 f"你的固定主責是「{assignment.get('primary_responsibility')}」。"
                 f"可執行的副責是「{secondary}」。不得轉交給備用模型。"
             )
+        system += (
+            f"你目前實際運行的模型是「{plan.selected_model}」"
+            f"（職責角色：{plan.model_role or 'assigned-role'}）。"
+            "若使用者詢問你使用哪個模型，必須直接回答這個實際模型名稱，"
+            "不得猜測、不得引用其他模型名稱或供應商名稱。"
+        )
         if plan.selected_model == self.VISUAL_FILE_MANAGEMENT_MODEL:
             system += (
                 "你是封閉的視覺檔案辨識專員，只能根據隨附圖片、影片影格或文件影像，"
