@@ -3,6 +3,27 @@
 「星澄」本地原生 AI 模型架構 — 高效能、可擴充、可逐層下沉最佳化的
 PyTorch Transformer 原生實作。
 
+## 架構總覽
+
+```
+星澄原生模型
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+      Training                 Inference
+          │                       │
+       Python                 Python API
+          │                       │
+       PyTorch              Native Dispatch
+          │                       │
+       GPU                    Python / C++
+          │                       │
+     Model Weights           Generated Tokens
+```
+
+訓練以 Python + PyTorch 為主線直通 GPU；推論以 Python API 為入口，
+由 Native Dispatch 在 Python ／ C++ 雙路徑間調度產出 Token。
+
 ## 正式主線技術棧
 
 ```
@@ -22,8 +43,13 @@ PyTorch Transformer 原生實作。
 ## 設計原則
 
 1. **優先使用成熟高效函式庫，不重複造輪子。**
-2. **只有實際效能瓶頸時才逐層下沉。**
-3. Python 負責模型設計與高階控制；PyTorch 負責 Tensor / Autograd / 執行框架；
+2. **訓練以 Python + PyTorch 為主線**：模型設計、Computation Graph / Autograd、Optimizer
+   與訓練流程一律留在 PyTorch 高階層，不下沉到 C++。
+3. **推論允許 Python／C++ 雙路徑**：Python 路徑（PyTorch / Triton / 內部程式碼）為預設與
+   參考實作；C++ 路徑（`native/` 標準樹 pybind11 延伸 / Gluon / CUDA C++）為高吞吐、
+   低延遲的部署選項。兩條路徑共用同一組權重、tokenizer 與語意契約，C++ 路徑僅在推論生效。
+4. **只有實際效能瓶頸時才逐層下沉**（僅限推論路徑）。
+5. Python 負責模型設計與高階控制；PyTorch 負責 Tensor / Autograd / 執行框架；
    ATen / C++ 負責底層 Tensor 與 Runtime；cuBLASLt / cuDNN / FlashAttention
    負責成熟高效數學運算；Triton / Gluon 負責星澄自研 GPU Kernel；
    CUDA / PTX 負責極低階 NVIDIA GPU 最佳化。
@@ -42,7 +68,8 @@ native_transformer/
 │   ├── rmsnorm.py           #   RMSNorm（Triton kernel + PyTorch 參考）
 │   ├── rope.py              #   RoPE（Triton kernel + PyTorch 參考）
 │   ├── swiglu.py            #   SwiGLU gate（Triton kernel + PyTorch 參考）
-│   └── quant.py             #   Quantization / Dequantization（Triton kernel + PyTorch 參考）
+│   ├── quant.py             #   Quantization / Dequantization + INT4 packing（Triton + PyTorch 參考）
+│   └── tensor_ops.py        #   Tensor Ops：GEMM / Softmax / Activation / Gather / Scatter / Reduction（Triton + PyTorch 參考）
 ├── modules/                 # Transformer 核心模組（nn.Module）
 │   ├── embedding.py         #   Token + Position Embedding
 │   ├── norm.py              #   RMSNorm / LayerNorm 統一介面
@@ -69,13 +96,14 @@ native_transformer/
 | 層級 | 實作 | 對應檔案 |
 |------|------|----------|
 | Python 高階介面 | `nn.Module` / Tensor API | `modules/*.py`, `config.py` |
-| Tensor Operations | PyTorch Tensor ops（GEMM / Softmax / Reduction / Activation） | `modules/attention.py`, `modules/mlp.py` |
-| Computation Graph + Autograd | `loss.backward()` + `optimizer.step()` | `training/trainer.py`, `modules/model.py` |
+| Tensor Operations | 自研 ops 層（GEMM / Softmax / Reduction / Activation / Gather / Scatter，Triton → PyTorch fallback） | `kernels/tensor_ops.py` |
+| 訓練主線（Python + PyTorch） | Autograd、`loss.backward()` + `optimizer.step()` | `training/*.py`, `modules/model.py` |
+| 推論 Python 路徑（預設） | PyTorch / Triton 生成（prefill + decode） | `inference/*.py`, `kernels/*.py` |
+| 推論 C++ 路徑（部署選項） | 原生 pybind11 延伸 / Gluon / CUDA C++，與 Python 路徑共用權重 | `native/`（A221/E186） |
 | ATen / Dispatcher / Torch C++ Backend | PyTorch 內建 | （由 PyTorch 提供） |
 | cuBLASLt / cuDNN | `nn.Linear` + `set_gemm_backend` + TF32 / Tensor Core | `execution/backend.py`, `modules/attention.py` |
 | FlashAttention | `F.scaled_dot_product_attention`（IO-aware） | `modules/attention.py` |
-| Triton 自研 Kernel | RMSNorm / RoPE / SwiGLU / Quant | `kernels/*.py` |
-| Gluon / CUDA C++ | 預留介面（極端瓶頸下沉） | `kernels/*.py`（fallback 鏈） |
+| Triton 自研 Kernel | RMSNorm / RoPE / SwiGLU / Quant（推論） | `kernels/*.py` |
 | PTX / SASS | 由 Triton / CUDA 編譯產出 | （不手寫） |
 | CPU 路線 | oneDNN / BLAS via PyTorch | `execution/backend.py` |
 | Apple MPS | `torch.device("mps")` 支線 | `execution/backend.py` |
@@ -95,6 +123,9 @@ Gluon / CUDA C++ (預留，未來下沉)
 Attention 一律優先走 `F.scaled_dot_product_attention`，由 PyTorch 內部調度
 FlashAttention / mem-efficient / math 三條路徑；GEMM / Linear 由 PyTorch
 依裝置自動調度 cuBLASLt（CUDA + Tensor Core）/ oneDNN（CPU）/ MPS。
+
+**下沉邊界**：逐層下沉僅適用於**推論路徑**（Python 路徑 → C++ 路徑雙軌並存）；
+訓練一律維持 Python + PyTorch 主線（Autograd + Optimizer），不因效能因素移出到 C++。
 
 ## 預設模型規模
 
@@ -169,11 +200,12 @@ python native_transformer\tests\test_model.py -v
 
 ## 未來下沉路線
 
-1. **Triton kernel 完整化**：RoPE / KV Cache / Sampling 的逐元素 Triton kernel。
+1. **Triton kernel 完整化**：RoPE / KV Cache / Sampling 的逐元素 Triton kernel（推論 Python 路徑）。
 2. **Gluon**：當 Triton 無法提供足夠硬體控制（Tensor Layout / Shared Memory /
-   Warp / Data Movement）時下沉。
-3. **CUDA C++**：極端效能瓶頸或硬體特化需求時下沉，透過專案根目錄
-   `native/` 標準樹（A221/E186）的 pybind11 延伸編譯。
+   Warp / Data Movement）時下沉（推論 C++ 路徑）。
+3. **CUDA C++（推論 C++ 路徑）**：高吞吐 / 低延遲部署，或極端效能瓶頸、硬體特化需求時啟用，
+   透過專案根目錄 `native/` 標準樹（A221/E186）的 pybind11 延伸編譯；與 Python 路徑共用
+   權重與 tokenizer。訓練不下沉至 C++。
 4. **PTX / SASS**：僅用於極端底層最佳化、效能分析或硬體指令研究，不手寫。
 5. **進階量化**：per-channel / group-wise / AWQ / GPTQ / FP8。
 6. **Apple MPS / Metal**：未來支線。

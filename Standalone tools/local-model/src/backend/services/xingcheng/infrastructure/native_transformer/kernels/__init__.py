@@ -23,6 +23,16 @@ from .quant import (
     pack_int4,
     unpack_int4,
 )
+from .tensor_ops import (
+    activation,
+    gather,
+    gemm,
+    reduce_max,
+    reduce_mean,
+    reduce_sum,
+    scatter_add,
+    softmax,
+)
 
 __all__ = [
     "rms_norm",
@@ -34,4 +44,12 @@ __all__ = [
     "dequantize_per_tensor",
     "pack_int4",
     "unpack_int4",
+    "activation",
+    "gather",
+    "gemm",
+    "reduce_max",
+    "reduce_mean",
+    "reduce_sum",
+    "scatter_add",
+    "softmax",
 ]
