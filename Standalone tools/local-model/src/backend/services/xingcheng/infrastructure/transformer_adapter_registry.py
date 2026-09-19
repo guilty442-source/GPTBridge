@@ -128,13 +128,13 @@ class TransformerAdapterRegistryMixin(TransformerTrainingSchemaMixin):
         quality_gates: Mapping[str, Any],
         passed: bool,
         evaluated_by: str = "star-main-native-model",
+        suite_sha256: str | None = None,
     ) -> dict[str, Any]:
-        """記錄評估結果；通過品質閘門時 candidate → validated。"""
-        suite_metrics = self._canonical_json(
-            {
-                "baseline": dict(baseline_metrics),
-                "adapter": dict(adapter_metrics),
-            }
+        """記錄評估結果；通過品質閘門時 candidate → validated。
+        ``suite_sha256`` 應為評估套件定義的雜湊；缺省時以 suite_id
+        雜湊充當套件身分（UNIQUE(adapter_id, suite_sha256) 去重）。"""
+        suite_digest = str(suite_sha256 or "").strip() or self._sha256_text(
+            str(suite_id)
         )
         evaluation_id = f"star-transformer-eval-{uuid.uuid4().hex[:24]}"
         now = self._now()
@@ -162,7 +162,7 @@ class TransformerAdapterRegistryMixin(TransformerTrainingSchemaMixin):
                     evaluation_id,
                     str(adapter_id),
                     str(suite_id),
-                    self._sha256_text(suite_metrics),
+                    suite_digest,
                     self._canonical_json(dict(baseline_metrics)),
                     self._canonical_json(dict(adapter_metrics)),
                     self._canonical_json(dict(comparison)),
