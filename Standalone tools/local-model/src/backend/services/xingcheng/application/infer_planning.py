@@ -351,7 +351,12 @@ class InferPlanningMixin:
                 task_intensity=str(inference_payload.get("task_intensity") or "normal"),
                 generation_speed=str(inference_payload.get("generation_speed") or "medium"),
                 tier_cap=(
-                    "medium"
+                    # Interactive dialogue must never pay an unload+reload
+                    # cycle (Ollama holds exactly one model on this host), so
+                    # route every intent through the resident model unless the
+                    # user explicitly chose a harder intensity or a concrete
+                    # model.
+                    "resident"
                     if str(inference_payload.get("interaction_mode") or "")
                     .strip()
                     .casefold()
