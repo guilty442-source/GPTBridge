@@ -67,9 +67,13 @@ class StarNativePlanMixin:
         }
         tokenized = cls._tokenize(normalized)
         matched_terms = {
-            intent: [token for token in tokens if token.casefold() in normalized.casefold()]
-            for intent, tokens in cls._INTENTS
-            if intent in intents
+            entry[0]: [
+                token
+                for token in (t for group in entry[1:] for t in group)
+                if token.casefold() in normalized.casefold()
+            ]
+            for entry in cls._INTENTS
+            if entry[0] in intents
         }
         for intent, terms in analysis.matched_terms.items():
             mapped = cls._ENGINE_INTENT_MAP.get(intent, intent)
@@ -224,9 +228,9 @@ class StarNativePlanMixin:
                 matched_terms = {
                     intent: [
                         token
-                        for candidate_intent, tokens in cls._INTENTS
-                        if candidate_intent == intent
-                        for token in tokens
+                        for entry in cls._INTENTS
+                        if entry[0] == intent
+                        for token in (t for group in entry[1:] for t in group)
                         if token.casefold() in context_lower
                     ]
                     for intent in intents
