@@ -52,9 +52,11 @@ class XingChengAttention(nn.Module):
     def _repeat_kv(self, x: torch.Tensor, n_rep: int) -> torch.Tensor:
         if n_rep == 1:
             return x
-        b, _, s, d = x.shape
-        return x[:, :, :, None, :].expand(b, self.num_kv_heads, s, n_rep, d).reshape(
-            b, self.num_kv_heads * n_rep, s, d
+        b, kv_heads, s, d = x.shape
+        return (
+            x[:, :, None, :, :]
+            .expand(b, kv_heads, n_rep, s, d)
+            .reshape(b, kv_heads * n_rep, s, d)
         )
 
     def forward(
@@ -78,12 +80,12 @@ class XingChengAttention(nn.Module):
         if cos is not None and sin is not None:
             q, k = apply_rope(q, k, cos, sin, position_ids=position_ids)
 
-        # KV Cache 接續
+        # KV Cache 接續（回傳值只含本步新增的 K/V）
+        new_kv = (k, v) if use_cache else None
         if use_cache and kv_cache is not None:
             past_k, past_v = kv_cache
             k = torch.cat([past_k, k], dim=2)
             v = torch.cat([past_v, v], dim=2)
-        new_kv = (k, v) if use_cache else None
 
         # GQA：將 KV 重複到與 Q 相同頭數
         n_rep = self.num_heads // self.num_kv_heads
@@ -91,10 +93,12 @@ class XingChengAttention(nn.Module):
         v_rep = self._repeat_kv(v, n_rep)
 
         # Attention via SDPA（自動調度 FlashAttention / mem-efficient / math）
+        # 有 attention_mask 時因果限制已內含於 mask；無 mask 時僅 q/k 等長可用內建 causal
+        is_causal = attention_mask is None and q.size(2) == k.size(2)
         attn = _sdpa_attention(
             q, k_rep, v_rep,
             dropout_p=self.dropout if self.training else 0.0,
-            is_causal=attention_mask is None,  # 無 mask 時用內建 causal
+            is_causal=is_causal,
             attention_mask=attention_mask,
             scaling=self.scaling,
         )
@@ -131,10 +135,13 @@ def _sdpa_attention(
     if attention_mask is not None:
         attn_weights = attn_weights + attention_mask
     if is_causal and attention_mask is None:
-        s = q.size(-2)
-        causal = torch.triu(
-            torch.full((s, s), float("-inf"), device=q.device, dtype=attn_weights.dtype), diagonal=1
-        )
+        q_len, k_len = q.size(-2), k.size(-1)
+        offset = k_len - q_len
+        keys = torch.arange(k_len, device=q.device).unsqueeze(0)
+        queries = torch.arange(q_len, device=q.device).unsqueeze(1) + offset
+        blocked = keys > queries
+        causal = torch.zeros(q_len, k_len, device=q.device, dtype=attn_weights.dtype)
+        causal = causal.masked_fill(blocked, float("-inf"))
         attn_weights = attn_weights + causal
     attn_weights = torch.softmax(attn_weights, dim=-1)
     if dropout_p > 0:

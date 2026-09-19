@@ -28,14 +28,18 @@
 
 from __future__ import annotations
 
+from .checkpoint import FORMAT_VERSION, load_checkpoint, save_checkpoint
 from .config import XingChengConfig
 from .modules.model import XingChengForCausalLM
 from .tokenizer import XingChengTokenizer
 
 __all__ = [
+    "FORMAT_VERSION",
     "XingChengConfig",
     "XingChengForCausalLM",
     "XingChengTokenizer",
+    "load_checkpoint",
+    "save_checkpoint",
     "__version__",
 ]
 

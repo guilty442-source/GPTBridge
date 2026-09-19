@@ -47,13 +47,20 @@ class Generator:
         sampler = Sampler(sampling) if sampling is not None else self.sampler
         input_ids = input_ids.to(self.device)
         b, prefix_len = input_ids.shape
-
+        total_len = prefix_len + max_new
+        if total_len > cfg.max_position_embeddings:
+            raise ValueError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS")
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
+        attention_mask = attention_mask.to(self.device)
 
         # ── Prefill ─────────────────────────────────────────────
+        position_ids = (
+            torch.arange(prefix_len, device=self.device).unsqueeze(0).expand(b, -1)
+        )
         out = self.model(
             input_ids,
+            position_ids=position_ids,
             attention_mask=attention_mask,
             use_cache=use_cache,
         )
@@ -61,23 +68,55 @@ class Generator:
         next_token = sampler.sample(logits, prev_tokens=input_ids)
         generated = [next_token]
 
-        kv_caches = out.get("kv_caches")
-        position = prefix_len
+        cache: KVCache | None = None
+        if use_cache:
+            dtype = next(self.model.parameters()).dtype
+            cache = KVCache(cfg, b, total_len, self.device, dtype)
+            for idx, (k, v) in enumerate(out.get("kv_caches") or []):
+                cache.update(idx, k, v, 0)
 
         # ── Decode ──────────────────────────────────────────────
-        for _ in range(max_new - 1):
-            cur = next_token.unsqueeze(-1)
-            cur_mask = torch.ones_like(cur)
-            step_out = self.model(
-                cur,
-                attention_mask=cur_mask,
-                kv_caches=kv_caches if use_cache else None,
-                use_cache=use_cache,
-            )
+        for step in range(max_new - 1):
+            if cache is not None:
+                past = cache.slice(prefix_len + step)
+                step_mask = torch.cat(
+                    [attention_mask, torch.ones((b, step + 1), device=self.device)],
+                    dim=-1,
+                )
+                step_position_ids = torch.full(
+                    (b, 1), prefix_len + step, device=self.device, dtype=torch.long
+                )
+                step_out = self.model(
+                    next_token.unsqueeze(-1),
+                    position_ids=step_position_ids,
+                    attention_mask=step_mask,
+                    kv_caches=past,
+                    use_cache=True,
+                )
+                for idx, (k, v) in enumerate(step_out["kv_caches"]):
+                    cache.update(idx, k, v, prefix_len + step)
+            else:
+                running = torch.cat(
+                    [input_ids, torch.stack(generated, dim=-1)], dim=-1
+                )
+                step_mask = torch.cat(
+                    [
+                        attention_mask,
+                        torch.ones(
+                            (b, running.size(1) - prefix_len), device=self.device
+                        ),
+                    ],
+                    dim=-1,
+                )
+                step_out = self.model(
+                    running,
+                    attention_mask=step_mask,
+                    use_cache=False,
+                )
             step_logits = step_out["logits"][:, -1, :]
-            next_token = sampler.sample(step_logits, prev_tokens=input_ids)
+            prev = torch.cat([input_ids, torch.stack(generated, dim=-1)], dim=-1)
+            next_token = sampler.sample(step_logits, prev_tokens=prev)
             generated.append(next_token)
-            position += 1
 
             # early stop
             if (next_token == sampler.config.eos_token_id).all():
