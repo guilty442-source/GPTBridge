@@ -28,6 +28,7 @@ class InferTransformerMixin:
             )
             transformer_text = f"{execution_summary}\n\n{transformer_text}"
         output["response"] = transformer_text
+        native_engine_used = bool(transformer_result.get("native_engine"))
         generation = output.get("generation")
         if not isinstance(generation, dict):
             generation = {}
@@ -36,7 +37,11 @@ class InferTransformerMixin:
                 "text": transformer_text,
                 "token_count": int(transformer_result.get("eval_count") or 0),
                 "decoder": transformer_result["decoder"],
-                "model_type": "quantized-local-decoder-transformer",
+                "model_type": (
+                    "native-self-trained-decoder-transformer"
+                    if transformer_result.get("native_engine")
+                    else "quantized-local-decoder-transformer"
+                ),
                 "model": transformer_result["model"],
                 "model_family": transformer_result["model_family"],
                 "parameter_class": transformer_result["parameter_class"],
@@ -49,15 +54,23 @@ class InferTransformerMixin:
             }
         )
         output["generation"] = generation
-        output["mode"] = "governed-local-transformer-llm"
-        output["architecture"] = (
-            "governed-selectable-local-decoder-transformer+"
-            "deterministic-specialists+statistical-safety-fallback"
+        output["mode"] = (
+            "governed-native-transformer-llm"
+            if native_engine_used
+            else "governed-local-transformer-llm"
         )
-        output["external_model_used"] = True
+        output["architecture"] = (
+            "governed-native-self-trained-decoder-transformer"
+            if native_engine_used
+            else (
+                "governed-selectable-local-decoder-transformer+"
+                "deterministic-specialists+statistical-safety-fallback"
+            )
+        )
+        output["external_model_used"] = not native_engine_used
         output["remote_model_used"] = False
-        output["third_party_weights_used"] = True
-        output["loopback_model_runtime_used"] = True
+        output["third_party_weights_used"] = not native_engine_used
+        output["loopback_model_runtime_used"] = not native_engine_used
         output["foundation_model_license"] = transformer_result[
             "foundation_model_license"
         ]
@@ -84,7 +97,7 @@ class InferTransformerMixin:
             else "local-ollama-priority-routing"
         )
         output["delegated"] = False
-        output["star_native_model_used"] = False
+        output["star_native_model_used"] = native_engine_used
         output["external_ai_used"] = False
         candidate = output.get("_training_candidate")
         if isinstance(candidate, dict):
