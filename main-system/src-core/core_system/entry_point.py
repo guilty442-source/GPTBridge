@@ -9,14 +9,19 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any
 
 from ipc.server import run_server
 
-from core_system.main import GPTBridgeApp
 
+async def main(app_instance: Any | None = None) -> None:
+    """Main entry point.
 
-async def main() -> None:
-    """Main entry point."""
+    ``app_instance`` is supplied by the composition root (``main.py``) so this
+    module never imports it back: the class lives in the top-level ``main``
+    module and importing it here would create an import cycle at boot.  The
+    deferred fallback import keeps direct invocation working.
+    """
     parser = argparse.ArgumentParser(description="GPTBridge Mother Tool Entry")
     parser.add_argument(
         "--serve",
@@ -36,7 +41,10 @@ async def main() -> None:
 
     args = parser.parse_args()
 
-    app_instance = GPTBridgeApp()
+    if app_instance is None:
+        from main import GPTBridgeApp
+
+        app_instance = GPTBridgeApp()
 
     try:
         await run_server(

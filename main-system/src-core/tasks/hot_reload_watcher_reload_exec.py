@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .hot_reload_watcher_constants import FAILURE_BACKOFF_SECONDS
+
 
 class ReloadExecutionMixin:
     """Reload execution and decision-sovereign feedback."""

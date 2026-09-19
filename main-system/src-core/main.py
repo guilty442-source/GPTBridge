@@ -65,14 +65,15 @@ class GPTBridgeApp(
     """Main application class composed from lifecycle mixins."""
 
     def __init__(self) -> None:
+        # Governance rules manager (must exist before lifecycle init reads
+        # the governance_rules properties)
+        self._governance_rules_manager = GovernanceRulesManager()
+
         # Initialize lifecycle mixin (sets up all services, sovereigns, integrations)
         AppLifecycleMixin.__init__(self)
 
         # Initialize sub-sovereign registry
         self._sub_sovereign_registry = SubSovereignRegistry(self)
-
-        # Governance rules manager
-        self._governance_rules_manager = GovernanceRulesManager()
 
     # --- Delegate to mixins ---
 

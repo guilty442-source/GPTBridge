@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
+from shared_layer.observability.tracing import get_correlation_context
+
 from .toolbox_constants import (
     _MANAGED_BACKEND_TOOL_ID_ENV,
     _MANAGED_BACKEND_WORKSPACE_ID_ENV,
@@ -151,6 +153,18 @@ class EnvironmentConstructionMixin:
         )
         for key in managed_keys:
             child_env.pop(key, None)
+
+        # Inject trace context into child process environment
+        trace_ctx = get_correlation_context()
+        if trace_ctx.get("correlation_id"):
+            child_env["GPTBRIDGE_TRACE_ID"] = trace_ctx.get("trace_id", "")
+            child_env["GPTBRIDGE_SPAN_ID"] = trace_ctx.get("span_id", "")
+            child_env["GPTBRIDGE_PARENT_ID"] = trace_ctx.get("parent_id", "")
+            child_env["GPTBRIDGE_CORRELATION_ID"] = trace_ctx.get("correlation_id", "")
+            # Inject baggage as JSON
+            if trace_ctx.get("baggage"):
+                child_env["GPTBRIDGE_BAGGAGE"] = json.dumps(trace_ctx.get("baggage", {}))
+
         return child_env
 
     @staticmethod

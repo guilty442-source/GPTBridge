@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import sys
 import time
@@ -34,6 +35,8 @@ from .hot_reload_watcher_constants import (
 )
 from .hot_reload_watcher_health import HotReloadHealthMixin
 from .hot_reload_watcher_reload import HotReloadReloadMixin
+
+_logger = logging.getLogger(__name__)
 
 
 class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):

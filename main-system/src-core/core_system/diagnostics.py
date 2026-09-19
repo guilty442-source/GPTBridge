@@ -6,6 +6,7 @@ Loop stall watchdog, logging utilities, and diagnostic helpers.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 import threading

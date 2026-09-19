@@ -147,6 +147,7 @@ class ServerSingleton:
         return pid not in self._table.commandlines()
 
     def _terminate(self, pid: int, excluded: set[int]) -> bool:
+        """Terminate one old generation; "already gone" counts as success."""
         if pid in excluded:
             return True
         if not self._table.kill(pid):

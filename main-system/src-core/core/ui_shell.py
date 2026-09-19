@@ -4,6 +4,8 @@ import json
 from typing import Any, Dict, Protocol
 import websockets
 
+from shared_layer.observability.tracing import get_correlation_context
+
 
 # Bound every outbound frame: a backpressured or half-dead socket must not
 # stall the shared push loops (status push, state-change notifier, outbox
@@ -28,6 +30,16 @@ class UIShell:
             return
 
     async def send_event(self, event: str, payload: Dict[str, Any]) -> None:
+        # Inject trace context into outgoing event
+        trace_ctx = get_correlation_context()
+        if trace_ctx.get("correlation_id"):
+            payload["_trace_context"] = {
+                "correlation_id": trace_ctx.get("correlation_id", ""),
+                "trace_id": trace_ctx.get("trace_id", ""),
+                "span_id": trace_ctx.get("span_id", ""),
+                "parent_id": trace_ctx.get("parent_id", ""),
+                "baggage": trace_ctx.get("baggage", {}),
+            }
         message = json.dumps({"event": event, "payload": payload}, ensure_ascii=False)
         await self._send(message)
 

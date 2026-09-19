@@ -139,8 +139,6 @@ class AppLifecycleMixin:
         self._active_ws_connections: int = 0
         self._authenticated_ipc_connections: int = 0
 
-        self.governance_rules_read_only = True
-        self.governance_rules = self._load_governance_rules()
         self.startup_phase = "created"
         self.startup_phase_active_since = time.monotonic()
         self.startup_phase_history: list[dict[str, Any]] = []

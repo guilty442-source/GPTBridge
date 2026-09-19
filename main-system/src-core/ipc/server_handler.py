@@ -22,6 +22,8 @@ from tasks.state_change_notifier import StateChangeNotifier
 from tasks.state_outbox import OutboxPublisher
 from .server_commands import process_command_task
 from .server_handler_helpers import _run_heartbeat_monitor, _cleanup_connection
+from shared_layer.observability.tracing import extract_correlation_headers, inject_correlation_headers
+from shared_layer.observability.opentelemetry import instrument_ipc_handler
 
 
 MAX_CONNECTION_COMMAND_TASKS = 32
@@ -164,6 +166,13 @@ async def handler(websocket, app_instance):
                 command = command.strip()
                 if not isinstance(payload, dict):
                     raise ValueError("IPC payload must be a JSON object")
+
+                # Extract trace context from payload and set in current context
+                trace_context = payload.pop("_trace_context", None)
+                if trace_context:
+                    from shared_layer.observability.tracing import set_correlation_id, set_correlation_context
+                    set_correlation_id(trace_context.get("correlation_id", ""))
+                    set_correlation_context(trace_context)
 
                 if command == "task_recovery_decision":
                     resume = bool(payload.get("resume"))
