@@ -56,11 +56,16 @@ class TransformerRuntimeRoutingMixin:
 
     @classmethod
     def _tier_capped_models(cls, installed: set[str], tier_cap: str) -> set[str]:
-        """Restrict the candidate pool to small/medium tiers for latency-
-        sensitive interactive paths.  Empty cap keeps the full pool; an
-        unknown tier or an empty intersection returns an empty set so the
-        caller falls back to the uncapped pool."""
+        """Restrict the candidate pool for latency-sensitive interactive
+        paths.  ``"resident"`` keeps only permanently-resident models so an
+        interactive turn never pays an unload+reload cycle (Ollama is capped
+        at one loaded model on this host).  Tier names keep small/medium
+        tiers.  Empty cap keeps the full pool; an unknown tier or an empty
+        intersection returns an empty set so the caller falls back to the
+        uncapped pool."""
         normalized = str(tier_cap or "").strip().casefold()
+        if normalized == "resident":
+            return installed & set(cls.RESIDENT_MODELS)
         if normalized not in cls.MODEL_SIZE_TIERS:
             return set()
         allowed: set[str] = set()
