@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .training_repo_schema import TransformerTrainingSchemaMixin
+from .transformer_adapter_registry import TransformerAdapterRegistryMixin
 from .transformer_training_repository_audit import (
     TransformerTrainingAuditMixin,
 )
@@ -27,6 +28,7 @@ _STATUS_TABLE_NAMES = (
 
 
 class TransformerTrainingRepository(
+    TransformerAdapterRegistryMixin,
     TransformerTrainingJobsMixin,
     TransformerTrainingDatasetsMixin,
     TransformerTrainingAuditMixin,
