@@ -288,4 +288,64 @@ def dpo_train(
     return summary
 
 
-__all__ = ["DpoConfig", "dpo_loss", "dpo_train"]
+def load_preference_pairs(
+    repository: Any,
+    *,
+    limit: int = 500,
+    min_text_chars: int = 1,
+) -> list[dict[str, str]]:
+    """從角色 DB 讀取已配對偏好語料，過濾不完整列。
+
+    ``repository`` 為任何提供 ``language_preference_pairs()`` 的
+    儲存層（``paired=1`` 列）。回傳列僅保留 ``dpo_train``
+    需要的三個欄位，並帶上 ``pair_id`` 供稽核追溯。
+    """
+    raw = repository.language_preference_pairs(limit=limit)
+    pairs: list[dict[str, str]] = []
+    for row in raw:
+        prompt = str(row.get("prompt_text") or "").strip()
+        chosen = str(row.get("chosen_text") or "").strip()
+        rejected = str(row.get("rejected_text") or "").strip()
+        if (
+            len(prompt) < min_text_chars
+            or len(chosen) < min_text_chars
+            or len(rejected) < min_text_chars
+        ):
+            continue
+        pairs.append(
+            {
+                "pair_id": str(row.get("pair_id") or ""),
+                "prompt_text": prompt,
+                "chosen_text": chosen,
+                "rejected_text": rejected,
+            }
+        )
+    return pairs
+
+
+def dpo_train_from_repository(
+    policy: XingChengForCausalLM,
+    tokenizer: Any,
+    repository: Any,
+    config: DpoConfig,
+    *,
+    output_dir: str | Path,
+    limit: int = 500,
+) -> dict[str, Any]:
+    """從治理儲存層載入偏好對並執行 DPO 訓練。"""
+    pairs = load_preference_pairs(repository, limit=limit)
+    summary = dpo_train(
+        policy, tokenizer, pairs, config, output_dir=output_dir
+    )
+    summary["source"] = "language_preference_pair"
+    summary["pairs_available"] = len(pairs)
+    return summary
+
+
+__all__ = [
+    "DpoConfig",
+    "dpo_loss",
+    "dpo_train",
+    "dpo_train_from_repository",
+    "load_preference_pairs",
+]

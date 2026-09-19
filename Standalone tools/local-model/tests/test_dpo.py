@@ -19,6 +19,8 @@ from xingcheng.infrastructure.native_transformer.training import (
     DpoConfig,
     dpo_loss,
     dpo_train,
+    dpo_train_from_repository,
+    load_preference_pairs,
 )
 
 
@@ -123,3 +125,56 @@ def test_dpo_train_accepts_repository_pair_shape(tmp_path) -> None:
         output_dir=tmp_path / "dpo",
     )
     assert summary["pairs"] == 1
+
+
+class _FakePreferenceRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def language_preference_pairs(self, *, limit=500):
+        return self._rows[:limit]
+
+
+def test_load_preference_pairs_filters_incomplete_rows() -> None:
+    repo = _FakePreferenceRepo(
+        [
+            {
+                "pair_id": "p1",
+                "prompt_text": "  問題一  ",
+                "chosen_text": "  好的答案  ",
+                "rejected_text": "壞的",
+            },
+            {"pair_id": "p2", "prompt_text": "", "chosen_text": "x", "rejected_text": "y"},
+            {"pair_id": "p3", "prompt_text": "q", "chosen_text": "", "rejected_text": "y"},
+        ]
+    )
+    pairs = load_preference_pairs(repo)
+    assert len(pairs) == 1
+    assert pairs[0]["prompt_text"] == "問題一"  # 去空白
+    assert pairs[0]["pair_id"] == "p1"
+
+
+def test_dpo_train_from_repository_end_to_end(tmp_path) -> None:
+    model, tokenizer = _tiny()
+    repo = _FakePreferenceRepo(
+        [
+            {
+                "pair_id": f"pair-{i}",
+                "prompt_text": f"問題 {i}",
+                "chosen_text": f"好的回答 {i}",
+                "rejected_text": "壞",
+            }
+            for i in range(4)
+        ]
+    )
+    summary = dpo_train_from_repository(
+        model,
+        tokenizer,
+        repo,
+        DpoConfig(max_steps=2, batch_size=2, log_every=0, checkpoint_every=0),
+        output_dir=tmp_path / "dpo",
+        limit=10,
+    )
+    assert summary["pairs"] == 4
+    assert summary["source"] == "language_preference_pair"
+    assert summary["pairs_available"] == 4
