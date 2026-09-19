@@ -1,0 +1,58 @@
+{
+  "routes": [
+    {
+      "task_type": "understanding",
+      "model_id": "qwen3.8:27b-q4_K_M",
+      "role": "command-understanding",
+      "priority": 10
+    },
+    {
+      "task_type": "execution",
+      "model_id": "qwen3.6:35b-a3b-coding",
+      "role": "main-engineer",
+      "priority": 9
+    },
+    {
+      "task_type": "inspection",
+      "model_id": "qwen3.8:27b-q4_K_M",
+      "role": "inspector",
+      "priority": 8
+    },
+    {
+      "task_type": "integration",
+      "model_id": "qwen3.8:27b-q4_K_M",
+      "role": "integrator",
+      "priority": 8
+    },
+    {
+      "task_type": "data",
+      "model_id": "ibm/granite4.2:30b-q4_K_M",
+      "role": "data-worker",
+      "priority": 7
+    },
+    {
+      "task_type": "visual",
+      "model_id": "openbmb/minicpm-v4.6:q8_0",
+      "role": "visual-specialist",
+      "priority": 6
+    },
+    {
+      "task_type": "reasoning",
+      "model_id": "deepseek-r1:14b",
+      "role": "reasoning",
+      "priority": 7
+    },
+    {
+      "task_type": "training",
+      "model_id": "gpt-oss:20b",
+      "role": "training-owner",
+      "priority": 5
+    },
+    {
+      "task_type": "general",
+      "model_id": "qwen3.5:9b-q4_K_M",
+      "role": "resident-generalist",
+      "priority": 1
+    }
+  ]
+}
