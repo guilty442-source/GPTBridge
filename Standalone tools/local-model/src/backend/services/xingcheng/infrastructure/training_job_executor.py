@@ -21,7 +21,7 @@ from .transformer_training_repository import TransformerTrainingRepository
 
 _ALLOWED_PRESETS = frozenset({"small", "medium", "base", "large"})
 
-_ALLOWED_TRAINING_KINDS = frozenset({"pretrain", "sft"})
+_ALLOWED_TRAINING_KINDS = frozenset({"pretrain", "sft", "dpo"})
 
 _INT_BOUNDS = {
     "block_size": (512, 1, 4_096),
@@ -78,6 +78,10 @@ def _read_snapshot_documents(path: Path) -> list[dict[str, str]]:
                 document["prompt"] = str(record["prompt"])
             if record.get("completion"):
                 document["completion"] = str(record["completion"])
+            if record.get("chosen"):
+                document["chosen"] = str(record["chosen"])
+            if record.get("rejected"):
+                document["rejected"] = str(record["rejected"])
             documents.append(document)
     return documents
 
@@ -129,6 +133,54 @@ def _default_sft_train_fn(
     return summary
 
 
+def _default_dpo_train_fn(
+    train_documents: list,
+    val_documents: list,
+    configuration: Mapping[str, Any],
+    *,
+    output_dir: Path,
+    resume: Path | None,
+) -> dict[str, Any]:
+    """DPO job trainer: init checkpoint 為 policy，凍結副本為 reference。"""
+    from .native_transformer.bpe import NativeBPETokenizer
+    from .native_transformer.checkpoint import load_checkpoint
+    from .native_transformer.training.dpo import DpoConfig, dpo_train
+
+    tokenizer = NativeBPETokenizer.load(configuration["tokenizer_dir"])
+    init_checkpoint = configuration.get("init_checkpoint") or resume
+    if init_checkpoint is None:
+        raise TrainingJobExecutorError(
+            "EXECUTOR_DPO_REQUIRES_INIT",
+            "DPO requires init_checkpoint as policy/reference anchor",
+        )
+    model = load_checkpoint(init_checkpoint, map_location="cpu")["model"]
+    pairs = [
+        {
+            "prompt_text": doc.get("prompt") or "",
+            "chosen_text": doc["chosen"],
+            "rejected_text": doc["rejected"],
+        }
+        for doc in (*train_documents, *val_documents)
+        if doc.get("chosen") and doc.get("rejected")
+    ]
+    config = DpoConfig(
+        beta=float(configuration.get("beta") or 0.1),
+        lr=float(configuration["lr"]),
+        max_steps=int(configuration["max_steps"]),
+        batch_size=int(configuration["batch_size"]),
+        max_seq_len=int(configuration.get("max_length") or 256),
+        log_every=int(configuration.get("log_every") or 10),
+        checkpoint_every=int(configuration.get("checkpoint_every") or 50),
+        seed=int(configuration.get("seed") or 42),
+        device=configuration.get("device"),
+    )
+    summary = dpo_train(
+        model, tokenizer, pairs, config, output_dir=output_dir, resume=resume
+    )
+    summary["final_checkpoint"] = str(Path(output_dir) / "final.pt")
+    return summary
+
+
 def _default_train_fn(
     train_documents: list,
     val_documents: list,
@@ -137,8 +189,17 @@ def _default_train_fn(
     output_dir: Path,
     resume: Path | None,
 ) -> dict[str, Any]:
-    """Default trainer: pretraining, or masked-loss SFT when requested."""
-    if str(configuration.get("training_kind") or "pretrain") == "sft":
+    """Default trainer: pretraining, masked-loss SFT, or DPO."""
+    kind = str(configuration.get("training_kind") or "pretrain")
+    if kind == "dpo":
+        return _default_dpo_train_fn(
+            train_documents,
+            val_documents,
+            configuration,
+            output_dir=output_dir,
+            resume=resume,
+        )
+    if kind == "sft":
         return _default_sft_train_fn(
             train_documents,
             val_documents,
@@ -312,6 +373,18 @@ class TrainingJobExecutor:
             )
         configuration["lr"] = lr
 
+        try:
+            beta = float(raw.get("beta", 0.1))
+        except (TypeError, ValueError) as exc:
+            raise TrainingJobExecutorError(
+                "EXECUTOR_CONFIG_INVALID", "beta must be numeric"
+            ) from exc
+        if not 0.001 <= beta <= 1.0:
+            raise TrainingJobExecutorError(
+                "EXECUTOR_CONFIG_INVALID", "beta outside bounded range [0.001, 1.0]"
+            )
+        configuration["beta"] = beta
+
         preset = str(raw.get("preset") or "small")
         if preset not in _ALLOWED_PRESETS:
             raise TrainingJobExecutorError(
@@ -339,6 +412,11 @@ class TrainingJobExecutor:
             configuration["init_checkpoint"] = init_path
         else:
             configuration["init_checkpoint"] = None
+        if training_kind == "dpo" and configuration["init_checkpoint"] is None:
+            raise TrainingJobExecutorError(
+                "EXECUTOR_DPO_REQUIRES_INIT",
+                "DPO requires init_checkpoint as policy/reference anchor",
+            )
 
         device = raw.get("device")
         configuration["device"] = str(device) if device else None
@@ -520,9 +598,9 @@ class TrainingJobExecutor:
             lifecycle = self._lifecycle(str(configuration["model_id"]))
             self._lifecycle_advance(
                 lifecycle,
-                "SFT_TRAINING"
-                if configuration["training_kind"] == "sft"
-                else "PRETRAINING",
+                "PRETRAINING"
+                if configuration["training_kind"] == "pretrain"
+                else "SFT_TRAINING",
                 f"job {job_id} started",
             )
             self.repository.transition_training_job(job_id, "training")
@@ -583,9 +661,9 @@ class TrainingJobExecutor:
                     )
                     self._lifecycle_advance(
                         lifecycle,
-                        "INSTRUCT_READY"
-                        if configuration["training_kind"] == "sft"
-                        else "PRETRAINED",
+                        "PRETRAINED"
+                        if configuration["training_kind"] == "pretrain"
+                        else "INSTRUCT_READY",
                         f"job {job_id} completed",
                     )
                 except Exception:
