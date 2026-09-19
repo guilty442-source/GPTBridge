@@ -14,6 +14,7 @@ from .corpus import (
     iter_documents,
     read_corpus,
 )
+from .dpo import DpoConfig, dpo_loss, dpo_train
 from .optimizer import build_optimizer
 from .data import TextDataset, collate_batch
 from .pretrain import (
@@ -27,6 +28,7 @@ from .trainer import Trainer, TrainingConfig, make_dataloader
 
 __all__ = [
     "CorpusDocument",
+    "DpoConfig",
     "PretrainConfig",
     "TextDataset",
     "Trainer",
@@ -34,6 +36,8 @@ __all__ = [
     "build_corpus",
     "build_optimizer",
     "collate_batch",
+    "dpo_loss",
+    "dpo_train",
     "encode_documents",
     "evaluate",
     "iter_documents",

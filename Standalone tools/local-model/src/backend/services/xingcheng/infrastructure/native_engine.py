@@ -57,7 +57,7 @@ def configured_checkpoint_path() -> Path:
         return Path(override)
     directory = default_checkpoint_dir()
     candidates = sorted(
-        directory.glob("*.pt"), key=lambda item: item.stat().st_mtime, reverse=True
+        directory.rglob("*.pt"), key=lambda item: item.stat().st_mtime, reverse=True
     ) if directory.is_dir() else []
     if candidates:
         return candidates[0]
