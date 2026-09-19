@@ -3,9 +3,11 @@
 對應技術棧：
   ATen / Dispatcher / Torch C++ Backend
     → 高效能數學與 Kernel (BLAS / oneDNN / cuBLASLt / cuDNN / FlashAttention)
-    → Triton / Gluon / CUDA
-    → PTX / SASS
+    → Triton（PyTorch 生態內自研 kernel 選項）
     → CPU / NVIDIA GPU / (Apple MPS)
+
+  （Gluon / CUDA C++ / PTX / SASS 屬後續自研推論引擎範疇，
+   不在本模型範圍 — 主線裁決 2026-09-19）
 
 本模組在 Python 層偵測可用後端，並提供統一的裝置 / dtype / backend 描述物件，
 讓上層模組可依硬體能力選擇最佳路徑（例如 Attention 自動使用 FlashAttention、

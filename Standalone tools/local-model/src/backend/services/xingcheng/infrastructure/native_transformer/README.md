@@ -54,6 +54,48 @@ PyTorch Transformer 原生實作。
    負責成熟高效數學運算；Triton / Gluon 負責星澄自研 GPU Kernel；
    CUDA / PTX 負責極低階 NVIDIA GPU 最佳化。
 
+## 第一版範圍（V1 Scope）
+
+模型本身以 **Python + PyTorch 全棧**建立，不自行開發 C++ Tensor Library：
+
+```
+星澄原生模型
+    │
+    ├─ Python
+    │   ├─ Tokenizer 接入
+    │   ├─ Transformer 架構
+    │   ├─ Attention
+    │   ├─ Feed Forward
+    │   ├─ Training Loop
+    │   ├─ Optimizer
+    │   ├─ Checkpoint
+    │   └─ Inference API
+    │
+    └─ PyTorch
+        ├─ Autograd
+        ├─ ATen / C++ Backend
+        └─ CUDA / GPU Acceleration
+```
+
+PyTorch 已提供 ATen / C++ Backend 與 CUDA / GPU 加速，第一版只撰寫 Python 模型、
+訓練流程與 Inference API，直接使用其底層高效能運算；第一版的驗收目標是
+**能訓練、能生成文字、能儲存權重並重新載入**。
+
+| V1 項目 | 對應實作 |
+|---------|----------|
+| Tokenizer 接入 | `tokenizer.py`, `bpe.py` |
+| Transformer 架構 | `modules/model.py`, `config.py` |
+| Attention | `modules/attention.py`（MHA / GQA + RoPE + SDPA） |
+| Feed Forward | `modules/mlp.py`（SwiGLU） |
+| Training Loop | `training/trainer.py`, `training/pretrain.py`, `training/sft.py`, `training/dpo.py` |
+| Optimizer | `training/optimizer.py`（AdamW / SGD，PyTorch 內建） |
+| Checkpoint | `checkpoint.py`（存讀、原子寫入、雜湊驗證、續訓） |
+| Inference API | `inference/*.py`（KV cache / sampler / generate） |
+| Autograd / ATen / CUDA | 由 PyTorch 提供 |
+
+**不在 V1 範圍**：自研 C++ Tensor Library、自寫 GEMM / CUDA Kernel（Triton / Gluon /
+CUDA C++ 為後續效能下沉階段）；推論的 C++ 路徑（`native/` 標準樹）屬於後續階段，不在此列。
+
 ## 套件結構
 
 ```
@@ -110,15 +152,18 @@ native_transformer/
 
 ## 後端下沉策略
 
-每個自研運算提供三層實作，依硬體能力自動選擇：
+每個自研運算提供兩層實作，依硬體能力自動選擇：
 
 ```
 Triton kernel (GPU 首選，IO-aware、operator fusion)
   ↓ Triton 不可用 / 非 CUDA / kernel 編譯失敗
-PyTorch 參考實作 (CPU / 無 Triton 環境)
-  ↓ 極端效能瓶頸
-Gluon / CUDA C++ (預留，未來下沉)
+PyTorch 參考實作 (CPU / 無 Triton 環境)  ← 正式保證路徑
 ```
+
+> **主線裁決（2026-09-19）**：本模型以 Python + PyTorch 寫出完整模型
+> （訓練與推論皆是）。C++ 系下沉（`native/` pybind11 / Gluon / CUDA C++ /
+> PTX / SASS）**留給後續自研推論引擎**承接——屆時作為推論專屬路徑，
+> 與本 Python 路徑共用同一組權重、tokenizer 與語意契約。
 
 Attention 一律優先走 `F.scaled_dot_product_attention`，由 PyTorch 內部調度
 FlashAttention / mem-efficient / math 三條路徑；GEMM / Linear 由 PyTorch
@@ -198,16 +243,22 @@ python native_transformer\tests\test_model.py -v
 - **`native_transformer/`（本套件）**：真正可訓練 / 可推理 / 可量化的
   PyTorch Transformer 原生模型，逐步取代外部依賴，實現「完全本地執行」目標。
 
-## 未來下沉路線
+## 未來路線
 
-1. **Triton kernel 完整化**：RoPE / KV Cache / Sampling 的逐元素 Triton kernel（推論 Python 路徑）。
-2. **Gluon**：當 Triton 無法提供足夠硬體控制（Tensor Layout / Shared Memory /
-   Warp / Data Movement）時下沉（推論 C++ 路徑）。
-3. **CUDA C++（推論 C++ 路徑）**：高吞吐 / 低延遲部署，或極端效能瓶頸、硬體特化需求時啟用，
-   透過專案根目錄 `native/` 標準樹（A221/E186）的 pybind11 延伸編譯；與 Python 路徑共用
-   權重與 tokenizer。訓練不下沉至 C++。
-4. **PTX / SASS**：僅用於極端底層最佳化、效能分析或硬體指令研究，不手寫。
-5. **進階量化**：per-channel / group-wise / AWQ / GPTQ / FP8。
-6. **Apple MPS / Metal**：未來支線。
-7. **JAX + XLA**：研究 / 架構實驗支線，不納入第一版正式核心。
-8. **TensorFlow**：僅保留為相容 / 研究選項，不與 PyTorch 主架構同時作為正式依賴。
+主線（本模型核心，Python + PyTorch）：
+
+1. **Triton kernel 完整化**：RoPE / KV Cache / Sampling 的逐元素 Triton kernel
+   （PyTorch 生態內選項，有 CUDA+Triton 環境才啟用）。
+2. **進階量化**：per-channel / group-wise / AWQ / GPTQ / FP8。
+3. **Apple MPS / Metal**：未來支線。
+4. **JAX + XLA**：研究 / 架構實驗支線，不納入第一版正式核心。
+5. **TensorFlow**：僅保留為相容 / 研究選項，不與 PyTorch 主架構同時作為正式依賴。
+
+後續自研推論引擎（C++ 範疇，承接時與 Python 路徑共用權重、tokenizer 與
+語意契約；訓練永不涉 C++）：
+
+- **Gluon**：Triton 無法提供足夠硬體控制（Tensor Layout / Shared Memory /
+  Warp / Data Movement）時的下沉選項。
+- **CUDA C++**：高吞吐 / 低延遲部署或硬體特化需求，走 `native/` 標準樹
+  （A221/E186）pybind11 延伸。
+- **PTX / SASS**：極端底層最佳化 / 效能分析 / 硬體指令研究，不手寫。
