@@ -189,6 +189,15 @@ def pretrain(
                 model = torch.compile(model, mode="reduce-overhead")  # type: ignore[attr-defined]
             elif getattr(config, "use_torch_compile", False):
                 model = torch.compile(model, mode="reduce-overhead")
+            # cudagraphs：RoPE 表是跨步快取的模組狀態，若在 graph 內首次
+            # 建立會變成 graph 輸出（下一輪被覆寫 → 存取即炸）。改在
+            # compile 後 eager 預建，讓其成為穩定的 graph 外部輸入。
+            _orig = getattr(model, "_orig_mod", model)
+            _backbone = getattr(_orig, "model", None)
+            if _backbone is not None and hasattr(_backbone, "_ensure_rope_tables"):
+                _backbone._ensure_rope_tables(
+                    device, next(model.parameters()).dtype
+                )
         except Exception:
             pass
     model.train()
@@ -236,7 +245,19 @@ def pretrain(
     plan = _precision_plan(device, config)
     scaler = plan.scaler()
 
+    # reduce-overhead 走 cudagraphs：每步開始前必須標記 step boundary，
+    # 否則快取在模組上的 RoPE 表（上一輪 graph 輸出）再被存取時會觸發
+    # "accessing tensor output of CUDAGraphs that has been overwritten"。
+    # 僅 CUDA 需要；CPU 呼叫會 eager 匯入 inductor（Windows cp950 會炸）。
+    _mark_step_begin = (
+        getattr(torch.compiler, "cudagraph_mark_step_begin", None)
+        if device.type == "cuda"
+        else None
+    )
+
     for step in range(start_step, config.max_steps):
+        if _mark_step_begin is not None:
+            _mark_step_begin()
         scale = _lr_scale(step, config)
         for group in optimizer.param_groups:
             group["lr"] = config.lr * scale
