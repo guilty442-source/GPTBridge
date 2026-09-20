@@ -93,20 +93,20 @@ class XingChengAttention(nn.Module):
             k = torch.cat([past_k, k], dim=2)
             v = torch.cat([past_v, v], dim=2)
 
-        # GQA：將 KV 重複到與 Q 相同頭數
+        # GQA：優先讓 SDPA 原生處理 head ratio，避免物化重複 KV。
         n_rep = self.num_heads // self.num_kv_heads
-        k_rep = self._repeat_kv(k, n_rep)
-        v_rep = self._repeat_kv(v, n_rep)
+        use_native_gqa = n_rep > 1
 
         # Attention via SDPA（自動調度 FlashAttention / mem-efficient / math）
         # 有 attention_mask 時因果限制已內含於 mask；無 mask 時僅 q/k 等長可用內建 causal
         is_causal = attention_mask is None and q.size(2) == k.size(2)
         attn = dispatch_attention(
-            q, k_rep, v_rep,
+            q, k, v,
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=is_causal,
             attention_mask=attention_mask,
             scaling=self.scaling,
+            enable_gqa=use_native_gqa,
         )
         attn = attn.transpose(1, 2).contiguous().view(b, s, self.num_heads * self.head_dim)
         return self.o_proj(attn), new_kv
@@ -121,13 +121,14 @@ def dispatch_attention(
     is_causal: bool,
     attention_mask: torch.Tensor | None,
     scaling: float,
+    enable_gqa: bool = False,
 ) -> torch.Tensor:
     """統一入口：Native Dispatch（C++ 核心）→ SDPA → 手動 softmax。
 
     依 A219，原生核心不可用、未達門檻或 parity 未通過時一律回退
     PyTorch 路徑；推論結果在容差內等價。
     """
-    if dropout_p <= 0:
+    if dropout_p <= 0 and not enable_gqa:
         native = native_attention(
             q, k, v,
             scale=scaling,
@@ -142,6 +143,7 @@ def dispatch_attention(
         is_causal=is_causal,
         attention_mask=attention_mask,
         scaling=scaling,
+        enable_gqa=enable_gqa,
     )
 
 
@@ -154,6 +156,7 @@ def _sdpa_attention(
     is_causal: bool,
     attention_mask: torch.Tensor | None,
     scaling: float,
+    enable_gqa: bool = False,
 ) -> torch.Tensor:
     """統一入口：優先 FlashAttention via SDPA，否則手動 softmax。"""
     cap = capabilities()
@@ -166,10 +169,28 @@ def _sdpa_attention(
                 dropout_p=dropout_p if dropout_p > 0 else 0.0,
                 is_causal=is_causal and attention_mask is None,
                 scale=scaling,
+                enable_gqa=enable_gqa,
             )
         except Exception:
-            pass
+            if enable_gqa:
+                n_rep = q.size(1) // k.size(1)
+                k = k.repeat_interleave(n_rep, dim=1)
+                v = v.repeat_interleave(n_rep, dim=1)
+                try:
+                    return F.scaled_dot_product_attention(
+                        q, k, v,
+                        attn_mask=attention_mask,
+                        dropout_p=dropout_p if dropout_p > 0 else 0.0,
+                        is_causal=is_causal and attention_mask is None,
+                        scale=scaling,
+                    )
+                except Exception:
+                    pass
     # 手動 fallback（CPU / 舊 PyTorch）
+    if enable_gqa and q.size(1) != k.size(1):
+        n_rep = q.size(1) // k.size(1)
+        k = k.repeat_interleave(n_rep, dim=1)
+        v = v.repeat_interleave(n_rep, dim=1)
     attn_weights = torch.matmul(q, k.transpose(-1, -2)) * scaling
     if attention_mask is not None:
         attn_weights = attn_weights + attention_mask
