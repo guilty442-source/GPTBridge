@@ -288,15 +288,11 @@ class NativeTransformerEngine:
                 self.device
             )
         if self.device.type == "cpu":
-            # CPU 路徑限制執行緒數，避免與主系統爭用全部核心。
-            import torch as _torch
+            # CPU 路徑限制執行緒數，避免與主系統爭用全部核心（R8 統一入口）。
+            from .native_transformer.execution.backend import apply_cpu_thread_budget
 
             try:
-                _torch.set_num_threads(cpu_thread_budget())
-            except Exception:
-                pass
-            try:
-                _torch.set_num_interop_threads(1)
+                apply_cpu_thread_budget("inference", configured=cpu_thread_budget())
             except Exception:
                 pass
         # CUDA / MPS 走 bf16（Tensor Core GEMM + mem-efficient attention）；

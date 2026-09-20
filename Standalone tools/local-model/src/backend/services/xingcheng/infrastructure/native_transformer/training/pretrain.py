@@ -429,22 +429,13 @@ def build_model_config(preset: str, tokenizer: Any, block_size: int) -> XingChen
 
 
 def limit_cpu_threads(device: str | None = None, *, threads: int = 0) -> int:
-    """CPU 訓練時限制執行緒數，避免與主系統爭用全部核心。"""
+    """CPU 訓練時限制執行緒數，避免與主系統爭用全部核心（R8 統一入口）。"""
     resolved = resolve_device(device)
     if resolved.type != "cpu":
         return 0
-    import os as _os
+    from ..execution.backend import apply_cpu_thread_budget
 
-    import torch as _torch
-
-    budget = int(threads) if int(threads) > 0 else max(1, min(8, (_os.cpu_count() or 8) // 2))
-    budget = max(1, min(16, budget))
-    _torch.set_num_threads(budget)
-    try:
-        _torch.set_num_interop_threads(1)
-    except Exception:
-        pass
-    return budget
+    return apply_cpu_thread_budget("training", configured=int(threads))
 
 
 def main(argv: list[str] | None = None) -> int:
