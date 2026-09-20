@@ -24,7 +24,19 @@ def build_optimizer(
     kind: str = "adamw",
 ) -> torch.optim.Optimizer:
     if kind == "adamw":
-        return optim.AdamW(params, lr=lr, weight_decay=weight_decay, betas=betas, eps=eps)
+        parameter_list = list(params)
+        kwargs = {
+            "lr": lr,
+            "weight_decay": weight_decay,
+            "betas": betas,
+            "eps": eps,
+        }
+        if parameter_list and parameter_list[0].device.type == "cuda":
+            try:
+                return optim.AdamW(parameter_list, fused=True, **kwargs)
+            except (TypeError, RuntimeError):
+                pass
+        return optim.AdamW(parameter_list, **kwargs)
     if kind == "sgd":
         return optim.SGD(params, lr=lr, weight_decay=weight_decay, momentum=0.9)
     raise ValueError(f"未知 optimizer kind: {kind}")
