@@ -6,6 +6,7 @@ from .resource_identity import PLATFORM_ID, ResourceIdentity, XINGCHENG_MODULE_I
 from .locator import GovernedLocatorResolver, RegistryLocatorResolver, ResolvedOwnerResource
 from .module_locator_repository import ModuleLocatorRepository
 from .startup import SharedLayerStartup, StartupReport
+from .tokenizer import TokenizerWrapper, Token, create_tokenizer
 
 __all__ = (
     "AsyncCache",
@@ -24,4 +25,7 @@ __all__ = (
     "StartupReport",
     "cache_key",
     "cached",
+    "TokenizerWrapper",
+    "Token",
+    "create_tokenizer",
 )
