@@ -368,6 +368,88 @@ class RagMetadataReconciliationMixin:
             )
             return []
 
+    async def list_index_state_details(
+        self, module_id: Optional[str] = None
+    ) -> Optional[list[dict[str, Any]]]:
+        """§10.6 parity sweep: per-resource index_state detail for every
+        non-tombstoned row (any status — status drift is itself a signal)."""
+        if not self._healthy or not self._conn:
+            return None
+        try:
+            async with self._conn.cursor() as cur:
+                base = (
+                    """SELECT s.resource_id, s.module_id, s.chunk_count,
+                              s.content_hash, s.embedding_model, s.embedding_version,
+                              s.source_revision, s.chunking_version, s.parser_version,
+                              s.rag_schema_version, s.status
+                       FROM gptbridge_rag.index_state s
+                       WHERE NOT EXISTS (
+                           SELECT 1 FROM gptbridge_rag.tombstone t
+                           WHERE t.module_id = s.module_id
+                             AND t.resource_id = s.resource_id
+                             AND t.purged IS NOT TRUE)"""
+                )
+                if module_id:
+                    await cur.execute(
+                        base + " AND s.module_id = %s", (module_id,)
+                    )
+                else:
+                    await cur.execute(base)
+                rows = await cur.fetchall()
+            return [
+                {
+                    "resource_id": str(r[0]),
+                    "module_id": str(r[1]),
+                    "chunk_count": int(r[2] or 0),
+                    "content_hash": str(r[3] or ""),
+                    "embedding_model": str(r[4] or ""),
+                    "embedding_version": int(r[5] or 0),
+                    "source_revision": int(r[6] or 1),
+                    "chunking_version": int(r[7] or 1),
+                    "parser_version": int(r[8] or 1),
+                    "rag_schema_version": int(r[9] or 1),
+                    "status": str(r[10] or ""),
+                }
+                for r in rows
+            ]
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: list_index_state_details failed: %s",
+                exc,
+            )
+            return None
+
+    async def chunk_count_by_resource(
+        self, module_id: Optional[str] = None
+    ) -> Optional[dict[tuple[str, str], int]]:
+        """§10.6 parity sweep: actual PG chunk rows per (module, resource)."""
+        if not self._healthy or not self._conn:
+            return None
+        try:
+            async with self._conn.cursor() as cur:
+                if module_id:
+                    await cur.execute(
+                        """SELECT module_id, resource_id, COUNT(*)
+                           FROM gptbridge_rag.chunk
+                           WHERE module_id = %s
+                           GROUP BY module_id, resource_id""",
+                        (module_id,),
+                    )
+                else:
+                    await cur.execute(
+                        """SELECT module_id, resource_id, COUNT(*)
+                           FROM gptbridge_rag.chunk
+                           GROUP BY module_id, resource_id"""
+                    )
+                rows = await cur.fetchall()
+            return {(str(r[0]), str(r[1])): int(r[2]) for r in rows}
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: chunk_count_by_resource failed: %s",
+                exc,
+            )
+            return None
+
     # -- RAG-11: generation registry -------------------------------------------
 
     async def upsert_generation(self, generation: Any) -> bool:
