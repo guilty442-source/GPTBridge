@@ -93,7 +93,13 @@ def test_sampling_generate() -> None:
     cfg = _small_config()
     model = XingChengForCausalLM(cfg)
     sampler = Sampler(
-        SamplingConfig(do_sample=True, temperature=0.8, top_k=10, top_p=0.9)
+        SamplingConfig(
+            do_sample=True,
+            temperature=0.8,
+            top_k=10,
+            top_p=0.9,
+            eos_token_id=-1,
+        )
     )
     gen = Generator(model, sampler=sampler, device="cpu")
     ids = torch.randint(4, cfg.vocab_size, (1, 4))
