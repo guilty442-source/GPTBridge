@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Any, Mapping
 
 
-@dataclass
+@dataclass(slots=True)
 class XingChengConfig:
     """星澄 Transformer 解碼器設定。"""
 

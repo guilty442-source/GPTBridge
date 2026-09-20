@@ -109,44 +109,36 @@ worktrees are clean, governance audits pass, integration succeeds, and
 `origin/main` is an ancestor of local `main`. Workers and self-commit watchers
 must never push directly.
 
-## Supervised Full-System Automation
+## Git Automation (main-system task)
 
-The automation supervisor owns the entire parallel pipeline as one persistent,
-self-restarting service: it spawns one self-commit watcher per registered
-worktree, periodically runs the conflict-safe synchronizer, and records its
-state in `.git/gptbridge-automation/`. Use the wrapper from any checkout:
+The old `automation_supervisor` process fleet (one watcher process per
+worktree + periodic sync) is replaced by a single in-process main-system
+task: `GitAutomationService`
+(`main-system/src-core/tasks/git_automation.py`), started by the startup
+executor in the normal-information phase (`app.git_automation`).
 
-```powershell
-# status / start / stop
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --status
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --start
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --stop
+- **Commit sweep** every 60 s: runs `self_commit.run_once` per registered
+  worktree, but only after the dirty fingerprint has been stable for a
+  60 s debounce — same stability contract as the old watchers, zero extra
+  processes.
+- **Sync cycle** every 300 s: runs `workspace_sync.synchronize`
+  (commit → merge worker branches into `main` → audit → fast-forward).
+  Conflicts stop that cycle until a human resolves them.
+- Locking, merge/rebase guards, audit recording and the no-push rule all
+  stay in the governed `git_tiers` functions; the task only schedules.
 
-# cross-reboot persistence (per-user Run key: no elevation needed)
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --install-logon
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --uninstall-logon
+State: `main-system/runtime/state/git-automation.json`. One-shot
+verification (first sweep only debounces; real sync commits dirty
+worktrees — run when the tree is in a state you want committed):
 
-# optional: Task Scheduler logon job (requires an elevated shell)
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --install-task
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --uninstall-task
+```python
+from tasks.git_automation import GitAutomationService
+svc = GitAutomationService(r"E:\GPTBridge")
+await svc.run_once_cycle()   # one sweep + one sync
 ```
 
-Design notes:
-
-- Double-start is safe: a second supervisor exits when the lock is busy
-  (`LockBusyError`), delete the lock file only to force yourself to replace a
-  hung instance (`Stop-Process` its pid first).
-- Watchers auto-commit their own worktree after a stability debounce; the
-  supervisor never pushes unless `--push` was used at start time.
-- If a sync cycle reports `error:dirty-worktree:<path>` it means a worktree
-  (usually the main checkout while an external worker is mid-edit) is still
-  uncommitted; the next cycle absorbs it once the tree settles and the
-  governance audit passes. This is the intended parallel-update behaviour.
-- Local-worker branches (`git`, `local-model`, `rag`, `ui` and the `kilo`
-  worktrees) are merged into `main` by the coordinator; conflicts stop the
-  cycle until a human resolves them.
-
-Implementation: `governance_rule/execution/git_tiers/automation_supervisor.py`.
+The legacy `scripts/git-supervisor.py` entry point still works but is no
+longer the default path — prefer the in-process task.
 
 ## 星澄 Self-Learning & Automatic Upgrade
 
@@ -188,6 +180,60 @@ Run from `Standalone tools\local-model\src\backend\services` (the package root).
 
 Implementation: `native_transformer/self_learning.py` +
 `native_transformer/self_learning_support.py`.
+
+## 星澄 Model Maturity (`star-model-maturity/v1`)
+
+Unified maturity ladder; the certified level is decided **only by executed
+tests** — parameter count is recorded as evidence, never a criterion.
+Levels must pass consecutively; the first `fail`/`skipped` level caps the
+certification.
+
+| Level | Code | Gate |
+| --- | --- | --- |
+| 0 | `structure_init` | 結構初始化、參數全 finite |
+| 1 | `forward_backward` | forward loss finite、全參數有梯度、optimizer step 後 logits finite |
+| 2 | `overfit_small` | 固定 8 樣本過擬合：loss ≤ 0.5 或 ≤ 20% 初始值（測完還原權重） |
+| 3 | `effective_pretrain` | held-out ppl ≤ 25% × vocab_size（對齊 random-uniform 基線） |
+| 4 | `generation` | ≥75% 探針產生足量、多樣、非退化文本 |
+| 5 | `dialogue_instruction` | ≥75% 對話探針通過（回合邊界、逐字複誦、限定回答、多輪記憶） |
+| 6 | `reasoning_tools` | 可驗證算術/比較 + `<tool_call>` schema 合法，通過率 ≥50% 且 tool call 有效 |
+| 7 | `controlled_evolution` | kill-switch fail-closed 實測 + lifecycle register/activate/rollback 實測 + 受管升級證據（self-learning 報告或 ≥2 代權重 + ≥1 評估報告） |
+
+```powershell
+# full ladder against a trained checkpoint
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --checkpoint <final.pt> --tool-root "Standalone tools\local-model" --device cpu --save
+
+# architecture-only ladder (L0-L2; L3+ reports skipped)
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --preset small
+
+# latest certified level
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --status --tool-root "Standalone tools\local-model"
+```
+
+Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
+`xingcheng/runtime/state/model-maturity.json`. Implementation:
+`native_transformer/maturity.py` (`certify`, `current_maturity`,
+`persist_report`).
+
+## 星澄 Data Retention (`star-retention-policy/v1`)
+
+Bounds local-model runtime growth: old governed job dirs, logs, maturity /
+self-learning reports and SFT snapshots are pruned by count and age.
+**Never deletes** paths referenced by any `lifecycle.json` artifact version
+or the checkpoint pinned in `runtime/settings/native-engine.json`
+(unresolvable paths are fail-closed kept). Deletions append to
+`xingcheng/runtime/logs/retention.jsonl`. Policy:
+`runtime/settings/retention.json` (`enabled=false` disables everything).
+Runs automatically at the end of every self-learning cycle; manual:
+
+```powershell
+# dry-run (default) / apply / status
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model"
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model" --apply
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model" --status
+```
+
+Implementation: `native_transformer/retention.py` (`apply_retention`).
 
 ## On-Demand Model Activation (Lazy 星澄)
 

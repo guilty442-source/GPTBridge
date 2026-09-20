@@ -184,11 +184,23 @@ def run_cycle(
     force: bool = False,
 ) -> dict[str, Any]:
     """執行一次自我學習循環；回傳結構化結果（永不自行 raise 至呼叫端外）。"""
+    from .retention import apply_retention
     from .self_learning_support import run_cycle_impl
 
-    return run_cycle_impl(
+    result = run_cycle_impl(
         tool_root, policy=policy, train_fn=train_fn, force=force
     )
+    # kill-switch 關閉時連清理都不做（fail-closed：整條管線靜默）
+    if isinstance(result, dict) and result.get("action") == "disabled":
+        return result
+    try:
+        retention = apply_retention(tool_root)
+    except Exception as exc:  # 清理失敗不影響訓練結果，只留證據
+        retention = {"ok": False, "error": f"{type(exc).__name__}:{exc}"}
+    if isinstance(result, dict):
+        result = dict(result)
+        result["retention"] = retention
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:

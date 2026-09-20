@@ -163,7 +163,7 @@ class XingChengForCausalLM(nn.Module):
         return out
 
     # ── 便利方法 ────────────────────────────────────────────────
-    @torch.no_grad()
+    @torch.inference_mode()
     def num_parameters(self, only_trainable: bool = True) -> int:
         return sum(
             p.numel() for p in self.parameters() if (p.requires_grad or not only_trainable)

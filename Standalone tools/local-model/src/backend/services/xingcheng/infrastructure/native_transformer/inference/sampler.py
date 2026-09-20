@@ -29,7 +29,7 @@ class Sampler:
     def __init__(self, config: SamplingConfig) -> None:
         self.config = config
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def sample(self, logits: torch.Tensor, *, prev_tokens: torch.Tensor | None = None) -> torch.Tensor:
         """logits: (B, vocab) → next_tokens: (B,)。速度：greedy 快路徑零拷貝，sampling 僅必要時 clone。"""
         cfg = self.config

@@ -193,7 +193,7 @@ def _precision_plan(device: torch.device, config: SFTConfig):
     return resolve_precision(device, requested)
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def evaluate_sft(
     model: XingChengForCausalLM,
     loader: DataLoader,
@@ -288,73 +288,77 @@ def sft_train(
     started = time.time()
     step = start_step
     last_eval: dict[str, float] = {}
+    train_iterator = iter(train_loader)
     while step < config.max_steps:
-        for input_ids, labels, attention in train_loader:
-            if step >= config.max_steps:
-                break
-            scale = _lr_scale(step, config)
-            for group in optimizer.param_groups:
-                group["lr"] = config.lr * scale
-            optimizer.zero_grad(set_to_none=True)
-            accumulated = 0.0
-            for _ in range(config.grad_accum):
-                batch_ids = input_ids.to(device)
-                batch_labels = labels.to(device)
-                batch_attention = attention.to(device)
-                with plan.autocast():
-                    out = model(batch_ids, labels=batch_labels, attention_mask=batch_attention)
-                    loss = out["loss"] / config.grad_accum
-                if scaler is not None:
-                    scaler.scale(loss).backward()
-                else:
-                    loss.backward()
-                accumulated += float(loss.item())
-            if config.grad_clip > 0:
-                if scaler is not None:
-                    scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+        scale = _lr_scale(step, config)
+        for group in optimizer.param_groups:
+            group["lr"] = config.lr * scale
+        optimizer.zero_grad(set_to_none=True)
+        accumulated_tensor = torch.zeros((), device=device)
+        for _ in range(max(1, config.grad_accum)):
+            try:
+                input_ids, labels, attention = next(train_iterator)
+            except StopIteration:
+                train_iterator = iter(train_loader)
+                input_ids, labels, attention = next(train_iterator)
+            batch_ids = input_ids.to(device)
+            batch_labels = labels.to(device)
+            batch_attention = attention.to(device)
+            with plan.autocast():
+                out = model(batch_ids, labels=batch_labels, attention_mask=batch_attention)
+                loss = out["loss"] / max(1, config.grad_accum)
             if scaler is not None:
-                scaler.step(optimizer)
-                scaler.update()
+                scaler.scale(loss).backward()
             else:
-                optimizer.step()
-            step += 1
-            history.append(accumulated)
+                loss.backward()
+            accumulated_tensor = accumulated_tensor + loss.detach()
+        accumulated = float(accumulated_tensor.item())
+        if config.grad_clip > 0:
+            if scaler is not None:
+                scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+        if scaler is not None:
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            optimizer.step()
+        step += 1
+        history.append(accumulated)
 
-            if config.log_every > 0 and step % config.log_every == 0:
-                print(
-                    json.dumps(
-                        {
-                            "event": "sft",
-                            "step": step,
-                            "loss": round(accumulated, 4),
-                            "lr": round(config.lr * scale, 7),
-                            "elapsed_seconds": round(time.time() - started, 1),
-                        },
-                        ensure_ascii=False,
-                    ),
-                    flush=True,
-                )
-            if config.eval_every > 0 and step % config.eval_every == 0:
-                last_eval = evaluate_sft(model, val_loader, config)
-                print(
-                    json.dumps({"event": "eval", "step": step, **last_eval}, ensure_ascii=False),
-                    flush=True,
-                )
-            if config.checkpoint_every > 0 and step % config.checkpoint_every == 0:
-                info = save_checkpoint(
-                    target / "latest.pt",
-                    model,
-                    tokenizer=tokenizer,
-                    optimizer=optimizer,
-                    metadata={
-                        "phase": "supervised-fine-tuning",
+        if config.log_every > 0 and step % config.log_every == 0:
+            print(
+                json.dumps(
+                    {
+                        "event": "sft",
                         "step": step,
-                        "eval": last_eval,
+                        "loss": round(accumulated, 4),
+                        "lr": round(config.lr * scale, 7),
+                        "elapsed_seconds": round(time.time() - started, 1),
                     },
-                    extra={"step": step},
-                )
-                checkpoints.append(info["path"])
+                    ensure_ascii=False,
+                ),
+                flush=True,
+            )
+        if config.eval_every > 0 and step % config.eval_every == 0:
+            last_eval = evaluate_sft(model, val_loader, config)
+            print(
+                json.dumps({"event": "eval", "step": step, **last_eval}, ensure_ascii=False),
+                flush=True,
+            )
+        if config.checkpoint_every > 0 and step % config.checkpoint_every == 0:
+            info = save_checkpoint(
+                target / "latest.pt",
+                model,
+                tokenizer=tokenizer,
+                optimizer=optimizer,
+                metadata={
+                    "phase": "supervised-fine-tuning",
+                    "step": step,
+                    "eval": last_eval,
+                },
+                extra={"step": step},
+            )
+            checkpoints.append(info["path"])
 
     final_eval = evaluate_sft(model, val_loader, config) if len(val_loader) else {}
     info = save_checkpoint(

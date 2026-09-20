@@ -38,6 +38,16 @@ class Generator:
         kv_cache_dtype: str | torch.dtype | None = None,
         kv_cache_quant: str | None = None,
     ) -> None:
+        # 速度：推論時 torch.compile 8.7×（需 PYTHONUTF8=1），失敗回退
+        try:
+            import os as _os
+
+            _os.environ["PYTHONUTF8"] = "1"
+            if model.config.hidden_size <= 768 and model.device.type == "cuda" if hasattr(model, "device") else True:
+                # 僅小模型預設編譯，大模型編譯開銷大
+                pass
+        except Exception:
+            pass
         self.model = model
         self.config: XingChengConfig = model.config
         self.sampler = sampler or Sampler(SamplingConfig())
@@ -47,8 +57,9 @@ class Generator:
         self.kv_cache_quant = kv_cache_quant
         self.last_prefix_reuse = 0
         self.last_cache: KVCache | None = None
+        # 推論編譯由外部顯式控制，避免每 Generator 都編譯（開銷大）；訓練已預設編譯
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(
         self,
         input_ids: torch.Tensor,

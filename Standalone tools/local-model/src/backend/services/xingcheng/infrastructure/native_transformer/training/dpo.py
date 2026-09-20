@@ -66,7 +66,7 @@ def _pad_batch(
     return ids, attention, completion
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def _sequence_log_probs(
     model: XingChengForCausalLM,
     ids: torch.Tensor,

@@ -622,6 +622,45 @@
       "canonical": true,
       "dependencies": ["governance_rule"],
       "information_channels": []
+    },
+    {
+      "component_id": "business-logic-csharp",
+      "architectural_role": "execution",
+      "runtime_form": "standalone-service",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "change_acceptance_sub_sovereign",
+      "execution_identity": "business-logic-csharp",
+      "physical_path": "Standalone tools/business-logic-csharp",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["local-model", "shared-layer"],
+      "information_channels": ["information-channel"]
+    },
+    {
+      "component_id": "native-compute-core",
+      "architectural_role": "execution",
+      "runtime_form": "build-tooling",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "data_governance_sub_sovereign",
+      "execution_identity": "native-compute-core",
+      "physical_path": "native/core",
+      "lifecycle": "resident",
+      "canonical": true,
+      "dependencies": ["governance_rule"],
+      "information_channels": []
+    },
+    {
+      "component_id": "model-training",
+      "architectural_role": "model",
+      "runtime_form": "python-process",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "data_governance_sub_sovereign",
+      "execution_identity": "model-training",
+      "physical_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["local-model", "shared-layer", "native-compute-core"],
+      "information_channels": ["information-channel"]
     }
   ]
 }

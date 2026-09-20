@@ -21,6 +21,7 @@ from typing import Any
 import torch
 
 from ..chat_format import (
+    END_OF_TURN,
     ChatMessage,
     encode_conversation,
     render_conversation,
@@ -105,6 +106,10 @@ class ChatSession:
             out.numel() and int(out[0, -1].item()) == int(eos)
         )
         clean, calls = split_tool_call(raw)
+        # <|eot|> 是文本層標記（非 eos token id），生成不會自停；
+        # 顯示文本截到第一個回合結束標記為止，raw_text 保留完整輸出。
+        if END_OF_TURN in clean:
+            clean = clean.split(END_OF_TURN, 1)[0].rstrip()
         self.messages.append(ChatMessage("assistant", clean or raw))
         return SessionReply(
             text=clean,
