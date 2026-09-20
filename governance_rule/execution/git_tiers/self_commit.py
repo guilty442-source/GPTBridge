@@ -17,6 +17,9 @@ Design constraints (A53/E39 + A58/E44 governance):
   * only commits — never pushes. Remote sync stays with the coordinator or a
     human;
   * skips while a merge/rebase/cherry-pick/revert is in progress;
+  * skips while the index already holds staged-but-uncommitted changes
+    (a human/agent is mid-commit; never sweep their index into an
+    auto-commit with an unrelated message);
   * skips when the worktree is clean;
   * honours ``.gitignore`` (``git add -A`` never stages ignored files);
   * never amends/rewrites history (tier-3 ops are not invoked).
@@ -119,6 +122,18 @@ def _state_fingerprint(repo: GitRepository) -> str:
     return hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()
 
 
+def staged_index_present(repo: GitRepository) -> bool:
+    """True when the index holds staged-but-uncommitted changes.
+
+    A pre-existing index means a human or coding agent is mid-commit.  The
+    self-commit service must not sweep those entries into an automatic commit
+    with an unrelated message (incident 2026-09-20: ef58c9cc carried
+    externally staged P0 work under a blueprint commit message).
+    """
+    result = repo.run(["diff", "--cached", "--quiet"])
+    return result.returncode == 1
+
+
 def build_commit_message(branch: str, entries: dict[str, str]) -> str:
     """Compose an auto-commit message from porcelain entries."""
     count = len(entries)
@@ -149,8 +164,8 @@ def _governed(
 def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
     """Perform one self-commit pass; returns a short status string.
 
-    Statuses: ``clean``, ``in-progress``, ``committed``, ``nothing-staged``,
-    ``error:<detail>``.
+    Statuses: ``clean``, ``in-progress``, ``staged-index-present``,
+    ``committed``, ``nothing-staged``, ``error:<detail>``.
     """
     repo = GitRepository(worktree)
     if not repo.path.is_dir():
@@ -158,6 +173,9 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
 
     if operation_in_progress(repo):
         return "in-progress"
+
+    if staged_index_present(repo):
+        return "staged-index-present"
 
     entries = _porcelain(repo)
     if not entries:

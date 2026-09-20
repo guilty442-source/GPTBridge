@@ -36,6 +36,19 @@ Remove-Item _commit_msg.txt -Force
 git commit -m "Single-line commit message"
 ```
 
+**Scope every commit to explicit paths** so externally staged work is never
+swept into your commit (incident 2026-09-20: `ef58c9cc` carried another
+worker's pre-staged P0 changes under a blueprint message):
+
+```powershell
+git add <your files>; git diff --cached --name-only   # verify only your files
+git commit -F _commit_msg.txt
+```
+
+If the index already contains files you did not stage, never commit the whole
+index — either commit with an explicit path list (`git commit -m "..." -- <paths>`)
+or ask the owner of those staged files to commit first.
+
 ### Other PowerShell Notes
 
 - `ls -la` → use `Get-ChildItem` or `dir`
@@ -120,7 +133,9 @@ executor in the normal-information phase (`app.git_automation`).
 - **Commit sweep** every 60 s: runs `self_commit.run_once` per registered
   worktree, but only after the dirty fingerprint has been stable for a
   60 s debounce — same stability contract as the old watchers, zero extra
-  processes.
+  processes. A worktree whose index already holds staged-but-uncommitted
+  changes is **skipped** (`staged-index-present`) so a human/agent mid-commit
+  is never swept into an auto-commit with an unrelated message.
 - **Sync cycle** every 300 s: runs `workspace_sync.synchronize`
   (commit → merge worker branches into `main` → audit → fast-forward).
   Conflicts stop that cycle until a human resolves them.
