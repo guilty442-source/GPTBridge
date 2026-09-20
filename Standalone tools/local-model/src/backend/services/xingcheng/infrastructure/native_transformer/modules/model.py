@@ -26,7 +26,7 @@ class XingChengModel(nn.Module):
         self.config = config
         self.embeddings = XingChengEmbeddings(config)
         self.layers = nn.ModuleList(
-            [XingChengBlock(config) for _ in range(config.num_hidden_layers)]
+            [XingChengBlock(config, layer_idx=i) for i in range(config.num_hidden_layers)]
         )
         self.final_norm = XingChengNorm(config)
         # RoPE 表（lazy 建立，依裝置）
@@ -62,7 +62,7 @@ class XingChengModel(nn.Module):
         attention_mask: torch.Tensor | None = None,
         kv_caches: list[tuple[torch.Tensor, torch.Tensor]] | None = None,
         use_cache: bool = False,
-    ) -> tuple[torch.Tensor, list[tuple[torch.Tensor, torch.Tensor]] | None]:
+    ) -> tuple[torch.Tensor, list[tuple[torch.Tensor, torch.Tensor]] | None, torch.Tensor | None]:
         cfg = self.config
         device = input_ids.device
         embeds = self.embeddings(input_ids, position_ids=position_ids)
@@ -76,9 +76,11 @@ class XingChengModel(nn.Module):
 
         hidden_states = embeds
         new_caches: list[tuple[torch.Tensor, torch.Tensor]] | None = [] if use_cache else None
+        aux_losses: list[torch.Tensor] = []
         for i, layer in enumerate(self.layers):
             kv_cache = kv_caches[i] if (kv_caches is not None and i < len(kv_caches)) else None
-            hidden_states, new_kv = layer(
+            # 向下相容：舊 Block 回傳 2 值，新 Block 回傳 3 值（含 aux_loss）
+            result = layer(
                 hidden_states,
                 cos=self._cos,
                 sin=self._sin,
@@ -87,10 +89,19 @@ class XingChengModel(nn.Module):
                 kv_cache=kv_cache,
                 use_cache=use_cache,
             )
+            if len(result) == 3:
+                hidden_states, new_kv, aux = result
+                if aux is not None:
+                    aux_losses.append(aux)
+            else:  # 舊介面
+                hidden_states, new_kv = result  # type: ignore[misc]
             if use_cache and new_caches is not None:
                 new_caches.append(new_kv)
         hidden_states = self.final_norm(hidden_states)
-        return hidden_states, new_caches
+        aux_loss: torch.Tensor | None = None
+        if aux_losses:
+            aux_loss = torch.stack(aux_losses).mean()
+        return hidden_states, new_caches, aux_loss
 
 
 class XingChengForCausalLM(nn.Module):
@@ -123,17 +134,30 @@ class XingChengForCausalLM(nn.Module):
     ) -> dict[str, torch.Tensor]:
         if self._backend is None:
             self._backend = set_gemm_backend(input_ids.device)
-        hidden_states, new_caches = self.model(
+        backbone = self.model(
             input_ids,
             position_ids=position_ids,
             attention_mask=attention_mask,
             kv_caches=kv_caches,
             use_cache=use_cache,
         )
+        # 向下相容 2/3 回傳
+        if len(backbone) == 3:
+            hidden_states, new_caches, aux_loss = backbone
+        else:
+            hidden_states, new_caches = backbone  # type: ignore[misc]
+            aux_loss = None
         logits = self.lm_head(hidden_states)
         out: dict[str, torch.Tensor] = {"logits": logits}
+        if aux_loss is not None:
+            out["aux_loss"] = aux_loss
         if labels is not None:
-            out["loss"] = _causal_lm_loss(logits, labels, self.config.pad_token_id)
+            ce = _causal_lm_loss(logits, labels, self.config.pad_token_id)
+            if aux_loss is not None:
+                out["loss"] = ce + float(self.config.moe_aux_loss_weight) * aux_loss
+                out["ce_loss"] = ce
+            else:
+                out["loss"] = ce
         if new_caches is not None:
             out["kv_caches"] = new_caches  # type: ignore[assignment]
         return out

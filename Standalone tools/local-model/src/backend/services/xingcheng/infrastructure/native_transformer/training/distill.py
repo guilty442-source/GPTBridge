@@ -147,6 +147,40 @@ CONVERSATION_QUESTIONS: tuple[tuple[str, str], ...] = (
 )
 
 
+SMALL_TALK_PAIRS: tuple[tuple[str, str, str], ...] = (
+    ("你好", "您好，我是星澄，本機執行的原生生成式語言模型。", "conversation"),
+    ("哈囉", "您好，我是星澄，本機執行的原生生成式語言模型。", "conversation"),
+    ("早安", "早安，我是星澄，本機執行的原生生成式語言模型。", "conversation"),
+    ("晚安", "晚安，我是星澄，本機執行的原生生成式語言模型。", "conversation"),
+    ("你在嗎？", "我在，我是星澄，本機執行的原生生成式語言模型。", "conversation"),
+    ("謝謝", "不客氣，我是星澄，原生模型能獨立完成基本語言模型推理。", "conversation"),
+    ("謝謝你的說明。", "不客氣，我是星澄，神經網路核心為第一方原生實作。", "conversation"),
+    ("再見", "再見，我是星澄，隨時可以為您服務。", "conversation"),
+    ("請自我介紹。", "我是星澄，神經網路核心為第一方原生實作：自有 tokenizer、自有 Transformer 權重、自有訓練引擎與原生推論引擎。", "conversation"),
+    ("你會說中文嗎？", "會，我是星澄，以繁體中文與您對話；神經網路核心為第一方原生實作。", "conversation"),
+)
+
+
+def build_small_talk_topics(
+    root: str | Path,
+    *,
+    maximum: int = 20,
+) -> list[DistillationTopic]:
+    """第一方小型對話主題（問候／道謝）：答案同樣必須通過品質閘門。"""
+    reference = _identity_reference(root)
+    if not reference:
+        return []
+    return [
+        DistillationTopic(
+            intent=intent,
+            prompt=question,
+            reference=reference,
+            store_prompt_without_reference=True,
+        )
+        for question, _answer, intent in SMALL_TALK_PAIRS[:maximum]
+    ]
+
+
 def _identity_reference(root: str | Path, *, maximum: int = 12) -> str:
     project_root = Path(root)
     candidates: list[str] = []

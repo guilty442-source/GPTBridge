@@ -19,7 +19,10 @@ from typing import Any, Callable, Mapping
 from .transformer_training_repository import TransformerTrainingRepository
 
 
-_ALLOWED_PRESETS = frozenset({"small", "medium", "base", "large"})
+_ALLOWED_PRESETS = frozenset({
+    "small", "medium", "base", "xlarge", "large",
+    "small_moe", "medium_moe", "base_moe", "xlarge_moe", "large_moe",
+})
 
 _ALLOWED_TRAINING_KINDS = frozenset({"pretrain", "sft", "dpo"})
 

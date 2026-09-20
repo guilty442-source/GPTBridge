@@ -409,8 +409,14 @@ def main(argv: list[str] | None = None) -> int:
         default="auto",
         choices=["auto", "bf16", "fp16", "fp32"],
     )
+    parser.add_argument(
+        "--cpu-threads", type=int, default=0, help="CPU 訓練執行緒上限（0=自動）"
+    )
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args(argv)
+    from .pretrain import limit_cpu_threads
+
+    limit_cpu_threads(args.device, threads=args.cpu_threads)
 
     tokenizer = NativeBPETokenizer.load(args.tokenizer)
     records = read_sft_jsonl(args.dataset_jsonl)

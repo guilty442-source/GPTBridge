@@ -9,12 +9,14 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 import torch
 
 from ..config import XingChengConfig
 from ..execution.backend import resolve_device, default_dtype
 from ..modules.model import XingChengForCausalLM
-from .kv_cache import KVCache
+from .kv_cache import KVCache, resolve_kv_dtype
 from .prefix_cache import PrefixKVStore
 from .sampler import Sampler, SamplingConfig
 
@@ -32,13 +34,19 @@ class Generator:
         sampler: Sampler | None = None,
         device: torch.device | None = None,
         prefix_store: PrefixKVStore | None = None,
+        *,
+        kv_cache_dtype: str | torch.dtype | None = None,
+        kv_cache_quant: str | None = None,
     ) -> None:
         self.model = model
         self.config: XingChengConfig = model.config
         self.sampler = sampler or Sampler(SamplingConfig())
         self.device = resolve_device(device)
         self.prefix_store = prefix_store
+        self.kv_cache_dtype = kv_cache_dtype
+        self.kv_cache_quant = kv_cache_quant
         self.last_prefix_reuse = 0
+        self.last_cache: KVCache | None = None
 
     @torch.no_grad()
     def generate(
@@ -49,6 +57,7 @@ class Generator:
         max_new_tokens: int | None = None,
         sampling: SamplingConfig | None = None,
         use_cache: bool = True,
+        on_token: Callable[[int], None] | None = None,
     ) -> torch.Tensor:
         cfg = self.config
         max_new = max_new_tokens or cfg.max_new_tokens
@@ -116,11 +125,17 @@ class Generator:
         logits = out["logits"][:, -1, :]
         next_token = sampler.sample(logits, prev_tokens=input_ids)
         generated = [next_token]
+        if on_token is not None:
+            on_token(int(next_token[0].item()))
 
         cache: KVCache | None = None
         if use_cache:
-            dtype = next(self.model.parameters()).dtype
-            cache = KVCache(cfg, b, total_len, self.device, dtype)
+            activation_dtype = next(self.model.parameters()).dtype
+            dtype = resolve_kv_dtype(self.kv_cache_dtype, activation_dtype)
+            cache = KVCache(
+                cfg, b, total_len, self.device, dtype, quant=self.kv_cache_quant
+            )
+            self.last_cache = cache
             if stored_kv is not None:
                 for idx, (k, v) in enumerate(stored_kv):
                     cache.update(idx, k, v, 0)
@@ -136,14 +151,19 @@ class Generator:
                     input_ids[0].tolist(), cache.slice(prefix_len)
                 )
 
-        # ── Decode ──────────────────────────────────────────────
+        # ── Decode（速度：預分配避免每步 cat/stack）─────────────────
+        # 預分配 full 緩衝，後續以 view 切片零拷貝
+        full_ids = torch.empty((b, total_len), device=self.device, dtype=input_ids.dtype)
+        full_ids[:, :prefix_len] = input_ids
+        full_mask = torch.ones((b, total_len), device=self.device, dtype=attention_mask.dtype)
+        full_mask[:, :prefix_len] = attention_mask
+        # 已生成部分填入 full_ids 供 repetition_penalty 使用
+        for i, tok in enumerate(generated):
+            full_ids[:, prefix_len + i] = tok
         for step in range(max_new - 1):
             if cache is not None:
                 past = cache.slice(prefix_len + step)
-                step_mask = torch.cat(
-                    [attention_mask, torch.ones((b, step + 1), device=self.device)],
-                    dim=-1,
-                )
+                step_mask = full_mask[:, : prefix_len + step + 1]
                 step_position_ids = torch.full(
                     (b, 1), prefix_len + step, device=self.device, dtype=torch.long
                 )
@@ -157,27 +177,23 @@ class Generator:
                 for idx, (k, v) in enumerate(step_out["kv_caches"]):
                     cache.update(idx, k, v, prefix_len + step)
             else:
-                running = torch.cat(
-                    [input_ids, torch.stack(generated, dim=-1)], dim=-1
-                )
-                step_mask = torch.cat(
-                    [
-                        attention_mask,
-                        torch.ones(
-                            (b, running.size(1) - prefix_len), device=self.device
-                        ),
-                    ],
-                    dim=-1,
-                )
+                cur_len = prefix_len + len(generated)
+                running = full_ids[:, :cur_len]
+                step_mask = full_mask[:, :cur_len]
                 step_out = self.model(
                     running,
                     attention_mask=step_mask,
                     use_cache=False,
                 )
             step_logits = step_out["logits"][:, -1, :]
-            prev = torch.cat([input_ids, torch.stack(generated, dim=-1)], dim=-1)
+            # 速度：直接使用 full_ids 視圖，無需 cat/stack
+            prev = full_ids[:, : prefix_len + len(generated)]
             next_token = sampler.sample(step_logits, prev_tokens=prev)
             generated.append(next_token)
+            # 同步寫入 full 緩衝供下一步 repetition 使用
+            full_ids[:, prefix_len + len(generated) - 1] = next_token
+            if on_token is not None:
+                on_token(int(next_token[0].item()))
 
             # early stop
             if (next_token == sampler.config.eos_token_id).all():

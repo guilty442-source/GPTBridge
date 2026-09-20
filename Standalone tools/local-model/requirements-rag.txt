@@ -11,4 +11,6 @@ tokenizers>=0.20,<1
 torch>=2.2,<3
 
 # 可選 GPU 加速（triton 不可用時自動回退至 PyTorch）
-# triton>=3.0,<4
+# Linux 用官方 triton；Windows 用 triton-windows port（提供同名 triton 模組）
+# triton>=3.0,<4 ; sys_platform == "linux"
+# triton-windows>=3.0,<4 ; sys_platform == "win32"

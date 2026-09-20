@@ -148,6 +148,47 @@ Design notes:
 
 Implementation: `governance_rule/execution/git_tiers/automation_supervisor.py`.
 
+## 星澄 Self-Learning & Automatic Upgrade
+
+The native model learns from its own verified data and can upgrade itself
+through the same governed pipeline used for manual training:
+
+1. collect verified examples (`language_training_example`, active & quality
+   gated) from every role database,
+2. if the number of new examples since the last cycle reaches the policy
+   threshold, export a `star-transformer-sft/v1` snapshot and register a
+   training dataset,
+3. queue and run a governed SFT job initialised from the lifecycle's active
+   weights,
+4. evaluate the resulting artifact against the policy's eval suites
+   (default `star-native-eval-dialogue-v1`) with the current active weights
+   as baseline,
+5. only if every gate passes: register the adapter, `stage`, and — when
+   `auto_activate` is set — `activate`, register the weights in the model
+   lifecycle, pin `runtime/settings/native-engine.json` to the new artifact
+   and prune the previous generation (only the latest generation is kept).
+
+Any failure is fail-closed: the active weights, the runtime checkpoint and
+the adapter registry stay untouched. Policy: `runtime/settings/self-learning.json`
+(`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
+reports: `xingcheng/runtime/logs/self-learning-*.json`.
+
+```powershell
+# status / one-shot / force (ignore the new-example threshold) / kill switch
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --status
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once --force
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --disable
+
+# periodic watcher (spawn from any supervisor / scheduler)
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --watch --interval 900
+```
+
+Run from `Standalone tools\local-model\src\backend\services` (the package root).
+
+Implementation: `native_transformer/self_learning.py` +
+`native_transformer/self_learning_support.py`.
+
 ## On-Demand Model Activation (Lazy 星澄)
 
 `model-dialogue` opens without the local model (governor directive 2026-09-17).

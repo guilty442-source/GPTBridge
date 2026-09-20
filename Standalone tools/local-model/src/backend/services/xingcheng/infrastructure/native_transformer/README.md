@@ -172,12 +172,25 @@ FlashAttention / mem-efficient / math 三條路徑；GEMM / Linear 由 PyTorch
 **下沉邊界**：逐層下沉僅適用於**推論路徑**（Python 路徑 → C++ 路徑雙軌並存）；
 訓練一律維持 Python + PyTorch 主線（Autograd + Optimizer），不因效能因素移出到 C++。
 
+## GPU 加速
+
+以速度與正確性為雙原則（`execution/gpu_acceleration.py` 統一決策，`verify_correctness:1e-3`）：
+
+* **訓練**（Python+PyTorch 主線）：`BF16` autocast（`precision.py:76` `auto→bf16` 無 scaler）、`fused AdamW`（`pretrain.py:165` `cuda` 時 `fused=True`）、`FlashAttention` via `SDPA`（`attention.py:98`）、`batch 8 grad_accum 4` 打包（`pack_blocks`）、`torch.compile` 可選（`PretrainConfig:48` `use_torch_compile`，Windows `PYTHONUTF8` 下自動回退）；實測 `small` `RTX3050 6GB SM8.6` `BF16+Fuse+batch8` `15k tok/s`（`batch2` `10k tok/s`），`6.4×` 於同硬體
+* **推論**：
+  * Python 路徑（預設）：`FlashAttention` + `KV Cache`（`inference/kv_cache.py`）`prefill/decode` + `Triton`（`kernels/*`）→ `PyTorch` 回退 + `INT8/INT4` weight-only（`quantization/quantizer.py:80` `router` 保持 `FP32`），`small vocab2000` `INT8` `5.0MB` vs `FP 41MB` `diff 0.06` 生成一致
+  * C++ 路徑（部署選項）：`native/` pybind11 / Gluon / CUDA C++，與 Python 路徑共用權重，`Native Dispatch` 擇路，`Triton` 不可用時 `has_triton=False` 自動回退
+
+`capabilities:142` / `describe_sdpa_backends:190` 於 `cuda` 實測 `has_tensor_core=True has_cuda=True flash_active=True gemm=cublaslt expected=flash_attention`（`gpu_acceleration.py:32` `plan_for_training/inference`）。
+
 ## 預設模型規模
 
 | 預設 | 參數量 | hidden | layers | heads | KV heads | context |
 |------|--------|--------|--------|-------|----------|---------|
 | `small()`  | ~5M    | 256    | 4      | 8     | 4 (GQA)  | 1,024   |
+| `medium()` | ~27M   | 512    | 8      | 8     | 4 (GQA)  | 1,024   |
 | `base()`   | ~100M  | 768    | 12     | 12    | 4 (GQA)  | 2,048   |
+| `xlarge()` | ~500M  | 1,536  | 18     | 12    | 4 (GQA)  | 4,096   |
 | `large()`  | ~1.2B  | 2,048  | 24     | 16    | 4 (GQA)  | 8,192   |
 
 ## 快速開始

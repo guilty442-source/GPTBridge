@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="StarBusinessLogic.Tests/StarBusinessLogic.Tests.csproj" />
+  <Project Path="StarBusinessLogic/StarBusinessLogic.csproj" />
+</Solution>

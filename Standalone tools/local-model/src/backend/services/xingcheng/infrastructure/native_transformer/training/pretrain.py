@@ -46,6 +46,7 @@ class PretrainConfig:
     use_amp: bool = True
     precision: str = "auto"
     max_train_documents: int = 0
+    use_torch_compile: bool = False  # 速度：啟用 torch.compile 需先驗證正確性（loss 差異 <1e-3）
 
 
 def _document_text(document: Any) -> str:
@@ -155,10 +156,46 @@ def pretrain(
         tokens_seen = int(extra.get("tokens_seen") or 0)
 
     model.to(device)
+    # 速度：啟用 cuDNN benchmark 與高精度 matmul（對應 execution/backend.py）
+    if device.type == "cuda":
+        try:
+            torch.backends.cudnn.benchmark = True
+            torch.set_float32_matmul_precision("high")
+        except Exception:
+            pass
+        # 速度：嘗試 torch.compile（PyTorch 2.13+，失敗則回退；Windows 需 UTF-8 環境否則跳過）
+        try:
+            if getattr(config, "use_torch_compile", False):
+                import os as _os
+                _os.environ.setdefault("PYTHONUTF8", "1")
+                model = torch.compile(model, mode="reduce-overhead")  # type: ignore[attr-defined]
+        except Exception:
+            pass
     model.train()
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=config.lr, weight_decay=config.weight_decay
-    )
+    # VRAM/速度：8-bit AdamW（省 50% optimizer states VRAM，需 bitsandbytes），次選 fused AdamW
+    optimizer = None
+    if getattr(model.config, "use_8bit_optimizer", False):
+        try:
+            import bitsandbytes as bnb  # type: ignore
+
+            optimizer = bnb.optim.AdamW8bit(
+                model.parameters(), lr=config.lr, weight_decay=config.weight_decay
+            )
+        except Exception:
+            pass
+    if optimizer is None:
+        # 速度：fused AdamW（CUDA 專用，減少 kernel launch），失敗回退至普通 AdamW
+        try:
+            if device.type == "cuda":
+                optimizer = torch.optim.AdamW(
+                    model.parameters(), lr=config.lr, weight_decay=config.weight_decay, fused=True  # type: ignore[call-arg]
+                )
+            else:
+                raise TypeError("CPU 不使用 fused")
+        except Exception:
+            optimizer = torch.optim.AdamW(
+                model.parameters(), lr=config.lr, weight_decay=config.weight_decay
+            )
     if resume is not None:
         optimizer_state = load_checkpoint(resume, map_location="cpu").get(
             "optimizer_state"
@@ -319,7 +356,13 @@ def build_model_config(preset: str, tokenizer: Any, block_size: int) -> XingChen
         "small": XingChengConfig.small,
         "medium": XingChengConfig.medium,
         "base": XingChengConfig.base,
+        "xlarge": XingChengConfig.xlarge,
         "large": XingChengConfig.large,
+        "small_moe": XingChengConfig.small_moe,
+        "medium_moe": XingChengConfig.medium_moe,
+        "base_moe": XingChengConfig.base_moe,
+        "xlarge_moe": XingChengConfig.xlarge_moe,
+        "large_moe": XingChengConfig.large_moe,
     }
     if preset not in factories:
         raise ValueError(f"UNKNOWN_PRESET:{preset}")
@@ -331,13 +374,37 @@ def build_model_config(preset: str, tokenizer: Any, block_size: int) -> XingChen
     return config
 
 
+def limit_cpu_threads(device: str | None = None, *, threads: int = 0) -> int:
+    """CPU 訓練時限制執行緒數，避免與主系統爭用全部核心。"""
+    resolved = resolve_device(device)
+    if resolved.type != "cpu":
+        return 0
+    import os as _os
+
+    import torch as _torch
+
+    budget = int(threads) if int(threads) > 0 else max(1, min(8, (_os.cpu_count() or 8) // 2))
+    budget = max(1, min(16, budget))
+    _torch.set_num_threads(budget)
+    try:
+        _torch.set_num_interop_threads(1)
+    except Exception:
+        pass
+    return budget
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="星澄原生模型預訓練")
     parser.add_argument("--corpus", required=True, help="含 train.jsonl/val.jsonl 的目錄")
     parser.add_argument("--tokenizer", required=True, help="tokenizer.json 所在目錄")
     parser.add_argument("--output", required=True, help="checkpoint 輸出目錄")
     parser.add_argument(
-        "--preset", default="small", choices=["small", "medium", "base", "large"]
+        "--preset",
+        default="small",
+        choices=[
+            "small", "medium", "base", "xlarge", "large",
+            "small_moe", "medium_moe", "base_moe", "xlarge_moe", "large_moe",
+        ],
     )
     parser.add_argument("--resume", default=None)
     parser.add_argument("--block-size", type=int, default=512)
@@ -350,6 +417,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--eval-every", type=int, default=100)
     parser.add_argument("--log-every", type=int, default=10)
     parser.add_argument("--device", default=None)
+    parser.add_argument(
+        "--cpu-threads", type=int, default=0, help="CPU 訓練執行緒上限（0=自動）"
+    )
     parser.add_argument("--no-amp", action="store_true")
     parser.add_argument(
         "--precision",
@@ -359,6 +429,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-train-documents", type=int, default=0)
     args = parser.parse_args(argv)
+    limit_cpu_threads(args.device, threads=args.cpu_threads)
 
     from ..bpe import NativeBPETokenizer
 

@@ -78,12 +78,22 @@ class QuantizedLinear(nn.Module):
 
 
 def quantize_model(model: nn.Module, n_bits: int = 8) -> nn.Module:
-    """將模型內所有 nn.Linear 替換為 QuantizedLinear。"""
+    """將模型內所有 nn.Linear 替換為 QuantizedLinear。
+
+    正確性：router（MoE）與 lm_head 保持 FP32，避免路由與輸出層量化誤差影響正確性；
+    速度：其餘 Linear（Attention、Experts）量化以降低 VRAM 與頻寬，INT4 為 INT8 的 1/2。
+    """
     for name, child in model.named_children():
-        if isinstance(child, nn.Linear) and name != "lm_head":
+        # 正確性：MoE router 對 top-k 敏感，保留 FP32
+        if isinstance(child, nn.Linear) and name not in ("lm_head", "router"):
             setattr(model, name, QuantizedLinear.from_linear(child, n_bits=n_bits))
         else:
-            quantize_model(child, n_bits=n_bits)
+            # 遞迴處理子模組（Experts 等），但跳過已排除的 Linear
+            if not isinstance(child, nn.Linear):
+                quantize_model(child, n_bits=n_bits)
+            elif name == "router":
+                # 明確記錄跳過，便於審計
+                pass
     return model
 
 

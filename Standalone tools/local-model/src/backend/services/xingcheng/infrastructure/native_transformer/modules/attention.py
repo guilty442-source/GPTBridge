@@ -85,6 +85,11 @@ class XingChengAttention(nn.Module):
         new_kv = (k, v) if use_cache else None
         if use_cache and kv_cache is not None:
             past_k, past_v = kv_cache
+            # 快取可能以 fp16/bf16/int8 儲存；拼接前對齊激活 dtype。
+            if past_k.dtype != k.dtype:
+                past_k = past_k.to(k.dtype)
+            if past_v.dtype != v.dtype:
+                past_v = past_v.to(v.dtype)
             k = torch.cat([past_k, k], dim=2)
             v = torch.cat([past_v, v], dim=2)
 

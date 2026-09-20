@@ -9,6 +9,8 @@ from __future__ import annotations
 import _xingcheng_test_support as _support  # noqa: F401
 from _test_transformer_runtime_helpers import FakeOllamaTransport
 
+import json
+
 import torch
 import pytest
 
@@ -191,3 +193,156 @@ def test_checkpoint_env_override_resolution(monkeypatch, tmp_path) -> None:
     assert engine.checkpoint_path.name == "native.pt"
     with pytest.raises(FileNotFoundError):
         native_engine_for(tmp_path / "missing.pt")
+
+
+# ── 控制面：生成預設、品質護欄、範圍閘門 ─────────────────────────
+
+
+def _settings_file(monkeypatch, tmp_path, payload: dict):
+    from xingcheng.infrastructure import native_engine as module
+
+    settings = tmp_path / "native-engine.json"
+    settings.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(module, "settings_path", lambda: settings)
+    return settings
+
+
+def test_generation_defaults_are_bounded(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    _settings_file(
+        monkeypatch,
+        tmp_path,
+        {
+            "temperature": 99.0,
+            "top_k": -5,
+            "top_p": 5.0,
+            "repetition_penalty": 0.0,
+            "max_new_tokens": 100000,
+            "min_answer_chars": -3,
+        },
+    )
+    defaults = module.generation_defaults()
+    assert defaults["temperature"] == 2.0
+    assert defaults["top_k"] == 0
+    assert defaults["top_p"] == 1.0
+    assert defaults["repetition_penalty"] == 0.01
+    assert defaults["max_new_tokens"] == 512
+    assert defaults["min_answer_chars"] == 0
+
+
+def test_quality_guard_rules() -> None:
+    from xingcheng.infrastructure.native_engine import quality_guard
+
+    assert quality_guard("", min_chars=4) == (True, "answer-too-short")
+    assert quality_guard("短", min_chars=4) == (True, "answer-too-short")
+    assert quality_guard("星澄是本地模型。", min_chars=4) == (False, "")
+    assert quality_guard("abc\x00def\x01ghi", min_chars=1) == (True, "answer-garbled")
+    assert quality_guard("重複重複" * 10, min_chars=1) == (True, "answer-repetitive")
+
+
+def test_scope_gate_refuses_out_of_scope(monkeypatch, tmp_path) -> None:
+    path = _write_checkpoint(tmp_path)
+    _settings_file(
+        monkeypatch,
+        tmp_path,
+        {
+            "enabled": True,
+            "checkpoint": path,
+            "scope_enabled": True,
+            "scope_keywords": ["星澄", "治理"],
+            "scope_fallback_message": "超出範圍。",
+            "max_new_tokens": 4,
+        },
+    )
+    engine = NativeTransformerEngine(path)
+
+    refused = engine.generate(prompt="請解量子力學方程式。", seed=1)
+    assert refused["ok"] is True
+    assert refused["text"] == "超出範圍。"
+    assert refused["scope_guard"]["triggered"] is True
+    assert refused["eval_count"] == 0
+
+    allowed = engine.generate(prompt="什麼是治理規則？", max_tokens=2, seed=1)
+    assert allowed["scope_guard"]["triggered"] is False
+    assert allowed["text"] != "超出範圍。"
+
+
+def test_cpu_thread_budget_bounded(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    _settings_file(monkeypatch, tmp_path, {"cpu_threads": 64})
+    assert module.cpu_thread_budget() == 16
+    _settings_file(monkeypatch, tmp_path, {"cpu_threads": -3})
+    assert 1 <= module.cpu_thread_budget() <= 4
+    _settings_file(monkeypatch, tmp_path, {})
+    assert 1 <= module.cpu_thread_budget() <= 4
+
+
+def test_cpu_generation_cap_setting(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    _settings_file(monkeypatch, tmp_path, {"cpu_max_new_tokens": 100000})
+    assert module.cpu_generation_cap() == 128
+    _settings_file(monkeypatch, tmp_path, {"cpu_max_new_tokens": 0})
+    assert module.cpu_generation_cap() == 64  # 0 = 使用預設
+    _settings_file(monkeypatch, tmp_path, {})
+    assert module.cpu_generation_cap() == 64
+
+
+def test_cpu_engine_respects_generation_cap(monkeypatch, tmp_path) -> None:
+    path = _write_checkpoint(tmp_path)
+    _settings_file(
+        monkeypatch,
+        tmp_path,
+        {
+            "enabled": True,
+            "checkpoint": path,
+            "cpu_max_new_tokens": 3,
+            "min_answer_chars": 0,
+        },
+    )
+    engine = NativeTransformerEngine(path, device="cpu")
+    result = engine.generate(prompt="星澄是", max_tokens=64, seed=1)
+    assert result["ok"] is True
+    assert result["eval_count"] <= 3
+
+
+def test_scope_gate_ignores_persona_prefix(monkeypatch, tmp_path) -> None:
+    """人格區塊含關鍵詞時，範圍仍只看使用者最新訊息。"""
+    from xingcheng.infrastructure import native_engine as module
+
+    _settings_file(
+        monkeypatch,
+        tmp_path,
+        {
+            "scope_enabled": True,
+            "scope_keywords": ["星澄"],
+            "scope_fallback_message": "超出範圍。",
+        },
+    )
+    composed_allowed = (
+        "星澄人格設定：\n你是星澄，語氣精確。\n\n"
+        "使用者最新訊息：請說明星澄的治理規則。"
+    )
+    composed_refused = (
+        "星澄人格設定：\n你是星澄，語氣精確。\n\n"
+        "使用者最新訊息：請解量子力學方程式。"
+    )
+    assert module.scope_check(composed_allowed) == (False, "")
+    assert module.scope_check(composed_refused) == (True, "prompt-out-of-scope")
+
+
+def test_write_settings_enable_disable(monkeypatch, tmp_path) -> None:
+    from xingcheng.infrastructure import native_engine as module
+
+    _settings_file(monkeypatch, tmp_path, {"enabled": False})
+    status = module.control_status()
+    assert status["enabled"] is False
+
+    module.write_settings(enabled=True)
+    assert module.load_settings()["enabled"] is True
+    assert module.control_status()["enabled"] is True
+
+    module.write_settings(enabled=False)
+    assert module.control_status()["enabled"] is False

@@ -13,8 +13,10 @@ from ..execution.backend import capabilities
 
 
 def _triton_available() -> bool:
+    from ..execution.backend import triton_kernels_enabled
+
     cap = capabilities()
-    return cap.has_triton and cap.has_cuda
+    return bool(cap.has_triton and cap.has_cuda and triton_kernels_enabled())
 
 
 def build_rope_tables(
@@ -50,7 +52,9 @@ def apply_rope(
     position_ids: (batch, seq) 可選
     回傳旋轉後的 (q_rot, k_rot)。
     """
-    if q.is_cuda and _triton_available():
+    # RoPE 會作用在需要梯度的 q/k 上；Triton 路徑不帶 autograd，
+    # 訓練時必須退回 PyTorch 實作以保留梯度。
+    if q.is_cuda and _triton_available() and not (q.requires_grad or k.requires_grad):
         try:
             return _rope_triton(q, k, cos, sin, position_ids)
         except Exception:
@@ -156,17 +160,20 @@ def _rope_triton(
         )
 
     cos_g, sin_g = _gather_cos_sin(q, cos, sin, position_ids)
-    B, H, S, D = q.shape
-    D2 = D // 2
-    total = B * H * S * D2
-    BLOCK = 256
-    grid = (triton.cdiv(total, BLOCK),)
 
-    q_out = torch.empty_like(q)
-    _rope_kernel[grid](q, cos_g, sin_g, q_out, H, S, D, D2, total, BLOCK=BLOCK)
-    k_out = torch.empty_like(k)
-    _rope_kernel[grid](k, cos_g, sin_g, k_out, H, S, D, D2, total, BLOCK=BLOCK)
-    return q_out, k_out
+    def _launch(x: torch.Tensor) -> torch.Tensor:
+        # GQA：k 的 head 數可能少於 q，launch 參數必須逐張量計算，
+        # 否則會以 q 的 head 數越界讀取 k。
+        B, heads, S, D = x.shape
+        D2 = D // 2
+        total = B * heads * S * D2
+        block = 256
+        grid = (triton.cdiv(total, block),)
+        out = torch.empty_like(x)
+        _rope_kernel[grid](x, cos_g, sin_g, out, heads, S, D, D2, total, BLOCK=block)
+        return out
+
+    return _launch(q), _launch(k)
 
 
 __all__ = ["build_rope_tables", "apply_rope"]

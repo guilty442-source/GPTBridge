@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .chat_session import ChatSession, SessionReply
-from .kv_cache import KVCache
+from .kv_cache import KVCache, resolve_kv_dtype
 from .prefix_cache import PrefixKVStore
 from .sampler import Sampler, SamplingConfig
 from .generate import Generator
@@ -16,4 +16,5 @@ __all__ = [
     "Sampler",
     "SamplingConfig",
     "SessionReply",
+    "resolve_kv_dtype",
 ]

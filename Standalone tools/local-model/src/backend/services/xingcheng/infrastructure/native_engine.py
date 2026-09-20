@@ -30,8 +30,13 @@ from .native_transformer.checkpoint import (
     default_checkpoint_dir,
     load_checkpoint,
 )
-from .native_transformer.execution.backend import resolve_device
-from .native_transformer.inference import Generator, Sampler, SamplingConfig
+from .native_transformer.execution.backend import default_dtype, resolve_device
+from .native_transformer.inference import (
+    Generator,
+    PrefixKVStore,
+    Sampler,
+    SamplingConfig,
+)
 from .native_transformer.tokenizer import XingChengTokenizer
 
 NATIVE_ENGINE_ENV = "XINGCHENG_NATIVE_ENGINE"
@@ -45,6 +50,36 @@ NATIVE_EXECUTION_LEDGER = "xingcheng/runtime/logs/native-engine-executions.jsonl
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
+
+
+class _NativeGenerationCancelled(Exception):
+    """原生生成於串流期間被取消。"""
+
+
+#: 超短問候／道謝的第一方模板回覆（品質閘門要求輸入 ≥4 字，這類輸入不進訓練）。
+SMALL_TALK_REPLIES: tuple[tuple[str, str], ...] = (
+    ("你好", "您好，我是星澄，本機執行的原生生成式語言模型。"),
+    ("哈囉", "您好，我是星澄，本機執行的原生生成式語言模型。"),
+    ("嗨", "您好，我是星澄，本機執行的原生生成式語言模型。"),
+    ("早安", "早安，我是星澄，本機執行的原生生成式語言模型。"),
+    ("午安", "午安，我是星澄，本機執行的原生生成式語言模型。"),
+    ("晚安", "晚安，我是星澄，本機執行的原生生成式語言模型。"),
+    ("謝謝", "不客氣，我是星澄，原生模型能獨立完成基本語言模型推理。"),
+    ("感謝", "不客氣，我是星澄，神經網路核心為第一方原生實作。"),
+    ("再見", "再見，我是星澄，隨時可以為您服務。"),
+    ("掰掰", "再見，我是星澄，隨時可以為您服務。"),
+)
+
+_SMALL_TALK_STRIP = " 　\t\r\n！!？?。.，,、；;：:~～"
+
+
+def small_talk_reply(prompt: str) -> str | None:
+    """精確比對超短問候；命中才回模板，其餘一律走模型生成。"""
+    normalized = str(prompt or "").strip().strip(_SMALL_TALK_STRIP)
+    for question, answer in SMALL_TALK_REPLIES:
+        if normalized == question:
+            return answer
+    return None
 
 
 def tool_root() -> Path:
@@ -93,6 +128,131 @@ def configured_checkpoint_path() -> Path:
     return directory / "native-model.pt"
 
 
+def _bounded_setting(
+    settings: Mapping[str, Any],
+    key: str,
+    default: Any,
+    minimum: Any,
+    maximum: Any,
+    *,
+    cast: Any = float,
+) -> Any:
+    try:
+        value = cast(settings.get(key, default))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+def generation_defaults() -> dict[str, Any]:
+    """settings 驅動的生成預設；請求值優先，任何值都夾在安全範圍內。"""
+    settings = load_settings()
+    return {
+        "temperature": _bounded_setting(settings, "temperature", 0.4, 0.0, 2.0),
+        "top_k": int(_bounded_setting(settings, "top_k", 10, 0, 200, cast=int)),
+        "top_p": _bounded_setting(settings, "top_p", 0.9, 0.0, 1.0),
+        "repetition_penalty": _bounded_setting(
+            settings, "repetition_penalty", 1.05, 0.01, 16.0
+        ),
+        "max_new_tokens": int(
+            _bounded_setting(settings, "max_new_tokens", 192, 1, 512, cast=int)
+        ),
+        "seed": settings.get("seed"),
+        "fallback_message": str(settings.get("fallback_message") or "").strip(),
+        "min_answer_chars": int(
+            _bounded_setting(settings, "min_answer_chars", 4, 0, 200, cast=int)
+        ),
+    }
+
+
+def cpu_thread_budget() -> int:
+    """CPU 執行緒上限：settings 指定，否則取核心數的 1/4（最多 4）。"""
+    settings = load_settings()
+    try:
+        configured = int(settings.get("cpu_threads") or 0)
+    except (TypeError, ValueError):
+        configured = 0
+    if configured > 0:
+        return max(1, min(16, configured))
+    cores = os.cpu_count() or 8
+    return max(1, min(4, cores // 4))
+
+
+def cpu_generation_cap() -> int:
+    """CPU 生成上限（token）：避免 CPU 路徑長時間滿載。"""
+    settings = load_settings()
+    try:
+        cap = int(settings.get("cpu_max_new_tokens") or 64)
+    except (TypeError, ValueError):
+        cap = 64
+    return max(1, min(128, cap))
+
+
+def scope_check(prompt: str) -> tuple[bool, str]:
+    """範圍閘門：settings 啟用時，prompt 必須命中允許主題才放行。"""
+    settings = load_settings()
+    if settings.get("scope_enabled") is not True:
+        return False, ""
+    keywords = [
+        str(keyword).strip().casefold()
+        for keyword in (settings.get("scope_keywords") or [])
+        if str(keyword).strip()
+    ]
+    if not keywords:
+        return False, ""
+    text = str(prompt or "")
+    # 對話組合提示會前置人格與歷史；範圍判定只看使用者最新訊息，
+    # 否則人格文字中的關鍵詞會讓所有問題都通過閘門。
+    for marker in ("使用者最新訊息：", "使用者最新訊息:", "使用者："):
+        if marker in text:
+            text = text.rsplit(marker, 1)[-1]
+            break
+    lowered = text.casefold()
+    if any(keyword in lowered for keyword in keywords):
+        return False, ""
+    return True, "prompt-out-of-scope"
+
+
+def scope_refusal_message() -> str:
+    settings = load_settings()
+    return str(
+        settings.get("scope_fallback_message")
+        or settings.get("fallback_message")
+        or "這個問題超出我目前可回答的範圍。"
+    )
+
+
+_ALLOWED_PUNCTUATION = set(
+    "，。！？；：、（）「」『』《》〈〉…—－·,.!?;:()[]<>\"'%+-=*/@#$&_|~`^\\"
+)
+
+
+def quality_guard(text: str, *, min_chars: int) -> tuple[bool, str]:
+    """回應品質護欄：過短、亂碼比例過高或高度重複時觸發。"""
+    value = str(text or "").strip()
+    if len(value) < max(1, int(min_chars)):
+        return True, "answer-too-short"
+    allowed = 0
+    total = 0
+    for char in value:
+        if char.isspace():
+            continue
+        total += 1
+        if char.isalnum() or "\u3400" <= char <= "\u9fff" or char in _ALLOWED_PUNCTUATION:
+            allowed += 1
+    if total and allowed / total < 0.85:
+        return True, "answer-garbled"
+    compact = "".join(value.split())
+    if len(compact) >= 24:
+        counts: dict[str, int] = {}
+        for index in range(len(compact) - 5):
+            gram = compact[index : index + 6]
+            counts[gram] = counts.get(gram, 0) + 1
+        if counts and max(counts.values()) >= 5:
+            return True, "answer-repetitive"
+    return False, ""
+
+
 class NativeTransformerEngine:
     """自訓權重推論引擎；模型核心不觸網。"""
 
@@ -101,6 +261,7 @@ class NativeTransformerEngine:
         checkpoint_path: str | Path,
         *,
         quantize: int | None = None,
+        device: str | torch.device | None = None,
     ) -> None:
         loaded = load_checkpoint(checkpoint_path)
         self.checkpoint_path = Path(checkpoint_path)
@@ -118,9 +279,28 @@ class NativeTransformerEngine:
         tokenizer = loaded.get("tokenizer")
         self.tokenizer = tokenizer or XingChengTokenizer.from_config(self.config)
         # 推論裝置：有 CUDA 用 CUDA（GPU 加速），否則 CPU。
-        self.device = resolve_device(None)
-        self.model = self.model.to(self.device)
-        self._generator = Generator(self.model, device=self.device)
+        self.device = resolve_device(device)
+        if self.device.type == "cpu":
+            # CPU 路徑限制執行緒數，避免與主系統爭用全部核心。
+            import torch as _torch
+
+            try:
+                _torch.set_num_threads(cpu_thread_budget())
+            except Exception:
+                pass
+            try:
+                _torch.set_num_interop_threads(1)
+            except Exception:
+                pass
+        # CUDA / MPS 走 bf16（Tensor Core GEMM + mem-efficient attention）；
+        # CPU 維持 fp32。int8/uint8 量化 buffer 不受浮點 dtype cast 影響。
+        self.model = self.model.to(device=self.device, dtype=default_dtype(self.device))
+        self.prefix_store = PrefixKVStore(
+            max_entries=8, tag=f"xingcheng-native:{self.state_sha256[:12]}"
+        )
+        self._generator = Generator(
+            self.model, device=self.device, prefix_store=self.prefix_store
+        )
         self._lock = threading.Lock()
 
     @classmethod
@@ -150,11 +330,10 @@ class NativeTransformerEngine:
         import torch
 
         started = time.perf_counter()
-        try:
-            configured_cap = int(load_settings().get("max_new_tokens") or 512)
-        except (TypeError, ValueError):
-            configured_cap = 512
-        configured_cap = max(1, min(configured_cap, 512))
+        defaults = generation_defaults()
+        configured_cap = int(defaults["max_new_tokens"])
+        if self.device.type == "cpu":
+            configured_cap = min(configured_cap, cpu_generation_cap())
         try:
             max_new = int(max_tokens) if max_tokens else configured_cap
         except (TypeError, ValueError):
@@ -169,6 +348,39 @@ class NativeTransformerEngine:
                 "error_code": "NATIVE_ENGINE_EMPTY_PROMPT",
                 "message": "prompt 編碼後為空",
                 "fallback_required": False,
+            }
+        scope_triggered, scope_reason = scope_check(prompt)
+        if scope_triggered:
+            message = scope_refusal_message()
+            latency_ms = round((time.perf_counter() - started) * 1_000, 3)
+            return {
+                "ok": True,
+                "text": message,
+                "decoder": "native-transformer-autoregressive-decoder",
+                "model": NATIVE_MODEL_ID,
+                "model_family": NATIVE_MODEL_FAMILY,
+                "parameter_class": "native-self-trained",
+                "parameter_count": self._parameter_count,
+                "quantization": self.quantization,
+                "device": str(self.device),
+                "sampling": {},
+                "quality_guard": {"triggered": False, "reason": "", "min_answer_chars": 0},
+                "scope_guard": {"triggered": True, "reason": scope_reason},
+                "architecture": "xingcheng-native-decoder-transformer",
+                "context_window": int(self.config.max_position_embeddings),
+                "prompt_eval_count": 0,
+                "eval_count": 0,
+                "latency_ms": latency_ms,
+                "facts_supported": False,
+                "remote_network_used": False,
+                "loopback_runtime_used": False,
+                "third_party_foundation_weights": False,
+                "star_native_model_used": True,
+                "native_engine": True,
+                "foundation_model_license": NATIVE_FOUNDATION_LICENSE,
+                "checkpoint_path": str(self.checkpoint_path),
+                "state_sha256": self.state_sha256,
+                "intent": str(intent or ""),
             }
         capacity = int(self.config.max_position_embeddings)
         prompt_truncated = False
@@ -186,30 +398,38 @@ class NativeTransformerEngine:
             }
         max_new = min(max_new, remaining)
         try:
-            temperature_value = float(temperature) if temperature is not None else 1.0
+            temperature_value = (
+                float(temperature)
+                if temperature is not None
+                else float(defaults["temperature"])
+            )
         except (TypeError, ValueError):
-            temperature_value = 1.0
+            temperature_value = float(defaults["temperature"])
+        temperature_value = max(0.0, min(2.0, temperature_value))
         try:
-            top_k_value = max(0, int(top_k)) if top_k else 0
+            top_k_value = max(0, int(top_k)) if top_k else int(defaults["top_k"])
         except (TypeError, ValueError):
-            top_k_value = 0
+            top_k_value = int(defaults["top_k"])
+        top_k_value = max(0, min(200, top_k_value))
         try:
-            top_p_value = float(top_p) if top_p is not None else 1.0
+            top_p_value = (
+                float(top_p) if top_p is not None else float(defaults["top_p"])
+            )
         except (TypeError, ValueError):
-            top_p_value = 1.0
+            top_p_value = float(defaults["top_p"])
         top_p_value = max(0.0, min(1.0, top_p_value))
         try:
             rep_value = (
-                float(repetition_penalty) if repetition_penalty is not None else 1.0
+                float(repetition_penalty)
+                if repetition_penalty is not None
+                else float(defaults["repetition_penalty"])
             )
         except (TypeError, ValueError):
-            rep_value = 1.0
+            rep_value = float(defaults["repetition_penalty"])
         rep_value = max(0.01, min(16.0, rep_value))
-        do_sample = (
-            (temperature is not None and temperature_value > 0)
-            or top_k_value > 0
-            or top_p_value < 1.0
-        )
+        if seed is None:
+            seed = defaults["seed"]
+        do_sample = temperature_value > 0 or top_k_value > 0 or top_p_value < 1.0
         sampler = Sampler(
             SamplingConfig(
                 do_sample=do_sample,
@@ -229,6 +449,24 @@ class NativeTransformerEngine:
                 "message": "Model generation was cancelled",
                 "fallback_required": False,
             }
+        streamed: list[int] = []
+
+        def _on_token(token_id: int) -> None:
+            if cancel_event is not None and cancel_event.is_set():
+                raise _NativeGenerationCancelled()
+            streamed.append(int(token_id))
+            if progress_callback is not None:
+                try:
+                    progress_callback(
+                        {
+                            "sequence": len(streamed),
+                            "text": self.tokenizer.decode(streamed, skip_special=True),
+                            "model": NATIVE_MODEL_ID,
+                        }
+                    )
+                except Exception:
+                    pass
+
         try:
             with self._lock:
                 if seed is not None:
@@ -237,8 +475,18 @@ class NativeTransformerEngine:
                     except (TypeError, ValueError):
                         pass
                 generated = self._generator.generate(
-                    ids, max_new_tokens=max_new, sampling=sampler.config
+                    ids,
+                    max_new_tokens=max_new,
+                    sampling=sampler.config,
+                    on_token=_on_token if progress_callback is not None or cancel_event is not None else None,
                 )
+        except _NativeGenerationCancelled:
+            return {
+                "ok": False,
+                "error_code": "TRANSFORMER_REQUEST_CANCELLED",
+                "message": "Model generation was cancelled",
+                "fallback_required": False,
+            }
         except ValueError as error:
             return {
                 "ok": False,
@@ -256,6 +504,27 @@ class NativeTransformerEngine:
         out_ids = [int(token) for token in generated[0].tolist()]
         text = self.tokenizer.decode(out_ids, skip_special=True)
         latency_ms = round((time.perf_counter() - started) * 1_000, 3)
+
+        guard_triggered, guard_reason = quality_guard(
+            text, min_chars=int(defaults["min_answer_chars"])
+        )
+        if guard_triggered:
+            text = (
+                str(defaults["fallback_message"])
+                or "我目前無法可靠回答這個問題。"
+            )
+            if progress_callback is not None:
+                try:
+                    progress_callback(
+                        {
+                            "sequence": len(streamed),
+                            "text": text,
+                            "guard": guard_reason,
+                            "model": NATIVE_MODEL_ID,
+                        }
+                    )
+                except Exception:
+                    pass
 
         def _digest(value: str) -> str:
             import hashlib
@@ -304,6 +573,12 @@ class NativeTransformerEngine:
             "parameter_count": self._parameter_count,
             "quantization": self.quantization,
             "device": str(self.device),
+            "prefix_cache": {
+                "reused_tokens": int(getattr(self._generator, "last_prefix_reuse", 0)),
+                "entries": len(self.prefix_store),
+                "hits": int(self.prefix_store.hits),
+                "misses": int(self.prefix_store.misses),
+            },
             "sampling": {
                 "do_sample": bool(do_sample),
                 "temperature": temperature_value,
@@ -313,6 +588,12 @@ class NativeTransformerEngine:
                 "seed": int(seed) if isinstance(seed, (int, float)) else None,
             },
             "prompt_truncated": prompt_truncated,
+            "quality_guard": {
+                "triggered": bool(guard_triggered),
+                "reason": guard_reason,
+                "min_answer_chars": int(defaults["min_answer_chars"]),
+            },
+            "scope_guard": {"triggered": False, "reason": ""},
             "architecture": "xingcheng-native-decoder-transformer",
             "context_window": int(self.config.max_position_embeddings),
             "prompt_eval_count": len(prompt_ids),
@@ -344,19 +625,23 @@ def native_engine_for(
 ) -> NativeTransformerEngine:
     """解析（並快取）flag 對應的引擎實例；不可用時 fail-closed。"""
     path = Path(checkpoint_path) if checkpoint_path else configured_checkpoint_path()
+    settings = load_settings()
     quantize_raw = str(
         os.environ.get(NATIVE_QUANTIZATION_ENV)
-        or load_settings().get("quantization")
+        or settings.get("quantization")
         or ""
     ).strip().casefold()
     quantize = {"int8": 8, "int4": 4}.get(quantize_raw)
-    key = f"{path.resolve()}|{quantize or 0}"
+    device = settings.get("device") or None
+    key = f"{path.resolve()}|{quantize or 0}|{device or 'auto'}"
     with _engine_lock:
         engine = _engine_cache.get(key)
         if engine is None:
             if not path.is_file():
                 raise FileNotFoundError(f"NATIVE_CHECKPOINT_MISSING:{path}")
-            engine = NativeTransformerEngine(path, quantize=quantize)
+            engine = NativeTransformerEngine(
+                path, quantize=quantize, device=device
+            )
             _engine_cache[key] = engine
         return engine
 
@@ -401,25 +686,66 @@ def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
+def write_settings(**updates: Any) -> dict[str, Any]:
+    """更新工具 settings（治理控制面）；未知鍵保留，寫入為原子替換。"""
+    current = load_settings()
+    current.update({key: value for key, value in updates.items() if value is not None})
+    target = settings_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_name(target.name + ".tmp")
+    tmp.write_text(
+        json.dumps(current, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    os.replace(tmp, target)
+    return current
+
+
+def control_status() -> dict[str, Any]:
+    """控制面狀態：開關、checkpoint、生成預設。"""
+    return {
+        "enabled": flag_enabled(),
+        "checkpoint": str(configured_checkpoint_path()),
+        "settings_path": str(settings_path()),
+        "settings": load_settings(),
+        "defaults": generation_defaults(),
+    }
+
+
 def _cli(argv: list[str]) -> int:
     import argparse
     import json
 
     parser = argparse.ArgumentParser(
         prog="xingcheng-native-engine",
-        description="星澄原生引擎 CLI：以自訓 checkpoint 生成（不觸網）",
+        description="星澄原生引擎 CLI：控制面（status/enable/disable/checkpoint）與生成",
     )
-    parser.add_argument("--checkpoint", default=None, help="checkpoint 路徑")
-    parser.add_argument("--prompt", required=True, help="輸入文字")
-    parser.add_argument("--max-new-tokens", type=int, default=64)
-    parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--top-k", type=int, default=0)
-    parser.add_argument("--top-p", type=float, default=1.0)
-    parser.add_argument("--repetition-penalty", type=float, default=1.0)
+    parser.add_argument("--status", action="store_true", help="顯示控制面狀態")
+    parser.add_argument("--enable", action="store_true", help="開啟原生引擎")
+    parser.add_argument("--disable", action="store_true", help="關閉原生引擎（fail-closed）")
+    parser.add_argument("--set-checkpoint", default=None, help="指定 checkpoint 並持久化")
+    parser.add_argument("--checkpoint", default=None, help="本次生成使用的 checkpoint")
+    parser.add_argument("--prompt", default=None, help="輸入文字（未提供時僅執行控制指令）")
+    parser.add_argument("--max-new-tokens", type=int, default=None)
+    parser.add_argument("--temperature", type=float, default=None)
+    parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument("--top-p", type=float, default=None)
+    parser.add_argument("--repetition-penalty", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--sliding-window", action="store_true")
     parser.add_argument("--quantize", type=int, default=None, choices=[4, 8])
     args = parser.parse_args(argv)
+
+    if args.enable or args.disable or args.set_checkpoint:
+        write_settings(
+            enabled=True if args.enable else (False if args.disable else None),
+            checkpoint=args.set_checkpoint,
+        )
+        print(json.dumps(control_status(), ensure_ascii=False, indent=2))
+        if not args.prompt:
+            return 0
+    if args.status or not args.prompt:
+        print(json.dumps(control_status(), ensure_ascii=False, indent=2))
+        return 0
     try:
         path = Path(args.checkpoint) if args.checkpoint else configured_checkpoint_path()
         engine = NativeTransformerEngine(path, quantize=args.quantize)
@@ -455,10 +781,16 @@ __all__ = [
     "NATIVE_QUANTIZATION_ENV",
     "NativeTransformerEngine",
     "configured_checkpoint_path",
+    "control_status",
+    "cpu_generation_cap",
+    "cpu_thread_budget",
     "flag_enabled",
     "generate_via_native_engine",
+    "generation_defaults",
     "load_settings",
     "native_engine_for",
+    "quality_guard",
     "settings_path",
     "tool_root",
+    "write_settings",
 ]
