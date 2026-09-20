@@ -15,31 +15,59 @@ from typing import Any
 import pytest
 from xingcheng.application.service import LocalAiService
 from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.infrastructure.transformer_runtime_catalog import (
+    TransformerRuntimeCatalog,
+)
 
 @pytest.mark.parametrize(
     ("intent", "expected"),
     [
-        ("conversation", "gemma4:e2b-it-qat"),
-        ("reading", "gemma4:e2b-it-qat"),
-        ("coding", "qwen3.6:35b-a3b-coding"),
-        ("reasoning", "deepseek-r1:8b-0528-qwen3-q4_K_M"),
-        ("analysis", "deepseek-r1:8b-0528-qwen3-q4_K_M"),
-        ("search", "qwen3.5:9b-q4_K_M"),
-        ("data_organization", "qwen3.5:9b-q4_K_M"),
-        ("self_upgrade", "qwen3.6:35b-a3b-coding"),
+        ("conversation", TransformerRuntimeCatalog.MODEL),
+        (
+            "reading",
+            TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["reading"][0],
+        ),
+        (
+            "coding",
+            TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["coding"][1],
+        ),
+        (
+            "reasoning",
+            TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["reasoning"][0],
+        ),
+        (
+            "analysis",
+            TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["analysis"][0],
+        ),
+        (
+            "search",
+            TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["search"][0],
+        ),
+        (
+            "data_organization",
+            TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES[
+                "data_organization"
+            ][0],
+        ),
+        (
+            "self_upgrade",
+            TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["self_upgrade"][0],
+        ),
     ],
 )
 def test_automatic_model_classification(intent: str, expected: str) -> None:
     model_names = {
         StarTransformerRuntime.MODEL,
-        "gemma4:e2b-it-qat",
+        TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["reading"][0],
         "gpt-oss:20b",
         "qwen3:30b-a3b-instruct-2507-q4_K_M",
-        "deepseek-r1:8b-0528-qwen3-q4_K_M",
+        TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["reasoning"][0],
         "qwen3.5:9b-q4_K_M",
         "llama3.1:8b-instruct-q4_K_M",
-        "qwen3.8:27b-q4_K_M",
-        "qwen3.6:35b-a3b-coding",
+        TransformerRuntimeCatalog.FAILURE_ADJUDICATOR_MODEL,
+        TransformerRuntimeCatalog.EXECUTION_MODEL,
+        TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["search"][0],
+        TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["data_organization"][0],
     }
     runtime = StarTransformerRuntime(
         enabled=True,
@@ -72,7 +100,7 @@ def test_daily_models_are_grouped_separately_from_specialists_and_fallback() -> 
     catalog = {item["name"]: item for item in runtime.selectable_models(refresh=True)}
 
     assert catalog["gemma4:e2b-it-qat"]["daily_group"] == "fast"
-    assert catalog["gemma4:e2b-it-qat"]["residency"] == "resident"
+    assert catalog["gemma4:e2b-it-qat"]["residency"] == "non-resident"
     assert catalog["gemma4:e2b-it-qat"]["quantization"] == "QAT-4bit"
     assert catalog["gemma4:e2b-it-qat"]["context_window"] == 131_072
     assert catalog["gpt-oss:20b"]["quantization"] == "MXFP4"
@@ -84,14 +112,16 @@ def test_daily_models_are_grouped_separately_from_specialists_and_fallback() -> 
     assert catalog["qwen3.5:9b-q4_K_M"]["usage_class"] == "search-and-tool-coordinator"
     assert catalog["qwen3.5:9b-q4_K_M"]["context_window"] == 262_144
     assert catalog["llama3.1:8b-instruct-q4_K_M"]["usage_class"] == (
-        "lightweight-fallback-and-manual"
+        "lightweight-manual-model"
     )
     assert catalog["qwen3.8:27b-q4_K_M"]["evaluation"] == {
         "speed": 1,
         "strength": 5,
         "reasoning_depth": 5,
     }
-    assert catalog["qwen3.8:27b-q4_K_M"]["usage_class"] == "advanced-reasoning"
+    assert catalog["qwen3.8:27b-q4_K_M"]["usage_class"] == (
+        "task-commander-chinese-understanding-integration-acceptance"
+    )
     assert catalog["gpt-oss:20b"]["usage_class"] == "integration-coordinator"
     assert catalog["deepseek-r1:8b-0528-qwen3-q4_K_M"]["usage_class"] == "medium-reasoning"
     assert catalog["qwen3:30b-a3b-instruct-2507-q4_K_M"]["usage_class"] == "complex"
@@ -103,14 +133,16 @@ def test_runtime_reports_memory_bounded_residency_policy() -> None:
 
     policy = runtime.status()["residency_policy"]
 
-    assert policy["resident"] == ["qwen3.5:9b-q4_K_M"]
+    assert policy["resident"] == sorted(TransformerRuntimeCatalog.RESIDENT_MODELS)
     assert policy["unknown_installed_models"] == "non-resident"
     assert policy["resident_evicted_before_non_resident"] is False
     assert policy["pipeline_release_after_each_stage"] is True
-    assert policy["maximum_concurrent_transformers"] == 4
+    assert policy["maximum_concurrent_transformers"] == (
+        TransformerRuntimeCatalog.MAX_CONCURRENT_TRANSFORMERS
+    )
 
 
-def test_llama_is_the_lightweight_daily_fallback_when_gemma_is_absent() -> None:
+def test_llama_is_manual_only_and_never_an_automatic_daily_fallback() -> None:
     llama = "llama3.1:8b-instruct-q4_K_M"
     runtime = StarTransformerRuntime(
         enabled=True,
@@ -119,10 +151,16 @@ def test_llama_is_the_lightweight_daily_fallback_when_gemma_is_absent() -> None:
 
     runtime.probe(refresh=True)
 
-    assert runtime.preferred_model_for_intent("conversation") == llama
-    assert runtime.preferred_model_for_intent("reading") == llama
-    assert runtime.preferred_model_for_intent("search") == llama
-    assert runtime.preferred_model_for_intent("training") == llama
+    catalog = {item["name"]: item for item in runtime.selectable_models()}
+    assert catalog[llama]["usage_class"] == "lightweight-manual-model"
+    assert catalog[llama]["daily_group"] == ""
+    assert runtime.status()["automatic_model_routing"]["automatic_fallback"] == []
+    assert runtime.preferred_model_for_intent("conversation") == (
+        TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["conversation"][0]
+    )
+    assert runtime.model_candidates_for_intent("conversation") == list(
+        TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["conversation"]
+    )
 
 
 def test_service_denies_direct_runtime_model_selection(tmp_path: Path) -> None:
@@ -259,7 +297,7 @@ def test_selected_star_defaults_to_main_database_with_project_wide_permission(
             "xingcheng_infer",
             {
                 "prompt": "請說明海岳計畫",
-                "runtime_model": StarTransformerRuntime.MODEL,
+                "runtime_model": service.NATIVE_MODEL_ID,
                 "_runtime_model_selection_authorized": True,
             },
         )
@@ -279,7 +317,7 @@ def test_selected_star_defaults_to_main_database_with_project_wide_permission(
             "xingcheng_infer",
             {
                 "prompt": "請記住海岳計畫使用藍色標籤",
-                "runtime_model": StarTransformerRuntime.MODEL,
+                "runtime_model": service.NATIVE_MODEL_ID,
                 "_runtime_model_selection_authorized": True,
             },
         )
@@ -364,7 +402,7 @@ def test_selected_star_opens_training_capability_and_operation_records(
             "xingcheng_infer",
             {
                 "prompt": "檢查自己的資料庫",
-                "runtime_model": StarTransformerRuntime.MODEL,
+                "runtime_model": service.NATIVE_MODEL_ID,
                 "_runtime_model_selection_authorized": True,
             },
         )
@@ -400,7 +438,7 @@ def test_service_promotes_transformer_output_without_training_it(
     assert result["external_ai_used"] is False
     assert result["star_native_model_used"] is False
     assert result["model"] == StarTransformerRuntime.MODEL
-    assert result["coordinator_model"] == "gpt-oss:20b"
+    assert result["coordinator_model"] == LocalAiService.FINAL_COORDINATOR_MODEL
     assert result["self_training"]["accepted"] is False
     assert service.runtime_health()["runtime_metrics"]["transformer_success_count"] == 1
 
@@ -437,7 +475,7 @@ def test_service_maps_task_intensity_to_reasoning_paths_without_role_reassignmen
         service.handle(
             "xingcheng_infer",
             {
-                "prompt": "請介紹你自己",
+                "prompt": "請分析投資風險",
                 "reasoning_effort": "medium",
                 "task_intensity": "simple",
             },
@@ -447,7 +485,7 @@ def test_service_maps_task_intensity_to_reasoning_paths_without_role_reassignmen
         service.handle(
             "xingcheng_infer",
             {
-                "prompt": "請介紹你自己",
+                "prompt": "請分析投資風險",
                 "reasoning_effort": "medium",
                 "task_intensity": "difficult",
             },
@@ -462,8 +500,13 @@ def test_service_maps_task_intensity_to_reasoning_paths_without_role_reassignmen
     assert difficult["task_intensity"] == "difficult"
     assert difficult["complex_pipeline"] is True
     assert difficult["division_pipeline"] is False
-    assert runtime.COMMAND_UNDERSTANDING_PRIMARY_MODEL == "qwen3.5:9b-q4_K_M"
-    assert runtime.COMMAND_UNDERSTANDING_BACKUP_MODEL == "nemotron-3-nano:4b"
+    assert runtime.COMMAND_UNDERSTANDING_MODEL == (
+        TransformerRuntimeCatalog.COMMAND_UNDERSTANDING_MODEL
+    )
+    assert runtime.FAILURE_ADJUDICATOR_MODEL == (
+        TransformerRuntimeCatalog.FAILURE_ADJUDICATOR_MODEL
+    )
+    assert runtime.status()["automatic_model_routing"]["automatic_fallback"] == []
 
 
 def test_service_status_reports_the_governed_multi_model_architecture(
@@ -492,7 +535,7 @@ def test_service_status_reports_the_governed_multi_model_architecture(
     assert status["autonomous_agent"]["enabled"] is True
     assert status["autonomous_agent"]["star_native_model_included"] is False
     assert status["autonomous_agent"]["understanding_authority"]["primary"] == (
-        "qwen3.5:9b-q4_K_M"
+        LocalAiService.COMMAND_UNDERSTANDING_MODEL
     )
     assert status["autonomous_agent"]["understanding_authority"]["backup"] == (
         "nemotron-3-nano:4b"

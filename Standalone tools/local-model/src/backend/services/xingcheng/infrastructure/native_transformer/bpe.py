@@ -18,7 +18,22 @@ PAD_ID = 0
 BOS_ID = 1
 EOS_ID = 2
 UNK_ID = 3
-SPECIAL_TOKENS: tuple[str, ...] = ("<|pad|>", "<|bos|>", "<|eos|>", "<|unk|>")
+SYSTEM_ID = 4
+USER_ID = 5
+ASSISTANT_ID = 6
+TOOL_ID = 7
+EOT_ID = 8  # END_OF_TURN
+SPECIAL_TOKENS: tuple[str, ...] = (
+    "<|pad|>",
+    "<|bos|>",
+    "<|eos|>",
+    "<|unk|>",
+    "<|system|>",
+    "<|user|>",
+    "<|assistant|>",
+    "<|tool|>",
+    "<|eot|>",
+)
 TOKENIZER_KIND = "byte-level-bpe"
 
 
@@ -32,6 +47,33 @@ def _require_tokenizers():
     except ImportError as error:  # pragma: no cover - 環境缺依賴時 fail-closed
         raise RuntimeError("TOKENIZERS_LIBRARY_REQUIRED") from error
     return tokenizers
+
+
+def _enforce_vocab_cap(tokenizer_path: Path, vocab_size: int) -> None:
+    """HF BpeTrainer 可能多出 token；硬性截斷到目標大小（id 必須 < vocab_size）。"""
+    data = json.loads(tokenizer_path.read_text(encoding="utf-8"))
+    model = data.get("model") if isinstance(data, dict) else None
+    if not isinstance(model, dict):
+        return
+    vocab = model.get("vocab")
+    if not isinstance(vocab, dict):
+        return
+    if len(vocab) <= vocab_size:
+        return
+    # id 依序配置（special → byte alphabet → merges），因此超出的尾端
+    # token 對應尾端的合併規則，兩者一起移除即可保持一致。
+    excess = len(vocab) - vocab_size
+    merges = model.get("merges")
+    if isinstance(merges, list) and excess <= len(merges):
+        model["merges"] = merges[:-excess] if excess else merges
+    model["vocab"] = {
+        token: int(index)
+        for token, index in vocab.items()
+        if int(index) < vocab_size
+    }
+    tokenizer_path.write_text(
+        json.dumps(data, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 def train_bpe(
@@ -62,6 +104,8 @@ def train_bpe(
 
     tokenizer_path = target / "tokenizer.json"
     backend.save(str(tokenizer_path))
+    _enforce_vocab_cap(tokenizer_path, int(vocab_size))
+    backend = tokenizers.Tokenizer.from_file(str(tokenizer_path))
     digest = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
     manifest = {
         "created_at": _iso_now(),
@@ -91,6 +135,11 @@ class NativeBPETokenizer:
         self.bos_id = BOS_ID
         self.eos_id = EOS_ID
         self.unk_id = UNK_ID
+        self.system_id = SYSTEM_ID
+        self.user_id = USER_ID
+        self.assistant_id = ASSISTANT_ID
+        self.tool_id = TOOL_ID
+        self.eot_id = EOT_ID
 
     @classmethod
     def train(
@@ -225,12 +274,17 @@ if __name__ == "__main__":  # pragma: no cover
 
 
 __all__ = [
+    "ASSISTANT_ID",
     "BOS_ID",
     "EOS_ID",
+    "EOT_ID",
     "NativeBPETokenizer",
     "PAD_ID",
     "SPECIAL_TOKENS",
+    "SYSTEM_ID",
     "TOKENIZER_KIND",
+    "TOOL_ID",
     "UNK_ID",
+    "USER_ID",
     "train_bpe",
 ]

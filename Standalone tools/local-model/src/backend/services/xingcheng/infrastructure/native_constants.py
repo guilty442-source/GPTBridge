@@ -601,3 +601,7 @@ class StarNativeConstantsMixin:
             "可查詢公開網路來源，但不使用第三方生成模型，也不會猜測缺少的投資事實。"
         ),
     }
+
+_RUNTIME_FEATURE_FLAGS: dict[str, bool] = {
+    "ollama_outbound": True,
+}

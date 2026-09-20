@@ -26,3 +26,5 @@ flowchart TB
 星澄的神經網路核心為第一方原生實作：自有 tokenizer、自有 Transformer 權重、自有訓練引擎（語料、預訓練、監督微調、偏好訓練、checkpoint）與原生推論引擎（context、KV cache、sampling、量化）。原生模型必須能在不依賴外部模型產生答案的前提下獨立完成基本語言模型推理。
 
 Ollama 僅為本地專家與教師模型，用以產生受治理的訓練資料與專家諮詢，不得取代星澄本身的神經網路核心。權重替換一律經明確流程與審計，不得自動生效。
+
+原生推論引擎的正式啟用開關為工具自有設定 runtime/settings/native-engine.json（工具行程環境受 allowlist 限制，不倚賴環境變數）。啟用後所有生成改走自有權重並 fail-closed，不靜默回退第三方模型；每次原生推論寫入可驗證執行帳本，內含 checkpoint 雜湊、prompt 與輸出雜湊及時間戳，供事後稽核。

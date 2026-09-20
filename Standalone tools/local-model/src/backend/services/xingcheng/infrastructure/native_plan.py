@@ -63,8 +63,16 @@ class StarNativePlanMixin:
             ]
         _, prohibited_intents = cls._matched_intents(normalized.casefold())
         prohibited_intents = set(prohibited_intents) | {
-            str(surface) for surface in analysis.prohibited_intents
+            cls._ENGINE_INTENT_MAP.get(str(surface), str(surface))
+            for surface in analysis.prohibited_intents
+            if str(surface)
         }
+        if prohibited_intents:
+            # 否定意圖不得因語意引擎的合併而復活（例如「不要搜尋」）。
+            filtered = [
+                intent for intent in intents if intent not in prohibited_intents
+            ]
+            intents = list(dict.fromkeys(filtered)) or ["conversation"]
         tokenized = cls._tokenize(normalized)
         matched_terms = {
             entry[0]: [
@@ -126,7 +134,23 @@ class StarNativePlanMixin:
             ("constraints", analysis.constraints),
         ):
             merged = list(comprehension.get(key) or [])
-            merged.extend(str(value) for value in values if str(value) not in merged)
+            if key == "constraints":
+                # 語意引擎的 constraints 是字串；統一轉成 dict 契約，
+                # 否則下游以 item["type"] 讀取時會 TypeError。
+                markers = {
+                    str(item.get("marker") or "")
+                    for item in merged
+                    if isinstance(item, Mapping)
+                }
+                for value in values:
+                    entry = cls._constraint_entry(str(value))
+                    if entry["marker"] not in markers:
+                        merged.append(entry)
+                        markers.add(entry["marker"])
+            else:
+                merged.extend(
+                    str(value) for value in values if str(value) not in merged
+                )
             comprehension[key] = merged[:30]
         if analysis.negations:
             existing_negations = list(comprehension.get("negations") or [])
@@ -370,7 +394,7 @@ class StarNativePlanMixin:
                     dict.fromkeys(
                         [
                             *re.findall(
-                                r"(?:NT\$|US\$|\$|新台幣|美元)\s?\d[\d,.]*",
+                                r"(?:NT\$|US\$|\$|新台幣|美元)\s?\d+(?:,\d+)*(?:\.\d+)?",
                                 normalized,
                                 flags=re.IGNORECASE,
                             )[:20],

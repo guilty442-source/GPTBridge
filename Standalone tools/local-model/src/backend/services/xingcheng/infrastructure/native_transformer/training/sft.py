@@ -55,8 +55,12 @@ class SFTConfig:
 
 
 def _prompt_prefix(tokenizer, prompt: str) -> list[int]:
+    """只遮罩 prompt 本身：讓模型自己學會生成分隔符與回應。
+
+    推論端因此可以直接餵使用者原文（不需要知道 SFT 模板）。
+    """
     return tokenizer.encode(
-        f"{str(prompt).strip()}{SFT_TEXT_SEPARATOR}",
+        str(prompt).strip(),
         add_bos=True,
         add_eos=False,
     )

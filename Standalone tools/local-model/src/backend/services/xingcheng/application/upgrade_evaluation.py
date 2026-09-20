@@ -11,6 +11,14 @@ MINIMUM_MATHEMATICAL_CAPABILITIES = 16
 EVALUATION_SCHEMA = "star-upgrade-evaluation/v1"
 
 
+def _version_locked_to_1_0(version: str) -> bool:
+    """星澄版本鎖定在 1.0.*；同時接受治理程式碼版本格式 1.00000。"""
+    text = str(version or "").strip()
+    if text in {"1.0", "1.0.0", "1.00000"}:
+        return True
+    return text.startswith("1.0.")
+
+
 def _tables(database: dict[str, Any]) -> dict[str, Any]:
     value = database.get("tables")
     return value if isinstance(value, dict) else {}
@@ -116,7 +124,7 @@ def evaluate_star_upgrade(
             market_data_age_hours = None
 
     checks = {
-        "version_locked_to_1_0": version == "1.00000",
+        "version_locked_to_1_0": _version_locked_to_1_0(version),
         "tool_databases_isolated": databases_isolated,
         "sqlite_integrity_verified": sqlite_integrity_ok,
         "investment_parameters_ready": parameter_count >= MINIMUM_INVESTMENT_PARAMETERS,

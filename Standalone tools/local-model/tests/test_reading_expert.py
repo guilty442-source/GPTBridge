@@ -352,10 +352,12 @@ def test_star_version_remains_consistently_one(tmp_path: Path) -> None:
 
     assert LocalAiService.VERSION == "1.0.0"
     assert service.runtime_health()["star_version"] == "1.0"
-    assert manifest["version"] == "1.0.0"
-    assert manifest["display_version"] == "1.0"
-    assert manifest["capabilities"]["xingcheng"]["language_model_version"] == "1.0"
-    assert manifest["capabilities"]["upgrade-optimization"]["version_locked"] == "1.0"
+    assert StarNativeLanguageModel.VERSION == "1.0"
+    assert manifest["version"] == LocalAiService.VERSION
+    assert manifest["display_version"] == StarNativeLanguageModel.VERSION
+    # The manifest now declares toolbox metadata only; model versions stay
+    # single-sourced from the service/native model instead of being restated.
+    assert "language_model_version" not in manifest["capabilities"]["xingcheng"]
 
 
 

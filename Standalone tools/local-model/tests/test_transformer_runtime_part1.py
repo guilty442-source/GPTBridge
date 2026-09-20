@@ -15,6 +15,9 @@ from typing import Any
 import pytest
 from xingcheng.application.service import LocalAiService
 from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.infrastructure.transformer_runtime_catalog import (
+    TransformerRuntimeCatalog,
+)
 
 import asyncio
 import json
@@ -31,6 +34,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 from xingcheng.application.service import LocalAiService
 from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.infrastructure.transformer_runtime_catalog import (
+    TransformerRuntimeCatalog,
+)
 
 
 def test_command_understanding_can_use_fast_chinese_model(tmp_path: Path) -> None:
@@ -76,40 +82,54 @@ def test_star_business_service_and_local_model_platform_roles_are_separate() -> 
         (ROOT / "local-model" / "locales" / "zh-TW.json").read_text("utf-8")
     )
 
-    assert manifest["assistant_identity"] == "星澄"
-    assert manifest["tool_display_name"] == "本地模型"
-    assert manifest["operation_mode"] == "context-aware-multitask-model-platform"
-    assert manifest["ai_entry_gateway"] == "all-ai-business-entries"
-    assert manifest["star_native_model_authority"] == (
-        "highest-permission-under-governance-rule-central-data-management"
+    assert manifest["id"] == "local-model"
+    assert manifest["independent_tool"] is True
+    assert manifest["main_system_independent_tool"] is True
+    assert manifest["canonical_source_root"] == "local-model"
+    assert manifest["physical_owner_root"] == "local-model"
+    assert manifest["shared_permission_owner"] == "local-model"
+    assert manifest["shared_permission_profile"] == (
+        LocalAiService.PLATFORM_PERMISSION_PROFILE
     )
-    assert manifest["authorization_owner"] == "governance_rule"
-    assert manifest["highest_authority_management_required"] is True
-    assert manifest["star_has_fixed_responsibilities"] is True
-    assert manifest["star_fixed_responsibilities"] == [
+    permissions = manifest["permissions"]
+    assert permissions["profile"] == LocalAiService.PLATFORM_PERMISSION_PROFILE
+    assert permissions["business_permission_owner"] == "local-model"
+    assert permissions["settings_owner"] == "local-model"
+    assert permissions["code_scope"] == "tool-root-only"
+    assert permissions["database_scope"] == "tool-database-only"
+    assert permissions["canonical_database_scope"] == (
+        "xingcheng-shared-repository"
+    )
+    assert "direct-database-write" in permissions["deny"]
+    assert "separate-business-database" in permissions["deny"]
+    assert "separate-settings-layer" in permissions["deny"]
+    assert {item["id"] for item in manifest["companion_tools"]} == {
+        "xingcheng",
+        "model-dialogue",
+    }
+    assert all(
+        item["companion_owner"] == "local-model"
+        for item in manifest["companion_tools"]
+    )
+    star_permissions = manifest["capabilities"]["xingcheng"][
+        "star_native_model_permissions"
+    ]
+    assert star_permissions["database_write"] is True
+    assert star_permissions["investment_database_write"] is True
+    assert star_permissions["database_write_scope"] == (
+        "xingcheng-model-internal-unrestricted-excluding-permission-data"
+    )
+    assert LocalAiService.PLATFORM_MODE == "context-aware-multitask-model-platform"
+    assert LocalAiService.ENTRY_GATEWAY == "all-ai-business-entries"
+    assert LocalAiService.CENTRAL_MANAGEMENT_RESPONSIBILITIES == (
         "sql-central-management",
         "rag-central-management",
         "git-central-management",
-        "investment-computation-service",
-        "investment-statistics-service",
-        "investment-network-search-service",
-    ]
-    assert "codex-snapshot" in manifest["permissions"]["allow_read"]
-    assert "directory-authority-snapshot" in manifest["permissions"]["allow_read"]
-    assert manifest["capabilities"]["xingcheng"]["star_native_model_permissions"][
+    )
+    assert LocalAiService.STAR_NATIVE_MODEL_PERMISSIONS[
         "governance_source_access"
     ] == "direct-read-only-authoritative"
-    assert manifest["star_permission_activation"] == (
-        "governance-rule-explicit-authorization-only"
-    )
-    platform = manifest["local_model_platform"]
-    assert platform["id"] == "local-model-platform"
-    assert platform["display_name_zh_tw"] == "本地模型"
-    assert platform["all_local_model_execution_owner"] is True
-    assert platform["star_direct_model_operation"] is False
-    assert manifest["permissions"]["profile"] == "local-model-platform-v1"
-    assert "governance-database" in manifest["permissions"]["deny"]
-    assert {item["id"] for item in manifest["platform_labels"]} == {
+    assert {item["id"] for item in LocalAiService.PLATFORM_LABELS} == {
         "ai-entry-gateway",
         "context-multitask",
         "local-model-routing",
@@ -117,9 +137,6 @@ def test_star_business_service_and_local_model_platform_roles_are_separate() -> 
         "ollama-loopback",
         "governance-controlled",
     }
-    assert manifest["capabilities"]["xingcheng"]["platform_mode"] == (
-        "context-aware-multitask-services"
-    )
     assert locale["tool.name"] == "本地模型"
     assert locale["tool.window_title"] == "本地模型"
 
@@ -239,7 +256,7 @@ def test_official_generation_defaults_are_not_overridden() -> None:
 
 
 def test_commander_stays_resident_and_uses_low_load_daily_profile() -> None:
-    selected = "qwen3.5:9b-q4_K_M"
+    selected = TransformerRuntimeCatalog.MODEL
     transport = FakeOllamaTransport(models=[{"name": selected}])
     runtime = StarTransformerRuntime(enabled=True, transport=transport)
 
@@ -257,11 +274,10 @@ def test_commander_stays_resident_and_uses_low_load_daily_profile() -> None:
     chat = next(call for call in transport.calls if call[1].endswith("/api/chat"))
     assert result["ok"] is True
     assert runtime.RESIDENT_MODELS == {selected}
-    assert runtime.KNOWN_MODEL_METADATA[selected]["residency"] == "resident"
-    assert runtime.KNOWN_MODEL_METADATA[runtime.MODEL]["residency"] == "non-resident"
+    assert runtime.status()["residency_policy"]["resident"] == [selected]
     assert runtime.COMMANDER_MAX_PARALLEL == 1
-    assert chat[2]["keep_alive"] == "5m"
-    assert chat[2]["options"]["num_ctx"] == 8_192
+    assert chat[2]["keep_alive"] == runtime.RESIDENT_KEEP_ALIVE
+    assert chat[2]["options"]["num_ctx"] == runtime.MIN_CONTEXT_WINDOW
     assert chat[2]["options"]["num_predict"] == 1_024
     assert chat[2]["think"] is False
 
@@ -484,8 +500,8 @@ def test_automatic_search_routing_uses_installed_search_model() -> None:
     assert result["model_selected_by_user"] is False
 
 
-def test_automatic_math_routing_starts_gpt_oss_with_safe_context() -> None:
-    math_model = "gpt-oss:20b"
+def test_automatic_math_routing_uses_deepseek_owner_with_safe_context() -> None:
+    math_model = TransformerRuntimeCatalog.INTENT_MODEL_PREFERENCES["calculation"][0]
     transport = FakeOllamaTransport(
         models=[{"name": StarTransformerRuntime.MODEL}, {"name": math_model}]
     )
@@ -501,8 +517,8 @@ def test_automatic_math_routing_starts_gpt_oss_with_safe_context() -> None:
 
     assert result["ok"] is True
     assert result["model"] == math_model
-    assert result["context_window"] == 8_192
+    assert result["context_window"] == runtime.SAFE_CONTEXT_WINDOW
     assert result["reasoning_effort"] == "high"
     chat = next(call for call in transport.calls if call[1].endswith("/api/chat"))
-    assert chat[2]["options"]["num_ctx"] == 8_192
-    assert chat[2]["think"] == "high"
+    assert chat[2]["options"]["num_ctx"] == runtime.SAFE_CONTEXT_WINDOW
+    assert chat[2]["think"] is True

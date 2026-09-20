@@ -38,6 +38,11 @@ class StarNativeInferenceMixin:
         intent = str(payload.get("_governed_intent") or self._intent(prompt))
         semantic_plan = self._resolve_semantic_plan(payload, prompt, intent)
         network_allowed = payload.get("allow_network") is not False
+        neural_result = self._native_transformer_result(
+            payload, prompt, intent, semantic_plan, database, network_allowed
+        )
+        if neural_result is not None:
+            return neural_result
         market_research, analysis = self._market_inputs(
             payload, intent, network_allowed, analyze, search
         )
@@ -73,6 +78,92 @@ class StarNativeInferenceMixin:
             private_context=private_context,
             training_candidate=training_candidate,
         )
+
+    def _native_transformer_result(
+        self,
+        payload: dict[str, Any],
+        prompt: str,
+        intent: str,
+        semantic_plan: dict[str, Any],
+        database: dict[str, Any],
+        network_allowed: bool,
+    ) -> dict[str, Any] | None:
+        """原生 Transformer（自有權重）優先回答；未啟用或失敗時回 None。"""
+        try:
+            from .native_engine import flag_enabled, generate_via_native_engine
+        except Exception:  # pragma: no cover - 匯入失敗時維持 n-gram 路徑
+            return None
+        if not flag_enabled():
+            return None
+        result = generate_via_native_engine(
+            {
+                "prompt": prompt,
+                "intent": intent,
+                "max_tokens": payload.get("max_output_tokens"),
+                "temperature": payload.get("temperature"),
+                "top_k": payload.get("top_k"),
+                "top_p": payload.get("top_p"),
+                "repetition_penalty": payload.get("repetition_penalty"),
+                "seed": payload.get("seed"),
+            }
+        )
+        if result.get("ok") is not True:
+            return None
+        text = str(result.get("text") or "")
+        generation = {
+            "text": text,
+            "model_type": "native-transformer-autoregressive-decoder",
+            "token_count": int(result.get("eval_count") or 0),
+            "facts_preserved": True,
+            "grounding_fallback_used": False,
+            "native_checkpoint_path": result.get("checkpoint_path"),
+            "native_state_sha256": result.get("state_sha256"),
+            "native_parameter_count": result.get("parameter_count"),
+            "native_quantization": result.get("quantization"),
+            "native_latency_ms": result.get("latency_ms"),
+            "sampling": result.get("sampling"),
+        }
+        return {
+            "ok": True,
+            "model": result.get("model") or self.MODEL_ID,
+            "model_version": self.VERSION,
+            "architecture": result.get("architecture") or self.ARCHITECTURE,
+            "mode": "governed-native-transformer-llm",
+            "pipeline": [
+                "native-bpe-tokenization",
+                "transformer-prefill",
+                "kv-cache-decode",
+                "sampling",
+            ],
+            "token_count": int(result.get("prompt_eval_count") or 0),
+            "intent": intent,
+            "semantic_understanding": semantic_plan,
+            "intent_confidence": semantic_plan["tasks"][0]["confidence"],
+            "context_retrieval": {
+                "memory_count": 0,
+                "used_memory_count": 0,
+                "memory_grounding_applied": False,
+                "memory_ids": [],
+                "reviewed_memory_only": True,
+                "native_private_database_opened": False,
+                "native_private_record_counts": {},
+            },
+            "instruction_execution": self._instruction_execution_result(
+                intent, semantic_plan
+            ),
+            "response": text,
+            "generation": generation,
+            "language_model": self.training_status(),
+            "analysis": None,
+            "market_research": None,
+            "evidence": [*self._database_evidence(database)],
+            "evidence_policy": dict(self._EVIDENCE_POLICY),
+            "native_engine": True,
+            "star_native_model_used": True,
+            "native_checkpoint_path": result.get("checkpoint_path"),
+            "native_state_sha256": result.get("state_sha256"),
+            **self._result_policy_fields(network_allowed, None, {}),
+        }
 
     def _compose_grounding(
         self,

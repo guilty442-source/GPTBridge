@@ -18,6 +18,7 @@ CLI（Phase 1 驗收）::
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import threading
@@ -29,6 +30,7 @@ from .native_transformer.checkpoint import (
     default_checkpoint_dir,
     load_checkpoint,
 )
+from .native_transformer.execution.backend import resolve_device
 from .native_transformer.inference import Generator, Sampler, SamplingConfig
 from .native_transformer.tokenizer import XingChengTokenizer
 
@@ -38,23 +40,50 @@ NATIVE_QUANTIZATION_ENV = "XINGCHENG_NATIVE_QUANTIZATION"
 NATIVE_MODEL_ID = "xingcheng-native-transformer"
 NATIVE_MODEL_FAMILY = "xingcheng-native"
 NATIVE_FOUNDATION_LICENSE = "first-party-self-trained"
+NATIVE_ENGINE_SETTINGS = "runtime/settings/native-engine.json"
+NATIVE_EXECUTION_LEDGER = "xingcheng/runtime/logs/native-engine-executions.jsonl"
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
+_FALSE_VALUES = {"0", "false", "no", "off"}
+
+
+def tool_root() -> Path:
+    """local-model 工具根目錄（``Standalone tools/local-model``）。"""
+    return Path(__file__).resolve().parents[5]
+
+
+def settings_path() -> Path:
+    return tool_root() / NATIVE_ENGINE_SETTINGS
+
+
+def load_settings() -> dict[str, Any]:
+    """工具自有設定（環境變數受 allowlist 限制，settings 為正式開關路徑）。"""
+    try:
+        data = json.loads(settings_path().read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def flag_enabled() -> bool:
-    """原生引擎 feature flag；預設關閉。"""
-    return (
-        str(os.environ.get(NATIVE_ENGINE_ENV) or "").strip().casefold()
-        in _TRUE_VALUES
-    )
+    """原生引擎 feature flag；環境變數優先，其次工具 settings；預設關閉。"""
+    raw = str(os.environ.get(NATIVE_ENGINE_ENV) or "").strip().casefold()
+    if raw in _TRUE_VALUES:
+        return True
+    if raw in _FALSE_VALUES:
+        return False
+    return load_settings().get("enabled") is True
 
 
 def configured_checkpoint_path() -> Path:
-    """checkpoint 來源：環境變數覆寫，否則預設目錄下最新的 ``*.pt``。"""
+    """checkpoint 來源：env 覆寫 → settings 指定 → 預設目錄最新 ``*.pt``。"""
     override = str(os.environ.get(NATIVE_CHECKPOINT_ENV) or "").strip()
     if override:
         return Path(override)
+    configured = str(load_settings().get("checkpoint") or "").strip()
+    if configured:
+        candidate = Path(configured)
+        return candidate if candidate.is_absolute() else tool_root() / candidate
     directory = default_checkpoint_dir()
     candidates = sorted(
         directory.rglob("*.pt"), key=lambda item: item.stat().st_mtime, reverse=True
@@ -88,7 +117,10 @@ class NativeTransformerEngine:
             self.quantization = f"int{int(quantize)}"
         tokenizer = loaded.get("tokenizer")
         self.tokenizer = tokenizer or XingChengTokenizer.from_config(self.config)
-        self._generator = Generator(self.model, device="cpu")
+        # 推論裝置：有 CUDA 用 CUDA（GPU 加速），否則 CPU。
+        self.device = resolve_device(None)
+        self.model = self.model.to(self.device)
+        self._generator = Generator(self.model, device=self.device)
         self._lock = threading.Lock()
 
     @classmethod
@@ -119,10 +151,15 @@ class NativeTransformerEngine:
 
         started = time.perf_counter()
         try:
-            max_new = int(max_tokens) if max_tokens else 64
+            configured_cap = int(load_settings().get("max_new_tokens") or 512)
         except (TypeError, ValueError):
-            max_new = 64
-        max_new = max(1, min(max_new, 512))
+            configured_cap = 512
+        configured_cap = max(1, min(configured_cap, 512))
+        try:
+            max_new = int(max_tokens) if max_tokens else configured_cap
+        except (TypeError, ValueError):
+            max_new = configured_cap
+        max_new = max(1, min(max_new, configured_cap))
         prompt_ids = self.tokenizer.encode(
             str(prompt or ""), add_bos=True, add_eos=False
         )
@@ -219,6 +256,39 @@ class NativeTransformerEngine:
         out_ids = [int(token) for token in generated[0].tolist()]
         text = self.tokenizer.decode(out_ids, skip_special=True)
         latency_ms = round((time.perf_counter() - started) * 1_000, 3)
+
+        def _digest(value: str) -> str:
+            import hashlib
+
+            return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+        try:
+            ledger = tool_root() / NATIVE_EXECUTION_LEDGER
+            ledger.parent.mkdir(parents=True, exist_ok=True)
+            with ledger.open("a", encoding="utf-8") as handle:
+                handle.write(
+                    json.dumps(
+                        {
+                            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                            "engine": "native",
+                            "checkpoint_path": str(self.checkpoint_path),
+                            "state_sha256": self.state_sha256,
+                            "parameter_count": self._parameter_count,
+                            "quantization": self.quantization,
+                            "prompt_sha256": _digest(str(prompt or "")),
+                            "output_sha256": _digest(text),
+                            "eval_count": len(out_ids),
+                            "latency_ms": latency_ms,
+                            "device": str(self.device),
+                            "third_party_foundation_weights": False,
+                            "loopback_runtime_used": False,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+        except OSError:  # pragma: no cover - 帳本寫入為 best-effort 證據
+            pass
         if progress_callback is not None:
             try:
                 progress_callback({"stage": "native-engine", "done": True})
@@ -233,6 +303,7 @@ class NativeTransformerEngine:
             "parameter_class": "native-self-trained",
             "parameter_count": self._parameter_count,
             "quantization": self.quantization,
+            "device": str(self.device),
             "sampling": {
                 "do_sample": bool(do_sample),
                 "temperature": temperature_value,
@@ -274,7 +345,9 @@ def native_engine_for(
     """解析（並快取）flag 對應的引擎實例；不可用時 fail-closed。"""
     path = Path(checkpoint_path) if checkpoint_path else configured_checkpoint_path()
     quantize_raw = str(
-        os.environ.get(NATIVE_QUANTIZATION_ENV) or ""
+        os.environ.get(NATIVE_QUANTIZATION_ENV)
+        or load_settings().get("quantization")
+        or ""
     ).strip().casefold()
     quantize = {"int8": 8, "int4": 4}.get(quantize_raw)
     key = f"{path.resolve()}|{quantize or 0}"
@@ -374,6 +447,8 @@ if __name__ == "__main__":  # pragma: no cover - CLI 進入點
 __all__ = [
     "NATIVE_CHECKPOINT_ENV",
     "NATIVE_ENGINE_ENV",
+    "NATIVE_ENGINE_SETTINGS",
+    "NATIVE_EXECUTION_LEDGER",
     "NATIVE_FOUNDATION_LICENSE",
     "NATIVE_MODEL_FAMILY",
     "NATIVE_MODEL_ID",
@@ -382,5 +457,8 @@ __all__ = [
     "configured_checkpoint_path",
     "flag_enabled",
     "generate_via_native_engine",
+    "load_settings",
     "native_engine_for",
+    "settings_path",
+    "tool_root",
 ]

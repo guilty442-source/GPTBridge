@@ -18,6 +18,7 @@ import torch.nn.functional as F
 
 from ..config import XingChengConfig
 from ..execution.backend import capabilities
+from ..execution.dispatch import native_attention
 from ..kernels import apply_rope
 
 
@@ -95,7 +96,7 @@ class XingChengAttention(nn.Module):
         # Attention via SDPA（自動調度 FlashAttention / mem-efficient / math）
         # 有 attention_mask 時因果限制已內含於 mask；無 mask 時僅 q/k 等長可用內建 causal
         is_causal = attention_mask is None and q.size(2) == k.size(2)
-        attn = _sdpa_attention(
+        attn = dispatch_attention(
             q, k_rep, v_rep,
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=is_causal,
@@ -104,6 +105,39 @@ class XingChengAttention(nn.Module):
         )
         attn = attn.transpose(1, 2).contiguous().view(b, s, self.num_heads * self.head_dim)
         return self.o_proj(attn), new_kv
+
+
+def dispatch_attention(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    *,
+    dropout_p: float,
+    is_causal: bool,
+    attention_mask: torch.Tensor | None,
+    scaling: float,
+) -> torch.Tensor:
+    """統一入口：Native Dispatch（C++ 核心）→ SDPA → 手動 softmax。
+
+    依 A219，原生核心不可用、未達門檻或 parity 未通過時一律回退
+    PyTorch 路徑；推論結果在容差內等價。
+    """
+    if dropout_p <= 0:
+        native = native_attention(
+            q, k, v,
+            scale=scaling,
+            is_causal=is_causal,
+            attention_mask=attention_mask,
+        )
+        if native is not None:
+            return native
+    return _sdpa_attention(
+        q, k, v,
+        dropout_p=dropout_p,
+        is_causal=is_causal,
+        attention_mask=attention_mask,
+        scaling=scaling,
+    )
 
 
 def _sdpa_attention(
@@ -149,4 +183,4 @@ def _sdpa_attention(
     return torch.matmul(attn_weights, v)
 
 
-__all__ = ["XingChengAttention"]
+__all__ = ["XingChengAttention", "dispatch_attention"]

@@ -48,15 +48,19 @@ def test_sft_template_matches_service_serializer() -> None:
 
 
 def test_sft_encode_masks_prompt_and_keeps_completion() -> None:
+    """只遮罩 prompt：分隔符與回應同為目標，推論端可直接餵原文。"""
     _, tokenizer = _tiny()
     pad_id = tokenizer.pad_id
     ids, labels = encode_sft_example(
         tokenizer, "問題", "答案", max_length=64, pad_id=pad_id
     )
     assert len(ids) == len(labels)
-    prompt_ids = tokenizer.encode("問題\n\n", add_bos=True, add_eos=False)
+    prompt_ids = tokenizer.encode("問題", add_bos=True, add_eos=False)
     assert labels[: len(prompt_ids)] == [pad_id] * len(prompt_ids)
     assert any(token != pad_id for token in labels[len(prompt_ids) :])
+    full_text = tokenizer.decode(ids, skip_special=True)
+    assert full_text.startswith("問題")
+    assert "答案" in full_text
 
 
 def test_sft_dataset_accepts_snapshot_shapes() -> None:
