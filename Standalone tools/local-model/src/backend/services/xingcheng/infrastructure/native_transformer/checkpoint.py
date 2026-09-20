@@ -75,11 +75,12 @@ def save_checkpoint(
     """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    cfg = config or model.config
+    state_model = getattr(model, "_orig_mod", model)
+    cfg = config or state_model.config
     if tokenizer is not None and tokenizer.vocab_size > cfg.vocab_size:
         raise ValueError("TOKENIZER_VOCAB_EXCEEDS_MODEL_VOCAB")
 
-    state = model.state_dict()
+    state = state_model.state_dict()
     payload = {
         "format_version": FORMAT_VERSION,
         "created_at": _iso_now(),
