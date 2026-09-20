@@ -46,8 +46,17 @@ git commit -F _commit_msg.txt
 ```
 
 If the index already contains files you did not stage, never commit the whole
-index — either commit with an explicit path list (`git commit -m "..." -- <paths>`)
-or ask the owner of those staged files to commit first.
+index. A verification listing is not enough — you must then either unstage the
+foreign files (`git restore --staged <path>`) or commit path-scoped:
+
+```powershell
+git commit -m "Your message" -- <your-file-1> <your-file-2>
+```
+
+Path-scoped commits ignore the index for every other path, so externally
+staged work can never be swept in (incident 2026-09-20: `4914cf07` swept a
+staged `pretrain.py` CUDA-graphs fix under a blueprint message because the
+whole index was committed after the listing was noticed).
 
 ### Other PowerShell Notes
 
