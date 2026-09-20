@@ -113,8 +113,8 @@ def _porcelain(repo: GitRepository) -> dict[str, str]:
 def _state_fingerprint(repo: GitRepository) -> str:
     """Stable fingerprint of the worktree's dirty state."""
     entries = _porcelain(repo)
-    staged = repo.run(["diff", "--cached"]).stdout
-    unstaged = repo.run(["diff"]).stdout
+    staged = repo.run(["diff", "--cached", "--numstat"]).stdout
+    unstaged = repo.run(["diff", "--numstat"]).stdout
     payload = repr(sorted(entries.items())) + staged + unstaged
     return hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()
 
