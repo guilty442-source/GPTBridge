@@ -112,6 +112,60 @@ def compare_metrics(
     return comparison, passed
 
 
+def _run_capability_evaluation(
+    repository: Any,
+    *,
+    adapter_id: str,
+    candidate_checkpoint: str | Path,
+    suite_path: str | Path,
+    baseline_checkpoint: str | Path | None,
+    evaluated_by: str,
+) -> dict[str, Any]:
+    """``star-capability-suite/v1`` 九類評估路徑（Phase 5G 回歸閘門接線）。
+
+    candidate 與 baseline 各自跑九類評估，以 ``compare_reports``
+    的逐類別 pass_rate 回歸判定；任一類別下降即 fail-closed。
+    """
+    from .native_transformer.capability_eval import (
+        compare_reports,
+        evaluate_checkpoint as capability_evaluate,
+        load_suite as load_capability_suite,
+    )
+
+    suite = load_capability_suite(suite_path)
+    candidate_report = capability_evaluate(candidate_checkpoint, suite)
+    baseline_report = (
+        capability_evaluate(baseline_checkpoint, suite)
+        if baseline_checkpoint
+        else {"categories": {}}
+    )
+    comparison = compare_reports(baseline_report, candidate_report)
+    passed = bool(comparison["passed"])
+    record = repository.record_adapter_evaluation(
+        adapter_id=str(adapter_id),
+        suite_id=str(suite["suite_id"]),
+        baseline_metrics={"categories": baseline_report.get("categories")},
+        adapter_metrics={
+            "categories": candidate_report.get("categories"),
+            "overlap_free": candidate_report.get("overlap", {}).get(
+                "overlap_free", True
+            ),
+        },
+        comparison=comparison,
+        quality_gates={"rule": "no category pass_rate regression"},
+        passed=passed,
+        evaluated_by=evaluated_by,
+        suite_sha256=str(suite["suite_sha256"]),
+    )
+    return {
+        "ok": True,
+        "evaluation": record,
+        "suite_sha256": suite["suite_sha256"],
+        "comparison": comparison,
+        "passed": passed,
+    }
+
+
 def run_evaluation(
     repository: Any,
     *,
@@ -122,7 +176,21 @@ def run_evaluation(
     evaluated_by: str = "star-main-native-model",
 ) -> dict[str, Any]:
     """完整評估流程：載入套件 → 評 candidate（與 baseline）→ 閘門判定
-    → 寫入 transformer_adapter_evaluation。"""
+    → 寫入 transformer_adapter_evaluation。
+
+    依套件 ``format_version`` 分派：``star-capability-suite/v1`` 走九類
+    能力評估＋逐類別回歸閘門；其餘走 perplexity 閘門路徑。
+    """
+    head = json.loads(Path(suite_path).read_text(encoding="utf-8"))
+    if head.get("format_version") == "star-capability-suite/v1":
+        return _run_capability_evaluation(
+            repository,
+            adapter_id=adapter_id,
+            candidate_checkpoint=candidate_checkpoint,
+            suite_path=suite_path,
+            baseline_checkpoint=baseline_checkpoint,
+            evaluated_by=evaluated_by,
+        )
     suite = load_suite(suite_path)
     candidate_metrics = evaluate_checkpoint(candidate_checkpoint, suite)
     if baseline_checkpoint:
