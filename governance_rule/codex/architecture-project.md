@@ -20,6 +20,9 @@ flowchart TB
   G --> T
   M --> L[Local Model Runtime]
   T --> L
+  M --> NCC[native-compute-core：純 C 運算核心]
+  M --> BLC[business-logic-csharp：C# 業務編排]
+  XC --> MT[model-training：星澄訓練模組]
   I --> HAS[RagApplicationService]
   HAS --> HDAG[DAG 編排面]
   HDAG --> HCAG[CAG 加速與上下文重用面]
@@ -38,6 +41,8 @@ flowchart TB
 全專案統一採用 DAG、CAG、RAG 混合架構。DAG 是查詢、索引與修復工作流的無環編排面，不取代 Application Service；CAG 是安全、有版本、有範圍且非權威的快取增強面，不取代 RAG；RAG 是 canonical knowledge retrieval 面並保留 Hybrid、Code、Memory、Agentic 四子架構。正式路徑固定為 Caller → Information Channel → Permission / Scope → RagApplicationService → DAG Planner / Executor → CAG Gate → RAG Retrieval → Evidence Fusion → Reranker → Context Builder → Local LLM → Citation Validation → Result。Qdrant 與 PostgreSQL canonical 邊界不變，SQLite 只准 degraded fallback。
 
 星澄與星澄助理均不屬於七個獨立工具。星澄助理是與各主宰同級的獨立特權機構並使用獨立身分組；星澄是其原生模型，星澄人格、自動修復模組與自動學習模組隸屬星澄。兩者各用專用資料庫，禁止混用或互相作為權威來源。
+
+新增登錄元件（2026-09-20）：`native-compute-core`（純 C 運算核心與穩定 C ABI）、`model-training`（星澄訓練模組）、`business-logic-csharp`（C# 業務編排／外部協調）。三者均為單一職責模組，不改變既有權責、資料邊界與 fail-closed。
 
 星澄及其所屬內部模組不適用一般模組有效行數上限；不得僅因超過模組行數門檻要求拆分、阻擋合併或建立分解工作。此豁免只涵蓋模組行數，不解除函式、方法、類別、公開入口、可呼叫項目、權限、安全、測試、審計及可維護性要求。
 
