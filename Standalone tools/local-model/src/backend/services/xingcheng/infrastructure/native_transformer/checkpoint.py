@@ -117,6 +117,13 @@ def save_checkpoint(
     }
 
 
+def _normalize_compiled_state(state: Mapping[str, Any]) -> dict[str, Any]:
+    prefix = "_orig_mod."
+    if not state or not all(str(key).startswith(prefix) for key in state):
+        return dict(state)
+    return {str(key)[len(prefix):]: value for key, value in state.items()}
+
+
 def load_checkpoint(
     path: str | Path,
     *,
@@ -137,11 +144,12 @@ def load_checkpoint(
     if isinstance(config_data.get("backend_preference"), list):
         config_data["backend_preference"] = tuple(config_data["backend_preference"])
     config = XingChengConfig(**config_data)
-    state = payload["model_state"]
+    raw_state = payload["model_state"]
     if verify:
         declared = payload.get("state_sha256")
-        if not declared or _state_digest(state) != declared:
+        if not declared or _state_digest(raw_state) != declared:
             raise ValueError("CHECKPOINT_STATE_HASH_MISMATCH")
+    state = _normalize_compiled_state(raw_state)
 
     model = XingChengForCausalLM(config)
     model.load_state_dict(state, strict=strict)
