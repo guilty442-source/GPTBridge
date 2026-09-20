@@ -706,7 +706,10 @@ class TrainingJobExecutor:
                             "dataset_id": str(row["dataset_id"]),
                             "steps": (summary or {}).get("steps"),
                         },
-                        activate=True,
+                        # 不直接啟用：權重升級必須先通過評估閘門
+                        # （self-learning eval suites / 人工核准），
+                        # executor 只負責訓練與註冊候選版本。
+                        activate=False,
                     )
                     self._lifecycle_advance(
                         lifecycle,
@@ -751,9 +754,11 @@ class TrainingJobExecutor:
                 "error_message": str(exc)[:500],
             }
 
-    @staticmethod
-    def _needs_gpu_gate(configuration: Mapping[str, Any]) -> bool:
-        """device 為 cuda（或未指定且本機有 CUDA）時需要 VRAM 協調。"""
+    def _needs_gpu_gate(self, configuration: Mapping[str, Any]) -> bool:
+        """真實訓練器且 device 為 cuda（或未指定且本機有 CUDA）時需要
+        VRAM 協調；注入的 train_fn（測試樁）不參與協調。"""
+        if self._train_fn is not _default_train_fn:
+            return False
         device = str(configuration.get("device") or "").strip().casefold()
         if device in {"cpu", "mps"}:
             return False
