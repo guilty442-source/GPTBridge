@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Iterator, Sequence
 
 DEFAULT_SOURCES: tuple[str, ...] = (
-    "governance_rule/codex",
     "governance_rule/execution",
     "docs",
     "Standalone tools",
@@ -57,6 +56,10 @@ EXCLUDED_DIRECTORIES: frozenset[str] = frozenset(
     }
 )
 
+PROTECTED_SOURCE_PREFIXES: tuple[str, ...] = (
+    "governance_rule/codex",
+)
+
 MIN_DOCUMENT_CHARS = 64
 MAX_DOCUMENT_CHARS = 2_000_000
 
@@ -92,6 +95,26 @@ class CorpusDocument:
         return cls(source=source, text=text, sha256=_sha256_text(text))
 
 
+def _is_protected_source(root: Path, path: Path) -> bool:
+    relative = path.resolve().relative_to(root).as_posix()
+    return any(
+        relative == prefix or relative.startswith(prefix + "/")
+        for prefix in PROTECTED_SOURCE_PREFIXES
+    )
+
+
+def _rejected_sources(sources: Sequence[str]) -> tuple[str, ...]:
+    rejected: list[str] = []
+    for source in sources:
+        normalized = str(source).replace("\\", "/").strip("/")
+        if any(
+            normalized == prefix or normalized.startswith(prefix + "/")
+            for prefix in PROTECTED_SOURCE_PREFIXES
+        ):
+            rejected.append(normalized)
+    return tuple(sorted(set(rejected)))
+
+
 def _iter_files(root: Path, sources: Sequence[str], suffixes: Sequence[str]) -> Iterator[Path]:
     for source in sources:
         base = (root / source).resolve()
@@ -99,6 +122,8 @@ def _iter_files(root: Path, sources: Sequence[str], suffixes: Sequence[str]) -> 
             continue
         for path in sorted(base.rglob("*")):
             if not path.is_file():
+                continue
+            if _is_protected_source(root, path):
                 continue
             if path.suffix.casefold() not in suffixes:
                 continue
@@ -204,6 +229,11 @@ def build_corpus(
         "language": "zh-TW+en+code",
         "root": str(project_root),
         "sources": list(sources),
+        "rejected_sources": list(_rejected_sources(sources)),
+        "rejection_reasons": {
+            source: "protected-governance-source"
+            for source in _rejected_sources(sources)
+        },
         "suffixes": list(suffixes),
         "documents": documents,
         "duplicates_skipped": duplicates,
