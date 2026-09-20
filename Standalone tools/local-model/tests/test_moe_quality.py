@@ -7,6 +7,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
+from torch.profiler import ProfilerActivity, profile
 
 _ROOT = Path(__file__).resolve().parents[1]
 _INFRA = _ROOT / "src" / "backend" / "services" / "xingcheng" / "infrastructure"
@@ -131,3 +132,23 @@ def test_dense_and_moe_parameter_and_runtime_evidence_are_observable() -> None:
     assert dense_out.shape == moe_out.shape
     assert torch.isfinite(dense_out).all()
     assert torch.isfinite(moe_out).all()
+
+
+def test_dense_and_moe_report_measured_cpu_flops() -> None:
+    ids = torch.randint(4, 264, (1, 4))
+    dense_config = XingChengConfig.small()
+    dense_config.vocab_size = 264
+    dense_config.max_position_embeddings = 32
+    models = (XingChengForCausalLM(dense_config), XingChengForCausalLM(_config(4)))
+    measured: list[int] = []
+    for model in models:
+        with profile(
+            activities=[ProfilerActivity.CPU],
+            record_shapes=False,
+            with_flops=True,
+        ) as profiler:
+            with torch.inference_mode():
+                model(ids)
+        flops = sum(int(getattr(event, "flops", 0) or 0) for event in profiler.key_averages())
+        measured.append(flops)
+    assert measured[0] > 0
