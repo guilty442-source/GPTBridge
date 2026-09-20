@@ -195,7 +195,7 @@ class CorpusDocument:
     sha256: str
     language: str = "general"
     raw_sha256: str = ""
-    simhash: int = 0
+    line_hashes: frozenset[int] = frozenset()
     source_id: str = ""
 
     @classmethod
@@ -230,51 +230,60 @@ def classify_language(source: str, text: str) -> str:
     return "general"
 
 
-def _simhash64(text: str) -> int:
-    """DG-7 近似去重指紋：字元 5-gram 的 64-bit simhash。"""
-    if len(text) < 5:
-        return int(_sha256_text(text)[:16], 16)
-    vector = [0] * 64
-    for index in range(len(text) - 4):
-        gram_hash = int(
-            hashlib.blake2b(
-                text[index : index + 5].encode("utf-8"), digest_size=8
-            ).hexdigest(),
-            16,
+def _line_hashes(text: str) -> frozenset[int]:
+    """DG-7 特徵集：有意義行（≥8 非空白字元）的 64-bit 雜湊集合。
+
+    以「行」為特徵單位——程式碼的縮排字元 n-gram 會主導 simhash，
+    行級雜湊集合的 Jaccard 才是內容相似度的誠實度量。
+    """
+    hashes: set[int] = set()
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if len(stripped) < 8:
+            continue
+        hashes.add(
+            int.from_bytes(
+                hashlib.blake2b(stripped.encode("utf-8"), digest_size=8).digest(),
+                "little",
+            )
         )
-        for bit in range(64):
-            vector[bit] += 1 if (gram_hash >> bit) & 1 else -1
-    fingerprint = 0
-    for bit in range(64):
-        if vector[bit] > 0:
-            fingerprint |= 1 << bit
-    return fingerprint
+    return frozenset(hashes)
 
 
-def _hamming64(a: int, b: int) -> int:
-    return (a ^ b).bit_count()
-
-
-NEAR_DUP_HAMMING_THRESHOLD = 6  # 64-bit simhash 漢明距離上限
+NEAR_DUP_JACCARD_THRESHOLD = 0.85
 
 
 def find_near_duplicates(
     documents: Sequence[CorpusDocument],
     *,
-    threshold: int = NEAR_DUP_HAMMING_THRESHOLD,
+    threshold: float = NEAR_DUP_JACCARD_THRESHOLD,
 ) -> dict[str, str]:
-    """近似去重：回傳 {被捨棄來源: 保留來源}。保持決定性（依 source 排序）。
+    """近似去重：行集合 Jaccard ≥ threshold 視為近似重複。
 
-    任一文件只屬一個群集；群集內僅保留首個來源——DG-9 防洩漏由
-    「近似重複不跨 split」改為「近似重複直接不進語料」，更嚴格。
+    回傳 {被捨棄來源: 保留來源}，決定性（依來源排序處理）。
+    長度比 <0.5 或 >2 的文件不互相比較——近似重複必等長級。
+    DG-9 防洩漏：近似重複整體剔除，不會跨 split 殘留。
     """
-    ordered = sorted(documents, key=lambda d: (d.simhash, d.source))
+    ordered = sorted(documents, key=lambda d: (len(d.text), d.source))
     dropped: dict[str, str] = {}
     kept: list[CorpusDocument] = []
     for document in ordered:
+        if not document.line_hashes:
+            kept.append(document)
+            continue
         duplicate_of: str | None = None
+        doc_len = len(document.text)
         for existing in kept:
-            if _hamming64(document.simhash, existing.simhash) <= threshold:
+            if not existing.line_hashes:
+                continue
+            ratio = len(existing.text) / doc_len if doc_len else 1.0
+            if not (0.5 <= ratio <= 2.0):
+                continue
+            inter = len(document.line_hashes & existing.line_hashes)
+            if not inter:
+                continue
+            union = len(document.line_hashes) + len(existing.line_hashes) - inter
+            if inter / union >= threshold:
                 duplicate_of = existing.source
                 break
         if duplicate_of is None:
@@ -378,7 +387,7 @@ def iter_documents(
             sha256=normalized_sha,
             language=language,
             raw_sha256=raw_sha,
-            simhash=_simhash64(normalized_text),
+            line_hashes=_line_hashes(normalized_text),
             source_id=source_key,
         )
 
@@ -625,7 +634,7 @@ DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[9]
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="星澄第一方語料建置")
     parser.add_argument("--root", default=str(DEFAULT_PROJECT_ROOT))
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--output", default=None)
     parser.add_argument("--source", action="append", default=None)
     parser.add_argument("--suffix", action="append", default=None)
     parser.add_argument("--val-permille", type=int, default=5)
@@ -645,6 +654,8 @@ def main(argv: list[str] | None = None) -> int:
         report = verify_corpus(args.verify)
         print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if report.get("ok") else 1
+    if not args.output:
+        parser.error("--output is required unless --verify is used")
     tokenizer = None
     if args.tokenizer:
         from ..bpe import NativeBPETokenizer
