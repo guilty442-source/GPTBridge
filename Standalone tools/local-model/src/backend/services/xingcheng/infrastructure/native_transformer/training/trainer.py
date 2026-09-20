@@ -7,9 +7,9 @@
 from __future__ import annotations
 
 import logging
-import math
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from dataclasses import dataclass
+from functools import partial
+from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
@@ -36,6 +36,7 @@ class TrainingConfig:
     optimizer: str = "adamw"
     device: str | torch.device | None = None
     dtype: torch.dtype | None = None
+    use_amp: bool = True
     seed: int = 42
 
 
@@ -53,12 +54,30 @@ class Trainer:
         self.train_config = train_config
         self.device = resolve_device(config.device)
         self.dtype = config.dtype or default_dtype(self.device)
+        self.use_amp = bool(
+            config.use_amp and self.device.type in {"cuda", "mps"}
+        )
+        model.to(self.device)
         self.optimizer = build_optimizer(
             model.parameters(), train_config,
             lr=config.lr, weight_decay=config.weight_decay, kind=config.optimizer,
         )
+        self.scaler = self._make_scaler()
         self._step = 0
         torch.manual_seed(config.seed)
+
+    def _make_scaler(self):
+        if not self.use_amp or self.dtype != torch.float16:
+            return None
+        try:
+            return torch.amp.GradScaler(self.device.type)
+        except (AttributeError, TypeError):  # pragma: no cover - 舊版 torch
+            return torch.cuda.amp.GradScaler()
+
+    def _autocast(self):
+        if not self.use_amp:
+            return torch.autocast(device_type=self.device.type, enabled=False)
+        return torch.autocast(device_type=self.device.type, dtype=self.dtype)
 
     def _lr_scale(self) -> float:
         if self.tcfg.warmup_steps <= 0:
@@ -70,14 +89,22 @@ class Trainer:
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
     ) -> float:
-        input_ids = input_ids.to(self.device)
-        attention_mask = attention_mask.to(self.device)
+        input_ids = input_ids.to(self.device, non_blocking=self.device.type == "cuda")
+        attention_mask = attention_mask.to(
+            self.device, non_blocking=self.device.type == "cuda"
+        )
         labels = input_ids.clone()
         labels[attention_mask == 0] = self.train_config.pad_token_id
 
-        out = self.model(input_ids, attention_mask=attention_mask, labels=labels)
-        loss = out["loss"]
-        loss.backward()
+        with self._autocast():
+            out = self.model(input_ids, attention_mask=attention_mask, labels=labels)
+            loss = out["loss"]
+        if self.scaler is not None:
+            self.scaler.scale(loss).backward()
+            if self.tcfg.grad_clip > 0:
+                self.scaler.unscale_(self.optimizer)
+        else:
+            loss.backward()
         if self.tcfg.grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.tcfg.grad_clip)
 
@@ -85,7 +112,11 @@ class Trainer:
         scale = self._lr_scale()
         for pg in self.optimizer.param_groups:
             pg["lr"] = self.tcfg.lr * scale
-        self.optimizer.step()
+        if self.scaler is not None:
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        else:
+            self.optimizer.step()
         self.optimizer.zero_grad(set_to_none=True)
         self._step += 1
         return float(loss.detach().item())
@@ -117,14 +148,22 @@ def make_dataloader(
     *,
     shuffle: bool = True,
     num_workers: int = 0,
+    pin_memory: bool | None = None,
+    prefetch_factor: int = 2,
+    persistent_workers: bool = True,
 ) -> DataLoader:
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        collate_fn=lambda b: collate_batch(b, pad_id),
-    )
+    workers = max(0, int(num_workers))
+    kwargs: dict[str, Any] = {
+        "batch_size": batch_size,
+        "shuffle": shuffle,
+        "num_workers": workers,
+        "collate_fn": partial(collate_batch, pad_id=pad_id),
+        "pin_memory": torch.cuda.is_available() if pin_memory is None else pin_memory,
+    }
+    if workers > 0:
+        kwargs["prefetch_factor"] = max(1, int(prefetch_factor))
+        kwargs["persistent_workers"] = bool(persistent_workers)
+    return DataLoader(dataset, **kwargs)
 
 
 __all__ = ["Trainer", "TrainingConfig", "make_dataloader"]
