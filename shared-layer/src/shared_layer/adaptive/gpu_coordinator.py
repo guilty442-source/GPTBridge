@@ -55,6 +55,7 @@ def _query_via_nvidia_smi() -> GpuStatus | None:
             ["nvidia-smi", "--query-gpu=memory.total,memory.used,memory.free,utilization.gpu", "--format=csv,noheader,nounits"],
             text=True,
             timeout=2,
+            creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0),
         ).strip().split(",")
         total, used, free, util = [float(x.strip()) for x in out[:4]]
         return GpuStatus(total, used, free, util)

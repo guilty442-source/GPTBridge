@@ -38,6 +38,7 @@ from .toolbox_repair import RepairMixin
 from .toolbox_start import StartMixin
 from .toolbox_shutdown import ShutdownMixin
 from .toolbox_constants import ToolEventCallback  # re-export for compatibility
+from core_system.process_registry import ProcessRegistry
 from governance import PermissionSovereign
 
 __all__ = ["ToolboxService", "ToolEventCallback"]
@@ -96,6 +97,10 @@ class ToolboxService(
         self._source_ui_processes: dict[str, asyncio.subprocess.Process] = {}
         self._source_ui_runtime_sessions: dict[str, str] = {}
         self._process_state_lock = asyncio.Lock()
+        self._process_registry = ProcessRegistry(
+            self.project_root / "main-system" / "runtime" / "state"
+            / "process-registry.json"
+        )
         self._central_repair: CentralRepairService | None = None
         # Manifest cache: tool_id -> (manifest_dict, tool_dir_path).
         # Avoids re-reading manifest.json 3+ times per tool start.  The

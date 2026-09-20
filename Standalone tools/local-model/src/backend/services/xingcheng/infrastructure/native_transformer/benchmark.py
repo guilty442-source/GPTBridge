@@ -314,6 +314,7 @@ def _kv_variant_subprocess(
     completed = subprocess.run(
         command, capture_output=True, text=True, encoding="utf-8",
         cwd=str(Path(__file__).resolve().parents[1]), timeout=3_600,
+        creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0),
     )
     if completed.returncode != 0:
         raise RuntimeError(
