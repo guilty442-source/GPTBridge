@@ -170,6 +170,8 @@ def pretrain(
         except Exception:
             pass
     model.to(device)
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
     # 速度：啟用 cuDNN benchmark 與高精度 matmul（對應 execution/backend.py）
     if device.type == "cuda":
         try:
@@ -227,6 +229,7 @@ def pretrain(
     generator.manual_seed(config.seed)
     block_count = train_blocks.size(0)
     history: list[float] = []
+    gradient_norms: list[float] = []
     checkpoints: list[str] = []
     started = time.time()
     last_eval: dict[str, float] = {}
@@ -253,10 +256,11 @@ def pretrain(
             else:
                 loss.backward()
             accumulated += float(loss.item())
-        if config.grad_clip > 0:
-            if scaler is not None:
-                scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+        if scaler is not None:
+            scaler.unscale_(optimizer)
+        norm_limit = config.grad_clip if config.grad_clip > 0 else float("inf")
+        gradient_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), norm_limit)
+        gradient_norms.append(float(gradient_norm.detach().item()))
         if scaler is not None:
             scaler.step(optimizer)
             scaler.update()
@@ -278,6 +282,7 @@ def pretrain(
                         "lr": round(config.lr * scale, 7),
                         "tokens_seen": tokens_seen,
                         "tokens_per_second": round(tokens_seen / elapsed, 1),
+                        "gradient_norm_preclip": round(gradient_norms[-1], 4),
                     },
                     ensure_ascii=False,
                 ),
@@ -318,6 +323,11 @@ def pretrain(
     )
     checkpoints.append(info["path"])
     elapsed = max(1e-6, time.time() - started)
+    gpu_memory_peak_mb = None
+    if device.type == "cuda":
+        gpu_memory_peak_mb = round(
+            torch.cuda.max_memory_allocated(device) / (1024 * 1024), 1
+        )
     summary = {
         "steps": config.max_steps,
         "start_step": start_step,
@@ -331,6 +341,11 @@ def pretrain(
             / elapsed,
             1,
         ),
+        "gpu_memory_peak_mb": gpu_memory_peak_mb,
+        "gradient_norm_preclip_mean": round(
+            sum(gradient_norms) / len(gradient_norms), 4
+        ) if gradient_norms else None,
+        "gradient_norm_preclip_last": round(gradient_norms[-1], 4) if gradient_norms else None,
         "final_loss": history[-1] if history else None,
         "first_loss": history[0] if history else None,
         "eval": final_eval or last_eval,
