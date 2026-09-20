@@ -11,7 +11,7 @@ import hashlib
 import json
 import time
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Sequence
 
@@ -341,8 +341,13 @@ def iter_documents(
     project_root = Path(root).resolve()
     registry = load_corpus_registry(project_root) if enforce_registry else {}
     admitted: list[str] = []
+    protected = set(_rejected_sources(sources))
     for source in sources:
         normalized = str(source).replace("\\", "/").strip("/")
+        if normalized in protected:
+            if rejections is not None:
+                rejections[normalized] = "protected-governance-source"
+            continue
         if not enforce_registry:
             admitted.append(source)
             continue
@@ -386,6 +391,7 @@ def build_corpus(
     suffixes: Sequence[str] = DEFAULT_SUFFIXES,
     val_permille: int = 5,
     tokenizer: Any = None,
+    tokenizer_dir: str | Path | None = None,
 ) -> dict:
     """建立 train/val JSONL 與 manifest；同一內容只保留一次。
 
@@ -530,9 +536,8 @@ def build_corpus(
             len(tokenizer.encode(document.text, add_bos=False, add_eos=False))
             for document in read_corpus(val_path)
         )
-        tokenizer_sha = _tokenizer_sha256(tokenizer)
-        if tokenizer_sha:
-            manifest["tokenizer_sha256"] = tokenizer_sha
+        if tokenizer_dir is not None:
+            manifest["tokenizer_sha256"] = _tokenizer_dir_sha256(tokenizer_dir)
     (target / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -540,13 +545,8 @@ def build_corpus(
     return manifest
 
 
-def _tokenizer_sha256(tokenizer: Any) -> str:
-    """DG-10：綁定 tokenizer 資產雜湊（tokenizer.json 或同目錄 vocab）。"""
-    tokenizer_dir = getattr(tokenizer, "path", None) or getattr(
-        tokenizer, "tokenizer_dir", None
-    )
-    if tokenizer_dir is None:
-        return ""
+def _tokenizer_dir_sha256(tokenizer_dir: str | Path) -> str:
+    """DG-10：綁定 tokenizer 資產雜湊（目錄內所有資產檔）。"""
     directory = Path(tokenizer_dir)
     digest = hashlib.sha256()
     for asset in sorted(directory.glob("*")):
@@ -629,13 +629,35 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source", action="append", default=None)
     parser.add_argument("--suffix", action="append", default=None)
     parser.add_argument("--val-permille", type=int, default=5)
+    parser.add_argument(
+        "--tokenizer",
+        default=None,
+        help="tokenizer.json 所在目錄；提供時計算 token_count 並綁定 sha256",
+    )
+    parser.add_argument(
+        "--verify",
+        default=None,
+        metavar="CORPUS_DIR",
+        help="驗證既有語料完整性（DG-11），不建置",
+    )
     args = parser.parse_args(argv)
+    if args.verify:
+        report = verify_corpus(args.verify)
+        print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if report.get("ok") else 1
+    tokenizer = None
+    if args.tokenizer:
+        from ..bpe import NativeBPETokenizer
+
+        tokenizer = NativeBPETokenizer.load(args.tokenizer)
     manifest = build_corpus(
         args.root,
         args.output,
         sources=tuple(args.source) if args.source else DEFAULT_SOURCES,
         suffixes=tuple(args.suffix) if args.suffix else DEFAULT_SUFFIXES,
         val_permille=args.val_permille,
+        tokenizer=tokenizer,
+        tokenizer_dir=args.tokenizer,
     )
     print(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
@@ -651,6 +673,10 @@ __all__ = [
     "DEFAULT_SOURCES",
     "DEFAULT_SUFFIXES",
     "build_corpus",
+    "classify_language",
+    "find_near_duplicates",
     "iter_documents",
+    "load_corpus_registry",
     "read_corpus",
+    "verify_corpus",
 ]
