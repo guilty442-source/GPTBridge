@@ -40,7 +40,8 @@ class XingChengMoE(nn.Module):
         n_tokens = x.size(0)
 
         # Router logits & probs（FP32 保持精確，見 quantizer 排除 router）
-        router_logits = self.router(x)  # (N, E)
+        router_logits = F.linear(x.float(), self.router.weight.float())  # (N, E)
+        self._last_router_dtype = str(router_logits.dtype)
         # 訓練時加入微小噪聲促進探索，推論時確定性
         if self.training and self.config.moe_aux_loss_weight > 0:
             # 0.01 * N(0,1) 噪聲，方差極小，不影響主路由但打破對稱
@@ -110,10 +111,11 @@ class XingChengMoE(nn.Module):
     def utilization(self) -> int | None:
         return getattr(self, "_last_utilized", None)
 
-    def metrics(self) -> dict[str, float | int | list[float]]:
+    def metrics(self) -> dict[str, float | int | str | list[float]]:
         load = self.expert_load()
         return {
             "expert_load": load.tolist() if load is not None else [],
+            "router_dtype": getattr(self, "_last_router_dtype", ""),
             "router_entropy": self.router_entropy() or 0.0,
             "aux_loss": getattr(self, "_last_aux_loss", 0.0),
             "z_loss": getattr(self, "_last_z_loss", 0.0),
