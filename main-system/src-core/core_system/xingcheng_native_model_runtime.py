@@ -1,91 +1,75 @@
-"""Governed lifecycle control for Xingcheng's native Ollama model."""
+"""Governed lifecycle control for Xingcheng's native first-party model.
+
+This module manages the first-party StarAutoregressiveLanguageModel that runs
+without any third-party weights or Ollama dependency.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
-import subprocess
-import urllib.error
-import urllib.request
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from .xingcheng_native_model_constants import _MAIN_MODEL_ID
 
-_OLLAMA_API = "http://127.0.0.1:11434/api"
-_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+_LOCAL_MODEL_ROOT = Path(__file__).resolve().parents[3] / "Standalone tools" / "local-model"
 
 
-def _run_ollama(*args: str, timeout: float = 10.0) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["ollama", *args],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=timeout,
-        check=False,
-        creationflags=_CREATE_NO_WINDOW,
-    )
-
-
-def native_model_status() -> dict[str, Any]:
-    """Return live process state; static registration never implies running."""
+def _native_model_status() -> dict[str, Any]:
+    """Return the native first-party model status."""
     checked_at = datetime.now(timezone.utc).isoformat()
+
     try:
-        result = _run_ollama("ps")
-    except (OSError, subprocess.SubprocessError) as exc:
+        sys.path.insert(0, str(_LOCAL_MODEL_ROOT / "src" / "backend"))
+        from services.xingcheng.infrastructure.generative_language_model import (
+            StarAutoregressiveLanguageModel,
+        )
+        from services.xingcheng.infrastructure.native_model import (
+            StarNativeLanguageModel,
+        )
+
+        model = StarNativeLanguageModel(model_role="main")
+        metrics = model.training_status()
+
+        return {
+            "model_id": _MAIN_MODEL_ID,
+            "state": "ready",
+            "running": True,
+            "available": True,
+            "checked_at": checked_at,
+            "message": "",
+            "model_type": metrics.get("model_type", "weighted-backoff-token-ngram"),
+            "vocabulary_size": metrics.get("vocabulary_size", 0),
+            "base_example_count": metrics.get("base_example_count", 0),
+            "learned_example_count": metrics.get("learned_example_count", 0),
+            "third_party_weights_used": False,
+        }
+    except Exception as exc:
         return {
             "model_id": _MAIN_MODEL_ID,
             "state": "unavailable",
             "running": False,
             "available": False,
             "checked_at": checked_at,
-            "message": type(exc).__name__,
+            "message": f"{type(exc).__name__}: {exc}",
+            "third_party_weights_used": False,
         }
-    if result.returncode != 0:
-        return {
-            "model_id": _MAIN_MODEL_ID,
-            "state": "unavailable",
-            "running": False,
-            "available": False,
-            "checked_at": checked_at,
-            "message": (result.stderr or "ollama unavailable").strip(),
-        }
-    running = any(
-        line.split(maxsplit=1)[0] == _MAIN_MODEL_ID
-        for line in result.stdout.splitlines()[1:]
-        if line.strip()
-    )
-    return {
-        "model_id": _MAIN_MODEL_ID,
-        "state": "running" if running else "stopped",
-        "running": running,
-        "available": True,
-        "checked_at": checked_at,
-        "message": "",
-    }
 
 
 def _start_native_model() -> None:
-    payload = json.dumps(
-        {"model": _MAIN_MODEL_ID, "prompt": "", "stream": False, "keep_alive": "30m"}
-    ).encode("utf-8")
-    request = urllib.request.Request(
-        f"{_OLLAMA_API}/generate",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=120) as response:
-        if response.status != 200:
-            raise RuntimeError(f"Ollama returned HTTP {response.status}")
+    """Initialize the native model (no-op for first-party model, always ready)."""
+    sys.path.insert(0, str(_LOCAL_MODEL_ROOT / "src" / "backend"))
+    from services.xingcheng.infrastructure.native_model import StarNativeLanguageModel
+
+    _ = StarNativeLanguageModel(model_role="main")
 
 
 def _stop_native_model() -> None:
-    result = _run_ollama("stop", _MAIN_MODEL_ID, timeout=30.0)
-    if result.returncode != 0:
-        raise RuntimeError((result.stderr or "model stop failed").strip())
+    """Stop the native model (no-op for first-party model)."""
+    pass
 
 
 async def set_native_model_enabled(enabled: bool) -> dict[str, Any]:
@@ -93,10 +77,15 @@ async def set_native_model_enabled(enabled: bool) -> dict[str, Any]:
     action = _start_native_model if enabled else _stop_native_model
     try:
         await asyncio.to_thread(action)
-    except (OSError, RuntimeError, subprocess.SubprocessError, urllib.error.URLError) as exc:
-        status = await asyncio.to_thread(native_model_status)
-        return {"ok": False, "error_code": "NATIVE_MODEL_TRANSITION_FAILED", "message": str(exc), **status}
-    status = await asyncio.to_thread(native_model_status)
+    except (OSError, RuntimeError, Exception) as exc:
+        status = await asyncio.to_thread(_native_model_status)
+        return {
+            "ok": False,
+            "error_code": "NATIVE_MODEL_TRANSITION_FAILED",
+            "message": str(exc),
+            **status,
+        }
+    status = await asyncio.to_thread(_native_model_status)
     expected = status["running"] is enabled
     return {
         "ok": expected,
@@ -106,4 +95,47 @@ async def set_native_model_enabled(enabled: bool) -> dict[str, Any]:
     }
 
 
-__all__ = ["native_model_status", "set_native_model_enabled"]
+async def native_model_infer(
+    prompt: str,
+    *,
+    intent: str = "conversation",
+    grounding: str = "",
+    max_tokens: int = 180,
+    temperature: float = 0.55,
+    top_k: int = 4,
+) -> dict[str, Any]:
+    """Run inference using the first-party native language model."""
+    try:
+        sys.path.insert(0, str(_LOCAL_MODEL_ROOT / "src" / "backend"))
+        from services.xingcheng.infrastructure.native_model import (
+            StarNativeLanguageModel,
+        )
+
+        model = StarNativeLanguageModel(model_role="main")
+        result = model.language_model.generate(
+            intent=intent,
+            prompt=prompt,
+            grounding=grounding,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_k=top_k,
+        )
+        result["model_id"] = _MAIN_MODEL_ID
+        result["third_party_weights_used"] = False
+        return {"ok": True, **result}
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error_code": "NATIVE_MODEL_INFERENCE_FAILED",
+            "message": str(exc),
+            "model_id": _MAIN_MODEL_ID,
+            "third_party_weights_used": False,
+        }
+
+
+def native_model_status() -> dict[str, Any]:
+    """Return live model state."""
+    return _native_model_status()
+
+
+__all__ = ["native_model_status", "set_native_model_enabled", "native_model_infer"]

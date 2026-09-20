@@ -174,7 +174,7 @@
       "owner_sovereign": "system-runtime",
       "owner_sub_sovereign": "startup_sub_sovereign",
       "execution_identity": "bootstrap-entry",
-      "physical_path": "main-system/launcher/scripts",
+      "physical_path": "main-system/launcher",
       "lifecycle": "per-launch",
       "canonical": true,
       "dependencies": ["boot-core"],
@@ -529,6 +529,19 @@
       "lifecycle": "on-demand",
       "canonical": true,
       "dependencies": ["shared-layer"],
+      "information_channels": ["information-channel"]
+    },
+    {
+      "component_id": "chinese-semantic-engine",
+      "architectural_role": "execution",
+      "runtime_form": "standalone-service",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "data_governance_sub_sovereign",
+      "execution_identity": "chinese-semantic-engine",
+      "physical_path": "Standalone tools/chinese-semantic-engine",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["shared-layer", "local-model", "qdrant"],
       "information_channels": ["information-channel"]
     },
     {

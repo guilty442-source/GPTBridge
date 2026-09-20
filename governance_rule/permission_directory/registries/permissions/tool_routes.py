@@ -10,7 +10,7 @@ from governance_rule.permission_directory.execution.path_guard import (
 
 AI_CHANNEL_ID: Final[str] = "shared-layer/ai-channel"
 AUTHORIZED_TOOL_IDS: Final[frozenset[str]] = frozenset(
-    {"ai-assistant", "xingcheng", "ai-collaboration", "star-chat"}
+    {"ai-assistant", "xingcheng", "ai-collaboration", "star-chat", "chinese-semantic-engine"}
 )
 AI_CHANNEL_TOOL_IDS: Final[frozenset[str]] = (
     AUTHORIZED_TOOL_IDS | {"investment-mobile", "model-dialogue"}
@@ -73,6 +73,15 @@ AI_ROUTE_COMMANDS: Final[Mapping[tuple[str, str], frozenset[str]]] = {
         {
             "investment_mobile_get_snapshot",
             "investment_mobile_submit_instruction",
+        }
+    ),
+    ("xingcheng", "chinese-semantic-engine"): frozenset(
+        {
+            "semantic_analyze",
+            "semantic_embed",
+            "semantic_retrieve",
+            "semantic_synthesize",
+            "semantic_health",
         }
     ),
 }

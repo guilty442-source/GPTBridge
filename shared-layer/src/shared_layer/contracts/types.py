@@ -158,6 +158,15 @@ class TypedBufferSpec:
             raise ValueError("typed buffer elements are never nullable")
 
 
+@dataclass(frozen=True)
+class ModuleIdentity:
+    """Module identity for governance and channel communication."""
+    module_id: str
+    version: str = "1.0.0"
+    instance_id: str = ""
+    capabilities: tuple[str, ...] = ()
+
+
 __all__ = [
     "CanonicalKind",
     "Presence",
@@ -168,6 +177,7 @@ __all__ = [
     "EnumSpec",
     "IdentifierSpec",
     "TypedBufferSpec",
+    "ModuleIdentity",
     "INT_RANGES",
     "JS_SAFE_INTEGER",
 ]
