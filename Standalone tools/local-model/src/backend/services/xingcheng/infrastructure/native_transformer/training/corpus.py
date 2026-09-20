@@ -401,6 +401,7 @@ def build_corpus(
     val_permille: int = 5,
     tokenizer: Any = None,
     tokenizer_dir: str | Path | None = None,
+    enforce_registry: bool = True,
 ) -> dict:
     """建立 train/val JSONL 與 manifest；同一內容只保留一次。
 
@@ -430,6 +431,7 @@ def build_corpus(
             project_root,
             sources=sources,
             suffixes=suffixes,
+            enforce_registry=enforce_registry,
             rejections=rejections,
         )
     )

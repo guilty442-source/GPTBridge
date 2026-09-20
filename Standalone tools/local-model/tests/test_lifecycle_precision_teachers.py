@@ -189,9 +189,14 @@ def test_corpus_manifest_governance_fields(tmp_path):
     (docs / "b.py").write_text("def f():\n    return 1\n" * 30, encoding="utf-8")
     out = tmp_path / "corpus"
     manifest = build_corpus(
-        docs, out, sources=("",), suffixes=(".md", ".py"), val_permille=0
+        docs,
+        out,
+        sources=("",),
+        suffixes=(".md", ".py"),
+        val_permille=0,
+        enforce_registry=False,
     )
-    assert manifest["dataset_format"] == "star-corpus/v1"
+    assert manifest["dataset_format"] == "star-corpus/v2"
     assert manifest["dataset_id"].startswith("star-corpus-")
     assert manifest["license"] == "first-party-internal"
     assert manifest["language"]
@@ -209,6 +214,12 @@ def test_corpus_manifest_token_count_with_tokenizer(tmp_path):
     out = tmp_path / "corpus"
     tok = XingChengTokenizer(vocab_size=300)
     manifest = build_corpus(
-        docs, out, sources=("",), suffixes=(".txt",), val_permille=0, tokenizer=tok
+        docs,
+        out,
+        sources=("",),
+        suffixes=(".txt",),
+        val_permille=0,
+        tokenizer=tok,
+        enforce_registry=False,
     )
     assert manifest["token_count"] > 0

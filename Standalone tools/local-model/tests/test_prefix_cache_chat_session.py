@@ -176,10 +176,15 @@ def test_executor_records_lifecycle(tmp_path: Path):
     lc_dir = executor.tool_root / "runtime" / "models" / "lifecycle" / "xingcheng-native"
     lifecycle = ModelLifecycle.load(lc_dir)
     assert lifecycle.state == "PRETRAINED"
-    weights = lifecycle.active_weights()
-    assert weights is not None
-    assert weights["metadata"]["job_id"] == str(job["job_id"])
-    assert Path(weights["path"]).name == "final.pt"
+    # 契約（2026-09-21）：完成的 job 只註冊版本、不自動啟用；
+    # 啟用權移交評估閘門路徑（self-learning）或人工核准。
+    versions = lifecycle.artifacts["weights"]["versions"]
+    registered = [v for v in versions if v["metadata"].get("job_id") == str(job["job_id"])]
+    assert registered, "job 完成後 weights 版本必須已註冊"
+    assert Path(registered[-1]["path"]).name == "final.pt"
+    assert lifecycle.active_weights() is None or (
+        lifecycle.active_weights()["metadata"].get("job_id") != str(job["job_id"])
+    ), "未過評估閘門不得自動啟用"
 
 
 def test_executor_lifecycle_marks_failure(tmp_path: Path):
