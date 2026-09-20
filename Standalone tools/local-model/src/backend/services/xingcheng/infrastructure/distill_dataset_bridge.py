@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 DISTILL_BRIDGE_VERSION = "star-distill-bridge/v1"
 DISTILL_SOURCE_TYPE = "teacher-distillation-verified"
@@ -115,6 +115,71 @@ def register_distillation_snapshot(
     return dataset
 
 
+def merge_sft_snapshots(
+    snapshot_paths: Sequence[str | Path],
+    output_path: str | Path,
+    *,
+    val_permille: int = 150,
+) -> dict[str, Any]:
+    """合併多份 ``star-transformer-sft/v1`` 快照為一個訓練快照。
+
+    逐筆以 ``sha256`` 去重、依雜湊重新確定性切分；``messages`` 欄位
+    原樣保留（chat-format 多輪訓練資料）。輸出格式與
+    ``register_distillation_snapshot`` 相容。
+    """
+    import time
+
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    seen: set[str] = set()
+    records: list[dict[str, Any]] = []
+    sources: list[str] = []
+    for raw_path in snapshot_paths:
+        path = Path(raw_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"MERGE_SNAPSHOT_MISSING:{path}")
+        sources.append(str(path))
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            digest = str(record.get("sha256") or "")
+            if not digest or digest in seen:
+                continue
+            seen.add(digest)
+            record = dict(record)
+            record["split"] = (
+                "validation"
+                if int(digest[:8], 16) % 1000 < int(val_permille)
+                else "train"
+            )
+            records.append(record)
+    if not records:
+        raise ValueError("MERGED_SNAPSHOT_EMPTY")
+    if len(records) > 1 and not any(r["split"] == "validation" for r in records):
+        records[-1]["split"] = "validation"
+    with target.open("w", encoding="utf-8", newline="\n") as handle:
+        for record in records:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    file_digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    manifest = {
+        "format_version": "star-transformer-sft/v1",
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "snapshot_path": str(target),
+        "snapshot_sha256": file_digest,
+        "examples": len(records),
+        "train_count": sum(r["split"] == "train" for r in records),
+        "validation_count": sum(r["split"] == "validation" for r in records),
+        "merged_from": sources,
+    }
+    (target.parent / "merged_manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
 def queue_distillation_sft_job(
     repository: Any,
     manifest: Mapping[str, Any] | str | Path,
@@ -140,6 +205,7 @@ __all__ = [
     "DISTILL_BRIDGE_VERSION",
     "DISTILL_SOURCE_TYPE",
     "MIN_QUALITY",
+    "merge_sft_snapshots",
     "queue_distillation_sft_job",
     "register_distillation_snapshot",
 ]

@@ -82,6 +82,8 @@ def _read_snapshot_documents(path: Path) -> list[dict[str, str]]:
                 document["chosen"] = str(record["chosen"])
             if record.get("rejected"):
                 document["rejected"] = str(record["rejected"])
+            if isinstance(record.get("messages"), list):
+                document["messages"] = record["messages"]
             documents.append(document)
     return documents
 
