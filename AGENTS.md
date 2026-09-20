@@ -235,6 +235,27 @@ Runs automatically at the end of every self-learning cycle; manual:
 
 Implementation: `native_transformer/retention.py` (`apply_retention`).
 
+## 星澄 Training GPU Gate & Auto-Release
+
+- `TrainingJobExecutor.run_job` gates CUDA training through
+  `shared_layer.adaptive.gpu_coordinator` before starting: jobs wait for
+  `gpu_required_mb` free VRAM (default 2500, bounded config keys
+  `gpu_required_mb` / `gpu_acquire_timeout_s`); timeout fails the job
+  `EXECUTOR_GPU_BUSY` (fail-closed, no OOM contention). Only the real
+  trainer is gated — injected `train_fn` stubs skip it. Completed jobs
+  register a new lifecycle weights version but **never auto-activate**;
+  promotion only happens through the eval-gated path (self-learning) or
+  explicit approval.
+- `native_engine.native_engine_for` registers cached engines with
+  `execution/auto_release.py` `AutoReleaseManager`: idle timeout
+  (`settings.auto_release_idle_seconds`, default 300 s) or memory
+  pressure evicts the engine from cache; in-flight generation keeps its
+  own strong reference and finishes normally.
+- Chat-foundation SFT dataset production line:
+  `infrastructure/chat_foundation_dataset.py`
+  (`star-chat-foundation/v1`; deterministic seed, corpus replay mixing,
+  maturity probe values excluded).
+
 ## On-Demand Model Activation (Lazy 星澄)
 
 `model-dialogue` opens without the local model (governor directive 2026-09-17).
