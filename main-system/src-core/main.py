@@ -46,9 +46,9 @@ from governance.sovereigns import (
 )
 
 from main_shutdown import GPTBridgeAppShutdownMixin
-from core_system.maintenance_controller_integration import create_maintenance_controller_integration
-from core_system.rag_runtime_integration import create_rag_runtime_integration
-from core_system.cag_integration import create_cag_integration
+# RAG/CAG/maintenance factories intentionally not imported here: MS1 lazy
+# loading — see AppLifecycleMixin.ensure_rag_cag_started /
+# GPTBRIDGE_RAG_EAGER.
 
 from core_system.app_lifecycle import AppLifecycleMixin
 from core_system.startup_sequence import run_startup_sequence

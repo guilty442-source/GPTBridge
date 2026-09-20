@@ -280,6 +280,13 @@ class NativeTransformerEngine:
         self.tokenizer = tokenizer or XingChengTokenizer.from_config(self.config)
         # 推論裝置：有 CUDA 用 CUDA（GPU 加速），否則 CPU。
         self.device = resolve_device(device)
+        self.gpu_budget_downgraded = False
+        if self.device.type == "cuda":
+            # MS3：CUDA 推論先過 GpuCoordinator VRAM 預算，與訓練共用
+            # 同一協調器；預算不足時降級 CPU 而非硬塞進 VRAM 造成 OOM。
+            self.device, self.gpu_budget_downgraded = self._gate_cuda_device(
+                self.device
+            )
         if self.device.type == "cpu":
             # CPU 路徑限制執行緒數，避免與主系統爭用全部核心。
             import torch as _torch
@@ -302,6 +309,61 @@ class NativeTransformerEngine:
             self.model, device=self.device, prefix_store=self.prefix_store
         )
         self._lock = threading.Lock()
+
+    def _gate_cuda_device(self, device: torch.device) -> tuple[torch.device, bool]:
+        """MS3 GPU 協調：估計所需 VRAM，經 GpuCoordinator 取得預算後才上卡。
+
+        預算不足／協調器無法判定時降級 CPU（推論屬互動路徑，fail-soft
+        降級而非拒絕服務），降級事實寫入執行帳本可稽核。
+        """
+        import torch as _torch
+
+        bytes_per_param = 4 if default_dtype(device) == _torch.float32 else 2
+        required_mb = max(
+            256.0, (self._parameter_count * bytes_per_param * 1.5) / (1024**2)
+        )
+        timeout = float(os.environ.get("XINGCHENG_GPU_ACQUIRE_TIMEOUT_S", "15"))
+        try:
+            from shared_layer.adaptive.gpu_coordinator import GpuCoordinator
+
+            coordinator = GpuCoordinator()
+            with coordinator.acquire(
+                required_mb, priority="inference", timeout=timeout
+            ):
+                return device, False
+        except Exception as error:
+            self._record_gpu_downgrade(device, required_mb, error)
+            return _torch.device("cpu"), True
+
+    def _record_gpu_downgrade(
+        self, device: torch.device, required_mb: float, error: Exception
+    ) -> None:
+        try:
+            ledger = tool_root() / NATIVE_EXECUTION_LEDGER
+            ledger.parent.mkdir(parents=True, exist_ok=True)
+            with ledger.open("a", encoding="utf-8") as handle:
+                handle.write(
+                    json.dumps(
+                        {
+                            "at": time.strftime(
+                                "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                            ),
+                            "engine": "native",
+                            "event": "gpu-budget-downgrade",
+                            "checkpoint_path": str(self.checkpoint_path),
+                            "state_sha256": self.state_sha256,
+                            "parameter_count": self._parameter_count,
+                            "device_requested": str(device),
+                            "device_used": "cpu",
+                            "required_mb": round(required_mb, 1),
+                            "reason": f"{type(error).__name__}: {error}",
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+        except Exception:
+            pass
 
     @classmethod
     def available(cls) -> bool:

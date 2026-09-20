@@ -49,8 +49,9 @@ from governance.sovereigns import (
 
 from main_shutdown import GPTBridgeAppShutdownMixin
 from core_system.maintenance_controller_integration import create_maintenance_controller_integration
-from core_system.rag_runtime_integration import create_rag_runtime_integration
-from core_system.cag_integration import create_cag_integration
+# RAG/CAG integrations are imported lazily inside the on-demand helpers
+# below: their module trees pull qdrant_client (~1.2s import) which is
+# capability-critical, not boot-critical — see MS1/MS2 lazy loading.
 
 
 class AppLifecycleMixin:
@@ -83,8 +84,20 @@ class AppLifecycleMixin:
         self.maintenance_controller_integration = create_maintenance_controller_integration(self)
         self.rag_ready = False
         self.cag_ready = False
-        self.rag_runtime = create_rag_runtime_integration(self)
-        self.cag_integration = create_cag_integration(self)
+        # MS1/MS2（藍圖 §4.8）：RAG/CAG 為 capability-critical、無常駐消費者，
+        # 預設延遲到首次使用才建立＋啟動（ensure_rag_cag_started）。
+        # 設 GPTBRIDGE_RAG_EAGER=1 可還原開機即啟動的舊行為。
+        self.rag_runtime = None
+        self.cag_integration = None
+        self._rag_cag_start_lock: asyncio.Lock | None = None
+        if os.environ.get("GPTBRIDGE_RAG_EAGER", "").strip() == "1":
+            from core_system.rag_runtime_integration import (
+                create_rag_runtime_integration,
+            )
+            from core_system.cag_integration import create_cag_integration
+
+            self.rag_runtime = create_rag_runtime_integration(self)
+            self.cag_integration = create_cag_integration(self)
 
         # New governance architecture sovereigns (A63/A64/A12/A128)
         # Decision layer sovereigns
@@ -147,6 +160,35 @@ class AppLifecycleMixin:
         self.default_tool_startup: dict[str, dict[str, Any]] = {}
         self.startup_failures: list[dict[str, Any]] = []
         self.startup_dead = False
+
+    async def ensure_rag_cag_started(self) -> dict[str, Any]:
+        """MS1/MS2：RAG/CAG 按需啟動入口。
+
+        capability-critical 子系統不 gate readiness；首次真正需要檢索時
+        由呼叫端呼叫此方法——建立 RagRuntimeIntegration → start →
+        建立 CAGIntegration → start（CAG 需要 rag_orchestrator）。
+        並發安全：同一時間只允許一個啟動流程。
+        """
+        if self._rag_cag_start_lock is None:
+            self._rag_cag_start_lock = asyncio.Lock()
+        async with self._rag_cag_start_lock:
+            if self.rag_runtime is None:
+                from core_system.rag_runtime_integration import (
+                    create_rag_runtime_integration,
+                )
+
+                self.rag_runtime = create_rag_runtime_integration(self)
+            rag_result = await self.rag_runtime.start()
+            if rag_result.get("ok"):
+                self.rag_ready = True
+            if self.cag_integration is None:
+                from core_system.cag_integration import create_cag_integration
+
+                self.cag_integration = create_cag_integration(self)
+            cag_result = await self.cag_integration.start()
+            if cag_result.get("ok"):
+                self.cag_ready = True
+            return {"rag": rag_result, "cag": cag_result}
 
     def _mark_startup_phase(self, phase: str) -> None:
         now = time.monotonic()

@@ -251,10 +251,33 @@ Implementation: `native_transformer/retention.py` (`apply_retention`).
   (`settings.auto_release_idle_seconds`, default 300 s) or memory
   pressure evicts the engine from cache; in-flight generation keeps its
   own strong reference and finishes normally.
+- `NativeTransformerEngine` CUDA load also passes through the same
+  coordinator: required VRAM is estimated from parameter count
+  (bf16 ≈ 2 B/param × 1.5 headroom, floor 256 MB) and acquired with
+  `XINGCHENG_GPU_ACQUIRE_TIMEOUT_S` (default 15 s). On timeout the
+  engine degrades to CPU (`gpu_budget_downgraded=True`) and appends a
+  `gpu-budget-downgrade` entry to `native-engine-executions.jsonl` —
+  inference degrades instead of contending for VRAM.
 - Chat-foundation SFT dataset production line:
   `infrastructure/chat_foundation_dataset.py`
   (`star-chat-foundation/v1`; deterministic seed, corpus replay mixing,
   maturity probe values excluded).
+
+## Lazy RAG/CAG (MS1/MS2)
+
+RAG + CAG are capability-critical, not boot-critical. By default the
+composition root does NOT import or construct them — measured import
+baseline: 2.43 s / 1153 modules / 176 MB RSS → 0.66 s / 670 modules /
+53 MB. First retrieval need must call `await app.ensure_rag_cag_started()`
+(`core_system/app_lifecycle.py`): builds `RagRuntimeIntegration`, starts
+it, then builds/starts `CAGIntegration` (CAG needs `rag_orchestrator`).
+A lock serializes concurrent first-use; the call is idempotent.
+`GPTBRIDGE_RAG_EAGER=1` restores the legacy eager construct+start during
+boot. Acceptance tests: `main-system/tests/test_p0_lazy_lifecycle_handover.py`
+(also covers the MS4 handover health gate in `boot_core_handover.py` —
+`global-success` is only written after standby readiness + health probes
++ stability window; failures mark `failed-isolated`/`rolled-back` and
+reactivate the previous generation).
 
 ## On-Demand Model Activation (Lazy 星澄)
 
