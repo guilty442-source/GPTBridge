@@ -501,6 +501,10 @@ All workers share exactly one planning document:
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.
 - Governance audit must pass before commits: `python -m governance_rule.execution.audit`
+- **Implementation precedence (mandatory, blueprint invariant 18)**: a verified
+  implementation that is better than the blueprint is kept and written back into
+  the blueprint with evidence (commit/tests); never roll back a superior, tested
+  implementation merely to match the blueprint.
 - Model core must remain separate from network functionality.
 - All external network access must go through governed tool paths.
 
