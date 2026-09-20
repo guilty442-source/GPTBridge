@@ -6,6 +6,7 @@
 // No unbounded allocation; no per-request thread pool.
 #include "transformer.hpp"
 #include "memory.hpp"
+#include "simd.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -13,6 +14,7 @@
 namespace gptbridge_native_transformer {
 
 namespace mem = gptbridge_native_mem;
+namespace simd = gptbridge_native_simd;
 
 namespace {
 
@@ -25,6 +27,133 @@ inline double row_max(const double* row, int64_t cols) noexcept {
         }
     }
     return m;
+}
+
+// SIMD-accelerated dot product using AVX2/AVX-512 when available.
+inline double simd_dot(const double* a, const double* b, int64_t dim) noexcept {
+    const auto isa = simd::get_isa_level();
+    double result = 0.0;
+
+    if (isa >= simd::IsaLevel::AVX2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX2) && GPTBRIDGE_NATIVE_HAS_AVX2
+        __m256d sum = _mm256_setzero_pd();
+        int64_t i = 0;
+        for (; i + 3 < dim; i += 4) {
+            __m256d va = _mm256_loadu_pd(a + i);
+            __m256d vb = _mm256_loadu_pd(b + i);
+            sum = _mm256_fmadd_pd(va, vb, sum);
+        }
+        double tmp[4];
+        _mm256_storeu_pd(tmp, sum);
+        result = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+        for (; i < dim; ++i) {
+            result += a[i] * b[i];
+        }
+        return result;
+#endif
+    } else if (isa >= simd::IsaLevel::AVX) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX) && GPTBRIDGE_NATIVE_HAS_AVX
+        __m256d sum = _mm256_setzero_pd();
+        int64_t i = 0;
+        for (; i + 3 < dim; i += 4) {
+            __m256d va = _mm256_loadu_pd(a + i);
+            __m256d vb = _mm256_loadu_pd(b + i);
+            __m256d prod = _mm256_mul_pd(va, vb);
+            sum = _mm256_add_pd(sum, prod);
+        }
+        double tmp[4];
+        _mm256_storeu_pd(tmp, sum);
+        result = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+        for (; i < dim; ++i) {
+            result += a[i] * b[i];
+        }
+        return result;
+#endif
+    } else if (isa >= simd::IsaLevel::SSE2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_SSE2) && GPTBRIDGE_NATIVE_HAS_SSE2
+        __m128d sum = _mm_setzero_pd();
+        int64_t i = 0;
+        for (; i + 1 < dim; i += 2) {
+            __m128d va = _mm_loadu_pd(a + i);
+            __m128d vb = _mm_loadu_pd(b + i);
+            __m128d prod = _mm_mul_pd(va, vb);
+            sum = _mm_add_pd(sum, prod);
+        }
+        double tmp[2];
+        _mm_storeu_pd(tmp, sum);
+        result = tmp[0] + tmp[1];
+        for (; i < dim; ++i) {
+            result += a[i] * b[i];
+        }
+        return result;
+#endif
+    }
+
+    // Scalar fallback
+    for (int64_t i = 0; i < dim; ++i) {
+        result += a[i] * b[i];
+    }
+    return result;
+}
+
+// SIMD-accelerated axpy: y += alpha * x
+inline void simd_axpy(double alpha, const double* x, double* y, int64_t n) noexcept {
+    const auto isa = simd::get_isa_level();
+
+    if (isa >= simd::IsaLevel::AVX2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX2) && GPTBRIDGE_NATIVE_HAS_AVX2
+        __m256d a = _mm256_set1_pd(alpha);
+        int64_t i = 0;
+        for (; i + 3 < n; i += 4) {
+            __m256d vx = _mm256_loadu_pd(x + i);
+            __m256d vy = _mm256_loadu_pd(y + i);
+            __m256d prod = _mm256_mul_pd(a, vx);
+            __m256d res = _mm256_add_pd(vy, prod);
+            _mm256_storeu_pd(y + i, res);
+        }
+        for (; i < n; ++i) {
+            y[i] += alpha * x[i];
+        }
+        return;
+#endif
+    } else if (isa >= simd::IsaLevel::AVX) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX) && GPTBRIDGE_NATIVE_HAS_AVX
+        __m256d a = _mm256_set1_pd(alpha);
+        int64_t i = 0;
+        for (; i + 3 < n; i += 4) {
+            __m256d vx = _mm256_loadu_pd(x + i);
+            __m256d vy = _mm256_loadu_pd(y + i);
+            __m256d prod = _mm256_mul_pd(a, vx);
+            __m256d res = _mm256_add_pd(vy, prod);
+            _mm256_storeu_pd(y + i, res);
+        }
+        for (; i < n; ++i) {
+            y[i] += alpha * x[i];
+        }
+        return;
+#endif
+    } else if (isa >= simd::IsaLevel::SSE2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_SSE2) && GPTBRIDGE_NATIVE_HAS_SSE2
+        __m128d a = _mm_set1_pd(alpha);
+        int64_t i = 0;
+        for (; i + 1 < n; i += 2) {
+            __m128d vx = _mm_loadu_pd(x + i);
+            __m128d vy = _mm_loadu_pd(y + i);
+            __m128d prod = _mm_mul_pd(a, vx);
+            __m128d res = _mm_add_pd(vy, prod);
+            _mm_storeu_pd(y + i, res);
+        }
+        for (; i < n; ++i) {
+            y[i] += alpha * x[i];
+        }
+        return;
+#endif
+    }
+
+    // Scalar fallback
+    for (int64_t i = 0; i < n; ++i) {
+        y[i] += alpha * x[i];
+    }
 }
 
 }  // namespace
@@ -45,23 +174,47 @@ int matmul(
         return 1;  // invalid arguments
     }
 
-    // Row-major i-k-j (axpy) ordering: A and C rows stay in cache and B is
-    // streamed once per (i, p).  Reverted from the fused-init/unrolled
-    // variant after three benchmark runs showed a consistent regression on
-    // medium/large matmul (native speedup 118x -> ~97x); the simple loop
-    // feeds the compiler's own optimizer better here.
+    // SIMD-optimized matmul: for each row of A, compute dot products with columns of B
+    // Using i-k-j ordering with SIMD axpy for the inner loop
     for (int64_t i = 0; i < m; ++i) {
         const double* a_row = a + i * k;
         double* c_row = c + i * n;
-        for (int64_t j = 0; j < n; ++j) {
+
+        // Initialize output row to zero (vectorized)
+        int64_t j = 0;
+        const auto isa = simd::get_isa_level();
+        if (isa >= simd::IsaLevel::AVX2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX2) && GPTBRIDGE_NATIVE_HAS_AVX2
+            __m256d zero = _mm256_setzero_pd();
+            for (; j + 3 < n; j += 4) {
+                _mm256_storeu_pd(c_row + j, zero);
+            }
+#endif
+        } else if (isa >= simd::IsaLevel::AVX) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX) && GPTBRIDGE_NATIVE_HAS_AVX
+            __m256d zero = _mm256_setzero_pd();
+            for (; j + 3 < n; j += 4) {
+                _mm256_storeu_pd(c_row + j, zero);
+            }
+#endif
+        } else if (isa >= simd::IsaLevel::SSE2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_SSE2) && GPTBRIDGE_NATIVE_HAS_SSE2
+            __m128d zero = _mm_setzero_pd();
+            for (; j + 1 < n; j += 2) {
+                _mm_storeu_pd(c_row + j, zero);
+            }
+#endif
+        }
+        for (; j < n; ++j) {
             c_row[j] = 0.0;
         }
+
+        // Accumulate: C[i,:] += A[i,p] * B[p,:] for each p
         for (int64_t p = 0; p < k; ++p) {
             const double a_val = a_row[p];
+            if (a_val == 0.0) continue;
             const double* b_row = b + p * n;
-            for (int64_t j = 0; j < n; ++j) {
-                c_row[j] += a_val * b_row[j];
-            }
+            simd_axpy(a_val, b_row, c_row, n);
         }
     }
 
@@ -82,6 +235,8 @@ int softmax(
         return 1;
     }
 
+    const auto isa = simd::get_isa_level();
+
     for (int64_t r = 0; r < rows; ++r) {
         const double* in_row = input + r * cols;
         double* out_row = output + r * cols;
@@ -90,7 +245,42 @@ int softmax(
         const double max_val = row_max(in_row, cols);
 
         double sum_exp = 0.0;
-        for (int64_t c = 0; c < cols; ++c) {
+
+        // Vectorized exp computation
+        int64_t c = 0;
+        if (isa >= simd::IsaLevel::AVX2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX2) && GPTBRIDGE_NATIVE_HAS_AVX2
+            __m256d max_vec = _mm256_set1_pd(max_val);
+            for (; c + 3 < cols; c += 4) {
+                __m256d vals = _mm256_loadu_pd(in_row + c);
+                __m256d diff = _mm256_sub_pd(vals, max_vec);
+                __m256d exps = _mm256_exp_pd(diff);
+                _mm256_storeu_pd(out_row + c, exps);
+                double tmp[4];
+                _mm256_storeu_pd(tmp, exps);
+                sum_exp += tmp[0] + tmp[1] + tmp[2] + tmp[3];
+            }
+#endif
+        } else if (isa >= simd::IsaLevel::AVX) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX) && GPTBRIDGE_NATIVE_HAS_AVX
+            __m256d max_vec = _mm256_set1_pd(max_val);
+            for (; c + 3 < cols; c += 4) {
+                __m256d vals = _mm256_loadu_pd(in_row + c);
+                __m256d diff = _mm256_sub_pd(vals, max_vec);
+                // AVX doesn't have native exp, use scalar
+                double tmp[4];
+                _mm256_storeu_pd(tmp, diff);
+                for (int k = 0; k < 4; ++k) {
+                    double e = std::exp(tmp[k]);
+                    out_row[c + k] = e;
+                    sum_exp += e;
+                }
+            }
+#endif
+        }
+
+        // Scalar tail
+        for (; c < cols; ++c) {
             const double e = std::exp(in_row[c] - max_val);
             out_row[c] = e;
             sum_exp += e;
@@ -100,12 +290,64 @@ int softmax(
         if (sum_exp == 0.0) {
             // Degenerate: all -inf input; uniform distribution
             const double uniform = 1.0 / static_cast<double>(cols);
-            for (int64_t c = 0; c < cols; ++c) {
+            c = 0;
+            if (isa >= simd::IsaLevel::AVX2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX2) && GPTBRIDGE_NATIVE_HAS_AVX2
+                __m256d u = _mm256_set1_pd(uniform);
+                for (; c + 3 < cols; c += 4) {
+                    _mm256_storeu_pd(out_row + c, u);
+                }
+#endif
+            } else if (isa >= simd::IsaLevel::AVX) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX) && GPTBRIDGE_NATIVE_HAS_AVX
+                __m256d u = _mm256_set1_pd(uniform);
+                for (; c + 3 < cols; c += 4) {
+                    _mm256_storeu_pd(out_row + c, u);
+                }
+#endif
+            } else if (isa >= simd::IsaLevel::SSE2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_SSE2) && GPTBRIDGE_NATIVE_HAS_SSE2
+                __m128d u = _mm_set1_pd(uniform);
+                for (; c + 1 < cols; c += 2) {
+                    _mm_storeu_pd(out_row + c, u);
+                }
+#endif
+            }
+            for (; c < cols; ++c) {
                 out_row[c] = uniform;
             }
         } else {
             const double inv_sum = 1.0 / sum_exp;
-            for (int64_t c = 0; c < cols; ++c) {
+            c = 0;
+            if (isa >= simd::IsaLevel::AVX2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX2) && GPTBRIDGE_NATIVE_HAS_AVX2
+                __m256d inv = _mm256_set1_pd(inv_sum);
+                for (; c + 3 < cols; c += 4) {
+                    __m256d vals = _mm256_loadu_pd(out_row + c);
+                    __m256d res = _mm256_mul_pd(vals, inv);
+                    _mm256_storeu_pd(out_row + c, res);
+                }
+#endif
+            } else if (isa >= simd::IsaLevel::AVX) {
+#if defined(GPTBRIDGE_NATIVE_HAS_AVX) && GPTBRIDGE_NATIVE_HAS_AVX
+                __m256d inv = _mm256_set1_pd(inv_sum);
+                for (; c + 3 < cols; c += 4) {
+                    __m256d vals = _mm256_loadu_pd(out_row + c);
+                    __m256d res = _mm256_mul_pd(vals, inv);
+                    _mm256_storeu_pd(out_row + c, res);
+                }
+#endif
+            } else if (isa >= simd::IsaLevel::SSE2) {
+#if defined(GPTBRIDGE_NATIVE_HAS_SSE2) && GPTBRIDGE_NATIVE_HAS_SSE2
+                __m128d inv = _mm_set1_pd(inv_sum);
+                for (; c + 1 < cols; c += 2) {
+                    __m128d vals = _mm_loadu_pd(out_row + c);
+                    __m128d res = _mm_mul_pd(vals, inv);
+                    _mm_storeu_pd(out_row + c, res);
+                }
+#endif
+            }
+            for (; c < cols; ++c) {
                 out_row[c] *= inv_sum;
             }
         }
