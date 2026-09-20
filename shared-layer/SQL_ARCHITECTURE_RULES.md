@@ -1,7 +1,7 @@
 # SQL Architecture Rules v1（定版）
 
-本檔是 GPTBridge 本地資料層的**正式定版規則**。實作細節見
-`SQL_LAYER_GOVERNANCE_BLUEPRINT.md` 與 `docs/DATA_OWNERSHIP_CONTRACT.md`；
+本檔是 GPTBridge 本地資料層的**正式定版規則**。規劃與分期整合於唯一共用藍圖
+`Standalone tools/local-model/星澄模型四層建置藍圖.md`（第 6 章）；資料所有權見 `docs/DATA_OWNERSHIP_CONTRACT.md`；
 本檔只寫「從此不再變動」的定位、authority、寫入、跨引擎、降級與禁止事項。
 
 ## 1. 引擎最終角色

@@ -411,6 +411,24 @@ canonical / dependencies / information_channels`.
 
 Tests: `governance_rule/tests/test_architecture_registry.py`.
 
+## Single Shared Blueprint（唯一共用藍圖）
+
+All workers share exactly one planning document:
+
+`Standalone tools/local-model/星澄模型四層建置藍圖.md`
+
+- **Do not create any other blueprint / roadmap / phased-plan document** — no new
+  `*blueprint*`, `*BLUEPRINT*`, `*藍圖*` or equivalent planning file in any
+  directory, worktree or tool folder.
+- All planning output (phases, acceptance criteria, gaps, dependency orders,
+  optimization batches) goes into that single file.
+- `shared-layer/SQL_LAYER_GOVERNANCE_BLUEPRINT.md` was deleted on 2026-09-20;
+  its planning content is consolidated into the shared blueprint (chapter 6);
+  the deleted content remains available in Git history.
+- Domain authority/evidence documents (codex mirrors, contracts, rules docs,
+  READMEs) stay in their own locations but must not grow into parallel
+  blueprints or roadmaps.
+
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.
