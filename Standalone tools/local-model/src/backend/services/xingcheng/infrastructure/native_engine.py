@@ -643,7 +643,34 @@ def native_engine_for(
                 path, quantize=quantize, device=device
             )
             _engine_cache[key] = engine
+            # P4：註冊自動釋放——閒置逾時或記憶體壓力時從快取卸載。
+            # release_fn 只移除快取項；進行中的 generate 持有強參照不受影響，
+            # 結束後 refcount 歸零由 GC 回收權重，下次請求再重載 checkpoint。
+            try:
+                from .native_transformer.execution.auto_release import get_manager
+
+                idle_s = int(settings.get("auto_release_idle_seconds") or 300)
+                mgr = get_manager()
+                mgr.idle = idle_s
+                mgr.register(key, engine, _release_engine)
+            except Exception:
+                pass  # auto-release 失效不影響引擎可用性
+        else:
+            try:
+                from .native_transformer.execution.auto_release import get_manager
+
+                get_manager().touch(key)
+            except Exception:
+                pass
         return engine
+
+
+def _release_engine(engine: NativeTransformerEngine) -> None:
+    """把 engine 從快取移除（auto_release 回調）；權重釋放交由 GC。"""
+    with _engine_lock:
+        for cache_key, cached in list(_engine_cache.items()):
+            if cached is engine:
+                _engine_cache.pop(cache_key, None)
 
 
 def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
