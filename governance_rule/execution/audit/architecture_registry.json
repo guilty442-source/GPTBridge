@@ -174,7 +174,7 @@
       "owner_sovereign": "system-runtime",
       "owner_sub_sovereign": "startup_sub_sovereign",
       "execution_identity": "bootstrap-entry",
-      "physical_path": "main-system/launcher/scripts",
+      "physical_path": "main-system/launcher",
       "lifecycle": "per-launch",
       "canonical": true,
       "dependencies": ["boot-core"],
