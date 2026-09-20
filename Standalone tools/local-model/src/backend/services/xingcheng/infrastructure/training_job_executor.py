@@ -390,6 +390,23 @@ class TrainingJobExecutor:
             )
         configuration["beta"] = beta
 
+        for key, (default, minimum, maximum) in (
+            ("gpu_required_mb", (0, 0, 65536)),
+            ("gpu_acquire_timeout_s", (600, 0, 86400)),
+        ):
+            try:
+                value = int(raw.get(key, default))
+            except (TypeError, ValueError) as exc:
+                raise TrainingJobExecutorError(
+                    "EXECUTOR_CONFIG_INVALID", f"{key} must be an integer"
+                ) from exc
+            if not minimum <= value <= maximum:
+                raise TrainingJobExecutorError(
+                    "EXECUTOR_CONFIG_INVALID",
+                    f"{key}={value} outside bounded range {minimum}..{maximum}",
+                )
+            configuration[key] = value
+
         preset = str(raw.get("preset") or "small")
         if preset not in _ALLOWED_PRESETS:
             raise TrainingJobExecutorError(
@@ -614,13 +631,40 @@ class TrainingJobExecutor:
             ).resolve()
             output_dir.mkdir(parents=True, exist_ok=True)
             try:
-                summary = self._train_fn(
-                    train_docs,
-                    val_docs,
-                    configuration,
-                    output_dir=output_dir,
-                    resume=configuration["resume_checkpoint"],
-                )
+                if self._needs_gpu_gate(configuration):
+                    # P4：CUDA 訓練前先向 GpuCoordinator 取得 VRAM 額度，
+                    # 避免並行訓練互相 OOM；超時 fail-closed 為 EXECUTOR_GPU_BUSY。
+                    from shared_layer.adaptive.gpu_coordinator import GpuCoordinator
+
+                    required_mb = float(configuration.get("gpu_required_mb") or 0)
+                    if required_mb <= 0:
+                        required_mb = 2500.0
+                    timeout_s = float(
+                        configuration.get("gpu_acquire_timeout_s") or 600
+                    )
+                    try:
+                        with GpuCoordinator().acquire(
+                            required_mb, priority="training", timeout=timeout_s
+                        ):
+                            summary = self._train_fn(
+                                train_docs,
+                                val_docs,
+                                configuration,
+                                output_dir=output_dir,
+                                resume=configuration["resume_checkpoint"],
+                            )
+                    except TimeoutError as exc:
+                        raise TrainingJobExecutorError(
+                            "EXECUTOR_GPU_BUSY", str(exc)[:300]
+                        ) from exc
+                else:
+                    summary = self._train_fn(
+                        train_docs,
+                        val_docs,
+                        configuration,
+                        output_dir=output_dir,
+                        resume=configuration["resume_checkpoint"],
+                    )
             except TrainingJobExecutorError:
                 raise
             except Exception as exc:
@@ -706,6 +750,21 @@ class TrainingJobExecutor:
                 "error_code": "EXECUTOR_INTERNAL_ERROR",
                 "error_message": str(exc)[:500],
             }
+
+    @staticmethod
+    def _needs_gpu_gate(configuration: Mapping[str, Any]) -> bool:
+        """device 為 cuda（或未指定且本機有 CUDA）時需要 VRAM 協調。"""
+        device = str(configuration.get("device") or "").strip().casefold()
+        if device in {"cpu", "mps"}:
+            return False
+        if device.startswith("cuda"):
+            return True
+        try:
+            import torch
+
+            return bool(torch.cuda.is_available())
+        except Exception:
+            return False
 
     def run_next(self) -> dict[str, Any] | None:
         """Claim and run the oldest queued job; None when the queue is empty."""

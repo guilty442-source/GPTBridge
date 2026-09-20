@@ -63,14 +63,13 @@ def _query_via_nvidia_smi() -> GpuStatus | None:
 
 
 def query_gpu() -> GpuStatus | None:
-    """雙源查詢，torch 優先，nvidia-smi 補 util。"""
+    """雙源查詢。**nvidia-smi 優先**：WDDM 下 torch.cuda.mem_get_info 的
+    free/used 不含其他行程佔用（分頁模型），會高估可用 VRAM；nvidia-smi
+    反映實體記憶體。torch 僅作為無 nvidia-smi 時的備援。"""
     s = _query_via_torch()
     n = _query_via_nvidia_smi()
-    if s is None:
-        return n
     if n is not None:
-        # 合併 util
-        return GpuStatus(s.total_mb, s.used_mb, s.free_mb, n.util_pct)
+        return n
     return s
 
 
@@ -100,7 +99,7 @@ class GpuCoordinator:
     def acquire(self, required_mb: float, priority: str = "training", timeout: float = 300) -> Iterator[bool]:
         """嘗試獲取 VRAM，超時拋 TimeoutError。"""
         start = time.time()
-        while time.time() - start < timeout:
+        while True:
             if self.can_acquire(required_mb):
                 # 成功獲取，進入上下文
                 try:
@@ -109,7 +108,10 @@ class GpuCoordinator:
                 finally:
                     # 釋放無需操作，靠 GC
                     pass
-            time.sleep(self.poll)
+            remaining = timeout - (time.time() - start)
+            if remaining <= 0:
+                break
+            time.sleep(min(self.poll, remaining))
         raise TimeoutError(f"GPU acquire timeout: need {required_mb}MB free, have {self.available_mb():.0f}MB after {timeout}s (priority {priority})")
 
 
