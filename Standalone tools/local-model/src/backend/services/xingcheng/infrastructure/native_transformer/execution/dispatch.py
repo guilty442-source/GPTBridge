@@ -1,7 +1,7 @@
-"""星澄原生推論的 Native Dispatch 層（架構圖：Native Dispatch → Python / C++）。
+"""星澄原生推論的 Native Dispatch 層（架構圖：Native Dispatch → Python / native）。
 
 依 ``shared_layer.performance.native_dispatcher``（A219）的既定契約派送：
-原生 C++ 核心可用、工作量超過門檻、且與 Python 結果一致時走 C++；
+原生計算核心可用、工作量超過門檻、且與 Python 結果一致時走 native；
 否則一律回退純 Python（A219/E184 永久可用）。
 
 一致性（parity）每個形狀只驗證一次並快取，之後不再重算 Python 版本，
@@ -77,10 +77,10 @@ def _causal_via_native(
     scale: float,
     module: Any,
 ) -> torch.Tensor | None:
-    """以 C++ 原語組合因果注意力：matmul → 遮罩 → softmax → matmul。
+    """以原生 C 原語組合因果注意力：matmul → 遮罩 → softmax → matmul。
 
     全程使用原生核心的 ``transformer_matmul`` / ``transformer_softmax``，
-    因果限制由 Python 在分數矩陣上施加（C++ 核心不處理遮罩）。
+    因果限制由 Python 在分數矩陣上施加（原生核心不處理遮罩）。
     """
     batch, heads, q_len, head_dim = query.shape
     k_len = key.size(2)

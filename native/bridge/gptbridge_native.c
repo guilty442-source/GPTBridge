@@ -4,7 +4,8 @@
  * Validates arguments, translates status/handles, delegates immediately.
  * Contains no algorithm/business/workflow/state authority (A220/E185).
  * Resource monitoring is a platform API call, not compute — it lives in
- * the bridge, not in native/core/.
+ * the bridge, not in native/core/. Compute functions declared by the public
+ * header are implemented by the pure-C cores in native/core/.
  */
 #include "gptbridge_native.h"
 

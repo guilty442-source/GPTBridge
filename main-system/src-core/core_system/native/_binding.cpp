@@ -1,9 +1,9 @@
 // _binding: pybind11 binding for the canonical native interface (A221/E186).
 //
-// Binding-only (A220/E185): wraps the C functions declared in
-// native/include/gptbridge_native.h and implemented in
-// native/bridge/gptbridge_native.c, plus the pure-C compute cores in
-// native/core/{parser,vector,transformer}.c.  Does not duplicate
+// Binding-only (A220/E185): wraps the C functions declared in the sole public
+// header native/include/gptbridge_native.h. Platform functions are implemented
+// by native/bridge/gptbridge_native.c; compute functions are implemented by the
+// pure-C cores in native/core/{parser,vector,transformer}.c. Does not duplicate
 // bridge or core logic.
 //
 // Built by build_native.py into _sovereign_native.pyd placed next to this
@@ -22,9 +22,6 @@
 #include <pybind11/numpy.h>
 
 #include "gptbridge_native.h"
-#include "parser.h"
-#include "vector.h"
-#include "transformer.h"
 
 #include <stdexcept>
 #include <vector>

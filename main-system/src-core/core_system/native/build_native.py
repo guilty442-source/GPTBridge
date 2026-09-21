@@ -1,60 +1,135 @@
 """Governed build for the GPTBridge native kernel (A221/E186 canonical tree).
 
-Compiles the pybind11 binding (_binding.cpp) and the C bridge
-(native/bridge/gptbridge_native.c) into the governed output directory
-``main-system/dist-native/`` and installs the artifact to:
+Build layers are explicit and auditable:
 
-  1. this package directory (``core_system/native/``), where the Python
-     adapters import it with a relative import, and
-  2. the active interpreter's site-packages, so consumers that import the
-     top-level ``_sovereign_native`` module (the shared-layer performance
-     dispatcher) resolve the same governed artifact.
+* ``native/include/gptbridge_native.h`` is the sole public C ABI header.
+* ``native/bridge`` + ``native/core`` are pure C implementations.
+* ``_binding.cpp`` is the only C++ source and only adapts Python objects to
+  the public C ABI; it must not include private core headers.
 
-The build never writes into the process working directory: the former
-``--inplace`` invocation copied the extension into whatever directory the
-build happened to run from and polluted the repository root.
-
-The canonical native source lives in the project-root native/ tree:
-  native/include/gptbridge_native.h       — sole public C header
-  native/bridge/gptbridge_native.c        — sole C ABI thunk
-  native/core/{parser,vector,transformer}.c — pure-C compute cores
-
-Requires a C++ compiler (MSVC via the VS/VS Build Tools Developer
-environment) plus pybind11 installed in the active interpreter.
+Compiles the pybind11 binding and C core into ``main-system/dist-native/`` and
+installs the artifact to this package directory plus the active interpreter's
+site-packages for the shared-layer dispatcher.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import pathlib
 import shutil
 import sys
 import sysconfig
-
-import pybind11
-from setuptools import Extension, setup
+from typing import Any
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROJECT_ROOT = HERE.parents[3]
 NATIVE_ROOT = PROJECT_ROOT / "native"
 DIST_NATIVE = HERE.parents[2] / "dist-native"
 
-extension = Extension(
-    "_sovereign_native",
-    [
-        str(HERE / "_binding.cpp"),
-        str(NATIVE_ROOT / "bridge" / "gptbridge_native.c"),
-        str(NATIVE_ROOT / "core" / "parser.c"),
-        str(NATIVE_ROOT / "core" / "vector.c"),
-        str(NATIVE_ROOT / "core" / "transformer.c"),
-    ],
-    include_dirs=[
-        pybind11.get_include(),
-        str(NATIVE_ROOT / "include"),
-        str(NATIVE_ROOT / "core"),
-    ],
-    language="c++",
-    optional=True,
+BINDING_SOURCES = (HERE / "_binding.cpp",)
+PUBLIC_C_ABI_HEADERS = (NATIVE_ROOT / "include" / "gptbridge_native.h",)
+C_CORE_SOURCES = (
+    NATIVE_ROOT / "bridge" / "gptbridge_native.c",
+    NATIVE_ROOT / "core" / "parser.c",
+    NATIVE_ROOT / "core" / "vector.c",
+    NATIVE_ROOT / "core" / "transformer.c",
 )
+C_PRIVATE_HEADERS = (
+    NATIVE_ROOT / "core" / "memory.h",
+    NATIVE_ROOT / "core" / "parser.h",
+    NATIVE_ROOT / "core" / "vector.h",
+    NATIVE_ROOT / "core" / "transformer.h",
+)
+CPP_SUFFIXES = {".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx"}
+
+
+def _relative(path: pathlib.Path) -> str:
+    return path.resolve().relative_to(PROJECT_ROOT).as_posix()
+
+
+def native_build_manifest() -> dict[str, Any]:
+    """Return the governed native build layering manifest."""
+    return {
+        "schema_version": "star-native-build-layers/v1",
+        "extension": "_sovereign_native",
+        "binding_layer": [_relative(path) for path in BINDING_SOURCES],
+        "public_c_abi": [_relative(path) for path in PUBLIC_C_ABI_HEADERS],
+        "c_core_layer": [_relative(path) for path in C_CORE_SOURCES],
+        "private_c_headers": [_relative(path) for path in C_PRIVATE_HEADERS],
+        "output_root": _relative(DIST_NATIVE),
+        "link_language": "c++",
+    }
+
+
+def validate_layering() -> dict[str, Any]:
+    """Validate the C core / public C ABI / C++ binding boundary."""
+    errors: list[str] = []
+
+    for path in BINDING_SOURCES:
+        if path.suffix != ".cpp":
+            errors.append(f"binding source is not C++: {_relative(path)}")
+    for path in C_CORE_SOURCES:
+        if path.suffix != ".c":
+            errors.append(f"C core source is not C: {_relative(path)}")
+
+    cpp_files = sorted(
+        path for path in NATIVE_ROOT.rglob("*")
+        if path.is_file() and path.suffix.lower() in CPP_SUFFIXES
+    )
+    for path in cpp_files:
+        errors.append(f"C++ source inside pure-C native root: {_relative(path)}")
+
+    public_header = PUBLIC_C_ABI_HEADERS[0].read_text(encoding="utf-8")
+    if '#ifdef __cplusplus' not in public_header or 'extern "C"' not in public_header:
+        errors.append("public C ABI header lacks extern \"C\" guards")
+    binding_text = BINDING_SOURCES[0].read_text(encoding="utf-8")
+    if '#include "gptbridge_native.h"' not in binding_text:
+        errors.append("binding does not consume the sole public C ABI header")
+    for header in C_PRIVATE_HEADERS:
+        include = f'#include "{header.name}"'
+        if include in binding_text:
+            errors.append(f"binding bypasses public C ABI via {header.name}")
+        header_text = header.read_text(encoding="utf-8")
+        if 'extern "C"' not in header_text:
+            errors.append(f"private C header lacks extern \"C\" guards: {header.name}")
+
+    stale_roots = (
+        HERE,
+        DIST_NATIVE,
+        PROJECT_ROOT / "shared-layer" / "src",
+        PROJECT_ROOT / "Standalone tools" / "local-model",
+    )
+    stale = sorted(
+        path
+        for root in stale_roots
+        if root.exists()
+        for path in root.rglob("_gptbridge_native*.pyd")
+    )
+    for path in stale:
+        errors.append(f"stale native artifact present: {path}")
+
+    return {
+        "ok": not errors,
+        "errors": errors,
+        "manifest": native_build_manifest(),
+    }
+
+
+def _make_extension() -> Any:
+    import pybind11
+    from setuptools import Extension
+
+    return Extension(
+        "_sovereign_native",
+        [str(path) for path in (*BINDING_SOURCES, *C_CORE_SOURCES)],
+        include_dirs=[
+            pybind11.get_include(),
+            str(NATIVE_ROOT / "include"),
+        ],
+        language="c++",
+        optional=True,
+    )
 
 
 def _install(artifact: pathlib.Path) -> list[pathlib.Path]:
@@ -74,7 +149,26 @@ def _install(artifact: pathlib.Path) -> list[pathlib.Path]:
     return installed
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="validate C/C++ build layering without compiling",
+    )
+    args = parser.parse_args(argv)
+
+    report = validate_layering()
+    if args.check:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["ok"] else 1
+    if not report["ok"]:
+        for error in report["errors"]:
+            print(f"[build_native] ERROR: {error}")
+        return 1
+
+    from setuptools import setup
+
     DIST_NATIVE.mkdir(parents=True, exist_ok=True)
     sys.argv = [
         "build_native.py",
@@ -82,7 +176,7 @@ def main() -> int:
         "--build-lib", str(DIST_NATIVE),
         "--build-temp", str(DIST_NATIVE / ".native-build"),
     ]
-    setup(name="sovereign-native", ext_modules=[extension])
+    setup(name="sovereign-native", ext_modules=[_make_extension()])
     shutil.rmtree(DIST_NATIVE / ".native-build", ignore_errors=True)
 
     artifacts = sorted(DIST_NATIVE.glob("_sovereign_native*.pyd"))
@@ -101,3 +195,14 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+__all__ = [
+    "BINDING_SOURCES",
+    "C_CORE_SOURCES",
+    "C_PRIVATE_HEADERS",
+    "PUBLIC_C_ABI_HEADERS",
+    "native_build_manifest",
+    "validate_layering",
+    "main",
+]
