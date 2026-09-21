@@ -259,6 +259,19 @@
       "information_channels": ["information-channel", "transport", "outbox", "state-events"]
     },
     {
+      "component_id": "tokenizer",
+      "architectural_role": "information",
+      "runtime_form": "python-process",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "channel_contract_sync_sub_sovereign",
+      "execution_identity": "tokenizer",
+      "physical_path": "shared-layer/src/shared_layer/tokenizer.py",
+      "lifecycle": "resident",
+      "canonical": true,
+      "dependencies": ["shared-layer"],
+      "information_channels": ["information-channel"]
+    },
+    {
       "component_id": "information-channel-gateway",
       "architectural_role": "information",
       "runtime_form": "python-process",
