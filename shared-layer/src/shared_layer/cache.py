@@ -32,53 +32,75 @@ class CacheEntry(Generic[T]):
 
 
 class LRUCache(Generic[T]):
-    """Thread-safe LRU cache with TTL support and size limit."""
+    """Thread-safe LRU cache with TTL support and size limit.
+
+    W5: internally sharded by key hash (16 shards, each with its own lock)
+    so concurrent readers/writers contend only within a shard. Eviction is
+    per-shard LRU — capacity is ``ceil(max_size / shards)`` per shard.
+    """
+
+    _SHARD_COUNT = 16
 
     def __init__(self, max_size: int = 1000, default_ttl: float = 300.0) -> None:
         self._max_size = max_size
         self._default_ttl = default_ttl
-        self._cache: OrderedDict[str, CacheEntry[T]] = OrderedDict()
-        self._lock = threading.RLock()
+        self._shard_max = max(1, -(-max_size // self._SHARD_COUNT))
+        self._caches: list[OrderedDict[str, CacheEntry[T]]] = [
+            OrderedDict() for _ in range(self._SHARD_COUNT)
+        ]
+        self._locks = [threading.RLock() for _ in range(self._SHARD_COUNT)]
+
+    def _shard(self, key: str) -> int:
+        return hash(key) % self._SHARD_COUNT
 
     def get(self, key: str) -> Optional[T]:
         """Get value from cache, return None if not found or expired."""
-        with self._lock:
-            entry = self._cache.get(key)
+        shard = self._shard(key)
+        with self._locks[shard]:
+            cache = self._caches[shard]
+            entry = cache.get(key)
             if entry is None:
                 return None
             if entry.is_expired():
-                self._cache.pop(key, None)
+                cache.pop(key, None)
                 return None
             # Move to end (most recently used)
-            self._cache.move_to_end(key)
+            cache.move_to_end(key)
             return entry.value
 
     def set(self, key: str, value: T, ttl: Optional[float] = None) -> None:
         """Set value in cache with optional TTL."""
-        with self._lock:
-            if key in self._cache:
-                self._cache.move_to_end(key)
-            elif len(self._cache) >= self._max_size:
-                self._cache.popitem(last=False)
-            self._cache[key] = CacheEntry(
+        shard = self._shard(key)
+        with self._locks[shard]:
+            cache = self._caches[shard]
+            if key in cache:
+                cache.move_to_end(key)
+            elif len(cache) >= self._shard_max:
+                cache.popitem(last=False)
+            cache[key] = CacheEntry(
                 value=value,
                 ttl=ttl or self._default_ttl
             )
 
     def delete(self, key: str) -> bool:
         """Delete key from cache."""
-        with self._lock:
-            return self._cache.pop(key, None) is not None
+        shard = self._shard(key)
+        with self._locks[shard]:
+            return self._caches[shard].pop(key, None) is not None
 
     def clear(self) -> None:
         """Clear all cache entries."""
-        with self._lock:
-            self._cache.clear()
+        for lock, cache in zip(self._locks, self._caches):
+            with lock:
+                cache.clear()
 
     def size(self) -> int:
         """Return current cache size."""
-        with self._lock:
-            return len(self._cache)
+        total = 0
+        for lock, cache in zip(self._locks, self._caches):
+            with lock:
+                total += len(cache)
+        return total
 
 
 class AsyncCache(Generic[T]):
@@ -146,7 +168,3 @@ def cached(ttl: float = 300.0, max_size: int = 1000):
             return value
         return wrapper
     return decorator
-
-
-import time
-import threading
