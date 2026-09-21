@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .generative_language_model import StarAutoregressiveLanguageModel
+from .fast_inference import FastInferenceEngine, create_fast_engine
 from .native_constants import StarNativeConstantsMixin
 from .native_intent import StarNativeIntentMixin
 from .native_normalization import StarNativeNormalizationMixin
@@ -41,6 +42,14 @@ class StarNativeLanguageModel(
             learned_examples=learned_examples,
             corpus=corpus,
         )
+        self._fast_engine: FastInferenceEngine | None = None
+
+    @property
+    def fast_engine(self) -> FastInferenceEngine:
+        """Get or create high-performance inference engine (lazy initialization)."""
+        if self._fast_engine is None:
+            self._fast_engine = create_fast_engine(self.language_model)
+        return self._fast_engine
 
     def training_status(self) -> dict[str, Any]:
         return {
@@ -69,4 +78,4 @@ class StarNativeLanguageModel(
         )
 
 
-__all__ = ["StarNativeLanguageModel"]
+__all__ = ["StarNativeLanguageModel", "FastInferenceEngine", "create_fast_engine"]

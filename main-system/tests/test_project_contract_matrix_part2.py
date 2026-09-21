@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import _main_system_test_support as _support  # noqa: F401
-from _main_system_test_support import (ROOT, _read_text_cached, _parse_python_cached,
+from _main_system_test_support import (ROOT, MAIN_PROJECT_ROOT, _read_text_cached, _parse_python_cached,
     EXPECTED_TOOL_IDS, GOVERNANCE_TOOL_ID, SIBLING_IMPORT_ROOTS,
     MANIFEST_PATHS, TOOL_CASES, NON_GOVERNANCE_CASES)
 from _test_project_contract_matrix_helpers import _load_json
@@ -68,7 +68,7 @@ def test_runtime_contract_matches_every_governed_request_channel() -> None:
 def test_project_root_contains_only_governed_modules_and_control_files() -> None:
     governed_modules = {
         path.parent.name
-        for path in ROOT.glob("*/manifest.json")
+        for path in MAIN_PROJECT_ROOT.glob("*/manifest.json")
     }
     allowed_directories = governed_modules | {
         ".git",
@@ -95,7 +95,7 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
 
     unexpected = sorted(
         entry.name
-        for entry in ROOT.iterdir()
+        for entry in MAIN_PROJECT_ROOT.iterdir()
         if (
             entry.is_dir()
             and entry.name not in allowed_directories

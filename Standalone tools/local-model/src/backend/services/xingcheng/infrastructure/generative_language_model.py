@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import random
 import re
@@ -410,4 +411,44 @@ __all__ = [
     "FIRST_PARTY_CORPUS",
     "MIN_TRAINING_GROUNDING_COVERAGE",
     "StarAutoregressiveLanguageModel",
+    "save_model",
+    "load_model",
 ]
+
+
+# Persistence helpers
+def _serialize_counts(counts: dict[tuple[str, ...], Counter[str]]) -> dict[str, dict[str, int]]:
+    return {"->".join(k): dict(v) for k, v in counts.items()}
+
+
+def _deserialize_counts(data: dict[str, dict[str, int]]) -> dict[tuple[str, ...], Counter[str]]:
+    return defaultdict(Counter, {tuple(k.split("->")): Counter(v) for k, v in data.items()})
+
+
+def save_model(model: StarAutoregressiveLanguageModel, path: str) -> None:
+    """Save model to JSON file."""
+    data = {
+        "order": model.order,
+        "counts": _serialize_counts(model._counts),
+        "vocabulary": list(model._vocabulary),
+        "example_hashes": list(model._example_hashes),
+        "examples": model._examples,
+        "base_example_count": model._base_example_count,
+        "learned_example_count": model._learned_example_count,
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def load_model(path: str) -> StarAutoregressiveLanguageModel:
+    """Load model from JSON file."""
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    model = StarAutoregressiveLanguageModel(order=data["order"], corpus={})
+    model._counts = _deserialize_counts(data["counts"])
+    model._vocabulary = set(data["vocabulary"])
+    model._example_hashes = set(data["example_hashes"])
+    model._examples = data["examples"]
+    model._base_example_count = data["base_example_count"]
+    model._learned_example_count = data["learned_example_count"]
+    return model
