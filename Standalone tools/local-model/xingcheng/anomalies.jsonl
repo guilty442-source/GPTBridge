@@ -1,1 +1,1 @@
-{"type": "unregistered-child", "severity": "critical", "parent": "system-runtime-sovereign", "child": "change-acceptance-sub-sovereign", "detail": "materialized child has no active codex row"}
+{"type": "model-dir-size", "severity": "warning", "detail": "19506847908 bytes"}
