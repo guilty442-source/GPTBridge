@@ -10,6 +10,12 @@ import torch
 
 from xingcheng.infrastructure.native_transformer.config import XingChengConfig
 from xingcheng.infrastructure.native_transformer.execution import dispatch
+from xingcheng.infrastructure.native_transformer.kernels.rmsnorm import rms_norm_weight
+from xingcheng.infrastructure.native_transformer.kernels.rope import (
+    _rope_torch,
+    apply_rope,
+    build_rope_tables,
+)
 from xingcheng.infrastructure.native_transformer.modules.model import (
     XingChengForCausalLM,
 )
@@ -32,7 +38,7 @@ def test_dispatch_flag_defaults_on_and_env_disables(monkeypatch) -> None:
 
 def test_summary_reports_backend() -> None:
     info = dispatch.summary()
-    assert info["backend"] in {"c++-native-core", "python-pytorch"}
+    assert info["backend"] in {"native-compute-core", "python-pytorch"}
     assert isinstance(info["thresholds"], dict)
     assert "transformer.attention" in info["thresholds"]
 
@@ -70,6 +76,75 @@ def test_native_attention_returns_tensor_when_available() -> None:
         )
     assert out is not None
     assert out.shape == q.shape
+
+
+def test_native_rmsnorm_matches_reference_and_records_shape() -> None:
+    if not dispatch.native_available():
+        pytest.skip("native core not built")
+    dispatch._VERIFIED_NORM_SHAPES.clear()
+    hidden = torch.randn(2, 3, 8)
+    weight = torch.randn(8)
+    with torch.no_grad():
+        out = dispatch.native_rmsnorm(hidden, weight, 1e-5)
+    assert out is not None
+    expected = hidden * torch.rsqrt(hidden.pow(2).mean(-1, keepdim=True) + 1e-5) * weight
+    assert torch.allclose(out, expected, atol=1e-6, rtol=1e-6)
+    assert ("rmsnorm", 6, 8) in dispatch.verified_rmsnorm_shapes()
+
+
+def test_native_rmsnorm_skips_grad() -> None:
+    hidden = torch.randn(2, 8, requires_grad=True)
+    weight = torch.ones(8)
+    assert dispatch.native_rmsnorm(hidden, weight, 1e-5) is None
+
+
+def test_rmsnorm_kernel_uses_native_on_cpu() -> None:
+    if not dispatch.native_available():
+        pytest.skip("native core not built")
+    dispatch._VERIFIED_NORM_SHAPES.clear()
+    hidden = torch.randn(2, 3, 8)
+    weight = torch.randn(8)
+    with torch.no_grad():
+        out = rms_norm_weight(hidden, weight, 1e-5)
+    assert out.shape == hidden.shape
+    assert ("rmsnorm", 6, 8) in dispatch.verified_rmsnorm_shapes()
+
+
+def test_native_rope_matches_reference_and_records_shape() -> None:
+    if not dispatch.native_available():
+        pytest.skip("native core not built")
+    dispatch._VERIFIED_ROPE_SHAPES.clear()
+    q = torch.randn(1, 2, 4, 8)
+    k = torch.randn(1, 1, 4, 8)
+    cos, sin = build_rope_tables(8, 4, dtype=torch.float64)
+    with torch.no_grad():
+        out = dispatch.native_rope(q, k, cos, sin)
+    assert out is not None
+    expected_q, expected_k = _rope_torch(q, k, cos, sin, None)
+    assert torch.allclose(out[0], expected_q, atol=1e-6, rtol=1e-6)
+    assert torch.allclose(out[1], expected_k, atol=1e-6, rtol=1e-6)
+    assert ("rope", 1, 2, 1, 4, 8, False) in dispatch.verified_rope_shapes()
+
+
+def test_native_rope_skips_grad() -> None:
+    q = torch.randn(1, 2, 4, 8, requires_grad=True)
+    k = torch.randn(1, 2, 4, 8)
+    cos, sin = build_rope_tables(8, 4)
+    assert dispatch.native_rope(q, k, cos, sin) is None
+
+
+def test_rope_kernel_uses_native_on_cpu() -> None:
+    if not dispatch.native_available():
+        pytest.skip("native core not built")
+    dispatch._VERIFIED_ROPE_SHAPES.clear()
+    q = torch.randn(1, 2, 4, 8)
+    k = torch.randn(1, 1, 4, 8)
+    cos, sin = build_rope_tables(8, 4)
+    with torch.no_grad():
+        q_out, k_out = apply_rope(q, k, cos, sin)
+    assert q_out.shape == q.shape
+    assert k_out.shape == k.shape
+    assert ("rope", 1, 2, 1, 4, 8, False) in dispatch.verified_rope_shapes()
 
 
 def test_dispatch_matches_python_fallback_logits(monkeypatch) -> None:
