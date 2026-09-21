@@ -8,10 +8,10 @@ from pathlib import Path
 # Ensure all required modules are importable (shared_layer -> governance_rule -> main-system)
 # The tool_root is the local-model directory; shared-layer is in the main GPTBridge repo
 _TOOL_ROOT = Path(__file__).resolve().parents[6]
-_PROJECT_ROOT = _TOOL_ROOT.parents[3]  # E:\GPTBridge
+_PROJECT_ROOT = _TOOL_ROOT.parents[1]  # E:\GPTBridge
 for _p in (
     str(_PROJECT_ROOT / "shared-layer" / "src"),
-    str(_PROJECT_ROOT / "governance_rule"),
+    str(_PROJECT_ROOT),
     str(_PROJECT_ROOT / "main-system" / "src-core"),
 ):
     if _p not in sys.path:

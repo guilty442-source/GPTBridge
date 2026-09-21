@@ -23,7 +23,7 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[8]
 for _p in (
     str(_PROJECT_ROOT / "shared-layer" / "src"),
-    str(_PROJECT_ROOT / "governance_rule"),
+    str(_PROJECT_ROOT),
     str(_PROJECT_ROOT / "main-system" / "src-core"),
 ):
     if _p not in sys.path:
