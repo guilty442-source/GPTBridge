@@ -1,0 +1,12 @@
+{
+  "contract_version": 1,
+  "minimum_supported_contract_version": 1,
+  "schema": "star-backend-lifecycle/v1",
+  "description": "Backend lifecycle axis: ten-state contract (STARTING/READY/DEGRADED/STANDBY/ACTIVE/DRAINING/RECOVERING/FAILED/STOPPING/STOPPED), role/health separation, ten-field backend status record.",
+  "axes": {
+    "state_machine": "backend_lifecycle.py star-backend-lifecycle/v1",
+    "request_registry": "star-request-registry/v1 terminal-state enforcement",
+    "execution_lease": "execution_lease.py fencing token"
+  },
+  "compatibility_rule": "consumers must accept the full ten-state set; unknown states are fail-closed"
+}
