@@ -9,10 +9,20 @@ from __future__ import annotations
 
 import json
 import threading
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
+
+
+def _audit_json_default(obj: Any) -> Any:
+    """JSON fallback for audit records — enums serialize to their value,
+    dataclasses to their dict, everything else to repr (never raise)."""
+    if isinstance(obj, Enum):
+        return obj.value
+    if is_dataclass(obj) and not isinstance(obj, type):
+        return asdict(obj)
+    return repr(obj)
 
 
 class HealthState(Enum):
@@ -143,7 +153,10 @@ class GovernanceAudit:
                 **data
             }
             with audit_file.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                f.write(
+                    json.dumps(record, ensure_ascii=False, default=_audit_json_default)
+                    + "\n"
+                )
 
 
 __all__ = [
