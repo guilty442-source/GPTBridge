@@ -406,5 +406,45 @@
         ".worktrees"
       ]
     }
+  },
+  "config_contract": {
+    "required_files": {
+      "main-system/config/tool-runtime-contract.json": "8334a2c9679ddf5435ab5b89b0967fba7e42e7f2e1cdec4ec748c3915b6974bf",
+      "main-system/config/tool-isolation-policy.json": "f21a29d9e283ad66598d5663c9a9f6d8d3a3532b992674d852412ac90b57a1d3",
+      "main-system/config/startup_manifest.json": "8ea820b78cccf13a3eac9cda4b4ca0abcf64c6a52790c460c2a6140635b8a460",
+      "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
+      "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
+      "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "16a2a33b0ac93307f874a3fcf4d1645f73c394ffaecf5d5c3d88f6acba229dc5"
+    },
+    "database_schema": {
+      "manifest": "shared-layer/database-release.json",
+      "runtime_version": "1.0.0"
+    },
+    "secret_references": [
+      "GPTBRIDGE_POSTGRES_DSN",
+      "GPTBRIDGE_POSTGRES_ADMIN_DSN"
+    ],
+    "endpoint_references": {
+      "postgresql": "GPTBRIDGE_POSTGRES_DSN",
+      "qdrant": "localhost:6333 (shared-layer default; readiness dependency)",
+      "ollama": "GPTBRIDGE_OLLAMA_URL or localhost:11434"
+    },
+    "model_registry": {
+      "lifecycle": "Standalone tools/local-model/xingcheng/runtime/models/lifecycle/xingcheng-native/lifecycle.json",
+      "engine_pin": "Standalone tools/local-model/runtime/settings/native-engine.json"
+    },
+    "note": "secret references are environment key names only; values are never recorded in the manifest"
+  },
+  "runtime_paths": {
+    "SOURCE_ROOT": ".",
+    "RELEASE_ROOT": ".",
+    "SHARED_RUNTIME_ROOT": "shared-layer",
+    "PERSISTENT_DATA_ROOT": "main-system/runtime",
+    "LOG_ROOT": "main-system/runtime/logs",
+    "BACKUP_ROOT": "main-system/runtime/backups",
+    "MODEL_ROOT": "Standalone tools/local-model/xingcheng/runtime/models",
+    "CONFIG_ROOT": "main-system/config",
+    "note": "packaged mode overrides RELEASE_ROOT via GPTBRIDGE_RELEASE_ROOT; roots never rely on the process working directory"
   }
 }

@@ -209,6 +209,9 @@ def validate_release_bundle(
     check_frontend_release: bool = False,
     check_persistent_data_separation: bool = False,
     check_config_classification: bool = False,
+    check_config_contract: bool = False,
+    check_runtime_paths: bool = False,
+    check_secret_references: bool = False,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation (environment, lock, origins, natives).
@@ -251,6 +254,9 @@ def validate_release_bundle(
         check_frontend_release=check_frontend_release,
         check_persistent_data_separation=check_persistent_data_separation,
         check_config_classification=check_config_classification,
+        check_config_contract=check_config_contract,
+        check_runtime_paths=check_runtime_paths,
+        check_secret_references=check_secret_references,
         env=env,
     )
 

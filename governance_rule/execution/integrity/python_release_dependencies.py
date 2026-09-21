@@ -1122,6 +1122,118 @@ def validate_config_classification(
     return errors
 
 
+def validate_config_contract(
+    contract: Mapping[str, Any],
+    *,
+    repo_root: str | os.PathLike[str],
+    env: Mapping[str, str] | None = None,
+    check_secret_references: bool = False,
+) -> list[str]:
+    """Required config exists, schema compatible, endpoints/registry valid.
+
+    Secret references are environment key **names** only; values are never
+    read, compared or logged.  A secret value inside the manifest is a
+    hard failure.
+    """
+    import hashlib
+    import json as _json
+
+    section = contract.get("config_contract") or {}
+    if not section:
+        return []
+    root = Path(os.fspath(repo_root))
+    errors: list[str] = []
+
+    for relative, expected in (section.get("required_files") or {}).items():
+        path = root / str(relative)
+        if not path.is_file():
+            errors.append(f"CONFIG_FILE_MISSING:{relative}")
+            continue
+        if expected and _sha256_file(path) != str(expected):
+            errors.append(f"CONFIG_HASH_MISMATCH:{relative}")
+
+    schema = section.get("database_schema") or {}
+    if schema.get("manifest"):
+        manifest_path = root / str(schema["manifest"])
+        if not manifest_path.is_file():
+            errors.append(f"DB_SCHEMA_MANIFEST_MISSING:{schema['manifest']}")
+        else:
+            try:
+                manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+                minimum = str(manifest.get("minimum_runtime_version") or "0.0.0")
+                runtime_version = str(schema.get("runtime_version") or minimum)
+                parts_min = [int(x) for x in minimum.split(".") if x.isdigit()]
+                parts_run = [int(x) for x in runtime_version.split(".") if x.isdigit()]
+                if parts_run < parts_min:
+                    errors.append(
+                        f"DB_SCHEMA_INCOMPATIBLE:runtime={runtime_version}<minimum={minimum}"
+                    )
+            except (OSError, ValueError):
+                errors.append("DB_SCHEMA_MANIFEST_UNREADABLE")
+
+    registry = section.get("model_registry") or {}
+    for key in ("lifecycle", "engine_pin"):
+        relative = registry.get(key)
+        if relative and not (root / str(relative)).is_file():
+            errors.append(f"MODEL_REGISTRY_MISSING:{key}:{relative}")
+
+    environment = dict(env) if env is not None else dict(os.environ)
+    if check_secret_references:
+        for name in section.get("secret_references") or []:
+            if not str(environment.get(str(name)) or "").strip():
+                errors.append(f"SECRET_REFERENCE_MISSING:{name}")
+
+    manifest_text = _json.dumps(contract, ensure_ascii=False, default=str)
+    for marker in ("postgresql://", "postgres://", "secret_value", "token_value"):
+        if marker in manifest_text:
+            errors.append(f"SECRET_VALUE_IN_MANIFEST:{marker}")
+    return errors
+
+
+def validate_runtime_path_contract(
+    contract: Mapping[str, Any],
+    *,
+    repo_root: str | os.PathLike[str],
+) -> list[str]:
+    """Eight declared roots; no reliance on the process working directory."""
+    roots = contract.get("runtime_paths") or {}
+    if not roots:
+        return []
+    required_roots = (
+        "SOURCE_ROOT",
+        "RELEASE_ROOT",
+        "SHARED_RUNTIME_ROOT",
+        "PERSISTENT_DATA_ROOT",
+        "LOG_ROOT",
+        "BACKUP_ROOT",
+        "MODEL_ROOT",
+        "CONFIG_ROOT",
+    )
+    errors: list[str] = []
+    root = Path(os.fspath(repo_root))
+    source = root / str(roots.get("SOURCE_ROOT") or ".")
+    must_exist = {
+        "SOURCE_ROOT",
+        "RELEASE_ROOT",
+        "SHARED_RUNTIME_ROOT",
+        "PERSISTENT_DATA_ROOT",
+        "MODEL_ROOT",
+        "CONFIG_ROOT",
+    }
+    for name in required_roots:
+        raw = roots.get(name)
+        if not isinstance(raw, str) or not raw.strip():
+            errors.append(f"PATH_ROOT_UNDECLARED:{name}")
+            continue
+        path = Path(raw)
+        resolved = path if path.is_absolute() else source / raw
+        if name in must_exist and not resolved.exists():
+            errors.append(f"PATH_ROOT_MISSING:{name}:{raw}")
+        if not path_is_within(resolved, source):
+            errors.append(f"PATH_ESCAPES_SOURCE_ROOT:{name}:{raw}")
+    return errors
+
+
 def validate_release_bundle(
     contract: Mapping[str, Any],
     *,
@@ -1144,6 +1256,9 @@ def validate_release_bundle(
     check_frontend_release: bool = False,
     check_persistent_data_separation: bool = False,
     check_config_classification: bool = False,
+    check_config_contract: bool = False,
+    check_runtime_paths: bool = False,
+    check_secret_references: bool = False,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation: environment, lock, origins, natives.
@@ -1250,6 +1365,22 @@ def validate_release_bundle(
                 official_root=official_root or release_root,
             )
         )
+    if check_config_contract:
+        errors.extend(
+            validate_config_contract(
+                contract,
+                repo_root=repo_root or Path(__file__).resolve().parents[3],
+                env=env,
+                check_secret_references=check_secret_references,
+            )
+        )
+    if check_runtime_paths:
+        errors.extend(
+            validate_runtime_path_contract(
+                contract,
+                repo_root=repo_root or Path(__file__).resolve().parents[3],
+            )
+        )
     if check_frontend_release:
         errors.extend(
             validate_frontend_release(
@@ -1306,6 +1437,8 @@ __all__ = [
     "validate_frontend_release",
     "validate_persistent_data_separation",
     "validate_config_classification",
+    "validate_config_contract",
+    "validate_runtime_path_contract",
     "validate_governance_references",
     "validate_release_bundle",
     "pe_machine",
