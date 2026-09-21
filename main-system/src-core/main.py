@@ -7,18 +7,35 @@ The actual implementation lives in core_system submodules.
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
-# Add src-core to sys.path so absolute imports work when this is not run as a module
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parents[2] / "shared-layer" / "src"),
-)
+
+def _runtime_root() -> Path:
+    source_root = Path(__file__).resolve().parents[2]
+    configured_root = os.environ.get("GPTBRIDGE_RELEASE_ROOT", "").strip()
+    root = Path(configured_root).resolve() if configured_root else source_root
+    required = (
+        root / "main-system" / "src-core",
+        root / "governance_rule",
+        root / "shared-layer" / "src",
+    )
+    missing = [str(path) for path in required if not path.exists()]
+    if configured_root and missing:
+        raise RuntimeError(f"release-root-incomplete:{','.join(missing)}")
+    return root
+
+
+_RUNTIME_ROOT = _runtime_root()
+# Add release-owned roots to sys.path; a configured release never falls back to
+# the development source tree when packaged dependencies are incomplete.
+sys.path.insert(0, str(_RUNTIME_ROOT / "main-system" / "src-core"))
+sys.path.insert(0, str(_RUNTIME_ROOT / "main-system"))
+sys.path.insert(0, str(_RUNTIME_ROOT / "governance_rule"))
+sys.path.insert(0, str(_RUNTIME_ROOT / "shared-layer" / "src"))
+sys.path.insert(0, str(_RUNTIME_ROOT))
 
 from governance_rule.governance_policy import GOVERNANCE_RULE_CATALOG
 from core_system.runtime_bootstrap import RuntimeBootstrap
