@@ -62,6 +62,49 @@ def test_training_state_releases_inference_resources(tmp_path: Path):
     assert "test-engine:cpu" in action["released"]
 
 
+def test_default_trainer_runs_in_subprocess(tmp_path: Path):
+    """R1：`_default_train_fn` 走受治理子程序；失敗經 error JSON fail-closed。"""
+    import pytest
+
+    from xingcheng.infrastructure.training_job_executor import (
+        TrainingJobExecutorError,
+    )
+
+    repository = TransformerTrainingRepository(tmp_path)
+    executor = TrainingJobExecutor(repository)  # 未注入 train_fn → 預設訓練器
+
+    # 預設訓練器進子程序；spec 缺 tokenizer_dir → 子程序快速失敗，
+    # 父進程從 train-error.json 取回錯誤（檔案契約，不共享記憶體）
+    with pytest.raises(TrainingJobExecutorError) as excinfo:
+        executor._invoke_trainer(
+            ["doc"], [], {"training_kind": "pretrain"},
+            output_dir=tmp_path / "job", resume=None,
+        )
+    assert excinfo.value.error_code == "EXECUTOR_TRAINING_FAILED"
+    assert (tmp_path / "job" / "train-error.json").is_file()
+    assert (tmp_path / "job" / "train-stderr.log").is_file()
+
+    # 注入樁維持同進程（測試相容）
+    called: list[bool] = []
+    executor2 = TrainingJobExecutor(
+        repository, train_fn=lambda *a, **k: (called.append(True) or {"ok": True})
+    )
+    result = executor2._invoke_trainer(
+        ["doc"], [], {"training_kind": "pretrain"},
+        output_dir=tmp_path / "job2", resume=None,
+    )
+    assert called and result["ok"] is True
+
+    # isolate_process=False 稽核理由下可關閉隔離（同進程預設訓練器快速失敗）
+    with pytest.raises(Exception):
+        executor._invoke_trainer(
+            ["doc"], [],
+            {"training_kind": "pretrain", "isolate_process": False},
+            output_dir=tmp_path / "job3", resume=None,
+        )
+    assert not (tmp_path / "job3" / "train-error.json").exists()
+
+
 def test_non_training_state_writes_no_ledger(tmp_path: Path):
     repository = TransformerTrainingRepository(tmp_path)
     executor = TrainingJobExecutor(repository, train_fn=_fake_train_fn)
