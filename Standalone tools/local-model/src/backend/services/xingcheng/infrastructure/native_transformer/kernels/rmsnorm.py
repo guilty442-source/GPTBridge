@@ -31,11 +31,10 @@ def rms_norm_weight(
     """
     # Triton kernel 不帶 autograd：訓練（需要梯度）時必須走 PyTorch 實作，
     # 否則梯度會在正規化層斷裂、模型無法收斂。
-    if (
-        hidden_states.is_cuda
-        and _triton_available()
-        and not (hidden_states.requires_grad or weight.requires_grad)
-    ):
+    needs_backward = torch.is_grad_enabled() and (
+        hidden_states.requires_grad or weight.requires_grad
+    )
+    if hidden_states.is_cuda and _triton_available() and not needs_backward:
         try:
             return _rms_norm_triton(hidden_states, weight, eps)
         except Exception:

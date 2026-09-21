@@ -55,7 +55,8 @@ def apply_rope(
     """
     # RoPE 會作用在需要梯度的 q/k 上；Triton 路徑不帶 autograd，
     # 訓練時必須退回 PyTorch 實作以保留梯度。
-    if q.is_cuda and _triton_available() and not (q.requires_grad or k.requires_grad):
+    needs_backward = torch.is_grad_enabled() and (q.requires_grad or k.requires_grad)
+    if q.is_cuda and _triton_available() and not needs_backward:
         try:
             return _rope_triton(q, k, cos, sin, position_ids)
         except Exception:
@@ -167,7 +168,9 @@ def _rope_triton(
 
     def _launch(x: torch.Tensor) -> torch.Tensor:
         # GQA：k 的 head 數可能少於 q，launch 參數必須逐張量計算，
-        # 否則會以 q 的 head 數越界讀取 k。
+        # 否則會以 q 的 head 數越界讀取 k。Triton 以線性位址索引，
+        # 因此先將 q/k transpose 後的非連續 view 物化為 contiguous。
+        x = x.contiguous()
         B, heads, S, D = x.shape
         D2 = D // 2
         total = B * heads * S * D2

@@ -248,6 +248,96 @@ def test_triton_rope_gqa_matches_torch_reference() -> None:
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="需要 CUDA")
+def test_triton_rope_handles_transposed_gqa_views() -> None:
+    """模型內 q/k 來自 ``view(...).transpose(1, 2)``，Triton 不得假設 contiguous。"""
+    from xingcheng.infrastructure.native_transformer.execution.backend import (
+        set_triton_kernels,
+    )
+    from xingcheng.infrastructure.native_transformer.kernels import rope as rope_mod
+
+    set_triton_kernels(True)
+    try:
+        if not rope_mod._triton_available():
+            pytest.skip("Triton 不可用")
+        torch.manual_seed(11)
+        q = torch.randn(2, 5, 8, 32, device="cuda").transpose(1, 2)
+        k = torch.randn(2, 5, 2, 32, device="cuda").transpose(1, 2)
+        cos, sin = rope_mod.build_rope_tables(
+            32, 64, device=torch.device("cuda"), dtype=torch.float32
+        )
+        qt, kt = rope_mod.apply_rope(q, k, cos, sin)
+        qr, kr = rope_mod._rope_torch(q, k, cos, sin, None)
+        assert torch.allclose(qt, qr, atol=1e-5)
+        assert torch.allclose(kt, kr, atol=1e-5)
+    finally:
+        set_triton_kernels(False)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="需要 CUDA")
+def test_triton_model_logits_match_torch_and_kernels_activate(monkeypatch) -> None:
+    """模型層級 Triton 驗收：三個 kernel 必須實際命中且 logits 等價。"""
+    import importlib
+
+    from xingcheng.infrastructure.native_transformer.config import XingChengConfig
+    from xingcheng.infrastructure.native_transformer.execution.backend import (
+        set_triton_kernels,
+    )
+    from xingcheng.infrastructure.native_transformer.kernels import rmsnorm, rope
+    from xingcheng.infrastructure.native_transformer.modules.model import (
+        XingChengForCausalLM,
+    )
+
+    swiglu_mod = importlib.import_module(
+        "xingcheng.infrastructure.native_transformer.kernels.swiglu"
+    )
+    set_triton_kernels(True)
+    if not rope._triton_available():
+        set_triton_kernels(False)
+        pytest.skip("Triton 不可用")
+
+    cfg = XingChengConfig.small()
+    cfg.vocab_size = 264
+    cfg.max_position_embeddings = 64
+    torch.manual_seed(17)
+    model = XingChengForCausalLM(cfg).to("cuda").eval()
+    ids = torch.randint(4, 260, (2, 16), device="cuda")
+
+    with torch.no_grad():
+        set_triton_kernels(False)
+        expected = model(ids)["logits"].clone()
+
+        calls = {"rms": 0, "rope": 0, "swiglu": 0}
+
+        def counted(name, module, attr):
+            original = getattr(module, attr)
+
+            def wrapper(*args, **kwargs):
+                calls[name] += 1
+                return original(*args, **kwargs)
+
+            monkeypatch.setattr(module, attr, wrapper)
+
+        counted("rms", rmsnorm, "_rms_norm_triton")
+        counted("rope", rope, "_rope_triton")
+        counted("swiglu", swiglu_mod, "_swiglu_triton")
+
+        def fail(*args, **kwargs):
+            raise AssertionError("PyTorch fallback unexpectedly used")
+
+        monkeypatch.setattr(rmsnorm, "_rms_norm_torch", fail)
+        monkeypatch.setattr(rope, "_rope_torch", fail)
+        monkeypatch.setattr(swiglu_mod, "_swiglu_torch", fail)
+        set_triton_kernels(True)
+        try:
+            actual = model(ids)["logits"].clone()
+        finally:
+            set_triton_kernels(False)
+
+    assert all(count > 0 for count in calls.values())
+    assert torch.allclose(actual, expected, atol=1e-3, rtol=1e-3)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="需要 CUDA")
 def test_triton_kernels_fall_back_when_gradients_required() -> None:
     """Triton kernel 不帶 autograd：需要梯度時必須退回 PyTorch（訓練可收斂）。"""
     import importlib
