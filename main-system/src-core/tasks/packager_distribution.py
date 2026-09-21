@@ -6,7 +6,7 @@ import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Collection, Sequence
 
 from packager_base import (
     PACKAGE_METADATA_NAME,
@@ -32,16 +32,25 @@ def _synchronize_distribution_files_in_place(
     live_root: Path,
     *,
     retired_root: Path,
+    preserve_paths: Collection[str] = (),
 ) -> dict[str, Any]:
-    """Replace files without renaming the watched live distribution root."""
+    """Replace files without renaming the watched live distribution root.
+
+    ``preserve_paths`` names live-only files (payload-relative, forward
+    slashes) that must stay in place — runtime state the update must not
+    overwrite (settings/data/weights/sessions/unfinished tasks).
+    """
 
     source_inventory = _inventory_package_tree(source_root)
     live_inventory = _inventory_package_tree(live_root)
     source_files = _inventory_file_map(source_inventory)
     live_files = _inventory_file_map(live_inventory)
     retired_root.mkdir(parents=True, exist_ok=False)
+    preserved = set(preserve_paths)
 
     for relative_path in sorted(set(live_files) - set(source_files)):
+        if relative_path in preserved:
+            continue
         live_path = live_root / Path(*relative_path.split("/"))
         retired_path = retired_root / "removed-from-live" / Path(
             *relative_path.split("/")
@@ -155,6 +164,7 @@ def _promote_staged_distribution_in_place(
             staged_dist,
             dist_dir,
             retired_root=retired_root,
+            preserve_paths=unknown_live_runtime_paths,
         )
     except BaseException as install_error:
         rollback_errors: list[str] = []
@@ -230,6 +240,7 @@ def _promote_staged_distribution_in_place(
             ),
             "unknown_live_app_paths": unknown_live_app_paths,
             "unknown_live_runtime_paths": unknown_live_runtime_paths,
+            "runtime_paths_preserved": list(unknown_live_runtime_paths),
         },
     )
     _persist_package_document(
@@ -245,6 +256,26 @@ def _promote_staged_distribution_in_place(
         },
     )
     return package_root
+
+
+def _restore_live_runtime_paths(
+    previous_root: Path,
+    live_root: Path,
+    relative_paths: Sequence[str],
+) -> list[str]:
+    """Copy live runtime files carried by the previous distribution back into
+    the promoted tree.  An update must not overwrite runtime state
+    (settings/data/weights/sessions/unfinished tasks)."""
+    restored: list[str] = []
+    for relative_path in relative_paths:
+        source = previous_root / Path(*relative_path.split("/"))
+        if not source.is_file() or _is_link_or_reparse(source):
+            continue
+        target = live_root / Path(*relative_path.split("/"))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        restored.append(relative_path)
+    return restored
 
 
 def promote_staged_distribution(
@@ -306,6 +337,11 @@ def promote_staged_distribution(
             raise RuntimeError(
                 "Installed distribution does not match the staged package"
             )
+        runtime_paths_restored: list[str] = []
+        if moved_previous and unknown_live_runtime_paths:
+            runtime_paths_restored = _restore_live_runtime_paths(
+                previous_dist, dist_dir, unknown_live_runtime_paths
+            )
         if moved_previous and previous_inventory is not None:
             retained_inventory = _inventory_package_tree(previous_dist)
             if retained_inventory != previous_inventory:
@@ -328,6 +364,7 @@ def promote_staged_distribution(
                     ),
                     "unknown_live_app_paths": unknown_live_app_paths,
                     "unknown_live_runtime_paths": unknown_live_runtime_paths,
+                    "runtime_paths_restored": runtime_paths_restored,
                 },
             )
             _persist_package_document(
