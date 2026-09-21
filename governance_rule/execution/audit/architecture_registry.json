@@ -22,7 +22,9 @@
     "database",
     "external-service",
     "build-tooling",
-    "git-repository"
+    "git-repository",
+    "native-library",
+    "internal-service"
   ],
   "lifecycles": [
     "resident",
@@ -102,11 +104,26 @@
     "semantic-index": "qdrant"
   },
   "git_plane_flow": [
-    { "from": "worker-plane", "to": "self-commit-service" },
-    { "from": "self-commit-service", "to": "integration-plane" },
-    { "from": "integration-plane", "to": "git-tier-plane" },
-    { "from": "integration-plane", "to": "recovery-plane" },
-    { "from": "git-tier-plane", "to": "origin-mirror" }
+    {
+      "from": "worker-plane",
+      "to": "self-commit-service"
+    },
+    {
+      "from": "self-commit-service",
+      "to": "integration-plane"
+    },
+    {
+      "from": "integration-plane",
+      "to": "git-tier-plane"
+    },
+    {
+      "from": "integration-plane",
+      "to": "recovery-plane"
+    },
+    {
+      "from": "git-tier-plane",
+      "to": "origin-mirror"
+    }
   ],
   "execution_model": {
     "sovereign": "decision",
@@ -138,7 +155,9 @@
       "physical_path": "governance_rule/codex",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["governance_rule"],
+      "dependencies": [
+        "governance_rule"
+      ],
       "information_channels": []
     },
     {
@@ -151,8 +170,14 @@
       "physical_path": "main-system",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["governance_rule", "shared-layer", "postgresql"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "governance_rule",
+        "shared-layer",
+        "postgresql"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "boot-core",
@@ -164,7 +189,9 @@
       "physical_path": "main-system/src-core",
       "lifecycle": "per-boot",
       "canonical": true,
-      "dependencies": ["main-system"],
+      "dependencies": [
+        "main-system"
+      ],
       "information_channels": []
     },
     {
@@ -177,7 +204,9 @@
       "physical_path": "main-system/launcher",
       "lifecycle": "per-launch",
       "canonical": true,
-      "dependencies": ["boot-core"],
+      "dependencies": [
+        "boot-core"
+      ],
       "information_channels": []
     },
     {
@@ -190,7 +219,9 @@
       "physical_path": "main-system/launcher",
       "lifecycle": "per-launch",
       "canonical": true,
-      "dependencies": ["bootstrap-entry"],
+      "dependencies": [
+        "bootstrap-entry"
+      ],
       "information_channels": []
     },
     {
@@ -203,7 +234,9 @@
       "physical_path": "main-system/governance/sovereigns",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["governance_rule"],
+      "dependencies": [
+        "governance_rule"
+      ],
       "information_channels": []
     },
     {
@@ -216,7 +249,9 @@
       "physical_path": "main-system/governance/sovereigns/automation_sovereign.py",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["governance_rule"],
+      "dependencies": [
+        "governance_rule"
+      ],
       "information_channels": []
     },
     {
@@ -229,7 +264,10 @@
       "physical_path": "main-system/governance/sovereigns",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["governance_rule", "postgresql"],
+      "dependencies": [
+        "governance_rule",
+        "postgresql"
+      ],
       "information_channels": []
     },
     {
@@ -242,7 +280,9 @@
       "physical_path": "main-system/governance/sub-sovereigns",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["decision-sovereign"],
+      "dependencies": [
+        "decision-sovereign"
+      ],
       "information_channels": []
     },
     {
@@ -255,8 +295,17 @@
       "physical_path": "shared-layer",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["postgresql", "qdrant", "codex-authority"],
-      "information_channels": ["information-channel", "transport", "outbox", "state-events"]
+      "dependencies": [
+        "postgresql",
+        "qdrant",
+        "codex-authority"
+      ],
+      "information_channels": [
+        "information-channel",
+        "transport",
+        "outbox",
+        "state-events"
+      ]
     },
     {
       "component_id": "tokenizer",
@@ -268,8 +317,12 @@
       "physical_path": "shared-layer/src/shared_layer/tokenizer.py",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "information-channel-gateway",
@@ -281,8 +334,12 @@
       "physical_path": "shared-layer/src/channel_runtime.py",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "postgresql",
@@ -295,7 +352,11 @@
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [],
-      "information_channels": ["transport", "audit", "index"]
+      "information_channels": [
+        "transport",
+        "audit",
+        "index"
+      ]
     },
     {
       "component_id": "qdrant",
@@ -308,7 +369,9 @@
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [],
-      "information_channels": ["semantic-index"]
+      "information_channels": [
+        "semantic-index"
+      ]
     },
     {
       "component_id": "module-sqlite",
@@ -321,7 +384,9 @@
       "lifecycle": "resident",
       "canonical": false,
       "dependencies": [],
-      "information_channels": ["local-fallback"]
+      "information_channels": [
+        "local-fallback"
+      ]
     },
     {
       "component_id": "local-vector",
@@ -334,7 +399,9 @@
       "lifecycle": "degraded-only",
       "canonical": false,
       "dependencies": [],
-      "information_channels": ["local-fallback"]
+      "information_channels": [
+        "local-fallback"
+      ]
     },
     {
       "component_id": "ollama",
@@ -359,8 +426,14 @@
       "physical_path": "Standalone tools/local-model",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer", "ollama", "qdrant"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer",
+        "ollama",
+        "qdrant"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "xingcheng",
@@ -372,8 +445,14 @@
       "physical_path": "Standalone tools/local-model/xingcheng",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["xingcheng-assistant", "local-model", "postgresql"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "xingcheng-assistant",
+        "local-model",
+        "postgresql"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "xingcheng-assistant",
@@ -385,8 +464,13 @@
       "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["xingcheng-assistant-store", "information-channel-gateway"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "xingcheng-assistant-store",
+        "information-channel-gateway"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "xingcheng-assistant-store",
@@ -411,7 +495,9 @@
       "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["xingcheng"],
+      "dependencies": [
+        "xingcheng"
+      ],
       "information_channels": []
     },
     {
@@ -424,8 +510,13 @@
       "physical_path": "main-system/governance/sovereigns/xingcheng/learning_sub_sovereign.py",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["xingcheng", "xingcheng-personality-store"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "xingcheng",
+        "xingcheng-personality-store"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "xingcheng-auto-repair-module",
@@ -437,8 +528,13 @@
       "physical_path": "main-system/src-core/tasks/central_repair.py",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["xingcheng", "xingcheng-auto-learning-module"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "xingcheng",
+        "xingcheng-auto-learning-module"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "model-dialogue",
@@ -450,8 +546,12 @@
       "physical_path": "Standalone tools/local-model/model-dialogue",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["local-model"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "local-model"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "ai-assistant",
@@ -463,8 +563,12 @@
       "physical_path": "Standalone tools/ai-assistant",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "ai-collaboration",
@@ -476,8 +580,12 @@
       "physical_path": "Standalone tools/ai-collaboration",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "file-sorter",
@@ -489,8 +597,12 @@
       "physical_path": "Standalone tools/file-sorter",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "domain-term-extractor",
@@ -502,8 +614,12 @@
       "physical_path": "Standalone tools/domain-term-extractor",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "investment-mobile",
@@ -515,8 +631,13 @@
       "physical_path": "Standalone tools/investment-mobile",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer", "ai-assistant"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer",
+        "ai-assistant"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "global-cleaner",
@@ -541,8 +662,12 @@
       "physical_path": "Standalone tools/system-rescue",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "vaultly",
@@ -554,8 +679,12 @@
       "physical_path": "Standalone tools/vaultly",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "chinese-semantic-engine",
@@ -567,8 +696,14 @@
       "physical_path": "Standalone tools/chinese-semantic-engine",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["shared-layer", "qdrant", "local-model"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "shared-layer",
+        "qdrant",
+        "local-model"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "git-tier-plane",
@@ -580,8 +715,15 @@
       "physical_path": "governance_rule/execution/git_tiers",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["governance_rule", "integration-plane"],
-      "information_channels": ["tier", "hooks", "audit"]
+      "dependencies": [
+        "governance_rule",
+        "integration-plane"
+      ],
+      "information_channels": [
+        "tier",
+        "hooks",
+        "audit"
+      ]
     },
     {
       "component_id": "worker-plane",
@@ -594,7 +736,10 @@
       "lifecycle": "resident",
       "canonical": false,
       "dependencies": [],
-      "information_channels": ["worktree", "self-commit-queue"]
+      "information_channels": [
+        "worktree",
+        "self-commit-queue"
+      ]
     },
     {
       "component_id": "self-commit-service",
@@ -606,8 +751,12 @@
       "physical_path": "governance_rule/execution/git_tiers",
       "lifecycle": "resident",
       "canonical": false,
-      "dependencies": ["worker-plane"],
-      "information_channels": ["self-commit"]
+      "dependencies": [
+        "worker-plane"
+      ],
+      "information_channels": [
+        "self-commit"
+      ]
     },
     {
       "component_id": "integration-plane",
@@ -619,8 +768,13 @@
       "physical_path": "governance_rule/execution/git_tiers",
       "lifecycle": "resident",
       "canonical": false,
-      "dependencies": ["self-commit-service"],
-      "information_channels": ["merge-queue", "main-ref"]
+      "dependencies": [
+        "self-commit-service"
+      ],
+      "information_channels": [
+        "merge-queue",
+        "main-ref"
+      ]
     },
     {
       "component_id": "recovery-plane",
@@ -632,8 +786,15 @@
       "physical_path": "governance_rule/execution/git_tiers",
       "lifecycle": "resident",
       "canonical": false,
-      "dependencies": ["integration-plane"],
-      "information_channels": ["recovery-points", "recovery-refs", "verified-bundles", "dr-manifests"]
+      "dependencies": [
+        "integration-plane"
+      ],
+      "information_channels": [
+        "recovery-points",
+        "recovery-refs",
+        "verified-bundles",
+        "dr-manifests"
+      ]
     },
     {
       "component_id": "origin-mirror",
@@ -646,8 +807,12 @@
       "external_locator": "https://github.com/guilty442-source/GPTBridge.git",
       "lifecycle": "resident",
       "canonical": false,
-      "dependencies": ["git-tier-plane"],
-      "information_channels": ["remote-mirror"]
+      "dependencies": [
+        "git-tier-plane"
+      ],
+      "information_channels": [
+        "remote-mirror"
+      ]
     },
     {
       "component_id": "language-review",
@@ -659,33 +824,42 @@
       "physical_path": "main-system/governance/sub-sovereigns",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["governance_rule"],
+      "dependencies": [
+        "governance_rule"
+      ],
       "information_channels": []
     },
     {
       "component_id": "business-logic-csharp",
       "architectural_role": "execution",
-      "runtime_form": "standalone-service",
+      "runtime_form": "internal-service",
       "owner_sovereign": "system-runtime",
       "owner_sub_sovereign": "change_acceptance_sub_sovereign",
       "execution_identity": "business-logic-csharp",
       "physical_path": "Standalone tools/business-logic-csharp",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["local-model", "shared-layer"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "local-model",
+        "shared-layer"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     },
     {
       "component_id": "native-compute-core",
       "architectural_role": "execution",
-      "runtime_form": "build-tooling",
+      "runtime_form": "native-library",
       "owner_sovereign": "system-runtime",
       "owner_sub_sovereign": "data_governance_sub_sovereign",
       "execution_identity": "native-compute-core",
       "physical_path": "native/core",
       "lifecycle": "resident",
       "canonical": true,
-      "dependencies": ["governance_rule"],
+      "dependencies": [
+        "governance_rule"
+      ],
       "information_channels": []
     },
     {
@@ -698,8 +872,14 @@
       "physical_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
       "lifecycle": "on-demand",
       "canonical": true,
-      "dependencies": ["local-model", "shared-layer", "native-compute-core"],
-      "information_channels": ["information-channel"]
+      "dependencies": [
+        "local-model",
+        "shared-layer",
+        "native-compute-core"
+      ],
+      "information_channels": [
+        "information-channel"
+      ]
     }
   ]
 }

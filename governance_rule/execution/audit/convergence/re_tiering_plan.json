@@ -1,0 +1,336 @@
+{
+  "plan": "RE_TIERING_PLAN/v1",
+  "generated_at": "2026-09-21",
+  "scope": "A551-A590 (40 main-codex implementation articles)",
+  "principle": "no new articles; move implementation specifics to special law / registry / contract / test suite / obligation",
+  "counts": {
+    "xingcheng-special-law": 5,
+    "contract": 14,
+    "test-suite": 8,
+    "registry": 4,
+    "implementation-obligation": 9
+  },
+  "entries": [
+    {
+      "provision_id": "A551",
+      "subject": "language-positioning-and-responsibility",
+      "current_tier": "main-codex",
+      "target_type": "xingcheng-special-law",
+      "target_code": "XINGCHENG_LANGUAGE_POSITIONING",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A552",
+      "subject": "gpu-acceleration-separate-track",
+      "current_tier": "main-codex",
+      "target_type": "xingcheng-special-law",
+      "target_code": "XINGCHENG_GPU_ACCELERATION_TRACK",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A553",
+      "subject": "xingcheng-model-architecture-moe",
+      "current_tier": "main-codex",
+      "target_type": "xingcheng-special-law",
+      "target_code": "XINGCHENG_MODEL_ARCHITECTURE_MOE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A554",
+      "subject": "xingcheng-autonomous-training-and-upgrade",
+      "current_tier": "main-codex",
+      "target_type": "xingcheng-special-law",
+      "target_code": "XINGCHENG_AUTONOMOUS_TRAINING_UPGRADE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A555",
+      "subject": "git-sql-rag-cag-dag-integration-division",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A556",
+      "subject": "xingcheng-unified-model-maturity",
+      "current_tier": "main-codex",
+      "target_type": "test-suite",
+      "target_code": "STAR_MODEL_MATURITY_SUITE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A557",
+      "subject": "xingcheng-model-training-tiers",
+      "current_tier": "main-codex",
+      "target_type": "registry",
+      "target_code": "MODEL_TRAINING_TIER_REGISTRY",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A558",
+      "subject": "xingcheng-pretraining-data-pipeline",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "PRETRAIN_DATA_PIPELINE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A559",
+      "subject": "single-shared-blueprint",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "OBL_SINGLE_BLUEPRINT_PLANNING",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A560",
+      "subject": "xingcheng-ntp-correctness-tests",
+      "current_tier": "main-codex",
+      "target_type": "test-suite",
+      "target_code": "NTP_CORRECTNESS_SUITE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A561",
+      "subject": "xingcheng-small-model-training-baseline",
+      "current_tier": "main-codex",
+      "target_type": "test-suite",
+      "target_code": "SMALL_MODEL_BASELINE_SUITE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A562",
+      "subject": "xingcheng-primary-goal-command-and-chat",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "OBL_XINGCHENG_PRIMARY_GOAL",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A563",
+      "subject": "xingcheng-medium-base-scaling-strategy",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "OBL_MODEL_SCALING_STRATEGY",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A564",
+      "subject": "xingcheng-moe-training-quality-control",
+      "current_tier": "main-codex",
+      "target_type": "test-suite",
+      "target_code": "MOE_QC_SUITE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A565",
+      "subject": "xingcheng-native-dialogue-training",
+      "current_tier": "main-codex",
+      "target_type": "test-suite",
+      "target_code": "DIALOGUE_TRAINING_SUITE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A566",
+      "subject": "xingcheng-python-cpp-inference-consistency",
+      "current_tier": "main-codex",
+      "target_type": "test-suite",
+      "target_code": "PYTHON_CPP_CONSISTENCY_SUITE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A567",
+      "subject": "xingcheng-kv-cache-correctness-and-performance",
+      "current_tier": "main-codex",
+      "target_type": "test-suite",
+      "target_code": "KV_CACHE_SUITE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A568",
+      "subject": "xingcheng-native-capability-evaluation",
+      "current_tier": "main-codex",
+      "target_type": "test-suite",
+      "target_code": "NATIVE_CAPABILITY_EVAL_SUITE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A569",
+      "subject": "xingcheng-weight-evolution",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "OBL_WEIGHT_EVOLUTION",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A570",
+      "subject": "gptbridge-system-convergence",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "SYSTEM_CONVERGENCE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A571",
+      "subject": "gptbridge-connection-recovery-and-event-sequence",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "CONNECTION_RECOVERY_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A572",
+      "subject": "gptbridge-maintenance-update-integration",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "OBL_MAINTENANCE_UPDATE_INTEGRATION",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A573",
+      "subject": "gptbridge-unified-task-lifecycle",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "TASK_LIFECYCLE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A574",
+      "subject": "gptbridge-runtime-execution-lease",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "EXECUTION_LEASE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A575",
+      "subject": "gptbridge-release-manifest",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "RELEASE_MANIFEST_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A576",
+      "subject": "gptbridge-dev-runtime-separation",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "OBL_DEV_RUNTIME_SEPARATION",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A577",
+      "subject": "gptbridge-backend-lifecycle-contract",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "BACKEND_LIFECYCLE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A578",
+      "subject": "gptbridge-integration-sequence",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "FINAL_CONVERGENCE_IMPLEMENTATION_PLAN",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A579",
+      "subject": "gptbridge-request-registry",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "REQUEST_REGISTRY_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A580",
+      "subject": "gptbridge-request-lifecycle-and-streaming-attribution",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "REQUEST_LIFECYCLE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A581",
+      "subject": "gptbridge-connection-state-reconnect-backpressure",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "CONNECTION_STATE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A582",
+      "subject": "gptbridge-integrated-objectives",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "OBL_INTEGRATED_OBJECTIVES",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A583",
+      "subject": "gptbridge-implementation-precedence",
+      "current_tier": "main-codex",
+      "target_type": "implementation-obligation",
+      "target_code": "OBL_IMPLEMENTATION_PRECEDENCE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A584",
+      "subject": "xingcheng-multi-configuration-gpt",
+      "current_tier": "main-codex",
+      "target_type": "registry",
+      "target_code": "MODEL_CONFIGURATION_REGISTRY",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A585",
+      "subject": "xingcheng-tool-calling-competence",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "CAPABILITY_EVALUATION_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A586",
+      "subject": "ollama-on-demand-activation",
+      "current_tier": "main-codex",
+      "target_type": "registry",
+      "target_code": "PROVIDER_ACTIVATION_POLICY_REGISTRY",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A587",
+      "subject": "main-system-on-demand-modules",
+      "current_tier": "main-codex",
+      "target_type": "registry",
+      "target_code": "RUNTIME_ACTIVATION_REGISTRY",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A588",
+      "subject": "project-single-purpose-modules",
+      "current_tier": "main-codex",
+      "target_type": "xingcheng-special-law",
+      "target_code": "MODULE_ARCHITECTURE_SOURCE_STRUCTURE",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A589",
+      "subject": "project-blockchain-style-module-records",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    },
+    {
+      "provision_id": "A590",
+      "subject": "main-system-multi-core-parallelism",
+      "current_tier": "main-codex",
+      "target_type": "contract",
+      "target_code": "RUNTIME_RESOURCE_CONTRACT",
+      "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
+    }
+  ],
+  "status": "PLANNED (successor pipeline execution pending)"
+}

@@ -328,7 +328,7 @@
     }
   },
   "frontend_release": {
-    "release_identity": "0bcb25dcfbe73390f01ec141c174e2557e045d0a86c2727b15e5947a0d59e02b",
+    "release_identity": "603145f54437642e7164cf3a4cdbec49412651fa444aacd5615b456d57968884",
     "package": "gptbridge-auto-agent-ide@1.0.0",
     "electron_version": "39.8.10",
     "node_runtime": {
@@ -345,8 +345,8 @@
         "renderer": "main-system/dist-ui/renderer/index.html"
       },
       "hashes": {
-        "main": "6f6fc2deb71388c51a0241f705912150ae3d31c8c67d9b52be48a1dfa1cd3f77",
-        "preload": "fff4d3592a11fe540525101ca044b8675b8673ab6e94ee4b9b146cf4cbf17d29",
+        "main": "4a024aafc70ed29c9bcfba541c0c44efe86d5ef956445950f8a2c31b8c5f18b4",
+        "preload": "bfa536f8a7f9ad49c0bab034b97a325ff26789f5a5c1f8a625cdabff06450540",
         "renderer": "99ebf2a4ec856b44d677fcfdda9e188f40defdc51372ee17d3989632e55e6eb3"
       },
       "renderer_asset_count": 2
