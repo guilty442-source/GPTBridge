@@ -263,6 +263,7 @@ def _spawn_backend_process() -> "subprocess.Popen[bytes]":
             "--serve",
         ],
         cwd=str(ROOT),
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -392,7 +393,12 @@ def _spawn_worker(args: argparse.Namespace) -> int:
     ]
     if args.report:
         command += ["--report", args.report]
-    completed = subprocess.run(command, env=env, cwd=str(ROOT))
+    completed = subprocess.run(
+        command,
+        env=env,
+        cwd=str(ROOT),
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
     return completed.returncode
 
 

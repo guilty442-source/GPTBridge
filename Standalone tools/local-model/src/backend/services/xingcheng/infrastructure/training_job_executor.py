@@ -702,6 +702,7 @@ class TrainingJobExecutor:
                     stderr=stderr_handle,
                     timeout=timeout_s if timeout_s > 0 else None,
                     check=False,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
             except subprocess.TimeoutExpired as exc:
                 raise TrainingJobExecutorError(
