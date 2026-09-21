@@ -1,0 +1,15 @@
+{
+  "registry": "core-engine-registry/v1",
+  "generated_at": "2026-09-21",
+  "status": "CANDIDATE (A591 structural transition; not activated)",
+  "authority_rule": "authority_after == authority_before (one-to-one mapping, no new sovereign, no new supreme controller, no implicit execution authority)",
+  "naming_rule": "identity naming must be decided by the canonical migration, not by this file",
+  "engines": [
+    {"target_identity": "DECISION_CORE_ENGINE", "source_identity": "decision-sovereign", "duties": "decision", "execution": "none"},
+    {"target_identity": "PERMISSION_CORE_ENGINE", "source_identity": "permission-sovereign", "duties": "permission", "execution": "none"},
+    {"target_identity": "SYSTEM_RUNTIME_CORE_ENGINE", "source_identity": "system-runtime-sovereign", "duties": "system-runtime", "execution": "none"},
+    {"target_identity": "SYNCHRONIZATION_CORE_ENGINE", "source_identity": "automation-sovereign", "duties": "synchronization", "execution": "none"},
+    {"target_identity": "XINGCHENG_CORE_ENGINE", "source_identity": "星澄", "duties": "xingcheng-domain", "execution": "none"}
+  ],
+  "activation_gate": "CORE_ENGINE_TRANSITION_CLOSURE=PASS (equivalence + registry switch + dispatch successor + permission routes + runtime tests + rollback evidence + projections + seal candidate)"
+}
