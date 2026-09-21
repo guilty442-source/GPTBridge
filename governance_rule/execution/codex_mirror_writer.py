@@ -207,6 +207,11 @@ def mirror_errors(
             f"{label} mirror carries replacement damage: "
             f"{metrics['question_loss_field_count']} fields lost"
         )
+    if metrics["replacement_character_count"]:
+        errors.append(
+            f"{label} mirror carries replacement characters: "
+            f"{metrics['replacement_character_count']}"
+        )
     return tuple(errors)
 
 
@@ -238,13 +243,16 @@ def record_mirror_quality_evidence(
             "UPDATE chinese_mirror_quality_evidence SET status='superseded' "
             "WHERE status='current'"
         )
+        replacement = int(metrics["replacement_character_count"])
+        loss = int(metrics["question_loss_field_count"])
+        result = "PASS" if replacement == 0 and loss == 0 else "FAIL"
         connection.execute(
-            f"INSERT OR REPLACE INTO {EVIDENCE_TABLE} VALUES (?, 5, ?, ?, 1, 1, "
-            "'PASS', ?, 'current')",
+            f"INSERT OR REPLACE INTO {EVIDENCE_TABLE} VALUES (?, 5, ?, ?, 1, 1, ?, ?, 'current')",
             (
                 f"MIRROR@{version}",
-                int(metrics["replacement_character_count"]),
-                int(metrics["question_loss_field_count"]),
+                replacement,
+                loss,
+                result,
                 version,
             ),
         )

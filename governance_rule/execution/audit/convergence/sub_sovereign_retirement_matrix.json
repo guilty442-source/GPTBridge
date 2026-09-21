@@ -1,0 +1,243 @@
+{
+  "matrix": "SUB_SOVEREIGN_RETIREMENT_MATRIX/v1",
+  "generated_at": "2026-09-21",
+  "discovery": "dynamic: sovereigns(area != historical) + architecture_registry owner_sub_sovereign",
+  "active_sub_sovereign_count": 18,
+  "expected_after_transition": 0,
+  "layer_state": "active",
+  "entries": [
+    {
+      "old_identity": "automatic-log-sync-sub-sovereign",
+      "old_parent": "automation-sovereign",
+      "old_domain": "automatic-log-audit-synchronization",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "change-acceptance-sub-sovereign",
+      "old_parent": "decision-sovereign",
+      "old_domain": "change-acceptance",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "channel-contract-sync-sub-sovereign",
+      "old_parent": "automation-sovereign",
+      "old_domain": "information-channel",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "cleanup-retention-sync-sub-sovereign",
+      "old_parent": "automation-sovereign",
+      "old_domain": "cleanup-retention-synchronization",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "data-governance-sub-sovereign",
+      "old_parent": "decision-sovereign",
+      "old_domain": "data-integrity",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "dependency-sync-sub-sovereign",
+      "old_parent": "automation-sovereign",
+      "old_domain": "dependency-governance",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "directory-sub-sovereign",
+      "old_parent": "permission-sovereign",
+      "old_domain": "directory-management",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "health-maintenance-test-sub-sovereign",
+      "old_parent": "decision-sovereign",
+      "old_domain": "maintenance",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "identity-group-sub-sovereign",
+      "old_parent": "permission-sovereign",
+      "old_domain": "identity-group-management",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "learning-evidence-sync-sub-sovereign",
+      "old_parent": "星澄",
+      "old_domain": "system-learning",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "policy-architecture-sub-sovereign",
+      "old_parent": "decision-sovereign",
+      "old_domain": "policy-architecture",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "priority-capability-sub-sovereign",
+      "old_parent": "decision-sovereign",
+      "old_domain": "priority-capability",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "release-update-sync-sub-sovereign",
+      "old_parent": "automation-sovereign",
+      "old_domain": "release-update-synchronization",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "repair-backup-sync-sub-sovereign",
+      "old_parent": "automation-sovereign",
+      "old_domain": "repair-backup-recovery-synchronization",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "resource-dependency-sync-sub-sovereign",
+      "old_parent": "automation-sovereign",
+      "old_domain": "resource-allocation",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "runtime-state-sync-sub-sovereign",
+      "old_parent": "automation-sovereign",
+      "old_domain": "runtime-state-checkpoint-synchronization",
+      "old_modules": [],
+      "replacement_single_purpose_modules": [],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "startup-sub-sovereign",
+      "old_parent": "system-runtime-sovereign",
+      "old_domain": "startup",
+      "old_modules": [
+        "boot-core",
+        "bootstrap-entry",
+        "launcher-ui",
+        "sub-sovereign-orchestration"
+      ],
+      "replacement_single_purpose_modules": [
+        "boot-core",
+        "bootstrap-entry",
+        "launcher-ui",
+        "sub-sovereign-orchestration"
+      ],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    },
+    {
+      "old_identity": "system-sub-sovereign",
+      "old_parent": "system-runtime-sovereign",
+      "old_domain": "system-module-management-assignment-coordination",
+      "old_modules": [
+        "main-system",
+        "xingcheng-sovereign"
+      ],
+      "replacement_single_purpose_modules": [
+        "main-system",
+        "xingcheng-sovereign"
+      ],
+      "authority_destination": "owning core engine (A591)",
+      "permission_route_destination": "permission core engine route (synced)",
+      "execution_route": "capability dispatch (RULE_CAPABILITY_DISPATCH_V1)",
+      "historical_identity_retained": true,
+      "retirement_evidence": "pending (codex-first; registry switch required)"
+    }
+  ],
+  "closure": "INCOMPLETE_EVIDENCE"
+}
