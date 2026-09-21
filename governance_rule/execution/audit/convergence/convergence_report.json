@@ -53,10 +53,10 @@
   "verified_release_state": "DENIED",
   "remaining_blockers": [
     "candidate not sealed; current_version axis unchanged by design",
-    "core engine equivalence + capability dispatch parity evidence",
-    "sub-sovereign registry switch + retirement (18 identities)",
+    "core engine: authority equivalence recorded (5/5); capability dispatch parity pending (runtime not wired)",
+    "sub-sovereign retirement: staged dry-run clean (18 retired, 0 active); registry switch + publication pending",
     "67 machine schemas parity; 61 obligations classified (none completed); normative surface/search rebuild",
-    "successor artifact skeletons need implementation (declared-pending-implementation) before contract/registry closure",
+    "successor artifact skeletons need implementation (14 contracts / 4 registries)",
     "external signatures"
   ],
   "governance_batch": "topology corrections + formal-rule disposition + obligations + closures (candidate generation)",
@@ -88,5 +88,18 @@
     "artifact_backed": 26,
     "artifacts": "contracts 14 / registries 4 / test suites 8 (skeletons + existing test evidence)",
     "note": "law tier remains main-codex as historical reference; successor resolution recorded in provision_special_law_migration"
+  },
+  "core_engine_equivalence": {
+    "engines": 5,
+    "authority_equal": true,
+    "dispatch_parity": "pending",
+    "evidence": "convergence/core_engine_equivalence_evidence.json"
+  },
+  "sub_sovereign_retirement": {
+    "identities": 18,
+    "dry_run_validated": true,
+    "remaining_active": 0,
+    "published": false,
+    "gate": "registry switch + parity + activation"
   }
 }

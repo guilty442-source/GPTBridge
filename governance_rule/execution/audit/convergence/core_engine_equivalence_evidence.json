@@ -1,0 +1,152 @@
+{
+  "evidence": "CORE_ENGINE_EQUIVALENCE_EVIDENCE/v1",
+  "generated_at": "2026-09-21",
+  "engines": [
+    {
+      "old_authority_identity": "decision-sovereign",
+      "new_core_engine_identity": "DECISION_CORE_ENGINE",
+      "authority_before": {
+        "rank": "top-decision-sovereign",
+        "area": "decision",
+        "basis": "codex"
+      },
+      "authority_after": {
+        "rank": "top-decision-sovereign",
+        "area": "decision",
+        "basis": "codex"
+      },
+      "authority_equal": true,
+      "decision_scope_before": "decision",
+      "decision_scope_after": "decision",
+      "permission_scope_before": "unchanged (A591 one-to-one)",
+      "permission_scope_after": "unchanged (A591 one-to-one)",
+      "execution_right_before": "decision/coordination only (no module execution)",
+      "execution_right_after": "decision/coordination only (no module execution)",
+      "information_route_before": "information-channel",
+      "information_route_after": "information-channel",
+      "sub_sovereign_edges_before": 5,
+      "owned_components_before": [],
+      "evidence": "codex sovereigns row + hierarchy registry + architecture registry",
+      "equivalence_result": "authority-equivalent; dispatch-parity-pending"
+    },
+    {
+      "old_authority_identity": "permission-sovereign",
+      "new_core_engine_identity": "PERMISSION_CORE_ENGINE",
+      "authority_before": {
+        "rank": "independent-privileged-institution-no-review-no-execution",
+        "area": "permission",
+        "basis": "codex"
+      },
+      "authority_after": {
+        "rank": "independent-privileged-institution-no-review-no-execution",
+        "area": "permission",
+        "basis": "codex"
+      },
+      "authority_equal": true,
+      "decision_scope_before": "permission",
+      "decision_scope_after": "permission",
+      "permission_scope_before": "unchanged (A591 one-to-one)",
+      "permission_scope_after": "unchanged (A591 one-to-one)",
+      "execution_right_before": "decision/coordination only (no module execution)",
+      "execution_right_after": "decision/coordination only (no module execution)",
+      "information_route_before": "information-channel",
+      "information_route_after": "information-channel",
+      "sub_sovereign_edges_before": 3,
+      "owned_components_before": [],
+      "evidence": "codex sovereigns row + hierarchy registry + architecture registry",
+      "equivalence_result": "authority-equivalent; dispatch-parity-pending"
+    },
+    {
+      "old_authority_identity": "system-runtime-sovereign",
+      "new_core_engine_identity": "SYSTEM_RUNTIME_CORE_ENGINE",
+      "authority_before": {
+        "rank": "runtime-domain-decision-only-no-execution",
+        "area": "system-runtime",
+        "basis": "codex"
+      },
+      "authority_after": {
+        "rank": "runtime-domain-decision-only-no-execution",
+        "area": "system-runtime",
+        "basis": "codex"
+      },
+      "authority_equal": true,
+      "decision_scope_before": "system-runtime",
+      "decision_scope_after": "system-runtime",
+      "permission_scope_before": "unchanged (A591 one-to-one)",
+      "permission_scope_after": "unchanged (A591 one-to-one)",
+      "execution_right_before": "decision/coordination only (no module execution)",
+      "execution_right_after": "decision/coordination only (no module execution)",
+      "information_route_before": "information-channel",
+      "information_route_after": "information-channel",
+      "sub_sovereign_edges_before": 2,
+      "owned_components_before": [],
+      "evidence": "codex sovereigns row + hierarchy registry + architecture registry",
+      "equivalence_result": "authority-equivalent; dispatch-parity-pending"
+    },
+    {
+      "old_authority_identity": "automation-sovereign",
+      "new_core_engine_identity": "SYNCHRONIZATION_CORE_ENGINE",
+      "authority_before": {
+        "rank": "specialized-decision-sovereign-with-A330-certified-update-execution-exception",
+        "area": "synchronization-decision",
+        "basis": "A301"
+      },
+      "authority_after": {
+        "rank": "specialized-decision-sovereign-with-A330-certified-update-execution-exception",
+        "area": "synchronization-decision",
+        "basis": "A301"
+      },
+      "authority_equal": true,
+      "decision_scope_before": "synchronization-decision",
+      "decision_scope_after": "synchronization-decision",
+      "permission_scope_before": "unchanged (A591 one-to-one)",
+      "permission_scope_after": "unchanged (A591 one-to-one)",
+      "execution_right_before": "decision/coordination only (no module execution)",
+      "execution_right_after": "decision/coordination only (no module execution)",
+      "information_route_before": "information-channel",
+      "information_route_after": "information-channel",
+      "sub_sovereign_edges_before": 8,
+      "owned_components_before": [],
+      "evidence": "codex sovereigns row + hierarchy registry + architecture registry",
+      "equivalence_result": "authority-equivalent; dispatch-parity-pending"
+    },
+    {
+      "old_authority_identity": "星澄",
+      "new_core_engine_identity": "XINGCHENG_CORE_ENGINE",
+      "authority_before": {
+        "rank": "own-domain-sovereign-local-native-model-independent-privileged-domain",
+        "area": "xingcheng-own-domain",
+        "basis": "A313|A328|A336"
+      },
+      "authority_after": {
+        "rank": "own-domain-sovereign-local-native-model-independent-privileged-domain",
+        "area": "xingcheng-own-domain",
+        "basis": "A313|A328|A336"
+      },
+      "authority_equal": true,
+      "decision_scope_before": "xingcheng-own-domain",
+      "decision_scope_after": "xingcheng-own-domain",
+      "permission_scope_before": "unchanged (A591 one-to-one)",
+      "permission_scope_after": "unchanged (A591 one-to-one)",
+      "execution_right_before": "decision/coordination only (no module execution)",
+      "execution_right_after": "decision/coordination only (no module execution)",
+      "information_route_before": "information-channel",
+      "information_route_after": "information-channel",
+      "sub_sovereign_edges_before": 1,
+      "owned_components_before": [],
+      "evidence": "codex sovereigns row + hierarchy registry + architecture registry",
+      "equivalence_result": "authority-equivalent; dispatch-parity-pending"
+    }
+  ],
+  "invariants": {
+    "no_new_sovereign": true,
+    "no_new_supreme_controller": true,
+    "no_implicit_execution_authority": true,
+    "authority_after_equals_before": true
+  },
+  "closure": "INCOMPLETE_EVIDENCE",
+  "pending": [
+    "capability dispatch parity (runtime not wired)",
+    "registry switch + activation gate"
+  ]
+}

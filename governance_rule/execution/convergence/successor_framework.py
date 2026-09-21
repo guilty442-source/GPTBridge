@@ -258,6 +258,44 @@ def apply_closures(conn: sqlite3.Connection, closures: Sequence[Mapping[str, Any
     return OperationResult("closures", applied=len(closures))
 
 
+def apply_sub_sovereign_retirement(
+    conn: sqlite3.Connection,
+    identities: Sequence[str],
+    *,
+    version: str,
+) -> OperationResult:
+    """Staged retirement of sub-sovereign identities (registry switch first).
+
+    Marks sovereign rows historical/retired and retires hierarchy edges.
+    The architecture-registry ``owner_sub_sovereign`` switch is a separate
+    file-level change and must happen before this op is published (A592
+    codex-first rule).
+    """
+    if not identities:
+        raise ConvergenceError("RETIREMENT_IDENTITIES_REQUIRED")
+    retired = 0
+    for identity in identities:
+        row = conn.execute("select sovereign_id from sovereigns where sovereign_id=?", (identity,)).fetchone()
+        if not row:
+            raise ConvergenceError(f"RETIREMENT_IDENTITY_MISSING:{identity}")
+        conn.execute(
+            "update sovereigns set area='historical', "
+            "name=case when name like '%-retired' then name else name || '-retired' end, "
+            "rank='retired-sub-sovereign-layer-eliminated-A592' where sovereign_id=?",
+            (identity,),
+        )
+        conn.execute(
+            "update sovereign_hierarchy_registry set status='retired' where child_identity=?",
+            (identity,),
+        )
+        retired += 1
+    conn.commit()
+    conn.execute("update metadata set value=? where key='codex_version'", (version,))
+    conn.commit()
+    return OperationResult("sub-sovereign-retirement", applied=retired,
+                           details={"identities": list(identities)})
+
+
 def validate_staged(staged: StagedGeneration) -> tuple[str, ...]:
     """Integrity + mirror-render validation of a staged generation."""
     import sys
@@ -383,6 +421,7 @@ __all__ = [
     "apply_closures",
     "apply_formal_rule_disposition",
     "apply_re_tiering",
+    "apply_sub_sovereign_retirement",
     "compute_closures",
     "load_re_tiering_plan",
     "projection_status",
