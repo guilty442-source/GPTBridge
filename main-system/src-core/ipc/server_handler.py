@@ -327,9 +327,14 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
     slow probe can never stall the IPC channel or the main system.
     """
     push_interval = 2.0
+    # §10.63 R3: with no UI shell connected there is nothing to push to —
+    # drop to a slow housekeeping cadence (the connect path already sends an
+    # immediate report, so a new client never waits for this timer).
+    idle_interval = 60.0
     _PROJECT_ROOT = Path(__file__).resolve().parents[3]
     _conn_state = {"count": -1, "at": 0.0}
     while not shutdown_event.is_set():
+        had_shells = False
         try:
             _maybe_write_connection_state(
                 _PROJECT_ROOT,
@@ -351,6 +356,7 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
 
             shells = getattr(app_instance, "_active_ui_shells", None)
             if shells:
+                had_shells = True
                 notifier = getattr(app_instance, "_state_change_notifier", None)
                 snapshot = (
                     notifier.current_snapshot()
@@ -394,15 +400,16 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
         except Exception:
             pass
         # Wait for the next cycle, or wake immediately on a fault/clear.
+        wait_s = push_interval if had_shells else idle_interval
         try:
             if fault_event is None:
                 from core_system.auto_action_policy import fault_change_event
 
                 fault_event = fault_change_event()
             woken = await asyncio.get_running_loop().run_in_executor(
-                None, fault_event.wait, push_interval
+                None, fault_event.wait, wait_s
             )
             if woken:
                 fault_event.clear()
         except Exception:
-            await asyncio.sleep(push_interval)
+            await asyncio.sleep(wait_s)

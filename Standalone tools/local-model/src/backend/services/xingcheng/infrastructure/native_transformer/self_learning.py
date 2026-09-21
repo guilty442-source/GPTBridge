@@ -35,7 +35,9 @@ import os
 import sqlite3
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, time as clock_time, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any, Callable, Mapping, Sequence
 
 POLICY_FORMAT = "star-self-learning-policy/v1"
@@ -63,6 +65,9 @@ class SelfLearningPolicy:
     device: str = "cuda"
     gpu_required_mb: int = 0
     val_permille: int = 100
+    training_timezone: str = "Asia/Taipei"
+    quiet_hours_start: str = "22:00"
+    quiet_hours_end: str = "07:00"
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -95,6 +100,41 @@ def load_policy(tool_root: str | Path) -> SelfLearningPolicy:
         )
     except (OSError, json.JSONDecodeError, TypeError):
         return SelfLearningPolicy()
+
+
+def training_window_status(
+    policy: SelfLearningPolicy,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Return whether autonomous training is allowed in Taipei local time.
+
+    Invalid timezone or clock configuration is fail-closed.  A window whose
+    start is later than its end crosses midnight (22:00→07:00 by default).
+    """
+    try:
+        zone = ZoneInfo(policy.training_timezone)
+        start_parts = tuple(int(part) for part in policy.quiet_hours_start.split(":", 1))
+        end_parts = tuple(int(part) for part in policy.quiet_hours_end.split(":", 1))
+        if len(start_parts) != 2 or len(end_parts) != 2:
+            raise ValueError("time must be HH:MM")
+        start = clock_time(*start_parts)
+        end = clock_time(*end_parts)
+        local = (now or datetime.now(timezone.utc)).astimezone(zone).time()
+    except (ValueError, TypeError, ZoneInfoNotFoundError):
+        return {
+            "allowed": False,
+            "reason": "invalid-training-window",
+            "timezone": policy.training_timezone,
+        }
+    quiet = (local >= start or local < end) if start > end else start <= local < end
+    return {
+        "allowed": not quiet,
+        "reason": "quiet-hours" if quiet else "allowed",
+        "timezone": policy.training_timezone,
+        "local_time": local.strftime("%H:%M"),
+        "quiet_hours": f"{policy.quiet_hours_start}-{policy.quiet_hours_end}",
+    }
 
 
 def save_policy(tool_root: str | Path, policy: SelfLearningPolicy) -> dict[str, Any]:

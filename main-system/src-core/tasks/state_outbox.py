@@ -208,16 +208,34 @@ class OutboxPublisher:
             try:
                 self._wake.clear()
                 await self._drain()
-                try:
-                    await asyncio.wait_for(
-                        self._wake.wait(), timeout=POLL_INTERVAL_SECONDS
-                    )
-                except asyncio.TimeoutError:
-                    pass
+                # §10.63 R3: deadline-driven wait — with no pending retries
+                # the loop sleeps purely on the event wake; pending retries
+                # wake at the earliest retry deadline instead of a fixed
+                # POLL_INTERVAL_SECONDS poll.
+                next_retry = self._next_retry_deadline()
+                if next_retry is None:
+                    await self._wake.wait()
+                else:
+                    try:
+                        await asyncio.wait_for(
+                            self._wake.wait(),
+                            timeout=max(0.05, next_retry - time.monotonic()),
+                        )
+                    except asyncio.TimeoutError:
+                        pass
             except asyncio.CancelledError:
                 raise
             except Exception:
                 await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+    def _next_retry_deadline(self) -> float | None:
+        """Earliest unacked retry deadline across sessions (monotonic)."""
+        deadlines = [
+            session["last_attempt"] + RETRY_INTERVAL_SECONDS
+            for session in self._sessions.values()
+            if session["sent_upto"] > session["acked"]
+        ]
+        return min(deadlines) if deadlines else None
 
     @staticmethod
     def _gate_event(event: dict[str, Any]) -> bool:

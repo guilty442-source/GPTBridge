@@ -107,6 +107,13 @@ class AppLifecycleMixin:
         self.automation_sovereign = AutomationSovereign(self)
         self.xingcheng_sovereign = XingchengSovereign(self)
 
+        # §10.63 R3: single deadline-driven timer loop shared by infrequent
+        # periodic jobs (coordinator, idle-memory maintainer, daily
+        # cleaner). Registered lazily — the loop starts on first register.
+        from tasks.periodic_scheduler import PeriodicScheduler
+
+        self.periodic_scheduler = PeriodicScheduler()
+
         # System-wide automation coordinator (A63/A64 decision-layer).
         # Unifies all sovereign automation loops into a single
         # coordination surface with cross-sovereign health monitoring.

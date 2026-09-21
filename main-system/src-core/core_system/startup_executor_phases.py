@@ -191,7 +191,10 @@ class StartupExecutorPhasesMixin:
         if getattr(app, "git_automation", None) is None:
             from tasks.git_automation import GitAutomationService
 
-            app.git_automation = GitAutomationService(app.project_root)
+            app.git_automation = GitAutomationService(
+                app.project_root,
+                scheduler=getattr(app, "periodic_scheduler", None),
+            )
             await app.git_automation.start()
         _lap("git_automation_ms")
         if getattr(app, "saga_runtime", None) is None:

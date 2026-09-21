@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from .hot_reload_watcher_constants import (
+    HEALTH_CHECK_INTERVAL_SECONDS,
     POLL_INTERVAL_SECONDS,
     QUIET_WINDOW_SECONDS,
     WATCH_ROOTS,
@@ -92,10 +93,9 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             self._loop(),
             name="main-system-hot-reload-watcher",
         )
-        self._health_task = asyncio.create_task(
-            self._health_monitor_loop(),
-            name="hot-reload-channel-health",
-        )
+        # §10.63 R3: channel health checks ride the watcher loop on a
+        # HEALTH_CHECK_INTERVAL_SECONDS due-gate — one task instead of two.
+        self._next_health_at = 0.0
         self._log({"type": "hot_reload_watcher", "enabled": True,
                    "roots": [str(root) for root in self._roots]})
 
@@ -248,6 +248,17 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             except Exception as error:
                 self._log({"type": "hot_reload_watcher_error",
                            "error": f"{type(error).__name__}: {error}"})
+            # Channel health check rides this loop on a due-gate (replaces
+            # the former private health-monitor task).
+            if time.monotonic() >= self._next_health_at:
+                self._next_health_at = (
+                    time.monotonic() + HEALTH_CHECK_INTERVAL_SECONDS
+                )
+                try:
+                    await self._check_channel_health()
+                except Exception as error:
+                    self._log({"type": "hot_reload_watcher_health_error",
+                               "error": f"{type(error).__name__}: {error}"})
             await asyncio.sleep(self._adaptive_poll_interval)
 
     def _log(self, payload: dict[str, Any]) -> None:

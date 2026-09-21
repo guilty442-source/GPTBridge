@@ -53,36 +53,38 @@ LOG_DIR = ROOT / "main-system" / "runtime" / "logs"
 
 # Fixed-period background work inventory (source constants, §10.63 measure
 # 3 target: <= 6 entries). Each entry: name, nominal interval, source.
+#
+# R3 consolidation (2026-09-21): coordinator / idle-memory / daily-cleaner /
+# git sweep+sync all ride the shared PeriodicScheduler; the hot-reload
+# health monitor folded into the watcher loop; the state outbox and the
+# Xingcheng auto-loop are event/deadline-driven (not fixed polls); the
+# 2 s status push degrades to 60 s when no UI shell is connected.
+# Per-connection heartbeat tasks and local-model-resident loops are not
+# global backend jobs and are listed separately below.
 PERIODIC_JOBS = [
-    {"name": "git commit sweep", "interval_s": 60.0,
-     "source": "tasks/git_automation.py:41"},
-    {"name": "git sync cycle", "interval_s": 300.0,
-     "source": "tasks/git_automation.py:42"},
-    {"name": "model service activation (idle)", "interval_s": 5.0,
+    {"name": "periodic scheduler loop "
+             "(coordinator 60s / memory 900s / cleaner 300s / git 60s+300s)",
+     "interval_s": 15.0,
+     "source": "tasks/periodic_scheduler.py"},
+    {"name": "model service activation (adaptive)", "interval_s": 5.0,
      "source": "tasks/model_service_activation.py:45"},
-    {"name": "model service activation (pending)", "interval_s": 1.0,
-     "source": "tasks/model_service_activation.py:46"},
     {"name": "connection watchdog probe (backoff max)", "interval_s": 60.0,
      "source": "tasks/connection_watchdog.py:130"},
-    {"name": "hot reload watcher poll (max)", "interval_s": 60.0,
-     "source": "tasks/hot_reload_watcher.py:72"},
-    {"name": "state outbox retry", "interval_s": 2.0,
-     "source": "tasks/state_outbox_store.py:36"},
-    {"name": "system automation coordinator", "interval_s": 60.0,
-     "source": "core_system/system_automation_coordinator_constants.py:6"},
-    {"name": "resource maintenance", "interval_s": 900.0,
-     "source": "core_system/resource_maintenance.py:13"},
-    {"name": "daily global cleaner", "interval_s": 86400.0,
-     "source": "core_system/daily_global_cleaner_service.py:32"},
-    {"name": "ipc heartbeat", "interval_s": 5.0,
-     "source": "ipc/server_handler_helpers.py:32"},
-    {"name": "maintenance retry", "interval_s": 60.0,
-     "source": "core_system/maintenance_retry_policy.py:32"},
-    {"name": "xingcheng self-maintenance", "interval_s": 300.0,
-     "source": "xingcheng/application/service.py:173"},
-    {"name": "auto-release check", "interval_s": 60.0,
-     "source": "native_transformer/execution/auto_release.py:23"},
+    {"name": "hot reload watcher poll (max, health folded in)",
+     "interval_s": 60.0,
+     "source": "tasks/hot_reload_watcher.py"},
+    {"name": "runtime status push (2s active / 60s idle)", "interval_s": 60.0,
+     "source": "ipc/server_handler.py:321"},
+    {"name": "system runtime sovereign autonomy", "interval_s": 5.0,
+     "source": "governance/sovereigns/system_runtime_sovereign.py:94"},
 ]
+
+# Event/deadline-driven (no fixed period) — excluded from the fixed count:
+#   state outbox publisher (wake event + retry deadlines)
+#   xingcheng auto-loop (fault/example wake + 60 s minimum cadence)
+#   ipc heartbeat (per-connection task, exists only while a UI connects)
+#   local-model resident loops (self-maintenance / auto-release) run inside
+#   the local-model process, not this backend.
 
 TARGETS = {
     "resident_rss_p95_mb": 220.0,

@@ -29,6 +29,7 @@ from .self_learning import (
     SNAPSHOT_RELATIVE,
     SelfLearningPolicy,
     _iso_now,
+    training_window_status,
     collect_verified_examples,
     load_policy,
     load_state,
@@ -99,6 +100,17 @@ def run_cycle_impl(
         return {
             "ok": True,
             "action": "disabled",
+            "policy": resolved_policy.to_dict(),
+            "checked_at": _iso_now(),
+        }
+
+    window = training_window_status(resolved_policy)
+    if not window["allowed"]:
+        return {
+            "ok": True,
+            "action": "blocked",
+            "reason": window["reason"],
+            "training_window": window,
             "policy": resolved_policy.to_dict(),
             "checked_at": _iso_now(),
         }

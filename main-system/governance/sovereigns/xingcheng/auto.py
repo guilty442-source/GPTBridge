@@ -17,10 +17,15 @@ from .codex_drift import DRIFT_CHECK_EVERY_CYCLES
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng.auto")
 
-# Maintenance (sqlite quick_check / cache prune / config validation) runs every
-# Nth auto-loop cycle instead of every cycle — it is idempotent housekeeping,
-# not per-cycle observation, and running it every 10s only burns I/O.
-_MANAGE_EVERY_CYCLES = 30
+# Maintenance (sqlite quick_check / cache prune / config validation) runs on a
+# wall-clock gate instead of every cycle — it is idempotent housekeeping, not
+# per-cycle observation. The gate preserves the former 30-cycle × 10s cadence.
+_MANAGE_MIN_INTERVAL_SECONDS = 30 * 10.0
+# Drift review preserves the former DRIFT_CHECK_EVERY_CYCLES × 10s cadence.
+_DRIFT_MIN_INTERVAL_SECONDS = DRIFT_CHECK_EVERY_CYCLES * 10.0
+# §10.63 R3: the auto-loop is event-driven with a 60s minimum cadence — new
+# faults/examples wake it early; idle polling at 10s is retired.
+_AUTO_LOOP_MIN_INTERVAL_SECONDS = 60.0
 
 # 星澄的模型與人格升級屬於 owned-domain 內部生命週期，不受星澄助理的
 # system update release switch 控制。該開關只控制主系統更新流程。
@@ -42,7 +47,10 @@ class XingchengAutoMixin:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._auto_loop_task = None
-        self._auto_loop_interval = 10.0
+        self._auto_loop_interval = _AUTO_LOOP_MIN_INTERVAL_SECONDS
+        self._auto_wake: asyncio.Event | None = None
+        self._last_manage_at = 0.0
+        self._last_drift_at = 0.0
         self._auto_enabled = True
         self._auto_metrics = {
             "observe_cycles": 0, "analyze_cycles": 0, "reason_cycles": 0,
@@ -70,6 +78,7 @@ class XingchengAutoMixin:
         The fault is not converted into a user-confirmation message.
         """
         self._auto_metrics["internal_fault_notifications"] += 1
+        self.request_auto_cycle("internal-fault")
         decision_sovereign = getattr(self.app, "decision_sovereign", None)
         route = getattr(decision_sovereign, "decide_and_route_repair", None)
         if not callable(route):
@@ -129,11 +138,18 @@ class XingchengAutoMixin:
             self.verified_basis("A20"),
         )
 
+    def request_auto_cycle(self, reason: str = "") -> None:
+        """Event-driven wake (§10.63 R3): new faults/examples run a cycle
+        early; without events the loop holds the 60s minimum cadence."""
+        if self._auto_wake is not None:
+            self._auto_wake.set()
+
     async def start_auto_loop(self) -> None:
         """Start the background auto-loop (A20 full-automation)."""
         if self._auto_loop_task is not None and not self._auto_loop_task.done():
             return
         self._auto_enabled = True
+        self._auto_wake = asyncio.Event()
         self._auto_loop_task = asyncio.create_task(
             self._auto_loop(),
             name="xingcheng-auto-loop",
@@ -143,6 +159,8 @@ class XingchengAutoMixin:
     async def stop_auto_loop(self) -> None:
         """Stop the auto-loop."""
         self._auto_enabled = False
+        if self._auto_wake is not None:
+            self._auto_wake.set()
         if self._auto_loop_task is not None:
             self._auto_loop_task.cancel()
             try:
@@ -156,8 +174,14 @@ class XingchengAutoMixin:
         """Background auto-loop: observe -> analyze -> reason -> manage."""
         # Batch size for anomaly processing
         batch_size = 10
+        # Wall-clock gates preserve the former cycle-count cadences and keep
+        # them correct under event-driven early wakes.
+        self._last_manage_at = time.monotonic()
+        self._last_drift_at = time.monotonic()
         while self._auto_enabled:
             cycle_start = time.monotonic()
+            if self._auto_wake is not None:
+                self._auto_wake.clear()
             try:
                 # A485 commanded learning: retry the parent command until
                 # the learning child is materialized/started (startup order
@@ -166,12 +190,13 @@ class XingchengAutoMixin:
                     await self.ensure_learning_automation()
 
                 # Observe -> analyze -> manage: synchronous FS/sqlite work runs
-                # off the event loop; maintenance is decimated to every
-                # _MANAGE_EVERY_CYCLES cycles.
-                self._manage_cycle_counter += 1
-                manage_due = self._manage_cycle_counter >= _MANAGE_EVERY_CYCLES
+                # off the event loop; maintenance runs on a wall-clock gate.
+                manage_due = (
+                    time.monotonic() - self._last_manage_at
+                    >= _MANAGE_MIN_INTERVAL_SECONDS
+                )
                 if manage_due:
-                    self._manage_cycle_counter = 0
+                    self._last_manage_at = time.monotonic()
                 snapshot, anomalies, actions = await asyncio.to_thread(
                     self._domain_cycle, manage_due
                 )
@@ -195,12 +220,20 @@ class XingchengAutoMixin:
             except Exception as e:
                 _logger.warning("Xingcheng auto-loop error: %s", e)
 
-            # Adaptive sleep based on cycle duration
+            # Event-driven wait: sleep until the 60s minimum cadence expires
+            # or an event (fault/example/anomaly) requests an early cycle.
             cycle_duration = time.monotonic() - cycle_start
             sleep_time = max(0.1, self._auto_loop_interval - cycle_duration)
 
             try:
-                await asyncio.sleep(sleep_time)
+                if self._auto_wake is not None:
+                    await asyncio.wait_for(
+                        self._auto_wake.wait(), timeout=sleep_time
+                    )
+                else:
+                    await asyncio.sleep(sleep_time)
+            except asyncio.TimeoutError:
+                pass
             except asyncio.CancelledError:
                 break
 
@@ -217,10 +250,12 @@ class XingchengAutoMixin:
 
     async def _run_drift_review(self) -> None:
         """Periodic codex-vs-implementation drift review (A145, advisory)."""
-        self._drift_cycle_counter += 1
-        if self._drift_cycle_counter < DRIFT_CHECK_EVERY_CYCLES:
+        if (
+            time.monotonic() - self._last_drift_at
+            < _DRIFT_MIN_INTERVAL_SECONDS
+        ):
             return
-        self._drift_cycle_counter = 0
+        self._last_drift_at = time.monotonic()
         report = await asyncio.to_thread(self.run_codex_drift_check)
         self._auto_metrics["drift_checks"] = (
             self._auto_metrics.get("drift_checks", 0) + 1

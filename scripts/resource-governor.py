@@ -48,18 +48,21 @@ LOGO_NAME: Final[str] = "GPTBridge-ResourceGovernor"
 LOGO_HIVE: Final[str] = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 DEFAULT_INTERVAL: Final[float] = 20.0
-CPU_BUSY_PCT: Final[float] = 50.0
-CPU_EXTREME_PCT: Final[float] = 150.0
-CPU_CALM_PCT: Final[float] = 15.0
+# User policy: autonomous workloads must yield above 10% per-process CPU.
+CPU_BUSY_PCT: Final[float] = 10.0
+CPU_EXTREME_PCT: Final[float] = 20.0
+CPU_CALM_PCT: Final[float] = 5.0
 SUSTAIN_SAMPLES: Final[int] = 3
 EXTREME_SAMPLES: Final[int] = 6
 CALM_SAMPLES: Final[int] = 15
 MEM_TRIM_MB: Final[float] = 1500.0
-# 全域資源上限（使用者約束：CPU/RAM 僅 80%）
-GLOBAL_CPU_LIMIT_PCT: Final[float] = 80.0
+# 全域資源上限（使用者約束：CPU 10%／RAM 80%）。CPU limit is
+# enforced by sustained priority/affinity throttling; Windows scheduling is
+# not a hard wall-clock quota for arbitrary user processes.
+GLOBAL_CPU_LIMIT_PCT: Final[float] = 10.0
 GLOBAL_RAM_LIMIT_PCT: Final[float] = 80.0
 TRIM_COOLDOWN_SECONDS: Final[float] = 300.0
-AFFINITY_MIN_CPUS: Final[int] = 4
+AFFINITY_MIN_CPUS: Final[int] = 1
 
 PROCESS_ATTRS: Final[list[str]] = ["pid", "name", "exe", "username", "memory_info"]
 
@@ -227,8 +230,15 @@ def govern_once(
     username = me.username()
     self_tree = _self_tree()
     logical = os.cpu_count() or 1
-    half = max(AFFINITY_MIN_CPUS, logical // 2)
-    cap_affinity = list(range(min(half, logical)))
+    # Windows user processes do not expose a universal hard global CPU quota
+    # without Job Objects.  Bound sustained offenders to approximately the
+    # requested global share instead; priority throttling remains the first
+    # action and protected/system processes are excluded.
+    cap_count = max(
+        AFFINITY_MIN_CPUS,
+        int((logical * GLOBAL_CPU_LIMIT_PCT + 99.0) // 100.0),
+    )
+    cap_affinity = list(range(min(cap_count, logical)))
 
     actions: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
@@ -624,7 +634,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--install-logon", action="store_true", help="register a per-user logon Run key")
     parser.add_argument("--uninstall-logon", action="store_true", help="remove the per-user logon Run key")
     parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL, help="cycle seconds (default 20)")
-    parser.add_argument("--cpu-busy", type=float, default=CPU_BUSY_PCT, help="busy CPU %% of one core (default 50)")
+    parser.add_argument("--cpu-busy", type=float, default=CPU_BUSY_PCT, help="busy CPU %% of one core (default 10)")
     parser.add_argument("--cpu-extreme", type=float, default=CPU_EXTREME_PCT, help="extreme CPU %% of one core (default 150)")
     parser.add_argument("--mem-trim-mb", type=float, default=MEM_TRIM_MB, help="working-set trim threshold MB (default 1500)")
     parser.add_argument("--sustain", type=int, default=SUSTAIN_SAMPLES, help="busy samples before priority drop (default 3)")

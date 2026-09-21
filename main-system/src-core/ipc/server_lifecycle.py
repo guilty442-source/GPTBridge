@@ -244,10 +244,21 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                         await notifier.maybe_notify()
                     except Exception:
                         pass
-                memory_task = asyncio.create_task(
-                    memory_maintainer.run(shutdown_event),
-                    name="main-system-idle-memory-maintenance",
-                )
+                # §10.63 R3: idle-memory maintenance rides the shared
+                # PeriodicScheduler instead of a private task.
+                _periodic = getattr(app_instance, "periodic_scheduler", None)
+                if _periodic is not None and memory_maintainer is not None:
+                    _periodic.register(
+                        "idle-memory-maintenance",
+                        memory_maintainer.interval_seconds,
+                        memory_maintainer.tick,
+                    )
+                    memory_task = None
+                else:
+                    memory_task = asyncio.create_task(
+                        memory_maintainer.run(shutdown_event),
+                        name="main-system-idle-memory-maintenance",
+                    )
                 status_push_task = asyncio.create_task(
                     _runtime_status_push_loop(app_instance, shutdown_event),
                     name="main-system-runtime-status-push",
@@ -298,6 +309,9 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
     except KeyboardInterrupt:
         print("Stopping IPC server...")
     finally:
+        _periodic = getattr(app_instance, "periodic_scheduler", None)
+        if _periodic is not None:
+            _periodic.unregister("idle-memory-maintenance")
         if memory_maintainer is not None:
             await memory_maintainer.stop(memory_task)
         await app_instance.shutdown()

@@ -189,6 +189,16 @@ class GPTBridgeAppShutdownMixin:
 
         self._command_tasks.clear()  # type: ignore[attr-defined]
         self._command_task_meta.clear()  # type: ignore[attr-defined]
+
+        # §10.63 R3: stop the shared periodic loop last — all consumers
+        # (coordinator/cleaner/memory maintainer) have unregistered above.
+        periodic_scheduler = getattr(self, "periodic_scheduler", None)
+        if periodic_scheduler is not None:
+            try:
+                await periodic_scheduler.stop()
+            except Exception:
+                pass
+
         await self.runtime_bootstrap.shutdown()  # type: ignore[attr-defined]
         if self.governance is not None:  # type: ignore[attr-defined]
             self.governance.close()  # type: ignore[attr-defined]

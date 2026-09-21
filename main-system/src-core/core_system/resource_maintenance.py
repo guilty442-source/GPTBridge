@@ -76,12 +76,17 @@ class IdleMemoryMaintainer:
                 break
             except asyncio.TimeoutError:
                 pass
-            if self.is_busy():
-                self.mark_activity()
-                continue
-            if time.monotonic() - self.last_activity < self.minimum_idle_seconds:
-                continue
-            self.last_result = await asyncio.to_thread(self.release)
+            await self.tick()
+
+    async def tick(self) -> None:
+        """One idle-gated maintenance iteration (§10.63 R3: also used as a
+        PeriodicScheduler job — one shared loop instead of a private task)."""
+        if self.is_busy():
+            self.mark_activity()
+            return
+        if time.monotonic() - self.last_activity < self.minimum_idle_seconds:
+            return
+        self.last_result = await asyncio.to_thread(self.release)
 
     @staticmethod
     async def stop(task: asyncio.Task[Any] | None) -> None:
