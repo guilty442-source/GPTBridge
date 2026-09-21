@@ -18,14 +18,14 @@
  * dependency (/arch:AVX512) while keeping the fallback scalar path. */
 #if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__) || defined(__AVX512F__) || defined(__AVX2__)
 #include <immintrin.h>
-#define GPTBRIDGE_SIMD_AVX512 1
-#define GPTBRIDGE_SIMD_AVX2 1
+#define GPTBRIDGE_HAVE_AVX512 1
+#define GPTBRIDGE_HAVE_AVX2 1
 #elif defined(__AVX512F__) && defined(__AVX512VL__) && defined(__AVX512DQ__)
 #include <immintrin.h>
-#define GPTBRIDGE_SIMD_AVX512 1
+#define GPTBRIDGE_HAVE_AVX512 1
 #elif defined(__AVX2__)
 #include <immintrin.h>
-#define GPTBRIDGE_SIMD_AVX2 1
+#define GPTBRIDGE_HAVE_AVX2 1
 #endif
 
 /* ------------------------------------------------------------------
@@ -128,7 +128,7 @@ static double row_max(const double* row, int64_t cols) {
     double max_val = row[0];
 
     if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_SIMD_AVX512
+#ifdef GPTBRIDGE_HAVE_AVX512
         __m512d vmax = _mm512_set1_pd(max_val);
         for (; c + 8 <= cols; c += 8) {
             __m512d v = _mm512_loadu_pd(row + c);
@@ -143,7 +143,7 @@ static double row_max(const double* row, int64_t cols) {
         for (; c < cols; ++c) if (row[c] > max_val) max_val = row[c];
 #endif
     } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_SIMD_AVX2
+#ifdef GPTBRIDGE_HAVE_AVX2
         __m256d vmax = _mm256_set1_pd(max_val);
         for (; c + 4 <= cols; c += 4) {
             __m256d v = _mm256_loadu_pd(row + c);
@@ -171,7 +171,7 @@ static double row_exp_sum(const double* row, int64_t cols, double max_val, doubl
     double sum_exp = 0.0;
 
     if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_SIMD_AVX512
+#ifdef GPTBRIDGE_HAVE_AVX512
         for (; c + 8 <= cols; c += 8) {
             __m512d v = _mm512_loadu_pd(row + c);
             double tmp[8];
@@ -190,7 +190,7 @@ static double row_exp_sum(const double* row, int64_t cols, double max_val, doubl
         }
 #endif
     } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_SIMD_AVX2
+#ifdef GPTBRIDGE_HAVE_AVX2
         for (; c + 4 <= cols; c += 4) {
             __m256d v = _mm256_loadu_pd(row + c);
             double tmp[4];
@@ -222,7 +222,7 @@ static void row_scale(double* row, int64_t cols, double scale) {
     int64_t c = 0;
 
     if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_SIMD_AVX512
+#ifdef GPTBRIDGE_HAVE_AVX512
         __m512d vscale = _mm512_set1_pd(scale);
         for (; c + 8 <= cols; c += 8) {
             __m512d v = _mm512_loadu_pd(row + c);
@@ -233,7 +233,7 @@ static void row_scale(double* row, int64_t cols, double scale) {
         for (; c < cols; ++c) row[c] *= scale;
 #endif
     } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_SIMD_AVX2
+#ifdef GPTBRIDGE_HAVE_AVX2
         __m256d vscale = _mm256_set1_pd(scale);
         for (; c + 4 <= cols; c += 4) {
             __m256d v = _mm256_loadu_pd(row + c);
@@ -278,7 +278,7 @@ int gptbridge_native_transformer_matmul(
         for (j = 0; j < n; ++j) c_row[j] = 0.0;
 
         if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_SIMD_AVX512
+#ifdef GPTBRIDGE_HAVE_AVX512
             for (p = 0; p < k; ++p) {
                 const double a_val = a_row[p];
                 const double* b_row = b + p * n;
@@ -301,7 +301,7 @@ int gptbridge_native_transformer_matmul(
             }
 #endif
         } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_SIMD_AVX2
+#ifdef GPTBRIDGE_HAVE_AVX2
             for (p = 0; p < k; ++p) {
                 const double a_val = a_row[p];
                 const double* b_row = b + p * n;
@@ -425,7 +425,7 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
             double dot_val = 0.0;
 
             if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_SIMD_AVX512
+#ifdef GPTBRIDGE_HAVE_AVX512
                 __m512d acc = _mm512_setzero_pd();
                 int64_t d8 = 0;
                 for (; d8 + 8 <= d_k; d8 += 8) {
@@ -440,7 +440,7 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
                 for (d = 0; d < d_k; ++d) dot_val += q_row[d] * k_row[d];
 #endif
             } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_SIMD_AVX2
+#ifdef GPTBRIDGE_HAVE_AVX2
                 __m256d acc = _mm256_setzero_pd();
                 int64_t d4 = 0;
                 for (; d4 + 4 <= d_k; d4 += 4) {
@@ -484,7 +484,7 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
             const double* v_row = v;
 
             if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_SIMD_AVX512
+#ifdef GPTBRIDGE_HAVE_AVX512
                 __m512d wv = _mm512_set1_pd(w);
                 int64_t d8 = 0;
                 for (; d8 + 8 <= d_v; d8 += 8) {
@@ -497,7 +497,7 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
                 for (d = 0; d < d_v; ++d) out_row[d] = w * v_row[d];
 #endif
             } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_SIMD_AVX2
+#ifdef GPTBRIDGE_HAVE_AVX2
                 __m256d wv = _mm256_set1_pd(w);
                 int64_t d4 = 0;
                 for (; d4 + 4 <= d_v; d4 += 4) {
@@ -518,7 +518,7 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
             const double* v_row = v + j * d_v;
 
             if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_SIMD_AVX512
+#ifdef GPTBRIDGE_HAVE_AVX512
                 __m512d wv = _mm512_set1_pd(w);
                 int64_t d8 = 0;
                 for (; d8 + 8 <= d_v; d8 += 8) {
@@ -532,7 +532,7 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
                 for (d = 0; d < d_v; ++d) out_row[d] += w * v_row[d];
 #endif
             } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_SIMD_AVX2
+#ifdef GPTBRIDGE_HAVE_AVX2
                 __m256d wv = _mm256_set1_pd(w);
                 int64_t d4 = 0;
                 for (; d4 + 4 <= d_v; d4 += 4) {

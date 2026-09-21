@@ -92,7 +92,7 @@ double gptbridge_native_vector_dot(
 
     const gptbridge_vec_level simd = gptbridge_vector_simd_level();
     if (simd == GPTBRIDGE_VEC_AVX512) {
-#ifdef GPTBRIDGE_SIMD_AVX512
+#ifdef GPTBRIDGE_HAVE_AVX512
         __m512d acc = _mm512_setzero_pd();
         int64_t i = 0;
         for (; i + 8 <= dim; i += 8) {
@@ -107,7 +107,7 @@ double gptbridge_native_vector_dot(
 #endif
     }
     if (simd == GPTBRIDGE_VEC_AVX2) {
-#ifdef GPTBRIDGE_SIMD_AVX2
+#ifdef GPTBRIDGE_HAVE_AVX2
         __m256d acc = _mm256_setzero_pd();
         int64_t i = 0;
         for (; i + 4 <= dim; i += 4) {
@@ -140,22 +140,39 @@ double gptbridge_native_vector_dot(
 
 double gptbridge_native_vector_l2_norm(const double* a, int64_t dim) {
     if (a == NULL || dim <= 0) return 0.0;
-#ifdef GPTBRIDGE_SIMD_AVX2
-    __m256d acc = _mm256_setzero_pd();
-    int64_t i = 0;
-    for (; i + 4 <= dim; i += 4) {
-        __m256d v = _mm256_loadu_pd(a + i);
-#if defined(__FMA__)
-        acc = _mm256_fmadd_pd(v, v, acc);
-#else
-        acc = _mm256_add_pd(acc, _mm256_mul_pd(v, v));
+    const gptbridge_vec_level simd = gptbridge_vector_simd_level();
+    if (simd == GPTBRIDGE_VEC_AVX512) {
+#ifdef GPTBRIDGE_HAVE_AVX512
+        __m512d acc = _mm512_setzero_pd();
+        int64_t i = 0;
+        for (; i + 8 <= dim; i += 8) {
+            __m512d v = _mm512_loadu_pd(a + i);
+            acc = _mm512_fmadd_pd(v, v, acc);
+        }
+        double tmp[8]; _mm512_storeu_pd(tmp, acc);
+        double sum = tmp[0]+tmp[1]+tmp[2]+tmp[3]+tmp[4]+tmp[5]+tmp[6]+tmp[7];
+        for (; i < dim; ++i) sum += a[i] * a[i];
+        return sqrt(sum);
 #endif
     }
-    double tmp[4]; _mm256_storeu_pd(tmp, acc);
-    double sum = tmp[0] + tmp[1] + tmp[2] + tmp[3];
-    for (; i < dim; ++i) sum += a[i] * a[i];
-    return sqrt(sum);
+    if (simd == GPTBRIDGE_VEC_AVX2) {
+#ifdef GPTBRIDGE_HAVE_AVX2
+        __m256d acc = _mm256_setzero_pd();
+        int64_t i = 0;
+        for (; i + 4 <= dim; i += 4) {
+            __m256d v = _mm256_loadu_pd(a + i);
+#if defined(__FMA__)
+            acc = _mm256_fmadd_pd(v, v, acc);
 #else
+            acc = _mm256_add_pd(acc, _mm256_mul_pd(v, v));
+#endif
+        }
+        double tmp[4]; _mm256_storeu_pd(tmp, acc);
+        double sum = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+        for (; i < dim; ++i) sum += a[i] * a[i];
+        return sqrt(sum);
+#endif
+    }
     double acc0 = 0.0, acc1 = 0.0, acc2 = 0.0, acc3 = 0.0;
     int64_t i = 0;
     for (; i + 4 <= dim; i += 4) {
@@ -164,32 +181,56 @@ double gptbridge_native_vector_l2_norm(const double* a, int64_t dim) {
     }
     for (; i < dim; ++i) acc0 += a[i] * a[i];
     return sqrt((acc0 + acc1) + (acc2 + acc3));
-#endif
 }
 
 double gptbridge_native_vector_cosine_similarity(
     const double* a, const double* b, int64_t dim) {
     if (a == NULL || b == NULL || dim <= 0) return 0.0;
-#ifdef GPTBRIDGE_SIMD_AVX2
-    __m256d dot = _mm256_setzero_pd(), na = _mm256_setzero_pd(), nb = _mm256_setzero_pd();
-    int64_t i = 0;
-    for (; i + 4 <= dim; i += 4) {
-        __m256d va = _mm256_loadu_pd(a + i), vb = _mm256_loadu_pd(b + i);
-#if defined(__FMA__)
-        dot = _mm256_fmadd_pd(va, vb, dot);
-        na = _mm256_fmadd_pd(va, va, na);
-        nb = _mm256_fmadd_pd(vb, vb, nb);
-#else
-        dot = _mm256_add_pd(dot, _mm256_mul_pd(va, vb));
-        na = _mm256_add_pd(na, _mm256_mul_pd(va, va));
-        nb = _mm256_add_pd(nb, _mm256_mul_pd(vb, vb));
+    const gptbridge_vec_level simd = gptbridge_vector_simd_level();
+    if (simd == GPTBRIDGE_VEC_AVX512) {
+#ifdef GPTBRIDGE_HAVE_AVX512
+        __m512d dot = _mm512_setzero_pd(), na = _mm512_setzero_pd(), nb = _mm512_setzero_pd();
+        int64_t i = 0;
+        for (; i + 8 <= dim; i += 8) {
+            __m512d va = _mm512_loadu_pd(a + i), vb = _mm512_loadu_pd(b + i);
+            dot = _mm512_fmadd_pd(va, vb, dot);
+            na = _mm512_fmadd_pd(va, va, na);
+            nb = _mm512_fmadd_pd(vb, vb, nb);
+        }
+        double td[8], ta[8], tb[8]; _mm512_storeu_pd(td, dot); _mm512_storeu_pd(ta, na); _mm512_storeu_pd(tb, nb);
+        double dot_val = td[0]+td[1]+td[2]+td[3]+td[4]+td[5]+td[6]+td[7];
+        double na_val = ta[0]+ta[1]+ta[2]+ta[3]+ta[4]+ta[5]+ta[6]+ta[7];
+        double nb_val = tb[0]+tb[1]+tb[2]+tb[3]+tb[4]+tb[5]+tb[6]+tb[7];
+        for (; i < dim; ++i) { double va=a[i], vb=b[i]; dot_val+=va*vb; na_val+=va*va; nb_val+=vb*vb; }
+        double norm_a = sqrt(na_val), norm_b = sqrt(nb_val);
+        if (norm_a == 0.0 || norm_b == 0.0) return 0.0;
+        return dot_val / (norm_a * norm_b);
 #endif
     }
-    double td[4], ta[4], tb[4]; _mm256_storeu_pd(td, dot); _mm256_storeu_pd(ta, na); _mm256_storeu_pd(tb, nb);
-    double dot_val = td[0]+td[1]+td[2]+td[3], na_val = ta[0]+ta[1]+ta[2]+ta[3], nb_val = tb[0]+tb[1]+tb[2]+tb[3];
-    for (; i < dim; ++i) { double va=a[i], vb=b[i]; dot_val+=va*vb; na_val+=va*va; nb_val+=vb*vb; }
-    double norm_a = sqrt(na_val), norm_b = sqrt(nb_val);
+    if (simd == GPTBRIDGE_VEC_AVX2) {
+#ifdef GPTBRIDGE_HAVE_AVX2
+        __m256d dot = _mm256_setzero_pd(), na = _mm256_setzero_pd(), nb = _mm256_setzero_pd();
+        int64_t i = 0;
+        for (; i + 4 <= dim; i += 4) {
+            __m256d va = _mm256_loadu_pd(a + i), vb = _mm256_loadu_pd(b + i);
+#if defined(__FMA__)
+            dot = _mm256_fmadd_pd(va, vb, dot);
+            na = _mm256_fmadd_pd(va, va, na);
+            nb = _mm256_fmadd_pd(vb, vb, nb);
 #else
+            dot = _mm256_add_pd(dot, _mm256_mul_pd(va, vb));
+            na = _mm256_add_pd(na, _mm256_mul_pd(va, va));
+            nb = _mm256_add_pd(nb, _mm256_mul_pd(vb, vb));
+#endif
+        }
+        double td[4], ta[4], tb[4]; _mm256_storeu_pd(td, dot); _mm256_storeu_pd(ta, na); _mm256_storeu_pd(tb, nb);
+        double dot_val = td[0]+td[1]+td[2]+td[3], na_val = ta[0]+ta[1]+ta[2]+ta[3], nb_val = tb[0]+tb[1]+tb[2]+tb[3];
+        for (; i < dim; ++i) { double va=a[i], vb=b[i]; dot_val+=va*vb; na_val+=va*va; nb_val+=vb*vb; }
+        double norm_a = sqrt(na_val), norm_b = sqrt(nb_val);
+        if (norm_a == 0.0 || norm_b == 0.0) return 0.0;
+        return dot_val / (norm_a * norm_b);
+#endif
+    }
     double dot0 = 0.0, dot1 = 0.0, dot2 = 0.0, dot3 = 0.0;
     double na0 = 0.0, na1 = 0.0, na2 = 0.0, na3 = 0.0;
     double nb0 = 0.0, nb1 = 0.0, nb2 = 0.0, nb3 = 0.0;
@@ -206,12 +247,7 @@ double gptbridge_native_vector_cosine_similarity(
     dot_val = (dot0 + dot1) + (dot2 + dot3);
     norm_a = sqrt((na0 + na1) + (na2 + na3));
     norm_b = sqrt((nb0 + nb1) + (nb2 + nb3));
-#endif
-
-    if (norm_a == 0.0 || norm_b == 0.0) {
-        return 0.0;
-    }
-
+    if (norm_a == 0.0 || norm_b == 0.0) return 0.0;
     return dot_val / (norm_a * norm_b);
 }
 
