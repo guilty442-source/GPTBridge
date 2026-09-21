@@ -87,9 +87,10 @@
     {
       "component": "business-logic-csharp",
       "class": "RELEASE_CODE",
-      "project": "Standalone tools/business-logic-csharp/StarBusinessLogic/StarBusinessLogic.csproj",
+      "project": "Standalone tools/business-logic-csharp/StarBusinessHost/StarBusinessHost.csproj",
+      "library_project": "Standalone tools/business-logic-csharp/StarBusinessLogic/StarBusinessLogic.csproj",
       "target_framework": "net8.0",
-      "release_output": "Standalone tools/business-logic-csharp/StarBusinessLogic/bin/Release/net8.0",
+      "release_output": "Standalone tools/business-logic-csharp/StarBusinessHost/bin/Release/net8.0",
       "contract": "star-model-service/v1",
       "lifecycle_owner": "local-model/channel_runtime.py",
       "consumer_role": "csharp-orchestrator-client-only",
