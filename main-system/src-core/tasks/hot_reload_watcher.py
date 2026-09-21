@@ -60,6 +60,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         self._enabled = False
         self._snapshot: dict[str, float] = {}
         self._pending: dict[str, float] = {}
+        self._scan_tree_cache: dict[str, tuple[tuple[tuple[str, int], ...], tuple[str, ...]]] = {}
         self._in_flight = False
         self._last_reload_at = 0.0
         self._backoff_until = 0.0
@@ -126,6 +127,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         # Clear pending state
         self._pending.clear()
         self._snapshot.clear()
+        self._scan_tree_cache.clear()
 
         _logger.info("HotReloadWatcher stopped gracefully")
 
@@ -137,16 +139,34 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             if root.is_dir():
                 self._roots.append(root)
 
+    @staticmethod
+    def _directory_signature(root: Path) -> tuple[tuple[str, int], ...]:
+        signature: list[tuple[str, int]] = []
+        for directory, _names, _files in os.walk(root):
+            try:
+                signature.append((directory, Path(directory).stat().st_mtime_ns))
+            except OSError:
+                continue
+        return tuple(sorted(signature))
+
     def _scan(self) -> dict[str, float]:
         found: dict[str, float] = {}
         for root in self._roots:
             try:
-                for path in root.rglob("*.py"):
+                key = str(root)
+                signature = self._directory_signature(root)
+                cached = self._scan_tree_cache.get(key)
+                if cached is not None and cached[0] == signature:
+                    paths = cached[1]
+                else:
+                    paths = tuple(str(path) for path in root.rglob("*.py"))
+                    self._scan_tree_cache[key] = (signature, paths)
+                for path_string in paths:
                     try:
-                        stat = path.stat()
+                        stat = Path(path_string).stat()
                     except OSError:
                         continue
-                    found[str(path)] = stat.st_mtime
+                    found[path_string] = stat.st_mtime
             except OSError:
                 continue
         return found
