@@ -1,0 +1,48 @@
+{
+  "surface_id": "ipc-backend-surface",
+  "boundaries": {
+    "main_to_backend": {
+      "commands": [
+        "heartbeat_pong",
+        "state_event_ack",
+        "state_event_hello",
+        "state_event_resync",
+        "task_recovery_decision"
+      ],
+      "events": [
+        "result_event_for_command:<command>_result",
+        "state_event_ack",
+        "state_event_hello",
+        "state_event_resync",
+        "state_event_resync_result",
+        "state_event_session"
+      ]
+    }
+  },
+  "requires": {
+    "commands": {
+      "heartbeat_pong": 1,
+      "state_event_ack": 1,
+      "state_event_hello": 1,
+      "state_event_resync": 1,
+      "task_recovery_decision": 1
+    },
+    "events": {
+      "state_event_ack": 1,
+      "state_event_hello": 1,
+      "state_event_resync": 1,
+      "state_event_resync_result": 1,
+      "state_event_session": 1
+    },
+    "error_codes": [
+      "COMMAND_RECEIVED"
+    ],
+    "features": {
+      "cancellation": 1,
+      "streaming": 1,
+      "connection_state": 1,
+      "error_codes": 1
+    }
+  },
+  "surface_version": "d23c8d95b3481375b3d9d596f3ad08d6ecf387cb6741045dcbb177aa0ed5095d"
+}
