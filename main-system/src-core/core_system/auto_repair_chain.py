@@ -36,6 +36,7 @@ from core_system.auto_repair_chain_decision import RepairObjectiveAssigner
 from core_system.auto_repair_chain_executor import GovernedExecutor
 from core_system.auto_repair_chain_health import MaintenanceHealthClassifier
 from core_system.auto_repair_chain_learning import RepairLearningStore
+from core_system.maintenance_retry_policy import MaintenanceRetryPolicy
 from core_system.auto_repair_chain_permission import RepairPermissionValidator
 from core_system.auto_repair_chain_types import (
     GovernanceAudit,
@@ -78,6 +79,12 @@ class AutoRepairOrchestrator:
         self.executor = GovernedExecutor(project_root, self.audit)
         self.verifier = IndependentVerifier(project_root, self.audit)
         self.learning_store = RepairLearningStore(self.repair_root, self.audit)
+        # G49/§10.4: bounded retry + cooldown — a fault may not re-trigger
+        # repairs indefinitely; budget exhaustion escalates instead.
+        self.retry_policy = MaintenanceRetryPolicy(
+            project_root / "main-system" / "runtime" / "state"
+            / "maintenance-retry-policy.json"
+        )
 
     def process_health_signal(
         self,
@@ -103,6 +110,24 @@ class AutoRepairOrchestrator:
 
         if objective is None:
             return {"stage": "repair_decision", "result": "no_repair_needed", "classification": classification}
+
+        # Stage 2.5 (§10.4): bounded retry + cooldown gate — prevents a fault
+        # from re-triggering repairs faster than the budget allows.
+        fault_code = str(signal.evidence.get("fault_code", "UNKNOWN"))
+        decision = self.retry_policy.check(fault_code)
+        if not decision.allowed:
+            return {
+                "stage": "retry_policy",
+                "result": "blocked",
+                "reason": decision.reason,
+                "retry_after_s": decision.retry_after_s,
+                "escalated": decision.escalated,
+                "objective": asdict(objective),
+            }
+        self.retry_policy.record_attempt(
+            fault_code,
+            pre_state={"overall_state": classification["overall_state"].value},
+        )
 
         # Stage 3: Permission Validation (permission-sovereign)
         grant = self.permission_sovereign.validate_and_grant(objective, actor)
@@ -150,6 +175,11 @@ class AutoRepairOrchestrator:
         # retained backups are discarded (passed) or restored (failed),
         # so an unverified change never stays on disk.
         passed = verification_result == VerificationResult.PASSED
+        # §10.4: post-repair verification feeds the retry budget —
+        # unverified/failed repairs consume attempts toward cooldown.
+        self.retry_policy.record_outcome(
+            str(objective.fault_code), verified=passed
+        )
         finalization = self.executor.finalize(plan, passed)
 
         # Stage 8: Learn — both verdicts feed the store so the recorded
