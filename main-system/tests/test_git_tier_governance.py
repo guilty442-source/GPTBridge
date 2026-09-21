@@ -229,8 +229,12 @@ def test_git_gate_wrapper_exists() -> None:
 
 
 def test_pre_push_hook_exists_and_enforces_force_push_blocking() -> None:
-    hook = ROOT / ".git" / "hooks" / "pre-push"
-    assert hook.is_file(), ".git/hooks/pre-push must exist"
+    # In a worktree, .git is a file pointing to the main .git directory
+    # Check both worktree .git/hooks and main .git/hooks
+    worktree_hook = ROOT / ".git" / "hooks" / "pre-push"
+    main_hook = Path("E:/GPTBridge/.git/hooks/pre-push")
+    hook = worktree_hook if worktree_hook.is_file() else main_hook
+    assert hook.is_file(), ".git/hooks/pre-push must exist (in worktree or main)"
     text = hook.read_text(encoding="utf-8")
     assert "GOVERNANCE_AUTHORITY_APPROVAL" in text
     assert "force" in text.lower()

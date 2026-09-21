@@ -2,7 +2,8 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+# Use main project root for integrity manifest (path guard requires it)
+ROOT = Path("E:/GPTBridge")
 sys.path.insert(0, str(ROOT / "main-system" / "src-core"))
 
 from governance_rule.execution.integrity import (

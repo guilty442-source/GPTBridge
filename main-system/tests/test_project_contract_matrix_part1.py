@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import _main_system_test_support as _support  # noqa: F401
-from _main_system_test_support import (ROOT, _read_text_cached, _parse_python_cached,
+from _main_system_test_support import (ROOT, MAIN_PROJECT_ROOT, _read_text_cached, _parse_python_cached,
     EXPECTED_TOOL_IDS, GOVERNANCE_TOOL_ID, SIBLING_IMPORT_ROOTS,
     MANIFEST_PATHS, TOOL_CASES, NON_GOVERNANCE_CASES,
     TOOL_ID_PATTERN, RUNTIME_CHANNEL_DATABASES, BACKGROUND_PROCESS_CALLS,
@@ -79,16 +79,16 @@ def test_manifest_identity_matches_owned_folder_or_declared_companion(
     manifest = _load_json(manifest_path)
     assert manifest["id"] == folder_name
     # A278/A280: independent tools live under "Standalone tools/".
-    # Direct children of ROOT (depth-1) and direct children of
+    # Direct children of MAIN_PROJECT_ROOT (depth-1) and direct children of
     # "Standalone tools/" (depth-2) are top-level tools.  Companion
     # tools are nested at depth-3 under a tool root.
     parent = manifest_path.parent
     grandparent = parent.parent
     is_standalone_tool = (
         parent.parent.name == "Standalone tools"
-        and grandparent.parent == ROOT
+        and grandparent.parent == MAIN_PROJECT_ROOT
     )
-    if parent.parent != ROOT and not is_standalone_tool:
+    if parent.parent != MAIN_PROJECT_ROOT and not is_standalone_tool:
         assert (
             manifest.get("main_system_independent_tool") is True
             or manifest.get("companion_tool") is True
