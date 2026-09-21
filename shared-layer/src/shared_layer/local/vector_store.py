@@ -25,6 +25,7 @@ import re
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Final, Iterator
 
@@ -49,15 +50,27 @@ class _Point:
     payload: dict[str, Any]
 
 
+@lru_cache(maxsize=8192)
+def _gram_digest(gram: str) -> tuple[int, float]:
+    """3-gram → (bucket_index_base, weight)；gram 在語料中高度重複，快取雜湊結果。
+
+    備註：hasher 無法跨不同輸入重用（`update()` 是累加語意），
+    正確做法是把「gram → digest」記憶化而非共享單一 hasher。
+    回傳未取模的 32-bit 值與權重，維度在呼叫端取模（快取與維度無關）。
+    """
+    digest = hashlib.blake2b(gram.encode("utf-8"), digest_size=8).digest()
+    index_base = int.from_bytes(digest[:4], "little")
+    weight = float(int.from_bytes(digest[4:], "little")) / float(2**64 - 1) + 1.0
+    return index_base, weight
+
+
 def _token_vector(text: str, dimension: int = _DIMENSION) -> list[float]:
     vector = [0.0] * dimension
     for token in _TOKENS.findall(str(text).lower()):
         for end in range(_NGRAM, len(token) + 1):
             gram = token[end - _NGRAM:end]
-            digest = hashlib.blake2b(gram.encode("utf-8"), digest_size=8).digest()
-            index = int.from_bytes(digest[:4], "little") % dimension
-            weight = float(int.from_bytes(digest[4:], "little")) / float(2**64 - 1) + 1.0
-            vector[index] += weight
+            index_base, weight = _gram_digest(gram)
+            vector[index_base % dimension] += weight
     return vector
 
 
