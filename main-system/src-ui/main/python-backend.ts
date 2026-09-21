@@ -260,6 +260,7 @@ function spawnBootCore(
         env: {
           ...runtimeEnvironment,
           GPTBRIDGE_PROJECT_ROOT: paths.workspaceRoot,
+          GPTBRIDGE_RELEASE_ROOT: paths.workspaceRoot,
           GPTBRIDGE_APP_VERSION: PRODUCT_VERSION,
           GPTBRIDGE_IPC_STATE_ROOT: getIpcStateRoot(),
           GPTBRIDGE_IPC_SESSION_TOKEN: getBackendSessionToken(),

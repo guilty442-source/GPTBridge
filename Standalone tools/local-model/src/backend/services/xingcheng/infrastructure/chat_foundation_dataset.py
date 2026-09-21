@@ -150,7 +150,7 @@ def build_chat_records(rng: random.Random, *,
 
     # 5) 算術（避開探針 13+29／6×7／9v4；唯一算式池逼模型真算而非背答案）
     seen: set[tuple[int, int, str]] = set()
-    n_arith = 25 + (echo_scale if echo_scale else 0)
+    n_arith = 25 + (echo_scale * 3 // 5 if echo_scale else 0)
     tries = 0
     while len(seen) < n_arith and tries < n_arith * 8:
         tries += 1
@@ -165,8 +165,8 @@ def build_chat_records(rng: random.Random, *,
         ans = {"+": a + b, "-": a - b, "×": a * b}[op]
         records.append(_convo(f"計算 {a} {op} {b}，只輸出數字。", str(ans)))
 
-    # 5b) 比較（L6 compare 探針的訓練對應，值域唯一）
-    n_cmp = 8 + (echo_scale // 4 if echo_scale else 0)
+    # 5b) 比較（L6 compare 探針的訓練對應，值域唯一；模式簡單，覆蓋拉高）
+    n_cmp = 8 + (echo_scale // 2 if echo_scale else 0)
     seen_cmp: set[tuple[int, int]] = set()
     tries = 0
     while len(seen_cmp) < n_cmp and tries < n_cmp * 8:

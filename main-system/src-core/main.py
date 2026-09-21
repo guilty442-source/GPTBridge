@@ -13,26 +13,26 @@ from pathlib import Path
 from typing import Any
 
 
-def _runtime_root() -> Path:
+def _runtime_layout() -> tuple[Path, Path]:
     source_root = Path(__file__).resolve().parents[2]
     configured_root = os.environ.get("GPTBRIDGE_RELEASE_ROOT", "").strip()
     root = Path(configured_root).resolve() if configured_root else source_root
-    required = (
-        root / "main-system" / "src-core",
-        root / "governance_rule",
-        root / "shared-layer" / "src",
-    )
+    source_core = root / "main-system" / "src-core"
+    if not source_core.is_dir():
+        source_core = root / "src-core"
+    required = (source_core, root / "governance_rule", root / "shared-layer" / "src")
     missing = [str(path) for path in required if not path.exists()]
     if configured_root and missing:
         raise RuntimeError(f"release-root-incomplete:{','.join(missing)}")
-    return root
+    return root, source_core
 
 
-_RUNTIME_ROOT = _runtime_root()
+_RUNTIME_ROOT, _SOURCE_CORE = _runtime_layout()
 # Add release-owned roots to sys.path; a configured release never falls back to
 # the development source tree when packaged dependencies are incomplete.
-sys.path.insert(0, str(_RUNTIME_ROOT / "main-system" / "src-core"))
-sys.path.insert(0, str(_RUNTIME_ROOT / "main-system"))
+sys.path.insert(0, str(_SOURCE_CORE))
+if _SOURCE_CORE.parent.name == "main-system":
+    sys.path.insert(0, str(_SOURCE_CORE.parent))
 sys.path.insert(0, str(_RUNTIME_ROOT / "governance_rule"))
 sys.path.insert(0, str(_RUNTIME_ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(_RUNTIME_ROOT))
