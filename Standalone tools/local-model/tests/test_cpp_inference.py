@@ -70,6 +70,12 @@ def test_cpp_engine_logits_match_pytorch(tmp_path: Path) -> None:
     expected = model(torch.tensor([ids], dtype=torch.long))["logits"][0, -1].double()
     actual = torch.tensor(engine.logits(ids), dtype=torch.float64)
     assert torch.allclose(actual, expected, atol=2e-3, rtol=2e-3)
+    # R6 paged KV：stateless logits() 不寫 cache；generate() 後 pool 才按需配置
+    assert engine.kv_memory_bytes() == 0
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+    engine.generate(ids, 2, sampling)
     assert engine.kv_memory_bytes() > 0
     engine.unload()
     assert not engine.loaded()
@@ -321,6 +327,26 @@ def test_cpp_engine_kv_limit_fail_closed(
     limit = 2 * 32 * 2 * 8 * 8 - 1
     with pytest.raises(RuntimeError, match="KV_MEMORY_LIMIT_EXCEEDED"):
         cpp_runtime.load_engine(bundle_dir, kv_memory_limit=limit)
+
+
+def test_cpp_kv_paged_allocation_on_demand(tmp_path: Path) -> None:
+    """R6：KV pool 按 16-token block 分頁，只配置實際用量而非最差值。"""
+    module = cpp_runtime.load_extension()
+    _model, config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    kv_dim = config.num_key_value_heads * config.head_dim
+    block_bytes = config.num_hidden_layers * 16 * kv_dim * 8 * 2  # K+V
+    worst = (
+        config.num_hidden_layers * config.max_position_embeddings * kv_dim * 8 * 2
+    )
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+    engine.generate([1, 9, 10, 11, 12], 4, sampling)  # ≤9 positions → 1 block
+    used = engine.kv_memory_bytes()
+    assert used == block_bytes
+    assert used < worst
 
 
 def test_cpp_prefix_cache_reuse_is_deterministic(tmp_path: Path) -> None:

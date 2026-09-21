@@ -192,14 +192,24 @@ private:
     TensorView final_norm_;
     TensorView lm_head_;
     std::vector<double> lm_head_t_;
-    std::vector<double> kv_k_;
-    std::vector<double> kv_v_;
+    // R6 paged KV: shared block table maps logical position blocks to
+    // physical blocks covering all layers; blocks allocate on demand and
+    // return to kv_free_blocks_ on reset_cache (bounded, audited via
+    // kv_memory_bytes / KV_MEMORY_LIMIT_EXCEEDED).
+    std::vector<double> kv_pool_k_;
+    std::vector<double> kv_pool_v_;
+    std::vector<int32_t> kv_free_blocks_;
+    std::vector<int32_t> kv_block_table_;
+    int64_t kv_block_stride_ = 0;
     int64_t kv_len_ = 0;
     int64_t kv_limit_bytes_ = 0;
     std::vector<int64_t> sequence_;
 
     void validate_supported() const;
     void reset_cache();
+    int32_t kv_alloc_block();
+    void kv_ensure_position(int64_t position);
+    double* kv_slot(bool key_cache, int64_t layer, int64_t position, int64_t head);
     std::vector<double> forward_last_logits(
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,

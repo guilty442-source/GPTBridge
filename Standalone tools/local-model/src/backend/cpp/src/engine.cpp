@@ -38,6 +38,9 @@
 namespace xingcheng::inference {
 namespace {
 
+// R6: positions per KV page block.
+constexpr int64_t kKvBlockTokens = 16;
+
 class InferenceError : public std::runtime_error {
 public:
     explicit InferenceError(const std::string& message) : std::runtime_error(message) {}
@@ -967,14 +970,20 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         layer.down_proj_t = transpose_matrix(layer.down_proj);
     }
 
+    const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
     const int64_t kv_elems = cfg.num_hidden_layers * cfg.max_position_embeddings *
-        cfg.num_key_value_heads * cfg.head_dim;
+        kv_dim;
     const int64_t kv_bytes = kv_elems * 8 * 2;
     if (kv_limit_bytes_ > 0 && kv_bytes > kv_limit_bytes_) {
         throw InferenceError("KV_MEMORY_LIMIT_EXCEEDED");
     }
-    kv_k_.assign(static_cast<size_t>(kv_elems), 0.0);
-    kv_v_.assign(static_cast<size_t>(kv_elems), 0.0);
+    // R6 paged KV: allocate on demand instead of the worst-case footprint.
+    kv_block_stride_ = cfg.num_hidden_layers * kKvBlockTokens * kv_dim;
+    kv_pool_k_.clear();
+    kv_pool_v_.clear();
+    kv_free_blocks_.clear();
+    kv_block_table_.clear();
+    kv_len_ = 0;
 
     const std::filesystem::path tokenizer_path = root / "tokenizer.json";
     if (std::filesystem::exists(tokenizer_path)) {
@@ -991,8 +1000,11 @@ void NativeInferenceEngine::unload() {
     prefix_tick_ = 0;
     prefix_hits_ = 0;
     prefix_misses_ = 0;
-    kv_k_.clear();
-    kv_v_.clear();
+    kv_pool_k_.clear();
+    kv_pool_v_.clear();
+    kv_free_blocks_.clear();
+    kv_block_table_.clear();
+    kv_block_stride_ = 0;
     lm_head_t_.clear();
     sequence_.clear();
     kv_len_ = 0;
@@ -1037,7 +1049,51 @@ std::string NativeInferenceEngine::decode(
     return tokenizer_->decode(ids, skip_special);
 }
 
+int32_t NativeInferenceEngine::kv_alloc_block() {
+    if (!kv_free_blocks_.empty()) {
+        const int32_t id = kv_free_blocks_.back();
+        kv_free_blocks_.pop_back();
+        return id;
+    }
+    if (kv_limit_bytes_ > 0 && kv_block_stride_ > 0 &&
+        kv_memory_bytes() + 2 * kv_block_stride_ *
+                static_cast<int64_t>(sizeof(double)) >
+            kv_limit_bytes_) {
+        throw InferenceError("KV_MEMORY_LIMIT_EXCEEDED");
+    }
+    kv_pool_k_.resize(
+        kv_pool_k_.size() + static_cast<size_t>(kv_block_stride_), 0.0);
+    kv_pool_v_.resize(
+        kv_pool_v_.size() + static_cast<size_t>(kv_block_stride_), 0.0);
+    return static_cast<int32_t>(
+        kv_pool_k_.size() / static_cast<size_t>(kv_block_stride_) - 1);
+}
+
+void NativeInferenceEngine::kv_ensure_position(int64_t position) {
+    const int64_t block_index = position / kKvBlockTokens;
+    while (static_cast<int64_t>(kv_block_table_.size()) <= block_index) {
+        kv_block_table_.push_back(kv_alloc_block());
+    }
+}
+
+double* NativeInferenceEngine::kv_slot(
+    bool key_cache, int64_t layer, int64_t position, int64_t head) {
+    const ModelConfig& cfg = bundle_->config();
+    const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
+    const int64_t block =
+        kv_block_table_[static_cast<size_t>(position / kKvBlockTokens)];
+    const int64_t offset = block * kv_block_stride_ +
+        layer * (kKvBlockTokens * kv_dim) +
+        (position % kKvBlockTokens) * kv_dim + head * cfg.head_dim;
+    return (key_cache ? kv_pool_k_ : kv_pool_v_).data() +
+        static_cast<size_t>(offset);
+}
+
 void NativeInferenceEngine::reset_cache() {
+    for (const int32_t block : kv_block_table_) {
+        kv_free_blocks_.push_back(block);
+    }
+    kv_block_table_.clear();
     kv_len_ = 0;
     sequence_.clear();
 }
@@ -1152,20 +1208,18 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
         }
 
         if (append_cache) {
-            const int64_t layer_stride = cfg.max_position_embeddings * kv_dim;
-            double* k_cache = kv_k_.data() + layer_idx * layer_stride;
-            double* v_cache = kv_v_.data() + layer_idx * layer_stride;
             for (int64_t s = 0; s < seq; ++s) {
                 const int64_t position = position_offset + s;
+                kv_ensure_position(position);
                 for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
                     std::copy_n(
                         k_heads.data() + (h * seq + s) * cfg.head_dim,
                         cfg.head_dim,
-                        k_cache + position * kv_dim + h * cfg.head_dim);
+                        kv_slot(true, layer_idx, position, h));
                     std::copy_n(
                         v_heads.data() + (h * seq + s) * cfg.head_dim,
                         cfg.head_dim,
-                        v_cache + position * kv_dim + h * cfg.head_dim);
+                        kv_slot(false, layer_idx, position, h));
                 }
             }
         }
@@ -1180,9 +1234,8 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
                 const double* k_src = nullptr;
                 const double* v_src = nullptr;
                 if (t < position_offset) {
-                    const int64_t layer_stride = cfg.max_position_embeddings * kv_dim;
-                    k_src = kv_k_.data() + layer_idx * layer_stride + t * kv_dim + kv_head * cfg.head_dim;
-                    v_src = kv_v_.data() + layer_idx * layer_stride + t * kv_dim + kv_head * cfg.head_dim;
+                    k_src = kv_slot(true, layer_idx, t, kv_head);
+                    v_src = kv_slot(false, layer_idx, t, kv_head);
                 } else {
                     const int64_t s = t - position_offset;
                     k_src = k_heads.data() + (kv_head * seq + s) * cfg.head_dim;
@@ -1334,7 +1387,6 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // suffix is recomputed. The snapshot stores per-layer K/V slices; values
     // are deterministic, so a restored cache is bit-identical to recompute.
     const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
-    const int64_t layer_stride = cfg.max_position_embeddings * kv_dim;
     int64_t prefix_len = 0;
     size_t hit_index = prefix_cache_.size();
     for (size_t i = 0; i < prefix_cache_.size(); ++i) {
@@ -1350,15 +1402,20 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     }
     if (hit_index != prefix_cache_.size()) {
         PrefixEntry& hit = prefix_cache_[hit_index];
+        for (int64_t position = 0; position < prefix_len; ++position) {
+            kv_ensure_position(position);
+        }
         for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
-            std::copy_n(
-                hit.k.data() + layer * prefix_len * kv_dim,
-                prefix_len * kv_dim,
-                kv_k_.data() + layer * layer_stride);
-            std::copy_n(
-                hit.v.data() + layer * prefix_len * kv_dim,
-                prefix_len * kv_dim,
-                kv_v_.data() + layer * layer_stride);
+            for (int64_t position = 0; position < prefix_len; ++position) {
+                std::copy_n(
+                    hit.k.data() + (layer * prefix_len + position) * kv_dim,
+                    kv_dim,
+                    kv_slot(true, layer, position, 0));
+                std::copy_n(
+                    hit.v.data() + (layer * prefix_len + position) * kv_dim,
+                    kv_dim,
+                    kv_slot(false, layer, position, 0));
+            }
         }
         hit.tick = ++prefix_tick_;
         ++prefix_hits_;
@@ -1425,14 +1482,12 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                     static_cast<size_t>(
                         cfg.num_hidden_layers * store_len * kv_dim));
                 for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
-                    const double* k_src =
-                        kv_k_.data() + layer * layer_stride;
-                    const double* v_src =
-                        kv_v_.data() + layer * layer_stride;
-                    entry.k.insert(
-                        entry.k.end(), k_src, k_src + store_len * kv_dim);
-                    entry.v.insert(
-                        entry.v.end(), v_src, v_src + store_len * kv_dim);
+                    for (int64_t position = 0; position < store_len; ++position) {
+                        const double* k_src = kv_slot(true, layer, position, 0);
+                        const double* v_src = kv_slot(false, layer, position, 0);
+                        entry.k.insert(entry.k.end(), k_src, k_src + kv_dim);
+                        entry.v.insert(entry.v.end(), v_src, v_src + kv_dim);
+                    }
                 }
                 entry.tick = ++prefix_tick_;
                 prefix_cache_.push_back(std::move(entry));
@@ -1457,7 +1512,8 @@ std::string NativeInferenceEngine::generate_text(
 }
 
 int64_t NativeInferenceEngine::kv_memory_bytes() const {
-    return static_cast<int64_t>((kv_k_.size() + kv_v_.size()) * sizeof(double));
+    return static_cast<int64_t>(
+        (kv_pool_k_.size() + kv_pool_v_.size()) * sizeof(double));
 }
 
 int64_t NativeInferenceEngine::memory_bytes() const {
