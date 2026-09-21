@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from shared_layer.contracts.types import ModuleIdentity
 
 from .persona_conversation import (
     detect_persona_command,
@@ -275,3 +276,74 @@ class InferHandleMixin:
             inference_payload,
             business_scope,
         )
+
+
+async def process_inference(
+    payload: dict[str, Any],
+    module_identity: ModuleIdentity,
+) -> dict[str, Any]:
+    """Simplified inference processor for Chinese Semantic Engine v2.
+
+    This is a lightweight interface that the Chinese Semantic Engine v2
+    can call to perform semantic operations via xingcheng's native model.
+    """
+    operation = str(payload.get("operation") or "analyze")
+    text = str(payload.get("text") or "")
+    parameters = payload.get("parameters") or {}
+
+    # Use the native model for semantic operations
+    from services.xingcheng.infrastructure.native_model import StarNativeLanguageModel
+
+    model = StarNativeLanguageModel(model_role="main")
+
+    if operation == "semantic_analysis":
+        # Use the Chinese semantic engine for analysis
+        from services.xingcheng.infrastructure.chinese_semantic_engine import ChineseSemanticEngine
+
+        engine = ChineseSemanticEngine()
+        analysis = engine.analyze(text, context=parameters.get("context", ""))
+
+        return {
+            "ok": True,
+            "semantic_understanding": analysis.to_semantic_plan(),
+            "model": "xingcheng-native",
+        }
+
+    elif operation == "embed":
+        # Generate embeddings via transformer runtime
+        from services.xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+
+        runtime = StarTransformerRuntime(enabled=True)
+        result = await runtime.embed(text=text, model="qwen3-embedding:4b")
+        return {
+            "ok": True,
+            "embeddings": result.get("embeddings", [[]]),
+            "model": "qwen3-embedding:4b",
+        }
+
+    elif operation == "synthesize":
+        # Synthesize response from context
+        context = parameters.get("context", [])
+        context_text = "\n".join(str(c) for c in context) if isinstance(context, list) else str(context)
+
+        result = model.language_model.generate(
+            intent="conversation",
+            prompt=text,
+            grounding=context_text,
+            max_tokens=parameters.get("max_tokens", 180),
+            temperature=parameters.get("temperature", 0.55),
+            top_k=parameters.get("top_k", 4),
+        )
+
+        return {
+            "ok": True,
+            "synthesis": result.get("text", ""),
+            "model": "xingcheng-native",
+        }
+
+    else:
+        return {
+            "ok": False,
+            "error_code": "UNKNOWN_OPERATION",
+            "message": f"Unknown operation: {operation}",
+        }

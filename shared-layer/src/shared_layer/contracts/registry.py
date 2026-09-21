@@ -6,7 +6,7 @@ to change semantics, and parity tests pin every projection.
 """
 from __future__ import annotations
 
-from typing import Iterator
+from typing import Any, Iterator
 
 from .types import (
     CanonicalKind,
@@ -134,4 +134,24 @@ __all__ = [
     "CanonicalTypeRegistry",
     "DEFAULT_REGISTRY",
     "STATUS_ENUM",
+    "CapabilityRegistry",
 ]
+
+
+class CapabilityRegistry:
+    """Capability registry for module capability declarations.
+
+    Placeholder implementation for Chinese Semantic Engine v2 integration.
+    """
+
+    def __init__(self) -> None:
+        self._capabilities: dict[str, dict[str, Any]] = {}
+
+    def register(self, module_id: str, capabilities: dict[str, Any]) -> None:
+        self._capabilities[module_id] = capabilities
+
+    def get(self, module_id: str) -> dict[str, Any] | None:
+        return self._capabilities.get(module_id)
+
+    def list_modules(self) -> list[str]:
+        return list(self._capabilities.keys())
