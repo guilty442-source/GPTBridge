@@ -55,6 +55,11 @@ class MaintenanceControllerIntegration:
     _started: bool = False
     _start_time: float = 0.0
     _persist_failures: int = 0
+    # §10.63 R2: both controller callbacks probed PG health independently —
+    # ~2 fresh admin connects per call, twice per 30 s tick.  A TTL under
+    # the tick interval shares one probe per tick; a failed probe is cached
+    # too, so fail-closed semantics surface unchanged.
+    _pg_health_cache: tuple[float, Any] | None = None
 
     async def start(self) -> dict[str, Any]:
         """Start the maintenance controller."""
@@ -311,8 +316,20 @@ class MaintenanceControllerIntegration:
         except Exception:
             return 0
 
+    _PG_HEALTH_TTL_S = 20.0
+
+    def _pg_health(self, settings: DatabaseSettings) -> Any:
+        now = time.monotonic()
+        cached = self._pg_health_cache
+        if cached is not None and now - cached[0] < self._PG_HEALTH_TTL_S:
+            return cached[1]
+        health = collect_pg_health(settings)
+        self._pg_health_cache = (now, health)
+        return health
+
     def _get_system_state(self) -> dict[str, Any]:
         """Get current system state for policy evaluation."""
+        generation = self._get_current_generation()
         state = {
             "recovery_state": "NORMAL",
             "pg_healthy": True,
@@ -321,8 +338,8 @@ class MaintenanceControllerIntegration:
             "transport_backlog": 0,
             "transport_oldest_pending_age_seconds": 0,
             "disk_pressure": 0,
-            "current_generation": self._get_current_generation(),
-            "job_generation": self._get_current_generation(),
+            "current_generation": generation,
+            "job_generation": generation,
             "maintenance_cooldown_active": False,
             "active_lease_conflict": False,
             "shutdown_draining": getattr(self.app, "_shutdown_started", False),
@@ -341,7 +358,7 @@ class MaintenanceControllerIntegration:
         # Get PostgreSQL health
         try:
             settings = DatabaseSettings.from_environment()
-            health = collect_pg_health(settings)
+            health = self._pg_health(settings)
             state["pg_healthy"] = health.available
             state["pg_latency_ms"] = health.latency_ms
             state["pg_lock_pressure"] = health.lock_pressure
@@ -357,7 +374,7 @@ class MaintenanceControllerIntegration:
         # PostgreSQL signals
         try:
             settings = DatabaseSettings.from_environment()
-            health = collect_pg_health(settings)
+            health = self._pg_health(settings)
             from shared_layer.database.connection import peek_connection_manager
 
             pool = collect_pg_pool_pressure(peek_connection_manager())
