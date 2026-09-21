@@ -17,6 +17,27 @@ from core_system.active_release_persistence import (
 )
 
 _DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_REQUIRED_MANIFEST_FIELDS = frozenset(
+    {
+        "release_id",
+        "git_commit",
+        "backend_version",
+        "frontend_version",
+        "ipc_contract_version",
+        "database_schema_version",
+        "codex_schema",
+        "codex_version",
+        "build_hash",
+        "status",
+    }
+)
+_COMPATIBILITY_GATES = (
+    "codex",
+    "permissions",
+    "ipc",
+    "sql_schema",
+    "frontend",
+)
 
 
 def _compute_artifact_digest(relative_path: str) -> str | None:
@@ -60,6 +81,32 @@ def verify_active_release(
     }
 
 
+def validate_release_manifest(
+    manifest: dict[str, Any],
+    *,
+    expected_codex_schema: str | None = None,
+    expected_codex_version: int | None = None,
+) -> dict[str, Any]:
+    """Validate the immutable release identity before a runtime switch."""
+    missing = sorted(_REQUIRED_MANIFEST_FIELDS - set(manifest))
+    gates = manifest.get("compatibility")
+    failures = [field for field in _COMPATIBILITY_GATES if not isinstance(gates, dict) or gates.get(field) is not True]
+    if manifest.get("frontend_version") != manifest.get("backend_version"):
+        failures.append("frontend_backend_version")
+    if expected_codex_schema is not None and manifest.get("codex_schema") != expected_codex_schema:
+        failures.append("codex_schema")
+    if expected_codex_version is not None and manifest.get("codex_version") != expected_codex_version:
+        failures.append("codex_version")
+    if manifest.get("status") not in {"STAGED", "ACTIVE", "PREVIOUS", "ROLLBACK"}:
+        failures.append("status")
+    return {
+        "ok": not missing and not failures,
+        "missing": missing,
+        "failed_gates": sorted(set(failures)),
+        "release_id": manifest.get("release_id"),
+    }
+
+
 def frontend_backend_release_match(
     frontend_release_id: str,
     backend_release_id: str,
@@ -83,6 +130,7 @@ def frontend_backend_release_match(
 
 
 __all__ = [
+    "validate_release_manifest",
     "verify_active_release",
     "frontend_backend_release_match",
 ]
