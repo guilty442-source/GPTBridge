@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from queue import Empty, LifoQueue
+from queue import Empty, Full, LifoQueue
 from threading import Lock
 from typing import Any, Iterator
 
@@ -93,6 +93,21 @@ class ConnectionManager:
             self._connection_count = len(created)
             self._opened = True
 
+    def set_max_size(self, max_size: int) -> None:
+        """Adjust the pool ceiling (S7 adaptive-plane wiring).
+
+        Growing lets ``connection()`` open more connections immediately;
+        shrinking retires surplus connections lazily as they are returned.
+        """
+        with self._lock:
+            if max_size < 1:
+                raise ValueError("INVALID_CONNECTION_POOL_SIZE")
+            self._max_size = int(max_size)
+
+    @property
+    def max_size(self) -> int:
+        return self._max_size
+
     def close(self) -> None:
         with self._lock:
             self._opened = False
@@ -123,7 +138,22 @@ class ConnectionManager:
             if not connection.closed and self._opened:
                 if connection.info.transaction_status.name != "IDLE":
                     connection.rollback()
-                self._idle.put(connection)
+                # S7: retire on return when the adaptive bound shrank the
+                # pool below the live count, or the idle queue is full
+                # (queue capacity tracks the construction-time max).
+                with self._lock:
+                    over_cap = self._connection_count > self._max_size
+                if over_cap:
+                    connection.close()
+                    with self._lock:
+                        self._connection_count -= 1
+                else:
+                    try:
+                        self._idle.put_nowait(connection)
+                    except Full:
+                        connection.close()
+                        with self._lock:
+                            self._connection_count -= 1
             else:
                 if not connection.closed:
                     connection.close()
@@ -146,4 +176,15 @@ def get_connection_manager() -> "ConnectionManager":
         return _MANAGER
 
 
-__all__ = ["ConnectionManager", "database_dsn", "get_connection_manager"]
+def peek_connection_manager() -> "ConnectionManager | None":
+    """Return the live manager if one exists, without creating it (S7)."""
+    with _MANAGER_LOCK:
+        return _MANAGER
+
+
+__all__ = [
+    "ConnectionManager",
+    "database_dsn",
+    "get_connection_manager",
+    "peek_connection_manager",
+]

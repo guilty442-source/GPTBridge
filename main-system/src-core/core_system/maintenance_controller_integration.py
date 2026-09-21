@@ -440,6 +440,13 @@ class MaintenanceControllerIntegration:
                     reconcile_backlog=int(signals.get("reconcile_pending") or 0),
                 )
             )
+            # S7: push the tuned pool bound into the live connection manager
+            # (peek — never construct the pool just to tune it).
+            from shared_layer.database.connection import peek_connection_manager
+
+            pool = peek_connection_manager()
+            if pool is not None:
+                get_plane().tuner.apply_pool_limits(pool)
         except Exception:
             pass
 
