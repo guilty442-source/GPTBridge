@@ -221,12 +221,35 @@ async def run_startup_sequence(app: Any) -> bool:
     # Automated hot-reload watcher — requests a governed, module-scoped
     # reload through the maintenance sovereign when backend source changes
     # quiet down.  Observation is separate from decision/execution.
+    # §10.27/§10.63 R5: the filesystem poll loop is on-demand — the watcher
+    # object is always constructed so app:hot-reload-backend and the
+    # governed update path keep working, but the poll only runs when the
+    # resident-core manifest classifies it resident or the
+    # GPTBRIDGE_HOT_RELOAD_WATCH env opt-in is set (dev shells).
     app._mark_startup_phase("hot_reload_watcher_starting")
     try:
+        from startup_core.resident_core import resident_mode
         from tasks.hot_reload_watcher import HotReloadWatcher
 
         app.hot_reload_watcher = HotReloadWatcher(app)
-        await app.hot_reload_watcher.start()
+        watch_resident = (
+            resident_mode("hot_reload_watcher") == "resident-core"
+            or os.environ.get("GPTBRIDGE_HOT_RELOAD_WATCH", "").strip()
+            in ("1", "true", "yes")
+        )
+        if watch_resident:
+            await app.hot_reload_watcher.start()
+        else:
+            app.hot_reload_watcher.mark_available()
+            app._log(
+                {
+                    "type": "hot_reload_watcher",
+                    "enabled": True,
+                    "watch_loop": False,
+                    "message": "on-demand (resident-core.json); "
+                    "GPTBRIDGE_HOT_RELOAD_WATCH=1 restores the poll loop",
+                }
+            )
     except Exception as error:
         app._record_startup_failure("hot_reload_watcher", error)
     app._mark_startup_phase("hot_reload_watcher_started")

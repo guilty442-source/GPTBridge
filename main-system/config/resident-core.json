@@ -1,0 +1,72 @@
+{
+  "schema": "star-resident-core/v1",
+  "comment": "§10.27 / §10.63 R5 — minimal resident core classification. Only resident-core components start at boot; on-demand components are activated by their listed trigger and may be unloaded when idle. Scheduled components ride the shared PeriodicScheduler. Missing/unknown components default to resident-core (status quo, fail-safe).",
+  "components": {
+    "ipc_server": {
+      "mode": "resident-core",
+      "rationale": "command routing / UI channel (§10.27 minimal set)"
+    },
+    "governance_gates": {
+      "mode": "resident-core",
+      "rationale": "permission gates / capability verification (§10.27 minimal set)"
+    },
+    "runtime_state": {
+      "mode": "resident-core",
+      "rationale": "launcher + runtime state (§10.27 minimal set)"
+    },
+    "backend_gateway_request_registry": {
+      "mode": "resident-core",
+      "rationale": "§10.22 request registry"
+    },
+    "periodic_scheduler": {
+      "mode": "resident-core",
+      "rationale": "single deadline-driven loop; hosts coordinator / idle-memory / daily-cleaner / git sweep+sync jobs (R3 consolidation)"
+    },
+    "core_sovereigns": {
+      "mode": "resident-core",
+      "rationale": "decision / maintenance / permission / system-runtime — codex-required resident governance"
+    },
+    "model_service_activation": {
+      "mode": "resident-core",
+      "rationale": "the on-demand activation path itself (A540)"
+    },
+    "maintenance_controller": {
+      "mode": "resident-core",
+      "rationale": "bounded basic health monitoring (§10.27 minimal set); 30s tick"
+    },
+    "connection_watchdog": {
+      "mode": "resident-core",
+      "rationale": "bounded, 60s backoff probe"
+    },
+    "state_outbox": {
+      "mode": "resident-core",
+      "rationale": "transactional outbox; event/deadline-driven"
+    },
+    "authority_reanchor": {
+      "mode": "resident-core",
+      "rationale": "governed authority adoption without restart"
+    },
+    "hot_reload_watcher": {
+      "mode": "on-demand",
+      "activation": "app:hot-reload-backend command / governed update path (update_manager, confirmation service) call _maybe_reload directly",
+      "watch_env_override": "GPTBRIDGE_HOT_RELOAD_WATCH",
+      "rationale": "§10.27 lists 熱重載 as on-demand; the filesystem poll loop is the resident cost, the governed reload capability stays available without it"
+    },
+    "rag_cag": {
+      "mode": "on-demand",
+      "activation": "app.ensure_rag_cag_started() on first retrieval need (MS1/MS2)"
+    },
+    "local_model": {
+      "mode": "on-demand",
+      "activation": "ModelServiceActivationBroker on queued ai->xingcheng request (A540)"
+    },
+    "ollama": {
+      "mode": "on-demand",
+      "activation": "model-runtime request path (§10.7)"
+    },
+    "standalone_tools": {
+      "mode": "on-demand",
+      "activation": "governed ToolboxService.start_tool (5s start/stop contract)"
+    }
+  }
+}

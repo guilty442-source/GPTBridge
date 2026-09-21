@@ -75,6 +75,15 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
 
     # ── lifecycle ─────────────────────────────────────────────────────
 
+    def mark_available(self) -> None:
+        """Enable the governed reload capability without the poll loop.
+
+        §10.27 on-demand mode: ``app:hot-reload-backend`` and the governed
+        update path call ``_maybe_reload`` directly — they need the
+        capability (preflight gate) but not the resident filesystem poll.
+        """
+        self._enabled = True
+
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
             return
