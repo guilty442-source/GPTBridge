@@ -198,8 +198,7 @@ def native_l2_norm(a: Sequence[float]) -> float:
     n = _load_native()
     if n is None:
         return python_l2_norm(a)
-    import numpy as np
-    return float(n.vector_l2_norm(np.asarray(a, dtype=np.float64)))
+    return float(n.vector_l2_norm(_as_float64_array(a)))
 
 
 def native_cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
@@ -207,9 +206,8 @@ def native_cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
     n = _load_native()
     if n is None:
         return python_cosine_similarity(a, b)
-    import numpy as np
     return float(n.vector_cosine_similarity(
-        np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)))
+        _as_float64_array(a), _as_float64_array(b)))
 
 
 def dot(a: Sequence[float], b: Sequence[float]) -> float:
@@ -301,10 +299,9 @@ def native_matmul(a: Sequence[Sequence[float]], b: Sequence[Sequence[float]]) ->
     n = _load_native()
     if n is None:
         return python_matmul(a, b)
-    import numpy as np
     result = n.transformer_matmul(
-        np.asarray(a, dtype=np.float64),
-        np.asarray(b, dtype=np.float64),
+        _as_float64_array(a),
+        _as_float64_array(b),
     )
     return result.tolist()
 
@@ -314,8 +311,7 @@ def native_softmax(input_2d: Sequence[Sequence[float]]) -> list[list[float]]:
     n = _load_native()
     if n is None:
         return python_softmax(input_2d)
-    import numpy as np
-    result = n.transformer_softmax(np.asarray(input_2d, dtype=np.float64))
+    result = n.transformer_softmax(_as_float64_array(input_2d))
     return result.tolist()
 
 
@@ -328,11 +324,10 @@ def native_scaled_dot_product_attention(
     n = _load_native()
     if n is None:
         return python_scaled_dot_product_attention(q, k, v)
-    import numpy as np
     result = n.transformer_scaled_dot_product_attention(
-        np.asarray(q, dtype=np.float64),
-        np.asarray(k, dtype=np.float64),
-        np.asarray(v, dtype=np.float64),
+        _as_float64_array(q),
+        _as_float64_array(k),
+        _as_float64_array(v),
     )
     return result.tolist()
 
