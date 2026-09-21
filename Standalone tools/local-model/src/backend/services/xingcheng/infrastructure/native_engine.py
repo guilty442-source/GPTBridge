@@ -740,6 +740,35 @@ def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
             "message": "原生引擎未啟用（XINGCHENG_NATIVE_ENGINE）",
             "fallback_required": False,
         }
+    # G29/P3f：正式 C++ 推論執行層路由。required 為 fail-closed；
+    # fallback 在 C++ 層失敗時記錄帳本後才允許回到 Python 路徑。
+    try:
+        from .native_transformer.cpp_runtime import (
+            cpp_runtime_mode,
+            generate_via_cpp_engine,
+            record_cpp_fallback,
+        )
+
+        mode = cpp_runtime_mode()
+    except Exception:
+        mode = "off"
+    if mode == "invalid":
+        return {
+            "ok": False,
+            "error_code": "CPP_RUNTIME_MODE_INVALID",
+            "message": "XINGCHENG_CPP_RUNTIME 必須為 off/required/fallback",
+            "fallback_required": False,
+        }
+    if mode in ("required", "fallback"):
+        result = generate_via_cpp_engine(request)
+        if result.get("ok") or mode == "required":
+            return result
+        try:
+            record_cpp_fallback(
+                f"{result.get('error_code')}: {result.get('message')}"
+            )
+        except Exception:
+            pass
     try:
         engine = native_engine_for()
     except FileNotFoundError as error:

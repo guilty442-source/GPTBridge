@@ -759,15 +759,25 @@ ByteLevelBPETokenizer ByteLevelBPETokenizer::load(const std::string& tokenizer_j
             throw InferenceError("TOKENIZER_MERGES_INVALID");
         }
         for (const JsonValue& item : merges->array) {
-            if (item.type != JsonValue::Type::String) {
+            std::pair<std::string, std::string> pair;
+            if (item.type == JsonValue::Type::String) {
+                const size_t split = item.string.find(' ');
+                if (split == std::string::npos || split == 0 ||
+                    split + 1 >= item.string.size()) {
+                    throw InferenceError("TOKENIZER_MERGE_FORMAT_INVALID");
+                }
+                pair = std::make_pair(
+                    item.string.substr(0, split),
+                    item.string.substr(split + 1));
+            } else if (
+                item.type == JsonValue::Type::Array && item.array.size() == 2 &&
+                item.array[0].type == JsonValue::Type::String &&
+                item.array[1].type == JsonValue::Type::String) {
+                // HF tokenizers serializes merges as ["left","right"] pairs.
+                pair = std::make_pair(item.array[0].string, item.array[1].string);
+            } else {
                 throw InferenceError("TOKENIZER_MERGE_INVALID");
             }
-            const size_t split = item.string.find(' ');
-            if (split == std::string::npos || split == 0 || split + 1 >= item.string.size()) {
-                throw InferenceError("TOKENIZER_MERGE_FORMAT_INVALID");
-            }
-            auto pair = std::make_pair(
-                item.string.substr(0, split), item.string.substr(split + 1));
             tokenizer.merge_rank_.emplace(
                 pair.first + "\x1f" + pair.second,
                 static_cast<int64_t>(tokenizer.merges_.size()));

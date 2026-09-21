@@ -152,3 +152,172 @@ def test_cpp_generated_output_parser() -> None:
     assert payload["tool_call"]["name"] == "search"
     with pytest.raises(RuntimeError, match="TOOL_CALL"):
         module.parse_generated_output("<tool_call>{not-json}</tool_call>")
+
+
+# ── G29 路由層：governed feature flag 與資源接線 ────────────────────────
+
+
+def _tiny_tokenizer():
+    import tokenizers
+
+    vocab = {
+        "<|pad|>": 0,
+        "<|bos|>": 1,
+        "<|eos|>": 2,
+        "<|unk|>": 3,
+        "<|system|>": 4,
+        "<|user|>": 5,
+        "<|assistant|>": 6,
+        "<|tool|>": 7,
+        "<|eot|>": 8,
+        "A": 9,
+        "B": 10,
+        "C": 11,
+        "AB": 12,
+    }
+    backend = tokenizers.Tokenizer(
+        tokenizers.models.BPE(vocab=vocab, merges=[("A", "B")])
+    )
+    from xingcheng.infrastructure.native_transformer.bpe import (
+        NativeBPETokenizer,
+    )
+
+    return NativeBPETokenizer(backend, backend.get_vocab_size())
+
+
+def _tiny_checkpoint(tmp_path: Path) -> Path:
+    torch.manual_seed(23)
+    config = _tiny_config()
+    model = XingChengForCausalLM(config)
+    checkpoint = tmp_path / "tiny.pt"
+    save_checkpoint(
+        checkpoint, model, config=config, tokenizer=_tiny_tokenizer()
+    )
+    return checkpoint
+
+
+def _patched_roots(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    from xingcheng.infrastructure import native_engine
+
+    monkeypatch.setattr(native_engine, "tool_root", lambda: tmp_path)
+    monkeypatch.setattr(cpp_runtime, "tool_root", lambda: tmp_path)
+    return native_engine
+
+
+def test_cpp_runtime_mode_selection(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(cpp_runtime.CPP_RUNTIME_ENV, "off")
+    assert cpp_runtime.cpp_runtime_mode() == "off"
+    monkeypatch.setenv(cpp_runtime.CPP_RUNTIME_ENV, "required")
+    assert cpp_runtime.cpp_runtime_mode() == "required"
+    monkeypatch.setenv(cpp_runtime.CPP_RUNTIME_ENV, "fallback")
+    assert cpp_runtime.cpp_runtime_mode() == "fallback"
+    monkeypatch.setenv(cpp_runtime.CPP_RUNTIME_ENV, "nonsense")
+    assert cpp_runtime.cpp_runtime_mode() == "invalid"
+
+
+def test_generate_via_native_engine_cpp_required(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native_engine = _patched_roots(monkeypatch, tmp_path)
+    checkpoint = _tiny_checkpoint(tmp_path)
+    monkeypatch.setenv("XINGCHENG_NATIVE_ENGINE", "1")
+    monkeypatch.setenv("XINGCHENG_NATIVE_CHECKPOINT", str(checkpoint))
+    monkeypatch.setenv(cpp_runtime.CPP_RUNTIME_ENV, "required")
+
+    result = native_engine.generate_via_native_engine(
+        {"prompt": "AB", "max_tokens": 4, "seed": 7}
+    )
+    assert result["ok"] is True
+    assert result["decoder"] == "xingcheng-cpp-inference-engine"
+    assert result["cpp_runtime"] is True
+    assert result["device"] == "cpu"
+    assert result["third_party_foundation_weights"] is False
+
+    ledger = (
+        tmp_path
+        / "xingcheng"
+        / "runtime"
+        / "logs"
+        / "native-engine-executions.jsonl"
+    )
+    entries = [
+        json.loads(line)
+        for line in ledger.read_text(encoding="utf-8").splitlines()
+    ]
+    cpp_entries = [e for e in entries if e.get("engine") == "cpp"]
+    assert cpp_entries and cpp_entries[-1]["event"] == "cpp-runtime-execution"
+
+
+def test_generate_via_native_engine_cpp_invalid_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native_engine = _patched_roots(monkeypatch, tmp_path)
+    monkeypatch.setenv("XINGCHENG_NATIVE_ENGINE", "1")
+    monkeypatch.setenv(cpp_runtime.CPP_RUNTIME_ENV, "invalid-mode")
+    result = native_engine.generate_via_native_engine({"prompt": "AB"})
+    assert result["ok"] is False
+    assert result["error_code"] == "CPP_RUNTIME_MODE_INVALID"
+
+
+def test_generate_via_native_engine_cpp_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native_engine = _patched_roots(monkeypatch, tmp_path)
+    checkpoint = _tiny_checkpoint(tmp_path)
+    monkeypatch.setenv("XINGCHENG_NATIVE_ENGINE", "1")
+    monkeypatch.setenv("XINGCHENG_NATIVE_CHECKPOINT", str(checkpoint))
+    monkeypatch.setenv(cpp_runtime.CPP_RUNTIME_ENV, "fallback")
+
+    def _missing_extension():
+        raise ImportError("extension intentionally unavailable")
+
+    monkeypatch.setattr(cpp_runtime, "load_extension", _missing_extension)
+    result = native_engine.generate_via_native_engine(
+        {"prompt": "AB", "max_tokens": 4, "seed": 7}
+    )
+    assert result["ok"] is True
+    assert result["decoder"] == "native-transformer-autoregressive-decoder"
+
+    ledger = (
+        tmp_path
+        / "xingcheng"
+        / "runtime"
+        / "logs"
+        / "native-engine-executions.jsonl"
+    )
+    entries = [
+        json.loads(line)
+        for line in ledger.read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(e.get("event") == "cpp-runtime-fallback" for e in entries)
+
+
+def test_ensure_bundle_reuse_and_stale_reexport(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patched_roots(monkeypatch, tmp_path)
+    checkpoint = _tiny_checkpoint(tmp_path)
+    first = cpp_runtime.ensure_bundle(checkpoint)
+    second = cpp_runtime.ensure_bundle(checkpoint)
+    assert first["output_dir"] == second["output_dir"]
+    assert second["reused"] is True
+
+    torch.manual_seed(41)
+    model = XingChengForCausalLM(_tiny_config())
+    save_checkpoint(
+        checkpoint, model, config=_tiny_config(), tokenizer=_tiny_tokenizer()
+    )
+    third = cpp_runtime.ensure_bundle(checkpoint)
+    assert third["reused"] is False
+
+
+def test_cpp_engine_kv_limit_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patched_roots(monkeypatch, tmp_path)
+    checkpoint = _tiny_checkpoint(tmp_path)
+    bundle_dir = Path(cpp_runtime.ensure_bundle(checkpoint)["output_dir"])
+    # max KV = layers*positions*kv_heads*head_dim*2*8 bytes; deny half of it.
+    limit = 2 * 32 * 2 * 8 * 8 - 1
+    with pytest.raises(RuntimeError, match="KV_MEMORY_LIMIT_EXCEEDED"):
+        cpp_runtime.load_engine(bundle_dir, kv_memory_limit=limit)
