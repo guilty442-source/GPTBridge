@@ -41,6 +41,9 @@ def rms_norm_weight(
         except Exception:
             # 任何 ABI / kernel 編譯問題都退回 PyTorch
             pass
+    native = native_rmsnorm(hidden_states, weight, eps)
+    if native is not None:
+        return native
     return _rms_norm_torch(hidden_states, weight, eps)
 
 

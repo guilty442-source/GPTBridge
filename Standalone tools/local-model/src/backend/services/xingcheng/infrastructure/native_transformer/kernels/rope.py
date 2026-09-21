@@ -1,8 +1,8 @@
 """Rotary Position Embedding (RoPE) 自研 kernel。
 
-優先順序：Triton → PyTorch。
+優先順序：Triton → 原生 C → PyTorch。
 RoPE 為 Attention 的 Q/K 旋轉位置編碼；Triton 路徑融合 cos/sin 計算與旋轉，
-降低 VRAM 存取。CPU 或無 Triton 環境退回 PyTorch 參考實作。
+降低 VRAM 存取。CPU 優先派送原生 C 核心，失敗再退回 PyTorch 參考實作。
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import torch
 
 from ..execution.backend import capabilities
+from ..execution.dispatch import native_rope
 
 
 def _triton_available() -> bool:
@@ -59,6 +60,9 @@ def apply_rope(
             return _rope_triton(q, k, cos, sin, position_ids)
         except Exception:
             pass
+    native = native_rope(q, k, cos, sin, position_ids)
+    if native is not None:
+        return native
     return _rope_torch(q, k, cos, sin, position_ids)
 
 
