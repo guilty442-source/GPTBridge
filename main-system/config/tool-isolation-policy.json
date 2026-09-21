@@ -71,18 +71,18 @@
       "cpu_percent_limit": 80,
       "network_policy": "loopback-only",
       "filesystem_policy": "tool-scoped",
-      "restart_on_crash": true,
-      "max_restart_attempts": 5,
-      "restart_backoff_seconds": [3, 10, 30, 60, 120]
+      "restart_on_crash": false,
+      "max_restart_attempts": 0,
+      "restart_backoff_seconds": []
     },
     "xingcheng": {
       "memory_limit_mb": 2048,
       "cpu_percent_limit": 80,
       "network_policy": "loopback-only",
       "filesystem_policy": "tool-scoped",
-      "restart_on_crash": true,
-      "max_restart_attempts": 5,
-      "restart_backoff_seconds": [3, 10, 30, 60, 120]
+      "restart_on_crash": false,
+      "max_restart_attempts": 0,
+      "restart_backoff_seconds": []
     },
     "business-logic-csharp": {
       "memory_limit_mb": 512,
