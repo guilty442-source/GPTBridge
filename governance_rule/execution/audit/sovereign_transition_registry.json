@@ -1,0 +1,94 @@
+{
+  "registry": "sovereign-transition-registry/v1",
+  "generated_at": "2026-09-21",
+  "purpose": "Governed transition relationship between A334 (fixed assignment), A591 (sovereigns to core engines) and A592 (sub-sovereign elimination). Read-only planning registry; it does not grant runtime effect.",
+  "provisions": {
+    "A334": {
+      "subject": "machine-readable-sovereign-hierarchy-module-assignment-and-signature-special-law",
+      "content_hash": "f8c5f664d6c08a543b7ed619466dc82bb932546b3a865db36c08efa4ff3eb066",
+      "lifecycle_state": "active",
+      "effective_version": "1.00000",
+      "current_binding_version": "2026-09-19T14:58:26Z",
+      "formal_rules": ["RULE_RUNTIME_AUTHORITY_RESOLUTION_V1", "RULE_DELEGATION_VALIDATION_V1"],
+      "role": "legacy fixed assignment: sovereign_hierarchy_registry + module_assignment_registry are the machine authority"
+    },
+    "A591": {
+      "subject": "sovereigns-become-core-engines",
+      "content_hash": "45c3c0bd6211520c11e78124766a9c520c33eb349771ab3805a8f1a1a76c26a5",
+      "lifecycle_state": "active",
+      "effective_version": "2026-09-20T17:39:12Z",
+      "current_binding_version": "2026-09-20T17:39:12Z",
+      "formal_rules": ["FR-SOVEREIGN-TO-CORE-ENGINE"],
+      "rule_status": "proposed",
+      "role": "target: five core engines (decision / permission / system-runtime / synchronization / xingcheng), one-to-one duties, codex-first"
+    },
+    "A592": {
+      "subject": "sub-sovereign-elimination-full-modularization",
+      "content_hash": "009b0ae83d31672c5ec91eaeda89efcd440d3bf495f854390a2dde0ffdc",
+      "lifecycle_state": "active",
+      "effective_version": "2026-09-20T17:39:12Z",
+      "current_binding_version": "2026-09-20T17:39:12Z",
+      "formal_rules": ["FR-NO-SUB-SOVEREIGN-ALL-MODULES"],
+      "rule_status": "proposed",
+      "role": "target: sub-sovereign layer eliminated; functions map to single-purpose modules; registry/manifests/permission routes synchronised"
+    }
+  },
+  "current_implementation": {
+    "assignment_model": "A334 fixed assignment (module_assignment_registry + sovereign_hierarchy_registry)",
+    "active_sub_sovereigns": 13,
+    "runtime_path": "sovereign -> sub-sovereign -> fixed module assignment -> executor",
+    "evidence": "architecture_registry owner_sub_sovereign still populated (13 distinct values, 42 components)"
+  },
+  "target_architecture": {
+    "assignment_model": "A592 dynamic capability matching",
+    "runtime_path": "core engine -> capability match by task -> single-purpose module -> governed execution",
+    "evidence_requirement": "architecture_registry owner_sub_sovereign retired; module manifests and permission routes synchronised"
+  },
+  "transition_preconditions": [
+    "A591/A592 formal rules leave 'proposed' and reach declared-pending-evaluator-parity with machine evaluators",
+    "equivalence mapping (13 owner_sub_sovereign values -> single-purpose modules) recorded and reviewed",
+    "module manifests, architecture_registry and permission routes prepared for owner_sub_sovereign retirement",
+    "new dispatch contract defined and parity-tested against the legacy fixed-assignment resolution",
+    "no runtime request is simultaneously controlled by A334 fixed assignment and A592 dynamic matching"
+  ],
+  "transition_acceptance": [
+    "PREPARED: mapping + preconditions recorded (registry file + blueprint section)",
+    "PARITY_VERIFIED: dispatch parity evidence for every mapped module (legacy resolution == capability match)",
+    "CUTOVER_READY: registry/manifest/permission-route changes staged and reversible; exclusivity check enforced",
+    "ACTIVATED: new dispatch contract takes current runtime effect (explicit governor activation)",
+    "LEGACY_RETIRED: sub-sovereign identities retired in codex (registry switched first); legacy assignment rows removed"
+  ],
+  "stages": [
+    "PRE_TRANSITION",
+    "PREPARED",
+    "PARITY_VERIFIED",
+    "CUTOVER_READY",
+    "ACTIVATED",
+    "LEGACY_RETIRED"
+  ],
+  "current_stage": "PREPARED",
+  "stage_evidence": {
+    "PREPARED": "equivalence mapping recorded (this file); A591/A592 active in codex; rules still 'proposed'"
+  },
+  "rules": {
+    "no_deletion_before_registry_switch": "sub-sovereign identities must not be deleted before the registry is switched (A592 codex-first)",
+    "single_model_per_request": "each runtime request is governed by exactly one assignment model; A334 while current_stage < ACTIVATED, A592 only from ACTIVATED",
+    "cutover_gate": "the new dispatch contract gains current runtime effect only when PARITY_VERIFIED and CUTOVER_READY evidence is complete",
+    "no_article_expansion": "no new articles are required for this transition; A591/A592 plus existing A334 controls are sufficient"
+  },
+  "equivalence_mapping": [
+    {"owner_sub_sovereign": "change_acceptance_sub_sovereign", "components": 8, "target": "single-purpose tool/module ownership (model-dialogue, ai-assistant, ai-collaboration, file-sorter, domain-term-extractor, investment-mobile, vaultly, business-logic-csharp)"},
+    {"owner_sub_sovereign": "channel_contract_sync_sub_sovereign", "components": 3, "target": "shared-layer contracts + tokenizer + information-channel-gateway (module-owned)"},
+    {"owner_sub_sovereign": "cleanup_retention_sync_sub_sovereign", "components": 1, "target": "global-cleaner module"},
+    {"owner_sub_sovereign": "data_governance_sub_sovereign", "components": 10, "target": "data-platform modules (postgresql, qdrant, local-vector, local-model, xingcheng stores, chinese-semantic-engine, native-compute-core, model-training)"},
+    {"owner_sub_sovereign": "dependency_sync_sub_sovereign", "components": 1, "target": "ollama adapter module"},
+    {"owner_sub_sovereign": "language_review_sub_sovereign", "components": 1, "target": "language-review module"},
+    {"owner_sub_sovereign": "policy_architecture_sub_sovereign", "components": 3, "target": "governance_rule + codex-authority + decision-sovereign (engine-owned policy)"},
+    {"owner_sub_sovereign": "release_update_sync_sub_sovereign", "components": 6, "target": "git/worker/self-commit/integration/origin-mirror modules"},
+    {"owner_sub_sovereign": "repair_backup_sync_sub_sovereign", "components": 2, "target": "system-rescue + recovery-plane modules"},
+    {"owner_sub_sovereign": "runtime_state_sync_sub_sovereign", "components": 1, "target": "module-sqlite (owner-private state)"},
+    {"owner_sub_sovereign": "startup_sub_sovereign", "components": 4, "target": "boot-core + bootstrap-entry + launcher-ui + orchestration modules"},
+    {"owner_sub_sovereign": "system_sub_sovereign", "components": 2, "target": "main-system + xingcheng-sovereign engine modules"},
+    {"owner_sub_sovereign": "xingcheng-assistant-identity-group", "components": 3, "target": "xingcheng-assistant + auto-learning + auto-repair modules"}
+  ]
+}
