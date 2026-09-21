@@ -68,8 +68,11 @@ def record(test_id: str, name: str, expected: str, actual: str, status: str, evi
     })
 
 
+_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
 def git(*args: str) -> str:
-    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, creationflags=_CREATE_NO_WINDOW).stdout.strip()
 
 
 def build_rc() -> None:

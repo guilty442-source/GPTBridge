@@ -21,6 +21,9 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 PROBE_SCRIPT = r"""
+# Windows background-subprocess policy: never open a console window.
+_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 import hashlib
 import importlib.metadata as md
 import importlib.util
@@ -173,6 +176,7 @@ def probe_python_import_origins(
             cwd=os.fspath(cwd) if cwd else None,
             env=environment,
             timeout=timeout_seconds,
+            creationflags=_CREATE_NO_WINDOW,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise ReleaseDependencyError(f"python probe failed: {error}") from error
@@ -438,6 +442,7 @@ def probe_runtime_environment(
             cwd=os.fspath(cwd) if cwd else None,
             env=environment,
             timeout=timeout_seconds,
+            creationflags=_CREATE_NO_WINDOW,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise ReleaseDependencyError(f"environment probe failed: {error}") from error

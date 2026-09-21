@@ -15,6 +15,36 @@ from startup_core.phases_constants import (
 )
 
 
+# AA2: bound the startup worker pool regardless of manifest size.
+STARTUP_PHASE_MAX_WORKERS = 8
+
+
+def _dependency_start_order(declarations: tuple[Any, ...]) -> list[Any]:
+    """Order declarations so prerequisites are submitted first.
+
+    ``required_by`` names the consuming identity.  When that consumer is
+    itself a declared dependency, the required service must start earlier —
+    with a bounded pool, submission order decides which tasks run first.
+    Depth = length of the consumer chain above the declaration (deepest
+    chain first).  Cycles degrade gracefully to depth 0 (the DAG's own
+    ``is_acyclic`` check still reports them).
+    """
+    by_identity = {d.identity: d for d in declarations}
+    depth: dict[str, int] = {}
+
+    def _depth(identity: str, seen: frozenset[str]) -> int:
+        if identity in depth:
+            return depth[identity]
+        dep = by_identity.get(identity)
+        if dep is None or dep.required_by not in by_identity or identity in seen:
+            depth[identity] = 0
+        else:
+            depth[identity] = 1 + _depth(dep.required_by, seen | {identity})
+        return depth[identity]
+
+    return sorted(declarations, key=lambda d: -_depth(d.identity, frozenset()))
+
+
 class StartupPhaseExecutionMixin:
     """Startup phase execution and DAG verification."""
 
@@ -60,7 +90,17 @@ class StartupPhaseExecutionMixin:
         bootstrap_results: dict[str, dict[str, Any]] = {}
         dependency_results: dict[str, dict[str, Any]] = {}
         if not self._stop.is_set():
-            workers = max(1, len(BOOTSTRAP_PHASES) + len(declarations))
+            # AA2: bounded worker pool (never one worker per declaration)
+            # plus dependency-aware submission order — a declaration that
+            # another declared service requires starts earliest.
+            workers = max(
+                1,
+                min(
+                    STARTUP_PHASE_MAX_WORKERS,
+                    len(BOOTSTRAP_PHASES) + len(declarations),
+                ),
+            )
+            ordered_deps = _dependency_start_order(declarations)
             with ThreadPoolExecutor(
                 max_workers=workers,
                 thread_name_prefix="startup-dag",
@@ -71,7 +111,7 @@ class StartupPhaseExecutionMixin:
                         "bootstrap",
                         phase,
                     )
-                for dep in declarations:
+                for dep in ordered_deps:
                     futures[
                         executor.submit(
                             handlers[phase_by_identity[dep.identity]], self
