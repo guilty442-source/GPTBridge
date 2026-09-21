@@ -26,9 +26,10 @@ import sqlite3
 import struct
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final, Iterator
+from typing import Any, Final, Iterator, Optional
 
 from .native_kernel import available as _native_available
 from ..security.qdrant_scope import QdrantScopeError
@@ -155,6 +156,10 @@ class LocalVectorStore:
                     vector TEXT NOT NULL,
                     payload TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS collection_state (
+                    key TEXT NOT NULL PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
                 """
             )
 
@@ -181,16 +186,78 @@ class LocalVectorStore:
         except (TypeError, ValueError):
             return value
 
+    @staticmethod
+    def _declared_dimension(connection: sqlite3.Connection) -> Optional[int]:
+        """Declared collection dimension: collection_state first, then the
+        legacy MAX(collection_meta.vector_size) for databases predating the
+        state table."""
+        row = connection.execute(
+            "SELECT value FROM collection_state WHERE key = 'vector_size'"
+        ).fetchone()
+        if row is not None:
+            return int(row["value"])
+        row = connection.execute(
+            "SELECT MAX(vector_size) AS size FROM collection_meta"
+        ).fetchone()
+        if row is not None and row["size"] is not None:
+            return int(row["size"])
+        return None
+
     def ensure_collection(self, vector_size: int) -> None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT MAX(vector_size) AS size FROM collection_meta"
-            ).fetchone()
-        existing = int(row["size"]) if row is not None and row["size"] is not None else None
-        if existing is not None and int(vector_size) != existing:
+            existing = self._declared_dimension(connection)
+            if existing is None:
+                connection.execute(
+                    "INSERT OR REPLACE INTO collection_state (key, value)"
+                    " VALUES ('vector_size', ?)",
+                    (str(int(vector_size)),),
+                )
+                return
+        if int(vector_size) != existing:
             raise RuntimeError(
-                f"RAG_VECTOR_DIMENSION_MISMATCH: existing={existing}, requested={vector_size}"
+                f"RAG_VECTOR_DIMENSION_MISMATCH: existing={existing},"
+                f" requested={vector_size}; a deliberate dimension/index-version"
+                " change must go through reconcile_dimension()"
             )
+
+    def reconcile_dimension(
+        self, vector_size: int, *, index_version: Optional[str] = None
+    ) -> str:
+        """Apply a deliberate embedding dimension / index-version change.
+
+        This store is the degraded cache (``canonical: False``); its points
+        are re-embeddable from the canonical source, so a dimension change
+        is implemented as an explicit cache rebuild: all cached points and
+        document meta are dropped and a new collection epoch is recorded.
+        Returns ``'unchanged'`` when the declared dimension already matches,
+        ``'rebuilt'`` after a rebuild.  Never invoked implicitly — callers
+        must opt in after ``ensure_collection`` reports a mismatch.
+        """
+        with self._connect() as connection:
+            existing = self._declared_dimension(connection)
+            if existing == int(vector_size):
+                return "unchanged"
+            connection.execute("DELETE FROM collection_point")
+            connection.execute("DELETE FROM collection_meta")
+            row = connection.execute(
+                "SELECT value FROM collection_state WHERE key = 'epoch'"
+            ).fetchone()
+            epoch = (int(row["value"]) if row is not None else 0) + 1
+            state = {
+                "vector_size": str(int(vector_size)),
+                "epoch": str(epoch),
+                "reconciled_at": datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+            }
+            if index_version is not None:
+                state["index_version"] = str(index_version)
+            connection.executemany(
+                "INSERT OR REPLACE INTO collection_state (key, value)"
+                " VALUES (?, ?)",
+                list(state.items()),
+            )
+        return "rebuilt"
 
     def replace_document(
         self,
@@ -217,7 +284,25 @@ class LocalVectorStore:
                 row, size = self._prepare_point(point, document_id, resolved_module)
                 if not vector_size:
                     vector_size = size
+                elif size != vector_size:
+                    raise ValueError(
+                        f"RAG_POINT_DIMENSION_INCONSISTENT:"
+                        f" point={row[0]} size={size} expected={vector_size}"
+                    )
                 prepared.append(row)
+            declared = self._declared_dimension(connection)
+            if declared is None:
+                connection.execute(
+                    "INSERT OR REPLACE INTO collection_state (key, value)"
+                    " VALUES ('vector_size', ?)",
+                    (str(vector_size),),
+                )
+            elif vector_size != declared:
+                raise RuntimeError(
+                    f"RAG_VECTOR_DIMENSION_MISMATCH: existing={declared},"
+                    f" requested={vector_size}; a deliberate dimension/index-version"
+                    " change must go through reconcile_dimension()"
+                )
             connection.execute(
                 """
                 INSERT INTO collection_meta (
@@ -347,6 +432,10 @@ class LocalVectorStore:
                 meta_row = connection.execute(
                     "SELECT COUNT(*) AS docs, MAX(vector_size) AS size FROM collection_meta"
                 ).fetchone()
+                state_rows = connection.execute(
+                    "SELECT key, value FROM collection_state"
+                ).fetchall()
+            collection_state = {str(r["key"]): r["value"] for r in state_rows}
             point_count = int(point_row["count"])
             return {
                 "available": True,
@@ -362,6 +451,13 @@ class LocalVectorStore:
                 "point_count": point_count,
                 "document_count": int(meta_row["docs"]),
                 "vector_size": int(meta_row["size"]) if meta_row["size"] is not None else None,
+                "collection_epoch": int(collection_state.get("epoch", "0") or 0),
+                "declared_vector_size": (
+                    int(collection_state["vector_size"])
+                    if collection_state.get("vector_size")
+                    else None
+                ),
+                "index_version": collection_state.get("index_version"),
                 "location": self.location,
             }
         except (OSError, ValueError, sqlite3.Error) as exc:
