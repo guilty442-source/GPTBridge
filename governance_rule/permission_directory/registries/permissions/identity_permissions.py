@@ -18,7 +18,6 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
     IDENTITY_GROUP_XINGCHENG_ASSISTANT,
-    IDENTITY_GROUP_CHINESE_SEMANTIC_ENGINE,
     IdentityPermissionBinding,
 )
 
@@ -212,19 +211,6 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "system-channel-request-submit",
             "system-channel-request-process",
             "ai-channel-request-submit",
-        ),
-    ),
-    IdentityPermissionBinding(
-        group_id=IDENTITY_GROUP_CHINESE_SEMANTIC_ENGINE,
-        actor="governance/tool/chinese-semantic-engine",
-        capabilities=(
-            "independent-tool-business-logic",
-            "independent-tool-user-settings",
-            "independent-tool-business-storage",
-            "system-channel-request-submit",
-            "system-channel-request-process",
-            "ai-channel-request-submit",
-            "ai-channel-request-process",
         ),
     ),
 )

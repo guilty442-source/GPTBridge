@@ -19,7 +19,6 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
     IDENTITY_GROUP_XINGCHENG_ASSISTANT,
-    IDENTITY_GROUP_CHINESE_SEMANTIC_ENGINE,
     CapabilityIdentity,
     IdentityGroup,
     ManifestBinding,
@@ -278,13 +277,6 @@ MODEL_DIALOGUE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     codename="DIALOGUE",
     root_template="Standalone tools/local-model/model-dialogue",
 )
-CHINESE_SEMANTIC_ENGINE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
-    "chinese-semantic-engine",
-    group_id=IDENTITY_GROUP_CHINESE_SEMANTIC_ENGINE,
-    identity_code="S00002",
-    language_name="chinese_semantic_engine",
-    codename="SEMANTIC",
-)
 del _business_tool_identity
 
 SYSTEM_RESCUE_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
@@ -328,7 +320,6 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     SYSTEM_RESCUE_IDENTITY,
     LOCAL_MODEL_IDENTITY,
     MODEL_DIALOGUE_IDENTITY,
-    CHINESE_SEMANTIC_ENGINE_IDENTITY,
 )
 
 ACTIVE_IDENTITY_GROUP: Final[IdentityGroup] = IdentityGroup(

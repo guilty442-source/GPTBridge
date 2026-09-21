@@ -75,7 +75,6 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "shared-layer",
             "system-rescue",
             "vaultly",
-            "chinese-semantic-engine",
         ),
         approved_actor_names=(
             "governance/main-system",
@@ -93,7 +92,6 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "governance/tool/shared-layer",
             "governance/tool/system-rescue",
             "governance/tool/vaultly",
-            "governance/tool/chinese-semantic-engine",
         ),
         approved_capability_names=(
             "ai-channel-top-level",
@@ -132,7 +130,6 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "upgrade-optimization",
             "xingcheng-governance-source-read",
             "xingcheng-fault-analysis-read",
-            "chinese-semantic-engine",
         ),
         approved_action_names=(
             "append",

@@ -80,7 +80,7 @@
     {"owner_sub_sovereign": "change_acceptance_sub_sovereign", "components": 8, "target": "single-purpose tool/module ownership (model-dialogue, ai-assistant, ai-collaboration, file-sorter, domain-term-extractor, investment-mobile, vaultly, business-logic-csharp)"},
     {"owner_sub_sovereign": "channel_contract_sync_sub_sovereign", "components": 3, "target": "shared-layer contracts + tokenizer + information-channel-gateway (module-owned)"},
     {"owner_sub_sovereign": "cleanup_retention_sync_sub_sovereign", "components": 1, "target": "global-cleaner module"},
-    {"owner_sub_sovereign": "data_governance_sub_sovereign", "components": 10, "target": "data-platform modules (postgresql, qdrant, local-vector, local-model, xingcheng stores, chinese-semantic-engine, native-compute-core, model-training)"},
+    {"owner_sub_sovereign": "data_governance_sub_sovereign", "components": 10, "target": "data-platform modules (postgresql, qdrant, local-vector, local-model, xingcheng stores, native-compute-core, model-training)"},
     {"owner_sub_sovereign": "dependency_sync_sub_sovereign", "components": 1, "target": "ollama adapter module"},
     {"owner_sub_sovereign": "language_review_sub_sovereign", "components": 1, "target": "language-review module"},
     {"owner_sub_sovereign": "policy_architecture_sub_sovereign", "components": 3, "target": "governance_rule + codex-authority + decision-sovereign (engine-owned policy)"},

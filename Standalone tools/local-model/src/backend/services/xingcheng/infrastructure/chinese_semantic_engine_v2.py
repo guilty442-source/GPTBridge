@@ -1,10 +1,10 @@
 """Chinese Semantic Engine v2 — Core Module.
 
 Enhanced Chinese semantic processing engine with extensible architecture.
-Integrates with GPTBridge governance, shared-layer contracts, and xingcheng domain.
+Lives inside the xingcheng runtime (local-model tool); all xingcheng internals are in-process imports.
 
 Architecture:
-- Component: chinese-semantic-engine (model, standalone-service)
+- Component: chinese-semantic-engine (model, internal-module of xingcheng/local-model)
 - Sovereign: xingcheng-domain
 - Dependencies: shared-layer, qdrant, local-model
 - Information channels: information-channel
@@ -24,7 +24,7 @@ from shared_layer.contracts.types import ModuleIdentity
 
 COMPONENT_ID: Final[str] = "chinese-semantic-engine"
 ARCHITECTURAL_ROLE: Final[str] = "model"
-RUNTIME_FORM: Final[str] = "standalone-service"
+RUNTIME_FORM: Final[str] = "internal-module"
 OWNER_SOVEREIGN: Final[str] = "xingcheng-domain"
 EXECUTION_IDENTITY: Final[str] = "chinese-semantic-engine-v2"
 DEFAULT_CONFIG_PATH: Final[Path] = Path("config/chinese_semantic_engine.json")
@@ -431,7 +431,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
             from shared_layer.adaptive import get_plane
             from shared_layer.local.vector_store import LocalVectorStore
             from pathlib import Path
-            from services.xingcheng.infrastructure.native_model import StarNativeLanguageModel
+            from .native_model import StarNativeLanguageModel
 
             self._adaptive_plane = get_plane()
 
@@ -447,8 +447,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
             self._model_runtime = self._native_model
             self._model_available = True
         except ImportError as e:
-            # xingcheng modules not available in this tool's path
-            # Per governance, tools must communicate via AI channel, not direct imports
+            # xingcheng internals unavailable — module must run inside the xingcheng runtime
             self._import_error = str(e)
             self._model_available = False
             # Don't raise - initialization succeeds but model is unavailable
@@ -476,7 +475,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
                 f"Xingcheng model not available: {self._import_error}"
             )
         try:
-            from services.xingcheng.infrastructure.chinese_semantic_engine import ChineseSemanticEngine
+            from .chinese_semantic_engine import ChineseSemanticEngine
         except ImportError as e:
             raise SemanticModelUnavailable(f"Xingcheng module not available: {e}")
 
@@ -495,7 +494,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
                 f"Xingcheng model not available: {self._import_error}"
             )
         try:
-            from services.xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+            from .transformer_runtime import StarTransformerRuntime
         except ImportError as e:
             raise SemanticModelUnavailable(f"Xingcheng module not available: {e}")
 
@@ -517,7 +516,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
             raise SemanticModelUnavailable("Qdrant not initialized")
 
         try:
-            from services.xingcheng.infrastructure.rag.hybrid import HybridRetriever
+            from .rag.hybrid import HybridRetriever
         except ImportError as e:
             raise SemanticModelUnavailable(f"Xingcheng module not available: {e}")
 
@@ -535,7 +534,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
 
     async def _synthesize_impl(self, request: SemanticRequest) -> SemanticResponse:
         """Synthesize response from retrieved context."""
-        from services.xingcheng.infrastructure.native_model import StarNativeLanguageModel
+        from .native_model import StarNativeLanguageModel
 
         context = request.parameters.get("context", [])
         context_text = "\n".join(str(c) for c in context) if isinstance(context, list) else str(context)

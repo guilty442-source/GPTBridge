@@ -52,7 +52,6 @@
       "xingcheng",
       "xingcheng-auto-learning-module",
       "xingcheng-auto-repair-module",
-      "chinese-semantic-engine",
       "model-training"
     ],
     "role:execution": [
@@ -309,13 +308,6 @@
       "module_identity": "vaultly",
       "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
       "capability_dispatch_selected": "vaultly",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "chinese-semantic-engine",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "chinese-semantic-engine",
       "parity": true,
       "decision": "PASS"
     },

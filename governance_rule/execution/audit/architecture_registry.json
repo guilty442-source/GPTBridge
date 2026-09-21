@@ -652,24 +652,6 @@
       ]
     },
     {
-      "component_id": "chinese-semantic-engine",
-      "architectural_role": "model",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "chinese-semantic-engine-v2",
-      "physical_path": "Standalone tools/chinese-semantic-engine",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer",
-        "qdrant",
-        "local-model"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
       "component_id": "git-tier-plane",
       "architectural_role": "development-maintenance",
       "runtime_form": "build-tooling",
