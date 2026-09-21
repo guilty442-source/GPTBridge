@@ -63,10 +63,14 @@ def _load_native() -> Any:
         import sys
         import pathlib
 
-        # Try the main-system native package first
+        # Prefer the governed build output; the package copy may be locked by a
+        # running process on Windows, while packaged layouts can omit dist-native.
         _here = pathlib.Path(__file__).resolve()
+        _project = _here.parents[4]
+        _native_pkg = _project / "main-system" / "src-core" / "core_system" / "native"
         _candidates = [
-            _here.parents[4] / "main-system" / "src-core" / "core_system" / "native",
+            _project / "main-system" / "dist-native",
+            _native_pkg,
         ]
         for cand in _candidates:
             if str(cand) not in sys.path:
