@@ -287,9 +287,10 @@ class CodexAmendmentRequestLedger:
         return lock_path
 
     def _release_lineage(self, record: Mapping[str, Any]) -> None:
-        lock_path = Path(str(record.get("lock_path") or ""))
-        if not lock_path:
+        raw_lock_path = str(record.get("lock_path") or "")
+        if not raw_lock_path:
             return
+        lock_path = Path(raw_lock_path)
         try:
             lock = _load_json(lock_path)
         except AmendmentLifecycleError:

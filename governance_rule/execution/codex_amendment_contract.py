@@ -225,14 +225,15 @@ def validate_rule_state(
         return ()
     if state not in NONTERMINAL_RULE_STATES:
         return (f"RULE_STATE_UNKNOWN:{state}",)
-    if state in {RULE_STATE_PROPOSED, RULE_STATE_DECLARED_PENDING_PARITY}:
-        if evaluator_registered is not True:
-            errors.append("RULE_EVALUATOR_REQUIRED")
-    if state in {RULE_STATE_PARITY_VERIFIED, RULE_STATE_ACTIVE}:
-        if evaluator_registered is not True:
-            errors.append("RULE_EVALUATOR_REQUIRED")
-        if not parity_evidence:
-            errors.append("RULE_PARITY_EVIDENCE_REQUIRED")
+    if state in {
+        RULE_STATE_PROPOSED,
+        RULE_STATE_DECLARED_PENDING_PARITY,
+        RULE_STATE_PARITY_VERIFIED,
+        RULE_STATE_ACTIVE,
+    } and evaluator_registered is not True:
+        errors.append("RULE_EVALUATOR_REQUIRED")
+    if state == RULE_STATE_PARITY_VERIFIED and not parity_evidence:
+        errors.append("RULE_PARITY_EVIDENCE_REQUIRED")
     return tuple(errors)
 
 
@@ -260,6 +261,8 @@ def validate_rule_transition(
     allowed = RULE_STATE_TRANSITIONS.get(current_state, frozenset())
     if target_state not in allowed:
         return (f"RULE_STATE_TRANSITION_DENIED:{current_state}->{target_state}",)
+    if target_state == RULE_STATE_ACTIVE and not parity_evidence:
+        return ("RULE_PARITY_EVIDENCE_REQUIRED",)
     return validate_rule_state(
         target_state,
         evaluator_registered=evaluator_registered,

@@ -31,9 +31,10 @@ import os
 import shutil
 import sqlite3
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Mapping, Sequence
+from typing import Any, Final, Mapping
 
 from governance_rule.execution.codex_amendment_contract import (
     SEAL_PREVIEW_SCHEMA,
@@ -150,7 +151,11 @@ def _require_table(
 
 
 def _normalized_row(
-    columns: Sequence[Mapping[str, Any]], row: Mapping[str, Any], table: str
+    columns: Sequence[Mapping[str, Any]],
+    row: Mapping[str, Any],
+    table: str,
+    *,
+    require_primary: bool = True,
 ) -> dict[str, Any]:
     names = {str(column["name"]) for column in columns}
     normalized = {str(key): value for key, value in row.items()}
@@ -165,7 +170,7 @@ def _normalized_row(
     missing_primary = [
         name
         for name in primary
-        if str(normalized.get(name) or "").strip() == ""
+        if require_primary and str(normalized.get(name) or "").strip() == ""
     ]
     if missing_primary:
         raise SuccessorBuildError(
@@ -235,7 +240,9 @@ def _update_rows(
     successor_version: str | None,
 ) -> Mapping[str, Any]:
     columns = _require_table(connection, table)
-    normalized = _normalized_row(columns, fields, table)
+    normalized = _normalized_row(
+        columns, fields, table, require_primary=False
+    )
     for name, value in list(normalized.items()):
         if str(value).strip() in SUCCESSOR_SENTINELS:
             if not successor_version:
@@ -389,9 +396,11 @@ def _formal_rule_errors(connection: sqlite3.Connection) -> tuple[str, ...]:
         return ("FORMAL_RULE_REGISTRY_CONTRACT_INCOMPLETE",)
     try:
         from governance_rule.execution import formal_rules
-    except (ImportError, RuntimeError):
+
+        formal_rules.load_formal_rules(Path(connection.execute("PRAGMA database_list").fetchone()[2]))
+        evaluator_codes = formal_rules.registered_rule_codes()
+    except (ImportError, RuntimeError, OSError, sqlite3.Error):
         return ("FORMAL_RULE_EVALUATOR_REGISTRY_UNAVAILABLE",)
-    evaluator_codes = formal_rules.registered_rule_codes()
     errors: list[str] = []
     rows = connection.execute(
         f"SELECT {_quote_identifier(code_column)}, {_quote_identifier(status_column)} "
