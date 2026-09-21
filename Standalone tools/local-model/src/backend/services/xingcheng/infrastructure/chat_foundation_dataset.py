@@ -148,17 +148,35 @@ def build_chat_records(rng: random.Random, *,
     for q, a in gen:
         records.append(_convo(q, a))
 
-    # 5) 算術（避開探針 13+29／6×7）
+    # 5) 算術（避開探針 13+29／6×7／9v4；唯一算式池逼模型真算而非背答案）
     seen: set[tuple[int, int, str]] = set()
-    for _ in range(25):
+    n_arith = 25 + (echo_scale if echo_scale else 0)
+    tries = 0
+    while len(seen) < n_arith and tries < n_arith * 8:
+        tries += 1
         a, b = rng.randint(2, 99), rng.randint(2, 99)
-        op = rng.choice(["+", "-", "×"])
+        op = rng.choice(["+", "+", "-", "×"])  # 加法為主，乘法兩位×個位較可學
+        if op == "×":
+            b = rng.randint(2, 9)
         if ((a, b, op) in seen or (op == "-" and a < b)
                 or (a, b, op) in {(13, 29, "+"), (6, 7, "×")}):
             continue
         seen.add((a, b, op))
-        ans = {"+" : a + b, "-": a - b, "×": a * b}[op]
+        ans = {"+": a + b, "-": a - b, "×": a * b}[op]
         records.append(_convo(f"計算 {a} {op} {b}，只輸出數字。", str(ans)))
+
+    # 5b) 比較（L6 compare 探針的訓練對應，值域唯一）
+    n_cmp = 8 + (echo_scale // 4 if echo_scale else 0)
+    seen_cmp: set[tuple[int, int]] = set()
+    tries = 0
+    while len(seen_cmp) < n_cmp and tries < n_cmp * 8:
+        tries += 1
+        a, b = rng.randint(2, 999), rng.randint(2, 999)
+        if a == b or (a, b) in seen_cmp or (a, b) in {(9, 4), (4, 9)}:
+            continue
+        seen_cmp.add((a, b))
+        records.append(_convo(f"{a} 和 {b} 哪個大？只輸出較大的數字。",
+                              str(max(a, b))))
 
     # 6) tool_call 格式
     tool_sys = {"role": "system", "content": (
