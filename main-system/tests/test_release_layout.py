@@ -8,6 +8,7 @@ from pathlib import Path
 from core_system.release_layout import (
     REQUIRED_ENTRIES,
     SCHEMA_VERSION,
+    build_release_payload_snapshot,
     check_release_layout,
 )
 
@@ -21,6 +22,7 @@ def _valid_bundle(root: Path, **manifest_overrides) -> Path:
         "required_contracts": ["ipc_contract", "sql_schema"],
         "dependency_lock": {"identity": "uv-lock-sha256:abc"},
         "build_metadata": {"built_at": "2026-09-21", "builder": "w4-0c"},
+        "payload_snapshot": build_release_payload_snapshot(root),
     }
     manifest.update(manifest_overrides)
     (root / "manifest.json").write_text(
@@ -98,6 +100,53 @@ def test_manifest_missing_required_contracts_rejected(tmp_path: Path) -> None:
     result = check_release_layout(root)
     assert result["ok"] is False
     assert "MANIFEST_MISSING:required_contracts" in result["manifest_errors"]
+
+
+def test_manifest_missing_payload_snapshot_rejected(tmp_path: Path) -> None:
+    root = _valid_bundle(tmp_path / "r")
+    manifest = json.loads((root / "manifest.json").read_text("utf-8"))
+    manifest.pop("payload_snapshot")
+    (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    result = check_release_layout(root)
+    assert result["ok"] is False
+    assert "MANIFEST_MISSING:payload_snapshot" in result["manifest_errors"]
+
+
+def test_payload_mutation_detected(tmp_path: Path) -> None:
+    root = _valid_bundle(tmp_path / "r")
+    (root / "backend" / "main.py").write_text("print('mutated')\n", encoding="utf-8")
+    result = check_release_layout(root)
+    assert result["ok"] is False
+    assert "PAYLOAD_SNAPSHOT_MISMATCH" in result["payload_errors"]
+    assert "changed:backend/main.py" in result["payload_mismatches"]
+
+
+def test_payload_dependency_install_detected(tmp_path: Path) -> None:
+    root = _valid_bundle(tmp_path / "r")
+    (root / "dependencies" / "installed.py").write_text("VALUE = 2\n", encoding="utf-8")
+    result = check_release_layout(root)
+    assert result["ok"] is False
+    assert "PAYLOAD_SNAPSHOT_MISMATCH" in result["payload_errors"]
+    assert "unexpected:dependencies/installed.py" in result["payload_mismatches"]
+
+
+def test_uncovered_payload_root_rejected(tmp_path: Path) -> None:
+    root = _valid_bundle(tmp_path / "r")
+    (root / "extras").mkdir()
+    (root / "extras" / "tool.py").write_text("VALUE = 3\n", encoding="utf-8")
+    result = check_release_layout(root)
+    assert result["ok"] is False
+    assert "PAYLOAD_ROOT_UNCOVERED:extras" in result["payload_errors"]
+
+
+def test_payload_digest_tampering_rejected(tmp_path: Path) -> None:
+    root = _valid_bundle(tmp_path / "r")
+    manifest = json.loads((root / "manifest.json").read_text("utf-8"))
+    manifest["payload_snapshot"]["digest"] = "0" * 64
+    (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    result = check_release_layout(root)
+    assert result["ok"] is False
+    assert "PAYLOAD_SNAPSHOT_INVALID:digest" in result["payload_errors"]
 
 
 def test_model_weights_not_copied(tmp_path: Path) -> None:

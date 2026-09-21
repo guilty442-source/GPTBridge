@@ -16,11 +16,11 @@
 
 #if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__) || defined(__AVX512F__) || defined(__AVX2__)
 #include <immintrin.h>
-#define GPTBRIDGE_SIMD_AVX512 1
-#define GPTBRIDGE_SIMD_AVX2 1
+#define GPTBRIDGE_HAVE_AVX512 1
+#define GPTBRIDGE_HAVE_AVX2 1
 #elif defined(__AVX2__)
 #include <immintrin.h>
-#define GPTBRIDGE_SIMD_AVX2 1
+#define GPTBRIDGE_HAVE_AVX2 1
 #endif
 
 /* ------------------------------------------------------------------

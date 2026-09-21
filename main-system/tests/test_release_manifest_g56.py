@@ -5,8 +5,11 @@ from core_system.active_release_verify import (
     validate_backend_release_manifest,
     validate_release_manifest,
 )
+from core_system.release_layout import PAYLOAD_SNAPSHOT_SCHEMA
+from governance_rule.execution.integrity.package_integrity import snapshot_digest
 
 
+_PAYLOAD_FILES = {"backend/main.py": "c" * 64}
 _REQUIRED = {
     "release_id": "release-1",
     "git_commit": "a" * 40,
@@ -18,6 +21,14 @@ _REQUIRED = {
     "codex_version": 2,
     "build_hash": "b" * 64,
     "status": "STAGED",
+    "payload_snapshot": {
+        "schema_version": PAYLOAD_SNAPSHOT_SCHEMA,
+        "algorithm": "sha256",
+        "roots": ["backend", "dependencies"],
+        "file_count": len(_PAYLOAD_FILES),
+        "files": _PAYLOAD_FILES,
+        "digest": snapshot_digest(_PAYLOAD_FILES),
+    },
     "compatibility": {
         "codex": True,
         "permissions": True,
@@ -66,6 +77,27 @@ def test_g74_fails_closed_on_ui_backend_contract_mismatch() -> None:
     assert result["ok"] is False
     assert "ipc_contract_version" in result["failed_gates"]
     assert "release_id" in result["failed_gates"]
+
+
+def test_g78_backend_manifest_requires_payload_snapshot() -> None:
+    manifest = {key: value for key, value in _REQUIRED.items() if key != "payload_snapshot"}
+    result = validate_backend_release_manifest(manifest)
+    assert result["ok"] is False
+    assert "payload_snapshot" in result["missing"]
+
+
+def test_g78_backend_manifest_rejects_invalid_payload_snapshot() -> None:
+    manifest = {
+        **_REQUIRED,
+        "payload_snapshot": {
+            **_REQUIRED["payload_snapshot"],
+            "digest": "0" * 64,
+        },
+    }
+    result = validate_backend_release_manifest(manifest)
+    assert result["ok"] is False
+    assert "payload_snapshot" in result["failed_gates"]
+    assert "PAYLOAD_SNAPSHOT_INVALID:digest" in result["payload_errors"]
 
 
 def test_g56_rejects_identity_drift_and_missing_fields() -> None:

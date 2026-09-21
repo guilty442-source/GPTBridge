@@ -388,6 +388,9 @@ def check_release_layout(
             "missing": list(REQUIRED_ENTRIES),
             "forbidden": [],
             "manifest_errors": [],
+            "payload_errors": [],
+            "payload_mismatches": [],
+            "payload_digest": "",
             "gate_errors": [],
             "reason": "release-root-missing",
         }
@@ -411,6 +414,15 @@ def check_release_layout(
     manifest_errors = _manifest_errors(manifest)
     errors.extend(manifest_errors)
 
+    payload_errors: list[str] = []
+    payload_mismatches: list[str] = []
+    payload_digest = ""
+    if isinstance(manifest, dict) and "payload_snapshot" in manifest:
+        payload_errors, payload_mismatches, payload_digest = (
+            _verify_payload_snapshot(root, manifest.get("payload_snapshot"))
+        )
+        errors.extend(payload_errors)
+
     gate_errors: list[str] = []
     if gate_fn is not None and isinstance(manifest, dict):
         contract = manifest.get("dependency_contract")
@@ -429,6 +441,9 @@ def check_release_layout(
         "missing": missing,
         "forbidden": forbidden,
         "manifest_errors": manifest_errors,
+        "payload_errors": payload_errors,
+        "payload_mismatches": payload_mismatches,
+        "payload_digest": payload_digest,
         "gate_errors": gate_errors,
         "reason": "" if not deduped else "release-layout-invalid",
     }
@@ -436,7 +451,11 @@ def check_release_layout(
 
 __all__ = [
     "SCHEMA_VERSION",
+    "PAYLOAD_SNAPSHOT_SCHEMA",
     "REQUIRED_ENTRIES",
+    "REQUIRED_PAYLOAD_ROOTS",
     "MANIFEST_REQUIRED",
+    "build_release_payload_snapshot",
     "check_release_layout",
+    "validate_payload_snapshot",
 ]

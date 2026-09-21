@@ -15,6 +15,7 @@ from core_system.active_release_persistence import (
     ACTIVE_POINTER_PATH,
     resolve_active_pointer,
 )
+from core_system.release_layout import validate_payload_snapshot
 
 _DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _REQUIRED_MANIFEST_FIELDS = frozenset(
@@ -49,6 +50,7 @@ _BACKEND_MANIFEST_FIELDS = frozenset(
         "build_hash",
         "status",
         "compatibility",
+        "payload_snapshot",
     }
 )
 
@@ -146,10 +148,18 @@ def validate_backend_release_manifest(
         failures.append("codex_version")
     if manifest.get("status") not in {"STAGED", "ACTIVE", "PREVIOUS", "ROLLBACK"}:
         failures.append("status")
+    payload_errors = (
+        validate_payload_snapshot(manifest.get("payload_snapshot"))
+        if "payload_snapshot" in manifest
+        else []
+    )
+    if payload_errors:
+        failures.append("payload_snapshot")
     return {
         "ok": not missing and not failures,
         "missing": missing,
         "failed_gates": sorted(set(failures)),
+        "payload_errors": payload_errors,
         "release_id": manifest.get("release_id"),
         "backend_version": manifest.get("backend_version"),
     }
