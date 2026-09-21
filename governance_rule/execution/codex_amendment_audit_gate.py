@@ -1,4 +1,4 @@
-"""Automated Codex update — five-sovereign audit gate (proposed A537).
+"""Automated Codex update — five-sovereign audit gate (A537; active).
 
 法典依據:
 - A382: the non-disruptive amendment flow (12 ordered steps); a Codex

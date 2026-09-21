@@ -215,12 +215,24 @@ class StartupExecutorPhasesMixin:
             )
         from shared_layer.service_probe import probe_registered_local_service
 
+        # Bounded-concurrent probes (§10.63 R1): unreachable dependencies
+        # burn the full timeout each — serial probing stacks those waits.
+        # gather preserves declaration order; the fail-closed verdict is
+        # unchanged.
+        probe_slots = asyncio.Semaphore(4)
+
+        async def _probe(identity: str):
+            async with probe_slots:
+                return await asyncio.to_thread(
+                    probe_registered_local_service, identity, timeout=0.75
+                )
+
+        probes = await asyncio.gather(
+            *(_probe(dep.identity) for dep in dag.dependencies)
+        )
         dependency_evidence: dict[str, Any] = {}
         core_ready = True
-        for dep in dag.dependencies:
-            probe = await asyncio.to_thread(
-                probe_registered_local_service, dep.identity, timeout=0.75
-            )
+        for dep, probe in zip(dag.dependencies, probes):
             dependency_evidence[dep.identity] = {
                 "criticality": dep.criticality,
                 "reachable": probe.reachable,
