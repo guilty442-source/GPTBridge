@@ -30,6 +30,7 @@ C_SOURCES = (
     NATIVE_ROOT / "core" / "parser.c",
     NATIVE_ROOT / "core" / "vector.c",
     NATIVE_ROOT / "core" / "transformer.c",
+    NATIVE_ROOT / "core" / "kv_pool.c",
 )
 
 

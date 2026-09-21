@@ -934,6 +934,8 @@ std::string ByteLevelBPETokenizer::decode(
 
 // ── Engine (P3d–P3f) ──────────────────────────────────────────────────
 
+NativeInferenceEngine::~NativeInferenceEngine() { unload(); }
+
 void NativeInferenceEngine::load(const std::string& bundle_dir) {
     unload();
     const std::filesystem::path root(bundle_dir);
@@ -979,9 +981,12 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     }
     // R6 paged KV: allocate on demand instead of the worst-case footprint.
     kv_block_stride_ = cfg.num_hidden_layers * kKvBlockTokens * kv_dim;
-    kv_pool_k_.clear();
-    kv_pool_v_.clear();
-    kv_free_blocks_.clear();
+    if (kv_pool_ != nullptr) {
+        gptbridge_kv_pool_destroy(kv_pool_);
+        kv_pool_ = nullptr;
+    }
+    kv_pool_ = gptbridge_kv_pool_create(kv_block_stride_, kv_limit_bytes_);
+    if (kv_pool_ == nullptr) throw InferenceError("KV_POOL_CREATE_FAILED");
     kv_block_table_.clear();
     kv_len_ = 0;
 
@@ -1000,9 +1005,10 @@ void NativeInferenceEngine::unload() {
     prefix_tick_ = 0;
     prefix_hits_ = 0;
     prefix_misses_ = 0;
-    kv_pool_k_.clear();
-    kv_pool_v_.clear();
-    kv_free_blocks_.clear();
+    if (kv_pool_ != nullptr) {
+        gptbridge_kv_pool_destroy(kv_pool_);
+        kv_pool_ = nullptr;
+    }
     kv_block_table_.clear();
     kv_block_stride_ = 0;
     lm_head_t_.clear();
@@ -1050,23 +1056,10 @@ std::string NativeInferenceEngine::decode(
 }
 
 int32_t NativeInferenceEngine::kv_alloc_block() {
-    if (!kv_free_blocks_.empty()) {
-        const int32_t id = kv_free_blocks_.back();
-        kv_free_blocks_.pop_back();
-        return id;
-    }
-    if (kv_limit_bytes_ > 0 && kv_block_stride_ > 0 &&
-        kv_memory_bytes() + 2 * kv_block_stride_ *
-                static_cast<int64_t>(sizeof(double)) >
-            kv_limit_bytes_) {
-        throw InferenceError("KV_MEMORY_LIMIT_EXCEEDED");
-    }
-    kv_pool_k_.resize(
-        kv_pool_k_.size() + static_cast<size_t>(kv_block_stride_), 0.0);
-    kv_pool_v_.resize(
-        kv_pool_v_.size() + static_cast<size_t>(kv_block_stride_), 0.0);
-    return static_cast<int32_t>(
-        kv_pool_k_.size() / static_cast<size_t>(kv_block_stride_) - 1);
+    if (kv_pool_ == nullptr) throw InferenceError("KV_POOL_NOT_INITIALIZED");
+    const int32_t id = gptbridge_kv_pool_alloc(kv_pool_);
+    if (id < 0) throw InferenceError("KV_MEMORY_LIMIT_EXCEEDED");
+    return id;
 }
 
 void NativeInferenceEngine::kv_ensure_position(int64_t position) {
@@ -1085,13 +1078,14 @@ double* NativeInferenceEngine::kv_slot(
     const int64_t offset = block * kv_block_stride_ +
         layer * (kKvBlockTokens * kv_dim) +
         (position % kKvBlockTokens) * kv_dim + head * cfg.head_dim;
-    return (key_cache ? kv_pool_k_ : kv_pool_v_).data() +
-        static_cast<size_t>(offset);
+    double* base = gptbridge_kv_pool_data(kv_pool_, static_cast<int32_t>(block), key_cache ? 1 : 0);
+    if (base == nullptr) throw InferenceError("KV_BLOCK_NOT_ACTIVE");
+    return base + static_cast<size_t>(offset - block * kv_block_stride_);
 }
 
 void NativeInferenceEngine::reset_cache() {
     for (const int32_t block : kv_block_table_) {
-        kv_free_blocks_.push_back(block);
+        gptbridge_kv_pool_release(kv_pool_, block);
     }
     kv_block_table_.clear();
     kv_len_ = 0;
@@ -1539,8 +1533,7 @@ std::string NativeInferenceEngine::generate_text(
 }
 
 int64_t NativeInferenceEngine::kv_memory_bytes() const {
-    return static_cast<int64_t>(
-        (kv_pool_k_.size() + kv_pool_v_.size()) * sizeof(double));
+    return gptbridge_kv_pool_memory_bytes(kv_pool_);
 }
 
 int64_t NativeInferenceEngine::memory_bytes() const {
@@ -1549,7 +1542,8 @@ int64_t NativeInferenceEngine::memory_bytes() const {
 
 void NativeInferenceEngine::set_kv_memory_limit(int64_t bytes) {
     kv_limit_bytes_ = std::max<int64_t>(0, bytes);
-    if (loaded() && kv_limit_bytes_ > 0 && kv_memory_bytes() > kv_limit_bytes_) {
+    if (kv_pool_ != nullptr &&
+        !gptbridge_kv_pool_set_limit(kv_pool_, kv_limit_bytes_)) {
         throw InferenceError("KV_MEMORY_LIMIT_EXCEEDED");
     }
 }

@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include "gptbridge_kv_pool.h"
+
 namespace xingcheng::inference {
 
 struct TensorView {
@@ -125,6 +127,7 @@ private:
 class NativeInferenceEngine {
 public:
     NativeInferenceEngine() = default;
+    ~NativeInferenceEngine();
 
     void load(const std::string& bundle_dir);
     void unload();
@@ -199,9 +202,7 @@ private:
     // physical blocks covering all layers; blocks allocate on demand and
     // return to kv_free_blocks_ on reset_cache (bounded, audited via
     // kv_memory_bytes / KV_MEMORY_LIMIT_EXCEEDED).
-    std::vector<double> kv_pool_k_;
-    std::vector<double> kv_pool_v_;
-    std::vector<int32_t> kv_free_blocks_;
+    gptbridge_kv_pool* kv_pool_ = nullptr;
     std::vector<int32_t> kv_block_table_;
     int64_t kv_block_stride_ = 0;
     int64_t kv_len_ = 0;
