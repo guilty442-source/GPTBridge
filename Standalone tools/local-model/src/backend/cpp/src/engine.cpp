@@ -1114,10 +1114,26 @@ std::vector<double> NativeInferenceEngine::forward_last_logits(
     return matmul(last, 1, cfg.hidden_size, lm_head_t_.data(), cfg.vocab_size);
 }
 
+static double hidden_rms(
+    const std::vector<double>& hidden, int64_t seq, int64_t hidden_size) {
+    double sum_sq = 0.0;
+    for (double value : hidden) sum_sq += value * value;
+    const int64_t count = seq * hidden_size;
+    return count > 0 ? std::sqrt(sum_sq / static_cast<double>(count)) : 0.0;
+}
+
+std::vector<double> NativeInferenceEngine::layer_metrics(
+    const std::vector<int64_t>& input_ids) {
+    std::vector<double> trace;
+    forward_hidden(input_ids, 0, false, &trace);
+    return trace;
+}
+
 std::vector<double> NativeInferenceEngine::forward_hidden(
     const std::vector<int64_t>& input_ids,
     int64_t position_offset,
-    bool append_cache) {
+    bool append_cache,
+    std::vector<double>* layer_rms) {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
     if (input_ids.empty()) throw InferenceError("INPUT_EMPTY");
     const ModelConfig& cfg = bundle_->config();
@@ -1148,6 +1164,9 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
                     pos.data[position * cfg.hidden_size + d];
             }
         }
+    }
+    if (layer_rms != nullptr) {
+        layer_rms->push_back(hidden_rms(hidden, seq, cfg.hidden_size));
     }
 
     const int64_t q_dim = cfg.num_attention_heads * cfg.head_dim;
@@ -1292,12 +1311,20 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
         std::vector<double> mlp_out = linear(
             mlp_in, seq, cfg.intermediate_size, layer.down_proj_t, cfg.hidden_size);
         for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
+        if (layer_rms != nullptr) {
+            layer_rms->push_back(hidden_rms(hidden, seq, cfg.hidden_size));
+        }
     }
 
     if (append_cache) {
         kv_len_ = total_len;
     }
-    return rmsnorm(hidden, seq, cfg.hidden_size, final_norm_, cfg.rms_norm_eps);
+    std::vector<double> normed = rmsnorm(
+        hidden, seq, cfg.hidden_size, final_norm_, cfg.rms_norm_eps);
+    if (layer_rms != nullptr) {
+        layer_rms->push_back(hidden_rms(normed, seq, cfg.hidden_size));
+    }
+    return normed;
 }
 
 int64_t NativeInferenceEngine::sample_next(

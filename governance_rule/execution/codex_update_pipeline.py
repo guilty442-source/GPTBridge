@@ -117,8 +117,35 @@ def _digest(path: Path) -> str:
 
 
 def _set_read_only(path: Path, read_only: bool = True) -> None:
-    mode = path.stat().st_mode
-    os.chmod(path, mode & ~stat.S_IWRITE if read_only else mode | stat.S_IWRITE)
+    """Set or clear the read-only attribute using Windows API.
+
+    On Windows, os.chmod with stat.S_IWRITE is not reliable for the
+    FILE_ATTRIBUTE_READONLY flag. Use ctypes to call SetFileAttributesW
+    directly for consistent behaviour across platforms.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        FILE_ATTRIBUTE_READONLY = 0x00000001
+        kernel32 = ctypes.windll.kernel32
+
+        path_str = str(path.resolve())
+        attrs = kernel32.GetFileAttributesW(path_str)
+        if attrs == 0xFFFFFFFF:
+            raise OSError(f"GetFileAttributesW failed for {path_str}")
+
+        if read_only:
+            new_attrs = attrs | FILE_ATTRIBUTE_READONLY
+        else:
+            new_attrs = attrs & ~FILE_ATTRIBUTE_READONLY
+
+        if not kernel32.SetFileAttributesW(path_str, new_attrs):
+            raise OSError(f"SetFileAttributesW failed for {path_str}")
+    except (ImportError, AttributeError, OSError):
+        # Fallback to os.chmod for non-Windows or if ctypes fails
+        mode = path.stat().st_mode
+        os.chmod(path, mode & ~stat.S_IWRITE if read_only else mode | stat.S_IWRITE)
 
 
 def _atomic_replace(source: Path, target: Path) -> None:

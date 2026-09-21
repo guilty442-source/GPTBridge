@@ -45,6 +45,10 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
             py::arg("skip_special") = true)
         .def("logits", &NativeInferenceEngine::logits, py::arg("input_ids"))
         .def(
+            "layer_metrics",
+            &NativeInferenceEngine::layer_metrics,
+            py::arg("input_ids"))
+        .def(
             "generate",
             &NativeInferenceEngine::generate,
             py::arg("prompt_ids"),

@@ -137,6 +137,9 @@ public:
         int64_t max_length = 0) const;
     std::string decode(const std::vector<int64_t>& ids, bool skip_special = true) const;
     std::vector<double> logits(const std::vector<int64_t>& input_ids);
+    // G41 layerwise parity probe: RMS of the hidden stream at each stage
+    // (embedding, each transformer layer output, final norm). No KV writes.
+    std::vector<double> layer_metrics(const std::vector<int64_t>& input_ids);
     std::vector<int64_t> generate(
         const std::vector<int64_t>& prompt_ids,
         int64_t max_new_tokens,
@@ -217,7 +220,8 @@ private:
     std::vector<double> forward_hidden(
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,
-        bool append_cache);
+        bool append_cache,
+        std::vector<double>* layer_rms = nullptr);
     int64_t sample_next(
         const std::vector<double>& logits,
         const std::vector<int64_t>& previous,

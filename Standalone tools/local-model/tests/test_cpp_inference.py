@@ -100,6 +100,63 @@ def test_cpp_engine_greedy_generation_matches_pytorch(tmp_path: Path) -> None:
     assert actual == expected
 
 
+# G41 dual-path parity contract: the C++ engine's hidden stream must track
+# the PyTorch reference at every stage (embedding → each transformer layer →
+# final norm). RMS is compared per stage; fp32 (torch) vs fp64 (C++) drift
+# is bounded by this tolerance so a swapped/miswired layer cannot hide
+# behind a passing end-to-end logits check.
+LAYER_PARITY_RTOL = 2e-2
+LAYER_PARITY_ATOL = 1e-3
+
+
+def _torch_layer_rms(model: XingChengForCausalLM, ids: list[int]) -> list[float]:
+    """RMS of the hidden stream per stage, in forward order."""
+    metrics: list[float] = []
+    hooks = []
+
+    def _rms(tensor: torch.Tensor) -> float:
+        return float(tensor.double().pow(2).mean().sqrt())
+
+    def _hook(_module, _inputs, output):
+        hidden = output[0] if isinstance(output, tuple) else output
+        metrics.append(_rms(hidden))
+
+    with torch.no_grad():
+        batch = torch.tensor([ids], dtype=torch.long)
+        metrics.append(_rms(model.model.embeddings(batch)))
+        for layer in model.model.layers:
+            hooks.append(layer.register_forward_hook(_hook))
+        hooks.append(model.model.final_norm.register_forward_hook(_hook))
+        try:
+            model(batch)
+        finally:
+            for hook in hooks:
+                hook.remove()
+    return metrics
+
+
+def test_cpp_layerwise_parity_with_pytorch(tmp_path: Path) -> None:
+    """G41: per-stage hidden RMS must match the PyTorch path."""
+    model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = cpp_runtime.load_extension().NativeInferenceEngine()
+    engine.load(str(bundle))
+
+    ids = [1, 9, 10, 11, 12]
+    expected = _torch_layer_rms(model, ids)
+    actual = list(engine.layer_metrics(ids))
+
+    assert len(actual) == _config.num_hidden_layers + 2
+    assert len(actual) == len(expected)
+    drift = [
+        abs(a - e) / max(abs(e), LAYER_PARITY_ATOL)
+        for a, e in zip(actual, expected)
+    ]
+    assert all(
+        abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
+        for a, e in zip(actual, expected)
+    ), f"layerwise parity drift {drift} exceeds contract"
+
+
 def test_cpp_bundle_hash_and_bounds_fail_closed(tmp_path: Path) -> None:
     module = cpp_runtime.load_extension()
     _model, _config, bundle, _report = _export_tiny_model(tmp_path)
