@@ -105,12 +105,21 @@ def analyze_build_impact(
     Uses the dependency graph to find all affected files and determine
     whether ABI/API invalidation is needed.
     """
+    return _analyze_build_impact(changed_file, graph, None, change_type)
+
+
+def _analyze_build_impact(
+    changed_file: str,
+    graph: DependencyGraph,
+    index: dict[str, Any] | None,
+    change_type: ChangeType | None = None,
+) -> BuildImpactResult:
     if change_type is None:
         change_type = classify_change(changed_file)
 
     # Find the node for this file
     # Try different ID formats
-    node_id = _find_node_id(changed_file, graph)
+    node_id = _find_node_id(changed_file, graph, index)
 
     if node_id is None:
         return BuildImpactResult(
@@ -182,25 +191,57 @@ def analyze_build_impact(
     )
 
 
-def _find_node_id(file_path: str, graph: DependencyGraph) -> str | None:
-    """Find the node ID for a file path in the graph."""
-    # Normalize path
-    normalized = file_path.replace("\\", "/")
+def _build_node_index(graph: DependencyGraph) -> dict[str, Any]:
+    """Y5: one pass over ``graph.nodes`` builds reverse indexes.
 
-    # Try exact match on path
+    ``exact`` maps normalized node paths to the first-matching node id;
+    ``by_basename`` maps each node path's final segment to the ordered
+    list of node ids (ordered candidate list preserves the original
+    first-match-wins semantics of the linear scans); ``by_name`` maps
+    ``node.name`` to the first-matching node id.
+    """
+    exact: dict[str, str] = {}
+    by_basename: dict[str, list[str]] = {}
+    by_name: dict[str, str] = {}
     for nid, node in graph.nodes.items():
-        if node.path and node.path.replace("\\", "/") == normalized:
-            return nid
-        if node.path and node.path.replace("\\", "/").endswith(normalized):
+        if node.path:
+            normalized = node.path.replace("\\", "/")
+            exact.setdefault(normalized, nid)
+            by_basename.setdefault(normalized.rsplit("/", 1)[-1], []).append(nid)
+        if node.name:
+            by_name.setdefault(node.name, nid)
+    return {"exact": exact, "by_basename": by_basename, "by_name": by_name}
+
+
+def _find_node_id(
+    file_path: str,
+    graph: DependencyGraph,
+    index: dict[str, Any] | None = None,
+) -> str | None:
+    """Find the node ID for a file path in the graph."""
+    normalized = file_path.replace("\\", "/")
+    if index is None:
+        index = _build_node_index(graph)
+
+    # Exact-or-suffix path match: only nodes whose basename matches can
+    # satisfy either condition — scan that small candidate list in graph
+    # insertion order (same first-match-wins semantics as the original
+    # single linear scan).
+    basename = normalized.rsplit("/", 1)[-1]
+    for nid in index["by_basename"].get(basename, ()):  # ordered by insertion
+        node_path = graph.nodes[nid].path
+        if not node_path:
+            continue
+        node_norm = node_path.replace("\\", "/")
+        if node_norm == normalized or node_norm.endswith(normalized):
             return nid
 
     # Try by name
     name = Path(file_path).name
-    for nid, node in graph.nodes.items():
-        if node.name == name:
-            return nid
-        if node.name == normalized:
-            return nid
+    for candidate in (name, normalized):
+        hit = index["by_name"].get(candidate)
+        if hit is not None:
+            return hit
 
     # Try common ID formats
     candidates = [
@@ -225,8 +266,9 @@ def get_minimal_rebuild_set(
     Combines the rebuild sets of all changed files, deduplicating.
     """
     all_rebuild: set[str] = set()
+    index = _build_node_index(graph)  # one scan shared across all files
     for f in changed_files:
-        result = analyze_build_impact(f, graph)
+        result = _analyze_build_impact(f, graph, index)
         all_rebuild.update(result.rebuild_set)
     return tuple(sorted(all_rebuild))
 

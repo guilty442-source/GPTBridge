@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -99,21 +100,27 @@ def run_operation(
         )
         return RunReceipt(claimed, claimed=True, reason=reason)
 
+    # Y6: single commit boundary per observer event when the store
+    # supports it (PostgresSagaStore.transaction); other stores keep the
+    # per-call semantics via a no-op fallback.
+    transaction = getattr(store, "transaction", None)
+
     def observer(
         event_type: str, target: Operation, spec: StepSpec, detail: dict[str, Any]
     ) -> None:
-        if event_type in ("step_completed", "compensation_started", "compensation_completed"):
-            result = target.steps.get(spec.step_id)
-            if result is not None:
-                store.save_step(
-                    target.operation_id, spec, result, attempt=int(detail.get("attempt", 1))
+        with transaction() if callable(transaction) else nullcontext():
+            if event_type in ("step_completed", "compensation_started", "compensation_completed"):
+                result = target.steps.get(spec.step_id)
+                if result is not None:
+                    store.save_step(
+                        target.operation_id, spec, result, attempt=int(detail.get("attempt", 1))
+                    )
+            store.save_operation(target)
+            store.record_event(target.operation_id, event_type, step_id=spec.step_id, detail=detail)
+            if event_type in ("step_started", "step_completed", "step_failed"):
+                store.heartbeat(
+                    target.operation_id, worker=worker, lease_seconds=executor.lease_seconds
                 )
-        store.save_operation(target)
-        store.record_event(target.operation_id, event_type, step_id=spec.step_id, detail=detail)
-        if event_type in ("step_started", "step_completed", "step_failed"):
-            store.heartbeat(
-                target.operation_id, worker=worker, lease_seconds=executor.lease_seconds
-            )
 
     def heartbeat(target: Operation, spec: StepSpec) -> None:
         store.heartbeat(
