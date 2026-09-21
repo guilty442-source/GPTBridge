@@ -204,6 +204,43 @@ def test_cpp_byte_level_bpe_tokenizer(tmp_path: Path) -> None:
     assert tokenizer.decode(ids) == "AB"
 
 
+def test_cpp_layerwise_parity_with_pytorch(tmp_path: Path) -> None:
+    """G41: compare embedding/layer/final-norm RMS traces, not only logits."""
+    module = cpp_runtime.load_extension()
+    model, config, bundle, _report = _export_tiny_model(tmp_path)
+    model.eval()
+    ids = [1, 9, 10, 11, 12]
+    input_ids = torch.tensor([ids], dtype=torch.long)
+    trace: list[float] = []
+
+    def capture(_module, _inputs, output):
+        value = output[0] if isinstance(output, tuple) else output
+        trace.append(float(value.detach().double().pow(2).mean().sqrt()))
+
+    hooks = [model.model.embeddings.register_forward_hook(capture)]
+    hooks.extend(layer.register_forward_hook(capture) for layer in model.model.layers)
+    hooks.append(model.model.final_norm.register_forward_hook(capture))
+    try:
+        with torch.no_grad():
+            model.model(input_ids)
+    finally:
+        for hook in hooks:
+            hook.remove()
+
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    native_trace = engine.layer_metrics(ids)
+    engine.unload()
+
+    assert len(native_trace) == len(trace) == config.num_hidden_layers + 2
+    assert torch.allclose(
+        torch.tensor(native_trace, dtype=torch.float64),
+        torch.tensor(trace, dtype=torch.float64),
+        atol=1e-3,
+        rtol=2e-2,
+    )
+
+
 def test_cpp_generated_output_parser() -> None:
     module = cpp_runtime.load_extension()
     parsed = module.parse_generated_output(
