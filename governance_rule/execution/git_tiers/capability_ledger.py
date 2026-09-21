@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import uuid
 from pathlib import Path
@@ -38,16 +39,65 @@ DEFAULT_LEDGER_PATH = (
 _LEDGER_LOCKS: dict[str, threading.Lock] = {}
 _LEDGER_LOCKS_GUARD = threading.Lock()
 
-# §10.63 R2: mtime+size-keyed parse cache.  The ledger is append-only, so a
-# stat stamp uniquely identifies its content — repeated verification calls
-# inside one governed command reused to re-parse tens of MB per call.
-_ENTRIES_CACHE: dict[str, tuple[int, int, list[dict[str, Any]]]] = {}
-_ENTRIES_CACHE_LOCK = threading.Lock()
+# §10.63 R2: append-only byte-offset index.  The ledger is audit history
+# (tens of MB of JSONL) and every capability verification used to re-parse
+# it; a full in-memory copy of the records costs well over a hundred MB of
+# resident RSS.  Instead each line's byte offset is indexed by
+# capability_id and nonce (~a few MB), so lookup/consumed/nonce_owner
+# seek and decode only the matching lines.  The index is keyed by
+# (st_ino, st_mtime_ns, st_size); appends extend it incrementally from
+# the recorded size and a partial tail line is never indexed.
+_INDEX: dict[
+    str, tuple[int, int, int, dict[str, list[int]], dict[str, str]]
+] = {}
+_INDEX_LOCK = threading.Lock()
+
+_CAP_RE = re.compile(r'"capability_id"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_NONCE_RE = re.compile(r'"nonce"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
 
 def _ledger_lock(path: Path) -> threading.Lock:
     with _LEDGER_LOCKS_GUARD:
         return _LEDGER_LOCKS.setdefault(str(path), threading.Lock())
+
+
+def _unescape(raw: str) -> str:
+    try:
+        return json.loads(f'"{raw}"')
+    except ValueError:
+        return raw
+
+
+def _index_keys(line: str) -> tuple[list[str], str | None]:
+    """(capability_ids, nonce) for indexing without a full parse.
+
+    Every ``capability_id`` occurrence is indexed — a foreign record whose
+    top-level key is not serialized first must not silently drop out of
+    ``lookup`` (that would let a mutated token evade detection).  Readers
+    re-verify the parsed record, so over-indexing only wastes a seek.
+    """
+    caps: list[str] = []
+    for match in _CAP_RE.finditer(line):
+        cap = _unescape(match.group(1))
+        if cap not in caps:
+            caps.append(cap)
+    nonce_match = _NONCE_RE.search(line)
+    nonce = _unescape(nonce_match.group(1)) if nonce_match else None
+    if (not caps and '"capability_id"' in line) or (
+        nonce is None and '"nonce"' in line
+    ):
+        # Foreign layout the regex missed — fall back to a real parse so
+        # a valid entry is never silently dropped from the index.
+        try:
+            record = json.loads(line)
+        except ValueError:
+            record = None
+        if isinstance(record, dict):
+            if not caps and isinstance(record.get("capability_id"), str):
+                caps.append(record["capability_id"])
+            if nonce is None and isinstance(record.get("nonce"), str):
+                nonce = record["nonce"]
+    return caps, nonce
 
 
 def _record(token: "CapabilityToken", *, result: str) -> dict[str, Any]:
@@ -87,31 +137,87 @@ class CapabilityLedger:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
-        # Keep the parse cache warm for readers in this process; other
-        # processes' appends are picked up via the stat stamp.
+        # Extend the offset index in place when this append lands exactly at
+        # the recorded tail.  If another process interleaved a line, the
+        # stamp is left alone so the next read re-indexes the whole gap.
         key = str(self.path)
+        encoded = (line + "\n").encode("utf-8")
         try:
             stat = self.path.stat()
         except OSError:
             return entry
-        with _ENTRIES_CACHE_LOCK:
-            cached = _ENTRIES_CACHE.get(key)
-            if cached is not None:
-                cached[2].append(dict(entry))
-                _ENTRIES_CACHE[key] = (stat.st_mtime_ns, stat.st_size, cached[2])
+        with _INDEX_LOCK:
+            cached = _INDEX.get(key)
+            if (
+                cached is not None
+                and cached[0] == stat.st_ino
+                and stat.st_size - cached[2] == len(encoded)
+            ):
+                cap = entry.get("capability_id")
+                nonce = entry.get("nonce")
+                if isinstance(cap, str) and cap:
+                    cached[3].setdefault(cap, []).append(cached[2])
+                if isinstance(nonce, str) and nonce:
+                    cached[4].setdefault(nonce, str(cap or ""))
+                _INDEX[key] = (
+                    stat.st_ino, stat.st_mtime_ns, stat.st_size,
+                    cached[3], cached[4],
+                )
         return entry
 
-    def entries(self) -> list[dict[str, Any]]:
+    def _index(
+        self,
+    ) -> tuple[dict[str, list[int]], dict[str, str]] | None:
+        """(capability_id -> [offsets], nonce -> capability_id) index."""
         key = str(self.path)
         try:
             stat = self.path.stat()
-            stamp = (stat.st_mtime_ns, stat.st_size)
         except OSError:
-            return []
-        with _ENTRIES_CACHE_LOCK:
-            cached = _ENTRIES_CACHE.get(key)
-            if cached is not None and cached[0] == stamp[0] and cached[1] == stamp[1]:
-                return [dict(e) for e in cached[2]]
+            return None
+        ino, mtime, size = stat.st_ino, stat.st_mtime_ns, stat.st_size
+        with _INDEX_LOCK:
+            cached = _INDEX.get(key)
+            if cached is not None and cached[:3] == (ino, mtime, size):
+                return cached[3], cached[4]
+        caps: dict[str, list[int]] = {}
+        nonces: dict[str, str] = {}
+        offset = 0
+        if cached is not None and cached[0] == ino and size > cached[2]:
+            # Same file, appended only — index just the new tail.
+            caps = {cap: list(offs) for cap, offs in cached[3].items()}
+            nonces = dict(cached[4])
+            offset = cached[2]
+        scanned = offset
+        try:
+            with self.path.open("rb") as handle:
+                handle.seek(offset)
+                while True:
+                    pos = handle.tell()
+                    raw = handle.readline()
+                    if not raw:
+                        break
+                    if not raw.endswith(b"\n"):
+                        break  # partial tail — index it on the next scan
+                    scanned = handle.tell()
+                    stripped = raw.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        line = stripped.decode("utf-8")
+                    except UnicodeDecodeError:
+                        continue
+                    caps_found, nonce = _index_keys(line)
+                    for cap in caps_found:
+                        caps.setdefault(cap, []).append(pos)
+                    if nonce:
+                        nonces.setdefault(nonce, str(caps_found[0] if caps_found else ""))
+        except OSError:
+            return None
+        with _INDEX_LOCK:
+            _INDEX[key] = (ino, mtime, scanned, caps, nonces)
+        return caps, nonces
+
+    def entries(self) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
         try:
             with self.path.open("r", encoding="utf-8") as handle:
@@ -124,15 +230,32 @@ class CapabilityLedger:
                         continue
         except OSError:
             return []
-        with _ENTRIES_CACHE_LOCK:
-            _ENTRIES_CACHE[key] = (stamp[0], stamp[1], records)
-        return [dict(e) for e in records]
+        return records
 
     def lookup(self, capability_id: str) -> list[dict[str, Any]]:
-        return [
-            e for e in self.entries()
-            if e.get("capability_id") == capability_id
-        ]
+        indexed = self._index()
+        if indexed is None:
+            return []
+        offsets = indexed[0].get(capability_id)
+        if not offsets:
+            return []
+        records: list[dict[str, Any]] = []
+        try:
+            with self.path.open("rb") as handle:
+                for offset in list(offsets):
+                    handle.seek(offset)
+                    try:
+                        record = json.loads(handle.readline().decode("utf-8"))
+                    except (ValueError, UnicodeDecodeError):
+                        continue
+                    if (
+                        isinstance(record, dict)
+                        and record.get("capability_id") == capability_id
+                    ):
+                        records.append(record)
+        except OSError:
+            return []
+        return records
 
     def consumed(self, capability_id: str) -> bool:
         return any(
@@ -141,10 +264,10 @@ class CapabilityLedger:
         )
 
     def nonce_owner(self, nonce: str) -> str | None:
-        for entry in self.entries():
-            if entry.get("nonce") == nonce:
-                return str(entry.get("capability_id") or "")
-        return None
+        indexed = self._index()
+        if indexed is None:
+            return None
+        return indexed[1].get(nonce)
 
     def record_issue(self, token: "CapabilityToken") -> dict[str, Any]:
         return self.append(_record(token, result="issued"))
