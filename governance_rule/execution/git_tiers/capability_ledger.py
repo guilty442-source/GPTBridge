@@ -38,6 +38,12 @@ DEFAULT_LEDGER_PATH = (
 _LEDGER_LOCKS: dict[str, threading.Lock] = {}
 _LEDGER_LOCKS_GUARD = threading.Lock()
 
+# §10.63 R2: mtime+size-keyed parse cache.  The ledger is append-only, so a
+# stat stamp uniquely identifies its content — repeated verification calls
+# inside one governed command reused to re-parse tens of MB per call.
+_ENTRIES_CACHE: dict[str, tuple[int, int, list[dict[str, Any]]]] = {}
+_ENTRIES_CACHE_LOCK = threading.Lock()
+
 
 def _ledger_lock(path: Path) -> threading.Lock:
     with _LEDGER_LOCKS_GUARD:
@@ -81,9 +87,31 @@ class CapabilityLedger:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
+        # Keep the parse cache warm for readers in this process; other
+        # processes' appends are picked up via the stat stamp.
+        key = str(self.path)
+        try:
+            stat = self.path.stat()
+        except OSError:
+            return entry
+        with _ENTRIES_CACHE_LOCK:
+            cached = _ENTRIES_CACHE.get(key)
+            if cached is not None:
+                cached[2].append(dict(entry))
+                _ENTRIES_CACHE[key] = (stat.st_mtime_ns, stat.st_size, cached[2])
         return entry
 
     def entries(self) -> list[dict[str, Any]]:
+        key = str(self.path)
+        try:
+            stat = self.path.stat()
+            stamp = (stat.st_mtime_ns, stat.st_size)
+        except OSError:
+            return []
+        with _ENTRIES_CACHE_LOCK:
+            cached = _ENTRIES_CACHE.get(key)
+            if cached is not None and cached[0] == stamp[0] and cached[1] == stamp[1]:
+                return [dict(e) for e in cached[2]]
         records: list[dict[str, Any]] = []
         try:
             with self.path.open("r", encoding="utf-8") as handle:
@@ -96,7 +124,9 @@ class CapabilityLedger:
                         continue
         except OSError:
             return []
-        return records
+        with _ENTRIES_CACHE_LOCK:
+            _ENTRIES_CACHE[key] = (stamp[0], stamp[1], records)
+        return [dict(e) for e in records]
 
     def lookup(self, capability_id: str) -> list[dict[str, Any]]:
         return [
