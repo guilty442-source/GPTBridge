@@ -35,6 +35,7 @@ export const useBackendSocket = () => {
   const commandQueueRef = useRef<
     Array<{ command: string; payload: unknown; queuedAt: number }>
   >([])
+  const commandQueueHeadRef = useRef(0)
   const lastMessageAtRef = useRef(0)
   // A195 transactional outbox client state: applied cursor survives socket
   // reconnects within the same window session (RECONNECT sends last-acked
@@ -53,11 +54,12 @@ export const useBackendSocket = () => {
 
   const flushCommandQueue = useCallback(() => {
     const queue = commandQueueRef.current
-    if (queue.length === 0) return
+    const head = commandQueueHeadRef.current
+    if (head >= queue.length) return
     const socket = socketRef.current
     if (!socket || socket.readyState !== WebSocket.OPEN) return
-    while (queue.length > 0) {
-      const item = queue.shift()!
+    while (commandQueueHeadRef.current < queue.length) {
+      const item = queue[commandQueueHeadRef.current]
       if (Date.now() - item.queuedAt > WS_COMMAND_QUEUE_TTL_MS) {
         BootLogger.log(
           'WebSocket',
@@ -65,15 +67,24 @@ export const useBackendSocket = () => {
           { command: item.command },
           'warn'
         )
+        commandQueueHeadRef.current += 1
         continue
       }
       try {
         socket.send(JSON.stringify({ command: item.command, payload: item.payload }))
         BootLogger.log('WebSocket', 'QUEUE_FLUSH', { command: item.command })
+        commandQueueHeadRef.current += 1
       } catch {
-        queue.unshift(item)
         break
       }
+    }
+    const nextHead = commandQueueHeadRef.current
+    if (nextHead === queue.length) {
+      queue.length = 0
+      commandQueueHeadRef.current = 0
+    } else if (nextHead > 32) {
+      queue.splice(0, nextHead)
+      commandQueueHeadRef.current = 0
     }
   }, [])
 
@@ -83,13 +94,16 @@ export const useBackendSocket = () => {
         // Queue the command for later flush instead of dropping it
         if (command !== 'heartbeat_pong') {
           const queue = commandQueueRef.current
-          if (queue.length < WS_COMMAND_QUEUE_MAX) {
+          if (queue.length - commandQueueHeadRef.current < WS_COMMAND_QUEUE_MAX) {
             queue.push({ command, payload, queuedAt: Date.now() })
             BootLogger.log('WebSocket', 'COMMAND_QUEUED', {
               command,
               queueSize: queue.length,
             })
-            setState((prev) => ({ ...prev, queuedCommands: queue.length }))
+            setState((prev) => ({
+              ...prev,
+              queuedCommands: queue.length - commandQueueHeadRef.current,
+            }))
             return { ok: false, queued: true, message: ws.autoFlush }
           }
         }
@@ -107,7 +121,10 @@ export const useBackendSocket = () => {
         const errorMsg = 'WebSocket closed before the command was sent; command was queued'
         // Queue for retry
         if (command !== 'heartbeat_pong') {
-          if (commandQueueRef.current.length < WS_COMMAND_QUEUE_MAX) {
+          if (
+            commandQueueRef.current.length - commandQueueHeadRef.current <
+            WS_COMMAND_QUEUE_MAX
+          ) {
             commandQueueRef.current.push({
               command,
               payload,
@@ -232,7 +249,11 @@ export const useBackendSocket = () => {
           setState((prev) => ({ ...prev, status: 'Connected', reconnectAttempt: 0 }))
           eventBus.emit('socket_connected', { connected: true })
           flushCommandQueue()
-          setState((prev) => ({ ...prev, queuedCommands: 0 }))
+          setState((prev) => ({
+            ...prev,
+            queuedCommands:
+              commandQueueRef.current.length - commandQueueHeadRef.current,
+          }))
         } else {
           // No polling: the backend pushes a fresh report every cycle and on
           // every readiness change, so this state converges without requests.
@@ -268,7 +289,8 @@ export const useBackendSocket = () => {
           status: 'Synchronizing',
           lastStatusAt: Date.now(),
           reconnectAttempt: reconnectAttemptRef.current,
-          queuedCommands: commandQueueRef.current.length,
+          queuedCommands:
+            commandQueueRef.current.length - commandQueueHeadRef.current,
         }))
         BootLogger.log('WebSocket', 'OPEN', { endpoint: endpointLabel })
         // The backend owns the refresh: it sends an immediate health report
@@ -435,6 +457,7 @@ export const useBackendSocket = () => {
       clearStaleConnectionTimer()
       reconnectAttemptRef.current = 0
       commandQueueRef.current = []
+      commandQueueHeadRef.current = 0
       const socket = socketRef.current
       socketRef.current = null
       if (socket) {
