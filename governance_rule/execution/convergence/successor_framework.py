@@ -101,6 +101,32 @@ def _migration(conn: sqlite3.Connection, provision_id: str, law: str, status: st
     )
 
 
+def _ensure_special_law(conn: sqlite3.Connection, law: str, spec: Mapping[str, Any], version: str) -> None:
+    """Create the law directory rows when the target law does not exist yet."""
+    if conn.execute("select 1 from law_structure_directory where law_code=?", (law,)).fetchone():
+        return
+    canonical = str(spec.get("canonical_name") or law.lower().replace("_", "-"))
+    scope = str(spec.get("scope") or "")
+    section = str(spec.get("codex_section") or "")
+    basis = str(spec.get("authority_basis") or "A229|A230")
+    conn.execute(
+        "insert or replace into law_structure_directory "
+        "(law_code, canonical_name, tier, owner, parent_law_code, scope, authority_basis, precedence, "
+        "official_entry, introduced_version, retired_version) values (?,?,?,?,?,?,?,?,?,?,?)",
+        (law, canonical, "special-law", "permission-sovereign", "CODEX_MAIN", scope, basis,
+         "special-over-general-within-declared-scope", "governance-codex://official", version, None),
+    )
+    conn.execute(
+        "insert or replace into special_law_directory "
+        "(special_law_code, canonical_name, owner, codex_section, scope, general_provision_links, "
+        "special_provision_links, precedence, authority_boundary, introduced_version, retired_version) "
+        "values (?,?,?,?,?,?,?,?,?,?,?)",
+        (law, canonical, "permission-sovereign", section, scope, "", "",
+         "special-over-general-within-declared-scope",
+         "remains inside the single governance codex and creates no second authority", version, None),
+    )
+
+
 def apply_re_tiering(
     conn: sqlite3.Connection,
     plan: Mapping[str, Any],
@@ -119,6 +145,7 @@ def apply_re_tiering(
     """
     if not version:
         raise ConvergenceError("VERSION_REQUIRED")
+    laws = dict(plan.get("laws") or {})
     done = set(executed)
     special = obligation = recorded = 0
     for entry in plan["entries"]:
@@ -129,12 +156,24 @@ def apply_re_tiering(
         target_code = str(entry.get("target_code") or "")
         target_law = entry.get("target_law")
         if target_type == "xingcheng-special-law" and target_law:
+            _ensure_special_law(conn, str(target_law), laws.get(str(target_law)) or {}, version)
             conn.execute(
                 "update provision_law_classification set tier='special-law', law_code=? "
                 "where provision_type='article' and provision_id=?",
                 (target_law, pid),
             )
             _migration(conn, pid, str(target_law), "special-governs", None, "normalized", version)
+            row = conn.execute(
+                "select special_provision_links from special_law_directory where special_law_code=?",
+                (str(target_law),),
+            ).fetchone()
+            links = [item for item in ((row[0] or "").split("|") if row else []) if item]
+            if pid not in links:
+                links.append(pid)
+                conn.execute(
+                    "update special_law_directory set special_provision_links=? where special_law_code=?",
+                    ("|".join(links), str(target_law)),
+                )
             special += 1
         elif target_type == "implementation-obligation":
             conn.execute(
@@ -158,6 +197,8 @@ def apply_re_tiering(
         else:
             _migration(conn, pid, "CODEX_MAIN", "retain", target_code, "successor-artifact-pending", version)
             recorded += 1
+    conn.commit()
+    conn.execute("update metadata set value=? where key='codex_version'", (version,))
     conn.commit()
     return OperationResult(
         operation="re-tiering",

@@ -1,7 +1,7 @@
 {
   "report": "FINAL_CONVERGENCE_REPORT/v1",
   "generated_at": "2026-09-21T10:09:23Z",
-  "candidate_codex_version": "2026-09-21T11:30:53Z",
+  "candidate_codex_version": "2026-09-21T11:59:11Z",
   "last_valid_sealed_version": "2026-09-19T14:58:26Z",
   "current_version": "2026-09-15T15:42:01Z",
   "active_binding_version": "2026-09-15T15:42:01Z",
@@ -53,7 +53,7 @@
   "verified_release_state": "DENIED",
   "remaining_blockers": [
     "candidate not sealed; current_version axis unchanged by design",
-    "A551-A590 re-tiering: 12/40 executed (3 special-law, 9 obligations); 28 remaining",
+    "re-tiering processed: 14 migrated (special law), 26 retained until successor artifacts (contract/test/registry) exist",
     "core engine equivalence + capability dispatch parity evidence",
     "sub-sovereign registry switch + retirement (18 identities)",
     "67 machine schemas parity; 61 obligations classified (none completed); normative surface/search rebuild",
@@ -82,9 +82,9 @@
     "isolated start harness for INTEGRATION-04B (04B-10 BLOCKED) — integration workers"
   ],
   "re_tiering": {
-    "status": "IN_PROGRESS",
-    "executed": 12,
-    "remaining": 28,
-    "batch_1": "3 special-law + 9 obligations"
+    "status": "PROCESSED",
+    "migrated": 14,
+    "recorded_pending_artifacts": 26,
+    "batch_2": "2 special-law + 26 retained-with-planned-successor"
   }
 }
