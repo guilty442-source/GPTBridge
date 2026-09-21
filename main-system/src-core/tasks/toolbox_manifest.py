@@ -7,6 +7,17 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .tool_path_resolver import ToolPathResolver
+
+# G47: tool status → unified runtime-state axis (§10.3)
+_TOOL_STATUS_TO_RUNTIME_STATE = {
+    "starting": "STARTING",
+    "running": "READY",
+    "stopped": "STOPPED",
+    "stopping": "STOPPING",
+    "error": "FAILED",
+    "degraded": "DEGRADED",
+    "recovering": "RECOVERING",
+}
 from .tool_process_registry import (
     batch_running_status,
     running_executable_process_ids,
@@ -360,6 +371,20 @@ class ManifestMixin(ManifestRecordMixin):
             return self._missing_tool_result(tool_id)
         # Runtime status is process-derived and intentionally not stored in a
         # shared database. Each independent tool owns its own business state.
+        # G47: mirror the transition into the unified runtime-state registry
+        # (fail-soft — a registry write failure must not block tool ops).
+        try:
+            registry = getattr(self, "_runtime_state_registry", None)
+            if registry is not None:
+                mapped = _TOOL_STATUS_TO_RUNTIME_STATE.get(status)
+                if mapped is not None:
+                    registry.set_runtime_state(
+                        tool_id,
+                        mapped,
+                        error=status if status == "error" else None,
+                    )
+        except Exception:
+            pass
         return {"ok": True, "tool_id": tool_id, "status": status}
 
     # ------------------------------------------------------------------
