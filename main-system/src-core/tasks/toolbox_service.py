@@ -130,6 +130,10 @@ class ToolboxService(
             "operation": operation,
         }
 
+    def reconcile_process_registry(self) -> dict[str, int]:
+        """Reconcile owned tool PIDs through the canonical registry."""
+        return self._process_registry.reconcile()
+
     async def _retry_start_after_central_repair(
         self,
         payload: Dict[str, Any],

@@ -213,7 +213,7 @@ class XingchengAutoMixin:
             self._pending_anomalies.extend(batch)
             self._auto_metrics["anomalies_detected"] += len(batch)
             self._auto_metrics["last_anomaly"] = self._iso_now()
-            await self._notify_anomalies(batch)
+            await self._notify_anomalies()
 
     async def _run_drift_review(self) -> None:
         """Periodic codex-vs-implementation drift review (A145, advisory)."""

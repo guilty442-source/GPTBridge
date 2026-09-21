@@ -136,6 +136,7 @@ class StartupExecutorPhasesMixin:
                 governance=app.governance,
                 permission_sovereign=app.permission_sovereign,
             )
+        await asyncio.to_thread(app.toolbox_service.reconcile_process_registry)
         if getattr(app, "model_service_activation", None) is None:
             from tasks.model_service_activation import (
                 ModelServiceActivationBroker,
