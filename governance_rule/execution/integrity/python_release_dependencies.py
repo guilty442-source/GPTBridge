@@ -362,11 +362,438 @@ def validate_release_python_origins(
     return result
 
 
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def pe_machine(path: str | os.PathLike[str]) -> str | None:
+    """Machine type from a PE header (``AMD64`` / ``x86`` / ``ARM64``)."""
+    try:
+        with open(os.fspath(path), "rb") as handle:
+            if handle.read(2) != b"MZ":
+                return None
+            handle.seek(0x3C)
+            offset = int.from_bytes(handle.read(4), "little")
+            handle.seek(offset)
+            if handle.read(4) != b"PE\x00\x00":
+                return None
+            machine = int.from_bytes(handle.read(2), "little")
+    except (OSError, ValueError):
+        return None
+    return {0x8664: "AMD64", 0x14C: "x86", 0xAA64: "ARM64"}.get(machine, hex(machine))
+
+
+def probe_runtime_environment(
+    python_executable: str | os.PathLike[str],
+    *,
+    modules: Sequence[str] = (),
+    extra_paths: Iterable[str | os.PathLike[str]] = (),
+    cwd: str | os.PathLike[str] | None = None,
+    env: Mapping[str, str] | None = None,
+    isolated: bool = False,
+    include_distributions: bool = False,
+    timeout_seconds: int = 300,
+) -> dict[str, Any]:
+    """Probe the release interpreter's environment (pollution observable).
+
+    ``isolated=False`` (default) reproduces the backend's real startup so
+    ``PYTHONPATH`` / user-site pollution is visible; ``isolated=True`` adds
+    ``-I`` and a sanitized environment for comparison runs.
+    """
+    config = {
+        "extra_paths": [os.fspath(path) for path in extra_paths],
+        "modules": list(modules),
+        "include_distributions": bool(include_distributions),
+    }
+    environment = dict(env) if env is not None else dict(os.environ)
+    arguments = [os.fspath(python_executable)]
+    if isolated:
+        environment.pop("PYTHONPATH", None)
+        environment["PYTHONNOUSERSITE"] = "1"
+        arguments.append("-I")
+    arguments += ["-X", "utf8", "-c", PROBE_SCRIPT]
+    try:
+        result = subprocess.run(
+            arguments,
+            input=json.dumps(config),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            cwd=os.fspath(cwd) if cwd else None,
+            env=environment,
+            timeout=timeout_seconds,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ReleaseDependencyError(f"environment probe failed: {error}") from error
+    if result.returncode != 0:
+        raise ReleaseDependencyError(
+            "environment probe rejected the interpreter: "
+            f"{result.stderr.strip()[:400] or 'unknown error'}"
+        )
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+    except (IndexError, ValueError) as error:
+        raise ReleaseDependencyError("environment probe returned unreadable output") from error
+    if not isinstance(payload, dict):
+        raise ReleaseDependencyError("environment probe returned a non-object result")
+    return payload
+
+
+def validate_runtime_environment(
+    contract: Mapping[str, Any],
+    probe: Mapping[str, Any],
+    *,
+    release_root: str | os.PathLike[str],
+    allowed_dependency_roots: Iterable[str | os.PathLike[str]] = (),
+) -> dict[str, Any]:
+    """Validate interpreter identity, venv markers and pollution policy."""
+    errors: list[str] = []
+    environment_contract = contract.get("runtime_environment") or {}
+    python_contract = environment_contract.get("python") or {}
+    version = ".".join(str(part) for part in probe.get("version", []))
+    if python_contract.get("version") and version != str(python_contract["version"]):
+        errors.append(f"PYTHON_VERSION_MISMATCH:{version}")
+    elif python_contract.get("version_range") and not _version_matches(
+        version, python_contract["version_range"]
+    ):
+        errors.append(f"PYTHON_VERSION_MISMATCH:{version}")
+    if python_contract.get("arch") and str(probe.get("arch", "")).upper() != str(
+        python_contract["arch"]
+    ).upper():
+        errors.append(f"PYTHON_ARCH_MISMATCH:{probe.get('arch')}")
+    if python_contract.get("bits") and int(probe.get("bits", 0)) != int(
+        python_contract["bits"]
+    ):
+        errors.append(f"PYTHON_BITS_MISMATCH:{probe.get('bits')}")
+
+    venv_contract = environment_contract.get("venv") or {}
+    config = probe.get("pyvenv_cfg")
+    if venv_contract.get("required") and not config:
+        errors.append("VENV_MARKER_MISSING")
+    if config:
+        fields = config.get("fields") or {}
+        include_system = str(
+            fields.get("include-system-site-packages", "")
+        ).strip().lower() == "true"
+        if venv_contract.get("include_system_site_packages") is False and include_system:
+            errors.append("SYSTEM_SITE_PACKAGES_ENABLED")
+        expected_hash = venv_contract.get("pyvenv_cfg_sha256")
+        if expected_hash and str(config.get("sha256")) != str(expected_hash):
+            errors.append("VENV_CONFIG_HASH_MISMATCH")
+        if venv_contract.get("require_built_at_final_location"):
+            command = str(fields.get("command", "")).strip()
+            original = command.split()[-1] if command else ""
+            if original and normalize_path(original) != normalize_path(probe.get("prefix")):
+                errors.append(f"VENV_NOT_BUILT_AT_FINAL_LOCATION:{original}")
+
+    if venv_contract.get("user_site") == "forbidden":
+        if probe.get("user_site_enabled"):
+            errors.append("USER_SITE_ENABLED")
+        user_site = str(probe.get("user_site") or "")
+        if user_site and any(
+            normalize_path(entry) == normalize_path(user_site)
+            for entry in probe.get("sys_path", [])
+        ):
+            errors.append(f"USER_SITE_POLLUTION:{user_site}")
+    if venv_contract.get("pythonpath") == "forbidden" and str(
+        probe.get("env_pythonpath") or ""
+    ).strip():
+        errors.append(f"PYTHONPATH_POLLUTION:{probe.get('env_pythonpath')}")
+
+    roots = [release_root, *allowed_dependency_roots]
+    for site_path in probe.get("site_packages") or []:
+        if not any(path_is_within(site_path, root) for root in roots):
+            errors.append(f"SITE_PACKAGES_OUTSIDE_RELEASE:{site_path}")
+
+    return {
+        "ok": not errors,
+        "errors": errors,
+        "python": {
+            "version": version,
+            "arch": probe.get("arch"),
+            "bits": probe.get("bits"),
+            "prefix": probe.get("prefix"),
+        },
+    }
+
+
+def validate_dependency_lock(
+    contract: Mapping[str, Any],
+    probe: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Dependency lock identity must match the installed distribution set."""
+    import hashlib
+
+    lock_contract = contract.get("dependency_lock") or {}
+    expected = lock_contract.get("identity")
+    if not expected:
+        return {"ok": True, "errors": [], "identity": None}
+    distributions = probe.get("distributions")
+    if distributions is None:
+        return {"ok": False, "errors": ["DISTRIBUTIONS_NOT_PROBED"], "identity": None}
+    identity = hashlib.sha256(
+        "\n".join(str(item) for item in distributions).encode("utf-8")
+    ).hexdigest()
+    errors: list[str] = []
+    if identity != str(expected):
+        errors.append(f"DEPENDENCY_LOCK_MISMATCH:{identity}")
+    if lock_contract.get("entries") and len(distributions) != int(lock_contract["entries"]):
+        errors.append(
+            f"DEPENDENCY_LOCK_ENTRY_COUNT_MISMATCH:{len(distributions)}"
+        )
+    return {"ok": not errors, "errors": errors, "identity": identity}
+
+
+def native_extension_errors(
+    contract: Mapping[str, Any],
+    *,
+    release_root: str | os.PathLike[str],
+) -> list[str]:
+    """Required native extensions / DLLs: presence, architecture, ABI tag."""
+    errors: list[str] = []
+    root = Path(os.fspath(release_root))
+    for entry in contract.get("native_extensions") or []:
+        if not isinstance(entry, Mapping):
+            errors.append("NATIVE_EXTENSION_ENTRY_INVALID")
+            continue
+        relative = str(entry.get("file") or "")
+        path = root / relative
+        if not relative or not path.is_file():
+            errors.append(f"NATIVE_EXTENSION_MISSING:{relative}")
+            continue
+        expected_machine = entry.get("machine")
+        machine = pe_machine(path)
+        if expected_machine and machine and machine.upper() != str(expected_machine).upper():
+            errors.append(f"NATIVE_ARCH_MISMATCH:{relative}:{machine}")
+        expected_abi = str(entry.get("abi") or "").lower()
+        if expected_abi and f".{expected_abi}-" not in path.name.lower():
+            errors.append(f"NATIVE_ABI_MISMATCH:{relative}:{expected_abi}")
+    for relative in contract.get("required_dlls") or []:
+        if not (root / str(relative)).is_file():
+            errors.append(f"NATIVE_DLL_MISSING:{relative}")
+    return errors
+
+
+def validate_forbidden_release_content(
+    contract: Mapping[str, Any],
+    release_root: str | os.PathLike[str],
+) -> dict[str, Any]:
+    """Secrets and official-authority data must never be packaged."""
+    patterns = [
+        str(pattern).replace("\\", "/").lower().lstrip("*")
+        for pattern in (contract.get("forbidden_content") or [])
+        if str(pattern).strip()
+    ]
+    errors: list[str] = []
+    root = Path(os.fspath(release_root))
+    if root.is_dir():
+        for path in sorted(root.rglob("*")):
+            if not path.is_file():
+                continue
+            relative = path.relative_to(root).as_posix().lower()
+            for suffix in patterns:
+                if suffix and relative.endswith(suffix):
+                    errors.append(f"FORBIDDEN_CONTENT_PACKAGED:{suffix}:{relative}")
+                    break
+    return {"ok": not errors, "errors": errors}
+
+
+def validate_shared_layer_classification(
+    contract: Mapping[str, Any],
+    *,
+    code_roots: Iterable[str | os.PathLike[str]] = (),
+) -> list[str]:
+    """Shared-layer responsibilities must be classified with evidence."""
+    allowed = {
+        "RELEASE_DEPENDENCY",
+        "SHARED_SERVICE",
+        "PERSISTENT_STATE",
+        "RUNTIME_CONTRACT",
+        "DEVELOPMENT_ONLY",
+    }
+    entries = contract.get("shared_layer_classification")
+    if not isinstance(entries, list) or not entries:
+        return ["SHARED_LAYER_CLASSIFICATION_MISSING"]
+    errors: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            errors.append("SHARED_LAYER_ENTRY_INVALID")
+            continue
+        path = str(entry.get("path") or "")
+        dependency_class = str(entry.get("class") or "")
+        evidence = str(entry.get("evidence") or "")
+        if dependency_class not in allowed:
+            errors.append(f"SHARED_LAYER_CLASS_UNKNOWN:{path}:{dependency_class}")
+        if not path or not evidence:
+            errors.append(f"SHARED_LAYER_EVIDENCE_MISSING:{path}")
+        if dependency_class in {"SHARED_SERVICE", "PERSISTENT_STATE"} and any(
+            path_is_within(path, root) for root in code_roots
+        ):
+            errors.append(f"SHARED_LAYER_SERVICE_AS_CODE:{path}")
+    return errors
+
+
+def validate_governance_references(
+    contract: Mapping[str, Any],
+    *,
+    codex_path: str | os.PathLike[str],
+) -> list[str]:
+    """Codex identity/version/hash and contract identities must match.
+
+    Reads the official codex read-only; it never seals, mutates or replaces
+    it, and it is not a substitute for the governed codex validation
+    (``python -m governance_rule.execution.audit``).
+    """
+    import hashlib
+    import sqlite3
+
+    references = contract.get("governance_references") or {}
+    errors: list[str] = []
+    path = Path(os.fspath(codex_path))
+    if not path.is_file():
+        return ["CODEX_FILE_MISSING"]
+    expected_hash = references.get("codex_sha256")
+    if expected_hash and _sha256_file(path) != str(expected_hash):
+        errors.append("CODEX_HASH_MISMATCH")
+    connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro&immutable=1", uri=True)
+    try:
+        metadata = dict(connection.execute("select key, value from metadata"))
+        version = metadata.get("codex_version")
+        if references.get("codex_version") and version != references["codex_version"]:
+            errors.append(f"CODEX_VERSION_MISMATCH:{version}")
+        for table, key in (
+            ("identity_authentication_contract", "governance_runtime_contract_version"),
+            ("sql_session_binding_contract", "permission_contract_version"),
+        ):
+            row = connection.execute(
+                f"select version_identity from {table} limit 1"
+            ).fetchone()
+            actual = row[0] if row else None
+            if references.get(key) and actual != references[key]:
+                errors.append(f"CONTRACT_VERSION_MISMATCH:{key}:{actual}")
+        sovereigns = sorted(
+            str(row[0]) for row in connection.execute("select sovereign_id from sovereigns")
+        )
+        identity = hashlib.sha256("\n".join(sovereigns).encode("utf-8")).hexdigest()
+        if references.get("sovereign_registry_identity") and identity != references[
+            "sovereign_registry_identity"
+        ]:
+            errors.append("SOVEREIGN_REGISTRY_MISMATCH")
+    except sqlite3.Error as error:
+        errors.append(f"CODEX_READ_FAILED:{error}")
+    finally:
+        connection.close()
+    return errors
+
+
+def validate_release_bundle(
+    contract: Mapping[str, Any],
+    *,
+    python_executable: str | os.PathLike[str],
+    release_root: str | os.PathLike[str],
+    source_root: str | os.PathLike[str] | None = None,
+    shared_root: str | os.PathLike[str] | None = None,
+    extra_paths: Iterable[str | os.PathLike[str]] = (),
+    cwd: str | os.PathLike[str] | None = None,
+    codex_path: str | os.PathLike[str] | None = None,
+    allowed_dependency_roots: Iterable[str | os.PathLike[str]] = (),
+    service_code_roots: Iterable[str | os.PathLike[str]] = (),
+    check_forbidden_content: bool = False,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Full release-bundle validation: environment, lock, origins, natives.
+
+    Governance references are validated when ``codex_path`` is supplied;
+    shared-layer classification is always checked.  Forbidden-content
+    scanning applies to real release payloads (``check_forbidden_content``)
+    so a development workspace root is never misjudged as a package.
+    """
+    errors: list[str] = []
+    module_names = [
+        str(entry.get("module"))
+        for entry in (contract.get("modules") or [])
+        if isinstance(entry, Mapping) and entry.get("module")
+    ]
+    try:
+        environment = probe_runtime_environment(
+            python_executable,
+            modules=module_names,
+            extra_paths=extra_paths,
+            cwd=cwd,
+            env=env,
+            include_distributions=bool((contract.get("dependency_lock") or {}).get("identity")),
+        )
+    except ReleaseDependencyError as error:
+        return {
+            "ok": False,
+            "errors": [f"PROBE_FAILED:{error}"],
+            "environment": {},
+            "origins": {},
+            "lock": {},
+        }
+    environment_result = validate_runtime_environment(
+        contract,
+        environment,
+        release_root=release_root,
+        allowed_dependency_roots=allowed_dependency_roots,
+    )
+    errors.extend(environment_result["errors"])
+    origins_result = validate_module_origins(
+        contract,
+        environment,
+        release_root=release_root,
+        source_root=source_root,
+        shared_root=shared_root,
+    )
+    errors.extend(origins_result["errors"])
+    lock_result = validate_dependency_lock(contract, environment)
+    errors.extend(lock_result["errors"])
+    errors.extend(
+        native_extension_errors(contract, release_root=release_root)
+    )
+    if check_forbidden_content:
+        errors.extend(
+            validate_forbidden_release_content(contract, release_root)["errors"]
+        )
+    errors.extend(
+        validate_shared_layer_classification(
+            contract, code_roots=service_code_roots
+        )
+    )
+    if codex_path is not None:
+        errors.extend(
+            validate_governance_references(contract, codex_path=codex_path)
+        )
+    return {
+        "ok": not errors,
+        "errors": list(dict.fromkeys(errors)),
+        "environment": environment_result,
+        "origins": origins_result,
+        "lock": lock_result,
+        "python": environment_result.get("python"),
+    }
+
+
 __all__ = [
     "ReleaseDependencyError",
     "normalize_path",
     "path_is_within",
     "probe_python_import_origins",
+    "probe_runtime_environment",
     "validate_module_origins",
     "validate_release_python_origins",
+    "validate_runtime_environment",
+    "validate_dependency_lock",
+    "native_extension_errors",
+    "validate_forbidden_release_content",
+    "validate_shared_layer_classification",
+    "validate_governance_references",
+    "validate_release_bundle",
+    "pe_machine",
 ]

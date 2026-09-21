@@ -187,6 +187,56 @@ def validate_python_release_dependencies(
     )
 
 
+def validate_release_bundle(
+    contract: dict[str, Any],
+    *,
+    python_executable: str,
+    release_root: str,
+    source_root: str | None = None,
+    shared_root: str | None = None,
+    extra_paths: tuple[str, ...] = (),
+    cwd: str | None = None,
+    codex_path: str | None = None,
+    allowed_dependency_roots: tuple[str, ...] = (),
+    service_code_roots: tuple[str, ...] = (),
+    check_forbidden_content: bool = False,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Full release-bundle validation (environment, lock, origins, natives).
+
+    Governance references are checked when ``codex_path`` is given; the
+    check reads the official codex read-only and is **not** a substitute for
+    the governed codex validation/authorization flow.
+    """
+    errors = validate_dependency_contract(contract)
+    if errors:
+        return {
+            "ok": False,
+            "errors": errors,
+            "environment": {},
+            "origins": {},
+            "lock": {},
+        }
+    from governance_rule.execution.integrity.python_release_dependencies import (
+        validate_release_bundle as _validate_bundle,
+    )
+
+    return _validate_bundle(
+        contract,
+        python_executable=python_executable,
+        release_root=release_root,
+        source_root=source_root,
+        shared_root=shared_root,
+        extra_paths=extra_paths,
+        cwd=cwd,
+        codex_path=codex_path,
+        allowed_dependency_roots=allowed_dependency_roots,
+        service_code_roots=service_code_roots,
+        check_forbidden_content=check_forbidden_content,
+        env=env,
+    )
+
+
 def validate_secret_exclusions(
     contract: dict[str, Any],
     release_paths: list[str],
@@ -213,5 +263,6 @@ __all__ = [
     "get_dependency_contract_path",
     "validate_dependency_contract",
     "validate_python_release_dependencies",
+    "validate_release_bundle",
     "validate_secret_exclusions",
 ]

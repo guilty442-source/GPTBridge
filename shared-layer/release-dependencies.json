@@ -101,5 +101,133 @@
     "runtime",
     "xingcheng/runtime",
     "main-system/runtime"
+  ],
+  "runtime_environment": {
+    "python": {
+      "version": "3.11.9",
+      "version_range": {
+        "min": [
+          3,
+          11
+        ],
+        "max_exclusive": [
+          3,
+          12
+        ]
+      },
+      "arch": "AMD64",
+      "bits": 64
+    },
+    "venv": {
+      "required": true,
+      "include_system_site_packages": false,
+      "user_site": "forbidden",
+      "pythonpath": "forbidden",
+      "require_built_at_final_location": false,
+      "pyvenv_cfg_sha256": "1f878fa40bd304f69c5a5114e51af4d3d830b8e77a0bc1ccb29c9b500cda4b9c",
+      "note": "pyvenv.cfg records creation at E:\\GPTBridge\\.venv while the venv lives at main-system/.venv (relocation evidence); rebuild at the final isolated location before packaging (G76)"
+    },
+    "site_packages_roots": [
+      "main-system/.venv/Lib/site-packages"
+    ]
+  },
+  "dependency_lock": {
+    "identity": "ce4f72d03635f0b94a01e58aa1f439f10bc9ff3017bd84c0118b60c6e8744dbc",
+    "entries": 92,
+    "source": "importlib.metadata@main-system/.venv measured 2026-09-21"
+  },
+  "native_extensions": [
+    {
+      "file": "main-system/src-core/core_system/native/_sovereign_native.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true
+    }
+  ],
+  "required_dlls": [],
+  "shared_layer_classification": [
+    {
+      "path": "shared-layer/src/shared_layer/contracts",
+      "class": "RUNTIME_CONTRACT",
+      "evidence": "registry.py CanonicalTypeRegistry (versioned, language-neutral, append-only)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/security",
+      "class": "RUNTIME_CONTRACT",
+      "evidence": "session_identity/generation/rotation/dsn_policy contract modules (A087)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/channel.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "SharedLayerChannel authenticated entry; single owner (A263)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/channel_runtime.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "A263 information-layer channel runtime; one resident instance"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/store.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "central transport store on PostgreSQL canonical (single authority)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/store_async.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "async transport store; same canonical transport authority"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/transactional_outbox.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "transactional outbox contract; central transport only"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/database",
+      "class": "RELEASE_DEPENDENCY",
+      "evidence": "PG lifecycle/pool/migration library packaged with the release"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/adaptive",
+      "class": "RELEASE_DEPENDENCY",
+      "evidence": "bounded control plane library (envelope 2-8/50-500/1-2)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/workflow",
+      "class": "RELEASE_DEPENDENCY",
+      "evidence": "Saga/outbox library; PostgreSQL remains operation authority"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/local",
+      "class": "PERSISTENT_STATE",
+      "evidence": "owner-private SQLite / degraded fallback; never copied as authority"
+    },
+    {
+      "path": "shared-layer/tests",
+      "class": "DEVELOPMENT_ONLY",
+      "evidence": "test suites never loaded by the production runtime"
+    },
+    {
+      "path": "shared-layer/src/ui/toolWindow",
+      "class": "RELEASE_DEPENDENCY",
+      "evidence": "typed tool-window socket helpers bundled into tool UIs"
+    }
+  ],
+  "governance_references": {
+    "codex_identity": "governance-codex://official",
+    "codex_version": "2026-09-20T17:39:12Z",
+    "codex_sha256": "7ce5434342a018f906ca95c3a1e8af440a628860ceef5318005f782c23de472a",
+    "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
+    "permission_contract_version": "2026-09-16T05:44:03Z",
+    "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
+    "note": "reference-only evidence read from the official codex; not a seal, authorization or substitute for governance_rule.execution.audit"
+  },
+  "forbidden_content": [
+    ".env",
+    "*.pem",
+    "*.key",
+    "*.token",
+    "*.p12",
+    "governance_codex.sqlite3",
+    "credential*"
   ]
 }
