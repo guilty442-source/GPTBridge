@@ -38,6 +38,25 @@ _STATE_FILE = (
     Path(__file__).resolve().parents[2]
     / "runtime" / "state" / "model-service-activation.json"
 )
+_GOVERNOR_STATE_FILE = (
+    Path(__file__).resolve().parents[2]
+    / "runtime" / "state" / "resource-governor.json"
+)
+
+
+def _worker_admission_hold() -> bool:
+    """§10.64 control-law ⑤: deny new worker starts while the resource
+    governor is regulating (aggregate worker budget exceeded).
+
+    Fail-open on missing/unreadable governor state — a dead governor must
+    not permanently block model activation; the hold is only honoured
+    while the governor actively signals it.
+    """
+    try:
+        payload = json.loads(_GOVERNOR_STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return payload.get("worker_admission_hold") is True
 
 TARGET_TOOL_ID = "xingcheng"
 OWNER_TOOL_ID = "local-model"
@@ -170,6 +189,12 @@ class ModelServiceActivationBroker:
             return "maintenance-pending"
         if getattr(self.app, "_shutting_down", False):
             return "shutting-down"
+        # §10.64 ⑤: while the governor is regulating, hold new worker
+        # starts (fail-closed load shedding).  User-explicit tool starts
+        # via the command surface are unaffected — this only gates the
+        # broker's automatic activation.
+        if _worker_admission_hold():
+            return "resource-hold"
         try:
             if await self.toolbox.tool_process_active(OWNER_TOOL_ID):
                 self._backoff = self.min_backoff

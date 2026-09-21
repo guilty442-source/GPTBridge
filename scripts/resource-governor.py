@@ -60,9 +60,25 @@ MEM_TRIM_MB: Final[float] = 1500.0
 # enforced by sustained priority/affinity throttling; Windows scheduling is
 # not a hard wall-clock quota for arbitrary user processes.
 GLOBAL_CPU_LIMIT_PCT: Final[float] = 10.0
-GLOBAL_RAM_LIMIT_PCT: Final[float] = 80.0
+GLOBAL_RAM_LIMIT_PCT: Final[float] = 30.0
 TRIM_COOLDOWN_SECONDS: Final[float] = 300.0
 AFFINITY_MIN_CPUS: Final[int] = 1
+
+# §10.64 — worker aggregate budget (single-core-equivalent CPU / share of
+# total RAM) with hysteresis, plus a fail-closed admission-hold signal the
+# backend consults before starting new on-demand workers.
+WORKER_CPU_BUDGET_PCT: Final[float] = 10.0
+WORKER_RAM_BUDGET_PCT: Final[float] = 30.0
+REGULATE_OVER_SAMPLES: Final[int] = 3
+REGULATE_UNDER_SAMPLES: Final[int] = 5
+REGULATE_UNDER_FACTOR: Final[float] = 0.8
+# While regulating, worker-plane processes are throttled from a much lower
+# per-process floor — ten individually-calm workers can still breach the
+# aggregate budget.
+REGULATED_WORKER_BUSY_PCT: Final[float] = 2.0
+# Kill switch: observe only, no actions (§10.64 acceptance ⑤).
+GOVERNOR_DISABLE_ENV: Final[str] = "GPTBRIDGE_GOVERNOR_DISABLE"
+WORKER_PLANES: Final[frozenset[str]] = frozenset({"worker", "toolbox", "repo-other"})
 
 PROCESS_ATTRS: Final[list[str]] = ["pid", "name", "exe", "username", "memory_info"]
 
@@ -178,6 +194,9 @@ class GovernorConfig:
         self.trim_cooldown: float = TRIM_COOLDOWN_SECONDS
         self.affinity: bool = not args.no_affinity
         self.dry_run: bool = bool(args.dry_run)
+        # §10.64 worker aggregate budget (single-core-equivalent).
+        self.worker_cpu_budget: float = WORKER_CPU_BUDGET_PCT
+        self.worker_ram_budget: float = WORKER_RAM_BUDGET_PCT
 
 
 class ProcessRecord:
@@ -220,16 +239,52 @@ def _is_governor_process(proc: psutil.Process) -> bool:
     return any("resource-governor" in part for part in cmdline)
 
 
+def _classify_plane(proc: psutil.Process, name: str, exe: str | None) -> str:
+    """§10.64 worker-plane attribution for the aggregate budget ledger.
+
+    Planes: ``governance`` (backend + governance processes — never
+    regulated), ``toolbox`` (Standalone tools), ``worker`` (repo scripts,
+    worktrees, agents, tests), ``repo-other`` (repo-attributed but
+    unclassified), ``external`` (not repo-attributed — user's own work).
+    """
+    lowered_exe = (exe or "").lower()
+    root = str(PROJECT_ROOT).lower()
+    try:
+        cmdline = " ".join(proc.cmdline()).lower()
+    except (psutil.AccessDenied, psutil.NoSuchProcess):
+        cmdline = ""
+    if root not in lowered_exe and root not in cmdline and "gptbridge" not in cmdline:
+        return "external"
+    joined = f"{lowered_exe} {cmdline}"
+    if "--serve" in cmdline or "boot_core" in joined or "governance_rule" in joined:
+        return "governance"
+    if "standalone tools" in joined or "standalone_tools" in joined:
+        return "toolbox"
+    if "scripts" in joined or ".worktrees" in joined or ".kilo" in joined or "pytest" in joined:
+        return "worker"
+    return "repo-other"
+
+
 def govern_once(
     config: GovernorConfig,
     records: dict[tuple[int, float], ProcessRecord],
     machine: psutil.Process | None = None,
+    regulation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     now = time.monotonic()
     me = psutil.Process() if machine is None else machine
     username = me.username()
     self_tree = _self_tree()
     logical = os.cpu_count() or 1
+    if regulation is None:
+        regulation = {"over": 0, "under": 0, "active": False}
+    # §10.64 acceptance ⑤: kill switch — observe and log, never act.
+    disabled = os.environ.get(GOVERNOR_DISABLE_ENV, "").strip().lower() in {
+        "1", "true", "yes",
+    }
+    dry_run = config.dry_run or disabled
+    worker_cpu_pct = 0.0
+    worker_rss_mb = 0.0
     # Windows user processes do not expose a universal hard global CPU quota
     # without Job Objects.  Bound sustained offenders to approximately the
     # requested global share instead; priority throttling remains the first
@@ -270,16 +325,30 @@ def govern_once(
 
                 cpu = proc.cpu_percent(None)
                 rss_mb = float(info["memory_info"].rss) / (1024 * 1024) if info.get("memory_info") else 0.0
-                rows.append({"pid": pid, "name": name, "cpu": round(cpu, 1), "mem_mb": round(rss_mb, 1)})
+                plane = _classify_plane(proc, name, info.get("exe"))
+                rows.append({"pid": pid, "name": name, "cpu": round(cpu, 1),
+                             "mem_mb": round(rss_mb, 1), "plane": plane})
+                if plane in WORKER_PLANES:
+                    worker_cpu_pct += cpu
+                    worker_rss_mb += rss_mb
 
-            busy_now = cpu >= config.cpu_busy
+            # §10.64: governance / core-execution plane is never regulated.
+            if plane == "governance":
+                continue
+
+            busy_floor = (
+                REGULATED_WORKER_BUSY_PCT
+                if regulation["active"] and plane in WORKER_PLANES
+                else config.cpu_busy
+            )
+            busy_now = cpu >= busy_floor
             extreme_now = cpu >= config.cpu_extreme
             calm_now = cpu < config.calm
             record.busy = record.busy + 1 if busy_now else 0
             record.calm = record.calm + 1 if calm_now else 0
 
             if busy_now and record.busy >= config.sustain and not record.prio_set:
-                if not config.dry_run:
+                if not dry_run:
                     proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
                 record.prio_set = True
                 actions.append(
@@ -294,7 +363,7 @@ def govern_once(
             ):
                 try:
                     if proc.cpu_affinity() != cap_affinity:
-                        if not config.dry_run:
+                        if not dry_run:
                             proc.cpu_affinity(cap_affinity)
                         record.aff_set = True
                         actions.append(
@@ -309,7 +378,7 @@ def govern_once(
                 and now - record.last_trim >= config.trim_cooldown
             ):
                 trimmed = True
-                if not config.dry_run:
+                if not dry_run:
                     trimmed = _trim_working_set(pid)
                 record.last_trim = now
                 actions.append(
@@ -321,7 +390,7 @@ def govern_once(
                 and record.calm >= config.calm_samples
                 and (record.prio_set or record.aff_set)
             ):
-                if not config.dry_run:
+                if not dry_run:
                     try:
                         proc.nice(psutil.NORMAL_PRIORITY_CLASS)
                     except psutil.Error:
@@ -343,12 +412,49 @@ def govern_once(
         if key not in seen:
             records.pop(key, None)
 
+    # §10.64 aggregate worker budget + hysteresis control law:
+    # 3 consecutive over-budget samples -> regulate; 5 consecutive samples
+    # under 80% of budget -> release (no flapping).
+    total_mem = psutil.virtual_memory()
+    total_ram_mb = total_mem.total / (1024 * 1024)
+    worker_ram_pct = (worker_rss_mb / total_ram_mb * 100.0) if total_ram_mb else 0.0
+    over_budget = (
+        worker_cpu_pct > config.worker_cpu_budget
+        or worker_ram_pct > config.worker_ram_budget
+    )
+    under_budget = (
+        worker_cpu_pct <= config.worker_cpu_budget * REGULATE_UNDER_FACTOR
+        and worker_ram_pct <= config.worker_ram_budget * REGULATE_UNDER_FACTOR
+    )
+    if over_budget:
+        regulation["over"] += 1
+        regulation["under"] = 0
+    elif under_budget:
+        regulation["under"] += 1
+        regulation["over"] = 0
+    else:
+        regulation["over"] = 0
+        regulation["under"] = 0
+    if not regulation["active"] and regulation["over"] >= REGULATE_OVER_SAMPLES:
+        regulation["active"] = True
+        _log_action({
+            "action": "regulation-entered",
+            "worker_cpu_pct": round(worker_cpu_pct, 1),
+            "worker_ram_pct": round(worker_ram_pct, 2),
+        })
+    elif regulation["active"] and regulation["under"] >= REGULATE_UNDER_SAMPLES:
+        regulation["active"] = False
+        _log_action({
+            "action": "regulation-released",
+            "worker_cpu_pct": round(worker_cpu_pct, 1),
+            "worker_ram_pct": round(worker_ram_pct, 2),
+        })
+
     for entry in actions:
         _log_action(entry)
 
     top_cpu = sorted(rows, key=lambda item: item["cpu"], reverse=True)[:5]
     top_mem = sorted(rows, key=lambda item: item["mem_mb"], reverse=True)[:5]
-    total_mem = psutil.virtual_memory()
     snapshot = {
         "interval": config.interval,
         "processes": len(rows),
@@ -356,10 +462,42 @@ def govern_once(
         "cpu_load_pct": psutil.cpu_percent(None),
         "mem_used_pct": total_mem.percent,
         "mem_available_mb": round(total_mem.available / (1024 * 1024), 1),
+        "resource_limits": {
+            "cpu_pct": GLOBAL_CPU_LIMIT_PCT,
+            "ram_pct": GLOBAL_RAM_LIMIT_PCT,
+            "cpu_over_limit": psutil.cpu_percent(None) > GLOBAL_CPU_LIMIT_PCT,
+            "ram_over_limit": total_mem.percent > GLOBAL_RAM_LIMIT_PCT,
+        },
+        # §10.64 worker ledger — the backend reads worker_admission_hold
+        # before starting new on-demand workers (control-law step ⑤).
+        "worker_ledger": {
+            "cpu_pct": round(worker_cpu_pct, 1),
+            "ram_mb": round(worker_rss_mb, 1),
+            "ram_pct": round(worker_ram_pct, 2),
+            "budget_cpu_pct": config.worker_cpu_budget,
+            "budget_ram_pct": config.worker_ram_budget,
+            "over_budget": over_budget,
+            "planes": dict(
+                sorted(
+                    (
+                        plane,
+                        sum(1 for r in rows if r["plane"] == plane),
+                    )
+                    for plane in {r["plane"] for r in rows}
+                )
+            ),
+        },
+        "regulation": {
+            "active": regulation["active"],
+            "over_samples": regulation["over"],
+            "under_samples": regulation["under"],
+        },
+        "worker_admission_hold": regulation["active"],
         "actions": actions,
         "top_cpu": top_cpu,
         "top_mem": top_mem,
         "dry_run": config.dry_run,
+        "disabled": disabled,
     }
     _write_state(snapshot)
     return snapshot
@@ -389,6 +527,7 @@ def run_watch(config: GovernorConfig) -> int:
         with lock:
             print(f"resource-governor watching (interval={config.interval}s); Ctrl+C to stop")
             records: dict[tuple[int, float], ProcessRecord] = {}
+            regulation: dict[str, Any] = {"over": 0, "under": 0, "active": False}
             psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)
             running = True
 
@@ -404,7 +543,7 @@ def run_watch(config: GovernorConfig) -> int:
             psutil.cpu_percent(None)
             while running:
                 try:
-                    govern_once(config, records)
+                    govern_once(config, records, regulation=regulation)
                 except Exception as error:  # noqa: BLE001 - keep the loop alive
                     _log_action({"action": "cycle-error", "error": f"{type(error).__name__}: {error}"})
                 deadline = time.monotonic() + config.interval
