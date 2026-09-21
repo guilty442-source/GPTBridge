@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -120,11 +121,30 @@ class SharedLayerStartup:
             return self._build_report(gates, stages, database, {}, {})
         stages.extend(("local-database-health", "database-health"))
 
-        qdrant = {}
-        try:
-            qdrant = dict(self.qdrant_health() or {})
-        except Exception as exc:
-            qdrant = {"available": False, "last_error": str(exc)[:300]}
+        # S4: qdrant and ollama are independent non-critical probes — run them
+        # concurrently. Hard gates below stay sequential to preserve the
+        # critical early-exit report shape.
+        qdrant: dict = {}
+        ollama: dict = {}
+
+        def _probe_qdrant() -> dict:
+            try:
+                return dict(self.qdrant_health() or {})
+            except Exception as exc:
+                return {"available": False, "last_error": str(exc)[:300]}
+
+        def _probe_ollama() -> dict:
+            if self.ollama_health is None:
+                return {}
+            try:
+                return dict(self.ollama_health() or {})
+            except Exception as exc:
+                return {"available": False, "last_error": str(exc)[:300]}
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            qdrant = pool.submit(_probe_qdrant).result()
+            ollama = pool.submit(_probe_ollama).result()
+
         qdrant_available = qdrant.get("available") is True
         qdrant_gate = GateResult(
             "qdrant",
@@ -140,12 +160,7 @@ class SharedLayerStartup:
         else:
             stages.append("qdrant-degraded")
 
-        ollama = {}
         if self.ollama_health is not None:
-            try:
-                ollama = dict(self.ollama_health() or {})
-            except Exception as exc:
-                ollama = {"available": False, "last_error": str(exc)[:300]}
             ollama_available = ollama.get("available") is True
             ollama_gate = GateResult(
                 "ollama",
