@@ -12,19 +12,28 @@ flowchart TB
   LIVE[Live Introspection] --> PARITY
   PERM[Permission Decision] --> ART[Authorization Artifact]
   ART --> PROJ[Security Projection]
-  PROJ --> DB[(PostgreSQL Enforcement)]
+  PROJ --> DB[(PostgreSQL canonical enforcement)]
+  SESS["Session Identity（GUC：actor／module／request／decision／correlation）"] --> DB
+  GEN[Security Generation Fence] --> DB
+  DSN["DSN 用途分離（runtime／reader／admin／backup）"] --> DB
   WRITE[Canonical Write] --> OUTBOX[Transactional Outbox]
-  OUTBOX --> TRANSPORT[Transport]
+  WF["Workflow Operation（leases／idempotent steps／補償表）"] --> OUTBOX
+  WF --> COMP["REQUIRES_RECONCILE／QUARANTINED"]
+  OUTBOX --> TRANSPORT["Transport（priority_class／deadline）"]
   TRANSPORT --> INBOX[Inbox Dedup]
-  INBOX --> EFFECT[Exactly-once Effect]
-  SQ[(SQLite Buffer)] --> RECON[Revalidation and Reconciliation]
+  INBOX --> EFFECT[Idempotent Effect]
+  PUB["Publish Barrier（PREPARING → INDEXING → VERIFYING → READY）"] --> DB
+  PUB --> QD[(Qdrant scoped index only)]
+  SQ[(SQLite owner-private／degraded fallback only)] --> RECON[Revalidation and Reconciliation]
   RECON --> DB
+  ADAPT["Adaptive Envelope（pool 2–8／batch 50–500／breakers／cost gate）"] -. bounded control .-> DB
+  ADAPT -. bounded control .-> TRANSPORT
   BACKUP[Backup WAL PITR] --> ACCEPT[Restore Acceptance]
-  A --> GATE{All five PASS}
+  A --> GATE{Five closures PASS}
   PARITY --> GATE
   I --> GATE
   T --> GATE
   ACCEPT --> GATE
 ```
 
-同步基線：A528、A537、A538；啟動 10 秒、強制測試套件 20 秒、獨立審計流程 30 秒，逾時 fail-closed。
+PostgreSQL 是唯一 canonical 中央正式狀態；Qdrant 僅存語意候選（`require_scope`，module_id 必填）；SQLite 僅存 owner 私有狀態與有界降級資料（路徑白名單＋owner-only ACL），且**永遠不得宣告中央完成**。跨引擎工作以 Saga 執行（PostgreSQL 為操作權威，migration `113_workflow_operation.sql`）：步驟冪等、可續跑、租約心跳；逾時以 lookup＋verify 判定，耗盡或未知即 `REQUIRES_RECONCILE`／`QUARANTINED`；發布屏障只有 `READY` 可讀，跨引擎結論退化為 `DEGRADED`／`CONFLICT`，不得假裝成功。身分、連線、憑證、工作階段、權限、輪替與撤銷由 Access Control Plane 承接（migration `087_security_identity_control.sql`）：工作階段識別以交易區域 GUC 綁定，憑證只存中繼資料（HMAC-SHA256 指紋），敏感寫入遇過期 `gptbridge.security_generation` 一律 fail-closed。Transport 依 `priority_class`（critical／interactive／background／maintenance）與 FIFO 取用並跳過逾 `deadline_at` 請求（migration `058_transport_priority_queue.sql`）。Adaptive SQL Layer 只在 `AdaptiveEnvelope` 內調整（pool 2–8、batch 50–500、reconcile 1–2），無訊號時一律 ALLOW。同步基線：A528、A537、A538、A8、A44、A49；啟動 10 秒、強制測試套件 20 秒、獨立審計流程 30 秒，逾時 fail-closed。

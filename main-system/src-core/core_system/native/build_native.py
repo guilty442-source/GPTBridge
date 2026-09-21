@@ -15,8 +15,9 @@ The build never writes into the process working directory: the former
 build happened to run from and polluted the repository root.
 
 The canonical native source lives in the project-root native/ tree:
-  native/include/gptbridge_native.h  — sole public C header
-  native/bridge/gptbridge_native.c   — sole C ABI thunk
+  native/include/gptbridge_native.h       — sole public C header
+  native/bridge/gptbridge_native.c        — sole C ABI thunk
+  native/core/{parser,vector,transformer}.c — pure-C compute cores
 
 Requires a C++ compiler (MSVC via the VS/VS Build Tools Developer
 environment) plus pybind11 installed in the active interpreter.
@@ -42,9 +43,9 @@ extension = Extension(
     [
         str(HERE / "_binding.cpp"),
         str(NATIVE_ROOT / "bridge" / "gptbridge_native.c"),
-        str(NATIVE_ROOT / "core" / "parser.cpp"),
-        str(NATIVE_ROOT / "core" / "vector.cpp"),
-        str(NATIVE_ROOT / "core" / "transformer.cpp"),
+        str(NATIVE_ROOT / "core" / "parser.c"),
+        str(NATIVE_ROOT / "core" / "vector.c"),
+        str(NATIVE_ROOT / "core" / "transformer.c"),
     ],
     include_dirs=[
         pybind11.get_include(),

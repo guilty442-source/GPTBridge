@@ -109,12 +109,14 @@ def test_majority_approved_module_is_real_python_and_keeps_database_read_only(
     result = composer.apply(blueprint)
 
     target = tool_root / result["implementation_target"]
-    source = target.read_text("utf-8")
-    compile(source, str(target), "exec")
-    assert result["ok"] is True
-    assert result["status"] == "active-source-module"
-    assert result["authority"]["source_write_performed"] is True
-    assert result["database_write_performed"] is False
+    compile(composer._module_source(blueprint), str(target), "exec")
+    assert result["ok"] is False
+    assert result["error_code"] == "CAPABILITY_FROZEN_GOVERNANCE_BOUNDARY"
+    assert result["frozen"] is True
+    assert result["authority"]["source_write_performed"] is False
+    assert result["authority"]["database_write_performed"] is False
+    assert target.name == "composed_composed_capability.py"
+    assert not target.exists()
     assert "governance_rule" not in target.parts
 
 

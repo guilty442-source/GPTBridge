@@ -22,7 +22,9 @@ from __future__ import annotations
 import json
 import os
 import threading
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,60 @@ from typing import Any
 _DEFAULT_ROOT = Path(__file__).resolve().parents[4]
 _TASK_LEDGER: Path = _DEFAULT_ROOT / "runtime" / "state" / "native-capability-tasks.jsonl"
 _LOCK = threading.Lock()
+
+
+class TaskState(str, Enum):
+    CREATED = "CREATED"
+    VALIDATED = "VALIDATED"
+    AUTHORIZED = "AUTHORIZED"
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    TIMED_OUT = "TIMED_OUT"
+    RECOVERING = "RECOVERING"
+    INTERRUPTED = "INTERRUPTED"
+
+
+@dataclass(frozen=True)
+class TaskIdentity:
+    task_id: str
+    request_id: str
+    operation_id: str
+    execution_receipt: str
+    idempotency_key: str
+
+
+_VALID_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
+    TaskState.CREATED: frozenset({TaskState.VALIDATED, TaskState.FAILED, TaskState.CANCELLED}),
+    TaskState.VALIDATED: frozenset({TaskState.AUTHORIZED, TaskState.FAILED, TaskState.CANCELLED}),
+    TaskState.AUTHORIZED: frozenset({TaskState.QUEUED, TaskState.FAILED, TaskState.CANCELLED}),
+    TaskState.QUEUED: frozenset({TaskState.RUNNING, TaskState.CANCELLED, TaskState.TIMED_OUT}),
+    TaskState.RUNNING: frozenset({TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELLED, TaskState.TIMED_OUT, TaskState.INTERRUPTED}),
+    TaskState.INTERRUPTED: frozenset({TaskState.RECOVERING, TaskState.FAILED, TaskState.CANCELLED}),
+    TaskState.RECOVERING: frozenset({TaskState.QUEUED, TaskState.FAILED, TaskState.CANCELLED}),
+    TaskState.COMPLETED: frozenset(),
+    TaskState.FAILED: frozenset(),
+    TaskState.CANCELLED: frozenset(),
+    TaskState.TIMED_OUT: frozenset(),
+}
+
+
+def validate_task_transition(
+    current: str | TaskState,
+    target: str | TaskState,
+    *,
+    verification: dict[str, Any] | None = None,
+) -> None:
+    current_state = TaskState(current)
+    target_state = TaskState(target)
+    if target_state not in _VALID_TASK_TRANSITIONS[current_state]:
+        raise ValueError(f"TASK_INVALID_TRANSITION:{current_state.value}->{target_state.value}")
+    if current_state is TaskState.RECOVERING and not (
+        isinstance(verification, dict) and verification.get("verified") is True
+    ) and target_state is TaskState.QUEUED:
+        raise ValueError("TASK_RECOVERY_VERIFICATION_REQUIRED")
 
 
 def _iso_now() -> str:
@@ -65,6 +121,37 @@ def record_task_event(
     })
 
 
+def record_task_transition(
+    *,
+    identity: TaskIdentity,
+    current: str | TaskState,
+    target: str | TaskState,
+    task_type: str,
+    verification: dict[str, Any] | None = None,
+    detail: dict[str, Any] | None = None,
+) -> None:
+    validate_task_transition(current, target, verification=verification)
+    event_detail = dict(detail or {})
+    event_detail.update(
+        {
+            "state": TaskState(target).value,
+            "previous_state": TaskState(current).value,
+            "request_id": identity.request_id,
+            "operation_id": identity.operation_id,
+            "execution_receipt": identity.execution_receipt,
+            "idempotency_key": identity.idempotency_key,
+        }
+    )
+    if verification is not None:
+        event_detail["recovery_verification"] = dict(verification)
+    record_task_event(
+        task_id=identity.task_id,
+        event="transition",
+        task_type=task_type,
+        detail=event_detail,
+    )
+
+
 def load_tasks() -> dict[str, dict[str, Any]]:
     """Reconstruct current task state by replaying the ledger."""
     if not _TASK_LEDGER.is_file():
@@ -90,6 +177,9 @@ def load_tasks() -> dict[str, dict[str, Any]]:
                 if event == "create":
                     tasks[tid].update(detail)
                     tasks[tid]["state"] = detail.get("state", "created")
+                elif event == "transition":
+                    tasks[tid].update(detail)
+                    tasks[tid]["state"] = detail.get("state", tasks[tid].get("state", ""))
                 elif event == "dispatch":
                     tasks[tid]["state"] = "dispatched"
                     tasks[tid].update(detail)
@@ -173,7 +263,11 @@ def _verify_codex_mandate(reference: str) -> tuple[bool, str]:
 
 
 __all__ = [
+    "TaskIdentity",
+    "TaskState",
     "load_tasks",
     "record_task_event",
+    "record_task_transition",
+    "validate_task_transition",
     "verify_authorization_reference",
 ]

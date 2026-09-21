@@ -1,0 +1,123 @@
+{
+  "surface_id": "ipc-frontend-surface",
+  "boundaries": {
+    "renderer_to_preload": {
+      "channels": [
+        "app:ensure-backend-started",
+        "app:get-backend-session",
+        "app:get-platform-tool-sizes",
+        "app:get-repair-status",
+        "app:get-status",
+        "app:get-ui-zoom",
+        "app:open-path",
+        "app:reload-window",
+        "app:reload-window-hard",
+        "app:restart",
+        "app:restart-backend",
+        "app:set-ui-zoom",
+        "dialog:create-file",
+        "dialog:open-file",
+        "dialog:select-folder",
+        "embedded-browser:close",
+        "embedded-browser:close-module",
+        "embedded-browser:create",
+        "embedded-browser:execute",
+        "embedded-browser:hide",
+        "embedded-browser:list",
+        "embedded-browser:navigate",
+        "embedded-browser:resize",
+        "embedded-browser:show",
+        "embedded-browser:url"
+      ],
+      "api": [
+        "createFile",
+        "ensureBackendStarted",
+        "invoke",
+        "openFile",
+        "openPath",
+        "restartApp",
+        "restartBackend",
+        "selectFolder"
+      ]
+    },
+    "preload_to_main": {
+      "channels": [
+        "app:ensure-backend-started",
+        "app:get-backend-session",
+        "app:get-platform-tool-sizes",
+        "app:get-status",
+        "app:get-ui-zoom",
+        "app:reload-window",
+        "app:reload-window-hard",
+        "app:restart",
+        "app:restart-backend",
+        "dialog:create-file",
+        "dialog:open-file",
+        "dialog:select-folder",
+        "embedded-browser:close",
+        "embedded-browser:close-module",
+        "embedded-browser:create",
+        "embedded-browser:execute",
+        "embedded-browser:hide",
+        "embedded-browser:list",
+        "embedded-browser:navigate",
+        "embedded-browser:resize",
+        "embedded-browser:show",
+        "embedded-browser:url"
+      ]
+    }
+  },
+  "backend_commands": [
+    "app:check-third-party-updates",
+    "app:get-fault-analysis",
+    "app:get-repair-status",
+    "app:get-runtime-status",
+    "app:get-saga-operation",
+    "app:get-saga-operations",
+    "app:get-third-party-status",
+    "app:probe-third-party-versions",
+    "app:update-third-party-tool",
+    "toolbox_force_close_tool",
+    "toolbox_list_tools",
+    "toolbox_start_tool",
+    "xingcheng-deny-pending-action",
+    "xingcheng-set-native-model-enabled",
+    "xingcheng-set-repair-release",
+    "xingcheng-set-update-release"
+  ],
+  "events": [
+    "app:check-third-party-updates_result",
+    "app:get-fault-analysis_result",
+    "app:get-repair-status_result",
+    "app:get-runtime-status_result",
+    "app:get-saga-operation_result",
+    "app:get-saga-operations_result",
+    "app:get-third-party-status_result",
+    "app:probe-third-party-versions_result",
+    "app:update-third-party-tool_result",
+    "heartbeat_pong",
+    "state_event_ack",
+    "state_event_hello",
+    "state_event_invalidate",
+    "state_event_resync",
+    "state_event_session",
+    "toolbox_force_close_tool_result",
+    "toolbox_list_tools_result",
+    "toolbox_start_tool_result",
+    "xingcheng-deny-pending-action_result",
+    "xingcheng-set-native-model-enabled_result",
+    "xingcheng-set-repair-release_result",
+    "xingcheng-set-update-release_result"
+  ],
+  "error_codes": [
+    "CAPABILITY_BOUNDARY_DENIED",
+    "COMMAND_RECEIVED"
+  ],
+  "features": {
+    "cancellation": 1,
+    "streaming": 1,
+    "connection_state": 1,
+    "error_codes": 1
+  },
+  "surface_version": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe"
+}

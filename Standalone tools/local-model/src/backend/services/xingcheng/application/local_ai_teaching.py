@@ -54,7 +54,38 @@ class LocalAiTeachingMixin:
             updates.append(self._apply_self_training(self.models.MAIN, candidate))
         accepted = bool(updates and updates[0].get("accepted") is True)
         learned_now = bool(updates and updates[0].get("learned_now") is True)
+        repository = self._repository_for(self.models.MAIN)
+        preference_pending = 0
+        for rejection in evaluated["rejected"]:
+            if str(rejection.get("candidate_id") or "") != str(
+                f"owner-example-{candidate_digest[:20]}"
+            ):
+                continue
+            try:
+                repository.record_rejected_teaching_candidate(
+                    intent=intent,
+                    input_text=input_text,
+                    rejected_text=target_text,
+                    source_type=str(
+                        payload.get("source_type")
+                        or "owner-governed-teaching-candidate"
+                    ),
+                    gate_verdict=rejection,
+                )
+                preference_pending += 1
+            except ValueError:
+                continue
+        preference_pairs_completed = 0
+        if accepted:
+            preference_pairs_completed = repository.complete_preference_pairs(
+                intent=intent,
+                input_text=input_text,
+                chosen_text=target_text,
+                chosen_example_id=str(updates[0].get("example_id") or ""),
+            )
         return {
+            "preference_pairs_pending": preference_pending,
+            "preference_pairs_completed": preference_pairs_completed,
             "ok": accepted,
             "message": (
                 "教學樣本已通過星澄驗證並立即加入本機學習層。"

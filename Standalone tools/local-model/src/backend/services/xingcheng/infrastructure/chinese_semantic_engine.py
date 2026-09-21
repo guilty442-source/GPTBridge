@@ -822,7 +822,8 @@ class ChineseSemanticEngine:
         percentages = unique(re.findall(r"\d+(?:\.\d+)?\s*%|百分之[\d一二三四五六七八九十百]+", text))
         money = unique(
             re.findall(
-                r"(?:NT|US|JP|HK)?\$\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:元|萬元|億元|塊)",
+                r"(?:NT|US|JP|HK)?\$\s?\d+(?:,\d+)*(?:\.\d+)?|"
+                r"\d+(?:,\d+)*(?:\.\d+)?\s?(?:元|萬元|億元|塊)",
                 text,
             )
         )

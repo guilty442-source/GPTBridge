@@ -42,6 +42,7 @@ The module is decomposed into single-responsibility sub-modules (A430):
 
 from __future__ import annotations
 
+import random
 import threading
 import urllib.request
 from collections import deque
@@ -129,8 +130,7 @@ class ConnectionWatchdog(
         self._max_probe_interval = 60.0
         self._consecutive_stable = 0
         self._consecutive_failures = 0
-        self._http_cache = HealthCheckCache(ttl_seconds=5.0)
-        self._ipc_cache = HealthCheckCache(ttl_seconds=5.0)
+        self._health_cache = HealthCheckCache(ttl_seconds=5.0)
         self._http_circuit_breaker = CircuitBreaker("http-health", failure_threshold=3, recovery_timeout_seconds=15.0)
         self._ipc_circuit_breaker = CircuitBreaker("ipc-health", failure_threshold=3, recovery_timeout_seconds=15.0)
         self.enable_resource_monitoring = enable_resource_monitoring
@@ -233,7 +233,12 @@ class ConnectionWatchdog(
                     self._adaptive_probe_interval = self._min_probe_interval
             except Exception:
                 pass
-            if self._stop.wait(timeout=self._adaptive_probe_interval):
+            jittered_interval = self._adaptive_probe_interval * random.uniform(0.9, 1.1)
+            timeout = min(
+                self._max_probe_interval,
+                max(self._min_probe_interval, jittered_interval),
+            )
+            if self._stop.wait(timeout=timeout):
                 break
 
     def stop(self) -> None:

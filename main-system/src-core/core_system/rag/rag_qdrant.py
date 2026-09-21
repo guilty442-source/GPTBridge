@@ -459,6 +459,48 @@ class QdrantCanonicalRuntime:
             _logger.error("QdrantCanonicalRuntime: delete on %s failed: %s", target, exc)
             return False
 
+    def count_resource_points(
+        self,
+        module_id: str,
+        resource_id: str,
+        generation_id: Optional[str] = None,
+    ) -> Optional[int]:
+        """Exact per-resource point count (§10.6 parity sweep).
+
+        Matches the same module scope + resource_id/document_resource_id
+        selector shape as ``delete_resource`` so drift detection and repair
+        agree on which points belong to a resource.
+        """
+        scope = require_scope([module_id])
+        if not self._healthy or self.client is None:
+            return None
+        target = self._get_target_collection(generation_id)
+        selector = Filter(
+            must=[
+                FieldCondition(
+                    key="module_id", match=MatchValue(value=scope.module_ids[0])
+                )
+            ],
+            should=[
+                FieldCondition(key="resource_id", match=MatchValue(value=resource_id)),
+                FieldCondition(
+                    key="document_resource_id", match=MatchValue(value=resource_id)
+                ),
+            ],
+        )
+        try:
+            result = self.client.count(
+                collection_name=target, count_filter=selector, exact=True
+            )
+            return int(getattr(result, "count", 0) or 0)
+        except Exception as exc:
+            _logger.warning(
+                "QdrantCanonicalRuntime: count_resource_points on %s failed: %s",
+                target,
+                exc,
+            )
+            return None
+
     def points_count(self, generation_id: Optional[str] = None) -> Optional[int]:
         """Current point count in the target collection (None when unavailable)."""
         if not self._healthy or self.client is None:

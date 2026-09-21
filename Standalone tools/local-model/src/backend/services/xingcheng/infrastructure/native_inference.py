@@ -4,6 +4,59 @@ import math
 from typing import Any, Callable, Mapping
 
 from .native_constants import InvestmentAnalyzer, MarketSearcher
+from .native_engine import generation_defaults
+
+#: 檔位 → 原生引擎生成預算（tokens，於引擎上限內）
+_INTENSITY_ENGINE_TOKENS: dict[str, int] = {
+    "simple": 48,
+    "normal": 96,
+    "intermediate": 144,
+    "difficult": 192,
+}
+#: 推理等級 → 溫度傾向（高推理 = 更確定）
+_EFFORT_TEMPERATURES: dict[str, float] = {
+    "low": 0.45,
+    "medium": 0.40,
+    "high": 0.35,
+}
+#: 反應速度 → 長度倍率
+_SPEED_FACTORS: dict[str, float] = {
+    "slow": 1.25,
+    "low": 1.1,
+    "medium": 1.0,
+    "high": 0.75,
+    "ultra": 0.5,
+}
+
+
+def native_gear_generation(payload: Mapping[str, Any]) -> tuple[int, float | None]:
+    """把對話檔位（任務強度/推理等級/反應速度）映射為引擎生成參數。
+
+    未指定檔位（自動）時，以用戶端 ``max_output_tokens`` 依引擎上限等比縮放。
+    """
+    try:
+        cap = int(generation_defaults()["max_new_tokens"])
+    except (TypeError, ValueError, KeyError):
+        cap = 192
+    cap = max(16, min(cap, 512))
+
+    intensity = str(payload.get("task_intensity") or "").strip().casefold()
+    base = _INTENSITY_ENGINE_TOKENS.get(intensity)
+    if base is None:
+        try:
+            raw = int(payload.get("max_output_tokens"))
+        except (TypeError, ValueError):
+            raw = 512
+        base = max(32, min(int(round(raw * cap / 1_024)), cap))
+    speed = str(payload.get("generation_speed") or "").strip().casefold()
+    factor = _SPEED_FACTORS.get(speed, 1.0)
+    max_tokens = max(16, min(int(round(base * factor)), cap))
+
+    effort = str(payload.get("reasoning_effort") or "").strip().casefold()
+    temperature: float | None = None
+    if payload.get("temperature") is None:
+        temperature = _EFFORT_TEMPERATURES.get(effort)
+    return max_tokens, temperature
 
 
 class StarNativeInferenceMixin:
@@ -38,6 +91,11 @@ class StarNativeInferenceMixin:
         intent = str(payload.get("_governed_intent") or self._intent(prompt))
         semantic_plan = self._resolve_semantic_plan(payload, prompt, intent)
         network_allowed = payload.get("allow_network") is not False
+        neural_result = self._native_transformer_result(
+            payload, prompt, intent, semantic_plan, database, network_allowed
+        )
+        if neural_result is not None:
+            return neural_result
         market_research, analysis = self._market_inputs(
             payload, intent, network_allowed, analyze, search
         )
@@ -73,6 +131,163 @@ class StarNativeInferenceMixin:
             private_context=private_context,
             training_candidate=training_candidate,
         )
+
+    def _native_transformer_result(
+        self,
+        payload: dict[str, Any],
+        prompt: str,
+        intent: str,
+        semantic_plan: dict[str, Any],
+        database: dict[str, Any],
+        network_allowed: bool,
+    ) -> dict[str, Any] | None:
+        """原生 Transformer（自有權重）優先回答；未啟用或失敗時回 None。"""
+        try:
+            from .native_engine import (
+                flag_enabled,
+                generate_via_native_engine,
+                small_talk_reply,
+            )
+        except Exception:  # pragma: no cover - 匯入失敗時維持 n-gram 路徑
+            return None
+        if not flag_enabled():
+            return None
+        templated = small_talk_reply(prompt)
+        if templated is not None:
+            return self._native_template_result(
+                templated, prompt, intent, semantic_plan, database, network_allowed
+            )
+        gear_tokens, gear_temperature = native_gear_generation(payload)
+        result = generate_via_native_engine(
+            {
+                "prompt": prompt,
+                "intent": intent,
+                "max_tokens": gear_tokens,
+                "temperature": gear_temperature
+                if gear_temperature is not None
+                else payload.get("temperature"),
+                "top_k": payload.get("top_k"),
+                "top_p": payload.get("top_p"),
+                "repetition_penalty": payload.get("repetition_penalty"),
+                "seed": payload.get("seed"),
+            }
+        )
+        if result.get("ok") is not True:
+            return None
+        text = str(result.get("text") or "")
+        generation = {
+            "text": text,
+            "model_type": "native-transformer-autoregressive-decoder",
+            "token_count": int(result.get("eval_count") or 0),
+            "facts_preserved": True,
+            "grounding_fallback_used": False,
+            "native_checkpoint_path": result.get("checkpoint_path"),
+            "native_state_sha256": result.get("state_sha256"),
+            "native_parameter_count": result.get("parameter_count"),
+            "native_quantization": result.get("quantization"),
+            "native_latency_ms": result.get("latency_ms"),
+            "sampling": result.get("sampling"),
+            "gear": {
+                "task_intensity": str(payload.get("task_intensity") or "auto"),
+                "reasoning_effort": str(payload.get("reasoning_effort") or "auto"),
+                "generation_speed": str(payload.get("generation_speed") or "auto"),
+                "max_tokens": gear_tokens,
+            },
+        }
+        return {
+            "ok": True,
+            "model": result.get("model") or self.MODEL_ID,
+            "model_version": self.VERSION,
+            "architecture": result.get("architecture") or self.ARCHITECTURE,
+            "mode": "governed-native-transformer-llm",
+            "pipeline": [
+                "native-bpe-tokenization",
+                "transformer-prefill",
+                "kv-cache-decode",
+                "sampling",
+            ],
+            "token_count": int(result.get("prompt_eval_count") or 0),
+            "intent": intent,
+            "semantic_understanding": semantic_plan,
+            "intent_confidence": semantic_plan["tasks"][0]["confidence"],
+            "context_retrieval": {
+                "memory_count": 0,
+                "used_memory_count": 0,
+                "memory_grounding_applied": False,
+                "memory_ids": [],
+                "reviewed_memory_only": True,
+                "native_private_database_opened": False,
+                "native_private_record_counts": {},
+            },
+            "instruction_execution": self._instruction_execution_result(
+                intent, semantic_plan
+            ),
+            "response": text,
+            "generation": generation,
+            "language_model": self.training_status(),
+            "analysis": None,
+            "market_research": None,
+            "evidence": [*self._database_evidence(database)],
+            "evidence_policy": dict(self._EVIDENCE_POLICY),
+            "native_engine": True,
+            "star_native_model_used": True,
+            "native_checkpoint_path": result.get("checkpoint_path"),
+            "native_state_sha256": result.get("state_sha256"),
+            **self._result_policy_fields(network_allowed, None, {}),
+        }
+
+    def _native_template_result(
+        self,
+        text: str,
+        prompt: str,
+        intent: str,
+        semantic_plan: dict[str, Any],
+        database: dict[str, Any],
+        network_allowed: bool,
+    ) -> dict[str, Any]:
+        """超短問候的第一方模板回覆（不經模型生成，誠實標記）。"""
+        return {
+            "ok": True,
+            "model": self.MODEL_ID,
+            "model_version": self.VERSION,
+            "architecture": self.ARCHITECTURE,
+            "mode": "governed-native-transformer-llm",
+            "pipeline": ["first-party-small-talk-template"],
+            "token_count": len(prompt),
+            "intent": intent,
+            "semantic_understanding": semantic_plan,
+            "intent_confidence": semantic_plan["tasks"][0]["confidence"],
+            "context_retrieval": {
+                "memory_count": 0,
+                "used_memory_count": 0,
+                "memory_grounding_applied": False,
+                "memory_ids": [],
+                "reviewed_memory_only": True,
+                "native_private_database_opened": False,
+                "native_private_record_counts": {},
+            },
+            "instruction_execution": self._instruction_execution_result(
+                intent, semantic_plan
+            ),
+            "response": text,
+            "generation": {
+                "text": text,
+                "model_type": "first-party-small-talk-template",
+                "token_count": len(text),
+                "facts_preserved": True,
+                "grounding_fallback_used": False,
+                "template_reply": True,
+            },
+            "language_model": self.training_status(),
+            "analysis": None,
+            "market_research": None,
+            "evidence": [*self._database_evidence(database)],
+            "evidence_policy": dict(self._EVIDENCE_POLICY),
+            "native_engine": True,
+            "template_reply": True,
+            "star_native_model_used": True,
+            **self._result_policy_fields(network_allowed, None, {}),
+        }
 
     def _compose_grounding(
         self,

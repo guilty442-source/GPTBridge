@@ -51,6 +51,8 @@ __pycache__/
 .vite/
 build/
 out/
+bin/
+obj/
 coverage/
 playwright-report/
 test-results/

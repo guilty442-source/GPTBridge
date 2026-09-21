@@ -16,13 +16,20 @@ from ..execution.backend import capabilities
 
 
 def _triton_available() -> bool:
+    from ..execution.backend import triton_kernels_enabled
+
     cap = capabilities()
-    return cap.has_triton and cap.has_cuda
+    return bool(cap.has_triton and cap.has_cuda and triton_kernels_enabled())
 
 
 def swiglu(gate: torch.Tensor, up: torch.Tensor) -> torch.Tensor:
     """SiLU(gate) * up。gate, up 同形狀。"""
-    if gate.is_cuda and _triton_available():
+    # 同 RMSNorm：Triton 路徑不支援 autograd，訓練時退回 PyTorch。
+    if (
+        gate.is_cuda
+        and _triton_available()
+        and not (gate.requires_grad or up.requires_grad)
+    ):
         try:
             return _swiglu_triton(gate, up)
         except Exception:

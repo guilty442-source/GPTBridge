@@ -134,29 +134,39 @@ async def run_startup_sequence(app: Any) -> bool:
 
     # Start the canonical RAG runtime (DAG+CAG+RAG hybrid architecture)
     # Must precede CAG: cag_integration reads app.rag_orchestrator.
-    try:
-        result = await app.rag_runtime.start()
-        if result.get("ok"):
-            app.rag_ready = True
-            app._log({"type": "status", "message": "RAG runtime started", **result})
-        else:
-            app._record_startup_failure("rag_runtime", RuntimeError(result.get("reason", "unknown")))
-    except Exception as error:
-        app._record_startup_failure("rag_runtime", error)
-    app._mark_startup_phase("rag_runtime_started")
+    # MS1/MS2：懶啟動模式（預設）下 rag_runtime 尚未建立——跳過，
+    # 首次檢索請求走 app.ensure_rag_cag_started()。
+    if getattr(app, "rag_runtime", None) is None:
+        app._log({"type": "status", "message": "RAG runtime deferred (lazy)",
+                  "lazy": True})
+        app._mark_startup_phase("rag_runtime_deferred")
+    else:
+        try:
+            result = await app.rag_runtime.start()
+            if result.get("ok"):
+                app.rag_ready = True
+                app._log({"type": "status", "message": "RAG runtime started", **result})
+            else:
+                app._record_startup_failure("rag_runtime", RuntimeError(result.get("reason", "unknown")))
+        except Exception as error:
+            app._record_startup_failure("rag_runtime", error)
+        app._mark_startup_phase("rag_runtime_started")
 
     # Start CAG context preloading (DAG+CAG+RAG hybrid architecture)
     # Starts after RAG orchestrator is available
-    try:
-        result = await app.cag_integration.start()
-        if result.get("ok"):
-            app.cag_ready = True
-            app._log({"type": "status", "message": "CAG context preloading started", **result})
-        else:
-            app._record_startup_failure("cag_integration", RuntimeError(result.get("reason", "unknown")))
-    except Exception as error:
-        app._record_startup_failure("cag_integration", error)
-    app._mark_startup_phase("cag_integration_started")
+    if getattr(app, "cag_integration", None) is None:
+        app._mark_startup_phase("cag_integration_deferred")
+    else:
+        try:
+            result = await app.cag_integration.start()
+            if result.get("ok"):
+                app.cag_ready = True
+                app._log({"type": "status", "message": "CAG context preloading started", **result})
+            else:
+                app._record_startup_failure("cag_integration", RuntimeError(result.get("reason", "unknown")))
+        except Exception as error:
+            app._record_startup_failure("cag_integration", error)
+        app._mark_startup_phase("cag_integration_started")
 
     # Check if boot_core has already completed phases 0-5
     startup_state = os.environ.get("GPTBRIDGE_STARTUP_STATE", "")

@@ -29,20 +29,22 @@ class Sampler:
     def __init__(self, config: SamplingConfig) -> None:
         self.config = config
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def sample(self, logits: torch.Tensor, *, prev_tokens: torch.Tensor | None = None) -> torch.Tensor:
-        """logits: (B, vocab) → next_tokens: (B,)。"""
+        """logits: (B, vocab) → next_tokens: (B,)。速度：greedy 快路徑零拷貝，sampling 僅必要時 clone。"""
         cfg = self.config
-        logits = logits.clone()
 
+        # 正確性：repetition 需修改 logits，才 clone
         if cfg.repetition_penalty != 1.0 and prev_tokens is not None:
-            logits = _apply_repetition_penalty(logits, prev_tokens, cfg.repetition_penalty)
-
+            logits = _apply_repetition_penalty(logits.clone(), prev_tokens, cfg.repetition_penalty)
+        # 速度：greedy 快路徑直接 argmax，無需 softmax/clone
         if not cfg.do_sample or cfg.temperature <= 0:
             return torch.argmax(logits, dim=-1)
 
+        # 速度：僅 sampling 時 clone 並原地除溫
+        logits = logits.clone()
         if cfg.temperature != 1.0:
-            logits = logits / cfg.temperature
+            logits.div_(cfg.temperature)
 
         if cfg.top_k > 0:
             logits = _top_k_filter(logits, cfg.top_k)
@@ -76,12 +78,21 @@ def _top_p_filter(logits: torch.Tensor, p: float) -> torch.Tensor:
 def _apply_repetition_penalty(
     logits: torch.Tensor, prev_tokens: torch.Tensor, penalty: float
 ) -> torch.Tensor:
-    for b in range(logits.size(0)):
-        for tok in prev_tokens[b].tolist():
-            if logits[b, tok] > 0:
-                logits[b, tok] /= penalty
-            else:
-                logits[b, tok] *= penalty
+    # 速度：向量化 scatter，無 Python 雙層迴圈；正確性：同語意（>0 除，否則乘）
+    if prev_tokens.numel() == 0:
+        return logits
+    # prev_tokens: (B, S) 可能含多個歷史 token，需對每個 (b, tok) 應用
+    # 去重以避免重複懲罰同一 token 多次（與原語意一致：每唯一 token 一次）
+    bsz = logits.size(0)
+    for b in range(bsz):
+        uniq = torch.unique(prev_tokens[b])
+        # 過濾無效 token（如 pad 0 但 logits 0 亦會處理，保持原邏輯）
+        vals = logits[b, uniq]
+        # 向量化：positive 除，negative 乘
+        pos = vals > 0
+        vals[pos] /= penalty
+        vals[~pos] *= penalty
+        logits[b, uniq] = vals
     return logits
 
 

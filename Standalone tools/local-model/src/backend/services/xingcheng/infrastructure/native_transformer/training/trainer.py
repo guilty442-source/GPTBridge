@@ -9,14 +9,17 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 import torch
 from torch.utils.data import DataLoader
 
+from ..checkpoint import save_checkpoint
 from ..config import XingChengConfig
 from ..execution.backend import resolve_device, default_dtype
 from ..modules.model import XingChengForCausalLM
+from ..tokenizer import XingChengTokenizer
 from .data import collate_batch
 from .optimizer import build_optimizer
 
@@ -37,6 +40,8 @@ class TrainingConfig:
     device: str | torch.device | None = None
     dtype: torch.dtype | None = None
     seed: int = 42
+    checkpoint_dir: str | None = None
+    checkpoint_every: int = 0
 
 
 class Trainer:
@@ -47,17 +52,22 @@ class Trainer:
         model: XingChengForCausalLM,
         config: TrainingConfig,
         train_config: XingChengConfig,
+        *,
+        tokenizer: XingChengTokenizer | None = None,
     ) -> None:
         self.model = model
         self.tcfg = config
         self.train_config = train_config
+        self.tokenizer = tokenizer
         self.device = resolve_device(config.device)
         self.dtype = config.dtype or default_dtype(self.device)
+        model.to(self.device)
         self.optimizer = build_optimizer(
             model.parameters(), train_config,
             lr=config.lr, weight_decay=config.weight_decay, kind=config.optimizer,
         )
         self._step = 0
+        self.checkpoints: list[str] = []
         torch.manual_seed(config.seed)
 
     def _lr_scale(self) -> float:
@@ -90,6 +100,22 @@ class Trainer:
         self._step += 1
         return float(loss.detach().item())
 
+    def _maybe_checkpoint(self, loss: float) -> None:
+        if not self.tcfg.checkpoint_dir or self.tcfg.checkpoint_every <= 0:
+            return
+        if self._step % self.tcfg.checkpoint_every != 0:
+            return
+        target = Path(self.tcfg.checkpoint_dir) / f"step-{self._step:06d}.pt"
+        info = save_checkpoint(
+            target,
+            self.model,
+            tokenizer=self.tokenizer,
+            optimizer=self.optimizer,
+            metadata={"step": self._step, "loss": loss, "source": "trainer"},
+            extra={"step": self._step},
+        )
+        self.checkpoints.append(info["path"])
+
     def fit(self, dataloader: DataLoader) -> dict[str, Any]:
         self.model.train()
         history: list[float] = []
@@ -101,12 +127,19 @@ class Trainer:
                 history.append(loss)
                 if self.tcfg.log_every > 0 and (self._step % self.tcfg.log_every == 0):
                     log.info("step %d loss=%.4f", self._step, loss)
+                self._maybe_checkpoint(loss)
                 if max_steps is not None and self._step >= max_steps:
-                    return {"losses": history, "steps": self._step, "final_loss": history[-1]}
+                    return {
+                        "losses": history,
+                        "steps": self._step,
+                        "final_loss": history[-1],
+                        "checkpoints": list(self.checkpoints),
+                    }
         return {
             "losses": history,
             "steps": self._step,
             "final_loss": history[-1] if history else float("nan"),
+            "checkpoints": list(self.checkpoints),
         }
 
 

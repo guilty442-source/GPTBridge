@@ -140,6 +140,22 @@ class LocalAiRepository(
                 );
                 CREATE INDEX IF NOT EXISTS idx_language_training_active_revision
                     ON language_training_example(active, revision DESC);
+                CREATE TABLE IF NOT EXISTS language_preference_pair (
+                    revision INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pair_id TEXT NOT NULL UNIQUE,
+                    prompt_hash TEXT NOT NULL,
+                    intent TEXT NOT NULL,
+                    prompt_text TEXT NOT NULL,
+                    chosen_text TEXT,
+                    chosen_example_id TEXT,
+                    rejected_text TEXT NOT NULL,
+                    source_type TEXT NOT NULL,
+                    gate_verdict_json TEXT NOT NULL DEFAULT '{}',
+                    paired INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_language_preference_prompt
+                    ON language_preference_pair(prompt_hash, paired);
                 CREATE TABLE IF NOT EXISTS language_model_maintenance (
                     run_id TEXT PRIMARY KEY,
                     action TEXT NOT NULL,

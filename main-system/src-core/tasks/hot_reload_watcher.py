@@ -1,11 +1,11 @@
-"""Automated backend hot-reload watcher ??facade.
+"""Automated backend hot-reload watcher — facade.
 
 This module provides the HotReloadWatcher class.  Implementation
 details live in submodules:
 
-  * :mod:`tasks.hot_reload_watcher_constants` ??constants, ChannelHealth.
-  * :mod:`tasks.hot_reload_watcher_health` ??health monitoring mixin.
-  * :mod:`tasks.hot_reload_watcher_reload` ??reload request mixin.
+  * :mod:`tasks.hot_reload_watcher_constants` — constants, ChannelHealth.
+  * :mod:`tasks.hot_reload_watcher_health` — health monitoring mixin.
+  * :mod:`tasks.hot_reload_watcher_reload` — reload request mixin.
 
 Watches the governed backend source root and, once file changes quiet
 down, requests a module-scoped hot-reload through the maintenance
@@ -60,6 +60,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         self._enabled = False
         self._snapshot: dict[str, float] = {}
         self._pending: dict[str, float] = {}
+        self._scan_tree_cache: dict[str, tuple[tuple[tuple[str, int], ...], tuple[str, ...]]] = {}
         self._in_flight = False
         self._last_reload_at = 0.0
         self._backoff_until = 0.0
@@ -71,7 +72,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         self._max_poll_interval = 60.0  # Max 60 seconds
         self._consecutive_no_changes = 0
 
-    # ??? lifecycle ????????????????????????????????????????????????????
+    # ── lifecycle ─────────────────────────────────────────────────────
 
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -126,10 +127,11 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         # Clear pending state
         self._pending.clear()
         self._snapshot.clear()
+        self._scan_tree_cache.clear()
 
         _logger.info("HotReloadWatcher stopped gracefully")
 
-    # ??? observation ??????????????????????????????????????????????????
+    # ── observation ───────────────────────────────────────────────────
 
     def _resolve_roots(self) -> None:
         for relative in WATCH_ROOTS:
@@ -137,16 +139,34 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             if root.is_dir():
                 self._roots.append(root)
 
+    @staticmethod
+    def _directory_signature(root: Path) -> tuple[tuple[str, int], ...]:
+        signature: list[tuple[str, int]] = []
+        for directory, _names, _files in os.walk(root):
+            try:
+                signature.append((directory, Path(directory).stat().st_mtime_ns))
+            except OSError:
+                continue
+        return tuple(sorted(signature))
+
     def _scan(self) -> dict[str, float]:
         found: dict[str, float] = {}
         for root in self._roots:
             try:
-                for path in root.rglob("*.py"):
+                key = str(root)
+                signature = self._directory_signature(root)
+                cached = self._scan_tree_cache.get(key)
+                if cached is not None and cached[0] == signature:
+                    paths = cached[1]
+                else:
+                    paths = tuple(str(path) for path in root.rglob("*.py"))
+                    self._scan_tree_cache[key] = (signature, paths)
+                for path_string in paths:
                     try:
-                        stat = path.stat()
+                        stat = Path(path_string).stat()
                     except OSError:
                         continue
-                    found[str(path)] = stat.st_mtime
+                    found[path_string] = stat.st_mtime
             except OSError:
                 continue
         return found
@@ -200,7 +220,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             return token_path
         return None
 
-    # ??? main loop ????????????????????????????????????????????????????
+    # ── main loop ─────────────────────────────────────────────────────
 
     async def _loop(self) -> None:
         while not self._stop.is_set():

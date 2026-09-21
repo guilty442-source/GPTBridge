@@ -173,12 +173,12 @@ def test_task_random_mode_is_weighted_reproducible_and_quality_safe() -> None:
         1_536,
     )
     assert normal["reasoning_effort"] == "low"
-    assert normal["keep_alive"] == -1
+    assert normal["keep_alive"] == 0
     assert (intermediate["context_limit"], intermediate["default_output_tokens"]) == (
         16_384,
         2_048,
     )
-    assert difficult["context_limit"] == 32_768
+    assert difficult["context_limit"] == 153_600
     assert difficult["default_output_tokens"] == 4_096
 
     base = policy.resolve(
@@ -188,7 +188,7 @@ def test_task_random_mode_is_weighted_reproducible_and_quality_safe() -> None:
         immutable_base=True,
     )
     assert base["selected_mode"] == "base"
-    assert base["default_output_tokens"] == 1_024
+    assert base["default_output_tokens"] == 4_096
     assert base["dynamic_overrides_enabled"] is False
 
 

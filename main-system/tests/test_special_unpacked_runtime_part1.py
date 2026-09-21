@@ -63,6 +63,26 @@ def test_local_model_companion_tools_are_discovered() -> None:
     assert governance.authorized_lifecycle[-1] == ("model-dialogue", "start")
 
 
+def test_manifest_cache_ignores_other_worktree_path() -> None:
+    service = ToolboxService(ROOT, governance=GovernanceStub())
+    stale_dir = (
+        ROOT
+        / ".kilo"
+        / "worktrees"
+        / "chinese-semantic-engine-core"
+        / "Standalone tools"
+        / "local-model"
+        / "model-dialogue"
+    )
+    service._manifest_cache["model-dialogue"] = ({"id": "model-dialogue"}, stale_dir)
+    service._manifest_cache_keys["model-dialogue"] = (0, 0)
+
+    resolved = service._tool_directory_for_id("model-dialogue")
+
+    assert resolved == (LOCAL_MODEL_ROOT / "model-dialogue").resolve()
+    assert service._manifest_cache["model-dialogue"][1] == resolved
+
+
 def test_manifest_cache_reloads_after_manifest_edit(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
