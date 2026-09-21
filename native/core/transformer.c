@@ -5,17 +5,112 @@
  * Python owns all memory; C borrows raw pointers + length.
  * No unbounded allocation; no per-request thread pool.
  *
- * SIMD: AVX2+FMA 用於 matmul axpy 與 attention dot（4×double），
- * 編譯時偵測 __AVX2__，不可用回退純量，語意等價。 */
+ * SIMD: AVX-512F/VL/DQ (8×double) 優先；其次 AVX2+FMA (4×double)；
+ * 皆編譯時偵測，執行期 CPUID 派送；不可用回退純量，語意等價。 */
 #include "transformer.h"
 #include "memory.h"
 
 #include <math.h>
 
-#if defined(__AVX2__)
+#if defined(__AVX512F__) && defined(__AVX512VL__) && defined(__AVX512DQ__)
+#include <immintrin.h>
+#define GPTBRIDGE_SIMD_AVX512 1
+#elif defined(__AVX2__)
 #include <immintrin.h>
 #define GPTBRIDGE_SIMD_AVX2 1
 #endif
+
+/* ------------------------------------------------------------------
+ * Runtime CPU feature detection (CPUID) for AVX-512 / AVX2 dispatch
+ * ------------------------------------------------------------------ */
+#ifdef _WIN32
+#include <intrin.h>
+#else
+#include <cpuid.h>
+#endif
+
+static int gptbridge_native_have_avx512f(void) {
+#ifdef _WIN32
+    int info[4];
+    __cpuid(info, 7);
+    return (info[1] >> 16) & 1;  /* AVX-512F: EBX bit 16 */
+#else
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid_count(7, 0, eax, ebx, ecx, edx);
+    return (ebx >> 16) & 1;
+#endif
+}
+
+static int gptbridge_native_have_avx512vl(void) {
+#ifdef _WIN32
+    int info[4];
+    __cpuid(info, 7);
+    return (info[1] >> 31) & 1;  /* AVX-512VL: EBX bit 31 */
+#else
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid_count(7, 0, eax, ebx, ecx, edx);
+    return (ebx >> 31) & 1;
+#endif
+}
+
+static int gptbridge_native_have_avx512dq(void) {
+#ifdef _WIN32
+    int info[4];
+    __cpuid(info, 7);
+    return (info[1] >> 17) & 1;  /* AVX-512DQ: EBX bit 17 */
+#else
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid_count(7, 0, eax, ebx, ecx, edx);
+    return (ebx >> 17) & 1;
+#endif
+}
+
+static int gptbridge_native_have_avx2(void) {
+#ifdef _WIN32
+    int info[4];
+    __cpuid(info, 7);
+    return (info[1] >> 5) & 1;  /* AVX2: EBX bit 5 */
+#else
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid_count(7, 0, eax, ebx, ecx, edx);
+    return (ebx >> 5) & 1;
+#endif
+}
+
+static int gptbridge_native_have_fma(void) {
+#ifdef _WIN32
+    int info[4];
+    __cpuid(info, 1);
+    return (info[2] >> 12) & 1;  /* FMA: ECX bit 12 */
+#else
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid(1, eax, ebx, ecx, edx);
+    return (ecx >> 12) & 1;
+#endif
+}
+
+typedef enum {
+    GPTBRIDGE_SIMD_NONE = 0,
+    GPTBRIDGE_SIMD_AVX2 = 1,
+    GPTBRIDGE_SIMD_AVX512 = 2,
+} gptbridge_simd_level;
+
+static gptbridge_simd_level gptbridge_native_simd_level(void) {
+    static int cached = -1;
+    if (cached >= 0) return (gptbridge_simd_level)cached;
+
+    if (gptbridge_native_have_avx512f() &&
+        gptbridge_native_have_avx512vl() &&
+        gptbridge_native_have_avx512dq() &&
+        gptbridge_native_have_fma()) {
+        cached = GPTBRIDGE_SIMD_AVX512;
+    } else if (gptbridge_native_have_avx2() && gptbridge_native_have_fma()) {
+        cached = GPTBRIDGE_SIMD_AVX2;
+    } else {
+        cached = GPTBRIDGE_SIMD_NONE;
+    }
+    return (gptbridge_simd_level)cached;
+}
 
 /* Find max in a row for numerical stability of softmax. */
 static double row_max(const double* row, int64_t cols) {
