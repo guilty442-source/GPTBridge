@@ -208,6 +208,7 @@ def validate_release_bundle(
     ipc_backend_surface_path: str | None = None,
     check_frontend_release: bool = False,
     check_persistent_data_separation: bool = False,
+    check_config_classification: bool = False,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation (environment, lock, origins, natives).
@@ -249,6 +250,7 @@ def validate_release_bundle(
         ipc_backend_surface_path=ipc_backend_surface_path,
         check_frontend_release=check_frontend_release,
         check_persistent_data_separation=check_persistent_data_separation,
+        check_config_classification=check_config_classification,
         env=env,
     )
 

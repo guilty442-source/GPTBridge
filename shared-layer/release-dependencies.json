@@ -352,5 +352,59 @@
     "main-system/config",
     "main-system/runtime/settings",
     "Standalone tools/local-model/runtime/settings"
-  ]
+  ],
+  "config_classes": {
+    "rules": {
+      "RELEASE_CONFIG": "fixed by the release; never modified in place during official runtime",
+      "RUNTIME_CONFIG": "provided by the existing governed settings mechanism; updatable per current rules",
+      "PERSISTENT_CONFIG": "preserved across releases; never overwritten by program updates",
+      "SECRET": "provided by the existing secret management; never packaged into a Release Manifest",
+      "DEVELOPMENT_CONFIG": "development/test only; must never enter the production runtime",
+      "single_manager": "no second official Configuration Manager is created; classes only label existing stores"
+    },
+    "RELEASE_CONFIG": {
+      "paths": [
+        "main-system/config"
+      ],
+      "source": "electron-builder extraResources 'config' (release payload)"
+    },
+    "RUNTIME_CONFIG": {
+      "governed_roots": [
+        "Standalone tools/*/runtime/settings"
+      ],
+      "paths": [
+        "Standalone tools/local-model/runtime/settings/native-engine.json",
+        "Standalone tools/local-model/runtime/settings/self-learning.json",
+        "Standalone tools/local-model/runtime/settings/retention.json"
+      ],
+      "writers": "existing governed settings writers (native_engine.write_settings, self-learning/retention policies)"
+    },
+    "PERSISTENT_CONFIG": {
+      "paths": [
+        "Standalone tools/file-sorter/runtime/settings/keyword_rules.json"
+      ],
+      "note": "user-authored rules; program updates must not overwrite them"
+    },
+    "SECRET": {
+      "patterns": [
+        ".env",
+        "*.pem",
+        "*.key",
+        "*.token",
+        "*.p12",
+        "credential*"
+      ],
+      "source": "existing secret management (Access Control Plane credential metadata only; plaintext forbidden)"
+    },
+    "DEVELOPMENT_CONFIG": {
+      "paths": [
+        "Standalone tools/local-model/tests",
+        "Standalone tools/local-model/scripts",
+        "main-system/tests",
+        "governance_rule/tests",
+        ".kilo",
+        ".worktrees"
+      ]
+    }
+  }
 }

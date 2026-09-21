@@ -1042,6 +1042,86 @@ def validate_persistent_data_separation(
     return errors
 
 
+def validate_config_classification(
+    contract: Mapping[str, Any],
+    *,
+    release_root: str | os.PathLike[str],
+    official_root: str | os.PathLike[str] | None = None,
+    check_release_payload: bool = False,
+) -> list[str]:
+    """Five-class configuration labelling over the existing stores.
+
+    RELEASE_CONFIG (fixed by the release), RUNTIME_CONFIG (governed settings),
+    PERSISTENT_CONFIG (preserved across releases), SECRET (never packaged),
+    DEVELOPMENT_CONFIG (never in production).  This labels existing stores;
+    it never creates a second Configuration Manager.
+    """
+    import fnmatch
+
+    classes = contract.get("config_classes") or {}
+    if not classes:
+        return []
+    root = Path(os.fspath(official_root or release_root))
+    errors: list[str] = []
+
+    def resolved(raw: str) -> Path:
+        path = Path(raw)
+        return path if path.is_absolute() else root / raw
+
+    seen: dict[str, str] = {}
+    labelled = (
+        "RELEASE_CONFIG",
+        "RUNTIME_CONFIG",
+        "PERSISTENT_CONFIG",
+        "DEVELOPMENT_CONFIG",
+    )
+    for label in labelled:
+        for raw in (classes.get(label) or {}).get("paths") or []:
+            key = normalize_path(resolved(str(raw)))
+            if key in seen:
+                errors.append(f"CONFIG_CLASS_CONFLICT:{raw}:{seen[key]}:{label}")
+            else:
+                seen[key] = label
+
+    for raw in (classes.get("RELEASE_CONFIG") or {}).get("paths") or []:
+        if not resolved(str(raw)).exists():
+            errors.append(f"CONFIG_MISSING:{raw}")
+
+    governed_roots: list[Path] = []
+    for pattern in (classes.get("RUNTIME_CONFIG") or {}).get("governed_roots") or []:
+        raw = str(pattern)
+        if any(character in raw for character in "*?["):
+            governed_roots.extend(sorted(root.glob(raw)))
+        else:
+            governed_roots.append(root / raw)
+    for raw in (classes.get("RUNTIME_CONFIG") or {}).get("paths") or []:
+        path = resolved(str(raw))
+        if governed_roots and not any(
+            path_is_within(path, governed) for governed in governed_roots
+        ):
+            errors.append(f"CONFIG_ROOT_VIOLATION:{raw}")
+        if not path.exists():
+            errors.append(f"CONFIG_MISSING:{raw}")
+
+    if check_release_payload:
+        payload_root = Path(os.fspath(release_root))
+        for label in ("RUNTIME_CONFIG", "PERSISTENT_CONFIG", "DEVELOPMENT_CONFIG"):
+            for raw in (classes.get(label) or {}).get("paths") or []:
+                candidates = {resolved(str(raw))}
+                path = Path(str(raw))
+                if not path.is_absolute():
+                    candidates.add(payload_root / str(raw))
+                if any(path_is_within(candidate, release_root) for candidate in candidates):
+                    errors.append(f"CONFIG_INSIDE_RELEASE:{label}:{raw}")
+        if payload_root.is_dir():
+            for pattern in (classes.get("SECRET") or {}).get("patterns") or []:
+                suffix = str(pattern).lower().lstrip("*")
+                for path in payload_root.rglob("*"):
+                    if path.is_file() and suffix and path.name.lower().endswith(suffix):
+                        errors.append(f"SECRET_CONFIG_PACKAGED:{pattern}:{path.name}")
+    return errors
+
+
 def validate_release_bundle(
     contract: Mapping[str, Any],
     *,
@@ -1063,6 +1143,7 @@ def validate_release_bundle(
     ipc_backend_surface_path: str | os.PathLike[str] | None = None,
     check_frontend_release: bool = False,
     check_persistent_data_separation: bool = False,
+    check_config_classification: bool = False,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation: environment, lock, origins, natives.
@@ -1161,6 +1242,14 @@ def validate_release_bundle(
                 official_root=official_root or release_root,
             )
         )
+    if check_config_classification:
+        errors.extend(
+            validate_config_classification(
+                contract,
+                release_root=release_root,
+                official_root=official_root or release_root,
+            )
+        )
     if check_frontend_release:
         errors.extend(
             validate_frontend_release(
@@ -1216,6 +1305,7 @@ __all__ = [
     "validate_ipc_surface_pairing",
     "validate_frontend_release",
     "validate_persistent_data_separation",
+    "validate_config_classification",
     "validate_governance_references",
     "validate_release_bundle",
     "pe_machine",
