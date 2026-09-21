@@ -38,6 +38,7 @@ import os
 import shutil
 import sqlite3
 import stat
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -157,7 +158,25 @@ def _atomic_replace(source: Path, target: Path) -> None:
         os.fsync(handle.fileno())
     if target.exists():
         _set_read_only(target, False)
-    os.replace(temporary, target)
+    # Windows readers may hold the target without delete sharing for a
+    # short window (indexers, watchers); retry briefly before failing.
+    last_error: OSError | None = None
+    for _ in range(10):
+        try:
+            os.replace(temporary, target)
+            last_error = None
+            break
+        except PermissionError as error:
+            last_error = error
+            time.sleep(0.5)
+    if last_error is not None:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        if target.exists():
+            _set_read_only(target, True)
+        raise last_error
     _set_read_only(target, True)
 
 
