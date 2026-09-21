@@ -38,6 +38,19 @@ _COMPATIBILITY_GATES = (
     "sql_schema",
     "frontend",
 )
+_BACKEND_MANIFEST_FIELDS = frozenset(
+    {
+        "release_id",
+        "backend_version",
+        "ipc_contract_version",
+        "database_schema_version",
+        "codex_schema",
+        "codex_version",
+        "build_hash",
+        "status",
+        "compatibility",
+    }
+)
 
 
 def _compute_artifact_digest(relative_path: str) -> str | None:
@@ -107,6 +120,41 @@ def validate_release_manifest(
     }
 
 
+def validate_backend_release_manifest(
+    manifest: dict[str, Any],
+    *,
+    ui_ipc_contract_version: int | None = None,
+    ui_release_id: str | None = None,
+    expected_codex_schema: str | None = None,
+    expected_codex_version: int | None = None,
+) -> dict[str, Any]:
+    """Validate a backend release before allowing UI/backend activation."""
+    missing = sorted(_BACKEND_MANIFEST_FIELDS - set(manifest))
+    compatibility = manifest.get("compatibility")
+    failures = [
+        gate
+        for gate in _COMPATIBILITY_GATES
+        if not isinstance(compatibility, dict) or compatibility.get(gate) is not True
+    ]
+    if ui_ipc_contract_version is not None and manifest.get("ipc_contract_version") != ui_ipc_contract_version:
+        failures.append("ipc_contract_version")
+    if ui_release_id is not None and manifest.get("release_id") != ui_release_id:
+        failures.append("release_id")
+    if expected_codex_schema is not None and manifest.get("codex_schema") != expected_codex_schema:
+        failures.append("codex_schema")
+    if expected_codex_version is not None and manifest.get("codex_version") != expected_codex_version:
+        failures.append("codex_version")
+    if manifest.get("status") not in {"STAGED", "ACTIVE", "PREVIOUS", "ROLLBACK"}:
+        failures.append("status")
+    return {
+        "ok": not missing and not failures,
+        "missing": missing,
+        "failed_gates": sorted(set(failures)),
+        "release_id": manifest.get("release_id"),
+        "backend_version": manifest.get("backend_version"),
+    }
+
+
 def frontend_backend_release_match(
     frontend_release_id: str,
     backend_release_id: str,
@@ -130,6 +178,7 @@ def frontend_backend_release_match(
 
 
 __all__ = [
+    "validate_backend_release_manifest",
     "validate_release_manifest",
     "verify_active_release",
     "frontend_backend_release_match",
