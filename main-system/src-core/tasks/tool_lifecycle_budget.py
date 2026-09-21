@@ -9,8 +9,9 @@ toolbox lifecycle mixins:
 - close : ``force_close_tool`` bounds its process sweep by the remaining
   budget; the sweep itself was reduced to one native process pass.
 
-法典依據: A294 (bounded execution latency), A446 (bounded stages),
-A266 (independent-tool lifecycle isolation).
+法典依據: A540 (獨立工具每次啟動／關閉 5 秒上限；控制條). 背景條文:
+A294 (bounded execution latency), A266 (independent-tool lifecycle
+isolation), A446 (bounded stages).
 """
 
 from __future__ import annotations
