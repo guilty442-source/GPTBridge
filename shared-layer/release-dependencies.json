@@ -1,529 +1,529 @@
 {
- "contract_version": 1,
- "release_root_markers": [
-  "src-core",
-  ".venv",
-  "config"
- ],
- "python": {
-  "version_range": {
-   "min": [
-    3,
-    11
-   ],
-   "max_exclusive": [
-    3,
-    12
-   ]
-  }
- },
- "source_tree_root": ".",
- "classes": {
-  "RELEASE_CODE": "fixed by the release; origin must resolve inside the release root",
-  "RELEASE_DEPENDENCY": "verifiable version and source; never resolved from the development source tree",
-  "SHARED_RUNTIME": "explicit shared contract and ownership; only the declared shared root",
-  "PERSISTENT_DATA": "never overwritten by program updates; not importable",
-  "SECRET": "never packaged into the release; not importable",
-  "DEVELOPMENT_ONLY": "never loaded at production runtime"
- },
- "modules": [
-  {
-   "module": "core_system",
-   "class": "RELEASE_CODE",
-   "required": true,
-   "allowed_roots": [
-    "main-system/src-core"
-   ]
-  },
-  {
-   "module": "governance_rule",
-   "class": "RELEASE_CODE",
-   "required": true,
-   "allowed_roots": [
-    "governance_rule"
-   ]
-  },
-  {
-   "module": "shared_layer",
-   "class": "SHARED_RUNTIME",
-   "required": true,
-   "allowed_roots": [
-    "shared-layer/src"
-   ]
-  },
-  {
-   "module": "numpy",
-   "class": "RELEASE_DEPENDENCY",
-   "required": false,
-   "allowed_roots": [
-    "main-system/.venv/Lib/site-packages"
-   ],
-   "version_range": {
-    "min": [
-     1,
-     0
-    ]
-   }
-  },
-  {
-   "module": "torch",
-   "class": "RELEASE_DEPENDENCY",
-   "required": false,
-   "allowed_roots": [
-    "main-system/.venv/Lib/site-packages"
-   ],
-   "version_range": {
-    "min": [
-     2,
-     0
-    ]
-   }
-  }
- ],
- "forbidden_development_roots": [
-  "tests",
-  "scripts",
-  ".worktrees",
-  ".kilo"
- ],
- "development_only": [
-  "tests",
-  "scripts",
-  ".worktrees",
-  ".kilo"
- ],
- "secrets": [
-  "*.pem",
-  "*.key",
-  ".env"
- ],
- "persistent_data": [
-  "runtime",
-  "xingcheng/runtime",
-  "main-system/runtime"
- ],
- "runtime_environment": {
-  "python": {
-   "version": "3.11.9",
-   "version_range": {
-    "min": [
-     3,
-     11
-    ],
-    "max_exclusive": [
-     3,
-     12
-    ]
-   },
-   "arch": "AMD64",
-   "bits": 64
-  },
-  "venv": {
-   "required": true,
-   "include_system_site_packages": false,
-   "user_site": "forbidden",
-   "pythonpath": "forbidden",
-   "require_built_at_final_location": false,
-   "pyvenv_cfg_sha256": "1f878fa40bd304f69c5a5114e51af4d3d830b8e77a0bc1ccb29c9b500cda4b9c",
-   "note": "pyvenv.cfg records creation at E:\\GPTBridge\\.venv while the venv lives at main-system/.venv (relocation evidence); rebuild at the final isolated location before packaging (G76)"
-  },
-  "site_packages_roots": [
-   "main-system/.venv/Lib/site-packages"
-  ]
- },
- "dependency_lock": {
-  "identity": "ce4f72d03635f0b94a01e58aa1f439f10bc9ff3017bd84c0118b60c6e8744dbc",
-  "entries": 92,
-  "source": "importlib.metadata@main-system/.venv measured 2026-09-21"
- },
- "native_extensions": [
-  {
-   "file": "main-system/src-core/core_system/native/_sovereign_native.cp311-win_amd64.pyd",
-   "machine": "AMD64",
-   "abi": "cp311",
-   "required": true
-  },
-  {
-   "file": "main-system/.venv/Lib/site-packages/numpy/_core/_multiarray_umath.cp311-win_amd64.pyd",
-   "machine": "AMD64",
-   "abi": "cp311",
-   "required": true,
-   "evidence": "loaded by core import surface 2026-09-21"
-  },
-  {
-   "file": "main-system/.venv/Lib/site-packages/numpy/linalg/_umath_linalg.cp311-win_amd64.pyd",
-   "machine": "AMD64",
-   "abi": "cp311",
-   "required": true,
-   "evidence": "loaded 2026-09-21"
-  },
-  {
-   "file": "main-system/.venv/Lib/site-packages/psutil/_psutil_windows.pyd",
-   "machine": "AMD64",
-   "required": true,
-   "evidence": "loaded 2026-09-21 (no abi tag in filename)"
-  },
-  {
-   "file": "main-system/.venv/Lib/site-packages/psycopg_binary/_psycopg.cp311-win_amd64.pyd",
-   "machine": "AMD64",
-   "abi": "cp311",
-   "required": true,
-   "evidence": "loaded 2026-09-21"
-  },
-  {
-   "file": "main-system/.venv/Lib/site-packages/psycopg_binary/pq.cp311-win_amd64.pyd",
-   "machine": "AMD64",
-   "abi": "cp311",
-   "required": true,
-   "evidence": "loaded 2026-09-21"
-  }
- ],
- "required_dlls": [
-  "main-system/.venv/Lib/site-packages/numpy.libs/libscipy_openblas64_-63c857e738469261263c764a36be9436.dll",
-  "main-system/.venv/Lib/site-packages/numpy.libs/msvcp140-a4c2229bdc2a2a630acdc095b4d86008.dll",
-  "main-system/.venv/Lib/site-packages/psycopg_binary.libs/libcrypto-3-x64-f68dc1082768389676d5901a38532935.dll",
-  "main-system/.venv/Lib/site-packages/psycopg_binary.libs/libpq-6313a3ff78f1e8f3f57b69cdef91d822.dll",
-  "main-system/.venv/Lib/site-packages/psycopg_binary.libs/libssl-3-x64-6439b6cfa7f3ef0146444effd227e690.dll"
- ],
- "shared_layer_classification": [
-  {
-   "path": "shared-layer/src/shared_layer/contracts",
-   "class": "RUNTIME_CONTRACT",
-   "evidence": "registry.py CanonicalTypeRegistry (versioned, language-neutral, append-only)"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/security",
-   "class": "RUNTIME_CONTRACT",
-   "evidence": "session_identity/generation/rotation/dsn_policy contract modules (A087)"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/channel.py",
-   "class": "SHARED_SERVICE",
-   "evidence": "SharedLayerChannel authenticated entry; single owner (A263)"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/channel_runtime.py",
-   "class": "SHARED_SERVICE",
-   "evidence": "A263 information-layer channel runtime; one resident instance"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/store.py",
-   "class": "SHARED_SERVICE",
-   "evidence": "central transport store on PostgreSQL canonical (single authority)"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/store_async.py",
-   "class": "SHARED_SERVICE",
-   "evidence": "async transport store; same canonical transport authority"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/transactional_outbox.py",
-   "class": "SHARED_SERVICE",
-   "evidence": "transactional outbox contract; central transport only"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/database",
-   "class": "RELEASE_DEPENDENCY",
-   "evidence": "PG lifecycle/pool/migration library packaged with the release"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/adaptive",
-   "class": "RELEASE_DEPENDENCY",
-   "evidence": "bounded control plane library (envelope 2-8/50-500/1-2)"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/workflow",
-   "class": "RELEASE_DEPENDENCY",
-   "evidence": "Saga/outbox library; PostgreSQL remains operation authority"
-  },
-  {
-   "path": "shared-layer/src/shared_layer/local",
-   "class": "PERSISTENT_STATE",
-   "evidence": "owner-private SQLite / degraded fallback; never copied as authority"
-  },
-  {
-   "path": "shared-layer/tests",
-   "class": "DEVELOPMENT_ONLY",
-   "evidence": "test suites never loaded by the production runtime"
-  },
-  {
-   "path": "shared-layer/src/ui/toolWindow",
-   "class": "RELEASE_DEPENDENCY",
-   "evidence": "typed tool-window socket helpers bundled into tool UIs"
-  }
- ],
- "governance_references": {
-  "codex_identity": "governance-codex://official",
-  "codex_version": "2026-09-21T07:37:58Z",
-  "codex_sha256": "5446490d7b819131be2351498cb663c34e7e597cfa7edb5e1e1ad4c7b74b2710",
-  "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
-  "permission_contract_version": "2026-09-16T05:44:03Z",
-  "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
-  "note": "reference-only evidence read from the official codex; not a seal, authorization or substitute for governance_rule.execution.audit"
- },
- "forbidden_content": [
-  ".env",
-  "*.pem",
-  "*.key",
-  "*.token",
-  "*.p12",
-  "governance_codex.sqlite3",
-  "credential*",
-  "*.gguf",
-  "*.safetensors",
-  "*.pt",
-  "*.onnx"
- ],
- "shared_layer_contract": {
-  "version_key": "shared_layer.contracts.registry:REGISTRY_VERSION",
-  "version": 1,
-  "compatible_versions": [
-   1
-  ],
-  "contract_file": "shared-layer/src/shared_layer/contracts/registry.py"
- },
- "service_topology": {
-  "shared_layer_service": {
-   "mode": "connect-to-existing",
-   "duplicate_instance_allowed": false
-  },
-  "governance_authority": {
-   "mode": "reference-existing",
-   "duplicate_authority_allowed": false
-  }
- },
- "governance_dependencies": [
-  {
-   "dependency": "governance_rule.execution.audit",
-   "kind": "module",
-   "required": true
-  },
-  {
-   "dependency": "governance_rule/codex/data/governance_codex.sqlite3",
-   "kind": "file",
-   "required": true
-  },
-  {
-   "dependency": "governance_rule/permission_directory",
-   "kind": "path",
-   "required": true
-  }
- ],
- "official_state_paths": [
-  "governance_rule/codex/data/governance_codex.sqlite3",
-  "governance_rule/execution/audit",
-  "governance_rule/permission_directory",
-  "main-system/data/governance_codex.sqlite3"
- ],
- "ipc_contract": {
-  "contract_file": "main-system/config/tool-runtime-contract.json",
   "contract_version": 1,
-  "minimum_supported_contract_version": 1,
-  "surface_pairing": {
-   "frontend_surface_file": "main-system/config/ipc-surface-frontend.json",
-   "backend_surface_file": "main-system/config/ipc-surface-backend.json",
-   "frontend_surface_version": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe",
-   "backend_surface_version": "e76b1081fdf3f0cfb974413f737bddfe1f226e3fe0e57912d97a993170215818",
-   "rule": "frontend-sends-subset-of-backend-commands; backend-features-subset-of-frontend-support"
-  }
- },
- "frontend_release": {
-  "release_identity": "0bcb25dcfbe73390f01ec141c174e2557e045d0a86c2727b15e5947a0d59e02b",
-  "package": "gptbridge-auto-agent-ide@1.0.0",
-  "electron_version": "39.8.10",
-  "node_runtime": {
-   "node_version": "22.22.1",
-   "abi": 140,
-   "napi": 10,
-   "chrome": "142.0.7444.265",
-   "source": "ELECTRON_RUN_AS_NODE probe 2026-09-21"
+  "release_root_markers": [
+    "src-core",
+    ".venv",
+    "config"
+  ],
+  "python": {
+    "version_range": {
+      "min": [
+        3,
+        11
+      ],
+      "max_exclusive": [
+        3,
+        12
+      ]
+    }
   },
-  "artifacts": {
-   "paths": {
-    "main": "main-system/dist-ui/main/index.js",
-    "preload": "main-system/dist-ui/main/preload.js",
-    "renderer": "main-system/dist-ui/renderer/index.html"
-   },
-   "hashes": {
-    "main": "6f6fc2deb71388c51a0241f705912150ae3d31c8c67d9b52be48a1dfa1cd3f77",
-    "preload": "fff4d3592a11fe540525101ca044b8675b8673ab6e94ee4b9b146cf4cbf17d29",
-    "renderer": "99ebf2a4ec856b44d677fcfdda9e188f40defdc51372ee17d3989632e55e6eb3"
-   },
-   "renderer_asset_count": 2
+  "source_tree_root": ".",
+  "classes": {
+    "RELEASE_CODE": "fixed by the release; origin must resolve inside the release root",
+    "RELEASE_DEPENDENCY": "verifiable version and source; never resolved from the development source tree",
+    "SHARED_RUNTIME": "explicit shared contract and ownership; only the declared shared root",
+    "PERSISTENT_DATA": "never overwritten by program updates; not importable",
+    "SECRET": "never packaged into the release; not importable",
+    "DEVELOPMENT_ONLY": "never loaded at production runtime"
+  },
+  "modules": [
+    {
+      "module": "core_system",
+      "class": "RELEASE_CODE",
+      "required": true,
+      "allowed_roots": [
+        "main-system/src-core"
+      ]
+    },
+    {
+      "module": "governance_rule",
+      "class": "RELEASE_CODE",
+      "required": true,
+      "allowed_roots": [
+        "governance_rule"
+      ]
+    },
+    {
+      "module": "shared_layer",
+      "class": "SHARED_RUNTIME",
+      "required": true,
+      "allowed_roots": [
+        "shared-layer/src"
+      ]
+    },
+    {
+      "module": "numpy",
+      "class": "RELEASE_DEPENDENCY",
+      "required": false,
+      "allowed_roots": [
+        "main-system/.venv/Lib/site-packages"
+      ],
+      "version_range": {
+        "min": [
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "module": "torch",
+      "class": "RELEASE_DEPENDENCY",
+      "required": false,
+      "allowed_roots": [
+        "main-system/.venv/Lib/site-packages"
+      ],
+      "version_range": {
+        "min": [
+          2,
+          0
+        ]
+      }
+    }
+  ],
+  "forbidden_development_roots": [
+    "tests",
+    "scripts",
+    ".worktrees",
+    ".kilo"
+  ],
+  "development_only": [
+    "tests",
+    "scripts",
+    ".worktrees",
+    ".kilo"
+  ],
+  "secrets": [
+    "*.pem",
+    "*.key",
+    ".env"
+  ],
+  "persistent_data": [
+    "runtime",
+    "xingcheng/runtime",
+    "main-system/runtime"
+  ],
+  "runtime_environment": {
+    "python": {
+      "version": "3.11.9",
+      "version_range": {
+        "min": [
+          3,
+          11
+        ],
+        "max_exclusive": [
+          3,
+          12
+        ]
+      },
+      "arch": "AMD64",
+      "bits": 64
+    },
+    "venv": {
+      "required": true,
+      "include_system_site_packages": false,
+      "user_site": "forbidden",
+      "pythonpath": "forbidden",
+      "require_built_at_final_location": false,
+      "pyvenv_cfg_sha256": "1f878fa40bd304f69c5a5114e51af4d3d830b8e77a0bc1ccb29c9b500cda4b9c",
+      "note": "pyvenv.cfg records creation at E:\\GPTBridge\\.venv while the venv lives at main-system/.venv (relocation evidence); rebuild at the final isolated location before packaging (G76)"
+    },
+    "site_packages_roots": [
+      "main-system/.venv/Lib/site-packages"
+    ]
   },
   "dependency_lock": {
-   "file": "main-system/package-lock.json",
-   "sha256": "70c7dad00d1e728da6a7f97a29945126318eb79cb44cbdd2e68727758683ae2a",
-   "production_dependencies": [
-    "react",
-    "react-dom"
-   ],
-   "development_dependency_count": 10
+    "identity": "ce4f72d03635f0b94a01e58aa1f439f10bc9ff3017bd84c0118b60c6e8744dbc",
+    "entries": 92,
+    "source": "importlib.metadata@main-system/.venv measured 2026-09-21"
   },
-  "ipc_contract_identity": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe",
-  "compatible_backend_contract_range": {
-   "min_ipc_contract_version": 1,
-   "max_ipc_contract_version": 1
-  },
-  "security": {
-   "context_isolation": true,
-   "node_integration": false,
-   "sandbox": true,
-   "channel_allowlist": true,
-   "exposes_backend_token_to_renderer": true,
-   "token_exposure_policy": "acknowledged-gap-G85"
-  }
- },
- "persistent_data_isolation": {
-  "paths": [
-   "main-system/runtime/settings",
-   "main-system/runtime/state",
-   "main-system/data",
-   "Standalone tools/local-model/xingcheng/runtime/models",
-   "Standalone tools/local-model/xingcheng/runtime/state"
+  "native_extensions": [
+    {
+      "file": "main-system/src-core/core_system/native/_sovereign_native.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true
+    },
+    {
+      "file": "main-system/.venv/Lib/site-packages/numpy/_core/_multiarray_umath.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true,
+      "evidence": "loaded by core import surface 2026-09-21"
+    },
+    {
+      "file": "main-system/.venv/Lib/site-packages/numpy/linalg/_umath_linalg.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true,
+      "evidence": "loaded 2026-09-21"
+    },
+    {
+      "file": "main-system/.venv/Lib/site-packages/psutil/_psutil_windows.pyd",
+      "machine": "AMD64",
+      "required": true,
+      "evidence": "loaded 2026-09-21 (no abi tag in filename)"
+    },
+    {
+      "file": "main-system/.venv/Lib/site-packages/psycopg_binary/_psycopg.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true,
+      "evidence": "loaded 2026-09-21"
+    },
+    {
+      "file": "main-system/.venv/Lib/site-packages/psycopg_binary/pq.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true,
+      "evidence": "loaded 2026-09-21"
+    }
   ],
-  "databases": [
-   "postgresql",
-   "qdrant"
+  "required_dlls": [
+    "main-system/.venv/Lib/site-packages/numpy.libs/libscipy_openblas64_-63c857e738469261263c764a36be9436.dll",
+    "main-system/.venv/Lib/site-packages/numpy.libs/msvcp140-a4c2229bdc2a2a630acdc095b4d86008.dll",
+    "main-system/.venv/Lib/site-packages/psycopg_binary.libs/libcrypto-3-x64-f68dc1082768389676d5901a38532935.dll",
+    "main-system/.venv/Lib/site-packages/psycopg_binary.libs/libpq-6313a3ff78f1e8f3f57b69cdef91d822.dll",
+    "main-system/.venv/Lib/site-packages/psycopg_binary.libs/libssl-3-x64-6439b6cfa7f3ef0146444effd227e690.dll"
   ],
-  "rule": "release payload must never contain or overwrite persistent data, runtime config or model weights"
- },
- "runtime_config_paths": [
-  "main-system/config",
-  "main-system/runtime/settings",
-  "Standalone tools/local-model/runtime/settings"
- ],
- "config_classes": {
-  "rules": {
-   "RELEASE_CONFIG": "fixed by the release; never modified in place during official runtime",
-   "RUNTIME_CONFIG": "provided by the existing governed settings mechanism; updatable per current rules",
-   "PERSISTENT_CONFIG": "preserved across releases; never overwritten by program updates",
-   "SECRET": "provided by the existing secret management; never packaged into a Release Manifest",
-   "DEVELOPMENT_CONFIG": "development/test only; must never enter the production runtime",
-   "single_manager": "no second official Configuration Manager is created; classes only label existing stores"
+  "shared_layer_classification": [
+    {
+      "path": "shared-layer/src/shared_layer/contracts",
+      "class": "RUNTIME_CONTRACT",
+      "evidence": "registry.py CanonicalTypeRegistry (versioned, language-neutral, append-only)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/security",
+      "class": "RUNTIME_CONTRACT",
+      "evidence": "session_identity/generation/rotation/dsn_policy contract modules (A087)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/channel.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "SharedLayerChannel authenticated entry; single owner (A263)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/channel_runtime.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "A263 information-layer channel runtime; one resident instance"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/store.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "central transport store on PostgreSQL canonical (single authority)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/store_async.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "async transport store; same canonical transport authority"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/transactional_outbox.py",
+      "class": "SHARED_SERVICE",
+      "evidence": "transactional outbox contract; central transport only"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/database",
+      "class": "RELEASE_DEPENDENCY",
+      "evidence": "PG lifecycle/pool/migration library packaged with the release"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/adaptive",
+      "class": "RELEASE_DEPENDENCY",
+      "evidence": "bounded control plane library (envelope 2-8/50-500/1-2)"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/workflow",
+      "class": "RELEASE_DEPENDENCY",
+      "evidence": "Saga/outbox library; PostgreSQL remains operation authority"
+    },
+    {
+      "path": "shared-layer/src/shared_layer/local",
+      "class": "PERSISTENT_STATE",
+      "evidence": "owner-private SQLite / degraded fallback; never copied as authority"
+    },
+    {
+      "path": "shared-layer/tests",
+      "class": "DEVELOPMENT_ONLY",
+      "evidence": "test suites never loaded by the production runtime"
+    },
+    {
+      "path": "shared-layer/src/ui/toolWindow",
+      "class": "RELEASE_DEPENDENCY",
+      "evidence": "typed tool-window socket helpers bundled into tool UIs"
+    }
+  ],
+  "governance_references": {
+    "codex_identity": "governance-codex://official",
+    "codex_version": "2026-09-21T10:09:23Z",
+    "codex_sha256": "9b94d3d2e8fa97be3817a2331695a00a7559b017e16a1ccdc394addef5f6a20c",
+    "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
+    "permission_contract_version": "2026-09-16T05:44:03Z",
+    "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
+    "note": "reference-only evidence read from the official codex; not a seal, authorization or substitute for governance_rule.execution.audit"
   },
-  "RELEASE_CONFIG": {
-   "paths": [
-    "main-system/config"
-   ],
-   "source": "electron-builder extraResources 'config' (release payload)"
-  },
-  "RUNTIME_CONFIG": {
-   "governed_roots": [
-    "Standalone tools/*/runtime/settings"
-   ],
-   "paths": [
-    "Standalone tools/local-model/runtime/settings/native-engine.json",
-    "Standalone tools/local-model/runtime/settings/self-learning.json",
-    "Standalone tools/local-model/runtime/settings/retention.json"
-   ],
-   "writers": "existing governed settings writers (native_engine.write_settings, self-learning/retention policies)"
-  },
-  "PERSISTENT_CONFIG": {
-   "paths": [
-    "Standalone tools/file-sorter/runtime/settings/keyword_rules.json"
-   ],
-   "note": "user-authored rules; program updates must not overwrite them"
-  },
-  "SECRET": {
-   "patterns": [
+  "forbidden_content": [
     ".env",
     "*.pem",
     "*.key",
     "*.token",
     "*.p12",
-    "credential*"
-   ],
-   "source": "existing secret management (Access Control Plane credential metadata only; plaintext forbidden)"
-  },
-  "DEVELOPMENT_CONFIG": {
-   "paths": [
-    "Standalone tools/local-model/tests",
-    "Standalone tools/local-model/scripts",
-    "main-system/tests",
-    "governance_rule/tests",
-    ".kilo",
-    ".worktrees"
-   ]
-  }
- },
- "config_contract": {
-  "required_files": {
-   "main-system/config/tool-runtime-contract.json": "8334a2c9679ddf5435ab5b89b0967fba7e42e7f2e1cdec4ec748c3915b6974bf",
-   "main-system/config/tool-isolation-policy.json": "f21a29d9e283ad66598d5663c9a9f6d8d3a3532b992674d852412ac90b57a1d3",
-   "main-system/config/startup_manifest.json": "8ea820b78cccf13a3eac9cda4b4ca0abcf64c6a52790c460c2a6140635b8a460",
-   "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
-   "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
-   "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
-   "Standalone tools/local-model/runtime/settings/native-engine.json": "16a2a33b0ac93307f874a3fcf4d1645f73c394ffaecf5d5c3d88f6acba229dc5"
-  },
-  "database_schema": {
-   "manifest": "shared-layer/database-release.json",
-   "runtime_version": "1.0.0"
-  },
-  "secret_references": [
-   "GPTBRIDGE_POSTGRES_DSN",
-   "GPTBRIDGE_POSTGRES_ADMIN_DSN"
+    "governance_codex.sqlite3",
+    "credential*",
+    "*.gguf",
+    "*.safetensors",
+    "*.pt",
+    "*.onnx"
   ],
-  "endpoint_references": {
-   "postgresql": "GPTBRIDGE_POSTGRES_DSN",
-   "qdrant": "localhost:6333 (shared-layer default; readiness dependency)",
-   "ollama": "GPTBRIDGE_OLLAMA_URL or localhost:11434"
+  "shared_layer_contract": {
+    "version_key": "shared_layer.contracts.registry:REGISTRY_VERSION",
+    "version": 1,
+    "compatible_versions": [
+      1
+    ],
+    "contract_file": "shared-layer/src/shared_layer/contracts/registry.py"
   },
-  "model_registry": {
-   "lifecycle": "Standalone tools/local-model/xingcheng/runtime/models/lifecycle/xingcheng-native/lifecycle.json",
-   "engine_pin": "Standalone tools/local-model/runtime/settings/native-engine.json"
+  "service_topology": {
+    "shared_layer_service": {
+      "mode": "connect-to-existing",
+      "duplicate_instance_allowed": false
+    },
+    "governance_authority": {
+      "mode": "reference-existing",
+      "duplicate_authority_allowed": false
+    }
   },
-  "note": "secret references are environment key names only; values are never recorded in the manifest",
-  "secret_storage": {
-   "GPTBRIDGE_POSTGRES_DSN": {
-    "source": "windows-user-env",
-    "policy": "acknowledged-gap-G89",
-    "target": "governed-secret-store"
-   },
-   "GPTBRIDGE_POSTGRES_ADMIN_DSN": {
-    "source": "windows-user-env",
-    "policy": "acknowledged-gap-G89",
-    "target": "governed-secret-store"
-   },
-   "GPTBRIDGE_IPC_SESSION_TOKEN": {
-    "source": "launcher-per-process",
-    "policy": "ephemeral-injection"
-   },
-   "GPTBRIDGE_SHUTDOWN_TOKEN": {
-    "source": "launcher-per-process",
-    "policy": "ephemeral-injection"
-   }
+  "governance_dependencies": [
+    {
+      "dependency": "governance_rule.execution.audit",
+      "kind": "module",
+      "required": true
+    },
+    {
+      "dependency": "governance_rule/codex/data/governance_codex.sqlite3",
+      "kind": "file",
+      "required": true
+    },
+    {
+      "dependency": "governance_rule/permission_directory",
+      "kind": "path",
+      "required": true
+    }
+  ],
+  "official_state_paths": [
+    "governance_rule/codex/data/governance_codex.sqlite3",
+    "governance_rule/execution/audit",
+    "governance_rule/permission_directory",
+    "main-system/data/governance_codex.sqlite3"
+  ],
+  "ipc_contract": {
+    "contract_file": "main-system/config/tool-runtime-contract.json",
+    "contract_version": 1,
+    "minimum_supported_contract_version": 1,
+    "surface_pairing": {
+      "frontend_surface_file": "main-system/config/ipc-surface-frontend.json",
+      "backend_surface_file": "main-system/config/ipc-surface-backend.json",
+      "frontend_surface_version": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe",
+      "backend_surface_version": "e76b1081fdf3f0cfb974413f737bddfe1f226e3fe0e57912d97a993170215818",
+      "rule": "frontend-sends-subset-of-backend-commands; backend-features-subset-of-frontend-support"
+    }
+  },
+  "frontend_release": {
+    "release_identity": "0bcb25dcfbe73390f01ec141c174e2557e045d0a86c2727b15e5947a0d59e02b",
+    "package": "gptbridge-auto-agent-ide@1.0.0",
+    "electron_version": "39.8.10",
+    "node_runtime": {
+      "node_version": "22.22.1",
+      "abi": 140,
+      "napi": 10,
+      "chrome": "142.0.7444.265",
+      "source": "ELECTRON_RUN_AS_NODE probe 2026-09-21"
+    },
+    "artifacts": {
+      "paths": {
+        "main": "main-system/dist-ui/main/index.js",
+        "preload": "main-system/dist-ui/main/preload.js",
+        "renderer": "main-system/dist-ui/renderer/index.html"
+      },
+      "hashes": {
+        "main": "6f6fc2deb71388c51a0241f705912150ae3d31c8c67d9b52be48a1dfa1cd3f77",
+        "preload": "fff4d3592a11fe540525101ca044b8675b8673ab6e94ee4b9b146cf4cbf17d29",
+        "renderer": "99ebf2a4ec856b44d677fcfdda9e188f40defdc51372ee17d3989632e55e6eb3"
+      },
+      "renderer_asset_count": 2
+    },
+    "dependency_lock": {
+      "file": "main-system/package-lock.json",
+      "sha256": "70c7dad00d1e728da6a7f97a29945126318eb79cb44cbdd2e68727758683ae2a",
+      "production_dependencies": [
+        "react",
+        "react-dom"
+      ],
+      "development_dependency_count": 10
+    },
+    "ipc_contract_identity": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe",
+    "compatible_backend_contract_range": {
+      "min_ipc_contract_version": 1,
+      "max_ipc_contract_version": 1
+    },
+    "security": {
+      "context_isolation": true,
+      "node_integration": false,
+      "sandbox": true,
+      "channel_allowlist": true,
+      "exposes_backend_token_to_renderer": true,
+      "token_exposure_policy": "acknowledged-gap-G85"
+    }
+  },
+  "persistent_data_isolation": {
+    "paths": [
+      "main-system/runtime/settings",
+      "main-system/runtime/state",
+      "main-system/data",
+      "Standalone tools/local-model/xingcheng/runtime/models",
+      "Standalone tools/local-model/xingcheng/runtime/state"
+    ],
+    "databases": [
+      "postgresql",
+      "qdrant"
+    ],
+    "rule": "release payload must never contain or overwrite persistent data, runtime config or model weights"
+  },
+  "runtime_config_paths": [
+    "main-system/config",
+    "main-system/runtime/settings",
+    "Standalone tools/local-model/runtime/settings"
+  ],
+  "config_classes": {
+    "rules": {
+      "RELEASE_CONFIG": "fixed by the release; never modified in place during official runtime",
+      "RUNTIME_CONFIG": "provided by the existing governed settings mechanism; updatable per current rules",
+      "PERSISTENT_CONFIG": "preserved across releases; never overwritten by program updates",
+      "SECRET": "provided by the existing secret management; never packaged into a Release Manifest",
+      "DEVELOPMENT_CONFIG": "development/test only; must never enter the production runtime",
+      "single_manager": "no second official Configuration Manager is created; classes only label existing stores"
+    },
+    "RELEASE_CONFIG": {
+      "paths": [
+        "main-system/config"
+      ],
+      "source": "electron-builder extraResources 'config' (release payload)"
+    },
+    "RUNTIME_CONFIG": {
+      "governed_roots": [
+        "Standalone tools/*/runtime/settings"
+      ],
+      "paths": [
+        "Standalone tools/local-model/runtime/settings/native-engine.json",
+        "Standalone tools/local-model/runtime/settings/self-learning.json",
+        "Standalone tools/local-model/runtime/settings/retention.json"
+      ],
+      "writers": "existing governed settings writers (native_engine.write_settings, self-learning/retention policies)"
+    },
+    "PERSISTENT_CONFIG": {
+      "paths": [
+        "Standalone tools/file-sorter/runtime/settings/keyword_rules.json"
+      ],
+      "note": "user-authored rules; program updates must not overwrite them"
+    },
+    "SECRET": {
+      "patterns": [
+        ".env",
+        "*.pem",
+        "*.key",
+        "*.token",
+        "*.p12",
+        "credential*"
+      ],
+      "source": "existing secret management (Access Control Plane credential metadata only; plaintext forbidden)"
+    },
+    "DEVELOPMENT_CONFIG": {
+      "paths": [
+        "Standalone tools/local-model/tests",
+        "Standalone tools/local-model/scripts",
+        "main-system/tests",
+        "governance_rule/tests",
+        ".kilo",
+        ".worktrees"
+      ]
+    }
+  },
+  "config_contract": {
+    "required_files": {
+      "main-system/config/tool-runtime-contract.json": "8334a2c9679ddf5435ab5b89b0967fba7e42e7f2e1cdec4ec748c3915b6974bf",
+      "main-system/config/tool-isolation-policy.json": "f21a29d9e283ad66598d5663c9a9f6d8d3a3532b992674d852412ac90b57a1d3",
+      "main-system/config/startup_manifest.json": "8ea820b78cccf13a3eac9cda4b4ca0abcf64c6a52790c460c2a6140635b8a460",
+      "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
+      "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
+      "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "16a2a33b0ac93307f874a3fcf4d1645f73c394ffaecf5d5c3d88f6acba229dc5"
+    },
+    "database_schema": {
+      "manifest": "shared-layer/database-release.json",
+      "runtime_version": "1.0.0"
+    },
+    "secret_references": [
+      "GPTBRIDGE_POSTGRES_DSN",
+      "GPTBRIDGE_POSTGRES_ADMIN_DSN"
+    ],
+    "endpoint_references": {
+      "postgresql": "GPTBRIDGE_POSTGRES_DSN",
+      "qdrant": "localhost:6333 (shared-layer default; readiness dependency)",
+      "ollama": "GPTBRIDGE_OLLAMA_URL or localhost:11434"
+    },
+    "model_registry": {
+      "lifecycle": "Standalone tools/local-model/xingcheng/runtime/models/lifecycle/xingcheng-native/lifecycle.json",
+      "engine_pin": "Standalone tools/local-model/runtime/settings/native-engine.json"
+    },
+    "note": "secret references are environment key names only; values are never recorded in the manifest",
+    "secret_storage": {
+      "GPTBRIDGE_POSTGRES_DSN": {
+        "source": "windows-user-env",
+        "policy": "acknowledged-gap-G89",
+        "target": "governed-secret-store"
+      },
+      "GPTBRIDGE_POSTGRES_ADMIN_DSN": {
+        "source": "windows-user-env",
+        "policy": "acknowledged-gap-G89",
+        "target": "governed-secret-store"
+      },
+      "GPTBRIDGE_IPC_SESSION_TOKEN": {
+        "source": "launcher-per-process",
+        "policy": "ephemeral-injection"
+      },
+      "GPTBRIDGE_SHUTDOWN_TOKEN": {
+        "source": "launcher-per-process",
+        "policy": "ephemeral-injection"
+      }
+    }
+  },
+  "runtime_paths": {
+    "SOURCE_ROOT": ".",
+    "RELEASE_ROOT": ".",
+    "SHARED_RUNTIME_ROOT": "shared-layer",
+    "PERSISTENT_DATA_ROOT": "main-system/runtime",
+    "LOG_ROOT": "main-system/runtime/logs",
+    "BACKUP_ROOT": "main-system/runtime/backups",
+    "MODEL_ROOT": "Standalone tools/local-model/xingcheng/runtime/models",
+    "CONFIG_ROOT": "main-system/config",
+    "note": "packaged mode overrides RELEASE_ROOT via GPTBRIDGE_RELEASE_ROOT; roots never rely on the process working directory"
+  },
+  "sqlite_inventory": {
+    "registry": "governance_rule/codex/data/governance_codex.sqlite3 (governed_sqlite_database_registry)",
+    "registered_rows": 44,
+    "canonical": false,
+    "rule": "module-private operational state only; reconcile to PostgreSQL; never packaged into a release",
+    "excluded": [
+      "codex database",
+      "staging/candidate copies",
+      "IDE files",
+      "model-cache databases (cache class)"
+    ]
+  },
+  "native_measurement": {
+    "measured_at": "2026-09-21",
+    "method": "psutil.Process().memory_maps() + sys.modules extension scan on core_system+shared_layer import surface",
+    "extension_modules_loaded": 19,
+    "stdlib_extensions_note": "14 interpreter-provided .pyd under Python311\\DLLs ship with the embedded interpreter, not packaged",
+    "torch_note": "torch DLLs excluded from minimal probe (lazy RELEASE_DEPENDENCY); enumerate at local-model packaging"
   }
- },
- "runtime_paths": {
-  "SOURCE_ROOT": ".",
-  "RELEASE_ROOT": ".",
-  "SHARED_RUNTIME_ROOT": "shared-layer",
-  "PERSISTENT_DATA_ROOT": "main-system/runtime",
-  "LOG_ROOT": "main-system/runtime/logs",
-  "BACKUP_ROOT": "main-system/runtime/backups",
-  "MODEL_ROOT": "Standalone tools/local-model/xingcheng/runtime/models",
-  "CONFIG_ROOT": "main-system/config",
-  "note": "packaged mode overrides RELEASE_ROOT via GPTBRIDGE_RELEASE_ROOT; roots never rely on the process working directory"
- },
- "sqlite_inventory": {
-  "registry": "governance_rule/codex/data/governance_codex.sqlite3 (governed_sqlite_database_registry)",
-  "registered_rows": 44,
-  "canonical": false,
-  "rule": "module-private operational state only; reconcile to PostgreSQL; never packaged into a release",
-  "excluded": [
-   "codex database",
-   "staging/candidate copies",
-   "IDE files",
-   "model-cache databases (cache class)"
-  ]
- },
- "native_measurement": {
-  "measured_at": "2026-09-21",
-  "method": "psutil.Process().memory_maps() + sys.modules extension scan on core_system+shared_layer import surface",
-  "extension_modules_loaded": 19,
-  "stdlib_extensions_note": "14 interpreter-provided .pyd under Python311\\DLLs ship with the embedded interpreter, not packaged",
-  "torch_note": "torch DLLs excluded from minimal probe (lazy RELEASE_DEPENDENCY); enumerate at local-model packaging"
- }
 }
