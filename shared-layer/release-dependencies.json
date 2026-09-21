@@ -229,5 +229,51 @@
     "*.p12",
     "governance_codex.sqlite3",
     "credential*"
-  ]
+  ],
+  "shared_layer_contract": {
+    "version_key": "shared_layer.contracts.registry:REGISTRY_VERSION",
+    "version": 1,
+    "compatible_versions": [
+      1
+    ],
+    "contract_file": "shared-layer/src/shared_layer/contracts/registry.py"
+  },
+  "service_topology": {
+    "shared_layer_service": {
+      "mode": "connect-to-existing",
+      "duplicate_instance_allowed": false
+    },
+    "governance_authority": {
+      "mode": "reference-existing",
+      "duplicate_authority_allowed": false
+    }
+  },
+  "governance_dependencies": [
+    {
+      "dependency": "governance_rule.execution.audit",
+      "kind": "module",
+      "required": true
+    },
+    {
+      "dependency": "governance_rule/codex/data/governance_codex.sqlite3",
+      "kind": "file",
+      "required": true
+    },
+    {
+      "dependency": "governance_rule/permission_directory",
+      "kind": "path",
+      "required": true
+    }
+  ],
+  "official_state_paths": [
+    "governance_rule/codex/data/governance_codex.sqlite3",
+    "governance_rule/execution/audit",
+    "governance_rule/permission_directory",
+    "main-system/data/governance_codex.sqlite3"
+  ],
+  "ipc_contract": {
+    "contract_file": "main-system/config/tool-runtime-contract.json",
+    "contract_version": 1,
+    "minimum_supported_contract_version": 1
+  }
 }

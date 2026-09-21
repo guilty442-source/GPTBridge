@@ -673,20 +673,38 @@ def validate_governance_references(
         errors.append("CODEX_HASH_MISMATCH")
     connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro&immutable=1", uri=True)
     try:
+        from governance_rule.execution.codex_update_validation import (
+            foreign_key_violations,
+            validate_database_integrity,
+        )
+
+        baseline = tuple(foreign_key_violations(connection))
+        for finding in validate_database_integrity(
+            connection, baseline_violations=baseline
+        ):
+            errors.append(f"CODEX_INTEGRITY_FAILED:{finding}")
         metadata = dict(connection.execute("select key, value from metadata"))
         version = metadata.get("codex_version")
         if references.get("codex_version") and version != references["codex_version"]:
             errors.append(f"CODEX_VERSION_MISMATCH:{version}")
-        for table, key in (
-            ("identity_authentication_contract", "governance_runtime_contract_version"),
-            ("sql_session_binding_contract", "permission_contract_version"),
+        for table, key, code in (
+            (
+                "identity_authentication_contract",
+                "governance_runtime_contract_version",
+                "GOVERNANCE_CONTRACT_INCOMPATIBLE",
+            ),
+            (
+                "sql_session_binding_contract",
+                "permission_contract_version",
+                "PERMISSION_CONTRACT_INCOMPATIBLE",
+            ),
         ):
             row = connection.execute(
                 f"select version_identity from {table} limit 1"
             ).fetchone()
             actual = row[0] if row else None
             if references.get(key) and actual != references[key]:
-                errors.append(f"CONTRACT_VERSION_MISMATCH:{key}:{actual}")
+                errors.append(f"{code}:{key}:{actual}")
         sovereigns = sorted(
             str(row[0]) for row in connection.execute("select sovereign_id from sovereigns")
         )
@@ -702,6 +720,143 @@ def validate_governance_references(
     return errors
 
 
+def validate_shared_layer_contract(
+    contract: Mapping[str, Any],
+    probe: Mapping[str, Any],
+) -> list[str]:
+    """Shared-layer contract version must match the declared compatible set."""
+    section = contract.get("shared_layer_contract") or {}
+    version_key = str(section.get("version_key") or "")
+    if not version_key:
+        return []
+    observed = (probe.get("attributes") or {}).get("shared_layer_contract_version")
+    if observed is None or isinstance(observed, str) and observed.startswith("ERROR:"):
+        return [f"SHARED_LAYER_CONTRACT_UNREADABLE:{observed or 'missing'}"]
+    expected = section.get("version")
+    compatible = [str(item) for item in (section.get("compatible_versions") or [])]
+    if expected is not None and str(observed) != str(expected):
+        return [f"SHARED_LAYER_CONTRACT_INCOMPATIBLE:{observed}"]
+    if compatible and str(observed) not in compatible:
+        return [f"SHARED_LAYER_CONTRACT_INCOMPATIBLE:{observed}"]
+    return []
+
+
+def validate_service_topology(contract: Mapping[str, Any]) -> list[str]:
+    """A release connects to the existing shared service; never duplicates it."""
+    topology = contract.get("service_topology") or {}
+    errors: list[str] = []
+    shared = topology.get("shared_layer_service") or {}
+    if shared:
+        if str(shared.get("mode") or "") not in {
+            "connect-to-existing",
+            "external-existing",
+        }:
+            errors.append(f"SHARED_LAYER_SERVICE_MODE_INVALID:{shared.get('mode')}")
+        if shared.get("duplicate_instance_allowed") is True:
+            errors.append("SHARED_SERVICE_DUPLICATION_FORBIDDEN")
+    governance = topology.get("governance_authority") or {}
+    if governance:
+        if str(governance.get("mode") or "") != "reference-existing":
+            errors.append(
+                f"GOVERNANCE_AUTHORITY_MODE_INVALID:{governance.get('mode')}"
+            )
+        if governance.get("duplicate_authority_allowed") is True:
+            errors.append("GOVERNANCE_AUTHORITY_DUPLICATION_FORBIDDEN")
+    return errors
+
+
+def validate_governance_dependencies(
+    contract: Mapping[str, Any],
+    *,
+    release_root: str | os.PathLike[str],
+    probe: Mapping[str, Any],
+) -> list[str]:
+    """Required governance code / codex / permission paths must be present."""
+    errors: list[str] = []
+    root = Path(os.fspath(release_root))
+    probed = probe.get("modules") or {}
+    for entry in contract.get("governance_dependencies") or []:
+        if not isinstance(entry, Mapping) or not entry.get("required"):
+            continue
+        dependency = str(entry.get("dependency") or "")
+        kind = str(entry.get("kind") or "")
+        if not dependency:
+            errors.append("GOVERNANCE_DEPENDENCY_INVALID")
+            continue
+        if kind == "module":
+            observed = probed.get(dependency) or {}
+            if not observed.get("origin"):
+                errors.append(f"GOVERNANCE_DEPENDENCY_MISSING:{dependency}")
+        else:
+            path = Path(dependency)
+            if not path.is_absolute():
+                path = root / dependency
+            if not path.exists():
+                errors.append(f"GOVERNANCE_DEPENDENCY_MISSING:{dependency}")
+    return errors
+
+
+def validate_official_state_separation(
+    contract: Mapping[str, Any],
+    *,
+    release_root: str | os.PathLike[str],
+    official_root: str | os.PathLike[str],
+) -> list[str]:
+    """Official authority state must live outside the release payload."""
+    errors: list[str] = []
+    root = Path(os.fspath(official_root))
+    for raw in contract.get("official_state_paths") or []:
+        path = Path(str(raw))
+        if not path.is_absolute():
+            path = root / str(raw)
+        if path_is_within(path, release_root):
+            errors.append(f"OFFICIAL_STATE_INSIDE_RELEASE:{raw}")
+    return errors
+
+
+def validate_ipc_contract(
+    contract: Mapping[str, Any],
+    *,
+    official_contract_path: str | os.PathLike[str] | None = None,
+) -> list[str]:
+    """Release IPC contract must stay compatible with the official contract."""
+    section = contract.get("ipc_contract") or {}
+    if not section:
+        return []
+    try:
+        if official_contract_path is not None:
+            payload = json.loads(
+                Path(os.fspath(official_contract_path)).read_text(encoding="utf-8")
+            )
+            official = {
+                "contract_version": int(payload["contract_version"]),
+                "minimum_supported_contract_version": int(
+                    payload["minimum_supported_contract_version"]
+                ),
+            }
+        else:
+            import sys as _sys
+
+            for candidate in (
+                Path(__file__).resolve().parents[3] / "main-system" / "src-core" / "tasks",
+                Path(__file__).resolve().parents[3] / "main-system" / "src-core",
+            ):
+                if str(candidate) not in _sys.path:
+                    _sys.path.insert(0, str(candidate))
+            from packager_base import load_tool_runtime_contract
+
+            official = load_tool_runtime_contract()
+    except (OSError, ValueError, KeyError, ImportError) as error:
+        return [f"IPC_CONTRACT_UNREADABLE:{error}"]
+    release_version = int(section.get("contract_version", 0) or 0)
+    release_minimum = int(section.get("minimum_supported_contract_version", 0) or 0)
+    if release_minimum > official["contract_version"]:
+        return [f"IPC_CONTRACT_INCOMPATIBLE:release-too-new:{release_minimum}"]
+    if release_version < official["minimum_supported_contract_version"]:
+        return [f"IPC_CONTRACT_INCOMPATIBLE:release-too-old:{release_version}"]
+    return []
+
+
 def validate_release_bundle(
     contract: Mapping[str, Any],
     *,
@@ -715,6 +870,9 @@ def validate_release_bundle(
     allowed_dependency_roots: Iterable[str | os.PathLike[str]] = (),
     service_code_roots: Iterable[str | os.PathLike[str]] = (),
     check_forbidden_content: bool = False,
+    official_contract_path: str | os.PathLike[str] | None = None,
+    official_root: str | os.PathLike[str] | None = None,
+    check_official_state_separation: bool = False,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation: environment, lock, origins, natives.
@@ -730,10 +888,24 @@ def validate_release_bundle(
         for entry in (contract.get("modules") or [])
         if isinstance(entry, Mapping) and entry.get("module")
     ]
+    module_names.extend(
+        str(entry.get("dependency"))
+        for entry in (contract.get("governance_dependencies") or [])
+        if isinstance(entry, Mapping)
+        and entry.get("kind") == "module"
+        and entry.get("dependency")
+    )
+    attributes: dict[str, str] = {}
+    shared_layer_key = str(
+        (contract.get("shared_layer_contract") or {}).get("version_key") or ""
+    )
+    if shared_layer_key:
+        attributes["shared_layer_contract_version"] = shared_layer_key
     try:
         environment = probe_runtime_environment(
             python_executable,
             modules=module_names,
+            attributes=attributes,
             extra_paths=extra_paths,
             cwd=cwd,
             env=env,
@@ -776,6 +948,26 @@ def validate_release_bundle(
             contract, code_roots=service_code_roots
         )
     )
+    errors.extend(validate_shared_layer_contract(contract, environment))
+    errors.extend(validate_service_topology(contract))
+    errors.extend(
+        validate_governance_dependencies(
+            contract, release_root=release_root, probe=environment
+        )
+    )
+    if check_official_state_separation:
+        errors.extend(
+            validate_official_state_separation(
+                contract,
+                release_root=release_root,
+                official_root=official_root or release_root,
+            )
+        )
+    errors.extend(
+        validate_ipc_contract(
+            contract, official_contract_path=official_contract_path
+        )
+    )
     if codex_path is not None:
         errors.extend(
             validate_governance_references(contract, codex_path=codex_path)
@@ -803,6 +995,11 @@ __all__ = [
     "native_extension_errors",
     "validate_forbidden_release_content",
     "validate_shared_layer_classification",
+    "validate_shared_layer_contract",
+    "validate_service_topology",
+    "validate_governance_dependencies",
+    "validate_official_state_separation",
+    "validate_ipc_contract",
     "validate_governance_references",
     "validate_release_bundle",
     "pe_machine",

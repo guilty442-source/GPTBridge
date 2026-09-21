@@ -200,6 +200,9 @@ def validate_release_bundle(
     allowed_dependency_roots: tuple[str, ...] = (),
     service_code_roots: tuple[str, ...] = (),
     check_forbidden_content: bool = False,
+    official_contract_path: str | None = None,
+    official_root: str | None = None,
+    check_official_state_separation: bool = False,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation (environment, lock, origins, natives).
@@ -233,6 +236,9 @@ def validate_release_bundle(
         allowed_dependency_roots=allowed_dependency_roots,
         service_code_roots=service_code_roots,
         check_forbidden_content=check_forbidden_content,
+        official_contract_path=official_contract_path,
+        official_root=official_root,
+        check_official_state_separation=check_official_state_separation,
         env=env,
     )
 
