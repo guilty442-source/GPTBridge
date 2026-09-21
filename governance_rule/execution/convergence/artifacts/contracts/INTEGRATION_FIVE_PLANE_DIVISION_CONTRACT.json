@@ -1,0 +1,15 @@
+{
+  "contract_code": "INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A555",
+  "fields": [
+    "plane",
+    "role",
+    "authority",
+    "replacement_forbidden",
+    "audit_reference"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

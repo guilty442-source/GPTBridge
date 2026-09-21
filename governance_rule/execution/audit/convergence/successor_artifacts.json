@@ -1,0 +1,215 @@
+{
+  "manifest": "successor-artifacts/v1",
+  "generated_at": "2026-09-21",
+  "entries": [
+    {
+      "target_code": "INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A555",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "PRETRAIN_DATA_PIPELINE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A558",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/PRETRAIN_DATA_PIPELINE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "SYSTEM_CONVERGENCE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A570",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/SYSTEM_CONVERGENCE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "CONNECTION_RECOVERY_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A571",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/CONNECTION_RECOVERY_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "TASK_LIFECYCLE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A573",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/TASK_LIFECYCLE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "EXECUTION_LEASE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A574",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/EXECUTION_LEASE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "RELEASE_MANIFEST_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A575",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/RELEASE_MANIFEST_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "BACKEND_LIFECYCLE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A577",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/BACKEND_LIFECYCLE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "REQUEST_REGISTRY_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A579",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/REQUEST_REGISTRY_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "REQUEST_LIFECYCLE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A580",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/REQUEST_LIFECYCLE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "CONNECTION_STATE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A581",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/CONNECTION_STATE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "CAPABILITY_EVALUATION_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A585",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/CAPABILITY_EVALUATION_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A589",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/MODULE_HASH_CHAIN_EVIDENCE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "RUNTIME_RESOURCE_CONTRACT",
+      "target_type": "contract",
+      "provision_id": "A590",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/RUNTIME_RESOURCE_CONTRACT.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "MODEL_TRAINING_TIER_REGISTRY",
+      "target_type": "registry",
+      "provision_id": "A557",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/registries/MODEL_TRAINING_TIER_REGISTRY.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "MODEL_CONFIGURATION_REGISTRY",
+      "target_type": "registry",
+      "provision_id": "A584",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/registries/MODEL_CONFIGURATION_REGISTRY.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "PROVIDER_ACTIVATION_POLICY_REGISTRY",
+      "target_type": "registry",
+      "provision_id": "A586",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/registries/PROVIDER_ACTIVATION_POLICY_REGISTRY.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "RUNTIME_ACTIVATION_REGISTRY",
+      "target_type": "registry",
+      "provision_id": "A587",
+      "artifact_path": "governance_rule/execution/convergence/artifacts/registries/RUNTIME_ACTIVATION_REGISTRY.json",
+      "status": "skeleton-created"
+    },
+    {
+      "target_code": "STAR_MODEL_MATURITY_SUITE",
+      "target_type": "test-suite",
+      "provision_id": "A556",
+      "artifact_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py",
+      "evidence_paths": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py",
+        "Standalone tools/local-model/xingcheng/runtime/state/model-maturity.json"
+      ],
+      "status": "existing-evidence"
+    },
+    {
+      "target_code": "NTP_CORRECTNESS_SUITE",
+      "target_type": "test-suite",
+      "provision_id": "A560",
+      "artifact_path": "Standalone tools/local-model/tests/test_ntp_correctness.py",
+      "evidence_paths": [
+        "Standalone tools/local-model/tests/test_ntp_correctness.py"
+      ],
+      "status": "existing-evidence"
+    },
+    {
+      "target_code": "SMALL_MODEL_BASELINE_SUITE",
+      "target_type": "test-suite",
+      "provision_id": "A561",
+      "artifact_path": "Standalone tools/local-model/xingcheng/runtime/logs/baseline-small-5m-gpu-2026-09-20.json",
+      "evidence_paths": [
+        "Standalone tools/local-model/xingcheng/runtime/logs/baseline-small-5m-gpu-2026-09-20.json"
+      ],
+      "status": "existing-evidence"
+    },
+    {
+      "target_code": "MOE_QC_SUITE",
+      "target_type": "test-suite",
+      "provision_id": "A564",
+      "artifact_path": "Standalone tools/local-model/tests/test_moe_quality.py",
+      "evidence_paths": [
+        "Standalone tools/local-model/tests/test_moe_quality.py"
+      ],
+      "status": "existing-evidence"
+    },
+    {
+      "target_code": "DIALOGUE_TRAINING_SUITE",
+      "target_type": "test-suite",
+      "provision_id": "A565",
+      "artifact_path": "Standalone tools/local-model/tests/test_chat_format.py",
+      "evidence_paths": [
+        "Standalone tools/local-model/tests/test_chat_format.py",
+        "Standalone tools/local-model/tests/test_phase_native_dialogue_route.py"
+      ],
+      "status": "existing-evidence"
+    },
+    {
+      "target_code": "PYTHON_CPP_CONSISTENCY_SUITE",
+      "target_type": "test-suite",
+      "provision_id": "A566",
+      "artifact_path": "Standalone tools/local-model/tests/test_phase_native_dispatch.py",
+      "evidence_paths": [
+        "Standalone tools/local-model/tests/test_phase_native_dispatch.py"
+      ],
+      "status": "existing-evidence"
+    },
+    {
+      "target_code": "KV_CACHE_SUITE",
+      "target_type": "test-suite",
+      "provision_id": "A567",
+      "artifact_path": "Standalone tools/local-model/tests/test_phase7_kv_cache.py",
+      "evidence_paths": [
+        "Standalone tools/local-model/tests/test_phase7_kv_cache.py",
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_kv_cache_matrix.py"
+      ],
+      "status": "existing-evidence"
+    },
+    {
+      "target_code": "NATIVE_CAPABILITY_EVAL_SUITE",
+      "target_type": "test-suite",
+      "provision_id": "A568",
+      "artifact_path": "Standalone tools/local-model/tests/test_native_eval_suite.py",
+      "evidence_paths": [
+        "Standalone tools/local-model/tests/test_native_eval_suite.py"
+      ],
+      "status": "existing-evidence"
+    }
+  ]
+}

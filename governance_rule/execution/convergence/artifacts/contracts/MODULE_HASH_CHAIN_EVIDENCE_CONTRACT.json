@@ -1,0 +1,15 @@
+{
+  "contract_code": "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A589",
+  "fields": [
+    "module_identity",
+    "previous_hash",
+    "entry_hash",
+    "append_only",
+    "no_tokens_no_consensus"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

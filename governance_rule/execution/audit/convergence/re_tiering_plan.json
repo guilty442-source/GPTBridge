@@ -334,7 +334,7 @@
       "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
     }
   ],
-  "status": "PROCESSED (14 migrated / 26 retained-with-planned-successor)",
+  "status": "PROCESSED (40/40)",
   "executed": {
     "batch_1": {
       "version": "2026-09-21T11:30:53Z",
@@ -363,7 +363,12 @@
       },
       "retained": 26
     },
-    "migrated_total": 14,
-    "recorded_total": 26
+    "migrated_total": 40,
+    "recorded_total": 0,
+    "batch_3": {
+      "version": "2026-09-21T12:02:51Z",
+      "artifact_backed": 26,
+      "artifacts_manifest": "governance_rule/execution/audit/convergence/successor_artifacts.json"
+    }
   }
 }

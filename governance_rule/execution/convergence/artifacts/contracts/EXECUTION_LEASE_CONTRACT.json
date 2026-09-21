@@ -1,0 +1,15 @@
+{
+  "contract_code": "EXECUTION_LEASE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A574",
+  "fields": [
+    "lease_type",
+    "holder",
+    "expires_at",
+    "fencing_token",
+    "single_authority"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

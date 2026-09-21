@@ -133,6 +133,7 @@ def apply_re_tiering(
     *,
     version: str,
     executed: Sequence[str] = (),
+    artifacts: Mapping[str, str] | None = None,
 ) -> OperationResult:
     """Apply a re-tiering plan to a staged generation.
 
@@ -140,14 +141,16 @@ def apply_re_tiering(
       plan declares ``target_law``; otherwise they are recorded as
       retain-with-planned-successor.
     * ``implementation-obligation`` targets insert obligations + classification.
-    * all other targets are recorded as retain-with-planned-successor
-      (``successor-artifact-pending``) until the artifact exists.
+    * other targets are migrated to ``superseded`` when their successor
+      artifact exists (``artifacts`` maps target_code -> path); otherwise they
+      are recorded as retain-with-planned-successor until the artifact exists.
     """
     if not version:
         raise ConvergenceError("VERSION_REQUIRED")
     laws = dict(plan.get("laws") or {})
+    artifact_map = dict(artifacts or {})
     done = set(executed)
-    special = obligation = recorded = 0
+    special = obligation = recorded = artifact_backed = 0
     for entry in plan["entries"]:
         pid = str(entry.get("provision_id") or "")
         if not pid or pid in done:
@@ -195,15 +198,21 @@ def apply_re_tiering(
             _migration(conn, pid, "CODEX_MAIN", "superseded", target_code, "normalized", version)
             obligation += 1
         else:
-            _migration(conn, pid, "CODEX_MAIN", "retain", target_code, "successor-artifact-pending", version)
-            recorded += 1
+            artifact_path = artifact_map.get(target_code)
+            if artifact_path and (PROJECT_ROOT / artifact_path).exists():
+                _migration(conn, pid, "CODEX_MAIN", "superseded", target_code, "artifact-backed", version)
+                artifact_backed += 1
+            else:
+                _migration(conn, pid, "CODEX_MAIN", "retain", target_code, "successor-artifact-pending", version)
+                recorded += 1
     conn.commit()
     conn.execute("update metadata set value=? where key='codex_version'", (version,))
     conn.commit()
     return OperationResult(
         operation="re-tiering",
-        applied=special + obligation + recorded,
-        details={"special-law": special, "obligation": obligation, "retained": recorded},
+        applied=special + obligation + recorded + artifact_backed,
+        details={"special-law": special, "obligation": obligation, "retained": recorded,
+                 "artifact-backed": artifact_backed},
     )
 
 

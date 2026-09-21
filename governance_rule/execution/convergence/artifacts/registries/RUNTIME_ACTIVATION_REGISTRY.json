@@ -1,0 +1,14 @@
+{
+  "registry_code": "RUNTIME_ACTIVATION_REGISTRY",
+  "kind": "registry",
+  "source_provision": "A587",
+  "columns": [
+    "module_id",
+    "activation_mode",
+    "resident_core",
+    "on_demand_rule"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

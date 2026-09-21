@@ -1,7 +1,7 @@
 {
   "report": "FINAL_CONVERGENCE_REPORT/v1",
   "generated_at": "2026-09-21T10:09:23Z",
-  "candidate_codex_version": "2026-09-21T11:59:11Z",
+  "candidate_codex_version": "2026-09-21T12:02:51Z",
   "last_valid_sealed_version": "2026-09-19T14:58:26Z",
   "current_version": "2026-09-15T15:42:01Z",
   "active_binding_version": "2026-09-15T15:42:01Z",
@@ -53,10 +53,10 @@
   "verified_release_state": "DENIED",
   "remaining_blockers": [
     "candidate not sealed; current_version axis unchanged by design",
-    "re-tiering processed: 14 migrated (special law), 26 retained until successor artifacts (contract/test/registry) exist",
     "core engine equivalence + capability dispatch parity evidence",
     "sub-sovereign registry switch + retirement (18 identities)",
     "67 machine schemas parity; 61 obligations classified (none completed); normative surface/search rebuild",
+    "successor artifact skeletons need implementation (declared-pending-implementation) before contract/registry closure",
     "external signatures"
   ],
   "governance_batch": "topology corrections + formal-rule disposition + obligations + closures (candidate generation)",
@@ -82,9 +82,11 @@
     "isolated start harness for INTEGRATION-04B (04B-10 BLOCKED) — integration workers"
   ],
   "re_tiering": {
-    "status": "PROCESSED",
-    "migrated": 14,
-    "recorded_pending_artifacts": 26,
-    "batch_2": "2 special-law + 26 retained-with-planned-successor"
+    "status": "PROCESSED (40/40)",
+    "special_law": 5,
+    "obligation_delegated": 9,
+    "artifact_backed": 26,
+    "artifacts": "contracts 14 / registries 4 / test suites 8 (skeletons + existing test evidence)",
+    "note": "law tier remains main-codex as historical reference; successor resolution recorded in provision_special_law_migration"
   }
 }
