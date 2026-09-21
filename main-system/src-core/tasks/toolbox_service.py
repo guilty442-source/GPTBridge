@@ -105,6 +105,13 @@ class ToolboxService(
             self.project_root / "main-system" / "runtime" / "state"
             / "process-registry.json"
         )
+        # G47: unified module-level dual-axis runtime state (star-runtime-state/v1)
+        from core_system.runtime_state_registry import RuntimeStateRegistry
+
+        self._runtime_state_registry = RuntimeStateRegistry(
+            self.project_root / "main-system" / "runtime" / "state"
+            / "runtime-state-registry.json"
+        )
         # G83-2: immediate sweep of leftovers from previous crash-loop session
         try:
             self._process_registry.reconcile()
