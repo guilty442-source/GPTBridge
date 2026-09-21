@@ -327,3 +327,40 @@ def test_executor_fails_when_final_checkpoint_is_tampered(
     assert result["ok"] is False
     assert result["error_code"] == "EXECUTOR_VALIDATION_FAILED"
     assert result["job"]["status"] == "failed"
+
+
+def test_executor_fails_closed_when_gpu_budget_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """G5：CUDA 訓練在 GpuCoordinator 取不到 VRAM 額度時 fail-closed 為
+    EXECUTOR_GPU_BUSY，不進入訓練子程序、不與推論互相 OOM。"""
+    from shared_layer.adaptive import gpu_coordinator
+
+    repository = TransformerTrainingRepository(tmp_path)
+    job = _queued_job(
+        repository,
+        tmp_path,
+        device="cuda",
+        gpu_required_mb=2500,
+        gpu_acquire_timeout_s=0,
+    )
+
+    def _deny(self, required_mb, priority="training", timeout=300):
+        raise TimeoutError(
+            f"GPU acquire timeout: need {required_mb}MB free (priority {priority})"
+        )
+
+    monkeypatch.setattr(gpu_coordinator.GpuCoordinator, "acquire", _deny)
+
+    executor = TrainingJobExecutor(repository)  # 真實訓練器才參與 GPU 閘門
+
+    def _must_not_run(*_args, **_kwargs):
+        raise AssertionError("trainer must not start when VRAM is unavailable")
+
+    monkeypatch.setattr(executor, "_invoke_trainer", _must_not_run)
+    result = executor.run_job(str(job["job_id"]))
+
+    assert result["ok"] is False
+    assert result["error_code"] == "EXECUTOR_GPU_BUSY"
+    assert result["job"]["status"] == "failed"
+    assert "GPU acquire timeout" in result["job"]["error_message"]
