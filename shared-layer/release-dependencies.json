@@ -228,7 +228,11 @@
     "*.token",
     "*.p12",
     "governance_codex.sqlite3",
-    "credential*"
+    "credential*",
+    "*.gguf",
+    "*.safetensors",
+    "*.pt",
+    "*.onnx"
   ],
   "shared_layer_contract": {
     "version_key": "shared_layer.contracts.registry:REGISTRY_VERSION",

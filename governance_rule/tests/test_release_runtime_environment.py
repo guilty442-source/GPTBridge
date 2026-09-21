@@ -375,6 +375,14 @@ def test_release_excludes_secrets_and_authority_data(tmp_path: Path) -> None:
     (release / ".env").unlink()
     (release / "governance_codex.sqlite3").unlink()
     assert validate_forbidden_release_content(contract, release)["ok"] is True
+    shipped = release_manifest.load_dependency_contract()
+    for pattern in ("*.gguf", "*.safetensors", "*.pt", "*.onnx"):
+        assert pattern in shipped["forbidden_content"]
+    (release / "model.gguf").write_bytes(b"weights")
+    weights = validate_forbidden_release_content(shipped, release)
+    assert weights["ok"] is False
+    assert any("gguf" in error for error in weights["errors"])
+    (release / "model.gguf").unlink()
 
 
 def test_original_backend_and_codex_flow_unchanged(tmp_path: Path) -> None:
