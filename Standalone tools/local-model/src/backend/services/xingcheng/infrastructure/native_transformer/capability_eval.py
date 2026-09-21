@@ -256,7 +256,9 @@ def evaluate_checkpoint(
         "model_version": str(bundle.get("state_sha256") or "")[:16],
         "checkpoint_sha256": bundle.get("state_sha256"),
         "tokenizer_sha256": getattr(tokenizer, "sha256", None)
-        or getattr(tokenizer, "fingerprint", None),
+        or getattr(tokenizer, "fingerprint", None)
+        or (tokenizer.state_dict().get("tokenizer_sha256")
+            if hasattr(tokenizer, "state_dict") else None),
         "dataset_version": f"{suite.get('suite_id')}@{str(suite.get('suite_sha256'))[:16]}",
         "inference_backend": f"{device}/{'bf16' if param is not None and param.dtype == torch.bfloat16 else 'fp32'}",
         "quantization": bundle.get("quantization") or "none",
