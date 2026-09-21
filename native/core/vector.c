@@ -5,23 +5,81 @@
  * Python owns all memory; C borrows raw pointers + length.
  * No unbounded allocation; no per-request thread pool.
  *
- * SIMD: AVX2 + FMA 加速（4×double/指令），編譯時偵測 __AVX2__，
- * 不可用時自動回退至 4-way 純量展開，語意等價（誤差 <1e-12）。
- * 對應 Python 側 oneDNN/CUDA 與 C# System.Numerics，確保 CPU 路徑亦具向量化。
+ * SIMD: AVX-512 (8×double) 優先，其次 AVX2+FMA（4×double），
+ * 皆於 x86-64 暴露 intrinsics，執行期 CPUID 派送；不可用回退純量，
+ * 語意等價（誤差 <1e-12）。
  */
 #include "vector.h"
 #include "memory.h"
 
 #include <math.h>
 
-#if defined(__AVX2__)
+#if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__) || defined(__AVX512F__) || defined(__AVX2__)
+#include <immintrin.h>
+#define GPTBRIDGE_SIMD_AVX512 1
+#define GPTBRIDGE_SIMD_AVX2 1
+#elif defined(__AVX2__)
 #include <immintrin.h>
 #define GPTBRIDGE_SIMD_AVX2 1
 #endif
 
+/* ------------------------------------------------------------------
+ * Runtime CPU feature detection (CPUID) — mirrors transformer.c
+ * ------------------------------------------------------------------ */
+#ifdef _WIN32
+#include <intrin.h>
+#else
+#include <cpuid.h>
+#endif
+
+static int gptbridge_vector_have_avx512f(void) {
+#ifdef _WIN32
+    int info[4]; __cpuid(info, 7); return (info[1] >> 16) & 1;
+#else
+    unsigned int eax, ebx, ecx, edx; __cpuid_count(7, 0, eax, ebx, ecx, edx); return (ebx >> 16) & 1;
+#endif
+}
+static int gptbridge_vector_have_avx512vl(void) {
+#ifdef _WIN32
+    int info[4]; __cpuid(info, 7); return (info[1] >> 31) & 1;
+#else
+    unsigned int eax, ebx, ecx, edx; __cpuid_count(7, 0, eax, ebx, ecx, edx); return (ebx >> 31) & 1;
+#endif
+}
+static int gptbridge_vector_have_avx512dq(void) {
+#ifdef _WIN32
+    int info[4]; __cpuid(info, 7); return (info[1] >> 17) & 1;
+#else
+    unsigned int eax, ebx, ecx, edx; __cpuid_count(7, 0, eax, ebx, ecx, edx); return (ebx >> 17) & 1;
+#endif
+}
+static int gptbridge_vector_have_avx2(void) {
+#ifdef _WIN32
+    int info[4]; __cpuid(info, 7); return (info[1] >> 5) & 1;
+#else
+    unsigned int eax, ebx, ecx, edx; __cpuid_count(7, 0, eax, ebx, ecx, edx); return (ebx >> 5) & 1;
+#endif
+}
+static int gptbridge_vector_have_fma(void) {
+#ifdef _WIN32
+    int info[4]; __cpuid(info, 1); return (info[2] >> 12) & 1;
+#else
+    unsigned int eax, ebx, ecx, edx; __cpuid(1, eax, ebx, ecx, edx); return (ecx >> 12) & 1;
+#endif
+}
+typedef enum { GPTBRIDGE_VEC_NONE = 0, GPTBRIDGE_VEC_AVX2 = 1, GPTBRIDGE_VEC_AVX512 = 2 } gptbridge_vec_level;
+static gptbridge_vec_level gptbridge_vector_simd_level(void) {
+    static int cached = -1;
+    if (cached >= 0) return (gptbridge_vec_level)cached;
+    if (gptbridge_vector_have_avx512f() && gptbridge_vector_have_avx512vl() && gptbridge_vector_have_avx512dq() && gptbridge_vector_have_fma()) cached = GPTBRIDGE_VEC_AVX512;
+    else if (gptbridge_vector_have_avx2() && gptbridge_vector_have_fma()) cached = GPTBRIDGE_VEC_AVX2;
+    else cached = GPTBRIDGE_VEC_NONE;
+    return (gptbridge_vec_level)cached;
+}
+
 double gptbridge_native_vector_dot(
     const double* a, const double* b, int64_t dim) {
-    /* BORROWED_READONLY x2 ??Python owns both vectors. */
+    /* BORROWED_READONLY x2 — Python owns both vectors. */
     const gptbridge_native_mem_const_view va =
         gptbridge_native_mem_borrow_const(a, dim);
     const gptbridge_native_mem_const_view vb =
@@ -32,26 +90,42 @@ double gptbridge_native_vector_dot(
         return 0.0;
     }
 
-#ifdef GPTBRIDGE_SIMD_AVX2
-    /* SIMD: 4?double FMA，�???2? 純�?，尾?��??��??� */
-    __m256d acc = _mm256_setzero_pd();
-    int64_t i = 0;
-    for (; i + 4 <= dim; i += 4) {
-        __m256d va4 = _mm256_loadu_pd(a + i);
-        __m256d vb4 = _mm256_loadu_pd(b + i);
-#if defined(__FMA__)
-        acc = _mm256_fmadd_pd(va4, vb4, acc);
-#else
-        acc = _mm256_add_pd(acc, _mm256_mul_pd(va4, vb4));
+    const gptbridge_vec_level simd = gptbridge_vector_simd_level();
+    if (simd == GPTBRIDGE_VEC_AVX512) {
+#ifdef GPTBRIDGE_SIMD_AVX512
+        __m512d acc = _mm512_setzero_pd();
+        int64_t i = 0;
+        for (; i + 8 <= dim; i += 8) {
+            __m512d va8 = _mm512_loadu_pd(a + i);
+            __m512d vb8 = _mm512_loadu_pd(b + i);
+            acc = _mm512_fmadd_pd(va8, vb8, acc);
+        }
+        double tmp[8]; _mm512_storeu_pd(tmp, acc);
+        double sum = tmp[0]+tmp[1]+tmp[2]+tmp[3]+tmp[4]+tmp[5]+tmp[6]+tmp[7];
+        for (; i < dim; ++i) sum += a[i] * b[i];
+        return sum;
 #endif
     }
-    double tmp[4];
-    _mm256_storeu_pd(tmp, acc);
-    double sum = tmp[0] + tmp[1] + tmp[2] + tmp[3];
-    for (; i < dim; ++i) sum += a[i] * b[i];
-    return sum;
+    if (simd == GPTBRIDGE_VEC_AVX2) {
+#ifdef GPTBRIDGE_SIMD_AVX2
+        __m256d acc = _mm256_setzero_pd();
+        int64_t i = 0;
+        for (; i + 4 <= dim; i += 4) {
+            __m256d va4 = _mm256_loadu_pd(a + i);
+            __m256d vb4 = _mm256_loadu_pd(b + i);
+#if defined(__FMA__)
+            acc = _mm256_fmadd_pd(va4, vb4, acc);
 #else
-    /* 純�? 4-way 展�?：破�?FP ?��??��??�於 ILP/FMA */
+            acc = _mm256_add_pd(acc, _mm256_mul_pd(va4, vb4));
+#endif
+        }
+        double tmp[4]; _mm256_storeu_pd(tmp, acc);
+        double sum = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+        for (; i < dim; ++i) sum += a[i] * b[i];
+        return sum;
+#endif
+    }
+    /* Scalar 4-way unrolled */
     double acc0 = 0.0, acc1 = 0.0, acc2 = 0.0, acc3 = 0.0;
     int64_t i = 0;
     for (; i + 4 <= dim; i += 4) {
@@ -62,7 +136,6 @@ double gptbridge_native_vector_dot(
     }
     for (; i < dim; ++i) acc0 += a[i] * b[i];
     return (acc0 + acc1) + (acc2 + acc3);
-#endif
 }
 
 double gptbridge_native_vector_l2_norm(const double* a, int64_t dim) {

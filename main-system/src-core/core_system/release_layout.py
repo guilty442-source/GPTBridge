@@ -31,8 +31,8 @@ building a second one.
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Any, Callable, Final
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import Any, Callable, Final, Iterable
 
 SCHEMA_VERSION: Final = "star-release-layout/v1"
 

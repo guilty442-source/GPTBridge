@@ -331,7 +331,7 @@
       "sandbox": true,
       "channel_allowlist": true,
       "exposes_backend_token_to_renderer": true,
-      "token_exposure_policy": "acknowledged-gap-G86"
+      "token_exposure_policy": "acknowledged-gap-G85"
     }
   },
   "persistent_data_isolation": {
