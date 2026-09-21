@@ -53,7 +53,7 @@
   "verified_release_state": "DENIED",
   "remaining_blockers": [
     "candidate not sealed; current_version axis unchanged by design",
-    "core engine: authority equivalence recorded (5/5); capability dispatch parity pending (runtime not wired)",
+    "core engine: authority equivalence recorded (5/5); capability dispatch parity 40/40 dispatchable (5 N/A); runtime wiring pending",
     "sub-sovereign retirement: staged dry-run clean (18 retired, 0 active); registry switch + publication pending",
     "67 machine schemas parity; 61 obligations classified (none completed); normative surface/search rebuild",
     "successor artifact skeletons need implementation (14 contracts / 4 registries)",
@@ -101,5 +101,15 @@
     "remaining_active": 0,
     "published": false,
     "gate": "registry switch + parity + activation"
+  },
+  "capability_dispatch_parity": {
+    "modules": 45,
+    "schema_ok": 45,
+    "parity_pass": 40,
+    "not_applicable": 5,
+    "fail": 0,
+    "conflicts": "8 coarse role:* codes (identity codes unique; semantic catalog pending)",
+    "evidence": "convergence/capability_dispatch_parity.json",
+    "closure": "INCOMPLETE_EVIDENCE"
   }
 }
