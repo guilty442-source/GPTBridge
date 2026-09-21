@@ -286,6 +286,7 @@ class ModelServiceActivationBroker:
         still activate on demand — that is the intended dialogue behaviour.
         """
         self._explicit_stop_at = time.time()
+        self._broker_started_owner = False
         # Cooldown so the next observed request waits before a fresh attempt.
         self._next_attempt_at = time.monotonic() + self.cooldown
         _logger.info(
@@ -367,6 +368,8 @@ class ModelServiceActivationBroker:
             "last_result_ok": self._last_result.get("ok"),
             "last_pid": self._last_result.get("pid"),
             "explicit_stop_at": round(self._explicit_stop_at, 1),
+            "broker_started_owner": self._broker_started_owner,
+            "last_release_ok": self._last_release_result.get("ok"),
             "last_error": self._last_result.get("message")
             or self._last_result.get("error_code"),
         }
