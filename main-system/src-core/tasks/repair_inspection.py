@@ -4,6 +4,7 @@ import json
 import shutil
 import sqlite3
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -353,8 +354,13 @@ class DatabaseRecoveryInspector:
 class RepairRunStore:
     def __init__(self, database_root: Path) -> None:
         self.database_root = database_root.resolve()
+        self._connections: dict[str, tuple[sqlite3.Connection, Path]] = {}
+        self._connection_lock = threading.RLock()
 
     def _connect(self, target_id: str) -> tuple[sqlite3.Connection, Path]:
+        cached = self._connections.get(target_id)
+        if cached is not None:
+            return cached
         owner_root = self.database_root / target_id
         owner_root.mkdir(parents=True, exist_ok=True)
         path = owner_root / "automatic-repair.sqlite3"
@@ -368,6 +374,7 @@ class RepairRunStore:
             "failure_code TEXT NOT NULL, ok INTEGER NOT NULL, "
             "detail_json TEXT NOT NULL)"
         )
+        self._connections[target_id] = (connection, path)
         return connection, path
 
     def record(self, target_id: str, result: dict[str, Any]) -> Path:

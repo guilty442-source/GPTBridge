@@ -150,7 +150,7 @@ def build_chat_records(rng: random.Random, *,
 
     # 5) 算術（避開探針 13+29／6×7／9v4；唯一算式池逼模型真算而非背答案）
     seen: set[tuple[int, int, str]] = set()
-    n_arith = 25 + (echo_scale * 3 // 5 if echo_scale else 0)
+    n_arith = 25 + (echo_scale // 8 if echo_scale else 0)
     tries = 0
     while len(seen) < n_arith and tries < n_arith * 8:
         tries += 1
