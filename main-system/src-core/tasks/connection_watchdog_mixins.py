@@ -35,7 +35,7 @@ class ConnectionProbeMixin:
     def _probe_backend_http(self) -> bool:
         """Probe the backend HTTP /health endpoint with caching and circuit breaker."""
         cache_key = "backend_http"
-        cached = self._http_cache.get(cache_key)
+        cached = self._health_cache.get(cache_key)
         if cached:
             return cached.success
 
@@ -81,13 +81,13 @@ class ConnectionProbeMixin:
             error_type = type(e).__name__
             _logger.warning("HTTP probe failed: %s: %s", error_type, e)
             result = ProbeResult(success=False, latency_ms=latency, error=str(e), error_type=error_type)
-        self._http_cache.set("backend_http", result)
+        self._health_cache.set("backend_http", result)
         return result.success
 
     def _check_frontend_connected(self) -> bool:
         """Check if the frontend WebSocket is connected to the IPC server."""
         cache_key = "ipc_frontend"
-        cached = self._ipc_cache.get(cache_key)
+        cached = self._health_cache.get(cache_key)
         if cached:
             return cached.success
 
@@ -120,7 +120,7 @@ class ConnectionProbeMixin:
             error_type = type(e).__name__
             _logger.warning("IPC check failed: %s: %s", error_type, e)
             result = ProbeResult(success=False, latency_ms=latency, error=str(e), error_type=error_type)
-        self._ipc_cache.set(cache_key, result)
+        self._health_cache.set(cache_key, result)
         return result.success
 
     def _compute_state(

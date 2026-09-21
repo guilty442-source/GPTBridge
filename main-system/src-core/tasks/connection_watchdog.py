@@ -129,8 +129,7 @@ class ConnectionWatchdog(
         self._max_probe_interval = 60.0
         self._consecutive_stable = 0
         self._consecutive_failures = 0
-        self._http_cache = HealthCheckCache(ttl_seconds=5.0)
-        self._ipc_cache = HealthCheckCache(ttl_seconds=5.0)
+        self._health_cache = HealthCheckCache(ttl_seconds=5.0)
         self._http_circuit_breaker = CircuitBreaker("http-health", failure_threshold=3, recovery_timeout_seconds=15.0)
         self._ipc_circuit_breaker = CircuitBreaker("ipc-health", failure_threshold=3, recovery_timeout_seconds=15.0)
         self.enable_resource_monitoring = enable_resource_monitoring
