@@ -69,7 +69,6 @@ _ROLE_TRANSITIONS: dict[str, frozenset[str]] = {
             LIFECYCLE_ROLE_STANDBY,
             LIFECYCLE_ROLE_DRAINING,
             LIFECYCLE_ROLE_STOPPING,
-            LIFECYCLE_ROLE_FAILED,
         }
     ),
     LIFECYCLE_ROLE_ACTIVE: frozenset(

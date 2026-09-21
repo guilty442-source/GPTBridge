@@ -1,0 +1,54 @@
+{
+  "contract_version": 1,
+  "release_root_markers": ["src-core", ".venv", "config"],
+  "python": {
+    "version_range": {"min": [3, 11], "max_exclusive": [3, 12]}
+  },
+  "source_tree_root": ".",
+  "classes": {
+    "RELEASE_CODE": "fixed by the release; origin must resolve inside the release root",
+    "RELEASE_DEPENDENCY": "verifiable version and source; never resolved from the development source tree",
+    "SHARED_RUNTIME": "explicit shared contract and ownership; only the declared shared root",
+    "PERSISTENT_DATA": "never overwritten by program updates; not importable",
+    "SECRET": "never packaged into the release; not importable",
+    "DEVELOPMENT_ONLY": "never loaded at production runtime"
+  },
+  "modules": [
+    {
+      "module": "core_system",
+      "class": "RELEASE_CODE",
+      "required": true,
+      "allowed_roots": ["main-system/src-core"]
+    },
+    {
+      "module": "governance_rule",
+      "class": "RELEASE_CODE",
+      "required": true,
+      "allowed_roots": ["governance_rule"]
+    },
+    {
+      "module": "shared_layer",
+      "class": "SHARED_RUNTIME",
+      "required": true,
+      "allowed_roots": ["shared-layer/src"]
+    },
+    {
+      "module": "numpy",
+      "class": "RELEASE_DEPENDENCY",
+      "required": false,
+      "allowed_roots": [".venv/Lib/site-packages"],
+      "version_range": {"min": [1, 0]}
+    },
+    {
+      "module": "torch",
+      "class": "RELEASE_DEPENDENCY",
+      "required": false,
+      "allowed_roots": [".venv/Lib/site-packages"],
+      "version_range": {"min": [2, 0]}
+    }
+  ],
+  "forbidden_development_roots": ["tests", "scripts", ".worktrees", ".kilo"],
+  "development_only": ["tests", "scripts", ".worktrees", ".kilo"],
+  "secrets": ["*.pem", "*.key", ".env"],
+  "persistent_data": ["runtime", "xingcheng/runtime", "main-system/runtime"]
+}

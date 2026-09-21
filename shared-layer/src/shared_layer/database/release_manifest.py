@@ -23,6 +23,19 @@ from pathlib import Path
 from typing import Any
 
 _MANIFEST_PATH = Path(__file__).resolve().parents[3] / "database-release.json"
+_DEPENDENCY_CONTRACT_PATH = Path(__file__).resolve().parents[3] / "release-dependencies.json"
+
+# Release dependency classes.  A release manifest classifies every artifact
+# it carries or consumes; the class decides the allowed origin and the
+# validation rule (release isolation contract).
+DEPENDENCY_CLASSES: dict[str, str] = {
+    "RELEASE_CODE": "fixed by the release; origin must resolve inside the release root",
+    "RELEASE_DEPENDENCY": "verifiable version and source; never resolved from the development source tree",
+    "SHARED_RUNTIME": "explicit shared contract and ownership; only the declared shared root",
+    "PERSISTENT_DATA": "never overwritten by program updates; not importable",
+    "SECRET": "never packaged into the release; not importable",
+    "DEVELOPMENT_ONLY": "never loaded at production runtime",
+}
 
 
 def load_manifest() -> dict[str, Any]:
@@ -88,9 +101,117 @@ def get_compatibility_matrix(manifest: dict[str, Any]) -> dict[str, Any]:
     return manifest.get("compatibility_range", {})
 
 
+def load_dependency_contract(path: Path | None = None) -> dict[str, Any]:
+    """Load the release dependency contract (classes + module origins)."""
+    contract_path = Path(path) if path else _DEPENDENCY_CONTRACT_PATH
+    with open(contract_path, encoding="utf-8") as stream:
+        payload = json.load(stream)
+    if not isinstance(payload, dict):
+        raise ValueError("release dependency contract must be an object")
+    return payload
+
+
+def get_dependency_contract_path() -> Path:
+    """Get the path to the release dependency contract."""
+    return _DEPENDENCY_CONTRACT_PATH
+
+
+def validate_dependency_contract(contract: dict[str, Any]) -> list[str]:
+    """Schema-level validation of the release dependency contract."""
+    errors: list[str] = []
+    if type(contract.get("contract_version")) is not int or contract["contract_version"] < 1:
+        errors.append("contract_version must be a positive integer")
+    classes = contract.get("classes")
+    if not isinstance(classes, dict) or set(classes) != set(DEPENDENCY_CLASSES):
+        errors.append("classes must declare exactly the six release dependency classes")
+    modules = contract.get("modules")
+    if not isinstance(modules, list):
+        errors.append("modules must be a list")
+        return errors
+    seen: set[str] = set()
+    for index, entry in enumerate(modules):
+        if not isinstance(entry, dict):
+            errors.append(f"modules[{index}] must be an object")
+            continue
+        name = entry.get("module")
+        if not isinstance(name, str) or not name:
+            errors.append(f"modules[{index}].module is required")
+            continue
+        if name in seen:
+            errors.append(f"duplicate module entry: {name}")
+        seen.add(name)
+        dependency_class = entry.get("class")
+        if dependency_class not in DEPENDENCY_CLASSES:
+            errors.append(f"{name}: unknown dependency class {dependency_class!r}")
+        if dependency_class in {"PERSISTENT_DATA", "SECRET"}:
+            errors.append(f"{name}: class {dependency_class} cannot be an import module")
+        if dependency_class == "SHARED_RUNTIME" and not entry.get("allowed_roots"):
+            errors.append(f"{name}: SHARED_RUNTIME requires allowed_roots")
+    for secret in contract.get("secrets") or []:
+        if not isinstance(secret, str) or not secret:
+            errors.append("secrets entries must be non-empty strings")
+    return errors
+
+
+def validate_python_release_dependencies(
+    contract: dict[str, Any],
+    *,
+    python_executable: str,
+    release_root: str,
+    source_root: str | None = None,
+    shared_root: str | None = None,
+    extra_paths: tuple[str, ...] = (),
+    cwd: str | None = None,
+) -> dict[str, Any]:
+    """Probe the release interpreter and validate module origins.
+
+    Delegates to ``governance_rule.execution.integrity.python_release_dependencies``
+    (lazy import keeps the shared-layer import surface unchanged for callers
+    that only read the database release manifest).
+    """
+    errors = validate_dependency_contract(contract)
+    if errors:
+        return {"ok": False, "errors": errors, "modules": {}, "probe": {}}
+    from governance_rule.execution.integrity.python_release_dependencies import (
+        validate_release_python_origins,
+    )
+
+    return validate_release_python_origins(
+        contract,
+        python_executable=python_executable,
+        release_root=release_root,
+        source_root=source_root,
+        shared_root=shared_root,
+        extra_paths=extra_paths,
+        cwd=cwd,
+    )
+
+
+def validate_secret_exclusions(
+    contract: dict[str, Any],
+    release_paths: list[str],
+) -> list[str]:
+    """SECRET entries must never exist inside the release payload."""
+    errors: list[str] = []
+    lowered = [path.replace("\\", "/").lower() for path in release_paths]
+    for secret in contract.get("secrets") or []:
+        pattern = str(secret).replace("\\", "/").lower()
+        suffix = pattern.lstrip("*")
+        for path in lowered:
+            if suffix and path.endswith(suffix):
+                errors.append(f"SECRET_PACKAGED:{secret}:{path}")
+    return errors
+
+
 __all__ = [
+    "DEPENDENCY_CLASSES",
     "load_manifest",
     "get_manifest_path",
     "validate_runtime",
     "get_compatibility_matrix",
+    "load_dependency_contract",
+    "get_dependency_contract_path",
+    "validate_dependency_contract",
+    "validate_python_release_dependencies",
+    "validate_secret_exclusions",
 ]
