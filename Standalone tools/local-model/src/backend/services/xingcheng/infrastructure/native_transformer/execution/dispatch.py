@@ -131,9 +131,9 @@ def native_attention(
     is_causal: bool,
     attention_mask: torch.Tensor | None,
 ) -> torch.Tensor | None:
-    """派送 attention 到 C++ 核心；回傳 ``None`` 代表由呼叫端走 PyTorch。
+    """派送 attention 到原生計算核心；回傳 ``None`` 代表由呼叫端走 PyTorch。
 
-    派送條件（全部成立才派送）：flag 開啟、C++ 核心可用、超過門檻、
+    派送條件（全部成立才派送）：flag 開啟、原生核心可用、超過門檻、
     無 mask、因果、無梯度、CPU、批次頭形狀一致，且該形狀已通過 parity。
     """
     if not is_causal or attention_mask is not None:
@@ -180,7 +180,7 @@ def summary() -> dict[str, Any]:
     return {
         "dispatch_enabled": dispatch_enabled(),
         "native_available": native_available(),
-        "backend": "c++-native-core" if native_available() else "python-pytorch",
+        "backend": "native-compute-core" if native_available() else "python-pytorch",
         "verified_shapes": verified_shapes(),
         "thresholds": dict(getattr(module, "DISPATCH_THRESHOLDS", {})) if module else {},
     }
