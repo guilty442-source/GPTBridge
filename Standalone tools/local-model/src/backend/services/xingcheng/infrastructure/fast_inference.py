@@ -39,6 +39,9 @@ class FastInferenceEngine:
         self.order = model.order
         self._enable_result_cache = enable_result_cache
         self._result_cache_size = result_cache_size
+        # X3: (id, len)-keyed cache of per-intent example token frozensets so
+        # _build_transient does not re-tokenize every example per call.
+        self._example_index_cache: tuple[tuple[int, int], dict[str, list[tuple[frozenset, dict]]]] | None = None
 
         # Build vocabulary index (token -> int) for array operations
         self._vocab_list = list(model._vocabulary)
@@ -243,10 +246,7 @@ class FastInferenceEngine:
         prompt_tokens = set(self.model.tokenize(prompt))
         conditioned_examples = []
 
-        for example in self.model._examples:
-            if example["intent"] != intent:
-                continue
-            example_tokens = set(self.model.tokenize(example["input_text"]))
+        for example_tokens, example in self._example_token_index().get(intent, ()):
             similarity = (
                 2 * len(prompt_tokens & example_tokens)
                 / (len(prompt_tokens) + len(example_tokens))
@@ -268,6 +268,19 @@ class FastInferenceEngine:
             self._accumulate_to_transient(transient, sequence, 12)
 
         return transient
+
+    def _example_token_index(self) -> dict[str, list[tuple[frozenset, dict]]]:
+        examples = self.model._examples
+        key = (id(examples), len(examples))
+        cached = self._example_index_cache
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        index: dict[str, list[tuple[frozenset, dict]]] = {}
+        for example in examples:
+            tokens = frozenset(self.model.tokenize(example["input_text"]))
+            index.setdefault(example["intent"], []).append((tokens, example))
+        self._example_index_cache = (key, index)
+        return index
 
     def _accumulate_to_transient(
         self,

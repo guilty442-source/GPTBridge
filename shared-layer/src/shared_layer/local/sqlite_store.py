@@ -16,10 +16,9 @@ from typing import Any, Final
 from governance_rule.execution.authentication import GovernanceAuthenticationService
 from governance_rule.permission_directory.directory_authority import directory_authority_snapshot
 from governance_rule.permission_directory.execution.path_guard import permission_denied
+from shared_layer.store_helpers import encode_json, normalize_id
 
 _CHANNELS: Final = frozenset({"system", "ai"})
-_MAX_ID: Final = 256
-_MAX_BYTES: Final = 1_048_576
 _QUERY_TIMEOUT: Final = 10.0
 
 
@@ -128,20 +127,11 @@ class LocalSharedLayerStore:
 
     @staticmethod
     def _id(value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized or len(normalized) > _MAX_ID or "\x00" in normalized:
-            raise permission_denied()
-        return normalized
+        return normalize_id(value)
 
     @staticmethod
     def _json(value: Any) -> str:
-        try:
-            encoded = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True)
-        except (TypeError, ValueError) as exc:
-            raise permission_denied() from exc
-        if len(encoded.encode("utf-8")) > _MAX_BYTES:
-            raise permission_denied()
-        return encoded
+        return encode_json(value)
 
     def _authorize(self, token: str, action: str, target_tool_id: str) -> str:
         claims = self._authentication.authenticate_token(token)
