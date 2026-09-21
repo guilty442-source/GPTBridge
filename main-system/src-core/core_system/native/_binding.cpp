@@ -205,6 +205,78 @@ static py::object transformer_softmax(py::array_t<double> input) {
     return output;
 }
 
+static py::object transformer_rmsnorm(
+        py::array_t<double> input,
+        py::array_t<double> weight,
+        double eps) {
+    auto in_buf = input.request();
+    auto w_buf = weight.request();
+    if (in_buf.ndim != 2 || w_buf.ndim != 1) {
+        throw std::invalid_argument("rmsnorm requires a 2-D input and 1-D weight");
+    }
+    int64_t rows = static_cast<int64_t>(in_buf.shape[0]);
+    int64_t cols = static_cast<int64_t>(in_buf.shape[1]);
+    if (w_buf.shape[0] != cols) {
+        throw std::invalid_argument("rmsnorm weight length must match input columns");
+    }
+
+    py::array_t<double> output({static_cast<py::ssize_t>(rows), static_cast<py::ssize_t>(cols)});
+    auto out_buf = output.request();
+    int rc;
+    {
+        py::gil_scoped_release release;
+        rc = gptbridge_native_transformer_rmsnorm(
+            static_cast<const double*>(in_buf.ptr), rows, cols,
+            static_cast<const double*>(w_buf.ptr), eps,
+            static_cast<double*>(out_buf.ptr));
+    }
+    if (rc != 0) {
+        throw std::runtime_error("rmsnorm failed");
+    }
+    return output;
+}
+
+static py::object transformer_rope(
+        py::array_t<double> input,
+        py::array_t<double> cos_table,
+        py::array_t<double> sin_table) {
+    auto in_buf = input.request();
+    auto cos_buf = cos_table.request();
+    auto sin_buf = sin_table.request();
+    if (in_buf.ndim != 4 || cos_buf.ndim != 3 || sin_buf.ndim != 3) {
+        throw std::invalid_argument("rope requires [B,H,S,D] input and [B,S,D] tables");
+    }
+    int64_t batch = static_cast<int64_t>(in_buf.shape[0]);
+    int64_t heads = static_cast<int64_t>(in_buf.shape[1]);
+    int64_t seq_len = static_cast<int64_t>(in_buf.shape[2]);
+    int64_t head_dim = static_cast<int64_t>(in_buf.shape[3]);
+    if (head_dim <= 0 || head_dim % 2 != 0) {
+        throw std::invalid_argument("rope head_dim must be positive and even");
+    }
+    if (cos_buf.shape[0] != batch || cos_buf.shape[1] != seq_len || cos_buf.shape[2] != head_dim ||
+        sin_buf.shape[0] != batch || sin_buf.shape[1] != seq_len || sin_buf.shape[2] != head_dim) {
+        throw std::invalid_argument("rope cos/sin tables must have shape [B,S,D]");
+    }
+
+    py::array_t<double> output({
+        static_cast<py::ssize_t>(batch), static_cast<py::ssize_t>(heads),
+        static_cast<py::ssize_t>(seq_len), static_cast<py::ssize_t>(head_dim)});
+    auto out_buf = output.request();
+    int rc;
+    {
+        py::gil_scoped_release release;
+        rc = gptbridge_native_transformer_rope(
+            static_cast<const double*>(in_buf.ptr), batch, heads, seq_len, head_dim,
+            static_cast<const double*>(cos_buf.ptr),
+            static_cast<const double*>(sin_buf.ptr),
+            static_cast<double*>(out_buf.ptr));
+    }
+    if (rc != 0) {
+        throw std::runtime_error("rope failed");
+    }
+    return output;
+}
+
 static py::object transformer_scaled_dot_product_attention(
         py::array_t<double> q,
         py::array_t<double> k,
@@ -290,6 +362,10 @@ PYBIND11_MODULE(_sovereign_native, m) {
           "Matrix multiply: C = A * B (2-D float arrays).");
     m.def("transformer_softmax", &transformer_softmax,
           "Softmax over the last dimension of a 2-D float array.");
+    m.def("transformer_rmsnorm", &transformer_rmsnorm,
+          "RMSNorm over the last dimension of a 2-D float array.");
+    m.def("transformer_rope", &transformer_rope,
+          "RoPE over a [B,H,S,D] float array with [B,S,D] cos/sin tables.");
     m.def("transformer_scaled_dot_product_attention",
           &transformer_scaled_dot_product_attention,
           "Scaled dot-product attention: Q, K, V -> output.");

@@ -50,6 +50,8 @@ from .native_dispatcher import (
     python_cosine_similarity,
     python_matmul,
     python_softmax,
+    python_rmsnorm,
+    python_rope,
     python_scaled_dot_product_attention,
     native_token_estimate,
     native_batch_token_estimate,

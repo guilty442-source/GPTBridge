@@ -101,6 +101,8 @@ DISPATCH_THRESHOLDS: dict[str, int] = {
     "vector.batch_dot": 8,              # 8+ pairs to justify batch boundary
     "transformer.matmul": 8,            # 8+ rows/cols to justify boundary
     "transformer.softmax": 8,
+    "transformer.rmsnorm": 4,           # 4+ rows to justify norm boundary
+    "transformer.rope": 4,              # 4+ sequence positions to justify rope boundary
     "transformer.attention": 4,          # 4+ rows to justify attention boundary
 }
 
@@ -263,6 +265,45 @@ def python_softmax(input_2d: Sequence[Sequence[float]]) -> list[list[float]]:
     return result
 
 
+def python_rmsnorm(
+    input_2d: Sequence[Sequence[float]],
+    weight: Sequence[float],
+    eps: float,
+) -> list[list[float]]:
+    """Python fallback: RMSNorm over the last dimension."""
+    result: list[list[float]] = []
+    for row in input_2d:
+        variance = sum(x * x for x in row) / len(row) if row else 0.0
+        inv_rms = 1.0 / math.sqrt(variance + eps)
+        result.append([x * inv_rms * w for x, w in zip(row, weight)])
+    return result
+
+
+def python_rope(
+    input_4d: Sequence[Sequence[Sequence[Sequence[float]]]],
+    cos_table: Sequence[Sequence[Sequence[float]]],
+    sin_table: Sequence[Sequence[Sequence[float]]],
+) -> list[list[list[list[float]]]]:
+    """Python fallback: RoPE over [B,H,S,D] with [B,S,D] tables."""
+    output: list[list[list[list[float]]]] = []
+    for b, batch in enumerate(input_4d):
+        batch_out: list[list[list[float]]] = []
+        for h, head in enumerate(batch):
+            head_out: list[list[float]] = []
+            for s, row in enumerate(head):
+                half = len(row) // 2
+                rotated = [0.0] * len(row)
+                for i in range(half):
+                    x1, x2 = row[i], row[i + half]
+                    c, sn = cos_table[b][s][i], sin_table[b][s][i]
+                    rotated[i] = x1 * c - x2 * sn
+                    rotated[i + half] = x1 * sn + x2 * c
+                head_out.append(rotated)
+            batch_out.append(head_out)
+        output.append(batch_out)
+    return output
+
+
 def python_scaled_dot_product_attention(
     q: Sequence[Sequence[float]],
     k: Sequence[Sequence[float]],
@@ -315,6 +356,40 @@ def native_softmax(input_2d: Sequence[Sequence[float]]) -> list[list[float]]:
     return result.tolist()
 
 
+def native_rmsnorm(
+    input_2d: Sequence[Sequence[float]],
+    weight: Sequence[float],
+    eps: float,
+) -> list[list[float]]:
+    """Native dispatch: RMSNorm (if available)."""
+    n = _load_native()
+    if n is None:
+        return python_rmsnorm(input_2d, weight, eps)
+    result = n.transformer_rmsnorm(
+        _as_float64_array(input_2d),
+        _as_float64_array(weight),
+        float(eps),
+    )
+    return result.tolist()
+
+
+def native_rope(
+    input_4d: Sequence[Sequence[Sequence[Sequence[float]]]],
+    cos_table: Sequence[Sequence[Sequence[float]]],
+    sin_table: Sequence[Sequence[Sequence[float]]],
+) -> list[list[list[list[float]]]]:
+    """Native dispatch: RoPE (if available)."""
+    n = _load_native()
+    if n is None:
+        return python_rope(input_4d, cos_table, sin_table)
+    result = n.transformer_rope(
+        _as_float64_array(input_4d),
+        _as_float64_array(cos_table),
+        _as_float64_array(sin_table),
+    )
+    return result.tolist()
+
+
 def native_scaled_dot_product_attention(
     q: Sequence[Sequence[float]],
     k: Sequence[Sequence[float]],
@@ -346,6 +421,30 @@ def softmax(input_2d: Sequence[Sequence[float]]) -> list[list[float]]:
     if should_dispatch("transformer.softmax", rows):
         return native_softmax(input_2d)
     return python_softmax(input_2d)
+
+
+def rmsnorm(
+    input_2d: Sequence[Sequence[float]],
+    weight: Sequence[float],
+    eps: float,
+) -> list[list[float]]:
+    """Dispatch RMSNorm to native or Python fallback."""
+    rows = len(input_2d)
+    if should_dispatch("transformer.rmsnorm", rows):
+        return native_rmsnorm(input_2d, weight, eps)
+    return python_rmsnorm(input_2d, weight, eps)
+
+
+def rope(
+    input_4d: Sequence[Sequence[Sequence[Sequence[float]]]],
+    cos_table: Sequence[Sequence[Sequence[float]]],
+    sin_table: Sequence[Sequence[Sequence[float]]],
+) -> list[list[list[list[float]]]]:
+    """Dispatch RoPE to native or Python fallback."""
+    seq_len = len(input_4d[0][0]) if input_4d and input_4d[0] else 0
+    if should_dispatch("transformer.rope", seq_len):
+        return native_rope(input_4d, cos_table, sin_table)
+    return python_rope(input_4d, cos_table, sin_table)
 
 
 def scaled_dot_product_attention(
@@ -388,8 +487,14 @@ __all__ = [
     "scaled_dot_product_attention",
     "python_matmul",
     "python_softmax",
+    "python_rmsnorm",
+    "python_rope",
     "python_scaled_dot_product_attention",
     "native_matmul",
     "native_softmax",
+    "native_rmsnorm",
+    "native_rope",
     "native_scaled_dot_product_attention",
+    "rmsnorm",
+    "rope",
 ]
