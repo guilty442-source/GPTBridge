@@ -210,10 +210,19 @@ class BaseSemanticProcessor(ABC):
 
     async def health_check(self) -> dict[str, Any]:
         """Return health status."""
+        processor_info = None
+        if self._processor is not None:
+            processor_info = {
+                "type": self._processor.__class__.__name__,
+                "initialized": self._processor._initialized if hasattr(self._processor, '_initialized') else False,
+                "model_available": getattr(self._processor, '_model_available', False),
+            }
         return {
             "component": COMPONENT_ID,
+            "version": "2.0.0",
             "initialized": self._initialized,
             "config": self._config.__dict__,
+            "processor": processor_info,
         }
 
 
@@ -413,26 +422,37 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
         self._qdrant_client = None
         self._model_runtime = None
         self._native_model = None
+        self._model_available = False
+        self._import_error: str | None = None
 
     async def _initialize(self) -> None:
         """Initialize xingcheng model runtime and Qdrant connections."""
-        from shared_layer.adaptive import get_plane
-        from shared_layer.local.vector_store import LocalVectorStore
-        from pathlib import Path
-        from services.xingcheng.infrastructure.native_model import StarNativeLanguageModel
+        try:
+            from shared_layer.adaptive import get_plane
+            from shared_layer.local.vector_store import LocalVectorStore
+            from pathlib import Path
+            from services.xingcheng.infrastructure.native_model import StarNativeLanguageModel
 
-        self._adaptive_plane = get_plane()
+            self._adaptive_plane = get_plane()
 
-        if self._config.enable_fusion_retrieval:
-            self._qdrant_client = LocalVectorStore(
-                root=Path.cwd(),
-                dimension=256,
-            )
-            self._qdrant_client.ensure_collection(256)
+            if self._config.enable_fusion_retrieval:
+                self._qdrant_client = LocalVectorStore(
+                    root=Path.cwd(),
+                    dimension=256,
+                )
+                self._qdrant_client.ensure_collection(256)
 
-        # Initialize native model directly (no external runtime needed)
-        self._native_model = StarNativeLanguageModel(model_role="main")
-        self._model_runtime = self._native_model
+            # Initialize native model directly (no external runtime needed)
+            self._native_model = StarNativeLanguageModel(model_role="main")
+            self._model_runtime = self._native_model
+            self._model_available = True
+        except ImportError as e:
+            # xingcheng modules not available in this tool's path
+            # Per governance, tools must communicate via AI channel, not direct imports
+            self._import_error = str(e)
+            self._model_available = False
+            # Don't raise - initialization succeeds but model is unavailable
+            # Processing methods will raise SemanticModelUnavailable
 
     async def _shutdown(self) -> None:
         """Cleanup connections."""
@@ -443,12 +463,22 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
 
     async def _connect_model_runtime(self) -> Any:
         """Connect to xingcheng model runtime via governed channel."""
-        # Native model is already initialized in _initialize
+        if not self._model_available:
+            raise SemanticModelUnavailable(
+                f"Xingcheng model not available: {self._import_error}"
+            )
         return self._native_model
 
     async def _analyze_impl(self, request: SemanticRequest) -> SemanticResponse:
         """Analyze text using xingcheng semantic understanding."""
-        from services.xingcheng.infrastructure.chinese_semantic_engine import ChineseSemanticEngine
+        if not self._model_available:
+            raise SemanticModelUnavailable(
+                f"Xingcheng model not available: {self._import_error}"
+            )
+        try:
+            from services.xingcheng.infrastructure.chinese_semantic_engine import ChineseSemanticEngine
+        except ImportError as e:
+            raise SemanticModelUnavailable(f"Xingcheng module not available: {e}")
 
         engine = ChineseSemanticEngine()
         analysis = engine.analyze(request.text, context=request.parameters.get("context", ""))
@@ -460,8 +490,14 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
 
     async def _embed_impl(self, request: SemanticRequest) -> SemanticResponse:
         """Generate embeddings using xingcheng model."""
-        # Use native model for embeddings via transformer runtime
-        from services.xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+        if not self._model_available:
+            raise SemanticModelUnavailable(
+                f"Xingcheng model not available: {self._import_error}"
+            )
+        try:
+            from services.xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+        except ImportError as e:
+            raise SemanticModelUnavailable(f"Xingcheng module not available: {e}")
 
         runtime = StarTransformerRuntime(enabled=True)
         embeddings = runtime.embed(texts=[request.text])
@@ -473,10 +509,17 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
 
     async def _retrieve_impl(self, request: SemanticRequest) -> SemanticResponse:
         """Retrieve using hybrid dense+sparse+semantic fusion."""
+        if not self._model_available:
+            raise SemanticModelUnavailable(
+                f"Xingcheng model not available: {self._import_error}"
+            )
         if not self._qdrant_client:
             raise SemanticModelUnavailable("Qdrant not initialized")
 
-        from services.xingcheng.infrastructure.rag.hybrid import HybridRetriever
+        try:
+            from services.xingcheng.infrastructure.rag.hybrid import HybridRetriever
+        except ImportError as e:
+            raise SemanticModelUnavailable(f"Xingcheng module not available: {e}")
 
         retriever = HybridRetriever(self._qdrant_client)
         results = await retriever.retrieve(
