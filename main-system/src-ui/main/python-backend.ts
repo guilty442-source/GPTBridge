@@ -54,6 +54,11 @@ let autoRestartAttempts = 0
 let autoRestartTimer: ReturnType<typeof setTimeout> | null = null
 let manualShutdown = false
 let shutdownToken = ''
+const backendProbeAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 1,
+  maxFreeSockets: 1,
+})
 
 // Attached-backend supervision: an attached backend is not our child, so
 // the exit handler never fires and backendStatus would stay 'running'
@@ -114,7 +119,13 @@ async function probeExistingBackend(): Promise<boolean> {
   const backendPort = await resolveBackendPort()
   return new Promise((resolve) => {
     const request = http.get(
-      { host: LOOPBACK_HOST, port: backendPort, path: BACKEND_HEALTH_PATH, timeout: 8_000 },
+      {
+        host: LOOPBACK_HOST,
+        port: backendPort,
+        path: BACKEND_HEALTH_PATH,
+        timeout: 8_000,
+        agent: backendProbeAgent,
+      },
       (response) => {
         const chunks: Buffer[] = []
         response.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
@@ -260,6 +271,7 @@ function spawnBootCore(
         env: {
           ...runtimeEnvironment,
           GPTBRIDGE_PROJECT_ROOT: paths.workspaceRoot,
+          GPTBRIDGE_RELEASE_ROOT: paths.workspaceRoot,
           GPTBRIDGE_APP_VERSION: PRODUCT_VERSION,
           GPTBRIDGE_IPC_STATE_ROOT: getIpcStateRoot(),
           GPTBRIDGE_IPC_SESSION_TOKEN: getBackendSessionToken(),

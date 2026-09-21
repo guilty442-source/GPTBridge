@@ -7,7 +7,28 @@ from __future__ import annotations
 
 import os
 import sys
+import subprocess
 from pathlib import Path
+
+def _get_main_project_root() -> Path:
+    """Get the main project root (E:/GPTBridge) regardless of worktree."""
+    # Try to get from git common dir
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            capture_output=True, text=True, check=True, timeout=5
+        )
+        git_common_dir = Path(result.stdout.strip())
+        # Main project root is parent of .git
+        return git_common_dir.parent
+    except Exception:
+        pass
+    # Fallback: check if we're in a known worktree location
+    current = Path(__file__).resolve().parents[2]
+    if ".kilo\\worktrees" in str(current) or ".worktrees" in str(current):
+        return Path("E:/GPTBridge")
+    return current
+
 
 _ROOT = Path(__file__).resolve().parents[2]
 for _p in (
@@ -40,6 +61,7 @@ from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+MAIN_PROJECT_ROOT = _get_main_project_root()
 LOCAL_MODEL_ROOT = ROOT / "Standalone tools" / "local-model"
 
 @cache
@@ -118,28 +140,29 @@ VISIBLE_PROCESS_CALLS = {
 }
 
 
-
 def _manifest_paths() -> list[Path]:
     def _is_valid_path(path: Path) -> bool:
         """Exclude worktree and hidden directories."""
         parts = path.parts
         return not any(part.startswith(".") or part == "worktrees" for part in parts)
 
+    # Use MAIN_PROJECT_ROOT for manifest discovery (structural test)
+    search_root = MAIN_PROJECT_ROOT
     paths = list(
         path
-        for path in ROOT.glob("*/manifest.json")
+        for path in search_root.glob("*/manifest.json")
         if _is_valid_path(path)
         and json.loads(_read_text_cached(str(path))).get("id") in EXPECTED_TOOL_IDS
     )
     paths.extend(
         path
-        for path in ROOT.glob("Standalone tools/*/manifest.json")
+        for path in search_root.glob("Standalone tools/*/manifest.json")
         if _is_valid_path(path)
         and json.loads(_read_text_cached(str(path))).get("id") in EXPECTED_TOOL_IDS
     )
     paths.extend(
         path
-        for path in ROOT.glob("Standalone tools/*/*/manifest.json")
+        for path in search_root.glob("Standalone tools/*/*/manifest.json")
         if _is_valid_path(path)
         and (
             json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")
@@ -149,7 +172,7 @@ def _manifest_paths() -> list[Path]:
     )
     paths.extend(
         path
-        for path in ROOT.glob("Standalone tools/*/*/*/manifest.json")
+        for path in search_root.glob("Standalone tools/*/*/*/manifest.json")
         if _is_valid_path(path)
         and (
             json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")
@@ -159,7 +182,7 @@ def _manifest_paths() -> list[Path]:
     )
     paths.extend(
         path
-        for path in ROOT.glob("Standalone tools/*/*/*/*/manifest.json")
+        for path in search_root.glob("Standalone tools/*/*/*/*/manifest.json")
         if _is_valid_path(path)
         and (
             json.loads(_read_text_cached(str(path))).get("main_system_independent_tool")

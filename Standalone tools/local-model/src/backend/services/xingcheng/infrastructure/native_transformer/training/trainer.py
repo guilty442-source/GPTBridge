@@ -7,16 +7,19 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from functools import partial
-from typing import Any
+import math
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable
 
 import torch
 from torch.utils.data import DataLoader
 
+from ..checkpoint import save_checkpoint
 from ..config import XingChengConfig
 from ..execution.backend import resolve_device, default_dtype
 from ..modules.model import XingChengForCausalLM
+from ..tokenizer import XingChengTokenizer
 from .data import collate_batch
 from .optimizer import build_optimizer
 
@@ -36,8 +39,9 @@ class TrainingConfig:
     optimizer: str = "adamw"
     device: str | torch.device | None = None
     dtype: torch.dtype | None = None
-    use_amp: bool = True
     seed: int = 42
+    checkpoint_dir: str | None = None
+    checkpoint_every: int = 0
 
 
 class Trainer:
@@ -48,36 +52,23 @@ class Trainer:
         model: XingChengForCausalLM,
         config: TrainingConfig,
         train_config: XingChengConfig,
+        *,
+        tokenizer: XingChengTokenizer | None = None,
     ) -> None:
         self.model = model
         self.tcfg = config
         self.train_config = train_config
+        self.tokenizer = tokenizer
         self.device = resolve_device(config.device)
         self.dtype = config.dtype or default_dtype(self.device)
-        self.use_amp = bool(
-            config.use_amp and self.device.type in {"cuda", "mps"}
-        )
         model.to(self.device)
         self.optimizer = build_optimizer(
             model.parameters(), train_config,
             lr=config.lr, weight_decay=config.weight_decay, kind=config.optimizer,
         )
-        self.scaler = self._make_scaler()
         self._step = 0
+        self.checkpoints: list[str] = []
         torch.manual_seed(config.seed)
-
-    def _make_scaler(self):
-        if not self.use_amp or self.dtype != torch.float16:
-            return None
-        try:
-            return torch.amp.GradScaler(self.device.type)
-        except (AttributeError, TypeError):  # pragma: no cover - 舊版 torch
-            return torch.cuda.amp.GradScaler()
-
-    def _autocast(self):
-        if not self.use_amp:
-            return torch.autocast(device_type=self.device.type, enabled=False)
-        return torch.autocast(device_type=self.device.type, dtype=self.dtype)
 
     def _lr_scale(self) -> float:
         if self.tcfg.warmup_steps <= 0:
@@ -89,22 +80,14 @@ class Trainer:
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
     ) -> float:
-        input_ids = input_ids.to(self.device, non_blocking=self.device.type == "cuda")
-        attention_mask = attention_mask.to(
-            self.device, non_blocking=self.device.type == "cuda"
-        )
+        input_ids = input_ids.to(self.device)
+        attention_mask = attention_mask.to(self.device)
         labels = input_ids.clone()
         labels[attention_mask == 0] = self.train_config.pad_token_id
 
-        with self._autocast():
-            out = self.model(input_ids, attention_mask=attention_mask, labels=labels)
-            loss = out["loss"]
-        if self.scaler is not None:
-            self.scaler.scale(loss).backward()
-            if self.tcfg.grad_clip > 0:
-                self.scaler.unscale_(self.optimizer)
-        else:
-            loss.backward()
+        out = self.model(input_ids, attention_mask=attention_mask, labels=labels)
+        loss = out["loss"]
+        loss.backward()
         if self.tcfg.grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.tcfg.grad_clip)
 
@@ -112,14 +95,26 @@ class Trainer:
         scale = self._lr_scale()
         for pg in self.optimizer.param_groups:
             pg["lr"] = self.tcfg.lr * scale
-        if self.scaler is not None:
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-        else:
-            self.optimizer.step()
+        self.optimizer.step()
         self.optimizer.zero_grad(set_to_none=True)
         self._step += 1
         return float(loss.detach().item())
+
+    def _maybe_checkpoint(self, loss: float) -> None:
+        if not self.tcfg.checkpoint_dir or self.tcfg.checkpoint_every <= 0:
+            return
+        if self._step % self.tcfg.checkpoint_every != 0:
+            return
+        target = Path(self.tcfg.checkpoint_dir) / f"step-{self._step:06d}.pt"
+        info = save_checkpoint(
+            target,
+            self.model,
+            tokenizer=self.tokenizer,
+            optimizer=self.optimizer,
+            metadata={"step": self._step, "loss": loss, "source": "trainer"},
+            extra={"step": self._step},
+        )
+        self.checkpoints.append(info["path"])
 
     def fit(self, dataloader: DataLoader) -> dict[str, Any]:
         self.model.train()
@@ -132,12 +127,19 @@ class Trainer:
                 history.append(loss)
                 if self.tcfg.log_every > 0 and (self._step % self.tcfg.log_every == 0):
                     log.info("step %d loss=%.4f", self._step, loss)
+                self._maybe_checkpoint(loss)
                 if max_steps is not None and self._step >= max_steps:
-                    return {"losses": history, "steps": self._step, "final_loss": history[-1]}
+                    return {
+                        "losses": history,
+                        "steps": self._step,
+                        "final_loss": history[-1],
+                        "checkpoints": list(self.checkpoints),
+                    }
         return {
             "losses": history,
             "steps": self._step,
             "final_loss": history[-1] if history else float("nan"),
+            "checkpoints": list(self.checkpoints),
         }
 
 
@@ -148,22 +150,14 @@ def make_dataloader(
     *,
     shuffle: bool = True,
     num_workers: int = 0,
-    pin_memory: bool | None = None,
-    prefetch_factor: int = 2,
-    persistent_workers: bool = True,
 ) -> DataLoader:
-    workers = max(0, int(num_workers))
-    kwargs: dict[str, Any] = {
-        "batch_size": batch_size,
-        "shuffle": shuffle,
-        "num_workers": workers,
-        "collate_fn": partial(collate_batch, pad_id=pad_id),
-        "pin_memory": torch.cuda.is_available() if pin_memory is None else pin_memory,
-    }
-    if workers > 0:
-        kwargs["prefetch_factor"] = max(1, int(prefetch_factor))
-        kwargs["persistent_workers"] = bool(persistent_workers)
-    return DataLoader(dataset, **kwargs)
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        collate_fn=lambda b: collate_batch(b, pad_id),
+    )
 
 
 __all__ = ["Trainer", "TrainingConfig", "make_dataloader"]

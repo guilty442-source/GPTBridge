@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import urllib.parse
+import urllib.request
 from typing import Any
 
 from .provider import SearchProvider, SearchProviderError
@@ -82,7 +83,6 @@ class SearXNGProvider(SearchProvider):
         except URLSafetyError as exc:
             raise SearchProviderError(f"SearXNG URL 安全檢查失敗: {exc}") from exc
 
-        import urllib.request
         req = urllib.request.Request(safe_url, headers={
             "User-Agent": "XingCheng/1.0",
             "Accept": "application/json",

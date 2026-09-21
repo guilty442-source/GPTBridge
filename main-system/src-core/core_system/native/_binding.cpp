@@ -2,8 +2,8 @@
 //
 // Binding-only (A220/E185): wraps the C functions declared in
 // native/include/gptbridge_native.h and implemented in
-// native/bridge/gptbridge_native.c, plus the compute cores in
-// native/core/{parser,vector,transformer}.cpp.  Does not duplicate
+// native/bridge/gptbridge_native.c, plus the pure-C compute cores in
+// native/core/{parser,vector,transformer}.c.  Does not duplicate
 // bridge or core logic.
 //
 // Built by build_native.py into _sovereign_native.pyd placed next to this
@@ -22,9 +22,9 @@
 #include <pybind11/numpy.h>
 
 #include "gptbridge_native.h"
-#include "parser.hpp"
-#include "vector.hpp"
-#include "transformer.hpp"
+#include "parser.h"
+#include "vector.h"
+#include "transformer.h"
 
 #include <stdexcept>
 #include <vector>
@@ -39,7 +39,7 @@ static py::object parser_token_estimate(py::str text) {
     if (data == nullptr) {
         throw py::error_already_set();
     }
-    int64_t count = gptbridge_native_parser::token_estimate(data, static_cast<int64_t>(len));
+    int64_t count = gptbridge_native_parser_token_estimate(data, static_cast<int64_t>(len));
     return py::cast(count);
 }
 
@@ -78,7 +78,7 @@ static py::object parser_batch_token_estimate(py::list texts) {
     // Release GIL during pure compute.
     {
         py::gil_scoped_release release;
-        gptbridge_native_parser::batch_token_estimate(
+        gptbridge_native_parser_batch_token_estimate(
             ptrs.data(), lens.data(), static_cast<int64_t>(n), results.data());
     }
 
@@ -107,7 +107,7 @@ static py::object vector_dot(py::array_t<double> a, py::array_t<double> b) {
     double result;
     {
         py::gil_scoped_release release;
-        result = gptbridge_native_vector::dot(a_ptr, b_ptr, dim);
+        result = gptbridge_native_vector_dot(a_ptr, b_ptr, dim);
     }
     return py::cast(result);
 }
@@ -123,7 +123,7 @@ static py::object vector_l2_norm(py::array_t<double> a) {
     double result;
     {
         py::gil_scoped_release release;
-        result = gptbridge_native_vector::l2_norm(a_ptr, dim);
+        result = gptbridge_native_vector_l2_norm(a_ptr, dim);
     }
     return py::cast(result);
 }
@@ -144,7 +144,7 @@ static py::object vector_cosine_similarity(py::array_t<double> a, py::array_t<do
     double result;
     {
         py::gil_scoped_release release;
-        result = gptbridge_native_vector::cosine_similarity(a_ptr, b_ptr, dim);
+        result = gptbridge_native_vector_cosine_similarity(a_ptr, b_ptr, dim);
     }
     return py::cast(result);
 }
@@ -176,7 +176,7 @@ static py::object transformer_matmul(
     int rc;
     {
         py::gil_scoped_release release;
-        rc = gptbridge_native_transformer::matmul(a_ptr, m, k, b_ptr, k_in, n, c_ptr);
+        rc = gptbridge_native_transformer_matmul(a_ptr, m, k, b_ptr, k_in, n, c_ptr);
     }
     if (rc != 0) {
         throw std::runtime_error("matmul failed");
@@ -200,7 +200,7 @@ static py::object transformer_softmax(py::array_t<double> input) {
     int rc;
     {
         py::gil_scoped_release release;
-        rc = gptbridge_native_transformer::softmax(in_ptr, rows, cols, out_ptr);
+        rc = gptbridge_native_transformer_softmax(in_ptr, rows, cols, out_ptr);
     }
     if (rc != 0) {
         throw std::runtime_error("softmax failed");
@@ -245,7 +245,7 @@ static py::object transformer_scaled_dot_product_attention(
     int rc;
     {
         py::gil_scoped_release release;
-        rc = gptbridge_native_transformer::scaled_dot_product_attention(
+        rc = gptbridge_native_transformer_scaled_dot_product_attention(
             q_ptr, q_rows, d_k,
             k_ptr, k_rows, d_k_in,
             v_ptr, v_rows, d_v,

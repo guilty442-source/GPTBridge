@@ -1,0 +1,74 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-v1",
+  "seed": 42,
+  "notes": "九類能力獨立評估；題目為本套件專用 held-out 內容，不得進入訓練語料。",
+  "items": [
+    {
+      "id": "zhtw-ppl-1", "category": "zh-TW", "check": "ppl_max",
+      "eval_text": "臺灣的秋天氣候涼爽，適合出外旅遊。山上楓葉轉紅，海邊風浪較大，漁民會特別注意天氣預報。",
+      "max": 3000.0
+    },
+    {
+      "id": "zhtw-ppl-2", "category": "zh-TW", "check": "ppl_max",
+      "eval_text": "系統更新前請先確認備份完成，若驗證失敗會自動回復到先前版本，過程中服務不會中斷。",
+      "max": 3000.0
+    },
+    {
+      "id": "en-ppl-1", "category": "en", "check": "ppl_max",
+      "eval_text": "The database migration runs in two phases: first the schema is updated, then the rows are copied in batches.",
+      "max": 3000.0
+    },
+    {
+      "id": "math-add-1", "category": "math", "check": "first_int",
+      "prompt": "請計算：17 + 25 = ", "expected": 42, "max_new_tokens": 8
+    },
+    {
+      "id": "math-mul-1", "category": "math", "check": "first_int",
+      "prompt": "請計算：6 × 7 = ", "expected": 42, "max_new_tokens": 8
+    },
+    {
+      "id": "math-cmp-1", "category": "math", "check": "contains",
+      "prompt": "比較大小：83 和 38，哪個比較大？回答：", "expected": "83", "max_new_tokens": 8
+    },
+    {
+      "id": "code-ppl-1", "category": "code", "check": "ppl_max",
+      "eval_text": "def fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n - 1) + fibonacci(n - 2)",
+      "max": 3000.0
+    },
+    {
+      "id": "code-regex-1", "category": "code", "check": "regex",
+      "prompt": "def add(a, b):", "pattern": "return\\s+a\\s*\\+\\s*b", "max_new_tokens": 24
+    },
+    {
+      "id": "reading-ppl-1", "category": "reading", "check": "ppl_max",
+      "eval_text": "閱讀下列文章並回答問題。文章：圖書館每週二休館，其餘日子上午九點開放至下午五點。問題：圖書館哪天不開放？答案：星期二。",
+      "max": 3000.0
+    },
+    {
+      "id": "multi-turn-1", "category": "multi_turn", "check": "contains",
+      "prompt": "<|im_start|>user\n我叫小林。<|im_end|>\n<|im_start|>assistant\n你好小林。<|im_end|>\n<|im_start|>user\n我叫什麼名字？<|im_end|>\n<|im_start|>assistant\n",
+      "expected": "小林", "max_new_tokens": 24
+    },
+    {
+      "id": "context-1", "category": "context_tracking", "check": "contains",
+      "prompt": "<|im_start|>user\n記住這個代號：TR-55。<|im_end|>\n<|im_start|>assistant\n好的，已記住代號 TR-55。<|im_end|>\n<|im_start|>user\n代號是什麼？<|im_end|>\n<|im_start|>assistant\n",
+      "expected": "TR-55", "max_new_tokens": 24
+    },
+    {
+      "id": "instruction-1", "category": "instruction", "check": "choice",
+      "prompt": "<|im_start|>user\n只回答「是」或「否」：天空是藍色的嗎？<|im_end|>\n<|im_start|>assistant\n",
+      "allowed": ["是"], "max_new_tokens": 8
+    },
+    {
+      "id": "instruction-2", "category": "instruction", "check": "contains",
+      "prompt": "<|im_start|>user\n請複誦：蘋果<|im_end|>\n<|im_start|>assistant\n",
+      "expected": "蘋果", "max_new_tokens": 12
+    },
+    {
+      "id": "toolcall-1", "category": "tool_call_format", "check": "tool_call",
+      "prompt": "<|im_start|>user\n呼叫 get_time 工具取得現在時間。<|im_end|>\n<|im_start|>assistant\n",
+      "tool_name": "get_time", "max_new_tokens": 48
+    }
+  ]
+}

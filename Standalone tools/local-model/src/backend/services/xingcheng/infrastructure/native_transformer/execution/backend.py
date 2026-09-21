@@ -3,9 +3,11 @@
 對應技術棧：
   ATen / Dispatcher / Torch C++ Backend
     → 高效能數學與 Kernel (BLAS / oneDNN / cuBLASLt / cuDNN / FlashAttention)
-    → Triton / Gluon / CUDA
-    → PTX / SASS
+    → Triton（PyTorch 生態內自研 kernel 選項）
     → CPU / NVIDIA GPU / (Apple MPS)
+
+  （Gluon / CUDA C++ / PTX / SASS 屬後續自研推論引擎範疇，
+   不在本模型範圍 — 主線裁決 2026-09-19）
 
 本模組在 Python 層偵測可用後端，並提供統一的裝置 / dtype / backend 描述物件，
 讓上層模組可依硬體能力選擇最佳路徑（例如 Attention 自動使用 FlashAttention、
@@ -75,10 +77,14 @@ def _detect_flash_attention() -> dict[str, Any]:
         info["available"] = True
         if torch.cuda.is_available():
             try:
-                from torch.nn.attention import SDPBackend  # noqa: F401
+                from torch.nn.attention import SDPBackend
+
                 info["flash_backend"] = True
+                # kernel 是否真實編譯存在（Windows wheel 常缺 flash kernel）
+                info["flash_kernel"] = _probe_sdpa_kernel(SDPBackend.FLASH_ATTENTION)
             except Exception:
                 info["flash_backend"] = False
+                info["flash_kernel"] = False
     except Exception:
         pass
     return info
@@ -175,6 +181,46 @@ def default_dtype(device: torch.device | None = None) -> torch.dtype:
     return torch.float32
 
 
+# ── CPU 執行緒策略（R8：訓練／推論統一入口）─────────────────────
+def cpu_thread_budget(
+    role: str = "inference",
+    *,
+    configured: int = 0,
+    cores: int | None = None,
+) -> int:
+    """依角色回傳 CPU 執行緒預算（不修改全域狀態）。
+
+    - ``inference``：預設 min(4, cores//4)——常駐服務保守讓路。
+    - ``training``：預設 min(8, cores//2)——批次工作可用較多核心。
+    ``configured`` > 0 時為顯式覆寫（上限 16）。
+    """
+    n = int(cores or os.cpu_count() or 8)
+    if int(configured) > 0:
+        return max(1, min(16, int(configured)))
+    if str(role) == "training":
+        return max(1, min(8, n // 2))
+    return max(1, min(4, n // 4))
+
+
+def apply_cpu_thread_budget(
+    role: str = "inference",
+    *,
+    configured: int = 0,
+) -> int:
+    """套用 CPU 執行緒預算（set_num_threads + interop=1）；回傳實際預算。
+
+    非 CPU 裝置仍應呼叫——PyTorch 的 host 端算子（dataloader、
+    tokenize、dispatch 前處理）都吃 CPU 執行緒。
+    """
+    budget = cpu_thread_budget(role, configured=configured)
+    torch.set_num_threads(budget)
+    try:
+        torch.set_num_interop_threads(1)
+    except Exception:  # interop 只能設定一次；重複設定忽略
+        pass
+    return budget
+
+
 def enable_flash_attention(enabled: bool = True) -> None:
     """全域啟用 / 停用 SDPA 內部 FlashAttention 調度。"""
     try:
@@ -183,6 +229,139 @@ def enable_flash_attention(enabled: bool = True) -> None:
         torch.backends.cuda.enable_math_sdp(True)
     except Exception:
         pass
+
+
+_TRITON_KERNELS_ENABLED = False
+
+
+def triton_kernels_enabled() -> bool:
+    """自研 Triton kernel 是否啟用（預設關閉：品質優先）。
+
+    Triton kernel（RMSNorm／SwiGLU／RoPE）目前僅通過逐運算元數值比對，
+    在模型層級的困惑度與 PyTorch 參考實作仍有差異，因此預設關閉；
+    需要量測加速時才以 ``set_triton_kernels(True)`` 顯式開啟。
+    """
+    return _TRITON_KERNELS_ENABLED
+
+
+def set_triton_kernels(enabled: bool) -> None:
+    global _TRITON_KERNELS_ENABLED
+    _TRITON_KERNELS_ENABLED = bool(enabled)
+
+
+def _probe_sdpa_kernel(backend_enum: Any) -> bool:
+    """強制單一後端執行小型 SDPA，確認 kernel 是否真正可用。
+
+    flag 開啟不代表 kernel 已編譯（例如 Windows 官方 wheel 未含
+    FlashAttention）；此探針以真實執行判定，失敗一律回 ``False``。
+    """
+    try:
+        import warnings
+
+        from torch.nn.attention import sdpa_kernel
+
+        q = torch.zeros(1, 2, 16, 32, device="cuda", dtype=torch.bfloat16)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with sdpa_kernel(backend_enum):
+                torch.nn.functional.scaled_dot_product_attention(q, q, q, is_causal=True)
+        torch.cuda.synchronize()
+        return True
+    except Exception:
+        return False
+
+
+def _probe_dispatched_sdpa_backend() -> str:
+    """以 profiler 觀察一次代表性 SDPA 呼叫，回報實際派發的 kernel。
+
+    稽核要求「透過實際執行紀錄確認所選後端」——dispatcher 依
+    dtype / shape / mask 逐次決定，此處以常見推論形狀（bf16, causal）
+    取樣；結果為該形狀下的真實 kernel，非理論上界。
+    """
+    try:
+        from torch.profiler import ProfilerActivity, profile
+
+        q = torch.zeros(1, 2, 16, 32, device="cuda", dtype=torch.bfloat16)
+        with profile(activities=[ProfilerActivity.CUDA]) as prof:
+            torch.nn.functional.scaled_dot_product_attention(q, q, q, is_causal=True)
+            torch.cuda.synchronize()
+        names = " ".join(
+            e.key
+            for e in prof.key_averages()
+            if (getattr(e, "self_device_time_total", 0) or 0) > 0
+        ).lower()
+        if "flash" in names:
+            return "flash_attention"
+        if "cudnn" in names:
+            return "cudnn_attention"
+        if "fmha" in names or "efficient_attention" in names:
+            return "mem_efficient"
+        if "softmax" in names or "gemm" in names:
+            return "math"
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+
+_sdpa_actual_cache: dict[str, Any] | None = None
+
+
+def describe_sdpa_backends() -> dict[str, Any]:
+    """回報 SDPA 各後端的真實可用性與本機實際派發結果。
+
+    稽核要求「不得以 API 呼叫成功視為 FlashAttention 已啟用」——
+    旗標只代表後端未被停用，不代表 kernel 已編譯或被派發。
+    本函式以強制探針判定各 kernel 是否存在，再以 profiler 觀察
+    代表性呼叫的真實派發；``flash_active`` 僅在 profiler 實際
+    觀測到 flash kernel 時為真。
+    """
+    global _sdpa_actual_cache
+    if _sdpa_actual_cache is not None:
+        return _sdpa_actual_cache
+    cuda = torch.cuda.is_available()
+    flags: dict[str, bool] = {}
+    for name, getter in (
+        ("flash_sdp", lambda: torch.backends.cuda.flash_sdp_enabled()),
+        ("mem_efficient_sdp", lambda: torch.backends.cuda.mem_efficient_sdp_enabled()),
+        ("math_sdp", lambda: torch.backends.cuda.math_sdp_enabled()),
+        ("cudnn_sdp", lambda: getattr(torch.backends.cuda, "cudnn_sdp_enabled", lambda: False)()),
+    ):
+        try:
+            flags[name] = bool(getter())
+        except Exception:
+            flags[name] = False
+    if not cuda:
+        expected = "math" if flags.get("math_sdp", True) else "unknown"
+        _sdpa_actual_cache = {
+            "device": "cpu",
+            "flags": flags,
+            "kernel_compiled": {},
+            "expected_backend": expected,
+            "flash_active": False,
+            "note": "CPU 無 FlashAttention；SDPA 走 math / oneDNN 路徑",
+        }
+        return _sdpa_actual_cache
+    kernel_compiled: dict[str, bool] = {}
+    try:
+        from torch.nn.attention import SDPBackend
+
+        kernel_compiled = {
+            "flash_attention": _probe_sdpa_kernel(SDPBackend.FLASH_ATTENTION),
+            "cudnn_attention": _probe_sdpa_kernel(SDPBackend.CUDNN_ATTENTION),
+            "mem_efficient": _probe_sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION),
+        }
+    except Exception:
+        kernel_compiled = {}
+    expected = _probe_dispatched_sdpa_backend()
+    _sdpa_actual_cache = {
+        "device": "cuda",
+        "flags": flags,
+        "kernel_compiled": kernel_compiled,
+        "expected_backend": expected,
+        "flash_active": expected == "flash_attention",
+        "note": "expected_backend 為 profiler 實測派發結果；旗標僅代表後端未被停用",
+    }
+    return _sdpa_actual_cache
 
 
 def set_gemm_backend(device: torch.device) -> str:
@@ -210,6 +389,9 @@ __all__ = [
     "reset_capabilities",
     "resolve_device",
     "default_dtype",
+    "cpu_thread_budget",
+    "apply_cpu_thread_budget",
+    "describe_sdpa_backends",
     "enable_flash_attention",
     "set_gemm_backend",
 ]

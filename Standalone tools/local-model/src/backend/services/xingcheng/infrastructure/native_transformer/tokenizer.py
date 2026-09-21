@@ -11,7 +11,10 @@
 
 from __future__ import annotations
 
-from typing import Iterable, List, Sequence
+from typing import TYPE_CHECKING, Iterable, List, Sequence
+
+if TYPE_CHECKING:
+    from .config import XingChengConfig
 
 PAD_ID = 0
 BOS_ID = 1
@@ -91,3 +94,8 @@ class XingChengTokenizer:
     @classmethod
     def from_state(cls, state: dict) -> "XingChengTokenizer":
         return cls(vocab_size=int(state["vocab_size"]))
+
+    @classmethod
+    def from_config(cls, config: "XingChengConfig") -> "XingChengTokenizer":
+        """建立與模型詞表一致大小的 tokenizer。"""
+        return cls(vocab_size=int(config.vocab_size))

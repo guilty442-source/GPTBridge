@@ -38,10 +38,12 @@ function firstExisting(candidates: string[]): string | null {
 }
 
 function hasWorkspaceMarkers(candidate: string): boolean {
+  const sourceCore = fs.existsSync(path.join(candidate, 'main-system', 'src-core'))
+    || fs.existsSync(path.join(candidate, 'src-core'))
   return (
     fs.existsSync(path.join(candidate, 'governance_rule')) &&
     fs.existsSync(path.join(candidate, 'governance_rule', 'permission_directory')) &&
-    fs.existsSync(path.join(candidate, 'main-system', 'src-core'))
+    sourceCore
   )
 }
 

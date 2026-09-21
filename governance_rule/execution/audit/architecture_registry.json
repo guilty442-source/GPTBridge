@@ -259,6 +259,19 @@
       "information_channels": ["information-channel", "transport", "outbox", "state-events"]
     },
     {
+      "component_id": "tokenizer",
+      "architectural_role": "information",
+      "runtime_form": "python-process",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "channel_contract_sync_sub_sovereign",
+      "execution_identity": "tokenizer",
+      "physical_path": "shared-layer/src/shared_layer/tokenizer.py",
+      "lifecycle": "resident",
+      "canonical": true,
+      "dependencies": ["shared-layer"],
+      "information_channels": ["information-channel"]
+    },
+    {
       "component_id": "information-channel-gateway",
       "architectural_role": "information",
       "runtime_form": "python-process",
@@ -480,6 +493,19 @@
       "information_channels": ["information-channel"]
     },
     {
+      "component_id": "domain-term-extractor",
+      "architectural_role": "execution",
+      "runtime_form": "standalone-service",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "change_acceptance_sub_sovereign",
+      "execution_identity": "domain-term-extractor",
+      "physical_path": "Standalone tools/domain-term-extractor",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["shared-layer"],
+      "information_channels": ["information-channel"]
+    },
+    {
       "component_id": "investment-mobile",
       "architectural_role": "development-maintenance",
       "runtime_form": "python-process",
@@ -529,6 +555,19 @@
       "lifecycle": "on-demand",
       "canonical": true,
       "dependencies": ["shared-layer"],
+      "information_channels": ["information-channel"]
+    },
+    {
+      "component_id": "chinese-semantic-engine",
+      "architectural_role": "model",
+      "runtime_form": "standalone-service",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "data_governance_sub_sovereign",
+      "execution_identity": "chinese-semantic-engine-v2",
+      "physical_path": "Standalone tools/chinese-semantic-engine",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["shared-layer", "qdrant", "local-model"],
       "information_channels": ["information-channel"]
     },
     {
@@ -622,6 +661,45 @@
       "canonical": true,
       "dependencies": ["governance_rule"],
       "information_channels": []
+    },
+    {
+      "component_id": "business-logic-csharp",
+      "architectural_role": "execution",
+      "runtime_form": "standalone-service",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "change_acceptance_sub_sovereign",
+      "execution_identity": "business-logic-csharp",
+      "physical_path": "Standalone tools/business-logic-csharp",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["local-model", "shared-layer"],
+      "information_channels": ["information-channel"]
+    },
+    {
+      "component_id": "native-compute-core",
+      "architectural_role": "execution",
+      "runtime_form": "build-tooling",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "data_governance_sub_sovereign",
+      "execution_identity": "native-compute-core",
+      "physical_path": "native/core",
+      "lifecycle": "resident",
+      "canonical": true,
+      "dependencies": ["governance_rule"],
+      "information_channels": []
+    },
+    {
+      "component_id": "model-training",
+      "architectural_role": "model",
+      "runtime_form": "python-process",
+      "owner_sovereign": "xingcheng-domain",
+      "owner_sub_sovereign": "data_governance_sub_sovereign",
+      "execution_identity": "model-training",
+      "physical_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["local-model", "shared-layer", "native-compute-core"],
+      "information_channels": ["information-channel"]
     }
   ]
 }

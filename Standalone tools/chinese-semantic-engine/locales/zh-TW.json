@@ -1,0 +1,6 @@
+{
+  "tool.name": "中文語意引擎 v2",
+  "tool.window_title": "中文語意引擎 v2",
+  "tool.description": "增強版中文語意處理引擎，整合星澄原生模型與 Qdrant 語意索引。",
+  "errors.permission_denied": "權限不足"
+}

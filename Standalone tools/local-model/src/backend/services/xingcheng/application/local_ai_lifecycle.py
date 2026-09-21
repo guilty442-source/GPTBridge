@@ -5,76 +5,14 @@ import threading
 from typing import Any
 
 from ..integration.channel_client import build_star_ai_channel_client
-
-
-_GIT_COMMANDS = frozenset(
-    {
-        "xingcheng_git_status",
-        "xingcheng_git_history",
-        "xingcheng_git_stage",
-        "xingcheng_git_commit",
-    }
-)
-_RAG_COMMANDS = frozenset(
-    {
-        "xingcheng_rag_status",
-        "xingcheng_rag_ingest",
-        "xingcheng_rag_query",
-        "xingcheng_knowledge_unified_search",
-    }
-)
-_SQL_COMMANDS = frozenset(
-    {
-        "xingcheng_sql_status",
-        "xingcheng_sql_get_personality",
-        "xingcheng_sql_save_personality",
-        "xingcheng_sql_list_knowledge",
-        "xingcheng_sql_save_knowledge",
-    }
-)
-_MEMORY_UPGRADE_COMMANDS = frozenset(
-    {
-        "xingcheng_evaluate_upgrade",
-        "xingcheng_memory_list",
-        "xingcheng_memory_review",
-    }
-)
-_TUNE_MOBILE_COMMANDS = frozenset(
-    {
-        "xingcheng_tune_investment_parameters",
-        "xingcheng_mobile_get_investment_snapshot",
-        "xingcheng_mobile_submit_investment_instruction",
-    }
-)
-_INVESTMENT_COMMANDS = frozenset(
-    {
-        "xingcheng_search_investments",
-        "xingcheng_analyze_investments",
-        "xingcheng_discuss_investment_analysis",
-        "xingcheng_manage_investment_accounting",
-    }
-)
-_DIAGNOSTICS_COMMANDS = frozenset(
-    {
-        "xingcheng_diagnose_fault",
-    }
-)
-_CODEX_DIAGNOSTICS_COMMANDS = frozenset(
-    {
-        "xingcheng_codex_alignment",
-        "xingcheng_codex_mirror_check",
-    }
-)
-_TEACHING_COMMANDS = frozenset(
-    {
-        "xingcheng_submit_teaching",
-    }
-)
+from .xingcheng_commands import get_xingcheng_registry, resolve_command
+from .command_parser import validate_parameters
 
 
 class LocalAiLifecycleMixin:
     def owns(self, command: str) -> bool:
-        return command in self.COMMANDS
+        registry = get_xingcheng_registry()
+        return resolve_command(command) is not None
 
     def bind_channel(self, channel: Any) -> None:
         self._ai_channel_client = build_star_ai_channel_client(channel)
@@ -146,28 +84,54 @@ class LocalAiLifecycleMixin:
 
     async def handle(self, command: str, payload: dict[str, Any], _latest: Any = None
     ) -> tuple[str, dict[str, Any]]:
-        if command in _GIT_COMMANDS:
-            return await self._handle_git(command, payload)
-        if command == "xingcheng_platform_status":
-            return await self._handle_platform(command, payload)
-        if command in _RAG_COMMANDS:
-            return await self._handle_rag(command, payload)
-        if command in _SQL_COMMANDS:
-            return await self._handle_sql(command, payload)
-        if command == "xingcheng_status":
-            return await self._handle_status(command, payload)
-        if command in _MEMORY_UPGRADE_COMMANDS:
-            return await self._handle_upgrade_memory(command, payload)
-        if command in _TUNE_MOBILE_COMMANDS:
-            return await self._handle_tune_mobile(command, payload)
-        if command in _INVESTMENT_COMMANDS:
-            return await self._handle_investments(command, payload)
-        if command in _DIAGNOSTICS_COMMANDS:
-            return await self._handle_diagnostics(command, payload)
-        if command in _CODEX_DIAGNOSTICS_COMMANDS:
-            return await self._handle_codex_diagnostics(command, payload)
-        if command in _TEACHING_COMMANDS:
-            return "xingcheng_submit_teaching_result", await asyncio.to_thread(
-                self._submit_teaching_example, payload
-            )
-        return await self._handle_infer(command, payload)
+        """Handle incoming command using the new command registry."""
+        # Resolve command with fuzzy matching
+        spec = resolve_command(command)
+
+        if spec is None:
+            from .xingcheng_commands import get_xingcheng_registry
+            registry = get_xingcheng_registry()
+            # The registry may have been empty on first use; resolve again
+            # once it has been populated.
+            spec = resolve_command(command)
+        if spec is None:
+            suggestions = registry.get_suggestions(command)
+            if suggestions:
+                return "error", {
+                    "ok": False,
+                    "error_code": "UNKNOWN_COMMAND",
+                    "message": f"未知命令: {command}",
+                    "suggestions": suggestions,
+                }
+            return "error", {
+                "ok": False,
+                "error_code": "UNKNOWN_COMMAND",
+                "message": f"未知命令: {command}",
+            }
+
+        # Dispatch to appropriate handler based on command name
+        handler_name = spec.handler
+        handler = getattr(self, handler_name, None)
+
+        if handler is None:
+            return "error", {
+                "ok": False,
+                "error_code": "HANDLER_NOT_FOUND",
+                "message": f"命令處理器未找到: {spec.handler}",
+            }
+
+        # Validate parameters if spec has parameters
+        if spec.parameters:
+            from .command_parser import validate_parameters
+            try:
+                validated_payload = validate_parameters(payload, spec)
+                payload = validated_payload
+            except Exception as e:
+                return "error", {
+                    "ok": False,
+                    "error_code": "PARAM_VALIDATION_ERROR",
+                    "message": str(e),
+                }
+
+        # Call the handler
+        return await handler(command, payload)

@@ -1003,3 +1003,95 @@ def _sql_migration_authority(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
         return False, "SCHEMA_DRIFT_FAIL_CLOSED", "catalog parity mismatch"
 
     return True, "PASS", "SQL migration authority validated"
+
+
+# ---------------------------------------------------------------------------
+# Declared blueprint-decision provisions (A551-A592, governor construction)
+# ---------------------------------------------------------------------------
+#
+# One machine predicate per declared provision: the controlling article must
+# exist in the official codex and be lifecycle-active; an unreadable codex or
+# a non-active provision is FAIL_CLOSED (A445 forbid: missing rule treated
+# PASS).  A453-style governor amendments may replace a predicate with a
+# dedicated evaluator without changing the rule code.
+
+_DECLARED_PROVISION_RULES: dict[str, str] = {
+    "FR-LANG-LAYERING": "A551",
+    "FR-GPU-ACCEL-TRACK": "A552",
+    "FR-MODEL-MOE": "A553",
+    "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE": "A554",
+    "FR-GIT-SQL-RAG-CAG-DAG-DIVISION": "A555",
+    "FR-MODEL-MATURITY": "A556",
+    "FR-MODEL-TRAINING-TIERS": "A557",
+    "FR-PRETRAIN-DATA-PIPELINE": "A558",
+    "FR-SINGLE-BLUEPRINT": "A559",
+    "FR-TRAIN-NTP-CORRECTNESS": "A560",
+    "FR-SMALL-MODEL-BASELINE": "A561",
+    "FR-XINGCHENG-PRIMARY-GOAL": "A562",
+    "FR-MODEL-SCALING": "A563",
+    "FR-MOE-QC": "A564",
+    "FR-DIALOGUE-TRAINING": "A565",
+    "FR-INFER-CONSISTENCY": "A566",
+    "FR-KV-CACHE-TESTS": "A567",
+    "FR-EVAL-SUITE": "A568",
+    "FR-WEIGHT-EVOLUTION": "A569",
+    "FR-CONVERGENCE-PLAN": "A570",
+    "FR-CONNECTION-RECOVERY": "A571",
+    "FR-MAINT-UPDATE-INTEGRATION": "A572",
+    "FR-TASK-LIFECYCLE": "A573",
+    "FR-EXECUTION-LEASE": "A574",
+    "FR-RELEASE-MANIFEST": "A575",
+    "FR-DEV-RUNTIME-SEPARATION": "A576",
+    "FR-BACKEND-LIFECYCLE": "A577",
+    "FR-INTEGRATION-SEQUENCE": "A578",
+    "FR-REQUEST-REGISTRY": "A579",
+    "FR-REQUEST-LIFECYCLE": "A580",
+    "FR-CONNECTION-STATE": "A581",
+    "FR-INTEGRATED-GOALS": "A582",
+    "FR-IMPL-PRECEDENCE": "A583",
+    "FR-MULTI-CONFIG-GPT": "A584",
+    "FR-TOOL-CALLING-COMPETENCE": "A585",
+    "FR-OLLAMA-ON-DEMAND": "A586",
+    "FR-ONDEMAND-MODULES": "A587",
+    "FR-SINGLE-PURPOSE-MODULE": "A588",
+    "FR-MODULE-HASH-CHAIN": "A589",
+    "FR-MULTI-CORE-PARALLEL": "A590",
+    "FR-SOVEREIGN-TO-CORE-ENGINE": "A591",
+    "FR-NO-SUB-SOVEREIGN-ALL-MODULES": "A592",
+}
+
+
+def _declared_provision_evaluator(
+    provision_id: str,
+) -> Callable[[Mapping[str, Any]], tuple[bool, str, str]]:
+    """Predicate factory: controlling provision is declared and active."""
+
+    def evaluator(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+        import sqlite3
+
+        from governance_rule.execution.codex_repository import (
+            CODEX_DATABASE_PATH,
+            codex_readonly_connection,
+        )
+
+        try:
+            with codex_readonly_connection(CODEX_DATABASE_PATH) as connection:
+                row = connection.execute(
+                    "SELECT lifecycle_state FROM provision_lifecycle_status "
+                    "WHERE provision_type='article' AND provision_id=?",
+                    (provision_id,),
+                ).fetchone()
+        except (OSError, sqlite3.Error) as error:
+            return False, "FAIL_CLOSED", f"codex unreadable: {error}"
+        if row is None:
+            return False, "FAIL_CLOSED", f"provision {provision_id} is not declared"
+        state = str(row[0]).strip().lower()
+        if state != "active":
+            return False, "FAIL_CLOSED", f"provision {provision_id} lifecycle {state or 'unknown'}"
+        return True, "PASS", f"declared provision {provision_id} is active"
+
+    return evaluator
+
+
+for _rule_code, _provision_id in _DECLARED_PROVISION_RULES.items():
+    register_rule(_rule_code)(_declared_provision_evaluator(_provision_id))

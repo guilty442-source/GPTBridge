@@ -5,6 +5,10 @@ import urllib.error
 from contextlib import nullcontext
 from typing import Any, Callable, Mapping
 
+from .native_engine import (
+    flag_enabled as native_engine_flag_enabled,
+    generate_via_native_engine,
+)
 from .transformer_runtime_support import (
     _GeneratePlan,
     _generate_request_args,
@@ -69,6 +73,10 @@ class TransformerRuntimeInferenceMixin:
             _use_immutable_base, _base_default_retry,
             _user_designated_model, _dialogue_interactive,
         )
+        if native_engine_flag_enabled():
+            # Phase 1 原生引擎：flag 開啟時完全改走自訓權重（fail-closed，
+            # 不探測 Ollama、不靜默回退第三方權重）。
+            return generate_via_native_engine(request)
         denied = self._generate_precheck(request)
         if denied is not None:
             return denied

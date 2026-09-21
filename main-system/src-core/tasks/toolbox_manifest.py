@@ -118,6 +118,17 @@ class ManifestMixin(ManifestRecordMixin):
     # Manifest caching and tool-directory resolution
     # ------------------------------------------------------------------
 
+    def _is_current_project_tool_directory(self, tool_dir: Path) -> bool:
+        """Reject manifest cache entries originating from another worktree."""
+        try:
+            relative = tool_dir.resolve().relative_to(self.project_root.resolve())
+        except (OSError, ValueError):
+            return False
+        return not any(
+            part.casefold() in {".kilo", ".worktrees"}
+            for part in relative.parts
+        )
+
     def _load_manifest_cached(self, tool_id: str) -> tuple[Dict[str, Any], Path]:
         """Load a tool's manifest, reloading when the file changes on disk.
 
@@ -130,9 +141,13 @@ class ManifestMixin(ManifestRecordMixin):
         cached = self._manifest_cache.get(tool_id)
         if cached is not None:
             manifest, tool_dir = cached
-            key = self._manifest_freshness_key(tool_dir)
-            if key is not None and self._manifest_cache_keys.get(tool_id) == key:
-                return manifest, tool_dir
+            if not self._is_current_project_tool_directory(tool_dir):
+                self._manifest_cache.pop(tool_id, None)
+                self._manifest_cache_keys.pop(tool_id, None)
+            else:
+                key = self._manifest_freshness_key(tool_dir)
+                if key is not None and self._manifest_cache_keys.get(tool_id) == key:
+                    return manifest, tool_dir
         tool_dir = self._tool_directory_for_id(tool_id)
         manifest = json.loads(
             (tool_dir / "manifest.json").read_text(encoding="utf-8")
@@ -166,7 +181,16 @@ class ManifestMixin(ManifestRecordMixin):
         if self.project_root != self.tools_dir and self.project_root.is_dir():
             scan_dirs.append(self.project_root)
         for scan_dir in scan_dirs:
-            for manifest_path in scan_dir.rglob("manifest.json"):
+            manifest_paths = (
+                scan_dir.rglob("manifest.json")
+                if scan_dir == self.tools_dir
+                else (
+                    child / "manifest.json"
+                    for child in scan_dir.iterdir()
+                    if child.is_dir()
+                )
+            )
+            for manifest_path in manifest_paths:
                 candidate = manifest_path.parent
                 # Skip the Standalone tools directory itself when scanning root
                 if scan_dir == self.project_root and candidate == self.tools_dir:
@@ -176,6 +200,8 @@ class ManifestMixin(ManifestRecordMixin):
                 except (OSError, json.JSONDecodeError):
                     continue
                 if not isinstance(manifest, dict):
+                    continue
+                if not self._is_current_project_tool_directory(candidate):
                     continue
                 tid = str(manifest.get("id") or "").strip()
                 if tid:
@@ -200,7 +226,10 @@ class ManifestMixin(ManifestRecordMixin):
         cached = self._manifest_cache.get(tool_id)
         if cached is not None:
             _manifest, tool_dir = cached
-            return self._validated_tool_directory(tool_dir)
+            if self._is_current_project_tool_directory(tool_dir):
+                return self._validated_tool_directory(tool_dir)
+            self._manifest_cache.pop(tool_id, None)
+            self._manifest_cache_keys.pop(tool_id, None)
         # Use the cached index instead of scanning every directory each time.
         index = self._build_tool_dir_index()
         # _build_tool_dir_index() populates _manifest_cache with the real

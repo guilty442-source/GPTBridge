@@ -1,6 +1,6 @@
 """星澄原生模型設定。
 
-`XingChengConfig` 集中所有模型超參數，並提供常用預設（small / base / large）。
+`XingChengConfig` 集中所有模型超參數，並提供常用預設（small / medium / base / xlarge / large 及 MoE 變體）。
 所有模組都從這份設定讀取維度，確保整個模型可由單一資料描述。
 """
 
@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Any, Mapping
 
 
-@dataclass
+@dataclass(slots=True)
 class XingChengConfig:
     """星澄 Transformer 解碼器設定。"""
 
@@ -56,8 +56,20 @@ class XingChengConfig:
     # ── 推論 ────────────────────────────────────────────────────
     max_new_tokens: int = 512
 
+    # ── MoE ─────────────────────────────────────────────────────
+    use_moe: bool = False
+    moe_num_experts: int = 8
+    moe_top_k: int = 2
+    moe_aux_loss_weight: float = 0.01
+    moe_layer_interval: int = 1            # 1=每層皆 MoE，2=隔層 MoE
+
     # ── 量化 ────────────────────────────────────────────────────
     quantization: str = "none"              # "none" | "int8" | "int4" | "fp8"
+
+    # ── VRAM 優化 ────────────────────────────────────────────────
+    kv_cache_quant: str = "none"            # "none" | "int8" — KV cache INT8 量化，省 50% VRAM
+    use_activation_checkpoint: bool = False  # 訓練時重計算 activation，省 30-50% VRAM
+    use_8bit_optimizer: bool = False        # 8-bit AdamW（需 bitsandbytes），省 optimizer VRAM
 
     # ── 執行後端 ────────────────────────────────────────────────
     # 由 runtime/backend.py 解析；此處僅記錄偏好。
@@ -80,6 +92,17 @@ class XingChengConfig:
                 f"hidden_size={self.hidden_size} 必須能被 num_attention_heads="
                 f"{self.num_attention_heads} 整除"
             )
+        if self.use_moe:
+            if self.moe_num_experts < 2:
+                raise ValueError("moe_num_experts 至少為 2")
+            if not 1 <= self.moe_top_k <= self.moe_num_experts:
+                raise ValueError("moe_top_k 必須介於 1 與 moe_num_experts 之間")
+            if self.moe_layer_interval < 1:
+                raise ValueError("moe_layer_interval 至少為 1")
+        if self.kv_cache_quant not in ("none", "int8"):
+            raise ValueError("kv_cache_quant 僅支援 none/int8")
+        if self.quantization not in ("none", "int8", "int4", "fp8"):
+            raise ValueError("quantization 僅支援 none/int8/int4/fp8")
 
     # ── 便利方法 ────────────────────────────────────────────────
     @property
@@ -99,7 +122,7 @@ class XingChengConfig:
     # ── 預設 ────────────────────────────────────────────────────
     @classmethod
     def small(cls) -> "XingChengConfig":
-        """~25M 參數等級，適合 CPU 與單元測試。"""
+        """~5M 參數等級，適合 CPU 與單元測試。"""
         return cls(
             vocab_size=8_192,
             hidden_size=256,
@@ -111,8 +134,21 @@ class XingChengConfig:
         )
 
     @classmethod
+    def medium(cls) -> "XingChengConfig":
+        """~27M 參數等級，單張消費級 GPU / 長時間 CPU 訓練。"""
+        return cls(
+            vocab_size=8_192,
+            hidden_size=512,
+            intermediate_size=1_376,
+            num_hidden_layers=8,
+            num_attention_heads=8,
+            num_key_value_heads=4,
+            max_position_embeddings=1_024,
+        )
+
+    @classmethod
     def base(cls) -> "XingChengConfig":
-        """~120M 參數等級，入門 GPU / 邊緣裝置。"""
+        """~100M 參數等級，入門 GPU / 邊緣裝置。"""
         return cls(
             vocab_size=32_000,
             hidden_size=768,
@@ -124,8 +160,22 @@ class XingChengConfig:
         )
 
     @classmethod
+    def xlarge(cls) -> "XingChengConfig":
+        """~500M 參數等級，RTX 3050 6GB 可訓/推論（BF16 1.0GB + KV 0.2GB，INT8 0.5GB）。"""
+        return cls(
+            vocab_size=32_000,
+            hidden_size=1_536,
+            intermediate_size=4_096,
+            num_hidden_layers=18,
+            num_attention_heads=12,
+            num_key_value_heads=4,
+            max_position_embeddings=4_096,
+            rope_theta=100_000.0,
+        )
+
+    @classmethod
     def large(cls) -> "XingChengConfig":
-        """~1B 參數等級，主力本地訓練 / 推理。"""
+        """~1.2B 參數等級，主力本地訓練 / 推理。"""
         return cls(
             vocab_size=64_000,
             hidden_size=2_048,
@@ -137,3 +187,49 @@ class XingChengConfig:
             max_position_embeddings=8_192,
             rope_theta=500_000.0,
         )
+
+    # ── MoE 變體 ──────────────────────────────────────────────────
+    @classmethod
+    def small_moe(cls, num_experts: int = 8, top_k: int = 2) -> "XingChengConfig":
+        """total ~20M / activated ~7M（E=8,k=2，全部 4 層皆 MoE）。"""
+        cfg = cls.small()
+        cfg.use_moe = True
+        cfg.moe_num_experts = num_experts
+        cfg.moe_top_k = top_k
+        return cfg
+
+    @classmethod
+    def medium_moe(cls, num_experts: int = 8, top_k: int = 2) -> "XingChengConfig":
+        """total ~146M / activated ~44M（E=8,k=2，全部 8 層皆 MoE）。"""
+        cfg = cls.medium()
+        cfg.use_moe = True
+        cfg.moe_num_experts = num_experts
+        cfg.moe_top_k = top_k
+        return cfg
+
+    @classmethod
+    def base_moe(cls, num_experts: int = 8, top_k: int = 2) -> "XingChengConfig":
+        """total ~497M / activated ~157M（E=8,k=2，全部 12 層皆 MoE）。"""
+        cfg = cls.base()
+        cfg.use_moe = True
+        cfg.moe_num_experts = num_experts
+        cfg.moe_top_k = top_k
+        return cfg
+
+    @classmethod
+    def xlarge_moe(cls, num_experts: int = 8, top_k: int = 2) -> "XingChengConfig":
+        """total ~2.9B / activated ~842M（E=8,k=2，全部 18 層皆 MoE）。"""
+        cfg = cls.xlarge()
+        cfg.use_moe = True
+        cfg.moe_num_experts = num_experts
+        cfg.moe_top_k = top_k
+        return cfg
+
+    @classmethod
+    def large_moe(cls, num_experts: int = 8, top_k: int = 2) -> "XingChengConfig":
+        """total ~6.9B / activated ~2.0B（E=8,k=2，全部 24 層皆 MoE）。"""
+        cfg = cls.large()
+        cfg.use_moe = True
+        cfg.moe_num_experts = num_experts
+        cfg.moe_top_k = top_k
+        return cfg

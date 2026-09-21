@@ -55,21 +55,29 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
         self.store = RepairRunStore(self.repair_data_root)
         self.learning_store = RepairLearningStore(self.repair_data_root)
         self.learner = RepairLearner(self.learning_store)
+        self._recipe_file_cache: tuple[int, int, list[dict[str, Any]]] | None = None
 
     def _knowledge_file(self) -> Path:
         return self.repair_data_root / "knowledge" / "recipes.json"
 
     def known_recipes(self) -> list[dict[str, Any]]:
         knowledge_file = self._knowledge_file()
-        raw = ""
         recorded: list[dict[str, Any]] = []
         try:
-            raw = knowledge_file.read_text(encoding="utf-8")
-            recorded = json.loads(raw)
+            stat = knowledge_file.stat()
+            cached = self._recipe_file_cache
+            if cached is not None and cached[:2] == (stat.st_mtime_ns, stat.st_size):
+                recorded = [dict(recipe) for recipe in cached[2]]
+            else:
+                loaded = json.loads(knowledge_file.read_text(encoding="utf-8"))
+                recorded = loaded if isinstance(loaded, list) else []
+                recorded = [
+                    dict(recipe) for recipe in recorded if isinstance(recipe, dict)
+                ]
+                self._recipe_file_cache = (stat.st_mtime_ns, stat.st_size, recorded)
         except (OSError, UnicodeError, json.JSONDecodeError):
             recorded = []
-        if not isinstance(recorded, list):
-            recorded = []
+        raw = json.dumps(recorded, ensure_ascii=False, indent=2)
         merged: dict[str, dict[str, Any]] = {
             recipe["recipe_id"]: dict(recipe) for recipe in REPAIR_RECIPES
         }
@@ -143,6 +151,8 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
             try:
                 knowledge_file.parent.mkdir(parents=True, exist_ok=True)
                 knowledge_file.write_text(payload, encoding="utf-8")
+                stat = knowledge_file.stat()
+                self._recipe_file_cache = (stat.st_mtime_ns, stat.st_size, recipes)
             except OSError:
                 pass
         return recipes

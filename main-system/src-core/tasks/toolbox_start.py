@@ -21,6 +21,23 @@ class StartMixin(StartValidationMixin, StartSpawnMixin, ToolWatcherMixin):
     """Tool start orchestration and post-start process lifecycle watching."""
 
     async def start_tool(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        # G83-2: purge stale RUNNING entries that are actually dead before
+        # any decision; reconcile is cheap (os.kill check) and idempotent.
+        tool_id_pre = str(payload.get("tool_id") or "").strip()
+        if tool_id_pre:
+            try:
+                await asyncio.to_thread(self.reconcile_process_registry)
+            except Exception:
+                pass
+            try:
+                lock = await self._get_tool_start_lock(tool_id_pre)
+            except Exception:
+                return await self._start_tool_inner(payload)
+            async with lock:
+                return await self._start_tool_inner(payload)
+        return await self._start_tool_inner(payload)
+
+    async def _start_tool_inner(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         background = payload.get("background") is True
         repair_attempted = payload.get("_auto_repair_attempted") is True
         fallback_attempted = payload.get("_source_fallback_attempted") is True

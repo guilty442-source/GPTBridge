@@ -36,7 +36,8 @@ _DEFAULT_MODEL_PERMISSIONS: dict[str, bool] = {
 # ======================================================================
 
 # 主模型 — 綜合能力（協調、理解、整合、檢查、裁決、分配）
-_MAIN_MODEL_ID = "qwen3.8:27b-q4_K_M"
+# 第一原生模型：不依賴第三方權重的自主語言模型
+_MAIN_MODEL_ID = "star-main-native-model"
 _MAIN_MODEL_RESPONSIBILITIES = (
     "coordination",
     "collaboration",

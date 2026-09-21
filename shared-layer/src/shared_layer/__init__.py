@@ -7,6 +7,16 @@ from .locator import GovernedLocatorResolver, RegistryLocatorResolver, ResolvedO
 from .module_locator_repository import ModuleLocatorRepository
 from .startup import SharedLayerStartup, StartupReport
 
+
+def __getattr__(name: str):
+    # tokenizer 依賴 jieba；惰性導出避免 import shared_layer 在無 jieba 的
+    # runtime（例如 GPU 協調路徑）整包失敗（G86 回歸）。
+    if name in {"TokenizerWrapper", "Token", "create_tokenizer"}:
+        from . import tokenizer as _tokenizer
+        return getattr(_tokenizer, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = (
     "AsyncCache",
     "GovernedRequestClient",
@@ -24,4 +34,7 @@ __all__ = (
     "StartupReport",
     "cache_key",
     "cached",
+    "TokenizerWrapper",
+    "Token",
+    "create_tokenizer",
 )

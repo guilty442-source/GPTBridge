@@ -249,6 +249,15 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
     ),
     TableContract(
         schema="gptbridge_index",
+        table="qdrant_generation",
+        columns=(
+            "collection_name", "backend_generation",
+            "last_synced_at", "stale", "updated_at",
+        ),
+        indexes=("qdrant_generation_stale_idx",),
+    ),
+    TableContract(
+        schema="gptbridge_index",
         table="workload_class",
         columns=(
             "class_name", "pool_owner", "statement_timeout_ms",
@@ -1347,7 +1356,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 135  # every physical *.sql, including the 087/088 dual-numbered files
+EXPECTED_MIGRATION_COUNT = 136  # every physical *.sql, including the 087/088 dual-numbered files
 
 
 @dataclass

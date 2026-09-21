@@ -26,7 +26,7 @@ class XingChengModel(nn.Module):
         self.config = config
         self.embeddings = XingChengEmbeddings(config)
         self.layers = nn.ModuleList(
-            [XingChengBlock(config) for _ in range(config.num_hidden_layers)]
+            [XingChengBlock(config, layer_idx=i) for i in range(config.num_hidden_layers)]
         )
         self.final_norm = XingChengNorm(config)
         # RoPE 表（lazy 建立，依裝置）
@@ -62,21 +62,25 @@ class XingChengModel(nn.Module):
         attention_mask: torch.Tensor | None = None,
         kv_caches: list[tuple[torch.Tensor, torch.Tensor]] | None = None,
         use_cache: bool = False,
-    ) -> tuple[torch.Tensor, list[tuple[torch.Tensor, torch.Tensor]] | None]:
+    ) -> tuple[torch.Tensor, list[tuple[torch.Tensor, torch.Tensor]] | None, torch.Tensor | None]:
         cfg = self.config
         device = input_ids.device
         embeds = self.embeddings(input_ids, position_ids=position_ids)
         dtype = embeds.dtype
         self._ensure_rope_tables(device, dtype)
 
-        # Attention mask 轉成 additive mask（SDPA 期望）
-        sdpa_mask = _build_sdpa_mask(attention_mask, embeds, device, dtype)
+        kv_len = embeds.size(1)
+        if kv_caches:
+            kv_len += kv_caches[0][0].size(2)
+        sdpa_mask = _build_sdpa_mask(attention_mask, embeds, kv_len, device, dtype)
 
         hidden_states = embeds
         new_caches: list[tuple[torch.Tensor, torch.Tensor]] | None = [] if use_cache else None
+        aux_losses: list[torch.Tensor] = []
         for i, layer in enumerate(self.layers):
             kv_cache = kv_caches[i] if (kv_caches is not None and i < len(kv_caches)) else None
-            hidden_states, new_kv = layer(
+            # 向下相容：舊 Block 回傳 2 值，新 Block 回傳 3 值（含 aux_loss）
+            result = layer(
                 hidden_states,
                 cos=self._cos,
                 sin=self._sin,
@@ -85,10 +89,19 @@ class XingChengModel(nn.Module):
                 kv_cache=kv_cache,
                 use_cache=use_cache,
             )
+            if len(result) == 3:
+                hidden_states, new_kv, aux = result
+                if aux is not None:
+                    aux_losses.append(aux)
+            else:  # 舊介面
+                hidden_states, new_kv = result  # type: ignore[misc]
             if use_cache and new_caches is not None:
                 new_caches.append(new_kv)
         hidden_states = self.final_norm(hidden_states)
-        return hidden_states, new_caches
+        aux_loss: torch.Tensor | None = None
+        if aux_losses:
+            aux_loss = torch.stack(aux_losses).mean()
+        return hidden_states, new_caches, aux_loss
 
 
 class XingChengForCausalLM(nn.Module):
@@ -121,23 +134,36 @@ class XingChengForCausalLM(nn.Module):
     ) -> dict[str, torch.Tensor]:
         if self._backend is None:
             self._backend = set_gemm_backend(input_ids.device)
-        hidden_states, new_caches = self.model(
+        backbone = self.model(
             input_ids,
             position_ids=position_ids,
             attention_mask=attention_mask,
             kv_caches=kv_caches,
             use_cache=use_cache,
         )
+        # 向下相容 2/3 回傳
+        if len(backbone) == 3:
+            hidden_states, new_caches, aux_loss = backbone
+        else:
+            hidden_states, new_caches = backbone  # type: ignore[misc]
+            aux_loss = None
         logits = self.lm_head(hidden_states)
         out: dict[str, torch.Tensor] = {"logits": logits}
+        if aux_loss is not None:
+            out["aux_loss"] = aux_loss
         if labels is not None:
-            out["loss"] = _causal_lm_loss(logits, labels, self.config.pad_token_id)
+            ce = _causal_lm_loss(logits, labels, self.config.pad_token_id)
+            if aux_loss is not None:
+                out["loss"] = ce + float(self.config.moe_aux_loss_weight) * aux_loss
+                out["ce_loss"] = ce
+            else:
+                out["loss"] = ce
         if new_caches is not None:
             out["kv_caches"] = new_caches  # type: ignore[assignment]
         return out
 
     # ── 便利方法 ────────────────────────────────────────────────
-    @torch.no_grad()
+    @torch.inference_mode()
     def num_parameters(self, only_trainable: bool = True) -> int:
         return sum(
             p.numel() for p in self.parameters() if (p.requires_grad or not only_trainable)
@@ -150,18 +176,32 @@ class XingChengForCausalLM(nn.Module):
 def _build_sdpa_mask(
     attention_mask: torch.Tensor | None,
     embeds: torch.Tensor,
+    kv_len: int,
     device: torch.device,
     dtype: torch.dtype,
 ) -> torch.Tensor | None:
-    """將 (B, S) padding mask 轉成 (B, 1, S, S) additive mask。"""
+    """將 (B, S) padding mask 合併因果限制，轉成 (B, 1, S_q, S_k) additive mask。
+
+    解碼時 ``attention_mask`` 需覆蓋完整 KV 長度；長度為 1 時視為全部有效。
+    """
     if attention_mask is None:
         return None
-    # attention_mask: (B, S)，1 為有效、0 為 padding
-    b, s = attention_mask.shape
-    mask = attention_mask[:, None, None, :].to(dtype=dtype, device=device)
-    additive = (1.0 - mask) * torch.finfo(dtype).min
-    # 廣播為 (B, 1, S, S)
-    return additive.expand(b, 1, s, s)
+    b, q_len = embeds.size(0), embeds.size(1)
+    offset = kv_len - q_len
+    if offset < 0:
+        raise ValueError("KV_CACHE_LONGER_THAN_QUERY")
+    keys = torch.arange(kv_len, device=device).unsqueeze(0)
+    queries = torch.arange(q_len, device=device).unsqueeze(1) + offset
+    allowed = (keys <= queries).view(1, 1, q_len, kv_len).expand(b, 1, q_len, kv_len)
+    key_mask = attention_mask[:, None, None, :].to(device=device, dtype=torch.bool)
+    if key_mask.size(-1) not in (1, kv_len):
+        raise ValueError("ATTENTION_MASK_LENGTH_MISMATCH")
+    allowed = allowed & key_mask
+    # 整列被遮時保留第一個 key，避免 softmax 產生 NaN
+    empty_rows = ~allowed.any(dim=-1, keepdim=True)
+    allowed = allowed | (empty_rows & (keys == 0).view(1, 1, 1, kv_len))
+    additive = torch.zeros(b, 1, q_len, kv_len, device=device, dtype=dtype)
+    return additive.masked_fill(~allowed, torch.finfo(dtype).min)
 
 
 def _causal_lm_loss(

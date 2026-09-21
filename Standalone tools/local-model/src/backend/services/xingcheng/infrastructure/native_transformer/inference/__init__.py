@@ -1,9 +1,20 @@
-"""星澄推論層：KV Cache / Sampler / Generation。"""
+"""星澄推論層：KV Cache / Prefix Cache / Sampler / Generation / Chat Session。"""
 
 from __future__ import annotations
 
-from .kv_cache import KVCache
+from .chat_session import ChatSession, SessionReply
+from .kv_cache import KVCache, resolve_kv_dtype
+from .prefix_cache import PrefixKVStore
 from .sampler import Sampler, SamplingConfig
 from .generate import Generator
 
-__all__ = ["KVCache", "Sampler", "SamplingConfig", "Generator"]
+__all__ = [
+    "ChatSession",
+    "Generator",
+    "KVCache",
+    "PrefixKVStore",
+    "Sampler",
+    "SamplingConfig",
+    "SessionReply",
+    "resolve_kv_dtype",
+]

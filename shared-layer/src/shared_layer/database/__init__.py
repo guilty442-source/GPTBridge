@@ -12,6 +12,18 @@ from typing import Any
 
 POSTGRESQL_CANONICAL: bool = True
 
+# SQL SLO Metrics (from shared_layer.observability)
+try:
+    from shared_layer.observability.slo import (
+        SQLSLOMetrics,
+        SLOTarget,
+        get_sql_slo,
+    )
+except ImportError:
+    SQLSLOMetrics = None
+    SLOTarget = None
+    get_sql_slo = None
+
 _LAZY_EXPORTS = {
     "BootstrapReport": ("bootstrap", "BootstrapReport"),
     "DatabaseBootstrap": ("bootstrap", "DatabaseBootstrap"),
@@ -35,16 +47,23 @@ _LAZY_EXPORTS = {
     "is_connection_stale": ("generation_fence", "is_connection_stale"),
     "get_stale_sqlite_databases": ("generation_fence", "get_stale_sqlite_databases"),
     "upsert_sqlite_generation": ("generation_fence", "upsert_sqlite_generation"),
+    "get_stale_qdrant_collections": ("generation_fence", "get_stale_qdrant_collections"),
+    "upsert_qdrant_generation": ("generation_fence", "upsert_qdrant_generation"),
+    "sync_qdrant_generation": ("generation_fence", "sync_qdrant_generation"),
     "tombstone": ("deletion_coordinator", "tombstone"),
     "advance_stage": ("deletion_coordinator", "advance_stage"),
     "get_purge_eligible": ("deletion_coordinator", "get_purge_eligible"),
     "scan_orphans": ("orphan_scanner", "scan_orphans"),
     "certify_rebuild": ("rebuild_certifier", "certify"),
+    "certify_rebuild_engine": ("rebuild_certifier", "certify_engine"),
     "is_rebuild_certified": ("rebuild_certifier", "is_certified"),
     "check_long_transactions": ("watchdog", "check_long_transactions"),
     "collect_bloat_report": ("watchdog", "collect_bloat_report"),
     "get_rpo_rto_classes": ("watchdog", "get_rpo_rto_classes"),
     "get_capacity_thresholds": ("watchdog", "get_capacity_thresholds"),
+    "terminate_long_transactions": ("watchdog", "terminate_long_transactions"),
+    "collect_bloat_transport": ("watchdog", "collect_bloat_transport"),
+    "collect_bloat_audit": ("watchdog", "collect_bloat_audit"),
     "certify_startup": ("startup_certifier", "certify_startup"),
     "is_database_ready": ("startup_certifier", "is_ready"),
     "set_domain_readonly": ("readonly_domain", "set_readonly"),
@@ -291,6 +310,8 @@ _LAZY_EXPORTS = {
     "execute_backup_health_observe": ("maintenance.maintenance_backup", "execute_backup_health_observe"),
     "build_backup_maintenance_signals": ("maintenance.maintenance_backup", "build_backup_signals"),
     "get_backup_maintenance_executors": ("maintenance.maintenance_backup", "get_backup_maintenance_executors"),
+    "BackupScheduler": ("backup_scheduler", "BackupScheduler"),
+    "get_backup_scheduler": ("backup_scheduler", "get_backup_scheduler"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]

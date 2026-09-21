@@ -45,6 +45,14 @@ _GET_SQLITE_STALE = (
 )
 _UPSERT_SQLITE = "SELECT gptbridge_index.upsert_sqlite_generation(%s, %s, %s)"
 
+# Qdrant generation sync (Spec 8: Qdrant generation sync)
+_GET_QDRANT_STALE = (
+    "SELECT collection_name, backend_generation "
+    "FROM gptbridge_index.qdrant_generation WHERE stale = true "
+    "ORDER BY updated_at"
+)
+_UPSERT_QDRANT = "SELECT gptbridge_index.upsert_qdrant_generation(%s, %s)"
+
 
 def get_current_generation(connection: Connection[Any]) -> int:
     """Get the current backend generation from PostgreSQL."""
@@ -122,12 +130,88 @@ def upsert_sqlite_generation(
     connection.execute(_UPSERT_SQLITE, (module_id, database_path, generation))
 
 
+def get_stale_qdrant_collections(connection: Connection[Any]) -> list[dict[str, Any]]:
+    """List Qdrant collections whose generation is behind the current one."""
+    rows = connection.execute(_GET_QDRANT_STALE).fetchall()
+    return [
+        {
+            "collection_name": str(r[0]),
+            "backend_generation": int(r[1]),
+        }
+        for r in rows
+    ]
+
+
+def upsert_qdrant_generation(
+    connection: Connection[Any],
+    *,
+    collection_name: str,
+    generation: int,
+) -> None:
+    """Record a Qdrant collection's current generation in PostgreSQL."""
+    connection.execute(_UPSERT_QDRANT, (collection_name, generation))
+
+
+def sync_qdrant_generation(
+    connection: Connection[Any],
+    *,
+    qdrant_client: Any,
+) -> list[dict[str, Any]]:
+    """Sync Qdrant collection generations with PostgreSQL.
+
+    Iterates collections via qdrant_client, reads their generation
+    (from collection metadata or point payload), and upserts into PG.
+    Returns list of stale collections.
+    """
+    # Get current backend generation
+    current_gen = get_current_generation(connection)
+
+    # Get collections from Qdrant (requires client with get_collections method)
+    get_collections = getattr(qdrant_client, "get_collections", None)
+    if not callable(get_collections):
+        return []
+
+    collections = get_collections()
+    stale = []
+    for coll in collections:
+        coll_name = getattr(coll, "name", None) or coll.get("name") if isinstance(coll, dict) else None
+        if not coll_name:
+            continue
+
+        # Try to get generation from collection metadata
+        coll_gen = 1
+        get_info = getattr(qdrant_client, "get_collection", None)
+        if callable(get_info):
+            try:
+                info = get_info(coll_name)
+                # Check config or custom payload for generation
+                config = getattr(info, "config", None) or info.get("config") if isinstance(info, dict) else None
+                if config:
+                    params = getattr(config, "params", None) or config.get("params") if isinstance(config, dict) else None
+                    if params:
+                        coll_gen = int(params.get("generation", 1))
+            except Exception:
+                pass
+
+        # Upsert to PG
+        upsert_qdrant_generation(connection, collection_name=coll_name, generation=coll_gen)
+
+        # Check if stale
+        if coll_gen < current_gen:
+            stale.append({"collection_name": coll_name, "backend_generation": coll_gen})
+
+    return stale
+
+
 __all__ = [
     "bump_generation",
     "declare_connection_generation",
     "get_current_generation",
     "get_stale_sqlite_databases",
+    "get_stale_qdrant_collections",
     "is_connection_stale",
     "set_provenance",
+    "sync_qdrant_generation",
+    "upsert_qdrant_generation",
     "upsert_sqlite_generation",
 ]

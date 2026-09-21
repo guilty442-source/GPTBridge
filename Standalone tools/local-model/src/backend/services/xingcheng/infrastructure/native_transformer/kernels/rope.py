@@ -13,8 +13,10 @@ from ..execution.backend import capabilities
 
 
 def _triton_available() -> bool:
+    from ..execution.backend import triton_kernels_enabled
+
     cap = capabilities()
-    return cap.has_triton and cap.has_cuda
+    return bool(cap.has_triton and cap.has_cuda and triton_kernels_enabled())
 
 
 def build_rope_tables(
@@ -50,7 +52,9 @@ def apply_rope(
     position_ids: (batch, seq) 可選
     回傳旋轉後的 (q_rot, k_rot)。
     """
-    if q.is_cuda and _triton_available():
+    # RoPE 會作用在需要梯度的 q/k 上；Triton 路徑不帶 autograd，
+    # 訓練時必須退回 PyTorch 實作以保留梯度。
+    if q.is_cuda and _triton_available() and not (q.requires_grad or k.requires_grad):
         try:
             return _rope_triton(q, k, cos, sin, position_ids)
         except Exception:
@@ -90,16 +94,86 @@ def _rope_torch(
 
 
 # ── Triton 實作 ────────────────────────────────────────────────
+def _gather_cos_sin(
+    q: torch.Tensor,
+    cos: torch.Tensor,
+    sin: torch.Tensor,
+    position_ids: torch.Tensor | None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """把 cos/sin 表展成與 q 對齊的 (B, S, D) fp32 連續張量。"""
+    _, _, seq_len, _ = q.shape
+    if position_ids is not None:
+        cos = cos[position_ids]
+        sin = sin[position_ids]
+    elif cos.dim() == 2:
+        cos = cos.unsqueeze(0).expand(q.shape[0], -1, -1)
+        sin = sin.unsqueeze(0).expand(q.shape[0], -1, -1)
+    cos = cos[:, :seq_len, :]
+    sin = sin[:, :seq_len, :]
+    return (
+        cos.to(torch.float32).contiguous(),
+        sin.to(torch.float32).contiguous(),
+    )
+
+
 def _rope_triton(
     q: torch.Tensor,
     k: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
     position_ids: torch.Tensor | None,
-) -> tuple[ torch.Tensor, torch.Tensor]:
-    # 第一版 Triton 路徑：仍以 PyTorch 張量操作為主，但融合 cos/sin gather。
-    # 真正的逐元素 Triton kernel 留待效能瓶頸出現時下沉。
-    return _rope_torch(q, k, cos, sin, position_ids)
+) -> tuple[torch.Tensor, torch.Tensor]:
+    import triton
+    import triton.language as tl
+
+    @triton.jit
+    def _rope_kernel(
+        x_ptr, cos_ptr, sin_ptr, out_ptr,
+        H, S, D, D2, total,
+        BLOCK: tl.constexpr,
+    ):
+        pid = tl.program_id(0)
+        offs = pid * BLOCK + tl.arange(0, BLOCK)
+        mask = offs < total
+        # 每個元素 = 一個 (b, h, s, i) pair，i ∈ [0, D/2)
+        i = offs % D2
+        rest = offs // D2
+        s = rest % S
+        rest = rest // S
+        h = rest % H
+        b = rest // H
+        x_off = ((b * H + h) * S + s) * D + i
+        c_off = (b * S + s) * D + i
+        x1 = tl.load(x_ptr + x_off, mask=mask, other=0.0).to(tl.float32)
+        x2 = tl.load(x_ptr + x_off + D2, mask=mask, other=0.0).to(tl.float32)
+        c1 = tl.load(cos_ptr + c_off, mask=mask, other=0.0)
+        s1 = tl.load(sin_ptr + c_off, mask=mask, other=0.0)
+        tl.store(
+            out_ptr + x_off,
+            (x1 * c1 - x2 * s1).to(out_ptr.dtype.element_ty),
+            mask=mask,
+        )
+        tl.store(
+            out_ptr + x_off + D2,
+            (x1 * s1 + x2 * c1).to(out_ptr.dtype.element_ty),
+            mask=mask,
+        )
+
+    cos_g, sin_g = _gather_cos_sin(q, cos, sin, position_ids)
+
+    def _launch(x: torch.Tensor) -> torch.Tensor:
+        # GQA：k 的 head 數可能少於 q，launch 參數必須逐張量計算，
+        # 否則會以 q 的 head 數越界讀取 k。
+        B, heads, S, D = x.shape
+        D2 = D // 2
+        total = B * heads * S * D2
+        block = 256
+        grid = (triton.cdiv(total, block),)
+        out = torch.empty_like(x)
+        _rope_kernel[grid](x, cos_g, sin_g, out, heads, S, D, D2, total, BLOCK=block)
+        return out
+
+    return _launch(q), _launch(k)
 
 
 __all__ = ["build_rope_tables", "apply_rope"]

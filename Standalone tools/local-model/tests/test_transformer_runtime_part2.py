@@ -15,6 +15,9 @@ from typing import Any
 import pytest
 from xingcheng.application.service import LocalAiService
 from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.infrastructure.transformer_runtime_catalog import (
+    TransformerRuntimeCatalog,
+)
 
 def test_memory_pressure_retries_same_content_with_lower_context() -> None:
     selected = "qwen3:30b-a3b-instruct-2507-q4_K_M"
@@ -87,8 +90,8 @@ def test_stable_model_can_raise_context_for_larger_input() -> None:
 
 
 def test_pipeline_resumes_from_durable_stage_checkpoint(tmp_path: Path) -> None:
-    first = "qwen3.5:9b-q4_K_M"
-    final = "gemma4:e2b-it-qat"
+    first = "qwen3-coder:30b-a3b-q4_K_M"
+    final = TransformerRuntimeCatalog.EXECUTION_MODEL
 
     class ResumeTransport(FakeOllamaTransport):
         fail_final = True
@@ -115,10 +118,11 @@ def test_pipeline_resumes_from_durable_stage_checkpoint(tmp_path: Path) -> None:
         enabled=True, transport=transport, checkpoint_root=tmp_path
     )
     request = {
-        "prompt": "需完整續跑的搜尋流程",
-        "intent": "search",
-        "model_role": "daily-primary",
-        "output": {"response": "原始內容"},
+        "prompt": "需完整續跑的程式流程",
+        "intent": "coding",
+        "model_role": "coding-specialist",
+        "output": {"coding_result": {"ok": True}},
+        "reasoning_effort": "medium",
         "division_pipeline": True,
     }
 
@@ -138,7 +142,13 @@ def test_pipeline_resumes_from_durable_stage_checkpoint(tmp_path: Path) -> None:
     assert resumed["division_pipeline"]["stages"][0]["checkpoint_restored"] is True
     assert len(first_model_calls) == 1
 
-    database = tmp_path / "runtime" / "state" / "transformer-runtime-checkpoints.sqlite3"
+    database = (
+        tmp_path
+        / "xingcheng"
+        / "runtime"
+        / "state"
+        / "transformer-runtime-checkpoints.sqlite3"
+    )
     with sqlite3.connect(database) as connection:
         active_runs = connection.execute(
             "SELECT COUNT(*) FROM transformer_pipeline_run"
@@ -176,25 +186,23 @@ def test_no_reasoning_uses_gemma_fast_path() -> None:
         (
             "low",
             [
-                "qwen3.5:9b-q4_K_M",
-                "qwen3:30b-a3b-instruct-2507-q4_K_M",
-                "qwen3.8:27b-q4_K_M",
-                "gpt-oss:20b",
-                "qwen3.6:35b-a3b-coding",
-                "qwen3.8:27b-q4_K_M",
-                "gemma4:e2b-it-qat",
+                TransformerRuntimeCatalog.TASK_ALLOCATION_MODEL,
+                "gemma4:26b-a4b-it-qat",
+                TransformerRuntimeCatalog.INTEGRATION_MODEL,
+                TransformerRuntimeCatalog.EXECUTION_MODEL,
+                TransformerRuntimeCatalog.INSPECTION_MODEL,
+                TransformerRuntimeCatalog.RESULT_MODEL,
             ],
         ),
         (
             "high",
             [
-                "qwen3.5:9b-q4_K_M",
-                "qwen3:30b-a3b-instruct-2507-q4_K_M",
-                "qwen3.8:27b-q4_K_M",
-                "gpt-oss:20b",
-                "qwen3.6:35b-a3b-coding",
-                "qwen3.8:27b-q4_K_M",
-                "gemma4:e2b-it-qat",
+                TransformerRuntimeCatalog.TASK_ALLOCATION_MODEL,
+                "gemma4:26b-a4b-it-qat",
+                TransformerRuntimeCatalog.INTEGRATION_MODEL,
+                TransformerRuntimeCatalog.EXECUTION_MODEL,
+                TransformerRuntimeCatalog.INSPECTION_MODEL,
+                TransformerRuntimeCatalog.RESULT_MODEL,
             ],
         ),
     ],
@@ -222,23 +230,23 @@ def test_complex_pipeline_follows_the_full_automatic_sequence(
     assert result["ok"] is True
     assert result["complex_pipeline"]["executed"] is True
     assert [call[2]["model"] for call in calls] == expected_models
-    assert [call[2]["keep_alive"] for call in calls] == [0, 0, 0, 0, 0, 0, -1]
+    assert [call[2]["keep_alive"] for call in calls] == [
+        runtime.NON_RESIDENT_KEEP_ALIVE
+    ] * len(expected_models)
 
 
-def test_complex_pipeline_uses_single_stage_backup_after_primary_failure() -> None:
-    primary = "qwen3.5:9b-q4_K_M"
-    backup = "nemotron-3-nano:4b"
+def test_complex_pipeline_adjudicates_single_stage_failure_with_dynamic_reassignment() -> None:
+    specialist = "deepseek-r1:14b"
+    reassigned = "gemma4:26b-a4b-it-qat"
     models = [
-        primary,
-        backup,
-        "qwen3:30b-a3b-instruct-2507-q4_K_M",
-        "qwen3.8:27b-q4_K_M",
-        "gpt-oss:20b",
-        "qwen3.6:35b-a3b-coding",
-        "gemma4:e2b-it-qat",
+        TransformerRuntimeCatalog.TASK_ALLOCATION_MODEL,
+        specialist,
+        reassigned,
+        TransformerRuntimeCatalog.EXECUTION_MODEL,
     ]
+    adjudicator = TransformerRuntimeCatalog.FAILURE_ADJUDICATOR_MODEL
 
-    class FailPrimaryOnceTransport(FakeOllamaTransport):
+    class FailSpecialistOnceTransport(FakeOllamaTransport):
         failed = False
 
         def __call__(
@@ -248,51 +256,74 @@ def test_complex_pipeline_uses_single_stage_backup_after_primary_failure() -> No
             payload: dict[str, Any] | None,
             timeout: float,
         ) -> dict[str, Any]:
-            if (
-                url.endswith("/api/chat")
-                and isinstance(payload, dict)
-                and payload.get("model") == primary
-                and not self.failed
-            ):
-                self.failed = True
-                self.calls.append((method, url, payload, timeout))
-                raise RuntimeError("simulated primary inference failure")
+            if url.endswith("/api/chat") and isinstance(payload, dict):
+                if payload.get("model") == specialist and not self.failed:
+                    self.failed = True
+                    self.calls.append((method, url, payload, timeout))
+                    raise RuntimeError("simulated fixed-owner inference failure")
+                if (
+                    payload.get("model") == adjudicator
+                    and "裁決" in json.dumps(payload, ensure_ascii=False)
+                ):
+                    self.calls.append((method, url, payload, timeout))
+                    return {
+                        "message": {
+                            "role": "assistant",
+                            "content": json.dumps(
+                                {
+                                    "decision": "reassign",
+                                    "assigned_model": reassigned,
+                                    "reason": "fixed-owner-unavailable",
+                                },
+                                ensure_ascii=False,
+                            ),
+                        },
+                        "prompt_eval_count": 1,
+                        "eval_count": 1,
+                    }
             return super().__call__(method, url, payload, timeout)
 
-    transport = FailPrimaryOnceTransport(
+    transport = FailSpecialistOnceTransport(
         models=[{"name": name} for name in models]
     )
     runtime = StarTransformerRuntime(enabled=True, transport=transport)
 
     result = runtime.generate(
         prompt="自動接替命令解析",
-        intent="capabilities",
-        model_role="daily-primary",
+        intent="risk",
+        model_role="investment-specialist",
         output={"response": "已建立受治理的任務背景"},
-        reasoning_effort="medium",
+        reasoning_effort="high",
         complex_pipeline=True,
     )
 
-    first_stage = result["complex_pipeline"]["stages"][0]
+    failed_stage = result["complex_pipeline"]["stages"][1]
     calls = [call for call in transport.calls if call[1].endswith("/api/chat")]
     assert result["ok"] is True
-    assert [call[2]["model"] for call in calls[:2]] == [primary, backup]
-    assert first_stage["primary_model"] == primary
-    assert first_stage["backup_model"] == backup
-    assert first_stage["model"] == backup
-    assert first_stage["backup_used"] is True
-    assert [attempt["ok"] for attempt in first_stage["attempts"]] == [False, True]
+    assert [call[2]["model"] for call in calls[:2]] == [
+        TransformerRuntimeCatalog.TASK_ALLOCATION_MODEL,
+        specialist,
+    ]
+    assert reassigned in [call[2]["model"] for call in calls]
+    assert failed_stage["stage"] == "perform-domain-reasoning"
+    assert failed_stage["primary_model"] == specialist
+    assert failed_stage["model"] == reassigned
+    assert failed_stage["failure_adjudication"]["assigned_model"] == reassigned
+    assert failed_stage["failure_adjudication"]["dynamic_reassignment"] is True
+    assert (
+        failed_stage["failure_adjudication"]["preconfigured_backup_used"] is False
+    )
+    assert [attempt["ok"] for attempt in failed_stage["attempts"]] == [False, True]
 
 
 def test_high_complex_reasoning_adds_domain_reviewers_before_final_verifier() -> None:
     expected_models = [
-        "qwen3.5:9b-q4_K_M",
-        "qwen3:30b-a3b-instruct-2507-q4_K_M",
-        "deepseek-r1:8b-0528-qwen3-q4_K_M",
-        "gpt-oss:20b",
-        "qwen3.6:35b-a3b-coding",
-        "qwen3.8:27b-q4_K_M",
-        "gemma4:e2b-it-qat",
+        TransformerRuntimeCatalog.TASK_ALLOCATION_MODEL,
+        "deepseek-r1:14b",
+        TransformerRuntimeCatalog.INTEGRATION_MODEL,
+        TransformerRuntimeCatalog.EXECUTION_MODEL,
+        TransformerRuntimeCatalog.INSPECTION_MODEL,
+        TransformerRuntimeCatalog.RESULT_MODEL,
     ]
     runtime = StarTransformerRuntime(
         enabled=True,
@@ -313,18 +344,19 @@ def test_high_complex_reasoning_adds_domain_reviewers_before_final_verifier() ->
     calls = [call for call in runtime._transport.calls if call[1].endswith("/api/chat")]
     assert result["ok"] is True
     assert [call[2]["model"] for call in calls] == expected_models
-    assert result["complex_pipeline"]["maximum_concurrent_transformers"] == 1
+    assert result["complex_pipeline"]["maximum_concurrent_transformers"] == (
+        runtime.MAX_CONCURRENT_TRANSFORMERS
+    )
     assert result["complex_pipeline"]["resource_policy"] == (
-        "single-model-exclusive-load-then-release-and-handoff"
+        "bounded-parallel-independent-branches-and-sequential-dependent-handoffs"
     )
     assert [stage["stage"] for stage in result["complex_pipeline"]["stages"]] == [
-        "understand-command",
-        "allocate-tasks",
+        "classify-intensity-decompose-and-route-subtasks",
         "perform-domain-reasoning",
-        "integrate-ordered-work",
-        "execute-integrated-plan",
-        "inspect-execution",
-        "produce-traditional-chinese-result",
+        "integrate-results-and-plan-governed-operation",
+        "prepare-and-execute-governed-operation",
+        "cross-validate-repair-or-escalate",
+        "verify-and-produce-traditional-chinese-result",
     ]
 
 
@@ -334,21 +366,20 @@ def test_high_complex_reasoning_adds_domain_reviewers_before_final_verifier() ->
         (
             "medium",
             [
-                "deepseek-r1:8b-0528-qwen3-q4_K_M",
-                "gpt-oss:20b",
+                "deepseek-r1:14b",
+                TransformerRuntimeCatalog.INTEGRATION_MODEL,
             ],
         ),
         (
             "high",
             [
-                "deepseek-r1:8b-0528-qwen3-q4_K_M",
-                "qwen3.8:27b-q4_K_M",
-                "gpt-oss:20b",
+                "deepseek-r1:14b",
+                TransformerRuntimeCatalog.INTEGRATION_MODEL,
             ],
         ),
     ],
 )
-def test_reasoning_pipeline_uses_deepseek_then_optional_qwen38_before_gpt(
+def test_reasoning_pipeline_uses_deepseek_then_qwen38_coordinator(
     effort: str, expected_models: list[str]
 ) -> None:
     runtime = StarTransformerRuntime(
@@ -371,11 +402,13 @@ def test_reasoning_pipeline_uses_deepseek_then_optional_qwen38_before_gpt(
     assert result["ok"] is True
     assert result["reasoning_pipeline"]["executed"] is True
     assert [call[2]["model"] for call in calls] == expected_models
-    assert all(call[2]["keep_alive"] == 0 for call in calls)
+    assert all(
+        call[2]["keep_alive"] == runtime.NON_RESIDENT_KEEP_ALIVE for call in calls
+    )
 
 
-def test_search_division_pipeline_hands_off_then_keeps_final_gemma_resident() -> None:
-    models = ["qwen3.5:9b-q4_K_M", "gemma4:e2b-it-qat"]
+def test_search_division_pipeline_uses_single_grounded_stage_and_releases_it() -> None:
+    models = ["mistral-small:24b"]
     runtime = StarTransformerRuntime(
         enabled=True,
         transport=FakeOllamaTransport(
@@ -393,23 +426,22 @@ def test_search_division_pipeline_hands_off_then_keeps_final_gemma_resident() ->
     )
 
     calls = [call for call in runtime._transport.calls if call[1].endswith("/api/chat")]
+    stages = result["division_pipeline"]["stages"]
     assert result["ok"] is True
     assert [call[2]["model"] for call in calls] == models
-    assert [call[2]["keep_alive"] for call in calls] == [0, -1]
+    assert [call[2]["keep_alive"] for call in calls] == [
+        runtime.NON_RESIDENT_KEEP_ALIVE
+    ]
     assert calls[0][2]["think"] is False
-    assert [
-        stage["released_after_stage"]
-        for stage in result["division_pipeline"]["stages"]
-    ] == [True, False]
+    assert [stage["stage"] for stage in stages] == ["fast-grounded-synthesis"]
+    assert [stage["released_after_stage"] for stage in stages] == [True]
 
 
-def test_first_stage_uses_command_understanding_backup_when_primary_is_absent() -> None:
-    models = ["nemotron-3-nano:4b", "gemma4:e2b-it-qat"]
+def test_command_understanding_division_uses_fixed_owner_and_fails_without_backup() -> None:
+    owner = "mistral-small:24b"
     runtime = StarTransformerRuntime(
         enabled=True,
-        transport=FakeOllamaTransport(
-            models=[{"name": name} for name in models]
-        ),
+        transport=FakeOllamaTransport(models=[{"name": owner}]),
     )
 
     result = runtime.generate(
@@ -423,13 +455,34 @@ def test_first_stage_uses_command_understanding_backup_when_primary_is_absent() 
 
     calls = [call for call in runtime._transport.calls if call[1].endswith("/api/chat")]
     assert result["ok"] is True
-    assert [call[2]["model"] for call in calls] == models
+    assert [call[2]["model"] for call in calls] == [owner]
     assert "優先使用繁體中文" in calls[0][2]["messages"][0]["content"]
+
+    unavailable = StarTransformerRuntime(
+        enabled=True,
+        transport=FakeOllamaTransport(
+            models=[{"name": TransformerRuntimeCatalog.MODEL}]
+        ),
+    )
+    blocked = unavailable.generate(
+        prompt="整理這份命令",
+        intent="command_understanding",
+        model_role="daily-primary",
+        output={"response": "已理解"},
+        reasoning_effort="low",
+        division_pipeline=True,
+    )
+    assert blocked["ok"] is False
+    assert blocked["error_code"] == "TRANSFORMER_PIPELINE_NOT_READY"
+    assert blocked["missing_models"] == [owner]
+    assert not any(
+        call[1].endswith("/api/chat") for call in unavailable._transport.calls
+    )
 
 
 def test_simple_task_intensity_prefers_existing_fast_model_without_reassigning_roles() -> None:
-    fast = "qwen2.5-coder:7b"
-    specialist = "qwen3.6:35b-a3b-coding"
+    fast = TransformerRuntimeCatalog.LOW_EFFORT_MODEL_PREFERENCES["coding"][0]
+    specialist = TransformerRuntimeCatalog.EXECUTION_MODEL
     runtime = StarTransformerRuntime(
         enabled=True,
         transport=FakeOllamaTransport(
@@ -457,9 +510,9 @@ def test_simple_task_intensity_prefers_existing_fast_model_without_reassigning_r
 
 def test_coding_division_pipeline_uses_interpreter_executor_and_high_verifier() -> None:
     expected_models = [
-        "qwen3.5:9b-q4_K_M",
-        "qwen3.6:35b-a3b-coding",
-        "gpt-oss:20b",
+        "qwen3-coder:30b-a3b-q4_K_M",
+        TransformerRuntimeCatalog.EXECUTION_MODEL,
+        TransformerRuntimeCatalog.INTEGRATION_MODEL,
     ]
     runtime = StarTransformerRuntime(
         enabled=True,
@@ -480,11 +533,22 @@ def test_coding_division_pipeline_uses_interpreter_executor_and_high_verifier() 
     calls = [call for call in runtime._transport.calls if call[1].endswith("/api/chat")]
     assert result["ok"] is True
     assert [call[2]["model"] for call in calls] == expected_models
-    assert all(call[2]["keep_alive"] == 0 for call in calls)
+    assert all(
+        call[2]["keep_alive"] == runtime.NON_RESIDENT_KEEP_ALIVE for call in calls
+    )
+    assert [stage["stage"] for stage in result["division_pipeline"]["stages"]] == [
+        "prepare-agent-and-code",
+        "execute-agent-and-code",
+        "final-coordinate-and-verify",
+    ]
 
 
-def test_automatic_route_falls_back_to_resident_model_after_specialist_failure() -> None:
-    class FailingSpecialistTransport(FakeOllamaTransport):
+def test_automatic_route_uses_commander_dynamic_reassignment_after_specialist_failure() -> None:
+    specialist = "ibm/granite4.2:30b-q4_K_M"
+    adjudicator = TransformerRuntimeCatalog.FAILURE_ADJUDICATOR_MODEL
+    resident = TransformerRuntimeCatalog.MODEL
+
+    class ReassigningTransport(FakeOllamaTransport):
         def __call__(
             self,
             method: str,
@@ -492,21 +556,35 @@ def test_automatic_route_falls_back_to_resident_model_after_specialist_failure()
             payload: dict[str, Any] | None,
             timeout: float,
         ) -> dict[str, Any]:
-            if (
-                url.endswith("/api/chat")
-                and isinstance(payload, dict)
-                and payload.get("model") == "qwen3.5:9b-q4_K_M"
-            ):
-                self.calls.append((method, url, payload, timeout))
-                raise OSError("specialist unavailable")
+            if url.endswith("/api/chat") and isinstance(payload, dict):
+                if payload.get("model") == specialist:
+                    self.calls.append((method, url, payload, timeout))
+                    raise OSError("specialist unavailable")
+                if (
+                    payload.get("model") == adjudicator
+                    and "裁決" in json.dumps(payload, ensure_ascii=False)
+                ):
+                    self.calls.append((method, url, payload, timeout))
+                    return {
+                        "message": {
+                            "role": "assistant",
+                            "content": json.dumps(
+                                {
+                                    "decision": "reassign",
+                                    "assigned_model": resident,
+                                    "reason": "resident-owner",
+                                },
+                                ensure_ascii=False,
+                            ),
+                        },
+                        "prompt_eval_count": 1,
+                        "eval_count": 1,
+                    }
             return super().__call__(method, url, payload, timeout)
 
-    transport = FailingSpecialistTransport(
+    transport = ReassigningTransport(
         response_text="已由常駐模型接手。",
-        models=[
-            {"name": "qwen3.5:9b-q4_K_M"},
-            {"name": "gemma4:e2b-it-qat"},
-        ],
+        models=[{"name": name} for name in (specialist, adjudicator, resident)],
     )
     runtime = StarTransformerRuntime(enabled=True, transport=transport)
 
@@ -520,15 +598,22 @@ def test_automatic_route_falls_back_to_resident_model_after_specialist_failure()
 
     calls = [call for call in transport.calls if call[1].endswith("/api/chat")]
     assert result["ok"] is True
-    assert result["model"] == "gemma4:e2b-it-qat"
+    assert result["model"] == resident
     assert result["model_selected_by_user"] is False
-    assert result["automatic_model_route"]["fallback_used"] is True
-    assert [attempt["model"] for attempt in result["automatic_model_route"]["attempts"]] == [
-        "qwen3.5:9b-q4_K_M",
-        "gemma4:e2b-it-qat",
-    ]
+    assert result["failure_adjudication"]["decision"] == "reassign"
+    assert result["dynamic_model_reassignment"] == {
+        "failed_owner_model": specialist,
+        "assigned_model": resident,
+        "assigned_by": adjudicator,
+        "maximum_reassignments": 1,
+        "preconfigured_backup_used": False,
+    }
     assert [call[2]["model"] for call in calls] == [
-        "qwen3.5:9b-q4_K_M",
-        "gemma4:e2b-it-qat",
+        specialist,
+        specialist,
+        adjudicator,
+        resident,
     ]
-    assert all(call[3] == 180.0 for call in calls)
+    assert all(
+        call[3] == runtime.DEFAULT_GENERATION_TIMEOUT_SECONDS for call in calls
+    )

@@ -52,6 +52,11 @@ from .integration import (
     create_metrics_endpoint_for_components,
     run_coverage_analysis,
 )
+from .slo import (
+    SQLSLOMetrics,
+    SLOTarget,
+    get_sql_slo,
+)
 
 __all__ = [
     # Metrics
@@ -94,4 +99,8 @@ __all__ = [
     "create_runtime_observability",
     "create_metrics_endpoint_for_components",
     "run_coverage_analysis",
+    # SQL SLO
+    "SQLSLOMetrics",
+    "SLOTarget",
+    "get_sql_slo",
 ]

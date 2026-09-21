@@ -66,6 +66,45 @@ def _dequant_torch(
     return (q.to(torch.float32) * scale).to(out_dtype)
 
 
+def pack_int4(q: torch.Tensor) -> torch.Tensor:
+    """把值域 [-8, 7] 的 int8 張量沿最後一維兩兩打包成 uint8。
+
+    每個 byte 存兩個 4-bit 值：低位 nibble 為偶數索引、高位 nibble
+    為奇數索引；值域先平移 [0, 15]。最後一維長度為奇數時補一個 0。
+    回傳 uint8 張量，最後一維長度為 ``ceil(n / 2)``。
+    """
+    if q.dtype != torch.int8:
+        raise TypeError(f"pack_int4 需要 int8 輸入，取得 {q.dtype}")
+    if q.numel() == 0:
+        raise ValueError("pack_int4 不接受空張量")
+    shifted = (q.to(torch.int16) + 8).to(torch.uint8)
+    last = shifted.shape[-1]
+    if last % 2:
+        pad_shape = list(shifted.shape)
+        pad_shape[-1] = 1
+        shifted = torch.cat(
+            [shifted, torch.zeros(pad_shape, dtype=torch.uint8, device=q.device)],
+            dim=-1,
+        )
+        last += 1
+    lo = shifted[..., 0::2]
+    hi = shifted[..., 1::2]
+    return lo | (hi << 4)
+
+
+def unpack_int4(packed: torch.Tensor, *, last_dim_size: int) -> torch.Tensor:
+    """``pack_int4`` 的逆操作：還原值域 [-8, 7] 的 int8 張量。
+
+    ``last_dim_size`` 為原始最後一維長度（打包可能補齊一個值）。
+    """
+    if packed.dtype != torch.uint8:
+        raise TypeError(f"unpack_int4 需要 uint8 輸入，取得 {packed.dtype}")
+    lo = (packed & 0x0F).to(torch.int16)
+    hi = (packed >> 4).to(torch.int16)
+    restored = torch.stack([lo, hi], dim=-1).flatten(-2) - 8
+    return restored[..., :last_dim_size].to(torch.int8)
+
+
 def _dequant_triton(
     q: torch.Tensor,
     scale: torch.Tensor,
@@ -92,4 +131,9 @@ def _dequant_triton(
     return out
 
 
-__all__ = ["quantize_per_tensor", "dequantize_per_tensor"]
+__all__ = [
+    "quantize_per_tensor",
+    "dequantize_per_tensor",
+    "pack_int4",
+    "unpack_int4",
+]

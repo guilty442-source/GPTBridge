@@ -107,6 +107,7 @@ class StarModelEngines:
             "coding",
             "self_upgrade",
             "reading",
+            "memory",
         }
     )
 

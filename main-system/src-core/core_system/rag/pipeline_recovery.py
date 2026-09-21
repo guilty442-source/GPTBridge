@@ -26,6 +26,8 @@ import asyncio
 import hashlib
 import inspect
 import logging
+import os
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -184,6 +186,40 @@ class PipelineRecoveryMixin:
         await self.postgresql.drain_reconciled()
         _logger.info("CanonicalRagPipeline: reconciliation run %s", stats)
         return stats
+
+    async def run_parity_sweep(
+        self, *, module_id: Optional[str] = None, drain: bool = True
+    ) -> dict[str, Any]:
+        """§10.6 定期一致性掃描：比對 PG index_state/chunk 與 Qdrant 逐資源
+        point 數、embedding 版本、content hash；只把漂移資源 enqueue 到
+        durable reconciliation_queue（預設隨即 drain 修復）。不得以刪除
+        Qdrant collection 作為修復手段。"""
+        from .parity_audit import RagParityAudit
+
+        audit = RagParityAudit(self.postgresql, self.qdrant, self.config)
+        report = await audit.sweep(module_id=module_id)
+        if drain and report.get("enqueued"):
+            report["drain"] = await self.run_reconciliation()
+        return report
+
+    _PARITY_SWEEP_INTERVAL_S = float(
+        os.environ.get("RAG_PARITY_SWEEP_INTERVAL_S", "300")
+    )
+    _last_parity_sweep_at: float = 0.0
+
+    async def _maybe_parity_sweep(self) -> Optional[dict[str, Any]]:
+        """節流的定期 parity sweep——只在 CANONICAL 且間隔屆滿時執行。"""
+        if self._state_machine.state != RagRuntimeState.CANONICAL:
+            return None
+        now = time.monotonic()
+        if now - self._last_parity_sweep_at < self._PARITY_SWEEP_INTERVAL_S:
+            return None
+        self._last_parity_sweep_at = now
+        try:
+            return await self.run_parity_sweep()
+        except Exception as exc:  # parity sweep 不得中斷 health_check
+            _logger.warning("CanonicalRagPipeline: parity sweep failed: %s", exc)
+            return {"error": str(exc)}
 
     async def _recon_failure(self, item: Any, exc: Exception) -> str:
         """Schedule retry or dead-letter; returns the stats bucket name."""
@@ -416,6 +452,14 @@ class PipelineRecoveryMixin:
         if self._degraded_pipeline is not None:
             degraded_health = await self._degraded_pipeline.health_check()
             result["degraded_pipeline"] = degraded_health
+
+        parity = await self._maybe_parity_sweep()
+        if parity is not None:
+            result["parity_sweep"] = {
+                k: parity.get(k)
+                for k in ("checked", "drifted", "enqueued", "unverifiable", "error")
+                if parity.get(k) is not None
+            }
 
         # Phase-2 unified status surface
         result["active_generation"] = getattr(self, "_active_generation", None)

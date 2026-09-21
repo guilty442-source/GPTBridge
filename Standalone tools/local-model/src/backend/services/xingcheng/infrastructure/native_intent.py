@@ -66,7 +66,11 @@ class StarNativeIntentMixin:
     def _matched_intents(cls, normalized: str) -> tuple[list[str], set[str]]:
         matched: list[str] = []
         prohibited: set[str] = set()
-        for intent, terms in cls._INTENTS:
+        for entry in cls._INTENTS:
+            intent = entry[0]
+            terms = tuple(
+                term for group in entry[1:] for term in group
+            )
             positive = False
             negative = False
             for term in terms:

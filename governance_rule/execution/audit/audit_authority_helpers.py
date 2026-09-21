@@ -128,6 +128,7 @@ def _validate_channel_actors(
         "governance/tool/investment-mobile",
         "governance/tool/model-dialogue",
         "governance/tool/xingcheng",
+        "governance/tool/chinese-semantic-engine",
     }
     if ai_submit_actors != expected_ai_submit_actors:
         errors.append("AI channel submission actors are invalid")

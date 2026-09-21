@@ -27,6 +27,23 @@ import math
 import re
 from typing import Any, Sequence
 
+try:
+    import numpy as np
+except ImportError:  # pragma: no cover — fallback when numpy unavailable
+    np = None  # type: ignore[assignment]
+
+def _as_float64_array(data: Any):  # type: ignore[no-untyped-def]
+    """Zero-copy view when already float64 ndarray, otherwise copy once."""
+    if np is None:
+        raise RuntimeError("numpy is required for native dispatch")
+    if isinstance(data, np.ndarray) and data.dtype == np.float64:
+        return data
+    # For list/ndarray of other dtype, allow copy; avoid ValueError from copy=False on list
+    try:
+        return np.asarray(data, dtype=np.float64, copy=False)
+    except ValueError:
+        return np.asarray(data, dtype=np.float64)
+
 # --- Native extension loader (lazy, with fallback) ---
 
 _NATIVE = None
@@ -173,8 +190,7 @@ def native_dot(a: Sequence[float], b: Sequence[float]) -> float:
     n = _load_native()
     if n is None:
         return python_dot(a, b)
-    import numpy as np
-    return float(n.vector_dot(np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)))
+    return float(n.vector_dot(_as_float64_array(a), _as_float64_array(b)))
 
 
 def native_l2_norm(a: Sequence[float]) -> float:

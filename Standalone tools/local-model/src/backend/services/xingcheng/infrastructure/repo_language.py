@@ -135,6 +135,127 @@ class LanguageTrainingMixin:
             for row in rows
         ]
 
+    @staticmethod
+    def _preference_prompt_hash(intent: str, input_text: str) -> str:
+        return hashlib.sha256(
+            f"{str(intent).strip().casefold()}\0{str(input_text).strip()}".encode(
+                "utf-8"
+            )
+        ).hexdigest()
+
+    def record_rejected_teaching_candidate(
+        self,
+        *,
+        intent: str,
+        input_text: str,
+        rejected_text: str,
+        source_type: str,
+        gate_verdict: dict[str, Any],
+    ) -> dict[str, Any]:
+        """把被品質閘門拒絕的教學候選存為偏好對的 rejected 半邊，
+        等待同一 prompt 的 accepted 版本補齊 chosen。"""
+        normalized_intent = str(intent or "capabilities").strip().casefold()[:64]
+        normalized_input = str(input_text or "").strip()[:16_000]
+        normalized_rejected = str(rejected_text or "").strip()[:16_000]
+        normalized_source = str(source_type or "owner-governed-teaching-candidate")[
+            :96
+        ]
+        if not normalized_input or not normalized_rejected:
+            raise ValueError("preference pair requires prompt and rejected text")
+        prompt_hash = self._preference_prompt_hash(
+            normalized_intent, normalized_input
+        )
+        pair_id = "star-pref-" + hashlib.sha256(
+            f"{prompt_hash}\0{normalized_rejected}".encode("utf-8")
+        ).hexdigest()[:24]
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO language_preference_pair(
+                    pair_id, prompt_hash, intent, prompt_text, chosen_text,
+                    chosen_example_id, rejected_text, source_type,
+                    gate_verdict_json, paired, created_at
+                ) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, 0, ?)
+                """,
+                (
+                    pair_id,
+                    prompt_hash,
+                    normalized_intent,
+                    normalized_input,
+                    normalized_rejected,
+                    normalized_source,
+                    json.dumps(
+                        dict(gate_verdict or {}),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    created_at,
+                ),
+            )
+        return {
+            "pair_id": pair_id,
+            "inserted": cursor.rowcount > 0,
+            "paired": False,
+        }
+
+    def complete_preference_pairs(
+        self,
+        *,
+        intent: str,
+        input_text: str,
+        chosen_text: str,
+        chosen_example_id: str,
+    ) -> int:
+        """accepted 教學範例補齊同 prompt 的待配對 rejected 半邊。"""
+        prompt_hash = self._preference_prompt_hash(intent, input_text)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE language_preference_pair
+                SET chosen_text = ?, chosen_example_id = ?, paired = 1
+                WHERE prompt_hash = ? AND paired = 0
+                """,
+                (
+                    str(chosen_text or "").strip()[:16_000],
+                    str(chosen_example_id or "")[:96],
+                    prompt_hash,
+                ),
+            )
+        return int(cursor.rowcount)
+
+    def language_preference_pairs(
+        self, *, limit: int = 500
+    ) -> list[dict[str, Any]]:
+        """已配對的 chosen/rejected 偏好對（DPO 訓練語料）。"""
+        bounded = max(1, min(self.MAX_LANGUAGE_TRAINING_EXAMPLES, int(limit)))
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT pair_id, intent, prompt_text, chosen_text,
+                       chosen_example_id, rejected_text, source_type,
+                       gate_verdict_json, created_at
+                FROM language_preference_pair
+                WHERE paired = 1
+                ORDER BY revision ASC LIMIT ?
+                """,
+                (bounded,),
+            ).fetchall()
+        return [
+            {
+                "pair_id": str(row[0]),
+                "intent": str(row[1]),
+                "prompt_text": str(row[2]),
+                "chosen_text": str(row[3]),
+                "chosen_example_id": str(row[4] or ""),
+                "rejected_text": str(row[5]),
+                "source_type": str(row[6]),
+                "gate_verdict": json.loads(str(row[7]) or "{}"),
+                "created_at": str(row[8]),
+            }
+            for row in rows
+        ]
+
     def native_private_context(self, *, limit: int = 6) -> dict[str, Any]:
         if self.database_scope != "main":
             raise PermissionError("MODEL_DATABASE_ISOLATION_DENIED")

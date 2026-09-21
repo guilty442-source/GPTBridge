@@ -30,6 +30,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from governance_rule.execution.codex_amendment_audit_gate import (
+    CERTIFICATE_SCHEMA,
+)
 from governance_rule.execution.codex_update_pipeline import (
     AutoUpdateResult,
     run_auto_update,
@@ -81,16 +84,27 @@ def _load_request(request_path: Path) -> dict[str, Any]:
 
 def _load_audit_result(
     audit_result: Mapping[str, Any] | None,
+    *,
+    amendment_id: str,
 ) -> Mapping[str, Any]:
     if not isinstance(audit_result, Mapping):
         raise CodexAmendmentDenied("FIVE_SOVEREIGN_AUDIT_RESULT_REQUIRED")
+    if str(audit_result.get("amendment_id") or "") != amendment_id:
+        raise CodexAmendmentDenied("FIVE_SOVEREIGN_AUDIT_AMENDMENT_MISMATCH")
     if audit_result.get("ok") is not True:
         raise CodexAmendmentDenied(
             "FIVE_SOVEREIGN_AUDIT_NOT_PASSED:"
             f"{audit_result.get('reason') or 'unknown'}"
         )
-    if not audit_result.get("certificate"):
+    if audit_result.get("audit_recorded") is not True:
+        raise CodexAmendmentDenied("FIVE_SOVEREIGN_AUDIT_UNRECORDED")
+    certificate = audit_result.get("certificate")
+    if not isinstance(certificate, Mapping):
         raise CodexAmendmentDenied("AMENDMENT_CERTIFICATE_REQUIRED")
+    if str(certificate.get("schema") or "") != CERTIFICATE_SCHEMA:
+        raise CodexAmendmentDenied("AMENDMENT_CERTIFICATE_SCHEMA_INVALID")
+    if str(certificate.get("amendment_id") or "") != amendment_id:
+        raise CodexAmendmentDenied("AMENDMENT_CERTIFICATE_AMENDMENT_MISMATCH")
     return audit_result
 
 
@@ -110,7 +124,7 @@ def execute_amendment(
     if prepared is not None and not prepared.is_file():
         raise CodexAmendmentDenied(f"PREPARED_DATABASE_MISSING:{prepared}")
     if apply:
-        _load_audit_result(audit_result)
+        _load_audit_result(audit_result, amendment_id=amendment_id)
 
     root = Path(codex_root).resolve() if codex_root else PROJECT_ROOT / "governance_rule" / "codex"
     staging = Path(staging_root).resolve() if staging_root else DEFAULT_STAGING

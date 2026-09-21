@@ -83,6 +83,33 @@
       "restart_on_crash": true,
       "max_restart_attempts": 5,
       "restart_backoff_seconds": [3, 10, 30, 60, 120]
+    },
+    "business-logic-csharp": {
+      "memory_limit_mb": 512,
+      "cpu_percent_limit": 80,
+      "network_policy": "loopback-only",
+      "filesystem_policy": "tool-scoped",
+      "restart_on_crash": true,
+      "max_restart_attempts": 3,
+      "restart_backoff_seconds": [2, 5, 15]
+    },
+    "native-compute-core": {
+      "memory_limit_mb": 1024,
+      "cpu_percent_limit": 80,
+      "network_policy": "offline",
+      "filesystem_policy": "tool-scoped",
+      "restart_on_crash": true,
+      "max_restart_attempts": 3,
+      "restart_backoff_seconds": [2, 5, 15]
+    },
+    "model-training": {
+      "memory_limit_mb": 4096,
+      "cpu_percent_limit": 80,
+      "network_policy": "loopback-only",
+      "filesystem_policy": "tool-scoped",
+      "restart_on_crash": false,
+      "max_restart_attempts": 1,
+      "restart_backoff_seconds": [5]
     }
   },
 

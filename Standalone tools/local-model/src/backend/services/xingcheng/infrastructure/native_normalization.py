@@ -168,6 +168,24 @@ class StarNativeNormalizationMixin:
             "output_formats": list(dict.fromkeys(output_formats))[:20],
         }
 
+    _CONSTRAINT_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+        (
+            "prohibited",
+            ("不要", "不得", "禁止", "不能", "不可", "別", "no", "not", "never", "without"),
+        ),
+        ("minimum", ("至少", "最少", "at least", "minimum")),
+        ("maximum", ("最多", "至多", "at most", "maximum")),
+        ("exclusive", ("只能", "僅能", "only")),
+    )
+
+    @classmethod
+    def _constraint_entry(cls, marker: str) -> dict[str, Any]:
+        lowered = str(marker or "").casefold()
+        for kind, tokens in cls._CONSTRAINT_MARKERS:
+            if any(token in lowered for token in tokens):
+                return {"type": kind, "marker": str(marker), "character_start": -1}
+        return {"type": "semantic", "marker": str(marker), "character_start": -1}
+
     @staticmethod
     def _specific_constraint_flags(text: str) -> list[dict[str, Any]]:
         lowered = str(text or "").casefold()
