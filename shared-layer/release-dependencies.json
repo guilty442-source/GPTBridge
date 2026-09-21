@@ -300,9 +300,9 @@
     },
     "artifacts": {
       "paths": {
-        "main": "dist-ui/main/index.js",
-        "preload": "dist-ui/main/preload.js",
-        "renderer": "dist-ui/renderer/index.html"
+        "main": "main-system/dist-ui/main/index.js",
+        "preload": "main-system/dist-ui/main/preload.js",
+        "renderer": "main-system/dist-ui/renderer/index.html"
       },
       "hashes": {
         "main": "6f6fc2deb71388c51a0241f705912150ae3d31c8c67d9b52be48a1dfa1cd3f77",
