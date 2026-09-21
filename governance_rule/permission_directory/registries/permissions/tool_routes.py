@@ -75,13 +75,29 @@ AI_ROUTE_COMMANDS: Final[Mapping[tuple[str, str], frozenset[str]]] = {
             "investment_mobile_submit_instruction",
         }
     ),
-    ("xingcheng", "chinese-semantic-engine"): frozenset(
+    ("ai-assistant", "chinese-semantic-engine"): frozenset(
+        {
+            "semantic_analyze",
+            "semantic_embed",
+            "semantic_retrieve",
+            "semantic_synthesize",
+        }
+    ),
+    ("star-chat", "chinese-semantic-engine"): frozenset(
         {
             "semantic_analyze",
             "semantic_embed",
             "semantic_retrieve",
             "semantic_synthesize",
             "semantic_health",
+        }
+    ),
+    ("xingcheng", "chinese-semantic-engine"): frozenset(
+        {
+            "semantic_analyze",
+            "semantic_embed",
+            "semantic_retrieve",
+            "semantic_synthesize",
         }
     ),
 }

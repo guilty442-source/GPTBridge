@@ -210,19 +210,10 @@ class BaseSemanticProcessor(ABC):
 
     async def health_check(self) -> dict[str, Any]:
         """Return health status."""
-        processor_info = None
-        if self._processor is not None:
-            processor_info = {
-                "type": self._processor.__class__.__name__,
-                "initialized": self._processor._initialized if hasattr(self._processor, '_initialized') else False,
-                "model_available": getattr(self._processor, '_model_available', False),
-            }
         return {
             "component": COMPONENT_ID,
-            "version": "2.0.0",
             "initialized": self._initialized,
             "config": self._config.__dict__,
-            "processor": processor_info,
         }
 
 
@@ -392,15 +383,22 @@ class ChineseSemanticEngineV2:
 
     async def health_check(self) -> dict[str, Any]:
         """Return comprehensive health status."""
-        health = {
+        processor_info = None
+        engine_initialized = False
+        if self._processor is not None:
+            processor_info = {
+                "type": self._processor.__class__.__name__,
+                "initialized": self._processor._initialized if hasattr(self._processor, '_initialized') else False,
+                "model_available": getattr(self._processor, '_model_available', False),
+            }
+            engine_initialized = processor_info["initialized"]
+        return {
             "component": COMPONENT_ID,
             "version": "2.0.0",
+            "initialized": engine_initialized,
             "config": self._config.__dict__,
-            "processor": None,
+            "processor": processor_info,
         }
-        if self._processor:
-            health["processor"] = await self._processor.health_check()
-        return health
 
 
 class XingchengSemanticProcessor(BaseSemanticProcessor):
@@ -422,6 +420,8 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
         self._qdrant_client = None
         self._model_runtime = None
         self._native_model = None
+        self._model_available = False
+        self._import_error: str | None = None
         self._model_available = False
         self._import_error: str | None = None
 
@@ -574,14 +574,13 @@ def create_engine(
 
     Args:
         config: Optional configuration (loads default if not provided)
-        processor: Optional custom processor (creates XingchengSemanticProcessor if not provided)
+        processor: Optional custom processor (no processor created by default)
 
     Returns:
         Configured ChineseSemanticEngineV2 instance
     """
     cfg = config or SemanticConfig()
-    proc = processor or XingchengSemanticProcessor(cfg)
-    return ChineseSemanticEngineV2(config=cfg, processor=proc)
+    return ChineseSemanticEngineV2(config=cfg, processor=processor)
 
 
 async def create_initialized_engine(

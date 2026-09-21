@@ -136,6 +136,7 @@ class StartupExecutorPhasesMixin:
                 governance=app.governance,
                 permission_sovereign=app.permission_sovereign,
             )
+        await asyncio.to_thread(app.toolbox_service.reconcile_process_registry)
         if getattr(app, "model_service_activation", None) is None:
             from tasks.model_service_activation import (
                 ModelServiceActivationBroker,
@@ -145,6 +146,11 @@ class StartupExecutorPhasesMixin:
                 app, app.toolbox_service
             )
             await app.model_service_activation.start()
+        if getattr(app, "git_automation", None) is None:
+            from tasks.git_automation import GitAutomationService
+
+            app.git_automation = GitAutomationService(app.project_root)
+            await app.git_automation.start()
         if getattr(app, "saga_runtime", None) is None:
             from core_system.saga_runtime_integration import (
                 create_saga_runtime_integration,

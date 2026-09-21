@@ -115,6 +115,33 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "main-system/governance",
+        "to": "governance",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc"
+        ]
+      },
+      {
+        "from": "governance_rule",
+        "to": "governance_rule",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc"
+        ]
+      },
+      {
+        "from": "shared-layer",
+        "to": "shared-layer",
+        "filter": [
+          "**/*",
+          "!**/__pycache__",
+          "!**/*.pyc"
+        ]
       }
     ],
     "win": {

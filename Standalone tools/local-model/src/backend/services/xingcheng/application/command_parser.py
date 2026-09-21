@@ -305,11 +305,13 @@ def validate_parameters(
         except ParameterValidationError as e:
             errors.append(str(e))
 
-    # Check for unknown parameters
+    # Undeclared keys pass through untouched: governed IPC payloads carry
+    # routing/envelope fields (runtime_model, interaction_mode, _*_ flags)
+    # that are not part of a command's declared parameter surface.
     known_params = {p.name for p in spec.parameters}
     for key in params:
         if key not in known_params:
-            errors.append(f"未知參數: {key}")
+            validated[key] = params[key]
 
     if errors:
         raise CommandParserError(

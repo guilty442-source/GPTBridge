@@ -2,105 +2,77 @@
   "id": "chinese-semantic-engine",
   "name_key": "tool.name",
   "description_key": "tool.description",
-  "version": "1.0.0",
-  "display_version": "1.0",
-  "shared_permission_profile": "ai-semantic-engine-v1",
-  "shared_code_root": "Standalone tools/chinese-semantic-engine",
-  "managed_backup_storage": "global-cleaner/data/business/backups/chinese-semantic-engine",
+  "version": "2.0.0",
+  "display_version": "2.0",
   "status": "stopped",
   "enabled": true,
-  "has_custom_ui": false,
+  "independent_tool": true,
+  "main_system_independent_tool": true,
+  "canonical_source_root": "chinese-semantic-engine",
+  "physical_owner_root": "chinese-semantic-engine",
+  "lifecycle": {
+    "startup": "on-demand",
+    "directLoad": false,
+    "encapsulated": true,
+    "optional": true,
+    "stoppable": true,
+    "disableable": true,
+    "unloadable": true
+  },
+  "shared_permission_owner": "chinese-semantic-engine",
+  "shared_permission_profile": "chinese-semantic-engine-platform-v1",
+  "shared_cache_owner": "chinese-semantic-engine",
+  "cache_storage": "chinese-semantic-engine/runtime/cache",
+  "backup_owner": "chinese-semantic-engine",
+  "backup_storage": "global-cleaner/data/business/backups/chinese-semantic-engine",
   "permissions": {
-    "profile": "ai-semantic-engine-v1",
+    "profile": "chinese-semantic-engine-platform-v1",
     "business_permission_owner": "chinese-semantic-engine",
+    "settings_owner": "chinese-semantic-engine",
     "code_scope": "tool-root-only",
     "database_scope": "tool-database-only",
-    "allow_modify": [
-      "own-data"
-    ],
+    "canonical_database_scope": "xingcheng-shared-repository",
+    "allow_modify": [],
     "deny": [
       "main-program",
-      "other-tools"
+      "other-tools",
+      "direct-database-write",
+      "separate-business-database",
+      "separate-settings-layer"
     ]
   },
-  "entry": "Standalone tools/chinese-semantic-engine/src/backend",
+  "capabilities": {
+    "chinese-semantic-engine": {}
+  },
   "runtime": {
     "type": "python",
-    "entry": "src/backend/services/chinese_semantic_engine/main.py",
+    "entry": "src/channel_runtime.py",
     "workingDirectory": "."
+  },
+  "distribution": {
+    "mode": "special-unpackaged",
+    "package": false
   },
   "request_channel": {
     "model": "governance-authenticated-shared-layer",
     "runtime_entry": "src/channel_runtime.py",
     "direct_instruction": "PERMISSION_DENIED"
   },
-  "distribution": {
-    "mode": "source-only",
-    "package": false
-  },
   "launch": {
-    "mode": "governed-source-only",
-    "selection": "automatic",
-    "runtimes": [
-      "governed-source-channel"
-    ],
     "primary": "governed-source-channel",
-    "background": "governed-source-channel",
-    "close_program_on_window_exit": true
-  },
-  "capabilities": {
-    "semantic-analysis": {
-      "operations": [
-        "analyze",
-        "embed",
-        "retrieve",
-        "synthesize",
-        "health"
-      ],
-      "model": "xingcheng-native",
-      "data_scope": "tool-database-only",
-      "authority": "semantic-processing-only",
-      "model_selection": "automatic-only-no-manual-picker",
-      "primary_business_models": [
-        "xingcheng-native"
-      ],
-      "entry_gateway": "xingcheng",
-      "parameter_scope": "semantic-engine-only",
-      "network_access": "none",
-      "service_provider": "shared-layer",
-      "external_ai_role": "none",
-      "ai_authority": "chinese-semantic-engine-under-governance-rule"
-    },
-    "ai-connections": {
-      "transport": "governance-authenticated-ai-channel",
-      "channel": "shared-layer/ai-channel",
-      "peers": [
-        "xingcheng"
-      ],
-      "allowed_target": "xingcheng",
-      "external_ai": "none",
-      "queue_when_offline": false,
-      "share_database": false,
-      "external_ai_api": false,
-      "direct_cross_tool_connection": false
-    }
+    "background": "governed-source-channel"
   },
   "environment": {
-    "allow": [
-      "GPTBRIDGE_CHINESE_SEMANTIC_ENGINE_DATA_ROOT",
-      "GPTBRIDGE_CHINESE_SEMANTIC_ENGINE_PROFILE"
-    ]
+    "allow": []
+  },
+  "has_custom_ui": false,
+  "sweep_exclusion": true,
+  "background_service": {
+    "auto_restart": false,
+    "headless": true,
+    "explicit_force_close_suppresses_restart": true
   },
   "test_targets": [
     "tests/test_chinese_semantic_engine.py"
-  ],
-  "window": {
-    "width": 1200,
-    "height": 800,
-    "minWidth": 1000,
-    "minHeight": 600,
-    "title_key": "tool.window_title"
-  },
-  "main_system_independent_tool": true,
-  "physical_owner_root": "chinese-semantic-engine"
+  ]
 }

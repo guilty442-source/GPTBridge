@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStarChatBackend } from './backendSocket'
 import './star-chat.css'
 
-type ReasoningLevel = 'light' | 'intermediate' | 'high-high' | 'ultra-high' | 'extreme'
+type ReasoningLevel = 'auto' | 'light' | 'intermediate' | 'high-high' | 'ultra-high' | 'extreme'
 type ReasoningEffort = 'low' | 'medium' | 'high'
-type GenerationSpeed = 'slow' | 'low' | 'medium' | 'high' | 'ultra'
-type TaskIntensity = 'simple' | 'normal' | 'intermediate' | 'difficult'
+type GenerationSpeed = 'auto' | 'slow' | 'low' | 'medium' | 'high' | 'ultra'
+type TaskIntensity = 'auto' | 'simple' | 'normal' | 'intermediate' | 'difficult'
 type ConversationMode = 'chat' | 'coding'
 type Message = {
   id: string
@@ -24,7 +24,9 @@ type ModelOption = {
   isDefault: boolean
   pickerGroup: string
 }
-const REASONING_EFFORT_BY_LEVEL: Record<ReasoningLevel, ReasoningEffort> = {
+const AUTO_REASONING_LABEL = '自動（依任務難度決定）'
+const REASONING_EFFORT_BY_LEVEL: Record<ReasoningLevel, ReasoningEffort | ''> = {
+  auto: '',
   light: 'low',
   intermediate: 'medium',
   'high-high': 'high',
@@ -32,6 +34,7 @@ const REASONING_EFFORT_BY_LEVEL: Record<ReasoningLevel, ReasoningEffort> = {
   extreme: 'high',
 }
 const GENERATION_SPEED_SETTINGS: Record<GenerationSpeed, { outputMultiplier: number; displayDelayMs: number }> = {
+  auto: { outputMultiplier: 1, displayDelayMs: 18 },
   slow: { outputMultiplier: 1.25, displayDelayMs: 34 },
   low: { outputMultiplier: 1.1, displayDelayMs: 26 },
   medium: { outputMultiplier: 1, displayDelayMs: 18 },
@@ -39,12 +42,14 @@ const GENERATION_SPEED_SETTINGS: Record<GenerationSpeed, { outputMultiplier: num
   ultra: { outputMultiplier: 0.5, displayDelayMs: 4 },
 }
 const TASK_INTENSITY_OUTPUT_TOKENS: Record<TaskIntensity, number> = {
+  auto: 512,
   simple: 256,
   normal: 512,
   intermediate: 768,
   difficult: 1_024,
 }
 const HISTORY_BUDGET_BY_INTENSITY: Record<TaskIntensity, number> = {
+  auto: 8,
   simple: 6,
   normal: 8,
   intermediate: 10,
@@ -54,7 +59,6 @@ const HISTORY_BUDGET_BY_INTENSITY: Record<TaskIntensity, number> = {
 const DEFAULT_MODEL = 'gemma4:e2b-it-qat'
 const PROGRAMMING_FOLDER_STORAGE_KEY = 'star-chat.programming-folder.v1'
 const CONVERSATION_MODE_STORAGE_KEY = 'star-chat.conversation-mode.v1'
-const PERSONA_STORAGE_KEY = 'star-chat.persona.v1'
 const AUTO_MODEL: ModelOption = {
   name: '',
   label: '自動模型路由（速度、推理與能力強度）',
@@ -218,19 +222,15 @@ export function StarChatWindowApp() {
   const [modelReady, setModelReady] = useState<boolean | null>(null)
   const [models, setModels] = useState<ModelOption[]>(DEFAULT_MODELS)
   const [selectedModel, setSelectedModel] = useState('')
-  const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>('intermediate')
-  const [generationSpeed, setGenerationSpeed] = useState<GenerationSpeed>('medium')
-  const [taskIntensity, setTaskIntensity] = useState<TaskIntensity>('normal')
+  const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>('auto')
+  const [generationSpeed, setGenerationSpeed] = useState<GenerationSpeed>('auto')
+  const [taskIntensity, setTaskIntensity] = useState<TaskIntensity>('auto')
   const [thinkingSeconds, setThinkingSeconds] = useState(0)
   const [generationPhase, setGenerationPhase] = useState<'thinking' | 'responding'>('thinking')
   const [activeGenerationModel, setActiveGenerationModel] = useState('')
   const [activeStage, setActiveStage] = useState('準備處理')
   const [programmingFolder, setProgrammingFolder] = useState('')
   const [folderError, setFolderError] = useState('')
-  const [persona, setPersona] = useState(() =>
-    window.localStorage.getItem(PERSONA_STORAGE_KEY) || ''
-  )
-  const [personaStatus, setPersonaStatus] = useState('')
   const [scrolledAway, setScrolledAway] = useState(false)
   const messagesRef = useRef<HTMLDivElement | null>(null)
   const endRef = useRef<HTMLDivElement | null>(null)
@@ -332,37 +332,6 @@ export function StarChatWindowApp() {
   const xingchengRouteSelected = selectedModel === STAR_NATIVE_MODEL.name
 
   useEffect(() => {
-    if (!connected || !xingchengRouteSelected) return
-    let disposed = false
-    void request('star_chat_get_persona', {}, 30_000).then((result) => {
-      if (disposed) return
-      if (typeof result.persona_text === 'string' && result.persona_text !== persona) {
-        setPersona(result.persona_text)
-        window.localStorage.setItem(PERSONA_STORAGE_KEY, result.persona_text)
-      }
-    }).catch(() => undefined)
-    return () => { disposed = true }
-    // Load the canonical persona once per route/connect change, not on edits.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, xingchengRouteSelected, request])
-
-  const savePersona = async () => {
-    const personaText = persona.trim()
-    window.localStorage.setItem(PERSONA_STORAGE_KEY, personaText)
-    setPersonaStatus('儲存中…')
-    try {
-      const result = await request('star_chat_save_persona', {
-        persona_text: personaText,
-      }, 30_000)
-      setPersonaStatus(result.ok === false
-        ? String(result.message || '人格儲存失敗')
-        : '星澄人格已儲存')
-    } catch (error) {
-      setPersonaStatus(error instanceof Error ? error.message : '人格儲存失敗')
-    }
-  }
-
-  useEffect(() => {
     if (!generating) {
       setThinkingSeconds(0)
       return
@@ -397,21 +366,31 @@ export function StarChatWindowApp() {
     setActiveStage('準備處理')
     setGenerating(true)
     try {
+      const reasoningEffort = REASONING_EFFORT_BY_LEVEL[reasoningLevel]
+      const gearPayload: Record<string, unknown> = {
+        message,
+        history,
+        max_output_tokens: maxOutputTokens,
+        runtime_model: selectedModel,
+        conversation_mode: conversationMode,
+        previous_conversation_mode: pendingModeTransition,
+        context_budget_characters: hardwareContext.characters,
+      }
+      // 「自動」= 不指定檔位，交由系統依任務與負載決定。
+      if (reasoningLevel !== 'auto') {
+        gearPayload.reasoning_level = reasoningLevel
+        gearPayload.reasoning_effort = reasoningEffort
+      }
+      if (generationSpeed !== 'auto') {
+        gearPayload.generation_speed = generationSpeed
+      }
+      if (taskIntensity !== 'auto') {
+        gearPayload.task_intensity = taskIntensity
+      }
       const result = await request(
         'star_chat_send_message',
         {
-          message,
-          history,
-          max_output_tokens: maxOutputTokens,
-          runtime_model: selectedModel,
-          reasoning_level: reasoningLevel,
-          reasoning_effort: REASONING_EFFORT_BY_LEVEL[reasoningLevel],
-          generation_speed: generationSpeed,
-          task_intensity: taskIntensity,
-          conversation_mode: conversationMode,
-          previous_conversation_mode: pendingModeTransition,
-          persona: persona.trim(),
-          context_budget_characters: hardwareContext.characters,
+          ...gearPayload,
           local_hardware_profile: {
             memory_gb: hardwareContext.memoryGb,
             cpu_cores: hardwareContext.cpuCores,
@@ -587,6 +566,7 @@ export function StarChatWindowApp() {
               <summary>進階設定 <small>{models.find((item) => item.name === selectedModel)?.label || '自動模型'}</small></summary>
               <div className="advanced-settings-panel">
             <label className="model-picker compact-picker"><span>推理等級</span><select aria-label="選擇推理等級" value={reasoningLevel} onChange={(event) => setReasoningLevel(event.target.value as ReasoningLevel)} disabled={generating || !connected}>
+              <option value="auto">{AUTO_REASONING_LABEL}</option>
               <option value="light">輕度</option>
               <option value="intermediate">中級</option>
               <option value="high-high">高高</option>
@@ -594,6 +574,7 @@ export function StarChatWindowApp() {
               <option value="extreme">極高</option>
             </select></label>
             <label className="model-picker compact-picker"><span>反應速度</span><select aria-label="選擇模型反應速度" value={generationSpeed} onChange={(event) => setGenerationSpeed(event.target.value as GenerationSpeed)} disabled={generating || !connected}>
+              <option value="auto">自動（依配額與負載）</option>
               <option value="slow">慢速</option>
               <option value="low">低速</option>
               <option value="medium">中速</option>
@@ -601,6 +582,7 @@ export function StarChatWindowApp() {
               <option value="ultra">超高速</option>
             </select></label>
             <label className="model-picker compact-picker"><span>任務強度</span><select aria-label="選擇任務強度" value={taskIntensity} onChange={(event) => setTaskIntensity(event.target.value as TaskIntensity)} disabled={generating || !connected}>
+              <option value="auto">自動（依訊息內容）</option>
               <option value="simple">簡單</option>
               <option value="normal">普通</option>
               <option value="intermediate">中級</option>
@@ -615,21 +597,6 @@ export function StarChatWindowApp() {
                 </optgroup> : null
               })}
             </select></label>
-            {xingchengRouteSelected && <label className="model-picker persona-editor">
-              <span>星澄人格</span>
-              <textarea
-                aria-label="設定星澄人格"
-                value={persona}
-                onChange={(event) => { setPersona(event.target.value); setPersonaStatus('') }}
-                placeholder="描述星澄的性格、語氣與回應風格；一般對話模式會以此人格回應。"
-                disabled={generating || !connected}
-                rows={4}
-              />
-              <div className="persona-actions">
-                <button type="button" onClick={() => void savePersona()} disabled={generating || !connected}>儲存人格</button>
-                {personaStatus && <small>{personaStatus}</small>}
-              </div>
-            </label>}
               </div>
             </details>
             <button className="ghost-button" onClick={() => setMessages([])} disabled={generating || messages.length === 0}>清除本次對話</button>

@@ -38,6 +38,7 @@ from .toolbox_repair import RepairMixin
 from .toolbox_start import StartMixin
 from .toolbox_shutdown import ShutdownMixin
 from .toolbox_constants import ToolEventCallback  # re-export for compatibility
+from core_system.process_registry import ProcessRegistry
 from governance import PermissionSovereign
 
 __all__ = ["ToolboxService", "ToolEventCallback"]
@@ -96,6 +97,19 @@ class ToolboxService(
         self._source_ui_processes: dict[str, asyncio.subprocess.Process] = {}
         self._source_ui_runtime_sessions: dict[str, str] = {}
         self._process_state_lock = asyncio.Lock()
+        # Per-tool start serialization: prevents 15 concurrent resident
+        # starts (G83) when multiple callers race on shared-layer.
+        self._tool_start_locks: dict[str, asyncio.Lock] = {}
+        self._tool_start_lock_guard = asyncio.Lock()
+        self._process_registry = ProcessRegistry(
+            self.project_root / "main-system" / "runtime" / "state"
+            / "process-registry.json"
+        )
+        # G83-2: immediate sweep of leftovers from previous crash-loop session
+        try:
+            self._process_registry.reconcile()
+        except Exception:
+            pass
         self._central_repair: CentralRepairService | None = None
         # Manifest cache: tool_id -> (manifest_dict, tool_dir_path).
         # Avoids re-reading manifest.json 3+ times per tool start.  The
@@ -124,6 +138,19 @@ class ToolboxService(
             "message": "啟動維護尚未完成：正在檢查版本相容性並執行主系統穩定性修正，完成前不開放狀態變更。",
             "operation": operation,
         }
+
+    def reconcile_process_registry(self) -> dict[str, int]:
+        """Reconcile owned tool PIDs through the canonical registry."""
+        return self._process_registry.reconcile()
+
+    async def _get_tool_start_lock(self, tool_id: str) -> asyncio.Lock:
+        """Per-tool lock for serializing concurrent starts (G83 dedup)."""
+        async with self._tool_start_lock_guard:
+            lock = self._tool_start_locks.get(tool_id)
+            if lock is None:
+                lock = asyncio.Lock()
+                self._tool_start_locks[tool_id] = lock
+            return lock
 
     async def _retry_start_after_central_repair(
         self,

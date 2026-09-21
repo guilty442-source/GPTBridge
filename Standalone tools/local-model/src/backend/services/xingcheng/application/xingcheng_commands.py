@@ -853,8 +853,14 @@ def _create_infer_command() -> list:
                 ParameterSpec(
                     name="prompt",
                     type="string",
-                    required=True,
+                    required=False,
                     description="提示詞",
+                ),
+                ParameterSpec(
+                    name="instruction",
+                    type="string",
+                    required=False,
+                    description="提示詞（與 prompt 等價）",
                 ),
                 ParameterSpec(
                     name="model",

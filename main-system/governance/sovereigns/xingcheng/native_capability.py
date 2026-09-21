@@ -23,13 +23,17 @@ Hardening (A337/A446/A435/A224/A46):
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 from .._base import SovereignBase, SovereignRequest, SovereignOutcome
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 from .native_capability_task_ledger import (
+    TaskIdentity,
+    TaskState,
     load_tasks,
     record_task_event,
+    record_task_transition,
     verify_authorization_reference,
 )
 
@@ -187,6 +191,59 @@ class XingchengNativeMixin:
         valid, _reason = verify_authorization_reference(str(mode), str(reference))
         return valid
 
+    @staticmethod
+    def _task_identity(request: SovereignRequest, task_id: str) -> TaskIdentity:
+        payload = request.payload
+        suffix = uuid.uuid4().hex
+        return TaskIdentity(
+            task_id=task_id,
+            request_id=str(payload.get("request_id") or f"request-{suffix}"),
+            operation_id=str(payload.get("operation_id") or f"operation-{suffix}"),
+            execution_receipt=str(payload.get("execution_receipt") or f"receipt-{suffix}"),
+            idempotency_key=str(payload.get("idempotency_key") or f"idem-{suffix}"),
+        )
+
+    @staticmethod
+    def _task_identity_from_record(task: dict[str, Any]) -> TaskIdentity:
+        return TaskIdentity(
+            task_id=str(task["task_id"]),
+            request_id=str(task["request_id"]),
+            operation_id=str(task["operation_id"]),
+            execution_receipt=str(task["execution_receipt"]),
+            idempotency_key=str(task["idempotency_key"]),
+        )
+
+    @staticmethod
+    def _task_fields(identity: TaskIdentity) -> dict[str, str]:
+        return {
+            "task_id": identity.task_id,
+            "request_id": identity.request_id,
+            "operation_id": identity.operation_id,
+            "execution_receipt": identity.execution_receipt,
+            "idempotency_key": identity.idempotency_key,
+        }
+
+    def _transition_task(
+        self,
+        task: dict[str, Any],
+        identity: TaskIdentity,
+        target: TaskState,
+        *,
+        verification: dict[str, Any] | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        current = TaskState(task["lifecycle_state"])
+        record_task_transition(
+            identity=identity,
+            current=current,
+            target=target,
+            task_type=str(task["type"]),
+            verification=verification,
+            detail=detail,
+        )
+        task["lifecycle_state"] = target.value
+        task["state"] = target.value
+
     async def adjudicate_native_capability(self, request: SovereignRequest) -> SovereignOutcome:
         """Route A337 native-model programming + automation intents."""
         intent = request.intent
@@ -203,28 +260,39 @@ class XingchengNativeMixin:
             resolved_output = self._resolve_in_domain(str(output_path))
             if resolved_output is None:
                 return refusal_outcome("CROSS_ROOT_MUTATION", self.verified_basis("A337"))
-        task_id = f"program-{len(self._program_tasks) + 1}"
+        task_id = str(request.payload.get("task_id") or f"program-{uuid.uuid4().hex}")
+        identity = self._task_identity(request, task_id)
         task = {
-            "task_id": task_id,
+            **self._task_fields(identity),
             "op": op,
             "subject": request.payload.get("subject") or request.subject,
             "spec": request.payload.get("spec"),
             "output_path": str(resolved_output) if resolved_output else None,
             "executor": "xingcheng-native-model",
             "status": "accepted",
+            "lifecycle_state": TaskState.CREATED.value,
+            "type": "program",
             "created_at": self._iso_now(),
         }
         self._program_tasks[task_id] = task
-        record_task_event(
-            task_id=task_id, event="create", task_type="program",
-            detail=task,
-        )
-        # Try native model executor first, fallback to basic executor
+        record_task_event(task_id=task_id, event="create", task_type="program", detail=task)
+        for target in (TaskState.VALIDATED, TaskState.AUTHORIZED, TaskState.QUEUED, TaskState.RUNNING):
+            self._transition_task(task, identity, target)
         execution_result = await _invoke_native_model_executor(getattr(self, "app", None), task)
         if execution_result.get("status") == "deferred":
-            # Try fallback executor
             execution_result = await _invoke_fallback_executor(getattr(self, "app", None), task)
         task["execution_result"] = execution_result
+        terminal = (
+            TaskState.COMPLETED
+            if execution_result.get("status") in {"executed", "fallback-executed"}
+            else TaskState.FAILED
+        )
+        self._transition_task(
+            task,
+            identity,
+            terminal,
+            detail={"execution_result": execution_result},
+        )
         record_task_event(
             task_id=task_id, event="execute", task_type="program",
             detail={"execution_result": execution_result},
@@ -262,7 +330,8 @@ class XingchengNativeMixin:
         return self._automation_contain(request)
 
     def _automation_decompose(self, request: SovereignRequest) -> SovereignOutcome:
-        task_id = f"auto-{len(self._automation_tasks) + 1}"
+        task_id = str(request.payload.get("task_id") or f"auto-{uuid.uuid4().hex}")
+        identity = self._task_identity(request, task_id)
         steps = request.payload.get("steps") or []
         # Enhanced decomposition: support step dependencies and parallel groups
         parsed_steps = []
@@ -287,9 +356,11 @@ class XingchengNativeMixin:
                 }
             parsed_steps.append(step)
         task = {
+            **self._task_fields(identity),
             "objective": request.payload.get("objective") or request.subject,
             "steps": parsed_steps,
-            "state": "decomposed",
+            "state": TaskState.CREATED.value,
+            "lifecycle_state": TaskState.CREATED.value,
             "created_at": self._iso_now(),
             "type": "automation",
             "metadata": {
@@ -303,8 +374,16 @@ class XingchengNativeMixin:
             task_id=task_id, event="create", task_type="automation",
             detail=task,
         )
+        for target in (TaskState.VALIDATED, TaskState.AUTHORIZED):
+            self._transition_task(task, identity, target)
         return accepted_outcome(
-            {"task_id": task_id, "state": "decomposed", "steps": len(parsed_steps), "metadata": task["metadata"]},
+            {
+                **self._task_fields(identity),
+                "task_id": task_id,
+                "state": task["state"],
+                "steps": len(parsed_steps),
+                "metadata": task["metadata"],
+            },
             self.verified_basis("A337"),
         )
 
@@ -332,7 +411,8 @@ class XingchengNativeMixin:
 
         # Group parallel steps
         task["parallel_schedule"] = self._group_parallel_steps(task["schedule"])
-        task["state"] = "scheduled"
+        identity = self._task_identity_from_record(task)
+        self._transition_task(task, identity, TaskState.QUEUED)
         record_task_event(
             task_id=str(request.payload.get("task_id")),
             event="schedule", task_type="automation",
@@ -340,8 +420,9 @@ class XingchengNativeMixin:
         )
         return accepted_outcome(
             {
+                **self._task_fields(identity),
                 "task_id": request.payload.get("task_id"),
-                "state": "scheduled",
+                "state": task["state"],
                 "scheduled_steps": len(task["schedule"]),
                 "parallel_groups": len(task["parallel_schedule"]),
             },
@@ -397,6 +478,10 @@ class XingchengNativeMixin:
         step_index = request.payload.get("step_index")
         parallel_group = request.payload.get("parallel_group")
         steps = task.get("schedule") or task["steps"]
+
+        identity = self._task_identity_from_record(task)
+        if task.get("lifecycle_state") == TaskState.QUEUED.value:
+            self._transition_task(task, identity, TaskState.RUNNING)
 
         # Support dispatching a parallel group
         if parallel_group is not None:
@@ -494,7 +579,13 @@ class XingchengNativeMixin:
                 break
 
         final_converged = converged and parallel_converged
-        task["state"] = "converged" if final_converged else task["state"]
+        if final_converged and task.get("lifecycle_state") == TaskState.RUNNING.value:
+            self._transition_task(
+                task,
+                self._task_identity_from_record(task),
+                TaskState.COMPLETED,
+                detail={"step_states": states},
+            )
         record_task_event(
             task_id=str(request.payload.get("task_id")),
             event="converge", task_type="automation",
@@ -558,6 +649,22 @@ class XingchengNativeMixin:
         if isinstance(task, SovereignOutcome):
             return task
         step_index = request.payload.get("step_index")
+        lifecycle_state = task.get("lifecycle_state")
+        if lifecycle_state in {
+            TaskState.CREATED.value,
+            TaskState.VALIDATED.value,
+            TaskState.AUTHORIZED.value,
+            TaskState.QUEUED.value,
+            TaskState.RUNNING.value,
+            TaskState.INTERRUPTED.value,
+            TaskState.RECOVERING.value,
+        }:
+            self._transition_task(
+                task,
+                self._task_identity_from_record(task),
+                TaskState.CANCELLED,
+                detail={"reason": request.payload.get("reason")},
+            )
         task["state"] = "contained"
         task["containment"] = {
             "step_index": step_index,

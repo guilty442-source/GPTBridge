@@ -58,6 +58,7 @@ class EnvironmentConstructionMixin:
         child_env["PYTHONIOENCODING"] = "utf-8"
         child_env["PYTHONDONTWRITEBYTECODE"] = "1"
         child_env["PYTHONNOUSERSITE"] = "1"
+        child_env["PYTHONUNBUFFERED"] = "1"
         isolated_tool_root = tool_dir.resolve()
         isolated_data_root = isolated_tool_root / "runtime"
         cache_root = isolated_data_root / "cache"

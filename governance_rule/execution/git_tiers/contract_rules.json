@@ -1,0 +1,37 @@
+{
+  "rules_version": "star-contract-check/v1",
+  "rules": [
+    {
+      "name": "schema-migration-contract",
+      "trigger_globs": ["shared-layer/migrations/*.sql"],
+      "require_globs": [
+        "shared-layer/src/shared_layer/database/schema_contract_registry.py",
+        "main-system/config/*.json"
+      ],
+      "severity": "warn",
+      "detail": "schema migration 應附契約版本或相容性檔更新"
+    },
+    {
+      "name": "ipc-surface-contract",
+      "trigger_globs": ["main-system/src-core/ipc/**"],
+      "require_globs": [
+        "main-system/config/*contract*.json",
+        "main-system/src-ui/**",
+        "main-system/tests/**"
+      ],
+      "severity": "warn",
+      "detail": "IPC 介面變更應附對端契約、UI 或測試更新"
+    },
+    {
+      "name": "tool-runtime-boundary",
+      "trigger_globs": ["Standalone tools/*/manifest.json"],
+      "require_globs": [
+        "main-system/config/tool-runtime-contract.json",
+        "main-system/src-core/tasks/toolbox_*.py",
+        "main-system/tests/**"
+      ],
+      "severity": "warn",
+      "detail": "工具 manifest 變更應附 runtime 契約或 toolbox 對應更新"
+    }
+  ]
+}

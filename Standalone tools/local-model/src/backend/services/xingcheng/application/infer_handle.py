@@ -3,8 +3,84 @@ from __future__ import annotations
 from typing import Any
 from shared_layer.contracts.types import ModuleIdentity
 
+from .persona_conversation import (
+    detect_persona_command,
+    persona_management_result,
+    render_persona_prompt,
+)
+
 
 class InferHandleMixin:
+
+    async def _infer_persona_management(
+        self, prompt: str
+    ) -> tuple[str, dict[str, Any]] | None:
+        """對話式人格管理：設定／顯示／清除，皆走受治理的 identity 儲存。"""
+        action, persona_text = detect_persona_command(prompt)
+        if not action:
+            return None
+        if action == "set":
+            bounded = persona_text[:4_000]
+            if not bounded:
+                return (
+                    "xingcheng_infer_result",
+                    persona_management_result(
+                        "set",
+                        response="請在指令後提供人格內容，例如：設定人格：你是星澄，語氣精確務實。",
+                    ),
+                )
+            saved = await self.local_knowledge.sql_save_personality(
+                {"persona_text": bounded, "source": "conversation"},
+                confirmed=True,
+            )
+            if saved.get("ok") is not True:
+                return (
+                    "xingcheng_infer_result",
+                    persona_management_result(
+                        "set",
+                        response=f"人格更新失敗：{saved.get('message') or '未知原因'}",
+                    ),
+                )
+            return (
+                "xingcheng_infer_result",
+                persona_management_result(
+                    "set",
+                    response=f"已更新人格設定（版本 {saved.get('version')}），後續對話將依此回覆。",
+                    version=saved.get("version"),
+                ),
+            )
+        if action == "reset":
+            saved = await self.local_knowledge.sql_save_personality(
+                {"persona_text": "", "source": "conversation"},
+                confirmed=True,
+            )
+            return (
+                "xingcheng_infer_result",
+                persona_management_result(
+                    "reset",
+                    response="已清除人格設定。",
+                    version=saved.get("version"),
+                ),
+            )
+        record = await self.local_knowledge.sql_get_personality()
+        value = record.get("value") if isinstance(record.get("value"), dict) else {}
+        current = str(value.get("persona_text") or "").strip()
+        return (
+            "xingcheng_infer_result",
+            persona_management_result(
+                "show",
+                response=current or "目前沒有設定人格。",
+                version=record.get("version"),
+            ),
+        )
+
+    async def _infer_current_persona(self) -> str:
+        try:
+            record = await self.local_knowledge.sql_get_personality()
+        except Exception:  # pragma: no cover - 防禦性：人格讀取失敗不阻斷推論
+            return ""
+        value = record.get("value") if isinstance(record.get("value"), dict) else {}
+        return str(value.get("persona_text") or "").strip()[:4_000]
 
     async def _handle_upgrade_memory(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         if command == "xingcheng_evaluate_upgrade":
@@ -56,6 +132,9 @@ class InferHandleMixin:
         )
         if build_error is not None:
             return build_error
+        persona_result = await self._infer_persona_management(prompt)
+        if persona_result is not None:
+            return persona_result
         preflight_error = await self._infer_run_command_preflight_gates(
             payload,
             command_plan,
@@ -70,6 +149,16 @@ class InferHandleMixin:
         inference_payload, prompt, planned_intents, planned_intent, external_tasks = (
             await self._infer_prepare_intents(payload, command_plan, raw_command)
         )
+        # 伺服器端套用已儲存人格（對話即來源；用戶端不需保存或傳送人格）。
+        persona_text = await self._infer_current_persona()
+        if persona_text:
+            guarded_prompt = render_persona_prompt(persona_text, prompt)
+            prompt = guarded_prompt
+            inference_payload = {
+                **inference_payload,
+                "instruction": guarded_prompt,
+                "prompt": guarded_prompt,
+            }
         session_error, automatic_runtime_model, planned_profile, business_scope, assigned_model = (
             self._infer_plan_session_context(
                 inference_payload,

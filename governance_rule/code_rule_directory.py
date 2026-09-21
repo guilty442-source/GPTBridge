@@ -64,7 +64,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
         approved_tool_ids=(
             "ai-assistant",
             "ai-collaboration",
-            "chinese-semantic-engine",
+            "domain-term-extractor",
             "file-sorter",
             "global-cleaner",
             "governance_rule",
@@ -75,12 +75,13 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "shared-layer",
             "system-rescue",
             "vaultly",
+            "chinese-semantic-engine",
         ),
         approved_actor_names=(
             "governance/main-system",
             "governance/tool/ai-assistant",
             "governance/tool/ai-collaboration",
-            "governance/tool/chinese-semantic-engine",
+            "governance/tool/domain-term-extractor",
             "governance/tool/file-sorter",
             "governance/tool/global-cleaner",
             "governance/tool/governance_rule",
@@ -92,6 +93,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "governance/tool/shared-layer",
             "governance/tool/system-rescue",
             "governance/tool/vaultly",
+            "governance/tool/chinese-semantic-engine",
         ),
         approved_capability_names=(
             "ai-channel-top-level",
@@ -130,7 +132,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "upgrade-optimization",
             "xingcheng-governance-source-read",
             "xingcheng-fault-analysis-read",
-            "semantic-analysis",
+            "chinese-semantic-engine",
         ),
         approved_action_names=(
             "append",

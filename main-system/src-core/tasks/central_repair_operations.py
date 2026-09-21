@@ -176,18 +176,24 @@ class CentralRepairOperationsMixin:
         tools_root = (self.project_root / "Standalone tools").resolve()
         if not tools_root.is_dir():
             raise PermissionError("PERMISSION_DENIED")
-        for manifest_path in sorted(tools_root.rglob("manifest.json")):
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except (OSError, UnicodeError, json.JSONDecodeError):
-                continue
-            if not isinstance(manifest, dict):
-                continue
-            if str(manifest.get("id") or "") != target_id:
-                continue
-            target_root = manifest_path.parent.resolve()
-            if _inside(target_root, tools_root):
-                return target_root
+        index = getattr(self, "_tool_root_index", None)
+        if index is None:
+            index = {}
+            for manifest_path in sorted(tools_root.rglob("manifest.json")):
+                try:
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                except (OSError, UnicodeError, json.JSONDecodeError):
+                    continue
+                if not isinstance(manifest, dict):
+                    continue
+                declared_id = str(manifest.get("id") or "")
+                target_root = manifest_path.parent.resolve()
+                if declared_id and _inside(target_root, tools_root):
+                    index.setdefault(declared_id, target_root)
+            self._tool_root_index = index
+        target_root = index.get(target_id)
+        if target_root is not None:
+            return target_root
         raise PermissionError("PERMISSION_DENIED")
 
     def repair_tool(

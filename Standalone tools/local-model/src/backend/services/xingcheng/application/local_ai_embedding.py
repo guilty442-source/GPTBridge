@@ -159,6 +159,16 @@ class LocalAiEmbeddingMixin:
                 "model": self.transformer_runtime.EMBEDDING_MODEL,
                 "result_count": len(embedding_retrieval),
             },
+            "context_retrieval": {
+                "memory_count": 0,
+                "used_memory_count": 0,
+                "memory_grounding_applied": False,
+                "memory_ids": [],
+                "reviewed_memory_only": True,
+                "native_private_database_opened": False,
+                "native_private_record_counts": {},
+            },
+            "evidence_policy": dict(self.native_model.runtime._EVIDENCE_POLICY),
             "instruction_execution": {
                 "understood": True,
                 "intent": intent,

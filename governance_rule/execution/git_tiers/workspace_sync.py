@@ -8,6 +8,7 @@ refs, or resolves conflicts automatically.
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import subprocess
 import sys
@@ -15,6 +16,7 @@ import time
 from pathlib import Path
 
 from .branch_policy import MAIN_BRANCH, is_main, normalize_branch
+from .contract_check import contract_check
 from .git_repository import GitRepository
 from .governance_manifest import (
     GovernanceWriteBlocked,
@@ -28,6 +30,8 @@ from .recovery import create_recovery_ref
 from .release_checkpoint import record_checkpoint
 from .self_commit import run_once
 from .worktree_manager import WorktreeManager
+
+_logger = logging.getLogger("gptbridge.git.workspace_sync")
 
 SYNC_ACTOR = "governance/workspace-sync"
 DEFAULT_SYNC_INTERVAL_SECONDS: float = _manifest_timing(
@@ -159,6 +163,22 @@ def synchronize(
             if not precheck["diff_check_clean"]:
                 queue.mark_conflicted(entry["queue_id"], "diff-check-failed")
                 return f"conflict:{branch}:diff-check"
+
+            # §10.8 contract check: merge success != integration success.
+            contract = contract_check(main_repo, source_sha, target=MAIN_BRANCH)
+            if not contract["ok"]:
+                queue.mark_blocked(
+                    entry["queue_id"],
+                    "contract-check:"
+                    + ";".join(v["rule"] for v in contract["violations"]),
+                )
+                return f"error:{branch}:contract-check"
+            if contract["warnings"]:
+                _logger.info(
+                    "contract warnings for %s: %s",
+                    branch,
+                    [w["rule"] for w in contract["warnings"]],
+                )
 
             recovery_ref = create_recovery_ref(
                 main_repo, entry["queue_id"], target=MAIN_BRANCH, actor=SYNC_ACTOR

@@ -206,20 +206,41 @@ class ProcessMixin:
             tool_id = self._request_tool_ids.get(request_id)
             if tool_id and self._request_kinds.get(request_id) == "started":
                 self._started_request_by_tool[tool_id] = request_id
-            return request_id in self._cancelled_request_ids
+            cancelled = request_id in self._cancelled_request_ids
+        registry = getattr(self, "_process_registry", None)
+        if registry is not None and tool_id:
+            try:
+                registry.register(
+                    process.pid,
+                    module_id=str(tool_id),
+                    request_id=request_id,
+                    owned=True,
+                )
+            except Exception:  # registry 失敗不得中斷工具啟動
+                pass
+        return cancelled
 
     async def _release_tool_process(self, request_id: str) -> bool:
         async with self._process_state_lock:
             tool_id = self._request_tool_ids.pop(request_id, None)
             self._request_kinds.pop(request_id, None)
-            self._running_processes.pop(request_id, None)
+            process = self._running_processes.pop(request_id, None)
             cancelled = request_id in self._cancelled_request_ids
             self._cancelled_request_ids.discard(request_id)
             if tool_id and self._active_request_by_tool.get(tool_id) == request_id:
                 self._active_request_by_tool.pop(tool_id, None)
             if tool_id and self._started_request_by_tool.get(tool_id) == request_id:
                 self._started_request_by_tool.pop(tool_id, None)
-            return cancelled
+        registry = getattr(self, "_process_registry", None)
+        if registry is not None and process is not None:
+            try:
+                if process.returncode is None:
+                    registry.mark_shutdown(process.pid, "released")
+                else:
+                    registry.mark_shutdown(process.pid, "exited")
+            except Exception:
+                pass
+        return cancelled
 
     async def _release_started_tool_command_slot(self, request_id: str) -> None:
         """Let a standalone GUI issue commands while its EXE remains open."""

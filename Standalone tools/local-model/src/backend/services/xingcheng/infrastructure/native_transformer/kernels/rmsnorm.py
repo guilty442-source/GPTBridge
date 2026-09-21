@@ -13,8 +13,10 @@ from ..execution.backend import capabilities
 
 
 def _triton_available() -> bool:
+    from ..execution.backend import triton_kernels_enabled
+
     cap = capabilities()
-    return cap.has_triton and cap.has_cuda
+    return bool(cap.has_triton and cap.has_cuda and triton_kernels_enabled())
 
 
 def rms_norm_weight(
@@ -26,7 +28,13 @@ def rms_norm_weight(
 
     自動選擇 Triton 或 PyTorch 實作。
     """
-    if hidden_states.is_cuda and _triton_available():
+    # Triton kernel 不帶 autograd：訓練（需要梯度）時必須走 PyTorch 實作，
+    # 否則梯度會在正規化層斷裂、模型無法收斂。
+    if (
+        hidden_states.is_cuda
+        and _triton_available()
+        and not (hidden_states.requires_grad or weight.requires_grad)
+    ):
         try:
             return _rms_norm_triton(hidden_states, weight, eps)
         except Exception:

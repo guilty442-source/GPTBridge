@@ -25,6 +25,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SERVICES = ROOT / "local-model" / "src" / "backend" / "services"
 PACKAGE = SERVICES / "xingcheng"
 
@@ -53,13 +54,13 @@ def test_automatic_workflow_matches_governance_and_manifest() -> None:
     manifest = json.loads(
         (ROOT / "local-model" / "manifest.json").read_text(encoding="utf-8")
     )
-    manifest_sequence = manifest["capabilities"]["xingcheng"][
-        "automatic_workflow"
-    ]["sequence"]
     assert LocalAiService.AUTOMATIC_WORKFLOW_SEQUENCE == (
         XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE
     )
-    assert manifest_sequence == list(XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE)
+    # Governance remains the single source of the workflow sequence; the
+    # toolbox manifest declares native-model permissions only and must not
+    # restate (and drift from) the canonical workflow.
+    assert "automatic_workflow" not in manifest["capabilities"]["xingcheng"]
 
 
 def test_star_models_have_four_isolated_databases(tmp_path: Path) -> None:
@@ -109,7 +110,7 @@ def test_xingcheng_role_setting_is_optional_single_personality_record() -> None:
         ROOT / "local-model" / "xingcheng" / "databases" / "cognition.sql"
     ).read_text(encoding="utf-8")
     contract = json.loads(
-        (ROOT / "main-system" / "config" / "data-architecture-contract.json")
+        (REPO_ROOT / "main-system" / "config" / "data-architecture-contract.json")
         .read_text(encoding="utf-8")
     )
 
@@ -117,6 +118,7 @@ def test_xingcheng_role_setting_is_optional_single_personality_record() -> None:
     assert role_setting == {
         "type": "personality",
         "database_isolation": "dedicated",
+        "owner": "xingcheng-native-model",
         "layers": ["role_data", "role_history", "role_audit"],
         "identity_format": (
             "{platform_id}:{module_id}:{data_category}:"
@@ -144,7 +146,7 @@ def test_xingcheng_role_setting_is_optional_single_personality_record() -> None:
     assert contract["xingcheng"]["legacy_model_settings_integration"] == "model-data"
 
     provisioner = (
-        ROOT / "main-system" / "scripts" / "provision_local_architecture.py"
+        REPO_ROOT / "main-system" / "scripts" / "provision_local_architecture.py"
     ).read_text(encoding="utf-8")
     assert "engine" in provisioner
     assert "local-sqlite3-degraded" in provisioner

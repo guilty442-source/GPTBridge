@@ -87,19 +87,19 @@
       "native/include/gptbridge_native.h"
     ],
     "core": [
-      "native/core/memory.hpp",
-      "native/core/parser.cpp",
-      "native/core/parser.hpp",
-      "native/core/simd.hpp",
-      "native/core/transformer.cpp",
-      "native/core/transformer.hpp",
-      "native/core/vector.cpp",
-      "native/core/vector.hpp"
-    ]
+      "native/core/memory.h",
+      "native/core/parser.c",
+      "native/core/parser.h",
+      "native/core/transformer.c",
+      "native/core/transformer.h",
+      "native/core/vector.c",
+      "native/core/vector.h"
+    ],
+    "note": "compute cores ported to pure C (2026-09-20); C++ superseded files removed"
   },
   "pybind11_binding": {
     "source": "main-system/src-core/core_system/native/_binding.cpp",
-    "sha256": "e99e25a5a5d1100cdaade050993182aa9c2d406da0c5383f44df439574f54cec",
+    "sha256": "22b76122a580f1579343977ba7b5f82f46ca420d549fad78009f69fc637d2e2a",
     "built_artifact": "main-system/src-core/core_system/native/_sovereign_native.cp311-win_amd64.pyd",
     "exports": [
       "is_windows",

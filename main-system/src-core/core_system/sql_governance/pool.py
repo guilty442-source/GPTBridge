@@ -55,7 +55,7 @@ class SecureConnectionPool:
         self,
         dsn: str,
         min_size: int = 2,
-        max_size: int = 10,
+        max_size: int = 6,
         reset_role: bool = True,
         reset_search_path: bool = True,
         reset_temp_settings: bool = True,

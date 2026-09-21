@@ -36,6 +36,28 @@ Remove-Item _commit_msg.txt -Force
 git commit -m "Single-line commit message"
 ```
 
+**Scope every commit to explicit paths** so externally staged work is never
+swept into your commit (incident 2026-09-20: `ef58c9cc` carried another
+worker's pre-staged P0 changes under a blueprint message):
+
+```powershell
+git add <your files>; git diff --cached --name-only   # verify only your files
+git commit -F _commit_msg.txt
+```
+
+If the index already contains files you did not stage, never commit the whole
+index. A verification listing is not enough — you must then either unstage the
+foreign files (`git restore --staged <path>`) or commit path-scoped:
+
+```powershell
+git commit -m "Your message" -- <your-file-1> <your-file-2>
+```
+
+Path-scoped commits ignore the index for every other path, so externally
+staged work can never be swept in (incident 2026-09-20: `4914cf07` swept a
+staged `pretrain.py` CUDA-graphs fix under a blueprint message because the
+whole index was committed after the listing was noticed).
+
 ### Other PowerShell Notes
 
 - `ls -la` → use `Get-ChildItem` or `dir`
@@ -109,44 +131,177 @@ worktrees are clean, governance audits pass, integration succeeds, and
 `origin/main` is an ancestor of local `main`. Workers and self-commit watchers
 must never push directly.
 
-## Supervised Full-System Automation
+## Git Automation (main-system task)
 
-The automation supervisor owns the entire parallel pipeline as one persistent,
-self-restarting service: it spawns one self-commit watcher per registered
-worktree, periodically runs the conflict-safe synchronizer, and records its
-state in `.git/gptbridge-automation/`. Use the wrapper from any checkout:
+The old `automation_supervisor` process fleet (one watcher process per
+worktree + periodic sync) is replaced by a single in-process main-system
+task: `GitAutomationService`
+(`main-system/src-core/tasks/git_automation.py`), started by the startup
+executor in the normal-information phase (`app.git_automation`).
 
-```powershell
-# status / start / stop
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --status
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --start
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --stop
+- **Commit sweep** every 60 s: runs `self_commit.run_once` per registered
+  worktree, but only after the dirty fingerprint has been stable for a
+  60 s debounce — same stability contract as the old watchers, zero extra
+  processes. A worktree whose index already holds staged-but-uncommitted
+  changes is **skipped** (`staged-index-present`) so a human/agent mid-commit
+  is never swept into an auto-commit with an unrelated message.
+- **Sync cycle** every 300 s: runs `workspace_sync.synchronize`
+  (commit → merge worker branches into `main` → audit → fast-forward).
+  Conflicts stop that cycle until a human resolves them.
+- Locking, merge/rebase guards, audit recording and the no-push rule all
+  stay in the governed `git_tiers` functions; the task only schedules.
 
-# cross-reboot persistence (per-user Run key: no elevation needed)
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --install-logon
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --uninstall-logon
+State: `main-system/runtime/state/git-automation.json`. One-shot
+verification (first sweep only debounces; real sync commits dirty
+worktrees — run when the tree is in a state you want committed):
 
-# optional: Task Scheduler logon job (requires an elevated shell)
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --install-task
-& main-system\.venv\Scripts\python.exe scripts\git-supervisor.py --root E:\GPTBridge --uninstall-task
+```python
+from tasks.git_automation import GitAutomationService
+svc = GitAutomationService(r"E:\GPTBridge")
+await svc.run_once_cycle()   # one sweep + one sync
 ```
 
-Design notes:
+The legacy `scripts/git-supervisor.py` entry point still works but is no
+longer the default path — prefer the in-process task.
 
-- Double-start is safe: a second supervisor exits when the lock is busy
-  (`LockBusyError`), delete the lock file only to force yourself to replace a
-  hung instance (`Stop-Process` its pid first).
-- Watchers auto-commit their own worktree after a stability debounce; the
-  supervisor never pushes unless `--push` was used at start time.
-- If a sync cycle reports `error:dirty-worktree:<path>` it means a worktree
-  (usually the main checkout while an external worker is mid-edit) is still
-  uncommitted; the next cycle absorbs it once the tree settles and the
-  governance audit passes. This is the intended parallel-update behaviour.
-- Local-worker branches (`git`, `local-model`, `rag`, `ui` and the `kilo`
-  worktrees) are merged into `main` by the coordinator; conflicts stop the
-  cycle until a human resolves them.
+## 星澄 Self-Learning & Automatic Upgrade
 
-Implementation: `governance_rule/execution/git_tiers/automation_supervisor.py`.
+The native model learns from its own verified data and can upgrade itself
+through the same governed pipeline used for manual training:
+
+1. collect verified examples (`language_training_example`, active & quality
+   gated) from every role database,
+2. if the number of new examples since the last cycle reaches the policy
+   threshold, export a `star-transformer-sft/v1` snapshot and register a
+   training dataset,
+3. queue and run a governed SFT job initialised from the lifecycle's active
+   weights,
+4. evaluate the resulting artifact against the policy's eval suites
+   (default `star-native-eval-dialogue-v1`) with the current active weights
+   as baseline,
+5. only if every gate passes: register the adapter, `stage`, and — when
+   `auto_activate` is set — `activate`, register the weights in the model
+   lifecycle, pin `runtime/settings/native-engine.json` to the new artifact
+   and prune the previous generation (only the latest generation is kept).
+
+Any failure is fail-closed: the active weights, the runtime checkpoint and
+the adapter registry stay untouched. Policy: `runtime/settings/self-learning.json`
+(`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
+reports: `xingcheng/runtime/logs/self-learning-*.json`.
+
+```powershell
+# status / one-shot / force (ignore the new-example threshold) / kill switch
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --status
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once --force
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --disable
+
+# periodic watcher (spawn from any supervisor / scheduler)
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --watch --interval 900
+```
+
+Run from `Standalone tools\local-model\src\backend\services` (the package root).
+
+Implementation: `native_transformer/self_learning.py` +
+`native_transformer/self_learning_support.py`.
+
+## 星澄 Model Maturity (`star-model-maturity/v1`)
+
+Unified maturity ladder; the certified level is decided **only by executed
+tests** — parameter count is recorded as evidence, never a criterion.
+Levels must pass consecutively; the first `fail`/`skipped` level caps the
+certification.
+
+| Level | Code | Gate |
+| --- | --- | --- |
+| 0 | `structure_init` | 結構初始化、參數全 finite |
+| 1 | `forward_backward` | forward loss finite、全參數有梯度、optimizer step 後 logits finite |
+| 2 | `overfit_small` | 固定 8 樣本過擬合：loss ≤ 0.5 或 ≤ 20% 初始值（測完還原權重） |
+| 3 | `effective_pretrain` | held-out ppl ≤ 25% × vocab_size（對齊 random-uniform 基線） |
+| 4 | `generation` | ≥75% 探針產生足量、多樣、非退化文本 |
+| 5 | `dialogue_instruction` | ≥75% 對話探針通過（回合邊界、逐字複誦、限定回答、多輪記憶） |
+| 6 | `reasoning_tools` | 可驗證算術/比較 + `<tool_call>` schema 合法，通過率 ≥50% 且 tool call 有效 |
+| 7 | `controlled_evolution` | kill-switch fail-closed 實測 + lifecycle register/activate/rollback 實測 + 受管升級證據（self-learning 報告或 ≥2 代權重 + ≥1 評估報告） |
+
+```powershell
+# full ladder against a trained checkpoint
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --checkpoint <final.pt> --tool-root "Standalone tools\local-model" --device cpu --save
+
+# architecture-only ladder (L0-L2; L3+ reports skipped)
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --preset small
+
+# latest certified level
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --status --tool-root "Standalone tools\local-model"
+```
+
+Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
+`xingcheng/runtime/state/model-maturity.json`. Implementation:
+`native_transformer/maturity.py` (`certify`, `current_maturity`,
+`persist_report`).
+
+## 星澄 Data Retention (`star-retention-policy/v1`)
+
+Bounds local-model runtime growth: old governed job dirs, logs, maturity /
+self-learning reports and SFT snapshots are pruned by count and age.
+**Never deletes** paths referenced by any `lifecycle.json` artifact version
+or the checkpoint pinned in `runtime/settings/native-engine.json`
+(unresolvable paths are fail-closed kept). Deletions append to
+`xingcheng/runtime/logs/retention.jsonl`. Policy:
+`runtime/settings/retention.json` (`enabled=false` disables everything).
+Runs automatically at the end of every self-learning cycle; manual:
+
+```powershell
+# dry-run (default) / apply / status
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model"
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model" --apply
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model" --status
+```
+
+Implementation: `native_transformer/retention.py` (`apply_retention`).
+
+## 星澄 Training GPU Gate & Auto-Release
+
+- `TrainingJobExecutor.run_job` gates CUDA training through
+  `shared_layer.adaptive.gpu_coordinator` before starting: jobs wait for
+  `gpu_required_mb` free VRAM (default 2500, bounded config keys
+  `gpu_required_mb` / `gpu_acquire_timeout_s`); timeout fails the job
+  `EXECUTOR_GPU_BUSY` (fail-closed, no OOM contention). Only the real
+  trainer is gated — injected `train_fn` stubs skip it. Completed jobs
+  register a new lifecycle weights version but **never auto-activate**;
+  promotion only happens through the eval-gated path (self-learning) or
+  explicit approval.
+- `native_engine.native_engine_for` registers cached engines with
+  `execution/auto_release.py` `AutoReleaseManager`: idle timeout
+  (`settings.auto_release_idle_seconds`, default 300 s) or memory
+  pressure evicts the engine from cache; in-flight generation keeps its
+  own strong reference and finishes normally.
+- `NativeTransformerEngine` CUDA load also passes through the same
+  coordinator: required VRAM is estimated from parameter count
+  (bf16 ≈ 2 B/param × 1.5 headroom, floor 256 MB) and acquired with
+  `XINGCHENG_GPU_ACQUIRE_TIMEOUT_S` (default 15 s). On timeout the
+  engine degrades to CPU (`gpu_budget_downgraded=True`) and appends a
+  `gpu-budget-downgrade` entry to `native-engine-executions.jsonl` —
+  inference degrades instead of contending for VRAM.
+- Chat-foundation SFT dataset production line:
+  `infrastructure/chat_foundation_dataset.py`
+  (`star-chat-foundation/v1`; deterministic seed, corpus replay mixing,
+  maturity probe values excluded).
+
+## Lazy RAG/CAG (MS1/MS2)
+
+RAG + CAG are capability-critical, not boot-critical. By default the
+composition root does NOT import or construct them — measured import
+baseline: 2.43 s / 1153 modules / 176 MB RSS → 0.66 s / 670 modules /
+53 MB. First retrieval need must call `await app.ensure_rag_cag_started()`
+(`core_system/app_lifecycle.py`): builds `RagRuntimeIntegration`, starts
+it, then builds/starts `CAGIntegration` (CAG needs `rag_orchestrator`).
+A lock serializes concurrent first-use; the call is idempotent.
+`GPTBRIDGE_RAG_EAGER=1` restores the legacy eager construct+start during
+boot. Acceptance tests: `main-system/tests/test_p0_lazy_lifecycle_handover.py`
+(also covers the MS4 handover health gate in `boot_core_handover.py` —
+`global-success` is only written after standby readiness + health probes
++ stability window; failures mark `failed-isolated`/`rolled-back` and
+reactivate the previous generation).
 
 ## On-Demand Model Activation (Lazy 星澄)
 
@@ -324,10 +479,32 @@ canonical / dependencies / information_channels`.
 
 Tests: `governance_rule/tests/test_architecture_registry.py`.
 
+## Single Shared Blueprint（唯一共用藍圖）
+
+All workers share exactly one planning document:
+
+`Standalone tools/local-model/星澄模型四層建置藍圖.md`
+
+- **Do not create any other blueprint / roadmap / phased-plan / flow document** —
+  no new `*blueprint*`, `*BLUEPRINT*`, `*藍圖*`, `*流程*` or equivalent planning
+  file in any directory, worktree or tool folder.
+- All planning output (phases, acceptance criteria, gaps, dependency orders,
+  optimization batches, end-to-end flows — chapter 9) goes into that single file.
+- `shared-layer/SQL_LAYER_GOVERNANCE_BLUEPRINT.md` was deleted on 2026-09-20;
+  its planning content is consolidated into the shared blueprint (chapter 6);
+  the deleted content remains available in Git history.
+- Domain authority/evidence documents (codex mirrors, contracts, rules docs,
+  READMEs) stay in their own locations but must not grow into parallel
+  blueprints or roadmaps.
+
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.
 - Governance audit must pass before commits: `python -m governance_rule.execution.audit`
+- **Implementation precedence (mandatory, blueprint invariant 18)**: a verified
+  implementation that is better than the blueprint is kept and written back into
+  the blueprint with evidence (commit/tests); never roll back a superior, tested
+  implementation merely to match the blueprint.
 - Model core must remain separate from network functionality.
 - All external network access must go through governed tool paths.
 
