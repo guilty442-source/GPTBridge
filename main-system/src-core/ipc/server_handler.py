@@ -50,7 +50,7 @@ async def handler(websocket, app_instance):
     # A67 condition 4: authenticated-ipc-connected — tracked as an
     # INDEPENDENT verification channel, not inferred from the session
     # token.  Reaching ``handler`` means the WebSocket handshake passed
-    # ``_websocket_request_authorized`` (token + instance id HMAC check)
+    # ``_websocket_request_authorized`` (short-lived ticket or governed legacy token + instance check)
     # in ``process_request``; an unauthenticated connection is rejected
     # with 403 before it ever gets here.  We therefore count this as an
     # explicitly authenticated IPC connection, distinct from the raw

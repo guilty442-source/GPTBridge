@@ -8,6 +8,7 @@ level work during the startup generation.
 from __future__ import annotations
 
 import asyncio
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -21,6 +22,31 @@ from .governed_startup_verify import (
     verify_dependency_classification,
 )
 from .startup_executor_types import PhaseRecord
+
+
+async def _start_backup_scheduler_if_enabled(app: Any) -> None:
+    """Assemble the single production BackupScheduler when explicitly enabled."""
+    if os.environ.get("GPTBRIDGE_BACKUP_SCHEDULER", "0") != "1":
+        return
+    if getattr(app, "backup_scheduler", None) is not None:
+        return
+    from psycopg import Connection
+    from shared_layer.database import DatabaseSettings
+    from shared_layer.database.backup_scheduler import get_backup_scheduler
+    from shared_layer.database.config import database_dsn
+    from shared_layer.database.restore_certification import certify_restore
+
+    settings = DatabaseSettings.from_environment()
+    if not settings.admin_dsn.strip():
+        raise RuntimeError("BACKUP_SCHEDULER_ADMIN_DSN_REQUIRED")
+
+    def certify(_backup_path: str):
+        with Connection.connect(database_dsn(settings.admin_dsn, settings.database)) as conn:
+            return certify_restore(conn)
+
+    scheduler = get_backup_scheduler(settings, restore_certifier=certify)
+    scheduler.start()
+    app.backup_scheduler = scheduler
 
 
 class StartupExecutorPhasesMixin:
@@ -138,6 +164,7 @@ class StartupExecutorPhasesMixin:
             )
         await asyncio.to_thread(app.toolbox_service.reconcile_process_registry)
         await app.toolbox_service.start_process_registry_monitor()
+        await _start_backup_scheduler_if_enabled(app)
         if getattr(app, "model_service_activation", None) is None:
             from tasks.model_service_activation import (
                 ModelServiceActivationBroker,

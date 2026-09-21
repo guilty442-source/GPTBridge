@@ -243,6 +243,126 @@ async def _soak(args: argparse.Namespace) -> dict:
     }
 
 
+def _spawn_backend_process() -> "subprocess.Popen[bytes]":
+    """Spawn the real backend exactly like boot_core_lifecycle._spawn_backend."""
+    import os
+    import subprocess
+
+    from core_system.governance_runtime import GOVERNANCE_BOOTSTRAP_ENV
+
+    env = dict(os.environ)
+    env[GOVERNANCE_BOOTSTRAP_ENV] = _issue_governance_bootstrap()
+    env["GPTBRIDGE_PROJECT_ROOT"] = str(ROOT)
+    env["GPTBRIDGE_WORKSPACE_ROOT"] = str(ROOT)
+    return subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            "-B",
+            str(ROOT / "main-system" / "src-core" / "main.py"),
+            "--serve",
+        ],
+        cwd=str(ROOT),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+
+def _backend_soak(args: argparse.Namespace) -> int:
+    """Empirical soak against the real backend process (G82/G83).
+
+    The backend runs its own ToolboxService, resident starts, reconcile
+    monitor and the xingcheng auto-loop; this harness only observes:
+    registry samples every ``--interval`` seconds, backend-log arity
+    markers, and a post-terminate reconcile pass.
+    """
+    import subprocess
+    import threading
+
+    from backend_log_sink import get_backend_log_sink
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    sink = get_backend_log_sink(LOG_DIR)
+    relayed: list[str] = []
+
+    child = _spawn_backend_process()
+    assert child.stdout is not None
+
+    def _pump() -> None:
+        for raw in iter(child.stdout.readline, b""):
+            line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+            relayed.append(line)
+            try:
+                sink.write_line(line)
+            except Exception:
+                pass
+
+    pump = threading.Thread(target=_pump, daemon=True)
+    pump.start()
+
+    ready_deadline = time.monotonic() + 180.0
+    ready = False
+    while time.monotonic() < ready_deadline:
+        if child.poll() is not None:
+            break
+        if any('"status": "ready"' in line for line in relayed):
+            ready = True
+            break
+        time.sleep(0.5)
+
+    log_baseline = _backend_log_fingerprint()
+    samples: list[dict] = []
+    deadline = time.monotonic() + (args.duration if ready else 0.0)
+    while time.monotonic() < deadline:
+        time.sleep(args.interval)
+        samples.append(_sample())
+
+    # Hard terminate mirrors the real boot-core/Electron shutdown path;
+    # reconcile afterwards demonstrates crash-state cleanup.
+    if child.poll() is None:
+        child.terminate()
+        try:
+            child.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.wait(timeout=10)
+    pump.join(timeout=10)
+    post_kill = _sample()
+    reconciled = ProcessRegistry(REGISTRY_PATH).reconcile()
+
+    anomalies = sorted({a for s in samples for a in s["anomalies"]})
+    arity = _count_arity_markers(log_baseline)
+    ok = ready and not anomalies and not any(
+        count for count in arity.values()
+    )
+    report = {
+        "schema": "star-toolbox-soak/v1",
+        "mode": "backend",
+        "duration_s": args.duration,
+        "interval_s": args.interval,
+        "backend_ready": ready,
+        "backend_exit_code": child.returncode,
+        "samples": samples,
+        "anomalies": anomalies,
+        "arity_markers_added": arity,
+        "post_kill_running": post_kill["running"],
+        "post_kill_reconcile": reconciled,
+        "ok": ok,
+    }
+    out = Path(args.report) if args.report else (
+        LOG_DIR / f"toolbox-soak-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}.json"
+    )
+    out.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    print(
+        f"backend soak ok={report['ok']} ready={ready} "
+        f"anomalies={len(anomalies)} arity={arity} report={out}"
+    )
+    return 0 if ok else 1
+
+
 def _spawn_worker(args: argparse.Namespace) -> int:
     """Launcher mode: mint the bootstrap token, spawn the worker as a child.
 
@@ -284,8 +404,16 @@ def main() -> int:
     parser.add_argument("--reconcile", type=float, default=30.0)
     parser.add_argument("--report", default=None)
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--backend",
+        action="store_true",
+        help="Soak the real backend process (boot-core spawn path) instead of "
+        "driving ToolboxService in-process.",
+    )
     args = parser.parse_args()
 
+    if args.backend:
+        return _backend_soak(args)
     if not args.worker:
         return _spawn_worker(args)
 

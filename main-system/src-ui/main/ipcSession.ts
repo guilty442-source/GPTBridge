@@ -397,19 +397,32 @@ export async function isGatewayAlive(): Promise<boolean> {
   return probeBackendPort(readConfiguredGatewayPort())
 }
 
+function createWebSocketSessionTicket(
+  token: string,
+  workspaceInstanceId: string
+): string {
+  const expiresAt = Math.floor(Date.now() / 1000) + 30
+  const nonce = crypto.randomBytes(16).toString('hex')
+  const payload = `${expiresAt}.${nonce}.${workspaceInstanceId}`
+  const signature = crypto
+    .createHmac('sha256', token)
+    .update(payload, 'utf8')
+    .digest('hex')
+  return `${payload}.${signature}`
+}
+
 export async function getBackendSessionDescriptor(): Promise<{
-  token: string
   websocketUrl: string
   workspaceInstanceId: string
 }> {
   const token = getBackendSessionToken()
   const workspaceInstanceId = getWorkspaceInstanceId()
   const backendPort = await resolveBackendPort()
+  const ticket = createWebSocketSessionTicket(token, workspaceInstanceId)
   return {
-    token,
     workspaceInstanceId,
     websocketUrl:
-      `ws://${LOOPBACK_HOST}:${backendPort}/?token=${encodeURIComponent(token)}` +
+      `ws://${LOOPBACK_HOST}:${backendPort}/?ticket=${encodeURIComponent(ticket)}` +
       `&instance=${encodeURIComponent(workspaceInstanceId)}`,
   }
 }

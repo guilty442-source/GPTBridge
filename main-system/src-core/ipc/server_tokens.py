@@ -40,6 +40,8 @@ _IPC_TOKEN_LOCK_NAME = ".session-token.lock"
 _IPC_TOKEN_LOCK_WAIT_SECONDS = 10.0
 _IPC_TOKEN_STALE_LOCK_SECONDS = 5.0
 _WINDOWS_FILE_REPLACE_RETRY_SECONDS = 2.0
+_WS_TICKET_TTL_SECONDS = 30
+_USED_WS_TICKET_NONCES: dict[str, float] = {}
 _WINDOWS_FILE_REPLACE_RETRY_INTERVAL_SECONDS = 0.025
 
 
@@ -376,15 +378,42 @@ def _websocket_request_authorized(request: Any) -> bool:
     try:
         query = parse_qs(urlsplit(str(request.path)).query)
         provided = str((query.get("token") or [""])[0]).strip()
+        ticket = str((query.get("ticket") or [""])[0]).strip()
         provided_instance = str((query.get("instance") or [""])[0]).strip()
     except Exception:
         return False
-    return (
-        bool(provided)
-        and hmac.compare_digest(provided, expected)
-        and bool(provided_instance)
-        and hmac.compare_digest(provided_instance, _workspace_instance_id())
-    )
+    if not provided_instance or not hmac.compare_digest(
+        provided_instance, _workspace_instance_id()
+    ):
+        return False
+    if provided and hmac.compare_digest(provided, expected):
+        return True
+    parts = ticket.split(".")
+    if len(parts) != 4:
+        return False
+    expires_text, nonce, ticket_instance, signature = parts
+    try:
+        expires_at = int(expires_text)
+    except ValueError:
+        return False
+    if expires_at < int(time.time()) or ticket_instance != provided_instance:
+        return False
+    payload = f"{expires_at}.{nonce}.{ticket_instance}"
+    expected_signature = hmac.new(
+        expected.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(signature, expected_signature):
+        return False
+    # One-time browser ticket: bound to the renderer handshake and never
+    # reusable as a long-lived credential.
+    now = time.time()
+    for used_nonce, used_until in list(_USED_WS_TICKET_NONCES.items()):
+        if used_until < now:
+            _USED_WS_TICKET_NONCES.pop(used_nonce, None)
+    if nonce in _USED_WS_TICKET_NONCES:
+        return False
+    _USED_WS_TICKET_NONCES[nonce] = float(expires_at)
+    return True
 
 
 def _shutdown_request_authorized(request: Any) -> bool:

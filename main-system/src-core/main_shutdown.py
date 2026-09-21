@@ -40,6 +40,14 @@ class GPTBridgeAppShutdownMixin:
             self._shutdown_complete.set()  # type: ignore[attr-defined]
 
     async def _shutdown_once(self) -> None:
+        backup_scheduler = getattr(self, "backup_scheduler", None)
+        if backup_scheduler is not None:
+            try:
+                backup_scheduler.stop()
+            except Exception:
+                pass
+            self.backup_scheduler = None
+
         # Close tools owned by this main system before stopping its health
         # monitor.  ToolboxService filters by process ownership and manifest,
         # so independent standalone tools remain running.
