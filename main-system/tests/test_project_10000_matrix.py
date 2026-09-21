@@ -117,14 +117,16 @@ def _build_version_cases(tool_id: str, manifest: dict[str, Any]) -> list[Contrac
             True,
         )
     ]
-    # Reduced from 300 to 10 for performance - 1 real + 9 boundary fakes
+    # Reduced from 300 to 10 for performance - 1 real + 9 boundary fakes.
+    # Fake majors start at 90 so a tool genuinely at 2.0.0 cannot collide
+    # with a fabricated candidate (was: literal index -> collision).
     for index in range(1, 10):
         candidate = (
             (f"1.0.{index}", "1.0")
             if index % 3 == 0
-            else ("1.0.0", f"1.{index}")
+            else ("1.0.0", f"1.{index + 90}")
             if index % 3 == 1
-            else (f"{index}.0.0", f"{index}.0")
+            else (f"{index + 90}.0.0", f"{index + 90}.0")
         )
         cases.append(ContractProbe(tool_id, "version", index, candidate, False))
     return cases
@@ -343,7 +345,14 @@ def _evaluate_probe(probe: ContractProbe) -> bool:
             and re.fullmatch(policy.tool_id_pattern, candidate) is not None
         )
     if probe.family == "version":
-        return probe.candidate == ("1.0.0", "1.0")
+        # Contract: the probe pair must equal the tool manifest's declared
+        # (version, display_version) — not a hardcoded baseline, so tools
+        # that legitimately ship v2 (chinese-semantic-engine) pass.
+        manifest = _load_manifest(probe.tool_id)
+        return probe.candidate == (
+            manifest.get("version"),
+            manifest.get("display_version"),
+        )
     if probe.family == "capability":
         candidate = str(probe.candidate)
         return (

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -325,6 +326,8 @@ MARKET_ALIASES: Mapping[str, str] = {
     "陸股": "CN",
     "歐股": "EU",
 }
+
+_NUMERIC_TOKEN = re.compile(r"\d+(?:\.\d+)*")
 
 STOPWORDS: frozenset[str] = frozenset(
     {
@@ -715,14 +718,17 @@ class ChineseSemanticEngine:
         return tokens
 
     def _keywords(self, tokens: list[str]) -> list[tuple[str, int]]:
-        counts: dict[str, int] = {}
+        # X2: numeric check on the raw token (digits never casefold) skips
+        # the casefold entirely; the length check stays on the folded form
+        # because casefolding can change length (e.g. 'ß' -> 'ss').
+        counts: Counter[str] = Counter()
         for token in tokens:
+            if _NUMERIC_TOKEN.fullmatch(token):
+                continue
             folded = token.casefold()
             if len(folded) < 2 or folded in STOPWORDS:
                 continue
-            if re.fullmatch(r"\d+(?:\.\d+)*", folded):
-                continue
-            counts[folded] = counts.get(folded, 0) + 1
+            counts[folded] += 1
         ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
         return ordered[:20]
 

@@ -321,16 +321,20 @@ def validate_dependency_graph(payload: dict[str, Any]) -> list[str]:
         for component in parsed
     }
     visiting: list[str] = []
+    # X7: position index so cycle extraction is O(1) instead of
+    # ``visiting.index()`` O(N) per dependency edge (O(N²) overall).
+    visiting_pos: dict[str, int] = {}
     state: dict[str, int] = {node: 0 for node in graph}  # 0=new 1=visiting 2=done
 
     def visit(node: str) -> bool:
         state[node] = 1
+        visiting_pos[node] = len(visiting)
         visiting.append(node)
         for dependency in graph.get(node, ()):
             if dependency not in graph:
                 continue
             if state[dependency] == 1:
-                cycle = visiting[visiting.index(dependency):] + [dependency]
+                cycle = visiting[visiting_pos[dependency]:] + [dependency]
                 errors.append(
                     "dependency graph contains a cycle: " + "->".join(cycle)
                 )
@@ -338,6 +342,7 @@ def validate_dependency_graph(payload: dict[str, Any]) -> list[str]:
             if state[dependency] == 0 and visit(dependency):
                 return True
         visiting.pop()
+        del visiting_pos[node]
         state[node] = 2
         return False
 

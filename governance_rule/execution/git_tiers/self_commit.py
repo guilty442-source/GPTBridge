@@ -114,11 +114,15 @@ def _porcelain(repo: GitRepository) -> dict[str, str]:
 
 
 def _state_fingerprint(repo: GitRepository) -> str:
-    """Stable fingerprint of the worktree's dirty state."""
+    """Stable fingerprint of the worktree's dirty state.
+
+    X6: one ``diff --numstat HEAD`` covers staged + unstaged churn in a
+    single subprocess (the fingerprint only needs change detection, not
+    the staged/unstaged split).
+    """
     entries = _porcelain(repo)
-    staged = repo.run(["diff", "--cached", "--numstat"]).stdout
-    unstaged = repo.run(["diff", "--numstat"]).stdout
-    payload = repr(sorted(entries.items())) + staged + unstaged
+    numstat = repo.run(["diff", "--numstat", "HEAD"]).stdout
+    payload = repr(sorted(entries.items())) + numstat
     return hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()
 
 
