@@ -59,7 +59,6 @@
       "ai-assistant",
       "ai-collaboration",
       "file-sorter",
-      "domain-term-extractor",
       "vaultly",
       "business-logic-csharp",
       "native-compute-core"
@@ -272,13 +271,6 @@
       "module_identity": "file-sorter",
       "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
       "capability_dispatch_selected": "file-sorter",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "domain-term-extractor",
-      "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
-      "capability_dispatch_selected": "domain-term-extractor",
       "parity": true,
       "decision": "PASS"
     },

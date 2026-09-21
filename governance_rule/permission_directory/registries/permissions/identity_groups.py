@@ -7,7 +7,6 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_AI_ASSISTANT,
     IDENTITY_GROUP_AI_COLLABORATION,
     IDENTITY_GROUP_FILE_SORTER,
-    IDENTITY_GROUP_DOMAIN_TERM_EXTRACTOR,
     IDENTITY_GROUP_GLOBAL_CLEANER,
     IDENTITY_GROUP_GOVERNANCE_RULE,
     IDENTITY_GROUP_INVESTMENT_MOBILE,
@@ -200,13 +199,6 @@ FILE_SORTER_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     language_name="file_sorter",
     codename="SORTER",
 )
-DOMAIN_TERM_EXTRACTOR_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
-    "domain-term-extractor",
-    group_id=IDENTITY_GROUP_DOMAIN_TERM_EXTRACTOR,
-    identity_code="T00001",
-    language_name="domain_term_extractor",
-    codename="TERM_EXTRACTOR",
-)
 XINGCHENG_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     "xingcheng",
     group_id=IDENTITY_GROUP_XINGCHENG,
@@ -311,7 +303,6 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     AI_ASSISTANT_IDENTITY,
     AI_COLLABORATION_IDENTITY,
     FILE_SORTER_IDENTITY,
-    DOMAIN_TERM_EXTRACTOR_IDENTITY,
     GLOBAL_CLEANER_IDENTITY,
     INVESTMENT_MOBILE_IDENTITY,
     XINGCHENG_IDENTITY,

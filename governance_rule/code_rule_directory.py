@@ -64,7 +64,6 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
         approved_tool_ids=(
             "ai-assistant",
             "ai-collaboration",
-            "domain-term-extractor",
             "file-sorter",
             "global-cleaner",
             "governance_rule",
@@ -80,7 +79,6 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "governance/main-system",
             "governance/tool/ai-assistant",
             "governance/tool/ai-collaboration",
-            "governance/tool/domain-term-extractor",
             "governance/tool/file-sorter",
             "governance/tool/global-cleaner",
             "governance/tool/governance_rule",
