@@ -21,6 +21,7 @@ Fail-closed rules:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -29,6 +30,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Mapping
 
+from governance_rule.execution.codex_amendment import (
+    CodexAmendmentDenied,
+    normalize_change_class,
+)
 from governance_rule.execution.codex_amendment_contract import content_hash
 
 REQUEST_ARTIFACT: Final[str] = "codex-amendment-request"
@@ -183,6 +188,14 @@ def request_scope(payload: Mapping[str, Any]) -> tuple[str, ...]:
     singular = payload.get("proposed_successor")
     if isinstance(singular, Mapping):
         scope.add("provision:" + str(singular.get("provision_id") or "pending"))
+    proposed_change = payload.get("proposed_change")
+    if isinstance(proposed_change, Mapping):
+        table = str(proposed_change.get("table") or "").strip()
+        if table:
+            scope.add(f"table:{table}")
+    for proposal_key in ("proposed_repair", "proposed_resolution"):
+        if isinstance(payload.get(proposal_key), Mapping):
+            scope.add(f"proposal:{proposal_key}")
     return tuple(sorted(scope))
 
 
@@ -197,6 +210,16 @@ def load_amendment_request(path: str | Path) -> AmendmentRequest:
     request_id = str(payload.get("request_id") or "").strip()
     if not request_id:
         raise AmendmentLifecycleError("REQUEST_ID_REQUIRED")
+    if not str(payload.get("requested_by") or "").strip():
+        raise AmendmentLifecycleError("REQUEST_REQUESTER_REQUIRED")
+    try:
+        normalize_change_class(str(payload.get("change_class") or ""))
+    except CodexAmendmentDenied as error:
+        raise AmendmentLifecycleError(
+            "REQUEST_CHANGE_CLASS_INVALID", str(error)
+        ) from error
+    if not str(payload.get("required_review") or "").strip():
+        raise AmendmentLifecycleError("REQUEST_REVIEW_REQUIRED")
     predecessor = payload.get("predecessor")
     if not isinstance(predecessor, Mapping):
         raise AmendmentLifecycleError("REQUEST_PREDECESSOR_REQUIRED")
@@ -206,10 +229,16 @@ def load_amendment_request(path: str | Path) -> AmendmentRequest:
         raise AmendmentLifecycleError("REQUEST_LINEAGE_REQUIRED")
     if payload.get("not_executed") is not True:
         raise AmendmentLifecycleError("REQUEST_ALREADY_CLOSED")
-    if not (
-        payload.get("changes")
-        or payload.get("proposed_successors")
-        or payload.get("proposed_successor")
+    if not any(
+        payload.get(key)
+        for key in (
+            "changes",
+            "proposed_successors",
+            "proposed_successor",
+            "proposed_change",
+            "proposed_repair",
+            "proposed_resolution",
+        )
     ):
         raise AmendmentLifecycleError("REQUEST_SUCCESSOR_REQUIRED")
     request_hash = content_hash(payload)
@@ -301,6 +330,58 @@ class CodexAmendmentRequestLedger:
             except FileNotFoundError:
                 pass
 
+    def _record_invalid_request(
+        self, request_path: str | Path, error: AmendmentLifecycleError
+    ) -> None:
+        """Close malformed request artifacts instead of leaving them ambiguous."""
+        path = Path(request_path)
+        request_id = path.stem
+        request_hash = ""
+        try:
+            payload = _load_json(path)
+            request_id = str(payload.get("request_id") or request_id).strip()
+            request_hash = content_hash(payload)
+        except AmendmentLifecycleError:
+            try:
+                request_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+            except OSError:
+                request_hash = ""
+        try:
+            request_id = _safe_name(request_id)
+        except AmendmentLifecycleError:
+            request_id = _safe_name(path.stem)
+        existing = self.load_record(request_id)
+        if existing is not None:
+            existing_hash = str(existing.get("request_hash") or "")
+            if existing_hash and request_hash and existing_hash != request_hash:
+                return
+            if str(existing.get("state") or "") in TERMINAL_STATES:
+                return
+        record_path = self._record_path(request_id)
+        record = {
+            "schema": LIFECYCLE_SCHEMA,
+            "request_id": request_id,
+            "state": STATE_REJECTED,
+            "request_hash": request_hash,
+            "lineage_key": "",
+            "request_path": str(path.resolve()),
+            "predecessor": {},
+            "scope": [],
+            "record_path": str(record_path),
+            "lock_path": "",
+            "not_executed": True,
+            "closed_at": _utc_now(),
+            "history": [
+                {
+                    "at": _utc_now(),
+                    "from": "",
+                    "to": STATE_REJECTED,
+                    "evidence": {"error": str(error)},
+                }
+            ],
+        }
+        _atomic_json(record_path, record)
+
     def begin(
         self,
         request_path: str | Path,
@@ -309,7 +390,11 @@ class CodexAmendmentRequestLedger:
         expected_revision_sequence: int | None = None,
     ) -> LifecycleRecord:
         """Register a request and acquire its predecessor lineage lock."""
-        request = load_amendment_request(request_path)
+        try:
+            request = load_amendment_request(request_path)
+        except AmendmentLifecycleError as error:
+            self._record_invalid_request(request_path, error)
+            raise
         existing = self.load_record(request.request_id)
         if existing is not None:
             if str(existing.get("request_hash")) != request.request_hash:
@@ -321,20 +406,30 @@ class CodexAmendmentRequestLedger:
                 raise AmendmentLifecycleError(
                     "REQUEST_ALREADY_TERMINAL", f"{request.request_id}:{state}"
                 )
+            try:
+                self._validate_lineage(
+                    request,
+                    current_version=current_version,
+                    expected_revision_sequence=expected_revision_sequence,
+                )
+            except AmendmentLifecycleError as error:
+                self.reject(
+                    request.request_id,
+                    reason=str(error),
+                    evidence={"stale_at": _utc_now()},
+                )
+                raise
+            lock_path = Path(str(existing.get("lock_path") or ""))
+            if not lock_path.is_file():
+                lock_path = self._acquire_lineage(request)
+                existing["lock_path"] = str(lock_path)
+                _atomic_json(Path(str(existing["record_path"])), existing)
             return self._record_from_payload(existing)
-        if current_version is not None and (
-            str(request.predecessor.get("codex_version")) != str(current_version)
-        ):
-            raise AmendmentLifecycleError(
-                "STALE_PREDECESSOR_VERSION",
-                f"{request.predecessor.get('codex_version')} != {current_version}",
-            )
-        sequence = request.predecessor.get("revision_sequence")
-        if expected_revision_sequence is not None and sequence != expected_revision_sequence:
-            raise AmendmentLifecycleError(
-                "STALE_REVISION_SEQUENCE",
-                f"{sequence} != {expected_revision_sequence}",
-            )
+        self._validate_lineage(
+            request,
+            current_version=current_version,
+            expected_revision_sequence=expected_revision_sequence,
+        )
         lock_path = self._acquire_lineage(request)
         record_path = self._record_path(request.request_id)
         record = {
