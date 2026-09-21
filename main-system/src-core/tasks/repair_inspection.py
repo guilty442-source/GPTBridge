@@ -378,8 +378,8 @@ class RepairRunStore:
         return connection, path
 
     def record(self, target_id: str, result: dict[str, Any]) -> Path:
-        connection, path = self._connect(target_id)
-        try:
+        with self._connection_lock:
+            connection, path = self._connect(target_id)
             connection.execute(
                 "INSERT INTO repair_runs "
                 "(run_id, target_tool_id, started_at, completed_at, "
@@ -396,6 +396,4 @@ class RepairRunStore:
                 ),
             )
             connection.commit()
-        finally:
-            connection.close()
         return path
