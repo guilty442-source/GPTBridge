@@ -6,7 +6,11 @@ fault-injection scenarios and records a Test ID report.  It never starts the
 official backend, never writes official data and never copies secrets.
 
 Usage:
-    python scripts/integration-04b-acceptance.py [--build-only]
+    python scripts/integration-04b-acceptance.py [--build-only] [--with-isolated-start]
+
+``--with-isolated-start`` additionally runs the isolated backend start
+harness (scripts/integration-04b-isolated-start.py) for 04B-10; without it
+04B-10 stays BLOCKED and the acceptance remains read-only.
 """
 from __future__ import annotations
 
@@ -34,6 +38,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(SHARED_SRC))
 
 RESULTS: list[dict[str, object]] = []
+RUN_ISOLATED_START = "--with-isolated-start" in sys.argv
 
 
 def sha_file(path: Path) -> str:
@@ -294,8 +299,43 @@ def fault_scenarios() -> None:
         client.close()
     record("04B-09", "unavailable shared service detected", "connection refused", f"port {closed_port} refused={unavailable}", "PASS" if unavailable else "FAIL", "socket probe", "SHARED_SERVICE_UNAVAILABLE")
 
-    # 04B-10 backend mid-start failure
-    record("04B-10", "backend mid-start failure", "isolated start harness", "not executed", "BLOCKED", "requires isolated backend start with test doubles (not built in this environment)", "BLOCKED_ENV")
+    # 04B-10 backend mid-start failure — opt-in: spawns the RC backend
+    # under an isolated state root (scripts/integration-04b-isolated-start.py).
+    if RUN_ISOLATED_START:
+        harness = ROOT / "scripts" / "integration-04b-isolated-start.py"
+        proc = subprocess.run(
+            [str(VENV_PY), str(harness), "--timeout", "150"],
+            capture_output=True, text=True, timeout=600,
+        )
+        report_path = (
+            ROOT / "main-system" / "runtime" / "state"
+            / "integration-04b-10-isolated-start.json"
+        )
+        detail: dict[str, object] = {}
+        try:
+            detail = json.loads(
+                report_path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            pass
+        scenarios = detail.get("scenarios") or {}
+        actual = (
+            f"lifecycle={scenarios.get('lifecycle', {}).get('ok')} "
+            f"mid_start_kill={scenarios.get('mid-start-kill', {}).get('ok')}"
+        )
+        ok = bool(detail.get("ok")) and proc.returncode == 0
+        record(
+            "04B-10", "backend mid-start failure",
+            "isolated start harness", actual,
+            "PASS" if ok else "FAIL",
+            f"{report_path}; rc={proc.returncode}",
+            "" if ok else "ISOLATED_START_FAILED",
+        )
+    else:
+        record("04B-10", "backend mid-start failure", "isolated start harness",
+               "not executed (--with-isolated-start not passed)", "BLOCKED",
+               "isolated harness exists: scripts/integration-04b-isolated-start.py",
+               "BLOCKED_ENV")
 
 
 def source_change_isolation() -> None:
@@ -363,7 +403,9 @@ def main() -> int:
         },
         "completion": "NOT_COMPLETE",
         "minimal_fix_list": [
-            "isolated backend start harness (test doubles, isolated ports/logs/state) — 04B-10 BLOCKED",
+            "rc backend/main.py predates the flat-layout governance sys.path "
+            "fix — repackage so PYTHONPATH compensation is unnecessary "
+            "(04B-10 harness evidence)",
             "shared service read-only test doubles for PG/Qdrant/Ollama compatibility — 04B-09 partial",
             "venv copy or rebuild at final location for full release self-containment (G76/G77)",
         ],
