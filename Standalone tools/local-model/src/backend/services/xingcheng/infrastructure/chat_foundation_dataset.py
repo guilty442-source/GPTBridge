@@ -45,8 +45,39 @@ def _convo(user: str, assistant: str, *, system: bool = True,
     return {"messages": msgs}
 
 
-def build_chat_records(rng: random.Random) -> list[dict[str, Any]]:
-    """chat 記錄（多樣化複製內容；每類少量，避免單一模式主導）。"""
+def _unique_echo_values(rng: random.Random, n: int) -> list[str]:
+    """產生 n 個互不相同的複製目標。
+
+    v8 教訓：固定小值池（數十個）時模型可以靠背誦值集合矇混——
+    eval ppl 下降但 echo/memory 探針仍失敗。值空間 >> 樣本數時，
+    記憶策略不可行，梯度壓力才會逼出「從上下文複製」的 induction 行為。
+    """
+    zh_chars = "雲海風星月山林河川光影夢想晨光暮色青石白露松濤竹影溪聲"
+    en_words = ["ember", "quartz", "harbor", "falcon", "cipher", "meadow",
+                "lantern", "vertex", "willow", "cobalt", "signal", "prism"]
+    values: set[str] = set()
+    while len(values) < n:
+        kind = rng.randrange(6)
+        if kind == 0:      # 隨機代號
+            v = f"{rng.choice('ABCDEFGHJKLMNPQRSTUVWXYZ')}{rng.choice('ABCDEFGHJKLMNPQRSTUVWXYZ')}-{rng.randint(100, 9999)}"
+        elif kind == 1:    # 中文詞組合
+            v = "".join(rng.choice(zh_chars) for _ in range(rng.randint(2, 4)))
+        elif kind == 2:    # 英文詞組合
+            v = f"{rng.choice(en_words)} {rng.choice(en_words)}"
+        elif kind == 3:    # 數字
+            v = f"{rng.uniform(1, 9999):.{rng.randint(0, 4)}f}"
+        elif kind == 4:    # 日期
+            v = f"{rng.randint(2020, 2030)}-{rng.randint(1, 12):02d}-{rng.randint(1, 28):02d}"
+        else:              # 混合短句
+            v = f"{rng.choice(en_words)}{rng.randint(10, 999)}{rng.choice(zh_chars)}"
+        if v not in PROBE_VALUES:
+            values.add(v)
+    return list(values)
+
+
+def build_chat_records(rng: random.Random, *,
+                       echo_scale: int = 0) -> list[dict[str, Any]]:
+    """chat 記錄（多樣化複製內容；echo_scale>0 時以唯一值池擴充複製/記憶量）。"""
     records: list[dict[str, Any]] = []
 
     # 1) 逐字複製：多內容類型
@@ -58,7 +89,10 @@ def build_chat_records(rng: random.Random) -> list[dict[str, Any]]:
              "step by step", "hello world", "測試一二三"]
     echo_tpl = ["請只輸出：{w}", "請重複：{w}", "只輸出「{w}」就好",
                 "照原樣輸出：{w}", "把下面這段原樣打出來：{w}", "複製：{w}"]
-    for w in words + sents:
+    echo_values = words + sents
+    if echo_scale:
+        echo_values = echo_values + _unique_echo_values(rng, echo_scale)
+    for w in echo_values:
         if w in PROBE_VALUES:
             continue
         records.append(_convo(rng.choice(echo_tpl).format(w=w), w))
@@ -73,6 +107,10 @@ def build_chat_records(rng: random.Random) -> list[dict[str, Any]]:
         for _ in range(20)
     ] + ["名字 小林", "顏色 深藍", "地點 高雄", "數字 7351", "水果 芒果",
          "動物 海豚", "城市 台南", "編號 8842", "密語 月光", "日期 10月3日"]
+    if echo_scale:
+        mem_kinds = ["代號", "密語", "編號", "數字", "密碼", "序號"]
+        mem_vals += [f"{rng.choice(mem_kinds)} {v}"
+                     for v in _unique_echo_values(rng, echo_scale // 2)]
     memo_tpl = ["請記住：{v}", "記住這個{v}", "幫我記住{v}", "{v}，記住它"]
     recall_tpl = ["我剛才請你記住的是什麼？", "剛才的{vname}是什麼？",
                   "你記住了什麼？", "請告訴我我給你的值"]
@@ -177,10 +215,11 @@ def build_chat_foundation_dataset(
     *,
     seed: int = 20260920,
     replay_chars: int = 120_000,
+    echo_scale: int = 0,
 ) -> list[dict[str, Any]]:
     """組合 chat + replay 並打亂；回傳可直接餵 SFTDataset 的記錄列。"""
     rng = random.Random(seed)
-    chat = build_chat_records(rng)
+    chat = build_chat_records(rng, echo_scale=echo_scale)
     replay = build_replay_records(corpus_path, rng, target_chars=replay_chars)
     records = chat + replay
     rng.shuffle(records)
@@ -202,10 +241,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--out", required=True, help="輸出 jsonl 路徑")
     parser.add_argument("--seed", type=int, default=20260920)
     parser.add_argument("--replay-chars", type=int, default=120_000)
+    parser.add_argument("--echo-scale", type=int, default=0,
+                        help="額外產生 N 個唯一複製值（強制 induction 而非記憶）")
     args = parser.parse_args(argv)
 
     records = build_chat_foundation_dataset(
-        args.corpus, seed=args.seed, replay_chars=args.replay_chars)
+        args.corpus, seed=args.seed, replay_chars=args.replay_chars,
+        echo_scale=args.echo_scale)
     out = write_dataset(records, args.out)
     chat_n = sum(1 for r in records if "messages" in r)
     print(json.dumps({
