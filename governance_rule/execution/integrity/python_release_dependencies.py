@@ -932,6 +932,116 @@ def validate_ipc_surface_pairing(
     return errors
 
 
+def validate_frontend_release(
+    contract: Mapping[str, Any],
+    *,
+    repo_root: str | os.PathLike[str],
+) -> list[str]:
+    """Packaged frontend: one fixed Main/Preload/Renderer + lock + security.
+
+    Verifies the artifact hashes, the Electron runtime identity, the
+    dependency lock, the IPC contract identity and the security baseline
+    (contextIsolation on, nodeIntegration off, sandbox on, channel
+    allowlist).  A backend token exposed to the renderer is a violation
+    unless the contract records it as an acknowledged gap.
+    """
+    import hashlib
+
+    section = contract.get("frontend_release") or {}
+    if not section:
+        return []
+    root = Path(os.fspath(repo_root))
+    errors: list[str] = []
+
+    artifacts = section.get("artifacts") or {}
+    paths = artifacts.get("paths") or {}
+    hashes = artifacts.get("hashes") or {}
+    for name, relative in paths.items():
+        path = root / str(relative)
+        if not path.is_file():
+            errors.append(f"FRONTEND_ARTIFACT_MISSING:{name}")
+            continue
+        actual = _sha256_file(path)
+        if str(hashes.get(name) or "") != actual:
+            errors.append(f"FRONTEND_ARTIFACT_HASH_MISMATCH:{name}")
+
+    electron_expected = section.get("electron_version")
+    electron_package = root / "main-system" / "node_modules" / "electron" / "package.json"
+    if electron_expected:
+        try:
+            installed = json.loads(electron_package.read_text(encoding="utf-8")).get("version")
+        except (OSError, ValueError):
+            installed = None
+        if installed != electron_expected:
+            errors.append(f"FRONTEND_ELECTRON_VERSION_MISMATCH:{installed}")
+
+    lock = section.get("dependency_lock") or {}
+    if lock.get("file") and lock.get("sha256"):
+        lock_path = root / str(lock["file"])
+        if not lock_path.is_file():
+            errors.append("FRONTEND_LOCK_MISSING")
+        elif _sha256_file(lock_path) != str(lock["sha256"]):
+            errors.append("FRONTEND_LOCK_MISMATCH")
+
+    identity = section.get("ipc_contract_identity")
+    surface_file = (contract.get("ipc_contract") or {}).get("surface_pairing", {}).get(
+        "frontend_surface_file"
+    )
+    if identity and surface_file:
+        try:
+            surface = json.loads((root / str(surface_file)).read_text(encoding="utf-8"))
+            if str(surface.get("surface_version") or "") != str(identity):
+                errors.append("FRONTEND_IPC_IDENTITY_MISMATCH")
+        except (OSError, ValueError):
+            errors.append("FRONTEND_IPC_IDENTITY_UNREADABLE")
+
+    security = section.get("security") or {}
+    if security:
+        if security.get("context_isolation") is not True:
+            errors.append("FRONTEND_SECURITY_VIOLATION:context-isolation")
+        if security.get("node_integration") is not False:
+            errors.append("FRONTEND_SECURITY_VIOLATION:node-integration")
+        if security.get("sandbox") is not True:
+            errors.append("FRONTEND_SECURITY_VIOLATION:sandbox")
+        if security.get("channel_allowlist") is not True:
+            errors.append("FRONTEND_SECURITY_VIOLATION:channel-allowlist")
+        if security.get("exposes_backend_token_to_renderer") is True and not str(
+            security.get("token_exposure_policy") or ""
+        ).startswith("acknowledged-gap"):
+            errors.append("FRONTEND_SECURITY_VIOLATION:backend-token-exposed")
+    return errors
+
+
+def validate_persistent_data_separation(
+    contract: Mapping[str, Any],
+    *,
+    release_root: str | os.PathLike[str],
+    official_root: str | os.PathLike[str],
+) -> list[str]:
+    """Persistent data / runtime config / weights never live in a release."""
+    errors: list[str] = []
+    root = Path(os.fspath(official_root))
+    entries: list[tuple[str, str]] = []
+    for raw in contract.get("persistent_data_isolation", {}).get("paths") or []:
+        entries.append(("persistent-data", str(raw)))
+    for raw in contract.get("runtime_config_paths") or []:
+        entries.append(("runtime-config", str(raw)))
+    module_names = {
+        str(entry.get("module"))
+        for entry in contract.get("modules") or []
+        if isinstance(entry, Mapping)
+    }
+    for kind, raw in entries:
+        path = Path(raw)
+        if not path.is_absolute():
+            path = root / raw
+        if path_is_within(path, release_root):
+            errors.append(f"{kind.upper()}_INSIDE_RELEASE:{raw}")
+        if path.name in module_names:
+            errors.append(f"{kind.upper()}_AS_MODULE:{raw}")
+    return errors
+
+
 def validate_release_bundle(
     contract: Mapping[str, Any],
     *,
@@ -951,6 +1061,8 @@ def validate_release_bundle(
     repo_root: str | os.PathLike[str] | None = None,
     ipc_frontend_surface_path: str | os.PathLike[str] | None = None,
     ipc_backend_surface_path: str | os.PathLike[str] | None = None,
+    check_frontend_release: bool = False,
+    check_persistent_data_separation: bool = False,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation: environment, lock, origins, natives.
@@ -1041,6 +1153,20 @@ def validate_release_bundle(
                 official_root=official_root or release_root,
             )
         )
+    if check_persistent_data_separation:
+        errors.extend(
+            validate_persistent_data_separation(
+                contract,
+                release_root=release_root,
+                official_root=official_root or release_root,
+            )
+        )
+    if check_frontend_release:
+        errors.extend(
+            validate_frontend_release(
+                contract, repo_root=repo_root or Path(__file__).resolve().parents[3]
+            )
+        )
     errors.extend(
         validate_ipc_contract(
             contract, official_contract_path=official_contract_path
@@ -1088,6 +1214,8 @@ __all__ = [
     "validate_official_state_separation",
     "validate_ipc_contract",
     "validate_ipc_surface_pairing",
+    "validate_frontend_release",
+    "validate_persistent_data_separation",
     "validate_governance_references",
     "validate_release_bundle",
     "pe_machine",

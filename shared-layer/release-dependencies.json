@@ -286,5 +286,71 @@
       "backend_surface_version": "e76b1081fdf3f0cfb974413f737bddfe1f226e3fe0e57912d97a993170215818",
       "rule": "frontend-sends-subset-of-backend-commands; backend-features-subset-of-frontend-support"
     }
-  }
+  },
+  "frontend_release": {
+    "release_identity": "0bcb25dcfbe73390f01ec141c174e2557e045d0a86c2727b15e5947a0d59e02b",
+    "package": "gptbridge-auto-agent-ide@1.0.0",
+    "electron_version": "39.8.10",
+    "node_runtime": {
+      "node_version": "22.22.1",
+      "abi": 140,
+      "napi": 10,
+      "chrome": "142.0.7444.265",
+      "source": "ELECTRON_RUN_AS_NODE probe 2026-09-21"
+    },
+    "artifacts": {
+      "paths": {
+        "main": "dist-ui/main/index.js",
+        "preload": "dist-ui/main/preload.js",
+        "renderer": "dist-ui/renderer/index.html"
+      },
+      "hashes": {
+        "main": "6f6fc2deb71388c51a0241f705912150ae3d31c8c67d9b52be48a1dfa1cd3f77",
+        "preload": "fff4d3592a11fe540525101ca044b8675b8673ab6e94ee4b9b146cf4cbf17d29",
+        "renderer": "99ebf2a4ec856b44d677fcfdda9e188f40defdc51372ee17d3989632e55e6eb3"
+      },
+      "renderer_asset_count": 2
+    },
+    "dependency_lock": {
+      "file": "main-system/package-lock.json",
+      "sha256": "70c7dad00d1e728da6a7f97a29945126318eb79cb44cbdd2e68727758683ae2a",
+      "production_dependencies": [
+        "react",
+        "react-dom"
+      ],
+      "development_dependency_count": 10
+    },
+    "ipc_contract_identity": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe",
+    "compatible_backend_contract_range": {
+      "min_ipc_contract_version": 1,
+      "max_ipc_contract_version": 1
+    },
+    "security": {
+      "context_isolation": true,
+      "node_integration": false,
+      "sandbox": true,
+      "channel_allowlist": true,
+      "exposes_backend_token_to_renderer": true,
+      "token_exposure_policy": "acknowledged-gap-G86"
+    }
+  },
+  "persistent_data_isolation": {
+    "paths": [
+      "main-system/runtime/settings",
+      "main-system/runtime/state",
+      "main-system/data",
+      "Standalone tools/local-model/xingcheng/runtime/models",
+      "Standalone tools/local-model/xingcheng/runtime/state"
+    ],
+    "databases": [
+      "postgresql",
+      "qdrant"
+    ],
+    "rule": "release payload must never contain or overwrite persistent data, runtime config or model weights"
+  },
+  "runtime_config_paths": [
+    "main-system/config",
+    "main-system/runtime/settings",
+    "Standalone tools/local-model/runtime/settings"
+  ]
 }

@@ -354,12 +354,7 @@ int gptbridge_native_transformer_softmax(
         /* Numerical stability: subtract max before exp */
         const double max_val = row_max(in_row, cols);
 
-        double sum_exp = 0.0;
-        for (c = 0; c < cols; ++c) {
-            const double e = exp(in_row[c] - max_val);
-            out_row[c] = e;
-            sum_exp += e;
-        }
+        double sum_exp = row_exp_sum(in_row, cols, max_val, out_row);
 
         /* Normalize */
         if (sum_exp == 0.0) {
@@ -370,9 +365,7 @@ int gptbridge_native_transformer_softmax(
             }
         } else {
             const double inv_sum = 1.0 / sum_exp;
-            for (c = 0; c < cols; ++c) {
-                out_row[c] *= inv_sum;
-            }
+            row_scale(out_row, cols, inv_sum);
         }
     }
 
@@ -414,30 +407,52 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
     /* Step 1: scores[Q_rows x K_rows] = (Q * K^T) / sqrt(d_k) */
     scale = 1.0 / sqrt((double)d_k);
 
+    const gptbridge_simd_level simd = gptbridge_native_simd_level();
+
     for (i = 0; i < q_rows; ++i) {
         const double* q_row = q + i * d_k;
         double* score_row = scores_temp + i * k_rows;
         for (j = 0; j < k_rows; ++j) {
             const double* k_row = k + j * d_k;
             double dot_val = 0.0;
+
+            if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_SIMD_AVX512
+                __m512d acc = _mm512_setzero_pd();
+                int64_t d8 = 0;
+                for (; d8 + 8 <= d_k; d8 += 8) {
+                    __m512d qv = _mm512_loadu_pd(q_row + d8);
+                    __m512d kv = _mm512_loadu_pd(k_row + d8);
+                    acc = _mm512_fmadd_pd(qv, kv, acc);
+                }
+                double tmp[8]; _mm512_storeu_pd(tmp, acc);
+                dot_val = tmp[0] + tmp[1] + tmp[2] + tmp[3] + tmp[4] + tmp[5] + tmp[6] + tmp[7];
+                for (; d8 < d_k; ++d8) dot_val += q_row[d8] * k_row[d8];
+#else
+                for (d = 0; d < d_k; ++d) dot_val += q_row[d] * k_row[d];
+#endif
+            } else if (simd == GPTBRIDGE_SIMD_AVX2) {
 #ifdef GPTBRIDGE_SIMD_AVX2
-            __m256d acc = _mm256_setzero_pd();
-            int64_t d4 = 0;
-            for (; d4 + 4 <= d_k; d4 += 4) {
-                __m256d qv = _mm256_loadu_pd(q_row + d4);
-                __m256d kv = _mm256_loadu_pd(k_row + d4);
+                __m256d acc = _mm256_setzero_pd();
+                int64_t d4 = 0;
+                for (; d4 + 4 <= d_k; d4 += 4) {
+                    __m256d qv = _mm256_loadu_pd(q_row + d4);
+                    __m256d kv = _mm256_loadu_pd(k_row + d4);
 #if defined(__FMA__)
-                acc = _mm256_fmadd_pd(qv, kv, acc);
+                    acc = _mm256_fmadd_pd(qv, kv, acc);
 #else
-                acc = _mm256_add_pd(acc, _mm256_mul_pd(qv, kv));
+                    acc = _mm256_add_pd(acc, _mm256_mul_pd(qv, kv));
 #endif
+                }
+                double tmp[4]; _mm256_storeu_pd(tmp, acc);
+                dot_val = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+                for (; d4 < d_k; ++d4) dot_val += q_row[d4] * k_row[d4];
+#else
+                for (d = 0; d < d_k; ++d) dot_val += q_row[d] * k_row[d];
+#endif
+            } else {
+                for (d = 0; d < d_k; ++d) dot_val += q_row[d] * k_row[d];
             }
-            double tmp[4]; _mm256_storeu_pd(tmp, acc);
-            dot_val = tmp[0] + tmp[1] + tmp[2] + tmp[3];
-            for (; d4 < d_k; ++d4) dot_val += q_row[d4] * k_row[d4];
-#else
-            for (d = 0; d < d_k; ++d) dot_val += q_row[d] * k_row[d];
-#endif
             score_row[j] = dot_val * scale;
         }
     }
@@ -452,46 +467,83 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
     /* Step 3: output[Q_rows x d_v] = weights * V
      * Axpy ordering (j outer, d inner): V rows are streamed sequentially and
      * the output row stays hot in cache; avoids the strided V column access.
-     * SIMD: 4?double axpy with broadcast w. */
+     * SIMD: AVX-512 8×double, AVX2 4×double axpy with broadcast w. */
     for (i = 0; i < q_rows; ++i) {
         const double* weight_row = scores_temp + i * k_rows;
         double* out_row = output + i * d_v;
         {
             const double w = weight_row[0];
             const double* v_row = v;
-#ifdef GPTBRIDGE_SIMD_AVX2
-            __m256d wv = _mm256_set1_pd(w);
-            int64_t d4 = 0;
-            for (; d4 + 4 <= d_v; d4 += 4) {
-                __m256d vv = _mm256_loadu_pd(v_row + d4);
-                __m256d rv = _mm256_mul_pd(wv, vv);
-                _mm256_storeu_pd(out_row + d4, rv);
-            }
-            for (; d4 < d_v; ++d4) out_row[d4] = w * v_row[d4];
+
+            if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_SIMD_AVX512
+                __m512d wv = _mm512_set1_pd(w);
+                int64_t d8 = 0;
+                for (; d8 + 8 <= d_v; d8 += 8) {
+                    __m512d vv = _mm512_loadu_pd(v_row + d8);
+                    __m512d rv = _mm512_mul_pd(wv, vv);
+                    _mm512_storeu_pd(out_row + d8, rv);
+                }
+                for (; d8 < d_v; ++d8) out_row[d8] = w * v_row[d8];
 #else
-            for (d = 0; d < d_v; ++d) out_row[d] = w * v_row[d];
+                for (d = 0; d < d_v; ++d) out_row[d] = w * v_row[d];
 #endif
+            } else if (simd == GPTBRIDGE_SIMD_AVX2) {
+#ifdef GPTBRIDGE_SIMD_AVX2
+                __m256d wv = _mm256_set1_pd(w);
+                int64_t d4 = 0;
+                for (; d4 + 4 <= d_v; d4 += 4) {
+                    __m256d vv = _mm256_loadu_pd(v_row + d4);
+                    __m256d rv = _mm256_mul_pd(wv, vv);
+                    _mm256_storeu_pd(out_row + d4, rv);
+                }
+                for (; d4 < d_v; ++d4) out_row[d4] = w * v_row[d4];
+#else
+                for (d = 0; d < d_v; ++d) out_row[d] = w * v_row[d];
+#endif
+            } else {
+                for (d = 0; d < d_v; ++d) out_row[d] = w * v_row[d];
+            }
         }
         for (j = 1; j < k_rows; ++j) {
             const double w = weight_row[j];
             const double* v_row = v + j * d_v;
+
+            if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_SIMD_AVX512
+                __m512d wv = _mm512_set1_pd(w);
+                int64_t d8 = 0;
+                for (; d8 + 8 <= d_v; d8 += 8) {
+                    __m512d ov = _mm512_loadu_pd(out_row + d8);
+                    __m512d vv = _mm512_loadu_pd(v_row + d8);
+                    ov = _mm512_fmadd_pd(wv, vv, ov);
+                    _mm512_storeu_pd(out_row + d8, ov);
+                }
+                for (; d8 < d_v; ++d8) out_row[d8] += w * v_row[d8];
+#else
+                for (d = 0; d < d_v; ++d) out_row[d] += w * v_row[d];
+#endif
+            } else if (simd == GPTBRIDGE_SIMD_AVX2) {
 #ifdef GPTBRIDGE_SIMD_AVX2
-            __m256d wv = _mm256_set1_pd(w);
-            int64_t d4 = 0;
-            for (; d4 + 4 <= d_v; d4 += 4) {
-                __m256d ov = _mm256_loadu_pd(out_row + d4);
-                __m256d vv = _mm256_loadu_pd(v_row + d4);
+                __m256d wv = _mm256_set1_pd(w);
+                int64_t d4 = 0;
+                for (; d4 + 4 <= d_v; d4 += 4) {
+                    __m256d ov = _mm256_loadu_pd(out_row + d4);
+                    __m256d vv = _mm256_loadu_pd(v_row + d4);
 #if defined(__FMA__)
-                ov = _mm256_fmadd_pd(wv, vv, ov);
+                    ov = _mm256_fmadd_pd(wv, vv, ov);
 #else
-                ov = _mm256_add_pd(ov, _mm256_mul_pd(wv, vv));
+                    ov = _mm256_add_pd(ov, _mm256_mul_pd(wv, vv));
 #endif
-                _mm256_storeu_pd(out_row + d4, ov);
+                    _mm256_storeu_pd(out_row + d4, ov);
+                }
+                for (; d4 < d_v; ++d4) out_row[d4] += w * v_row[d4];
+#else
+                for (d = 0; d < d_v; ++d) out_row[d] += w * v_row[d];
+#endif
+            } else {
+                for (d = 0; d < d_v; ++d) out_row[d] += w * v_row[d];
             }
-            for (; d4 < d_v; ++d4) out_row[d4] += w * v_row[d4];
-#else
-            for (d = 0; d < d_v; ++d) out_row[d] += w * v_row[d];
-#endif
         }
     }
 
