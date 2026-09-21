@@ -208,9 +208,18 @@ def _insert_row(
     connection: sqlite3.Connection,
     table: str,
     row: Mapping[str, Any],
+    *,
+    successor_version: str | None,
 ) -> Mapping[str, Any]:
     columns = _require_table(connection, table)
     normalized = _normalized_row(columns, row, table)
+    for name, value in list(normalized.items()):
+        if str(value).strip() in SUCCESSOR_SENTINELS:
+            if not successor_version:
+                raise SuccessorBuildError(
+                    "SUCCESSOR_VERSION_REQUIRED", f"{table}.{name}"
+                )
+            normalized[name] = successor_version
     primary = [str(column["name"]) for column in columns if int(column["pk"])]
     identity = (
         {name: normalized[name] for name in primary}
@@ -328,7 +337,14 @@ def _apply_changes(
             for row in rows:
                 if not isinstance(row, Mapping):
                     raise SuccessorBuildError("SUCCESSOR_ROW_INVALID", registry)
-                applied.append(_insert_row(connection, registry, row))
+                applied.append(
+                    _insert_row(
+                        connection,
+                        registry,
+                        row,
+                        successor_version=successor_version,
+                    )
+                )
             continue
         if action == "update":
             key = item.get("key")
