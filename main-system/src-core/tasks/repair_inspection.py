@@ -4,6 +4,7 @@ import json
 import shutil
 import sqlite3
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -230,6 +231,45 @@ def schedule_trash_cleanup(
     return payload
 
 
+def _inspect_database(
+    database: Path,
+    *,
+    project_root: Path,
+    target_root: Path,
+    recovery_root: Path,
+) -> tuple[str, str, str, str]:
+    relative_project = database.relative_to(project_root).as_posix()
+    try:
+        database_integrity(database)
+        return (relative_project, "checked", "", "")
+    except (OSError, sqlite3.DatabaseError) as error:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        destination = recovery_root / f"{database.name}.{stamp}.corrupt"
+        try:
+            shutil.copy2(database, destination)
+            preserved = destination.relative_to(target_root).as_posix()
+            preserve_error = ""
+        except OSError as preserve_exception:
+            preserved = ""
+            preserve_error = (
+                f"{relative_project}: preserve failed "
+                f"({type(preserve_exception).__name__})"
+            )
+        return (
+            relative_project,
+            "corrupt",
+            preserved,
+            "; ".join(
+                item
+                for item in (
+                    preserve_error,
+                    f"{relative_project}: {type(error).__name__}",
+                )
+                if item
+            ),
+        )
+
+
 class DatabaseRecoveryInspector:
     def __init__(self, project_root: Path, target_root: Path) -> None:
         self.project_root = project_root.resolve()
@@ -262,28 +302,33 @@ class DatabaseRecoveryInspector:
         preserved: list[str] = []
         extraction_paths: list[str] = []
         errors: list[str] = []
-        for database in self.sqlite_candidates(self.target_root):
-            if not _inside(database, self.target_root):
-                continue
-            relative_project = database.relative_to(self.project_root).as_posix()
-            try:
-                database_integrity(database)
+        databases = [
+            database
+            for database in self.sqlite_candidates(self.target_root)
+            if _inside(database, self.target_root)
+        ]
+        max_workers = min(4, len(databases)) or 1
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            results = list(
+                executor.map(
+                    lambda database: _inspect_database(
+                        database,
+                        project_root=self.project_root,
+                        target_root=self.target_root,
+                        recovery_root=recovery_root,
+                    ),
+                    databases,
+                )
+            )
+        for relative_project, status, preserved_path, error in sorted(results):
+            if status == "checked":
                 checked.append(relative_project)
-            except (OSError, sqlite3.DatabaseError) as error:
-                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-                destination = recovery_root / f"{database.name}.{stamp}.corrupt"
-                try:
-                    shutil.copy2(database, destination)
-                    preserved.append(
-                        destination.relative_to(self.target_root).as_posix()
-                    )
-                except OSError as preserve_error:
-                    errors.append(
-                        f"{relative_project}: preserve failed "
-                        f"({type(preserve_error).__name__})"
-                    )
-                extraction_paths.append(relative_project)
-                errors.append(f"{relative_project}: {type(error).__name__}")
+                continue
+            extraction_paths.append(relative_project)
+            if preserved_path:
+                preserved.append(preserved_path)
+            if error:
+                errors.append(error)
         trash_modules = classify_trash_modules(self.project_root)
         orphan_candidates = classify_orphan_component_roots(self.project_root)
         trash_schedule = schedule_trash_cleanup(
