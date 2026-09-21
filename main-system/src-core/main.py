@@ -39,6 +39,12 @@ _RUNTIME_ROOT, _SOURCE_CORE = _runtime_layout()
 sys.path.insert(0, str(_SOURCE_CORE))
 if _SOURCE_CORE.parent.name == "main-system":
     sys.path.insert(0, str(_SOURCE_CORE.parent))
+else:
+    # Flat-backend release layout keeps ``governance``/``package.json`` under
+    # ``<release>/main-system``; expose it so ``import governance`` resolves.
+    _flat_main_system = _RUNTIME_ROOT / "main-system"
+    if (_flat_main_system / "governance").is_dir():
+        sys.path.insert(0, str(_flat_main_system))
 sys.path.insert(0, str(_RUNTIME_ROOT / "governance_rule"))
 sys.path.insert(0, str(_RUNTIME_ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(_RUNTIME_ROOT))
