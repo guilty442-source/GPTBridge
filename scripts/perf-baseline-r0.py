@@ -273,6 +273,9 @@ def main() -> int:
             role = "sampler"
         else:
             role = "resident/tool"
+        # Idle slice: samples after the first 120 s (startup burst +
+        # first git sweep settle) — the §10.63 R2 idle-CPU evidence.
+        idle_cpu = series["cpu_pct"][int(120.0 / args.interval):]
         per_proc[pid] = {
             "role": role,
             "cmdline": tag,
@@ -285,6 +288,11 @@ def main() -> int:
             if series["cpu_pct"] else None,
             "cpu_p95_pct": _percentile(series["cpu_pct"], 95),
             "threads_max": max(series["threads"], default=None),
+            "rss_series_mb": series["rss_mb"],
+            "cpu_series_pct": series["cpu_pct"],
+            "idle_cpu_mean_pct": round(
+                sum(idle_cpu) / len(idle_cpu), 2) if idle_cpu else None,
+            "idle_cpu_p95_pct": _percentile(idle_cpu, 95),
         }
 
     backend_rss = [

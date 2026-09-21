@@ -177,6 +177,26 @@ async def test_cleaner_scheduled_tick_respects_due_gate() -> None:
 
 
 @pytest.mark.asyncio
+async def test_git_automation_rides_scheduler(tmp_path: Path) -> None:
+    (tmp_path / ".git").mkdir()
+    from tasks.git_automation import GitAutomationService
+
+    scheduler = PeriodicScheduler()
+    service = GitAutomationService(tmp_path, scheduler=scheduler)
+    result = await service.start()
+    assert result["loop"] == "periodic-scheduler"
+    assert service._task is None, "git automation spawned a private loop"
+    assert any(
+        j["name"] == "git-automation" for j in scheduler.jobs()
+    )
+    await service.stop()
+    assert not any(
+        j["name"] == "git-automation" for j in scheduler.jobs()
+    )
+    await scheduler.stop()
+
+
+@pytest.mark.asyncio
 async def test_maintainer_tick_respects_idle_gate() -> None:
     maintainer = IdleMemoryMaintainer(
         is_busy=lambda: True, interval_seconds=60, minimum_idle_seconds=30
