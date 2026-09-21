@@ -122,11 +122,15 @@ def _perplexity(model, tokenizer, device, text: str, block: int = 64) -> float:
     return float(math.exp(min(20.0, total / batches))) if batches else float("nan")
 
 
-def _generate(model, tokenizer, device, prompt: str, max_new: int) -> str:
+def _generate(
+    model, tokenizer, device, prompt: str, max_new: int,
+    eos_override: int | None = None,
+) -> str:
     from .inference.generate import Generator
     from .inference.sampler import Sampler, SamplingConfig
 
-    eos = int(getattr(tokenizer, "eos_id", 2) or 2)
+    eos = int(eos_override if eos_override is not None
+              else getattr(tokenizer, "eos_id", 2) or 2)
     pad = int(getattr(tokenizer, "pad_id", 0) or 0)
     generator = Generator(
         model,
@@ -139,10 +143,14 @@ def _generate(model, tokenizer, device, prompt: str, max_new: int) -> str:
     out = generator.generate(
         torch.tensor([ids], dtype=torch.long, device=device), max_new_tokens=max_new
     )
-    return tokenizer.decode(out[0, len(ids):].tolist(), skip_special=True)
+    # Generator.generate 只回傳新生成段（不含 prompt）——不得再切 prefix 長度。
+    return tokenizer.decode(out[0].tolist(), skip_special=True)
 
 
-def _check_item(model, tokenizer, device, item: Mapping[str, Any]) -> dict[str, Any]:
+def _check_item(
+    model, tokenizer, device, item: Mapping[str, Any], *,
+    chat_mode: bool = False,
+) -> dict[str, Any]:
     kind = str(item["check"])
     max_new = int(item.get("max_new_tokens") or 32)
     detail: dict[str, Any] = {"id": item.get("id"), "check": kind}
@@ -152,7 +160,24 @@ def _check_item(model, tokenizer, device, item: Mapping[str, Any]) -> dict[str, 
             detail["perplexity"] = ppl
             detail["passed"] = math.isfinite(ppl) and ppl <= float(item["max"])
             return detail
-        reply = _generate(model, tokenizer, device, str(item["prompt"]), max_new)
+        prompt = str(item["prompt"])
+        if chat_mode:
+            # SFT 權重以 chat_format 角色標記訓練：生成類探針走
+            # render_conversation 的 generation prompt，並於 <|eot|> 停止。
+            from .chat_format import ChatMessage, render_conversation
+
+            prompt = render_conversation(
+                [ChatMessage("user", prompt)], add_generation_prompt=True,
+            )
+            eot = getattr(tokenizer, "eot_id", None)
+            if eot is None:
+                enc = tokenizer.encode("<|eot|>", add_bos=False, add_eos=False)
+                eot = int(enc[0]) if len(enc) == 1 else None
+            reply = _generate(model, tokenizer, device, prompt, max_new,
+                              eos_override=eot)
+            detail["prompt_mode"] = "chat_format"
+        else:
+            reply = _generate(model, tokenizer, device, prompt, max_new)
         detail["reply"] = reply[:200]
         if kind == "contains":
             detail["passed"] = str(item["expected"]) in reply
@@ -188,6 +213,10 @@ def evaluate_checkpoint(
     bundle = load_checkpoint(checkpoint_path, map_location=device)
     model, tokenizer = bundle["model"], bundle["tokenizer"]
     model.to(device).eval()
+    # SFT 權重以 chat_format 訓練；raw prompt 續寫不是其介面。
+    chat_mode = bool(
+        (bundle.get("metadata") or {}).get("phase") == "supervised-fine-tuning"
+    )
 
     overlap = {"overlap_free": True, "rejected_items": []}
     if overlap_manifest:
@@ -203,7 +232,8 @@ def evaluate_checkpoint(
             )
             continue
         results[str(item["category"])].append(
-            _check_item(model, tokenizer, torch.device(device), item)
+            _check_item(model, tokenizer, torch.device(device), item,
+                        chat_mode=chat_mode)
         )
 
     categories = {}
