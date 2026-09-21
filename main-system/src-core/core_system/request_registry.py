@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import tempfile
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,9 +30,18 @@ from core_system.task_lifecycle import (
     CANCELLED,
     COMPLETED,
     FAILED,
+    INTERRUPTED,
     RUNNING,
     TIMED_OUT,
 )
+
+_REQUEST_TERMINAL = {COMPLETED, FAILED, CANCELLED, TIMED_OUT}
+_VALID_REQUEST_TRANSITIONS = {
+    "CREATED": {"RUNNING", "QUEUED", "CANCELLED", "TIMED_OUT", "FAILED", "INTERRUPTED"},
+    "QUEUED": {"RUNNING", "CANCELLED", "TIMED_OUT", "FAILED", "INTERRUPTED"},
+    "RUNNING": {"COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT", "INTERRUPTED"},
+    "INTERRUPTED": {"RUNNING", "FAILED", "CANCELLED"},
+}
 
 _logger = logging.getLogger("gptbridge.request_registry")
 
@@ -107,6 +117,7 @@ class RequestRegistry:
     def __init__(self, state_path: str | Path) -> None:
         self._path = Path(state_path)
         self._records: dict[str, RequestRecord] = {}
+        self._lock = threading.RLock()
         self._load()
 
     # -- persistence ---------------------------------------------------------
@@ -229,29 +240,38 @@ class RequestRegistry:
         error_code: str | None = None,
     ) -> RequestResult:
         """欄位定向更新；request_id 不存在 → fail-closed 拒絕。"""
-        record = self._records.get(request_id)
-        if record is None:
-            return RequestResult(False, "request-not-found")
-        if status is not None:
-            record.status = status
-        if task_id is not None:
-            record.task_id = task_id
-        if backend_id is not None:
-            record.backend_id = backend_id
-        if backend_generation is not None:
-            record.backend_generation = backend_generation
-        if started_at is not None:
-            record.started_at = started_at
-        if completed_at is not None:
-            record.completed_at = completed_at
-        if timeout is not None:
-            record.timeout = float(timeout)
-        if cancellation_state is not None:
-            record.cancellation_state = cancellation_state
-        if error_code is not None:
-            record.error_code = error_code
-        self._persist()
-        return RequestResult(True, "updated", record.as_dict())
+        with self._lock:
+            record = self._records.get(request_id)
+            if record is None:
+                return RequestResult(False, "request-not-found")
+            if status is not None and status != record.status:
+                if record.status in _REQUEST_TERMINAL:
+                    return RequestResult(False, "request-terminal", record.as_dict())
+                if status not in _VALID_REQUEST_TRANSITIONS.get(record.status, set()):
+                    return RequestResult(
+                        False,
+                        f"invalid-request-transition:{record.status}->{status}",
+                        record.as_dict(),
+                    )
+                record.status = status
+            if task_id is not None:
+                record.task_id = task_id
+            if backend_id is not None:
+                record.backend_id = backend_id
+            if backend_generation is not None:
+                record.backend_generation = backend_generation
+            if started_at is not None:
+                record.started_at = started_at
+            if completed_at is not None:
+                record.completed_at = completed_at
+            if timeout is not None:
+                record.timeout = float(timeout)
+            if cancellation_state is not None:
+                record.cancellation_state = cancellation_state
+            if error_code is not None:
+                record.error_code = error_code
+            self._persist()
+            return RequestResult(True, "updated", record.as_dict())
 
     def mark_started(self, request_id: str) -> RequestResult:
         return self.update(request_id, status=RUNNING, started_at=_utc_iso())
@@ -279,6 +299,14 @@ class RequestRegistry:
     def mark_timed_out(self, request_id: str) -> RequestResult:
         return self.update(
             request_id, status=TIMED_OUT, completed_at=_utc_iso()
+        )
+
+    def mark_interrupted(self, request_id: str, *, error_code: str = "") -> RequestResult:
+        return self.update(
+            request_id,
+            status=INTERRUPTED,
+            completed_at="",
+            error_code=error_code,
         )
 
     def request_cancel(self, request_id: str) -> RequestResult:

@@ -102,6 +102,17 @@ def test_cancellation_flow(tmp_path):
     assert reg.get("req-1").cancellation_state == "cancelled"
 
 
+def test_interrupt_and_terminal_result_are_fail_closed(tmp_path):
+    reg = RequestRegistry(tmp_path / "requests.json")
+    reg.upsert("req-1")
+    reg.mark_started("req-1")
+    assert reg.mark_interrupted("req-1", error_code="BACKEND_LOST").ok
+    assert reg.get("req-1").status == "INTERRUPTED"
+    assert reg.mark_completed("req-1").ok is False
+    assert reg.mark_cancelled("req-1").ok
+    assert reg.mark_cancelled("req-1").ok
+
+
 def test_update_missing_request_fails_closed(tmp_path):
     reg = RequestRegistry(tmp_path / "requests.json")
     result = reg.update("nope", status="RUNNING")
