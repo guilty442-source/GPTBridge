@@ -41,6 +41,7 @@ from governance_rule.execution.codex_amendment_contract import (
     compute_seal_preview,
     content_hash,
     validate_rule_state,
+    validate_rule_transition,
 )
 from governance_rule.execution.codex_amendment_lifecycle import (
     AmendmentLifecycleError,
@@ -267,6 +268,69 @@ def _existing_count(
     return int(count)
 
 
+def _existing_row(
+    connection: sqlite3.Connection,
+    table: str,
+    key: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    columns = _require_table(connection, table)
+    names = [str(column["name"]) for column in columns]
+    where = " AND ".join(
+        f"{_quote_identifier(str(name))} IS ?" for name in sorted(key)
+    )
+    row = connection.execute(
+        f"SELECT {', '.join(_quote_identifier(name) for name in names)} "
+        f"FROM {_quote_identifier(table)} WHERE {where}",
+        tuple(key[name] for name in sorted(key)),
+    ).fetchone()
+    return dict(zip(names, row)) if row is not None else None
+
+
+def _evaluator_codes(connection: sqlite3.Connection) -> frozenset[str]:
+    try:
+        from governance_rule.execution import formal_rules
+
+        database = Path(connection.execute("PRAGMA database_list").fetchone()[2])
+        formal_rules.load_formal_rules(database)
+        return formal_rules.registered_rule_codes()
+    except (ImportError, RuntimeError, OSError, sqlite3.Error) as error:
+        raise SuccessorBuildError(
+            "FORMAL_RULE_EVALUATOR_REGISTRY_UNAVAILABLE", str(error)
+        ) from error
+
+
+def _validate_formal_rule_transition(
+    connection: sqlite3.Connection,
+    key: Mapping[str, Any],
+    fields: Mapping[str, Any],
+) -> None:
+    if "status" not in fields:
+        return
+    row = _existing_row(connection, FORMAL_RULE_REGISTRY, key)
+    if row is None:
+        return
+    rule_code = str(key.get("rule_code") or key.get("rule_id") or "")
+    parity_evidence = bool(
+        fields.get("parity_evidence_id")
+        or row.get("parity_evidence_id")
+        or str(fields.get("parity_status") or row.get("parity_status") or "")
+        .strip()
+        .upper()
+        == "VERIFIED"
+    )
+    errors = validate_rule_transition(
+        row.get("status"),
+        fields.get("status"),
+        evaluator_registered=rule_code in _evaluator_codes(connection),
+        parity_evidence=parity_evidence,
+    )
+    if errors:
+        raise SuccessorBuildError(
+            "RULE_STATE_TRANSITION_INVALID",
+            f"{rule_code or content_hash(key)}:{','.join(errors)}",
+        )
+
+
 def _insert_row(
     connection: sqlite3.Connection,
     table: str,
@@ -364,6 +428,8 @@ def _apply_changes(
         also = item.get("also")
         if isinstance(also, Mapping):
             fields.update(dict(also))
+        if table == FORMAL_RULE_REGISTRY:
+            _validate_formal_rule_transition(connection, key, fields)
         applied.append(
             _update_rows(
                 connection,
@@ -454,6 +520,8 @@ def _apply_changes(
             fields = item.get("set") or item.get("fields")
             if not isinstance(key, Mapping) or not isinstance(fields, Mapping):
                 raise SuccessorBuildError("SUCCESSOR_UPDATE_INVALID", registry)
+            if registry == FORMAL_RULE_REGISTRY:
+                _validate_formal_rule_transition(connection, key, fields)
             applied.append(
                 _update_rows(
                     connection,
