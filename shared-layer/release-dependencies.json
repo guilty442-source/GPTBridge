@@ -282,7 +282,7 @@
     "surface_pairing": {
       "frontend_surface_file": "main-system/config/ipc-surface-frontend.json",
       "backend_surface_file": "main-system/config/ipc-surface-backend.json",
-      "frontend_surface_version": "edffdfa1ebccba341beb2159158927341932fa74fa61efc078eb2cfd9057d332",
+      "frontend_surface_version": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe",
       "backend_surface_version": "e76b1081fdf3f0cfb974413f737bddfe1f226e3fe0e57912d97a993170215818",
       "rule": "frontend-sends-subset-of-backend-commands; backend-features-subset-of-frontend-support"
     }

@@ -144,41 +144,72 @@ int gptbridge_native_transformer_matmul(
         return 1;  /* invalid arguments */
     }
 
+    const gptbridge_simd_level simd = gptbridge_native_simd_level();
+
     /* Row-major i-k-j (axpy) ordering: A and C rows stay in cache and B is
-     * streamed once per (i, p).  Reverted from the fused-init/unrolled
-     * variant after three benchmark runs showed a consistent regression on
-     * medium/large matmul (native speedup 118x -> ~97x); the simple loop
-     * feeds the compiler's own optimizer better here.
-     * SIMD: axpy ?�層�?4?double FMA ?�速�?尾數純�??�退??*/
+     * streamed once per (i, p).  SIMD: axpy with broadcast a_val.
+     * AVX-512: 8×double per instruction (zmm); AVX2: 4×double (ymm). */
     for (i = 0; i < m; ++i) {
         const double* a_row = a + i * k;
         double* c_row = c + i * n;
         for (j = 0; j < n; ++j) c_row[j] = 0.0;
-#ifdef GPTBRIDGE_SIMD_AVX2
-        for (p = 0; p < k; ++p) {
-            const double a_val = a_row[p];
-            const double* b_row = b + p * n;
-            __m256d av = _mm256_set1_pd(a_val);
-            int64_t j4 = 0;
-            for (; j4 + 4 <= n; j4 += 4) {
-                __m256d bv = _mm256_loadu_pd(b_row + j4);
-                __m256d cv = _mm256_loadu_pd(c_row + j4);
-#if defined(__FMA__)
-                cv = _mm256_fmadd_pd(av, bv, cv);
-#else
-                cv = _mm256_add_pd(cv, _mm256_mul_pd(av, bv));
-#endif
-                _mm256_storeu_pd(c_row + j4, cv);
+
+        if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_SIMD_AVX512
+            for (p = 0; p < k; ++p) {
+                const double a_val = a_row[p];
+                const double* b_row = b + p * n;
+                __m512d av = _mm512_set1_pd(a_val);
+                int64_t j8 = 0;
+                for (; j8 + 8 <= n; j8 += 8) {
+                    __m512d bv = _mm512_loadu_pd(b_row + j8);
+                    __m512d cv = _mm512_loadu_pd(c_row + j8);
+                    cv = _mm512_fmadd_pd(av, bv, cv);
+                    _mm512_storeu_pd(c_row + j8, cv);
+                }
+                for (; j8 < n; ++j8) c_row[j8] += a_val * b_row[j8];
             }
-            for (; j4 < n; ++j4) c_row[j4] += a_val * b_row[j4];
-        }
 #else
-        for (p = 0; p < k; ++p) {
-            const double a_val = a_row[p];
-            const double* b_row = b + p * n;
-            for (j = 0; j < n; ++j) c_row[j] += a_val * b_row[j];
-        }
+            /* Fallback if AVX-512 headers not available at compile time */
+            for (p = 0; p < k; ++p) {
+                const double a_val = a_row[p];
+                const double* b_row = b + p * n;
+                for (j = 0; j < n; ++j) c_row[j] += a_val * b_row[j];
+            }
 #endif
+        } else if (simd == GPTBRIDGE_SIMD_AVX2) {
+#ifdef GPTBRIDGE_SIMD_AVX2
+            for (p = 0; p < k; ++p) {
+                const double a_val = a_row[p];
+                const double* b_row = b + p * n;
+                __m256d av = _mm256_set1_pd(a_val);
+                int64_t j4 = 0;
+                for (; j4 + 4 <= n; j4 += 4) {
+                    __m256d bv = _mm256_loadu_pd(b_row + j4);
+                    __m256d cv = _mm256_loadu_pd(c_row + j4);
+#if defined(__FMA__)
+                    cv = _mm256_fmadd_pd(av, bv, cv);
+#else
+                    cv = _mm256_add_pd(cv, _mm256_mul_pd(av, bv));
+#endif
+                    _mm256_storeu_pd(c_row + j4, cv);
+                }
+                for (; j4 < n; ++j4) c_row[j4] += a_val * b_row[j4];
+            }
+#else
+            for (p = 0; p < k; ++p) {
+                const double a_val = a_row[p];
+                const double* b_row = b + p * n;
+                for (j = 0; j < n; ++j) c_row[j] += a_val * b_row[j];
+            }
+#endif
+        } else {
+            for (p = 0; p < k; ++p) {
+                const double a_val = a_row[p];
+                const double* b_row = b + p * n;
+                for (j = 0; j < n; ++j) c_row[j] += a_val * b_row[j];
+            }
+        }
     }
 
     return 0;
