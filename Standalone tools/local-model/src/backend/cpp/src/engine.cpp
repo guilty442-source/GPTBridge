@@ -987,6 +987,10 @@ void NativeInferenceEngine::unload() {
     bundle_.reset();
     tokenizer_.reset();
     layers_.clear();
+    prefix_cache_.clear();
+    prefix_tick_ = 0;
+    prefix_hits_ = 0;
+    prefix_misses_ = 0;
     kv_k_.clear();
     kv_v_.clear();
     lm_head_t_.clear();
@@ -1326,7 +1330,115 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     generated.reserve(static_cast<size_t>(max_new_tokens));
     uint64_t rng_state = sampling.seed ? sampling.seed : 0x9E3779B97F4A7C15ULL;
 
-    std::vector<double> next_logits = forward_last_logits(prompt_ids, 0, true);
+    // P3d prefix reuse: restore the longest cached prompt prefix so only the
+    // suffix is recomputed. The snapshot stores per-layer K/V slices; values
+    // are deterministic, so a restored cache is bit-identical to recompute.
+    const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
+    const int64_t layer_stride = cfg.max_position_embeddings * kv_dim;
+    int64_t prefix_len = 0;
+    size_t hit_index = prefix_cache_.size();
+    for (size_t i = 0; i < prefix_cache_.size(); ++i) {
+        const PrefixEntry& entry = prefix_cache_[i];
+        const int64_t len = static_cast<int64_t>(entry.tokens.size());
+        if (len > 0 && len <= static_cast<int64_t>(prompt_ids.size()) &&
+            std::equal(
+                entry.tokens.begin(), entry.tokens.end(), prompt_ids.begin()) &&
+            len > prefix_len) {
+            prefix_len = len;
+            hit_index = i;
+        }
+    }
+    if (hit_index != prefix_cache_.size()) {
+        PrefixEntry& hit = prefix_cache_[hit_index];
+        for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
+            std::copy_n(
+                hit.k.data() + layer * prefix_len * kv_dim,
+                prefix_len * kv_dim,
+                kv_k_.data() + layer * layer_stride);
+            std::copy_n(
+                hit.v.data() + layer * prefix_len * kv_dim,
+                prefix_len * kv_dim,
+                kv_v_.data() + layer * layer_stride);
+        }
+        hit.tick = ++prefix_tick_;
+        ++prefix_hits_;
+        kv_len_ = prefix_len;
+    } else {
+        ++prefix_misses_;
+    }
+
+    // Always forward at least the final prompt token so logits exist; on a
+    // full-prefix hit the recomputed K/V overwrite identical values.
+    int64_t forward_begin = prefix_len;
+    int64_t forward_offset = prefix_len;
+    if (forward_begin == static_cast<int64_t>(prompt_ids.size())) {
+        forward_begin -= 1;
+        forward_offset = prefix_len - 1;
+        kv_len_ = forward_offset;
+    }
+    std::vector<int64_t> suffix(
+        prompt_ids.begin() + forward_begin, prompt_ids.end());
+    std::vector<double> next_logits =
+        forward_last_logits(suffix, forward_offset, true);
+
+    // Snapshot the prompt prefix for future reuse (bounded, LRU-evicted).
+    if (prefix_cache_max_entries_ > 0 && kv_len_ > 0) {
+        const int64_t store_len = kv_len_;
+        const int64_t entry_bytes =
+            2 * cfg.num_hidden_layers * store_len * kv_dim * 8;
+        if (entry_bytes <= prefix_cache_max_bytes_) {
+            auto existing = std::find_if(
+                prefix_cache_.begin(), prefix_cache_.end(),
+                [&](const PrefixEntry& entry) {
+                    return entry.tokens == prompt_ids;
+                });
+            if (existing != prefix_cache_.end()) {
+                existing->tick = ++prefix_tick_;
+            } else {
+                int64_t total_bytes = entry_bytes;
+                for (const PrefixEntry& entry : prefix_cache_) {
+                    total_bytes += static_cast<int64_t>(
+                        (entry.k.size() + entry.v.size()) * sizeof(double));
+                }
+                while (
+                    (!prefix_cache_.empty() &&
+                     static_cast<int64_t>(prefix_cache_.size()) >=
+                         prefix_cache_max_entries_) ||
+                    (!prefix_cache_.empty() &&
+                     total_bytes > prefix_cache_max_bytes_)) {
+                    auto oldest = std::min_element(
+                        prefix_cache_.begin(), prefix_cache_.end(),
+                        [](const PrefixEntry& a, const PrefixEntry& b) {
+                            return a.tick < b.tick;
+                        });
+                    total_bytes -= static_cast<int64_t>(
+                        (oldest->k.size() + oldest->v.size()) *
+                        sizeof(double));
+                    prefix_cache_.erase(oldest);
+                }
+                PrefixEntry entry;
+                entry.tokens = prompt_ids;
+                entry.k.reserve(
+                    static_cast<size_t>(
+                        cfg.num_hidden_layers * store_len * kv_dim));
+                entry.v.reserve(
+                    static_cast<size_t>(
+                        cfg.num_hidden_layers * store_len * kv_dim));
+                for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
+                    const double* k_src =
+                        kv_k_.data() + layer * layer_stride;
+                    const double* v_src =
+                        kv_v_.data() + layer * layer_stride;
+                    entry.k.insert(
+                        entry.k.end(), k_src, k_src + store_len * kv_dim);
+                    entry.v.insert(
+                        entry.v.end(), v_src, v_src + store_len * kv_dim);
+                }
+                entry.tick = ++prefix_tick_;
+                prefix_cache_.push_back(std::move(entry));
+            }
+        }
+    }
     for (int64_t step = 0; step < max_new_tokens; ++step) {
         const int64_t token = sample_next(next_logits, sequence_, sampling, rng_state);
         generated.push_back(token);
@@ -1359,6 +1471,22 @@ void NativeInferenceEngine::set_kv_memory_limit(int64_t bytes) {
     }
 }
 
+void NativeInferenceEngine::set_prefix_cache_limit(
+    int64_t max_entries, int64_t max_bytes) {
+    prefix_cache_max_entries_ = std::max<int64_t>(0, max_entries);
+    prefix_cache_max_bytes_ = std::max<int64_t>(0, max_bytes);
+    while (static_cast<int64_t>(prefix_cache_.size()) >
+               prefix_cache_max_entries_ &&
+           !prefix_cache_.empty()) {
+        auto oldest = std::min_element(
+            prefix_cache_.begin(), prefix_cache_.end(),
+            [](const PrefixEntry& a, const PrefixEntry& b) {
+                return a.tick < b.tick;
+            });
+        prefix_cache_.erase(oldest);
+    }
+}
+
 std::string NativeInferenceEngine::describe() const {
     if (!loaded()) return "{\"loaded\":false}";
     const ModelConfig& cfg = bundle_->config();
@@ -1371,7 +1499,11 @@ std::string NativeInferenceEngine::describe() const {
         << "\"heads\":" << cfg.num_attention_heads << ","
         << "\"kv_heads\":" << cfg.num_key_value_heads << ","
         << "\"weights_bytes\":" << bundle_->weights_bytes() << ","
-        << "\"kv_memory_bytes\":" << kv_memory_bytes() << "}";
+        << "\"kv_memory_bytes\":" << kv_memory_bytes() << ","
+        << "\"prefix_cache_entries\":"
+        << static_cast<int64_t>(prefix_cache_.size()) << ","
+        << "\"prefix_cache_hits\":" << prefix_hits_ << ","
+        << "\"prefix_cache_misses\":" << prefix_misses_ << "}";
     return out.str();
 }
 

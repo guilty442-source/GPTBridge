@@ -150,6 +150,7 @@ public:
     int64_t kv_memory_bytes() const;
     std::string describe() const;
     void set_kv_memory_limit(int64_t bytes);
+    void set_prefix_cache_limit(int64_t max_entries, int64_t max_bytes);
 
 private:
     struct LayerWeights {
@@ -171,9 +172,22 @@ private:
         std::vector<double> down_proj_t;
     };
 
+    struct PrefixEntry {
+        std::vector<int64_t> tokens;
+        std::vector<double> k;
+        std::vector<double> v;
+        uint64_t tick = 0;
+    };
+
     std::unique_ptr<WeightBundle> bundle_;
     std::unique_ptr<ByteLevelBPETokenizer> tokenizer_;
     std::vector<LayerWeights> layers_;
+    std::vector<PrefixEntry> prefix_cache_;
+    int64_t prefix_cache_max_entries_ = 8;
+    int64_t prefix_cache_max_bytes_ = 256LL * 1024 * 1024;
+    uint64_t prefix_tick_ = 0;
+    int64_t prefix_hits_ = 0;
+    int64_t prefix_misses_ = 0;
     TensorView embedding_;
     TensorView final_norm_;
     TensorView lm_head_;

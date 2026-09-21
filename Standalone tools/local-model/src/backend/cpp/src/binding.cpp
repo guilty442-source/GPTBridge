@@ -59,6 +59,11 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
         .def("memory_bytes", &NativeInferenceEngine::memory_bytes)
         .def("kv_memory_bytes", &NativeInferenceEngine::kv_memory_bytes)
         .def("set_kv_memory_limit", &NativeInferenceEngine::set_kv_memory_limit)
+        .def(
+            "set_prefix_cache_limit",
+            &NativeInferenceEngine::set_prefix_cache_limit,
+            py::arg("max_entries"),
+            py::arg("max_bytes"))
         .def("describe", &NativeInferenceEngine::describe);
 
     m.def(

@@ -321,3 +321,32 @@ def test_cpp_engine_kv_limit_fail_closed(
     limit = 2 * 32 * 2 * 8 * 8 - 1
     with pytest.raises(RuntimeError, match="KV_MEMORY_LIMIT_EXCEEDED"):
         cpp_runtime.load_engine(bundle_dir, kv_memory_limit=limit)
+
+
+def test_cpp_prefix_cache_reuse_is_deterministic(tmp_path: Path) -> None:
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+
+    prompt = [1, 9, 10, 11]
+    first = engine.generate(list(prompt), 4, sampling)
+    second = engine.generate(list(prompt), 4, sampling)
+    assert first == second
+    stats = json.loads(engine.describe())
+    assert stats["prefix_cache_hits"] == 1
+    assert stats["prefix_cache_entries"] == 1
+
+    # Partial-prefix hit must match a cold engine bitwise.
+    extended = [1, 9, 10, 11, 12]
+    cached = engine.generate(list(extended), 4, sampling)
+    stats = json.loads(engine.describe())
+    assert stats["prefix_cache_hits"] == 2
+
+    cold = module.NativeInferenceEngine()
+    cold.load(str(bundle))
+    baseline = cold.generate(list(extended), 4, sampling)
+    assert cached == baseline
