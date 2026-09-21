@@ -3,7 +3,7 @@ from pathlib import Path
 
 from governance_rule.execution.codex_repository import codex_readonly_connection
 
-REQUEST_PATH = Path("main-system/runtime/state/codex-amendment-request-formal-rule-parity-lifecycle-2026-09-21.json")
+REQUEST_PATH = Path("main-system/runtime/state/codex-amendment-request-formal-rule-parity-lifecycle-2026-09-21-r2.json")
 
 with codex_readonly_connection() as connection:
     codex_version = connection.execute(
@@ -23,7 +23,7 @@ request = {
     "artifact": "codex-amendment-request",
     "schema": "gptbridge.codex-amendment-request/v1",
     "authority": "request-only",
-    "request_id": "codex-amendment-request-formal-rule-parity-lifecycle-2026-09-21",
+    "request_id": "codex-amendment-request-formal-rule-parity-lifecycle-2026-09-21-r2",
     "requested_by": "architecture-sovereign-worker",
     "change_class": "authority-duty",
     "title": "Transition proposed formal rules into evaluator-parity lifecycle",

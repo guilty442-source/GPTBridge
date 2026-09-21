@@ -5,9 +5,9 @@ from governance_rule.execution.codex_amendment_lifecycle import CodexAmendmentRe
 from governance_rule.execution.codex_repository import codex_readonly_connection
 from governance_rule.execution.codex_successor_builder import build_successor
 
-request_path = Path("main-system/runtime/state/codex-amendment-request-formal-rule-parity-lifecycle-2026-09-21.json")
+request_path = Path("main-system/runtime/state/codex-amendment-request-formal-rule-parity-lifecycle-2026-09-21-r2.json")
 source = Path("governance_rule/codex/data/governance_codex.sqlite3")
-output = Path("main-system/runtime/state/codex-candidates/codex-candidate-formal-rule-parity-2026-09-21.sqlite3")
+output = Path("main-system/runtime/state/codex-candidates/codex-candidate-formal-rule-parity-2026-09-21-r2.sqlite3")
 
 with codex_readonly_connection() as connection:
     current_version = connection.execute(

@@ -214,8 +214,8 @@
   ],
   "governance_references": {
     "codex_identity": "governance-codex://official",
-    "codex_version": "2026-09-20T17:39:12Z",
-    "codex_sha256": "7ce5434342a018f906ca95c3a1e8af440a628860ceef5318005f782c23de472a",
+    "codex_version": "2026-09-21T07:37:58Z",
+    "codex_sha256": "5446490d7b819131be2351498cb663c34e7e597cfa7edb5e1e1ad4c7b74b2710",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -434,7 +434,27 @@
       "lifecycle": "Standalone tools/local-model/xingcheng/runtime/models/lifecycle/xingcheng-native/lifecycle.json",
       "engine_pin": "Standalone tools/local-model/runtime/settings/native-engine.json"
     },
-    "note": "secret references are environment key names only; values are never recorded in the manifest"
+    "note": "secret references are environment key names only; values are never recorded in the manifest",
+    "secret_storage": {
+      "GPTBRIDGE_POSTGRES_DSN": {
+        "source": "windows-user-env",
+        "policy": "acknowledged-gap-G89",
+        "target": "governed-secret-store"
+      },
+      "GPTBRIDGE_POSTGRES_ADMIN_DSN": {
+        "source": "windows-user-env",
+        "policy": "acknowledged-gap-G89",
+        "target": "governed-secret-store"
+      },
+      "GPTBRIDGE_IPC_SESSION_TOKEN": {
+        "source": "launcher-per-process",
+        "policy": "ephemeral-injection"
+      },
+      "GPTBRIDGE_SHUTDOWN_TOKEN": {
+        "source": "launcher-per-process",
+        "policy": "ephemeral-injection"
+      }
+    }
   },
   "runtime_paths": {
     "SOURCE_ROOT": ".",
@@ -446,5 +466,17 @@
     "MODEL_ROOT": "Standalone tools/local-model/xingcheng/runtime/models",
     "CONFIG_ROOT": "main-system/config",
     "note": "packaged mode overrides RELEASE_ROOT via GPTBRIDGE_RELEASE_ROOT; roots never rely on the process working directory"
+  },
+  "sqlite_inventory": {
+    "registry": "governance_rule/codex/data/governance_codex.sqlite3 (governed_sqlite_database_registry)",
+    "registered_rows": 44,
+    "canonical": false,
+    "rule": "module-private operational state only; reconcile to PostgreSQL; never packaged into a release",
+    "excluded": [
+      "codex database",
+      "staging/candidate copies",
+      "IDE files",
+      "model-cache databases (cache class)"
+    ]
   }
 }
