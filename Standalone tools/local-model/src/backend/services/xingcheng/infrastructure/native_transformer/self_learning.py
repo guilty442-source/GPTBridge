@@ -61,6 +61,7 @@ class SelfLearningPolicy:
     lr: float = 5e-5
     warmup_steps: int = 20
     device: str = "cuda"
+    gpu_required_mb: int = 0
     val_permille: int = 100
 
     def to_dict(self) -> dict[str, Any]:

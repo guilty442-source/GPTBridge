@@ -195,6 +195,7 @@ def run_cycle_impl(
             "eval_every": max(1, int(resolved_policy.max_steps) // 2),
             "log_every": max(1, int(resolved_policy.max_steps) // 8),
             "device": str(resolved_policy.device),
+            "gpu_required_mb": int(resolved_policy.gpu_required_mb),
         },
         requested_by="star-self-learning",
     )
