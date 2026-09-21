@@ -42,6 +42,7 @@ The module is decomposed into single-responsibility sub-modules (A430):
 
 from __future__ import annotations
 
+import random
 import threading
 import urllib.request
 from collections import deque
@@ -232,7 +233,12 @@ class ConnectionWatchdog(
                     self._adaptive_probe_interval = self._min_probe_interval
             except Exception:
                 pass
-            if self._stop.wait(timeout=self._adaptive_probe_interval):
+            jittered_interval = self._adaptive_probe_interval * random.uniform(0.9, 1.1)
+            timeout = min(
+                self._max_probe_interval,
+                max(self._min_probe_interval, jittered_interval),
+            )
+            if self._stop.wait(timeout=timeout):
                 break
 
     def stop(self) -> None:
