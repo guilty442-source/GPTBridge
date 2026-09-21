@@ -114,16 +114,16 @@ def test_native_rope_matches_reference_and_records_shape() -> None:
     if not dispatch.native_available():
         pytest.skip("native core not built")
     dispatch._VERIFIED_ROPE_SHAPES.clear()
-    q = torch.randn(1, 2, 4, 8)
-    k = torch.randn(1, 1, 4, 8)
-    cos, sin = build_rope_tables(8, 4, dtype=torch.float64)
+    q = torch.randn(1, 2, 64, 8)
+    k = torch.randn(1, 1, 64, 8)
+    cos, sin = build_rope_tables(8, 64, dtype=torch.float64)
     with torch.no_grad():
         out = dispatch.native_rope(q, k, cos, sin)
     assert out is not None
     expected_q, expected_k = _rope_torch(q, k, cos, sin, None)
     assert torch.allclose(out[0], expected_q, atol=1e-6, rtol=1e-6)
     assert torch.allclose(out[1], expected_k, atol=1e-6, rtol=1e-6)
-    assert ("rope", 1, 2, 1, 4, 8, False) in dispatch.verified_rope_shapes()
+    assert ("rope", 1, 2, 1, 64, 8, False) in dispatch.verified_rope_shapes()
 
 
 def test_native_rope_skips_grad() -> None:
@@ -137,14 +137,14 @@ def test_rope_kernel_uses_native_on_cpu() -> None:
     if not dispatch.native_available():
         pytest.skip("native core not built")
     dispatch._VERIFIED_ROPE_SHAPES.clear()
-    q = torch.randn(1, 2, 4, 8)
-    k = torch.randn(1, 1, 4, 8)
-    cos, sin = build_rope_tables(8, 4)
+    q = torch.randn(1, 2, 64, 8)
+    k = torch.randn(1, 1, 64, 8)
+    cos, sin = build_rope_tables(8, 64)
     with torch.no_grad():
         q_out, k_out = apply_rope(q, k, cos, sin)
     assert q_out.shape == q.shape
     assert k_out.shape == k.shape
-    assert ("rope", 1, 2, 1, 4, 8, False) in dispatch.verified_rope_shapes()
+    assert ("rope", 1, 2, 1, 64, 8, False) in dispatch.verified_rope_shapes()
 
 
 def test_dispatch_matches_python_fallback_logits(monkeypatch) -> None:

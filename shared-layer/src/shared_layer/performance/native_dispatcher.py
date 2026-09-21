@@ -106,7 +106,7 @@ DISPATCH_THRESHOLDS: dict[str, int] = {
     "transformer.matmul": 8,            # 8+ rows/cols to justify boundary
     "transformer.softmax": 8,
     "transformer.rmsnorm": 4,           # 4+ rows to justify norm boundary
-    "transformer.rope": 4,              # 4+ sequence positions to justify rope boundary
+    "transformer.rope": 64,             # 64+ sequence positions; smaller inputs lose to boundary cost
     "transformer.attention": 4,          # 4+ rows to justify attention boundary
 }
 
