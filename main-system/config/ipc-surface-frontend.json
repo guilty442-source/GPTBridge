@@ -127,6 +127,7 @@
     "toolbox_start_tool_result"
   ],
   "error_codes": [
+    "CAPABILITY_BOUNDARY_DENIED",
     "COMMAND_RECEIVED"
   ],
   "features": {
@@ -135,5 +136,5 @@
     "connection_state": 1,
     "error_codes": 1
   },
-  "surface_version": "5c3ab0c31255e876c0ee787b4042814974683ec48a6bf18ae9355f6a5ff226c0"
+  "surface_version": "edffdfa1ebccba341beb2159158927341932fa74fa61efc078eb2cfd9057d332"
 }

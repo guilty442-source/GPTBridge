@@ -857,6 +857,81 @@ def validate_ipc_contract(
     return []
 
 
+def validate_ipc_surface_pairing(
+    contract: Mapping[str, Any],
+    *,
+    repo_root: str | os.PathLike[str],
+    frontend_surface_path: str | os.PathLike[str] | None = None,
+    backend_surface_path: str | os.PathLike[str] | None = None,
+) -> list[str]:
+    """Frontend Release A must be able to talk to Backend Release B.
+
+    Rules (INTEGRATION-03A/03B):
+    * every backend command the frontend sends must be supported by the
+      backend;
+    * every event the frontend expects must be emitted by the backend;
+    * every error code the backend requires must be understood by the
+      frontend;
+    * every feature version the backend requires must be supported by the
+      frontend (otherwise Backend B is not switchable);
+    * pinned surface versions must match the actual snapshots.
+    """
+    section = (contract.get("ipc_contract") or {}).get("surface_pairing") or {}
+    if not section:
+        return []
+    root = Path(os.fspath(repo_root))
+    frontend_path = (
+        Path(os.fspath(frontend_surface_path))
+        if frontend_surface_path
+        else root / str(section.get("frontend_surface_file") or "")
+    )
+    backend_path = (
+        Path(os.fspath(backend_surface_path))
+        if backend_surface_path
+        else root / str(section.get("backend_surface_file") or "")
+    )
+    errors: list[str] = []
+    surfaces: dict[str, dict[str, Any]] = {}
+    for label, path in (("frontend", frontend_path), ("backend", backend_path)):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            errors.append(f"IPC_SURFACE_UNREADABLE:{label}:{error}")
+            continue
+        if not isinstance(payload, dict):
+            errors.append(f"IPC_SURFACE_UNREADABLE:{label}:not-an-object")
+            continue
+        surfaces[label] = payload
+        pin = section.get(f"{label}_surface_version")
+        if pin and str(payload.get("surface_version") or "") != str(pin):
+            errors.append(f"IPC_SURFACE_PIN_MISMATCH:{label}")
+    if len(surfaces) != 2:
+        return errors
+
+    frontend = surfaces["frontend"]
+    backend = surfaces["backend"]
+    requires = backend.get("requires") or {}
+    frontend_commands = {str(item) for item in frontend.get("backend_commands") or []}
+    frontend_events = {str(item) for item in frontend.get("events") or []}
+    frontend_errors = {str(item) for item in frontend.get("error_codes") or []}
+    frontend_features = frontend.get("features") or {}
+
+    for command in sorted(frontend_commands):
+        if command not in (requires.get("commands") or {}):
+            errors.append(f"IPC_COMMAND_UNSUPPORTED:{command}")
+    for event in sorted(frontend_events):
+        if event not in (requires.get("events") or {}):
+            errors.append(f"IPC_EVENT_UNSUPPORTED:{event}")
+    for code in sorted(str(item) for item in requires.get("error_codes") or []):
+        if code not in frontend_errors:
+            errors.append(f"IPC_ERROR_CODE_UNSUPPORTED:{code}")
+    for feature, version in sorted((requires.get("features") or {}).items()):
+        supported = int(frontend_features.get(feature, 0) or 0)
+        if int(version) > supported:
+            errors.append(f"IPC_FEATURE_UNSUPPORTED:{feature}")
+    return errors
+
+
 def validate_release_bundle(
     contract: Mapping[str, Any],
     *,
@@ -873,6 +948,9 @@ def validate_release_bundle(
     official_contract_path: str | os.PathLike[str] | None = None,
     official_root: str | os.PathLike[str] | None = None,
     check_official_state_separation: bool = False,
+    repo_root: str | os.PathLike[str] | None = None,
+    ipc_frontend_surface_path: str | os.PathLike[str] | None = None,
+    ipc_backend_surface_path: str | os.PathLike[str] | None = None,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation: environment, lock, origins, natives.
@@ -968,6 +1046,15 @@ def validate_release_bundle(
             contract, official_contract_path=official_contract_path
         )
     )
+    if repo_root is not None or ipc_frontend_surface_path or ipc_backend_surface_path:
+        errors.extend(
+            validate_ipc_surface_pairing(
+                contract,
+                repo_root=repo_root or Path(__file__).resolve().parents[3],
+                frontend_surface_path=ipc_frontend_surface_path,
+                backend_surface_path=ipc_backend_surface_path,
+            )
+        )
     if codex_path is not None:
         errors.extend(
             validate_governance_references(contract, codex_path=codex_path)
@@ -1000,6 +1087,7 @@ __all__ = [
     "validate_governance_dependencies",
     "validate_official_state_separation",
     "validate_ipc_contract",
+    "validate_ipc_surface_pairing",
     "validate_governance_references",
     "validate_release_bundle",
     "pe_machine",

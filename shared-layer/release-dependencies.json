@@ -278,6 +278,13 @@
   "ipc_contract": {
     "contract_file": "main-system/config/tool-runtime-contract.json",
     "contract_version": 1,
-    "minimum_supported_contract_version": 1
+    "minimum_supported_contract_version": 1,
+    "surface_pairing": {
+      "frontend_surface_file": "main-system/config/ipc-surface-frontend.json",
+      "backend_surface_file": "main-system/config/ipc-surface-backend.json",
+      "frontend_surface_version": "edffdfa1ebccba341beb2159158927341932fa74fa61efc078eb2cfd9057d332",
+      "backend_surface_version": "e76b1081fdf3f0cfb974413f737bddfe1f226e3fe0e57912d97a993170215818",
+      "rule": "frontend-sends-subset-of-backend-commands; backend-features-subset-of-frontend-support"
+    }
   }
 }

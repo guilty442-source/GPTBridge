@@ -203,6 +203,9 @@ def validate_release_bundle(
     official_contract_path: str | None = None,
     official_root: str | None = None,
     check_official_state_separation: bool = False,
+    repo_root: str | None = None,
+    ipc_frontend_surface_path: str | None = None,
+    ipc_backend_surface_path: str | None = None,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Full release-bundle validation (environment, lock, origins, natives).
@@ -239,6 +242,9 @@ def validate_release_bundle(
         official_contract_path=official_contract_path,
         official_root=official_root,
         check_official_state_separation=check_official_state_separation,
+        repo_root=repo_root,
+        ipc_frontend_surface_path=ipc_frontend_surface_path,
+        ipc_backend_surface_path=ipc_backend_surface_path,
         env=env,
     )
 
