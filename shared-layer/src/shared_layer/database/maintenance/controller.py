@@ -264,6 +264,14 @@ class MaintenanceController:
                 # Log but continue
                 time.sleep(1.0)
 
+            # §10.63 R2: bound the loop to the scheduler's configured tick
+            # cadence — previously the loop free-spun, paying a fresh PG
+            # health connect + ledger parse per iteration (the dominant
+            # share of measured idle CPU). Interruptible by shutdown.
+            self._shutdown_event.wait(
+                self.config.scheduler_config.tick_interval_seconds
+            )
+
     def _execute_queued_jobs(self) -> None:
         """Execute jobs from the queue."""
         with self._lock:
