@@ -132,84 +132,161 @@
       "target_code": "STAR_MODEL_MATURITY_SUITE",
       "target_type": "test-suite",
       "provision_id": "A556",
-      "artifact_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py",
+      "artifact_path": "native/test_suites/suite_maturity.cpp",
       "evidence_paths": [
+        "native/test_suites/suite_maturity.cpp",
+        "native/test_suites/harness.hpp",
+        "native/test_suites/build.ps1",
+        "native/test_suites/csharp/Program.cs"
+      ],
+      "status": "native-implemented",
+      "legacy_python_evidence": [
         "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py",
         "Standalone tools/local-model/xingcheng/runtime/state/model-maturity.json"
       ],
-      "status": "existing-evidence"
+      "note": "L0-L2 structural checks",
+      "language": "c++/c# (no python at runtime)"
     },
     {
       "target_code": "NTP_CORRECTNESS_SUITE",
       "target_type": "test-suite",
       "provision_id": "A560",
-      "artifact_path": "Standalone tools/local-model/tests/test_ntp_correctness.py",
+      "artifact_path": "native/test_suites/suite_ntp_sampling.cpp",
       "evidence_paths": [
+        "native/test_suites/suite_ntp_sampling.cpp",
+        "native/test_suites/harness.hpp",
+        "native/test_suites/build.ps1",
+        "native/test_suites/csharp/Program.cs"
+      ],
+      "status": "native-implemented",
+      "legacy_python_evidence": [
         "Standalone tools/local-model/tests/test_ntp_correctness.py"
       ],
-      "status": "existing-evidence"
+      "note": "softmax/temperature/top-k/top-p/greedy",
+      "language": "c++/c# (no python at runtime)"
     },
     {
       "target_code": "SMALL_MODEL_BASELINE_SUITE",
       "target_type": "test-suite",
       "provision_id": "A561",
-      "artifact_path": "Standalone tools/local-model/xingcheng/runtime/logs/baseline-small-5m-gpu-2026-09-20.json",
+      "artifact_path": "native/test_suites/suite_blocked.cpp",
       "evidence_paths": [
+        "native/test_suites/suite_blocked.cpp",
+        "native/test_suites/harness.hpp",
+        "native/test_suites/build.ps1",
+        "native/test_suites/csharp/Program.cs"
+      ],
+      "status": "blocked-model-runtime",
+      "legacy_python_evidence": [
         "Standalone tools/local-model/xingcheng/runtime/logs/baseline-small-5m-gpu-2026-09-20.json"
       ],
-      "status": "existing-evidence"
+      "note": "requires native runtime + checkpoint",
+      "language": "c++/c# (no python at runtime)"
     },
     {
       "target_code": "MOE_QC_SUITE",
       "target_type": "test-suite",
       "provision_id": "A564",
-      "artifact_path": "Standalone tools/local-model/tests/test_moe_quality.py",
+      "artifact_path": "native/test_suites/suite_moe_routing.cpp",
       "evidence_paths": [
+        "native/test_suites/suite_moe_routing.cpp",
+        "native/test_suites/harness.hpp",
+        "native/test_suites/build.ps1",
+        "native/test_suites/csharp/Program.cs"
+      ],
+      "status": "native-implemented",
+      "legacy_python_evidence": [
         "Standalone tools/local-model/tests/test_moe_quality.py"
       ],
-      "status": "existing-evidence"
+      "note": "top-k routing/entropy/collapse/FLOPs",
+      "language": "c++/c# (no python at runtime)"
     },
     {
       "target_code": "DIALOGUE_TRAINING_SUITE",
       "target_type": "test-suite",
       "provision_id": "A565",
-      "artifact_path": "Standalone tools/local-model/tests/test_chat_format.py",
+      "artifact_path": "native/test_suites/suite_blocked.cpp",
       "evidence_paths": [
+        "native/test_suites/suite_blocked.cpp",
+        "native/test_suites/harness.hpp",
+        "native/test_suites/build.ps1",
+        "native/test_suites/csharp/Program.cs"
+      ],
+      "status": "blocked-model-runtime",
+      "legacy_python_evidence": [
         "Standalone tools/local-model/tests/test_chat_format.py",
         "Standalone tools/local-model/tests/test_phase_native_dialogue_route.py"
       ],
-      "status": "existing-evidence"
+      "note": "requires native runtime + checkpoint",
+      "language": "c++/c# (no python at runtime)"
     },
     {
       "target_code": "PYTHON_CPP_CONSISTENCY_SUITE",
       "target_type": "test-suite",
       "provision_id": "A566",
-      "artifact_path": "Standalone tools/local-model/tests/test_phase_native_dispatch.py",
+      "artifact_path": "native/test_suites/suite_consistency.cpp",
       "evidence_paths": [
+        "native/test_suites/suite_consistency.cpp",
+        "native/test_suites/harness.hpp",
+        "native/test_suites/build.ps1",
+        "native/test_suites/csharp/Program.cs"
+      ],
+      "status": "native-implemented",
+      "legacy_python_evidence": [
         "Standalone tools/local-model/tests/test_phase_native_dispatch.py"
       ],
-      "status": "existing-evidence"
+      "note": "C vs C++ parity <=1e-3",
+      "language": "c++/c# (no python at runtime)"
     },
     {
       "target_code": "KV_CACHE_SUITE",
       "target_type": "test-suite",
       "provision_id": "A567",
-      "artifact_path": "Standalone tools/local-model/tests/test_phase7_kv_cache.py",
+      "artifact_path": "native/test_suites/suite_kv_cache.cpp",
       "evidence_paths": [
+        "native/test_suites/suite_kv_cache.cpp",
+        "native/test_suites/harness.hpp",
+        "native/test_suites/build.ps1",
+        "native/test_suites/csharp/Program.cs"
+      ],
+      "status": "native-implemented",
+      "legacy_python_evidence": [
         "Standalone tools/local-model/tests/test_phase7_kv_cache.py",
         "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_kv_cache_matrix.py"
       ],
-      "status": "existing-evidence"
+      "note": "append/position/GQA/INT8 per-token",
+      "language": "c++/c# (no python at runtime)"
     },
     {
       "target_code": "NATIVE_CAPABILITY_EVAL_SUITE",
       "target_type": "test-suite",
       "provision_id": "A568",
-      "artifact_path": "Standalone tools/local-model/tests/test_native_eval_suite.py",
+      "artifact_path": "native/test_suites/suite_blocked.cpp",
       "evidence_paths": [
+        "native/test_suites/suite_blocked.cpp",
+        "native/test_suites/harness.hpp",
+        "native/test_suites/build.ps1",
+        "native/test_suites/csharp/Program.cs"
+      ],
+      "status": "blocked-model-runtime",
+      "legacy_python_evidence": [
         "Standalone tools/local-model/tests/test_native_eval_suite.py"
       ],
-      "status": "existing-evidence"
+      "note": "requires native runtime + checkpoint",
+      "language": "c++/c# (no python at runtime)"
     }
-  ]
+  ],
+  "native_suites": {
+    "harness": "native/test_suites/harness.hpp",
+    "builder": "native/test_suites/build.ps1",
+    "orchestrator": "native/test_suites/csharp/TestSuiteOrchestrator.csproj",
+    "report": "native/test_suites/bin/native-report.json",
+    "orchestration_report": "native/test_suites/bin/native-orchestration-report.json",
+    "last_run": {
+      "pass": 25,
+      "fail": 0,
+      "blocked": 3,
+      "total_ms_approx": 0.04
+    }
+  }
 }
