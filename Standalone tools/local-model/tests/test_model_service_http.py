@@ -56,12 +56,17 @@ def _request(service: ModelService, method: str, path: str,
 
 def test_descriptor_written_and_removed(service: ModelService, tmp_path: Path):
     descriptor = tmp_path / "xingcheng" / "runtime" / "ipc" / "model-service.json"
+    token_file = tmp_path / "xingcheng" / "runtime" / "ipc" / "model-service-session-token"
     assert descriptor.is_file()
     data = json.loads(descriptor.read_text(encoding="utf-8"))
     assert data["schema"] == "star-model-service-descriptor/v1"
     assert data["port"] == service.port
+    assert data["token_file"] == "model-service-session-token"
+    # C# orchestration layer discovers the token through this file
+    assert token_file.read_text(encoding="utf-8").strip() == _token(service)
     service.stop()
     assert not descriptor.exists()
+    assert not token_file.exists()
 
 
 def test_unauthorized_without_token(service: ModelService):

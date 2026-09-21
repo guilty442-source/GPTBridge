@@ -134,6 +134,49 @@ public class ModelHttpClientTests
     }
 
     [Fact]
+    public void Locator_DiscoversDescriptorContract()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blc-locator-" + Guid.NewGuid().ToString("N"));
+        var ipc = Path.Combine(root, "xingcheng", "runtime", "ipc");
+        Directory.CreateDirectory(ipc);
+        File.WriteAllText(Path.Combine(ipc, "model-service-session-token"), "tok-xyz");
+        File.WriteAllText(Path.Combine(ipc, "model-service.json"), JsonSerializer.Serialize(new
+        {
+            schema = "star-model-service-descriptor/v1",
+            tool_id = "local-model",
+            pid = 1234,
+            port = 4567,
+            token_file = "model-service-session-token",
+            session_token_sha256 = "abc",
+        }));
+        try
+        {
+            var ep = Infrastructure.ModelServiceLocator.Discover(root);
+            Assert.Equal("http://127.0.0.1:4567", ep.Endpoint);
+            Assert.Equal("tok-xyz", ep.SessionToken);
+            Assert.Equal(1234, ep.Pid);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void Locator_FailClosed()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blc-locator-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            Assert.Throws<InvalidOperationException>(() => Infrastructure.ModelServiceLocator.Discover(root));
+            var ipc = Path.Combine(root, "xingcheng", "runtime", "ipc");
+            Directory.CreateDirectory(ipc);
+            File.WriteAllText(Path.Combine(ipc, "model-service.json"), "{\"schema\":\"wrong\"}");
+            var ex = Assert.Throws<InvalidOperationException>(() => Infrastructure.ModelServiceLocator.Discover(root));
+            Assert.Contains("SCHEMA_MISMATCH", ex.Message);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public async Task Infer_EmptyPrompt_FailClosed()
     {
         using var client = new HttpModelClient("http://127.0.0.1:9999");

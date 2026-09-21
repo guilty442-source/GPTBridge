@@ -44,6 +44,10 @@ def _descriptor_path(root: Path) -> Path:
     return root / "xingcheng" / "runtime" / "ipc" / "model-service.json"
 
 
+def _token_path(root: Path) -> Path:
+    return root / "xingcheng" / "runtime" / "ipc" / "model-service-session-token"
+
+
 def _session_token(root: Path) -> str:
     """Load the standalone session token; empty when none exists."""
     candidates = [
@@ -255,19 +259,28 @@ class ModelService:
             return {"ok": True, "port": self.port, "already_running": True}
         token = _session_token(self._root)
         if not token:
-            # Deterministic per-boot token when the standalone IPC token does
-            # not exist yet (e.g. tests, pre-channel boot).
+            # Per-boot token when the standalone IPC token does not exist yet
+            # (e.g. tests, pre-channel boot).
             token = hashlib.sha256(
                 f"{os.getpid()}|{time.time_ns()}".encode("utf-8")
             ).hexdigest()
         server = ModelServiceHTTPServer(token)
         descriptor = _descriptor_path(self._root)
         descriptor.parent.mkdir(parents=True, exist_ok=True)
+        # Governed consumers (C# orchestration layer) read the token from this
+        # file — same local-user trust boundary as the standalone IPC token.
+        token_file = _token_path(self._root)
+        token_file.write_text(token, encoding="utf-8")
+        try:
+            os.chmod(token_file, 0o600)
+        except OSError:
+            pass
         payload = {
             "schema": DESCRIPTOR_SCHEMA,
             "tool_id": "local-model",
             "pid": os.getpid(),
             "port": server.server_address[1],
+            "token_file": token_file.name,
             "session_token_sha256": hashlib.sha256(
                 token.encode("utf-8")
             ).hexdigest(),
@@ -298,10 +311,11 @@ class ModelService:
         if self._thread is not None:
             self._thread.join(timeout=5.0)
             self._thread = None
-        try:
-            _descriptor_path(self._root).unlink(missing_ok=True)
-        except OSError:
-            pass
+        for path in (_descriptor_path(self._root), _token_path(self._root)):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 __all__ = [

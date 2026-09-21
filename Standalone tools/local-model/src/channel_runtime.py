@@ -134,6 +134,16 @@ async def execute(
 
 async def main() -> None:
     global active_runtime, progress_channel
+    model_service: Any = None
+    if os.environ.get("XINGCHENG_MODEL_SERVICE_HTTP", "1") != "0":
+        from xingcheng.infrastructure.model_service_http import ModelService
+
+        model_service = ModelService(TOOL_ROOT)
+        try:
+            await asyncio.to_thread(model_service.start)
+        except Exception:
+            # 模型服務 HTTP 端點屬 sidecar：啟動失敗不阻斷受治理 channel runtime
+            model_service = None
     runtime = GovernedToolRuntime(
         tool_id=TOOL_ID,
         version=service.VERSION,
@@ -153,7 +163,11 @@ async def main() -> None:
     service.bind_channel(runtime.channel_for("ai"))
     progress_channel = runtime.channel_for("ai")
     active_runtime = runtime
-    await runtime.run()
+    try:
+        await runtime.run()
+    finally:
+        if model_service is not None:
+            await asyncio.to_thread(model_service.stop)
 
 
 if __name__ == "__main__":
