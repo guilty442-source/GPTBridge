@@ -23,6 +23,7 @@ import hashlib
 import math
 import re
 import sqlite3
+import struct
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import lru_cache
@@ -87,6 +88,23 @@ def _cosine(left: list[float], right: list[float]) -> float:
     if left_norm <= 0.0 or right_norm <= 0.0:
         return 0.0
     return sum(a * b for a, b in zip(left, right)) / (left_norm * right_norm)
+
+
+def _unpack_vector(raw: Any) -> list[float] | None:
+    """Decode a stored vector — BLOB (float64 LE, new writes) or legacy JSON
+    text (rows written before W8)."""
+    if isinstance(raw, (bytes, bytearray, memoryview)):
+        blob = bytes(raw)
+        if not blob or len(blob) % 8:
+            return None
+        return list(struct.unpack(f"<{len(blob) // 8}d", blob))
+    try:
+        value = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return None
+    if isinstance(value, list) and all(isinstance(v, (int, float)) for v in value):
+        return [float(v) for v in value]
+    return None
 
 
 def embed_vector(text: str, dimension: int = _DIMENSION) -> list[float]:
@@ -246,7 +264,7 @@ class LocalVectorStore:
             point_id,
             document_id,
             point_module,
-            json.dumps(vector),
+            sqlite3.Binary(struct.pack(f"<{len(vector)}d", *vector)),
             json.dumps(payload, ensure_ascii=False),
         )
         return row, len(vector)
@@ -273,10 +291,10 @@ class LocalVectorStore:
         rows = self._fetch_rows(module_ids, bounded_limit)
         scored: list[tuple[float, dict[str, Any]]] = []
         for row in rows:
-            stored = self._loads(row["vector"])
-            if not isinstance(stored, list) or len(stored) != len(query_vector):
+            stored = _unpack_vector(row["vector"])
+            if stored is None or len(stored) != len(query_vector):
                 continue
-            score = _cosine(query_vector, [float(value) for value in stored])
+            score = _cosine(query_vector, stored)
             scored.append((score, self._hit_record(row, score)))
         scored.sort(key=lambda item: item[0], reverse=True)
         return [record for score, record in scored[: max(0, int(limit))]]
