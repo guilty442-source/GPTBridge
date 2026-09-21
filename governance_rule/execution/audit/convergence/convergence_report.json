@@ -1,7 +1,7 @@
 {
   "report": "FINAL_CONVERGENCE_REPORT/v1",
   "generated_at": "2026-09-21T10:09:23Z",
-  "candidate_codex_version": "2026-09-21T10:09:23Z",
+  "candidate_codex_version": "2026-09-21T11:30:53Z",
   "last_valid_sealed_version": "2026-09-19T14:58:26Z",
   "current_version": "2026-09-15T15:42:01Z",
   "active_binding_version": "2026-09-15T15:42:01Z",
@@ -28,7 +28,7 @@
   "machine_schema_total": 67,
   "machine_schema_parity_pass": 0,
   "machine_schema_parity_pending": 67,
-  "obligation_total": 52,
+  "obligation_total": 61,
   "obligation_implementation_remains": 52,
   "obligation_evidence_only_remains": 0,
   "obligation_completed": 0,
@@ -52,11 +52,11 @@
   "external_signature_state": "sealed-pending-external-signatures",
   "verified_release_state": "DENIED",
   "remaining_blockers": [
-    "candidate not sealed; version axis (current_version 2026-09-15) unchanged by design",
-    "A551-A590 re-tiering via successor pipeline (special law/registry/contract/schema/test/obligation)",
+    "candidate not sealed; current_version axis unchanged by design",
+    "A551-A590 re-tiering: 12/40 executed (3 special-law, 9 obligations); 28 remaining",
     "core engine equivalence + capability dispatch parity evidence",
     "sub-sovereign registry switch + retirement (18 identities)",
-    "67 machine schemas parity; 52 obligations classified (none completed); normative surface/search rebuild",
+    "67 machine schemas parity; 61 obligations classified (none completed); normative surface/search rebuild",
     "external signatures"
   ],
   "governance_batch": "topology corrections + formal-rule disposition + obligations + closures (candidate generation)",
@@ -80,5 +80,11 @@
     "performance series (G26-G34/G45/G60/G64) — performance workers",
     "tool/runtime fixes (G81/G83/G85/G89 follow-ups, session/task persistence) — runtime workers",
     "isolated start harness for INTEGRATION-04B (04B-10 BLOCKED) — integration workers"
-  ]
+  ],
+  "re_tiering": {
+    "status": "IN_PROGRESS",
+    "executed": 12,
+    "remaining": 28,
+    "batch_1": "3 special-law + 9 obligations"
+  }
 }

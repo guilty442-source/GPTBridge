@@ -332,5 +332,26 @@
       "action": "successor-resolution (no history rewrite; law classification + special-law migration rows)"
     }
   ],
-  "status": "PLANNED (successor pipeline execution pending)"
+  "status": "IN_PROGRESS",
+  "executed": {
+    "batch": 1,
+    "version": "2026-09-21T11:30:53Z",
+    "special_law": {
+      "A551": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+      "A588": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+      "A552": "CODEX_MODEL_RESOURCE_GPU_SPECIAL_LAW"
+    },
+    "obligations": [
+      "A559",
+      "A562",
+      "A563",
+      "A569",
+      "A572",
+      "A576",
+      "A578",
+      "A582",
+      "A583"
+    ],
+    "count": 12
+  }
 }

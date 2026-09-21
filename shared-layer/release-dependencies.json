@@ -80,6 +80,20 @@
       }
     }
   ],
+  "non_python_components": [
+    {
+      "component": "business-logic-csharp",
+      "class": "RELEASE_CODE",
+      "project": "Standalone tools/business-logic-csharp/StarBusinessLogic/StarBusinessLogic.csproj",
+      "target_framework": "net8.0",
+      "release_output": "Standalone tools/business-logic-csharp/StarBusinessLogic/bin/Release/net8.0",
+      "contract": "star-model-service/v1",
+      "lifecycle_owner": "local-model/channel_runtime.py",
+      "consumer_role": "csharp-orchestrator-client-only",
+      "start_policy": "owner-starts-and-stops",
+      "source_tree_runtime": false
+    }
+  ],
   "forbidden_development_roots": [
     "tests",
     "scripts",
@@ -254,8 +268,8 @@
   ],
   "governance_references": {
     "codex_identity": "governance-codex://official",
-    "codex_version": "2026-09-21T10:09:23Z",
-    "codex_sha256": "9b94d3d2e8fa97be3817a2331695a00a7559b017e16a1ccdc394addef5f6a20c",
+    "codex_version": "2026-09-21T11:30:53Z",
+    "codex_sha256": "8707163e9452d07668edaa17c3de9237ea93006c4d74bebd23ea13080a03dd53",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
