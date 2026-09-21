@@ -34,6 +34,16 @@ TOOL_DOC_PREFIX = "architecture-tool-"
 #: Backticked identifiers that look like registry component ids.
 _IDENTIFIER_PATTERN = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
 
+#: Maximal identifier-ish runs (superset of registry id characters).
+_TOKEN_PATTERN = re.compile(r"[\w.-]+")
+_TOKEN_FULLMATCH = re.compile(r"[\w.-]+\Z")
+
+
+def _identifier_in_text(identifier: str, text: str, tokens: set[str]) -> bool:
+    if _TOKEN_FULLMATCH.match(identifier):
+        return any(identifier in token for token in tokens)
+    return identifier in text
+
 
 def _iso_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -103,8 +113,16 @@ def architecture_document_report(root: str | Path) -> dict[str, Any]:
             continue
         title = _first_heading(text)
         has_mermaid = "```mermaid" in text
+        # O5: one regex pass extracts maximal identifier-ish tokens, then
+        # set-intersect — instead of scanning the whole document once per
+        # component id.  `id in text` iff id is contained in some maximal
+        # token when the id itself is token-shaped; non-token-shaped ids
+        # fall back to the original substring check (exact equivalence).
+        tokens = set(_TOKEN_PATTERN.findall(text))
         referenced = sorted(
-            identifier for identifier in component_ids if identifier in text
+            identifier
+            for identifier in component_ids
+            if _identifier_in_text(identifier, text, tokens)
         )
         referenced_any.update(referenced)
         stale = sorted(
