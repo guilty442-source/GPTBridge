@@ -50,7 +50,7 @@ _INSERT_WATCHDOG = (
 )
 
 # Bloat estimation (pgstattuple is optional; use pg_stat_user_tables for basic)
-_BLOAT_QUERY = """
+_BLOAT_QUERY_TEMPLATE = """
     SELECT
         schemaname, relname,
         COALESCE(n_dead_tup, 0) AS dead_tuples,
@@ -58,11 +58,18 @@ _BLOAT_QUERY = """
         last_autovacuum, autovacuum_count,
         last_analyze,
         pg_total_relation_size(relid) AS table_size,
-        0 AS index_size
+        pg_indexes_size(relid) AS index_size
     FROM pg_stat_user_tables
-    WHERE schemaname IN ('gptbridge_index', 'gptbridge_rag', 'gptbridge_transport', 'gptbridge_audit')
+    WHERE schemaname = ANY(%s)
     ORDER BY pg_total_relation_size(relid) DESC
 """
+
+# Default schemas for each strategy
+_DEFAULT_SCHEMAS = (
+    'gptbridge_index', 'gptbridge_rag', 'gptbridge_transport', 'gptbridge_audit'
+)
+_TRANSPORT_SCHEMAS = ('gptbridge_transport',)
+_AUDIT_SCHEMAS = ('gptbridge_audit',)
 
 _INSERT_BLOAT = (
     "INSERT INTO gptbridge_index.bloat_report "
@@ -87,6 +94,7 @@ def check_long_transactions(
     connection: Connection[Any],
     *,
     threshold_seconds: int = 300,
+    terminate: bool = False,
 ) -> list[dict[str, Any]]:
     """Detect long-running transactions and record them.
 
@@ -103,10 +111,17 @@ def check_long_transactions(
         tx_age = int(r[4]) if r[4] else 0
         idle_age = int(r[5]) if r[5] else None
         lock_holder = bool(r[6])
+        action = "logged"
+        if terminate:
+            try:
+                connection.execute("SELECT pg_terminate_backend(%s)", (pid,))
+                action = "terminated"
+            except Exception:
+                action = "terminate_failed"
         connection.execute(
             _INSERT_WATCHDOG,
             (pid, session_user, state, query_text, tx_age,
-             idle_age, lock_holder, threshold_seconds, "logged"),
+             idle_age, lock_holder, threshold_seconds, action),
         )
         results.append({
             "pid": pid,
@@ -115,13 +130,44 @@ def check_long_transactions(
             "transaction_age_seconds": tx_age,
             "idle_in_transaction_seconds": idle_age,
             "lock_holder": lock_holder,
+            "action_taken": action,
         })
     return results
 
 
-def collect_bloat_report(connection: Connection[Any]) -> list[dict[str, Any]]:
-    """Collect table bloat/dead-tuple/autovacuum stats and record them."""
-    rows = connection.execute(_BLOAT_QUERY).fetchall()
+def terminate_long_transactions(
+    connection: Connection[Any],
+    *,
+    threshold_seconds: int = 300,
+) -> list[dict[str, Any]]:
+    """Terminate long-running transactions exceeding threshold.
+
+    Returns list of terminated transactions with action status.
+    """
+    return check_long_transactions(connection, threshold_seconds=threshold_seconds, terminate=True)
+
+
+def collect_bloat_report(
+    connection: Connection[Any],
+    *,
+    schemas: tuple[str, ...] | None = None,
+) -> list[dict[str, Any]]:
+    """Collect table bloat/dead-tuple/autovacuum stats and record them.
+
+    Args:
+        schemas: Specific schemas to collect. If None, uses default all schemas.
+                 Use 'transport' or 'audit' for independent strategies.
+    """
+    if schemas is None:
+        schema_list = list(_DEFAULT_SCHEMAS)
+    elif schemas == "transport":
+        schema_list = list(_TRANSPORT_SCHEMAS)
+    elif schemas == "audit":
+        schema_list = list(_AUDIT_SCHEMAS)
+    else:
+        schema_list = list(schemas)
+
+    rows = connection.execute(_BLOAT_QUERY_TEMPLATE, (schema_list,)).fetchall()
     results: list[dict[str, Any]] = []
     for r in rows:
         schema = str(r[0])
@@ -144,8 +190,19 @@ def collect_bloat_report(connection: Connection[Any]) -> list[dict[str, Any]]:
             "dead_tuples": dead,
             "live_tuples": live,
             "table_size_bytes": table_size,
+            "index_size_bytes": index_size,
         })
     return results
+
+
+def collect_bloat_transport(connection: Connection[Any]) -> list[dict[str, Any]]:
+    """Collect bloat for transport schema with independent strategy."""
+    return collect_bloat_report(connection, schemas="transport")
+
+
+def collect_bloat_audit(connection: Connection[Any]) -> list[dict[str, Any]]:
+    """Collect bloat for audit schema with independent strategy."""
+    return collect_bloat_report(connection, schemas="audit")
 
 
 def get_rpo_rto_classes(connection: Connection[Any]) -> list[dict[str, Any]]:
@@ -181,6 +238,7 @@ def get_capacity_thresholds(connection: Connection[Any]) -> list[dict[str, Any]]
 
 __all__ = [
     "check_long_transactions",
+    "terminate_long_transactions",
     "collect_bloat_report",
     "get_rpo_rto_classes",
     "get_capacity_thresholds",

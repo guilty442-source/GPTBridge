@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 
 import psycopg
 from psycopg.pool import ConnectionPool
@@ -215,6 +215,49 @@ class SecureConnectionPool:
         """Close all connections."""
         self._pool.close()
         _logger.info("SecureConnectionPool: closed")
+
+    @contextmanager
+    def acquire_for_workload(
+        self,
+        workload_class: Literal["interactive", "transport", "audit", "reconciliation", "maintenance", "migration"],
+    ):
+        """Acquire a connection with workload-class timeouts applied (C4).
+
+        Reads timeout settings from gptbridge_index.workload_class table
+        and applies SET LOCAL statement_timeout / lock_timeout for the
+        transaction scope. The connection is returned with deterministic reset.
+        """
+        conn = self._pool.getconn()
+        self._metrics.active_connections += 1
+        self._metrics.idle_connections = max(0, self._metrics.idle_connections - 1)
+
+        try:
+            # Fetch workload class timeouts
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT statement_timeout_ms, lock_timeout_ms FROM gptbridge_index.workload_class WHERE class_name = %s",
+                    (workload_class,),
+                )
+                row = cur.fetchone()
+                if row:
+                    stmt_timeout_ms, lock_timeout_ms = row
+                    conn.execute(f"SET LOCAL statement_timeout = '{stmt_timeout_ms}ms'")
+                    conn.execute(f"SET LOCAL lock_timeout = '{lock_timeout_ms}ms'")
+                    conn.execute(f"SET LOCAL gptbridge.workload_class = '{workload_class}'")
+
+            yield conn
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            self._metrics.aborted_transaction_count += 1
+            raise
+        finally:
+            self._reset_connection(conn)
+            self._pool.putconn(conn)
+            self._metrics.active_connections -= 1
+            self._metrics.idle_connections += 1
 
 
 class ThreeLayerIdentity:
