@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, 'E:/GPTBridge/.kilo/worktrees/rustic-calcium/Standalone tools/local-model/src/backend')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parent / 'Standalone tools' / 'local-model' / 'src' / 'backend'))
 from services.xingcheng.infrastructure.generative_language_model import StarAutoregressiveLanguageModel
 from services.xingcheng.infrastructure.fast_inference import create_fast_engine
 import time
