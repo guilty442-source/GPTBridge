@@ -319,9 +319,9 @@ class BlueGreenOrchestrator:
 
 
 def _request_active(record: Any) -> bool:
-    """判斷請求仍在途（CREATED／QUEUED／RUNNING）。"""
+    """判斷請求已佔用舊 Backend（QUEUED／RUNNING）。"""
     status = getattr(record, "status", "") or ""
-    return status in {"CREATED", "QUEUED", "RUNNING"}
+    return status in {"QUEUED", "RUNNING"}
 
 
 __all__ = [
