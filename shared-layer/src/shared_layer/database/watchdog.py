@@ -240,6 +240,8 @@ __all__ = [
     "check_long_transactions",
     "terminate_long_transactions",
     "collect_bloat_report",
+    "collect_bloat_transport",
+    "collect_bloat_audit",
     "get_rpo_rto_classes",
     "get_capacity_thresholds",
 ]
