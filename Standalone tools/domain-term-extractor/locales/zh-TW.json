@@ -1,0 +1,6 @@
+{
+  "tool.name": "領域術語擷取器",
+  "tool.window_title": "領域術語擷取器",
+  "tool.description": "擷取受治理文件中的領域術語",
+  "errors.permission_denied": "權限不足"
+}

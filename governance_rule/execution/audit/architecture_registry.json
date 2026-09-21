@@ -480,6 +480,19 @@
       "information_channels": ["information-channel"]
     },
     {
+      "component_id": "domain-term-extractor",
+      "architectural_role": "execution",
+      "runtime_form": "standalone-service",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "change_acceptance_sub_sovereign",
+      "execution_identity": "domain-term-extractor",
+      "physical_path": "Standalone tools/domain-term-extractor",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "dependencies": ["shared-layer"],
+      "information_channels": ["information-channel"]
+    },
+    {
       "component_id": "investment-mobile",
       "architectural_role": "development-maintenance",
       "runtime_form": "python-process",
