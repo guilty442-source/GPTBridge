@@ -60,9 +60,7 @@ class LocalKnowledgeService:
                 LocalSqliteCognitionRepository,
             )
 
-            self._cognition = LocalSqliteCognitionRepository(
-                self.tool_root, self.pool_manager
-            )
+            self._cognition = LocalSqliteCognitionRepository(self.tool_root)
         return self._cognition
 
     @property
@@ -226,11 +224,14 @@ class LocalKnowledgeService:
         return result
 
     async def sql_list_knowledge(self, *, knowledge_type: str = "", limit: int = 100) -> dict[str, Any]:
-        rows = await asyncio.to_thread(
-            self.cognition.list_knowledge,
-            knowledge_type=knowledge_type,
-            limit=int(limit or 100),
-        )
+        rows = await asyncio.to_thread(self.cognition.list_knowledge)
+        if knowledge_type:
+            rows = [
+                row
+                for row in rows
+                if row.get("knowledge_category") == knowledge_type
+            ]
+        rows = rows[: int(limit or 100)]
         return {"ok": True, "knowledge": rows, "count": len(rows)}
 
     # ------------------------------------------------------------ integrated --
