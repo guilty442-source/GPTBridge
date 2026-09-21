@@ -88,7 +88,7 @@ else:
 
 
 def native_available() -> bool:
-    """Whether the compiled C++ kernel is loaded (vs the Python fallback)."""
+    """Whether the governed native compute extension is loaded."""
 
     return _NATIVE_AVAILABLE
 

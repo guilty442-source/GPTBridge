@@ -2,10 +2,10 @@
 
 Benchmarks the three native compute cores (parser, vector, transformer)
 against their Python fallbacks.  Measures the FULL end-to-end cost:
-    Python call → pybind11 conversion → C ABI → C++ compute →
+    Python call → pybind11 conversion → C ABI → pure-C compute →
     result conversion → Python return
 
-NOT just the C++ compute time.  This is required by A358.
+NOT just the native compute time.  This is required by A358.
 
 For each capability, benchmarks:
     - small / medium / large input sizes

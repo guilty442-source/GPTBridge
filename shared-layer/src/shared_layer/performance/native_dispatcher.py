@@ -15,8 +15,8 @@ savings.  A threshold of 0 means "always dispatch if available"; a
 threshold of N means "only dispatch when input size >= N".
 
 Safety rules (A221/E186):
-    - Python owns all memory; C++ borrows raw pointers + length.
-    - No C++ exceptions cross the ABI boundary.
+    - Python owns all memory; the C++ binding borrows raw pointers + length.
+    - No C++ exceptions cross the C ABI boundary.
     - No unbounded allocation; no per-request thread pool.
     - No cross-runtime free.
     - GIL released only during pure compute (never during conversion).
