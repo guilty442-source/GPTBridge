@@ -62,6 +62,8 @@ def test_descriptor_written_and_removed(service: ModelService, tmp_path: Path):
     assert data["schema"] == "star-model-service-descriptor/v1"
     assert data["port"] == service.port
     assert data["token_file"] == "model-service-session-token"
+    assert data["lifecycle_owner"] == "local-model/channel_runtime.py"
+    assert data["consumer_policy"] == "csharp-orchestrator-client-only"
     # C# orchestration layer discovers the token through this file
     assert token_file.read_text(encoding="utf-8").strip() == _token(service)
     service.stop()

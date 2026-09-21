@@ -9,7 +9,9 @@ public sealed record ModelServiceEndpoint(
     string Endpoint,
     string SessionToken,
     int Pid,
-    string TokenFile
+    string TokenFile,
+    string LifecycleOwner,
+    string ConsumerPolicy
 );
 
 public static class ModelServiceLocator
@@ -60,7 +62,20 @@ public static class ModelServiceLocator
         if (string.IsNullOrEmpty(token))
             throw new InvalidOperationException("MODEL_SERVICE_TOKEN_UNAVAILABLE");
 
-        return new ModelServiceEndpoint($"http://127.0.0.1:{port}", token, pid, tokenFile);
+        var lifecycleOwner = root.TryGetProperty("lifecycle_owner", out var owner)
+            ? owner.GetString()
+            : null;
+        var consumerPolicy = root.TryGetProperty("consumer_policy", out var policy)
+            ? policy.GetString()
+            : null;
+        if (lifecycleOwner != "local-model/channel_runtime.py")
+            throw new InvalidOperationException("MODEL_SERVICE_LIFECYCLE_OWNER_MISMATCH");
+        if (consumerPolicy != "csharp-orchestrator-client-only")
+            throw new InvalidOperationException("MODEL_SERVICE_CONSUMER_POLICY_MISMATCH");
+
+        return new ModelServiceEndpoint(
+            $"http://127.0.0.1:{port}", token, pid, tokenFile,
+            lifecycleOwner, consumerPolicy);
     }
 
     // 建立已驗證的模型用戶端；服務未運行時 fail-closed

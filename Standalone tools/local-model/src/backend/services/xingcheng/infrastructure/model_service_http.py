@@ -281,6 +281,8 @@ class ModelService:
             "pid": os.getpid(),
             "port": server.server_address[1],
             "token_file": token_file.name,
+            "lifecycle_owner": "local-model/channel_runtime.py",
+            "consumer_policy": "csharp-orchestrator-client-only",
             "session_token_sha256": hashlib.sha256(
                 token.encode("utf-8")
             ).hexdigest(),
