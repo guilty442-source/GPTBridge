@@ -91,7 +91,11 @@ class SystemRuntimeSovereign(
         self._runtime_state = "initializing"
         # Auto-automation state (A28/A33/A65 full-automation upgrade).
         self._auto_loop_task: asyncio.Task[Any] | None = None
-        self._auto_loop_interval: float = 5.0  # seconds
+        self._auto_loop_interval: float = 5.0  # seconds — fast path while
+        # the runtime is not ready or degradation is active
+        # §10.63 R2: steady-state supervision drops to a 60 s idle cadence;
+        # hard-failure signals still arrive via the IPC watchdog/heartbeat.
+        self._auto_loop_idle_interval: float = 60.0
         self._auto_enabled: bool = True
         # Automation metrics for status surfaces.
         self._auto_metrics: dict[str, Any] = {
@@ -422,8 +426,16 @@ class SystemRuntimeSovereign(
                 raise
             except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
                 pass
+            # Fast cadence only while the runtime is not yet ready; the
+            # degradation counter is cumulative so it cannot gate the
+            # steady-state interval.
+            interval = (
+                self._auto_loop_interval
+                if self._runtime_state not in ("ready", "serving")
+                else self._auto_loop_idle_interval
+            )
             try:
-                await asyncio.sleep(self._auto_loop_interval)
+                await asyncio.sleep(interval)
             except asyncio.CancelledError:
                 raise
 

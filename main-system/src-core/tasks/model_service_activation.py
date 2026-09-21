@@ -99,6 +99,8 @@ class ModelServiceActivationBroker:
         self._last_result: dict[str, Any] = {}
         self._last_decision = ""
         self._explicit_stop_at = 0.0
+        self._last_written_fingerprint: dict[str, Any] | None = None
+        self._last_write_at = 0.0
         _ACTIVE_BROKER = self
 
     # -- lifecycle ------------------------------------------------------
@@ -156,6 +158,8 @@ class ModelServiceActivationBroker:
         self._last_decision = decision
         self._write_state()
         return decision
+
+    _STATE_HEARTBEAT_SECONDS = 60.0
 
     async def _ensure_inner(self) -> str:
         self._pending = await asyncio.to_thread(self._has_pending_dialogue_request)
@@ -307,6 +311,18 @@ class ModelServiceActivationBroker:
         """Best-effort runtime state surface for operators and audits."""
         payload = {"updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         payload.update(self.status())
+        # §10.63 R2: skip the disk write while nothing changed — an idle
+        # broker used to rewrite this file every 5 s.  A 60 s heartbeat
+        # keeps updated_at fresh for staleness checks.
+        fingerprint = {k: v for k, v in payload.items() if k != "updated_at"}
+        now = time.monotonic()
+        if (
+            fingerprint == self._last_written_fingerprint
+            and now - self._last_write_at < self._STATE_HEARTBEAT_SECONDS
+        ):
+            return
+        self._last_written_fingerprint = fingerprint
+        self._last_write_at = now
         temporary = _STATE_FILE.with_name(_STATE_FILE.name + f".{os.getpid()}.tmp")
         try:
             _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
