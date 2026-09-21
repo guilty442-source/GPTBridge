@@ -248,14 +248,31 @@ class ReleaseRetentionRegistry:
         *,
         compatible_with: list[str] | None = None,
     ) -> RetentionResult:
-        """使 PREVIOUS／ROLLBACK 成為 ACTIVE（版本鎖定回復）。
+        """使 ARCHIVE／PREVIOUS／ROLLBACK 成為 ACTIVE（昇級／回復）。
 
-        先以 compatible_with 標記相容版本，再升階。
+        先以 compatible_with 標記相容版本，再升階。**永不允許兩個 ACTIVE**：
+        若已存在其他 ACTIVE，則原子地先把它降為 PREVIOUS，再把目標昇為 ACTIVE
+        （§10.15：新版本昇級成功，舊 ACTIVE 轉為 PREVIOUS 保留）。
         """
+        entry = self._entries.get(release_id)
+        if entry is None:
+            return RetentionResult(False, "release-not-registered")
+        if not tier_transition_valid(entry.tier, TIER_ACTIVE):
+            return RetentionResult(
+                False,
+                f"illegal-tier:{entry.tier}->{TIER_ACTIVE}",
+                entry.as_dict(),
+            )
+        incumbent = self.active_release()
+        if incumbent is not None and incumbent.release_id != release_id:
+            self._set_tier(
+                incumbent.release_id,
+                TIER_PREVIOUS,
+                "demote-to-previous",
+                demoted_to_previous_at=_utc_iso(),
+            )
         if compatible_with is not None:
-            entry = self._entries.get(release_id)
-            if entry is not None:
-                entry.compatible_with = list(compatible_with)
+            entry.compatible_with = list(compatible_with)
         return self._set_tier(
             release_id,
             TIER_ACTIVE,
@@ -366,7 +383,7 @@ class ReleaseRetentionRegistry:
                 False, f"rollback-requires-active:{current.tier}"
             )
         compat = [
-            c for c in fallback.compatible_with if c == current.release_id
+            c for c in current.compatible_with if c == fallback_release_id
         ]
         if not compat:
             return RetentionResult(
