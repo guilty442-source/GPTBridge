@@ -13,10 +13,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from .transformer_training_repository import TransformerTrainingRepository
+
+
+# R10：進入訓練態時把推論資源（auto_release 登錄的引擎／KV）卸載，
+# 讓 VRAM／RAM 給訓練子程序；動作寫入可稽核帳本。
+_RESOURCE_ACTION_TRAINING_STATES = frozenset({"PRETRAINING", "SFT_TRAINING"})
+_RESOURCE_ACTION_LEDGER = "xingcheng/runtime/logs/lifecycle-resource-actions.jsonl"
 
 
 _ALLOWED_PRESETS = frozenset({
@@ -546,6 +553,41 @@ class TrainingJobExecutor:
         except ValueError:
             return
         lifecycle.save(self._lifecycle_dir(self.tool_root, lifecycle.model_id))
+        self._apply_lifecycle_resource_action(lifecycle, target)
+
+    def _apply_lifecycle_resource_action(self, lifecycle, target: str) -> None:
+        """R10 資源動作：`*_TRAINING` 進入時卸載推論引擎快取。
+
+        ``auto_release`` 只登錄推論側資源；釋放失敗或無資源時不影響
+        訓練簿記，有實際釋放才寫帳本。
+        """
+        if target not in _RESOURCE_ACTION_TRAINING_STATES:
+            return
+        try:
+            from .native_transformer.execution.auto_release import get_manager
+
+            manager = get_manager()
+            with manager._lock:  # noqa: SLF001 - 同程序生命週期控制
+                keys = list(manager._resources)  # noqa: SLF001
+            released = [k for k in keys if manager.release(k)]
+        except Exception:
+            return
+        if not released:
+            return
+        record = {
+            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "model_id": str(lifecycle.model_id),
+            "state": target,
+            "action": "release-inference-resources",
+            "released": released,
+        }
+        try:
+            ledger = self.tool_root / _RESOURCE_ACTION_LEDGER
+            ledger.parent.mkdir(parents=True, exist_ok=True)
+            with ledger.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
 
     def _lifecycle_fail(self, configuration, reason: str) -> None:
         try:
