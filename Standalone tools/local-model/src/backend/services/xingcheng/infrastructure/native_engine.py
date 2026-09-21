@@ -22,6 +22,7 @@ import json
 import os
 import sys
 import threading
+from contextlib import nullcontext
 import time
 from pathlib import Path
 from typing import Any, Mapping
@@ -403,6 +404,16 @@ class NativeTransformerEngine:
         path = configured_checkpoint_path()
         return path.is_file()
 
+    def _generation_gpu_budget_mb(self, prompt_tokens: int, max_new_tokens: int) -> float:
+        """Estimate transient KV/activation VRAM for one request.
+
+        Model weights were admitted once at engine load; this budget covers
+        only request-local growth so generation does not double-count them.
+        """
+        hidden = int(getattr(self.config, "hidden_size", 0) or 0)
+        bytes_needed = max(0, prompt_tokens + max_new_tokens) * hidden * 4
+        return max(256.0, min(2048.0, bytes_needed * 1.5 / (1024**2)))
+
     def generate(
         self,
         *,
@@ -559,19 +570,42 @@ class NativeTransformerEngine:
                 except Exception:
                     pass
 
-        try:
-            with self._lock:
-                if seed is not None:
-                    try:
-                        torch.manual_seed(int(seed))
-                    except (TypeError, ValueError):
-                        pass
-                generated = self._generator.generate(
-                    ids,
-                    max_new_tokens=max_new,
-                    sampling=sampler.config,
-                    on_token=_on_token if progress_callback is not None or cancel_event is not None else None,
+        generation_gate = nullcontext()
+        generation_budget_mb = 0.0
+        if self.device.type == "cuda":
+            generation_budget_mb = self._generation_gpu_budget_mb(
+                len(prompt_ids), max_new
+            )
+            try:
+                from shared_layer.adaptive.gpu_coordinator import GpuCoordinator
+
+                generation_gate = GpuCoordinator().acquire(
+                    generation_budget_mb,
+                    priority="inference",
+                    timeout=float(os.environ.get("XINGCHENG_GPU_ACQUIRE_TIMEOUT_S", "15")),
                 )
+            except Exception as error:
+                return {
+                    "ok": False,
+                    "error_code": "GPU_GENERATION_BUDGET_BUSY",
+                    "message": str(error),
+                    "fallback_required": True,
+                    "gpu_budget_required_mb": generation_budget_mb,
+                }
+        try:
+            with generation_gate:
+                with self._lock:
+                    if seed is not None:
+                        try:
+                            torch.manual_seed(int(seed))
+                        except (TypeError, ValueError):
+                            pass
+                    generated = self._generator.generate(
+                        ids,
+                        max_new_tokens=max_new,
+                        sampling=sampler.config,
+                        on_token=_on_token if progress_callback is not None or cancel_event is not None else None,
+                    )
         except _NativeGenerationCancelled:
             return {
                 "ok": False,
@@ -641,6 +675,8 @@ class NativeTransformerEngine:
                             "eval_count": len(out_ids),
                             "latency_ms": latency_ms,
                             "device": str(self.device),
+                            "gpu_budget_required_mb": generation_budget_mb,
+                            "gpu_budget_gate": "per-request" if self.device.type == "cuda" else "not-applicable",
                             "third_party_foundation_weights": False,
                             "loopback_runtime_used": False,
                         },
@@ -665,6 +701,8 @@ class NativeTransformerEngine:
             "parameter_count": self._parameter_count,
             "quantization": self.quantization,
             "device": str(self.device),
+            "gpu_budget_required_mb": generation_budget_mb,
+            "gpu_budget_gate": "per-request" if self.device.type == "cuda" else "not-applicable",
             "prefix_cache": {
                 "reused_tokens": int(getattr(self._generator, "last_prefix_reuse", 0)),
                 "entries": len(self.prefix_store),
