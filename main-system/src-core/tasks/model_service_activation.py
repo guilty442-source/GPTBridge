@@ -38,7 +38,10 @@ _STATE_FILE = (
     Path(__file__).resolve().parents[2]
     / "runtime" / "state" / "model-service-activation.json"
 )
-from tasks.resource_governor_signal import worker_admission_hold
+from tasks.resource_governor_signal import (
+    regulation_active,
+    worker_admission_hold,
+)
 
 
 def _worker_admission_hold() -> bool:
@@ -106,6 +109,9 @@ class ModelServiceActivationBroker:
         self._last_result: dict[str, Any] = {}
         self._last_decision = ""
         self._explicit_stop_at = 0.0
+        self._broker_started_owner = False
+        self._next_release_at = 0.0
+        self._last_release_result: dict[str, Any] = {}
         self._last_written_fingerprint: dict[str, Any] | None = None
         self._last_write_at = 0.0
         _ACTIVE_BROKER = self
@@ -172,7 +178,7 @@ class ModelServiceActivationBroker:
         self._pending = await asyncio.to_thread(self._has_pending_dialogue_request)
         if not self._pending:
             self._backoff = self.min_backoff
-            return "idle"
+            return await self._maybe_release_owner()
         if getattr(self.app, "maintenance_ready", True) is not True:
             return "maintenance-pending"
         if getattr(self.app, "_shutting_down", False):
@@ -210,6 +216,7 @@ class ModelServiceActivationBroker:
         if self._last_result.get("ok") is True:
             self._next_attempt_at = now + self.cooldown
             self._backoff = self.min_backoff
+            self._broker_started_owner = True
             _logger.info(
                 "model service activated on demand: pid=%s",
                 self._last_result.get("pid"),
@@ -225,6 +232,50 @@ class ModelServiceActivationBroker:
             self._last_result.get("message") or self._last_result.get("error_code"),
         )
         return "start-failed"
+
+    async def _maybe_release_owner(self) -> str:
+        """§10.64 ⑥: governed auto-release of the on-demand owner.
+
+        While the governor's regulation is active and the pending window
+        is empty, release the owner through the same governed
+        ``ToolboxService.stop_tool`` path a user stop uses (expected-stop
+        marking, tracked-process termination, status update, audit).
+        Only owners this broker activated are released — an explicitly
+        user-started model is never force-closed by regulation.
+        """
+        if not self._broker_started_owner or not regulation_active():
+            return "idle"
+        try:
+            if not await self.toolbox.tool_process_active(OWNER_TOOL_ID):
+                self._broker_started_owner = False
+                return "idle"
+        except Exception:
+            return "idle"
+        now = time.monotonic()
+        if now < self._next_release_at:
+            return "release-cooldown"
+        payload = {
+            "tool_id": OWNER_TOOL_ID,
+            "request_id": f"model-release-{time.time_ns()}",
+        }
+        try:
+            result = await self.toolbox.stop_tool(payload)
+        except Exception as error:
+            result = {"ok": False, "message": f"{type(error).__name__}: {error}"}
+        self._last_release_result = result if isinstance(result, dict) else {}
+        self._next_release_at = now + self.cooldown
+        if self._last_release_result.get("ok") is True:
+            self._broker_started_owner = False
+            _logger.info(
+                "on-demand model owner released under resource regulation"
+            )
+            return "released"
+        _logger.warning(
+            "model owner auto-release failed: %s",
+            self._last_release_result.get("message")
+            or self._last_release_result.get("error_code"),
+        )
+        return "release-failed"
 
     def note_explicit_owner_stop(self) -> None:
         """Remember an explicit close of the owner so it is not resurrected.
