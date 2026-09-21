@@ -1,11 +1,11 @@
-"""Automated backend hot-reload watcher ??facade.
+"""Automated backend hot-reload watcher — facade.
 
 This module provides the HotReloadWatcher class.  Implementation
 details live in submodules:
 
-  * :mod:`tasks.hot_reload_watcher_constants` ??constants, ChannelHealth.
-  * :mod:`tasks.hot_reload_watcher_health` ??health monitoring mixin.
-  * :mod:`tasks.hot_reload_watcher_reload` ??reload request mixin.
+  * :mod:`tasks.hot_reload_watcher_constants` — constants, ChannelHealth.
+  * :mod:`tasks.hot_reload_watcher_health` — health monitoring mixin.
+  * :mod:`tasks.hot_reload_watcher_reload` — reload request mixin.
 
 Watches the governed backend source root and, once file changes quiet
 down, requests a module-scoped hot-reload through the maintenance
@@ -72,7 +72,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         self._max_poll_interval = 60.0  # Max 60 seconds
         self._consecutive_no_changes = 0
 
-    # ??? lifecycle ????????????????????????????????????????????????????
+    # ── lifecycle ─────────────────────────────────────────────────────
 
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -131,7 +131,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
 
         _logger.info("HotReloadWatcher stopped gracefully")
 
-    # ??? observation ??????????????????????????????????????????????????
+    # ── observation ───────────────────────────────────────────────────
 
     def _resolve_roots(self) -> None:
         for relative in WATCH_ROOTS:
@@ -220,7 +220,7 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             return token_path
         return None
 
-    # ??? main loop ????????????????????????????????????????????????????
+    # ── main loop ─────────────────────────────────────────────────────
 
     async def _loop(self) -> None:
         while not self._stop.is_set():
