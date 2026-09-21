@@ -49,6 +49,28 @@ sys.path.insert(0, str(_RUNTIME_ROOT / "governance_rule"))
 sys.path.insert(0, str(_RUNTIME_ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(_RUNTIME_ROOT))
 
+# §10.63 R1 startup slimming: the saga/workflow import chain (~800+ modules,
+# ~1.5 s) is only needed by phase-4 service assembly. Warm it on a daemon
+# thread so it overlaps the remaining boot imports instead of blocking the
+# phase boundary. Pure import only — no side effects; if the prefetch fails,
+# the phase-4 import raises there as usual (fail-closed unchanged).
+def _prefetch_boot_modules() -> None:
+    import importlib
+
+    for name in ("core_system.saga_runtime_integration",):
+        try:
+            importlib.import_module(name)
+        except Exception:
+            pass
+
+
+import threading
+
+_prefetch_thread = threading.Thread(
+    target=_prefetch_boot_modules, name="boot-module-prefetch", daemon=True
+)
+_prefetch_thread.start()
+
 from governance_rule.governance_policy import GOVERNANCE_RULE_CATALOG
 from core_system.runtime_bootstrap import RuntimeBootstrap
 from core_system.governance_runtime import MainSystemGovernance
