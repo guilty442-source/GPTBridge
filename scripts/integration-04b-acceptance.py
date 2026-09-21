@@ -151,7 +151,10 @@ def overlay_contract() -> dict:
             item["class"] = "SHARED_RUNTIME"
             item["allowed_roots"] = [str(GOV_ROOT)]
         elif item.get("module") in {"numpy", "torch"}:
-            item["allowed_roots"] = [str(ROOT / "main-system" / ".venv" / "Lib" / "site-packages")]
+            item["allowed_roots"] = [
+                str(RC / "venv" / "Lib" / "site-packages"),
+                str(ROOT / "main-system" / ".venv" / "Lib" / "site-packages"),
+            ]
         modules.append(item)
     contract["modules"] = modules
     contract["runtime_environment"]["venv"].pop("pyvenv_cfg_sha256", None)
@@ -163,11 +166,17 @@ def overlay_contract() -> dict:
             item["file"] = str(RC / "backend" / file[len("main-system/src-core/"):])
         elif file.startswith("main-system/.venv/"):
             item["file"] = str(ROOT / file)
+        elif file.startswith("venv/"):
+            # ``venv/`` in the shared contract denotes the release's own
+            # runtime (release-manifest python_runtime), not a repo-root dir.
+            item["file"] = str(RC / file)
         native.append(item)
     contract["native_extensions"] = native
     contract["required_dlls"] = [
         str(RC / "backend" / str(item)[len("main-system/src-core/"):])
-        if str(item).startswith("main-system/src-core/") else str(ROOT / str(item))
+        if str(item).startswith("main-system/src-core/")
+        else str(RC / str(item)) if str(item).startswith("venv/")
+        else str(ROOT / str(item))
         for item in (contract.get("required_dlls") or [])
     ]
     contract["config_contract"]["required_files"] = {
@@ -186,9 +195,13 @@ def run_validation() -> dict:
     from shared_layer.database import release_manifest
 
     contract = overlay_contract()
+    # Probe the release's own venv (the bundle's declared python_runtime);
+    # probing the dev venv compares the lock against the wrong dist set.
+    rc_python = RC / "venv" / "Scripts" / "python.exe"
+    probe_python = rc_python if rc_python.is_file() else VENV_PY
     return release_manifest.validate_release_bundle(
         contract,
-        python_executable=str(VENV_PY),
+        python_executable=str(probe_python),
         release_root=str(RC),
         shared_root=None,
         extra_paths=[str(RC / "backend"), str(RC / "shared_runtime"), str(GOV_ROOT), str(ROOT)],

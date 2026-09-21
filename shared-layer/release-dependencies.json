@@ -281,8 +281,8 @@
   ],
   "governance_references": {
     "codex_identity": "governance-codex://official",
-    "codex_version": "2026-09-21T12:02:51Z",
-    "codex_sha256": "7cd8181291ac71ab1b1f6aaea5745c098b390004a1d673667e2ec0c4d14df0ef",
+    "codex_version": "2026-09-21T15:39:13Z",
+    "codex_sha256": "6603a8c32de5bcd57c2add32def98e2f6ca51f4e05f6417bdacaef825697254e",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
