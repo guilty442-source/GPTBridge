@@ -10,10 +10,12 @@ public sealed class AutoReleaseManager : IDisposable
     private readonly Timer _timer;
     private readonly TimeSpan _idle;
 
-    public AutoReleaseManager(TimeSpan? idle = null)
+    public AutoReleaseManager(TimeSpan? idle = null, TimeSpan? checkInterval = null)
     {
         _idle = idle ?? TimeSpan.FromMinutes(5);
-        _timer = new Timer(Check, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        var interval = checkInterval ?? TimeSpan.FromMinutes(1);
+        if (interval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(checkInterval));
+        _timer = new Timer(Check, null, interval, interval);
     }
 
     public void Register(string key, object obj, Action<object> release, long size = 0)
