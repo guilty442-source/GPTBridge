@@ -171,6 +171,58 @@ class StartupPhaseExecutionMixin:
         postgres_ok = next((r["ready"] for r in results if r["phase"] == "postgresql-start"), False)
         qdrant_ok = next((r["ready"] for r in results if r["phase"] == "qdrant-start"), False)
         ollama_ok = next((r["ready"] for r in results if r["phase"] == "ollama-start"), False)
+        governance_ok = next((r["ready"] for r in results if r["phase"] == "governance-audit"), False)
+        environment_ok = next((r["ready"] for r in results if r["phase"] == "environment-check"), False)
+        postgres_cert = next(
+            (r.get("certification") for r in results if r["phase"] == "postgresql-start"),
+            None,
+        )
+        central_authority_ok = bool(
+            postgres_ok
+            and isinstance(postgres_cert, dict)
+            and postgres_cert.get("ready")
+        )
+
+        # Migration-030 ladder: advance the ten-rung StartupGate with the
+        # evidence each runtime phase actually produced.  The ladder is
+        # strictly ordered — rungs without a real evidence source leave it
+        # stopped exactly where the evidence ends (never fabricated).
+        ladder_reached: list[str] = []
+        ladder_fault = ""
+        try:
+            from shared_layer.startup_gate import (  # noqa: PLC0415
+                StartupGate,
+                StartupGateError,
+                StartupPhase,
+            )
+
+            ladder = StartupGate()
+            rung_evidence = [
+                (StartupPhase.BOOTSTRAP, True),
+                (StartupPhase.GOVERNANCE_VALIDATED, governance_ok),
+                (StartupPhase.SECURITY_VALIDATED, environment_ok),
+                (StartupPhase.DATABASE_FOUNDATION_READY, postgres_ok),
+                (StartupPhase.CENTRAL_AUTHORITY_READY, central_authority_ok),
+                (StartupPhase.SEMANTIC_INDEX_READY, qdrant_ok),
+            ]
+            for phase, evidence in rung_evidence:
+                if phase in ladder.reached:
+                    continue
+                expected = (
+                    StartupPhase.BOOTSTRAP
+                    if not ladder.reached
+                    else ladder.next_phase()
+                )
+                if expected is not phase:
+                    break
+                try:
+                    ladder.advance(phase, ready=bool(evidence))
+                except StartupGateError as error:
+                    ladder_fault = str(error)
+                    break
+            ladder_reached = [p.value for p in ladder.reached]
+        except Exception as error:  # noqa: BLE001 — ladder is observability
+            ladder_fault = f"{type(error).__name__}: {error}"
 
         if not gate_ok:
             startup_state = "FAILED"
@@ -204,6 +256,11 @@ class StartupPhaseExecutionMixin:
             "deadline_ms": int(STARTUP_GATE_DEADLINE_SECONDS * 1000),
             "deadline_exceeded": deadline_exceeded,
             "gate_ok": gate_ok,
+            "startup_ladder": {
+                "reached": ladder_reached,
+                "core_ready": ladder_reached[-1:] == ["CORE_READY"],
+                "fault": ladder_fault,
+            },
             "phases": results,
         }
         return report
