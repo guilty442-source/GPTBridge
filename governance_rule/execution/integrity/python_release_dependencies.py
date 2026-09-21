@@ -21,10 +21,13 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 PROBE_SCRIPT = r"""
+import hashlib
 import importlib.metadata as md
 import importlib.util
 import json
 import os
+import platform
+import site
 import sys
 
 config = json.loads(sys.stdin.read() or "{}")
@@ -36,8 +39,37 @@ out = {
     "base_prefix": sys.base_prefix,
     "cwd": os.getcwd(),
     "version": list(sys.version_info[:3]),
+    "arch": platform.machine(),
+    "bits": 64 if sys.maxsize > 2**32 else 32,
+    "isolated": bool(sys.flags.isolated),
+    "env_pythonpath": os.environ.get("PYTHONPATH", ""),
+    "user_site_enabled": bool(site.ENABLE_USER_SITE),
+    "user_site": site.getusersitepackages(),
+    "site_packages": list(site.getsitepackages()),
+    "sys_path": list(sys.path),
+    "pyvenv_cfg": None,
     "modules": {},
 }
+venv_cfg = os.path.join(sys.prefix, "pyvenv.cfg")
+if os.path.isfile(venv_cfg):
+    with open(venv_cfg, "rb") as handle:
+        raw = handle.read()
+    fields = {}
+    for line in raw.decode("utf-8", "replace").splitlines():
+        if "=" in line:
+            key, _, value = line.partition("=")
+            fields[key.strip()] = value.strip()
+    out["pyvenv_cfg"] = {
+        "path": venv_cfg,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "fields": fields,
+    }
+if config.get("include_distributions"):
+    out["distributions"] = sorted(
+        f"{dist.metadata['Name']}=={dist.version}"
+        for dist in md.distributions()
+        if dist.metadata["Name"]
+    )
 for name in config.get("modules", []):
     entry = {"origin": None, "version": None, "native": False, "error": None}
     try:

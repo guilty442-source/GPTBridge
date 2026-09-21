@@ -52,15 +52,15 @@ _PROTECTED_TIERS = frozenset({TIER_ACTIVE, TIER_PREVIOUS})
 _NO_DEGRADE_BEFORE_OBSERVATION = frozenset({TIER_PREVIOUS})
 
 # 允許的遷移：
-# activate   : PREVIOUS/ROLLBACK → ACTIVE（版本鎖定回復只能指向認證相容版）
+# activate   : ARCHIVE/PREVIOUS/ROLLBACK → ACTIVE（新版本昇級＝昇階至 ACTIVE；
+#              舊 ACTIVE 會被原子降為 PREVIOUS，保證永遠只有一個 ACTIVE）
 # demote     : ACTIVE → PREVIOUS；PREVIOUS → ARCHIVE（需觀察窗＋備份＋回復路徑）
-# rollback   : ROLLBACK → ACTIVE（或 PREVIOUS → ROLLBACK？否——回復只能指向已認證
-#             且相容版本，PREVIOUS 即鎖定的回復來源）
+# rollback   : ROLLBACK → ACTIVE（回復只能指向已認證且相容版本）
 _TIER_TRANSITIONS: dict[str, frozenset[str]] = {
     TIER_ACTIVE: frozenset({TIER_PREVIOUS}),     # 被新 ACTIVE 取代→PREVIOUS
     TIER_PREVIOUS: frozenset({TIER_ACTIVE, TIER_ROLLBACK, TIER_ARCHIVE}),
     TIER_ROLLBACK: frozenset({TIER_ACTIVE, TIER_ARCHIVE}),
-    TIER_ARCHIVE: frozenset(),
+    TIER_ARCHIVE: frozenset({TIER_ACTIVE}),      # 昇級：新版本由 ARCHIVE 昇 ACTIVE
 }
 
 
