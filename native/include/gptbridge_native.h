@@ -72,6 +72,19 @@ int gptbridge_native_transformer_softmax(
     const double* input, int64_t rows, int64_t cols,
     double* output);
 
+/* RMSNorm over each row: x / sqrt(mean(x^2) + eps) * weight. */
+int gptbridge_native_transformer_rmsnorm(
+    const double* input, int64_t rows, int64_t cols,
+    const double* weight, double eps,
+    double* output);
+
+/* RoPE over [batch x heads x seq x head_dim]; cos/sin are [batch x seq x dim]. */
+int gptbridge_native_transformer_rope(
+    const double* input,
+    int64_t batch, int64_t heads, int64_t seq_len, int64_t head_dim,
+    const double* cos_table, const double* sin_table,
+    double* output);
+
 /* Scaled dot-product attention; caller provides output and scores workspace. */
 int gptbridge_native_transformer_scaled_dot_product_attention(
     const double* q, int64_t q_rows, int64_t d_k,
