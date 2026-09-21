@@ -273,9 +273,30 @@ def sft_train(
         shuffle=False,
     )
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=config.lr, weight_decay=config.weight_decay
-    )
+    # 與 pretrain 同一政策：8-bit AdamW（省 optimizer VRAM）→ fused → plain
+    optimizer = None
+    if getattr(model.config, "use_8bit_optimizer", False):
+        try:
+            import bitsandbytes as bnb  # type: ignore
+
+            optimizer = bnb.optim.AdamW8bit(
+                model.parameters(), lr=config.lr, weight_decay=config.weight_decay
+            )
+        except Exception:
+            pass
+    if optimizer is None:
+        try:
+            if device.type == "cuda":
+                optimizer = torch.optim.AdamW(
+                    model.parameters(), lr=config.lr,
+                    weight_decay=config.weight_decay, fused=True)  # type: ignore[call-arg]
+            else:
+                raise TypeError("CPU 不使用 fused")
+        except Exception:
+            optimizer = torch.optim.AdamW(
+                model.parameters(), lr=config.lr,
+                weight_decay=config.weight_decay
+            )
     if resume is not None:
         state = load_checkpoint(resume, map_location="cpu").get("optimizer_state")
         if state is not None:
