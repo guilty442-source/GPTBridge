@@ -50,16 +50,17 @@ export function applyRuntimeStatusReport(
 ): void {
   if (!report || typeof report !== 'object') return
   const changed: RuntimeStatusKey[] = []
-  const next: RuntimeStatusPayload = { ...state }
+  let next: RuntimeStatusPayload | null = null
   for (const key of Object.keys(report) as RuntimeStatusKey[]) {
     const value = report[key]
     if (value === undefined) continue
     if (isEqual(state[key], value)) continue
+    next ??= { ...state }
     // @ts-expect-error indexed assignment across the payload union
     next[key] = value
     changed.push(key)
   }
-  if (changed.length === 0) return
+  if (changed.length === 0 || next === null) return
   state = next
   for (const key of changed) {
     const bucket = listeners.get(key)
