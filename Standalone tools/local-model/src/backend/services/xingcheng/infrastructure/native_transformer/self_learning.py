@@ -16,11 +16,23 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Ensure all required modules are importable (shared_layer -> governance_rule -> main-system)
+_PROJECT_ROOT = Path(__file__).resolve().parents[8]
+for _p in (
+    str(_PROJECT_ROOT / "shared-layer" / "src"),
+    str(_PROJECT_ROOT / "governance_rule"),
+    str(_PROJECT_ROOT / "main-system" / "src-core"),
+):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 import argparse
 import json
 import os
 import sqlite3
-import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
