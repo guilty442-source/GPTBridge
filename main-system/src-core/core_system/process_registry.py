@@ -168,6 +168,25 @@ class ProcessRegistry:
 
     @staticmethod
     def _pid_alive(pid: int) -> bool:
+        """Return liveness without treating a recycled/zombie PID as active."""
+        if pid <= 0:
+            return False
+        try:
+            import psutil
+
+            process = psutil.Process(pid)
+            if not process.is_running():
+                return False
+            return process.status() != psutil.STATUS_ZOMBIE
+        except ImportError:
+            # Keep the registry usable in the minimal release environment.
+            pass
+        except (psutil.NoSuchProcess, psutil.ZombieProcess):
+            return False
+        except psutil.AccessDenied:
+            return True
+        except OSError:
+            return False
         try:
             os.kill(pid, 0)
         except ProcessLookupError:

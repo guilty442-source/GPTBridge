@@ -40,8 +40,19 @@ class GPTBridgeAppShutdownMixin:
             self._shutdown_complete.set()  # type: ignore[attr-defined]
 
     async def _shutdown_once(self) -> None:
-        # Stop the tool isolation health monitor first — every tool exit
-        # from this point on is an intentional shutdown or a governed
+        # Close tools owned by this main system before stopping its health
+        # monitor.  ToolboxService filters by process ownership and manifest,
+        # so independent standalone tools remain running.
+        try:
+            toolbox = getattr(self, "toolbox_service", None)
+            if toolbox is not None:
+                await toolbox.stop_process_registry_monitor()
+                await toolbox.shutdown_managed_tools()
+        except Exception:
+            pass
+
+        # Stop the tool isolation health monitor next — every remaining tool
+        # exit from this point on is an intentional shutdown or a governed
         # generation replacement, never a crash worth recording.
         try:
             from core_system.tool_isolation import get_isolation_manager

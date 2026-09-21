@@ -128,10 +128,19 @@ class ProcessMixin:
             raise PermissionError("PERMISSION_DENIED")
         return owner
 
-    def _authorize_tool_lifecycle(self, tool_id: str, action: str) -> None:
+    def _authorize_tool_lifecycle(
+        self,
+        tool_id: str,
+        action: str,
+        *,
+        allow_locked: bool = False,
+    ) -> None:
         if self.governance is None:
             raise PermissionError("PERMISSION_DENIED")
-        if action.casefold() in {"stop", "force-close", "force_close"}:
+        if (
+            not allow_locked
+            and action.casefold() in {"stop", "force-close", "force_close"}
+        ):
             try:
                 manifest, _tool_dir = self._load_manifest_cached(tool_id)
             except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
