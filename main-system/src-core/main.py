@@ -20,6 +20,12 @@ def _runtime_layout() -> tuple[Path, Path]:
     source_core = root / "main-system" / "src-core"
     if not source_core.is_dir():
         source_core = root / "src-core"
+    if not source_core.is_dir() and (root / "backend").is_dir():
+        # Release candidates may package the backend under a flat ``backend``
+        # root instead of reproducing the development ``main-system/src-core``
+        # hierarchy.  Stay inside the configured release; never fall back to
+        # the source tree.
+        source_core = root / "backend"
     required = (source_core, root / "governance_rule", root / "shared-layer" / "src")
     missing = [str(path) for path in required if not path.exists()]
     if configured_root and missing:

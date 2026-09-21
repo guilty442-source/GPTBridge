@@ -20,10 +20,10 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-PROBE_SCRIPT = r"""
 # Windows background-subprocess policy: never open a console window.
-_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+_CREATE_NO_WINDOW = int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
 
+PROBE_SCRIPT = r"""
 import hashlib
 import importlib.metadata as md
 import importlib.util

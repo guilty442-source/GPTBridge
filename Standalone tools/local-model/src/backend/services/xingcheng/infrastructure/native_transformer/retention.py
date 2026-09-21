@@ -32,6 +32,13 @@ AUDIT_RELATIVE = "xingcheng/runtime/logs/retention.jsonl"
 JOBS_RELATIVE = "xingcheng/runtime/models/jobs"
 LIFECYCLE_GLOB = "xingcheng/runtime/models/lifecycle/*/lifecycle.json"
 SNAPSHOT_RELATIVE = "xingcheng/runtime/state/self-learning"
+EVIDENCE_GLOBS = (
+    "xingcheng/runtime/logs/maturity-*.json",
+    "xingcheng/runtime/logs/self-learning-*.json",
+)
+_EVIDENCE_PATH_KEYS = frozenset(
+    {"checkpoint", "checkpoint_path", "weights", "weights_path", "artifact_path"}
+)
 
 
 @dataclass
@@ -106,6 +113,33 @@ def _protected_paths(tool_root: Path) -> set[Path]:
                 protected.add((tool_root / pinned).resolve())
         except (OSError, json.JSONDecodeError):
             pass
+
+    # G65: maturity and self-learning evidence may reference a checkpoint
+    # that is no longer present in a lifecycle generation.  Those references
+    # are evidence roots and must survive retention as well.
+    for pattern in EVIDENCE_GLOBS:
+        for evidence_file in tool_root.glob(pattern):
+            try:
+                evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            stack: list[Any] = [evidence]
+            while stack:
+                value = stack.pop()
+                if isinstance(value, dict):
+                    for key, child in value.items():
+                        if key in _EVIDENCE_PATH_KEYS and isinstance(child, str) and child.strip():
+                            try:
+                                candidate = Path(child)
+                                protected.add(
+                                    (candidate if candidate.is_absolute() else tool_root / candidate).resolve()
+                                )
+                            except OSError:
+                                pass
+                        elif isinstance(child, (dict, list)):
+                            stack.append(child)
+                elif isinstance(value, list):
+                    stack.extend(value)
     return protected
 
 
