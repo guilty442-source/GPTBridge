@@ -24,6 +24,9 @@ from governance_rule.execution.formal_rules import (
     evaluate_all,
     load_formal_rules,
 )
+from governance_rule.execution.formal_rules.fact_fixtures import (
+    parity_fact_fixtures,
+)
 
 REPORT_VERSION = "formal-rule-parity-run/v1"
 
@@ -35,7 +38,11 @@ def _database_fingerprint(database: Path) -> str:
 def run_parity_evaluation(database: Path) -> dict[str, Any]:
     """Evaluate every active formal rule and return a parity report."""
     rules = load_formal_rules(database)
-    outcomes = evaluate_all(rules, database=database)
+    outcomes = evaluate_all(
+        rules,
+        facts_by_rule=parity_fact_fixtures(),
+        database=database,
+    )
     codex_version = ""
     try:
         connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
