@@ -273,10 +273,10 @@ def validate_module_origins(
                     f"DEPENDENCY_VERSION_MISMATCH:{name}:actual={observed.get('version')}"
                 )
         elif dependency_class == "SHARED_RUNTIME":
-            if shared_text is None:
-                errors.append(f"SHARED_RUNTIME_UNDECLARED:{name}")
-            elif origin_kind != "SHARED":
+            if origin_kind == "SOURCE_TREE":
                 errors.append(f"SHARED_RUNTIME_SOURCE_TREE_GAP:{name}:{origin}")
+            elif shared_text is not None and not path_is_within(origin, shared_text):
+                errors.append(f"SHARED_RUNTIME_ORIGIN_INVALID:{name}:{origin}")
         elif dependency_class == "DEVELOPMENT_ONLY":
             errors.append(f"DEVELOPMENT_ONLY_LOADED:{name}:{origin}")
         elif dependency_class in {"PERSISTENT_DATA", "SECRET"}:

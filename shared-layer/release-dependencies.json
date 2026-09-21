@@ -1,8 +1,21 @@
 {
   "contract_version": 1,
-  "release_root_markers": ["src-core", ".venv", "config"],
+  "release_root_markers": [
+    "src-core",
+    ".venv",
+    "config"
+  ],
   "python": {
-    "version_range": {"min": [3, 11], "max_exclusive": [3, 12]}
+    "version_range": {
+      "min": [
+        3,
+        11
+      ],
+      "max_exclusive": [
+        3,
+        12
+      ]
+    }
   },
   "source_tree_root": ".",
   "classes": {
@@ -18,37 +31,75 @@
       "module": "core_system",
       "class": "RELEASE_CODE",
       "required": true,
-      "allowed_roots": ["main-system/src-core"]
+      "allowed_roots": [
+        "main-system/src-core"
+      ]
     },
     {
       "module": "governance_rule",
       "class": "RELEASE_CODE",
       "required": true,
-      "allowed_roots": ["governance_rule"]
+      "allowed_roots": [
+        "governance_rule"
+      ]
     },
     {
       "module": "shared_layer",
       "class": "SHARED_RUNTIME",
       "required": true,
-      "allowed_roots": ["shared-layer/src"]
+      "allowed_roots": [
+        "shared-layer/src"
+      ]
     },
     {
       "module": "numpy",
       "class": "RELEASE_DEPENDENCY",
       "required": false,
-      "allowed_roots": [".venv/Lib/site-packages"],
-      "version_range": {"min": [1, 0]}
+      "allowed_roots": [
+        "main-system/.venv/Lib/site-packages"
+      ],
+      "version_range": {
+        "min": [
+          1,
+          0
+        ]
+      }
     },
     {
       "module": "torch",
       "class": "RELEASE_DEPENDENCY",
       "required": false,
-      "allowed_roots": [".venv/Lib/site-packages"],
-      "version_range": {"min": [2, 0]}
+      "allowed_roots": [
+        "main-system/.venv/Lib/site-packages"
+      ],
+      "version_range": {
+        "min": [
+          2,
+          0
+        ]
+      }
     }
   ],
-  "forbidden_development_roots": ["tests", "scripts", ".worktrees", ".kilo"],
-  "development_only": ["tests", "scripts", ".worktrees", ".kilo"],
-  "secrets": ["*.pem", "*.key", ".env"],
-  "persistent_data": ["runtime", "xingcheng/runtime", "main-system/runtime"]
+  "forbidden_development_roots": [
+    "tests",
+    "scripts",
+    ".worktrees",
+    ".kilo"
+  ],
+  "development_only": [
+    "tests",
+    "scripts",
+    ".worktrees",
+    ".kilo"
+  ],
+  "secrets": [
+    "*.pem",
+    "*.key",
+    ".env"
+  ],
+  "persistent_data": [
+    "runtime",
+    "xingcheng/runtime",
+    "main-system/runtime"
+  ]
 }
