@@ -10,7 +10,9 @@ from core_system.release_layout import (
     SCHEMA_VERSION,
     build_release_payload_snapshot,
     check_release_layout,
+    validate_payload_snapshot,
 )
+from governance_rule.execution.integrity.package_integrity import snapshot_digest
 
 
 def _valid_bundle(root: Path, **manifest_overrides) -> Path:
@@ -147,6 +149,22 @@ def test_payload_digest_tampering_rejected(tmp_path: Path) -> None:
     result = check_release_layout(root)
     assert result["ok"] is False
     assert "PAYLOAD_SNAPSHOT_INVALID:digest" in result["payload_errors"]
+
+
+def test_payload_snapshot_cannot_include_manifest_itself() -> None:
+    files = {
+        "backend/main.py": "c" * 64,
+        "manifest.json": "d" * 64,
+    }
+    snapshot = {
+        "schema_version": "star-release-payload/v1",
+        "algorithm": "sha256",
+        "roots": ["."],
+        "file_count": len(files),
+        "files": files,
+        "digest": snapshot_digest(files),
+    }
+    assert "PAYLOAD_SNAPSHOT_INVALID:file:manifest.json" in validate_payload_snapshot(snapshot)
 
 
 def test_model_weights_not_copied(tmp_path: Path) -> None:

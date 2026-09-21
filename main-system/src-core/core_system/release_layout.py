@@ -203,6 +203,7 @@ def validate_payload_snapshot(
         not isinstance(roots, list)
         or not roots
         or len(roots) != len(set(roots))
+        or any(root == "manifest.json" for root in roots)
         or not all(_valid_relative_path(root, allow_root=True) for root in roots)
     ):
         errors.append("PAYLOAD_SNAPSHOT_INVALID:roots")
@@ -222,7 +223,7 @@ def validate_payload_snapshot(
         errors.append("PAYLOAD_SNAPSHOT_INVALID:files")
     else:
         for relative_path, digest in files.items():
-            if not _valid_relative_path(relative_path):
+            if not _valid_relative_path(relative_path) or relative_path == "manifest.json":
                 errors.append(f"PAYLOAD_SNAPSHOT_INVALID:file:{relative_path}")
                 continue
             if not _is_sha256_digest(digest):
