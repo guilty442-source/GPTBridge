@@ -70,19 +70,24 @@ class LocalDatabaseHealth:
 class LocalDatabaseHealthCheck:
     def __init__(self, settings: LocalDatabaseSettings | None = None) -> None:
         self.settings = settings or LocalDatabaseSettings()
+        # AA5: table-count cache keyed by db file (mtime, size) — the schema
+        # only changes on migration, so re-counting sqlite_master on every
+        # probe is wasted work.
+        self._schema_cache: tuple[tuple[int, int], int] | None = None
 
     def run(self) -> LocalDatabaseHealth:
         started = monotonic()
         db_path = _local_path(self.settings)
         try:
+            stat_key = _db_stat_key(db_path)
             with sqlite3.connect(_test_connection_target(db_path)) as connection:
                 connection.execute("SELECT 1").fetchone()
-                row = connection.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()
+                table_count = self._table_count(connection, stat_key)
             return LocalDatabaseHealth(
                 True,
                 self.settings.database,
                 (monotonic() - started) * 1000,
-                int(row[0]),
+                table_count,
                 fault_code="LOCAL_SQLITE_READY",
                 component="local-sqlite",
                 message="ready",
@@ -100,16 +105,47 @@ class LocalDatabaseHealthCheck:
             )
 
 
+    def _table_count(
+        self, connection: sqlite3.Connection, stat_key: tuple[int, int] | None
+    ) -> int:
+        if stat_key is not None and self._schema_cache is not None:
+            cached_key, cached_count = self._schema_cache
+            if cached_key == stat_key:
+                return cached_count
+        row = connection.execute(
+            "SELECT count(*) FROM sqlite_master WHERE type='table'"
+        ).fetchone()
+        count = int(row[0]) if row else 0
+        if stat_key is not None:
+            self._schema_cache = (stat_key, count)
+        return count
+
+
+def _db_stat_key(db_path: Path) -> tuple[int, int] | None:
+    try:
+        stat = db_path.stat()
+    except OSError:
+        return None
+    return (int(stat.st_mtime_ns), int(stat.st_size))
+
+
 def _test_connection_target(db_path: Path) -> Path:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return db_path
+
+
+def _default_project_root() -> Path:
+    """AA11/X13: derive the repo root from this module's location instead of
+    a hardcoded absolute path (portable checkouts / worktrees)."""
+    # shared-layer/src/shared_layer/local/database.py → repo root is 5 up.
+    return Path(__file__).resolve().parents[4]
 
 
 def _local_path(settings: LocalDatabaseSettings) -> Path:
     import os
 
     raw = str(os.environ.get("GPTBRIDGE_GOVERNANCE_PROJECT_ROOT") or "").strip()
-    root = Path(raw).resolve() if raw else Path("E:/GPTBridge").resolve()
+    root = Path(raw).resolve() if raw else _default_project_root()
     relative = settings.admin_dsn[len("local:"):].strip("/").replace("\\", "/")
     if not relative or ".." in relative.split("/"):
         relative = "shared-layer/runtime"
