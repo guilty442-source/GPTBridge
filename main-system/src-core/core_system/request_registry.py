@@ -148,7 +148,7 @@ class RequestRegistry:
 
     def upsert(
         self,
-        request_id: str,
+        request_id: str | dict[str, Any],
         *,
         session_id: str = "",
         task_id: str = "",
@@ -164,6 +164,22 @@ class RequestRegistry:
         重複 request_id → 回傳既有紀錄並合併新欄位（重試語意，不改 id）。
         ``cancelled`` 布林（既有 UI/IPC 欄位）對映 cancellation_state。
         """
+        if isinstance(request_id, dict):
+            legacy = request_id
+            request_id = str(legacy.get("request_id") or "")
+            session_id = str(legacy.get("session_id") or session_id)
+            task_id = str(legacy.get("task_id") or task_id)
+            backend_id = str(legacy.get("backend_id") or backend_id)
+            backend_generation = str(
+                legacy.get("backend_generation") or backend_generation
+            )
+            release_id = str(legacy.get("release_id") or release_id)
+            method = str(legacy.get("method") or legacy.get("command") or method)
+            status = str(legacy.get("status") or status)
+            if "cancelled" in legacy:
+                cancelled = bool(legacy["cancelled"])
+        if not request_id:
+            return RequestResult(False, "request-id-required")
         existing = self._records.get(request_id)
         if existing is None:
             existing = RequestRecord(

@@ -180,17 +180,8 @@ class BlueGreenOrchestrator:
             return outcome
         outcome.steps[-1]["ok"] = True
 
-        # 2. 停止舊後端接收新請求（ACTIVE → DRAINING；此角色自然停止接收）
-        outcome.steps.append({"step": "drain-old-backend", "backend_id": old_backend_id})
-        drained = self._lifecycle.begin_draining(old_backend_id)
-        if not drained.ok:
-            outcome.reason = f"drain-transition-failed:{drained.reason}"
-            outcome.steps[-1]["ok"] = False
-            self._record(operation_id, outcome)
-            return outcome
-        outcome.steps[-1]["ok"] = True
-
-        # 3. 排空舊世代在途請求
+        # 2. 排空舊世代在途請求（不預先改寫 Lifecycle 角色——DRAINING 是
+        #    收斂終態，只有切換成功後才把舊後端調離 ACTIVE）
         outcome.steps.append({"step": "wait-inflight-drain", "generation": backend_generation})
         if not self._wait_no_inflight(backend_generation):
             outcome.reason = "inflight-drain-timeout"
@@ -294,11 +285,8 @@ class BlueGreenOrchestrator:
         outcome: UpdateOutcome,
         old_backend_id: str,
     ) -> None:
-        """失敗／rollback 後契約一致退回：舊後端回 ACTIVE 接受請求。"""
-        try:
-            self._lifecycle.become_active(old_backend_id)
-        except Exception as error:  # noqa: BLE001
-            _logger.warning("rollback lifecycle failed: %s", error)
+        """失敗／rollback：契約維持現狀——舊後端未離 ACTIVE（DRAINING 是
+        收斂終態，取得成功切換前不得把舊後端調離 ACTIVE），無需回復動作。"""
         outcome.rolled_back = True
         outcome.steps.append(
             {"step": "rollback-contracts", "backend_id": old_backend_id, "ok": True}

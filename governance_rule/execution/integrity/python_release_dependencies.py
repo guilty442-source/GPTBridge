@@ -70,6 +70,14 @@ if config.get("include_distributions"):
         for dist in md.distributions()
         if dist.metadata["Name"]
     )
+out["attributes"] = {}
+for name, reference in (config.get("attributes") or {}).items():
+    try:
+        module_name, _, attribute = reference.partition(":")
+        module = __import__(module_name, fromlist=[attribute or "*"])
+        out["attributes"][name] = getattr(module, attribute) if attribute else None
+    except Exception as error:  # noqa: BLE001 — probe reports, never raises
+        out["attributes"][name] = f"ERROR:{error.__class__.__name__}:{error}"
 for name in config.get("modules", []):
     entry = {"origin": None, "version": None, "native": False, "error": None}
     try:
@@ -393,6 +401,7 @@ def probe_runtime_environment(
     python_executable: str | os.PathLike[str],
     *,
     modules: Sequence[str] = (),
+    attributes: Mapping[str, str] | None = None,
     extra_paths: Iterable[str | os.PathLike[str]] = (),
     cwd: str | os.PathLike[str] | None = None,
     env: Mapping[str, str] | None = None,
@@ -409,6 +418,7 @@ def probe_runtime_environment(
     config = {
         "extra_paths": [os.fspath(path) for path in extra_paths],
         "modules": list(modules),
+        "attributes": dict(attributes or {}),
         "include_distributions": bool(include_distributions),
     }
     environment = dict(env) if env is not None else dict(os.environ)
