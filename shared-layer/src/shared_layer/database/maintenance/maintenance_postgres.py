@@ -180,13 +180,28 @@ def collect_pg_health(settings: DatabaseSettings) -> PgHealthMetrics:
     )
 
 
-def collect_pool_pressure(pool: PostgreSQLPool) -> PgPoolPressure:
-    """Collect PostgreSQL pool pressure metrics."""
-    # This would integrate with the actual pool implementation
-    # For now, return defaults
+def collect_pool_pressure(pool) -> PgPoolPressure:
+    """Collect PostgreSQL pool pressure metrics.
+
+    Reads live counters from ``ConnectionManager.stats()`` when a real pool
+    is passed (G26); falls back to zeros for ``None`` or stub pools.
+    """
+    stats_fn = getattr(pool, "stats", None)
+    if callable(stats_fn):
+        stats = stats_fn()
+        size = int(stats.get("pool_size") or 0)
+        maximum = max(1, int(stats.get("pool_max") or 1))
+        active = int(stats.get("active_connections") or 0)
+        return PgPoolPressure(
+            pool_size=size,
+            pool_max=maximum,
+            pool_pressure=round(active / maximum, 4),
+            idle_connections=int(stats.get("idle_connections") or 0),
+            waiting_requests=0,
+        )
     return PgPoolPressure(
         pool_size=0,
-        pool_max=pool.max_size if hasattr(pool, 'max_size') else 20,
+        pool_max=getattr(pool, "max_size", 20) if pool is not None else 20,
         pool_pressure=0.0,
         idle_connections=0,
         waiting_requests=0,

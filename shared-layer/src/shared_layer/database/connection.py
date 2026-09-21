@@ -108,6 +108,18 @@ class ConnectionManager:
     def max_size(self) -> int:
         return self._max_size
 
+    def stats(self) -> dict[str, int]:
+        """Live pool counters for telemetry (G26 pool-usage observability)."""
+        with self._lock:
+            idle = self._idle.qsize()
+            count = self._connection_count
+            return {
+                "pool_size": count,
+                "pool_max": self._max_size,
+                "idle_connections": idle,
+                "active_connections": max(0, count - idle),
+            }
+
     def close(self) -> None:
         with self._lock:
             self._opened = False

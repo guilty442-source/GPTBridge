@@ -358,7 +358,9 @@ class MaintenanceControllerIntegration:
         try:
             settings = DatabaseSettings.from_environment()
             health = collect_pg_health(settings)
-            pool = collect_pg_pool_pressure(None)  # Would need pool instance
+            from shared_layer.database.connection import peek_connection_manager
+
+            pool = collect_pg_pool_pressure(peek_connection_manager())
             locks = collect_pg_lock_pressure(settings)
             stats = collect_pg_statistics_freshness(settings)
             signals.update(build_pg_maintenance_signals(health, pool, locks, stats))
