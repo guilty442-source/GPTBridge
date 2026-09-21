@@ -70,19 +70,19 @@ PERIODIC_JOBS = [
      "source": "tasks/model_service_activation.py:45"},
     {"name": "connection watchdog probe (backoff max)", "interval_s": 60.0,
      "source": "tasks/connection_watchdog.py:130"},
-    {"name": "hot reload watcher poll (max, health folded in)",
-     "interval_s": 60.0,
-     "source": "tasks/hot_reload_watcher.py"},
     {"name": "runtime status push (2s active / 60s idle)", "interval_s": 60.0,
      "source": "ipc/server_handler.py:321"},
     {"name": "system runtime sovereign autonomy", "interval_s": 5.0,
      "source": "governance/sovereigns/system_runtime_sovereign.py:94"},
 ]
 
-# Event/deadline-driven (no fixed period) — excluded from the fixed count:
+# Event/deadline-driven or on-demand (no fixed period) — excluded from the
+# fixed count:
 #   state outbox publisher (wake event + retry deadlines)
 #   xingcheng auto-loop (fault/example wake + 60 s minimum cadence)
 #   ipc heartbeat (per-connection task, exists only while a UI connects)
+#   hot reload watcher (R5: on-demand per config/resident-core.json; the
+#     poll loop only runs under GPTBRIDGE_HOT_RELOAD_WATCH=1)
 #   local-model resident loops (self-maintenance / auto-release) run inside
 #   the local-model process, not this backend.
 
