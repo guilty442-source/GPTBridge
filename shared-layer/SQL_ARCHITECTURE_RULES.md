@@ -132,8 +132,8 @@ Source Resource → PG resource metadata → PG chunk metadata → Embedding
 - [x] idempotent transport（idempotency_key + lease + reclaim，遷移 114）
 - [x] bounded SQLite fallback（`security` / `workflow` 上限契約）
 - [x] SQLite → PG reconciliation（單向）
-- [ ] formal RAG metadata authority（**待接線**：`PostgreSQLMetadataAuthority` 接入 RAG pipeline）
-- [ ] startup certification 接上 runtime（`shared_layer.startup_gate` 已備）
+- [x] formal RAG metadata authority（2026-09-21 核實：`PostgreSQLMetadataAuthority` 已由 `rag/pipeline.py:67` 實例化並接入 canonical_backend／generation／health_gate）
+- [ ] startup certification 接上 runtime（`shared_layer.startup_gate` 十階梯已備；主啟動流程尚未映射階梯）
 - [ ] backup restore certification 接上 scheduler
 - [x] migration/release contract（checksum 鎖 + 必備清單）
 - [x] cross-engine recovery test（`tests/test_workflow_consistency.py`）
