@@ -112,16 +112,131 @@ static gptbridge_simd_level gptbridge_native_simd_level(void) {
     return (gptbridge_simd_level)cached;
 }
 
-/* Find max in a row for numerical stability of softmax. */
+/* Find max in a row for numerical stability of softmax.
+ * Vectorized: AVX-512 (8×double), AVX2 (4×double), scalar fallback. */
 static double row_max(const double* row, int64_t cols) {
-    double m = row[0];
-    int64_t i;
-    for (i = 1; i < cols; ++i) {
-        if (row[i] > m) {
-            m = row[i];
+    const gptbridge_simd_level simd = gptbridge_native_simd_level();
+    int64_t c = 0;
+    double max_val = row[0];
+
+    if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_SIMD_AVX512
+        __m512d vmax = _mm512_set1_pd(max_val);
+        for (; c + 8 <= cols; c += 8) {
+            __m512d v = _mm512_loadu_pd(row + c);
+            vmax = _mm512_max_pd(vmax, v);
         }
+        double tmp[8];
+        _mm512_storeu_pd(tmp, vmax);
+        for (int i = 0; i < 8; ++i) {
+            if (tmp[i] > max_val) max_val = tmp[i];
+        }
+#else
+        for (; c < cols; ++c) if (row[c] > max_val) max_val = row[c];
+#endif
+    } else if (simd == GPTBRIDGE_SIMD_AVX2) {
+#ifdef GPTBRIDGE_SIMD_AVX2
+        __m256d vmax = _mm256_set1_pd(max_val);
+        for (; c + 4 <= cols; c += 4) {
+            __m256d v = _mm256_loadu_pd(row + c);
+            vmax = _mm256_max_pd(vmax, v);
+        }
+        double tmp[4];
+        _mm256_storeu_pd(tmp, vmax);
+        for (int i = 0; i < 4; ++i) {
+            if (tmp[i] > max_val) max_val = tmp[i];
+        }
+#else
+        for (; c < cols; ++c) if (row[c] > max_val) max_val = row[c];
+#endif
     }
-    return m;
+    for (; c < cols; ++c) if (row[c] > max_val) max_val = row[c];
+    return max_val;
+}
+
+/* Vectorized exp(x - max) with horizontal sum.
+ * AVX-512: no native exp; use scalar loop with vector load/store for exp.
+ * AVX2: same. For true vector exp, would need SVML or custom approx. */
+static double row_exp_sum(const double* row, int64_t cols, double max_val, double* out_row) {
+    const gptbridge_simd_level simd = gptbridge_native_simd_level();
+    int64_t c = 0;
+    double sum_exp = 0.0;
+
+    if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_SIMD_AVX512
+        for (; c + 8 <= cols; c += 8) {
+            __m512d v = _mm512_loadu_pd(row + c);
+            double tmp[8];
+            _mm512_storeu_pd(tmp, v);
+            for (int i = 0; i < 8; ++i) {
+                const double e = exp(tmp[i] - max_val);
+                out_row[c + i] = e;
+                sum_exp += e;
+            }
+        }
+#else
+        for (; c < cols; ++c) {
+            const double e = exp(row[c] - max_val);
+            out_row[c] = e;
+            sum_exp += e;
+        }
+#endif
+    } else if (simd == GPTBRIDGE_SIMD_AVX2) {
+#ifdef GPTBRIDGE_SIMD_AVX2
+        for (; c + 4 <= cols; c += 4) {
+            __m256d v = _mm256_loadu_pd(row + c);
+            double tmp[4];
+            _mm256_storeu_pd(tmp, v);
+            for (int i = 0; i < 4; ++i) {
+                const double e = exp(tmp[i] - max_val);
+                out_row[c + i] = e;
+                sum_exp += e;
+            }
+        }
+#else
+        for (; c < cols; ++c) {
+            const double e = exp(row[c] - max_val);
+            out_row[c] = e;
+            sum_exp += e;
+        }
+#endif
+    }
+    for (; c < cols; ++c) {
+        const double e = exp(row[c] - max_val);
+        out_row[c] = e;
+        sum_exp += e;
+    }
+    return sum_exp;
+}
+
+static void row_scale(double* row, int64_t cols, double scale) {
+    const gptbridge_simd_level simd = gptbridge_native_simd_level();
+    int64_t c = 0;
+
+    if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_SIMD_AVX512
+        __m512d vscale = _mm512_set1_pd(scale);
+        for (; c + 8 <= cols; c += 8) {
+            __m512d v = _mm512_loadu_pd(row + c);
+            v = _mm512_mul_pd(v, vscale);
+            _mm512_storeu_pd(row + c, v);
+        }
+#else
+        for (; c < cols; ++c) row[c] *= scale;
+#endif
+    } else if (simd == GPTBRIDGE_SIMD_AVX2) {
+#ifdef GPTBRIDGE_SIMD_AVX2
+        __m256d vscale = _mm256_set1_pd(scale);
+        for (; c + 4 <= cols; c += 4) {
+            __m256d v = _mm256_loadu_pd(row + c);
+            v = _mm256_mul_pd(v, vscale);
+            _mm256_storeu_pd(row + c, v);
+        }
+#else
+        for (; c < cols; ++c) row[c] *= scale;
+#endif
+    }
+    for (; c < cols; ++c) row[c] *= scale;
 }
 
 int gptbridge_native_transformer_matmul(
