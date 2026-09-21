@@ -119,7 +119,11 @@ def _synchronize_distribution_files_in_place(
 
     installed_inventory = _inventory_package_tree(live_root)
     installed_files = _inventory_file_map(installed_inventory)
-    if installed_files != source_files:
+    expected_files = dict(source_files)
+    for relative_path in preserved:
+        if relative_path in live_files:
+            expected_files[relative_path] = live_files[relative_path]
+    if installed_files != expected_files:
         raise RuntimeError(
             "In-place installed distribution files do not match staged package"
         )
