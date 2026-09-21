@@ -30,11 +30,19 @@ building a second one.
 
 from __future__ import annotations
 
+import json
 import os
+import re
+import shutil
+import tempfile
+import time
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable, Final, Iterable
 
 SCHEMA_VERSION: Final = "star-release-layout/v1"
+
+#: Release ID must be a safe directory name (no traversal, bounded length).
+_RELEASE_ID_RE: Final = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
 
 #: Required top-level members of ``runtime/releases/<release_id>/`` (§10.19 +
 #: W4-0c layout).
@@ -450,6 +458,163 @@ def check_release_layout(
     }
 
 
+def _validate_release_id(release_id: str) -> str | None:
+    if not isinstance(release_id, str) or not release_id:
+        return "RELEASE_ID_INVALID:empty"
+    if not _RELEASE_ID_RE.fullmatch(release_id):
+        return "RELEASE_ID_INVALID:bad-format"
+    if release_id in {".", ".."}:
+        return "RELEASE_ID_INVALID:dot"
+    return None
+
+
+def stage_release_bundle(
+    *,
+    release_id: str,
+    dest_releases_root: str | os.PathLike[str] = "runtime/releases",
+    backend_src: str | os.PathLike[str] | None = None,
+    dependencies_src: str | os.PathLike[str] | None = None,
+    required_contracts: list[str] | None = None,
+    dependency_lock: dict[str, Any] | None = None,
+    build_metadata: dict[str, Any] | None = None,
+    dependency_contract: dict[str, Any] | None = None,
+    project_root: str | os.PathLike[str] | None = None,
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    """W4-0c — atomically stage a ``runtime/releases/<release_id>/`` bundle.
+
+    The builder copies ``backend`` and ``dependencies`` into a temp
+    directory, writes ``manifest.json`` (including ``payload_snapshot``),
+    validates with :func:`check_release_layout`, and atomically promotes
+    to the final location.  Validation is the contract; the builder never
+    second-guesses it.
+
+    ``backend_src``/``dependencies_src`` may be ``None`` for a minimal
+    placeholder bundle (used by tests).  When provided they are copied
+    verbatim with :func:`shutil.copytree` (symlinks not followed).
+
+    Returns the :func:`check_release_layout` result for the staged bundle;
+    on ``ok==False`` the temp directory is removed and no final directory
+    is left behind.  On success the bundle is at
+    ``<dest_releases_root>/<release_id>/``.
+    """
+    rid_err = _validate_release_id(release_id)
+    if rid_err:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "ok": False,
+            "release_root": str(Path(dest_releases_root) / release_id),
+            "missing": list(REQUIRED_ENTRIES),
+            "forbidden": [],
+            "manifest_errors": [rid_err],
+            "payload_errors": [],
+            "payload_mismatches": [],
+            "payload_digest": "",
+            "gate_errors": [],
+            "reason": "release-id-invalid",
+        }
+
+    base = Path(project_root).resolve() if project_root else Path.cwd()
+    dest_root = (
+        Path(dest_releases_root)
+        if Path(dest_releases_root).is_absolute()
+        else (base / dest_releases_root)
+    )
+    final = dest_root / release_id
+    if final.exists() and not overwrite:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "ok": False,
+            "release_root": str(final),
+            "missing": [],
+            "forbidden": [],
+            "manifest_errors": [f"RELEASE_EXISTS:{release_id}"],
+            "payload_errors": [],
+            "payload_mismatches": [],
+            "payload_digest": "",
+            "gate_errors": [],
+            "reason": "release-exists",
+        }
+
+    dest_root.mkdir(parents=True, exist_ok=True)
+    tmp_parent = dest_root
+    tmp_dir: Path | None = None
+    try:
+        tmp_dir = Path(tempfile.mkdtemp(prefix=f".stage-{release_id}-", dir=str(tmp_parent)))
+        backend_dst = tmp_dir / "backend"
+        deps_dst = tmp_dir / "dependencies"
+
+        if backend_src is not None:
+            src = Path(backend_src)
+            if not src.is_dir():
+                raise FileNotFoundError(f"backend_src not a directory: {src}")
+            shutil.copytree(src, backend_dst, symlinks=False, dirs_exist_ok=False)
+        else:
+            backend_dst.mkdir(parents=True)
+            (backend_dst / "placeholder.py").write_text("# placeholder backend\n", encoding="utf-8")
+
+        if dependencies_src is not None:
+            src = Path(dependencies_src)
+            if not src.is_dir():
+                raise FileNotFoundError(f"dependencies_src not a directory: {src}")
+            shutil.copytree(src, deps_dst, symlinks=False, dirs_exist_ok=False)
+        else:
+            deps_dst.mkdir(parents=True)
+
+        # Build manifest (payload_snapshot is built after the copy)
+        manifest: dict[str, Any] = {
+            "release_id": release_id,
+            "required_contracts": required_contracts if required_contracts is not None else ["ipc_contract"],
+            "dependency_lock": dependency_lock if dependency_lock is not None else {"identity": "uv-lock-sha256:placeholder"},
+            "build_metadata": build_metadata if build_metadata is not None else {"built_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "builder": "stage_release_bundle"},
+        }
+        if dependency_contract is not None:
+            manifest["dependency_contract"] = dependency_contract
+
+        # Snapshot after the copy so the manifest matches the staged payload
+        manifest["payload_snapshot"] = build_release_payload_snapshot(tmp_dir)
+
+        (tmp_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        # Validate before promotion — fail-closed
+        result = check_release_layout(tmp_dir)
+        if not result["ok"]:
+            return result
+
+        # Atomic promotion: tmp -> final
+        if final.exists() and overwrite:
+            shutil.rmtree(final, ignore_errors=True)
+        # Use replace for atomicity when on same filesystem; otherwise copy
+        try:
+            tmp_dir.replace(final)
+            tmp_dir = None  # prevent cleanup
+        except OSError:
+            shutil.copytree(tmp_dir, final, symlinks=False, dirs_exist_ok=False)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            tmp_dir = None
+
+        # Final verification from the promoted location
+        final_result = check_release_layout(final)
+        return final_result
+    except Exception as exc:  # fail-closed: no partial bundle left
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "ok": False,
+            "release_root": str(final),
+            "missing": [],
+            "forbidden": [],
+            "manifest_errors": [f"STAGE_FAILED:{exc.__class__.__name__}:{exc}"] ,
+            "payload_errors": [],
+            "payload_mismatches": [],
+            "payload_digest": "",
+            "gate_errors": [],
+            "reason": "stage-failed",
+        }
+    finally:
+        if tmp_dir is not None:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 __all__ = [
     "SCHEMA_VERSION",
     "PAYLOAD_SNAPSHOT_SCHEMA",
@@ -459,4 +624,5 @@ __all__ = [
     "build_release_payload_snapshot",
     "check_release_layout",
     "validate_payload_snapshot",
+    "stage_release_bundle",
 ]
