@@ -382,6 +382,27 @@ class CodexAmendmentRequestLedger:
         }
         _atomic_json(record_path, record)
 
+    def _validate_lineage(
+        self,
+        request: AmendmentRequest,
+        *,
+        current_version: str | None,
+        expected_revision_sequence: int | None,
+    ) -> None:
+        if current_version is not None and (
+            str(request.predecessor.get("codex_version")) != str(current_version)
+        ):
+            raise AmendmentLifecycleError(
+                "STALE_PREDECESSOR_VERSION",
+                f"{request.predecessor.get('codex_version')} != {current_version}",
+            )
+        sequence = request.predecessor.get("revision_sequence")
+        if expected_revision_sequence is not None and sequence != expected_revision_sequence:
+            raise AmendmentLifecycleError(
+                "STALE_REVISION_SEQUENCE",
+                f"{sequence} != {expected_revision_sequence}",
+            )
+
     def begin(
         self,
         request_path: str | Path,
@@ -413,11 +434,14 @@ class CodexAmendmentRequestLedger:
                     expected_revision_sequence=expected_revision_sequence,
                 )
             except AmendmentLifecycleError as error:
-                self.reject(
-                    request.request_id,
-                    reason=str(error),
-                    evidence={"stale_at": _utc_now()},
-                )
+                try:
+                    self.reject(
+                        request.request_id,
+                        reason=str(error),
+                        evidence={"stale_at": _utc_now()},
+                    )
+                except AmendmentLifecycleError:
+                    pass
                 raise
             lock_path = Path(str(existing.get("lock_path") or ""))
             if not lock_path.is_file():

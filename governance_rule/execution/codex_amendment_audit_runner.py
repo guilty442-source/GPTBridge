@@ -52,13 +52,21 @@ class AmendmentAuditRun:
     error: str = ""
 
     def as_dict(self) -> dict[str, Any]:
-        return {
-            "ok": self.ok,
+        record = (
+            self.result.to_record()
+            if self.result is not None
+            else {
+                "amendment_id": self.request_id,
+                "ok": False,
+                "reason": self.error or "AUDIT_RUN_DENIED",
+            }
+        )
+        record["runner"] = {
             "request_id": self.request_id,
             "state": self.state,
             "error": self.error,
-            "result": self.result.to_record() if self.result else None,
         }
+        return record
 
 
 async def run_five_sovereign_audit(

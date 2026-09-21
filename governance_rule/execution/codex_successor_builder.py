@@ -28,7 +28,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shutil
 import sqlite3
 import time
 from collections.abc import Sequence
@@ -37,6 +36,7 @@ from pathlib import Path
 from typing import Any, Final, Mapping
 
 from governance_rule.execution.codex_amendment_contract import (
+    CONTENT_HASH_ALGORITHM,
     SEAL_PREVIEW_SCHEMA,
     compute_seal_preview,
     content_hash,
@@ -51,13 +51,20 @@ from governance_rule.execution.codex_amendment_lifecycle import (
     load_amendment_request,
 )
 from governance_rule.execution.codex_update_validation import (
+    foreign_key_violations,
     staged_generation_errors,
 )
 
 CANDIDATE_MANIFEST_SCHEMA: Final[str] = "gptbridge-codex-candidate-manifest/v1"
 FORMAL_RULE_REGISTRY: Final[str] = "formal_rule_registry"
 SUCCESSOR_SENTINELS: Final[frozenset[str]] = frozenset(
-    {"successor", "<successor>", "successor_version"}
+    {
+        "successor",
+        "<successor>",
+        "<successor-version>",
+        "successor_version",
+        "next-authoritative-utc-second",
+    }
 )
 
 
@@ -117,6 +124,31 @@ def _file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _copy_database(source: Path, output: Path) -> None:
+    source_connection = sqlite3.connect(
+        f"file:{source.as_posix()}?mode=ro", uri=True
+    )
+    output_connection = sqlite3.connect(str(output))
+    try:
+        source_connection.backup(output_connection)
+        output_connection.commit()
+    finally:
+        output_connection.close()
+        source_connection.close()
+
+
+def _source_foreign_key_violations(
+    source: Path,
+) -> tuple[tuple[str, ...], ...]:
+    connection = sqlite3.connect(
+        f"file:{source.as_posix()}?mode=ro", uri=True
+    )
+    try:
+        return foreign_key_violations(connection)
+    finally:
+        connection.close()
 
 
 def _quote_identifier(identifier: str) -> str:
@@ -180,6 +212,37 @@ def _normalized_row(
     return normalized
 
 
+def _substitute_successor(
+    value: Any,
+    *,
+    successor_version: str | None,
+    context: str,
+) -> Any:
+    if isinstance(value, str) and value.strip() in SUCCESSOR_SENTINELS:
+        if not successor_version:
+            raise SuccessorBuildError("SUCCESSOR_VERSION_REQUIRED", context)
+        return successor_version
+    if isinstance(value, Mapping):
+        return {
+            str(key): _substitute_successor(
+                item,
+                successor_version=successor_version,
+                context=f"{context}.{key}",
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [
+            _substitute_successor(
+                item,
+                successor_version=successor_version,
+                context=context,
+            )
+            for item in value
+        ]
+    return value
+
+
 def _existing_count(
     connection: sqlite3.Connection,
     table: str,
@@ -214,12 +277,11 @@ def _insert_row(
     columns = _require_table(connection, table)
     normalized = _normalized_row(columns, row, table)
     for name, value in list(normalized.items()):
-        if str(value).strip() in SUCCESSOR_SENTINELS:
-            if not successor_version:
-                raise SuccessorBuildError(
-                    "SUCCESSOR_VERSION_REQUIRED", f"{table}.{name}"
-                )
-            normalized[name] = successor_version
+        normalized[name] = _substitute_successor(
+            value,
+            successor_version=successor_version,
+            context=f"{table}.{name}",
+        )
     primary = [str(column["name"]) for column in columns if int(column["pk"])]
     identity = (
         {name: normalized[name] for name in primary}
@@ -253,12 +315,11 @@ def _update_rows(
         columns, fields, table, require_primary=False
     )
     for name, value in list(normalized.items()):
-        if str(value).strip() in SUCCESSOR_SENTINELS:
-            if not successor_version:
-                raise SuccessorBuildError(
-                    "SUCCESSOR_VERSION_REQUIRED", f"{table}.{name}"
-                )
-            normalized[name] = successor_version
+        normalized[name] = _substitute_successor(
+            value,
+            successor_version=successor_version,
+            context=f"{table}.{name}",
+        )
     count = _existing_count(connection, table, key)
     if count != 1:
         raise SuccessorBuildError(
@@ -312,6 +373,48 @@ def _apply_changes(
                 successor_version=successor_version,
             )
         )
+    proposed_change = payload.get("proposed_change")
+    if isinstance(proposed_change, Mapping):
+        table = str(proposed_change.get("table") or "").strip()
+        operation = str(proposed_change.get("operation") or "").strip().lower()
+        action = str(proposed_change.get("action") or "").strip().lower()
+        rows = proposed_change.get("rows")
+        if (
+            table
+            and "/" not in table
+            and (action == "insert" or "insert" in operation)
+            and isinstance(rows, Sequence)
+            and not isinstance(rows, (str, bytes))
+        ):
+            for row in rows:
+                if not isinstance(row, Mapping):
+                    raise SuccessorBuildError("SUCCESSOR_ROW_INVALID", table)
+                applied.append(
+                    _insert_row(
+                        connection,
+                        table,
+                        row,
+                        successor_version=successor_version,
+                    )
+                )
+        else:
+            deferred.append(
+                {
+                    "action": "deferred",
+                    "reason": "non-canonical proposed_change requires governor normalization",
+                    "payload": proposed_change,
+                }
+            )
+    for proposal_key in ("proposed_repair", "proposed_resolution"):
+        proposal = payload.get(proposal_key)
+        if isinstance(proposal, Mapping):
+            deferred.append(
+                {
+                    "action": "deferred",
+                    "reason": f"{proposal_key} requires governor normalization",
+                    "payload": proposal,
+                }
+            )
     successors = payload.get("proposed_successors") or ()
     if isinstance(successors, Mapping):
         successors = (successors,)
@@ -389,13 +492,18 @@ def _set_candidate_version(
     if not successor_version:
         return
     columns = _require_table(connection, "metadata")
-    if "key" not in {str(column["name"]) for column in columns}:
-        raise SuccessorBuildError("METADATA_KEY_COLUMN_REQUIRED")
-    connection.execute(
-        "INSERT INTO metadata (key, value) VALUES ('codex_version', ?) "
-        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+    names = {str(column["name"]) for column in columns}
+    if "key" not in names or "value" not in names:
+        raise SuccessorBuildError("METADATA_CONTRACT_INCOMPLETE")
+    cursor = connection.execute(
+        "UPDATE metadata SET value=? WHERE key='codex_version'",
         (successor_version,),
     )
+    if cursor.rowcount == 0:
+        connection.execute(
+            "INSERT INTO metadata (key, value) VALUES ('codex_version', ?)",
+            (successor_version,),
+        )
 
 
 def _formal_rule_errors(connection: sqlite3.Connection) -> tuple[str, ...]:
@@ -446,6 +554,7 @@ def build_successor(
 ) -> SuccessorBuildResult:
     """Build one validated candidate and record its lineage evidence."""
     request_id = ""
+    output_created = False
     manifest_path = Path(output_database).with_suffix(".candidate-manifest.json")
     try:
         request = load_amendment_request(request_path)
@@ -456,7 +565,14 @@ def build_successor(
             raise SuccessorBuildError("SOURCE_DATABASE_MISSING", str(source))
         if source == output:
             raise SuccessorBuildError("CANDIDATE_MUST_NOT_OVERWRITE_SOURCE")
+        if output.exists():
+            raise SuccessorBuildError("CANDIDATE_OUTPUT_EXISTS", str(output))
+        if manifest_path.exists():
+            raise SuccessorBuildError(
+                "CANDIDATE_MANIFEST_EXISTS", str(manifest_path)
+            )
         output.parent.mkdir(parents=True, exist_ok=True)
+        baseline_violations = _source_foreign_key_violations(source)
         record = ledger.begin(
             request_path,
             current_version=expected_current_version,
@@ -468,7 +584,8 @@ def build_successor(
             raise SuccessorBuildError(
                 "REQUEST_NOT_UNDER_REVIEW", f"{request_id}:{record.state}"
             )
-        shutil.copyfile(source, output)
+        _copy_database(source, output)
+        output_created = True
         connection = sqlite3.connect(str(output))
         try:
             _set_candidate_version(connection, successor_version)
@@ -480,13 +597,20 @@ def build_successor(
             connection.commit()
             errors = list(
                 staged_generation_errors(
-                    output.as_posix(), version=successor_version
+                    output.as_posix(),
+                    version=successor_version,
+                    baseline_violations=baseline_violations,
                 )
             )
             errors.extend(_formal_rule_errors(connection))
         finally:
             connection.close()
         if errors:
+            try:
+                output.unlink()
+                output_created = False
+            except (FileNotFoundError, OSError):
+                pass
             ledger.transition(
                 request_id,
                 STATE_REJECTED,
@@ -524,8 +648,12 @@ def build_successor(
                 "authority-reanchor",
             ],
             "created_at": _utc_now(),
+            "manifest_hash_algorithm": CONTENT_HASH_ALGORITHM,
+            "manifest_hash_excludes": ["manifest_hash"],
         }
-        manifest["manifest_hash"] = content_hash(manifest)
+        manifest["manifest_hash"] = content_hash(
+            {key: value for key, value in manifest.items() if key != "manifest_hash"}
+        )
         _atomic_json(manifest_path, manifest)
         ledger.transition(
             request_id,
@@ -547,6 +675,11 @@ def build_successor(
             seal_preview=seal_preview,
         )
     except (AmendmentLifecycleError, SuccessorBuildError, OSError, sqlite3.Error) as error:
+        if output_created:
+            try:
+                Path(output_database).unlink()
+            except (FileNotFoundError, OSError):
+                pass
         if request_id:
             try:
                 record = ledger.load_record(request_id)
