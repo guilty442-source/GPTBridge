@@ -252,6 +252,7 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                         "idle-memory-maintenance",
                         memory_maintainer.interval_seconds,
                         memory_maintainer.tick,
+                        pausable=True,
                     )
                     memory_task = None
                 else:

@@ -211,3 +211,68 @@ async def test_maintainer_tick_respects_idle_gate() -> None:
     idle.release = lambda: {"released": True}  # type: ignore[method-assign]
     await idle.tick()
     assert idle.last_result == {"released": True}
+
+
+@pytest.mark.asyncio
+async def test_pausable_jobs_defer_under_regulation() -> None:
+    """§10.64 ④: pausable jobs defer while the governor regulates;
+    essential jobs keep running; due times shift (no burst on release)."""
+    paused = {"on": True}
+    scheduler = PeriodicScheduler(
+        tick_seconds=0.02, pause_check=lambda: paused["on"]
+    )
+    calls: list[str] = []
+
+    async def _pausable() -> None:
+        calls.append("pausable")
+
+    async def _essential() -> None:
+        calls.append("essential")
+
+    scheduler.register("pausable-job", 0.02, _pausable, pausable=True)
+    scheduler.register("essential-job", 0.02, _essential)
+    await asyncio.sleep(0.12)
+    paused["on"] = False
+    await asyncio.sleep(0.06)
+    await scheduler.stop()
+
+    job = {j["name"]: j for j in scheduler.jobs()}
+    assert job["pausable-job"]["paused_count"] >= 2
+    assert job["essential-job"]["run_count"] >= 2
+    assert calls.count("pausable") >= 1, "job must run after release"
+    assert job["pausable-job"]["run_count"] == calls.count("pausable")
+
+
+@pytest.mark.asyncio
+async def test_no_pause_check_never_defers() -> None:
+    scheduler = PeriodicScheduler(tick_seconds=0.02)
+    calls: list[str] = []
+
+    async def _tick() -> None:
+        calls.append("tick")
+
+    scheduler.register("job", 0.02, _tick, pausable=True)
+    await asyncio.sleep(0.07)
+    await scheduler.stop()
+    assert calls, "pausable job must run when no pause_check is set"
+
+
+def test_governor_signal_fails_open(tmp_path, monkeypatch) -> None:
+    from tasks import resource_governor_signal as sig
+
+    monkeypatch.setattr(
+        sig, "_STATE_FILE", tmp_path / "resource-governor.json"
+    )
+    assert sig.regulation_active() is False
+    assert sig.worker_admission_hold() is False
+
+    sig._STATE_FILE.write_text(
+        '{"regulation": {"active": true}, "worker_admission_hold": true}',
+        encoding="utf-8",
+    )
+    assert sig.regulation_active() is True
+    assert sig.worker_admission_hold() is True
+
+    sig._STATE_FILE.write_text("{broken json", encoding="utf-8")
+    assert sig.regulation_active() is False
+    assert sig.worker_admission_hold() is False

@@ -85,7 +85,7 @@ class GitAutomationService:
         if self._scheduler is not None:
             self._scheduler.register(
                 "git-automation", self.sweep_interval, self._cycle_tick,
-                run_immediately=True,
+                run_immediately=True, pausable=True,
             )
             _logger.info(
                 "git automation started on periodic scheduler "

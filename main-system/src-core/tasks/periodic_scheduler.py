@@ -31,9 +31,14 @@ class PeriodicScheduler:
         *,
         tick_seconds: float = BASE_TICK_SECONDS,
         job_timeout_s: float = DEFAULT_JOB_TIMEOUT_SECONDS,
+        pause_check: Callable[[], bool] | None = None,
     ) -> None:
         self._tick_seconds = tick_seconds
         self._job_timeout_s = job_timeout_s
+        # §10.64 ④: when this callable returns True (e.g. the resource
+        # governor's regulation state is active), jobs registered with
+        # ``pausable=True`` defer their due time instead of running.
+        self._pause_check = pause_check
         self._jobs: dict[str, dict[str, Any]] = {}
         self._stop = asyncio.Event()
         self._task: asyncio.Task[Any] | None = None
@@ -46,13 +51,18 @@ class PeriodicScheduler:
         *,
         run_immediately: bool = False,
         timeout_s: float | None = None,
+        pausable: bool = False,
     ) -> None:
         """Register a periodic job. ``tick`` is an awaitable called when
         ``interval_s`` has elapsed since its last start. Services keep
-        their own internal gating inside ``tick``."""
+        their own internal gating inside ``tick``.
+
+        ``pausable`` marks non-essential work that may defer while the
+        scheduler's ``pause_check`` reports active regulation."""
         self._jobs[name] = {
             "interval_s": float(interval_s),
             "tick": tick,
+            "pausable": bool(pausable),
             "timeout_s": timeout_s or self._job_timeout_s,
             "next_due": (
                 time.monotonic()
@@ -108,6 +118,8 @@ class PeriodicScheduler:
                     "last_duration_ms": job["last_duration_ms"],
                     "last_error": job["last_error"],
                     "run_count": job["run_count"],
+                    "pausable": job["pausable"],
+                    "paused_count": job.get("paused_count", 0),
                 }
             )
         return out
@@ -115,11 +127,25 @@ class PeriodicScheduler:
     async def _loop(self) -> None:
         while not self._stop.is_set():
             now = time.monotonic()
+            try:
+                paused = bool(
+                    self._pause_check and self._pause_check()
+                )
+            except Exception:
+                paused = False
             next_due = now + self._tick_seconds
             for name, job in list(self._jobs.items()):
                 if self._stop.is_set():
                     break
                 if job["next_due"] > now:
+                    next_due = min(next_due, job["next_due"])
+                    continue
+                if paused and job["pausable"]:
+                    # §10.64 ④: defer non-essential work while the
+                    # governor regulates — reschedule normally so jobs
+                    # do not burst-fire on release.
+                    job["next_due"] = now + job["interval_s"]
+                    job["paused_count"] = job.get("paused_count", 0) + 1
                     next_due = min(next_due, job["next_due"])
                     continue
                 job["next_due"] = now + job["interval_s"]

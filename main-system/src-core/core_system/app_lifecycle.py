@@ -111,8 +111,11 @@ class AppLifecycleMixin:
         # periodic jobs (coordinator, idle-memory maintainer, daily
         # cleaner). Registered lazily — the loop starts on first register.
         from tasks.periodic_scheduler import PeriodicScheduler
+        from tasks.resource_governor_signal import regulation_active
 
-        self.periodic_scheduler = PeriodicScheduler()
+        self.periodic_scheduler = PeriodicScheduler(
+            pause_check=regulation_active
+        )
 
         # System-wide automation coordinator (A63/A64 decision-layer).
         # Unifies all sovereign automation loops into a single

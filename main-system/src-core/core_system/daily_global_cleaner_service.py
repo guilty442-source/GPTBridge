@@ -262,6 +262,7 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
                 "daily-global-cleaner",
                 300.0,
                 self._scheduled_tick,
+                pausable=True,
             )
             return
         if self._task is None or self._task.done():
