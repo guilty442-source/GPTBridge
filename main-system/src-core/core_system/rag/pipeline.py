@@ -103,6 +103,13 @@ class CanonicalRagPipeline(
         # RAG-16: ACTIVE generation id bound to this pipeline; retrieval
         # drops hits carrying a different generation_id.
         self._active_generation: Optional[str] = None
+        # G50: production assembly point for the A486/A487 generation
+        # lifecycle.  Constructed during initialize() once Qdrant +
+        # PostgreSQL are proven; ``_generation_rebuild_required`` flags a
+        # config-fingerprint drift that demands a NEW generation (never an
+        # in-place edit of the ACTIVE one).
+        self.generation_manager: Optional[Any] = None
+        self._generation_rebuild_required = False
 
     @property
     def state(self) -> RagRuntimeState:

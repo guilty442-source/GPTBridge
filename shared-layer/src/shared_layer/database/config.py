@@ -4,6 +4,8 @@ import os
 import re
 from dataclasses import dataclass
 
+from ..security.dsn_policy import DsnPolicyError, DsnPurpose, resolve_dsn
+
 
 _SQL_IDENTIFIER = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 
@@ -62,11 +64,28 @@ class DatabaseSettings:
         runtime = self.runtime_dsn.strip()
         return bool(admin and runtime and admin == runtime)
 
+    @staticmethod
+    def _resolve_binding(purpose: DsnPurpose, env_name: str) -> str:
+        raw = os.environ.get(env_name, "").strip()
+        # Plain values remain the development/CI fallback.  References and
+        # absent values route through the governed Credential Manager path;
+        # unresolved references never fall back to plaintext.
+        if raw and not raw.casefold().startswith("credman:"):
+            return raw
+        try:
+            return resolve_dsn(purpose).dsn
+        except (DsnPolicyError, RuntimeError):
+            return ""
+
     @classmethod
     def from_environment(cls) -> "DatabaseSettings":
         return cls(
-            admin_dsn=os.environ.get("GPTBRIDGE_POSTGRES_ADMIN_DSN", ""),
-            runtime_dsn=os.environ.get("GPTBRIDGE_POSTGRES_DSN", ""),
+            admin_dsn=cls._resolve_binding(
+                DsnPurpose.ADMIN, "GPTBRIDGE_POSTGRES_ADMIN_DSN"
+            ),
+            runtime_dsn=cls._resolve_binding(
+                DsnPurpose.RUNTIME, "GPTBRIDGE_POSTGRES_DSN"
+            ),
             database=os.environ.get("GPTBRIDGE_POSTGRES_DATABASE", "gptbridge"),
             owner_role=os.environ.get("GPTBRIDGE_POSTGRES_OWNER_ROLE", "gptbridge_owner"),
             runtime_role=os.environ.get("GPTBRIDGE_POSTGRES_RUNTIME_ROLE", "gptbridge_runtime"),

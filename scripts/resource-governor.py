@@ -200,13 +200,14 @@ class GovernorConfig:
 
 
 class ProcessRecord:
-    __slots__ = ("busy", "calm", "prio_set", "aff_set", "last_trim")
+    __slots__ = ("busy", "calm", "prio_set", "aff_set", "reg_aff_set", "last_trim")
 
     def __init__(self) -> None:
         self.busy = 0
         self.calm = 0
         self.prio_set = False
         self.aff_set = False
+        self.reg_aff_set = False
         self.last_trim = 0.0
 
 
@@ -294,6 +295,15 @@ def govern_once(
         int((logical * GLOBAL_CPU_LIMIT_PCT + 99.0) // 100.0),
     )
     cap_affinity = list(range(min(cap_count, logical)))
+    # §10.64 control-law ②: while regulation is active the whole worker
+    # plane shares one bounded affinity subset sized by the CPU budget —
+    # workers timeshare a small core set instead of spreading across the
+    # machine; affinity is released when regulation clears.
+    worker_cap = max(
+        AFFINITY_MIN_CPUS,
+        int(logical * config.worker_cpu_budget // 100),
+    )
+    worker_affinity = list(range(min(worker_cap, logical)))
 
     actions: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
@@ -344,6 +354,34 @@ def govern_once(
             busy_now = cpu >= busy_floor
             extreme_now = cpu >= config.cpu_extreme
             calm_now = cpu < config.calm
+
+            # ② aggregate containment while regulating (independent of the
+            # per-process extreme-hog path below).
+            if plane in WORKER_PLANES and config.affinity:
+                if regulation["active"] and not record.reg_aff_set:
+                    try:
+                        if proc.cpu_affinity() != worker_affinity:
+                            if not dry_run:
+                                proc.cpu_affinity(worker_affinity)
+                        record.reg_aff_set = True
+                        actions.append(
+                            {"action": "worker-affinity-capped", "pid": pid,
+                             "name": name, "cpus": len(worker_affinity)}
+                        )
+                    except (AttributeError, psutil.Error):
+                        pass
+                elif not regulation["active"] and record.reg_aff_set:
+                    try:
+                        if not dry_run:
+                            proc.cpu_affinity(list(range(logical)))
+                        record.reg_aff_set = False
+                        actions.append(
+                            {"action": "worker-affinity-restored", "pid": pid,
+                             "name": name}
+                        )
+                    except (AttributeError, psutil.Error):
+                        pass
+
             record.busy = record.busy + 1 if busy_now else 0
             record.calm = record.calm + 1 if calm_now else 0
 
