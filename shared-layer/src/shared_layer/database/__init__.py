@@ -12,6 +12,18 @@ from typing import Any
 
 POSTGRESQL_CANONICAL: bool = True
 
+# SQL SLO Metrics (from shared_layer.observability)
+try:
+    from shared_layer.observability.slo import (
+        SQLSLOMetrics,
+        SLOTarget,
+        get_sql_slo,
+    )
+except ImportError:
+    SQLSLOMetrics = None
+    SLOTarget = None
+    get_sql_slo = None
+
 _LAZY_EXPORTS = {
     "BootstrapReport": ("bootstrap", "BootstrapReport"),
     "DatabaseBootstrap": ("bootstrap", "DatabaseBootstrap"),
@@ -298,6 +310,8 @@ _LAZY_EXPORTS = {
     "execute_backup_health_observe": ("maintenance.maintenance_backup", "execute_backup_health_observe"),
     "build_backup_maintenance_signals": ("maintenance.maintenance_backup", "build_backup_signals"),
     "get_backup_maintenance_executors": ("maintenance.maintenance_backup", "get_backup_maintenance_executors"),
+    "BackupScheduler": ("backup_scheduler", "BackupScheduler"),
+    "get_backup_scheduler": ("backup_scheduler", "get_backup_scheduler"),
 }
 
 __all__ = ["POSTGRESQL_CANONICAL", *_LAZY_EXPORTS]
