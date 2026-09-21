@@ -291,10 +291,25 @@ def test_no_memory_cpp_without_need():
     assert not (_ROOT / "native" / "core" / "memory.hpp").exists()
 
 
-def test_public_abi_unchanged():
+def test_public_abi_has_no_memory_primitives():
     header = (_ROOT / "native" / "include" / "gptbridge_native.h").read_text(
         encoding="utf-8")
-    # sole public ABI still exposes only the platform functions — no
-    # memory functions leaked into the public contract
+    # Memory ownership stays private to native/core; the public C ABI exposes
+    # platform and compute entry points but no allocator or buffer primitive.
     assert "gptbridge_native_alloc" not in header
     assert "buffer" not in header.lower()
+    assert "gptbridge_native_transformer_matmul" in header
+
+
+def test_native_build_layers_are_explicit_and_valid():
+    from core_system.native import build_native
+
+    report = build_native.validate_layering()
+    assert report["ok"], report["errors"]
+    manifest = report["manifest"]
+    assert manifest["binding_layer"] == [
+        "main-system/src-core/core_system/native/_binding.cpp"
+    ]
+    assert manifest["public_c_abi"] == ["native/include/gptbridge_native.h"]
+    assert all(path.endswith(".c") for path in manifest["c_core_layer"])
+    assert manifest["link_language"] == "c++"

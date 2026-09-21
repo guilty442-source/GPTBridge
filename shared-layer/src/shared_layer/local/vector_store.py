@@ -11,7 +11,7 @@ not be treated as cross-module semantic authority. Two point styles are accepted
   in-memory store); they are embedded locally through hashing-based character
   n-gram vectors via ``embed_vector`` / ``_token_vector``.
 
-No numpy/scipy/third-party (A37/E23).  A C++ native kernel hook
+No numpy/scipy/third-party (A37/E23).  An optional native kernel hook
 (``local.native_kernel``) may accelerate the hot vector math when the compiled
 ``.pyd`` exists; when it does not, a pure Python fallback is used.
 """
