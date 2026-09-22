@@ -1,0 +1,16 @@
+{
+  "id": "e11-eval-tps-cpp-path",
+  "date": "2026-09-22",
+  "scope": "E11 residual (governor ruling 2026-09-22): eval suite tps measured through the production C++ inference engine instead of the load-sensitive torch benchmark loop",
+  "validation": {
+    "implementation": "native_eval_suite.evaluate_checkpoint reads suite throughput_engine (torch default / cpp); cpp path runs CppInferenceEngine.generate (greedy, seeded) and derives tokens_per_second from eval_count/latency_ms; unknown engine value fail-closed (ValueError); engine unavailable / generation failure / zero tokens fail-closed (EVAL_CPP_ENGINE_UNAVAILABLE / EVAL_CPP_GENERATION_FAILED / EVAL_CPP_NO_TOKENS); throughput_engine recorded into adapter_metrics for audit",
+    "suite_flip": "star-native-eval-dialogue-v1 declares throughput_engine=cpp (notes updated); suite_sha256 re-derives from spec",
+    "tests": "test_native_eval_suite.py +5: unknown-engine fail-closed, cpp path via injected engine (tps=eval_count/latency, engine unload asserted), unavailable fail-closed, generation-failure fail-closed, default torch path records throughput_engine=torch; file 11/11 PASS serial",
+    "note": "parallel xdist run of this file is flaky under machine load (pre-existing heavyweight torch-benchmark tests crash workers; each passes serially) — unrelated to this change"
+  },
+  "files": [
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_eval_suite.py",
+    "Standalone tools/local-model/xingcheng/eval/star-native-eval-dialogue-v1.json",
+    "Standalone tools/local-model/tests/test_native_eval_suite.py"
+  ]
+}
