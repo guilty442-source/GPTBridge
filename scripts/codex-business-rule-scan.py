@@ -272,6 +272,135 @@ def main() -> int:
                 f"(execution_identity '{code}')",
             )
 
+    # --- axis 6: deadline/budget numeric rules vs codex metadata -----
+    def _codex_metadata() -> dict[str, str]:
+        if not CODEX_DB.is_file():
+            return {}
+        db = sqlite3.connect(
+            f"file:{CODEX_DB.as_posix()}?mode=ro", uri=True
+        )
+        try:
+            return {
+                str(k): str(v)
+                for k, v in db.execute("SELECT key, value FROM metadata")
+            }
+        finally:
+            db.close()
+
+    codex_meta = _codex_metadata()
+    budget_key_re = re.compile(
+        r"deadline|timeout|budget|limit|max|cap|threshold|quota",
+        re.IGNORECASE,
+    )
+    codex_budget = {
+        k: v for k, v in codex_meta.items() if budget_key_re.search(k)
+    }
+
+    GENERIC_TOKENS = {
+        "ms", "s", "the", "a", "of", "per", "max", "min", "limit",
+        "timeout", "deadline", "budget", "quota", "cap", "threshold",
+        "seconds", "minutes", "hours", "days", "count", "size",
+        "interval", "global", "default", "idle", "value", "number",
+        "total", "high", "low", "soft", "hard", "time",
+    }
+
+    def _tokens(key: str) -> set[str]:
+        return {
+            t for t in re.split(r"[^a-z0-9]+", key.lower())
+            if t and t not in GENERIC_TOKENS
+        }
+
+    def _iter_numeric(obj: object, prefix: str):
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                yield from _iter_numeric(
+                    value, f"{prefix}.{key}" if prefix else str(key)
+                )
+        elif isinstance(obj, (int, float)) and not isinstance(obj, bool):
+            yield prefix, obj
+
+    def _config_files() -> list[Path]:
+        roots = [
+            ROOT / "main-system" / "config",
+            ROOT / "main-system" / "runtime" / "settings",
+            ROOT / "Standalone tools" / "local-model"
+            / "runtime" / "settings",
+        ]
+        files: list[Path] = []
+        for root in roots:
+            if root.is_dir():
+                files.extend(
+                    sorted(root.glob("*.json"))
+                )
+        return files
+
+    scanned_configs = 0
+    for cfg_path in _config_files():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        scanned_configs += 1
+        rel = str(cfg_path.relative_to(ROOT))
+        for key_path, value in _iter_numeric(cfg, ""):
+            leaf = key_path.split(".")[-1]
+            if not budget_key_re.search(leaf):
+                continue
+            leaf_tokens = _tokens(leaf)
+            if not leaf_tokens:
+                continue
+            # Best-match: the codex key whose distinctive tokens best
+            # cover the leaf's.  Require either >=2 shared distinctive
+            # tokens or full coverage of the leaf's tokens.
+            best: tuple[float, str] | None = None
+            for codex_key in codex_budget:
+                codex_tokens = _tokens(codex_key)
+                shared = leaf_tokens & codex_tokens
+                if not shared:
+                    continue
+                if len(shared) < 2 and shared != leaf_tokens:
+                    continue
+                score = len(shared) / max(len(codex_tokens), 1)
+                if best is None or score > best[0]:
+                    best = (score, codex_key)
+            if best is None:
+                continue
+            codex_key = best[1]
+            codex_value = codex_budget[codex_key]
+            try:
+                codex_num = float(codex_value)
+            except ValueError:
+                continue
+            if float(value) != codex_num:
+                record(
+                    "deadline-budget", "conflict",
+                    f"{rel}:{key_path}",
+                    f"business rule '{leaf}'={value} contradicts "
+                    f"codex metadata '{codex_key}'={codex_value}",
+                )
+            else:
+                record(
+                    "deadline-budget", "overlap",
+                    f"{rel}:{key_path}",
+                    f"'{leaf}' duplicates codex '{codex_key}' "
+                    f"(same value {value})",
+                )
+
+    # --- axis 7: authority-claiming language in configs/contracts ----
+    for cfg_path in _config_files():
+        try:
+            text = cfg_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        rel = str(cfg_path.relative_to(ROOT))
+        for match in AUTHORITY_CLAIM_RE.finditer(text):
+            record(
+                "authority-claim", "conflict", rel,
+                f"config asserts authority ('{match.group(0)}') — "
+                "business rules are subordinate; codex is the sole "
+                "authority",
+            )
+
     summary = {
         "conflict": sum(1 for f in findings if f["class"] == "conflict"),
         "overlap": sum(1 for f in findings if f["class"] == "overlap"),
@@ -288,6 +417,8 @@ def main() -> int:
             "registered_tool_identities": len(registered_tools),
             "routes": len(AI_ROUTE_COMMANDS),
             "module_assignments": len(assignments),
+            "config_files": scanned_configs,
+            "codex_budget_keys": len(codex_budget),
         },
         "summary": summary,
         "findings": findings,
