@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import sqlite3
@@ -48,6 +49,7 @@ sys.path.insert(0, str(SHARED_SRC))
 
 RESULTS: list[dict[str, object]] = []
 RUN_ISOLATED_START = "--with-isolated-start" in sys.argv
+RUN_OFFLINE_REBUILD = "--with-offline-rebuild" in sys.argv
 
 
 def sha_file(path: Path) -> str:
@@ -164,6 +166,82 @@ def build_wheel_cache(distributions: list[str], probe: str) -> dict:
         encoding="utf-8",
     )
     return manifest
+
+
+def _probe_distributions(probe: str) -> list[str]:
+    """``name==version`` list from the probe interpreter's metadata."""
+    out = subprocess.run(
+        [
+            probe, "-c",
+            "import importlib.metadata, json; print(json.dumps(sorted("
+            "f'{d.metadata[\"Name\"]}=={d.version}' for d in "
+            "importlib.metadata.distributions() if d.metadata['Name'])))",
+        ],
+        capture_output=True, text=True, check=True,
+        creationflags=_CREATE_NO_WINDOW,
+    ).stdout
+    return json.loads(out)
+
+
+def offline_venv_rebuild_check(manifest_data: dict) -> None:
+    """04B-18: rebuild a venv offline from the shared wheel cache.
+
+    Proves G76/G77's real property — a release's runtime can be
+    reconstructed without network access.  Base interpreter comes from
+    the RC venv's ``pyvenv.cfg`` (``home``), matching the declared
+    ``python_runtime``.
+    """
+    detail = ""
+    status, code = "FAIL", "OFFLINE_REBUILD_FAILED"
+    tmp = Path(tempfile.mkdtemp(prefix=f"04b18-rebuild-{RC_ID}-"))
+    try:
+        cfg = (RC / "venv" / "pyvenv.cfg").read_text(encoding="utf-8")
+        home = re.search(r"^home = (.+)$", cfg, re.M)
+        base_python = Path(home.group(1).strip()) / "python.exe" if home else None
+        if not base_python or not base_python.is_file():
+            raise RuntimeError(f"base interpreter missing: {base_python}")
+        subprocess.run(
+            [str(base_python), "-m", "venv", str(tmp / "venv")],
+            check=True, capture_output=True, timeout=300,
+            creationflags=_CREATE_NO_WINDOW,
+        )
+        rebuild_py = tmp / "venv" / "Scripts" / "python.exe"
+        wc = json.loads(WHEEL_CACHE_MANIFEST.read_text(encoding="utf-8"))
+        dists = [e["dist"] for e in wc["entries"]]
+        install = subprocess.run(
+            [
+                str(rebuild_py), "-m", "pip", "install", "--no-index",
+                "--find-links", str(WHEEL_CACHE), *dists,
+            ],
+            capture_output=True, text=True, timeout=1800,
+            creationflags=_CREATE_NO_WINDOW,
+        )
+        if install.returncode != 0:
+            raise RuntimeError(install.stderr.strip().splitlines()[-1:])
+        rebuilt = set(_probe_distributions(str(rebuild_py)))
+        locked = set(dists)
+        missing = sorted(locked - rebuilt)
+        extras = sorted(
+            d for d in rebuilt - locked
+            if d.split("==")[0].lower() not in {"pip", "setuptools", "wheel"}
+        )
+        if missing or extras:
+            raise RuntimeError(f"missing={missing[:4]} extras={extras[:4]}")
+        detail = f"{len(locked)} dists installed offline, lock-identical"
+        status, code = "PASS", ""
+    except Exception as error:  # noqa: BLE001 — report, never crash
+        detail = str(error)[:400]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    record(
+        "04B-18",
+        "offline venv rebuild from wheel cache reproduces the lock",
+        "pip install --no-index --find-links wheel-cache == lock",
+        detail,
+        status,
+        str(WHEEL_CACHE_MANIFEST),
+        code,
+    )
 
 
 def git(*args: str) -> str:
@@ -576,10 +654,31 @@ def fault_scenarios() -> None:
             f"{report_path}; rc={proc.returncode}",
             "" if ok else "ISOLATED_START_FAILED",
         )
+        # 04B-19 end-to-end IPC contract probe — rides the same isolated
+        # backend: ticket auth reject/accept, session hello, command
+        # dispatch + result, heartbeat liveness (contract client residual).
+        contract = (scenarios.get("lifecycle") or {}).get("ipc_contract") or {}
+        c_ok = bool(contract.get("ok"))
+        record(
+            "04B-19",
+            "isolated IPC contract client (ticket auth/session/command)",
+            "no/bad ticket rejected; valid ticket session hello; "
+            "COMMAND_RECEIVED + result; heartbeat accepted",
+            json.dumps(contract, ensure_ascii=False)[:300],
+            "PASS" if c_ok else "FAIL",
+            "scripts/integration-04b-isolated-start.py::_ipc_contract_probe",
+            "" if c_ok else "IPC_CONTRACT_FAILED",
+        )
     else:
         record("04B-10", "backend mid-start failure", "isolated start harness",
                "not executed (--with-isolated-start not passed)", "BLOCKED",
                "isolated harness exists: scripts/integration-04b-isolated-start.py",
+               "BLOCKED_ENV")
+        record("04B-19",
+               "isolated IPC contract client (ticket auth/session/command)",
+               "requires --with-isolated-start",
+               "not executed (--with-isolated-start not passed)", "BLOCKED",
+               "probe: scripts/integration-04b-isolated-start.py::_ipc_contract_probe",
                "BLOCKED_ENV")
 
 
@@ -695,6 +794,59 @@ def main() -> int:
         f"{WHEEL_CACHE_MANIFEST}",
         "" if covered else "WHEEL_CACHE_INCOMPLETE",
     )
+
+    # 04B-17 uv.lock <-> manifest lock consistency (G77 residual):
+    # every locked runtime dist must appear in uv.lock at the same
+    # version.  uv.lock legitimately carries extra build-only packages
+    # (pyinstaller toolchain, dev deps) — lock ⊋ runtime is expected.
+    uv_lock_path = ROOT / "main-system" / "uv.lock"
+    probe_for_lock = manifest_data.get("python_runtime", {}).get(
+        "executable", str(VENV_PY)
+    )
+    lock_dists = _probe_distributions(probe_for_lock)
+    uv_entries = dict(
+        re.findall(
+            r'name = "([^"]+)"\nversion = "([^"]+)"',
+            uv_lock_path.read_text(encoding="utf-8"),
+        )
+    ) if uv_lock_path.is_file() else {}
+    norm = lambda s: s.lower().replace("-", "_").replace(".", "_")
+    uv_norm = {norm(k): v for k, v in uv_entries.items()}
+    lock_absent = sorted(
+        d for d in lock_dists if norm(d.split("==")[0]) not in uv_norm
+    )
+    lock_mismatch = sorted(
+        d for d in lock_dists
+        if norm(d.split("==")[0]) in uv_norm
+        and uv_norm[norm(d.split("==")[0])] != d.split("==")[1]
+    )
+    consistent = not lock_absent and not lock_mismatch
+    record(
+        "04B-17",
+        "uv.lock consistency: every locked dist present at same version",
+        "runtime lock subset of uv.lock, versions equal",
+        f"absent={lock_absent[:4]} mismatch={lock_mismatch[:4]}",
+        "PASS" if consistent else "FAIL",
+        str(uv_lock_path),
+        "" if consistent else "UV_LOCK_DIVERGENT",
+    )
+
+    # 04B-18 offline venv rebuild from the wheel cache (G76/G77 closure):
+    # create a fresh venv with the release's declared base interpreter and
+    # install every locked dist with --no-index --find-links <cache>.
+    # Flag-gated — the rebuild costs ~1.5 GB and a couple of minutes.
+    if RUN_OFFLINE_REBUILD:
+        offline_venv_rebuild_check(manifest_data)
+    else:
+        record(
+            "04B-18",
+            "offline venv rebuild from wheel cache reproduces the lock",
+            "pip install --no-index --find-links wheel-cache == lock",
+            "skipped (needs --with-offline-rebuild)",
+            "BLOCKED",
+            "flag-gated: builds a full ~1.5GB venv",
+            "",
+        )
 
     report = {
         "report": "integration-04b-acceptance/v1",

@@ -29,7 +29,10 @@ Evidence is written to
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
+import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -191,6 +194,16 @@ def _port_listening(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _port_released(port: int, timeout_s: float = 5.0) -> bool:
+    """Port release can lag process exit (socket teardown races)."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if not _port_listening(port):
+            return True
+        time.sleep(0.25)
+    return not _port_listening(port)
+
+
 def _pump(proc: subprocess.Popen[bytes], lines: list[str], done: threading.Event) -> None:
     assert proc.stdout is not None
     for raw in iter(proc.stdout.readline, b""):
@@ -219,6 +232,136 @@ def _phases(lines: list[str]) -> list[str]:
     return phases
 
 
+def _ipc_contract_probe(state_root: Path, port: int, timeout_s: float = 20.0) -> dict:
+    """End-to-end IPC contract probe against the live isolated backend.
+
+    Exercises the frontend surface contract: ticket auth (reject without /
+    bad signature, accept valid), session hello (``state_event_hello`` ->
+    ``state_event_session``), command dispatch (``COMMAND_RECEIVED`` +
+    ``<command>_result``), and error surface for an unknown command.
+    """
+    try:
+        import websockets
+        from urllib.parse import quote
+    except ImportError:
+        return {"ok": False, "error": "websockets-unavailable"}
+
+    token_path = state_root / "ipc-state" / "session-token"
+    instance_src = os.path.normcase(str(state_root.absolute())).replace(
+        "\\", "/"
+    )
+    instance = hashlib.sha256(instance_src.encode("utf-8")).hexdigest()[:24]
+
+    token_holder: list[str] = []
+
+    def _ticket(valid_sig: bool = True) -> str:
+        expires = int(time.time()) + 30
+        payload = f"{expires}.{secrets.token_hex(8)}.{instance}"
+        sig = hmac.new(
+            token_holder[0].encode(), payload.encode(), hashlib.sha256
+        ).hexdigest()
+        return f"{payload}.{sig if valid_sig else '0' * 64}"
+
+    base = f"ws://127.0.0.1:{port}/"
+    results: dict[str, object] = {}
+
+    async def _run() -> None:
+        # 1. Missing ticket must be refused at the handshake.  This first
+        #    request also triggers the server to lazily create the session
+        #    token file — read it only after the probe connects once.
+        try:
+            async with websockets.connect(base):
+                results["no_ticket_rejected"] = False
+        except Exception:
+            results["no_ticket_rejected"] = True
+        # 2. Forged signature must be refused.  A random placeholder token
+        #    suffices — the signature can never verify either way.
+        token_holder.append("0" * 64)
+        try:
+            url = f"{base}?ticket={quote(_ticket(False))}&instance={instance}"
+            async with websockets.connect(url):
+                results["bad_ticket_rejected"] = False
+        except Exception:
+            results["bad_ticket_rejected"] = True
+        # Now read the server-minted session token for the positive case.
+        token = ""
+        if token_path.is_file():
+            token = token_path.read_text(encoding="utf-8").strip().lower()
+        if not token:
+            results["error"] = "session-token-absent"
+            return
+        token_holder[0] = token
+        # 3. Valid single-use ticket authenticates.
+        url = f"{base}?ticket={quote(_ticket())}&instance={instance}"
+        async with websockets.connect(url) as ws:
+            results["valid_ticket_accepted"] = True
+
+            async def _next_event() -> dict:
+                raw = await ws.recv()
+                return json.loads(raw)
+
+            # 4. Session hello -> state_event_session.
+            await ws.send(json.dumps(
+                {"command": "state_event_hello", "payload": {"cursor": None}}
+            ))
+            deadline = time.time() + timeout_s
+            seen: list[str] = []
+            while time.time() < deadline:
+                try:
+                    ev = await asyncio.wait_for(
+                        _next_event(), timeout=max(0.1, deadline - time.time())
+                    )
+                except Exception:
+                    break
+                name = str(ev.get("event") or "")
+                seen.append(name)
+                if name == "state_event_session":
+                    break
+            results["session_events"] = seen[:8]
+            results["session_hello_ok"] = "state_event_session" in seen
+            # 5. Unknown command -> COMMAND_RECEIVED then *_result / error.
+            await ws.send(json.dumps(
+                {"command": "__contract_probe__", "payload": {}}
+            ))
+            seen = []
+            deadline = time.time() + timeout_s
+            while time.time() < deadline:
+                try:
+                    ev = await asyncio.wait_for(
+                        _next_event(), timeout=max(0.1, deadline - time.time())
+                    )
+                except Exception:
+                    break
+                name = str(ev.get("event") or "")
+                seen.append(name)
+                if name.endswith("_result") or name == "error":
+                    break
+            results["command_events"] = seen[:8]
+            results["command_dispatched"] = "COMMAND_RECEIVED" in seen
+            results["command_resulted"] = any(
+                n.endswith("_result") or n == "error" for n in seen
+            )
+            # 6. Liveness channel: heartbeat_pong is accepted silently.
+            await ws.send(json.dumps(
+                {"command": "heartbeat_pong", "payload": {}}
+            ))
+            results["heartbeat_sent"] = True
+
+    try:
+        asyncio.run(_run())
+    except Exception as error:  # noqa: BLE001 — probe records, never raises
+        results["error"] = f"{type(error).__name__}: {error}"
+    results["ok"] = bool(
+        results.get("no_ticket_rejected")
+        and results.get("bad_ticket_rejected")
+        and results.get("valid_ticket_accepted")
+        and results.get("session_hello_ok")
+        and results.get("command_dispatched")
+        and results.get("command_resulted")
+    )
+    return results
+
+
 def _scenario_lifecycle(release: Path, state_root: Path, port: int, timeout_s: float) -> dict:
     lines: list[str] = []
     done = threading.Event()
@@ -242,10 +385,13 @@ def _scenario_lifecycle(release: Path, state_root: Path, port: int, timeout_s: f
         observed["exit_code"] = proc.returncode
         observed["tail"] = lines[-15:]
         observed["stopped"] = True
-        observed["port_released"] = not _port_listening(port)
+        observed["port_released"] = _port_released(port)
         observed["orphans"] = _children(proc.pid)
         observed["ok"] = False
         return observed
+
+    # IPC contract probe against the live backend (auth/session/command).
+    observed["ipc_contract"] = _ipc_contract_probe(state_root, port)
 
     # Graceful stop: SIGTERM equivalent on Windows is terminate().
     stop_started = time.time()
@@ -266,7 +412,7 @@ def _scenario_lifecycle(release: Path, state_root: Path, port: int, timeout_s: f
             "stopped": stopped,
             "stop_latency_s": round(time.time() - stop_started, 3),
             "exit_code": proc.returncode,
-            "port_released": not _port_listening(port),
+            "port_released": _port_released(port),
             "orphans": _children(proc.pid),
             "tail": lines[-10:],
         }
@@ -305,11 +451,11 @@ def _scenario_mid_start_kill(release: Path, state_root: Path, port: int, timeout
             lines, "IPC Server running", time.time() + 1
         ),
         "exit_code": proc.returncode,
-        "port_released": not _port_listening(port),
+        "port_released": _port_released(port),
         "orphans": _children(proc.pid),
         "startup_phases": _phases(lines),
         "ok": proc.returncode is not None
-        and not _port_listening(port)
+        and _port_released(port)
         and not _children(proc.pid),
     }
 
