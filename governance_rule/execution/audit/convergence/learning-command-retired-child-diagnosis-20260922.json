@@ -1,0 +1,18 @@
+{
+  "id": "learning-command-retired-child-diagnosis",
+  "date": "2026-09-22",
+  "worker": "devin-cli",
+  "trigger": "P1-9 發現 test_xingcheng_learning_command ×5 失敗（藍圖記為法典收斂殘項）；本檔補上根因診斷",
+  "finding": {
+    "symptom": "start_learning_automation/command_learning_pass 回傳 commanded=False",
+    "mechanism": "learning_command.py::_command_learning → validate_child_parent('learning-evidence-sync-sub-sovereign', '星澄') → sovereign_hierarchy_registry 該列 status=retired（A594 單元制批次退役）→ parent_of() 只回傳 active 列 → None → fail-closed 拒絕",
+    "assessment": "FAIL-CLOSED 正常運作：對退役子主宰的委派被 A334 拒絕是設計行為，非缺陷。現行 19 列子主宰全部 retired（單元制搬移結果），learning command 面已無可委派目標",
+    "scope": "測試 5 失敗＝測試仍斷言舊拓撲（child 在 registry 中 active）。生產面：self-learning 實際由 native_transformer/self_learning.py watcher/CLI 驅動（AGENTS.md），sub-sovereign 命令面為退役架構殘留"
+  },
+  "options_for_governor": [
+    "退役命令面：learning_command.py 連同測試標記退役/移除（自學習已由 self_learning watcher 承接），最誠實但需裁定",
+    "重指派：法典 amendment 將 learning 委派改指向新單元制下的接任身分（目前 registry 無接任者）",
+    "測試改斷言 fail-closed：commanded=False + reason=child-parent-mismatch——反映現狀但可能固化錯誤終態"
+  ],
+  "worker_assessment": "屬總督裁定（法典收斂殘項）。worker 側已能做的＝本診斷證據；不建議在未有裁定前改測試斷言方向"
+}
