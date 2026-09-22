@@ -32,9 +32,14 @@ def _state() -> dict:
 
 def regulation_active() -> bool:
     """True while the governor's worker-budget control law is regulating
-    (§10.64 ④: pausable periodic jobs defer while this holds)."""
+    (§10.64 ④: pausable periodic jobs defer while this holds).  The
+    pre-throttle tier (>=80% of budget, 2026-09-22 strict INT-10 ruling)
+    counts as regulating so periodic work yields before the budget is
+    crossed rather than after."""
     regulation = _state().get("regulation")
-    return isinstance(regulation, dict) and regulation.get("active") is True
+    return isinstance(regulation, dict) and (
+        regulation.get("active") is True or regulation.get("pre") is True
+    )
 
 
 def worker_admission_hold() -> bool:

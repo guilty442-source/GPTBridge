@@ -69,7 +69,10 @@ AFFINITY_MIN_CPUS: Final[int] = 1
 # backend consults before starting new on-demand workers.
 WORKER_CPU_BUDGET_PCT: Final[float] = 10.0
 WORKER_RAM_BUDGET_PCT: Final[float] = 30.0
-REGULATE_OVER_SAMPLES: Final[int] = 3
+# Strict INT-10 semantics (2026-09-22 governor ruling): the FIRST over-budget
+# sample engages regulation, and a soft pre-throttle tier engages once the
+# worker aggregate reaches 80% of budget so over-budget samples trend to zero.
+REGULATE_OVER_SAMPLES: Final[int] = 1
 REGULATE_UNDER_SAMPLES: Final[int] = 5
 REGULATE_UNDER_FACTOR: Final[float] = 0.8
 # While regulating, worker-plane processes are throttled from a much lower
@@ -279,7 +282,8 @@ def govern_once(
     self_tree = _self_tree()
     logical = os.cpu_count() or 1
     if regulation is None:
-        regulation = {"over": 0, "under": 0, "active": False}
+        regulation = {"over": 0, "under": 0, "active": False, "pre": False}
+    regulation.setdefault("pre", False)
     # §10.64 acceptance ⑤: kill switch — observe and log, never act.
     disabled = os.environ.get(GOVERNOR_DISABLE_ENV, "").strip().lower() in {
         "1", "true", "yes",
@@ -347,11 +351,14 @@ def govern_once(
             if plane == "governance":
                 continue
 
-            busy_floor = (
-                REGULATED_WORKER_BUSY_PCT
-                if regulation["active"] and plane in WORKER_PLANES
-                else config.cpu_busy
+            throttling_workers = (
+                (regulation["active"] or regulation["pre"])
+                and plane in WORKER_PLANES
             )
+            busy_floor = (
+                REGULATED_WORKER_BUSY_PCT if throttling_workers else config.cpu_busy
+            )
+            sustain_need = 1 if throttling_workers else config.sustain
             busy_now = cpu >= busy_floor
             extreme_now = cpu >= config.cpu_extreme
             calm_now = cpu < config.calm
@@ -386,7 +393,7 @@ def govern_once(
             record.busy = record.busy + 1 if busy_now else 0
             record.calm = record.calm + 1 if calm_now else 0
 
-            if busy_now and record.busy >= config.sustain and not record.prio_set:
+            if busy_now and record.busy >= sustain_need and not record.prio_set:
                 if not dry_run:
                     proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
                 record.prio_set = True
@@ -474,6 +481,17 @@ def govern_once(
     else:
         regulation["over"] = 0
         regulation["under"] = 0
+    # Pre-throttle (2026-09-22 governor ruling, strict INT-10 semantics): the
+    # 80%-of-budget band engages a soft worker throttle on a single sample so
+    # the budget is rarely crossed; release still requires the same 5-sample
+    # under-80% streak as full regulation (anti-flap).
+    if not regulation["pre"] and not under_budget:
+        regulation["pre"] = True
+        _log_action({
+            "action": "prethrottle-entered",
+            "worker_cpu_pct": round(worker_cpu_pct, 1),
+            "worker_ram_pct": round(worker_ram_pct, 2),
+        })
     if not regulation["active"] and regulation["over"] >= REGULATE_OVER_SAMPLES:
         regulation["active"] = True
         _log_action({
@@ -485,6 +503,13 @@ def govern_once(
         regulation["active"] = False
         _log_action({
             "action": "regulation-released",
+            "worker_cpu_pct": round(worker_cpu_pct, 1),
+            "worker_ram_pct": round(worker_ram_pct, 2),
+        })
+    if regulation["pre"] and regulation["under"] >= REGULATE_UNDER_SAMPLES:
+        regulation["pre"] = False
+        _log_action({
+            "action": "prethrottle-released",
             "worker_cpu_pct": round(worker_cpu_pct, 1),
             "worker_ram_pct": round(worker_ram_pct, 2),
         })
@@ -528,10 +553,11 @@ def govern_once(
         },
         "regulation": {
             "active": regulation["active"],
+            "pre": regulation["pre"],
             "over_samples": regulation["over"],
             "under_samples": regulation["under"],
         },
-        "worker_admission_hold": regulation["active"],
+        "worker_admission_hold": regulation["active"] or regulation["pre"],
         "actions": actions,
         "top_cpu": top_cpu,
         "top_mem": top_mem,
@@ -574,7 +600,7 @@ def run_watch(config: GovernorConfig) -> int:
         with lock:
             print(f"resource-governor watching (interval={config.interval}s); Ctrl+C to stop")
             records: dict[tuple[int, float], ProcessRecord] = {}
-            regulation: dict[str, Any] = {"over": 0, "under": 0, "active": False}
+            regulation: dict[str, Any] = {"over": 0, "under": 0, "active": False, "pre": False}
             psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)
             running = True
 

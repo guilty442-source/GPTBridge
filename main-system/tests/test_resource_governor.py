@@ -147,11 +147,12 @@ def test_worker_ledger_and_hysteresis(monkeypatch) -> None:
     records: dict = {}
     procs = [_worker(101, 20.0), _worker(102, 15.0)]
 
-    for _ in range(2):
-        snap = _run(procs, monkeypatch, regulation=regulation, records=records)
-        assert regulation["active"] is False
+    # Strict INT-10 semantics (2026-09-22 ruling): the first over-budget
+    # sample engages regulation, and the pre-throttle tier engages in the
+    # same sample because usage is above the 80%-of-budget band.
     snap = _run(procs, monkeypatch, regulation=regulation, records=records)
-    assert regulation["active"] is True, "3 over-budget samples must regulate"
+    assert regulation["active"] is True, "first over-budget sample must regulate"
+    assert regulation["pre"] is True
     assert snap["worker_admission_hold"] is True
     assert snap["worker_ledger"]["over_budget"] is True
 
@@ -159,8 +160,33 @@ def test_worker_ledger_and_hysteresis(monkeypatch) -> None:
     for _ in range(4):
         _run(idle, monkeypatch, regulation=regulation, records=records)
         assert regulation["active"] is True
+        assert regulation["pre"] is True
     snap = _run(idle, monkeypatch, regulation=regulation, records=records)
     assert regulation["active"] is False, "5 under-budget samples must release"
+    assert regulation["pre"] is False
+    assert snap["worker_admission_hold"] is False
+
+
+def test_prethrottle_middle_band(monkeypatch) -> None:
+    """80%-of-budget band engages the soft pre-throttle on a single sample
+    without full regulation; release needs the same 5-sample under-80%
+    streak (anti-flap)."""
+    regulation = {"over": 0, "under": 0, "active": False}
+    records: dict = {}
+    # Worker aggregate 9%: above the 80% band (8%) but below the 10% budget.
+    band = [_worker(501, 5.0), _worker(502, 4.0)]
+
+    snap = _run(band, monkeypatch, regulation=regulation, records=records)
+    assert regulation["pre"] is True
+    assert regulation["active"] is False, "middle band must not fully regulate"
+    assert snap["worker_admission_hold"] is True
+
+    idle = [_worker(501, 0.5), _worker(502, 0.5)]
+    for _ in range(4):
+        _run(idle, monkeypatch, regulation=regulation, records=records)
+        assert regulation["pre"] is True
+    snap = _run(idle, monkeypatch, regulation=regulation, records=records)
+    assert regulation["pre"] is False
     assert snap["worker_admission_hold"] is False
 
 
@@ -176,7 +202,11 @@ def test_kill_switch_observes_only(monkeypatch) -> None:
         procs, monkeypatch, env={gov.GOVERNOR_DISABLE_ENV: "1"},
     )
     assert snap["disabled"] is True
-    real = [a for a in actions if a.get("action") != "regulation-entered"]
+    real = [
+        a
+        for a in actions
+        if a.get("action") not in {"regulation-entered", "prethrottle-entered"}
+    ]
     assert real == [], "kill switch must observe without acting"
     assert all(p.nice_calls == [] for p in procs)
 
