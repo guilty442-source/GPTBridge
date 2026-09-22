@@ -1,0 +1,34 @@
+{
+  "id": "w2-1-grouped-gemm-online-attention",
+  "date": "2026-09-22",
+  "scope": "W2-1 (§11.2): C 核心 grouped GEMM（逐專家 GEMM 迴圈 → 單次分組 dispatch）＋線上分塊注意力（W1 殘：seq×total_len scores 矩陣 → FlashAttention 式 online softmax tile）",
+  "worker": "devin-cli",
+  "implementation": {
+    "grouped_gemm": "native/core/transformer.c 新增 gptbridge_native_transformer_matmul_grouped（concat row-blocks × per-group B 指標 × concat C；i-k-j SIMD kernel 提取為 transformer_matmul_rows 共用；溢出/空指標 fail-closed）；transformer.h＋gptbridge_native.h 雙標頭 ABI；engine.cpp matmul_grouped wrapper（CUDA requested → per-group xcuda dispatch 保語義，無 grouped device entry）；MoE 路徑改單次 contiguous gather（expert-major、組內 token 序與舊 positions 逐列一致）＋gate/up/down 三次 grouped dispatch＋加權 scatter",
+    "online_attention": "engine.cpp 注意力迴圈改 tile=64 線上 softmax：每 query 列 O(head_dim) 狀態（running max/sum/acc），seq×total_len scores 矩陣不再實體化；masked 位置以 causal bound 截斷（語義同 -inf mask）；int8/fp64 KV 源相容",
+    "parallel_c_core": "並行 devin-cli 工作者於 C 核心另立 gptbridge_native_transformer_attention_online ABI（block_scores workspace 變體，§5.5 純 C 下沉路徑）＋suite_simd_kernels 覆蓋（parity/邊界/fail-closed）"
+  },
+  "equivalence": {
+    "python_parity": "tests/test_cpp_inference.py 40 pass / 2 skip——含新增 test_cpp_engine_multi_tile_attention_parity（150-token prompt 跨 2 tile＋20-token decode 跨第 3 tile，logits atol/rtol 2e-3、greedy ids 完全一致）",
+    "native_suites": "native/test_suites 全量 134 PASS / 0 FAIL / 0 BLOCKED（含 attention_online 套件）"
+  },
+  "baseline": {
+    "method": "同機 A/B：舊碼於 3430e3ac^ 檔案版本在樹外 temp 目錄獨立建置（不干擾主樹同儕施工）；512-token prompt、32 generated tokens、median of 7（warmup 2）、fp64 CPU 路徑；注：INT-10 soak 窗口中量測，背景負載造成個別 outlier，以 median 計",
+    "dense_prefill_ms": { "before": 409.831, "after": 266.321, "delta_pct": -35.0 },
+    "dense_generate_ms": { "before": 38.53, "after": 36.481, "delta_pct": -5.3 },
+    "moe_prefill_ms": { "before": 681.089, "after": 402.862, "delta_pct": -40.8 },
+    "moe_generate_ms": { "before": 47.359, "after": 32.52, "delta_pct": -31.3 }
+  },
+  "memory": "注意力 per-span 每層不再配置 seq×total_len×8B scores（例：256×256 prefill 省 ~512KB/層）；MoE 每層每專家 5 次 vector 配置 → 每投影 1 次",
+  "files": [
+    "native/core/transformer.c",
+    "native/core/transformer.h",
+    "native/include/gptbridge_native.h",
+    "Standalone tools/local-model/src/backend/cpp/src/engine.cpp",
+    "Standalone tools/local-model/tests/test_cpp_inference.py",
+    "native/test_suites/suite_simd_kernels.cpp (peer: attention_online coverage)",
+    "native/test_suites/suite_eval.cpp (peer)"
+  ],
+  "commits": ["3430e3ac", "d2ffc4d1", "a8e559c1", "18c111a5"],
+  "note": "同儕並行完成 C 核心 attention_online（同一 W2-1 殘項之純 C 下沉路徑）；本工作者完成 engine 熱迴圈線上化＋grouped GEMM。兩半互補，W2-1 兩項俱落地。"
+}
