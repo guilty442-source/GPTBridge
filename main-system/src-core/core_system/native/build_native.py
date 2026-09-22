@@ -42,6 +42,10 @@ C_PRIVATE_HEADERS = (
     NATIVE_ROOT / "core" / "transformer.h",
 )
 CPP_SUFFIXES = {".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx"}
+# Explicit, auditable test-suite layer: the C test suites (and their C#
+# orchestrator) live under native/test_suites and are NOT part of the pure-C
+# core boundary; the layering validator excludes this declared layer.
+TEST_SUITE_ROOT = NATIVE_ROOT / "test_suites"
 
 
 def _relative(path: pathlib.Path) -> str:
@@ -57,6 +61,7 @@ def native_build_manifest() -> dict[str, Any]:
         "public_c_abi": [_relative(path) for path in PUBLIC_C_ABI_HEADERS],
         "c_core_layer": [_relative(path) for path in C_CORE_SOURCES],
         "private_c_headers": [_relative(path) for path in C_PRIVATE_HEADERS],
+        "test_suite_layer": _relative(TEST_SUITE_ROOT),
         "output_root": _relative(DIST_NATIVE),
         "link_language": "c++",
     }
@@ -75,7 +80,9 @@ def validate_layering() -> dict[str, Any]:
 
     cpp_files = sorted(
         path for path in NATIVE_ROOT.rglob("*")
-        if path.is_file() and path.suffix.lower() in CPP_SUFFIXES
+        if path.is_file()
+        and path.suffix.lower() in CPP_SUFFIXES
+        and TEST_SUITE_ROOT not in path.parents
     )
     for path in cpp_files:
         errors.append(f"C++ source inside pure-C native root: {_relative(path)}")

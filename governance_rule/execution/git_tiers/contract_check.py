@@ -24,7 +24,7 @@ from .git_repository import GitRepository
 
 _logger = logging.getLogger("gptbridge.git.contract_check")
 
-_RULES_PATH = Path(__file__).with_name("contract_rules.json")
+_RULES_PATH = Path(__file__).with_name("contracts") / "contract_rules.json"
 
 
 def _touched_paths(repo: GitRepository, target: str, source: str) -> list[str]:
