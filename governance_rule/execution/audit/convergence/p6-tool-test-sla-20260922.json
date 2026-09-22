@@ -1,99 +1,471 @@
 {
-  "evidence": "per-tool governed test suite <=20s SLA (P1-9)",
+  "evidence": "governed test targets <=20s each (P1-9)",
   "schema": "star-tool-test-sla/v1",
-  "at": "2026-09-22T16:50:28.935686Z",
+  "at": "2026-09-22T17:02:58.700566Z",
   "sla_seconds": 20.0,
   "tools": [
     {
       "tool_id": "ai-assistant",
-      "seconds": 17.11,
-      "tests": 5,
-      "returncode": 0,
-      "tail": [
-        "",
-        ".....................                                                    [100%]",
-        "21 passed in 14.20s"
+      "tool_dir": "Standalone tools\\ai-assistant",
+      "suite_seconds": 28.69,
+      "targets": [
+        {
+          "target": "tests/test_ai_assistant_core.py",
+          "seconds": 8.97,
+          "returncode": 0,
+          "tail": [
+            "...........                                                              [100%]",
+            "11 passed in 7.54s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_investment_analytics.py",
+          "seconds": 3.09,
+          "returncode": 0,
+          "tail": [
+            ".                                                                        [100%]",
+            "1 passed in 2.29s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_investment_manager.py",
+          "seconds": 2.72,
+          "returncode": 0,
+          "tail": [
+            "..                                                                       [100%]",
+            "2 passed in 1.84s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_investment_v3.py",
+          "seconds": 7.62,
+          "returncode": 0,
+          "tail": [
+            ".                                                                        [100%]",
+            "1 passed in 5.68s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_shared_mobile_runtime.py",
+          "seconds": 6.29,
+          "returncode": 0,
+          "tail": [
+            "......                                                                   [100%]",
+            "6 passed in 5.14s"
+          ],
+          "ok": true,
+          "within_sla": true
+        }
       ],
-      "ok": true,
-      "within_sla": true
+      "ok": true
     },
     {
       "tool_id": "ai-collaboration",
-      "seconds": 4.48,
-      "tests": 2,
-      "returncode": 0,
-      "tail": [
-        "",
-        "....................                                                     [100%]",
-        "20 passed in 2.91s"
+      "tool_dir": "Standalone tools\\ai-collaboration",
+      "suite_seconds": 27.14,
+      "targets": [
+        {
+          "target": "tests/test_ai_collaboration_routing.py",
+          "seconds": 16.34,
+          "returncode": 0,
+          "tail": [
+            "..............                                                           [100%]",
+            "14 passed in 14.30s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_ai_collaboration_workflows.py",
+          "seconds": 10.8,
+          "returncode": 0,
+          "tail": [
+            "......                                                                   [100%]",
+            "6 passed in 8.28s"
+          ],
+          "ok": true,
+          "within_sla": true
+        }
       ],
-      "ok": true,
-      "within_sla": true
+      "ok": true
     },
     {
       "tool_id": "file-sorter",
-      "seconds": 5.94,
-      "tests": 6,
-      "returncode": 1,
-      "tail": [
-        "FAILED tests\\test_file_sorter_cleanup.py::test_minicpm_visual_service_recognizes_decodable_image",
-        "FAILED tests\\test_file_sorter_cleanup.py::test_minicpm_visual_service_compares_images_with_model",
-        "2 failed, 17 passed in 5.08s"
+      "tool_dir": "Standalone tools\\file-sorter",
+      "suite_seconds": 32.9,
+      "targets": [
+        {
+          "target": "tests/test_file_sorter.py",
+          "seconds": 2.22,
+          "returncode": 0,
+          "tail": [
+            "....                                                                     [100%]",
+            "4 passed in 1.52s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_file_sorter_automation.py",
+          "seconds": 4.34,
+          "returncode": 0,
+          "tail": [
+            ".......                                                                  [100%]",
+            "7 passed in 3.56s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_file_sorter_cleanup.py",
+          "seconds": 6.12,
+          "returncode": 0,
+          "tail": [
+            "....                                                                     [100%]",
+            "4 passed in 4.61s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_file_sorter_metadata_v2.py",
+          "seconds": 3.74,
+          "returncode": 0,
+          "tail": [
+            ".                                                                        [100%]",
+            "1 passed in 2.09s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_file_sorter_ui.py",
+          "seconds": 5.52,
+          "returncode": 0,
+          "tail": [
+            "..                                                                       [100%]",
+            "2 passed in 3.66s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_file_sorter_v2.py",
+          "seconds": 10.96,
+          "returncode": 0,
+          "tail": [
+            ".                                                                        [100%]",
+            "1 passed in 8.48s"
+          ],
+          "ok": true,
+          "within_sla": true
+        }
       ],
-      "ok": false,
-      "within_sla": true
+      "ok": true
     },
     {
       "tool_id": "investment-mobile",
-      "seconds": 11.51,
-      "tests": 1,
-      "returncode": 0,
-      "tail": [
-        "",
-        ".                                                                        [100%]",
-        "1 passed in 8.83s"
+      "tool_dir": "Standalone tools\\investment-mobile",
+      "suite_seconds": 4.13,
+      "targets": [
+        {
+          "target": "tests/test_investment_mobile_reexport.py",
+          "seconds": 4.13,
+          "returncode": 0,
+          "tail": [
+            ".                                                                        [100%]",
+            "1 passed in 2.19s"
+          ],
+          "ok": true,
+          "within_sla": true
+        }
       ],
-      "ok": true,
-      "within_sla": true
+      "ok": true
     },
     {
       "tool_id": "local-model",
-      "seconds": 142.87,
-      "tests": 21,
-      "returncode": 0,
-      "tail": [
-        "........................................................................ [ 94%]",
-        "......................................................................   [100%]",
-        "1222 passed in 141.14s (0:02:21)"
+      "tool_dir": "Standalone tools\\local-model",
+      "suite_seconds": 466.21,
+      "targets": [
+        {
+          "target": "tests/test_local_model_reexport.py",
+          "seconds": 4.63,
+          "returncode": 0,
+          "tail": [
+            ".                                                                        [100%]",
+            "1 passed in 2.59s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_capability_composer.py",
+          "seconds": 7.23,
+          "returncode": 0,
+          "tail": [
+            "....                                                                     [100%]",
+            "4 passed in 4.78s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_capability_evaluation.py",
+          "seconds": 18.78,
+          "returncode": 0,
+          "tail": [
+            "..                                                                       [100%]",
+            "2 passed in 16.67s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_coding_expert_1000_matrix.py",
+          "seconds": 66.86,
+          "returncode": 0,
+          "tail": [
+            "................................................................         [100%]",
+            "1000 passed in 63.66s (0:01:03)"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_google_search.py",
+          "seconds": 8.11,
+          "returncode": 0,
+          "tail": [
+            "....                                                                     [100%]",
+            "4 passed in 6.10s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_gpt_training.py",
+          "seconds": 40.31,
+          "returncode": 0,
+          "tail": [
+            "................                                                         [100%]",
+            "16 passed in 38.07s"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_local_rag.py",
+          "seconds": 21.29,
+          "returncode": 0,
+          "tail": [
+            ".........                                                                [100%]",
+            "9 passed in 14.58s"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_local_sqlite_rag_repository.py",
+          "seconds": 17.66,
+          "returncode": 0,
+          "tail": [
+            ".....                                                                    [100%]",
+            "5 passed in 15.61s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_model_parameter_policy.py",
+          "seconds": 2.09,
+          "returncode": 0,
+          "tail": [
+            "....                                                                     [100%]",
+            "4 passed in 1.36s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_model_registry_part1.py",
+          "seconds": 10.1,
+          "returncode": 0,
+          "tail": [
+            "...................                                                      [100%]",
+            "19 passed in 9.29s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_model_registry_part2.py",
+          "seconds": 24.94,
+          "returncode": 0,
+          "tail": [
+            "..................                                                       [100%]",
+            "18 passed in 23.36s"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_model_registry_part3.py",
+          "seconds": 26.5,
+          "returncode": 0,
+          "tail": [
+            ".....................                                                    [100%]",
+            "21 passed in 25.55s"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_model_registry_part4.py",
+          "seconds": 9.05,
+          "returncode": 0,
+          "tail": [
+            ".                                                                        [100%]",
+            "1 passed in 7.66s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_reading_expert.py",
+          "seconds": 33.26,
+          "returncode": 0,
+          "tail": [
+            "...................                                                      [100%]",
+            "19 passed in 30.99s"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_resource_manager.py",
+          "seconds": 8.32,
+          "returncode": 0,
+          "tail": [
+            "........                                                                 [100%]",
+            "8 passed in 5.62s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_transformer_runtime_part1.py",
+          "seconds": 14.39,
+          "returncode": 0,
+          "tail": [
+            "..................                                                       [100%]",
+            "18 passed in 10.99s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_transformer_runtime_part2.py",
+          "seconds": 12.71,
+          "returncode": 0,
+          "tail": [
+            "...............                                                          [100%]",
+            "15 passed in 9.04s"
+          ],
+          "ok": true,
+          "within_sla": true
+        },
+        {
+          "target": "tests/test_transformer_runtime_part3.py",
+          "seconds": 55.19,
+          "returncode": 0,
+          "tail": [
+            ".....................                                                    [100%]",
+            "21 passed in 52.06s"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_transformer_runtime_part4.py",
+          "seconds": 31.13,
+          "returncode": 0,
+          "tail": [
+            ".....                                                                    [100%]",
+            "5 passed in 28.35s"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_transformer_training_repository.py",
+          "seconds": 33.11,
+          "returncode": 0,
+          "tail": [
+            "..........................                                               [100%]",
+            "26 passed in 29.23s"
+          ],
+          "ok": false,
+          "within_sla": false
+        },
+        {
+          "target": "tests/test_xingcheng_layering.py",
+          "seconds": 20.56,
+          "returncode": 0,
+          "tail": [
+            "......                                                                   [100%]",
+            "6 passed in 18.00s"
+          ],
+          "ok": false,
+          "within_sla": false
+        }
       ],
-      "ok": false,
-      "within_sla": false
+      "ok": false
     },
     {
       "tool_id": "model-dialogue",
-      "seconds": 2.84,
-      "tests": 1,
-      "returncode": 0,
-      "tail": [
-        "",
-        ".                                                                        [100%]",
-        "1 passed in 1.94s"
+      "tool_dir": "Standalone tools\\local-model\\model-dialogue",
+      "suite_seconds": 15.81,
+      "targets": [
+        {
+          "target": "tests/test_model_dialogue_reexport.py",
+          "seconds": 15.81,
+          "returncode": 0,
+          "tail": [
+            ".                                                                        [100%]",
+            "1 passed in 11.08s"
+          ],
+          "ok": true,
+          "within_sla": true
+        }
       ],
-      "ok": true,
-      "within_sla": true
+      "ok": true
     },
     {
       "tool_id": "vaultly",
-      "seconds": 4.82,
-      "tests": 1,
-      "returncode": 0,
-      "tail": [
-        "",
-        "...............................................................          [100%]",
-        "63 passed in 3.52s"
+      "tool_dir": "Standalone tools\\vaultly",
+      "suite_seconds": 14.02,
+      "targets": [
+        {
+          "target": "tests/test_vaultly.py",
+          "seconds": 14.02,
+          "returncode": 0,
+          "tail": [
+            "...............................................................          [100%]",
+            "63 passed in 10.91s"
+          ],
+          "ok": true,
+          "within_sla": true
+        }
       ],
-      "ok": true,
-      "within_sla": true
+      "ok": true
     }
   ],
   "ok": false
