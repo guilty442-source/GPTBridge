@@ -219,8 +219,10 @@ int main() {
             {{"type", jstr("control")},
              {"command", jstr("state_event_resync")},
              {"payload", jobj({{"cursor", jnum(1)}})}}));
-        NT_CHECK(ch.acked_cursor() == 1 && ch.sent_upto() == 1,
-                 "resync converges cursors");
+        /* sent_upto 由 send loop 即刻重取推進——只能斷 acked==1
+           （handle_incoming 唯一寫入者）與最終回放結果，中間值
+           屬競態視窗。 */
+        NT_CHECK(ch.acked_cursor() == 1, "resync converges acked");
         NT_CHECK(t.wait_sent(before + 2, 3000), "replayed 2 events");
         NT_CHECK(t.seq_at(before) == 2 && t.seq_at(before + 1) == 3,
                  "replay covers unconfirmed seq 2,3");

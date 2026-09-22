@@ -13,7 +13,10 @@
     "build_wiring": [
       "native/test_suites/build.ps1（a263_channel_core_suite 登錄）",
       "main-system/src-core/core_system/native/build_native.py（canonical C 源＋公開標頭清單）"
-    ]
+    ],
+    "channel_runtime_header": "native/include/channel_runtime.h",
+    "channel_runtime_source": "native/tool_runtime/channel_runtime.cpp",
+    "channel_runtime_suite": "native/test_suites/suite_channel_runtime.cpp"
   },
   "python_reference": [
     "shared-layer/src/shared_layer/channel_runtime.py",
@@ -52,7 +55,9 @@
       "python_replay": "main-system/tests/test_native_m2_a263_parity.py",
       "python_tests_pass": 4,
       "python_tests_fail": 0
-    }
+    },
+    "channel_runtime_suite_cases_pass": 6,
+    "channel_runtime_suite_cases_fail": 0
   },
   "boundary": {
     "stays_python": [
@@ -65,8 +70,7 @@
     "note": "A177/E4 邊界不變：C 核心只含無副作用判定函式；事實由呼叫方注入"
   },
   "remaining_m2_items": [
-    "C++ 非同步執行面（send/receive loop、state 機轉移、outbox 持有＋回放）",
-    "ChannelTransport 對接（模式 B 代理或原生傳輸）",
+    "ChannelTransport 對接（模式 B 代理或原生傳輸綁定）",
     "雙軌 runtime flag＋shadow→primary 觀察窗",
     "load/unload 資源釋放驗收"
   ]

@@ -155,7 +155,17 @@
   _handle_resync`、`HeartbeatMixin` 實例屬性＋實跑 `_heartbeat_loop`
   活體驗證）逐鍵重播比對——native 14/14 PASS、pytest 4/4 PASS，
   M2→M3 放行門檻之三項 parity 判據落地。
-- 未做（M2 殘項）：C++ 非同步執行面（send/receive loop、state 機轉移、
-  outbox 事件持有與回放）、ChannelTransport 實作面對接、雙軌 flag 與
-  觀察窗。
+- 已補（同日）：C++ 非同步執行面——`native/include/channel_runtime.h`
+  ＋ `tool_runtime/channel_runtime.cpp`（`A263ChannelRuntime`）：
+  send loop（control 排空→outbox `sent_upto` 視窗依序送→訊息批次
+  priority 穩定排序→CV park）、receive dispatch（pong/ack/resync/
+  hello/session）、heartbeat deadline 迴圈（CV 可中斷、間隔語義不變）、
+  reconnect 狀態機（snapshot 驗證、attempts 上限→DEAD、指數退避、
+  generation+1→resync→OPEN）、outbox 事件持有＋回放、deque(maxlen)
+  drop-oldest 語義；判定全委派 `a263_channel_core`，transport／時鐘
+  ／睡眠注入（模式 B 邊界不變）。`suite_channel_runtime.cpp` 6/6
+  PASS（連跑 5 輪全綠）。
+- 未做（M2 殘項）：ChannelTransport 實作面對接（真實 WS/SQLite
+  代理綁定）、雙軌 flag 與 shadow→primary 觀察窗、load/unload
+  資源釋放驗收。
 - 證據：`convergence/a263-channel-core-20260922.json`。
