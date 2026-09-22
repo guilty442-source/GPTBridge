@@ -24,6 +24,7 @@ from ..checkpoint import load_checkpoint, save_checkpoint
 from ..config import XingChengConfig
 from ..execution.backend import resolve_device
 from ..modules.model import XingChengForCausalLM
+from .budget import check_train_budget
 from .precision import resolve_precision
 
 SFT_TEXT_SEPARATOR = "\n\n"
@@ -52,6 +53,9 @@ class SFTConfig:
     device: str | None = None
     use_amp: bool = True
     precision: str = "auto"
+    # §2.7-8 訓練中資源超支即停（0=不設限）；步邊界檢查，超限跳出仍存 final.pt
+    max_train_seconds: float = 0
+    max_train_vram_mb: int = 0
 
 
 def _prompt_prefix(tokenizer, prompt: str) -> list[int]:
@@ -309,6 +313,7 @@ def sft_train(
     started = time.time()
     step = start_step
     last_eval: dict[str, float] = {}
+    stopped_reason: str | None = None
     train_iterator = iter(train_loader)
     while step < config.max_steps:
         scale = _lr_scale(step, config)
@@ -381,6 +386,22 @@ def sft_train(
             )
             checkpoints.append(info["path"])
 
+        stopped_reason = check_train_budget(config, device, started)
+        if stopped_reason:
+            print(
+                json.dumps(
+                    {
+                        "event": "train-stopped",
+                        "step": step,
+                        "stopped_reason": stopped_reason,
+                        "elapsed_seconds": round(time.time() - started, 1),
+                    },
+                    ensure_ascii=False,
+                ),
+                flush=True,
+            )
+            break
+
     final_eval = evaluate_sft(model, val_loader, config) if len(val_loader) else {}
     info = save_checkpoint(
         target / "final.pt",
@@ -401,6 +422,7 @@ def sft_train(
         "eval": final_eval or last_eval,
         "checkpoints": checkpoints,
         "elapsed_seconds": round(time.time() - started, 2),
+        "stopped_reason": stopped_reason,
         "config": asdict(config),
     }
     (target / "sft_summary.json").write_text(

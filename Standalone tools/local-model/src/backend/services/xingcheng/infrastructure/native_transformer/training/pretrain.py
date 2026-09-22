@@ -22,6 +22,7 @@ from ..checkpoint import load_checkpoint, save_checkpoint
 from ..config import XingChengConfig
 from ..execution.backend import default_dtype, resolve_device
 from ..modules.model import XingChengForCausalLM
+from .budget import check_train_budget
 from .corpus import read_corpus
 from .precision import resolve_precision
 
@@ -48,6 +49,9 @@ class PretrainConfig:
     max_train_documents: int = 0
     use_torch_compile: bool = False  # 速度：啟用 torch.compile 需先驗證正確性（loss 差異 <1e-3）
     low_load: bool = False  # 低負載：batch2+grad_accum8+checkpoint+8bit+小 KV，VRAM -40%
+    # §2.7-8 訓練中資源超支即停（0=不設限）；步邊界檢查，超限跳出仍存 final.pt
+    max_train_seconds: float = 0
+    max_train_vram_mb: int = 0
 
 
 def _document_text(document: Any) -> str:
@@ -242,6 +246,7 @@ def pretrain(
     checkpoints: list[str] = []
     started = time.time()
     last_eval: dict[str, float] = {}
+    stopped_reason: str | None = None
     plan = _precision_plan(device, config)
     scaler = plan.scaler()
 
@@ -332,13 +337,30 @@ def pretrain(
             )
             checkpoints.append(info["path"])
 
+        stopped_reason = check_train_budget(config, device, started)
+        if stopped_reason:
+            print(
+                json.dumps(
+                    {
+                        "event": "train-stopped",
+                        "step": step + 1,
+                        "stopped_reason": stopped_reason,
+                        "elapsed_seconds": round(time.time() - started, 1),
+                    },
+                    ensure_ascii=False,
+                ),
+                flush=True,
+            )
+            break
+
+    completed_steps = start_step + len(history)
     final_eval = evaluate(model, val_blocks, config) if val_blocks.numel() else {}
     info = _save(
         target / "final.pt",
         model,
         tokenizer,
         optimizer,
-        step=config.max_steps,
+        step=completed_steps,
         tokens_seen=tokens_seen,
         last_eval=final_eval,
     )
@@ -350,12 +372,12 @@ def pretrain(
             torch.cuda.max_memory_allocated(device) / (1024 * 1024), 1
         )
     summary = {
-        "steps": config.max_steps,
+        "steps": completed_steps,
         "start_step": start_step,
         "tokens_seen": tokens_seen,
         "elapsed_seconds": round(elapsed, 2),
         "tokens_per_second": round(
-            (config.max_steps - start_step)
+            (completed_steps - start_step)
             * config.batch_size
             * config.grad_accum
             * config.block_size
@@ -371,6 +393,7 @@ def pretrain(
         "first_loss": history[0] if history else None,
         "eval": final_eval or last_eval,
         "checkpoints": checkpoints,
+        "stopped_reason": stopped_reason,
         "config": asdict(config),
     }
     (target / "pretrain_summary.json").write_text(

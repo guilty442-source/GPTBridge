@@ -60,6 +60,54 @@ class TrainingJobExecutorError(RuntimeError):
         self.error_code = error_code
 
 
+def _process_tree_rss_mb(pid: int) -> float | None:
+    """RSS of ``pid`` plus all descendants in MB.
+
+    Returns ``None`` when psutil is unavailable or the process tree can
+    no longer be sampled (e.g. the leader already exited); callers
+    decide the fail policy for each case.
+    """
+    try:
+        import psutil
+    except ImportError:
+        return None
+    try:
+        root = psutil.Process(pid)
+        total = root.memory_info().rss
+        for child in root.children(recursive=True):
+            try:
+                total += child.memory_info().rss
+            except psutil.Error:
+                continue
+        return total / (1024 * 1024)
+    except psutil.Error:
+        return None
+
+
+def _kill_process_tree(proc: subprocess.Popen) -> None:
+    """Kill the training subprocess and any children it spawned."""
+    try:
+        import psutil
+
+        try:
+            root = psutil.Process(proc.pid)
+            descendants = root.children(recursive=True)
+        except psutil.Error:
+            descendants = []
+        for child in descendants:
+            try:
+                child.kill()
+            except psutil.Error:
+                pass
+    except ImportError:
+        pass
+    proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -403,6 +451,12 @@ class TrainingJobExecutor:
         for key, (default, minimum, maximum) in (
             ("gpu_required_mb", (0, 0, 65536)),
             ("gpu_acquire_timeout_s", (600, 0, 86400)),
+            # §2.7-8 訓練中資源超支即停：程序樹 RSS 上限（0=不設限）與
+            # 取樣間隔；train_process_timeout_s 亦在此正規化（先前
+            # 未進 bounded keys，組態值被靜默丟棄恆用預設）。
+            ("train_process_timeout_s", (14_400, 0, 86_400)),
+            ("train_max_rss_mb", (0, 0, 1_048_576)),
+            ("resource_sample_interval_s", (5, 1, 600)),
         ):
             try:
                 value = int(raw.get(key, default))
@@ -686,29 +740,78 @@ class TrainingJobExecutor:
             else str(services_root)
         )
         timeout_s = float(configuration.get("train_process_timeout_s") or 14_400)
-        stderr_log = output_dir / "train-stderr.log"
-        with stderr_log.open("ab") as stderr_handle:
+        # §2.7-8 防爆走：訓練中資源超支即停。程序樹 RSS 超過
+        # ``train_max_rss_mb`` 立即終止（含子孫程序）；預算已設定但
+        # 無法取樣（psutil 缺失）時 fail-closed 不啟動訓練。
+        budget_mb = float(configuration.get("train_max_rss_mb") or 0)
+        interval_s = max(
+            0.5, float(configuration.get("resource_sample_interval_s") or 5)
+        )
+        if budget_mb > 0:
             try:
-                proc = subprocess.run(
-                    [
-                        sys.executable,
-                        "-m",
-                        "xingcheng.infrastructure.training_job_worker",
-                        str(spec_file),
-                    ],
-                    cwd=str(services_root),
-                    env=env,
-                    stdout=subprocess.DEVNULL,
-                    stderr=stderr_handle,
-                    timeout=timeout_s if timeout_s > 0 else None,
-                    check=False,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                )
-            except subprocess.TimeoutExpired as exc:
+                import psutil as _psutil_probe  # noqa: F401
+            except ImportError as exc:
                 raise TrainingJobExecutorError(
-                    "EXECUTOR_TRAINING_FAILED",
-                    f"training subprocess timed out after {timeout_s}s",
+                    "EXECUTOR_RESOURCE_MONITOR_UNAVAILABLE",
+                    "train_max_rss_mb configured but psutil is unavailable; "
+                    "budget cannot be enforced",
                 ) from exc
+        stderr_log = output_dir / "train-stderr.log"
+        started = time.monotonic()
+        deadline = (started + timeout_s) if timeout_s > 0 else None
+        peak_rss_mb = 0.0
+        rss_samples = 0
+        with stderr_log.open("ab") as stderr_handle:
+            proc = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "xingcheng.infrastructure.training_job_worker",
+                    str(spec_file),
+                ],
+                cwd=str(services_root),
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_handle,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            while True:
+                try:
+                    proc.wait(timeout=interval_s)
+                    break
+                except subprocess.TimeoutExpired:
+                    pass
+                if deadline is not None and time.monotonic() >= deadline:
+                    _kill_process_tree(proc)
+                    raise TrainingJobExecutorError(
+                        "EXECUTOR_TRAINING_FAILED",
+                        f"training subprocess timed out after {timeout_s}s",
+                    )
+                rss_mb = _process_tree_rss_mb(proc.pid)
+                if rss_mb is not None:
+                    rss_samples += 1
+                    peak_rss_mb = max(peak_rss_mb, rss_mb)
+                    if budget_mb > 0 and rss_mb > budget_mb:
+                        _kill_process_tree(proc)
+                        try:
+                            (output_dir / "train-error.json").write_text(
+                                json.dumps(
+                                    {
+                                        "error": (
+                                            "resource budget exceeded: "
+                                            f"{rss_mb:.0f}MB > {budget_mb:.0f}MB"
+                                        )
+                                    }
+                                ),
+                                encoding="utf-8",
+                            )
+                        except OSError:
+                            pass
+                        raise TrainingJobExecutorError(
+                            "EXECUTOR_RESOURCE_OVERBUDGET",
+                            "training subprocess exceeded RSS budget: "
+                            f"{rss_mb:.0f}MB > {budget_mb:.0f}MB",
+                        )
         if proc.returncode != 0:
             detail = ""
             error_file = output_dir / "train-error.json"
@@ -732,11 +835,20 @@ class TrainingJobExecutor:
                 "training subprocess produced no summary",
             )
         try:
-            return dict(json.loads(summary_file.read_text(encoding="utf-8")))
+            summary = dict(json.loads(summary_file.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError) as exc:
             raise TrainingJobExecutorError(
                 "EXECUTOR_TRAINING_FAILED", f"summary unreadable: {exc}"
             ) from exc
+        # §2.7-8/9 資源帳：子程序生命期的 RSS 峰值與預算、取樣數、
+        # 壁鐘時長隨 summary 進稽核（train_fn 注入樁不經此路徑）。
+        summary["resource"] = {
+            "peak_rss_mb": round(peak_rss_mb, 1) if rss_samples else None,
+            "rss_budget_mb": budget_mb or None,
+            "rss_samples": rss_samples,
+            "elapsed_s": round(time.monotonic() - started, 1),
+        }
+        return summary
 
     def _runtime_state(self) -> dict[str, Any]:
         with self.repository._connect() as connection:
