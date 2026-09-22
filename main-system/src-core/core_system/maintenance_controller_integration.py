@@ -83,6 +83,27 @@ class MaintenanceControllerIntegration:
         # Create controller
         self.controller = MaintenanceController(config)
 
+        # §10.65 act-1: attach the native-shadow observer. Fail-closed —
+        # from_policy returns None when the flag is not "shadow" or the
+        # native extension is absent, and the Python path never depends on it.
+        try:
+            from pathlib import Path
+
+            from tasks.maintenance_controller_native_shadow import (
+                MaintenanceNativeShadow,
+            )
+
+            get_gen = config.get_current_generation
+            self.controller.set_native_shadow(
+                MaintenanceNativeShadow.from_policy(
+                    Path(getattr(self.app, "project_root", "E:/GPTBridge")),
+                    scheduler_config=config.scheduler_config,
+                    current_generation=int(get_gen()) if get_gen else 0,
+                )
+            )
+        except Exception:
+            pass
+
         # Register executors
         self._register_executors()
 
