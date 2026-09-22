@@ -190,6 +190,58 @@ class ModelLifecycle:
                 return entry
         return None
 
+    def retire_weights(
+        self,
+        keep_latest: int = 2,
+        *,
+        extra_keep_paths: set[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """§10.67 世代淘汰——把超出保留窗的 weights 版本移入 ``retired`` 子表。
+
+        保留規則：最新 ``keep_latest`` 個版本**加上**當前 active 版本（回滾後
+        active 可能不是最新）以及 ``extra_keep_paths`` 指向的版本
+        （如 ``native-engine.json`` 釘定的 checkpoint）。退役版本的中繼資料
+        與 sha256 保留於 ``artifacts.weights.retired`` 作為證據；其檔案路徑
+        自此不再受生命週期引用保護，可由 retention 掃除實體檔案。
+        """
+        weights = self.artifacts.get("weights")
+        if not weights:
+            return []
+        versions = list(weights.get("versions", []))
+        keep = max(1, int(keep_latest))
+        keep_versions = {
+            int(entry["version"]) for entry in versions[-keep:]
+        }
+        if self.active_weights_version:
+            keep_versions.add(int(self.active_weights_version))
+        extra = {str(p) for p in (extra_keep_paths or set())}
+        retired_now: list[dict[str, Any]] = []
+        remaining: list[dict[str, Any]] = []
+        for entry in versions:
+            protected = int(entry["version"]) in keep_versions or (
+                str(entry.get("path", "")) in extra
+            )
+            if protected:
+                remaining.append(entry)
+                continue
+            moved = dict(entry)
+            moved["retired_at"] = _utcnow()
+            retired_now.append(moved)
+        if not retired_now:
+            return []
+        weights["versions"] = remaining
+        retired_list = weights.setdefault("retired", [])
+        retired_list.extend(retired_now)
+        self.history.append(
+            {
+                "at": _utcnow(),
+                "event": "weights_retired",
+                "versions": [int(e["version"]) for e in retired_now],
+                "kept": sorted(keep_versions),
+            }
+        )
+        return retired_now
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "format": LIFECYCLE_FORMAT,

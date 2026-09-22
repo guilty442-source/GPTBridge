@@ -52,6 +52,7 @@ class RetentionPolicy:
     keep_maturity_reports: int = 10   # 另加數量上限（取較嚴者）
     keep_self_learning_reports: int = 10
     keep_snapshots: int = 5           # self-learning 匯出快照數量
+    keep_weight_versions: int = 2     # §10.67：權重世代保留 active＋上一代
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -227,6 +228,81 @@ def _plan_snapshots(tool_root: Path, policy: RetentionPolicy) -> list[Path]:
     return snaps[int(policy.keep_snapshots):]
 
 
+def _pinned_checkpoint(tool_root: Path) -> set[str]:
+    """``native-engine.json`` 釘定的 checkpoint——退役的額外保護。"""
+    settings_file = tool_root / SETTINGS_RELATIVE
+    if not settings_file.is_file():
+        return set()
+    try:
+        settings = json.loads(settings_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    pinned = str(settings.get("checkpoint") or "")
+    if not pinned:
+        return set()
+    return {str((tool_root / pinned).resolve())}
+
+
+def _retire_weight_generations(
+    tool_root: Path, policy: RetentionPolicy
+) -> dict[str, Any]:
+    """§10.67 世代退役——把超出保留窗的 weights 版本轉入 ``retired`` 子表。
+
+    中繼資料與 sha256 永存（證據）；退役版本的路徑自此不受
+    ``_protected_paths`` 保護，實體檔由 ``_plan_retired_weights`` 掃除。
+    active 版本與 ``native-engine.json`` 釘定版本永不退役。
+    """
+    from .lifecycle import ModelLifecycle
+
+    report: dict[str, Any] = {"models": {}, "retired_versions": []}
+    extra_keep = _pinned_checkpoint(tool_root)
+    for lifecycle_file in sorted(tool_root.glob(LIFECYCLE_GLOB)):
+        try:
+            lifecycle = ModelLifecycle.load(lifecycle_file.parent)
+        except Exception:
+            continue
+        retired = lifecycle.retire_weights(
+            int(policy.keep_weight_versions),
+            extra_keep_paths=extra_keep,
+        )
+        if retired:
+            lifecycle.save(lifecycle_file.parent)
+            report["models"][lifecycle.model_id] = [
+                int(e["version"]) for e in retired
+            ]
+            report["retired_versions"].extend(
+                str(e.get("path") or "") for e in retired
+            )
+    return report
+
+
+def _plan_retired_weights(
+    tool_root: Path, protected: set[Path]
+) -> list[Path]:
+    """退役版本仍存在的實體檔——不再受引用保護者列入刪除。"""
+    victims: list[Path] = []
+    for lifecycle_file in sorted(tool_root.glob(LIFECYCLE_GLOB)):
+        try:
+            data = json.loads(lifecycle_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        retired = (
+            (data.get("artifacts") or {})
+            .get("weights", {})
+            .get("retired", [])
+        )
+        for entry in retired:
+            raw = str(entry.get("path") or "")
+            if not raw:
+                continue
+            path = Path(raw)
+            if not path.is_absolute():
+                path = tool_root / path
+            if path.is_file() and not _is_protected(path, protected):
+                victims.append(path)
+    return victims
+
+
 def apply_retention(
     tool_root: str | Path,
     *,
@@ -239,16 +315,24 @@ def apply_retention(
     if not resolved_policy.enabled:
         return {"ok": True, "action": "disabled", "checked_at": _utcnow()}
 
+    retirement = (
+        {"models": {}, "retired_versions": [], "skipped": "dry-run"}
+        if dry_run
+        else _retire_weight_generations(root, resolved_policy)
+    )
     protected = _protected_paths(root)
     plans = {
         "job_dirs": _plan_job_dirs(root, resolved_policy, protected),
         "logs": _plan_logs(root, resolved_policy),
         "snapshots": _plan_snapshots(root, resolved_policy),
+        "retired_weights": _plan_retired_weights(root, protected),
     }
     deleted: list[dict[str, Any]] = []
     for category, paths in plans.items():
         for path in paths:
-            if category == "logs" and _is_protected(path, protected):
+            if category in ("logs", "retired_weights") and _is_protected(
+                path, protected
+            ):
                 continue
             size = 0
             try:
@@ -272,6 +356,7 @@ def apply_retention(
         "ok": True,
         "action": "dry-run" if dry_run else "applied",
         "policy": resolved_policy.to_dict(),
+        "weight_retirement": retirement,
         "protected_paths": len(protected),
         "deleted": deleted,
         "deleted_bytes": sum(item["bytes"] for item in deleted),
