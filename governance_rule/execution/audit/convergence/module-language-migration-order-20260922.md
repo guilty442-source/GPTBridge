@@ -33,3 +33,13 @@
 - Python 路徑在 retire 前不刪（§10.65）；每模組單一能力單一職責（混責先拆）；
 - 按需使用不常駐：遷移後模組須驗證載入／卸載＋資源釋放；
 - 整體淨占用不得因遷移上升（Python −100 MB 不得換他處 +150 MB）。
+
+## 補充（2026-09-22）：M1 實效閉包修正＋ABI 規格
+
+- 盤點 `system-rescue` 實效閉包後發現：其自身僅 87 LOC shim，**真正執行面為
+  `GovernedToolRuntime` 框架**（worker/claim/WS 閘門/HTTP/健康快照，~1173 LOC）
+  ——M1 的施工標的因此是「受管工具執行面協定」而非該 shim。
+- 前置規格已產出：`governed-tool-runtime-abi-v1.md`（`star-governed-tool-runtime-abi/v1`），
+  凍結 §1–§6 線上語義＋12 項 shadow parity 判據；`issue_token` 屬治理認證面，
+  **未核定前 M1 採模式 B**（C++ 工具體＋Python transport 代理，不觸 token ABI）。
+- `investment-mobile`（M1 C#）同受此規格約束；兩者共用同一 governed runtime 協定。
