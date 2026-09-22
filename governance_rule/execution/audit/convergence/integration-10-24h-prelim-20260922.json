@@ -1,0 +1,19 @@
+{
+  "evidence": "INTEGRATION-10 24h 穩定驗收（prelim, 5.2h/24h）",
+  "at": "2026-09-22T04:33:00Z",
+  "start": "2026-09-21T23:18:00Z",
+  "now": "2026-09-22T04:33:31Z",
+  "uptime_hours": 5.26,
+  "target_hours": 24,
+  "remaining_hours": 18.74,
+  "verifier": "main-system/runtime/state/startup-generation.json (generation 74d0fb4b, ok true, 7 phases all ok, total 812ms)",
+  "probes": {
+    "readiness": "PASS (startup-generation ok true)",
+    "boot_core": "PASS (phase-6-activate-core-sovereigns 235ms ok)",
+    "health": "pending 24h continuous (current 5.2h, zero dead-grace loops so far)",
+    "resource": "RSS p95 82.6 MB / idle CPU 2.97% / 5 jobs (R5), within 220 MB / 3% budget",
+    "logs": "sleep-transitions 4 events, resource-governor 115 samples, no ERROR"
+  },
+  "verdict": "IN_PROGRESS (5.2h/24h, 18.7h remaining, prelim PASS, final report after 24h)",
+  "next": "continue uptime to 2026-09-22T23:18Z + 24h, then emit final acceptance report with zero restart / dead-grace / health / resource / logs / orphan checks"
+}
