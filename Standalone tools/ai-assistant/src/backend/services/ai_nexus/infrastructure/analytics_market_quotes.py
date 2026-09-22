@@ -148,7 +148,7 @@ def sync_yahoo_open_market_quotes(
     open_markets: Sequence[str],
     *,
     fetch_json: FetchJson | None = None,
-    max_workers: int = 12,
+    max_workers: int = 5,
 ) -> dict[str, Any]:
     fetch = fetch_json or _default_fetch_json
     active_markets = {str(item or "").strip().upper() for item in open_markets}

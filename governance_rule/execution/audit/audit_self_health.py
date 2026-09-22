@@ -194,7 +194,9 @@ def _normalized_test_reference(raw: str) -> str:
     return raw.strip().strip("\"'").replace("\\", "/").lstrip("./")
 
 
-_SELF_HEALTH_BATCH_CHUNKS = 6
+# §10.30/A590: batch parallelism is capped at the five-core budget; the audit
+# cannot import shared_layer, so the bound is expressed as a local clamp.
+_SELF_HEALTH_BATCH_CHUNKS = 5
 
 # Relative pytest-collection weight per owning area: the native model tests
 # import heavy ML dependencies (torch et al.) and dominate a chunk's runtime,
@@ -271,7 +273,7 @@ def _batched_collection_results(
 
     chunks = _balance_chunks(declared_files, chunk_count)
     with ThreadPoolExecutor(
-        max_workers=len(chunks),
+        max_workers=min(len(chunks), _SELF_HEALTH_BATCH_CHUNKS),
         thread_name_prefix="self-health-batch",
     ) as executor:
         outcomes = list(

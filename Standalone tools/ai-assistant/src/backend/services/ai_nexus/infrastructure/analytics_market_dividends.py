@@ -216,7 +216,7 @@ def sync_yahoo_dividends(
     *,
     fetch_json: FetchJson | None = None,
     period: str = "2y",
-    max_workers: int = 8,
+    max_workers: int = 5,
 ) -> dict[str, Any]:
     fetch = fetch_json or _default_fetch_json
     candidates = [

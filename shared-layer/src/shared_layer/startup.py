@@ -8,6 +8,7 @@ from typing import Callable
 # This startup probe covers the bounded local degraded store. Canonical shared
 # structured data remains PostgreSQL and must be checked by the host bootstrap.
 from .local.database import DatabaseHealthCheck, DatabaseSettings
+from .performance.thread_budget import bounded_workers
 
 STATE_READY = "READY"
 STATE_DEGRADED = "DEGRADED"
@@ -141,7 +142,7 @@ class SharedLayerStartup:
             except Exception as exc:
                 return {"available": False, "last_error": str(exc)[:300]}
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
+        with ThreadPoolExecutor(max_workers=bounded_workers(2)) as pool:
             qdrant = pool.submit(_probe_qdrant).result()
             ollama = pool.submit(_probe_ollama).result()
 

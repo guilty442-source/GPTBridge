@@ -26,7 +26,10 @@ def _fetch_all(
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     updates: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
-    workers = max(1, min(int(max_workers or 1), 12))
+    # §10.30/A590: worker count converges through the five-core budget entry.
+    from shared_layer.performance.thread_budget import bounded_workers
+
+    workers = bounded_workers(int(max_workers or 1))
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
             executor.submit(worker, holding): holding for holding in candidates

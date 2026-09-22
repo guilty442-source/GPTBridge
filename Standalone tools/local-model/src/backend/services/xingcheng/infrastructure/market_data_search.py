@@ -33,7 +33,10 @@ class MarketDataSearchMixin:
         ][:300]
         results: list[dict[str, Any]] = []
         errors: list[dict[str, str]] = []
-        workers = max(1, min(int(payload.get("max_workers") or 4), 6))
+        # 統一執行緒策略入口（§10.30／A590）：worker 數受五核預算收斂。
+        from shared_layer.performance.thread_budget import bounded_workers
+
+        workers = bounded_workers(int(payload.get("max_workers") or 4))
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
                 executor.submit(

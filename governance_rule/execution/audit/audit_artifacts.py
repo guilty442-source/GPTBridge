@@ -1842,6 +1842,126 @@ def check_workload_pool_query_class(root: Path, errors: list[str]) -> None:
             errors.append(f"Workload pool/query class migration 032 is missing: {required}")
 
 
+_POOL_CALL = re.compile(r"(?:Thread|Process)PoolExecutor\s*\(")
+_MAX_WORKERS_ARG = re.compile(r"max_workers\s*=\s*([^,\)]+)")
+_CONST_INT = re.compile(r"^([A-Z][A-Z0-9_]*)\s*=\s*(\d+)\s*$", re.MULTILINE)
+_IDENT_EXPR = re.compile(r"[A-Za-z_]\w*")
+_POOL_BOUNDED_TOKENS = (
+    "bounded_workers",
+    "bounded_threads",
+    "cpu_thread_budget",
+    "apply_cpu_thread_budget",
+    "_audit_workers",
+    "min(",
+)
+_POOL_SCAN_ROOTS = (
+    "main-system/src-core",
+    "main-system/governance",
+    "shared-layer/src",
+    "governance_rule",
+    "Standalone tools",
+)
+_POOL_SKIP_DIRS = {
+    "__pycache__",
+    ".venv",
+    "bin",
+    "build",
+    "dist",
+    "node_modules",
+    "releases",
+    "runtime",
+    "test",
+    "tests",
+}
+_WORKER_POOL_CAP = 5
+
+
+def _bounded_workers_expr(
+    expr: str, text: str, consts: dict[str, int], depth: int = 0
+) -> bool:
+    """Return whether a ``max_workers`` expression is provably ≤ the cap."""
+    expr = expr.strip()
+    if not expr:
+        return False
+    if any(token in expr for token in _POOL_BOUNDED_TOKENS):
+        return True
+    if re.fullmatch(r"\d+", expr):
+        return int(expr) <= _WORKER_POOL_CAP
+    added = re.fullmatch(r"([A-Za-z_]\w*)\s*\+\s*(\d+)", expr)
+    if added is not None and added.group(1) in consts:
+        return consts[added.group(1)] + int(added.group(2)) <= _WORKER_POOL_CAP
+    if _IDENT_EXPR.fullmatch(expr) and depth < 2:
+        assign = re.search(
+            rf"^\s*{re.escape(expr)}\s*=\s*(.+)$", text, re.MULTILINE
+        )
+        if assign is not None:
+            return _bounded_workers_expr(
+                assign.group(1), text, consts, depth + 1
+            )
+    return False
+
+
+def check_bounded_worker_pools(root: Path, errors: list[str]) -> None:
+    """Verify every worker pool is bounded inside the five-core budget.
+
+    §10.30/A590: ``shared_layer.performance.thread_budget`` is the unified
+    entry point (five-core cap, lower-only, ``threads × workers ≤ budget``);
+    every ``ThreadPoolExecutor``/``ProcessPoolExecutor`` in production code
+    must carry an explicit ``max_workers`` provably bounded — routed through
+    the entry point, clamped via ``min()``, or a literal/constant ≤ 5.
+    Unbounded ``max_workers=len(...)``-style pools fail closed.
+    """
+    module = (
+        root
+        / "shared-layer"
+        / "src"
+        / "shared_layer"
+        / "performance"
+        / "thread_budget.py"
+    )
+    if not module.is_file():
+        errors.append("Thread budget module is missing")
+        return
+    module_text = read_text_cached(module)
+    for required in (
+        "CORE_BUDGET_CAP = 5",
+        "bounded_workers",
+        "bounded_threads",
+        "allocation_within_budget",
+    ):
+        if required not in module_text:
+            errors.append(f"Thread budget module is missing: {required}")
+    for rel_root in _POOL_SCAN_ROOTS:
+        base = root / rel_root
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*.py")):
+            if any(part in _POOL_SKIP_DIRS for part in path.parts):
+                continue
+            if path.name.startswith("test_"):
+                continue
+            text = read_text_cached(path)
+            consts = {
+                name: int(value)
+                for name, value in _CONST_INT.findall(text)
+            }
+            for match in _POOL_CALL.finditer(text):
+                window = text[match.end() : match.end() + 240]
+                arg = _MAX_WORKERS_ARG.search(window)
+                rel_path = path.relative_to(root).as_posix()
+                if arg is None:
+                    errors.append(
+                        f"{rel_path}: worker pool missing explicit max_workers"
+                    )
+                    continue
+                expr = arg.group(1).strip()
+                if not _bounded_workers_expr(expr, text, consts):
+                    errors.append(
+                        f"{rel_path}: worker pool not provably inside the "
+                        f"five-core budget: max_workers={expr}"
+                    )
+
+
 def check_query_fingerprint(root: Path, errors: list[str]) -> None:
     """Verify query fingerprint migration (033) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "033_query_fingerprint.sql"

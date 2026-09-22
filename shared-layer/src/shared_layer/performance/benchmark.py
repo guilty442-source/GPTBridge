@@ -3,7 +3,7 @@
 Each benchmark uses the same input/correctness contract and covers:
     - size: small / medium / large
     - warmth: cold (first call) / warm (after warmup)
-    - concurrency: bounded (1 / 2 / 4 / 8 workers)
+    - concurrency: bounded (clamped to the five-core thread budget, §10.30)
 
 For native comparisons, the benchmark measures end-to-end cost:
     Python call → data conversion → pybind11/C ABI → C++ →
@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Any, Callable, Sequence
 
 from .profiler import ProfileResult, _percentile, profile_callable
+from .thread_budget import bounded_workers
 
 
 class SizeClass(str, Enum):
@@ -118,7 +119,7 @@ class BenchmarkSuite:
                     correctness = False
         else:
             with concurrent.futures.ThreadPoolExecutor(
-                max_workers=config.concurrency,
+                max_workers=bounded_workers(config.concurrency),
             ) as pool:
                 futures = [
                     pool.submit(_one)
