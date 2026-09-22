@@ -1,0 +1,49 @@
+{
+  "evidence": "L5 SFT v15 1200 steps (medium 27M) — maturity L5 certified 4/4 dialogue probes",
+  "at": "2026-09-22T11:29:31Z",
+  "lineage": "v13 (1691 rec/200步) 0/4 → v14 (5711 rec/800步) 1/4 → v15 (5653 rec/1200步) 4/4 PASS",
+  "dataset": "Standalone tools/local-model/xingcheng/runtime/sft/chat-foundation-v15-mixed.jsonl",
+  "dataset_format": "star-chat-foundation/v1",
+  "records": 5653,
+  "chat": 5147,
+  "replay": 506,
+  "echo_scale": 2000,
+  "seed": 20260924,
+  "dataset_changes": "choice 記錄由固定 3 筆擴為 echo_scale//50 連動（v15=23 筆）；corpus-v1 train.jsonl 由 build_corpus 重建（retention 已清原始產物）",
+  "training": {
+    "init_checkpoint": "Standalone tools/local-model/xingcheng/runtime/models/medium-dense-v1/final.pt",
+    "output_dir": "Standalone tools/local-model/xingcheng/runtime/models/jobs/manual-sft-v15-20260922",
+    "config": {
+      "max_length": 256,
+      "batch_size": 8,
+      "grad_accum": 2,
+      "lr": 5e-05,
+      "max_steps": 1200,
+      "warmup_steps": 20,
+      "device": "cuda"
+    },
+    "elapsed_seconds": 825.78,
+    "first_loss": 5.0617,
+    "final_loss": 0.3278,
+    "eval_loss": 1.7123,
+    "eval_perplexity": 5.54
+  },
+  "evaluation": {
+    "probe": "maturity ladder L0-L5 (cpu, certify)",
+    "result": "L0-L4 pass, L5 dialogue_instruction pass (>=0.75 ratio)",
+    "report": "xingcheng/runtime/logs/maturity-20260922-112931.json",
+    "verdict": "PASS — certified_level=5"
+  },
+  "comparison": {
+    "v13": {"records": 1691, "steps": 200, "final_loss": 1.61, "l5": "0/4"},
+    "v14": {"records": 5711, "steps": 800, "final_loss": 0.42, "l5": "1/4 (turn_boundary only)"},
+    "v15": {"records": 5653, "steps": 1200, "final_loss": 0.33, "l5": "4/4 pass"}
+  },
+  "root_cause_notes": [
+    "v13→v14 主因：資料量 3.4× + 步數 4× → turn_boundary 學到",
+    "v14→v15：choice 記錄覆蓋缺口修補（3→23）+ 步數 1200 → echo/choice/multiturn 全過",
+    "multiturn_memory 探針值 QZ-88 屬 PROBE_VALUES 排除項，模型靠泛化記憶行為通過——非背誦",
+    "模型成熟度 state 已更新 certified_level=5 checkpoint=manual-sft-v15 final.pt"
+  ],
+  "activation_note": "v15 權重僅為候選工件；runtime/settings/native-engine.json 仍指向 medium-dense-v1。啟用屬受管升級（self-learning eval 閘或明示核准），本次未啟用。"
+}
