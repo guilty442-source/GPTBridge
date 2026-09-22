@@ -251,6 +251,15 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
                     commit_result.returncode if commit_result is not None else -1
                 ),
             )
+            # Unstage what this pass staged — otherwise the leftover index
+            # makes every later sweep report staged-index-present forever
+            # (the mid-commit guard deadlocks on the sweep's own debris).
+            # Worktree files are untouched; only the index is cleared.
+            # `restore` is a SYSTEM_SAFE_TIER2 op; `reset` is gate-denied.
+            try:
+                _governed(repo, ["restore", "--staged", "."], actor=actor)
+            except Exception:
+                pass
             return f"error:commit:{detail[:200]}"
     finally:
         if locked:
