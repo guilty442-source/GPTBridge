@@ -1,6 +1,6 @@
 {
   "registry": "sovereign-transition-registry/v1",
-  "generated_at": "2026-09-21",
+  "generated_at": "2026-09-23",
   "purpose": "Governed transition relationship between A334 (fixed assignment), A591 (sovereigns to core engines) and A592 (sub-sovereign elimination). Read-only planning registry; it does not grant runtime effect.",
   "provisions": {
     "A334": {
@@ -8,48 +8,67 @@
       "content_hash": "f8c5f664d6c08a543b7ed619466dc82bb932546b3a865db36c08efa4ff3eb066",
       "lifecycle_state": "active",
       "effective_version": "1.00000",
-      "current_binding_version": "2026-09-19T14:58:26Z",
+      "current_binding_version": "2026-09-22T16:41:03Z",
       "formal_rules": ["RULE_RUNTIME_AUTHORITY_RESOLUTION_V1", "RULE_DELEGATION_VALIDATION_V1"],
       "role": "legacy fixed assignment: sovereign_hierarchy_registry + module_assignment_registry are the machine authority"
     },
     "A591": {
       "subject": "sovereigns-become-core-engines",
       "content_hash": "45c3c0bd6211520c11e78124766a9c520c33eb349771ab3805a8f1a1a76c26a5",
-      "lifecycle_state": "active",
+      "lifecycle_state": "superseded",
+      "successor_identity": "ARTICLE_A604",
+      "successor_evidence": "A604-authority-convergence",
       "effective_version": "2026-09-20T17:39:12Z",
-      "current_binding_version": "2026-09-20T17:39:12Z",
+      "current_binding_version": "2026-09-22T16:41:03Z",
       "formal_rules": ["FR-SOVEREIGN-TO-CORE-ENGINE"],
-      "rule_status": "proposed",
+      "rule_status": "evaluator-parity-verified",
+      "rule_parity_status": "VERIFIED",
       "role": "target: five core engines (decision / permission / system-runtime / synchronization / xingcheng), one-to-one duties, codex-first"
     },
     "A592": {
       "subject": "sub-sovereign-elimination-full-modularization",
       "content_hash": "009b0ae83d31672c5ec91eaeda89efcd440d3bf495f854390a2dde0ffdc",
-      "lifecycle_state": "active",
+      "lifecycle_state": "superseded",
+      "successor_identity": "ARTICLE_A604",
+      "successor_evidence": "A604-authority-convergence",
       "effective_version": "2026-09-20T17:39:12Z",
-      "current_binding_version": "2026-09-20T17:39:12Z",
+      "current_binding_version": "2026-09-22T16:41:03Z",
       "formal_rules": ["FR-NO-SUB-SOVEREIGN-ALL-MODULES"],
-      "rule_status": "proposed",
+      "rule_status": "evaluator-parity-verified",
+      "rule_parity_status": "VERIFIED",
       "role": "target: sub-sovereign layer eliminated; functions map to single-purpose modules; registry/manifests/permission routes synchronised"
+    },
+    "A604": {
+      "subject": "authority-convergence",
+      "lifecycle_state": "active",
+      "effective_version": "2026-09-22T16:21:08Z",
+      "current_binding_version": "2026-09-22T16:41:03Z",
+      "formal_rules": [],
+      "role": "successor of A591/A592: converged authority article under which modular dispatch rows are now bound"
     }
   },
   "current_implementation": {
-    "assignment_model": "A334 fixed assignment (module_assignment_registry + sovereign_hierarchy_registry)",
-    "active_sub_sovereigns": 13,
-    "runtime_path": "sovereign -> sub-sovereign -> fixed module assignment -> executor",
-    "evidence": "architecture_registry owner_sub_sovereign still populated (13 distinct values, 42 components)"
+    "assignment_model": "A604 modular dispatch (module_assignment_registry.managing_sub_sovereign = 'none-single-purpose-module-dispatch' for all 17 rows)",
+    "active_sub_sovereigns": 0,
+    "retired_sub_sovereigns": 19,
+    "module_assignment_rows": {
+      "active-modular-dispatch-A604": 5,
+      "legacy-modular-dispatch-A604": 12
+    },
+    "runtime_path": "sovereign -> single-purpose module dispatch (A604 rows) -> executor",
+    "evidence": "codex DB measured 2026-09-23: sovereign_hierarchy_registry 19/19 retired; module_assignment_registry 17/17 re-pointed to none-single-purpose-module-dispatch; architecture_registry has no owner_sub_sovereign column"
   },
   "target_architecture": {
-    "assignment_model": "A592 dynamic capability matching",
+    "assignment_model": "A604 (successor of A592) dynamic capability matching",
     "runtime_path": "core engine -> capability match by task -> single-purpose module -> governed execution",
     "evidence_requirement": "architecture_registry owner_sub_sovereign retired; module manifests and permission routes synchronised"
   },
   "transition_preconditions": [
-    "A591/A592 formal rules leave 'proposed' and reach declared-pending-evaluator-parity with machine evaluators",
+    "A591/A592 formal rules leave 'proposed' and reach declared-pending-evaluator-parity with machine evaluators — SATISFIED 2026-09-22 (evaluator-parity-verified / parity VERIFIED); provisions since superseded by A604 (active 2026-09-22T16:21:08Z)",
     "equivalence mapping (13 owner_sub_sovereign values -> single-purpose modules) recorded and reviewed",
     "module manifests, architecture_registry and permission routes prepared for owner_sub_sovereign retirement",
     "new dispatch contract defined and parity-tested against the legacy fixed-assignment resolution",
-    "no runtime request is simultaneously controlled by A334 fixed assignment and A592 dynamic matching"
+    "no runtime request is simultaneously controlled by A334 fixed assignment and A604 dynamic matching"
   ],
   "transition_acceptance": [
     "PREPARED: mapping + preconditions recorded (registry file + blueprint section)",
@@ -68,13 +87,13 @@
   ],
   "current_stage": "PREPARED",
   "stage_evidence": {
-    "PREPARED": "equivalence mapping recorded (this file); A591/A592 active in codex; rules still 'proposed'"
+    "PREPARED": "equivalence mapping recorded (this file); A591/A592 superseded by A604 (active 2026-09-22); FR-SOVEREIGN-TO-CORE-ENGINE / FR-NO-SUB-SOVEREIGN-ALL-MODULES evaluator-parity-verified (parity VERIFIED); dispatch parity v2 semantic-code evidence recorded (43 modules, 17/17 fixed-assignment parity) — full runtime dispatch wiring pending CUTOVER gate"
   },
   "rules": {
-    "no_deletion_before_registry_switch": "sub-sovereign identities must not be deleted before the registry is switched (A592 codex-first)",
-    "single_model_per_request": "each runtime request is governed by exactly one assignment model; A334 while current_stage < ACTIVATED, A592 only from ACTIVATED",
+    "no_deletion_before_registry_switch": "sub-sovereign identities must not be deleted before the registry is switched (codex-first); DB measured 2026-09-23: sovereign_hierarchy_registry already 19/19 retired and assignment rows re-pointed under A604",
+    "single_model_per_request": "each runtime request is governed by exactly one assignment model; A334 while current_stage < ACTIVATED, A604 dispatch contract only from ACTIVATED",
     "cutover_gate": "the new dispatch contract gains current runtime effect only when PARITY_VERIFIED and CUTOVER_READY evidence is complete",
-    "no_article_expansion": "no new articles are required for this transition; A591/A592 plus existing A334 controls are sufficient"
+    "no_article_expansion": "no new articles are required for this transition; A604 (successor of A591/A592) plus existing A334 controls are sufficient"
   },
   "equivalence_mapping": [
     {"owner_sub_sovereign": "change_acceptance_sub_sovereign", "components": 8, "target": "single-purpose tool/module ownership (model-dialogue, ai-assistant, ai-collaboration, file-sorter, investment-mobile, vaultly, business-logic-csharp)"},
