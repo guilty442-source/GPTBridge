@@ -1,0 +1,44 @@
+{
+  "artifact": "git-single-writer-lease",
+  "blueprint_section": "10.69-E(2)",
+  "date": "2026-09-22",
+  "objective": "Single-writer commit lease so the self-commit sweep never races manual/agent commits and never sweeps foreign in-flight work under a generic message.",
+  "implementation": {
+    "lease_file": "<git-common-dir>/self-commit-lease.json",
+    "schema": {"owner": "str", "claimed_at": "epoch", "until": "epoch"},
+    "ttl_seconds": 120.0,
+    "semantics": [
+      "claim_commit_lease returns None when a fresh foreign lease exists (defer, not overwrite)",
+      "release_commit_lease unlinks only when owner matches; foreign release leaves the lease intact",
+      "expired lease is ignored by commit_lease_active and can be reclaimed",
+      "run_once returns 'commit-lease-held:<owner>' before staging when a foreign lease is active",
+      "the sweep claims its own lease (actor owner) before git add/commit and releases in finally"
+    ],
+    "module": "governance_rule/execution/git_tiers/self_commit.py",
+    "regression_test": "governance_rule/execution/git_tiers/tests/test_self_commit.py::test_commit_lease_defers_sweep"
+  },
+  "verification": {
+    "manual": [
+      "first owner claim -> lease path returned",
+      "second owner claim -> None (blocked)",
+      "run_once under foreign lease -> 'commit-lease-held:agent-1' / 'in-progress' while real concurrent op held",
+      "owner release -> lease removed; run_once proceeds to commit",
+      "foreign release -> lease preserved"
+    ],
+    "pytest": {
+      "file": "governance_rule/execution/git_tiers/tests/test_self_commit.py",
+      "result": "9 passed in 177.72s (includes new lease regression)",
+      "note": "one earlier xdist run hit an environmental subprocess-reader-thread stall; rerun -n 0 deterministic pass"
+    }
+  },
+  "fail_closed": [
+    "foreign active lease -> sweep defers (no staging, no commit)",
+    "lease I/O errors -> treated as no lease only on read; claim writes are explicit",
+    "expired lease never blocks; stale owner cannot resurrect"
+  ],
+  "residual": [
+    "10.69-E(1) coordinator-only push / ahead==0 convergence still open",
+    "10.69-C push preconditions (clean worktrees, audit+test PASS, origin ancestry) still open",
+    "10.69-D merge-worker-branches convergence cycle still open"
+  ]
+}
