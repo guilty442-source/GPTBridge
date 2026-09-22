@@ -461,3 +461,126 @@ async def test_migrate_schema_drift_triggers_vector_build():
         target=RagSchemaVersions(1, 1, 2),
     )
     assert report.ok and report.vector_generation_built and calls
+
+
+# ---------- drift migration entry point (runtime integration) ----------
+
+
+def _integration_for(pipeline, *, started=True):
+    """RagRuntimeIntegration bound to a stub pipeline + inline worker."""
+    import asyncio
+
+    from core_system.rag_runtime_integration import RagRuntimeIntegration
+
+    class _Worker:
+        def run(self, coro, timeout=None):
+            return asyncio.run(coro)
+
+    class _App:
+        project_root = "."
+
+        def __init__(self):
+            self.logs = []
+
+        def _log(self, record):
+            self.logs.append(record)
+
+    app = _App()
+    integration = RagRuntimeIntegration(app)
+    integration._started = started
+    integration._pipeline = pipeline
+    integration._loop_worker = _Worker()
+    return integration, app
+
+
+class _DriftedPipeline:
+    """Pipeline stub carrying the recovery mixin drift path."""
+
+    def __init__(self, *, drift=True, report=None):
+        self.generation_manager = object()
+        self._generation_rebuild_required = drift
+        self._report = report
+        self.rebuild_calls = 0
+
+    def manifest(self):
+        from core_system.rag.lifecycle.schema_versions import RagSchemaVersions
+
+        class _M:
+            schema = RagSchemaVersions(1, 1, 1)
+
+        return _M()
+
+    async def migrate_schema(self, mgr, **kw):
+        from core_system.rag.lifecycle.migration import apply_migration
+        from core_system.rag.lifecycle.schema_versions import plan_migration
+
+        plan = plan_migration(kw["current"], kw["target"])
+
+        async def _build(_plan):
+            self.rebuild_calls += 1
+            return self._report
+
+        return await apply_migration(
+            plan, build_vector_generation=_build,
+            apply_metadata=kw.get("apply_metadata"),
+            validate=kw.get("validate"),
+        )
+
+
+def _complete_rebuild():
+    return RebuildReport(
+        steps_completed=(
+            RebuildStep.CREATE_GENERATION,
+            RebuildStep.READ_PG_METADATA,
+            RebuildStep.RECHUNK_REEMBED,
+            RebuildStep.VALIDATE,
+            RebuildStep.ACTIVATE,
+        ),
+        resources_rebuilt=7,
+        resources_expected=7,
+        complete=True,
+    )
+
+
+def test_run_schema_migration_no_drift_is_noop():
+    pipe = _DriftedPipeline(drift=False)
+    integration, _ = _integration_for(pipe)
+    result = integration.run_schema_migration()
+    assert result["ok"] and result["action"] == "none"
+    assert result["reason"] == "no-drift-detected"
+    assert pipe.rebuild_calls == 0
+
+
+def test_run_schema_migration_requires_started_runtime():
+    pipe = _DriftedPipeline()
+    integration, _ = _integration_for(pipe, started=False)
+    result = integration.run_schema_migration()
+    assert not result["ok"]
+    assert result["blocked_reason"] == "rag-runtime-not-started"
+    assert pipe.rebuild_calls == 0
+
+
+def test_run_schema_migration_drift_builds_new_generation():
+    pipe = _DriftedPipeline(report=_complete_rebuild())
+    integration, app = _integration_for(pipe)
+    result = integration.run_schema_migration()
+    assert result["ok"] and result["vector_generation_built"]
+    assert result["drift_detected"] and pipe.rebuild_calls == 1
+    assert result["plan_steps"] == ["vector 1->2 (new generation)"]
+    assert any(r.get("message") == "RAG schema migration" for r in app.logs)
+
+
+def test_run_schema_migration_blocked_rebuild_never_reports_ok():
+    pipe = _DriftedPipeline(
+        report=RebuildReport(
+            steps_completed=(RebuildStep.CREATE_GENERATION,),
+            resources_rebuilt=0,
+            resources_expected=5,
+            complete=False,
+        )
+    )
+    integration, _ = _integration_for(pipe)
+    result = integration.run_schema_migration()
+    assert not result["ok"]
+    assert result["blocked_reason"] == "vector-generation-build-incomplete"
+    assert "activate" not in result["phases_completed"]

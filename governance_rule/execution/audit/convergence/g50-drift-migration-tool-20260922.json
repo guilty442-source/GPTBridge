@@ -16,12 +16,13 @@
       "rebuild report incomplete (no VALIDATE+ACTIVATE in steps_completed) -> blocked 'vector-generation-build-incomplete', ACTIVATE never marked",
       "executor raises -> blocked '<phase>-failed:<err>' and the sequence stops",
       "validate callable returning falsy -> blocked 'validation-failed', ACTIVATE never reached"
-    ]
+    ],
+    "runtime_entry_point": "RagRuntimeIntegration.run_schema_migration(current=?, target=?, apply_metadata=?, validate=?, benchmark_fn=?, timeout=?) — explicit operator/governed-flow call on the live pipeline (worker thread); no-drift + no versions -> no-op, never an accidental rebuild; drift -> plan_migration + migrate_schema on the pipeline loop; result logged via app._log"
   },
   "verification": {
     "pytest": {
       "file": "main-system/tests/test_rag_lifecycle.py",
-      "result": "35 passed in 29.95s",
+      "result": "39 passed in 8.51s",
       "new_cases": [
         "metadata-only plan executed via injected executor",
         "missing metadata executor -> blocked, ACTIVATE never reached",
@@ -30,12 +31,16 @@
         "missing vector builder -> blocked",
         "failing metadata executor stops sequence before vector phase",
         "validator gate rejects -> ACTIVATE never reached",
-        "migrate_schema drift entry -> plans + triggers governed vector build"
+        "migrate_schema drift entry -> plans + triggers governed vector build",
+        "run_schema_migration: no-drift -> no-op, no rebuild",
+        "run_schema_migration: not-started -> rag-runtime-not-started",
+        "run_schema_migration: drift -> vector generation built, plan_steps vector 1->2, app._log audited",
+        "run_schema_migration: incomplete rebuild -> blocked, no activate phase"
       ]
     }
   },
   "residual": [
-    "call-site wiring: production trigger for migrate_schema on _generation_rebuild_required (currently the flag only blocks canonical indexing until an operator/governed flow invokes the migration tool)",
+    "who invokes run_schema_migration in production (operator runbook / governed flow registration) — a policy decision, not a code gap",
     "metadata-axis apply_metadata executor for PG schema migrations (none exist yet — blocked by design until supplied)"
   ]
 }

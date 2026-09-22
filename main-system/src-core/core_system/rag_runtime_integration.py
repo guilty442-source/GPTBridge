@@ -611,6 +611,93 @@ class RagRuntimeIntegration:
             "duration_ms": int((time.monotonic() - stop_start) * 1000),
         }
 
+    def run_schema_migration(
+        self,
+        *,
+        current: Any = None,
+        target: Any = None,
+        apply_metadata: Any = None,
+        validate: Any = None,
+        benchmark_fn: Any = None,
+        timeout: Optional[float] = None,
+    ) -> dict[str, Any]:
+        """G50/P2: governed schema-drift migration entry point.
+
+        Explicit operator/governed-flow call — never invoked
+        automatically on a maintenance tick or at init. Vector-axis
+        drift builds a new generation through ``rebuild_canonical``
+        (PG authority -> validate -> atomic promote). With no explicit
+        ``current``/``target`` and no detected fingerprint drift this is
+        a no-op — an accidental call can never trigger a rebuild.
+        """
+        pipeline = self._pipeline
+        worker = self._loop_worker
+        if not self._started or pipeline is None or worker is None:
+            return {"ok": False, "blocked_reason": "rag-runtime-not-started"}
+        mgr = getattr(pipeline, "generation_manager", None)
+        if mgr is None:
+            return {
+                "ok": False,
+                "blocked_reason": "generation-manager-unavailable",
+            }
+        drift = bool(
+            getattr(pipeline, "_generation_rebuild_required", False)
+        )
+        if current is None and target is None and not drift:
+            return {
+                "ok": True,
+                "action": "none",
+                "reason": "no-drift-detected",
+            }
+        if current is None or target is None:
+            from .rag.lifecycle.schema_versions import RagSchemaVersions
+
+            schema = pipeline.manifest().schema
+            current = current or schema
+            # 指紋漂移一律走向量軸 → 新世代建置相位。
+            target = target or RagSchemaVersions(
+                rag_schema_version=schema.rag_schema_version,
+                metadata_schema_version=schema.metadata_schema_version,
+                vector_schema_version=schema.vector_schema_version + 1,
+            )
+        report = worker.run(
+            pipeline.migrate_schema(
+                mgr,
+                current=current,
+                target=target,
+                apply_metadata=apply_metadata,
+                validate=validate,
+                benchmark_fn=benchmark_fn,
+            ),
+            timeout=timeout,
+        )
+        result = {
+            "ok": bool(report.ok),
+            "blocked_reason": report.blocked_reason,
+            "phases_completed": [
+                phase.value for phase in report.phases_completed
+            ],
+            "vector_generation_built": report.vector_generation_built,
+            "drift_detected": drift,
+            "plan_steps": list(report.plan.steps),
+        }
+        try:
+            self.app._log(
+                {
+                    "type": "status",
+                    "message": "RAG schema migration",
+                    "ok": result["ok"],
+                    "blocked_reason": result["blocked_reason"],
+                    "vector_generation_built": result[
+                        "vector_generation_built"
+                    ],
+                    "drift_detected": drift,
+                }
+            )
+        except Exception:
+            pass
+        return result
+
     def get_stats(self) -> dict[str, Any]:
         future = self._init_future
         return {
