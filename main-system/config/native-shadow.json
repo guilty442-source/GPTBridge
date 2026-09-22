@@ -8,6 +8,7 @@
     "maintenance_controller": { "mode": "shadow" },
     "request_registry": { "mode": "shadow" },
     "ipc_server": { "mode": "shadow" },
-    "runtime_state_registry": { "mode": "shadow" }
+    "runtime_state_registry": { "mode": "shadow" },
+    "model_service_activation": { "mode": "shadow" }
   }
 }
