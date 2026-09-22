@@ -56,7 +56,8 @@ def _unique_echo_values(rng: random.Random, n: int) -> list[str]:
     en_words = ["ember", "quartz", "harbor", "falcon", "cipher", "meadow",
                 "lantern", "vertex", "willow", "cobalt", "signal", "prism"]
     values: set[str] = set()
-    while len(values) < n:
+    ordered: list[str] = []
+    while len(ordered) < n:
         kind = rng.randrange(6)
         if kind == 0:      # 隨機代號
             v = f"{rng.choice('ABCDEFGHJKLMNPQRSTUVWXYZ')}{rng.choice('ABCDEFGHJKLMNPQRSTUVWXYZ')}-{rng.randint(100, 9999)}"
@@ -70,9 +71,10 @@ def _unique_echo_values(rng: random.Random, n: int) -> list[str]:
             v = f"{rng.randint(2020, 2030)}-{rng.randint(1, 12):02d}-{rng.randint(1, 28):02d}"
         else:              # 混合短句
             v = f"{rng.choice(en_words)}{rng.randint(10, 999)}{rng.choice(zh_chars)}"
-        if v not in PROBE_VALUES:
+        if v not in PROBE_VALUES and v not in values:
             values.add(v)
-    return list(values)
+            ordered.append(v)
+    return ordered
 
 
 def build_chat_records(rng: random.Random, *,
@@ -101,6 +103,29 @@ def build_chat_records(rng: random.Random, *,
         if rng.random() < 0.4:
             records.append(_convo(rng.choice(echo_tpl).format(w=w), w,
                                   system=False))
+
+    # 1b) 計數句式複製（「這N個字」家族——v15 殘項：echo 探針句式
+    # 「請只輸出這四個字：…」不在模板池。值域放寬至常用字集、
+    # 排除 PROBE_VALUES，逼「依數取字＋逐字複製」而非句式背誦）
+    if echo_scale:
+        zh_wide = ("雲海風星月山林河川光影夢想晨光暮色青石白露松濤竹影溪聲"
+                   "火測試驗天地人心金水木土花草鳥魚龍虎春夏秋冬雨雪電腦"
+                   "程式語言學習資料庫系統服務安全治理模型訓練推論")
+        zh_num = "二三四五"
+        count_tpl = ["請只輸出這{n}個字：{w}", "只輸出這{n}個字：{w}",
+                     "請輸出以下{n}個字：{w}", "輸出這{n}個字：{w}"]
+        seen_cnt: set[str] = set()
+        target_cnt = max(1, echo_scale // 5)
+        tries = 0
+        while len(seen_cnt) < target_cnt and tries < target_cnt * 10:
+            tries += 1
+            n = rng.choice([2, 3, 4, 4, 5])
+            v = "".join(rng.choice(zh_wide) for _ in range(n))
+            if v in PROBE_VALUES or v in seen_cnt:
+                continue
+            seen_cnt.add(v)
+            records.append(_convo(
+                rng.choice(count_tpl).format(n=zh_num[n - 2], w=v), v))
 
     # 2) 多輪記憶：值多樣化（代號、名字、顏色、地點、數字…）
     mem_vals = [
