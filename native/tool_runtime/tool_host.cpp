@@ -54,6 +54,12 @@ namespace toolhost {
 namespace {
 
 namespace jl = jsonlite;
+
+void th_trace(const char* tag, const std::string& v) {
+    FILE* f = fopen("tool_host_trace.log", "a");
+    if (f) { fprintf(f, "%s|%s\n", tag, v.c_str()); fclose(f); }
+}
+void (th_trace_unused_ok)(const char*, const std::string&); /* 除錯用 */
 namespace gtw = gptbridge::gtw;
 namespace tpx = gptbridge::tpx;
 
@@ -133,6 +139,10 @@ struct ToolHost::Impl {
     /* waiters: request_id → ws socket（{cmd}_result 推送目標） */
     std::mutex waiter_mu;
     std::map<std::string, SOCKET> waiters;
+    /* WS 出站序列化：conn 執行緒（COMMAND_RECEIVED/pong/close）與
+       claim 執行緒（{cmd}_result 推送）不得交錯位元——Python 側由
+       asyncio 單執行緒天然序列化，此處以單一 send 互斥對齊。 */
+    std::mutex send_mu;
     /* 執行中 request 的取消旗標 */
     std::mutex exec_mu;
     std::map<std::string, std::shared_ptr<std::atomic<bool>>> exec_flags;
@@ -749,7 +759,7 @@ void ToolHost::ws_loop(intptr_t sock, std::string pending) {
         gtw::WsFrame f;
         const int64_t used = gtw::ws_frame_decode(
             reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &f);
-        if (used < 0) { break; }
+        if (used < 0) { th_trace("decode-err", buf.substr(0,24)); break; }
         if (used > 0) {
             buf.erase(0, static_cast<size_t>(used));
             if (f.opcode == gtw::WsOp::Ping) {
@@ -781,7 +791,7 @@ void ToolHost::ws_loop(intptr_t sock, std::string pending) {
             continue;
         }
         const int n = recv(c, tmp, sizeof(tmp), 0);
-        if (n <= 0) { break; }
+        if (n <= 0) { th_trace("ws-recv", std::to_string(n)); break; }
         buf.append(tmp, static_cast<size_t>(n));
     }
     /* 連線結束：移除指向本 socket 的 waiters（不回推結果）。 */
@@ -795,6 +805,7 @@ void ToolHost::ws_loop(intptr_t sock, std::string pending) {
 
 void ToolHost::send_event(intptr_t sock, const std::string& event,
                           const jl::JsonValue& payload) {
+    std::lock_guard<std::mutex> lk(impl_->send_mu);
     send_all(sock, http_event_frame(event, payload));
 }
 
@@ -939,6 +950,7 @@ void ToolHost::handle_ws_message(intptr_t sock, const std::string& text) {
         send_result_error(c, command, request_id, "PERMISSION_DENIED");
         return;
     }
+    th_trace("received", command + "/" + request_id);
     send_event(c, "COMMAND_RECEIVED",
                jobj({{"command", jstr(command)},
                      {"status", jstr("processing")}}));
@@ -1098,4 +1110,48 @@ void ToolHost::execute_claimed(const std::string& channel,
 
     if (cancelled) {
         impl_->n_cancelled.fetch_add(1);
-        std::lock_guard<std::mutex> lk(impl_->waiter
+        std::lock_guard<std::mutex> lk(impl_->waiter_mu);
+        impl_->waiters.erase(request_id); /* 不回推 _result */
+        return;
+    }
+    impl_->n_executed.fetch_add(1);
+
+    /* respond（僅 claimed 成功——代理/傳輸層保證語義）。 */
+    jl::JsonValue response = result;
+    if (response.type != jl::JsonValue::Type::Object)
+        response = jobj({{"value", response}});
+    /* Python result["request_id"] = …：覆寫而非重複鍵。 */
+    bool replaced = false;
+    for (auto& kv : response.object) {
+        if (kv.first == "request_id") {
+            kv.second = jstr(request_id); replaced = true;
+        }
+    }
+    if (!replaced)
+        response.object.emplace_back("request_id", jstr(request_id));
+    tpx::ProxyResponse resp;
+    if (impl_->proxy("respond",
+                     tpx::args_respond(channel, request_id,
+                                       jl::json_serialize(response)),
+                     &resp) &&
+        resp.ok) {
+        impl_->n_responded.fetch_add(1);
+        impl_->ch_ok(channel, true);
+    } else {
+        impl_->n_claim_fail.fetch_add(1);
+        impl_->ch_ok(channel, false);
+        /* respond 失敗 → PERMISSION_DENIED 形式（Python except 路徑）。 */
+        response = jobj({
+            {"ok", jbool(false)},
+            {"tool_id", jstr(impl_->cfg.tool_id)},
+            {"request_id", jstr(request_id)},
+            {"error_code", jstr("PERMISSION_DENIED")},
+            {"message", jstr("PERMISSION_DENIED")}});
+    }
+    impl_->push_waiter_result(request_id, command, response);
+}
+
+} // namespace toolhost
+} // namespace gptbridge
+
+#endif /* _WIN32 */

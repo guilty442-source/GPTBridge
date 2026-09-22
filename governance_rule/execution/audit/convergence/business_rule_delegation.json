@@ -1,12 +1,12 @@
 {
   "schema": "business-rule-delegation/v2",
-  "generated_at_utc": "2026-09-22T05:07:06Z",
+  "generated_at_utc": "2026-09-22T10:22:46Z",
   "generator": "scripts/build-business-rule-delegation.py",
   "authority": "derived-rebuildable-non-authoritative; source is runtime-rule-index.json, which itself is derived from governance_codex.sqlite3",
   "source": {
     "index": "main-system\\runtime\\state\\runtime-rule-index.json",
-    "codex_version": "2026-09-21T15:11:59Z",
-    "index_content_sha256": "d03913fb6472a23c3a0be96e1c7e07e2cc56a2ad3ea510dba1c68e1d6498453b"
+    "codex_version": "2026-09-22T10:02:23Z",
+    "index_content_sha256": "9d91952e6385363ccab9a0b241b33717de7af4c87fa3a96dbf679b1fa969e08f"
   },
   "rule": "Codex retains governance/authority/boundary only; business rules delegated to owning sovereign/module (blueprint §3.5 E). Fail-closed/governance provisions never delegated.",
   "governance_dimensions": [
@@ -15,10 +15,10 @@
     "治理/權責"
   ],
   "counts": {
-    "provisions_total": 537,
+    "provisions_total": 545,
     "governance": 44,
-    "business": 23,
-    "mixed": 470,
+    "business": 24,
+    "mixed": 477,
     "owning_unit_unassigned": 0
   },
   "rows": [
@@ -9895,7 +9895,7 @@
       "owning_unit": "UNIT_ENGINE",
       "owners": [],
       "tier": "special-law",
-      "lifecycle": "active",
+      "lifecycle": "superseded",
       "delegation_note": "delegate to owning unit domain (successor, retain reference only)"
     },
     {
@@ -10699,6 +10699,144 @@
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
+      "provision_id": "A593",
+      "subject": "resource-governance-throttle-protection",
+      "section": "amendment-and-protection",
+      "primary_dimension": "時限/預算",
+      "dimensions": [
+        "時限/預算",
+        "安全與稽核",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [
+        "permission"
+      ],
+      "tier": "main-codex",
+      "lifecycle": "",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A594",
+      "subject": "unit-system-architecture-hierarchy",
+      "section": "amendment-and-protection",
+      "primary_dimension": "工程實作要求",
+      "dimensions": [
+        "工程實作要求",
+        "流程/程序"
+      ],
+      "kind": "business",
+      "owning_unit": "codex-retained",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "",
+      "delegation_note": "delegate to owning unit domain (successor, retain reference only)"
+    },
+    {
+      "provision_id": "A595",
+      "subject": "core-deployment-topology",
+      "section": "amendment-and-protection",
+      "primary_dimension": "時限/預算",
+      "dimensions": [
+        "時限/預算",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [
+        "automation",
+        "decision",
+        "permission"
+      ],
+      "tier": "main-codex",
+      "lifecycle": "",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A596",
+      "subject": "on-demand-isolation-authority",
+      "section": "amendment-and-protection",
+      "primary_dimension": "安全與稽核",
+      "dimensions": [
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [
+        "decision"
+      ],
+      "tier": "main-codex",
+      "lifecycle": "",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A597",
+      "subject": "DAG／CAG／RAG 機器契約與驗證登錄條例",
+      "section": "privacy-personal-data-special-law",
+      "primary_dimension": "模型/推論",
+      "dimensions": [
+        "模型/推論",
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "UNIT_DATA",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A598",
+      "subject": "星澄自主訓練權限、資源與政策權屬條例",
+      "section": "星澄模型與主系統整合條例",
+      "primary_dimension": "時限/預算",
+      "dimensions": [
+        "時限/預算",
+        "模型/推論",
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "UNIT_ENGINE",
+      "owners": [],
+      "tier": "special-law",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A599",
+      "subject": "模組按需啟動、休眠與喚醒權限條例",
+      "section": "amendment-and-protection",
+      "primary_dimension": "時限/預算",
+      "dimensions": [
+        "時限/預算",
+        "模型/推論",
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
       "provision_id": "A6",
       "subject": "permission",
       "section": "permission",
@@ -10715,6 +10853,27 @@
       "tier": "main-codex",
       "lifecycle": "superseded",
       "delegation_note": "retain in codex (governance/boundary)"
+    },
+    {
+      "provision_id": "A600",
+      "subject": "自動清理、刪除權限與世代保留條例",
+      "section": "amendment-and-protection",
+      "primary_dimension": "時限/預算",
+      "dimensions": [
+        "時限/預算",
+        "模型/推論",
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
     },
     {
       "provision_id": "A65",

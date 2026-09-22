@@ -1,13 +1,13 @@
 {
   "schema": "codex-business-rule-conflict-scan/v1",
-  "generated_at": "2026-09-22T04:31:07Z",
+  "generated_at": "2026-09-22T10:22:41Z",
   "sources": {
     "manifests": 11,
     "boundary_capabilities": 27,
     "registered_tool_identities": 15,
     "routes": 5,
     "module_assignments": 17,
-    "config_files": 17,
+    "config_files": 18,
     "codex_budget_keys": 23
   },
   "summary": {

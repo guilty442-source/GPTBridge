@@ -193,7 +193,36 @@ std::string masked_text(const std::string& payload) {
     return f;
 }
 
-/* 讀一個 server→client frame（不 mask）。recv 逾時只重試；
+/* client 視角解一個 server→client frame（server 端 frame 不 mask，
+   故不能用 gtw::ws_frame_decode——它強制入站 masked）。
+   回 >0 消耗位元組；0 需更多資料；-1 協定錯。 */
+int64_t decode_server_frame(const std::string& buf, gtw::WsFrame* out) {
+    const auto* p = reinterpret_cast<const uint8_t*>(buf.data());
+    const size_t size = buf.size();
+    if (size < 2) return 0;
+    const bool fin = (p[0] & 0x80) != 0;
+    const uint8_t opcode = p[0] & 0x0F;
+    uint64_t len = p[1] & 0x7F;
+    size_t pos = 2;
+    if (p[1] & 0x80) return -1;              /* server→client 不可 mask */
+    if (len == 126) {
+        if (size < pos + 2) return 0;
+        len = (uint64_t(p[pos]) << 8) | p[pos + 1];
+        pos += 2;
+    } else if (len == 127) {
+        if (size < pos + 8) return 0;
+        len = 0;
+        for (int i = 0; i < 8; ++i) len = (len << 8) | p[pos + i];
+        pos += 8;
+    }
+    if (size < pos + len) return 0;
+    out->fin = fin;
+    out->opcode = static_cast<gtw::WsOp>(opcode);
+    out->payload.assign(buf.data() + pos, static_cast<size_t>(len));
+    return static_cast<int64_t>(pos + len);
+}
+
+/* 讀一個 server→client frame。recv 逾時只重試；
    真正斷線/錯誤或 deadline 才回 false。 */
 bool read_frame(SOCKET s, gtw::WsFrame* out, int timeout_ms = 5000) {
     std::string buf;
@@ -204,8 +233,7 @@ bool read_frame(SOCKET s, gtw::WsFrame* out, int timeout_ms = 5000) {
     const auto deadline = std::chrono::steady_clock::now() +
                           std::chrono::milliseconds(timeout_ms);
     while (std::chrono::steady_clock::now() < deadline) {
-        const int64_t used = gtw::ws_frame_decode(
-            reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), out);
+        const int64_t used = decode_server_frame(buf, out);
         if (used > 0) return true;
         if (used < 0) return false;
         const int n = recv(s, tmp, sizeof(tmp), 0);
@@ -508,4 +536,8 @@ int main() {
         host.run();
         WSACleanup();
     }
-    NT_END_
+    NT_END_TEST(SUITE, "cancel_during_execution");
+
+    return native_tests::report("tool_host_suite.json");
+}
+#endif /* _WIN32 */

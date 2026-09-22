@@ -141,13 +141,19 @@ def commit_lease_active(repo: GitRepository) -> dict | None:
 
 def claim_commit_lease(
     worktree: str | Path, *, owner: str, ttl_seconds: float = 300.0
-) -> Path:
+) -> Path | None:
     """Declare an in-progress commit; renew before ttl, release when done.
 
     Workers/agents call this BEFORE ``git add`` so the self-commit sweep
-    never stages their in-flight work under a generic message."""
+    never stages their in-flight work under a generic message. Returns
+    None when a fresh lease from another owner already exists — callers
+    must defer instead of overwriting (the lease is a cooperating-writers
+    contract, not a lock)."""
     repo = GitRepository(worktree)
     path = _commit_lease_path(repo)
+    existing = commit_lease_active(repo)
+    if existing is not None and existing.get("owner") != str(owner):
+        return None
     path.write_text(
         json.dumps(
             {
@@ -161,11 +167,18 @@ def claim_commit_lease(
     return path
 
 
-def release_commit_lease(worktree: str | Path) -> None:
+def release_commit_lease(worktree: str | Path, *, owner: str) -> None:
+    """Release only the caller's own lease — never delete another
+    writer's claim (a racing claim that landed after ours stays valid)."""
     repo = GitRepository(worktree)
     try:
+        data = json.loads(
+            _commit_lease_path(repo).read_text(encoding="utf-8")
+        )
+        if data.get("owner") != str(owner):
+            return
         _commit_lease_path(repo).unlink(missing_ok=True)
-    except OSError:
+    except (OSError, ValueError, TypeError):
         pass
 
 
@@ -268,9 +281,11 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
 
     locked = False
     try:
-        claim_commit_lease(
+        if claim_commit_lease(
             repo.path, owner=actor, ttl_seconds=SELF_COMMIT_LEASE_TTL_SECONDS
-        )
+        ) is None:
+            lease = commit_lease_active(repo) or {}
+            return f"commit-lease-held:{lease.get('owner')}"
         if not _is_main_worktree(repo):
             gate = _governed(
                 repo, ["worktree", "lock", str(repo.path)], actor=actor
@@ -338,7 +353,7 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
             msg_file.unlink(missing_ok=True)
         except OSError:
             pass
-        release_commit_lease(repo.path)
+        release_commit_lease(repo.path, owner=actor)
 
     commit_hash = repo.head()
     chained_audit_log(
