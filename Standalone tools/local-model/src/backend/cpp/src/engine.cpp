@@ -1745,6 +1745,14 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         LayerWeights& layer = layers_[static_cast<size_t>(layer_idx)];
         std::vector<double> normed = rmsnorm(
             hidden, total_tokens, hidden_size, layer.input_norm, cfg.rms_norm_eps);
+        if (module_rms != nullptr) {
+            module_rms->push_back(
+                hidden_rms(normed, total_tokens, hidden_size));
+        }
+        // RoPE probe accumulator: RMS of post-RoPE queries across all spans
+        // (post-projection queries when the config is not rope).
+        double rope_q_sumsq = 0.0;
+        int64_t rope_q_count = 0;
         // Projections and FFN are token-wise: the packed rows of all spans
         // share one GEMM — that sharing is the R9 throughput win.
         std::vector<double> q_flat = linear(
@@ -1803,6 +1811,10 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     "rope-k");
                 q_heads.swap(q_rope);
                 k_heads.swap(k_rope);
+            }
+            if (module_rms != nullptr) {
+                for (double value : q_heads) rope_q_sumsq += value * value;
+                rope_q_count += static_cast<int64_t>(q_heads.size());
             }
 
             if (span.append_cache) {
@@ -1903,11 +1915,26 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             }
         }
 
+        if (module_rms != nullptr) {
+            module_rms->push_back(
+                rope_q_count > 0
+                    ? std::sqrt(
+                          rope_q_sumsq / static_cast<double>(rope_q_count))
+                    : 0.0);
+        }
         std::vector<double> attn_out = linear(
             attn_flat, total_tokens, q_dim, layer.o_proj_t, cfg.hidden_size);
+        if (module_rms != nullptr) {
+            module_rms->push_back(
+                hidden_rms(attn_out, total_tokens, hidden_size));
+        }
         for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += attn_out[i];
 
         normed = rmsnorm(hidden, total_tokens, hidden_size, layer.post_norm, cfg.rms_norm_eps);
+        if (module_rms != nullptr) {
+            module_rms->push_back(
+                hidden_rms(normed, total_tokens, hidden_size));
+        }
         if (layer.is_moe) {
             // R5 grouped sparse MoE (token-choice, mirrors modules/moe.py):
             // router softmax over experts → deterministic top-k → weights
@@ -2036,6 +2063,10 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     }
                 }
             }
+            if (module_rms != nullptr) {
+                module_rms->push_back(
+                    hidden_rms(mlp_out, total_tokens, hidden_size));
+            }
             for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
         } else {
             std::vector<double> gate = linear(
@@ -2049,6 +2080,10 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             }
             std::vector<double> mlp_out = linear(
                 mlp_in, total_tokens, cfg.intermediate_size, layer.down_proj_t, hidden_size);
+            if (module_rms != nullptr) {
+                module_rms->push_back(
+                    hidden_rms(mlp_out, total_tokens, hidden_size));
+            }
             for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
         }
         if (layer_rms != nullptr) {
@@ -2066,6 +2101,9 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         hidden, total_tokens, hidden_size, final_norm_, cfg.rms_norm_eps);
     if (layer_rms != nullptr) {
         layer_rms->push_back(hidden_rms(normed, total_tokens, hidden_size));
+    }
+    if (module_rms != nullptr) {
+        module_rms->push_back(hidden_rms(normed, total_tokens, hidden_size));
     }
     return normed;
 }

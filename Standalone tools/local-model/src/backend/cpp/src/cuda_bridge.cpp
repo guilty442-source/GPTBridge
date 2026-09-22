@@ -57,6 +57,21 @@ void* device_weight(const double* host, size_t bytes) {
 
 extern "C" {
 
+#if defined(XINGCHENG_CUDA_KERNELS)
+// Provided by src/kernels/matmul_bf16.cu when the nvcc toolchain is
+// available at build time (build_cpp.py sets XINGCHENG_CUDA_KERNELS).
+int xcuda_bf16_kernel_probe();
+int xcuda_bf16_release_weights();
+#else
+// Stub so the symbol always resolves; the bf16 request path fails closed
+// through xcuda_bf16_available()==0 before ever reaching this.
+int xcuda_matmul_bf16(
+    const double*, long long, long long,
+    const double*, long long, double*) {
+    return 3;
+}
+#endif
+
 int xcuda_available() {
     int count = 0;
     if (cudaGetDeviceCount(&count) != cudaSuccess) return 0;
@@ -78,21 +93,6 @@ int xcuda_release_weights() {
 #endif
     return 0;
 }
-
-#if defined(XINGCHENG_CUDA_KERNELS)
-// Provided by src/kernels/matmul_bf16.cu when the nvcc toolchain is
-// available at build time (build_cpp.py sets XINGCHENG_CUDA_KERNELS).
-extern "C" int xcuda_bf16_kernel_probe();
-extern "C" int xcuda_bf16_release_weights();
-#else
-// Stub so the symbol always resolves; the bf16 request path fails closed
-// through xcuda_bf16_available()==0 before ever reaching this.
-extern "C" int xcuda_matmul_bf16(
-    const double*, long long, long long,
-    const double*, long long, double*) {
-    return 3;
-}
-#endif
 
 // bf16 kernel availability: 1 only when the kernels object was linked AND a
 // CUDA device exists. Without the kernels TU this fails closed to 0, so the
