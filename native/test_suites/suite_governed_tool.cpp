@@ -32,12 +32,12 @@ int main() {
         NT_CHECK(gptbridge_gt_tool_id_valid("has space") == 0,
                  "space rejected");
         NT_CHECK(gptbridge_gt_tool_id_valid(nullptr) == 0, "null rejected");
-        const std::string long_id(64, 'a');
+        const std::string long_id(65, 'a');
         NT_CHECK(gptbridge_gt_tool_id_valid(long_id.c_str()) == 0,
-                 "64-char rejected");
-        const std::string max_id(63, 'a');
+                 "65-char rejected");
+        const std::string max_id(64, 'a');
         NT_CHECK(gptbridge_gt_tool_id_valid(max_id.c_str()) == 1,
-                 "63-char ok");
+                 "64-char ok");
     }
     NT_END_TEST(SUITE, "tool_id_regex");
 
