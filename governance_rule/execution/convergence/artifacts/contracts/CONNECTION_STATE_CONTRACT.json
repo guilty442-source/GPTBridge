@@ -1,63 +1,66 @@
 {
-  "contract_code": "CONNECTION_STATE_CONTRACT",
-  "kind": "contract",
-  "schema": "gptbridge-successor-contract/v1",
-  "source_provision": "A581",
-  "owner": "system-runtime-sovereign",
-  "introduced_version": "2026-09-21",
-  "implemented_at": "2026-09-22T18:12:30Z",
-  "status": "partially-implemented",
-  "fields": [
-    "connection_state",
-    "reconnect_bounds",
-    "backpressure_limit",
-    "heartbeat_kind",
-    "sequence_semantics"
-  ],
-  "field_definitions": {
-    "connection_state": {
-      "semantics": "overall connection state (connected/degraded/disconnected/starting)",
-      "bound_to": [
-        "main-system/src-core/tasks/connection_watchdog_types.py#overall_state"
-      ]
-    },
-    "reconnect_bounds": {
-      "semantics": "dead-probe threshold + retry grace before declaring disconnect",
-      "bound_to": [
-        "main-system/src-core/tasks/connection_watchdog_types.py#CONNECTION_DEAD_THRESHOLD",
-        "main-system/src-core/tasks/connection_watchdog_types.py#CONNECTION_PROBE_RETRY_GRACE"
-      ]
-    },
-    "backpressure_limit": {
-      "semantics": "bounded pending-traffic limit on reconnect",
-      "bound_to": []
-    },
-    "heartbeat_kind": {
-      "semantics": "probe-based heartbeat via ipc-connections state file",
-      "bound_to": [
-        "main-system/src-core/tasks/connection_watchdog_types.py#write_ipc_connection_state"
-      ]
-    },
-    "sequence_semantics": {
-      "semantics": "ordered state-transition events with consecutive-dead counting",
-      "bound_to": [
-        "main-system/src-core/tasks/connection_watchdog_types.py#from_state",
-        "main-system/src-core/tasks/connection_watchdog_types.py#consecutive_dead"
-      ]
-    }
+ "contract_code": "CONNECTION_STATE_CONTRACT",
+ "kind": "contract",
+ "schema": "gptbridge-successor-contract/v1",
+ "source_provision": "A581",
+ "owner": "system-runtime-sovereign",
+ "introduced_version": "2026-09-21",
+ "implemented_at": "2026-09-22T18:12:30Z",
+ "status": "implemented",
+ "fields": [
+  "connection_state",
+  "reconnect_bounds",
+  "backpressure_limit",
+  "heartbeat_kind",
+  "sequence_semantics"
+ ],
+ "field_definitions": {
+  "connection_state": {
+   "semantics": "overall connection state (connected/degraded/disconnected/starting)",
+   "bound_to": [
+    "main-system/src-core/tasks/connection_watchdog_types.py#overall_state"
+   ]
   },
-  "implementation": {
-    "enforcing_modules": [
-      "main-system/src-core/tasks/connection_watchdog.py",
-      "main-system/src-core/tasks/connection_watchdog_types.py"
-    ]
+  "reconnect_bounds": {
+   "semantics": "dead-probe threshold + retry grace before declaring disconnect",
+   "bound_to": [
+    "main-system/src-core/tasks/connection_watchdog_types.py#CONNECTION_DEAD_THRESHOLD",
+    "main-system/src-core/tasks/connection_watchdog_types.py#CONNECTION_PROBE_RETRY_GRACE"
+   ]
   },
-  "evidence_paths": [
-    "main-system/tests/test_connection_watchdog.py",
-    "main-system/tests/test_connection_watchdog_consolidated.py",
-    "main-system/tests/test_connection_watchdog_history_reconciliation.py"
-  ],
-  "gaps": [
-    "backpressure_limit"
+  "backpressure_limit": {
+   "semantics": "bounded pending-traffic limit on reconnect (enforced by outbox delivery window: pending replay bounded to DELIVERY_WINDOW on reconnect hello)",
+   "bound_to": [
+    "main-system/src-core/tasks/state_outbox_store.py#DELIVERY_WINDOW",
+    "main-system/src-core/tasks/state_outbox.py#handle_hello"
+   ]
+  },
+  "heartbeat_kind": {
+   "semantics": "probe-based heartbeat via ipc-connections state file",
+   "bound_to": [
+    "main-system/src-core/tasks/connection_watchdog_types.py#write_ipc_connection_state"
+   ]
+  },
+  "sequence_semantics": {
+   "semantics": "ordered state-transition events with consecutive-dead counting",
+   "bound_to": [
+    "main-system/src-core/tasks/connection_watchdog_types.py#from_state",
+    "main-system/src-core/tasks/connection_watchdog_types.py#consecutive_dead"
+   ]
+  }
+ },
+ "implementation": {
+  "enforcing_modules": [
+   "main-system/src-core/tasks/connection_watchdog.py",
+   "main-system/src-core/tasks/connection_watchdog_types.py",
+   "main-system/src-core/tasks/state_outbox.py",
+   "main-system/src-core/tasks/state_outbox_store.py"
   ]
+ },
+ "evidence_paths": [
+  "main-system/tests/test_connection_watchdog.py",
+  "main-system/tests/test_connection_watchdog_consolidated.py",
+  "main-system/tests/test_connection_watchdog_history_reconciliation.py"
+ ],
+ "gaps": []
 }
