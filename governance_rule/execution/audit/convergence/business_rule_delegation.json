@@ -1,6 +1,6 @@
 {
   "schema": "business-rule-delegation/v2",
-  "generated_at_utc": "2026-09-22T03:40:41Z",
+  "generated_at_utc": "2026-09-22T05:07:06Z",
   "generator": "scripts/build-business-rule-delegation.py",
   "authority": "derived-rebuildable-non-authoritative; source is runtime-rule-index.json, which itself is derived from governance_codex.sqlite3",
   "source": {
@@ -19,7 +19,7 @@
     "governance": 44,
     "business": 23,
     "mixed": 470,
-    "owning_unit_unassigned": 131
+    "owning_unit_unassigned": 0
   },
   "rows": [
     {
@@ -33,7 +33,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -63,7 +63,7 @@
         "工程實作要求"
       ],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -80,7 +80,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -117,7 +117,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -136,7 +136,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -154,7 +154,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -185,7 +185,7 @@
         "工程實作要求"
       ],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -237,7 +237,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -255,7 +255,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -272,7 +272,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -308,7 +308,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign"
@@ -327,7 +327,7 @@
         "工程實作要求"
       ],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -344,7 +344,7 @@
         "工程實作要求"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -361,7 +361,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "eligible-sovereign"
       ],
@@ -414,7 +414,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -469,7 +469,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "programming-sovereign",
@@ -492,7 +492,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "decision-sovereign",
@@ -516,7 +516,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "direct-cross-sovereign",
@@ -536,7 +536,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -564,7 +564,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "adaptive-sovereign",
         "automation",
@@ -586,7 +586,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -604,7 +604,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "adaptive-sub-sovereign",
         "may-operate-without-sub-sovereign",
@@ -627,7 +627,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "sub-sovereign"
       ],
@@ -683,7 +683,7 @@
         "工程實作要求"
       ],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -717,7 +717,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -735,7 +735,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -751,7 +751,7 @@
         "工程實作要求"
       ],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -766,7 +766,7 @@
         "模型/推論"
       ],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -816,7 +816,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -850,7 +850,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "decision-sovereign",
@@ -873,7 +873,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -928,7 +928,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "decision-sovereign",
@@ -953,7 +953,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "permission",
@@ -1025,7 +1025,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -1043,7 +1043,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "startup-sub-sovereign"
       ],
@@ -1078,7 +1078,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "as-system-sovereign",
         "infer-sovereign",
@@ -1100,7 +1100,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -1119,7 +1119,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "forbidden-without-permission-sovereign",
         "permission",
@@ -1140,7 +1140,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -1153,7 +1153,7 @@
       "primary_dimension": "未分類",
       "dimensions": [],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -1172,7 +1172,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "decision-sovereign",
@@ -1197,7 +1197,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "access-by-sovereign",
         "permission",
@@ -1220,7 +1220,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -1242,7 +1242,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "permission",
@@ -1267,7 +1267,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "permission",
@@ -1316,7 +1316,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -1345,7 +1345,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "permission",
@@ -1368,7 +1368,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "permission",
@@ -1463,7 +1463,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "decision-sovereign",
@@ -1491,7 +1491,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "all-sovereign",
         "automation",
@@ -1692,7 +1692,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -1770,7 +1770,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision"
       ],
@@ -2439,7 +2439,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -2477,7 +2477,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission"
       ],
@@ -2965,7 +2965,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "health-maintenance-test-sub-sovereign"
       ],
@@ -3040,7 +3040,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -3063,7 +3063,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "domain-sovereign",
@@ -3220,7 +3220,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -3661,7 +3661,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "system-runtime",
         "system-runtime-sub-sovereign"
@@ -3792,7 +3792,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission"
       ],
@@ -3939,7 +3939,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -3983,7 +3983,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission"
       ],
@@ -4006,7 +4006,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "UNIT_RUNTIME",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -4108,7 +4108,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision"
       ],
@@ -4151,7 +4151,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -4169,7 +4169,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "resource-dependency-sync-sub-sovereign"
@@ -4427,7 +4427,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "data-governance-sub-sovereign",
         "permission"
@@ -4542,7 +4542,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "UNIT_RUNTIME",
       "owners": [
         "automatic-cleanup-backup-repair-update-converged-under-automation-sovereign",
         "automation",
@@ -4710,7 +4710,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "channel-contract-sync-sub-sovereign",
         "cross-sovereign",
@@ -4731,7 +4731,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision"
       ],
@@ -5001,7 +5001,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "data-governance-sub-sovereign",
         "health-maintenance-test-sub-sovereign"
@@ -5159,7 +5159,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -5189,7 +5189,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -6042,7 +6042,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -6120,7 +6120,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -6159,7 +6159,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -6227,7 +6227,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automatic-log-sync-sub-sovereign",
         "automation",
@@ -6274,7 +6274,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "automation-sovereign",
@@ -6306,7 +6306,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission"
       ],
@@ -6328,7 +6328,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -6352,7 +6352,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -6375,7 +6375,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -6391,7 +6391,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -6433,7 +6433,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -6493,7 +6493,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -6512,7 +6512,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -6552,7 +6552,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -6596,7 +6596,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -6628,7 +6628,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation"
       ],
@@ -6648,7 +6648,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission"
       ],
@@ -6667,7 +6667,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "special-law",
       "lifecycle": "active",
@@ -6684,7 +6684,7 @@
         "工程實作要求"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -6700,7 +6700,7 @@
         "流程/程序"
       ],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "permission"
@@ -6720,7 +6720,7 @@
         "流程/程序"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "special-law",
       "lifecycle": "active",
@@ -6740,7 +6740,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -6758,7 +6758,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -6801,7 +6801,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -6835,7 +6835,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -6857,7 +6857,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -6875,7 +6875,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "permission",
         "permission-sovereign"
@@ -6896,7 +6896,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -6915,7 +6915,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -6931,7 +6931,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -6948,7 +6948,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -6968,7 +6968,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "non-sovereign",
         "permission",
@@ -6992,7 +6992,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -7012,7 +7012,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -7055,7 +7055,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -7072,7 +7072,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -7092,7 +7092,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -7109,7 +7109,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -7151,7 +7151,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "automation",
         "permission"
@@ -7928,7 +7928,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "data-governance-sub-sovereign"
       ],
@@ -8354,7 +8354,7 @@
       "primary_dimension": "未分類",
       "dimensions": [],
       "kind": "business",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "superseded",
@@ -8649,7 +8649,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -8793,7 +8793,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -8810,7 +8810,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "sub-sovereign"
       ],
@@ -10205,7 +10205,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "health-maintenance-test-sub-sovereign"
       ],
@@ -10820,7 +10820,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -10854,7 +10854,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -10872,7 +10872,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -10889,7 +10889,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -10939,7 +10939,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -10956,7 +10956,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -10988,7 +10988,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -11004,7 +11004,7 @@
         "流程/程序"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -11020,7 +11020,7 @@
         "流程/程序"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
@@ -11054,7 +11054,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "registered-sovereign",
         "sub-sovereign"
@@ -11105,7 +11105,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "decision",
         "eligible-sovereign",
@@ -11127,7 +11127,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [
         "allowlisted-sovereign"
       ],
@@ -11147,7 +11147,7 @@
         "治理/權責"
       ],
       "kind": "mixed",
-      "owning_unit": "unassigned-review-needed",
+      "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",

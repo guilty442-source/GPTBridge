@@ -62,6 +62,20 @@ SECTION_TO_UNIT = {
     "audit-evidence-timestamp-retention-special-law": "UNIT_PERMISSION",
     "third-party-network-supply-chain-special-law": "UNIT_PERMISSION",
     "mandatory-implementation-obligation-special-law": "UNIT_DECISION",
+    "system-reliability-performance-repair-isolation-special-law": "UNIT_RUNTIME",
+}
+
+# §3.5 E① 裁定：憲制性 meta 章節（總則／主權／修訂保護／分權問責／解釋衝突／
+# 閉鎖安全／反越獄）即使含業務維度，其內容描述的是治理自身運作而非業務單元
+# 職掌——整條 codex-retained，不下放。
+META_CODEX_RETAINED = {
+    "general-provisions",
+    "sovereignty",
+    "amendment-and-protection",
+    "separation-and-accountability",
+    "interpretation-and-conflict",
+    "closed-security",
+    "anti-jailbreak-special-law",
 }
 
 
@@ -101,7 +115,8 @@ def build() -> dict:
         kind = classify(info)
         counts[kind] += 1
         owning_unit = (
-            "codex-retained" if kind == "governance"
+            "codex-retained"
+            if kind == "governance" or section in META_CODEX_RETAINED
             else SECTION_TO_UNIT.get(section, "unassigned-review-needed")
         )
         rows.append({
