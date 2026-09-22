@@ -1,0 +1,35 @@
+{
+  "proposal_id": "phase2r-corpus-source-proposal-20260922",
+  "requested_by": "devin-cli",
+  "status": "staged-awaiting-governor",
+  "blueprint_anchor": "§2.2 / Phase 2R / W3-1: 語料來源擴充（繁中為主的多語文本）",
+  "blocker": "ALLOWED_LICENSES = frozenset({'first-party-internal'}) in training/corpus.py — fail-closed by design; admitting external sources requires (a) governor decision on admissible license classes, (b) per-source registry entries (source_id/path/owner/license/language/sensitivity/enabled), (c) operator staging of source files into registered paths. Exclusion rule (§2.2): 未授權外部資料 fail-closed.",
+  "license_tier_analysis": {
+    "tier_A_recommended_admit": [
+      {"license_class": "cc0-public-domain", "risk": "lowest", "examples": [
+        {"source": "Project Gutenberg zh 公版書 subset", "language": "zh-TW/zh-classical", "note": "public domain; 需 zh subset 篩選與文字整理"},
+        {"source": "Mozilla Common Voice zh-TW transcripts", "language": "zh-TW", "note": "CC0; 口語體對話文本，直接補 5D 缺口"},
+        {"source": "data.gov.tw 政府資料開放平臺", "language": "zh-TW", "note": "OGDL-TW（政府資料開放授權條款，CC-BY 相容）；官方公文/法規/統計語體"}
+      ]},
+      {"license_class": "cc-by-4.0", "risk": "low (attribution 義務入 registry)", "examples": [
+        {"source": "Tatoeba sentences (zh 子集)", "language": "zh+多語", "note": "CC-BY 2.0; 句對語料"},
+        {"source": "US Gov 公版文件（en）", "language": "en", "note": "public domain; 補英文配比"}
+      ]}
+    ],
+    "tier_B_governor_decision_copyleft": [
+      {"license_class": "cc-by-sa-4.0", "risk": "share-alike 對模型權重是否構成衍生作品屬未決法律問題；產業慣例分歧", "examples": [
+        {"source": "zh Wikipedia dump", "language": "zh-TW", "note": "最大單一繁中合法語料；建議 governor 明確裁定 admit-with-SA-flag 或 exclude"},
+        {"source": "zh Wiktionary / 維基教科書", "language": "zh", "note": "同 SA 問題"}
+      ]},
+      {"license_class": "odbl", "risk": "同 share-alike 問題", "examples": [{"source": "OSM zh 地名/POI", "note": "實用性低，建議排除"}]}
+    ],
+    "tier_C_recommend_exclude_or_per-item-review": [
+      {"license_class": "cc-by-nc-sa", "risk": "NC 非商業條款——若專案用途可能涉商業則不相容", "examples": [{"source": "各大學 OCW 開放式課程", "note": "多為 BY-NC-SA"}]},
+      {"license_class": "no-license-scraped", "risk": "無授權即未授權（fail-closed）", "examples": [{"source": "PTT/Dcard/論壇/新聞爬文", "note": "明確排除"}]},
+      {"license_class": "mixed-per-repo (code)", "risk": "The Stack 類程式碼語料需逐 repo license 過濾", "examples": [{"source": "permissive-licensed code subset (MIT/BSD/Apache)", "note": "可做但需 license-filter 工具鏈"}]}
+    ]
+  },
+  "proposed_allowlist_delta": ["cc0-public-domain", "cc-by-4.0", "ogdl-tw"],
+  "execution_after_ruling": "worker 可執行：(1) corpus.py ALLOWED_LICENSES 擴充核定 license class (2) corpus-registry.json 逐來源登錄 (3) 語言分類統計重跑 (4) DG-3 配比報告；operator 負責實體檔案 staging",
+  "note": "本提案僅列合法授權候選與風險分級；採用與否、SA/NC 相容性判定屬 governor。"
+}
