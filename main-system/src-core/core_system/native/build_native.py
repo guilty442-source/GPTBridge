@@ -36,6 +36,8 @@ PUBLIC_C_ABI_HEADERS = (
     NATIVE_ROOT / "include" / "outbox.h",
     NATIVE_ROOT / "include" / "maintenance.h",
     NATIVE_ROOT / "include" / "ipc_registry.h",
+    NATIVE_ROOT / "include" / "runtime_state.h",
+    NATIVE_ROOT / "include" / "activation_broker.h",
 )
 C_CORE_SOURCES = (
     NATIVE_ROOT / "bridge" / "gptbridge_native.c",
@@ -47,6 +49,8 @@ C_CORE_SOURCES = (
     NATIVE_ROOT / "core" / "outbox.c",
     NATIVE_ROOT / "core" / "maintenance.c",
     NATIVE_ROOT / "core" / "ipc_registry.c",
+    NATIVE_ROOT / "core" / "runtime_state.c",
+    NATIVE_ROOT / "core" / "activation_broker.c",
 )
 C_PRIVATE_HEADERS = (
     NATIVE_ROOT / "core" / "memory.h",

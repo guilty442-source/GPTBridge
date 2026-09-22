@@ -28,6 +28,8 @@
 #include "outbox.h"
 #include "maintenance.h"
 #include "ipc_registry.h"
+#include "runtime_state.h"
+#include "activation_broker.h"
 
 #include <cstdio>
 #include <stdexcept>
@@ -593,6 +595,167 @@ private:
     gptbridge_ipc_registry_t reg_{};
 };
 
+// --- E3 startup/activation-surface prototypes (§10.65 shadow) ---
+// Thin holders over the pure-C state machines in native/core/.  The C
+// layer performs no I/O, no SQL and no process spawning — persistence,
+// transport probes and toolbox calls stay on the Python governed path.
+
+class NativeRuntimeStateRegistry {
+public:
+    NativeRuntimeStateRegistry() { gptbridge_rs_init(&reg_); }
+    bool set_runtime_state(const std::string& module_id,
+                           const std::string& state,
+                           const py::object& health,
+                           const py::object& release_id,
+                           const py::object& error,
+                           const std::string& now_str) {
+        const uint8_t st = gptbridge_rs_runtime_from_name(state.c_str());
+        if (st == GPTBRIDGE_RT_UNKNOWN) return false;
+        std::string h, r, e;
+        const char* ph = nullptr;
+        const char* pr = nullptr;
+        const char* pe = nullptr;
+        if (!health.is_none()) { h = py::cast<std::string>(health); ph = h.c_str(); }
+        if (!release_id.is_none()) { r = py::cast<std::string>(release_id); pr = r.c_str(); }
+        if (!error.is_none()) { e = py::cast<std::string>(error); pe = e.c_str(); }
+        return gptbridge_rs_set_runtime(
+                   &reg_, module_id.c_str(), st, ph, pr, pe,
+                   now_str.c_str()) != 0;
+    }
+    bool set_capability_state(const std::string& module_id,
+                              const std::string& state,
+                              const std::string& now_str) {
+        const uint8_t st = gptbridge_rs_capability_from_name(state.c_str());
+        if (st == GPTBRIDGE_CAP_UNKNOWN) return false;
+        return gptbridge_rs_set_capability(
+                   &reg_, module_id.c_str(), st, now_str.c_str()) != 0;
+    }
+    bool heartbeat(const std::string& module_id, const std::string& now_str) {
+        return gptbridge_rs_heartbeat(
+                   &reg_, module_id.c_str(), now_str.c_str()) != 0;
+    }
+    bool record_error(const std::string& module_id,
+                      const std::string& error,
+                      const std::string& now_str) {
+        return gptbridge_rs_record_error(
+                   &reg_, module_id.c_str(), error.c_str(),
+                   now_str.c_str()) != 0;
+    }
+    py::object get(const std::string& module_id) const {
+        const gptbridge_rs_record_t* r =
+            gptbridge_rs_find(&reg_, module_id.c_str());
+        if (r == nullptr) return py::none();
+        py::dict out;
+        out["module_id"] = r->module_id;
+        out["runtime_state"] = gptbridge_rs_runtime_name(r->runtime_state);
+        out["capability_state"] =
+            gptbridge_rs_capability_name(r->capability_state);
+        out["health"] = r->health;
+        out["release_id"] = r->release_id;
+        out["last_heartbeat"] = r->last_heartbeat;
+        out["last_error"] = r->last_error;
+        out["recovery_attempts"] = r->recovery_attempts;
+        out["updated_at"] = r->updated_at;
+        return out;
+    }
+    py::dict aggregate() const {
+        int32_t by_rt[8], by_cap[5], failed_n = 0;
+        char failed[GPTBRIDGE_RS_MAX_MODULES][GPTBRIDGE_RS_ID_MAX];
+        const int32_t total = gptbridge_rs_aggregate(
+            &reg_, by_rt, by_cap, failed, GPTBRIDGE_RS_MAX_MODULES,
+            &failed_n);
+        py::dict rt, cap;
+        for (uint8_t s = 1; s <= 7; ++s) {
+            if (by_rt[s] > 0) rt[gptbridge_rs_runtime_name(s)] = by_rt[s];
+        }
+        for (uint8_t s = 1; s <= 4; ++s) {
+            if (by_cap[s] > 0) {
+                cap[gptbridge_rs_capability_name(s)] = by_cap[s];
+            }
+        }
+        py::list fl;
+        const int32_t shown = failed_n < GPTBRIDGE_RS_MAX_MODULES
+                                  ? failed_n : GPTBRIDGE_RS_MAX_MODULES;
+        for (int32_t i = 0; i < shown; ++i) fl.append(failed[i]);
+        py::dict out;
+        out["schema"] = "star-runtime-state/v1";
+        out["module_count"] = total;
+        out["by_runtime_state"] = rt;
+        out["by_capability_state"] = cap;
+        out["failed_modules"] = fl;
+        return out;
+    }
+    int count() const { return reg_.count; }
+
+private:
+    gptbridge_rs_registry_t reg_{};
+};
+
+class NativeActivationBroker {
+public:
+    NativeActivationBroker(double cooldown_s, double min_backoff_s,
+                           double max_backoff_s) {
+        if (!gptbridge_act_init(&broker_, cooldown_s, min_backoff_s,
+                                max_backoff_s)) {
+            throw std::runtime_error("activation broker init failed");
+        }
+    }
+    std::string ensure(const py::dict& inputs) {
+        gptbridge_act_inputs_t in{};
+        in.pending = _flag(inputs, "pending");
+        in.maintenance_ready = _flag(inputs, "maintenance_ready");
+        in.shutting_down = _flag(inputs, "shutting_down");
+        in.admission_hold = _flag(inputs, "admission_hold");
+        in.liveness_known = _flag(inputs, "liveness_known");
+        in.owner_active = _flag(inputs, "owner_active");
+        in.regulation_active = _flag(inputs, "regulation_active");
+        in.now_monotonic = inputs.contains("now_monotonic")
+                               ? py::cast<double>(inputs["now_monotonic"])
+                               : 0.0;
+        return gptbridge_act_decision_name(
+            gptbridge_act_ensure(&broker_, &in));
+    }
+    std::string on_start_result(bool ok, double now_monotonic) {
+        return gptbridge_act_decision_name(gptbridge_act_on_start_result(
+            &broker_, ok ? 1 : 0, now_monotonic));
+    }
+    std::string on_release_result(bool ok, double now_monotonic) {
+        return gptbridge_act_decision_name(gptbridge_act_on_release_result(
+            &broker_, ok ? 1 : 0, now_monotonic));
+    }
+    void note_explicit_stop(double now_monotonic, double wall_time) {
+        gptbridge_act_note_explicit_stop(&broker_, now_monotonic, wall_time);
+    }
+    py::dict status() const {
+        py::dict out;
+        out["attempts"] = broker_.attempts;
+        out["backoff_seconds"] = broker_.backoff_s;
+        out["next_attempt_at"] = broker_.next_attempt_at;
+        out["next_release_at"] = broker_.next_release_at;
+        out["broker_started_owner"] =
+            static_cast<bool>(broker_.broker_started_owner);
+        out["explicit_stop_at"] = broker_.explicit_stop_at;
+        return out;
+    }
+    static double poll_interval(bool pending, double idle_s,
+                                double pending_s) {
+        return gptbridge_act_poll_interval(pending ? 1 : 0, idle_s,
+                                           pending_s);
+    }
+    static bool state_write_due(bool fingerprint_changed, double now,
+                                double last_write_at, double heartbeat_s) {
+        return gptbridge_act_state_write_due(
+                   fingerprint_changed ? 1 : 0, now, last_write_at,
+                   heartbeat_s) != 0;
+    }
+
+private:
+    static int32_t _flag(const py::dict& d, const char* key) {
+        return d.contains(key) && py::cast<bool>(d[key]) ? 1 : 0;
+    }
+    gptbridge_act_broker_t broker_{};
+};
+
 // --- Module ---
 
 PYBIND11_MODULE(_sovereign_native, m) {
@@ -684,4 +847,27 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("count", &NativeIpcRegistry::count)
         .def("transport_send", &NativeIpcRegistry::transport_send)
         .def("transport_recv", &NativeIpcRegistry::transport_recv);
+
+    // E3 startup/activation-surface prototypes (§10.65 shadow mode).
+    py::class_<NativeRuntimeStateRegistry>(m, "NativeRuntimeStateRegistry")
+        .def(py::init<>())
+        .def("set_runtime_state", &NativeRuntimeStateRegistry::set_runtime_state)
+        .def("set_capability_state",
+             &NativeRuntimeStateRegistry::set_capability_state)
+        .def("heartbeat", &NativeRuntimeStateRegistry::heartbeat)
+        .def("record_error", &NativeRuntimeStateRegistry::record_error)
+        .def("get", &NativeRuntimeStateRegistry::get)
+        .def("aggregate", &NativeRuntimeStateRegistry::aggregate)
+        .def("count", &NativeRuntimeStateRegistry::count);
+
+    py::class_<NativeActivationBroker>(m, "NativeActivationBroker")
+        .def(py::init<double, double, double>())
+        .def("ensure", &NativeActivationBroker::ensure)
+        .def("on_start_result", &NativeActivationBroker::on_start_result)
+        .def("on_release_result", &NativeActivationBroker::on_release_result)
+        .def("note_explicit_stop", &NativeActivationBroker::note_explicit_stop)
+        .def("status", &NativeActivationBroker::status)
+        .def_static("poll_interval", &NativeActivationBroker::poll_interval)
+        .def_static("state_write_due",
+                    &NativeActivationBroker::state_write_due);
 }

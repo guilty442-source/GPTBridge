@@ -1,0 +1,17 @@
+{
+  "evidence": "e3-runtime-state-activation-broker-shadow-20260922",
+  "recorded_at": "2026-09-22T08:44:14.884870+00:00",
+  "blueprint": "sec 10.65 E3 startup/activation surface (shadow stage)",
+  "components": {
+    "runtime_state": "native/core/runtime_state.c — dual-axis registry (7 runtime + 4 capability states), RECOVERING counter, READY/STARTING error-clear, error[:500] truncation, aggregate local-failure isolation; persistence stays caller-side (no C I/O)",
+    "activation_broker": "native/core/activation_broker.c — decision machine: admission ladder (maintenance->shutdown->hold->liveness->owner->throttle->SHOULD_START), cooldown+exponential backoff, governed release only for broker-owned owner under regulation, explicit-stop memory, state-write heartbeat; SQL probes/toolbox calls stay Python"
+  },
+  "binding": "_binding.cpp NativeRuntimeStateRegistry + NativeActivationBroker (struct by-value, zero I/O); all translation units compiled; final .pyd link blocked by INT-10 session lock (stale installs untouched, per design)",
+  "tests": {
+    "runtime_state_suite": "6/6 PASS",
+    "activation_broker_suite": "6/6 PASS",
+    "aggregate": "PASS=56 FAIL=0 BLOCKED=3"
+  },
+  "shadow_note": "Python path remains authoritative; broker admission inputs (pending SQL probe, liveness, governor hold) are injected — decision authority stays on Python governance path (A297)",
+  "residual": "pyd rebuild after INT-10 window; shadow-parity test vs Python classes; per-component runtime flag for shadow->primary"
+}

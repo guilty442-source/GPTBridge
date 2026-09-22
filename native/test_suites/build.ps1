@@ -30,6 +30,19 @@ $suites = @(
         )
     },
     @{
+        src = "suite_runtime_state.cpp"; exe = "runtime_state_suite.exe"
+        # E3 原型：連結真實純 C 源檔
+        extra = @(
+            (Join-Path $coreDir "runtime_state.c")
+        )
+    },
+    @{
+        src = "suite_activation_broker.cpp"; exe = "activation_broker_suite.exe"
+        extra = @(
+            (Join-Path $coreDir "activation_broker.c")
+        )
+    },
+    @{
         src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
         # P0-9 審計引擎：連結真實原生實作
         extra = @(
