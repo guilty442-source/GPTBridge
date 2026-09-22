@@ -1,0 +1,901 @@
+{
+ "registry": "MODULE_CAPABILITY_REGISTRY/v1",
+ "generated_at": "2026-09-22T06:25:29Z",
+ "authority": "derived-evidence; code taxonomy pending CUTOVER gate ratification",
+ "modules": [
+  {
+   "module_identity": "governance_rule",
+   "single_responsibility": "governance duty module: governance_rule",
+   "capability_codes": [
+    "duty:governance_rule",
+    "role:governance",
+    "grant:codex-read-execute",
+    "grant:permission-directory-read-execute"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:governance-rule",
+    "grant:codex-read-execute",
+    "grant:permission-directory-read-execute"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "decision",
+   "execution_identity": "governance-rule"
+  },
+  {
+   "module_identity": "codex-authority",
+   "single_responsibility": "governance duty module: codex-authority",
+   "capability_codes": [
+    "duty:codex-authority",
+    "role:governance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "database"
+   },
+   "permission_requirements": [
+    "identity:governance-codex"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "decision",
+   "execution_identity": "governance-codex"
+  },
+  {
+   "module_identity": "main-system",
+   "single_responsibility": "decision duty module: main-system",
+   "capability_codes": [
+    "duty:main-system",
+    "role:decision",
+    "grant:authenticated-ipc",
+    "grant:frontend-backend-connection-stability",
+    "grant:governance",
+    "grant:hot-update",
+    "grant:independent-tool-discovery",
+    "grant:independent-tool-start-and-stop"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:main-system",
+    "grant:authenticated-ipc",
+    "grant:frontend-backend-connection-stability",
+    "grant:governance",
+    "grant:hot-update",
+    "grant:independent-tool-discovery",
+    "grant:independent-tool-start-and-stop"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "main-system"
+  },
+  {
+   "module_identity": "boot-core",
+   "single_responsibility": "startup duty module: boot-core",
+   "capability_codes": [
+    "duty:boot-core",
+    "role:startup"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:boot-core"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "boot-core"
+  },
+  {
+   "module_identity": "bootstrap-entry",
+   "single_responsibility": "startup duty module: bootstrap-entry",
+   "capability_codes": [
+    "duty:bootstrap-entry",
+    "role:startup"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:bootstrap-entry"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "bootstrap-entry"
+  },
+  {
+   "module_identity": "launcher-ui",
+   "single_responsibility": "startup duty module: launcher-ui",
+   "capability_codes": [
+    "duty:launcher-ui",
+    "role:startup"
+   ],
+   "resource_requirements": {
+    "runtime_form": "electron-app"
+   },
+   "permission_requirements": [
+    "identity:launcher-ui"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "launcher-ui"
+  },
+  {
+   "module_identity": "decision-sovereign",
+   "single_responsibility": "decision duty module: decision-sovereign",
+   "capability_codes": [
+    "duty:decision-sovereign",
+    "role:decision"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:decision-sovereign"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "decision",
+   "execution_identity": "decision-sovereign"
+  },
+  {
+   "module_identity": "synchronization-sovereign",
+   "single_responsibility": "development-maintenance duty module: synchronization-sovereign",
+   "capability_codes": [
+    "duty:synchronization-sovereign",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:synchronization-sovereign"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "automation",
+   "execution_identity": "synchronization-sovereign"
+  },
+  {
+   "module_identity": "xingcheng-sovereign",
+   "single_responsibility": "decision duty module: xingcheng-sovereign",
+   "capability_codes": [
+    "duty:xingcheng-sovereign",
+    "role:decision"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:xingcheng-sovereign"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "xingcheng-sovereign"
+  },
+  {
+   "module_identity": "sub-sovereign-orchestration",
+   "single_responsibility": "development-maintenance duty module: sub-sovereign-orchestration",
+   "capability_codes": [
+    "duty:sub-sovereign-orchestration",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:sub-sovereign"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "sub-sovereign"
+  },
+  {
+   "module_identity": "shared-layer",
+   "single_responsibility": "information duty module: shared-layer",
+   "capability_codes": [
+    "duty:shared-layer",
+    "role:information"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:shared-layer"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "shared-layer"
+  },
+  {
+   "module_identity": "tokenizer",
+   "single_responsibility": "information duty module: tokenizer",
+   "capability_codes": [
+    "duty:tokenizer",
+    "role:information"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:tokenizer"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "tokenizer"
+  },
+  {
+   "module_identity": "information-channel-gateway",
+   "single_responsibility": "information duty module: information-channel-gateway",
+   "capability_codes": [
+    "duty:information-channel-gateway",
+    "role:information"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:information-channel-gateway"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "information-channel-gateway"
+  },
+  {
+   "module_identity": "postgresql",
+   "single_responsibility": "data duty module: postgresql",
+   "capability_codes": [
+    "duty:postgresql",
+    "role:data"
+   ],
+   "resource_requirements": {
+    "runtime_form": "external-service"
+   },
+   "permission_requirements": [
+    "identity:gptbridge-postgresql"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "gptbridge-postgresql"
+  },
+  {
+   "module_identity": "qdrant",
+   "single_responsibility": "data duty module: qdrant",
+   "capability_codes": [
+    "duty:qdrant",
+    "role:data"
+   ],
+   "resource_requirements": {
+    "runtime_form": "external-service"
+   },
+   "permission_requirements": [
+    "identity:gptbridge-qdrant"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "gptbridge-qdrant"
+  },
+  {
+   "module_identity": "module-sqlite",
+   "single_responsibility": "data duty module: module-sqlite",
+   "capability_codes": [
+    "duty:module-sqlite",
+    "role:data"
+   ],
+   "resource_requirements": {
+    "runtime_form": "database"
+   },
+   "permission_requirements": [
+    "identity:module-private-sqlite"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "module-private-sqlite"
+  },
+  {
+   "module_identity": "local-vector",
+   "single_responsibility": "data duty module: local-vector",
+   "capability_codes": [
+    "duty:local-vector",
+    "role:data"
+   ],
+   "resource_requirements": {
+    "runtime_form": "database"
+   },
+   "permission_requirements": [
+    "identity:local-vector-fallback"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "local-vector-fallback"
+  },
+  {
+   "module_identity": "ollama",
+   "single_responsibility": "model duty module: ollama",
+   "capability_codes": [
+    "duty:ollama",
+    "role:model"
+   ],
+   "resource_requirements": {
+    "runtime_form": "external-service"
+   },
+   "permission_requirements": [
+    "identity:gptbridge-ollama"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "gptbridge-ollama"
+  },
+  {
+   "module_identity": "local-model",
+   "single_responsibility": "model duty module: local-model",
+   "capability_codes": [
+    "duty:local-model",
+    "role:model"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:local-model"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "local-model"
+  },
+  {
+   "module_identity": "xingcheng",
+   "single_responsibility": "model duty module: xingcheng",
+   "capability_codes": [
+    "duty:xingcheng",
+    "role:model",
+    "grant:star-internal-data-read-write",
+    "grant:star-investment-manager-database-read"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:xingcheng-native-model",
+    "grant:star-internal-data-read-write",
+    "grant:star-investment-manager-database-read"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "xingcheng-native-model"
+  },
+  {
+   "module_identity": "xingcheng-assistant",
+   "single_responsibility": "decision duty module: xingcheng-assistant",
+   "capability_codes": [
+    "duty:xingcheng-assistant",
+    "role:decision",
+    "grant:star-global-data-read",
+    "grant:xingcheng-fault-analysis-read",
+    "grant:xingcheng-governance-source-read"
+   ],
+   "resource_requirements": {
+    "runtime_form": "electron-app"
+   },
+   "permission_requirements": [
+    "identity:xingcheng-assistant-identity-group",
+    "grant:star-global-data-read",
+    "grant:xingcheng-fault-analysis-read",
+    "grant:xingcheng-governance-source-read"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "xingcheng-assistant-identity-group"
+  },
+  {
+   "module_identity": "xingcheng-assistant-store",
+   "single_responsibility": "data duty module: xingcheng-assistant-store",
+   "capability_codes": [
+    "duty:xingcheng-assistant-store",
+    "role:data"
+   ],
+   "resource_requirements": {
+    "runtime_form": "database"
+   },
+   "permission_requirements": [
+    "identity:xingcheng-assistant-identity-database"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "xingcheng-assistant-identity-database"
+  },
+  {
+   "module_identity": "xingcheng-personality-store",
+   "single_responsibility": "data duty module: xingcheng-personality-store",
+   "capability_codes": [
+    "duty:xingcheng-personality-store",
+    "role:data"
+   ],
+   "resource_requirements": {
+    "runtime_form": "database"
+   },
+   "permission_requirements": [
+    "identity:xingcheng-identity-database"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "xingcheng-identity-database"
+  },
+  {
+   "module_identity": "xingcheng-auto-learning-module",
+   "single_responsibility": "model duty module: xingcheng-auto-learning-module",
+   "capability_codes": [
+    "duty:xingcheng-auto-learning-module",
+    "role:model"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:xingcheng-native-model"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "xingcheng-native-model"
+  },
+  {
+   "module_identity": "xingcheng-auto-repair-module",
+   "single_responsibility": "model duty module: xingcheng-auto-repair-module",
+   "capability_codes": [
+    "duty:xingcheng-auto-repair-module",
+    "role:model"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:xingcheng-native-model"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "xingcheng-native-model"
+  },
+  {
+   "module_identity": "model-dialogue",
+   "single_responsibility": "execution duty module: model-dialogue",
+   "capability_codes": [
+    "duty:model-dialogue",
+    "role:execution"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:model-dialogue-ui"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "model-dialogue-ui"
+  },
+  {
+   "module_identity": "ai-assistant",
+   "single_responsibility": "execution duty module: ai-assistant",
+   "capability_codes": [
+    "duty:ai-assistant",
+    "role:execution"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:ai-assistant"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "ai-assistant"
+  },
+  {
+   "module_identity": "ai-collaboration",
+   "single_responsibility": "execution duty module: ai-collaboration",
+   "capability_codes": [
+    "duty:ai-collaboration",
+    "role:execution"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:ai-collaboration"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "ai-collaboration"
+  },
+  {
+   "module_identity": "file-sorter",
+   "single_responsibility": "execution duty module: file-sorter",
+   "capability_codes": [
+    "duty:file-sorter",
+    "role:execution"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:file-sorter"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "file-sorter"
+  },
+  {
+   "module_identity": "investment-mobile",
+   "single_responsibility": "development-maintenance duty module: investment-mobile",
+   "capability_codes": [
+    "duty:investment-mobile",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:investment-mobile"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "investment-mobile"
+  },
+  {
+   "module_identity": "global-cleaner",
+   "single_responsibility": "development-maintenance duty module: global-cleaner",
+   "capability_codes": [
+    "duty:global-cleaner",
+    "role:development-maintenance",
+    "grant:global-cleanup",
+    "grant:managed-backup"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:retired-global-cleaner",
+    "grant:global-cleanup",
+    "grant:managed-backup"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "retired",
+   "availability": "retired",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "retired-global-cleaner"
+  },
+  {
+   "module_identity": "system-rescue",
+   "single_responsibility": "development-maintenance duty module: system-rescue",
+   "capability_codes": [
+    "duty:system-rescue",
+    "role:development-maintenance",
+    "grant:central-automatic-repair",
+    "grant:system-health-check"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:main-system:system-rescue",
+    "grant:central-automatic-repair",
+    "grant:system-health-check"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "main-system:system-rescue"
+  },
+  {
+   "module_identity": "vaultly",
+   "single_responsibility": "execution duty module: vaultly",
+   "capability_codes": [
+    "duty:vaultly",
+    "role:execution"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:vaultly"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "vaultly"
+  },
+  {
+   "module_identity": "git-tier-plane",
+   "single_responsibility": "development-maintenance duty module: git-tier-plane",
+   "capability_codes": [
+    "duty:git-tier-plane",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "build-tooling"
+   },
+   "permission_requirements": [
+    "identity:git-tier"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "automation",
+   "execution_identity": "git-tier"
+  },
+  {
+   "module_identity": "worker-plane",
+   "single_responsibility": "development-maintenance duty module: worker-plane",
+   "capability_codes": [
+    "duty:worker-plane",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "standalone-service"
+   },
+   "permission_requirements": [
+    "identity:ai-worker-plane"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "automation",
+   "execution_identity": "ai-worker-plane"
+  },
+  {
+   "module_identity": "self-commit-service",
+   "single_responsibility": "development-maintenance duty module: self-commit-service",
+   "capability_codes": [
+    "duty:self-commit-service",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:self-commit-service"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "automation",
+   "execution_identity": "self-commit-service"
+  },
+  {
+   "module_identity": "integration-plane",
+   "single_responsibility": "development-maintenance duty module: integration-plane",
+   "capability_codes": [
+    "duty:integration-plane",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:integration-coordinator"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "automation",
+   "execution_identity": "integration-coordinator"
+  },
+  {
+   "module_identity": "recovery-plane",
+   "single_responsibility": "development-maintenance duty module: recovery-plane",
+   "capability_codes": [
+    "duty:recovery-plane",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:git-disaster-recovery"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "automation",
+   "execution_identity": "git-disaster-recovery"
+  },
+  {
+   "module_identity": "origin-mirror",
+   "single_responsibility": "development-maintenance duty module: origin-mirror",
+   "capability_codes": [
+    "duty:origin-mirror",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "external-service"
+   },
+   "permission_requirements": [
+    "identity:origin-mirror"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "automation",
+   "execution_identity": "origin-mirror"
+  },
+  {
+   "module_identity": "language-review",
+   "single_responsibility": "development-maintenance duty module: language-review",
+   "capability_codes": [
+    "duty:language-review",
+    "role:development-maintenance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:language-review"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "automation",
+   "execution_identity": "language-review"
+  },
+  {
+   "module_identity": "business-logic-csharp",
+   "single_responsibility": "execution duty module: business-logic-csharp",
+   "capability_codes": [
+    "duty:business-logic-csharp",
+    "role:execution"
+   ],
+   "resource_requirements": {
+    "runtime_form": "internal-service"
+   },
+   "permission_requirements": [
+    "identity:business-logic-csharp"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "business-logic-csharp"
+  },
+  {
+   "module_identity": "native-compute-core",
+   "single_responsibility": "execution duty module: native-compute-core",
+   "capability_codes": [
+    "duty:native-compute-core",
+    "role:execution"
+   ],
+   "resource_requirements": {
+    "runtime_form": "native-library"
+   },
+   "permission_requirements": [
+    "identity:native-compute-core"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "native-compute-core"
+  },
+  {
+   "module_identity": "model-training",
+   "single_responsibility": "model duty module: model-training",
+   "capability_codes": [
+    "duty:model-training",
+    "role:model"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:model-training"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "xingcheng-domain",
+   "execution_identity": "model-training"
+  }
+ ]
+}

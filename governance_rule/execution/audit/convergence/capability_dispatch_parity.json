@@ -1,400 +1,238 @@
 {
-  "evidence": "CAPABILITY_DISPATCH_PARITY/v1",
-  "generated_at": "2026-09-21",
-  "modules_total": 45,
-  "schema_ok": 45,
-  "schema_errors": {},
-  "capability_conflicts": {
-    "role:governance": [
-      "governance_rule",
-      "codex-authority"
-    ],
-    "role:decision": [
-      "main-system",
-      "decision-sovereign",
-      "xingcheng-sovereign",
-      "xingcheng-assistant"
-    ],
-    "role:startup": [
-      "boot-core",
-      "bootstrap-entry",
-      "launcher-ui"
-    ],
-    "role:development-maintenance": [
-      "synchronization-sovereign",
-      "investment-mobile",
-      "global-cleaner",
-      "system-rescue",
-      "git-tier-plane",
-      "worker-plane",
-      "self-commit-service",
-      "integration-plane",
-      "recovery-plane",
-      "origin-mirror",
-      "language-review"
-    ],
-    "role:information": [
-      "shared-layer",
-      "tokenizer",
-      "information-channel-gateway"
-    ],
-    "role:data": [
-      "postgresql",
-      "qdrant",
-      "module-sqlite",
-      "local-vector",
-      "xingcheng-assistant-store",
-      "xingcheng-personality-store"
-    ],
-    "role:model": [
-      "ollama",
-      "local-model",
-      "xingcheng",
-      "xingcheng-auto-learning-module",
-      "xingcheng-auto-repair-module",
-      "model-training"
-    ],
-    "role:execution": [
-      "model-dialogue",
-      "ai-assistant",
-      "ai-collaboration",
-      "file-sorter",
-      "vaultly",
-      "business-logic-csharp",
-      "native-compute-core"
-    ]
+ "evidence": "CAPABILITY_DISPATCH_PARITY/v2",
+ "generated_at": "2026-09-22T06:25:29Z",
+ "modules_total": 43,
+ "schema_ok": 43,
+ "schema_errors": {},
+ "semantic_codes": true,
+ "capability_conflicts": {},
+ "role_code_sharing_informational": {
+  "role:governance": [
+   "governance_rule",
+   "codex-authority"
+  ],
+  "role:decision": [
+   "main-system",
+   "decision-sovereign",
+   "xingcheng-sovereign",
+   "xingcheng-assistant"
+  ],
+  "role:startup": [
+   "boot-core",
+   "bootstrap-entry",
+   "launcher-ui"
+  ],
+  "role:development-maintenance": [
+   "synchronization-sovereign",
+   "sub-sovereign-orchestration",
+   "investment-mobile",
+   "global-cleaner",
+   "system-rescue",
+   "git-tier-plane",
+   "worker-plane",
+   "self-commit-service",
+   "integration-plane",
+   "recovery-plane",
+   "origin-mirror",
+   "language-review"
+  ],
+  "role:information": [
+   "shared-layer",
+   "tokenizer",
+   "information-channel-gateway"
+  ],
+  "role:data": [
+   "postgresql",
+   "qdrant",
+   "module-sqlite",
+   "local-vector",
+   "xingcheng-assistant-store",
+   "xingcheng-personality-store"
+  ],
+  "role:model": [
+   "ollama",
+   "local-model",
+   "xingcheng",
+   "xingcheng-auto-learning-module",
+   "xingcheng-auto-repair-module",
+   "model-training"
+  ],
+  "role:execution": [
+   "model-dialogue",
+   "ai-assistant",
+   "ai-collaboration",
+   "file-sorter",
+   "vaultly",
+   "business-logic-csharp",
+   "native-compute-core"
+  ]
+ },
+ "parity_pass": 17,
+ "parity_fail": [],
+ "results": [
+  {
+   "module_identity": "AI_ASSISTANT",
+   "fixed_assignment_owner_sub_sovereign": "priority-capability-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "ai-assistant",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module ai-assistant"
   },
-  "parity_pass": 40,
-  "parity_fail": [],
-  "results": [
-    {
-      "module_identity": "governance_rule",
-      "fixed_assignment_owner_sub_sovereign": "policy_architecture_sub_sovereign",
-      "capability_dispatch_selected": "governance_rule",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "codex-authority",
-      "fixed_assignment_owner_sub_sovereign": "policy_architecture_sub_sovereign",
-      "capability_dispatch_selected": "codex-authority",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "main-system",
-      "fixed_assignment_owner_sub_sovereign": "system_sub_sovereign",
-      "capability_dispatch_selected": "main-system",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "boot-core",
-      "fixed_assignment_owner_sub_sovereign": "startup_sub_sovereign",
-      "capability_dispatch_selected": "",
-      "parity": null,
-      "decision": "FAIL_CLOSED",
-      "parity_class": "not-applicable"
-    },
-    {
-      "module_identity": "bootstrap-entry",
-      "fixed_assignment_owner_sub_sovereign": "startup_sub_sovereign",
-      "capability_dispatch_selected": "",
-      "parity": null,
-      "decision": "FAIL_CLOSED",
-      "parity_class": "not-applicable"
-    },
-    {
-      "module_identity": "launcher-ui",
-      "fixed_assignment_owner_sub_sovereign": "startup_sub_sovereign",
-      "capability_dispatch_selected": "",
-      "parity": null,
-      "decision": "FAIL_CLOSED",
-      "parity_class": "not-applicable"
-    },
-    {
-      "module_identity": "decision-sovereign",
-      "fixed_assignment_owner_sub_sovereign": "policy_architecture_sub_sovereign",
-      "capability_dispatch_selected": "decision-sovereign",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "synchronization-sovereign",
-      "fixed_assignment_owner_sub_sovereign": "release_update_sync_sub_sovereign",
-      "capability_dispatch_selected": "synchronization-sovereign",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "xingcheng-sovereign",
-      "fixed_assignment_owner_sub_sovereign": "system_sub_sovereign",
-      "capability_dispatch_selected": "xingcheng-sovereign",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "sub-sovereign-orchestration",
-      "fixed_assignment_owner_sub_sovereign": "startup_sub_sovereign",
-      "capability_dispatch_selected": "sub-sovereign-orchestration",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "shared-layer",
-      "fixed_assignment_owner_sub_sovereign": "channel_contract_sync_sub_sovereign",
-      "capability_dispatch_selected": "shared-layer",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "tokenizer",
-      "fixed_assignment_owner_sub_sovereign": "channel_contract_sync_sub_sovereign",
-      "capability_dispatch_selected": "tokenizer",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "information-channel-gateway",
-      "fixed_assignment_owner_sub_sovereign": "channel_contract_sync_sub_sovereign",
-      "capability_dispatch_selected": "information-channel-gateway",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "postgresql",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "postgresql",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "qdrant",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "qdrant",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "module-sqlite",
-      "fixed_assignment_owner_sub_sovereign": "runtime_state_sync_sub_sovereign",
-      "capability_dispatch_selected": "module-sqlite",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "local-vector",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "",
-      "parity": null,
-      "decision": "FAIL_CLOSED",
-      "parity_class": "not-applicable"
-    },
-    {
-      "module_identity": "ollama",
-      "fixed_assignment_owner_sub_sovereign": "dependency_sync_sub_sovereign",
-      "capability_dispatch_selected": "ollama",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "local-model",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "local-model",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "xingcheng",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "xingcheng",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "xingcheng-assistant",
-      "fixed_assignment_owner_sub_sovereign": "xingcheng-assistant-identity-group",
-      "capability_dispatch_selected": "xingcheng-assistant",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "xingcheng-assistant-store",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "xingcheng-assistant-store",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "xingcheng-personality-store",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "xingcheng-personality-store",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "xingcheng-auto-learning-module",
-      "fixed_assignment_owner_sub_sovereign": "xingcheng-assistant-identity-group",
-      "capability_dispatch_selected": "xingcheng-auto-learning-module",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "xingcheng-auto-repair-module",
-      "fixed_assignment_owner_sub_sovereign": "xingcheng-assistant-identity-group",
-      "capability_dispatch_selected": "xingcheng-auto-repair-module",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "model-dialogue",
-      "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
-      "capability_dispatch_selected": "model-dialogue",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "ai-assistant",
-      "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
-      "capability_dispatch_selected": "ai-assistant",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "ai-collaboration",
-      "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
-      "capability_dispatch_selected": "ai-collaboration",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "file-sorter",
-      "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
-      "capability_dispatch_selected": "file-sorter",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "investment-mobile",
-      "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
-      "capability_dispatch_selected": "investment-mobile",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "global-cleaner",
-      "fixed_assignment_owner_sub_sovereign": "cleanup_retention_sync_sub_sovereign",
-      "capability_dispatch_selected": "",
-      "parity": null,
-      "decision": "FAIL_CLOSED",
-      "parity_class": "not-applicable"
-    },
-    {
-      "module_identity": "system-rescue",
-      "fixed_assignment_owner_sub_sovereign": "repair_backup_sync_sub_sovereign",
-      "capability_dispatch_selected": "system-rescue",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "vaultly",
-      "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
-      "capability_dispatch_selected": "vaultly",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "git-tier-plane",
-      "fixed_assignment_owner_sub_sovereign": "release_update_sync_sub_sovereign",
-      "capability_dispatch_selected": "git-tier-plane",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "worker-plane",
-      "fixed_assignment_owner_sub_sovereign": "release_update_sync_sub_sovereign",
-      "capability_dispatch_selected": "worker-plane",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "self-commit-service",
-      "fixed_assignment_owner_sub_sovereign": "release_update_sync_sub_sovereign",
-      "capability_dispatch_selected": "self-commit-service",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "integration-plane",
-      "fixed_assignment_owner_sub_sovereign": "release_update_sync_sub_sovereign",
-      "capability_dispatch_selected": "integration-plane",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "recovery-plane",
-      "fixed_assignment_owner_sub_sovereign": "repair_backup_sync_sub_sovereign",
-      "capability_dispatch_selected": "recovery-plane",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "origin-mirror",
-      "fixed_assignment_owner_sub_sovereign": "release_update_sync_sub_sovereign",
-      "capability_dispatch_selected": "origin-mirror",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "language-review",
-      "fixed_assignment_owner_sub_sovereign": "language_review_sub_sovereign",
-      "capability_dispatch_selected": "language-review",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "business-logic-csharp",
-      "fixed_assignment_owner_sub_sovereign": "change_acceptance_sub_sovereign",
-      "capability_dispatch_selected": "business-logic-csharp",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "native-compute-core",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "native-compute-core",
-      "parity": true,
-      "decision": "PASS"
-    },
-    {
-      "module_identity": "model-training",
-      "fixed_assignment_owner_sub_sovereign": "data_governance_sub_sovereign",
-      "capability_dispatch_selected": "model-training",
-      "parity": true,
-      "decision": "PASS"
-    }
-  ],
-  "closure": "INCOMPLETE_EVIDENCE",
-  "pending": [
-    "semantic capability codes (current codes are identity/role based)",
-    "runtime dispatch wiring (RULE_CAPABILITY_DISPATCH_V1 not active in runtime)",
-    "registry switch + activation gate"
-  ],
-  "parity_not_applicable": [
-    "boot-core",
-    "bootstrap-entry",
-    "launcher-ui",
-    "local-vector",
-    "global-cleaner"
-  ],
-  "summary": {
-    "total": 45,
-    "pass": 40,
-    "not_applicable": 5,
-    "fail": 0
+  {
+   "module_identity": "AI_COLLABORATION",
+   "fixed_assignment_owner_sub_sovereign": "dependency-sync-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "ai-collaboration",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module ai-collaboration"
   },
-  "notes": {
-    "conflicts": "8 conflicts are coarse role:* codes shared by multiple modules; identity codes are unique (no dispatch ambiguity)",
-    "semantic_codes_pending": true
+  {
+   "module_identity": "EVENT_SERVICE",
+   "fixed_assignment_owner_sub_sovereign": "channel-contract-sync-sub-sovereign",
+   "hosted_in": "main-system",
+   "capability_dispatch_selected": "main-system",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module main-system"
+  },
+  {
+   "module_identity": "FILE_SORTER",
+   "fixed_assignment_owner_sub_sovereign": "cleanup-retention-sync-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "file-sorter",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module file-sorter"
+  },
+  {
+   "module_identity": "GLOBAL_CLEANER",
+   "fixed_assignment_owner_sub_sovereign": "cleanup-retention-sync-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": null,
+   "parity": true,
+   "decision": "FAIL_CLOSED",
+   "detail": "no eligible module"
+  },
+  {
+   "module_identity": "INVESTMENT_MOBILE",
+   "fixed_assignment_owner_sub_sovereign": "priority-capability-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "investment-mobile",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module investment-mobile"
+  },
+  {
+   "module_identity": "IPC_SERVICE",
+   "fixed_assignment_owner_sub_sovereign": "channel-contract-sync-sub-sovereign",
+   "hosted_in": "main-system",
+   "capability_dispatch_selected": "main-system",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module main-system"
+  },
+  {
+   "module_identity": "LAUNCHER",
+   "fixed_assignment_owner_sub_sovereign": "startup-sub-sovereign",
+   "hosted_in": "launcher-ui",
+   "capability_dispatch_selected": "launcher-ui",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module launcher-ui"
+  },
+  {
+   "module_identity": "LOCAL_MODEL",
+   "fixed_assignment_owner_sub_sovereign": "resource-dependency-sync-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "local-model",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module local-model"
+  },
+  {
+   "module_identity": "MAIN_SYSTEM",
+   "fixed_assignment_owner_sub_sovereign": "system-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "main-system",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module main-system"
+  },
+  {
+   "module_identity": "MODEL_DIALOGUE",
+   "fixed_assignment_owner_sub_sovereign": "priority-capability-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "model-dialogue",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module model-dialogue"
+  },
+  {
+   "module_identity": "POSTGRESQL_AUTHORITY",
+   "fixed_assignment_owner_sub_sovereign": "data-governance-sub-sovereign",
+   "hosted_in": "postgresql",
+   "capability_dispatch_selected": "postgresql",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module postgresql"
+  },
+  {
+   "module_identity": "QDRANT_AUTHORITY",
+   "fixed_assignment_owner_sub_sovereign": "data-governance-sub-sovereign",
+   "hosted_in": "qdrant",
+   "capability_dispatch_selected": "qdrant",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module qdrant"
+  },
+  {
+   "module_identity": "SHARED_LAYER",
+   "fixed_assignment_owner_sub_sovereign": "channel-contract-sync-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "shared-layer",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module shared-layer"
+  },
+  {
+   "module_identity": "STATE_SERVICE",
+   "fixed_assignment_owner_sub_sovereign": "runtime-state-sync-sub-sovereign",
+   "hosted_in": "main-system",
+   "capability_dispatch_selected": "main-system",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module main-system"
+  },
+  {
+   "module_identity": "SYSTEM_RESCUE",
+   "fixed_assignment_owner_sub_sovereign": "health-maintenance-test-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "system-rescue",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module system-rescue"
+  },
+  {
+   "module_identity": "VAULTLY",
+   "fixed_assignment_owner_sub_sovereign": "dependency-sync-sub-sovereign",
+   "hosted_in": null,
+   "capability_dispatch_selected": "vaultly",
+   "parity": true,
+   "decision": "PASS",
+   "detail": "eligible module vaultly"
   }
+ ],
+ "closure": "INCOMPLETE_EVIDENCE",
+ "pending": [
+  "runtime dispatch wiring (RULE_CAPABILITY_DISPATCH_V1 not active in runtime)",
+  "registry switch + activation gate",
+  "code taxonomy ratification at CUTOVER gate"
+ ],
+ "summary": {
+  "total": 17,
+  "pass": 17,
+  "fail": 0
+ }
 }
