@@ -1661,7 +1661,28 @@ def run_cycle(
     train_fn: Callable[..., dict[str, Any]] | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
-    return run_cycle_impl(tool_root, policy=policy, train_fn=train_fn, force=force)
+    """完整循環＝``run_cycle_impl``＋ retention 掃除（§10.67）。
+
+    CLI 兩條路徑（``--run-once``／``--watch`` → ``_watch_loop``）皆經此
+    入口，因此 retention 在這裡執行才能涵蓋 watcher。kill-switch
+    關閉（``action == "disabled"``）時 fail-closed：整條管線靜默，
+    連清理都不做。
+    """
+    result = run_cycle_impl(
+        tool_root, policy=policy, train_fn=train_fn, force=force
+    )
+    if isinstance(result, dict) and result.get("action") == "disabled":
+        return result
+    try:
+        from .retention import apply_retention
+
+        retention = apply_retention(tool_root)
+    except Exception as exc:  # 清理失敗不影響訓練結果，只留證據
+        retention = {"ok": False, "error": f"{type(exc).__name__}:{exc}"}
+    if isinstance(result, dict):
+        result = dict(result)
+        result["retention"] = retention
+    return result
 
 
 __all__ = ["run_cycle", "run_cycle_impl", "run_cli"]
