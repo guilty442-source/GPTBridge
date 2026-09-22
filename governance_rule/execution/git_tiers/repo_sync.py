@@ -157,6 +157,12 @@ def evaluate_push_gates(root: str | Path) -> dict[str, Any]:
     gates.append({"gate": "governance-audit", "passed": audit_passed,
                   "detail": audit_detail})
 
+    # §10.69-C① mandatory test gate (bounded; configured under
+    # flows.git-automation.push_gate in automation-flows.json).
+    from .push_gate import mandatory_test_gate
+
+    gates.append(mandatory_test_gate(root))
+
     state = sync_state(root)
     local_sha = state["local_main_sha"]
     origin_sha = state["origin_main_sha"]

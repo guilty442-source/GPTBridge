@@ -237,6 +237,12 @@ def synchronize(
                     f"error:fast-forward:{branch}:{_gate_error(advanced)}"
                 )
         if push:
+            from .push_gate import (
+                mandatory_test_gate,
+                record_convergence_evidence,
+                record_push_evidence,
+            )
+
             fetched = _governed(
                 main_repo, ["fetch", "origin", MAIN_BRANCH]
             )
@@ -247,9 +253,34 @@ def synchronize(
             )
             if remote_is_ancestor.returncode != 0:
                 return "error:remote-main-diverged"
+            # §10.69-C① mandatory test gate: no push without PASS evidence.
+            test_gate = mandatory_test_gate(main["path"])
+            if not test_gate["passed"]:
+                record_push_evidence(
+                    main["path"], actor=SYNC_ACTOR, test_gate=test_gate,
+                    pushed=False, detail=test_gate.get("detail", ""),
+                )
+                return "error:push-test-gate"
             pushed = _governed(main_repo, ["push", "origin", MAIN_BRANCH])
             if _gate_failed(pushed):
+                record_push_evidence(
+                    main["path"], actor=SYNC_ACTOR, test_gate=test_gate,
+                    pushed=False, detail=_gate_error(pushed),
+                )
                 return f"error:push:{_gate_error(pushed)}"
+            record_push_evidence(
+                main["path"], actor=SYNC_ACTOR, test_gate=test_gate,
+                pushed=True,
+            )
+        # §10.69-F①/D④: periodic ahead==0 convergence proof (ledger + state).
+        try:
+            from .push_gate import record_convergence_evidence
+
+            record_convergence_evidence(
+                main["path"], actor=SYNC_ACTOR, pushed=push
+            )
+        except Exception as exc:  # evidence recording never blocks the sync
+            _logger.warning("convergence evidence recording failed: %s", exc)
     return "synchronized-and-pushed" if push else "synchronized"
 
 
