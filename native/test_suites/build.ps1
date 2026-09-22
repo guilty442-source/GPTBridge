@@ -102,7 +102,8 @@ $lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
 $tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
-$lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$driverExe /Fo:$out\ `"$driverSrc`" `"$tpxSrc`" >nul || exit /b 1"
+$sidecarSrc = Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"
+$lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$driverExe /Fo:$out\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" >nul || exit /b 1"
 Set-Content -Path $bat -Value $lines -Encoding ASCII
 cmd /c $bat
 if ($LASTEXITCODE -ne 0) { Write-Output "BUILD FAILED"; exit 1 }

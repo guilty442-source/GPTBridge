@@ -98,6 +98,22 @@ def cpp_runtime_mode() -> str:
     return raw if raw in _VALID_MODES else "invalid"
 
 
+def _cpp_cuda_requested() -> bool:
+    """P3f GPU 協調：CUDA opt-in 由 env → settings 決定（預設關閉）。
+
+    啟用後仍須通過 GpuCoordinator 預算閘（`CppInferenceEngine`
+    載入時判定）；任何環節拒絕皆降級 CPU——互動路徑 fail-soft，
+    與 native engine `_gate_cuda_device` 同一語義。"""
+    from ..native_engine import load_settings
+
+    raw = (
+        os.environ.get("XINGCHENG_CPP_CUDA")
+        or load_settings().get("cpp_cuda")
+        or ""
+    )
+    return str(raw).strip().casefold() in {"1", "true", "on", "yes"}
+
+
 def _kv_memory_limit_bytes() -> int:
     from ..native_engine import load_settings
 
@@ -253,8 +269,73 @@ class CppInferenceEngine:
             if kv_memory_limit is not None
             else _kv_memory_limit_bytes()
         )
-        self._engine = load_engine(self.bundle_dir, kv_memory_limit=limit)
+        self._engine = self._load_gated_engine(limit)
         self._lock = threading.Lock()
+
+    # -- P3f GPU coordination -------------------------------------------
+
+    def _cuda_required_mb(self) -> float:
+        """Estimate device-side footprint: one resident weight copy plus
+        cuBLAS/activation headroom (1.5x), mirroring the native engine's
+        admission estimate."""
+        try:
+            manifest = json.loads(
+                (self.bundle_dir / "manifest.json").read_text(encoding="utf-8")
+            )
+            weights_bytes = int(manifest.get("weights_bytes") or 0)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            weights_bytes = 0
+        return max(256.0, weights_bytes * 1.5 / (1024**2))
+
+    def _load_gated_engine(self, limit: int) -> Any:
+        """Load with the CUDA opt-in env scoped to engine.load().
+
+        The C++ engine reads XINGCHENG_CPP_CUDA at load time; the env is
+        set only inside the coordinator admission window and restored
+        afterwards so later engine loads are unaffected. Budget denial or
+        coordinator failure degrades to CPU and is ledger-audited
+        (fail-soft, same contract as `_gate_cuda_device`)."""
+        if not _cpp_cuda_requested():
+            return load_engine(self.bundle_dir, kv_memory_limit=limit)
+        required_mb = self._cuda_required_mb()
+        timeout = float(
+            os.environ.get("XINGCHENG_GPU_ACQUIRE_TIMEOUT_S", "15")
+        )
+        try:
+            from shared_layer.adaptive.gpu_coordinator import GpuCoordinator
+
+            coordinator = GpuCoordinator()
+            with coordinator.acquire(
+                required_mb, priority="inference", timeout=timeout
+            ):
+                os.environ["XINGCHENG_CPP_CUDA"] = "1"
+                try:
+                    return load_engine(
+                        self.bundle_dir, kv_memory_limit=limit
+                    )
+                finally:
+                    os.environ.pop("XINGCHENG_CPP_CUDA", None)
+        except Exception as error:
+            os.environ.pop("XINGCHENG_CPP_CUDA", None)
+            self._record_cuda_downgrade(required_mb, error)
+            return load_engine(self.bundle_dir, kv_memory_limit=limit)
+
+    def _record_cuda_downgrade(
+        self, required_mb: float, error: Exception
+    ) -> None:
+        _ledger_append(
+            {
+                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "engine": "cpp",
+                "event": "gpu-budget-downgrade",
+                "checkpoint_path": str(self.checkpoint_path),
+                "weights_sha256": self.weights_sha256,
+                "device_requested": "cuda",
+                "device_used": "cpu",
+                "required_mb": round(required_mb, 1),
+                "reason": f"{type(error).__name__}: {error}",
+            }
+        )
 
     # -- introspection ---------------------------------------------------
 

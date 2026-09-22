@@ -272,3 +272,107 @@ def test_decode_drops_garbage():
     out = driver("decode", stdin="not-json\n[1,2]\n")
     lines = [json.loads(raw) for raw in out.splitlines() if raw.strip()]
     assert lines == [{"valid": False}, {"valid": False}]
+
+
+class SidecarDriver:
+    """proxy_client_driver.exe sidecar — spawns the real agent itself."""
+
+    def __init__(self, *command: str) -> None:
+        quoted = " ".join(f'"{part}"' for part in command)
+        self.proc = subprocess.Popen(
+            [str(DRIVER), "sidecar", quoted],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    def send(self, op: str, *builder_argv: str) -> dict:
+        args_json = driver(*builder_argv) if builder_argv else "{}"
+        assert self.proc.stdin and self.proc.stdout
+        self.proc.stdin.write(
+            (op + "\t" + args_json + "\n").encode("utf-8")
+        )
+        self.proc.stdin.flush()
+        raw = self.proc.stdout.readline()
+        assert raw, "driver closed stdout unexpectedly"
+        return json.loads(raw.decode("utf-8"))
+
+    def close(self) -> int:
+        assert self.proc.stdin
+        self.proc.stdin.close()
+        return self.proc.wait(timeout=30)
+
+
+@pytest.fixture()
+def sidecar():
+    drv = SidecarDriver(sys.executable, str(AGENT))
+    yield drv
+    if drv.proc.poll() is None:
+        drv.close()
+
+
+def test_sidecar_spawn_and_process_ops(sidecar: SidecarDriver):
+    res = sidecar.send(
+        "hello",
+        "args-hello",
+        "tool-x",
+        "inst-1",
+        "system=process,ai=submit",
+        "ai|governance/tool/tool-x|mod:auth",
+    )
+    assert res["ok"] is True
+    assert res["result"]["agent"] == "star-governed-transport-proxy"
+
+    res = sidecar.send("ping", "args-empty")
+    assert res["ok"] is True and res["result"] == {"pong": True}
+
+    res = sidecar.send("claim", "args-channel", "system")
+    assert res["ok"] is True
+    assert res["result"]["request"]["request_id"] == "req-77"
+
+    res = sidecar.send(
+        "respond", "args-respond", "system", "req-77", '{"ok":true}'
+    )
+    assert res["ok"] is True and res["result"] is True
+
+    assert sidecar.close() == 0
+
+
+def test_sidecar_submit_and_waiter(sidecar: SidecarDriver):
+    sidecar.send(
+        "hello",
+        "args-hello",
+        "tool-x",
+        "inst-1",
+        "system=process,ai=submit",
+        "ai|governance/tool/tool-x|mod:auth",
+    )
+    res = sidecar.send(
+        "request", "args-request", "ai", "xingcheng", "diag.run",
+        '{"k":5}', "req-42"
+    )
+    assert res["ok"] is True
+    assert res["result"] == {"request_id": "req-42", "queued": True}
+
+    res = sidecar.send(
+        "response", "args-submit-response", "ai", "xingcheng", "req-42"
+    )
+    assert res["ok"] is True
+    w = json.loads(driver("waiter", "100.0", json.dumps(res["result"])))
+    assert w["state"] == "Completed"
+    assert w["result"]["echo"]["_governed_command"] == "diag.run"
+    sidecar.close()
+
+
+def test_sidecar_protocol_error_passthrough(sidecar: SidecarDriver):
+    res = sidecar.send("claim", "args-channel", "system")
+    assert res["ok"] is False and res["error_code"] == "PERMISSION_DENIED"
+    sidecar.close()
+
+
+def test_sidecar_spawn_failure():
+    drv = SidecarDriver("definitely-not-a-real-exe-xyz123.exe")
+    assert drv.proc.stdout is not None
+    first = json.loads(drv.proc.stdout.readline().decode("utf-8"))
+    assert first["transport_error"] == "PROXY_SPAWN_FAILED"
+    assert drv.proc.wait(timeout=30) != 0

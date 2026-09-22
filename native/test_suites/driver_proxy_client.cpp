@@ -25,6 +25,10 @@
  *   driver_proxy_client.exe encode <id> <op> <args_json>
  *   driver_proxy_client.exe decode          （stdin 逐行回應 → decoded JSONL）
  *   driver_proxy_client.exe waiter <deadline_at> <state_json|'null'>
+ *   driver_proxy_client.exe sidecar <command_line...>
+ *       spawn 代理子行程（argv[2..] 以空格連成命令列），之後 stdin 每行
+ *       `op<TAB>args_json` → ProxySidecar.call → decoded JSONL 回應
+ *       （傳輸層失敗回 {"transport_error":"PROXY_*"}）
  */
 
 #include <cstdio>
@@ -34,6 +38,7 @@
 #include <string>
 #include <vector>
 
+#include "sidecar_transport.h"
 #include "transport_proxy_client.h"
 
 using gptbridge::jsonlite::JsonError;
@@ -156,6 +161,63 @@ int do_waiter(int argc, char** argv) {
     return 0;
 }
 
+std::string summary_json(const tpx::ProxyResponse& r) {
+    std::string out = "{\"valid\":true,\"id\":";
+    JsonValue id{JsonValue::Type::String, false, 0.0, r.id, {}, {}};
+    out += json_serialize(id);
+    if (r.ok) {
+        out += ",\"ok\":true,\"result\":";
+        out += r.result.type == JsonValue::Type::Null
+                   ? "null"
+                   : json_serialize(r.result);
+    } else {
+        JsonValue code{JsonValue::Type::String, false, 0.0,
+                       r.error_code, {}, {}};
+        JsonValue msg{JsonValue::Type::String, false, 0.0,
+                      r.error_message, {}, {}};
+        out += ",\"ok\":false,\"error_code\":" + json_serialize(code);
+        out += ",\"error_message\":" + json_serialize(msg);
+    }
+    return out + "}";
+}
+
+int do_sidecar(int argc, char** argv) {
+    if (argc < 3) return usage();
+    std::string cmd;
+    for (int i = 2; i < argc; ++i) {
+        if (i > 2) cmd += ' ';
+        cmd += argv[i];
+    }
+    tpx::ProxySidecar sidecar;
+    tpx::SidecarError err;
+    if (!sidecar.start(cmd, &err)) {
+        std::cout << "{\"transport_error\":\"" << err.code << "\"}\n";
+        std::cout.flush();
+        return 1;
+    }
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty()) continue;
+        const auto tab = line.find('\t');
+        if (tab == std::string::npos) {
+            std::cout << "{\"transport_error\":\"BAD_DRIVER_INPUT\"}\n";
+            std::cout.flush();
+            continue;
+        }
+        tpx::ProxyResponse r;
+        if (!sidecar.call(line.substr(0, tab), line.substr(tab + 1), &r,
+                          &err)) {
+            std::cout << "{\"transport_error\":\"" << err.code
+                      << "\"}\n";
+        } else {
+            std::cout << summary_json(r) << "\n";
+        }
+        std::cout.flush();
+    }
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -168,6 +230,7 @@ int main(int argc, char** argv) {
     }
     if (mode == "decode") return do_decode();
     if (mode == "waiter") return do_waiter(argc, argv);
+    if (mode == "sidecar") return do_sidecar(argc, argv);
 
     /* args builders — 輸出 args JSON 物件字串 */
     if (mode == "args-empty") {
