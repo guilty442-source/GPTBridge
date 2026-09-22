@@ -71,3 +71,11 @@
   proxy v1 客戶端）、Python 代理端點（P1 或 P2 擇一先行）、
   shadow→primary 觀察窗、parity 零差異證據、runtime flag、
   load/unload 資源釋放驗收。
+
+- M1 `investment-mobile` C# shadow（同日補）：`native/test_suites/csharp_investment`
+  （net10.0）重實作決策自由語義——`InvestmentMobileService.owns/handle/_status`、
+  requester 允列、`ChannelClient`（snapshot/submit_instruction 填充/send 路由/
+  未連線錯誤）、`MarketDataClient`/`DatabaseClient`/`ExternalAPIClient` 斷線與
+  通道包裝、use-cases、presenters；`InvestmentMobileShadow.exe` 輸出 51 案例
+  JSON 矩陣，`test_native_m1_investment_shadow.py` 8 測試以真實 Python 函式
+  ＋同型 stub 逐鍵比對全 PASS。transport/token/網路/DB 仍留 Python（模式 B）。
