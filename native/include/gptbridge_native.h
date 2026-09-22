@@ -67,6 +67,14 @@ int gptbridge_native_transformer_matmul(
     const double* b, int64_t k_in, int64_t n,
     double* c);
 
+/* Grouped matrix multiply: for each group g, C_g = A_g[M_g x K] * B_g[K x N];
+ * a is the concatenated row-blocks, group_rows[g] its row count, b_list[g]
+ * its weight, c the concatenated outputs in group order. */
+int gptbridge_native_transformer_matmul_grouped(
+    const double* a, const int64_t* group_rows, int64_t groups,
+    const double* const* b_list, int64_t k, int64_t n,
+    double* c);
+
 /* Softmax over each row of a [rows x cols] matrix. */
 int gptbridge_native_transformer_softmax(
     const double* input, int64_t rows, int64_t cols,

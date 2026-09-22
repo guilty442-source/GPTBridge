@@ -537,6 +537,49 @@ std::vector<double> linear(
     return matmul(input.data(), rows, in_features, transposed_weight.data(), out_features);
 }
 
+// R5 grouped GEMM: a holds the groups' row-blocks concatenated
+// ([sum(group_rows) x k]); b_list[g] is group g's [k x n] weight; the
+// concatenated [sum x n] outputs come back in group order. One C dispatch
+// for the whole group loop; under a requested-CUDA build there is no
+// grouped device entry, so the group loop dispatches per group instead.
+std::vector<double> matmul_grouped(
+    const std::vector<double>& a,
+    const std::vector<int64_t>& group_rows,
+    const std::vector<const double*>& b_list,
+    int64_t k,
+    int64_t n) {
+    int64_t total_rows = 0;
+    for (const int64_t rows : group_rows) total_rows += rows;
+    std::vector<double> out(static_cast<size_t>(total_rows * n));
+    if (g_cuda_requested.load()) {
+#if defined(XINGCHENG_CUDA)
+        int64_t a_off = 0;
+        int64_t c_off = 0;
+        for (size_t g = 0; g < group_rows.size(); ++g) {
+            const int64_t m_g = group_rows[g];
+            if (m_g == 0) continue;
+            if (xcuda_matmul_f64(
+                    a.data() + a_off, m_g, k, b_list[g], n,
+                    out.data() + c_off) != 0) {
+                throw InferenceError("CUDA_MATMUL_FAILED");
+            }
+            a_off += m_g * k;
+            c_off += m_g * n;
+        }
+        return out;
+#else
+        throw InferenceError("CUDA_UNAVAILABLE");
+#endif
+    }
+    checked_c_call(
+        gptbridge_native_transformer_matmul_grouped(
+            a.data(), group_rows.data(),
+            static_cast<int64_t>(group_rows.size()), b_list.data(), k, n,
+            out.data()),
+        "matmul-grouped");
+    return out;
+}
+
 // ── W1 attention kernels ───────────────────────────────────────────────
 // Streaming Q·K dot and score·V accumulate used by the attention loop.
 // AVX is used when the CPU supports it (runtime-detected once); scalar
