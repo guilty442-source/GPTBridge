@@ -114,10 +114,26 @@ class RequestRegistry:
     - ``cancelled`` 布林 → cancellation_state（``cancelled``／``requested``）
     """
 
-    def __init__(self, state_path: str | Path) -> None:
+    def __init__(
+        self, state_path: str | Path, *, project_root: Path | None = None
+    ) -> None:
         self._path = Path(state_path)
         self._records: dict[str, RequestRecord] = {}
         self._lock = threading.RLock()
+        # §10.65 act-1: native shadow attaches only when project_root is
+        # given; policy mode != "shadow" or a missing extension yields None.
+        self._native_shadow = None
+        if project_root is not None:
+            try:
+                from .request_registry_native_shadow import (
+                    RequestRegistryNativeShadow,
+                )
+
+                self._native_shadow = RequestRegistryNativeShadow.from_policy(
+                    Path(project_root)
+                )
+            except Exception:
+                self._native_shadow = None
         self._load()
 
     # -- persistence ---------------------------------------------------------
@@ -203,6 +219,13 @@ class RequestRegistry:
                 method=method,
             )
             self._records[request_id] = existing
+            if self._native_shadow is not None:
+                try:
+                    self._native_shadow.observe_create(
+                        request_id, existing.backend_generation
+                    )
+                except Exception:
+                    pass
         else:
             if session_id:
                 existing.session_id = session_id
@@ -218,6 +241,15 @@ class RequestRegistry:
                 existing.method = method
         if status:
             existing.status = status
+            if self._native_shadow is not None:
+                try:
+                    # Legacy merge path rewrites status unconditionally —
+                    # a native refusal (terminal lock) is real evidence.
+                    self._native_shadow.observe_status(
+                        request_id, status, py_ok=True
+                    )
+                except Exception:
+                    pass
         if cancelled is not None:
             existing.cancellation_state = (
                 "cancelled" if cancelled else ""
@@ -246,14 +278,27 @@ class RequestRegistry:
                 return RequestResult(False, "request-not-found")
             if status is not None and status != record.status:
                 if record.status in _REQUEST_TERMINAL:
+                    self._shadow_refused(request_id, status, "request-terminal")
                     return RequestResult(False, "request-terminal", record.as_dict())
                 if status not in _VALID_REQUEST_TRANSITIONS.get(record.status, set()):
+                    self._shadow_refused(
+                        request_id,
+                        status,
+                        f"invalid-request-transition:{record.status}->{status}",
+                    )
                     return RequestResult(
                         False,
                         f"invalid-request-transition:{record.status}->{status}",
                         record.as_dict(),
                     )
                 record.status = status
+                if self._native_shadow is not None:
+                    try:
+                        self._native_shadow.observe_status(
+                            request_id, status, py_ok=True
+                        )
+                    except Exception:
+                        pass
             if task_id is not None:
                 record.task_id = task_id
             if backend_id is not None:
@@ -272,6 +317,17 @@ class RequestRegistry:
                 record.error_code = error_code
             self._persist()
             return RequestResult(True, "updated", record.as_dict())
+
+    def _shadow_refused(
+        self, request_id: str, status: str, reason: str
+    ) -> None:
+        shadow = self._native_shadow
+        if shadow is None:
+            return
+        try:
+            shadow.observe_refused(request_id, status, reason=reason)
+        except Exception:
+            pass
 
     def mark_started(self, request_id: str) -> RequestResult:
         return self.update(request_id, status=RUNNING, started_at=_utc_iso())
