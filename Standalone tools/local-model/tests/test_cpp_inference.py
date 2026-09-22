@@ -827,3 +827,48 @@ def test_cpp_cuda_default_cpu_unchanged(tmp_path: Path) -> None:
     engine.load(str(bundle))
     ids = [1, 9, 10, 11, 12]
     assert engine.logits(ids)
+
+
+# G41 residual: the layerwise RMS probe must also cover the MoE and
+# quantized paths now that they are no longer fail-closed.
+
+
+def test_cpp_moe_layerwise_parity(tmp_path: Path) -> None:
+    """G41: per-stage hidden RMS on a mixed dense/MoE model."""
+    module = cpp_runtime.load_extension()
+    model, config, bundle, _report = _export_moe_model(
+        tmp_path, num_experts=4, top_k=2, interval=2
+    )
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12]
+    expected = _torch_layer_rms(model, ids)
+    actual = list(engine.layer_metrics(ids))
+    assert len(actual) == len(expected) == config.num_hidden_layers + 2
+    assert all(
+        abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
+        for a, e in zip(actual, expected)
+    )
+
+
+def test_cpp_quantized_layerwise_parity(tmp_path: Path) -> None:
+    """G41: per-stage hidden RMS on an INT8-quantized bundle vs the
+    quantized PyTorch model (identical dequantized weights)."""
+    from xingcheng.infrastructure.native_transformer.quantization.quantizer import (
+        quantize_model,
+    )
+
+    module = cpp_runtime.load_extension()
+    model, config, bundle, _report = _export_tiny_model(
+        tmp_path, quantize_bits=8
+    )
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12]
+    expected = _torch_layer_rms(quantize_model(model, n_bits=8), ids)
+    actual = list(engine.layer_metrics(ids))
+    assert len(actual) == len(expected) == config.num_hidden_layers + 2
+    assert all(
+        abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
+        for a, e in zip(actual, expected)
+    )
