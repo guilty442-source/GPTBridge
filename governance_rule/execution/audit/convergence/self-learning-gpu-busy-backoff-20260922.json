@@ -18,5 +18,11 @@
     "syntax": "py_compile self_learning.py + self_learning_support.py + test file OK"
   },
   "defaults": "兩欄位預設 0=停用，既有行為完全不變；啟用屬受管 runtime/settings/self-learning.json",
-  "note": "正式驗收閘門為主系統測試套件＋稽核引擎；本地 pytest 為輔助證據（tests/ gitignored）"
+  "note": "正式驗收閘門為主系統測試套件＋稽核引擎；本地 pytest 為輔助證據（tests/ gitignored）",
+  "activation": {
+    "policy_update": "runtime/settings/self-learning.json: gpu_busy_backoff_s=900, gpu_busy_backoff_cap_s=7200（受管 tunable，可逆）",
+    "watcher_restart": "2026-09-22 重啟 self-learning --watch（舊進程 PID 31188/47704 為 9/21 啟動，載入的是退避實作前程式碼；新進程 38680/10064）",
+    "expected": "下次 EXECUTOR_GPU_BUSY 失敗後 state 寫 gpu_busy_until=now+900s，之後 1800/3600/7200 指數退避；GPU 釋放後首個成功循環清零",
+    "note": "重啟前兩個 watcher 並存造成 ~10min 交錯空轉；重啟後單 watcher 15min 間隔＋退避"
+  }
 }

@@ -1,0 +1,45 @@
+{
+  "schema": "maturity-l5-active-artifact-eval/v1",
+  "date": "2026-09-22",
+  "scope": "L5 dialogue_instruction 首次對正確標的物評測：現役釘選 SFT 權重（self-learning v18 升級產物），而非預訓練 base medium-dense-v1",
+  "checkpoint": "xingcheng/runtime/models/jobs/star-transformer-job-a7a2a5e769ac4dba90c0c2ed/final.pt",
+  "checkpoint_lineage": "SFT job: 17 train examples x 400 steps, init from prior job artifact, eval ppl 7.27, activated by self-learning cycle (v18)",
+  "prior_assessment_gap": "model-maturity.json certified_level=4 係對 medium-dense-v1（純預訓練，從未 SFT）評測——對它跑 L5 注定失敗，其 |||| 退化輸出為 base LM 行為，不能代表 chat 能力",
+  "result": {
+    "status": "fail",
+    "probes_passed": 0,
+    "probes_total": 4,
+    "pass_ratio_gate": 0.75,
+    "device": "cpu",
+    "duration_s": 24.8,
+    "probes": [
+      {
+        "id": "turn_boundary",
+        "passed": false,
+        "stopped_by_eos": false,
+        "observation": "產生真實中文句但未於回合邊界停止"
+      },
+      {
+        "id": "echo",
+        "passed": false,
+        "stopped_by_eos": true,
+        "observation": "輸出結構化中文回覆而非逐字複誦目標字串"
+      },
+      {
+        "id": "choice",
+        "passed": false,
+        "stopped_by_eos": true,
+        "observation": "輸出通用中文句而非限定選項值"
+      },
+      {
+        "id": "multiturn_memory",
+        "passed": false,
+        "stopped_by_eos": false,
+        "observation": "產生程式碼片段式文字，未記住兩輪前值"
+      }
+    ]
+  },
+  "finding": "SFT 權重產出的是真實中文句子（非 |||| 退化），會發 eos——模型已學到 chat 格式的形狀，但完全未學到指令遵循。缺口性質：指令遵循能力，與 17 筆樣本 400 步的極小過擬合訓練一致。結論：L5 需要真正的 chat-foundation 規模資料集（v14+ 數千筆）SFT，非 harness 或解碼問題",
+  "next": "chat-foundation v14 資料集（5711 筆，使用者已擴 choice 池）已備妥；治理式 SFT job 待 GPU 可用（現 ~2.3GB free < 2.5GB 需求）",
+  "verification": "maturity._run(5, ctx, _TESTS[5]) 直接對 ctx 跑 L5（CPU），探針級 evidence 如上；完整 L0-L5 certify 同 checkpoint 亦得 certified_level=4"
+}

@@ -1,0 +1,39 @@
+{
+  "schema": "maturity-l5-first-pass/v1",
+  "date": "2026-09-22",
+  "scope": "首個 L5 dialogue_instruction 認證通過的 checkpoint：manual-sft-v15-20260922（chat-foundation v15 資料集，含擴增 choice 池）",
+  "checkpoint": "xingcheng/runtime/models/jobs/manual-sft-v15-20260922/final.pt",
+  "training": {
+    "examples": 4805,
+    "val": 848,
+    "steps": 1200,
+    "final_loss": 0.328,
+    "eval_ppl": 5.54,
+    "device": "cuda",
+    "init": "small preset 27.4M params"
+  },
+  "certification": {
+    "report": "xingcheng/runtime/logs/maturity-20260922-114352.json",
+    "certified_level": 5,
+    "device": "cpu",
+    "l5_detail": {
+      "pass_ratio": 0.75,
+      "gate": 0.75,
+      "probes": {
+        "turn_boundary": "pass",
+        "echo": "fail（未逐字複誦）",
+        "choice": "pass（輸出限定選項）",
+        "multiturn_memory": "pass（記住 QZ-88）"
+      }
+    },
+    "all_levels": "L0-L5 全數 pass"
+  },
+  "lifecycle": "已登錄 weights v19（activate=False，sha256 276527f0…）——保留於治理目錄避免 retention 清理（manual-sft-v13-500 前例被清）",
+  "architecture_caveat": "v15 為 small preset 27.4M；現役 v18 為 base 81.8M。架構不同 → 不自行啟用；升須總督裁決或以同 recipe 在 base 架構重訓（chat-foundation 資料集＋base init，需 GPU ~2.5GB）",
+  "conclusion": "L5 缺口已證明為資料規模問題而非模型上限：4805 筆 chat-foundation SFT 使 small 架構即達 3/4 探針。base 架構同法重訓預期可達同級或更好。唯一未過探針 echo（逐字複誦）→ 資料池可再補 echo 型樣本",
+  "related": [
+    "maturity-l5-probe-isolation-20260922.json（harness 修正）",
+    "maturity-l5-active-artifact-20260922.json（v18 現役 0/4 負向證據）"
+  ],
+  "superseded_by": "同一 checkpoint 後續認證：maturity-20260922-113656.json（L6 pass）、maturity-20260922-113923.json（L7 controlled_evolution pass——全階梯 L0–L7）。本檔為該 checkpoint 的首個 L5 認證紀錄；echo 探針在並行 run 中通過（run-to-run 變異）。model-maturity.json 已指向 L7 報告（最高證據等級）"
+}
