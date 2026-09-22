@@ -53,6 +53,7 @@ class MaintenanceControllerIntegration:
     app: Any
     controller: MaintenanceController | None = None
     _started: bool = False
+    _native_shadow: Any = None
     # §1.1: True when the automation core drives run_once on the shared
     # scheduler; False when the flow was denied (kill switch); None when
     # the controller still uses its private thread (no core present).
@@ -89,20 +90,23 @@ class MaintenanceControllerIntegration:
         try:
             from pathlib import Path
 
-            from tasks.maintenance_controller_native_shadow import (
+            from shared_layer.database.maintenance.native_shadow import (
                 MaintenanceNativeShadow,
             )
 
+            sc = config.scheduler_config
             get_gen = config.get_current_generation
-            self.controller.set_native_shadow(
-                MaintenanceNativeShadow.from_policy(
-                    Path(getattr(self.app, "project_root", "E:/GPTBridge")),
-                    scheduler_config=config.scheduler_config,
-                    current_generation=int(get_gen()) if get_gen else 0,
-                )
+            self._native_shadow = MaintenanceNativeShadow.from_policy(
+                Path(getattr(self.app, "project_root", "E:/GPTBridge")),
+                tick_interval_ms=int(sc.tick_interval_seconds * 1000),
+                max_job_age_ms=int(sc.max_job_age_seconds * 1000),
+                max_retry_attempts=int(sc.max_retry_attempts),
+                retry_backoff_ms=int(sc.retry_backoff_base_seconds * 1000),
+                generation=int(get_gen()) if get_gen else 0,
             )
+            self.controller.set_native_shadow(self._native_shadow)
         except Exception:
-            pass
+            self._native_shadow = None
 
         # Register executors
         self._register_executors()

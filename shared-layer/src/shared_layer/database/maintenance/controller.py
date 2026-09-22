@@ -104,10 +104,6 @@ class MaintenanceController:
         ``None`` leaves the controller Python-only."""
         self._scheduler.set_native_shadow(shadow)
 
-    def set_native_shadow(self, shadow: Any) -> None:
-        """Attach the §10.65 native-shadow observer to the scheduler."""
-        self._scheduler.set_native_shadow(shadow)
-
     def set_callbacks(
         self,
         persist_job: Callable[[MaintenanceJob], None] | None = None,

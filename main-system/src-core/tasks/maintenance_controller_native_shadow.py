@@ -350,6 +350,43 @@ class MaintenanceNativeShadow:
         except Exception as exc:
             self._disable("native-terminal-error", exc)
 
+    # --- TTL probe cache ---
+
+    def observe_probe_cache(
+        self,
+        *,
+        now_s: float,
+        ttl_s: float,
+        py_hit: bool,
+    ) -> None:
+        """Compare the C TTL cache decision with the Python probe cache."""
+        if self._disabled:
+            return
+        try:
+            native_hit = self._mt.cache_get(
+                int(round(now_s * 1000)), int(round(ttl_s * 1000))
+            )
+            if (native_hit is not None) != bool(py_hit):
+                self._emit(
+                    {
+                        "kind": "divergence",
+                        "op": "probe_cache",
+                        "python": {"hit": bool(py_hit)},
+                        "native": {"hit": native_hit is not None},
+                    }
+                )
+        except Exception as exc:
+            self._disable("native-cache-error", exc)
+
+    def observe_probe_store(self, *, now_s: float, probe_ok: bool) -> None:
+        """Mirror a Python cache store after a fresh probe."""
+        if self._disabled:
+            return
+        try:
+            self._mt.cache_set(int(round(now_s * 1000)), bool(probe_ok))
+        except Exception as exc:
+            self._disable("native-cache-error", exc)
+
     def _disable(self, reason: str, exc: Exception) -> None:
         self._disabled = True
         if not self._error_emitted:
