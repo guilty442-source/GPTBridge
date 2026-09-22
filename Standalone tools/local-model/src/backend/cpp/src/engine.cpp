@@ -1902,59 +1902,93 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     top_w[static_cast<size_t>(s * top_k + k)] = row[e] / selected;
                 }
             }
+            // R5 residual: grouped GEMM — each token's top-k expert rows are
+            // gathered once into a single contiguous buffer (expert-major,
+            // token order preserved inside each group, matching the former
+            // per-expert `positions` order row for row), then gate / up /
+            // down each run as one grouped GEMM dispatch instead of a
+            // per-expert GEMM call chain. Identical rows + identical kernel
+            // → identical outputs; only the dispatch/allocation shape changed.
+            std::vector<int64_t> group_count(static_cast<size_t>(experts), 0);
+            for (int64_t s = 0; s < total_tokens; ++s) {
+                for (int64_t k = 0; k < top_k; ++k) {
+                    ++group_count[static_cast<size_t>(
+                        top_idx[static_cast<size_t>(s * top_k + k)])];
+                }
+            }
+            std::vector<int64_t> group_offset(
+                static_cast<size_t>(experts) + 1, 0);
+            for (int64_t e = 0; e < experts; ++e) {
+                group_offset[static_cast<size_t>(e + 1)] =
+                    group_offset[static_cast<size_t>(e)] +
+                    group_count[static_cast<size_t>(e)];
+            }
+            const int64_t grouped_rows =
+                group_offset[static_cast<size_t>(experts)];
+            std::vector<int64_t> group_fill(
+                group_offset.begin(), group_offset.end() - 1);
+            std::vector<double> grouped_in(
+                static_cast<size_t>(grouped_rows * hidden_size));
+            std::vector<int64_t> row_token(
+                static_cast<size_t>(grouped_rows));
+            std::vector<double> row_weight(
+                static_cast<size_t>(grouped_rows));
+            for (int64_t s = 0; s < total_tokens; ++s) {
+                for (int64_t k = 0; k < top_k; ++k) {
+                    const int64_t e =
+                        top_idx[static_cast<size_t>(s * top_k + k)];
+                    const int64_t r =
+                        group_fill[static_cast<size_t>(e)]++;
+                    std::copy_n(
+                        normed.data() +
+                            static_cast<size_t>(s * hidden_size),
+                        hidden_size,
+                        grouped_in.data() +
+                            static_cast<size_t>(r * hidden_size));
+                    row_token[static_cast<size_t>(r)] = s;
+                    row_weight[static_cast<size_t>(r)] =
+                        top_w[static_cast<size_t>(s * top_k + k)];
+                }
+            }
+            std::vector<int64_t> group_rows;
+            std::vector<const double*> gate_list;
+            std::vector<const double*> up_list;
+            std::vector<const double*> down_list;
+            group_rows.reserve(static_cast<size_t>(experts));
+            for (int64_t e = 0; e < experts; ++e) {
+                if (group_count[static_cast<size_t>(e)] == 0) continue;
+                group_rows.push_back(group_count[static_cast<size_t>(e)]);
+                gate_list.push_back(
+                    layer.expert_gate_t[static_cast<size_t>(e)].data());
+                up_list.push_back(
+                    layer.expert_up_t[static_cast<size_t>(e)].data());
+                down_list.push_back(
+                    layer.expert_down_t[static_cast<size_t>(e)].data());
+            }
             std::vector<double> mlp_out(
                 static_cast<size_t>(total_tokens * hidden_size), 0.0);
-            for (int64_t e = 0; e < experts; ++e) {
-                std::vector<int64_t> positions;
-                std::vector<double> weights;
-                positions.reserve(static_cast<size_t>(total_tokens));
-                weights.reserve(static_cast<size_t>(total_tokens));
-                for (int64_t s = 0; s < total_tokens; ++s) {
-                    for (int64_t k = 0; k < top_k; ++k) {
-                        if (top_idx[static_cast<size_t>(s * top_k + k)] == e) {
-                            positions.push_back(s);
-                            weights.push_back(
-                                top_w[static_cast<size_t>(s * top_k + k)]);
-                            break;  // a token routes to an expert at most once
-                        }
-                    }
-                }
-                if (positions.empty()) continue;
-                const int64_t rows = static_cast<int64_t>(positions.size());
-                std::vector<double> expert_in(
-                    static_cast<size_t>(rows * hidden_size));
-                for (int64_t r = 0; r < rows; ++r) {
-                    std::copy_n(
-                        normed.data() + static_cast<size_t>(
-                            positions[static_cast<size_t>(r)] * hidden_size),
-                        hidden_size,
-                        expert_in.data() +
-                            static_cast<size_t>(r * hidden_size));
-                }
-                std::vector<double> gate = linear(
-                    expert_in, rows, hidden_size,
-                    layer.expert_gate_t[static_cast<size_t>(e)],
+            if (!group_rows.empty()) {
+                std::vector<double> gate = matmul_grouped(
+                    grouped_in, group_rows, gate_list, hidden_size,
                     cfg.intermediate_size);
-                std::vector<double> up = linear(
-                    expert_in, rows, hidden_size,
-                    layer.expert_up_t[static_cast<size_t>(e)],
+                std::vector<double> up = matmul_grouped(
+                    grouped_in, group_rows, up_list, hidden_size,
                     cfg.intermediate_size);
                 std::vector<double> act(
-                    static_cast<size_t>(rows * cfg.intermediate_size));
+                    static_cast<size_t>(grouped_rows * cfg.intermediate_size));
                 for (size_t i = 0; i < act.size(); ++i) {
                     const double g = gate[i];
                     act[i] = (g / (1.0 + std::exp(-g))) * up[i];
                 }
-                std::vector<double> expert_out = linear(
-                    act, rows, cfg.intermediate_size,
-                    layer.expert_down_t[static_cast<size_t>(e)],
+                std::vector<double> grouped_out = matmul_grouped(
+                    act, group_rows, down_list, cfg.intermediate_size,
                     hidden_size);
-                for (int64_t r = 0; r < rows; ++r) {
-                    const double w = weights[static_cast<size_t>(r)];
-                    const double* src = expert_out.data() +
+                for (int64_t r = 0; r < grouped_rows; ++r) {
+                    const double w = row_weight[static_cast<size_t>(r)];
+                    const double* src = grouped_out.data() +
                         static_cast<size_t>(r * hidden_size);
                     double* dst = mlp_out.data() + static_cast<size_t>(
-                        positions[static_cast<size_t>(r)] * hidden_size);
+                        row_token[static_cast<size_t>(r)] * hidden_size);
                     for (int64_t d = 0; d < hidden_size; ++d) {
                         dst[d] += w * src[d];
                     }

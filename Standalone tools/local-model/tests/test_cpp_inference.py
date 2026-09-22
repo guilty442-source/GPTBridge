@@ -1129,3 +1129,49 @@ def test_cpp_engine_sequence_nll_matches_teacher_forced_loss(
     engine.unload()
     with pytest.raises(Exception):
         engine.sequence_nll(ids)
+
+
+def test_cpp_engine_multi_tile_attention_parity(tmp_path: Path) -> None:
+    """W1 online/blocked attention: prompts crossing the 64-token KV tile
+    boundary must still match PyTorch — exercises the multi-tile running
+    max/sum rescale path that short prompts never reach."""
+    module = cpp_runtime.load_extension()
+    torch.manual_seed(31)
+    config = XingChengConfig(
+        vocab_size=64,
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=256,
+        max_new_tokens=8,
+    )
+    model = XingChengForCausalLM(config)
+    model.eval()
+    checkpoint = tmp_path / "tiny-long.pt"
+    save_checkpoint(checkpoint, model, config=config)
+    bundle = tmp_path / "bundle-long"
+    export_checkpoint_for_cpp(checkpoint, bundle)
+
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [(i % 60) + 1 for i in range(150)]  # crosses 2 tile boundaries
+    with torch.no_grad():
+        expected = model(torch.tensor([ids], dtype=torch.long))["logits"][0, -1].double()
+    actual = torch.tensor(engine.logits(ids), dtype=torch.float64)
+    assert torch.allclose(actual, expected, atol=2e-3, rtol=2e-3)
+
+    # Decode past yet another tile boundary: 150-token prompt + 20 generated
+    # tokens keeps rescaling a >192-deep online accumulator.
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+    prompt = torch.tensor([ids], dtype=torch.long)
+    expected_ids = Generator(
+        model, sampler=Sampler(SamplingConfig(do_sample=False, repetition_penalty=1.0)),
+        device=torch.device("cpu"),
+    ).generate(prompt, max_new_tokens=20, use_cache=True)[0].tolist()
+    actual_ids = engine.generate(ids, 20, sampling)
+    assert actual_ids == expected_ids
+    engine.unload()
