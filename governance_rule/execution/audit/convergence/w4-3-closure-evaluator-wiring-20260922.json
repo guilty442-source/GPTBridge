@@ -1,0 +1,17 @@
+{
+  "id": "w4-3-closure-evaluator-wiring",
+  "date": "2026-09-22",
+  "worker": "devin-cli",
+  "summary": "W4-3 殘項 closure evaluator 接線：compute_closures 新增 CONTRACT_REGISTRY_CLOSURE——直接對 18 個 successor contract/registry artifacts 跑 validate_artifact，全 implemented 才 PASS、任一驗證失敗即 FAIL、其餘 INCOMPLETE_EVIDENCE。現況評估 INCOMPLETE_EVIDENCE（system_convergence／five_plane 兩治理拓撲契約仍 partial，誠實落差）。",
+  "implementation": {
+    "file": "governance_rule/execution/convergence/successor_framework.py",
+    "change": "compute_closures() 新增 closures[\"CONTRACT_REGISTRY_CLOSURE\"] = _contract_registry_closure()；helper 以 contract_registry_validate.validate_artifact 評估 artifacts/*/*.json（唯讀、不寫 live codex、不含 DB 變更）",
+    "semantics": "FAIL=任一 artifact 結構驗證失敗；PASS=18/18 全 implemented；INCOMPLETE_EVIDENCE=有宣告落差或 partial",
+    "test": "governance_rule/tests/test_convergence_framework.py：斷言新 closure ∈ {PASS,INCOMPLETE_EVIDENCE,FAIL} 且現況 == INCOMPLETE_EVIDENCE"
+  },
+  "verification": {
+    "convergence_tests": "9/9 PASS",
+    "live_eval": "CONTRACT_REGISTRY_CLOSURE = INCOMPLETE_EVIDENCE（16 implemented／2 partial）"
+  },
+  "residual": "contract/registry closure 於 codex DB 的 governance_closure_state 落格仍需 successor pipeline seal（§10.53 項 1）；兩拓撲契約的 partial 狀態屬治理層收斂，非 runtime 落差"
+}

@@ -71,9 +71,62 @@ __global__ void gemm_fp8_kernel(
 std::mutex g_mu;
 std::unordered_map<const void*, __nv_fp8_e4m3*> g_fp8_weights;
 
-__nv_fp8_e4m3* device_weight_fp8(const double* host, long long elems) {
-    auto it = g_fp8_weights.find(host);
-    if (it != g_fp8_weights.end()) return it->second;
+// Shared GEMM body: a (host f64) × db (device fp8) → out (host f64).
+// Caller owns db's lifetime; the two extern entries differ only in how db
+// is obtained (cached for engine weights / fresh for the probe).
+int run_fp8(
+    const double* a, long long m, long long k,
+    const __nv_fp8_e4m3* db, long long n, double* out) {
+    const long long a_elems = m * k;
+    const long long c_elems = m * n;
+    int rc = 3;
+
+    double* a_stage = nullptr;
+    float* da = nullptr;
+    float* dc = nullptr;
+    float* c_host = nullptr;
+
+    if (cudaMalloc(&a_stage, a_elems * sizeof(double)) != cudaSuccess)
+        goto done;
+    if (cudaMalloc(&da, a_elems * sizeof(float)) != cudaSuccess)
+        goto done;
+    if (cudaMalloc(&dc, c_elems * sizeof(float)) != cudaSuccess)
+        goto done;
+    c_host = static_cast<float*>(malloc(c_elems * sizeof(float)));
+    if (c_host == nullptr) goto done;
+    if (cudaMemcpy(a_stage, a, a_elems * sizeof(double),
+                   cudaMemcpyHostToDevice) != cudaSuccess)
+        goto done;
+    f64_to_fp32_kernel<<<
+        static_cast<unsigned int>((a_elems + 255) / 256), 256>>>(
+        a_stage, da, a_elems);
+    if (cudaGetLastError() != cudaSuccess) goto done;
+    {
+        dim3 threads(kTile, kTile);
+        dim3 blocks(
+            static_cast<unsigned int>((n + kTile - 1) / kTile),
+            static_cast<unsigned int>((m + kTile - 1) / kTile));
+        gemm_fp8_kernel<<<blocks, threads>>>(
+            da, db, dc, static_cast<int>(m), static_cast<int>(k),
+            static_cast<int>(n));
+    }
+    if (cudaGetLastError() != cudaSuccess) goto done;
+    if (cudaMemcpy(c_host, dc, c_elems * sizeof(float),
+                   cudaMemcpyDeviceToHost) != cudaSuccess)
+        goto done;
+    for (long long i = 0; i < c_elems; ++i)
+        out[i] = static_cast<double>(c_host[i]);
+    rc = 0;
+done:
+    if (a_stage) cudaFree(a_stage);
+    if (da) cudaFree(da);
+    if (dc) cudaFree(dc);
+    free(c_host);
+    return rc;
+}
+
+// Quantize host f64 → fresh device fp8 buffer (caller frees).
+__nv_fp8_e4m3* upload_fp8(const double* host, long long elems) {
     double* staging = nullptr;
     __nv_fp8_e4m3* dev = nullptr;
     if (cudaMalloc(&staging, elems * sizeof(double)) != cudaSuccess)
@@ -89,15 +142,27 @@ __nv_fp8_e4m3* device_weight_fp8(const double* host, long long elems) {
         return nullptr;
     }
     const int threads = 256;
-    const long long blocks = (elems + threads - 1) / threads;
-    f64_to_fp8_kernel<<<static_cast<unsigned int>(blocks), threads>>>(
-        staging, dev, elems);
+    f64_to_fp8_kernel<<<static_cast<unsigned int>(
+        (elems + threads - 1) / threads), threads>>>(staging, dev, elems);
     cudaFree(staging);
     if (cudaGetLastError() != cudaSuccess ||
         cudaDeviceSynchronize() != cudaSuccess) {
         cudaFree(dev);
         return nullptr;
     }
+    return dev;
+}
+
+// fp8 device-resident weight cache — separate precision domain from the
+// fp64 cache in cuda_bridge.cpp (same host-pointer stability contract:
+// engine weight vectors are immutable for the engine lifetime). The probe
+// entry bypasses this entirely because transient caller buffers may reuse
+// the same address for different content.
+__nv_fp8_e4m3* device_weight_fp8(const double* host, long long elems) {
+    auto it = g_fp8_weights.find(host);
+    if (it != g_fp8_weights.end()) return it->second;
+    __nv_fp8_e4m3* dev = upload_fp8(host, elems);
+    if (dev == nullptr) return nullptr;
     g_fp8_weights.emplace(host, dev);
     return dev;
 }

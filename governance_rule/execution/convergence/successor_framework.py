@@ -401,6 +401,7 @@ def compute_closures(database: Path = LIVE_CODEX) -> dict[str, str]:
         )
     finally:
         conn.close()
+    closures["CONTRACT_REGISTRY_CLOSURE"] = _contract_registry_closure()
     for code in (
         "CORE_ENGINE_EQUIVALENCE_CLOSURE",
         "SUB_SOVEREIGN_RETIREMENT_CLOSURE",
@@ -411,6 +412,27 @@ def compute_closures(database: Path = LIVE_CODEX) -> dict[str, str]:
     ):
         closures.setdefault(code, "INCOMPLETE_EVIDENCE")
     return closures
+
+
+def _contract_registry_closure() -> str:
+    """Evaluate contract/registry artifact implementation as a closure.
+
+    Derived from ``contract_registry_validate.validate_artifact`` over the
+    successor artifacts: FAIL when any artifact fails structural validation,
+    PASS only when every artifact validates and reports ``implemented``,
+    INCOMPLETE_EVIDENCE otherwise (declared gaps / partial status).
+    """
+    from .contract_registry_validate import ARTIFACTS, validate_artifact
+
+    artifacts = sorted(ARTIFACTS.glob("*/*.json"))
+    if not artifacts:
+        return "INCOMPLETE_EVIDENCE"
+    results = [validate_artifact(p) for p in artifacts]
+    if any(not r["ok"] for r in results):
+        return "FAIL"
+    if all(r.get("status") == "implemented" for r in results):
+        return "PASS"
+    return "INCOMPLETE_EVIDENCE"
 
 
 __all__ = [

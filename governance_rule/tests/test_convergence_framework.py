@@ -121,6 +121,11 @@ def test_version_axis_and_projection_reports() -> None:
     assert closures["MIRROR_QUALITY_CLOSURE"] == "PASS"
     assert closures["MACHINE_SCHEMA_PARITY_CLOSURE"] == "INCOMPLETE_EVIDENCE"
 
+    # W4-3 residual: contract/registry artifacts feed the closure evaluator.
+    assert closures["CONTRACT_REGISTRY_CLOSURE"] in {"PASS", "INCOMPLETE_EVIDENCE", "FAIL"}
+    # Current state: two governance-topology contracts are partially-implemented.
+    assert closures["CONTRACT_REGISTRY_CLOSURE"] == "INCOMPLETE_EVIDENCE"
+
 
 def test_live_codex_untouched_by_framework() -> None:
     import hashlib
