@@ -32,7 +32,7 @@ from .registry import MaintenanceAction
 from .verifier import verify_sqlite_checkpoint, verify_health_observe
 from ..sqlite_classification import get_class
 from ..sqlite_wal_governor import get_wal_stats, check_and_checkpoint
-from ..connection import get_connection_manager
+from ..workload_lanes import WorkloadClass, get_lane_pool
 
 
 class SQLiteClass(Enum):
@@ -142,7 +142,7 @@ def collect_sqlite_health(
         # Get classification from PostgreSQL registry
         class_info = None
         try:
-            with get_connection_manager().connection() as pg_conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as pg_conn:
                 class_info = get_class(pg_conn, module_id=module_id, database_path=database_path)
         except Exception:
             pass
@@ -315,7 +315,7 @@ def execute_sqlite_cleanup(
     module_id = job.module_id
 
     try:
-        with get_connection_manager().connection() as pg_conn:
+        with get_lane_pool().connection(WorkloadClass.BACKGROUND) as pg_conn:
             class_info = get_class(pg_conn, module_id=module_id, database_path=database_path)
             if not class_info:
                 after_state["cleanup_completed"] = False

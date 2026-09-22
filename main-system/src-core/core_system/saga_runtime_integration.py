@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import Any
 
 from shared_layer.database.config import DatabaseSettings
-from shared_layer.database.connection import get_connection_manager
 from shared_layer.database.sqlite_classification import list_by_class
+from shared_layer.database.workload_lanes import WorkloadClass, get_lane_pool
 from shared_layer.workflow import (
     Engine,
     Operation,
@@ -51,7 +51,7 @@ DEFAULT_BATCH_SIZE = 100
 def _module_sqlite_path(module_id: str) -> Path | None:
     """Resolve the module-private SQLite owner database (class B first)."""
     try:
-        with get_connection_manager().connection() as conn:
+        with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
             for db_class in ("B", "C", "D", "A"):
                 for entry in list_by_class(conn, db_class=db_class):
                     if str(entry.get("module_id") or "") != module_id:
@@ -76,7 +76,7 @@ class SagaRuntimeIntegration:
 
     async def start(self) -> dict[str, Any]:
         self.services = build_saga_services(
-            lambda: get_connection_manager().connection(),
+            lambda: get_lane_pool().connection(WorkloadClass.BACKGROUND),
             self._handler_registry(),
             self._reconcile_callback,
             worker=SAGA_WORKER,
@@ -155,7 +155,7 @@ class SagaRuntimeIntegration:
         try:
             from .binding.reconciliation import ReconcileService
 
-            with get_connection_manager().connection() as pg:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as pg:
                 service = ReconcileService(connection, pg)
                 results = list(service.reconcile_module(module_id, batch_size=batch_size))
                 pending_after = service.pending_count(module_id)

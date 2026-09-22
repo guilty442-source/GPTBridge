@@ -206,6 +206,12 @@ class _LaneConnection:
     def cursor(self) -> Any:
         return self._conn.cursor()
 
+    def commit(self) -> Any:
+        return self._conn.commit()
+
+    def rollback(self) -> Any:
+        return self._conn.rollback()
+
     @property
     def raw(self) -> Any:
         return self._conn

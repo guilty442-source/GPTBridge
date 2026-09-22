@@ -42,8 +42,8 @@ from shared_layer.database.maintenance.maintenance_backup import (
     build_backup_signals as build_backup_maintenance_signals,
     collect_backup_info,
 )
-from shared_layer.database.connection import get_connection_manager
 from shared_layer.database.sqlite_classification import list_by_class
+from shared_layer.database.workload_lanes import WorkloadClass, get_lane_pool
 
 
 @dataclass
@@ -239,7 +239,7 @@ class MaintenanceControllerIntegration:
             from psycopg.types.json import Jsonb
 
             settings = DatabaseSettings.from_environment()
-            with get_connection_manager().connection() as conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 conn.execute(
                     """
                     INSERT INTO gptbridge_maintenance.maintenance_jobs
@@ -294,7 +294,7 @@ class MaintenanceControllerIntegration:
         """Load pending maintenance jobs from PostgreSQL."""
         try:
             settings = DatabaseSettings.from_environment()
-            with get_connection_manager().connection() as conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 rows = conn.execute(
                     """
                     SELECT job_id, action_id, action_version, engine, database_id, module_id,
@@ -345,7 +345,7 @@ class MaintenanceControllerIntegration:
         """Get current system generation."""
         try:
             from shared_layer.database.recovery_orchestrator import get_current_generation
-            with get_connection_manager().connection() as conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 return get_current_generation(conn)
         except Exception:
             return 0
@@ -383,7 +383,7 @@ class MaintenanceControllerIntegration:
         # Check recovery state
         try:
             from shared_layer.database.recovery_orchestrator import is_recovery_barrier_active
-            with get_connection_manager().connection() as conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 if is_recovery_barrier_active(conn):
                     state["recovery_state"] = "RECOVERING"
         except Exception:
@@ -424,7 +424,7 @@ class MaintenanceControllerIntegration:
             from pathlib import Path
 
             sqlite_dbs: list[dict[str, Any]] = []
-            with get_connection_manager().connection() as registry_conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as registry_conn:
                 for db_class in ["A", "B", "C", "D"]:
                     sqlite_dbs.extend(
                         list_by_class(registry_conn, db_class=db_class)
