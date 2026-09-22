@@ -1,0 +1,39 @@
+{
+  "artifact": "ec1-channel-wiring-20260922",
+  "date": "2026-09-22",
+  "blueprint_item": "P8 / EC-1 通道接線驗收",
+  "worker": "devin-cli",
+  "scope": "Standalone tools/ai-collaboration — ai_nexus_* command chain end-to-end",
+  "acceptance_chain": [
+    "composer 送出（ai_nexus_send_message，星澄固定責任路徑）",
+    "各 AI 回覆狀態鏈（response 進入 awaiting-user，error_code=FOREGROUND_BROWSER_INTERACTION_REQUIRED，transport=embedded-browser-view）",
+    "內建瀏覽器等待使用者完成（_wait_for_browser_or_fallback 前景瀏覽器視窗，最多 3 輪）",
+    "使用者貼回（ai_nexus_complete_browser_response 解析等待中的 future）",
+    "送出回傳＋狀態刷新（ai_nexus_get_state 顯示全部 completed，diagnostics.latest_message_id 對齊）"
+  ],
+  "implementation_findings": {
+    "command_chain": [
+      "ai_nexus_send_message",
+      "ai_nexus_complete_browser_response",
+      "ai_nexus_get_state"
+    ],
+    "prior_coverage": "既有測試已涵蓋 general 模式 awaiting-browser-results → _store_browser_result 貼回、固定任務逾時後 ChatGPT 終端接手；未涵蓋固定任務 in-flight future 解析路徑",
+    "new_coverage": "test_ai_collaboration_channel_wiring.py：in-flight send 阻塞於瀏覽器等待 → 受治理 complete_browser_response 解析 future → send 回傳 completed → get_state 狀態刷新；另含未授權 actor 拒絕（PERMISSION_DENIED）、無等待任務 fail-closed、空白內容拒絕"
+  },
+  "governance": {
+    "actor_gate": "ai_nexus_complete_browser_response 僅接受 governance/tool/ai-collaboration 或 governance/main-system；其他 actor PERMISSION_DENIED",
+    "browser_only": true,
+    "cross_provider_substitution": false,
+    "memory_writeback": "star-mediated-candidate-writeback（direct_database_access=false）",
+    "external_authority": "外部回應僅為記憶候選，零專案權威"
+  },
+  "verification": {
+    "new_tests": "test_ai_collaboration_channel_wiring.py: 4/4 passed",
+    "suite_regression": "Standalone tools/ai-collaboration/tests/: 26/26 passed (14.13s)",
+    "commands": [
+      "python -m pytest Standalone tools/ai-collaboration/tests/test_ai_collaboration_channel_wiring.py -x -q",
+      "python -m pytest Standalone tools/ai-collaboration/tests/ -x -q"
+    ]
+  },
+  "verdict": "EC-1 驗收鏈端到端綠燈；指令鏈行為與受治理瀏覽器語義符合藍圖預期"
+}
