@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import sys
 import time
@@ -104,6 +105,68 @@ def operation_in_progress(repo: GitRepository) -> bool:
     if any((git_dir / marker).exists() for marker in IN_PROGRESS_MARKERS):
         return True
     return bool((git_dir / "sequencer").exists())
+
+
+# --- §10.69-E② single-writer commit lease -------------------------------
+# A human/agent declares an in-progress commit sequence by writing a lease
+# file inside .git; the self-commit sweep defers while any fresh lease is
+# held, and declares its own lease for the add+commit window so
+# lease-aware writers yield both ways. Git itself never sees the file —
+# this is a cooperating-writers contract, not a lock (HEAD can still move;
+# writers must be prepared to retry ``cannot lock ref HEAD``).
+
+COMMIT_LEASE_FILENAME = "self-commit-lease.json"
+SELF_COMMIT_LEASE_TTL_SECONDS = 120.0
+
+
+def _commit_lease_path(repo: GitRepository) -> Path:
+    return _git_dir_path(repo) / COMMIT_LEASE_FILENAME
+
+
+def commit_lease_active(repo: GitRepository) -> dict | None:
+    """Fresh lease data when another writer is mid-commit, else None."""
+    try:
+        data = json.loads(
+            _commit_lease_path(repo).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError, TypeError):
+        return None
+    try:
+        if float(data.get("until") or 0) > time.time():
+            return data
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def claim_commit_lease(
+    worktree: str | Path, *, owner: str, ttl_seconds: float = 300.0
+) -> Path:
+    """Declare an in-progress commit; renew before ttl, release when done.
+
+    Workers/agents call this BEFORE ``git add`` so the self-commit sweep
+    never stages their in-flight work under a generic message."""
+    repo = GitRepository(worktree)
+    path = _commit_lease_path(repo)
+    path.write_text(
+        json.dumps(
+            {
+                "owner": str(owner),
+                "claimed_at": time.time(),
+                "until": time.time() + max(1.0, float(ttl_seconds)),
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def release_commit_lease(worktree: str | Path) -> None:
+    repo = GitRepository(worktree)
+    try:
+        _commit_lease_path(repo).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def _porcelain(repo: GitRepository) -> dict[str, str]:
@@ -181,6 +244,10 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
     if staged_index_present(repo):
         return "staged-index-present"
 
+    lease = commit_lease_active(repo)
+    if lease is not None and lease.get("owner") != actor:
+        return f"commit-lease-held:{lease.get('owner')}"
+
     entries = _porcelain(repo)
     if not entries:
         return "clean"
@@ -201,6 +268,9 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
 
     locked = False
     try:
+        claim_commit_lease(
+            repo.path, owner=actor, ttl_seconds=SELF_COMMIT_LEASE_TTL_SECONDS
+        )
         if not _is_main_worktree(repo):
             gate = _governed(
                 repo, ["worktree", "lock", str(repo.path)], actor=actor
@@ -268,6 +338,7 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
             msg_file.unlink(missing_ok=True)
         except OSError:
             pass
+        release_commit_lease(repo.path)
 
     commit_hash = repo.head()
     chained_audit_log(

@@ -233,3 +233,21 @@ def authorize_investment_mobile_target(
     requester_actor: str, target_tool_id: str, command: str
 ) -> None:
     authorize_investment_mobile_route(requester_actor, target_tool_id, command)
+
+def authorize_tool_self_route(
+    requester_actor: str, target_tool_id: str, command: str
+) -> None:
+    """Authorize a governed tool's self-submit on its own channel.
+
+    Mode-B (native) tool hosts queue WS-accepted commands to themselves
+    through the transport proxy; the only legitimate route for that
+    binding is the tool's own actor targeting its own tool_id.  This is
+    intentionally narrower than authorize_ai_target(): governance and
+    peer routes never flow through a tool's self-submit binding.
+    """
+    target = str(target_tool_id or "").strip()
+    actor = str(requester_actor or "").strip()
+    if not target or not str(command or "").strip():
+        raise permission_denied()
+    if actor != tool_actor(target):
+        raise permission_denied()

@@ -71,6 +71,18 @@ $suites = @(
             (Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp")
         )
     },
+    @{
+        src = "suite_tool_host.cpp"; exe = "tool_host_suite.exe"
+        # M1 工具體骨架：loopback HTTP/WS＋claim/execute/respond 端到端
+        extra = @(
+            (Join-Path $nativeRoot "tool_runtime\tool_host.cpp"),
+            (Join-Path $nativeRoot "tool_runtime\governed_tool_ws.cpp"),
+            (Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"),
+            (Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"),
+            (Join-Path $coreDir "governed_tool.c"),
+            (Join-Path $coreDir "system_rescue.c")
+        )
+    },
 
     @{
         src = "suite_a263_channel_core.cpp"; exe = "a263_channel_core_suite.exe"
