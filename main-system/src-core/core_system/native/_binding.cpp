@@ -30,6 +30,7 @@
 #include "ipc_registry.h"
 #include "runtime_state.h"
 #include "activation_broker.h"
+#include "system_rescue.h"
 
 #include <cstdio>
 #include <stdexcept>
@@ -756,6 +757,86 @@ private:
     gptbridge_act_broker_t broker_{};
 };
 
+// --- M1 system-rescue prototype adapters (stateless) -------------------
+// Thin boundary: facts are injected by the Python caller; this layer
+// performs no I/O and no process spawning.
+
+static py::str sr_verify_tool_package_name(bool release_dir_exists,
+                                           bool metadata_exists,
+                                           bool metadata_valid,
+                                           bool has_source_manifest,
+                                           int64_t source_mtime,
+                                           int64_t package_mtime) {
+    return py::str(gptbridge_sr_pkg_verdict_code(
+        gptbridge_sr_verify_tool_package(
+            release_dir_exists ? 1 : 0, metadata_exists ? 1 : 0,
+            metadata_valid ? 1 : 0, has_source_manifest ? 1 : 0,
+            source_mtime, package_mtime)));
+}
+
+static py::object sr_normalize_packager_error(const py::object& error_code) {
+    if (error_code.is_none()) return py::none();
+    const std::string code = py::cast<std::string>(error_code);
+    const char* out = gptbridge_sr_normalize_packager_error(code.c_str());
+    if (out == nullptr) return py::none();
+    return py::str(out);
+}
+
+static bool sr_all_ok(const py::iterable& oks) {
+    std::vector<int32_t> values;
+    for (const auto& item : oks) {
+        values.push_back(py::cast<bool>(item) ? 1 : 0);
+    }
+    return gptbridge_sr_all_ok(values.data(),
+                               static_cast<int32_t>(values.size())) != 0;
+}
+
+static py::str sr_verify_archive_name(bool file_exists,
+                                      bool sidecar_exists,
+                                      const py::object& expected_hex,
+                                      const py::object& actual_hex) {
+    std::string expected, actual;
+    const char* pe = nullptr;
+    const char* pa = nullptr;
+    if (!expected_hex.is_none()) {
+        expected = py::cast<std::string>(expected_hex);
+        pe = expected.c_str();
+    }
+    if (!actual_hex.is_none()) {
+        actual = py::cast<std::string>(actual_hex);
+        pa = actual.c_str();
+    }
+    return py::str(gptbridge_sr_arc_verdict_code(gptbridge_sr_verify_archive(
+        file_exists ? 1 : 0, sidecar_exists ? 1 : 0, pe, pa)));
+}
+
+static py::str sr_sha256_hex(const py::bytes& data) {
+    const std::string bytes = data.cast<std::string>();
+    char hex[65];
+    if (!gptbridge_sr_sha256_hex(
+            reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(),
+            hex)) {
+        throw std::runtime_error("sha256 failed");
+    }
+    return py::str(hex);
+}
+
+static py::str sr_cli_dispatch_name(bool all_flag,
+                                    const py::object& tool_id,
+                                    bool verify_flag,
+                                    bool deep_flag,
+                                    bool package_flag) {
+    std::string tool;
+    const char* pt = nullptr;
+    if (!tool_id.is_none()) {
+        tool = py::cast<std::string>(tool_id);
+        pt = tool.c_str();
+    }
+    return py::str(gptbridge_sr_cli_op_name(gptbridge_sr_cli_dispatch(
+        all_flag ? 1 : 0, pt, verify_flag ? 1 : 0, deep_flag ? 1 : 0,
+        package_flag ? 1 : 0)));
+}
+
 // --- Module ---
 
 PYBIND11_MODULE(_sovereign_native, m) {
@@ -870,4 +951,18 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def_static("poll_interval", &NativeActivationBroker::poll_interval)
         .def_static("state_write_due",
                     &NativeActivationBroker::state_write_due);
+
+    // M1 system-rescue shadow prototype (module-language-migration-order).
+    m.def("sr_verify_tool_package", &sr_verify_tool_package_name,
+          "system-rescue _verify_tool_package verdict (code string).");
+    m.def("sr_normalize_packager_error", &sr_normalize_packager_error,
+          "Normalize a packager error_code; None for no error.");
+    m.def("sr_all_ok", &sr_all_ok,
+          "verify_all_packages aggregation (empty -> True).");
+    m.def("sr_verify_archive", &sr_verify_archive_name,
+          "verify_packaged_tool verdict (code string).");
+    m.def("sr_sha256_hex", &sr_sha256_hex,
+          "SHA-256 hex digest, equal to hashlib.sha256().hexdigest().");
+    m.def("sr_cli_dispatch", &sr_cli_dispatch_name,
+          "system-rescue CLI arg routing (operation name string).");
 }

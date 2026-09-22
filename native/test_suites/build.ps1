@@ -43,6 +43,13 @@ $suites = @(
         )
     },
     @{
+        src = "suite_system_rescue.cpp"; exe = "system_rescue_suite.exe"
+        # M1 語言外移原型：連結真實純 C 源檔
+        extra = @(
+            (Join-Path $coreDir "system_rescue.c")
+        )
+    },
+    @{
         src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
         # P0-9 審計引擎：連結真實原生實作
         extra = @(
