@@ -86,4 +86,27 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
         &xingcheng::inference::parse_generated_output,
         py::arg("text"),
         py::arg("max_json_bytes") = 64 * 1024);
+
+#if defined(XINGCHENG_CUDA)
+    m.def("_cuda_bf16_available", []() {
+        extern "C" int xcuda_bf16_available();
+        return xcuda_bf16_available();
+    });
+#if defined(XINGCHENG_CUDA_KERNELS)
+    m.def(
+        "_probe_matmul_bf16",
+        [](const std::vector<double>& a, int64_t m_rows, int64_t k,
+           const std::vector<double>& b, int64_t n) {
+            extern "C" int xcuda_matmul_bf16(
+                const double*, long long, long long,
+                const double*, long long, double*);
+            std::vector<double> out(
+                static_cast<size_t>(m_rows * n));
+            const int rc = xcuda_matmul_bf16(
+                a.data(), m_rows, k, b.data(), n, out.data());
+            if (rc != 0) throw std::runtime_error("bf16 matmul rc=" + std::to_string(rc));
+            return out;
+        });
+#endif
+#endif
 }

@@ -29,6 +29,14 @@ CPP_SOURCES = (
     # C++ compilation works everywhere; guarded internally by XINGCHENG_CUDA.
     HERE / "src" / "cuda_bridge.cpp",
 )
+# nvcc-built device kernels (P1-1③). CUDA 12.x rejects the VS18 default
+# toolset (v145 STL hard-fails), but the installed v142/v143 toolsets work
+# via ``vcvars64.bat -vcvars_ver=<v>`` — probed at build time; absent a
+# compatible pair the extension still builds, just without
+# ``XINGCHENG_CUDA_KERNELS`` (bf16 request path then fails closed).
+CU_SOURCES = (
+    HERE / "src" / "kernels" / "matmul_bf16.cu",
+)
 C_SOURCES = (
     NATIVE_ROOT / "bridge" / "gptbridge_native.c",
     NATIVE_ROOT / "core" / "parser.c",
@@ -55,6 +63,91 @@ def _cuda_home() -> pathlib.Path | None:
     return None
 
 
+def _nvcc(cuda_home: pathlib.Path) -> pathlib.Path | None:
+    nvcc = cuda_home / "bin" / "nvcc.exe"
+    return nvcc if nvcc.is_file() else None
+
+
+def _vcvars() -> pathlib.Path | None:
+    candidates = [
+        r"E:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat",
+        r"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat",
+        r"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
+    ]
+    for raw in candidates:
+        path = pathlib.Path(raw)
+        if path.is_file():
+            return path
+    return None
+
+
+def _compile_cuda_kernels(
+    cuda_home: pathlib.Path, build_dir: pathlib.Path
+) -> list[pathlib.Path]:
+    """Compile CU_SOURCES with nvcc under a compatible MSVC toolset.
+
+    Returns the produced objects, or [] when no nvcc/MSVC pair works —
+    callers then simply omit the kernels TU and XINGCHENG_CUDA_KERNELS.
+    """
+    import subprocess
+
+    nvcc = _nvcc(cuda_home)
+    vcvars = _vcvars()
+    if nvcc is None or vcvars is None:
+        return []
+    msvc_root = vcvars.parents[2] / "Tools" / "MSVC"
+    toolsets = (
+        sorted(
+            (d.name for d in msvc_root.iterdir() if d.is_dir()),
+            key=lambda v: tuple(int(x) for x in v.split(".")[:2]),
+        )
+        if msvc_root.is_dir()
+        else []
+    )
+    if not toolsets:
+        return []
+    build_dir.mkdir(parents=True, exist_ok=True)
+    for toolset in toolsets:
+        extra = (
+            "-allow-unsupported-compiler "
+            if int(toolset.split(".")[1]) >= 40
+            else ""
+        )
+        objects: list[pathlib.Path] = []
+        ok = True
+        for src in CU_SOURCES:
+            obj = build_dir / f"{src.stem}.obj"
+            bat = build_dir / f"_nvcc_{src.stem}.bat"
+            bat.write_text(
+                "@echo off\r\n"
+                f'call "{vcvars}" -vcvars_ver={toolset} >nul || exit /b 1\r\n'
+                f'"{nvcc}" -std=c++17 {extra}-Xcompiler /EHsc,/MD '
+                "-gencode=arch=compute_80,code=sm_86 "
+                "-gencode=arch=compute_80,code=compute_80 "
+                f'-c "{src}" -o "{obj}"\r\n',
+                encoding="ascii",
+            )
+            proc = subprocess.run(
+                ["cmd", "/c", str(bat)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=600,
+            )
+            if proc.returncode != 0 or not obj.is_file():
+                ok = False
+                break
+            objects.append(obj)
+        if ok:
+            print(
+                f"[build_cpp] CUDA kernels built "
+                f"(nvcc + MSVC toolset {toolset})"
+            )
+            return objects
+    return []
+
+
 def _extension():
     import pybind11
     from setuptools import Extension
@@ -69,12 +162,19 @@ def _extension():
     library_dirs: list[str] = []
 
     cuda_home = _cuda_home()
+    extra_objects: list[str] = []
     if cuda_home is not None:
         libraries.extend(["cudart", "cublas"])
         library_dirs.append(str(cuda_home / "lib" / "x64"))
         include_dirs.append(str(cuda_home / "include"))
         define_macros.append(("XINGCHENG_CUDA", "1"))
         print(f"[build_cpp] CUDA bridge enabled ({cuda_home})")
+        kernel_objs = _compile_cuda_kernels(
+            cuda_home, DIST_NATIVE / ".cu-build"
+        )
+        if kernel_objs:
+            extra_objects.extend(str(o) for o in kernel_objs)
+            define_macros.append(("XINGCHENG_CUDA_KERNELS", "1"))
     else:
         print("[build_cpp] CUDA toolkit not found — building CPU-only")
 
@@ -85,6 +185,7 @@ def _extension():
         define_macros=define_macros,
         libraries=libraries,
         library_dirs=library_dirs,
+        extra_objects=extra_objects,
         language="c++",
         extra_compile_args=(
             ["/std:c++17", "/utf-8"] if sys.platform == "win32" else ["-std=c++17"]

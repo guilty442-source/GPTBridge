@@ -84,9 +84,14 @@ int xcuda_release_weights() {
 // available at build time (build_cpp.py sets XINGCHENG_CUDA_KERNELS).
 extern "C" int xcuda_bf16_kernel_probe();
 extern "C" int xcuda_bf16_release_weights();
+#else
+// Stub so the symbol always resolves; the bf16 request path fails closed
+// through xcuda_bf16_available()==0 before ever reaching this.
 extern "C" int xcuda_matmul_bf16(
-    const double* a, long long m, long long k,
-    const double* b, long long n, double* out);
+    const double*, long long, long long,
+    const double*, long long, double*) {
+    return 3;
+}
 #endif
 
 // bf16 kernel availability: 1 only when the kernels object was linked AND a
