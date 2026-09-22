@@ -61,6 +61,13 @@
   PASS；`main-system/tests/test_native_m1_shadow.py` 13 測試（Python 權威
   函式 vs C 逐項比對；`.pyd` 受 INT-10 鎖定期間 graceful skip，Python 側
   判定已對暫存樹實測）。`.pyd` rebuild 待 INT-10 窗口後執行。
+- **收斂待辦（2026-09-22）**：HTTP/WS 閘門線層出現兩份並行實作——
+  `governed_tool_ws.h/.cpp`（route_request 階梯＋parse_qs 細節 parity，
+  suite 5/5）與 `http_gate.h`＋`ws_codec.h`（重用 gt_* C 語義、含 WS
+  握手 Origin 允列、1 MiB max_size，配合 `sidecar_transport.cpp` 的
+  CreateProcess 管道接線）。整合時擇一收斂：建議以 http_gate/ws_codec
+  為主線（分層較乾淨且已接線），併入 governed_tool_ws 的
+  parse_qs/route ladder 測試向量後退役其一。
 - 傳輸代理協定已定版：`star-governed-transport-proxy/v1`
   （`convergence/governed-transport-proxy-v1.md`）——模式 B 的線協定：
   JSONL 操作集（claim/respond/cancel/notify/request/response/hello）、
