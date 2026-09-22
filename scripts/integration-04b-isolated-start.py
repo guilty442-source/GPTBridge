@@ -343,16 +343,80 @@ def _ipc_contract_probe(state_root: Path, port: int, timeout_s: float = 20.0) ->
                 seen.append(name)
                 if name.endswith("_result") or name == "error":
                     break
-            results["command_events"] = seen[:8]
+            # Drain briefly for trailing streaming events (task_progress /
+            # task_finished when task_queue exists) — recorded, never
+            # asserted: under bound-root runtime_failed the task queue is
+            # not constructed, so absence is expected here.
+            drain_until = time.time() + 1.5
+            while time.time() < drain_until:
+                try:
+                    ev = await asyncio.wait_for(
+                        _next_event(), timeout=drain_until - time.time()
+                    )
+                except Exception:
+                    break
+                seen.append(str(ev.get("event") or ""))
+            results["command_events"] = seen[:12]
             results["command_dispatched"] = "COMMAND_RECEIVED" in seen
             results["command_resulted"] = any(
                 n.endswith("_result") or n == "error" for n in seen
             )
+            results["streaming_events"] = [
+                n for n in seen if n.startswith("task_")
+            ]
             # 6. Liveness channel: heartbeat_pong is accepted silently.
             await ws.send(json.dumps(
                 {"command": "heartbeat_pong", "payload": {}}
             ))
             results["heartbeat_sent"] = True
+
+        # 7. Timeout semantics (heartbeat deadline): a second session
+        #    that stays fully silent must be closed by the server —
+        #    heartbeat_ping every 5s, dead after 20s without liveness.
+        url = f"{base}?ticket={quote(_ticket())}&instance={instance}"
+        ping_seen = False
+        closed_by_server = False
+        silent_deadline = time.time() + 32.0
+        async with websockets.connect(url) as ws2:
+            while time.time() < silent_deadline:
+                try:
+                    raw = await asyncio.wait_for(
+                        ws2.recv(),
+                        timeout=max(0.5, silent_deadline - time.time()),
+                    )
+                except asyncio.TimeoutError:
+                    continue
+                except Exception:
+                    closed_by_server = True
+                    break
+                name = str(json.loads(raw).get("event") or "")
+                if name == "heartbeat_ping":
+                    ping_seen = True
+        results["heartbeat_ping_seen"] = ping_seen
+        results["silent_closed_by_server"] = closed_by_server
+
+        # 8. Cancellation/cleanup semantics: after an abruptly ended
+        #    session (server-side deadline kill above), a fresh ticket
+        #    session must still complete hello + dispatch — per-connection
+        #    teardown must not degrade the server.
+        url = f"{base}?ticket={quote(_ticket())}&instance={instance}"
+        async with websockets.connect(url) as ws3:
+            await ws3.send(json.dumps(
+                {"command": "state_event_hello", "payload": {"cursor": None}}
+            ))
+            hello_ok = False
+            deadline = time.time() + timeout_s
+            while time.time() < deadline:
+                try:
+                    ev = await asyncio.wait_for(
+                        ws3.recv(), timeout=max(0.1, deadline - time.time())
+                    )
+                except Exception:
+                    break
+                if str(json.loads(ev).get("event") or "") == "state_event_session":
+                    hello_ok = True
+                    break
+            results["post_cleanup_session_ok"] = hello_ok
 
     try:
         asyncio.run(_run())
@@ -365,6 +429,9 @@ def _ipc_contract_probe(state_root: Path, port: int, timeout_s: float = 20.0) ->
         and results.get("session_hello_ok")
         and results.get("command_dispatched")
         and results.get("command_resulted")
+        and results.get("heartbeat_ping_seen")
+        and results.get("silent_closed_by_server")
+        and results.get("post_cleanup_session_ok")
     )
     return results
 

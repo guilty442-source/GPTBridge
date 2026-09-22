@@ -661,9 +661,10 @@ def fault_scenarios() -> None:
         c_ok = bool(contract.get("ok"))
         record(
             "04B-19",
-            "isolated IPC contract client (ticket auth/session/command)",
+            "isolated IPC contract client (ticket auth/session/command/timeout/cancel)",
             "no/bad ticket rejected; valid ticket session hello; "
-            "COMMAND_RECEIVED + result; heartbeat accepted",
+            "COMMAND_RECEIVED + result; heartbeat accepted; silent session "
+            "closed at heartbeat deadline; post-teardown session healthy",
             json.dumps(contract, ensure_ascii=False)[:300],
             "PASS" if c_ok else "FAIL",
             "scripts/integration-04b-isolated-start.py::_ipc_contract_probe",
@@ -740,7 +741,7 @@ def fault_scenarios() -> None:
                "isolated harness exists: scripts/integration-04b-isolated-start.py",
                "BLOCKED_ENV")
         record("04B-19",
-               "isolated IPC contract client (ticket auth/session/command)",
+               "isolated IPC contract client (ticket auth/session/command/timeout/cancel)",
                "requires --with-isolated-start",
                "not executed (--with-isolated-start not passed)", "BLOCKED",
                "probe: scripts/integration-04b-isolated-start.py::_ipc_contract_probe",
@@ -944,7 +945,7 @@ def main() -> int:
         "completion": "NOT_COMPLETE",
         "minimal_fix_list": [
             "Isolated backend dependency probes unreachable by bound-root design — all three shared-service doubles (PG 04B-20, Qdrant 04B-21, Ollama 04B-22) verified at the release client-contract layer",
-            "isolated IPC contract client (auth/request-id/session/cancel/timeout/streaming) — validator covers surface only",
+            "IPC streaming surface (task_progress/task_finished) unobservable under bound-root runtime_failed — task_queue is a startup-phase construct; heartbeat-deadline timeout + teardown resilience probed live in 04B-19",
             "G76 self-containment verified — 04B-18 offline wheel-cache rebuild PASS (rerun with --with-offline-rebuild to refresh evidence)",
         ],
     }
