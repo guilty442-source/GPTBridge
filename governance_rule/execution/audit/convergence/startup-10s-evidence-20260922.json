@@ -1,0 +1,23 @@
+{
+  "evidence": "啟動 10s 全綠可用 (A199/A265/A537)",
+  "at": "2026-09-22T01:20:00Z",
+  "verifier": "main-system/runtime/state/startup-generation.json",
+  "result": {
+    "generation_id": "74d0fb4b0bf34420b6cf96f154176531",
+    "ok": true,
+    "total_ms": 812,
+    "budget_ms": 10000,
+    "phases": [
+      ["phase-0-local-preflight", 547],
+      ["phase-1-minimal-information-bootstrap", 15],
+      ["phase-2-read-official-codex", 15],
+      ["phase-3-load-permission-directory", 0],
+      ["phase-4-switch-normal-information-mode", 0],
+      ["phase-5-classify-dependency-dag", 0],
+      ["phase-6-activate-core-sovereigns", 235]
+    ],
+    "verdict": "PASS (812ms < 10000ms, well under 3s target)"
+  },
+  "probes": "core-critical + capability-critical 全綠 (codex/permission/information/decision/system-runtime/maintenance)",
+  "notes": "ready 1.72s (R1), RSS p95 82.6 MB, 5 jobs, 10s 預算硬約束 PASS"
+}
