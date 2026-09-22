@@ -151,6 +151,15 @@ def build_rc() -> None:
     for sub in ("logs", "state", "temp"):
         (RC / "runtime" / sub).mkdir(parents=True, exist_ok=True)
 
+    # Payload boundary self-check at build time (the post-run rescan in
+    # ``payload_boundary_check`` covers writers during the run).
+    leaked = _payload_leaks()
+    if leaked:
+        raise RuntimeError(
+            f"release payload boundary violation — state data inside "
+            f"release: {leaked[:5]}"
+        )
+
     release_python = RC / "venv" / "Scripts" / "python.exe"
     if not release_python.is_file():
         _copy_venv(RC / "venv")
@@ -446,6 +455,39 @@ def source_change_isolation() -> None:
     shutil.rmtree(FIXTURES, ignore_errors=True)
 
 
+def _payload_leaks() -> list[str]:
+    """State data that must never appear inside the release payload."""
+    if not RC.is_dir():
+        return []
+    leaks = [
+        str(p.relative_to(RC))
+        for p in RC.rglob("*.jsonl")
+        if p.is_file() and "governance_rule" in p.parts
+    ]
+    gov = RC / "governance_rule"
+    if gov.is_dir():
+        leaks += [
+            str(p.relative_to(RC))
+            for p in gov.rglob("*")
+            if p.is_dir()
+            and p.name in {"archive", "git_audit_chain", "convergence", "runtime"}
+        ]
+    return leaks
+
+
+def payload_boundary_check() -> None:
+    leaks = _payload_leaks()
+    record(
+        "04B-15",
+        "release payload carries no official state (audit ledgers / runtime)",
+        "no *.jsonl ledgers or audit-state dirs under governance_rule/",
+        f"leaks={leaks[:5]}",
+        "PASS" if not leaks else "FAIL",
+        "post-run rescan (a stray writer can inject state after build)",
+        "RELEASE_PAYLOAD_STATE_LEAK" if leaks else "",
+    )
+
+
 def process_cleanup_check() -> None:
     before = set(p.pid for p in __import__("psutil").process_iter()) if _has_psutil() else set()
     record("04B-12", "no orphan python process / test port / lock created", "no resources created by harness",
@@ -476,6 +518,7 @@ def main() -> int:
 
     fault_scenarios()
     source_change_isolation()
+    payload_boundary_check()
     process_cleanup_check()
 
     report = {
