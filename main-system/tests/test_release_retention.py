@@ -166,3 +166,102 @@ def test_snapshot_reports_tiers(tmp_path):
     snap = reg.snapshot()
     assert snap["retention_version"] == RETENTION_VERSION
     assert snap["count"] == 1
+
+def _mk_release_dir(root, name):
+    directory = root / name
+    directory.mkdir(parents=True)
+    (directory / "release-manifest.json").write_text("{}", encoding="utf-8")
+    return directory
+
+
+def test_reconcile_registers_unknown_as_previous(tmp_path):
+    from core_system.release_retention import reconcile_release_retention
+
+    releases = tmp_path / "releases"
+    _mk_release_dir(releases, "rc-1")
+    _mk_release_dir(releases, "rc-2")
+    reg = ReleaseRetentionRegistry(
+        tmp_path / "r.json", audit_path=tmp_path / "r.jsonl"
+    )
+    outcome = reconcile_release_retention(releases, reg)
+    assert outcome["ok"]
+    assert sorted(outcome["registered"]) == ["rc-1", "rc-2"]
+    assert reg.get("rc-1").tier == TIER_PREVIOUS
+    assert reg.get("rc-2").tier == TIER_PREVIOUS
+    assert outcome["deleted"] == []
+
+
+def test_reconcile_activates_pointer_target(tmp_path):
+    import json as _json
+
+    from core_system.release_retention import reconcile_release_retention
+
+    releases = tmp_path / "releases"
+    _mk_release_dir(releases, "rc-old")
+    _mk_release_dir(releases, "rc-new")
+    pointer = tmp_path / "active-release-pointer.json"
+    pointer.write_text(
+        _json.dumps({"release_id": "rc-new"}), encoding="utf-8"
+    )
+    reg = ReleaseRetentionRegistry(
+        tmp_path / "r.json", audit_path=tmp_path / "r.jsonl"
+    )
+    outcome = reconcile_release_retention(
+        releases, reg, active_pointer_path=pointer
+    )
+    assert outcome["ok"]
+    assert outcome["activated"] == "rc-new"
+    assert reg.get("rc-new").tier == TIER_ACTIVE
+    assert reg.get("rc-old").tier == TIER_PREVIOUS
+
+
+def test_reconcile_deletes_only_aged_archive(tmp_path):
+    import time as _time
+
+    from core_system.release_retention import reconcile_release_retention
+
+    releases = tmp_path / "releases"
+    aged = _mk_release_dir(releases, "rc-aged")
+    fresh = _mk_release_dir(releases, "rc-fresh")
+    reg = ReleaseRetentionRegistry(
+        tmp_path / "r.json", audit_path=tmp_path / "r.jsonl"
+    )
+    now = _time.time()
+    for name in ("rc-aged", "rc-fresh"):
+        reg.register(name, tier=TIER_PREVIOUS)
+        reg.mark_observation_passed(name)
+        reg.mark_backup_verified(name)
+        reg.mark_rollback_path_confirmed(name)
+        reg.archive(name)
+    # backdate rc-aged archived_at beyond the keep window
+    entry = reg.get("rc-aged")
+    from datetime import datetime, timezone
+
+    entry.archived_at = datetime.fromtimestamp(
+        now - 8 * 86400, tz=timezone.utc
+    ).isoformat()
+    reg._persist()
+
+    outcome = reconcile_release_retention(
+        releases, reg, archive_keep_days=7.0, now=now
+    )
+    assert outcome["ok"]
+    assert outcome["deleted"] == ["rc-aged"]
+    assert not aged.exists()
+    assert fresh.exists()
+
+
+def test_reconcile_never_deletes_previous(tmp_path):
+    from core_system.release_retention import reconcile_release_retention
+
+    releases = tmp_path / "releases"
+    keep = _mk_release_dir(releases, "rc-prev")
+    reg = ReleaseRetentionRegistry(
+        tmp_path / "r.json", audit_path=tmp_path / "r.jsonl"
+    )
+    outcome = reconcile_release_retention(
+        releases, reg, archive_keep_days=0.0
+    )
+    assert outcome["ok"]
+    assert outcome["deleted"] == []
+    assert keep.exists()

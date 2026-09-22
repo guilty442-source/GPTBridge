@@ -26,7 +26,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import tempfile
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -430,6 +432,155 @@ class ReleaseRetentionRegistry:
         }
 
 
+# -- disk reconciliation ---------------------------------------------------------
+
+_ARCHIVE_AGE_KEEP_DAYS_DEFAULT = 7.0
+
+
+def _release_dirs(releases_root: Path) -> list[Path]:
+    """List physical release payload dirs (``rc-*`` or with release-manifest)."""
+    try:
+        children = [
+            item
+            for item in releases_root.iterdir()
+            if item.is_dir() and not item.is_symlink()
+        ]
+    except OSError:
+        return []
+    return sorted(
+        item
+        for item in children
+        if item.name.startswith("rc-")
+        or (item / "release-manifest.json").is_file()
+    )
+
+
+def reconcile_release_retention(
+    releases_root: str | Path,
+    registry: ReleaseRetentionRegistry,
+    *,
+    active_pointer_path: str | Path | None = None,
+    archive_keep_days: float = _ARCHIVE_AGE_KEEP_DAYS_DEFAULT,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """§10.67 排程刪除——把 ``runtime/releases/`` 實體目錄對帳進保留階層。
+
+    Fail-closed 語意：
+
+    - 未登錄的 release 目錄一律先註冊為 PREVIOUS（受保護階層），絕不直接
+      ARCHIVE——PREVIOUS→ARCHIVE 只走三閘門 ``archive()``。
+    - active-release pointer 存在時其目標昇為 ACTIVE（PREVIOUS→ACTIVE 合法），
+      其他 ACTIVE 由 ``become_active`` 原子降為 PREVIOUS。
+    - 只有**已是 ARCHIVE**（上游管線已過三閘門）且 ``archived_at`` 超過
+      ``archive_keep_days`` 的目錄才會被物理刪除；PREVIOUS 永不自動刪。
+    - pointer 不存在時不昇任何 ACTIVE——全員維持 PREVIOUS，什麼都不刪。
+    """
+    root = Path(releases_root)
+    now = time.time() if now is None else now
+    result: dict[str, Any] = {
+        "ok": True,
+        "registered": [],
+        "activated": None,
+        "deleted": [],
+        "kept": [],
+        "errors": [],
+    }
+    dirs = _release_dirs(root)
+
+    pointer_id: str | None = None
+    if active_pointer_path is not None:
+        try:
+            payload = json.loads(
+                Path(active_pointer_path).read_text(encoding="utf-8")
+            )
+            pointer_id = str(payload.get("release_id") or "") or None
+        except (OSError, ValueError):
+            pointer_id = None
+
+    for directory in dirs:
+        release_id = directory.name
+        entry = registry.get(release_id)
+        if entry is None:
+            registered = registry.register(
+                release_id,
+                artifact_root=str(directory),
+                tier=TIER_PREVIOUS,
+            )
+            if not registered.ok:
+                result["errors"].append(
+                    {"release_id": release_id, "reason": registered.reason}
+                )
+                continue
+            result["registered"].append(release_id)
+            entry = registry.get(release_id)
+        if (
+            pointer_id is not None
+            and release_id == pointer_id
+            and entry is not None
+            and entry.tier != TIER_ACTIVE
+        ):
+            promoted = registry.become_active(release_id)
+            if promoted.ok:
+                result["activated"] = release_id
+            else:
+                result["errors"].append(
+                    {"release_id": release_id, "reason": promoted.reason}
+                )
+
+    keep_seconds = max(0.0, float(archive_keep_days)) * 86400.0
+    for directory in dirs:
+        entry = registry.get(directory.name)
+        if entry is None or entry.tier != TIER_ARCHIVE:
+            if entry is not None:
+                result["kept"].append(
+                    {"release_id": directory.name, "tier": entry.tier}
+                )
+            continue
+        archived_at = entry.archived_at or entry.updated_at
+        try:
+            archived_epoch = datetime.fromisoformat(
+                archived_at.replace("Z", "+00:00")
+            ).timestamp()
+        except (ValueError, AttributeError):
+            result["kept"].append(
+                {
+                    "release_id": directory.name,
+                    "tier": TIER_ARCHIVE,
+                    "reason": "unresolvable-archived-at",
+                }
+            )
+            continue
+        if (now - archived_epoch) < keep_seconds:
+            result["kept"].append(
+                {
+                    "release_id": directory.name,
+                    "tier": TIER_ARCHIVE,
+                    "reason": "within-archive-keep-window",
+                }
+            )
+            continue
+        try:
+            shutil.rmtree(directory)
+            result["deleted"].append(directory.name)
+            registry._audit(
+                "archive-purge",
+                directory.name,
+                TIER_ARCHIVE,
+                "-",
+                {"path": str(directory)},
+            )
+        except OSError as error:
+            result["errors"].append(
+                {
+                    "release_id": directory.name,
+                    "reason": f"delete-failed:{type(error).__name__}",
+                }
+            )
+
+    result["ok"] = not result["errors"]
+    return result
+
+
 __all__ = [
     "RETENTION_VERSION",
     "ReleaseRetentionEntry",
@@ -440,5 +591,6 @@ __all__ = [
     "TIER_PREVIOUS",
     "TIER_ROLLBACK",
     "VALID_TIERS",
+    "reconcile_release_retention",
     "tier_transition_valid",
 ]

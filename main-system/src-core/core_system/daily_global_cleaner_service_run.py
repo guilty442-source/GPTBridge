@@ -140,6 +140,42 @@ class DailyGlobalCleanerRunMixin:
         manager = ToolIsolationManager(Path(self.app.project_root))
         return await asyncio.to_thread(manager.purge_stale_quarantine)
 
+    async def _reconcile_release_retention(self) -> dict[str, Any]:
+        """§10.67 排程刪除——release 保留階層對帳與過期 ARCHIVE 清除。
+
+        只刪除「已通過三閘門降為 ARCHIVE 且超過保留期」的 release 目錄；
+        PREVIOUS／ACTIVE 永不動。對帳本身 fail-closed：未登錄目錄先註冊
+        PREVIOUS，pointer 缺失時不昇 ACTIVE、不刪除任何東西。
+        """
+
+        from core_system.active_release_persistence import ACTIVE_POINTER_PATH
+        from core_system.release_retention import (
+            ReleaseRetentionRegistry,
+            reconcile_release_retention,
+        )
+
+        project_root = Path(self.app.project_root)
+        registry = ReleaseRetentionRegistry(
+            project_root / "runtime" / "state" / "release-retention.json",
+            audit_path=(
+                project_root
+                / "runtime"
+                / "logs"
+                / "release-retention.jsonl"
+            ),
+        )
+        pointer = (
+            ACTIVE_POINTER_PATH
+            if ACTIVE_POINTER_PATH.is_file()
+            else None
+        )
+        return await asyncio.to_thread(
+            reconcile_release_retention,
+            project_root / "runtime" / "releases",
+            registry,
+            active_pointer_path=pointer,
+        )
+
     def _classify_orphan_roots(self) -> dict[str, Any]:
         """Revalidate unregistered physical roots (classification only).
 
@@ -224,6 +260,14 @@ class DailyGlobalCleanerRunMixin:
                     "message": f"{type(error).__name__}: {error}",
                 }
             try:
+                findings["releases"] = await self._reconcile_release_retention()
+            except Exception as error:
+                findings["releases"] = {
+                    "ok": False,
+                    "error_code": "RELEASE_RETENTION_EXCEPTION",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            try:
                 findings["orphans"] = self._classify_orphan_roots()
             except Exception as error:
                 findings["orphans"] = {
@@ -245,6 +289,7 @@ class DailyGlobalCleanerRunMixin:
                     "orphan-classification",
                     "retired-trash-residue",
                     "crash-quarantine-retention",
+                    "release-retention-reconciliation",
                 ),
                 "byte_quota": self.CYCLE_BYTE_QUOTA,
                 "cleaned_bytes": cleaned_bytes,
@@ -258,6 +303,7 @@ class DailyGlobalCleanerRunMixin:
                 findings["trash"].get("ok") is not False
                 and bool(findings["modules"].get("ok"))
                 and findings["quarantine"].get("ok") is not False
+                and findings["releases"].get("ok") is not False
                 and findings["orphans"].get("ok") is not False
             )
             state.update(
