@@ -1,8 +1,9 @@
 // Xingcheng formal C++ inference layer (P3b–P3f).
 //
-// Scope: dense causal-LM inference, batch=1, FP64 compute over exported
-// weights. Primitive tensor operations call the public C ABI. Unsupported
-// model features fail closed instead of silently changing semantics.
+// Scope: causal-LM inference (dense + sparse MoE), batch=1, FP64 compute
+// over exported weights. Primitive tensor operations call the public C
+// ABI. Unsupported model features fail closed instead of silently
+// changing semantics.
 
 #include "xingcheng_inference.hpp"
 
@@ -17,6 +18,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <numeric>
 #include <random>
 #include <sstream>
 #include <stdexcept>
@@ -739,6 +741,23 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
     cfg.hidden_act = json_string(config_json, "hidden_act");
     cfg.position_embedding_type = json_string(config_json, "position_embedding_type");
     cfg.use_moe = json_bool(config_json, "use_moe");
+    // MoE shape fields are optional in the manifest: bundles exported
+    // before R5 predate them and always carry use_moe=false.
+    if (const JsonValue* v = json_optional(config_json, "moe_num_experts")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_num_experts");
+        cfg.moe_num_experts = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_top_k")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_top_k");
+        cfg.moe_top_k = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_layer_interval")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_layer_interval");
+        cfg.moe_layer_interval = static_cast<int64_t>(v->number);
+    }
     cfg.quantization = json_string(config_json, "quantization");
 
     const std::string weights_name = json_string(manifest, "weights_file");
@@ -1037,16 +1056,48 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         layer.v_proj = bundle_->tensor(prefix + "attention.v_proj.weight");
         layer.o_proj = bundle_->tensor(prefix + "attention.o_proj.weight");
         layer.post_norm = bundle_->tensor(prefix + "post_attention_norm.weight");
-        layer.gate_proj = bundle_->tensor(prefix + "mlp.gate_proj.weight");
-        layer.up_proj = bundle_->tensor(prefix + "mlp.up_proj.weight");
-        layer.down_proj = bundle_->tensor(prefix + "mlp.down_proj.weight");
+        layer.is_moe = cfg.use_moe &&
+            (i % std::max<int64_t>(1, cfg.moe_layer_interval)) == 0;
+        if (layer.is_moe) {
+            // R5 sparse MoE (token-choice routing, mirrors
+            // modules/moe.py): router Linear + per-expert SwiGLU MLPs.
+            layer.router = bundle_->tensor(prefix + "mlp.router.weight");
+            layer.router_t = transpose_matrix(layer.router);
+            const int64_t experts = cfg.moe_num_experts;
+            layer.expert_gate.reserve(static_cast<size_t>(experts));
+            layer.expert_up.reserve(static_cast<size_t>(experts));
+            layer.expert_down.reserve(static_cast<size_t>(experts));
+            layer.expert_gate_t.reserve(static_cast<size_t>(experts));
+            layer.expert_up_t.reserve(static_cast<size_t>(experts));
+            layer.expert_down_t.reserve(static_cast<size_t>(experts));
+            for (int64_t e = 0; e < experts; ++e) {
+                const std::string ep =
+                    prefix + "mlp.experts." + std::to_string(e) + ".";
+                layer.expert_gate.push_back(
+                    bundle_->tensor(ep + "gate_proj.weight"));
+                layer.expert_up.push_back(
+                    bundle_->tensor(ep + "up_proj.weight"));
+                layer.expert_down.push_back(
+                    bundle_->tensor(ep + "down_proj.weight"));
+                layer.expert_gate_t.push_back(
+                    transpose_matrix(layer.expert_gate.back()));
+                layer.expert_up_t.push_back(
+                    transpose_matrix(layer.expert_up.back()));
+                layer.expert_down_t.push_back(
+                    transpose_matrix(layer.expert_down.back()));
+            }
+        } else {
+            layer.gate_proj = bundle_->tensor(prefix + "mlp.gate_proj.weight");
+            layer.up_proj = bundle_->tensor(prefix + "mlp.up_proj.weight");
+            layer.down_proj = bundle_->tensor(prefix + "mlp.down_proj.weight");
+            layer.gate_proj_t = transpose_matrix(layer.gate_proj);
+            layer.up_proj_t = transpose_matrix(layer.up_proj);
+            layer.down_proj_t = transpose_matrix(layer.down_proj);
+        }
         layer.q_proj_t = transpose_matrix(layer.q_proj);
         layer.k_proj_t = transpose_matrix(layer.k_proj);
         layer.v_proj_t = transpose_matrix(layer.v_proj);
         layer.o_proj_t = transpose_matrix(layer.o_proj);
-        layer.gate_proj_t = transpose_matrix(layer.gate_proj);
-        layer.up_proj_t = transpose_matrix(layer.up_proj);
-        layer.down_proj_t = transpose_matrix(layer.down_proj);
     }
 
     const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
@@ -1095,7 +1146,11 @@ void NativeInferenceEngine::unload() {
 
 void NativeInferenceEngine::validate_supported() const {
     const ModelConfig& cfg = bundle_->config();
-    if (cfg.use_moe) throw InferenceError("MOE_INFERENCE_UNSUPPORTED");
+    if (cfg.use_moe &&
+        (cfg.moe_num_experts < 2 || cfg.moe_top_k < 1 ||
+         cfg.moe_top_k > cfg.moe_num_experts || cfg.moe_layer_interval < 1)) {
+        throw InferenceError("MOE_CONFIG_UNSUPPORTED");
+    }
     if (cfg.quantization != "none") throw InferenceError("QUANTIZED_INFERENCE_UNSUPPORTED");
     if (cfg.norm_type != "rmsnorm") throw InferenceError("NORM_TYPE_UNSUPPORTED");
     if (!cfg.use_swiglu || cfg.hidden_act != "silu") {
@@ -1369,18 +1424,115 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
         for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += attn_out[i];
 
         normed = rmsnorm(hidden, seq, cfg.hidden_size, layer.post_norm, cfg.rms_norm_eps);
-        std::vector<double> gate = linear(
-            normed, seq, cfg.hidden_size, layer.gate_proj_t, cfg.intermediate_size);
-        std::vector<double> up = linear(
-            normed, seq, cfg.hidden_size, layer.up_proj_t, cfg.intermediate_size);
-        std::vector<double> mlp_in(static_cast<size_t>(seq * cfg.intermediate_size));
-        for (size_t i = 0; i < mlp_in.size(); ++i) {
-            const double g = gate[i];
-            mlp_in[i] = (g / (1.0 + std::exp(-g))) * up[i];
+        if (layer.is_moe) {
+            // R5 grouped sparse MoE (token-choice, mirrors modules/moe.py):
+            // router softmax over experts → deterministic top-k → weights
+            // renormalized inside top-k → per-expert gather / SwiGLU GEMM /
+            // weighted scatter-add. Grouped execution keeps each expert's
+            // matmul dense while computing only the selected experts.
+            const int64_t experts = cfg.moe_num_experts;
+            const int64_t top_k = cfg.moe_top_k;
+            std::vector<double> probs = linear(
+                normed, seq, cfg.hidden_size, layer.router_t, experts);
+            std::vector<int64_t> top_idx(static_cast<size_t>(seq * top_k));
+            std::vector<double> top_w(static_cast<size_t>(seq * top_k));
+            for (int64_t s = 0; s < seq; ++s) {
+                double* row = probs.data() + static_cast<size_t>(s * experts);
+                const double mx = *std::max_element(row, row + experts);
+                double total = 0.0;
+                for (int64_t e = 0; e < experts; ++e) {
+                    row[e] = std::exp(row[e] - mx);
+                    total += row[e];
+                }
+                for (int64_t e = 0; e < experts; ++e) row[e] /= total;
+                std::vector<int64_t> order(static_cast<size_t>(experts));
+                std::iota(order.begin(), order.end(), 0);
+                std::stable_sort(
+                    order.begin(), order.end(),
+                    [&](int64_t a, int64_t b) { return row[a] > row[b]; });
+                double selected = 0.0;
+                for (int64_t k = 0; k < top_k; ++k) {
+                    selected += row[order[static_cast<size_t>(k)]];
+                }
+                for (int64_t k = 0; k < top_k; ++k) {
+                    const int64_t e = order[static_cast<size_t>(k)];
+                    top_idx[static_cast<size_t>(s * top_k + k)] = e;
+                    top_w[static_cast<size_t>(s * top_k + k)] = row[e] / selected;
+                }
+            }
+            std::vector<double> mlp_out(
+                static_cast<size_t>(seq * cfg.hidden_size), 0.0);
+            for (int64_t e = 0; e < experts; ++e) {
+                std::vector<int64_t> positions;
+                std::vector<double> weights;
+                positions.reserve(static_cast<size_t>(seq));
+                weights.reserve(static_cast<size_t>(seq));
+                for (int64_t s = 0; s < seq; ++s) {
+                    for (int64_t k = 0; k < top_k; ++k) {
+                        if (top_idx[static_cast<size_t>(s * top_k + k)] == e) {
+                            positions.push_back(s);
+                            weights.push_back(
+                                top_w[static_cast<size_t>(s * top_k + k)]);
+                            break;  // a token routes to an expert at most once
+                        }
+                    }
+                }
+                if (positions.empty()) continue;
+                const int64_t rows = static_cast<int64_t>(positions.size());
+                std::vector<double> expert_in(
+                    static_cast<size_t>(rows * cfg.hidden_size));
+                for (int64_t r = 0; r < rows; ++r) {
+                    std::copy_n(
+                        normed.data() + static_cast<size_t>(
+                            positions[static_cast<size_t>(r)] * cfg.hidden_size),
+                        cfg.hidden_size,
+                        expert_in.data() +
+                            static_cast<size_t>(r * cfg.hidden_size));
+                }
+                std::vector<double> gate = linear(
+                    expert_in, rows, cfg.hidden_size,
+                    layer.expert_gate_t[static_cast<size_t>(e)],
+                    cfg.intermediate_size);
+                std::vector<double> up = linear(
+                    expert_in, rows, cfg.hidden_size,
+                    layer.expert_up_t[static_cast<size_t>(e)],
+                    cfg.intermediate_size);
+                std::vector<double> act(
+                    static_cast<size_t>(rows * cfg.intermediate_size));
+                for (size_t i = 0; i < act.size(); ++i) {
+                    const double g = gate[i];
+                    act[i] = (g / (1.0 + std::exp(-g))) * up[i];
+                }
+                std::vector<double> expert_out = linear(
+                    act, rows, cfg.intermediate_size,
+                    layer.expert_down_t[static_cast<size_t>(e)],
+                    cfg.hidden_size);
+                for (int64_t r = 0; r < rows; ++r) {
+                    const double w = weights[static_cast<size_t>(r)];
+                    const double* src = expert_out.data() +
+                        static_cast<size_t>(r * cfg.hidden_size);
+                    double* dst = mlp_out.data() + static_cast<size_t>(
+                        positions[static_cast<size_t>(r)] * cfg.hidden_size);
+                    for (int64_t d = 0; d < cfg.hidden_size; ++d) {
+                        dst[d] += w * src[d];
+                    }
+                }
+            }
+            for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
+        } else {
+            std::vector<double> gate = linear(
+                normed, seq, cfg.hidden_size, layer.gate_proj_t, cfg.intermediate_size);
+            std::vector<double> up = linear(
+                normed, seq, cfg.hidden_size, layer.up_proj_t, cfg.intermediate_size);
+            std::vector<double> mlp_in(static_cast<size_t>(seq * cfg.intermediate_size));
+            for (size_t i = 0; i < mlp_in.size(); ++i) {
+                const double g = gate[i];
+                mlp_in[i] = (g / (1.0 + std::exp(-g))) * up[i];
+            }
+            std::vector<double> mlp_out = linear(
+                mlp_in, seq, cfg.intermediate_size, layer.down_proj_t, cfg.hidden_size);
+            for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
         }
-        std::vector<double> mlp_out = linear(
-            mlp_in, seq, cfg.intermediate_size, layer.down_proj_t, cfg.hidden_size);
-        for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
         if (layer_rms != nullptr) {
             layer_rms->push_back(hidden_rms(hidden, seq, cfg.hidden_size));
         }

@@ -47,6 +47,9 @@ struct ModelConfig {
     std::string hidden_act = "silu";
     std::string position_embedding_type = "rope";
     bool use_moe = false;
+    int64_t moe_num_experts = 8;
+    int64_t moe_top_k = 2;
+    int64_t moe_layer_interval = 1;
     std::string quantization = "none";
 };
 
@@ -169,6 +172,17 @@ private:
         TensorView gate_proj;
         TensorView up_proj;
         TensorView down_proj;
+        // R5 sparse MoE: when is_moe the dense MLP views are empty and the
+        // router + per-expert SwiGLU weights are used instead.
+        bool is_moe = false;
+        TensorView router;
+        std::vector<TensorView> expert_gate;
+        std::vector<TensorView> expert_up;
+        std::vector<TensorView> expert_down;
+        std::vector<double> router_t;
+        std::vector<std::vector<double>> expert_gate_t;
+        std::vector<std::vector<double>> expert_up_t;
+        std::vector<std::vector<double>> expert_down_t;
         std::vector<double> q_proj_t;
         std::vector<double> k_proj_t;
         std::vector<double> v_proj_t;

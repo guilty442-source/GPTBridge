@@ -28,8 +28,6 @@ def export_checkpoint_for_cpp(
     loaded = load_checkpoint(checkpoint_path, map_location="cpu", strict=True)
     model = loaded["model"]
     config = loaded["config"]
-    if getattr(config, "use_moe", False):
-        raise ValueError("CPP_EXPORT_MOE_UNSUPPORTED")
     if getattr(config, "quantization", "none") != "none":
         raise ValueError("CPP_EXPORT_QUANTIZED_CHECKPOINT_UNSUPPORTED")
 

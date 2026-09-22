@@ -470,3 +470,103 @@ def test_cpp_prefix_cache_reuse_is_deterministic(tmp_path: Path) -> None:
     cold.load(str(bundle))
     baseline = cold.generate(list(extended), 4, sampling)
     assert cached == baseline
+
+
+# ── R5 sparse MoE：top-k 路由＋分組 expert GEMM 的雙宿主 parity ──────────
+
+
+def _tiny_moe_config(
+    num_experts: int = 4, top_k: int = 2, interval: int = 1
+) -> XingChengConfig:
+    return XingChengConfig(
+        vocab_size=64,
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=32,
+        max_new_tokens=8,
+        use_moe=True,
+        moe_num_experts=num_experts,
+        moe_top_k=top_k,
+        moe_layer_interval=interval,
+    )
+
+
+def _export_moe_model(tmp_path: Path, **moe_kwargs):
+    torch.manual_seed(29)
+    config = _tiny_moe_config(**moe_kwargs)
+    model = XingChengForCausalLM(config)
+    model.eval()
+    checkpoint = tmp_path / "tiny-moe.pt"
+    save_checkpoint(checkpoint, model, config=config)
+    bundle = tmp_path / "bundle-moe"
+    report = export_checkpoint_for_cpp(checkpoint, bundle)
+    return model, config, bundle, report
+
+
+def test_cpp_moe_logits_match_pytorch(tmp_path: Path) -> None:
+    """R5: MoE bundle exports and the C++ sparse path matches PyTorch."""
+    module = cpp_runtime.load_extension()
+    model, _config, bundle, report = _export_moe_model(tmp_path)
+    assert report["schema_version"] == "star-native-inference-bundle/v1"
+
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12]
+    with torch.no_grad():
+        expected = model(torch.tensor([ids], dtype=torch.long))["logits"][0, -1].double()
+    actual = torch.tensor(engine.logits(ids), dtype=torch.float64)
+    assert torch.allclose(actual, expected, atol=2e-3, rtol=2e-3)
+    engine.unload()
+
+
+def test_cpp_moe_generation_matches_pytorch(tmp_path: Path) -> None:
+    """R5: greedy generation through MoE layers matches PyTorch exactly."""
+    module = cpp_runtime.load_extension()
+    model, _config, bundle, _report = _export_moe_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    prompt = torch.tensor([[1, 9, 10, 11]], dtype=torch.long)
+    sampling = SamplingConfig(do_sample=False, repetition_penalty=1.0)
+    expected = Generator(
+        model, sampler=Sampler(sampling), device=torch.device("cpu")
+    ).generate(prompt, max_new_tokens=4, use_cache=True)[0].tolist()
+    cpp_sampling = module.SamplingConfig()
+    cpp_sampling.do_sample = False
+    cpp_sampling.repetition_penalty = 1.0
+    actual = engine.generate([1, 9, 10, 11], 4, cpp_sampling)
+    assert actual == expected
+
+
+def test_cpp_moe_interval_mixed_layers_parity(tmp_path: Path) -> None:
+    """R5: moe_layer_interval=2 mixes MoE layer 0 with dense layer 1."""
+    module = cpp_runtime.load_extension()
+    model, _config, bundle, _report = _export_moe_model(
+        tmp_path, num_experts=4, top_k=1, interval=2
+    )
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12, 13]
+    with torch.no_grad():
+        expected = model(torch.tensor([ids], dtype=torch.long))["logits"][0, -1].double()
+    actual = torch.tensor(engine.logits(ids), dtype=torch.float64)
+    assert torch.allclose(actual, expected, atol=2e-3, rtol=2e-3)
+    engine.unload()
+
+
+def test_cpp_moe_config_fail_closed(tmp_path: Path) -> None:
+    """R5: malformed MoE shape fields still fail closed at load."""
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_moe_model(tmp_path)
+    manifest_path = bundle / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["config"]["moe_top_k"] = 99  # > num_experts
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    engine = module.NativeInferenceEngine()
+    with pytest.raises(RuntimeError, match="MOE_CONFIG_UNSUPPORTED"):
+        engine.load(str(bundle))

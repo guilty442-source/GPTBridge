@@ -1,0 +1,22 @@
+{
+  "artifact": "p1-r5-moe-sparse-inference",
+  "ts_utc": "2026-09-22T08:39:34Z",
+  "worker": "devin-cli",
+  "change": {
+    "engine.cpp": "MoE sparse forward: router softmax -> deterministic top-k -> renorm inside top-k -> per-expert gather/SwiGLU GEMM/weighted scatter-add (grouped execution); config moe_num_experts/moe_top_k/moe_layer_interval optional parse; MOE_INFERENCE_UNSUPPORTED lifted to MOE_CONFIG_UNSUPPORTED bounds check; MoE layers detected as layer_idx % max(1,interval) == 0 (mirrors transformer_block.py)",
+    "xingcheng_inference.hpp": "ModelConfig +3 MoE fields; LayerWeights +is_moe/router/expert views + transposed copies",
+    "cpp_export.py": "CPP_EXPORT_MOE_UNSUPPORTED gate removed (generic sorted state_dict dump covers router/expert tensors; quantization still refused)"
+  },
+  "verification": {
+    "test_file": "Standalone tools/local-model/tests/test_cpp_inference.py",
+    "result": "18 passed in 6.27s (14 pre-existing + 4 new)",
+    "new_tests": [
+      "test_cpp_moe_logits_match_pytorch (allclose atol/rtol 2e-3 vs torch fp32)",
+      "test_cpp_moe_generation_matches_pytorch (greedy token-exact, use_cache)",
+      "test_cpp_moe_interval_mixed_layers_parity (interval=2: MoE layer0 + dense layer1, top_k=1)",
+      "test_cpp_moe_config_fail_closed (moe_top_k=99 -> MOE_CONFIG_UNSUPPORTED)"
+    ],
+    "build": "_xingcheng_inference.cp311-win_amd64.pyd rebuilt via build_cpp.py"
+  },
+  "semantics_reference": "modules/moe.py XingChengMoE.forward (token-choice, top-k renorm, weighted scatter-add); aux loss is training-only, not computed at inference"
+}
