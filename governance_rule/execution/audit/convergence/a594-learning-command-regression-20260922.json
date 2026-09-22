@@ -1,0 +1,12 @@
+{
+  "item": "A594 learning-command regression",
+  "recorded_at": "2026-09-22T17:55Z",
+  "observed_by": "devin-cli (P1-9 e2e evidence run)",
+  "symptom": "start_learning_automation/command_learning_pass refuse every cycle: commanded=False reason=child-parent-mismatch",
+  "failing_tests": "main-system/tests/test_xingcheng_learning_command.py x5 (auto-start arm, reconcile receipt, etc.)",
+  "root_cause": "codex rev69 A594 retired learning-evidence-sync-sub-sovereign; validate_child_parent(child, 星澄) now fails closed in main-system/governance/sovereigns/xingcheng/learning_command.py:52",
+  "codex_intended_route": "per sub_sovereign_retirement_matrix.json: authority -> owning core engine (A591); execution -> capability dispatch (RULE_CAPABILITY_DISPATCH_V1); retirement_evidence=pending (codex-first; registry switch required)",
+  "production_impact": "commanded learning (auto-loop, anomaly, failure, user-request, scheduled, teach) dead while regression stands; self-learning cycle (native_transformer/self_learning.py) is a separate path and unaffected",
+  "ownership": "convergence workstream (claimed @devin-cli 2026-09-22T17:45Z) + governor; not a worker fix",
+  "verify": "python -m pytest main-system/tests/test_xingcheng_learning_command.py"
+}
