@@ -323,7 +323,11 @@ class MaintenanceRepairChainMixin:
         status display.
         """
         try:
-            asyncio.create_task(
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # no running loop — best-effort notification skipped
+        try:
+            loop.create_task(
                 self._notify_ui(
                     "maintenance:repair-completed",
                     {
