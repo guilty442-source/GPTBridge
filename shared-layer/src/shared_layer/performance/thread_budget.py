@@ -51,6 +51,55 @@ def bounded_threads(
     return max(1, min(int(threads_per_worker), max(1, limit // workers)))
 
 
+# BLAS/OpenMP runtimes honour these env vars at process start; PyTorch
+# intra-op threads follow torch.set_num_threads (applied by the model
+# backend through the same entry).
+THREAD_ENV_VARS: tuple[str, ...] = (
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+)
+
+
+def thread_env(
+    threads_per_worker: int,
+    parallel_workers: int,
+    *,
+    budget: Optional[int] = None,
+) -> dict[str, str]:
+    """Env values for one bounded allocation (threads × workers ≤ budget).
+
+    Returns a plain mapping — callers merge it into a subprocess env or
+    apply it in-process via :func:`apply_thread_env`.
+    """
+    threads = bounded_threads(
+        threads_per_worker, parallel_workers, budget=budget
+    )
+    return {name: str(threads) for name in THREAD_ENV_VARS}
+
+
+def apply_thread_env(
+    threads_per_worker: int,
+    parallel_workers: int,
+    *,
+    budget: Optional[int] = None,
+    environ: Optional[dict] = None,
+) -> int:
+    """Set OMP/BLAS thread env for this process; returns applied threads.
+
+    Application-level only (process env vars) — never touches machine
+    settings (A590: no affinity / power plan / registry changes).  An
+    already-set variable is respected: explicit governor/operator values
+    win over the computed budget.
+    """
+    env = environ if environ is not None else os.environ
+    values = thread_env(threads_per_worker, parallel_workers, budget=budget)
+    for name, value in values.items():
+        env.setdefault(name, value)
+    return int(next(iter(values.values())))
+
+
 def allocation_within_budget(
     threads_per_worker: int,
     parallel_workers: int,
@@ -73,9 +122,12 @@ def allocation_within_budget(
 
 __all__ = [
     "CORE_BUDGET_CAP",
+    "THREAD_ENV_VARS",
     "allocation_within_budget",
+    "apply_thread_env",
     "bounded_threads",
     "bounded_workers",
     "core_budget",
     "logical_cores",
+    "thread_env",
 ]
