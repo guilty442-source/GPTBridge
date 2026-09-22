@@ -1,7 +1,12 @@
 {
   "contract_code": "SYSTEM_CONVERGENCE_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A570",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "partially-implemented",
   "fields": [
     "workstream",
     "active_generation_fencing",
@@ -9,7 +14,48 @@
     "contract_compatibility",
     "baseline"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "workstream": {
+      "semantics": "convergence workstreams tracked in report",
+      "bound_to": [
+        "governance_rule/execution/convergence/successor_framework.py#compute_closures"
+      ]
+    },
+    "active_generation_fencing": {
+      "semantics": "generation fencing during handover",
+      "bound_to": [
+        "main-system/src-core/core_system/blue_green_orchestrator.py#active_generation",
+        "main-system/src-core/core_system/blue_green_orchestrator.py#fencing_token"
+      ]
+    },
+    "runtime_state": {
+      "semantics": "runtime state registry axis",
+      "bound_to": [
+        "main-system/src-core/core_system/runtime_state_registry.py"
+      ]
+    },
+    "contract_compatibility": {
+      "semantics": "compatibility gate on activation",
+      "bound_to": [
+        "main-system/src-core/core_system/active_release_verify.py"
+      ]
+    },
+    "baseline": {
+      "semantics": "version-axis baseline",
+      "bound_to": [
+        "governance_rule/execution/convergence/successor_framework.py#version_axis_report"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "governance_rule/execution/convergence/successor_framework.py",
+      "main-system/src-core/core_system/blue_green_orchestrator.py",
+      "main-system/src-core/core_system/runtime_state_registry.py"
+    ]
+  },
+  "evidence_paths": [
+    "governance_rule/execution/audit/convergence/convergence_report.json"
+  ],
+  "gaps": []
 }

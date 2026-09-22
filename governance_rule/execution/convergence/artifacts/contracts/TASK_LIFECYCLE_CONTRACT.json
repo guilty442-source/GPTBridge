@@ -1,7 +1,12 @@
 {
   "contract_code": "TASK_LIFECYCLE_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A573",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "fields": [
     "task_id",
     "state",
@@ -10,7 +15,52 @@
     "idempotency_key",
     "receipt"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "task_id": {
+      "semantics": "task identity (operation_id)",
+      "bound_to": [
+        "main-system/src-core/core_system/task_lifecycle.py#operation_id"
+      ]
+    },
+    "state": {
+      "semantics": "lifecycle state on the record",
+      "bound_to": [
+        "main-system/src-core/core_system/task_lifecycle.py#status"
+      ]
+    },
+    "transition": {
+      "semantics": "legal state-transition check",
+      "bound_to": [
+        "main-system/src-core/core_system/task_lifecycle.py#transition_is_valid"
+      ]
+    },
+    "interrupted_recovery": {
+      "semantics": "INTERRUPTED -> RECOVERING -> verify recovery path",
+      "bound_to": [
+        "main-system/src-core/core_system/task_lifecycle.py#INTERRUPTED"
+      ]
+    },
+    "idempotency_key": {
+      "semantics": "duplicate-create returns the existing record",
+      "bound_to": [
+        "main-system/src-core/core_system/task_lifecycle.py#idempotency_key"
+      ]
+    },
+    "receipt": {
+      "semantics": "execution receipt recorded on completion",
+      "bound_to": [
+        "main-system/src-core/core_system/task_lifecycle.py#execution_receipt"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/src-core/core_system/task_lifecycle.py"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_task_lifecycle.py",
+    "main-system/tests/test_task_lifecycle_g54.py"
+  ],
+  "gaps": []
 }

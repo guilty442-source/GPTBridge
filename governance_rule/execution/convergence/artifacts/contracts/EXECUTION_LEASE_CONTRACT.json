@@ -1,7 +1,12 @@
 {
   "contract_code": "EXECUTION_LEASE_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A574",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "fields": [
     "lease_type",
     "holder",
@@ -9,7 +14,46 @@
     "fencing_token",
     "single_authority"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "lease_type": {
+      "semantics": "lease kind key; one active lease per lease_type",
+      "bound_to": [
+        "main-system/src-core/core_system/execution_lease.py#lease_type"
+      ]
+    },
+    "holder": {
+      "semantics": "identity currently holding the lease",
+      "bound_to": [
+        "main-system/src-core/core_system/execution_lease.py#holder"
+      ]
+    },
+    "expires_at": {
+      "semantics": "lease expiry (ISO); expired lease loses authority",
+      "bound_to": [
+        "main-system/src-core/core_system/execution_lease.py#expires_at"
+      ]
+    },
+    "fencing_token": {
+      "semantics": "monotonic token per lease_type; stale holders fenced out",
+      "bound_to": [
+        "main-system/src-core/core_system/execution_lease.py#fencing_token"
+      ]
+    },
+    "single_authority": {
+      "semantics": "exactly one lease slot per lease_type in the registry map",
+      "bound_to": [
+        "main-system/src-core/core_system/execution_lease.py#_leases"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/src-core/core_system/execution_lease.py"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_execution_lease.py",
+    "main-system/tests/test_tool_start_lease_fencing.py"
+  ],
+  "gaps": []
 }

@@ -1,7 +1,12 @@
 {
   "contract_code": "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A589",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "fields": [
     "module_identity",
     "previous_hash",
@@ -9,7 +14,46 @@
     "append_only",
     "no_tokens_no_consensus"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "module_identity": {
+      "semantics": "chain scope/epoch identity of the audited module",
+      "bound_to": [
+        "governance_rule/execution/git_tiers/audit_chain.py#epochs"
+      ]
+    },
+    "previous_hash": {
+      "semantics": "record_hash of the preceding chained record",
+      "bound_to": [
+        "governance_rule/execution/git_tiers/audit_chain.py#previous_hash"
+      ]
+    },
+    "entry_hash": {
+      "semantics": "sha256 over canonicalized payload (record_hash)",
+      "bound_to": [
+        "governance_rule/execution/git_tiers/audit_chain.py#record_hash"
+      ]
+    },
+    "append_only": {
+      "semantics": "cross-process byte-range lock append + fsync",
+      "bound_to": [
+        "governance_rule/execution/git_tiers/audit_chain.py#append_audit"
+      ]
+    },
+    "no_tokens_no_consensus": {
+      "semantics": "pure hash chain; no tokens, no consensus protocol",
+      "bound_to": [
+        "governance_rule/execution/git_tiers/audit_chain.py#_record_hash"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "governance_rule/execution/git_tiers/audit_chain.py",
+      "governance_rule/execution/audit/audit_artifacts.py"
+    ]
+  },
+  "evidence_paths": [
+    "governance_rule/execution/audit/git_tier_audit.jsonl"
+  ],
+  "gaps": []
 }

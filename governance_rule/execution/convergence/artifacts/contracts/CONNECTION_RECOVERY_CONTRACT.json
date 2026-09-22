@@ -1,7 +1,12 @@
 {
   "contract_code": "CONNECTION_RECOVERY_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A571",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "fields": [
     "layer",
     "retry_policy",
@@ -9,7 +14,47 @@
     "duplicate_detection",
     "resume_rule"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "layer": {
+      "semantics": "layered repair chain signal>information>verification>ui",
+      "bound_to": [
+        "main-system/src-core/core_system/auto_repair_chain.py#actor"
+      ]
+    },
+    "retry_policy": {
+      "semantics": "bounded retry + cooldown gate",
+      "bound_to": [
+        "main-system/src-core/core_system/auto_repair_chain.py#retry_policy"
+      ]
+    },
+    "event_sequence": {
+      "semantics": "ordered connection events feeding recovery",
+      "bound_to": [
+        "main-system/src-core/tasks/connection_watchdog.py#events"
+      ]
+    },
+    "duplicate_detection": {
+      "semantics": "fault-code dedup via retry/cooldown decision",
+      "bound_to": [
+        "main-system/src-core/core_system/auto_repair_chain.py#fault_code"
+      ]
+    },
+    "resume_rule": {
+      "semantics": "watchdog repair callback resumes affected path",
+      "bound_to": [
+        "main-system/src-core/tasks/connection_watchdog.py#set_repair_callback"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/src-core/tasks/connection_watchdog.py",
+      "main-system/src-core/core_system/auto_repair_chain.py",
+      "main-system/src-core/core_system/maintenance_retry_policy.py"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_connection_watchdog.py"
+  ],
+  "gaps": []
 }

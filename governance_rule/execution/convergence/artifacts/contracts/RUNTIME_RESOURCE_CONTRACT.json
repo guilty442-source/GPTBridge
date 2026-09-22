@@ -1,7 +1,12 @@
 {
   "contract_code": "RUNTIME_RESOURCE_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A590",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "fields": [
     "core",
     "engine",
@@ -9,7 +14,45 @@
     "affinity",
     "non_local_machine_rule"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "core": {
+      "semantics": "core budget hard ceiling (5-core cap, lowerable only)",
+      "bound_to": [
+        "shared-layer/src/shared_layer/performance/thread_budget.py#core_budget"
+      ]
+    },
+    "engine": {
+      "semantics": "engine worker bound through unified entry",
+      "bound_to": [
+        "shared-layer/src/shared_layer/performance/thread_budget.py#bounded_workers"
+      ]
+    },
+    "budget": {
+      "semantics": "threads x workers product bounded",
+      "bound_to": [
+        "shared-layer/src/shared_layer/performance/thread_budget.py#bounded_threads"
+      ]
+    },
+    "affinity": {
+      "semantics": "no affinity / power-plan / registry changes allowed",
+      "bound_to": [
+        "shared-layer/src/shared_layer/performance/thread_budget.py#affinity"
+      ]
+    },
+    "non_local_machine_rule": {
+      "semantics": "policy applies to this machine only; env applied via setdefault",
+      "bound_to": [
+        "shared-layer/src/shared_layer/performance/thread_budget.py#apply_thread_env"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "shared-layer/src/shared_layer/performance/thread_budget.py"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_thread_budget_policy.py"
+  ],
+  "gaps": []
 }

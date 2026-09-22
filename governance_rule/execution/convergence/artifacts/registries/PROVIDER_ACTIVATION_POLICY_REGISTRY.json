@@ -1,14 +1,54 @@
 {
   "registry_code": "PROVIDER_ACTIVATION_POLICY_REGISTRY",
   "kind": "registry",
+  "schema": "gptbridge-successor-registry/v1",
   "source_provision": "A586",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "columns": [
     "provider_id",
     "activation_policy",
     "residency",
     "owner"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "column_definitions": {
+    "provider_id": {
+      "semantics": "provider/tool identity",
+      "bound_to": [
+        "main-system/config/tool-isolation-policy.json#tool_id",
+        "main-system/config/ai-connection-contract.json#providers"
+      ]
+    },
+    "activation_policy": {
+      "semantics": "on-demand activation policy",
+      "bound_to": [
+        "main-system/src-core/tasks/model_service_activation.py#ModelServiceActivationBroker"
+      ]
+    },
+    "residency": {
+      "semantics": "sleep/residency policy per unit",
+      "bound_to": [
+        "main-system/config/sleep-policy.json#never_sleep"
+      ]
+    },
+    "owner": {
+      "semantics": "provider owner identity",
+      "bound_to": [
+        "main-system/config/ai-connection-contract.json#providers"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/config/tool-isolation-policy.json",
+      "main-system/config/sleep-policy.json",
+      "main-system/src-core/tasks/model_service_activation.py"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_p0_lazy_lifecycle_handover.py"
+  ],
+  "gaps": []
 }

@@ -1,0 +1,54 @@
+{
+  "report": "w4-3-contract-registry-implementation/v1",
+  "generated_at": "2026-09-22T18:13:54Z",
+  "blueprint_item": "W4-3 (§11.2) / §10.53 item 2",
+  "scope": "14 contracts + 4 registries successor skeletons (A555-A590) implemented: declared fields bound to enforcing modules via field_definitions/column_definitions; mechanical validator added",
+  "validator": "governance_rule/execution/convergence/contract_registry_validate.py",
+  "validation_report": "governance_rule/execution/audit/convergence/contract-registry-validation-20260922T181322Z.json",
+  "validation_result": "18/18 artifacts PASS",
+  "status_counts": {
+    "implemented": 12,
+    "partially-implemented": 6
+  },
+  "implemented": [
+    "EXECUTION_LEASE_CONTRACT",
+    "TASK_LIFECYCLE_CONTRACT",
+    "BACKEND_LIFECYCLE_CONTRACT",
+    "CONNECTION_RECOVERY_CONTRACT",
+    "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT",
+    "RELEASE_MANIFEST_CONTRACT",
+    "RUNTIME_RESOURCE_CONTRACT",
+    "CAPABILITY_EVALUATION_CONTRACT",
+    "MODEL_CONFIGURATION_REGISTRY",
+    "MODEL_TRAINING_TIER_REGISTRY",
+    "PROVIDER_ACTIVATION_POLICY_REGISTRY",
+    "RUNTIME_ACTIVATION_REGISTRY"
+  ],
+  "partially_implemented": {
+    "REQUEST_REGISTRY_CONTRACT": [
+      "streaming_attribution",
+      "priority_class",
+      "correlation_id",
+      "operation_id",
+      "actor_id",
+      "module_id",
+      "decision_id"
+    ],
+    "REQUEST_LIFECYCLE_CONTRACT": [
+      "stream_ownership"
+    ],
+    "CONNECTION_STATE_CONTRACT": [
+      "backpressure_limit"
+    ],
+    "PRETRAIN_DATA_PIPELINE_CONTRACT": [
+      "artifact_hash"
+    ],
+    "SYSTEM_CONVERGENCE_CONTRACT": [
+      "governance-level semantics; all fields bound but no single runtime enforcer"
+    ],
+    "INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT": [
+      "topology contract; enforcement via codex module_assignment_registry"
+    ]
+  },
+  "residual": "gaps are honest unbound codex fields; contract/registry closure additionally needs the successor pipeline seal + closure evaluator wiring (§10.53 items 1/5-8)"
+}

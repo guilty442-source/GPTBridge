@@ -1,7 +1,12 @@
 {
   "registry_code": "MODEL_TRAINING_TIER_REGISTRY",
   "kind": "registry",
+  "schema": "gptbridge-successor-registry/v1",
   "source_provision": "A557",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "columns": [
     "tier_code",
     "configuration",
@@ -9,7 +14,45 @@
     "evidence",
     "status"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "column_definitions": {
+    "tier_code": {
+      "semantics": "maturity level code L0-L7",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py#LEVELS"
+      ]
+    },
+    "configuration": {
+      "semantics": "checkpoint/config under certification",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py#certify"
+      ]
+    },
+    "gate": {
+      "semantics": "per-level gate criteria (tests only)",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py#LEVELS"
+      ]
+    },
+    "evidence": {
+      "semantics": "executed-test report per level",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py#persist_report"
+      ]
+    },
+    "status": {
+      "semantics": "certified level state",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py#current_maturity"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py"
+    ]
+  },
+  "evidence_paths": [
+    "Standalone tools/local-model/xingcheng/runtime/state/model-maturity.json"
+  ],
+  "gaps": []
 }

@@ -1,7 +1,12 @@
 {
   "registry_code": "MODEL_CONFIGURATION_REGISTRY",
   "kind": "registry",
+  "schema": "gptbridge-successor-registry/v1",
   "source_provision": "A584",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "columns": [
     "configuration_id",
     "tokenizer",
@@ -9,7 +14,46 @@
     "lifecycle",
     "artifacts"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "column_definitions": {
+    "configuration_id": {
+      "semantics": "model configuration identity",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/config.py#XingChengConfig"
+      ]
+    },
+    "tokenizer": {
+      "semantics": "tokenizer artifact kind in lifecycle",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#tokenizer"
+      ]
+    },
+    "eval_suite": {
+      "semantics": "evaluation report artifact kind",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#evaluation_report"
+      ]
+    },
+    "lifecycle": {
+      "semantics": "versioned lifecycle registry of artifacts",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#register_artifact"
+      ]
+    },
+    "artifacts": {
+      "semantics": "kind->versions artifact map",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#artifacts"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py",
+      "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/config.py"
+    ]
+  },
+  "evidence_paths": [
+    "Standalone tools/local-model/tests/test_capability_evaluation.py"
+  ],
+  "gaps": []
 }

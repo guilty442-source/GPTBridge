@@ -1,7 +1,12 @@
 {
   "contract_code": "REQUEST_REGISTRY_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A579",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "partially-implemented",
   "fields": [
     "request_id",
     "session_id",
@@ -18,7 +23,96 @@
     "module_id",
     "decision_id"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "request_id": {
+      "semantics": "primary key",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#request_id"
+      ]
+    },
+    "session_id": {
+      "semantics": "owning session",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#session_id"
+      ]
+    },
+    "task_id": {
+      "semantics": "linked task",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#task_id"
+      ]
+    },
+    "backend_generation": {
+      "semantics": "serving generation for drain routing",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#backend_generation"
+      ]
+    },
+    "state": {
+      "semantics": "request state (implemented as status)",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#status"
+      ]
+    },
+    "cancellation": {
+      "semantics": "cancellation state (cancelled/requested)",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#cancellation_state"
+      ]
+    },
+    "streaming_attribution": {
+      "semantics": "stream chunk attribution to request",
+      "bound_to": []
+    },
+    "priority_class": {
+      "semantics": "request priority class",
+      "bound_to": []
+    },
+    "deadline_at": {
+      "semantics": "request deadline (implemented as timeout seconds)",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#timeout"
+      ]
+    },
+    "correlation_id": {
+      "semantics": "audit correlation id",
+      "bound_to": []
+    },
+    "operation_id": {
+      "semantics": "governing operation id",
+      "bound_to": []
+    },
+    "actor_id": {
+      "semantics": "acting principal id",
+      "bound_to": []
+    },
+    "module_id": {
+      "semantics": "originating module id",
+      "bound_to": []
+    },
+    "decision_id": {
+      "semantics": "routing/governance decision id",
+      "bound_to": []
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/src-core/core_system/request_registry.py",
+      "main-system/src-core/core_system/request_registry_native_shadow.py"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_request_registry.py",
+    "main-system/tests/test_request_registry_g62.py",
+    "main-system/tests/test_request_registry_shadow.py"
+  ],
+  "gaps": [
+    "streaming_attribution",
+    "priority_class",
+    "correlation_id",
+    "operation_id",
+    "actor_id",
+    "module_id",
+    "decision_id"
+  ]
 }

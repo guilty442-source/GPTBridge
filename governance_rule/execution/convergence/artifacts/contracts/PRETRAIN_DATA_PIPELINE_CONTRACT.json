@@ -1,7 +1,12 @@
 {
   "contract_code": "PRETRAIN_DATA_PIPELINE_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A558",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "partially-implemented",
   "fields": [
     "source_class",
     "traceability",
@@ -10,7 +15,51 @@
     "confidential_exclusion",
     "artifact_hash"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "source_class": {
+      "semantics": "corpus vs replay source classes",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#corpus_path"
+      ]
+    },
+    "traceability": {
+      "semantics": "every emitted record traceable to corpus line",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#build_replay_records"
+      ]
+    },
+    "verifiability": {
+      "semantics": "output schema star-chat-foundation/v1 checked by consumers",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
+      ]
+    },
+    "reproducibility": {
+      "semantics": "deterministic seeded generation",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#seed"
+      ]
+    },
+    "confidential_exclusion": {
+      "semantics": "probe values (spark tests/QZ-88) excluded from corpus",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
+      ]
+    },
+    "artifact_hash": {
+      "semantics": "sha256 of emitted dataset artifact",
+      "bound_to": []
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
+    ]
+  },
+  "evidence_paths": [
+    "Standalone tools/local-model/tests/test_chat_format.py"
+  ],
+  "gaps": [
+    "artifact_hash"
+  ]
 }

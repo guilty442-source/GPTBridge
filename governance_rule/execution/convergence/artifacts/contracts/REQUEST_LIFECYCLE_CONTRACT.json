@@ -1,14 +1,52 @@
 {
   "contract_code": "REQUEST_LIFECYCLE_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A580",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "partially-implemented",
   "fields": [
     "transition",
     "race_single_result",
     "stream_ownership",
     "cancel_semantics"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "transition": {
+      "semantics": "request status transitions CREATED->QUEUED->terminal",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#status"
+      ]
+    },
+    "race_single_result": {
+      "semantics": "concurrent register on same request_id returns the existing record (single result)",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#existing"
+      ]
+    },
+    "stream_ownership": {
+      "semantics": "which party owns the response stream",
+      "bound_to": []
+    },
+    "cancel_semantics": {
+      "semantics": "cancelled bool maps onto cancellation_state",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#cancellation_state"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/src-core/core_system/request_registry.py",
+      "main-system/src-core/ipc/server_commands.py"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_request_registry.py"
+  ],
+  "gaps": [
+    "stream_ownership"
+  ]
 }

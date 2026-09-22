@@ -491,6 +491,18 @@ class MaintenanceControllerIntegration:
                         continue
                 if health_metrics:
                     signals.update(build_sqlite_maintenance_signals(health_metrics))
+                    # Adaptive-plane 聚合：全 DB 體積總和＋待檢查點數
+                    # （WAL ≥ 50MB 閾視為 pending maintenance）。
+                    mb = 1024 * 1024
+                    signals["sqlite_db_bytes"] = int(
+                        sum(h.db_size_mb for h in health_metrics) * mb
+                    )
+                    signals["sqlite_wal_bytes"] = int(
+                        sum(h.wal_size_mb for h in health_metrics) * mb
+                    )
+                    signals["sqlite_pending_count"] = sum(
+                        1 for h in health_metrics if h.wal_size_mb >= 50.0
+                    )
         except Exception:
             pass
 
@@ -529,6 +541,9 @@ class MaintenanceControllerIntegration:
                     active_connections=int(signals.get("pg_connections") or 0),
                     transport_backlog=int(signals.get("transport_backlog") or 0),
                     reconcile_backlog=int(signals.get("reconcile_pending") or 0),
+                    sqlite_pending_count=int(signals.get("sqlite_pending_count") or 0),
+                    sqlite_db_bytes=int(signals.get("sqlite_db_bytes") or 0),
+                    sqlite_wal_bytes=int(signals.get("sqlite_wal_bytes") or 0),
                 ),
                 fields=(
                     "pg_latency_ms",
@@ -536,6 +551,9 @@ class MaintenanceControllerIntegration:
                     "active_connections",
                     "transport_backlog",
                     "reconcile_backlog",
+                    "sqlite_pending_count",
+                    "sqlite_db_bytes",
+                    "sqlite_wal_bytes",
                 ),
             )
             # S7: push the tuned pool bound into the live connection manager

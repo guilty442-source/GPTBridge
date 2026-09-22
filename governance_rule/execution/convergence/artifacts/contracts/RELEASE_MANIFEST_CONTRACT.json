@@ -1,7 +1,12 @@
 {
   "contract_code": "RELEASE_MANIFEST_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A575",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "fields": [
     "release_identity",
     "build_hash",
@@ -9,7 +14,49 @@
     "compatibility_checks",
     "codex_reference"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "release_identity": {
+      "semantics": "release id",
+      "bound_to": [
+        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#release_id"
+      ]
+    },
+    "build_hash": {
+      "semantics": "per-component build hashes",
+      "bound_to": [
+        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#build_hashes"
+      ]
+    },
+    "dependency_lock": {
+      "semantics": "locked dependency identity + entries",
+      "bound_to": [
+        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#dependency_lock"
+      ]
+    },
+    "compatibility_checks": {
+      "semantics": "governance compatibility block verified at activation",
+      "bound_to": [
+        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#governance_compatibility",
+        "main-system/src-core/core_system/active_release_verify.py"
+      ]
+    },
+    "codex_reference": {
+      "semantics": "codex version + sha256 pinned in manifest",
+      "bound_to": [
+        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#codex_version"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/src-core/core_system/active_release_verify.py",
+      "main-system/runtime/releases/rc-2026-09-22/release-manifest.json"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_release_manifest_g56.py",
+    "main-system/tests/test_release_layout.py",
+    "main-system/runtime/releases/rc-2026-09-22/acceptance-report.json"
+  ],
+  "gaps": []
 }

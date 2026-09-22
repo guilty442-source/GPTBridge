@@ -1,0 +1,27 @@
+{
+  "id": "int-10-budget-unit-mismatch",
+  "date": "2026-09-22",
+  "worker": "devin-cli",
+  "summary": "resource-governor over_budget 旗標存在單位不匹配：worker_cpu_pct 以 psutil 逐核單位累計（100=單核滿載，16T 滿刻度 1600），但 worker_cpu_budget=10 依整機份額語義（affinity 換算 logical*10/100=1.6 核；Job CpuRate=10*100=1000=整機 10%）。旗標實際於 >0.1 核（整機 0.625%）即觸發，比設計嚴格 16 倍。",
+  "evidence": {
+    "measurement_path": "scripts/resource-governor.py L892: worker_cpu_pct += proc.cpu_percent(None)（per-core units，帳本已自證：記錄值 144.6 > 100 只可能在逐核單位下出現）",
+    "budget_path": "L1193: over_budget = worker_cpu_pct > config.worker_cpu_budget（10.0，無歸一化）",
+    "intent_evidence": [
+      "L830: worker_cap = logical * worker_cpu_budget // 100 = 1.6 核（budget 作整機百分比解讀）",
+      "L579-592: Job CpuRate = percent*100 = 1000 = 10% of machine cycles（Windows 語義為整機）",
+      "藍圖：『cap＝10% 聚合預算』——cap 與 budget 設計上等值"
+    ],
+    "ram_side_consistent": "worker_ram_pct = rss/total*100 為整機份額，與 worker_ram_budget 單位一致——僅 cpu 側有單位錯配"
+  },
+  "window_reanalysis": {
+    "window": "2026-09-22T14:50Z 起",
+    "samples": 1471,
+    "flagged_over_budget": 33,
+    "cpu_pct_max_per_core_units": 144.6,
+    "cpu_pct_max_machine_share_pct": 9.04,
+    "job_cap_ceiling_per_core_units": 160,
+    "conclusion": "33 筆標記樣本全部落在 Job 硬頂（160 逐核單位≈整機 10%）之內；最高值 144.6 恰為 cap 壓制痕跡。以修正單位重讀：現窗判據④ 0 筆真實超限"
+  },
+  "prior_windows": "12:55Z（2 筆）與 13:23Z（23+ 筆）作廢窗之超限計數同受此旗標影響——13:23Z fork-storm 期是否曾真正突破 cap 需以 160 逐核單位為閾重新核算（當時 Job cap 尚未上線，故該窗的真實超限仍可能成立）",
+  "decision_needed": "判定屬總督：①修正旗標（worker_cpu_pct/logical 或 budget*logical）並以修正口徑重讀現窗；或②維持嚴格口徑。修正本體是一行，但屬窗口期變更量測儀器，需核定後執行。"
+}

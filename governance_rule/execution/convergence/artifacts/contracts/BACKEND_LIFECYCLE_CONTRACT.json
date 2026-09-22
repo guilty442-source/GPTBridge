@@ -1,7 +1,12 @@
 {
   "contract_code": "BACKEND_LIFECYCLE_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A577",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "fields": [
     "backend_identity",
     "release_identity",
@@ -9,7 +14,46 @@
     "health_state",
     "heartbeat"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "backend_identity": {
+      "semantics": "backend primary key",
+      "bound_to": [
+        "main-system/src-core/core_system/backend_lifecycle.py#backend_id"
+      ]
+    },
+    "release_identity": {
+      "semantics": "release the backend serves",
+      "bound_to": [
+        "main-system/src-core/core_system/backend_lifecycle.py#release_id"
+      ]
+    },
+    "generation": {
+      "semantics": "backend generation for drain/handover",
+      "bound_to": [
+        "main-system/src-core/core_system/backend_lifecycle.py#generation"
+      ]
+    },
+    "health_state": {
+      "semantics": "ten-state health axis",
+      "bound_to": [
+        "main-system/src-core/core_system/backend_lifecycle.py#health_state"
+      ]
+    },
+    "heartbeat": {
+      "semantics": "last heartbeat timestamp",
+      "bound_to": [
+        "main-system/src-core/core_system/backend_lifecycle.py#last_heartbeat"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/src-core/core_system/backend_lifecycle.py",
+      "main-system/config/backend-lifecycle-contract.json"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_backend_lifecycle.py"
+  ],
+  "gaps": []
 }

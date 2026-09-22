@@ -1,7 +1,12 @@
 {
   "contract_code": "INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT",
   "kind": "contract",
+  "schema": "gptbridge-successor-contract/v1",
   "source_provision": "A555",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "partially-implemented",
   "fields": [
     "plane",
     "role",
@@ -9,7 +14,46 @@
     "replacement_forbidden",
     "audit_reference"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "field_definitions": {
+    "plane": {
+      "semantics": "five-plane division (git/sql/rag/cag/dag planes)",
+      "bound_to": [
+        "AGENTS.md"
+      ]
+    },
+    "role": {
+      "semantics": "per-plane role binding via module_assignment_registry",
+      "bound_to": [
+        "governance_rule/codex/data/governance_codex.sqlite3#module_assignment_registry"
+      ]
+    },
+    "authority": {
+      "semantics": "decision/permission/review authority per module",
+      "bound_to": [
+        "governance_rule/codex/data/governance_codex.sqlite3#module_assignment_registry"
+      ]
+    },
+    "replacement_forbidden": {
+      "semantics": "codex-first rule; no rename/retire/reroute before amendment",
+      "bound_to": [
+        "Standalone tools/local-model/星澄模型四層建置藍圖.md"
+      ]
+    },
+    "audit_reference": {
+      "semantics": "governance audit ledger reference",
+      "bound_to": [
+        "governance_rule/execution/audit/git_tier_audit.jsonl"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "governance_rule/codex/data/governance_codex.sqlite3",
+      "AGENTS.md"
+    ]
+  },
+  "evidence_paths": [
+    "governance_rule/execution/audit/convergence/re_tiering_plan.json"
+  ],
+  "gaps": []
 }

@@ -1,14 +1,53 @@
 {
   "registry_code": "RUNTIME_ACTIVATION_REGISTRY",
   "kind": "registry",
+  "schema": "gptbridge-successor-registry/v1",
   "source_provision": "A587",
+  "owner": "system-runtime-sovereign",
+  "introduced_version": "2026-09-21",
+  "implemented_at": "2026-09-22T18:12:30Z",
+  "status": "implemented",
   "columns": [
     "module_id",
     "activation_mode",
     "resident_core",
     "on_demand_rule"
   ],
-  "owner": "system-runtime-sovereign",
-  "status": "declared-pending-implementation",
-  "introduced_version": "2026-09-21"
+  "column_definitions": {
+    "module_id": {
+      "semantics": "module identity activated on demand",
+      "bound_to": [
+        "main-system/src-core/core_system/app_lifecycle.py#ensure_rag_cag_started"
+      ]
+    },
+    "activation_mode": {
+      "semantics": "lazy on-demand vs eager (GPTBRIDGE_RAG_EAGER)",
+      "bound_to": [
+        "main-system/src-core/core_system/app_lifecycle.py#GPTBRIDGE_RAG_EAGER"
+      ]
+    },
+    "resident_core": {
+      "semantics": "always-resident modules exempt from sleep",
+      "bound_to": [
+        "main-system/config/sleep-policy.json#never_sleep"
+      ]
+    },
+    "on_demand_rule": {
+      "semantics": "first-use activation via governed broker",
+      "bound_to": [
+        "main-system/src-core/tasks/model_service_activation.py#ModelServiceActivationBroker"
+      ]
+    }
+  },
+  "implementation": {
+    "enforcing_modules": [
+      "main-system/src-core/core_system/app_lifecycle.py",
+      "main-system/src-core/tasks/model_service_activation.py",
+      "main-system/config/sleep-policy.json"
+    ]
+  },
+  "evidence_paths": [
+    "main-system/tests/test_p0_lazy_lifecycle_handover.py"
+  ],
+  "gaps": []
 }
