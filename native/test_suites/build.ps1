@@ -136,6 +136,27 @@ $suites = @(
     }
 )
 
+# Concurrent-worker guard: two build.ps1 runs racing on the shared
+# _build.bat / .obj outputs produce spurious failures; serialize on an
+# atomic lock dir (wait ≤ 600 s, then fail closed).
+$lockDir = Join-Path $out "_build.lock"
+$lockWaited = 0
+while (-not (New-Item -ItemType Directory -Path $lockDir -ErrorAction SilentlyContinue)) {
+    if ($lockWaited -ge 600) {
+        # Stale lock from a crashed run: owner gone → break once.
+        if (-not (Get-Process -Name "cl" -ErrorAction SilentlyContinue)) {
+            Remove-Item $lockDir -Recurse -Force -ErrorAction SilentlyContinue
+            continue
+        }
+        Write-Output "BUILD LOCKED (concurrent build in progress >600s)"
+        exit 1
+    }
+    Start-Sleep -Seconds 2
+    $lockWaited += 2
+}
+
+try {
+
 $bat = Join-Path $out "_build.bat"
 $lines = @("@echo off", "call `"$vcvars`" >nul || exit /b 1")
 foreach ($suite in $suites) {
@@ -169,10 +190,16 @@ $allCases = @()
 foreach ($suite in $suites) {
     $exePath = Join-Path $out $suite.exe
     $suiteName = [System.IO.Path]::GetFileNameWithoutExtension($suite.exe)
-    Push-Location $out
-    & $exePath $suiteName | Out-Null
-    Pop-Location
     $jsonPath = Join-Path $out ("$suiteName.json")
+    # 300s 硬上限：任一套件卡死不得讓整個閘門無限等待
+    $p = Start-Process -FilePath $exePath -ArgumentList $suiteName `
+         -WorkingDirectory $out -NoNewWindow -PassThru
+    if (-not $p.WaitForExit(300000)) {
+        $p.Kill()
+        '{ "suite": "' + $suiteName + '", "cases": [ { "name": "suite_timeout", "status": "FAIL", "detail": "exceeded 300s" } ], "pass": 0, "fail": 1, "blocked": 0 }' |
+            Set-Content -Path $jsonPath -Encoding UTF8
+        Write-Output ("{0}: TIMEOUT -> FAIL" -f $suite.exe)
+    }
     $parsed = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
     $allCases += $parsed.cases
     Write-Output ("{0}: {1} cases" -f $suite.exe, $parsed.cases.Count)
@@ -184,3 +211,7 @@ $blocked = @($allCases | Where-Object { $_.status -eq "BLOCKED" }).Count
 $passed = @($allCases | Where-Object { $_.status -eq "PASS" }).Count
 Write-Output ("native-report.json: PASS={0} FAIL={1} BLOCKED={2}" -f $passed, $failed, $blocked)
 if ($failed -gt 0) { exit 1 }
+
+} finally {
+    Remove-Item $lockDir -Recurse -Force -ErrorAction SilentlyContinue
+}
