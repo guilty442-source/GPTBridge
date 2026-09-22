@@ -1735,14 +1735,19 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 }
             }
 
-            // W1: one scores buffer per span reused across heads; per-head
-            // K/V source pointers resolved once — streaming Q·K dot +
-            // score·V accumulate (masked positions skip the dot entirely).
+            // W1 residual: online/blocked attention — K/V streamed in tiles
+            // with a running max/sum/accumulator (FlashAttention-style online
+            // softmax); the seq x total_len scores matrix is never
+            // materialized, so per-query state stays O(head_dim) instead of
+            // O(total_len). Masked positions are skipped via the causal bound
+            // — identical semantics to the former -inf mask + softmax pass.
             // KV INT8: cached entries carry packed int8 + per-head scale;
             // current-step sources stay fp64 (KvSrc.fp).
-            std::vector<double> scores(static_cast<size_t>(seq * total_len));
+            constexpr int64_t kAttnTile = 64;
             std::vector<KvSrc> k_srcs(static_cast<size_t>(total_len));
             std::vector<KvSrc> v_srcs(static_cast<size_t>(total_len));
+            std::vector<double> tile_scores(static_cast<size_t>(kAttnTile));
+            std::vector<double> acc(static_cast<size_t>(cfg.head_dim));
             for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
                 const int64_t kv_head = h / head_ratio;
                 for (int64_t t = 0; t < total_len; ++t) {
@@ -1763,36 +1768,51 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     q_heads.data() + static_cast<size_t>(h * seq * cfg.head_dim);
                 for (int64_t s = 0; s < seq; ++s) {
                     const double* q_row = q_head + s * cfg.head_dim;
-                    double* srow = scores.data() + s * total_len;
-                    for (int64_t t = 0; t < total_len; ++t) {
-                        const KvSrc& ksrc = k_srcs[static_cast<size_t>(t)];
-                        srow[t] = (t <= span.position_offset + s)
-                            ? (ksrc.q8 != nullptr
-                                   ? dot_int8(q_row, ksrc.q8, cfg.head_dim) *
-                                         ksrc.scale
-                                   : dot_f64(q_row, ksrc.fp, cfg.head_dim)) *
-                                  scale
-                            : -std::numeric_limits<double>::infinity();
-                    }
-                }
-                checked_c_call(
-                    gptbridge_native_transformer_softmax(
-                        scores.data(), seq, total_len, scores.data()),
-                    "attention-softmax");
-                for (int64_t s = 0; s < seq; ++s) {
-                    const double* srow = scores.data() + s * total_len;
                     double* out = attn_flat.data() +
                         static_cast<size_t>((base + s) * q_dim + h * cfg.head_dim);
-                    for (int64_t t = 0; t < total_len; ++t) {
-                        const KvSrc& vsrc = v_srcs[static_cast<size_t>(t)];
-                        if (vsrc.q8 != nullptr) {
-                            axpy_int8(
-                                out, srow[t] * vsrc.scale, vsrc.q8,
-                                cfg.head_dim);
-                        } else {
-                            axpy_f64(
-                                out, srow[t], vsrc.fp, cfg.head_dim);
+                    std::fill(acc.begin(), acc.end(), 0.0);
+                    double m = -std::numeric_limits<double>::infinity();
+                    double l = 0.0;
+                    const int64_t last = span.position_offset + s;  // inclusive
+                    for (int64_t t0 = 0; t0 <= last; t0 += kAttnTile) {
+                        const int64_t tn = std::min(kAttnTile, last - t0 + 1);
+                        double tile_max = -std::numeric_limits<double>::infinity();
+                        for (int64_t j = 0; j < tn; ++j) {
+                            const KvSrc& ksrc = k_srcs[static_cast<size_t>(t0 + j)];
+                            const double score =
+                                (ksrc.q8 != nullptr
+                                     ? dot_int8(q_row, ksrc.q8, cfg.head_dim) *
+                                           ksrc.scale
+                                     : dot_f64(q_row, ksrc.fp, cfg.head_dim)) *
+                                scale;
+                            tile_scores[static_cast<size_t>(j)] = score;
+                            if (score > tile_max) tile_max = score;
                         }
+                        const double m_new = std::max(m, tile_max);
+                        const double rescale = std::exp(m - m_new);
+                        if (rescale != 1.0) {
+                            for (int64_t d = 0; d < cfg.head_dim; ++d)
+                                acc[static_cast<size_t>(d)] *= rescale;
+                            l *= rescale;
+                        }
+                        for (int64_t j = 0; j < tn; ++j) {
+                            const double w = std::exp(
+                                tile_scores[static_cast<size_t>(j)] - m_new);
+                            l += w;
+                            const KvSrc& vsrc = v_srcs[static_cast<size_t>(t0 + j)];
+                            if (vsrc.q8 != nullptr) {
+                                axpy_int8(
+                                    acc.data(), w * vsrc.scale, vsrc.q8,
+                                    cfg.head_dim);
+                            } else {
+                                axpy_f64(acc.data(), w, vsrc.fp, cfg.head_dim);
+                            }
+                        }
+                        m = m_new;
+                    }
+                    const double inv_l = 1.0 / l;
+                    for (int64_t d = 0; d < cfg.head_dim; ++d) {
+                        out[d] = acc[static_cast<size_t>(d)] * inv_l;
                     }
                 }
             }

@@ -272,31 +272,15 @@ static void row_scale(double* row, int64_t cols, double scale) {
     for (; c < cols; ++c) row[c] *= scale;
 }
 
-int gptbridge_native_transformer_matmul(
+/* Shared row-major i-k-j (axpy) kernel: C[M x N] = A[M x K] * B[K x N].
+ * Callers validate arguments and the output extent; this kernel only runs
+ * the loop.  SIMD: axpy with broadcast a_val.  AVX-512: 8×double per
+ * instruction (zmm); AVX2: 4×double (ymm). */
+static void transformer_matmul_rows(
     const double* a, int64_t m, int64_t k,
-    const double* b, int64_t k_in, int64_t n,
-    double* c) {
-    /* a/b: BORROWED_READONLY; c: CALLER_PROVIDED_OUTPUT.
-     * Overflow-check the output extent before writing (shape*budget). */
-    int64_t c_elems = 0;
-    gptbridge_native_mem_out_view out;
+    const double* b, int64_t n, double* c,
+    gptbridge_simd_level simd) {
     int64_t i, p, j;
-
-    if (!gptbridge_native_mem_checked_mul_i64(m, n, &c_elems)) {
-        return 1;  /* shape overflow ??never allocate/write */
-    }
-    out = gptbridge_native_mem_caller_output(c, c_elems);
-    if (a == NULL || b == NULL ||
-        !gptbridge_native_mem_mut_view_valid(out) ||
-        m <= 0 || k <= 0 || n <= 0 || k != k_in) {
-        return 1;  /* invalid arguments */
-    }
-
-    const gptbridge_simd_level simd = gptbridge_native_simd_level();
-
-    /* Row-major i-k-j (axpy) ordering: A and C rows stay in cache and B is
-     * streamed once per (i, p).  SIMD: axpy with broadcast a_val.
-     * AVX-512: 8×double per instruction (zmm); AVX2: 4×double (ymm). */
     for (i = 0; i < m; ++i) {
         const double* a_row = a + i * k;
         double* c_row = c + i * n;
@@ -359,7 +343,81 @@ int gptbridge_native_transformer_matmul(
             }
         }
     }
+}
 
+int gptbridge_native_transformer_matmul(
+    const double* a, int64_t m, int64_t k,
+    const double* b, int64_t k_in, int64_t n,
+    double* c) {
+    /* a/b: BORROWED_READONLY; c: CALLER_PROVIDED_OUTPUT.
+     * Overflow-check the output extent before writing (shape*budget). */
+    int64_t c_elems = 0;
+    gptbridge_native_mem_out_view out;
+
+    if (!gptbridge_native_mem_checked_mul_i64(m, n, &c_elems)) {
+        return 1;  /* shape overflow ??never allocate/write */
+    }
+    out = gptbridge_native_mem_caller_output(c, c_elems);
+    if (a == NULL || b == NULL ||
+        !gptbridge_native_mem_mut_view_valid(out) ||
+        m <= 0 || k <= 0 || n <= 0 || k != k_in) {
+        return 1;  /* invalid arguments */
+    }
+
+    transformer_matmul_rows(
+        a, m, k, b, n, c, gptbridge_native_simd_level());
+    return 0;
+}
+
+int gptbridge_native_transformer_matmul_grouped(
+    const double* a, const int64_t* group_rows, int64_t groups,
+    const double* const* b_list, int64_t k, int64_t n,
+    double* c) {
+    /* a/b_list/c: BORROWED (c CALLER_PROVIDED_OUTPUT).  a holds the groups'
+     * row-blocks concatenated ([sum(group_rows) x k]); b_list[g] is that
+     * group's [k x n] weight; c receives the concatenated
+     * [sum(group_rows) x n] outputs in the same order.  One dispatch for
+     * the whole group loop (R5 grouped GEMM). */
+    int64_t g;
+    int64_t total_rows = 0;
+    int64_t c_elems = 0;
+    gptbridge_native_mem_out_view out;
+    int64_t a_off = 0, c_off = 0;
+    gptbridge_simd_level simd;
+
+    if (a == NULL || group_rows == NULL || b_list == NULL || c == NULL ||
+        groups <= 0 || k <= 0 || n <= 0) {
+        return 1;
+    }
+    for (g = 0; g < groups; ++g) {
+        if (group_rows[g] < 0 || b_list[g] == NULL) {
+            return 1;
+        }
+        if (group_rows[g] > INT64_MAX - total_rows) {
+            return 1;  /* row-count overflow ??never allocate/write */
+        }
+        total_rows += group_rows[g];
+    }
+    if (total_rows <= 0 ||
+        !gptbridge_native_mem_checked_mul_i64(total_rows, n, &c_elems)) {
+        return 1;
+    }
+    out = gptbridge_native_mem_caller_output(c, c_elems);
+    if (!gptbridge_native_mem_mut_view_valid(out)) {
+        return 1;
+    }
+
+    simd = gptbridge_native_simd_level();
+    for (g = 0; g < groups; ++g) {
+        const int64_t m_g = group_rows[g];
+        if (m_g == 0) {
+            continue;
+        }
+        transformer_matmul_rows(
+            a + a_off, m_g, k, b_list[g], n, c + c_off, simd);
+        a_off += m_g * k;
+        c_off += m_g * n;
+    }
     return 0;
 }
 
