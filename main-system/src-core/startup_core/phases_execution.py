@@ -4,6 +4,7 @@ Contains the _run_startup_phases method extracted from PhaseMixin.
 """
 from __future__ import annotations
 
+import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
@@ -252,12 +253,33 @@ class StartupPhaseExecutionMixin:
         # stopped exactly where the evidence ends (never fabricated).
         ladder_reached: list[str] = []
         ladder_fault = ""
+        ladder_evidence: dict[str, Any] = {}
         try:
             from shared_layer.startup_gate import (  # noqa: PLC0415
                 StartupGate,
                 StartupGateError,
                 StartupPhase,
             )
+
+            state_root = (
+                self.workspace_root / "main-system" / "runtime" / "state"
+            )
+            private_state = _probe_private_state(state_root)
+            recovery = _probe_recovery(state_root)
+            ladder_evidence["private_state"] = private_state
+            ladder_evidence["recovery"] = recovery
+
+            readiness_path = state_root / "runtime-readiness.json"
+            read_model_ok = False
+            try:
+                snapshot = json.loads(readiness_path.read_text(encoding="utf-8"))
+                read_model_ok = isinstance(snapshot.get("snapshot"), dict)
+            except (OSError, ValueError):
+                pass
+            ladder_evidence["read_model"] = {
+                "ready": read_model_ok,
+                "path": str(readiness_path),
+            }
 
             ladder = StartupGate()
             rung_evidence = [
@@ -266,7 +288,10 @@ class StartupPhaseExecutionMixin:
                 (StartupPhase.SECURITY_VALIDATED, environment_ok),
                 (StartupPhase.DATABASE_FOUNDATION_READY, postgres_ok),
                 (StartupPhase.CENTRAL_AUTHORITY_READY, central_authority_ok),
+                (StartupPhase.MODULE_PRIVATE_READY, private_state["ready"]),
                 (StartupPhase.SEMANTIC_INDEX_READY, qdrant_ok),
+                (StartupPhase.RECOVERY_READY, recovery["ready"]),
+                (StartupPhase.READ_MODEL_READY, read_model_ok),
             ]
             for phase, evidence in rung_evidence:
                 if phase in ladder.reached:
@@ -283,6 +308,14 @@ class StartupPhaseExecutionMixin:
                 except StartupGateError as error:
                     ladder_fault = str(error)
                     break
+            # CORE_READY: composite — every prior rung reached and the
+            # startup gate itself passed (governance+security+authority+
+            # audit+manifest evidence all green).
+            if (
+                not ladder_fault
+                and ladder.next_phase() is StartupPhase.CORE_READY
+            ):
+                ladder.advance(StartupPhase.CORE_READY, ready=gate_ok)
             ladder_reached = [p.value for p in ladder.reached]
         except Exception as error:  # noqa: BLE001 — ladder is observability
             ladder_fault = f"{type(error).__name__}: {error}"
@@ -323,6 +356,7 @@ class StartupPhaseExecutionMixin:
                 "reached": ladder_reached,
                 "core_ready": ladder_reached[-1:] == ["CORE_READY"],
                 "fault": ladder_fault,
+                "evidence": ladder_evidence,
             },
             "phases": results,
         }
