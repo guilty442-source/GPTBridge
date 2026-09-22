@@ -46,6 +46,7 @@ from .audit_artifacts import (
     # Phase E
     check_audit_hot_history_separation,
     check_batch_writer_module,
+    check_bounded_worker_pools,
     check_incremental_reconcile,
     check_locator_cache_module,
     check_performance_baseline,
@@ -331,6 +332,7 @@ def audit_runtime_governance(
         lambda r: _collect(check_startup_certifier_module, r),
         lambda r: _collect(check_readonly_domain_module, r),
         lambda r: _collect(check_workload_pool_query_class, r),
+        lambda r: _collect(check_bounded_worker_pools, r),
         lambda r: _collect(check_query_fingerprint, r),
         lambda r: _collect(check_transport_hot_path_index, r),
         lambda r: _collect(check_audit_hot_history_separation, r),
