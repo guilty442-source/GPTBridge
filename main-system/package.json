@@ -13,6 +13,7 @@
     "launcher:start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
     "type-check": "npx.cmd tsc --noEmit",
     "test:size-breakdown": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/test_platform_tool_size_breakdown.ts",
+    "test:perf-slo": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/test_perf_slo.ts",
     "lint:imports": "cd .. && main-system\\.venv\\Scripts\\python.exe -m governance_rule.execution.audit",
     "governance:audit": "cd .. && main-system\\.venv\\Scripts\\python.exe -m governance_rule.execution.audit",
     "governance:check": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" ../governance_rule/execution/typescript/scripts/run-checkers.ts",
