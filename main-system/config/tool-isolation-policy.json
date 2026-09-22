@@ -1,7 +1,6 @@
 {
   "schema": "gptbridge-tool-isolation-policy-v1",
   "comment": "Per-tool isolation policy. Defines resource limits, health monitoring, crash containment, and graceful shutdown rules for independent tools.",
-
   "defaults": {
     "memory_limit_mb": 512,
     "cpu_percent_limit": 50,
@@ -9,7 +8,11 @@
     "health_check_timeout_seconds": 10.0,
     "restart_on_crash": true,
     "max_restart_attempts": 3,
-    "restart_backoff_seconds": [2, 5, 15],
+    "restart_backoff_seconds": [
+      2,
+      5,
+      15
+    ],
     "graceful_shutdown_timeout_seconds": 10.0,
     "kill_on_job_close": true,
     "allow_breakaway": false,
@@ -17,16 +20,21 @@
     "filesystem_policy": "tool-scoped",
     "state_isolation": true
   },
-
   "network_policies": {
     "loopback-only": {
       "description": "Tools may only connect to 127.0.0.1 / localhost",
-      "allowed_hosts": ["127.0.0.1", "localhost", "::1"],
+      "allowed_hosts": [
+        "127.0.0.1",
+        "localhost",
+        "::1"
+      ],
       "allowed_ports": "inherit-from-manifest"
     },
     "unrestricted": {
       "description": "No network restrictions (use with caution)",
-      "allowed_hosts": ["*"],
+      "allowed_hosts": [
+        "*"
+      ],
       "allowed_ports": "*"
     },
     "offline": {
@@ -35,7 +43,6 @@
       "allowed_ports": []
     }
   },
-
   "filesystem_policies": {
     "tool-scoped": {
       "description": "Tools may only access their own directory + shared-layer + temp",
@@ -54,11 +61,12 @@
     },
     "unrestricted": {
       "description": "No filesystem restrictions (use with caution)",
-      "allowed_roots": ["*"],
+      "allowed_roots": [
+        "*"
+      ],
       "deny_patterns": []
     }
   },
-
   "per_tool_overrides": {
     "file-sorter": {
       "memory_limit_mb": 256,
@@ -91,7 +99,11 @@
       "filesystem_policy": "tool-scoped",
       "restart_on_crash": true,
       "max_restart_attempts": 3,
-      "restart_backoff_seconds": [2, 5, 15]
+      "restart_backoff_seconds": [
+        2,
+        5,
+        15
+      ]
     },
     "native-compute-core": {
       "memory_limit_mb": 1024,
@@ -100,7 +112,11 @@
       "filesystem_policy": "tool-scoped",
       "restart_on_crash": true,
       "max_restart_attempts": 3,
-      "restart_backoff_seconds": [2, 5, 15]
+      "restart_backoff_seconds": [
+        2,
+        5,
+        15
+      ]
     },
     "model-training": {
       "memory_limit_mb": 4096,
@@ -109,10 +125,24 @@
       "filesystem_policy": "tool-scoped",
       "restart_on_crash": false,
       "max_restart_attempts": 1,
-      "restart_backoff_seconds": [5]
+      "restart_backoff_seconds": [
+        5
+      ]
+    },
+    "ai-collaboration": {
+      "memory_limit_mb": 512,
+      "cpu_percent_limit": 40,
+      "network_policy": "loopback-only",
+      "filesystem_policy": "tool-scoped",
+      "restart_on_crash": true,
+      "max_restart_attempts": 3,
+      "restart_backoff_seconds": [
+        2,
+        5,
+        15
+      ]
     }
   },
-
   "crash_containment": {
     "isolate_on_crash": true,
     "quarantine_dir": "main-system/runtime/state/tool-crash-quarantine",
@@ -121,10 +151,17 @@
     "max_quarantine_entries": 20,
     "max_quarantine_age_days": 14
   },
-
   "graceful_shutdown": {
-    "signal_order": ["SIGTERM", "SIGTERM", "SIGKILL"],
-    "signal_delays_seconds": [3.0, 5.0, 0.0],
+    "signal_order": [
+      "SIGTERM",
+      "SIGTERM",
+      "SIGKILL"
+    ],
+    "signal_delays_seconds": [
+      3.0,
+      5.0,
+      0.0
+    ],
     "flush_state_timeout_seconds": 8.0,
     "wait_for_children": true
   }
