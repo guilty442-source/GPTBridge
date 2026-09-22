@@ -153,3 +153,36 @@ def test_repair_research_uses_governed_network_channel() -> None:
 
 
 ########################################################################
+
+
+def test_repair_research_prompt_enforces_unverified_candidate_contract() -> None:
+    """EC-4: outbound research prompt must fence results to unverified
+    candidates and demand per-candidate verification fields."""
+    research = ExternalBrowserResearch()
+    client = _FakeChannelClient()
+    research._client = client
+
+    research.search_repair_solutions(
+        error_class="ModuleNotFoundError",
+        error_message="No module named example",
+        failure_code="STARTUP_DEPENDENCY_EXCEPTION",
+        component="main-system",
+    )
+
+    _target, _command, payload, _timeout = client.call
+    prompt = str(payload["content"])
+    for source_hint in ("官方文件", "問題追蹤", "可信技術來源"):
+        assert source_hint in prompt, f"prompt missing source scope {source_hint}"
+    for fence in ("候選", "不得執行命令", "修改檔案", "安裝套件", "寫入資料庫"):
+        assert fence in prompt, f"prompt missing inert-candidate fence {fence}"
+    for field in (
+        "來源網址",
+        "適用版本",
+        "前置條件",
+        "風險",
+        "最小修改",
+        "回復方法",
+        "驗證步驟",
+    ):
+        assert field in prompt, f"prompt missing verification field {field}"
+    assert "不確定" in prompt

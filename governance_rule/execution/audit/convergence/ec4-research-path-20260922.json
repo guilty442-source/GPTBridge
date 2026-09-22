@@ -1,0 +1,22 @@
+{
+  "artifact": "ec4-research-path-20260922",
+  "date": "2026-09-22",
+  "blueprint_item": "P8 / EC-4 星澄研究路徑",
+  "worker": "devin-cli",
+  "scope": "xingcheng → ai-collaboration governed web research channel",
+  "implementation_findings": {
+    "entry_point": "xingcheng_diagnose_fault payload.external_research=true → ExternalAiResearch.search_repair_solutions（command_channels.py，opt-in、不預設啟用）",
+    "channel": "governance-authenticated-ai-channel → ai-collaboration ai_nexus_send_message（business_scope=general, business_task=search → gemini 固定責任 embedded-browser Google 檢索，chatgpt 最終統籌）",
+    "candidate_only": "result_role=unverified-repair-candidates；execution_allowed=false；direct_database_write=false；prompt 明文要求不得執行命令/修改檔案/安裝套件/寫入資料庫",
+    "verification_fields": "prompt 要求每方案附來源網址、適用版本、前置條件、風險、最小修改、回復方法、驗證步驟；無法確認須標示不確定",
+    "fail_closed": "未連線回傳 AI_CHANNEL_NOT_CONNECTED；health() fail_closed=true；queue_when_offline=false",
+    "zero_authority": "test_external_zero_authority.py：外部回應為惰性資料、無 write/exec/db 權限面、惡意注入不回傳執行"
+  },
+  "changes": [
+    "test_google_search.py +test_repair_research_prompt_enforces_unverified_candidate_contract：斷言出站 prompt 攜帶來源範圍、惰性候選圍籬與七項驗證欄位"
+  ],
+  "verification": {
+    "targeted_tests": "test_google_search.py + test_external_zero_authority.py: 9/9 passed"
+  },
+  "verdict": "EC-4 研究路徑已落地且受治理：通道僅回傳未驗證候選，零執行/寫入權威；新增 prompt 契約斷言補足驗證覆蓋"
+}
