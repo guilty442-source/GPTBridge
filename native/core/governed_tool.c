@@ -15,7 +15,7 @@ int gptbridge_gt_tool_id_valid(const char* tool_id) {
         return 0;
     }
     len = strlen(tool_id);
-    if (len < 2 || len > 63) {
+    if (len < 2 || len > 64) {
         return 0;
     }
     if (!(tool_id[0] >= 'a' && tool_id[0] <= 'z')
