@@ -199,16 +199,21 @@ def generation_defaults() -> dict[str, Any]:
 
 
 def cpu_thread_budget() -> int:
-    """CPU 執行緒上限：settings 指定，否則取核心數的 1/4（最多 4）。"""
+    """CPU 執行緒上限：settings 指定，否則取核心數的 1/4（最多 4）。
+
+    一律再經 §10.30 統一入口收斂至核心預算（5 核硬頂，僅可下調）。
+    """
+    from shared_layer.performance.thread_budget import bounded_threads
+
     settings = load_settings()
     try:
         configured = int(settings.get("cpu_threads") or 0)
     except (TypeError, ValueError):
         configured = 0
     if configured > 0:
-        return max(1, min(16, configured))
+        return bounded_threads(configured, 1)
     cores = os.cpu_count() or 8
-    return max(1, min(4, cores // 4))
+    return bounded_threads(max(1, min(4, cores // 4)), 1)
 
 
 def cpu_generation_cap() -> int:

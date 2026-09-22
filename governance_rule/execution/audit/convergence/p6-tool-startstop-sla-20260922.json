@@ -1,13 +1,13 @@
 {
   "evidence": "7-tool governed start/stop <=5s SLA (P1-9)",
   "schema": "star-tool-sla/v1",
-  "at": "2026-09-22T16:35:04.046116Z",
+  "at": "2026-09-22T16:41:01.522103Z",
   "sla_seconds": 5.0,
   "tools": [
     {
       "tool_id": "ai-assistant",
-      "start_s": 1.772,
-      "stop_s": 4.655,
+      "start_s": 1.283,
+      "stop_s": 0.928,
       "start_ok": true,
       "stop_ok": true,
       "start_error": null,
@@ -16,18 +16,18 @@
     },
     {
       "tool_id": "ai-collaboration",
-      "start_s": 1.81,
-      "stop_s": 5.115,
+      "start_s": 1.606,
+      "stop_s": 1.423,
       "start_ok": true,
-      "stop_ok": false,
+      "stop_ok": true,
       "start_error": null,
-      "stop_error": "TOOL_CLOSE_BUDGET_EXCEEDED",
-      "within_sla": false
+      "stop_error": null,
+      "within_sla": true
     },
     {
       "tool_id": "file-sorter",
-      "start_s": 1.57,
-      "stop_s": 4.942,
+      "start_s": 2.008,
+      "stop_s": 2.723,
       "start_ok": true,
       "stop_ok": true,
       "start_error": null,
@@ -36,8 +36,8 @@
     },
     {
       "tool_id": "investment-mobile",
-      "start_s": 2.058,
-      "stop_s": 4.407,
+      "start_s": 1.793,
+      "stop_s": 1.065,
       "start_ok": true,
       "stop_ok": true,
       "start_error": null,
@@ -46,8 +46,8 @@
     },
     {
       "tool_id": "local-model",
-      "start_s": 1.913,
-      "stop_s": 2.76,
+      "start_s": 1.425,
+      "stop_s": 0.696,
       "start_ok": true,
       "stop_ok": true,
       "start_error": null,
@@ -56,8 +56,8 @@
     },
     {
       "tool_id": "model-dialogue",
-      "start_s": 1.556,
-      "stop_s": 2.121,
+      "start_s": 1.582,
+      "stop_s": 0.587,
       "start_ok": true,
       "stop_ok": true,
       "start_error": null,
@@ -66,8 +66,8 @@
     },
     {
       "tool_id": "vaultly",
-      "start_s": 1.131,
-      "stop_s": 3.32,
+      "start_s": 1.608,
+      "stop_s": 1.79,
       "start_ok": true,
       "stop_ok": true,
       "start_error": null,
@@ -75,5 +75,5 @@
       "within_sla": true
     }
   ],
-  "ok": false
+  "ok": true
 }

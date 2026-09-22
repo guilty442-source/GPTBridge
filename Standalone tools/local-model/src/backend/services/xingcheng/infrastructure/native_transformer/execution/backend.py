@@ -187,32 +187,43 @@ def cpu_thread_budget(
     *,
     configured: int = 0,
     cores: int | None = None,
+    parallel_workers: int = 1,
 ) -> int:
     """依角色回傳 CPU 執行緒預算（不修改全域狀態）。
 
     - ``inference``：預設 min(4, cores//4)——常駐服務保守讓路。
     - ``training``：預設 min(8, cores//2)——批次工作可用較多核心。
-    ``configured`` > 0 時為顯式覆寫（上限 16）。
+    所有結果再經 §10.30 統一入口 `shared_layer.performance.thread_budget`
+    收斂：`執行緒 × 平行工作數 ≤ 核心預算`（5 核硬頂，僅可下調）。
     """
+    from shared_layer.performance.thread_budget import bounded_threads
+
     n = int(cores or os.cpu_count() or 8)
-    if int(configured) > 0:
-        return max(1, min(16, int(configured)))
     if str(role) == "training":
-        return max(1, min(8, n // 2))
-    return max(1, min(4, n // 4))
+        default = max(1, min(8, n // 2))
+    else:
+        default = max(1, min(4, n // 4))
+    requested = int(configured) if int(configured) > 0 else default
+    return bounded_threads(requested, parallel_workers)
 
 
 def apply_cpu_thread_budget(
     role: str = "inference",
     *,
     configured: int = 0,
+    parallel_workers: int = 1,
 ) -> int:
-    """套用 CPU 執行緒預算（set_num_threads + interop=1）；回傳實際預算。
+    """套用 CPU 執行緒預算（set_num_threads + interop=1 + OMP/BLAS env）；回傳實際預算。
 
     非 CPU 裝置仍應呼叫——PyTorch 的 host 端算子（dataloader、
     tokenize、dispatch 前處理）都吃 CPU 執行緒。
     """
-    budget = cpu_thread_budget(role, configured=configured)
+    from shared_layer.performance.thread_budget import apply_thread_env
+
+    budget = cpu_thread_budget(
+        role, configured=configured, parallel_workers=parallel_workers
+    )
+    apply_thread_env(budget, parallel_workers)
     torch.set_num_threads(budget)
     try:
         torch.set_num_interop_threads(1)
