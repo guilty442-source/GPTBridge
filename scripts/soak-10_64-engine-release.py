@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SERVICES = ROOT / "Standalone tools/local-model/src/backend/services"
 sys.path.insert(0, str(SERVICES))
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "shared-layer/src"))  # gpu_coordinator import path
 
 import psutil  # noqa: E402
 import torch  # noqa: E402
