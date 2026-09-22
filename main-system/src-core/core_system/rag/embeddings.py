@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
@@ -88,6 +89,11 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 class OllamaEmbeddingProvider(EmbeddingProvider):
     """Ollama local embedding provider (governed canonical default)."""
 
+    # §10.7：embedding 屬 on_demand 角色；qwen3-embedding:4b 權重 ~2.6GB，
+    # 4GB 為含 runtime overhead 之保守 RAM 估測。
+    _OLLAMA_EMBED_RAM_MB = 4096
+    _OLLAMA_START_TIMEOUT_S = 15.0
+
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
@@ -97,6 +103,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._dimension = dimension
+        self._admitted_model_id: str | None = None
         # Lazy import: httpx is only needed when actually making requests.
         import httpx
         self._client = httpx.AsyncClient(timeout=60.0)
@@ -109,9 +116,56 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     def dimension(self) -> int:
         return self._dimension
 
+    async def _ensure_backend(self) -> None:
+        """§10.7：embedding 載入前經 request_load 資源閘門；Ollama 未達時
+        需求啟動（有需要才啟動）。否決／啟動失敗一律 fail-closed。"""
+        from core_system import ollama_demand
+        from core_system.model_resource_manager import (
+            ModelRole,
+            get_model_resource_manager,
+        )
+
+        model_id = f"ollama/{self._model}"
+        mgr = get_model_resource_manager()
+        if self._admitted_model_id != model_id:
+            decision = mgr.request_load(
+                ModelRole.EMBEDDING,
+                model_id,
+                ram_mb=self._OLLAMA_EMBED_RAM_MB,
+            )
+            if not decision.admitted:
+                raise RuntimeError(
+                    f"embedding load denied by resource gate: {decision.reason}"
+                )
+            self._admitted_model_id = model_id
+        if ollama_demand.probe_ollama():
+            return
+        started = time.monotonic()
+        ready = await asyncio.to_thread(
+            ollama_demand.ensure_ollama_ready,
+            self._OLLAMA_START_TIMEOUT_S,
+        )
+        try:
+            mgr.record_measurement(
+                model_id,
+                ModelRole.EMBEDDING,
+                {
+                    "event": "ollama_demand_start",
+                    "ok": ready,
+                    "load_time_s": round(time.monotonic() - started, 3),
+                },
+            )
+        except Exception:
+            pass
+        if not ready:
+            mgr.release(model_id)
+            self._admitted_model_id = None
+            raise RuntimeError("ollama demand-start failed")
+
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
+        await self._ensure_backend()
         response = await self._client.post(
             f"{self._base_url}/api/embed",
             json={"model": self._model, "input": texts},
