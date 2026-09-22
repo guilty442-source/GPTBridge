@@ -30,8 +30,6 @@ int main() {
         NT_CHECK(!bundle.empty(),
                  "cpp-bundles/* manifest+weights+tokenizer");
         NT_CHECK(ensure_loaded(), "engine.load");
-        const auto& cfg = /* loaded config sanity */
-            *static_cast<const void*>(nullptr); (void)cfg;
         NT_CHECK(g_engine.memory_bytes() > 0, "weights resident");
         NT_CHECK(g_engine.kv_memory_bytes() >= 0,
                  "kv pool accounted");
