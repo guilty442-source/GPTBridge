@@ -23,7 +23,8 @@ Retirement notes:
 ## Physical Folder Layout
 
 Independent tools live under `Standalone tools/`. The retired
-global-cleaner folder remains as non-executable evidence.
+global-cleaner folder was deleted (E14, 2026-09-22); its identity,
+lineage and audit records remain registered as evidence.
 
 | Module | Folder | Manifest | Status |
 |---|---|---|---|
@@ -34,7 +35,6 @@ global-cleaner folder remains as non-executable evidence.
 | ai-collaboration | `Standalone tools/ai-collaboration/` | `manifest.json` | `on-demand` |
 | file-sorter | `Standalone tools/file-sorter/` | `manifest.json` | `on-demand` |
 | vaultly | `Standalone tools/vaultly/` | `manifest.json` | `on-demand` |
-| global-cleaner | `Standalone tools/global-cleaner/` | `manifest.json` | `retired` (non-executable) |
 | system-rescue (internal service) | `Standalone tools/system-rescue/` | `manifest.json` | `on-demand` |
 
 ## model-dialogue Nested Relationship
