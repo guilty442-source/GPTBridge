@@ -312,9 +312,14 @@ class ModelServiceActivationBroker:
         """
         explicit_stop_at = self._explicit_stop_at
         try:
-            from shared_layer.database.connection import get_connection_manager
+            from shared_layer.database.workload_lanes import (
+                WorkloadClass,
+                get_lane_pool,
+            )
 
-            with get_connection_manager().connection() as conn:
+            # §10.5: periodic broker probe — background lane so it can
+            # never starve the interactive lane's small inflight budget.
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 if explicit_stop_at > 0.0:
                     row = conn.execute(
                         """

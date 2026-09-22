@@ -155,7 +155,7 @@ def test_drain_state_sync_dict_rows(monkeypatch):
         def __exit__(self, *a):
             return False
 
-        def execute(self, sql, params):
+        def execute(self, sql, params=None):
             if "last_activity" in sql:
                 return self._rows["last"]
             return self._rows["inflight"]
@@ -186,11 +186,14 @@ def test_drain_state_sync_dict_rows(monkeypatch):
     monkeypatch.setattr(
         sp, "_get_conn_mgr", lambda: _Mgr(rows_idle), raising=False
     )
-    # patch the lazily imported connection manager factory
-    import shared_layer.database.connection as dbc
+    # §10.5: drain reads via the shared lane pool — patch the pool factory
+    # (not the connection manager) so the BACKGROUND lane wraps the fake.
+    import shared_layer.database.workload_lanes as lanes
 
     monkeypatch.setattr(
-        dbc, "get_connection_manager", lambda: _Mgr(rows_idle)
+        lanes,
+        "get_lane_pool",
+        lambda: lanes.WorkloadLanePool(_Mgr(rows_idle)),
     )
     drained, last = mgr._drain_state_sync("file-sorter")
     assert drained is True
@@ -201,7 +204,9 @@ def test_drain_state_sync_dict_rows(monkeypatch):
         "last": _Cursor({"last_activity": epoch}),
     }
     monkeypatch.setattr(
-        dbc, "get_connection_manager", lambda: _Mgr(rows_busy)
+        lanes,
+        "get_lane_pool",
+        lambda: lanes.WorkloadLanePool(_Mgr(rows_busy)),
     )
     drained, _ = mgr._drain_state_sync("file-sorter")
     assert drained is False

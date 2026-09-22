@@ -211,10 +211,33 @@ class _LaneConnection:
         return self._conn
 
 
+_shared_pool: "WorkloadLanePool | None" = None
+_shared_pool_lock = threading.Lock()
+
+
+def get_lane_pool() -> "WorkloadLanePool":
+    """Shared lane pool over the process-wide ConnectionManager.
+
+    One pool per process — per-lane semaphores only isolate callers when
+    everyone shares the same instance. Constructed lazily so importing
+    this module never forces a database connection.
+    """
+    global _shared_pool
+    with _shared_pool_lock:
+        if _shared_pool is None:
+            from shared_layer.database.connection import (
+                get_connection_manager,
+            )
+
+            _shared_pool = WorkloadLanePool(get_connection_manager())
+        return _shared_pool
+
+
 __all__ = [
     "DEFAULT_LANES",
     "LanePolicy",
     "PoolLaneExhausted",
     "WorkloadClass",
     "WorkloadLanePool",
+    "get_lane_pool",
 ]

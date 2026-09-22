@@ -246,9 +246,13 @@ class SleepPolicyManager:
     def _drain_state_sync(self, tool_id: str) -> tuple[bool, float | None]:
         """(drained, last_activity_epoch) from the transport outbox."""
         try:
-            from shared_layer.database.connection import get_connection_manager
+            from shared_layer.database.workload_lanes import (
+                WorkloadClass,
+                get_lane_pool,
+            )
 
-            with get_connection_manager().connection() as conn:
+            # §10.5: periodic drain probe — background lane.
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 row = conn.execute(
                     """
                     SELECT 1 FROM gptbridge_transport.tool_request
