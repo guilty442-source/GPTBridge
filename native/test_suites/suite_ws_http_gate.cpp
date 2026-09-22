@@ -2,6 +2,7 @@
 // + RFC6455 codec (websockets.serve parity). Zero-I/O decision surface.
 #include "harness.hpp"
 
+#include <stdexcept>
 #include <string>
 
 #include "http_gate.h"
@@ -14,8 +15,9 @@ const char* TOKEN64 =
 
 gate::HttpRequest parse(const std::string& raw, size_t* consumed) {
     gate::HttpRequest req;
-    bool ok = gate::http_parse_request(raw, &req, consumed);
-    NT_CHECK(ok, "parse succeeded");
+    if (!gate::http_parse_request(raw, &req, consumed)) {
+        throw std::runtime_error("parse failed");
+    }
     return req;
 }
 
@@ -334,4 +336,6 @@ int main() {
                  "close code 1000");
     }
     NT_END_TEST(SUITE, "ws_frame_encode_and_helpers");
+
+    return native_tests::report("ws_http_gate_suite.json");
 }
