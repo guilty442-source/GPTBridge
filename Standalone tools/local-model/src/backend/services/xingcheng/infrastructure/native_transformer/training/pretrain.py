@@ -52,6 +52,8 @@ class PretrainConfig:
     # §2.7-8 訓練中資源超支即停（0=不設限）；步邊界檢查，超限跳出仍存 final.pt
     max_train_seconds: float = 0
     max_train_vram_mb: int = 0
+    # §2.7-4 每循環 GPU 時間預算：僅 CUDA 步運算區段累計（0=不設限）
+    max_train_gpu_seconds: float = 0
 
 
 def _document_text(document: Any) -> str:
@@ -247,6 +249,7 @@ def pretrain(
     started = time.time()
     last_eval: dict[str, float] = {}
     stopped_reason: str | None = None
+    gpu_seconds = 0.0
     plan = _precision_plan(device, config)
     scaler = plan.scaler()
 
@@ -261,6 +264,7 @@ def pretrain(
     )
 
     for step in range(start_step, config.max_steps):
+        step_started = time.monotonic()
         if _mark_step_begin is not None:
             _mark_step_begin()
         scale = _lr_scale(step, config)
@@ -295,6 +299,8 @@ def pretrain(
         tokens_seen += (
             config.batch_size * config.grad_accum * config.block_size
         )
+        if device.type == "cuda":
+            gpu_seconds += time.monotonic() - step_started
         history.append(accumulated)
 
         if config.log_every > 0 and (step + 1) % config.log_every == 0:
@@ -337,7 +343,9 @@ def pretrain(
             )
             checkpoints.append(info["path"])
 
-        stopped_reason = check_train_budget(config, device, started)
+        stopped_reason = check_train_budget(
+            config, device, started, gpu_seconds=gpu_seconds
+        )
         if stopped_reason:
             print(
                 json.dumps(
@@ -385,6 +393,7 @@ def pretrain(
             1,
         ),
         "gpu_memory_peak_mb": gpu_memory_peak_mb,
+        "gpu_seconds": round(gpu_seconds, 2),
         "gradient_norm_preclip_mean": round(
             sum(gradient_norms) / len(gradient_norms), 4
         ) if gradient_norms else None,

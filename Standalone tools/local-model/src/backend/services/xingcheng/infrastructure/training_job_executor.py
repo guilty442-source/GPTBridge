@@ -52,6 +52,8 @@ _INT_BOUNDS = {
     # §2.7-8 訓練中資源超支即停：executor 內嵌預算計時（0=不設限）
     "max_train_seconds": (0, 0, 86_400),
     "max_train_vram_mb": (0, 0, 1_048_576),
+    # §2.7-4 每循環 GPU 時間預算：訓練器逐步累計 CUDA 活躍秒數（0=不設限）
+    "max_train_gpu_seconds": (0, 0, 86_400),
 }
 
 
@@ -241,6 +243,9 @@ def _default_dpo_train_fn(
         device=configuration.get("device"),
         max_train_seconds=float(configuration.get("max_train_seconds") or 0),
         max_train_vram_mb=int(configuration.get("max_train_vram_mb") or 0),
+        max_train_gpu_seconds=float(
+            configuration.get("max_train_gpu_seconds") or 0
+        ),
     )
     summary = dpo_train(
         model, tokenizer, pairs, config, output_dir=output_dir, resume=resume

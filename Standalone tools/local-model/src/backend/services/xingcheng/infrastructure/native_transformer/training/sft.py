@@ -56,6 +56,8 @@ class SFTConfig:
     # §2.7-8 訓練中資源超支即停（0=不設限）；步邊界檢查，超限跳出仍存 final.pt
     max_train_seconds: float = 0
     max_train_vram_mb: int = 0
+    # §2.7-4 每循環 GPU 時間預算：僅 CUDA 步運算區段累計（0=不設限）
+    max_train_gpu_seconds: float = 0
 
 
 def _prompt_prefix(tokenizer, prompt: str) -> list[int]:
@@ -314,8 +316,10 @@ def sft_train(
     step = start_step
     last_eval: dict[str, float] = {}
     stopped_reason: str | None = None
+    gpu_seconds = 0.0
     train_iterator = iter(train_loader)
     while step < config.max_steps:
+        step_started = time.monotonic()
         scale = _lr_scale(step, config)
         for group in optimizer.param_groups:
             group["lr"] = config.lr * scale
@@ -348,6 +352,8 @@ def sft_train(
             scaler.update()
         else:
             optimizer.step()
+        if device.type == "cuda":
+            gpu_seconds += time.monotonic() - step_started
         step += 1
         history.append(accumulated)
 
@@ -386,7 +392,9 @@ def sft_train(
             )
             checkpoints.append(info["path"])
 
-        stopped_reason = check_train_budget(config, device, started)
+        stopped_reason = check_train_budget(
+            config, device, started, gpu_seconds=gpu_seconds
+        )
         if stopped_reason:
             print(
                 json.dumps(
@@ -422,6 +430,12 @@ def sft_train(
         "eval": final_eval or last_eval,
         "checkpoints": checkpoints,
         "elapsed_seconds": round(time.time() - started, 2),
+        "gpu_seconds": round(gpu_seconds, 2),
+        "gpu_memory_peak_mb": (
+            round(torch.cuda.max_memory_allocated(device) / (1024 * 1024), 1)
+            if device.type == "cuda"
+            else None
+        ),
         "stopped_reason": stopped_reason,
         "config": asdict(config),
     }

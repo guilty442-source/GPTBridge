@@ -116,6 +116,9 @@ class SelfLearningPolicy:
     # fail-closed 記 resource-overspend，不評估不啟用。
     train_time_budget_s: int = 0
     train_vram_budget_mb: int = 0
+    # §2.7-4 每循環 GPU 時間預算：訓練器逐步累計 CUDA 活躍秒數，步邊界
+    # 超限即停（0=不設限）；與 wall-clock 預算各自獨立計量
+    train_gpu_budget_s: int = 0
     # §2.7-1/8 GPU 不可用退避：EXECUTOR_GPU_BUSY 失敗時按下限指數退避
     # 下次嘗試（0=停用＝每輪照原間隔重試）。GPU 長期被佔時避免
     # 每循環空燒每日預算與 lifecycle FAILED 轉移噪音。

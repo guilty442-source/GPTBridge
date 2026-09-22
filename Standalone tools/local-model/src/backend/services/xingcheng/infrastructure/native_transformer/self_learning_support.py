@@ -96,6 +96,76 @@ def _retire_previous_artifact(previous: Path, keep: Path) -> bool:
         return False
 
 
+def _weights_config_fingerprint(path: Path) -> str | None:
+    """checkpoint 內嵌 canonical ``config_json`` 的 sha256（相容指紋）。
+
+    無法讀出 config 時回傳 ``None``——rollback 閘對無法證明相容的
+    版本 deny-by-default（A10/A11）。
+    """
+    try:
+        import torch
+
+        try:
+            payload = torch.load(path, map_location="cpu", weights_only=True)
+        except TypeError:
+            payload = torch.load(path, map_location="cpu")
+    except Exception:
+        return None
+    config_json = (
+        payload.get("config_json") if isinstance(payload, dict) else None
+    )
+    if not isinstance(config_json, str) or not config_json:
+        return None
+    return hashlib.sha256(config_json.encode("utf-8")).hexdigest()
+
+
+def _attempt_governed_rollback(
+    tool: Path,
+    lifecycle: Any,
+    lifecycle_dir: Path,
+    *,
+    anchor_path: Path,
+    exclude_version: int,
+) -> dict[str, Any]:
+    """2026-09-22 總督裁定 rollback 語義：回滾目標＝已認證且相容之
+    任一留存版本；無合格留存版本時 fail-closed（拒絕、留稽核、
+    active 指標與 runtime pin 皆不變）。
+
+    相容錨點＝升級前現役權重（``anchor_path``）的 config 指紋；
+    錨點無法建立時視為無合格目標。
+    """
+    anchor = _weights_config_fingerprint(anchor_path)
+    gate = {
+        "compat_fingerprint": anchor,
+        "compat_resolver": _weights_config_fingerprint,
+        "exclude_versions": {int(exclude_version)},
+    }
+    targets = lifecycle.rollback_target_versions(**gate)
+    if not targets:
+        return {
+            "rolled_back": False,
+            "denied": "no-eligible-retained-version",
+            "anchor_config_sha256": anchor,
+        }
+    target = int(targets[-1])
+    try:
+        entry = lifecycle.governed_rollback_weights(target, **gate)
+    except ValueError as exc:
+        return {
+            "rolled_back": False,
+            "denied": str(exc),
+            "anchor_config_sha256": anchor,
+        }
+    lifecycle.save(lifecycle_dir)
+    pinned = _pin_runtime_checkpoint(tool, Path(str(entry["path"])))
+    return {
+        "rolled_back": True,
+        "to_version": target,
+        "runtime_checkpoint": pinned,
+        "anchor_config_sha256": anchor,
+    }
+
+
 def _blocked(reason: str, **extra: Any) -> dict[str, Any]:
     return {"ok": True, "action": "blocked", "reason": reason, **extra}
 
@@ -713,6 +783,7 @@ def run_cycle_impl(
             "gpu_required_mb": int(resolved_policy.gpu_required_mb),
             "max_train_seconds": int(resolved_policy.train_time_budget_s),
             "max_train_vram_mb": int(resolved_policy.train_vram_budget_mb),
+            "max_train_gpu_seconds": int(resolved_policy.train_gpu_budget_s),
             "curriculum_course": str(curriculum["course"]),
             "maturity_target_level": curriculum.get("target_level"),
         },
@@ -822,6 +893,7 @@ def _run_dpo_cycle(
             "gpu_required_mb": int(resolved_policy.gpu_required_mb),
             "max_train_seconds": int(resolved_policy.train_time_budget_s),
             "max_train_vram_mb": int(resolved_policy.train_vram_budget_mb),
+            "max_train_gpu_seconds": int(resolved_policy.train_gpu_budget_s),
             "curriculum_course": "dpo-alignment",
         },
         requested_by="star-self-learning",
@@ -852,6 +924,36 @@ def _run_dpo_cycle(
         metrics_phase="preference-optimization",
         train_fn=train_fn,
     )
+
+
+def _resource_account(
+    policy: SelfLearningPolicy,
+    trainer_summary: Mapping[str, Any],
+    *,
+    snapshot: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """§2.7-9 資源帳：耗時／步數／裝置／資料量＋GPU/RSS 細項。
+
+    ``summary["resource"]`` 由 executor 子程序監控填入（RSS 峰值／
+    預算／取樣數；train_fn 注入樁不經此路徑時為空）；
+    ``gpu_seconds``／``gpu_memory_peak_mb`` 由訓練器 summary 提供
+    （CPU 訓練時 ``gpu_seconds`` 恆 0、VRAM 峰值為 None）。"""
+    resource = trainer_summary.get("resource") or {}
+    manifest = dict((snapshot or {}).get("manifest") or {})
+    return {
+        "elapsed_seconds": trainer_summary.get("elapsed_seconds"),
+        "steps": trainer_summary.get("steps"),
+        "device": str(policy.device),
+        "dataset_example_count": manifest.get("example_count"),
+        "train_count": manifest.get("train_count"),
+        "validation_count": manifest.get("validation_count"),
+        "peak_rss_mb": resource.get("peak_rss_mb"),
+        "rss_budget_mb": resource.get("rss_budget_mb"),
+        "rss_samples": resource.get("rss_samples"),
+        "gpu_seconds": trainer_summary.get("gpu_seconds"),
+        "gpu_memory_peak_mb": trainer_summary.get("gpu_memory_peak_mb"),
+        "gpu_time_budget_s": int(policy.train_gpu_budget_s) or None,
+    }
 
 
 def _execute_governed_cycle(
@@ -952,11 +1054,9 @@ def _execute_governed_cycle(
             "job_id": job_id,
             "stopped_reason": stopped_reason,
             "total_examples": total,
-            "resource_account": {
-                "elapsed_seconds": trainer_summary.get("elapsed_seconds"),
-                "steps": trainer_summary.get("steps"),
-                "device": str(resolved_policy.device),
-            },
+            "resource_account": _resource_account(
+                resolved_policy, trainer_summary, snapshot=snapshot
+            ),
         }
         save_state(
             tool,
@@ -1054,16 +1154,12 @@ def _execute_governed_cycle(
             pruned = _retire_previous_artifact(active_path, artifact)
             action = "upgraded"
 
-    # §2.7-9 資源帳：訓練耗時／步數／資料量／裝置，留於報告與狀態
+    # §2.7-9 資源帳：訓練耗時／步數／資料量／裝置＋GPU/RSS 細項，
+    # 留於報告與狀態
     trainer_summary = report.get("summary") or {}
-    resource_account = {
-        "elapsed_seconds": trainer_summary.get("elapsed_seconds"),
-        "steps": trainer_summary.get("steps"),
-        "device": str(resolved_policy.device),
-        "dataset_example_count": snapshot["manifest"].get("example_count"),
-        "train_count": snapshot["manifest"].get("train_count"),
-        "validation_count": snapshot["manifest"].get("validation_count"),
-    }
+    resource_account = _resource_account(
+        resolved_policy, trainer_summary, snapshot=snapshot
+    )
 
     summary = {
         "ok": True,

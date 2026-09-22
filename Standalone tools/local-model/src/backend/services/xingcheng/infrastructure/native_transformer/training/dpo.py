@@ -40,6 +40,8 @@ class DpoConfig:
     # §2.7-8 訓練中資源超支即停（0=不設限）；步邊界檢查，超限跳出仍存 final.pt
     max_train_seconds: float = 0
     max_train_vram_mb: int = 0
+    # §2.7-4 每循環 GPU 時間預算：僅 CUDA 步運算區段累計（0=不設限）
+    max_train_gpu_seconds: float = 0
 
 
 def _encode_pair(
@@ -168,8 +170,10 @@ def dpo_train(
     started = time.time()
     checkpoint_paths: list[str] = []
     stopped_reason: str | None = None
+    gpu_seconds = 0.0
 
     for step in range(start_step, config.max_steps):
+        step_started = time.monotonic()
         picks = torch.randint(
             0, len(normalized_pairs), (config.batch_size,), generator=generator
         )
@@ -223,6 +227,8 @@ def dpo_train(
         if config.grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(policy.parameters(), config.grad_clip)
         optimizer.step()
+        if device.type == "cuda":
+            gpu_seconds += time.monotonic() - step_started
         pairs_seen += config.batch_size
         history.append(float(loss.item()))
         accuracies.append(float(accuracy.item()))
@@ -257,7 +263,9 @@ def dpo_train(
             )
             checkpoint_paths.append(info["path"])
 
-        stopped_reason = check_train_budget(config, device, started)
+        stopped_reason = check_train_budget(
+            config, device, started, gpu_seconds=gpu_seconds
+        )
         if stopped_reason:
             print(
                 json.dumps(
@@ -300,6 +308,12 @@ def dpo_train(
         "final_loss": history[-1] if history else None,
         "final_accuracy": accuracies[-1] if accuracies else None,
         "elapsed_seconds": round(elapsed, 2),
+        "gpu_seconds": round(gpu_seconds, 2),
+        "gpu_memory_peak_mb": (
+            round(torch.cuda.max_memory_allocated(device) / (1024 * 1024), 1)
+            if device.type == "cuda"
+            else None
+        ),
         "checkpoints": checkpoint_paths,
         "stopped_reason": stopped_reason,
         "config": asdict(config),
