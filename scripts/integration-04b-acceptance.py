@@ -21,6 +21,7 @@ import socket
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -34,7 +35,7 @@ _RC_ARG = next(
 )
 RC_ID = _RC_ARG or f"rc-{time.strftime('%Y-%m-%d', time.gmtime())}"
 RC = RELEASES / RC_ID
-FIXTURES = RELEASES / "fixtures" / RC_ID
+FIXTURES = Path(tempfile.mkdtemp(prefix=f"04b-fixtures-{RC_ID}-"))
 VENV_PY = ROOT / "main-system" / ".venv" / "Scripts" / "python.exe"
 CODEX = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 GOV_ROOT = ROOT / "governance_rule"
