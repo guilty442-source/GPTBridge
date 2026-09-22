@@ -116,6 +116,11 @@ class SelfLearningPolicy:
     # fail-closed 記 resource-overspend，不評估不啟用。
     train_time_budget_s: int = 0
     train_vram_budget_mb: int = 0
+    # §2.7-1/8 GPU 不可用退避：EXECUTOR_GPU_BUSY 失敗時按下限指數退避
+    # 下次嘗試（0=停用＝每輪照原間隔重試）。GPU 長期被佔時避免
+    # 每循環空燒每日預算與 lifecycle FAILED 轉移噪音。
+    gpu_busy_backoff_s: int = 0
+    gpu_busy_backoff_cap_s: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

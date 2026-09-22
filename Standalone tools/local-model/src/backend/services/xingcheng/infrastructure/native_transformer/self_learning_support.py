@@ -21,7 +21,7 @@ import argparse
 import json
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -132,6 +132,55 @@ def _min_interval_status(
             "min-interval", elapsed_s=round(elapsed, 1), min_interval_s=gap
         )
     return None
+
+
+def _gpu_busy_backoff_status(
+    policy: SelfLearningPolicy, state: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-1/8 GPU 不可用退避：EXECUTOR_GPU_BUSY 後於冷卻窗內略過。
+
+    退避屬節流而非安全閘——時間戳無法解析時放行（讓下一次嘗試的
+    GPU 協調器自身 fail-closed 判定），避免畸形狀態永久阻斷訓練。
+    政策關閉（base<=0）時忽略狀態中殘留的冷卻窗。
+    """
+    if int(policy.gpu_busy_backoff_s) <= 0:
+        return None
+    until = state.get("gpu_busy_until")
+    if not until:
+        return None
+    try:
+        until_dt = datetime.fromisoformat(str(until).replace("Z", "+00:00"))
+        remaining = (until_dt - datetime.now(timezone.utc)).total_seconds()
+    except (ValueError, TypeError):
+        return None
+    if remaining <= 0:
+        return None
+    return _blocked(
+        "gpu-busy-backoff",
+        remaining_s=round(remaining, 1),
+        gpu_busy_streak=int(state.get("gpu_busy_streak") or 0),
+        gpu_busy_until=str(until),
+    )
+
+
+def _gpu_busy_record(
+    policy: SelfLearningPolicy, state: Mapping[str, Any]
+) -> dict[str, Any]:
+    """EXECUTOR_GPU_BUSY 失敗後的退避帳：streak+1、until=now+base*2^streak。"""
+    streak = int(state.get("gpu_busy_streak") or 0) + 1
+    base = int(policy.gpu_busy_backoff_s)
+    cap = int(policy.gpu_busy_backoff_cap_s)
+    delay = base * (2 ** (streak - 1)) if base > 0 else 0
+    if cap > 0:
+        delay = min(delay, cap)
+    until = (
+        datetime.now(timezone.utc) + timedelta(seconds=delay)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ") if delay > 0 else None
+    return {
+        "gpu_busy_streak": streak,
+        "gpu_busy_until": until,
+        "gpu_busy_backoff_s": delay,
+    }
 
 
 def _daily_budget_status(
@@ -430,6 +479,7 @@ def run_cycle_impl(
     for gate in (
         _min_interval_status(resolved_policy, state),
         _daily_budget_status(resolved_policy, state),
+        _gpu_busy_backoff_status(resolved_policy, state),
     ):
         if gate is not None:
             return {
@@ -681,10 +731,20 @@ def run_cycle_impl(
             "error_message": report.get("error_message"),
             "total_examples": total,
         }
+        # §2.7-1/8 GPU 退避帳：EXECUTOR_GPU_BUSY → 指數退避；
+        # 其他失敗型別清掉退避（不同原因的失敗不應被 GPU 冷卻遮蔽）。
+        gpu_fields = (
+            _gpu_busy_record(resolved_policy, state)
+            if str(report.get("error_code") or "") == "EXECUTOR_GPU_BUSY"
+            else {"gpu_busy_streak": 0, "gpu_busy_until": None}
+        )
+        if gpu_fields.get("gpu_busy_until"):
+            failure["gpu_busy_backoff_s"] = gpu_fields["gpu_busy_backoff_s"]
         save_state(
             tool,
             {
                 **state,
+                **gpu_fields,
                 "last_run_at": _iso_now(),
                 "last_action": "training-failed",
                 "last_job_id": job_id,
@@ -720,6 +780,8 @@ def run_cycle_impl(
             tool,
             {
                 **state,
+                "gpu_busy_streak": 0,
+                "gpu_busy_until": None,
                 "last_run_at": _iso_now(),
                 "last_action": "resource-overspend",
                 "last_job_id": job_id,
@@ -888,6 +950,8 @@ def run_cycle_impl(
             "resource_account": resource_account,
             "pool": stats,
             "consecutive_failures": 0,
+            "gpu_busy_streak": 0,
+            "gpu_busy_until": None,
             "last_error": None,
         },
     )

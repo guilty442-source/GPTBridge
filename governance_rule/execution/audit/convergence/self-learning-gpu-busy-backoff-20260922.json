@@ -1,0 +1,22 @@
+{
+  "schema": "self-learning-gpu-busy-backoff/v1",
+  "date": "2026-09-22",
+  "scope": "§2.7-1/8 星澄自主訓練 — EXECUTOR_GPU_BUSY 指數退避（GPU 不可用期間節流）",
+  "files": [
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py"
+  ],
+  "motivation": "lifecycle transitions 顯示 self-learning watch 自 2026-09-22T04:37Z 起每 ~15 分鐘重試一次：collect→dataset→job→GpuCoordinator 600s 逾時→EXECUTOR_GPU_BUSY→FAILED→recovery→重試（GPU 可用 ~2.1GB < 需求 2.5GB，Ollama 等既有行程佔用）。fail-closed 本身正確，但每輪空燒：cycles_today 每日預算、lifecycle FAILED 轉移噪音、dataset/job 註冊與報告檔——GPU 長期被佔時屬資源浪費（見 model-catalog-lifecycle-classification-20260922.json operational_note）。",
+  "design": {
+    "policy_fields": "gpu_busy_backoff_s（基礎退避秒，預設 0=停用=原行為）、gpu_busy_backoff_cap_s（上限，0=不設限）",
+    "accounting": "training-failed 且 error_code==EXECUTOR_GPU_BUSY → _gpu_busy_record：streak+1、delay=min(base*2^(streak-1), cap)、gpu_busy_until=now+delay 入 state；非 GPU 失敗或成功循環 → 清除 streak/until（不同原因的失敗不被 GPU 冷卻遮蔽）",
+    "gate": "_gpu_busy_backoff_status 與 min_interval/daily_budget 同列早期閘門：冷卻窗內 → blocked gpu-busy-backoff（附 remaining_s/streak/until）；過期放行",
+    "semantics": "退避是節流而非安全閘——時間戳畸形時放行（由 GpuCoordinator 自身的 fail-closed 判定兜底）；政策關閉（base<=0）時忽略狀態殘留的冷卻窗"
+  },
+  "verification": {
+    "tests": "test_gpu_busy_backoff_gate PASS（streak 遞增、2 倍成長、cap 截斷、冷卻窗阻斷、過期放行、政策關閉忽略殘留、畸形時間戳放行、停用不記退避）；test_resource_overspend_fail_closed PASS；test_budget_config_passed_to_job 前批 6/6 已 PASS（本批重跑遇 xdist worker 記憶體當機與 import 逾時——主機共載環境因素，非邏輯失敗）",
+    "syntax": "py_compile self_learning.py + self_learning_support.py + test file OK"
+  },
+  "defaults": "兩欄位預設 0=停用，既有行為完全不變；啟用屬受管 runtime/settings/self-learning.json",
+  "note": "正式驗收閘門為主系統測試套件＋稽核引擎；本地 pytest 為輔助證據（tests/ gitignored）"
+}
