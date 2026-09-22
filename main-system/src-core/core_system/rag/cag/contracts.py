@@ -44,6 +44,12 @@ class CacheInvalidationReason(str, Enum):
     MODEL_CHANGED = "model-changed"
     PERMISSION_CHANGED = "permission-changed"
     SOURCE_DELETED = "source-deleted"
+    SOURCE_UPDATED = "source-updated"
+    TOMBSTONED = "tombstoned"
+    GENERATION_CHANGED = "generation-changed"
+    CHUNK_POLICY_CHANGED = "chunk-policy-changed"
+    RERANKER_CHANGED = "reranker-changed"
+    CLASSIFICATION_CHANGED = "classification-changed"
     MANUAL = "manual"
 
 
@@ -80,6 +86,14 @@ class CacheKey:
     model_version: str
     policy_version: str
     source_revision: str
+    rag_architectures: tuple[str, ...] = ("hybrid",)
+    generation_mode: str = "canonical"
+    active_generation: str = ""
+    embedding_model: str = ""
+    embedding_dimension: int = 0
+    reranker_version: str = ""
+    chunk_policy_version: str = ""
+    context_builder_version: str = ""
 
     def digest(self) -> str:
         return _digest(self.to_record())
@@ -95,6 +109,14 @@ class CacheKey:
             "model_version": self.model_version,
             "policy_version": self.policy_version,
             "source_revision": self.source_revision,
+            "rag_architectures": list(self.rag_architectures),
+            "generation_mode": self.generation_mode,
+            "active_generation": self.active_generation,
+            "embedding_model": self.embedding_model,
+            "embedding_dimension": self.embedding_dimension,
+            "reranker_version": self.reranker_version,
+            "chunk_policy_version": self.chunk_policy_version,
+            "context_builder_version": self.context_builder_version,
         }
 
 
@@ -113,6 +135,16 @@ class CacheEntry:
     version: int = 1
     generation_id: str = ""
     invalidation_reason: str = ""
+    evidence_ids: tuple[str, ...] = ()
+    resource_ids: tuple[str, ...] = ()
+    content_hashes: tuple[str, ...] = ()
+    source_versions: tuple[str, ...] = ()
+    context_hash: str = ""
+    canonical_source: str = ""
+    validated_at: float = 0.0
+    hit_count: int = 0
+    last_hit_at: float = 0.0
+    state: str = "VALID"
 
     def is_expired(self, now: float | None = None) -> bool:
         return (now if now is not None else time.time()) >= self.expires_at
@@ -129,6 +161,16 @@ class CacheEntry:
             "version": self.version,
             "generation_id": self.generation_id,
             "invalidation_reason": self.invalidation_reason,
+            "evidence_ids": list(self.evidence_ids),
+            "resource_ids": list(self.resource_ids),
+            "content_hashes": list(self.content_hashes),
+            "source_versions": list(self.source_versions),
+            "context_hash": self.context_hash,
+            "canonical_source": self.canonical_source,
+            "validated_at": self.validated_at,
+            "hit_count": self.hit_count,
+            "last_hit_at": self.last_hit_at,
+            "state": self.state,
         }
 
 
@@ -147,6 +189,14 @@ class CacheRequest:
     source_revision: str
     level: CacheLevel = CacheLevel.L1
     level4_approved: bool = False
+    rag_architectures: tuple[str, ...] = ("hybrid",)
+    generation_mode: str = "canonical"
+    active_generation: str = ""
+    embedding_model: str = ""
+    embedding_dimension: int = 0
+    reranker_version: str = ""
+    chunk_policy_version: str = ""
+    context_builder_version: str = ""
 
     def normalized_query(self) -> str:
         return normalize_query(self.query)

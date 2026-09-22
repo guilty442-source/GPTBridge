@@ -42,6 +42,7 @@ class RagDagState(str, Enum):
     FAILED = "failed"
     SKIPPED = "skipped"
     CANCELLED = "cancelled"
+    BLOCKED = "blocked"
     REQUIRES_RECONCILE = "requires-reconcile"
     QUARANTINED = "quarantined"
 
@@ -62,6 +63,7 @@ TERMINAL_STATES: frozenset[RagDagState] = frozenset(
         RagDagState.FAILED,
         RagDagState.SKIPPED,
         RagDagState.CANCELLED,
+        RagDagState.BLOCKED,
         RagDagState.REQUIRES_RECONCILE,
         RagDagState.QUARANTINED,
     }
@@ -192,6 +194,12 @@ class RagDagNode:
     state: RagDagState = RagDagState.PENDING
     attempts: int = 0
     evidence: Mapping[str, Any] = field(default_factory=dict)
+    started_at: float | None = None
+    completed_at: float | None = None
+    duration_ms: int = 0
+    input_contract: str = ""
+    output_contract: str = ""
+    failure_policy: str = "FAIL_CLOSED"
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -202,6 +210,12 @@ class RagDagNode:
             "state": self.state.value,
             "attempts": self.attempts,
             "evidence": dict(self.evidence),
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "duration_ms": self.duration_ms,
+            "input_contract": self.input_contract,
+            "output_contract": self.output_contract,
+            "failure_policy": self.failure_policy,
         }
 
 

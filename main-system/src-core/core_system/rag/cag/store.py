@@ -11,6 +11,7 @@ import hashlib
 import json
 import time
 from collections import OrderedDict
+from dataclasses import replace
 from typing import Any, Callable, Mapping
 
 from .contracts import (
@@ -79,6 +80,14 @@ class CagCacheStore:
             model_version=request.model_version,
             policy_version=request.policy_version,
             source_revision=request.source_revision,
+            rag_architectures=tuple(sorted(request.rag_architectures)),
+            generation_mode=request.generation_mode,
+            active_generation=request.active_generation,
+            embedding_model=request.embedding_model,
+            embedding_dimension=request.embedding_dimension,
+            reranker_version=request.reranker_version,
+            chunk_policy_version=request.chunk_policy_version,
+            context_builder_version=request.context_builder_version,
         )
 
     def put(
@@ -89,6 +98,12 @@ class CagCacheStore:
         generation_id: str = "",
         version: int = 1,
         authority: CacheAuthority = CacheAuthority.CACHE,
+        evidence_ids: tuple[str, ...] = (),
+        resource_ids: tuple[str, ...] = (),
+        content_hashes: tuple[str, ...] = (),
+        source_versions: tuple[str, ...] = (),
+        context_hash: str = "",
+        canonical_source: str = "",
     ) -> CacheEntry:
         now = self._clock()
         key = self.key_for(request)
@@ -103,6 +118,13 @@ class CagCacheStore:
             expires_at=now + float(self._ttls.get(request.level, 60.0)),
             version=max(1, int(version)),
             generation_id=generation_id,
+            evidence_ids=evidence_ids,
+            resource_ids=resource_ids,
+            content_hashes=content_hashes,
+            source_versions=source_versions,
+            context_hash=context_hash,
+            canonical_source=canonical_source,
+            validated_at=now,
         )
         bucket = self._entries[request.level]
         digest = key.digest()
@@ -124,7 +146,13 @@ class CagCacheStore:
             bucket.pop(key_digest, None)
             return None, decision
         bucket.move_to_end(key_digest)
-        return entry, decision
+        refreshed = replace(
+            entry,
+            hit_count=entry.hit_count + 1,
+            last_hit_at=self._clock(),
+        )
+        bucket[key_digest] = refreshed
+        return refreshed, decision
 
     def invalidate(
         self,

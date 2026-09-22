@@ -581,17 +581,17 @@
     ],
     "remedy": "no-action-required",
     "owner": "星澄",
-    "automatic": false,
+    "automatic": true,
     "runtime_only": true,
     "learned_at": "2026-09-21T16:31:48.193383+00:00",
     "occurrence_count": 115,
     "success_rate": 0.8,
     "source": "learned",
-    "verification": "",
+    "verification": "promoted-by-verified-repair-outcomes",
     "actions": [
       "inspect-owned-databases"
     ],
-    "verified_applicability": false,
+    "verified_applicability": true,
     "suppressed": true
   }
 ]
