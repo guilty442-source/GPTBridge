@@ -245,11 +245,18 @@ class GitAutomationService:
             synchronize,
         )
 
+        # §10.69-E① coordinator push: governed by the automation-flows
+        # manifest (``flows.git-automation.push``) when the core is the
+        # registration point; the constructor flag is the fallback.
+        push = self.push
+        if self._automation_core is not None:
+            entry = self._automation_core.flow_entry("git-automation") or {}
+            push = bool(entry.get("push", push))
         result = await asyncio.to_thread(
             synchronize,
             self.project_root,
             commit_dirty=True,
-            push=self.push,
+            push=push,
         )
         self._syncs += 1
         self._last_sync = {"at": time.time(), "result": result}

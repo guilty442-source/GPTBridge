@@ -17,6 +17,7 @@ reported and the cycle stops.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -127,17 +128,34 @@ def evaluate_push_gates(root: str | Path) -> dict[str, Any]:
     gates.append({"gate": "main-clean", "passed": not dirty,
                   "detail": "working tree dirty" if dirty else ""})
 
-    audit = subprocess.run(
-        [sys.executable, "-m", "governance_rule.execution.audit"],
-        cwd=Path(root),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    # Native audit engine is the gate authority (≤30 s budget, A537 /
+    # §10.69-E③); the Python oracle only runs when the engine delegates
+    # or ``GPTBRIDGE_AUDIT_GATE_ORACLE=1`` requests it explicitly.
+    from governance_rule.execution.audit.native_audit_gate import (
+        run_native_audit_gate,
     )
-    gates.append({"gate": "governance-audit", "passed": audit.returncode == 0,
-                  "detail": (audit.stdout or "")[-200:]})
+
+    native = run_native_audit_gate(Path(root))
+    if native.status in ("fail", "timeout"):
+        audit_passed, audit_detail = False, native.summary()
+    elif native.status == "delegated" or os.environ.get(
+        "GPTBRIDGE_AUDIT_GATE_ORACLE"
+    ) == "1":
+        audit = subprocess.run(
+            [sys.executable, "-m", "governance_rule.execution.audit"],
+            cwd=Path(root),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        audit_passed = audit.returncode == 0
+        audit_detail = (audit.stdout or "")[-200:]
+    else:
+        audit_passed, audit_detail = True, native.summary()
+    gates.append({"gate": "governance-audit", "passed": audit_passed,
+                  "detail": audit_detail})
 
     state = sync_state(root)
     local_sha = state["local_main_sha"]

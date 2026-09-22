@@ -13,7 +13,8 @@
       "interval_s": 60,
       "pausable": true,
       "enabled": true,
-      "description": "worktree self-commit sweep（debounce）＋workspace sync cycle"
+      "push": true,
+      "description": "worktree self-commit sweep（debounce）＋workspace sync cycle；push=協調者推送 main→origin（§10.69-E①：非 force、ancestor 檢查、稽核 PASS 才推）"
     },
     "daily-global-cleaner": {
       "owner": "daily-global-cleaner service",

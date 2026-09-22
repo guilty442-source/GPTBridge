@@ -75,16 +75,39 @@ def _gate_error(gate) -> str:
 
 
 def _audit_passes(path: str | Path) -> bool:
-    result = subprocess.run(
-        [sys.executable, "-m", "governance_rule.execution.audit"],
-        cwd=Path(path),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    """Integrated-main governance audit — bounded ≤30 s (A537/§10.69-E③).
+
+    The native audit engine is the gate authority (same migration the
+    commit gate took: P0-9 §1.1); the Python oracle's delegated semantic
+    checks run on the scheduled governed audit lane.  The oracle cannot
+    meet the ≤30 s budget under load (it self-fails its flow-budget
+    check), so it only runs here when the engine is unavailable
+    (``delegated``) or when explicitly re-added for manual verification
+    via ``GPTBRIDGE_AUDIT_GATE_ORACLE=1``."""
+    from governance_rule.execution.audit.native_audit_gate import (
+        run_native_audit_gate,
     )
-    return result.returncode == 0
+
+    native = run_native_audit_gate(Path(path))
+    if native.status in ("fail", "timeout"):
+        _logger.warning(
+            "integrated-main audit failed: %s", native.summary()
+        )
+        return False
+    if native.status == "delegated" or os.environ.get(
+        "GPTBRIDGE_AUDIT_GATE_ORACLE"
+    ) == "1":
+        result = subprocess.run(
+            [sys.executable, "-m", "governance_rule.execution.audit"],
+            cwd=Path(path),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return result.returncode == 0
+    return True
 
 
 def synchronize(
