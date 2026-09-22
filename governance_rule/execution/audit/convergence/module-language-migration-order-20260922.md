@@ -76,15 +76,20 @@
   builders＋`RequestWaiter` request_sync parity；`tool_runtime` 層已於
   `build_native.py` 宣告）。stdio/process 接線屬工具宿主職責。
 - 線協定 interop 證據：`native/test_suites/driver_proxy_client.cpp`
-  （codec CLI）＋`proxy_wire_agent.py`（真實 `TransportProxyAgent`＋
-  echo-recording fake channels）＋`main-system/tests/
-  test_native_proxy_wire.py`——C++ encode→真實 agent→C++ decode
-  逐 op 驗證：hello 綁定、全部 process/submit 操作、
-  `_governed_command` 注入、`RequestWaiter` Completed＋request_id
-  剝離、錯誤碼閉集（CHANNEL_NOT_BOUND/BAD_ENVELOPE/
-  PERMISSION_DENIED/未 hello）、丟棄語義；7 測試全 PASS。
+  （codec CLI＋`sidecar` 模式）＋`proxy_wire_agent.py`（真實
+  `TransportProxyAgent`＋echo-recording fake channels）＋
+  `main-system/tests/test_native_proxy_wire.py`——C++ encode→真實
+  agent→C++ decode 逐 op 驗證：hello 綁定、全部 process/submit
+  操作、`_governed_command` 注入、`RequestWaiter` Completed＋
+  request_id 剝離、錯誤碼閉集（CHANNEL_NOT_BOUND/BAD_ENVELOPE/
+  PERMISSION_DENIED/未 hello）、丟棄語義。
+- P2 sidecar 接線層已落地（同日）：`native/tool_runtime/
+  sidecar_transport.cpp`（`ProxySidecar`——CreateProcess＋匿名管道、
+  id 對帳同步 `call()`、讀取期限、`PROXY_DISCONNECTED/SPAWN_FAILED/
+  TIMEOUT`；Windows-only，非 Windows fail-closed）；driver `sidecar`
+  模式以真實 spawn 子行程端到端驗證，wire 測試 11/11 PASS。
 - 未做（M1 殘項）：C++ 工具體行程（ABI §1–§4 線上實作：HTTP/WS
-  閘門伺服器＋queue worker，以 proxy client 走 P2 sidecar）、
+  閘門伺服器＋queue worker，以 `ProxySidecar` 走 P2 代理）、
   shadow→primary 觀察窗、parity 零差異證據、runtime flag、
   load/unload 資源釋放驗收。
 
