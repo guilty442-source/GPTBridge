@@ -1,0 +1,27 @@
+{
+  "id": "p1-kv-int8-cache",
+  "date": "2026-09-22",
+  "scope": "KV INT8 cache (separate blueprint 另項): per-token/per-head symmetric quantization of the paged KV store",
+  "design": {
+    "layout": "packed elem = int8[align8(head_dim)] + double scale; block_stride in doubles shrinks ~8x so kv_memory_bytes and the memory limit reflect the real footprint",
+    "quantize_on_write": "kv_write computes scale=amax/127 (scale 0 = zero vector); round/clamp to int8",
+    "read_dispatch": "KvSrc {fp | q8+scale}: cached entries read as int8 via dot_int8/axpy_int8 with the per-head scale folded into score/weight; current-step K/V stays fp64",
+    "prefix_cache": "host snapshot stays fp64 — kv_read_head dequantizes on snapshot, kv_write re-quantizes on restore",
+    "gate": "env XINGCHENG_CPP_KV_INT8 at load; governed Python layer owns the decision (same pattern as XINGCHENG_CPP_CUDA)"
+  },
+  "validation": {
+    "tests": "36 passed, 2 skipped (3 new KV INT8 tests)",
+    "measured": {
+      "logits_drift": "0.0 on 7-token prefill (prefill reads fp64 current-step; int8 only affects cached decode positions)",
+      "generation": "greedy token-exact vs fp64 on tiny model, incl. generate_batch and MoE",
+      "memory": "kv_memory_bytes 16384 -> 4096 on head_dim=8 toy (4x; ~7x at head_dim 64)",
+      "prefix_cache": "hit/partial-hit generation identical to cold engine under int8"
+    }
+  },
+  "notes": "separate error budget from weight-only quantization per blueprint; int8 reads only affect cached positions (t < position_offset), so drift accumulates over decode length — long-context error profile belongs to the long-duration validation window",
+  "files": [
+    "Standalone tools/local-model/src/backend/cpp/include/xingcheng_inference.hpp",
+    "Standalone tools/local-model/src/backend/cpp/src/engine.cpp",
+    "Standalone tools/local-model/tests/test_cpp_inference.py"
+  ]
+}

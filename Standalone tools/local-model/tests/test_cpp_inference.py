@@ -969,3 +969,88 @@ def test_cpp_cuda_gate_default_off(
     monkeypatch.delenv("XINGCHENG_CPP_CUDA", raising=False)
     engine = cpp_runtime.CppInferenceEngine(checkpoint)
     assert engine._engine.cuda_active() is False
+
+
+# KV INT8 cache (separate quantization contract): per-token/per-head
+# symmetric quantization of the paged KV store — opt-in via
+# XINGCHENG_CPP_KV_INT8, governed layer owns the decision. Separate error
+# budget from weight-only quantization (blueprint 另項).
+
+
+def test_cpp_kv_int8_generation_and_memory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+
+    fp = module.NativeInferenceEngine()
+    fp.load(str(bundle))
+    prompt = [1, 9, 10, 11]
+    ref = fp.generate(list(prompt), 8, sampling)
+    ref_batch = fp.generate_batch([[1, 9], [2, 7], [3, 5, 1]], 5, sampling)
+    fp_bytes = fp.kv_memory_bytes()
+
+    monkeypatch.setenv("XINGCHENG_CPP_KV_INT8", "1")
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    assert engine.generate(list(prompt), 8, sampling) == ref
+    assert (
+        engine.generate_batch([[1, 9], [2, 7], [3, 5, 1]], 5, sampling)
+        == ref_batch
+    )
+    q_bytes = engine.kv_memory_bytes()
+    # Packed int8 elem (align8(head_dim)+8) must shrink pool blocks.
+    assert 0 < q_bytes <= fp_bytes // 2
+
+
+def test_cpp_kv_int8_moe_generation_parity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_moe_model(
+        tmp_path, num_experts=4, top_k=2
+    )
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+
+    fp = module.NativeInferenceEngine()
+    fp.load(str(bundle))
+    ref = fp.generate([1, 9, 10, 11], 6, sampling)
+
+    monkeypatch.setenv("XINGCHENG_CPP_KV_INT8", "1")
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    assert engine.generate([1, 9, 10, 11], 6, sampling) == ref
+
+
+def test_cpp_kv_int8_prefix_cache_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prefix-cache snapshot (dequant on write) and restore (quant on
+    write) must round-trip identically under int8 KV."""
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    monkeypatch.setenv("XINGCHENG_CPP_KV_INT8", "1")
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+
+    prompt = [1, 9, 10, 11]
+    first = engine.generate(list(prompt), 4, sampling)
+    second = engine.generate(list(prompt), 4, sampling)
+    assert first == second
+    stats = json.loads(engine.describe())
+    assert stats["prefix_cache_hits"] == 1
+
+    extended = [1, 9, 10, 11, 12]
+    cold = module.NativeInferenceEngine()
+    cold.load(str(bundle))
+    assert engine.generate(list(extended), 4, sampling) == cold.generate(
+        list(extended), 4, sampling
+    )

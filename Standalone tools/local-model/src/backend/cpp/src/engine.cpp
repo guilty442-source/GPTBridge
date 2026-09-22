@@ -606,6 +606,18 @@ void axpy_f64(double* out, double weight, const double* v, int64_t n) {
     for (int64_t i = 0; i < n; ++i) out[i] += weight * v[i];
 }
 
+// KV INT8 helpers: fp64 operand against packed int8 storage; the caller
+// folds the per-token/per-head scale into the weight or the score.
+double dot_int8(const double* a, const int8_t* q, int64_t n) {
+    double sum = 0.0;
+    for (int64_t i = 0; i < n; ++i) sum += a[i] * static_cast<double>(q[i]);
+    return sum;
+}
+
+void axpy_int8(double* out, double weight, const int8_t* q, int64_t n) {
+    for (int64_t i = 0; i < n; ++i) out[i] += weight * static_cast<double>(q[i]);
+}
+
 std::vector<double> rmsnorm(
     const std::vector<double>& input,
     int64_t rows,
@@ -1205,14 +1217,25 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     }
 
     const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
-    const int64_t kv_elems = cfg.num_hidden_layers * cfg.max_position_embeddings *
-        kv_dim;
-    const int64_t kv_bytes = kv_elems * 8 * 2;
+    // KV INT8 (opt-in): per-token/per-head symmetric quantization shrinks
+    // the packed element stride ~8x; the governed layer owns the env flag.
+    kv_int8_ = env_flag("XINGCHENG_CPP_KV_INT8");
+    kv_elem_stride_bytes_ = kv_int8_
+        ? ((cfg.head_dim + 7) & ~int64_t{7}) + 8
+        : cfg.head_dim * static_cast<int64_t>(sizeof(double));
+    const int64_t kv_bytes = kv_int8_
+        ? cfg.num_hidden_layers * cfg.max_position_embeddings *
+              cfg.num_key_value_heads * kv_elem_stride_bytes_ * 2
+        : cfg.num_hidden_layers * cfg.max_position_embeddings * kv_dim * 8 * 2;
     if (kv_limit_bytes_ > 0 && kv_bytes > kv_limit_bytes_) {
         throw InferenceError("KV_MEMORY_LIMIT_EXCEEDED");
     }
     // R6 paged KV: allocate on demand instead of the worst-case footprint.
-    kv_block_stride_ = cfg.num_hidden_layers * kKvBlockTokens * kv_dim;
+    kv_block_stride_ = kv_int8_
+        ? (cfg.num_hidden_layers * kKvBlockTokens *
+               cfg.num_key_value_heads * kv_elem_stride_bytes_ + 7) /
+              8
+        : cfg.num_hidden_layers * kKvBlockTokens * kv_dim;
     if (kv_pool_ != nullptr) {
         gptbridge_kv_pool_destroy(kv_pool_);
         kv_pool_ = nullptr;
@@ -1254,6 +1277,8 @@ void NativeInferenceEngine::unload() {
     kv_slot_active_.clear();
     kv_lens_.clear();
     kv_block_stride_ = 0;
+    kv_int8_ = false;
+    kv_elem_stride_bytes_ = 0;
     lm_head_t_.clear();
     sequence_.clear();
 }
@@ -1350,19 +1375,80 @@ void NativeInferenceEngine::kv_ensure_position(int64_t slot, int64_t position) {
     }
 }
 
-double* NativeInferenceEngine::kv_slot(
+char* NativeInferenceEngine::kv_slot_bytes(
     int64_t slot, bool key_cache, int64_t layer, int64_t position, int64_t head) {
     const ModelConfig& cfg = bundle_->config();
-    const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
     const int64_t block =
         kv_block_tables_[static_cast<size_t>(slot)]
             [static_cast<size_t>(position / kKvBlockTokens)];
-    const int64_t offset = block * kv_block_stride_ +
-        layer * (kKvBlockTokens * kv_dim) +
-        (position % kKvBlockTokens) * kv_dim + head * cfg.head_dim;
-    double* base = gptbridge_kv_pool_data(kv_pool_, static_cast<int32_t>(block), key_cache ? 1 : 0);
+    const int64_t elem_index =
+        layer * (kKvBlockTokens * cfg.num_key_value_heads) +
+        (position % kKvBlockTokens) * cfg.num_key_value_heads + head;
+    char* base = reinterpret_cast<char*>(
+        gptbridge_kv_pool_data(
+            kv_pool_, static_cast<int32_t>(block), key_cache ? 1 : 0));
     if (base == nullptr) throw InferenceError("KV_BLOCK_NOT_ACTIVE");
-    return base + static_cast<size_t>(offset - block * kv_block_stride_);
+    return base + static_cast<size_t>(elem_index) *
+                      static_cast<size_t>(kv_elem_stride_bytes_);
+}
+
+// Per-token/per-head symmetric quantization: scale = amax/127 stored as a
+// trailing double after the aligned int8 payload (scale 0 = zero vector).
+void NativeInferenceEngine::kv_write(
+    int64_t slot, bool key_cache, int64_t layer, int64_t position,
+    int64_t head, const double* src) {
+    const int64_t n = bundle_->config().head_dim;
+    char* dst = kv_slot_bytes(slot, key_cache, layer, position, head);
+    if (!kv_int8_) {
+        std::memcpy(dst, src, static_cast<size_t>(n) * sizeof(double));
+        return;
+    }
+    double amax = 0.0;
+    for (int64_t i = 0; i < n; ++i) {
+        const double a = std::abs(src[i]);
+        if (a > amax) amax = a;
+    }
+    const double scale = amax > 0.0 ? amax / 127.0 : 0.0;
+    int8_t* q = reinterpret_cast<int8_t*>(dst);
+    if (scale > 0.0) {
+        for (int64_t i = 0; i < n; ++i) {
+            long v = std::lround(src[i] / scale);
+            if (v > 127) v = 127;
+            if (v < -127) v = -127;
+            q[i] = static_cast<int8_t>(v);
+        }
+    } else {
+        std::memset(q, 0, static_cast<size_t>(n));
+    }
+    *reinterpret_cast<double*>(dst + ((n + 7) & ~int64_t{7})) = scale;
+}
+
+NativeInferenceEngine::KvSrc NativeInferenceEngine::kv_src(
+    int64_t slot, bool key_cache, int64_t layer, int64_t position, int64_t head) {
+    char* p = kv_slot_bytes(slot, key_cache, layer, position, head);
+    KvSrc src;
+    if (kv_int8_) {
+        const int64_t n = bundle_->config().head_dim;
+        src.q8 = reinterpret_cast<const int8_t*>(p);
+        src.scale = *reinterpret_cast<const double*>(p + ((n + 7) & ~int64_t{7}));
+    } else {
+        src.fp = reinterpret_cast<const double*>(p);
+    }
+    return src;
+}
+
+void NativeInferenceEngine::kv_read_head(
+    int64_t slot, bool key_cache, int64_t layer, int64_t position,
+    int64_t head, double* out) {
+    const KvSrc src = kv_src(slot, key_cache, layer, position, head);
+    const int64_t n = bundle_->config().head_dim;
+    if (src.q8 != nullptr) {
+        for (int64_t i = 0; i < n; ++i) {
+            out[i] = static_cast<double>(src.q8[i]) * src.scale;
+        }
+    } else {
+        std::copy_n(src.fp, n, out);
+    }
 }
 
 void NativeInferenceEngine::reset_cache() {
@@ -1567,14 +1653,12 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     const int64_t position = span.position_offset + s;
                     kv_ensure_position(span.slot, position);
                     for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
-                        std::copy_n(
-                            k_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim),
-                            cfg.head_dim,
-                            kv_slot(span.slot, true, layer_idx, position, h));
-                        std::copy_n(
-                            v_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim),
-                            cfg.head_dim,
-                            kv_slot(span.slot, false, layer_idx, position, h));
+                        kv_write(
+                            span.slot, true, layer_idx, position, h,
+                            k_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim));
+                        kv_write(
+                            span.slot, false, layer_idx, position, h,
+                            v_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim));
                     }
                 }
             }
@@ -1582,22 +1666,24 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             // W1: one scores buffer per span reused across heads; per-head
             // K/V source pointers resolved once — streaming Q·K dot +
             // score·V accumulate (masked positions skip the dot entirely).
+            // KV INT8: cached entries carry packed int8 + per-head scale;
+            // current-step sources stay fp64 (KvSrc.fp).
             std::vector<double> scores(static_cast<size_t>(seq * total_len));
-            std::vector<const double*> k_srcs(static_cast<size_t>(total_len));
-            std::vector<const double*> v_srcs(static_cast<size_t>(total_len));
+            std::vector<KvSrc> k_srcs(static_cast<size_t>(total_len));
+            std::vector<KvSrc> v_srcs(static_cast<size_t>(total_len));
             for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
                 const int64_t kv_head = h / head_ratio;
                 for (int64_t t = 0; t < total_len; ++t) {
                     if (t < span.position_offset) {
                         k_srcs[static_cast<size_t>(t)] =
-                            kv_slot(span.slot, true, layer_idx, t, kv_head);
+                            kv_src(span.slot, true, layer_idx, t, kv_head);
                         v_srcs[static_cast<size_t>(t)] =
-                            kv_slot(span.slot, false, layer_idx, t, kv_head);
+                            kv_src(span.slot, false, layer_idx, t, kv_head);
                     } else {
                         const int64_t s = t - span.position_offset;
-                        k_srcs[static_cast<size_t>(t)] =
+                        k_srcs[static_cast<size_t>(t)].fp =
                             k_heads.data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
-                        v_srcs[static_cast<size_t>(t)] =
+                        v_srcs[static_cast<size_t>(t)].fp =
                             v_heads.data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
                     }
                 }
@@ -1607,8 +1693,13 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     const double* q_row = q_head + s * cfg.head_dim;
                     double* srow = scores.data() + s * total_len;
                     for (int64_t t = 0; t < total_len; ++t) {
+                        const KvSrc& ksrc = k_srcs[static_cast<size_t>(t)];
                         srow[t] = (t <= span.position_offset + s)
-                            ? dot_f64(q_row, k_srcs[static_cast<size_t>(t)], cfg.head_dim) * scale
+                            ? (ksrc.q8 != nullptr
+                                   ? dot_int8(q_row, ksrc.q8, cfg.head_dim) *
+                                         ksrc.scale
+                                   : dot_f64(q_row, ksrc.fp, cfg.head_dim)) *
+                                  scale
                             : -std::numeric_limits<double>::infinity();
                     }
                 }
@@ -1621,9 +1712,15 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     double* out = attn_flat.data() +
                         static_cast<size_t>((base + s) * q_dim + h * cfg.head_dim);
                     for (int64_t t = 0; t < total_len; ++t) {
-                        axpy_f64(
-                            out, srow[t], v_srcs[static_cast<size_t>(t)],
-                            cfg.head_dim);
+                        const KvSrc& vsrc = v_srcs[static_cast<size_t>(t)];
+                        if (vsrc.q8 != nullptr) {
+                            axpy_int8(
+                                out, srow[t] * vsrc.scale, vsrc.q8,
+                                cfg.head_dim);
+                        } else {
+                            axpy_f64(
+                                out, srow[t], vsrc.fp, cfg.head_dim);
+                        }
                     }
                 }
             }
@@ -1897,14 +1994,16 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         }
         for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
             for (int64_t position = 0; position < prefix_len; ++position) {
-                std::copy_n(
-                    hit.k.data() + (layer * prefix_len + position) * kv_dim,
-                    kv_dim,
-                    kv_slot(0, true, layer, position, 0));
-                std::copy_n(
-                    hit.v.data() + (layer * prefix_len + position) * kv_dim,
-                    kv_dim,
-                    kv_slot(0, false, layer, position, 0));
+                for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
+                    kv_write(
+                        0, true, layer, position, h,
+                        hit.k.data() + (layer * prefix_len + position) * kv_dim +
+                            h * cfg.head_dim);
+                    kv_write(
+                        0, false, layer, position, h,
+                        hit.v.data() + (layer * prefix_len + position) * kv_dim +
+                            h * cfg.head_dim);
+                }
             }
         }
         hit.tick = ++prefix_tick_;
@@ -1965,18 +2064,27 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                 }
                 PrefixEntry entry;
                 entry.tokens = prompt_ids;
-                entry.k.reserve(
+                // Snapshot stays fp64 in host memory; kv_read_head
+                // dequantizes when the pool stores packed int8.
+                entry.k.resize(
                     static_cast<size_t>(
                         cfg.num_hidden_layers * store_len * kv_dim));
-                entry.v.reserve(
+                entry.v.resize(
                     static_cast<size_t>(
                         cfg.num_hidden_layers * store_len * kv_dim));
                 for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
                     for (int64_t position = 0; position < store_len; ++position) {
-                        const double* k_src = kv_slot(0, true, layer, position, 0);
-                        const double* v_src = kv_slot(0, false, layer, position, 0);
-                        entry.k.insert(entry.k.end(), k_src, k_src + kv_dim);
-                        entry.v.insert(entry.v.end(), v_src, v_src + kv_dim);
+                        for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
+                            const int64_t base_idx =
+                                (layer * store_len + position) * kv_dim +
+                                h * cfg.head_dim;
+                            kv_read_head(
+                                0, true, layer, position, h,
+                                entry.k.data() + base_idx);
+                            kv_read_head(
+                                0, false, layer, position, h,
+                                entry.v.data() + base_idx);
+                        }
                     }
                 }
                 entry.tick = ++prefix_tick_;

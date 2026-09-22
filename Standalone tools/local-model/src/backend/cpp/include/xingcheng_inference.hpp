@@ -246,7 +246,19 @@ private:
     std::vector<int64_t> kv_lens_;
     int64_t kv_block_stride_ = 0;
     int64_t kv_limit_bytes_ = 0;
+    // KV INT8 (opt-in via governed env): per-token/per-head symmetric
+    // quantization — packed elem = int8[align8(head_dim)] + double scale,
+    // shrinking the paged block stride ~8x so kv_memory_bytes reflects the
+    // real footprint. Read sites dequantize via KvSrc dispatch.
+    bool kv_int8_ = false;
+    int64_t kv_elem_stride_bytes_ = 0;
     std::vector<int64_t> sequence_;
+
+    struct KvSrc {
+        const double* fp = nullptr;
+        const int8_t* q8 = nullptr;
+        double scale = 1.0;
+    };
 
     void validate_supported() const;
     void reset_cache();
@@ -254,9 +266,18 @@ private:
     int64_t kv_alloc_slot();
     void kv_free_slot(int64_t slot);
     void kv_ensure_position(int64_t slot, int64_t position);
-    double* kv_slot(
+    char* kv_slot_bytes(
         int64_t slot, bool key_cache,
         int64_t layer, int64_t position, int64_t head);
+    void kv_write(
+        int64_t slot, bool key_cache, int64_t layer, int64_t position,
+        int64_t head, const double* src);
+    KvSrc kv_src(
+        int64_t slot, bool key_cache,
+        int64_t layer, int64_t position, int64_t head);
+    void kv_read_head(
+        int64_t slot, bool key_cache, int64_t layer, int64_t position,
+        int64_t head, double* out);
     std::vector<double> forward_last_logits(
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,
