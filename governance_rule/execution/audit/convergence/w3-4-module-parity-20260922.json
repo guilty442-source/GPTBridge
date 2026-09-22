@@ -1,0 +1,40 @@
+﻿{
+  "schema_version": "blueprint-convergence-evidence/v1",
+  "item": "W3-4",
+  "title": "per-module RMSNorm/RoPE/Attention/MLP parity probes (Python vs C++)",
+  "worker": "devin-cli",
+  "recorded_at_utc": "2026-09-22T18:15Z",
+  "metric_layout": [
+    "embedding",
+    "per-layer: input_norm, post-RoPE q, attention_output, post_attention_norm, mlp_output",
+    "final_norm"
+  ],
+  "metrics_per_layer": 5,
+  "tolerance": {
+    "rtol": 0.02,
+    "atol": 0.001,
+    "same_as": "LAYER_PARITY_RTOL / LAYER_PARITY_ATOL (G41)"
+  },
+  "implementation": {
+    "cpp_api": "NativeInferenceEngine::module_metrics(input_ids)",
+    "cpp_taps": "engine.cpp forward_batch_hidden: embed, rmsnorm(input_norm), post-RoPE q_heads, o_proj output, rmsnorm(post_norm), mlp_output (dense + MoE gate branches), final_norm",
+    "binding": "binding.cpp .def(module_metrics)",
+    "python_probe": "_torch_module_rms: forward hooks on input_norm/q_proj/attention/post_attention_norm/mlp/final_norm + apply_rope wrapper for post-rotation q RMS",
+    "note": "RoPE is norm-preserving; the q tap detects gross path/shape miswiring. layer_metrics surface preserved unchanged (backward compatible)."
+  },
+  "tests": {
+    "file": "Standalone tools/local-model/tests/test_cpp_inference.py",
+    "new": [
+      "test_cpp_module_parity_with_pytorch (dense, 12 metrics = 5*2+2)",
+      "test_cpp_moe_module_parity (mixed dense/MoE, gate-path tap)"
+    ],
+    "result": "42 passed, 2 skipped (CUDA-absent skips), 26.30s",
+    "focused_run": "11 passed in 23.34s (module_parity + layerwise_parity + logits + greedy)"
+  },
+  "scope_guardrails": {
+    "production_cpp_runtime_enabled": false,
+    "kv_int8_default_unchanged": true,
+    "machine_settings_untouched": true
+  },
+  "verdict": "PASS"
+}

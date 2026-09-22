@@ -354,6 +354,7 @@ class QdrantCanonicalRuntime:
 
             query_filter = Filter(must=must_conditions)
 
+            qdrant_start = time.monotonic()
             response = self.client.query_points(
                 collection_name=target,
                 query=query_vector,
@@ -363,6 +364,7 @@ class QdrantCanonicalRuntime:
                 with_payload=True,
                 with_vectors=False,
             )
+            _observe_qdrant_latency((time.monotonic() - qdrant_start) * 1000.0)
             return [
                 {
                     "id": hit.id,
