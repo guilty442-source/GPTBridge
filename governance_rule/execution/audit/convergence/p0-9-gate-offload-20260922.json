@@ -1,0 +1,54 @@
+{
+  "evidence": "p0-9-python-oracle-offload-and-timing-20260922",
+  "recorded_at": "2026-09-22T08:25:18.797414+00:00",
+  "blueprint": "P0-9 residuals ①② (測試與審計 ≤30s: oracle 移出閘門 + 實測報告)",
+  "change": {
+    "pre-commit gate composition": "whitespace-check + native C++ audit engine + audit_log (python oracle removed)",
+    "escape hatch": "GPTBRIDGE_AUDIT_GATE_ORACLE=1 re-adds oracle inline (manual verification only)",
+    "delegated coverage": "29 delegated semantic checks (codex/sqlite/dynamic-policy/subprocess/compound) covered by scheduled governed lane: permission-automation-audit -> python -m governance_rule.execution.audit (hourly) + release gates; not silently dropped"
+  },
+  "measurements": {
+    "native_engine_live": {
+      "checks_pass": 244,
+      "checks_fail": 0,
+      "delegated": 29,
+      "elapsed_s": 0.11
+    },
+    "pre_commit_hook_samples_s": [
+      0.66,
+      0.66,
+      0.8
+    ],
+    "hook_before_offload_s": {
+      "min": 2.88,
+      "max": 25.19,
+      "mean": 9.88,
+      "n": 10,
+      "note": "with python oracle inline"
+    },
+    "c_test_suites_total_s": 0.16,
+    "c_test_suites_detail": {
+      "audit_engine_suite": 0.093,
+      "runtime_core_suite": 0.007,
+      "ntp_suite": 0.008,
+      "kv_cache_suite": 0.006,
+      "moe_qc_suite": 0.006,
+      "consistency_suite": 0.007,
+      "maturity_suite": 0.009,
+      "baseline_suite": 0.009,
+      "eval_suite": 0.008,
+      "dialogue_suite": 0.007
+    }
+  },
+  "acceptance": {
+    "audit<=30s": "PASS (0.66-0.80s full hook; engine 0.11s)",
+    "c-tests<=30s": "PASS (0.16s all suites)",
+    "timeout-fail-closed": "verified earlier (TIMEOUT=0.05 -> exit 1)",
+    "cache-invalidation": "codex sqlite newer than manifest -> auto regen",
+    "10-consecutive<=30s": "verified earlier under INT-10 load (max 25.19s); post-offload margin larger"
+  },
+  "remaining": [
+    "29 delegated checks await native representation (sqlite/codex/dynamic semantics)",
+    "10-commit under-load re-acceptance can be re-run anytime; gate now ~10x faster"
+  ]
+}

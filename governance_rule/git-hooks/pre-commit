@@ -79,10 +79,14 @@ def main() -> int:
     # governance_rule on sys.path).
     os.environ.setdefault("GPTBRIDGE_AUDIT_SKIP_SELF_HEALTH", "1")
 
-    # Native C++ audit engine (P0-9 §1.1): authoritative for every check
-    # kind it supports; FAIL/timeout is fail-closed.  "delegated" means the
-    # engine could not run in this environment — the Python oracle below
-    # still covers the same governed files during the transition.
+    # Native C++ audit engine IS the commit gate (P0-9 §1.1): FAIL/timeout
+    # is fail-closed.  The Python oracle (audit_runtime_governance) has
+    # moved out of the gate per blueprint — delegated semantic checks
+    # (codex/sqlite/dynamic-policy, currently ~29) run on the scheduled
+    # governed audit lane (permission-automation-audit →
+    # ``python -m governance_rule.execution.audit``) and on release gates.
+    # Escape hatch for manual verification, never silently on:
+    #   GPTBRIDGE_AUDIT_GATE_ORACLE=1 re-adds the python oracle inline.
     from governance_rule.execution.audit.native_audit_gate import (
         run_native_audit_gate,
     )
@@ -96,12 +100,15 @@ def main() -> int:
             sys.stderr.write(f"[FAIL] {error}\n")
         return 1
 
-    from governance_rule.execution.audit import audit_runtime_governance
-
-    errors = audit_runtime_governance(
-        project_root=WORKTREE_ROOT,
-        include_self_health=False,
-    )
+    errors: list[str] = []
+    if os.environ.get("GPTBRIDGE_AUDIT_GATE_ORACLE") == "1":
+        from governance_rule.execution.audit import (
+            audit_runtime_governance,
+        )
+        errors = audit_runtime_governance(
+            project_root=WORKTREE_ROOT,
+            include_self_health=False,
+        )
     # Pre-compute a lightweight snapshot (skips binary patch generation).
     _snapshot = _lightweight_snapshot(WORKTREE_ROOT)
     if errors:
