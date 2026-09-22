@@ -1,0 +1,22 @@
+{
+  "evidence_id": "g50-ollama-demand-start",
+  "ts": "2026-09-22T17:31:53Z",
+  "item": "G50 / §10.7：Ollama 按需啟動＋embedding 載入點接 request_load",
+  "change": "core_system/ollama_demand.py 新增 ensure_ollama_ready（探針→受治理 spawn→就緒等待→ollama-demand.jsonl 稽核）；OllamaEmbeddingProvider 首次 embed 前 request_load（EMBEDDING 角色，4GB 保守估測），未達即需求啟動並記冷啟 load_time_s；_phase_ollama spawn 改共用同實作",
+  "files": [
+    "main-system/src-core/core_system/ollama_demand.py",
+    "main-system/src-core/core_system/rag/embeddings.py",
+    "main-system/src-core/startup_core/phases.py",
+    "main-system/tests/test_ollama_demand.py"
+  ],
+  "verification": {
+    "tests": "ollama_demand+model_resource+model_service_activation+shadow+startup_deadline: 48/48 PASS"
+  },
+  "fail_closed": [
+    "spawn-unavailable",
+    "timeout",
+    "resource gate deny",
+    "demand-start failure→release"
+  ],
+  "residual": "reranker 無具體實作；引擎 CUDA 載入點（已由 gpu_coordinator 把關，request_load 遷移涉 tool→main-system 邊界待裁定）；ProcessRegistry 登錄待持有方接入；_phase_ollama 開機自啟與不常駐宣告落差待協調裁定"
+}
