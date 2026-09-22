@@ -1,0 +1,29 @@
+{
+  "artifact": "ec2-session-verification-20260922",
+  "date": "2026-09-22",
+  "blueprint_item": "P8 / EC-2 工作階段與登入",
+  "worker": "devin-cli",
+  "scope": "Standalone tools/ai-collaboration — provider session persistence, verification detection, timeout/recovery",
+  "requirements": {
+    "six_provider_sessions": "BROWSER_PRIMARY_PROVIDERS = chatgpt/claude/gemini/grok/deepseek/perplexity；BrowserAutomationSession._sessions 以 agent_id 持久重用（同 agent 重複 open_agent 不再建 session），Electron 端由 embedded-browser bridge 管理前景共享分頁",
+    "verification_detection": "VERIFICATION_MARKERS 既有；新增頁面內容級偵測 _detect_verification：送出前與回覆等待輪詢中掃描 document.title+body.innerText，命中 captcha/cloudflare 等標記即回傳 waiting_verification（BROWSER_VERIFICATION_REQUIRED＋verification_marker），不再落入泛用逾時",
+    "timeout_recovery": "RESPONSE_TIMEOUT_SECONDS 輪詢逾時 → awaiting-user（BROWSER_RESPONSE_CAPTURE_REQUIRED）；waiting_verification 不消耗瀏覽器等待循環，使用者於前景分頁完成驗證後經 ai_nexus_complete_browser_response 貼回（_store_browser_result 接受 awaiting-user 與 waiting_verification）",
+    "no_card_presentation": "狀態以 UI chip 呈現（ai-collab-chip--waiting_verification 既有）；無卡片式需求呈現"
+  },
+  "changes": [
+    "browser_automation.py: +_verification_detect_script/_detect_verification/_verification_result；send_prompt 前置偵測＋_wait_for_response 輪詢偵測（回傳 (content, marker)）",
+    "collab_svc_browser.py: _store_browser_result 接受 waiting_verification 狀態貼回",
+    "tests/test_ai_collaboration_session_verification.py: 5 測試（頁面偵測、中途偵測、逾時降級、session 重用、waiting_verification→diagnostics attention→貼回復原）"
+  ],
+  "verification": {
+    "new_tests": "test_ai_collaboration_session_verification.py: 5/5 passed",
+    "suite_regression": "Standalone tools/ai-collaboration/tests/: 31/31 passed (4.78s)"
+  },
+  "governance": {
+    "browser_only": true,
+    "uses_api_key": false,
+    "cross_provider_substitution": false,
+    "shared_browser_context": true
+  },
+  "verdict": "EC-2 驗收項全綠；waiting_verification 狀態鏈（生產者→diagnostics→UI chip→貼回復原）閉合"
+}
