@@ -106,6 +106,8 @@ class ModelServiceActivationBroker:
 
         self._task: asyncio.Task[Any] | None = None
         self._stop_event = asyncio.Event()
+        self._wake_event = asyncio.Event()
+        self._loop_obj: asyncio.AbstractEventLoop | None = None
         self._next_attempt_at = 0.0
         self._backoff = self.min_backoff
         self._pending = False
@@ -159,12 +161,25 @@ class ModelServiceActivationBroker:
             return {"status": "already_running"}
         self._stop_event.clear()
         try:
+            self._loop_obj = asyncio.get_running_loop()
             self._task = asyncio.create_task(
                 self._loop(), name="model-service-activation-broker"
             )
         except RuntimeError:
             self._task = None
             return {"status": "no_event_loop"}
+        # §10.63/G26: LISTEN/NOTIFY 消費端——新 ai 請求入列即喚醒（事件驅動），
+        # 週期輪詢保留為 fail-closed 備援。
+        try:
+            from shared_layer.transport_notify import (
+                get_transport_notify_listener,
+            )
+
+            listener = get_transport_notify_listener()
+            listener.subscribe("ai", self._on_transport_notify)
+            listener.start()
+        except Exception as error:
+            _logger.debug("transport notify listener unavailable: %s", error)
         _logger.info(
             "model service activation broker started (idle=%.1fs pending=%.1fs)",
             self.idle_interval,
@@ -176,12 +191,32 @@ class ModelServiceActivationBroker:
         self._stop_event.set()
         task = self._task
         self._task = None
+        try:
+            from shared_layer.transport_notify import (
+                peek_transport_notify_listener,
+            )
+
+            listener = peek_transport_notify_listener()
+            if listener is not None:
+                listener.unsubscribe("ai", self._on_transport_notify)
+        except Exception:
+            pass
         if task is not None and not task.done():
             task.cancel()
             try:
                 await task
             except (asyncio.CancelledError, Exception):
                 pass
+
+    def _on_transport_notify(self, channel: str, request_id: str) -> None:
+        """LISTEN/NOTIFY callback（監聽執行緒）——轉入自身事件迴圈喚醒。"""
+        loop = self._loop_obj
+        if loop is None:
+            return
+        try:
+            loop.call_soon_threadsafe(self._wake_event.set)
+        except Exception:
+            pass
 
     # -- loop -----------------------------------------------------------
 
@@ -206,11 +241,25 @@ class ModelServiceActivationBroker:
                 except Exception:
                     pass
             try:
-                await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
-            except asyncio.TimeoutError:
-                continue
+                await self._wait_stop_or_wake(interval)
             except asyncio.CancelledError:
                 raise
+
+    async def _wait_stop_or_wake(self, interval: float) -> None:
+        """等到 stop、notify 喚醒或輪詢逾時（先到者為準）。"""
+        self._wake_event.clear()
+        stopper = asyncio.ensure_future(self._stop_event.wait())
+        waker = asyncio.ensure_future(self._wake_event.wait())
+        try:
+            await asyncio.wait(
+                {stopper, waker},
+                timeout=interval,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+        finally:
+            for pending in (stopper, waker):
+                if not pending.done():
+                    pending.cancel()
 
     async def _ensure(self) -> str:
         """One activation check; returns the decision for observability."""

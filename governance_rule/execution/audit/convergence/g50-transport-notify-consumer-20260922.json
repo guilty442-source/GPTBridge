@@ -1,0 +1,21 @@
+{
+  "evidence_id": "g50-transport-notify-consumer",
+  "ts": "2026-09-22T17:44:50Z",
+  "item": "G50 / §10.63：transport LISTEN/NOTIFY 消費端（輪詢改事件）",
+  "change": "新增 shared_layer/transport_notify.py TransportNotifyListener（專用連線 LISTEN tool_request_<channel>→訂閱分派、重連退避、lazy 啟動）；ConnectionManager.dedicated_connection（不佔 lane 配額、計入 stats）；ModelServiceActivationBroker 訂閱 ai 頻道→事件喚醒 _loop，週期輪詢保留為 fail-closed 備援",
+  "files": [
+    "shared-layer/src/shared_layer/transport_notify.py",
+    "shared-layer/src/shared_layer/database/connection.py",
+    "main-system/src-core/tasks/model_service_activation.py",
+    "main-system/tests/test_transport_notify.py"
+  ],
+  "verification": {
+    "tests": "transport_notify+activation+ollama_demand+model_resource+shadow: 52/52 PASS"
+  },
+  "fail_closed": [
+    "listener 斷線退避重連",
+    "notify 僅提示、輪詢兜底",
+    "無訂閱者不開連線"
+  ],
+  "residual": "sleep_policy drain／toolbox_execution 等輪詢方尚未接訂閱"
+}

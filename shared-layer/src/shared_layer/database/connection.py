@@ -62,6 +62,7 @@ class ConnectionManager:
         self._idle: LifoQueue[Connection[dict[str, Any]]] = LifoQueue(max_size)
         self._lock = Lock()
         self._connection_count = 0
+        self._dedicated_count = 0
         self._opened = False
 
     def _new_connection(self) -> Connection[dict[str, Any]]:
@@ -118,6 +119,7 @@ class ConnectionManager:
                 "pool_max": self._max_size,
                 "idle_connections": idle,
                 "active_connections": max(0, count - idle),
+                "dedicated_connections": self._dedicated_count,
             }
 
     def close(self) -> None:
@@ -130,6 +132,28 @@ class ConnectionManager:
                     break
                 connection.close()
                 self._connection_count -= 1
+
+    @contextmanager
+    def dedicated_connection(
+        self, *, autocommit: bool = True
+    ) -> Iterator[Connection[dict[str, Any]]]:
+        """Dedicated unpooled connection for long-lived subscribers
+        (e.g. LISTEN/NOTIFY consumers).  Never drawn from the bounded
+        pool — a held LISTEN conn must not starve query lanes — but still
+        created through the governed DSN + privilege probe, and counted
+        in stats for observability."""
+        connection = self._new_connection()
+        if autocommit:
+            connection.autocommit = True
+        with self._lock:
+            self._dedicated_count += 1
+        try:
+            yield connection
+        finally:
+            if not connection.closed:
+                connection.close()
+            with self._lock:
+                self._dedicated_count -= 1
 
     @contextmanager
     def connection(self) -> Iterator[Connection[dict[str, Any]]]:
