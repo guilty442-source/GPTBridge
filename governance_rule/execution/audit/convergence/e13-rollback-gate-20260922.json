@@ -7,6 +7,7 @@
     "lifecycle.governed_rollback_weights": "gate-enforced rollback; WEIGHTS_ROLLBACK_DENIED fail-closed, active pointer unchanged; history event tagged star-rollback-gate/v1",
     "self_learning_support._weights_config_fingerprint": "sha256 of embedded canonical config_json (torch.load, weights_only-first)",
     "self_learning_support._attempt_governed_rollback": "post-upgrade maturity-recheck failure -> governed rollback + lifecycle persist + runtime pin repoint; denial recorded",
+    "self_learning_support._previous_maturity_level": "recheck that completes but certifies below the previous version's recorded maturity_level counts as failure (certified-level-regressed) and triggers the same rollback path; no recorded baseline -> informational only",
     "prune ordering": "_retire_previous_artifact deferred until after maturity recheck resolves; skipped on recheck failure or completed rollback (previous file is the recovery path)",
     "certification stamping": "on recheck pass, maturity_level + maturity_report are written into the new weights entry metadata (future rollback candidates carry certification evidence)",
     "state": "last_rollback recorded in self-learning state + summary"
@@ -29,7 +30,8 @@
       "e2e-persisted (lifecycle.json + gate tag)",
       "e2e-denied-no-eligible + active-unchanged + pin-unchanged"
     ],
-    "regression": "pytest tests/test_self_learning_gates.py test_phase_self_learning.py test_retention_weight_retirement.py test_lifecycle_resource_actions.py: 43 passed"
+    "regression": "pytest tests/test_self_learning_gates.py test_phase_self_learning.py test_retention_weight_retirement.py test_lifecycle_resource_actions.py: 43 passed (re-run after regression-check addition)",
+    "helper_checks": "_previous_maturity_level: level found / no path match / no level / report-only -> ok"
   },
   "files": [
     "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py",

@@ -20,10 +20,8 @@ for _p in (
 import argparse
 import hashlib
 import json
-import sys
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from .self_learning import (
@@ -165,6 +163,20 @@ def _attempt_governed_rollback(
         "runtime_checkpoint": pinned,
         "anchor_config_sha256": anchor,
     }
+
+
+def _previous_maturity_level(lifecycle: Any, active_path: Path) -> int | None:
+    """升級前現役權重版本在 lifecycle 中已認證的成熟度等級（無則 None）。"""
+    target = Path(active_path)
+    for entry in lifecycle.artifacts.get("weights", {}).get("versions", []):
+        try:
+            if Path(str(entry.get("path") or "")) != target:
+                continue
+            level = (entry.get("metadata") or {}).get("maturity_level")
+            return int(level) if level is not None else None
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _blocked(reason: str, **extra: Any) -> dict[str, Any]:
@@ -475,10 +487,16 @@ def _degradation_probe(
             }
         suite = load_suite(suite_path)
         metrics = evaluate_checkpoint(Path(str(active["path"])), suite)
+        probe_gates = dict(suite["quality_gates"])
+        # 探針量測品質漂移，不量吞吐；tps 閘量到的是機器負載，
+        # 且靜態 baseline_metrics 無同環境 tps 錨點——兩閘於此語境
+        # 不適用，移除並記錄（非放行品質閘門）。
+        probe_gates.pop("min_tokens_per_second", None)
+        probe_gates.pop("min_tps_baseline_ratio", None)
         comparison, passed = compare_metrics(
             dict(suite.get("baseline_metrics") or {}),
             metrics,
-            dict(suite["quality_gates"]),
+            probe_gates,
         )
         return {
             "ok": True,
@@ -486,6 +504,7 @@ def _degradation_probe(
             "suite": str(policy.degradation_probe_suite),
             "metrics": metrics,
             "comparison": comparison,
+            "tps_gate": "not-applicable-degradation-probe",
         }
     except Exception as exc:  # noqa: BLE001 — 探針失敗不觸發、記錄不吞沒
         return {
@@ -1204,17 +1223,32 @@ def _execute_governed_cycle(
                 device=str(resolved_policy.maturity_recheck_device),
             )
             recheck_path = persist_report(tool, recheck_report)
+            certified_level = recheck_report.get("certified_level")
             summary["maturity_recheck"] = {
                 "ok": True,
-                "certified_level": recheck_report.get("certified_level"),
+                "certified_level": certified_level,
                 "certified_level_name": recheck_report.get(
                     "certified_level_name"
                 ),
                 "report": str(recheck_path),
             }
-            if new_entry is not None:
+            # 重測「跑完但認證等級低於上一代」視同失敗（實質退化）：
+            # 舊版等級無紀錄時無基線可比，維持資訊性記錄。
+            baseline_level = _previous_maturity_level(lifecycle, active_path)
+            try:
+                certified_int = int(certified_level)
+            except (TypeError, ValueError):
+                certified_int = -1
+            if baseline_level is not None and certified_int < baseline_level:
+                recheck_ok = False
+                summary["maturity_recheck"]["ok"] = False
+                summary["maturity_recheck"]["reason"] = (
+                    f"certified-level-regressed:{certified_int}"
+                    f"<{baseline_level}"
+                )
+            elif new_entry is not None:
                 new_entry.setdefault("metadata", {})["maturity_level"] = (
-                    recheck_report.get("certified_level")
+                    certified_level
                 )
                 new_entry["metadata"]["maturity_report"] = recheck_path.name
                 lifecycle.save(lifecycle_dir)
