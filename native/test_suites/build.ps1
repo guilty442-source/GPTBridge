@@ -58,6 +58,13 @@ $suites = @(
         )
     },
     @{
+        src = "suite_governed_tool_ws.cpp"; exe = "governed_tool_ws_suite.exe"
+        # M1 ABI §3：HTTP/WS 閘門編解碼（零 I/O，自研 SHA-1/base64/frame）
+        extra = @(
+            (Join-Path $nativeRoot "tool_runtime\governed_tool_ws.cpp")
+        )
+    },
+    @{
         src = "suite_transport_proxy_client.cpp"; exe = "transport_proxy_client_suite.exe"
         # M1 模式 B：proxy 客戶端編解碼＋request_sync 等待語義（零 I/O）
         extra = @(
