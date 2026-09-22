@@ -248,7 +248,10 @@ class CollabSvcBrowserMixin:
             ),
             None,
         )
-        if not isinstance(response, dict) or str(response.get("status") or "") != "awaiting-user":
+        if not isinstance(response, dict) or str(response.get("status") or "") not in {
+            "awaiting-user",
+            "waiting_verification",
+        }:
             return None
         self.repository.update_response(
             message_id,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from typing import Any
 
@@ -130,14 +131,19 @@ class BrowserAutomationSession:
         provider = str(agent.get("provider") or "").strip().casefold()
         try:
             session_id = await self._ensure_agent_session(agent)
+            marker = await self._detect_verification(session_id)
+            if marker:
+                return self._verification_result(provider, marker, submitted=False)
             early = await self._submit_prompt(session_id, provider, prompt)
             if early is not None:
                 return early
 
             # Wait for response
-            content = await self._wait_for_response(
+            content, marker = await self._wait_for_response(
                 session_id, self._extract_script(provider)
             )
+            if marker:
+                return self._verification_result(provider, marker, submitted=True)
             if not content:
                 return self._waiting_result(
                     provider, "BROWSER_RESPONSE_CAPTURE_REQUIRED", submitted=True
@@ -287,15 +293,74 @@ class BrowserAutomationSession:
 
     async def _wait_for_response(
         self, session_id: str, extract_script: str
-    ) -> str:
+    ) -> tuple[str, str | None]:
         for _ in range(self.RESPONSE_TIMEOUT_SECONDS):
             result = await self._execute_script(session_id, extract_script)
             if result.get("ok"):
                 content = str(result.get("result", {}).get("content") or "").strip()
                 if content and len(content) > 10:
-                    return content
+                    return content, None
+            marker = await self._detect_verification(session_id)
+            if marker:
+                return "", marker
             await asyncio.sleep(1)
-        return ""
+        return "", None
+
+    @staticmethod
+    def _verification_detect_script() -> str:
+        markers = json.dumps(list(VERIFICATION_MARKERS))
+        return f"""
+            /* __verify_markers__ */
+            (() => {{
+                const text = ((document.title || "") + " " +
+                    (document.body ? document.body.innerText || "" : ""))
+                    .toLowerCase();
+                for (const marker of {markers}) {{
+                    if (text.includes(marker)) return {{ flagged: true, marker }};
+                }}
+                return {{ flagged: false, marker: "" }};
+            }})()
+        """
+
+    async def _detect_verification(self, session_id: str) -> str | None:
+        """Inspect page title/body for captcha/Cloudflare challenge markers."""
+        result = await self._execute_script(
+            session_id, self._verification_detect_script()
+        )
+        if not result.get("ok"):
+            return None
+        payload = result.get("result")
+        if isinstance(payload, dict) and payload.get("flagged"):
+            return str(payload.get("marker") or "verification")
+        return None
+
+    @staticmethod
+    def _verification_result(
+        provider: str,
+        marker: str,
+        *,
+        submitted: bool,
+    ) -> dict[str, Any]:
+        return {
+            "status": "waiting_verification",
+            "provider": provider,
+            "content": "",
+            "error": f"BROWSER_VERIFICATION_REQUIRED:{marker}",
+            "error_code": "BROWSER_VERIFICATION_REQUIRED",
+            "transport": "embedded-browser-view",
+            "uses_api_key": False,
+            "memory_candidates": [],
+            "fallback": {
+                "used": False,
+                "browser_only": True,
+                "cross_provider_substitution": False,
+            },
+            "browser_handoff": {
+                "submitted": submitted,
+                "response_captured": False,
+                "verification_marker": marker,
+            },
+        }
 
     @staticmethod
     def _browser_failure(exc: Exception) -> dict[str, Any]:
