@@ -55,14 +55,6 @@ namespace {
 
 namespace jl = jsonlite;
 
-void th_trace(const char* tag, const std::string& v) {
-    FILE* f = fopen("tool_host_trace.log", "a");
-    if (f) {
-        fprintf(f, "%s|%s", tag, v.c_str());
-        fputc('\n', f);
-        fclose(f);
-    }
-}
 namespace gtw = gptbridge::gtw;
 namespace tpx = gptbridge::tpx;
 
@@ -765,7 +757,7 @@ void ToolHost::ws_loop(intptr_t sock, std::string pending) {
         gtw::WsFrame f;
         const int64_t used = gtw::ws_frame_decode(
             reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &f);
-        if (used < 0) { th_trace("decode-err", buf.substr(0,24)); break; }
+        if (used < 0) break;
         if (used > 0) {
             buf.erase(0, static_cast<size_t>(used));
             if (f.opcode == gtw::WsOp::Ping) {
@@ -797,7 +789,7 @@ void ToolHost::ws_loop(intptr_t sock, std::string pending) {
             continue;
         }
         const int n = recv(c, tmp, sizeof(tmp), 0);
-        if (n <= 0) { th_trace("ws-recv", std::to_string(n)); break; }
+        if (n <= 0) break;
         buf.append(tmp, static_cast<size_t>(n));
     }
     /* 連線結束：移除指向本 socket 的 waiters（不回推結果）。 */
@@ -956,7 +948,6 @@ void ToolHost::handle_ws_message(intptr_t sock, const std::string& text) {
         send_result_error(c, command, request_id, "PERMISSION_DENIED");
         return;
     }
-    th_trace("received", command + "/" + request_id);
     send_event(c, "COMMAND_RECEIVED",
                jobj({{"command", jstr(command)},
                      {"status", jstr("processing")}}));
