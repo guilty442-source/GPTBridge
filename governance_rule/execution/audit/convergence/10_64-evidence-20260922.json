@@ -1,0 +1,18 @@
+{
+  "evidence": "10.64-① worker budget p95 30min window",
+  "at": "2026-09-22T00:30:00Z",
+  "verifier": "scripts/verify-10_64-resource-budget.py --window 90",
+  "result": {
+    "window": 90,
+    "window_full": true,
+    "total_samples": 115,
+    "window_samples": 90,
+    "cpu_p95": 0.5,
+    "ram_p95": 0.14,
+    "budget_cpu": 10.0,
+    "budget_ram": 30.0,
+    "verdict": "PASS"
+  },
+  "log": "main-system/runtime/logs/resource-governor.jsonl",
+  "notes": "continuous --log-samples, p95 well under budget, no regulation-entered"
+}
