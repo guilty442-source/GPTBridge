@@ -176,6 +176,52 @@ class DailyGlobalCleanerRunMixin:
             active_pointer_path=pointer,
         )
 
+    async def _cleanup_rag_generations(self) -> dict[str, Any]:
+        """§10.67 排程刪除——RAG 索引世代清除。
+
+        只在 RAG runtime 已啟動時才執行（lazy contract：清理循環不得
+        為了掃除而喚醒 RAG）。實際刪除走
+        ``GenerationManager.cleanup_old_generations``——只動 RETIRED／
+        FAILED 世代、保留 rollback 視窗、容量閘未知時 fail-closed。
+        世代管理器活在 pipeline 的專用 loop 上，因此 coroutine 經
+        ``_loop_worker.submit`` 派回該 loop 並有界等待。
+        """
+
+        runtime = getattr(self.app, "rag_runtime", None)
+        pipeline = getattr(runtime, "_pipeline", None)
+        manager = getattr(pipeline, "generation_manager", None)
+        worker = getattr(runtime, "_loop_worker", None)
+        if manager is None or worker is None:
+            return {
+                "ok": True,
+                "operation": "rag-generation-cleanup",
+                "skipped": True,
+                "reason": "rag-not-started",
+            }
+        submit = getattr(worker, "submit", None)
+        if not callable(submit):
+            return {
+                "ok": False,
+                "operation": "rag-generation-cleanup",
+                "error_code": "RAG_LOOP_UNAVAILABLE",
+            }
+        try:
+            future = submit(manager.cleanup_old_generations())
+            result = await asyncio.to_thread(future.result, 120)
+        except Exception as error:
+            return {
+                "ok": False,
+                "operation": "rag-generation-cleanup",
+                "error_code": "RAG_GENERATION_CLEANUP_EXCEPTION",
+                "message": f"{type(error).__name__}: {error}",
+            }
+        record = (
+            result.to_dict() if hasattr(result, "to_dict") else dict(result)
+        )
+        record["ok"] = record.get("status") in ("OK", "ok", True)
+        record["operation"] = "rag-generation-cleanup"
+        return record
+
     def _classify_orphan_roots(self) -> dict[str, Any]:
         """Revalidate unregistered physical roots (classification only).
 
@@ -265,6 +311,14 @@ class DailyGlobalCleanerRunMixin:
                 findings["releases"] = {
                     "ok": False,
                     "error_code": "RELEASE_RETENTION_EXCEPTION",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            try:
+                findings["rag_generations"] = await self._cleanup_rag_generations()
+            except Exception as error:
+                findings["rag_generations"] = {
+                    "ok": False,
+                    "error_code": "RAG_GENERATION_CLEANUP_EXCEPTION",
                     "message": f"{type(error).__name__}: {error}",
                 }
             try:

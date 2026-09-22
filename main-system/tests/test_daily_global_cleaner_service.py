@@ -384,3 +384,68 @@ def test_crash_quarantine_retention_drops_only_aged_records(
     assert result["removed"] == ["global-cleaner-1.json"]
     assert fresh.is_file()
     assert not aged.exists()
+
+
+@pytest.mark.asyncio
+async def test_rag_generation_cleanup_skips_when_rag_not_started(
+    tmp_path: Path,
+) -> None:
+    """Lazy contract: cleanup must never wake the RAG runtime."""
+    app = SimpleNamespace(
+        project_root=tmp_path,
+        permission_sovereign=None,
+        toolbox_service=None,
+        rag_runtime=None,
+    )
+    service = DailyGlobalCleanerService(app)
+    result = await service._cleanup_rag_generations()
+    assert result["ok"] is True
+    assert result["skipped"] is True
+    assert result["reason"] == "rag-not-started"
+
+
+@pytest.mark.asyncio
+async def test_rag_generation_cleanup_dispatches_to_pipeline_loop(
+    tmp_path: Path,
+) -> None:
+    import asyncio
+    import concurrent.futures
+
+    class FakeWorker:
+        def submit(self, coro):
+            future = concurrent.futures.Future()
+
+            async def runner() -> None:
+                try:
+                    future.set_result(await coro)
+                except Exception as error:  # pragma: no cover
+                    future.set_exception(error)
+
+            asyncio.get_running_loop().create_task(runner())
+            return future
+
+    class FakeManager:
+        async def cleanup_old_generations(self):
+            return SimpleNamespace(
+                to_dict=lambda: {
+                    "status": "OK",
+                    "deleted": ["gen-20260901-aaa"],
+                    "retained": ["gen-20260920-bbb"],
+                }
+            )
+
+    rag_runtime = SimpleNamespace(
+        _pipeline=SimpleNamespace(generation_manager=FakeManager()),
+        _loop_worker=FakeWorker(),
+    )
+    app = SimpleNamespace(
+        project_root=tmp_path,
+        permission_sovereign=None,
+        toolbox_service=None,
+        rag_runtime=rag_runtime,
+    )
+    service = DailyGlobalCleanerService(app)
+    result = await service._cleanup_rag_generations()
+    assert result["ok"] is True
+    assert result["deleted"] == ["gen-20260901-aaa"]
+    assert result["operation"] == "rag-generation-cleanup"
