@@ -22,7 +22,13 @@ extern "C" int xcuda_kv_available();
 extern "C" int xcuda_matmul_bf16(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
+extern "C" int xcuda_matmul_bf16_uncached(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out);
 extern "C" int xcuda_matmul_fp8(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out);
+extern "C" int xcuda_matmul_fp8_uncached(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
 #endif
@@ -116,7 +122,7 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
            const std::vector<double>& b, int64_t n) {
             std::vector<double> out(
                 static_cast<size_t>(m_rows * n));
-            const int rc = xcuda_matmul_bf16(
+            const int rc = xcuda_matmul_bf16_uncached(
                 a.data(), m_rows, k, b.data(), n, out.data());
             if (rc != 0) {
                 throw std::runtime_error(
@@ -130,7 +136,7 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
            const std::vector<double>& b, int64_t n) {
             std::vector<double> out(
                 static_cast<size_t>(m_rows * n));
-            const int rc = xcuda_matmul_fp8(
+            const int rc = xcuda_matmul_fp8_uncached(
                 a.data(), m_rows, k, b.data(), n, out.data());
             if (rc != 0) {
                 throw std::runtime_error(

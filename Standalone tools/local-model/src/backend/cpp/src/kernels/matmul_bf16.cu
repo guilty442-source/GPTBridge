@@ -56,13 +56,15 @@ __global__ void gemm_bf16_kernel(
 }
 
 // bf16 device-resident weight cache — separate precision domain from the
-// fp64 cache in cuda_bridge.cpp (same host-pointer stability contract).
+// fp64 cache in cuda_bridge.cpp (same host-pointer stability contract:
+// engine weight vectors are immutable for the engine lifetime). The probe
+// entry bypasses this entirely because transient caller buffers may reuse
+// the same address for different content.
 std::mutex g_mu;
 std::unordered_map<const void*, __nv_bfloat16*> g_bf16_weights;
 
-__nv_bfloat16* device_weight_bf16(const double* host, long long elems) {
-    auto it = g_bf16_weights.find(host);
-    if (it != g_bf16_weights.end()) return it->second;
+// Quantize host f64 → fresh device bf16 buffer (caller frees).
+__nv_bfloat16* upload_bf16(const double* host, long long elems) {
     double* staging = nullptr;
     __nv_bfloat16* dev = nullptr;
     if (cudaMalloc(&staging, elems * sizeof(double)) != cudaSuccess)
@@ -87,8 +89,68 @@ __nv_bfloat16* device_weight_bf16(const double* host, long long elems) {
         cudaFree(dev);
         return nullptr;
     }
+    return dev;
+}
+
+__nv_bfloat16* device_weight_bf16(const double* host, long long elems) {
+    auto it = g_bf16_weights.find(host);
+    if (it != g_bf16_weights.end()) return it->second;
+    __nv_bfloat16* dev = upload_bf16(host, elems);
+    if (dev == nullptr) return nullptr;
     g_bf16_weights.emplace(host, dev);
     return dev;
+}
+
+// Shared GEMM body: a (host f64) × db (device bf16) → out (host f64).
+int run_bf16(
+    const double* a, long long m, long long k,
+    const __nv_bfloat16* db, long long n, double* out) {
+    const long long a_elems = m * k;
+    const long long c_elems = m * n;
+    int rc = 3;
+
+    double* a_stage = nullptr;
+    __nv_bfloat16* da = nullptr;
+    float* dc = nullptr;
+    float* c_host = nullptr;
+
+    if (cudaMalloc(&a_stage, a_elems * sizeof(double)) != cudaSuccess)
+        goto done;
+    if (cudaMalloc(&da, a_elems * sizeof(__nv_bfloat16)) != cudaSuccess)
+        goto done;
+    if (cudaMalloc(&dc, c_elems * sizeof(float)) != cudaSuccess)
+        goto done;
+    c_host = static_cast<float*>(malloc(c_elems * sizeof(float)));
+    if (c_host == nullptr) goto done;
+    if (cudaMemcpy(a_stage, a, a_elems * sizeof(double),
+                   cudaMemcpyHostToDevice) != cudaSuccess)
+        goto done;
+    f64_to_bf16_kernel<<<
+        static_cast<unsigned int>((a_elems + 255) / 256), 256>>>(
+        a_stage, da, a_elems);
+    if (cudaGetLastError() != cudaSuccess) goto done;
+    {
+        dim3 threads(kTile, kTile);
+        dim3 blocks(
+            static_cast<unsigned int>((n + kTile - 1) / kTile),
+            static_cast<unsigned int>((m + kTile - 1) / kTile));
+        gemm_bf16_kernel<<<blocks, threads>>>(
+            da, db, dc, static_cast<int>(m), static_cast<int>(k),
+            static_cast<int>(n));
+    }
+    if (cudaGetLastError() != cudaSuccess) goto done;
+    if (cudaMemcpy(c_host, dc, c_elems * sizeof(float),
+                   cudaMemcpyDeviceToHost) != cudaSuccess)
+        goto done;
+    for (long long i = 0; i < c_elems; ++i)
+        out[i] = static_cast<double>(c_host[i]);
+    rc = 0;
+done:
+    if (a_stage) cudaFree(a_stage);
+    if (da) cudaFree(da);
+    if (dc) cudaFree(dc);
+    free(c_host);
+    return rc;
 }
 
 }  // namespace
@@ -114,58 +176,23 @@ int xcuda_matmul_bf16(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out) {
     if (!a || !b || !out || m <= 0 || k <= 0 || n <= 0) return 2;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const __nv_bfloat16* db = device_weight_bf16(b, k * n);
+    if (db == nullptr) return 3;
+    return run_bf16(a, m, k, db, n, out);
+}
 
-    const long long a_elems = m * k;
-    const long long b_elems = k * n;
-    const long long c_elems = m * n;
-    int rc = 3;
-
-    double* a_stage = nullptr;
-    __nv_bfloat16* da = nullptr;
-    float* dc = nullptr;
-    float* c_host = nullptr;
-
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        __nv_bfloat16* db = device_weight_bf16(b, b_elems);
-        if (db == nullptr) return 3;
-        if (cudaMalloc(&a_stage, a_elems * sizeof(double)) != cudaSuccess)
-            goto done;
-        if (cudaMalloc(&da, a_elems * sizeof(__nv_bfloat16)) != cudaSuccess)
-            goto done;
-        if (cudaMalloc(&dc, c_elems * sizeof(float)) != cudaSuccess)
-            goto done;
-        c_host = static_cast<float*>(malloc(c_elems * sizeof(float)));
-        if (c_host == nullptr) goto done;
-        if (cudaMemcpy(a_stage, a, a_elems * sizeof(double),
-                       cudaMemcpyHostToDevice) != cudaSuccess)
-            goto done;
-        f64_to_bf16_kernel<<<
-            static_cast<unsigned int>((a_elems + 255) / 256), 256>>>(
-            a_stage, da, a_elems);
-        if (cudaGetLastError() != cudaSuccess) goto done;
-        {
-            dim3 threads(kTile, kTile);
-            dim3 blocks(
-                static_cast<unsigned int>((n + kTile - 1) / kTile),
-                static_cast<unsigned int>((m + kTile - 1) / kTile));
-            gemm_bf16_kernel<<<blocks, threads>>>(
-                da, db, dc, static_cast<int>(m), static_cast<int>(k),
-                static_cast<int>(n));
-        }
-        if (cudaGetLastError() != cudaSuccess) goto done;
-        if (cudaMemcpy(c_host, dc, c_elems * sizeof(float),
-                       cudaMemcpyDeviceToHost) != cudaSuccess)
-            goto done;
-        for (long long i = 0; i < c_elems; ++i)
-            out[i] = static_cast<double>(c_host[i]);
-        rc = 0;
-done:;
-    }
-    if (a_stage) cudaFree(a_stage);
-    if (da) cudaFree(da);
-    if (dc) cudaFree(dc);
-    free(c_host);
+// Probe entry: no pointer-keyed cache — the caller's buffer is transient
+// and a reused address must never alias a different weight's device copy.
+int xcuda_matmul_bf16_uncached(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out) {
+    if (!a || !b || !out || m <= 0 || k <= 0 || n <= 0) return 2;
+    std::lock_guard<std::mutex> lk(g_mu);
+    __nv_bfloat16* db = upload_bf16(b, k * n);
+    if (db == nullptr) return 3;
+    const int rc = run_bf16(a, m, k, db, n, out);
+    cudaFree(db);
     return rc;
 }
 

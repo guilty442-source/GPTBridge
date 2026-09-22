@@ -188,58 +188,23 @@ int xcuda_matmul_fp8(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out) {
     if (!a || !b || !out || m <= 0 || k <= 0 || n <= 0) return 2;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const __nv_fp8_e4m3* db = device_weight_fp8(b, k * n);
+    if (db == nullptr) return 3;
+    return run_fp8(a, m, k, db, n, out);
+}
 
-    const long long a_elems = m * k;
-    const long long b_elems = k * n;
-    const long long c_elems = m * n;
-    int rc = 3;
-
-    double* a_stage = nullptr;
-    float* da = nullptr;
-    float* dc = nullptr;
-    float* c_host = nullptr;
-
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        __nv_fp8_e4m3* db = device_weight_fp8(b, b_elems);
-        if (db == nullptr) return 3;
-        if (cudaMalloc(&a_stage, a_elems * sizeof(double)) != cudaSuccess)
-            goto done;
-        if (cudaMalloc(&da, a_elems * sizeof(float)) != cudaSuccess)
-            goto done;
-        if (cudaMalloc(&dc, c_elems * sizeof(float)) != cudaSuccess)
-            goto done;
-        c_host = static_cast<float*>(malloc(c_elems * sizeof(float)));
-        if (c_host == nullptr) goto done;
-        if (cudaMemcpy(a_stage, a, a_elems * sizeof(double),
-                       cudaMemcpyHostToDevice) != cudaSuccess)
-            goto done;
-        f64_to_fp32_kernel<<<
-            static_cast<unsigned int>((a_elems + 255) / 256), 256>>>(
-            a_stage, da, a_elems);
-        if (cudaGetLastError() != cudaSuccess) goto done;
-        {
-            dim3 threads(kTile, kTile);
-            dim3 blocks(
-                static_cast<unsigned int>((n + kTile - 1) / kTile),
-                static_cast<unsigned int>((m + kTile - 1) / kTile));
-            gemm_fp8_kernel<<<blocks, threads>>>(
-                da, db, dc, static_cast<int>(m), static_cast<int>(k),
-                static_cast<int>(n));
-        }
-        if (cudaGetLastError() != cudaSuccess) goto done;
-        if (cudaMemcpy(c_host, dc, c_elems * sizeof(float),
-                       cudaMemcpyDeviceToHost) != cudaSuccess)
-            goto done;
-        for (long long i = 0; i < c_elems; ++i)
-            out[i] = static_cast<double>(c_host[i]);
-        rc = 0;
-done:;
-    }
-    if (a_stage) cudaFree(a_stage);
-    if (da) cudaFree(da);
-    if (dc) cudaFree(dc);
-    free(c_host);
+// Probe entry: no pointer-keyed cache — the caller's buffer is transient
+// and a reused address must never alias a different weight's device copy.
+int xcuda_matmul_fp8_uncached(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out) {
+    if (!a || !b || !out || m <= 0 || k <= 0 || n <= 0) return 2;
+    std::lock_guard<std::mutex> lk(g_mu);
+    __nv_fp8_e4m3* db = upload_fp8(b, k * n);
+    if (db == nullptr) return 3;
+    const int rc = run_fp8(a, m, k, db, n, out);
+    cudaFree(db);
     return rc;
 }
 
