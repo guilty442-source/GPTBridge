@@ -494,11 +494,25 @@ extern "C" int xcuda_bf16_available();
 extern "C" int xcuda_matmul_bf16(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
+// P1-1② device-resident KV + online-softmax attention (kernels/kv_attention.cu).
+extern "C" int xcuda_kv_available();
+extern "C" int xcuda_kv_alloc(
+    long long layers, long long kv_heads, long long head_dim,
+    long long max_len);
+extern "C" void xcuda_kv_free();
+extern "C" int xcuda_kv_write_rows(
+    int is_k, long long layer, long long head, long long pos0,
+    long long rows, const double* src);
+extern "C" int xcuda_kv_attention(
+    long long layer, const double* q, long long heads, long long seq,
+    long long kv_heads, long long head_dim, long long position_offset,
+    double* out, long long out_stride);
 #endif
 
 namespace {
 std::atomic<bool> g_cuda_requested{false};
 std::atomic<bool> g_cuda_bf16_requested{false};
+std::atomic<bool> g_cuda_kv_requested{false};
 
 bool env_flag(const char* name) {
     const char* value = std::getenv(name);
@@ -1271,6 +1285,20 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         throw InferenceError("CUDA_BF16_UNAVAILABLE");
 #endif
     }
+    // P1-1② device-resident KV: opt-in on the CUDA path; the int8 KV format
+    // has no device representation, so requesting both fails closed.
+    g_cuda_kv_requested.store(env_flag("XINGCHENG_CPP_CUDA_KV"));
+    if (g_cuda_kv_requested.load()) {
+#if defined(XINGCHENG_CUDA)
+        if (!g_cuda_requested.load() || !xcuda_kv_available()) {
+            g_cuda_kv_requested.store(false);
+            throw InferenceError("CUDA_KV_UNAVAILABLE");
+        }
+#else
+        g_cuda_kv_requested.store(false);
+        throw InferenceError("CUDA_KV_UNAVAILABLE");
+#endif
+    }
 
     embedding_ = bundle_->tensor("model.embeddings.word_embeddings.weight");
     final_norm_ = bundle_->tensor("model.final_norm.weight");
@@ -1363,6 +1391,23 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     kv_slot_active_.clear();
     kv_lens_.clear();
 
+    // Device-resident KV mirror (P1-1②): fp64 device buffers sized to the
+    // worst-case footprint; writes are mirrored per row for slot 0 only.
+    // int8 KV has no device format — the combination fails closed rather
+    // than silently serving a different precision than requested.
+    kv_device_active_ = false;
+#if defined(XINGCHENG_CUDA)
+    if (g_cuda_kv_requested.load()) {
+        if (kv_int8_) throw InferenceError("CUDA_KV_UNSUPPORTED_CONFIG");
+        if (xcuda_kv_alloc(
+                cfg.num_hidden_layers, cfg.num_key_value_heads,
+                cfg.head_dim, cfg.max_position_embeddings) != 0) {
+            throw InferenceError("CUDA_KV_UNAVAILABLE");
+        }
+        kv_device_active_ = true;
+    }
+#endif
+
     const std::filesystem::path tokenizer_path = root / "tokenizer.json";
     if (std::filesystem::exists(tokenizer_path)) {
         tokenizer_ = std::make_unique<ByteLevelBPETokenizer>(
@@ -1381,6 +1426,8 @@ void NativeInferenceEngine::unload() {
     if (g_cuda_requested.load()) xcuda_release_weights();
 #endif
     g_cuda_requested.store(false);
+    g_cuda_kv_requested.store(false);
+    kv_device_active_ = false;
     layers_.clear();
     prefix_cache_.clear();
     prefix_tick_ = 0;
@@ -1516,6 +1563,16 @@ void NativeInferenceEngine::kv_write(
     int64_t head, const double* src) {
     const int64_t n = bundle_->config().head_dim;
     char* dst = kv_slot_bytes(slot, key_cache, layer, position, head);
+#if defined(XINGCHENG_CUDA)
+    // Write-through to the device-resident mirror (slot 0 only); the host
+    // pool stays the source of truth and a failed mirror fails the forward
+    // — never silently divergent caches.
+    if (kv_device_active_ && slot == 0 &&
+        xcuda_kv_write_rows(
+            key_cache ? 1 : 0, layer, head, position, 1, src) != 0) {
+        throw InferenceError("CUDA_KV_WRITE_FAILED");
+    }
+#endif
     if (!kv_int8_) {
         std::memcpy(dst, src, static_cast<size_t>(n) * sizeof(double));
         return;
@@ -1832,6 +1889,39 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 }
             }
 
+            // P1-1② device-resident KV: when the governed opt-in is active
+            // and this span is the single-sequence slot, the current-step
+            // K/V rows are mirrored on-device and attention runs entirely
+            // in the CUDA online-softmax kernel (same causal bound and
+            // fp64 semantics as the host path below). Other slots keep the
+            // host loop.
+            bool device_attn_done = false;
+#if defined(XINGCHENG_CUDA)
+            if (kv_device_active_ && span.slot == 0) {
+                for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
+                    if (xcuda_kv_write_rows(
+                            1, layer_idx, h, span.position_offset, seq,
+                            k_heads.data() +
+                                static_cast<size_t>(h * seq * cfg.head_dim)) != 0 ||
+                        xcuda_kv_write_rows(
+                            0, layer_idx, h, span.position_offset, seq,
+                            v_heads.data() +
+                                static_cast<size_t>(h * seq * cfg.head_dim)) != 0) {
+                        throw InferenceError("CUDA_KV_WRITE_FAILED");
+                    }
+                }
+                if (xcuda_kv_attention(
+                        layer_idx, q_heads.data(), cfg.num_attention_heads,
+                        seq, cfg.num_key_value_heads, cfg.head_dim,
+                        span.position_offset,
+                        attn_flat.data() + static_cast<size_t>(base * q_dim),
+                        q_dim) != 0) {
+                    throw InferenceError("CUDA_ATTENTION_FAILED");
+                }
+                device_attn_done = true;
+            }
+#endif
+
             // W1 residual: online/blocked attention — K/V streamed in tiles
             // with a running max/sum/accumulator (FlashAttention-style online
             // softmax); the seq x total_len scores matrix is never
@@ -1841,6 +1931,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             // KV INT8: cached entries carry packed int8 + per-head scale;
             // current-step sources stay fp64 (KvSrc.fp).
             constexpr int64_t kAttnTile = 64;
+            if (!device_attn_done) {
             std::vector<KvSrc> k_srcs(static_cast<size_t>(total_len));
             std::vector<KvSrc> v_srcs(static_cast<size_t>(total_len));
             std::vector<double> tile_scores(static_cast<size_t>(kAttnTile));
@@ -1912,6 +2003,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                         out[d] = acc[static_cast<size_t>(d)] * inv_l;
                     }
                 }
+            }
             }
         }
 

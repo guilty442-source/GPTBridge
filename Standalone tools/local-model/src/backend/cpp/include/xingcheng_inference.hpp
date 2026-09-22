@@ -264,6 +264,11 @@ private:
     // real footprint. Read sites dequantize via KvSrc dispatch.
     bool kv_int8_ = false;
     int64_t kv_elem_stride_bytes_ = 0;
+    // P1-1② device-resident KV (opt-in via governed env): when active the
+    // slot-0 fp64 KV is mirrored on-device and attention runs in the CUDA
+    // kernel; host pool stays the source of truth. Only reachable when
+    // !kv_int8_ (int8 format unsupported on device → load fails closed).
+    bool kv_device_active_ = false;
     std::vector<int64_t> sequence_;
 
     struct KvSrc {

@@ -58,17 +58,38 @@ void* device_weight(const double* host, size_t bytes) {
 extern "C" {
 
 #if defined(XINGCHENG_CUDA_KERNELS)
-// Provided by src/kernels/matmul_bf16.cu when the nvcc toolchain is
-// available at build time (build_cpp.py sets XINGCHENG_CUDA_KERNELS).
+// Provided by src/kernels/*.cu when the nvcc toolchain is available at
+// build time (build_cpp.py sets XINGCHENG_CUDA_KERNELS).
 int xcuda_bf16_kernel_probe();
 int xcuda_bf16_release_weights();
+int xcuda_kv_kernel_probe();
+int xcuda_kv_alloc(long long layers, long long kv_heads, long long head_dim,
+                   long long max_len);
+void xcuda_kv_free();
+int xcuda_kv_write_rows(int is_k, long long layer, long long head,
+                        long long pos0, long long rows, const double* src);
+int xcuda_kv_attention(long long layer, const double* q, long long heads,
+                       long long seq, long long kv_heads, long long head_dim,
+                       long long position_offset, double* out,
+                       long long out_stride);
 #else
-// Stub so the symbol always resolves; the bf16 request path fails closed
-// through xcuda_bf16_available()==0 before ever reaching this.
+// Stubs so the symbols always resolve; the bf16/KV request paths fail
+// closed through *_available()==0 before ever reaching these.
 int xcuda_matmul_bf16(
     const double*, long long, long long,
     const double*, long long, double*) {
     return 3;
+}
+int xcuda_kv_alloc(long long, long long, long long, long long) { return 1; }
+void xcuda_kv_free() {}
+int xcuda_kv_write_rows(int, long long, long long, long long, long long,
+                        const double*) {
+    return 1;
+}
+int xcuda_kv_attention(long long, const double*, long long, long long,
+                       long long, long long, long long, double*,
+                       long long) {
+    return 1;
 }
 #endif
 
@@ -91,6 +112,7 @@ int xcuda_release_weights() {
 #if defined(XINGCHENG_CUDA_KERNELS)
     xcuda_bf16_release_weights();
 #endif
+    xcuda_kv_free();
     return 0;
 }
 
@@ -100,6 +122,16 @@ int xcuda_release_weights() {
 int xcuda_bf16_available() {
 #if defined(XINGCHENG_CUDA_KERNELS)
     return xcuda_bf16_kernel_probe();
+#else
+    return 0;
+#endif
+}
+
+// Device-resident KV availability: same fail-closed contract — 1 only when
+// the kernels TU is linked and a CUDA device exists.
+int xcuda_kv_available() {
+#if defined(XINGCHENG_CUDA_KERNELS)
+    return xcuda_kv_kernel_probe();
 #else
     return 0;
 #endif
