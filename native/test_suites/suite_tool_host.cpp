@@ -239,7 +239,18 @@ bool read_frame(SOCKET s, gtw::WsFrame* out, int timeout_ms = 5000) {
         const int n = recv(s, tmp, sizeof(tmp), 0);
         if (n > 0) {
             buf.append(tmp, static_cast<size_t>(n));
+            FILE* f = fopen("read_frame_dbg.log", "a");
+            if (f) {
+                fprintf(f, "n=%d first=%02x%02x\n", n,
+                        (uint8_t)tmp[0], (uint8_t)tmp[1]);
+                fclose(f);
+            }
             continue;
+        }
+        FILE* f = fopen("read_frame_dbg.log", "a");
+        if (f) {
+            fprintf(f, "recv=%d wsa=%d\n", n, WSAGetLastError());
+            fclose(f);
         }
         if (n == 0) return false;               /* peer closed */
         if (WSAGetLastError() == WSAETIMEDOUT) continue;

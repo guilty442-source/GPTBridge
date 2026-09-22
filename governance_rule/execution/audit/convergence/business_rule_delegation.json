@@ -1,12 +1,12 @@
 {
   "schema": "business-rule-delegation/v2",
-  "generated_at_utc": "2026-09-22T10:22:46Z",
+  "generated_at_utc": "2026-09-22T10:27:16Z",
   "generator": "scripts/build-business-rule-delegation.py",
   "authority": "derived-rebuildable-non-authoritative; source is runtime-rule-index.json, which itself is derived from governance_codex.sqlite3",
   "source": {
     "index": "main-system\\runtime\\state\\runtime-rule-index.json",
-    "codex_version": "2026-09-22T10:02:23Z",
-    "index_content_sha256": "9d91952e6385363ccab9a0b241b33717de7af4c87fa3a96dbf679b1fa969e08f"
+    "codex_version": "2026-09-22T10:23:53Z",
+    "index_content_sha256": "87082455f61aa90b56fb6ca68751fb1f5b71184a46adb1b8cf4bdf028249cab2"
   },
   "rule": "Codex retains governance/authority/boundary only; business rules delegated to owning sovereign/module (blueprint §3.5 E). Fail-closed/governance provisions never delegated.",
   "governance_dimensions": [
@@ -15,10 +15,10 @@
     "治理/權責"
   ],
   "counts": {
-    "provisions_total": 545,
+    "provisions_total": 548,
     "governance": 44,
     "business": 24,
-    "mixed": 477,
+    "mixed": 480,
     "owning_unit_unassigned": 0
   },
   "rows": [
@@ -1103,7 +1103,7 @@
       "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
-      "lifecycle": "active",
+      "lifecycle": "superseded",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -2591,7 +2591,6 @@
       "kind": "mixed",
       "owning_unit": "UNIT_PERMISSION",
       "owners": [
-        "decision",
         "permission",
         "permission-sovereign"
       ],
@@ -2639,7 +2638,6 @@
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
       "owners": [
-        "decision",
         "permission",
         "permission-sovereign",
         "runtime-sovereign"
@@ -2691,7 +2689,6 @@
       "owners": [
         "automation",
         "automation-sovereign",
-        "decision",
         "permission",
         "permission-sovereign",
         "resource-dependency-sync-sub-sovereign"
@@ -2716,7 +2713,6 @@
       "kind": "mixed",
       "owning_unit": "UNIT_PLATFORM",
       "owners": [
-        "decision",
         "permission",
         "permission-sovereign"
       ],
@@ -2740,7 +2736,6 @@
       "owners": [
         "automation",
         "automation-sovereign",
-        "decision",
         "permission",
         "permission-sovereign",
         "release-update-sync-sub-sovereign"
@@ -2767,7 +2762,6 @@
       "owners": [
         "automation",
         "automation-sovereign",
-        "decision",
         "dependency-sync-sub-sovereign",
         "permission",
         "permission-sovereign"
@@ -2816,7 +2810,6 @@
       "kind": "mixed",
       "owning_unit": "BLOCK_TOOLS",
       "owners": [
-        "decision",
         "permission",
         "permission-sovereign",
         "runtime-sovereign"
@@ -2842,13 +2835,12 @@
       "owners": [
         "automation",
         "automation-sovereign",
-        "decision",
         "permission",
         "permission-sovereign",
         "release-update-sync-sub-sovereign"
       ],
       "tier": "special-law",
-      "lifecycle": "active",
+      "lifecycle": "superseded",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -8796,7 +8788,7 @@
       "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
-      "lifecycle": "active",
+      "lifecycle": "superseded",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -8883,14 +8875,11 @@
       "dimensions": [
         "資料/SQL",
         "安全與稽核",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -8903,14 +8892,11 @@
       "dimensions": [
         "資料/SQL",
         "工程實作要求",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -8922,14 +8908,11 @@
       "primary_dimension": "資料/SQL",
       "dimensions": [
         "資料/SQL",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -8943,7 +8926,6 @@
         "資料/SQL",
         "安全與稽核",
         "工程實作要求",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
@@ -8963,14 +8945,11 @@
       "primary_dimension": "資料/SQL",
       "dimensions": [
         "資料/SQL",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -8984,14 +8963,11 @@
         "資料/SQL",
         "安全與稽核",
         "工程實作要求",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -9005,14 +8981,11 @@
         "時限/預算",
         "資料/SQL",
         "工程實作要求",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -9025,14 +8998,11 @@
       "dimensions": [
         "資料/SQL",
         "安全與稽核",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -9045,14 +9015,11 @@
       "dimensions": [
         "資料/SQL",
         "安全與稽核",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -9067,7 +9034,6 @@
         "資料/SQL",
         "安全與稽核",
         "工程實作要求",
-        "流程/程序",
         "治理/權責"
       ],
       "kind": "mixed",
@@ -9093,9 +9059,7 @@
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_RUNTIME",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -9540,9 +9504,7 @@
       ],
       "kind": "mixed",
       "owning_unit": "UNIT_DATA",
-      "owners": [
-        "permission"
-      ],
+      "owners": [],
       "tier": "main-codex",
       "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
@@ -10863,6 +10825,65 @@
         "時限/預算",
         "模型/推論",
         "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A601",
+      "subject": "共同禁止條款引用條例",
+      "section": "amendment-and-protection",
+      "primary_dimension": "資料/SQL",
+      "dimensions": [
+        "資料/SQL",
+        "安全與稽核",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [
+        "decision",
+        "permission"
+      ],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A602",
+      "subject": "治理與業務規則下放 successor",
+      "section": "separation-and-accountability",
+      "primary_dimension": "時限/預算",
+      "dimensions": [
+        "時限/預算",
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A603",
+      "subject": "Git 規範單一控制條引用收斂",
+      "section": "amendment-and-protection",
+      "primary_dimension": "安全與稽核",
+      "dimensions": [
         "安全與稽核",
         "工程實作要求",
         "流程/程序",
