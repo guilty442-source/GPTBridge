@@ -1,17 +1,20 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-22T07:54:12Z",
+  "generated_at": "2026-09-22T08:15:01Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 209,
-    "delegated_checks": 36,
+    "native_checks": 244,
+    "delegated_checks": 29,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
       "file-readonly",
+      "dir-exists",
       "file-contains",
+      "file-not-contains",
       "text-no-pollution",
       "json-parses",
+      "json-has-keys",
       "glob-min-count"
     ]
   },
@@ -2162,24 +2165,284 @@
       ]
     },
     {
-      "id": "python-check:check_embedded_browser",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "id": "metadata-contract:fields",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/metadata_contract.py",
+      "markers": [
+        "FIELD_MODULE_ID",
+        "FIELD_RESOURCE_ID",
+        "FIELD_LOCATOR_ID",
+        "FIELD_VERSION",
+        "FIELD_CONTENT_HASH",
+        "FIELD_UPDATED_AT",
+        "FIELD_STATUS",
+        "ResourceMetadata",
+        "validate_qdrant_payload"
+      ]
     },
     {
-      "id": "python-check:check_git_tiers",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "id": "metadata-contract:ownership-doc",
+      "kind": "file-exists",
+      "path": "shared-layer/docs/DATA_OWNERSHIP_CONTRACT.md"
     },
     {
-      "id": "python-check:check_metadata_contract",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "id": "shared-layer-dir:shared-layer",
+      "kind": "dir-exists",
+      "path": "shared-layer"
     },
     {
-      "id": "python-check:check_orphan_scanner",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "id": "shared-layer-dir:shared-layer/src",
+      "kind": "dir-exists",
+      "path": "shared-layer/src"
+    },
+    {
+      "id": "shared-layer-dir:shared-layer/data",
+      "kind": "dir-exists",
+      "path": "shared-layer/data"
+    },
+    {
+      "id": "shared-layer-source:__init__.py",
+      "kind": "file-exists",
+      "path": "shared-layer/src/shared_layer/__init__.py"
+    },
+    {
+      "id": "shared-layer-source-readonly:__init__.py",
+      "kind": "file-readonly",
+      "path": "shared-layer/src/shared_layer/__init__.py"
+    },
+    {
+      "id": "shared-layer-source:channel.py",
+      "kind": "file-exists",
+      "path": "shared-layer/src/shared_layer/channel.py"
+    },
+    {
+      "id": "shared-layer-source-readonly:channel.py",
+      "kind": "file-readonly",
+      "path": "shared-layer/src/shared_layer/channel.py"
+    },
+    {
+      "id": "shared-layer-source:store.py",
+      "kind": "file-exists",
+      "path": "shared-layer/src/shared_layer/store.py"
+    },
+    {
+      "id": "shared-layer-source-readonly:store.py",
+      "kind": "file-readonly",
+      "path": "shared-layer/src/shared_layer/store.py"
+    },
+    {
+      "id": "sqlite-template:tables",
+      "kind": "file-contains",
+      "path": "shared-layer/sql/sqlite_module_template.sql",
+      "markers": [
+        "schema_version",
+        "module_metadata",
+        "resource_metadata",
+        "audit_event",
+        "reconcile_state",
+        "authority_class",
+        "executor_id",
+        "correlation_id"
+      ]
+    },
+    {
+      "id": "embedded-browser:no-playwright:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/browser_automation.py",
+      "kind": "file-not-contains",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/browser_automation.py",
+      "markers": [
+        "from playwright",
+        "import playwright"
+      ],
+      "optional": true
+    },
+    {
+      "id": "embedded-browser:no-playwright:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
+      "kind": "file-not-contains",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
+      "markers": [
+        "from playwright",
+        "import playwright"
+      ],
+      "optional": true
+    },
+    {
+      "id": "embedded-browser:no-playwright:Standalone tools/vaultly/src/backend/services/vaultly/integration/browser_session.py",
+      "kind": "file-not-contains",
+      "path": "Standalone tools/vaultly/src/backend/services/vaultly/integration/browser_session.py",
+      "markers": [
+        "from playwright",
+        "import playwright"
+      ],
+      "optional": true
+    },
+    {
+      "id": "embedded-browser:no-dep:main-system/requirements.txt",
+      "kind": "file-not-contains",
+      "path": "main-system/requirements.txt",
+      "markers": [
+        "playwright"
+      ],
+      "optional": true,
+      "ignore_case": true
+    },
+    {
+      "id": "embedded-browser:no-dep:main-system/pyproject.toml",
+      "kind": "file-not-contains",
+      "path": "main-system/pyproject.toml",
+      "markers": [
+        "playwright"
+      ],
+      "optional": true,
+      "ignore_case": true
+    },
+    {
+      "id": "embedded-browser:module",
+      "kind": "file-exists",
+      "path": "main-system/src-ui/main/embedded-browser.ts"
+    },
+    {
+      "id": "embedded-browser:client",
+      "kind": "file-exists",
+      "path": "shared-layer/src/shared_layer/embedded_browser_client.py"
+    },
+    {
+      "id": "orphan-scanner:module",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/database/orphan_scanner.py",
+      "markers": [
+        "scan_orphans"
+      ]
+    },
+    {
+      "id": "git-tiers:module",
+      "kind": "file-contains",
+      "path": "governance_rule/execution/git_tiers/__init__.py",
+      "markers": [
+        "TIER1_OPS",
+        "TIER2_OPS",
+        "TIER3_OPS",
+        "def classify",
+        "def enforce",
+        "def audit_log"
+      ]
+    },
+    {
+      "id": "git-tiers:gate-wrapper",
+      "kind": "file-contains",
+      "path": "scripts/git-gate.py",
+      "markers": [
+        "from governance_rule.execution.git_tiers import"
+      ]
+    },
+    {
+      "id": "git-tiers:hook:pre-commit",
+      "kind": "file-exists",
+      "path": "governance_rule/git-hooks/pre-commit"
+    },
+    {
+      "id": "git-tiers:hook:pre-merge-commit",
+      "kind": "file-exists",
+      "path": "governance_rule/git-hooks/pre-merge-commit"
+    },
+    {
+      "id": "git-tiers:hook:pre-push",
+      "kind": "file-exists",
+      "path": "governance_rule/git-hooks/pre-push"
+    },
+    {
+      "id": "git-tiers:pre-push",
+      "kind": "file-contains",
+      "path": "governance_rule/git-hooks/pre-push",
+      "markers": [
+        "GOVERNANCE_AUTHORITY_APPROVAL",
+        "merge-base",
+        "refs/tags/"
+      ]
+    },
+    {
+      "id": "release-manifest:keys",
+      "kind": "json-has-keys",
+      "path": "shared-layer/database-release.json",
+      "markers": [
+        "release_id",
+        "schema_version",
+        "migration_head",
+        "rls_version",
+        "role_version",
+        "sqlite_template_version",
+        "reconcile_contract_version",
+        "qdrant_contract_version",
+        "query_contract_version",
+        "minimum_runtime_version",
+        "compatibility_range",
+        "state"
+      ]
+    },
+    {
+      "id": "architecture:shared-database-canonical",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/database/__init__.py",
+      "markers": [
+        "POSTGRESQL_CANONICAL: bool = True"
+      ]
+    },
+    {
+      "id": "architecture:local-vector-degraded",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/local/vector_store.py",
+      "markers": [
+        "\"engine\": \"local-vector-degraded-cache\"",
+        "\"canonical\": False"
+      ]
+    },
+    {
+      "id": "architecture:network-allowlist:market_data.py",
+      "kind": "file-contains",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data.py",
+      "markers": [
+        "NETWORK_DESTINATION_ALLOWLIST"
+      ]
+    },
+    {
+      "id": "architecture:network-allowlist:xingcheng_tools/search/searxng.py",
+      "kind": "file-contains",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searxng.py",
+      "markers": [
+        "NETWORK_DESTINATION_ALLOWLIST"
+      ]
+    },
+    {
+      "id": "main-system:no-legacy-enforcer",
+      "kind": "file-not-contains",
+      "path": "main-system/src-core/main.py",
+      "markers": [
+        "GovernanceEnforcer",
+        "governance.enforcer"
+      ]
+    },
+    {
+      "id": "main-system:launcher-attested",
+      "kind": "file-contains",
+      "path": "main-system/src-core/main.py",
+      "markers": [
+        "MainSystemGovernance.from_environment"
+      ]
+    },
+    {
+      "id": "main-system:no-persistent-logger",
+      "kind": "file-not-contains",
+      "path": "main-system/src-core/main.py",
+      "markers": [
+        "CoreLogger"
+      ]
+    },
+    {
+      "id": "main-system:governance-denied",
+      "kind": "file-contains",
+      "path": "main-system/src-core/core_system/governance_runtime.py",
+      "markers": [
+        "if tool_id == \"governance_rule\""
+      ]
     },
     {
       "id": "python-check:check_permission_snapshot_helper",
@@ -2192,27 +2455,12 @@
       "reason": "python oracle (transition)"
     },
     {
-      "id": "python-check:check_release_manifest_file",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
-    },
-    {
       "id": "python-check:check_sql_migrations",
       "kind": "delegated",
       "reason": "python oracle (transition)"
     },
     {
-      "id": "python-check:check_sqlite_template",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
-    },
-    {
       "id": "python-check:check_codex_text_integrity",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
-    },
-    {
-      "id": "python-check:check_architecture_sources",
       "kind": "delegated",
       "reason": "python oracle (transition)"
     },
@@ -2227,22 +2475,12 @@
       "reason": "python oracle (transition)"
     },
     {
-      "id": "python-check:check_main_system_source",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
-    },
-    {
       "id": "python-check:check_repair_policy",
       "kind": "delegated",
       "reason": "python oracle (transition)"
     },
     {
       "id": "python-check:check_shared_layer_policy",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
-    },
-    {
-      "id": "python-check:check_shared_layer_structure",
       "kind": "delegated",
       "reason": "python oracle (transition)"
     },
@@ -2340,6 +2578,16 @@
       "id": "python-check:codex-consistency-semantic",
       "kind": "delegated",
       "reason": "codex repository + mirror identity sync"
+    },
+    {
+      "id": "python-check:git-tiers-classify-failclosed",
+      "kind": "delegated",
+      "reason": "classify(unknown)==3 runtime semantic"
+    },
+    {
+      "id": "python-check:embedded-browser-async-playwright",
+      "kind": "delegated",
+      "reason": "async_playwright ∧ ¬InProcessEmbeddedBrowser 複合條件"
     }
   ]
 }

@@ -179,6 +179,70 @@ int main() {
         remove_dir(dir);
     } NT_END_TEST("audit_engine_suite", "kind_glob_and_delegated");
 
+    NT_TEST("audit_engine_suite", "kind_file_not_contains") {
+        fs::path dir = make_case_dir("notcontains");
+        write_file(dir / "m.py", "clean source");
+        write_file(dir / "bad.py", "uses GovernanceEnforcer here");
+        std::vector<AuditCheck> checks = {
+            {"f1", "file-not-contains", "m.py", "",
+             {"GovernanceEnforcer"}, 0, "", false, false},
+            {"f2", "file-not-contains", "bad.py", "",
+             {"GovernanceEnforcer"}, 0, "", false, false},
+            /* 必要目標缺席 → FAIL */
+            {"f3", "file-not-contains", "absent.py", "",
+             {"x"}, 0, "", false, false},
+            /* optional 目標缺席 → PASS（條件式掃描語義） */
+            {"f4", "file-not-contains", "absent.py", "",
+             {"x"}, 0, "", true, false},
+            /* ignore_case：內容大寫仍攔小寫標記 */
+            {"f5", "file-not-contains", "bad.py", "",
+             {"governanceenforcer"}, 0, "", false, true},
+        };
+        auto report = gptbridge::audit_run(checks, dir.u8string());
+        NT_CHECK(find(report, "f1")->status == AuditStatus::PASS, "clean");
+        NT_CHECK(find(report, "f2")->status == AuditStatus::FAIL,
+                 "forbidden marker");
+        NT_CHECK(find(report, "f3")->status == AuditStatus::FAIL,
+                 "required target missing");
+        NT_CHECK(find(report, "f4")->status == AuditStatus::PASS,
+                 "optional target missing");
+        NT_CHECK(find(report, "f5")->status == AuditStatus::FAIL,
+                 "ignore_case still catches");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_file_not_contains");
+
+    NT_TEST("audit_engine_suite", "kind_json_has_keys_and_dir") {
+        fs::path dir = make_case_dir("jsonkeys");
+        write_file(dir / "ok.json", "{\"a\":1,\"b\":2}");
+        write_file(dir / "missing.json", "{\"a\":1}");
+        write_file(dir / "notobj.json", "[1,2]");
+        write_file(dir / "bad.json", "{broken");
+        fs::create_directories(dir / "real");
+        std::vector<AuditCheck> checks = {
+            {"j1", "json-has-keys", "ok.json", "", {"a", "b"}, 0, ""},
+            {"j2", "json-has-keys", "missing.json", "", {"a", "b"}, 0, ""},
+            {"j3", "json-has-keys", "notobj.json", "", {"a"}, 0, ""},
+            {"j4", "json-has-keys", "bad.json", "", {"a"}, 0, ""},
+            {"d1", "dir-exists", "real", "", {}, 0, ""},
+            {"d2", "dir-exists", "nothere", "", {}, 0, ""},
+            {"d3", "dir-exists", "ok.json", "", {}, 0, ""},
+        };
+        auto report = gptbridge::audit_run(checks, dir.u8string());
+        NT_CHECK(find(report, "j1")->status == AuditStatus::PASS, "all keys");
+        NT_CHECK(find(report, "j2")->status == AuditStatus::FAIL,
+                 "missing key");
+        NT_CHECK(find(report, "j3")->status == AuditStatus::FAIL,
+                 "non-object root");
+        NT_CHECK(find(report, "j4")->status == AuditStatus::FAIL,
+                 "malformed json");
+        NT_CHECK(find(report, "d1")->status == AuditStatus::PASS, "dir");
+        NT_CHECK(find(report, "d2")->status == AuditStatus::FAIL,
+                 "missing dir");
+        NT_CHECK(find(report, "d3")->status == AuditStatus::FAIL,
+                 "file is not a dir");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_json_has_keys_and_dir");
+
     NT_TEST("audit_engine_suite", "report_json_shape") {
         gptbridge::AuditReport report;
         report.manifest_ok = true;

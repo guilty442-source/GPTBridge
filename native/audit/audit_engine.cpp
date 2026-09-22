@@ -280,6 +280,13 @@ bool contains_pollution(const std::string& text) {
     return false;
 }
 
+std::string to_lower(const std::string& s) {
+    std::string out = s;
+    for (auto& c : out)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return out;
+}
+
 AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
     AuditCheckResult r;
     r.id = check.id;
@@ -312,9 +319,25 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
         }
         return r;
     }
+    if (check.kind == "dir-exists") {
+        /* 語義對齊 Python：必須為實體目錄且非 symlink */
+        if (fs::is_symlink(target, ec)) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "must be a physical directory (symlink): " + check.path;
+        } else if (fs::is_directory(target, ec)) {
+            r.status = AuditStatus::PASS;
+        } else {
+            r.status = AuditStatus::FAIL; r.detail = "missing dir: " + check.path;
+        }
+        return r;
+    }
     if (check.kind == "file-contains") {
         std::string content;
         if (!read_file(target, &content)) {
+            if (check.optional && !fs::exists(target, ec)) {
+                r.status = AuditStatus::PASS;
+                return r;
+            }
             r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
             return r;
         }
@@ -322,6 +345,58 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
             if (content.find(m) == std::string::npos) {
                 r.status = AuditStatus::FAIL;
                 r.detail = "missing marker: " + m;
+                return r;
+            }
+        }
+        r.status = AuditStatus::PASS;
+        return r;
+    }
+    if (check.kind == "file-not-contains") {
+        std::string content;
+        if (!read_file(target, &content)) {
+            if (check.optional && !fs::exists(target, ec)) {
+                r.status = AuditStatus::PASS;   /* 條件式禁標檢查：缺席即略過 */
+                return r;
+            }
+            r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
+            return r;
+        }
+        const std::string haystack =
+            check.ignore_case ? to_lower(content) : content;
+        for (const auto& m : check.markers) {
+            const std::string needle =
+                check.ignore_case ? to_lower(m) : m;
+            if (haystack.find(needle) != std::string::npos) {
+                r.status = AuditStatus::FAIL;
+                r.detail = "forbidden marker present: " + m;
+                return r;
+            }
+        }
+        r.status = AuditStatus::PASS;
+        return r;
+    }
+    if (check.kind == "json-has-keys") {
+        std::string content;
+        if (!read_file(target, &content)) {
+            r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
+            return r;
+        }
+        JsonValue doc;
+        try { doc = JsonParser(content).parse(); }
+        catch (const JsonError&) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "invalid json: " + check.path;
+            return r;
+        }
+        if (doc.type != JsonValue::Type::Object) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "json root is not an object: " + check.path;
+            return r;
+        }
+        for (const auto& key : check.markers) {
+            if (doc.get(key) == nullptr) {
+                r.status = AuditStatus::FAIL;
+                r.detail = "missing key: " + key;
                 return r;
             }
         }
@@ -436,6 +511,12 @@ bool audit_load_manifest(const std::string& manifest_path,
         if (const JsonValue* v = item.get("min_count"))
             if (v->type == JsonValue::Type::Number)
                 c.min_count = static_cast<std::int64_t>(v->number);
+        if (const JsonValue* v = item.get("optional"))
+            if (v->type == JsonValue::Type::Bool)
+                c.optional = v->boolean;
+        if (const JsonValue* v = item.get("ignore_case"))
+            if (v->type == JsonValue::Type::Bool)
+                c.ignore_case = v->boolean;
         if (const JsonValue* v = item.get("markers"))
             if (v->type == JsonValue::Type::Array)
                 for (const auto& m : v->array)
