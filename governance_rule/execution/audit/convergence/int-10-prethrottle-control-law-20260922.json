@@ -1,0 +1,22 @@
+{
+  "schema": "star-int10-prethrottle-evidence/v1",
+  "generated_at_utc": "2026-09-22T12:46:50Z",
+  "ruling": "2026-09-22 governor: INT-10 criterion 4 uses strict reading - any worker_ledger.over_budget sample fails; control law must make zero over-samples reachable",
+  "change": {
+    "file": "scripts/resource-governor.py",
+    "details": [
+      "REGULATE_OVER_SAMPLES 3 -> 1 (first over-budget sample engages regulation)",
+      "new pre-throttle tier: worker aggregate >=80% of budget on a single sample engages soft throttle (busy floor 2%, sustain 1, admission hold); release still needs 5 consecutive under-80% samples",
+      "regulation['pre'] exposed in state snapshot; worker_admission_hold = active or pre",
+      "resource_governor_signal.regulation_active() treats pre as regulating so pausable periodic jobs defer before the budget is crossed"
+    ]
+  },
+  "verification": {
+    "method": "live transition test, dry-run, sandboxed state/log paths; CPU burner spawned as worker-plane process",
+    "results": [
+      "first over-budget sample (98.9% worker cpu): regulation.active=True, pre=True, admission_hold=True",
+      "5 consecutive under-80% samples: active=False, pre=False, hold=False",
+      "syntax: ast.parse OK"
+    ]
+  }
+}
