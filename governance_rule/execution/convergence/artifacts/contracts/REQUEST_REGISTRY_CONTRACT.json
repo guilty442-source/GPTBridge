@@ -6,7 +6,7 @@
   "owner": "system-runtime-sovereign",
   "introduced_version": "2026-09-21",
   "implemented_at": "2026-09-22T18:12:30Z",
-  "status": "partially-implemented",
+  "status": "implemented",
   "fields": [
     "request_id",
     "session_id",
@@ -61,12 +61,16 @@
       ]
     },
     "streaming_attribution": {
-      "semantics": "stream chunk attribution to request",
-      "bound_to": []
+      "semantics": "stream/chunk attribution recorded on the record",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#streaming_attribution"
+      ]
     },
     "priority_class": {
       "semantics": "request priority class",
-      "bound_to": []
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#priority_class"
+      ]
     },
     "deadline_at": {
       "semantics": "request deadline (implemented as timeout seconds)",
@@ -76,23 +80,33 @@
     },
     "correlation_id": {
       "semantics": "audit correlation id",
-      "bound_to": []
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#correlation_id"
+      ]
     },
     "operation_id": {
       "semantics": "governing operation id",
-      "bound_to": []
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#operation_id"
+      ]
     },
     "actor_id": {
       "semantics": "acting principal id",
-      "bound_to": []
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#actor_id"
+      ]
     },
     "module_id": {
       "semantics": "originating module id",
-      "bound_to": []
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#module_id"
+      ]
     },
     "decision_id": {
       "semantics": "routing/governance decision id",
-      "bound_to": []
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#decision_id"
+      ]
     }
   },
   "implementation": {
@@ -106,13 +120,5 @@
     "main-system/tests/test_request_registry_g62.py",
     "main-system/tests/test_request_registry_shadow.py"
   ],
-  "gaps": [
-    "streaming_attribution",
-    "priority_class",
-    "correlation_id",
-    "operation_id",
-    "actor_id",
-    "module_id",
-    "decision_id"
-  ]
+  "gaps": []
 }

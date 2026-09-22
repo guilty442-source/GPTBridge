@@ -138,6 +138,15 @@ def _compile_cuda_kernels(
                 timeout=600,
             )
             if proc.returncode != 0 or not obj.is_file():
+                # Surface the failure: silently omitting the kernels TU
+                # would degrade a broken kernel to "toolchain absent",
+                # hiding real compile errors from the evidence trail.
+                tail = (proc.stdout + proc.stderr).strip().splitlines()
+                print(
+                    f"[build_cpp] nvcc failed for {src.name} "
+                    f"(toolset {toolset}, rc={proc.returncode}): "
+                    + "\n".join(tail[-15:])
+                )
                 ok = False
                 break
             objects.append(obj)

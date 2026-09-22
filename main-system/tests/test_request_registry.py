@@ -143,5 +143,63 @@ def test_snapshot_reports_fields_and_count(tmp_path):
     reg.upsert("req-1", method="ai::infer")
     snap = reg.snapshot()
     assert snap["request_registry_version"] == REQUEST_REGISTRY_VERSION
-    assert len(snap["fields"]) == 14
+    assert len(snap["fields"]) == 22
     assert snap["count"] == 1
+
+def test_a579_codex_fields_present_and_upsertable(tmp_path):
+    """A579/W4-3：codex 七欄＋stream_owner 為可寫可持久化欄位。"""
+    for name in (
+        "streaming_attribution", "priority_class", "correlation_id",
+        "operation_id", "actor_id", "module_id", "decision_id",
+        "stream_owner",
+    ):
+        assert name in REQUEST_FIELDS
+    path = tmp_path / "requests.json"
+    reg = RequestRegistry(path)
+    result = reg.upsert(
+        "req-cx",
+        correlation_id="corr-1",
+        operation_id="op-9",
+        actor_id="governor",
+        module_id="ipc",
+        decision_id="dec-3",
+        priority_class="interactive",
+        streaming_attribution="stream:req-cx",
+        stream_owner="backend",
+    )
+    assert result.ok
+    record = reg.get("req-cx")
+    assert record.correlation_id == "corr-1"
+    assert record.decision_id == "dec-3"
+    assert record.stream_owner == "backend"
+
+    reloaded = RequestRegistry(path)
+    record2 = reloaded.get("req-cx")
+    assert record2.operation_id == "op-9"
+    assert record2.actor_id == "governor"
+    assert record2.module_id == "ipc"
+    assert record2.priority_class == "interactive"
+    assert record2.streaming_attribution == "stream:req-cx"
+
+
+def test_a579_fields_merge_on_existing_record(tmp_path):
+    reg = RequestRegistry(tmp_path / "requests.json")
+    reg.upsert("req-m", method="ai::infer")
+    reg.upsert("req-m", correlation_id="c-2", decision_id="d-7")
+    record = reg.get("req-m")
+    assert record.method == "ai::infer"
+    assert record.correlation_id == "c-2"
+    assert record.decision_id == "d-7"
+
+
+def test_a579_legacy_dict_payload_maps_new_fields(tmp_path):
+    reg = RequestRegistry(tmp_path / "requests.json")
+    result = reg.upsert({
+        "request_id": "req-d",
+        "correlation_id": "c-9",
+        "stream_owner": "renderer",
+    })
+    assert result.ok
+    record = reg.get("req-d")
+    assert record.correlation_id == "c-9"
+    assert record.stream_owner == "renderer"

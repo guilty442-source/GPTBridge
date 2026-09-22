@@ -21,8 +21,11 @@
 #include <cuda_runtime.h>
 
 #include <cstdint>
+#include <limits>
 
 namespace {
+
+constexpr double kNegInf = -std::numeric_limits<double>::infinity();
 
 constexpr int kTile = 128;          // K/V positions per online-softmax tile
 constexpr int kThreads = 128;       // one block per (head, query row)
@@ -69,7 +72,7 @@ __global__ void kv_attention_kernel(
     const int tid = threadIdx.x;
     const int warps = (blockDim.x + 31) / 32;
     if (tid == 0) {
-        scal[0] = -1.0 / 0.0;  // -inf
+        scal[0] = kNegInf;
         scal[1] = 0.0;
     }
     for (int64_t d = tid; d < head_dim; d += blockDim.x) acc[d] = 0.0;
@@ -88,7 +91,7 @@ __global__ void kv_attention_kernel(
         __syncthreads();
 
         // Tile max → block reduce.
-        double tmax = -1.0 / 0.0;
+        double tmax = kNegInf;
         for (int64_t j = tid; j < tn; j += blockDim.x) {
             tmax = fmax(tmax, scores[j]);
         }
@@ -161,6 +164,8 @@ bool grow_scratch(double** buf, size_t* cap, size_t need) {
 }  // namespace
 
 extern "C" {
+
+void xcuda_kv_free();
 
 int xcuda_kv_kernel_probe() {
     int count = 0;

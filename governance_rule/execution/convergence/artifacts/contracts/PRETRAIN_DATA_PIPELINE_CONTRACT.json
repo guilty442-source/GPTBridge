@@ -6,7 +6,7 @@
   "owner": "system-runtime-sovereign",
   "introduced_version": "2026-09-21",
   "implemented_at": "2026-09-22T18:12:30Z",
-  "status": "partially-implemented",
+  "status": "implemented",
   "fields": [
     "source_class",
     "traceability",
@@ -47,8 +47,10 @@
       ]
     },
     "artifact_hash": {
-      "semantics": "sha256 of emitted dataset artifact",
-      "bound_to": []
+      "semantics": "sha256 sidecar (<out>.sha256) emitted per dataset artifact",
+      "bound_to": [
+        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#sha256"
+      ]
     }
   },
   "implementation": {
@@ -59,7 +61,5 @@
   "evidence_paths": [
     "Standalone tools/local-model/tests/test_chat_format.py"
   ],
-  "gaps": [
-    "artifact_hash"
-  ]
+  "gaps": []
 }

@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 from pathlib import Path
@@ -304,6 +305,12 @@ def write_dataset(records: Iterable[dict[str, Any]], path: str | Path) -> Path:
     with out.open("w", encoding="utf-8") as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    # A558: sidecar artifact hash — hash the bytes on disk (text-mode newline
+    # translation differs per platform), verifiable without re-running.
+    digest = hashlib.sha256(out.read_bytes()).hexdigest()
+    out.with_suffix(out.suffix + ".sha256").write_text(
+        f"{digest}  {out.name}\n", encoding="utf-8"
+    )
     return out
 
 
@@ -321,10 +328,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.corpus, seed=args.seed, replay_chars=args.replay_chars,
         echo_scale=args.echo_scale)
     out = write_dataset(records, args.out)
+    sidecar = out.with_suffix(out.suffix + ".sha256")
     chat_n = sum(1 for r in records if "messages" in r)
     print(json.dumps({
         "format": DATASET_FORMAT_VERSION,
         "path": str(out),
+        "artifact_hash": sidecar.read_text(encoding="utf-8").split()[0],
         "records": len(records),
         "chat": chat_n,
         "replay": len(records) - chat_n,

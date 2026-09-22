@@ -12,6 +12,11 @@ release_id、started_at、completed_at、timeout、cancellation_state、
 error_code…，§10.22 之 14 欄位），舊欄位一律保留 → 向前相容（加欄不加刪）。
 狀態對齊 §10.16 Task Lifecycle 狀態集（CREATED→…→COMPLETED／FAILED／
 TIMED_OUT／CANCELLED），不再各自為政。
+
+REQUEST_REGISTRY_CONTRACT／REQUEST_LIFECYCLE_CONTRACT 補實欄位
+（§10.53）：streaming_attribution、priority_class、correlation_id、
+operation_id、actor_id、module_id、decision_id、stream_owner——
+同屬可空欄位，寫入時保留 key，absence 以空字串表示。
 """
 
 from __future__ import annotations

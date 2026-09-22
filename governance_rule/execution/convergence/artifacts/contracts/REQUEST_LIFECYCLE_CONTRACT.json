@@ -6,7 +6,7 @@
   "owner": "system-runtime-sovereign",
   "introduced_version": "2026-09-21",
   "implemented_at": "2026-09-22T18:12:30Z",
-  "status": "partially-implemented",
+  "status": "implemented",
   "fields": [
     "transition",
     "race_single_result",
@@ -27,8 +27,10 @@
       ]
     },
     "stream_ownership": {
-      "semantics": "which party owns the response stream",
-      "bound_to": []
+      "semantics": "which party owns the response stream (recorded as stream_owner)",
+      "bound_to": [
+        "main-system/src-core/core_system/request_registry.py#stream_owner"
+      ]
     },
     "cancel_semantics": {
       "semantics": "cancelled bool maps onto cancellation_state",
@@ -46,7 +48,5 @@
   "evidence_paths": [
     "main-system/tests/test_request_registry.py"
   ],
-  "gaps": [
-    "stream_ownership"
-  ]
+  "gaps": []
 }

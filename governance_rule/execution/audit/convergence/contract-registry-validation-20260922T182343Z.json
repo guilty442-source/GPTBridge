@@ -1,0 +1,193 @@
+{
+  "report": "contract-registry-validation/v1",
+  "generated_at": "2026-09-22T18:23:43Z",
+  "artifact_total": 18,
+  "pass": 18,
+  "fail": 0,
+  "status_counts": {
+    "implemented": 15,
+    "partially-implemented": 3
+  },
+  "results": [
+    {
+      "artifact": "BACKEND_LIFECYCLE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "CAPABILITY_EVALUATION_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "CONNECTION_RECOVERY_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "CONNECTION_STATE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 4,
+      "declared_fields": 5,
+      "status": "partially-implemented"
+    },
+    {
+      "artifact": "EXECUTION_LEASE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "partially-implemented"
+    },
+    {
+      "artifact": "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "PRETRAIN_DATA_PIPELINE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 6,
+      "declared_fields": 6,
+      "status": "implemented"
+    },
+    {
+      "artifact": "RELEASE_MANIFEST_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "REQUEST_LIFECYCLE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 4,
+      "declared_fields": 4,
+      "status": "implemented"
+    },
+    {
+      "artifact": "REQUEST_REGISTRY_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 14,
+      "declared_fields": 14,
+      "status": "implemented"
+    },
+    {
+      "artifact": "RUNTIME_RESOURCE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "SYSTEM_CONVERGENCE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "partially-implemented"
+    },
+    {
+      "artifact": "TASK_LIFECYCLE_CONTRACT.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 6,
+      "declared_fields": 6,
+      "status": "implemented"
+    },
+    {
+      "artifact": "MODEL_CONFIGURATION_REGISTRY.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "MODEL_TRAINING_TIER_REGISTRY.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 5,
+      "declared_fields": 5,
+      "status": "implemented"
+    },
+    {
+      "artifact": "PROVIDER_ACTIVATION_POLICY_REGISTRY.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 4,
+      "declared_fields": 4,
+      "status": "implemented"
+    },
+    {
+      "artifact": "RUNTIME_ACTIVATION_REGISTRY.json",
+      "checks": [
+        "PASS"
+      ],
+      "ok": true,
+      "bound_fields": 4,
+      "declared_fields": 4,
+      "status": "implemented"
+    }
+  ]
+}

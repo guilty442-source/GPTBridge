@@ -11,20 +11,19 @@
    "evidence_paths": [
     "governance_rule/execution/audit/convergence/re_tiering_plan.json"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "PRETRAIN_DATA_PIPELINE_CONTRACT",
    "target_type": "contract",
    "provision_id": "A558",
    "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/PRETRAIN_DATA_PIPELINE_CONTRACT.json",
-   "status": "partially-implemented",
+   "status": "implemented",
    "evidence_paths": [
     "Standalone tools/local-model/tests/test_chat_format.py"
    ],
-   "gaps": [
-    "artifact_hash"
-   ],
+   "gaps": [],
    "note": "fields bound to enforcing modules via field_definitions/column_definitions"
   },
   {
@@ -36,7 +35,8 @@
    "evidence_paths": [
     "governance_rule/execution/audit/convergence/convergence_report.json"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "CONNECTION_RECOVERY_CONTRACT",
@@ -47,7 +47,8 @@
    "evidence_paths": [
     "main-system/tests/test_connection_watchdog.py"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "TASK_LIFECYCLE_CONTRACT",
@@ -59,7 +60,8 @@
     "main-system/tests/test_task_lifecycle.py",
     "main-system/tests/test_task_lifecycle_g54.py"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "EXECUTION_LEASE_CONTRACT",
@@ -71,7 +73,8 @@
     "main-system/tests/test_execution_lease.py",
     "main-system/tests/test_tool_start_lease_fencing.py"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "RELEASE_MANIFEST_CONTRACT",
@@ -84,7 +87,8 @@
     "main-system/tests/test_release_layout.py",
     "main-system/runtime/releases/rc-2026-09-22/acceptance-report.json"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "BACKEND_LIFECYCLE_CONTRACT",
@@ -95,28 +99,21 @@
    "evidence_paths": [
     "main-system/tests/test_backend_lifecycle.py"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "REQUEST_REGISTRY_CONTRACT",
    "target_type": "contract",
    "provision_id": "A579",
    "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/REQUEST_REGISTRY_CONTRACT.json",
-   "status": "partially-implemented",
+   "status": "implemented",
    "evidence_paths": [
     "main-system/tests/test_request_registry.py",
     "main-system/tests/test_request_registry_g62.py",
     "main-system/tests/test_request_registry_shadow.py"
    ],
-   "gaps": [
-    "streaming_attribution",
-    "priority_class",
-    "correlation_id",
-    "operation_id",
-    "actor_id",
-    "module_id",
-    "decision_id"
-   ],
+   "gaps": [],
    "note": "fields bound to enforcing modules via field_definitions/column_definitions"
   },
   {
@@ -124,13 +121,11 @@
    "target_type": "contract",
    "provision_id": "A580",
    "artifact_path": "governance_rule/execution/convergence/artifacts/contracts/REQUEST_LIFECYCLE_CONTRACT.json",
-   "status": "partially-implemented",
+   "status": "implemented",
    "evidence_paths": [
     "main-system/tests/test_request_registry.py"
    ],
-   "gaps": [
-    "stream_ownership"
-   ],
+   "gaps": [],
    "note": "fields bound to enforcing modules via field_definitions/column_definitions"
   },
   {
@@ -159,7 +154,8 @@
     "Standalone tools/local-model/tests/test_capability_evaluation.py",
     "Standalone tools/local-model/xingcheng/runtime/logs/capability-eval-20260921-111857.json"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT",
@@ -170,7 +166,8 @@
    "evidence_paths": [
     "governance_rule/execution/audit/git_tier_audit.jsonl"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "RUNTIME_RESOURCE_CONTRACT",
@@ -181,7 +178,8 @@
    "evidence_paths": [
     "main-system/tests/test_thread_budget_policy.py"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "MODEL_TRAINING_TIER_REGISTRY",
@@ -192,7 +190,8 @@
    "evidence_paths": [
     "Standalone tools/local-model/xingcheng/runtime/state/model-maturity.json"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "MODEL_CONFIGURATION_REGISTRY",
@@ -203,7 +202,8 @@
    "evidence_paths": [
     "Standalone tools/local-model/tests/test_capability_evaluation.py"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "PROVIDER_ACTIVATION_POLICY_REGISTRY",
@@ -214,7 +214,8 @@
    "evidence_paths": [
     "main-system/tests/test_p0_lazy_lifecycle_handover.py"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "RUNTIME_ACTIVATION_REGISTRY",
@@ -225,7 +226,8 @@
    "evidence_paths": [
     "main-system/tests/test_p0_lazy_lifecycle_handover.py"
    ],
-   "note": "fields bound to enforcing modules via field_definitions/column_definitions"
+   "note": "fields bound to enforcing modules via field_definitions/column_definitions",
+   "gaps": []
   },
   {
    "target_code": "STAR_MODEL_MATURITY_SUITE",
