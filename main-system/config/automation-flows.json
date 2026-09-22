@@ -127,6 +127,22 @@
       "enabled": true,
       "description": "發布／更新流程（認證更新走 A330 例外鏈）"
     },
+    "update-manager-auto": {
+      "owner": "UpdateManager（Assistant 開關 gated）",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": true,
+      "description": "自動更新偵測/決策/執行 tick（熔斷、健康閘、自適應間隔保留於 tick 內；interval 為註冊時基線）"
+    },
+    "hot-update-idle": {
+      "owner": "HotUpdateService idle mixin",
+      "kind": "periodic",
+      "interval_s": 30,
+      "pausable": true,
+      "enabled": true,
+      "description": "閒置時套用 deferred 模組替換（_idle_tick 經核心驅動）"
+    },
     "hot-reload-watcher": {
       "owner": "hot-reload-watcher",
       "kind": "on-demand",
@@ -182,6 +198,30 @@
       "pausable": false,
       "enabled": true,
       "description": "就緒狀態推送：事件驅動＋無 UI shell 時降頻；私有 asyncio task（低延遲語義，不適合 15s 排程粒度）"
+    },
+    "tool-isolation-health": {
+      "owner": "tool isolation manager（iso_mgr.start_monitor）",
+      "kind": "supervision-plane",
+      "interval_s": 30,
+      "pausable": false,
+      "enabled": true,
+      "description": "工具行程健康監控 thread 迴圈（監控對象為外部工具行程，相對於被監督者位於其外）；行程內部署屬殘項，可評估改經核心 to_thread 驅動"
+    },
+    "maintenance-capability-monitor": {
+      "owner": "maintenance sovereign / capability",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": true,
+      "enabled": true,
+      "description": "能力偵測迴圈（唯讀 detection）；maintenance 主宰內部監督面殘項"
+    },
+    "maintenance-repair-chain": {
+      "owner": "maintenance sovereign / repair chain",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": true,
+      "enabled": true,
+      "description": "修復鏈輪詢迴圈；maintenance 主宰內部監督面殘項"
     },
     "backup-scheduler": {
       "owner": "backup scheduler（shared-layer）",

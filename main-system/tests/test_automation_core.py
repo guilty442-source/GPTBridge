@@ -259,7 +259,7 @@ def test_real_manifest_covers_registered_flows() -> None:
         assert flows[flow_id].get("owner"), flow_id
         assert flows[flow_id].get("kind") in (
             "periodic", "event", "on-demand", "private-loop",
-            "external-process")
+            "external-process", "supervision-plane")
 
 
 def test_maintenance_controller_externally_driven(tmp_path: Path) -> None:

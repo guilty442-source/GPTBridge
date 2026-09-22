@@ -150,6 +150,76 @@ class UpdateExecutionMixin:
 
         return manifest
 
+    async def _auto_update_tick(self) -> None:
+        """單次自動更新檢查——供 automation core 外部驅動（§1.1 自動化集中）。
+
+        與 ``_auto_update_loop`` 單次迭代同語義：熔斷、Assistant 開關、
+        健康檢查、變更偵測、自適應間隔調整全保留；排程交由共享 scheduler。
+        """
+        try:
+            # Circuit breaker: skip ticks while open (loop 版為 sleep+continue)。
+            if self._consecutive_failures >= self._circuit_breaker_threshold:
+                if time.time() < self._circuit_open_until:
+                    return
+                self._consecutive_failures = 0
+                self._circuit_open_until = 0
+                _logger.info("Auto-update circuit breaker reset")
+
+            from core_system.auto_action_policy import (
+                automatic_update_execution_allowed,
+            )
+
+            if not automatic_update_execution_allowed():
+                await asyncio.to_thread(self._detect_source_changes)
+                return
+
+            # Pre-update health check — only trigger updates when healthy.
+            health = await self.health.run_all_checks()
+            if not all(h.passed for h in health.values()):
+                return
+
+            changed = await asyncio.to_thread(self._detect_source_changes)
+            if changed:
+                _logger.info(
+                    "Auto-update: %d source modules changed: %s",
+                    len(changed),
+                    ", ".join(sorted(changed)[:8]),
+                )
+                self._consecutive_no_changes = 0
+                self._adaptive_interval = self._min_adaptive_interval
+                watcher = getattr(self.app, "hot_reload_watcher", None)
+                if watcher is not None:
+                    changed_paths = [
+                        str(sys.modules[name].__file__)
+                        for name in changed
+                        if name in sys.modules
+                        and hasattr(sys.modules[name], "__file__")
+                        and sys.modules[name].__file__
+                    ]
+                    if changed_paths:
+                        await asyncio.to_thread(
+                            lambda: asyncio.run(watcher._maybe_reload(changed_paths))
+                        )
+                else:
+                    await self.check_and_update(
+                        modules=list(changed),
+                        update_type=UpdateType.HOT_RELOAD,
+                    )
+            else:
+                _logger.debug("Auto-update check completed — no changes")
+                self._consecutive_no_changes += 1
+                if self._consecutive_no_changes >= 3:
+                    self._adaptive_interval = min(
+                        self._adaptive_interval * 1.5,
+                        self._max_adaptive_interval,
+                    )
+        except Exception as e:
+            _logger.error(f"Auto-update check failed: {e}")
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= self._circuit_breaker_threshold:
+                self._circuit_open_until = time.time() + 300
+                _logger.warning("Auto-update circuit breaker opened for 5 minutes")
+
     async def _auto_update_loop(self) -> None:
         """Automatic update checking loop with enhanced metrics and adaptive intervals."""
         while not self._stop_auto.is_set():

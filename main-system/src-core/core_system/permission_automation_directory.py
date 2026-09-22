@@ -68,6 +68,10 @@ class DirectorySyncManager:
                 pass
         _logger.info("DirectorySyncManager stopped")
 
+    async def run_once(self) -> None:
+        """單次目錄同步——供 automation core 外部驅動（§1.1 自動化集中）。"""
+        await self._sync_directories()
+
     async def _run_loop(self) -> None:
         while self._running:
             try:

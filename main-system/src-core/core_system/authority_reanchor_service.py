@@ -21,6 +21,7 @@ crashes the backend.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -106,6 +107,7 @@ class AuthorityReanchorService:
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._core_driven: bool | None = None
         self._baseline = ""
         self._backoff_until = 0.0
         self._status: dict[str, Any] = {
@@ -130,12 +132,33 @@ class AuthorityReanchorService:
             )
         self._write_state()
         self._stop.clear()
+
+        # §1.1 自動化集中：automation core 為唯一註冊點；kill-switch
+        # 拒絕時不回落私有 thread 迴圈。
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            async def _driven_tick() -> None:
+                await asyncio.to_thread(self._probe_once)
+
+            self._core_driven = core.register_flow(
+                "authority-reanchor",
+                _driven_tick,
+                interval_s=POLL_INTERVAL_SECONDS,
+                pausable=False,
+            )
+            return
+
         self._thread = threading.Thread(
             target=self._loop, name="authority-reanchor", daemon=True
         )
         self._thread.start()
 
     def stop(self) -> None:
+        if self._core_driven:
+            core = getattr(self.app, "automation_core", None)
+            if core is not None:
+                core.unregister("authority-reanchor")
+            self._core_driven = None
         self._stop.set()
         thread = self._thread
         self._thread = None

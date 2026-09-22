@@ -1,0 +1,88 @@
+{
+  "schema": "p0-4-scheduler-centralization/v2",
+  "recorded_at": "2026-09-22T08:05:00Z",
+  "item": "P0-4 ④⑤ 私有迴圈遷移第二輪＋⑤ 誠實驗收清單",
+  "migrated_this_round": [
+    {
+      "flow": "permission-automation-lifecycle",
+      "interval_s": 3600,
+      "change": "PermissionLifecycleManager run_once 經 orchestrator→core 註冊"
+    },
+    {
+      "flow": "permission-automation-directory",
+      "interval_s": 300,
+      "change": "DirectorySyncManager run_once"
+    },
+    {
+      "flow": "permission-automation-compliance",
+      "interval_s": 60,
+      "change": "ComplianceMonitor run_once"
+    },
+    {
+      "flow": "permission-automation-healing",
+      "interval_s": 300,
+      "change": "SelfHealingManager run_once"
+    },
+    {
+      "flow": "permission-automation-audit",
+      "interval_s": 3600,
+      "change": "AuditScheduler run_once"
+    },
+    {
+      "flow": "main-system-self-maintenance",
+      "interval_s": 21600,
+      "change": "既有 run_once 註冊；startup pass 屬一次性工作保留 task"
+    },
+    {
+      "flow": "authority-reanchor",
+      "interval_s": 3,
+      "change": "thread loop→core to_thread(_probe_once)；baseline snapshot 保留於 start"
+    },
+    {
+      "flow": "update-manager-auto",
+      "interval_s": 300,
+      "change": "_auto_update_tick 抽出單次迭代（熔斷/健康閘/自適應保留）；Assistant 開關 gated"
+    },
+    {
+      "flow": "hot-update-idle",
+      "interval_s": 30,
+      "change": "_idle_tick 抽出；閒置 deferred 替換"
+    }
+  ],
+  "dispositioned_supervision_plane": [
+    {
+      "flow": "connection-watchdog",
+      "note": "boot_core 監督行程內 thread——監督者不得位於被監督行程之核心內（A69）；非待遷移，分類更正為 supervision-plane"
+    },
+    {
+      "flow": "resource-governor",
+      "note": "OS 層獨立行程，管制對象含主系統本身；須活得比被管制者久（A170）；非待遷移"
+    },
+    {
+      "flow": "tool-isolation-health",
+      "note": "監控外部工具行程（相對被監督者在其外）；行程內部署屬可評估殘項"
+    },
+    {
+      "flow": "maintenance-capability-monitor",
+      "note": "maintenance 主宰內部監督殘項"
+    },
+    {
+      "flow": "maintenance-repair-chain",
+      "note": "maintenance 主宰內部監督殘項"
+    }
+  ],
+  "verified": {
+    "orchestrator_core": "5 flows 註冊成功、stop 全解除、disable(1) → 4 flows 且無私有迴圈回落",
+    "authority_reanchor": "core_driven=True、unregister 正常（sync start 可呼叫 register_flow）",
+    "self_maintenance": "loop=automation-core、running=True",
+    "tests": "test_automation_core+test_periodic_scheduler 25/25 PASS"
+  },
+  "kill_switch_semantics": "所有遷移點 deny 不回落私有迴圈；私有 _run_loop/_loop 僅在 automation_core=None 的 standalone/test context 作 fallback",
+  "residuals": [
+    "tool-isolation-health 仍為 thread 迴圈（可評估 to_thread 遷移）",
+    "maintenance capability/repair-chain 兩迴圈在 maintenance 主宰內部",
+    "update-manager-auto interval 固定為啟動時 _adaptive_interval（自適應伸縮在核心驅動下由 tick 內部 gating 承擔）",
+    "backend_gateway relay、server_tokens recv、diagnostics drain 屬事件驅動 I/O，非週期排程"
+  ],
+  "verdict": "主系統業務週期性工作全經 AutomationCore 註冊；監督面流程誠實分類，無靜默殘留"
+}

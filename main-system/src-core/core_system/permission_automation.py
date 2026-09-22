@@ -80,10 +80,53 @@ class PermissionAutomationOrchestrator:
             self.audit,
             self.healing,
         ]
+        self._core: Any = None
+        self._core_flows: list[str] = []
+
+    def _flow_specs(self) -> list[tuple[str, Any, float]]:
+        """(flow_id, component, interval) — automation-flows.json 同名清單。"""
+        return [
+            ("permission-automation-lifecycle", self.lifecycle,
+             self.lifecycle.check_interval),
+            ("permission-automation-directory", self.directory_sync,
+             self.directory_sync.sync_interval),
+            ("permission-automation-compliance", self.compliance,
+             self.compliance.check_interval),
+            ("permission-automation-healing", self.healing,
+             self.healing.check_interval),
+            ("permission-automation-audit", self.audit,
+             self.audit.interval),
+        ]
 
     async def start(self) -> None:
-        """啟動所有自動化組件。"""
+        """啟動所有自動化組件。
+
+        §1.1 自動化集中：automation core 為唯一註冊點；個別 flow 被
+        kill switch 拒絕時不回落私有迴圈（否則 kill switch 可繞過）。
+        """
         if self._running:
+            return
+
+        core = getattr(
+            getattr(self.permission_sovereign, "app", None),
+            "automation_core", None)
+        if core is not None:
+            self._core = core
+            self._core_flows = []
+            for flow_id, component, interval in self._flow_specs():
+                if core.register_flow(
+                    flow_id,
+                    component.run_once,
+                    interval_s=interval,
+                    pausable=True,
+                ):
+                    self._core_flows.append(flow_id)
+            self._running = True
+            _logger.info(
+                "PermissionAutomationOrchestrator started via automation core "
+                "(%d/%d flows registered)",
+                len(self._core_flows), len(self._flow_specs()),
+            )
             return
 
         for component in self._components:
@@ -94,6 +137,11 @@ class PermissionAutomationOrchestrator:
 
     async def stop(self) -> None:
         """停止所有自動化組件。"""
+        if self._core is not None:
+            for flow_id in self._core_flows:
+                self._core.unregister(flow_id)
+            self._core_flows = []
+            self._core = None
         for component in reversed(self._components):
             await component.stop()
 
