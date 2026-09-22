@@ -44,8 +44,8 @@ class PhaseMixin(StartupPhaseExecutionMixin):
             # §10.7: spawn 與需求啟動共用同一受治理實作（core_system.ollama_demand）。
             from core_system.ollama_demand import _spawn_ollama
 
-            pid, _cmd = _spawn_ollama()
-            if pid is not None and not self._stop.wait(timeout=1.5):
+            _spawn_ollama()
+            if not self._stop.wait(timeout=1.5):
                 ok = _check_api()
         return {
             "phase": "ollama-start",
