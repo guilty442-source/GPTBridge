@@ -76,3 +76,73 @@ def test_perf_baseline_job_feeds_plane(monkeypatch):
     assert plane.signals.pg_latency_ms == 33.0
     assert plane.signals.cpu_pct >= 0.0
     assert plane.signals.ram_pct >= 0.0
+
+
+def _mgr(tmp_path, gpu_free=None, ram_free=None):
+    from core_system.model_resource_manager import ModelResourceManager
+
+    return ModelResourceManager(
+        ledger_path=tmp_path / "ledger.jsonl",
+        gpu_free_fn=(lambda: gpu_free) if gpu_free is not None else None,
+        ram_free_fn=(lambda: ram_free) if ram_free is not None else None,
+        interactive_headroom_mb=0,
+    )
+
+
+def test_resource_manager_publishes_model_load_pct(tmp_path, monkeypatch):
+    """ModelResourceManager admit/release → model_load_pct merge 注入。"""
+    plane = AdaptiveDataPlane()
+    plane.observe_merge(
+        LoadSignals(pg_latency_ms=33.0), fields=("pg_latency_ms",)
+    )
+    monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
+
+    mgr = _mgr(tmp_path, gpu_free=None, ram_free=6000.0)
+    mgr.request_load("embedding", "emb-1", ram_mb=3000)
+    # managed 3000 / (3000 + 6000 free) = 33.33%
+    assert abs(plane.signals.model_load_pct - 33.333) < 0.01
+    assert plane.signals.pg_latency_ms == 33.0  # 不互踩
+
+    mgr.release("emb-1")
+    assert plane.signals.model_load_pct == 0.0
+
+
+def test_resource_manager_telemetry_unavailable_no_write(tmp_path, monkeypatch):
+    """遙測全缺 → 不寫 model_load_pct（fail-closed，既有值保留）。"""
+    plane = AdaptiveDataPlane()
+    plane.observe_merge(
+        LoadSignals(model_load_pct=55.0), fields=("model_load_pct",)
+    )
+    monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
+
+    mgr = _mgr(tmp_path, gpu_free=None, ram_free=None)
+    # vram_mb=0/ram_mb=0 → admit 不需遙測，但 _observe_plane 兩池皆缺 → 不寫
+    d = mgr.request_load("embedding", "emb-1", ram_mb=0, vram_mb=0)
+    assert d.admitted
+    assert plane.signals.model_load_pct == 55.0
+
+
+def test_resource_manager_vram_share(tmp_path, monkeypatch):
+    """VRAM 池佔比高於 RAM 時取 max（free 於 admit 後下降→share 上升）。"""
+    plane = AdaptiveDataPlane()
+    monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
+
+    from core_system.model_resource_manager import ModelResourceManager
+
+    gpu_free = [8100.0]
+    mgr = ModelResourceManager(
+        ledger_path=tmp_path / "ledger.jsonl",
+        gpu_free_fn=lambda: gpu_free[0],
+        ram_free_fn=lambda: 8000.0,
+        interactive_headroom_mb=0,
+    )
+    d = mgr.request_load("fast_chat", "chat-8b", vram_mb=4000, ram_mb=2000)
+    assert d.admitted
+    # admit 當下：vram 4000/(4000+8100)=33.1%；ram 2000/(2000+8000)=20% → 33.1
+    assert abs(plane.signals.model_load_pct - 33.06) < 0.1
+    # GPU free 下降後再 admit 一台 → vram share 成為 max
+    gpu_free[0] = 1000.0
+    d2 = mgr.request_load("fast_chat", "chat-2", vram_mb=900, ram_mb=0)
+    assert d2.admitted
+    # vram (4000+900)/(4900+1000)=83.1%；ram 2000/10000=20% → 83.1
+    assert abs(plane.signals.model_load_pct - 83.05) < 0.1
