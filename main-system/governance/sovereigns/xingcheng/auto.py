@@ -67,6 +67,7 @@ class XingchengAutoMixin:
         self._pending_anomalies = []
         self._drift_cycle_counter = 0
         self._manage_cycle_counter = 0
+        self._last_error_signature: str | None = None
 
     def handle_internal_fault_repair(
         self, classified_signal: dict[str, Any]
@@ -216,9 +217,20 @@ class XingchengAutoMixin:
                 # A145: periodic codex-vs-implementation drift review,
                 # displayed on the 星澄 auxiliary surface (advisory).
                 await self._run_drift_review()
+                self._last_error_signature = None
 
             except Exception as e:
-                _logger.warning("Xingcheng auto-loop error: %s", e)
+                # 暫態失敗（如 live codex 修訂期 CODEX_UNAVAILABLE）在
+                # 60s 週期下每圈一行 error 會撐爆 INT-10 日誌衛生——
+                # 同一錯誤簽名首次 warning、重複降 debug；乾淨週期後
+                # 再發生重新 warning（不吞掉真實錯誤）。
+                signature = f"{type(e).__name__}: {e}"
+                if signature != self._last_error_signature:
+                    _logger.warning("Xingcheng auto-loop error: %s", e)
+                    self._last_error_signature = signature
+                else:
+                    _logger.debug(
+                        "xingcheng auto-loop repeat failure: %s", e)
 
             # Event-driven wait: sleep until the 60s minimum cadence expires
             # or an event (fault/example/anomaly) requests an early cycle.
