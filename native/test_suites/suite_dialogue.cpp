@@ -10,7 +10,7 @@ const char* SUITE = "STAR_DIALOGUE_SUITE";
 const char* SPEC_REL =
     "Standalone tools/local-model/xingcheng/eval/"
     "star-native-eval-dialogue-v1.json";
-constexpr int64_t kEvalTokenCap = 512;
+/* 截斷上限由規格 eval_token_cap 提供（預設 128；§3.1 ~30s 預算） */
 
 suite_model::xc::NativeInferenceEngine g_engine;
 suite_model::EvalSpec g_spec;
@@ -46,7 +46,7 @@ int main() {
     NT_TEST(SUITE, "dialogue_perplexity_beats_uniform") {
         NT_CHECK(ensure_loaded(), "engine.load");
         const auto ids = suite_model::eval_tokens(
-            g_engine, g_spec.eval_text, kEvalTokenCap);
+            g_engine, g_spec.eval_text, g_spec.eval_token_cap);
         NT_CHECK(ids.size() >= 32, "eval tokens");
         const auto [nll, count] = g_engine.sequence_nll(ids);
         NT_CHECK(count >= 31, "scored tokens");

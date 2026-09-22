@@ -12,5 +12,6 @@
     "min_tps_baseline_ratio": 0.9
   },
   "baseline_metrics": {},
-  "notes": "Held-out conversational SFT text for dialogue adapters. 2026-09-22 governor ruling: absolute tps floor replaced by baseline-relative gate (candidate tps >= active-weights tps x 0.9) to remove machine-load sensitivity; C++ engine measurement path landed under E11 (throughput_engine=cpp)."
+  "notes": "Held-out conversational SFT text for dialogue adapters. 2026-09-22 governor ruling: absolute tps floor replaced by baseline-relative gate (candidate tps >= active-weights tps x 0.9) to remove machine-load sensitivity; C++ engine measurement path landed under E11 (throughput_engine=cpp).",
+  "eval_token_cap": 128
 }

@@ -60,6 +60,7 @@ _DEFAULT_MAX_BACKOFF_SECONDS = 180.0
 _PENDING_WINDOW_MINUTES = 10
 
 _ACTIVE_BROKER: "ModelServiceActivationBroker | None" = None
+_RESOURCE_GATE_UNSET: Any = object()  # sentinel: None 明確停用資源閘門
 
 
 def note_explicit_owner_stop(tool_id: str) -> None:
@@ -91,7 +92,7 @@ class ModelServiceActivationBroker:
         min_backoff: float = _DEFAULT_MIN_BACKOFF_SECONDS,
         max_backoff: float = _DEFAULT_MAX_BACKOFF_SECONDS,
         project_root: Path | None = None,
-        resource_manager: Any = None,
+        resource_manager: Any = _RESOURCE_GATE_UNSET,
     ) -> None:
         global _ACTIVE_BROKER
         self.app = app
@@ -117,23 +118,21 @@ class ModelServiceActivationBroker:
         self._last_release_result: dict[str, Any] = {}
         self._last_written_fingerprint: dict[str, Any] | None = None
         self._last_write_at = 0.0
-        # §10.7: governed model-resource admission gate.  Attaches only when
-        # a manager is injected or project_root is given (same attach rule as
-        # the native shadow below); production wiring always passes
-        # project_root, so the gate is always active in production.
-        if resource_manager is not None:
-            self._resource_manager = resource_manager
-        elif project_root is not None:
-            try:
-                from core_system.model_resource_manager import (
-                    get_model_resource_manager,
-                )
+        # §10.7: governed model-resource admission gate.  Auto-attaches when
+        # project_root is given (production always passes it); pass
+        # ``resource_manager=None`` explicitly to disable in tests.
+        if resource_manager is _RESOURCE_GATE_UNSET:
+            resource_manager = None
+            if project_root is not None:
+                try:
+                    from core_system.model_resource_manager import (
+                        get_model_resource_manager,
+                    )
 
-                self._resource_manager = get_model_resource_manager()
-            except Exception:
-                self._resource_manager = None
-        else:
-            self._resource_manager = None
+                    resource_manager = get_model_resource_manager()
+                except Exception:
+                    resource_manager = None
+        self._resource_manager = resource_manager
         # §10.65 act-1: native shadow attaches only when project_root is
         # given; policy mode != "shadow" or a missing extension yields None.
         self._native_shadow = None

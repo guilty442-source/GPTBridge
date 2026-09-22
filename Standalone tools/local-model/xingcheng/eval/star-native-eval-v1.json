@@ -11,5 +11,6 @@
     "min_tokens_per_second": 5.0
   },
   "baseline_metrics": {},
-  "notes": "Held-out first-party corpus-v1 validation text."
+  "notes": "Held-out first-party corpus-v1 validation text.",
+  "eval_token_cap": 128
 }

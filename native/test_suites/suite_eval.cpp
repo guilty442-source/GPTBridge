@@ -10,7 +10,7 @@ const char* SUITE = "STAR_EVAL_SUITE";
 const char* SPEC_REL =
     "Standalone tools/local-model/xingcheng/eval/"
     "star-native-eval-v1.json";
-constexpr int64_t kEvalTokenCap = 512; /* 決定性截斷（限時） */
+/* 截斷上限由規格 eval_token_cap 提供（預設 128；§3.1 ~30s 預算） */
 
 suite_model::xc::NativeInferenceEngine g_engine;
 suite_model::EvalSpec g_spec;

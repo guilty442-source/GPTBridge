@@ -95,6 +95,9 @@ struct EvalSpec {
     std::string sanity_prompt;
     int64_t sanity_max_new = 16;
     int64_t seed = 42;
+    /* held-out NLL 的決定性截斷上限（§3.1：套件 ~30s 預算——
+       以規格欄位調控，夾 [32, 2048] 保有誠實下界與限時）。 */
+    int64_t eval_token_cap = 128;
     bool require_generation = true;
     double min_tps = 0.0;
     double max_ppl_regression_pct = 0.0;
@@ -150,6 +153,10 @@ inline bool load_eval_spec(const fs::path& path, EvalSpec* spec,
     if (spec_number(doc, "sanity_max_new_tokens", &n))
         spec->sanity_max_new = static_cast<int64_t>(n);
     if (spec_number(doc, "seed", &n)) spec->seed = static_cast<int64_t>(n);
+    if (spec_number(doc, "eval_token_cap", &n))
+        spec->eval_token_cap = static_cast<int64_t>(n);
+    if (spec->eval_token_cap < 32) spec->eval_token_cap = 32;
+    if (spec->eval_token_cap > 2048) spec->eval_token_cap = 2048;
     double req = 1.0;
     if (const jl::JsonValue* rg = gates->get("require_generation"))
         if (rg->type == jl::JsonValue::Type::Bool)
