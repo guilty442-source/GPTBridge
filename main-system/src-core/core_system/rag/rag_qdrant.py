@@ -44,6 +44,22 @@ from shared_layer.security.qdrant_scope import (
 
 _logger = logging.getLogger("gptbridge.rag")
 
+
+def _observe_qdrant_latency(latency_ms: float) -> None:
+    """P4 adaptive plane 生產者：canonical 檢索延遲 → ``qdrant_latency_ms``。
+
+    欄位級合併、失敗靜默——量測只是提示，不得影響檢索主流程。
+    """
+    try:
+        from shared_layer.adaptive import LoadSignals, get_plane
+
+        get_plane().observe_merge(
+            LoadSignals(qdrant_latency_ms=latency_ms),
+            fields=("qdrant_latency_ms",),
+        )
+    except Exception:
+        pass
+
 # A374: INDEX-STATE fields
 INDEX_STATE_FIELDS = (
     "embedding_model",

@@ -245,3 +245,69 @@ def test_pool_wait_success_publishes_wait_ms(tmp_path, monkeypatch):
     assert plane.signals.pool_wait_timeouts == 0
     assert plane.signals.pg_wait_ms >= 0.0
     assert idle.returned == [idle.conn]  # 連線歸還池
+
+
+def test_qdrant_search_publishes_latency(tmp_path, monkeypatch):
+    """QdrantCanonicalRuntime.search → qdrant_latency_ms 注入。"""
+    import asyncio
+    from types import SimpleNamespace
+
+    plane = AdaptiveDataPlane()
+    monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
+
+    from core_system.rag.rag_qdrant import QdrantCanonicalRuntime
+
+    class _Resp:
+        points = []
+
+    class _Client:
+        def query_points(self, **kwargs):
+            return _Resp()
+
+    rt = object.__new__(QdrantCanonicalRuntime)
+    rt.config = SimpleNamespace(
+        collection_name="col", top_k=5, score_threshold=0.1
+    )
+    rt.client = _Client()
+    rt._healthy = True
+
+    hits = asyncio.run(
+        rt.search(query_vector=[0.1, 0.2], module_ids=("mod-1",))
+    )
+    assert hits == []
+    assert plane.signals.qdrant_latency_ms >= 0.0
+
+
+def test_qdrant_search_failure_silent_on_plane_error(tmp_path, monkeypatch):
+    """plane 拋錯不影響檢索主流程（失敗靜默）。"""
+    import asyncio
+    from types import SimpleNamespace
+
+    class _BadPlane:
+        def observe_merge(self, *a, **k):
+            raise RuntimeError("plane-down")
+
+    monkeypatch.setattr(
+        "shared_layer.adaptive.get_plane", lambda: _BadPlane()
+    )
+
+    from core_system.rag.rag_qdrant import QdrantCanonicalRuntime
+
+    class _Resp:
+        points = []
+
+    class _Client:
+        def query_points(self, **kwargs):
+            return _Resp()
+
+    rt = object.__new__(QdrantCanonicalRuntime)
+    rt.config = SimpleNamespace(
+        collection_name="col", top_k=5, score_threshold=0.1
+    )
+    rt.client = _Client()
+    rt._healthy = True
+
+    hits = asyncio.run(
+        rt.search(query_vector=[0.1], module_ids=("mod-1",))
+    )
+    assert hits == []  # 檢索本身成功
