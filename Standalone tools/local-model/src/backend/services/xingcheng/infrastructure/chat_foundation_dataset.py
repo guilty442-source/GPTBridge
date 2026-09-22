@@ -88,7 +88,9 @@ def build_chat_records(rng: random.Random, *,
     sents = ["今天天氣很好", "知識就是力量", "慢慢來比較快", "保持好奇",
              "step by step", "hello world", "測試一二三"]
     echo_tpl = ["請只輸出：{w}", "請重複：{w}", "只輸出「{w}」就好",
-                "照原樣輸出：{w}", "把下面這段原樣打出來：{w}", "複製：{w}"]
+                "照原樣輸出：{w}", "把下面這段原樣打出來：{w}", "複製：{w}",
+                "請只輸出這些字：{w}", "請逐字輸出：{w}",
+                "只輸出以下字串：{w}", "請原樣打出這幾個字：{w}"]
     echo_values = words + sents
     if echo_scale:
         echo_values = echo_values + _unique_echo_values(rng, echo_scale)

@@ -121,6 +121,15 @@ class SelfLearningPolicy:
     # 每循環空燒每日預算與 lifecycle FAILED 轉移噪音。
     gpu_busy_backoff_s: int = 0
     gpu_busy_backoff_cap_s: int = 0
+    # §2.7-3 DPO 課程型別：paired 偏好對（品質閘門拒絕半邊＋owner 驗證
+    # chosen 半邊）驅動的對齊循環。預設關閉，受管設定檔明示開啟；
+    # 資料達閾時本循環優先走 DPO（paired 樣本稀缺且對齊價值高），
+    # 未達閾完全不影響 SFT 路徑。
+    dpo_enabled: bool = False
+    # 距上次 DPO 循環至少需新增的 paired 對數（語意同 min_new_examples）
+    dpo_min_new_pairs: int = 8
+    # DPO KL 錨定強度（reference＝循環起點的現役權重凍結副本）
+    dpo_beta: float = 0.1
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -286,6 +295,57 @@ def collect_verified_examples(
         if records:
             by_scope[scope] = records
     return by_scope
+
+
+def collect_preference_pairs(tool_root: str | Path) -> list[dict[str, Any]]:
+    """讀取各角色資料庫中已配對（paired=1）的 chosen/rejected 偏好對。
+
+    與 ``collect_verified_examples`` 同一資料面（唯讀 sqlite、同 scope
+    白名單）；資料表不存在或損毀的資料庫一律略過（fail-closed 視為
+    無資料而非錯誤）。回傳值直接餵給
+    ``preference_dataset_bridge.build_pairs_snapshot``。"""
+    models_dir = Path(tool_root) / "xingcheng" / "runtime" / "state" / "models"
+    pairs: list[dict[str, Any]] = []
+    if not models_dir.is_dir():
+        return pairs
+    for path in sorted(models_dir.glob("*.sqlite3")):
+        if path.stem not in _SCOPE_MAP:
+            continue
+        try:
+            connection = sqlite3.connect(
+                f"file:{path.as_posix()}?mode=ro", uri=True
+            )
+        except sqlite3.Error:
+            continue
+        try:
+            rows = connection.execute(
+                "SELECT revision, pair_id, intent, prompt_text, chosen_text,"
+                " rejected_text FROM language_preference_pair"
+                " WHERE paired = 1 ORDER BY revision",
+            ).fetchall()
+        except sqlite3.Error:
+            rows = []
+        finally:
+            connection.close()
+        for revision, pair_id, intent, prompt, chosen, rejected in rows:
+            prompt = str(prompt or "").strip()
+            chosen = str(chosen or "").strip()
+            rejected = str(rejected or "").strip()
+            if not (prompt and chosen and rejected):
+                continue
+            pairs.append(
+                {
+                    "revision": int(revision or 0),
+                    "pair_id": str(pair_id or ""),
+                    "intent": str(intent or ""),
+                    "prompt_text": prompt,
+                    "chosen_text": chosen,
+                    "rejected_text": rejected,
+                    "scope": path.stem,
+                }
+            )
+    pairs.sort(key=lambda record: (str(record["scope"]), int(record["revision"])))
+    return pairs
 
 
 def run_cycle(

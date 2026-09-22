@@ -31,6 +31,7 @@ from .self_learning import (
     SelfLearningPolicy,
     _iso_now,
     training_window_status,
+    collect_preference_pairs,
     collect_verified_examples,
     load_policy,
     load_state,
@@ -503,6 +504,20 @@ def run_cycle_impl(
                 "checked_at": _iso_now(),
             }
 
+    # §2.7-3 DPO 課程型別：paired 偏好對達閾時本循環改走 DPO——paired
+    # 樣本＝品質閘門拒絕半邊＋owner 驗證 chosen 半邊，稀缺且對齊價值高，
+    # 故資料就緒時優先於 SFT；未達閾完全不影響 SFT 路徑。
+    if resolved_policy.dpo_enabled:
+        pairs = collect_preference_pairs(tool)
+        new_pairs = len(pairs) - int(state.get("trained_pair_total") or 0)
+        dpo_threshold = 1 if force else max(
+            1, int(resolved_policy.dpo_min_new_pairs)
+        )
+        if new_pairs >= dpo_threshold:
+            return _run_dpo_cycle(
+                tool, resolved_policy, state, pairs, train_fn=train_fn
+            )
+
     examples = collect_verified_examples(tool)
     if not examples:
         return {"ok": True, "action": "idle", "reason": "no-verified-examples", "total_examples": 0}
@@ -607,9 +622,7 @@ def run_cycle_impl(
     )
     dataset_examples = sum(len(recs) for recs in examples.values())
 
-    from ..native_eval_suite import run_evaluation
     from ..sft_dataset import build_sft_dataset
-    from ..training_job_executor import TrainingJobExecutor
     from ..transformer_training_repository import TransformerTrainingRepository
     from .lifecycle import ModelLifecycle
 
@@ -705,6 +718,175 @@ def run_cycle_impl(
         },
         requested_by="star-self-learning",
     )
+    return _execute_governed_cycle(
+        tool,
+        resolved_policy,
+        state,
+        repository=repository,
+        repository_root=repository_root,
+        lifecycle=lifecycle,
+        lifecycle_dir=lifecycle_dir,
+        active_path=active_path,
+        job=job,
+        dataset=dataset,
+        snapshot=snapshot,
+        curriculum=curriculum,
+        total=total,
+        new_examples=new_examples,
+        dataset_examples=dataset_examples,
+        dataset_cap_truncated=dataset_cap_truncated,
+        degradation_trigger=degradation_trigger,
+        stats=stats,
+        trained_counter_field="trained_example_total",
+        metrics_phase="supervised-fine-tuning",
+        train_fn=train_fn,
+    )
+
+
+def _run_dpo_cycle(
+    tool: Path,
+    resolved_policy: SelfLearningPolicy,
+    state: dict[str, Any],
+    pairs: list[dict[str, Any]],
+    *,
+    train_fn: Callable[..., dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """§2.7-3 DPO 課程循環：paired 偏好對 → ``star-transformer-dpo/v1``
+    快照 → ``training_kind="dpo"`` job → 與 SFT 完全相同的受管
+    訓練→評估→啟用路徑（同一份每日預算、熔斷、資源超支即停、
+    eval 閘門與 auto_activate 語義）。"""
+    from ..preference_dataset_bridge import (
+        build_pairs_snapshot,
+        register_pairs_snapshot,
+    )
+    from ..transformer_training_repository import TransformerTrainingRepository
+    from .lifecycle import ModelLifecycle
+
+    repository = TransformerTrainingRepository(tool)
+    repository_root = Path(repository.tool_root)
+    lifecycle_dir = tool / LIFECYCLE_RELATIVE
+    lifecycle = ModelLifecycle.load_or_create(lifecycle_dir, MODEL_ID)
+    active = lifecycle.active_weights()
+    if active is None or not Path(str(active["path"])).is_file():
+        return {
+            "ok": True,
+            "action": "blocked",
+            "reason": "active-weights-missing",
+            "pairs_total": len(pairs),
+            "checked_at": _iso_now(),
+        }
+    active_path = Path(str(active["path"]))
+
+    snapshot_dir = tool / SNAPSHOT_RELATIVE
+    snapshot_path = snapshot_dir / (
+        f"dpo-{time.strftime('%Y%m%d-%H%M%S', time.gmtime())}.jsonl"
+    )
+    try:
+        manifest = build_pairs_snapshot(
+            pairs,
+            snapshot_path,
+            val_permille=int(resolved_policy.val_permille),
+        )
+    except ValueError as error:
+        return {
+            "ok": True,
+            "action": "blocked",
+            "reason": f"preference-snapshot-unavailable:{error}",
+            "pairs_total": len(pairs),
+            "checked_at": _iso_now(),
+        }
+    dataset = register_pairs_snapshot(
+        repository, manifest, created_by="star-self-learning"
+    )
+
+    pairs_total = len(pairs)
+    new_pairs = max(
+        0, pairs_total - int(state.get("trained_pair_total") or 0)
+    )
+    job = repository.create_training_job(
+        dataset_id=str(dataset["dataset_id"]),
+        configuration={
+            "training_kind": "dpo",
+            "tokenizer_dir": "runtime/tokenizers/xingcheng-bpe-8k-v1",
+            "init_checkpoint": active_path.relative_to(
+                repository_root
+            ).as_posix(),
+            "beta": float(resolved_policy.dpo_beta),
+            "max_length": int(resolved_policy.max_length),
+            "batch_size": int(resolved_policy.batch_size),
+            "lr": float(resolved_policy.lr),
+            "max_steps": int(resolved_policy.max_steps),
+            "checkpoint_every": max(1, int(resolved_policy.max_steps) // 2),
+            "log_every": max(1, int(resolved_policy.max_steps) // 8),
+            "device": str(resolved_policy.device),
+            "gpu_required_mb": int(resolved_policy.gpu_required_mb),
+            "max_train_seconds": int(resolved_policy.train_time_budget_s),
+            "max_train_vram_mb": int(resolved_policy.train_vram_budget_mb),
+            "curriculum_course": "dpo-alignment",
+        },
+        requested_by="star-self-learning",
+    )
+    snapshot = {
+        "manifest": {**manifest, "example_count": int(manifest["pairs"])},
+    }
+    return _execute_governed_cycle(
+        tool,
+        resolved_policy,
+        state,
+        repository=repository,
+        repository_root=repository_root,
+        lifecycle=lifecycle,
+        lifecycle_dir=lifecycle_dir,
+        active_path=active_path,
+        job=job,
+        dataset=dataset,
+        snapshot=snapshot,
+        curriculum={"course": "dpo-alignment", "curriculum_enabled": True},
+        total=pairs_total,
+        new_examples=new_pairs,
+        dataset_examples=int(manifest["pairs"]),
+        dataset_cap_truncated=0,
+        degradation_trigger=None,
+        stats={"pairs_total": pairs_total, "new_pairs": new_pairs},
+        trained_counter_field="trained_pair_total",
+        metrics_phase="preference-optimization",
+        train_fn=train_fn,
+    )
+
+
+def _execute_governed_cycle(
+    tool: Path,
+    resolved_policy: SelfLearningPolicy,
+    state: dict[str, Any],
+    *,
+    repository: Any,
+    repository_root: Path,
+    lifecycle: Any,
+    lifecycle_dir: Path,
+    active_path: Path,
+    job: Mapping[str, Any],
+    dataset: Mapping[str, Any],
+    snapshot: Mapping[str, Any],
+    curriculum: Mapping[str, Any],
+    total: int,
+    new_examples: int,
+    dataset_examples: int,
+    dataset_cap_truncated: int,
+    degradation_trigger: dict[str, Any] | None,
+    stats: Mapping[str, Any],
+    trained_counter_field: str,
+    metrics_phase: str,
+    train_fn: Callable[..., dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """受管訓練循環共享尾部：每日預算計帳 → executor 執行 →
+    失敗／資源超支 fail-closed → adapter 登錄 → eval 閘門 →
+    stage/activate → runtime pin → 狀態與報告落盤。
+
+    SFT 與 DPO 走同一路徑；``trained_counter_field`` 區分資料池計數
+    （``trained_example_total`` vs ``trained_pair_total``）。"""
+    from ..native_eval_suite import run_evaluation
+    from ..training_job_executor import TrainingJobExecutor
+
     job_id = str(job["job_id"])
     # §2.7-4/8：訓練嘗試在啟動前先計入每日預算（crash 也計入，fail-closed）
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -800,7 +982,7 @@ def run_cycle_impl(
         job_id=job_id,
         artifact_path=artifact.relative_to(repository_root).as_posix(),
         metrics={
-            "phase": "supervised-fine-tuning",
+            "phase": metrics_phase,
             "origin": "self-learning",
             "new_examples": new_examples,
             "total_examples": total,
@@ -889,7 +1071,7 @@ def run_cycle_impl(
         "job_id": job_id,
         "adapter_id": adapter_id,
         "dataset_id": str(dataset["dataset_id"]),
-        "curriculum": curriculum,
+        "curriculum": dict(curriculum),
         "new_examples": new_examples,
         "total_examples": total,
         "dataset_examples": dataset_examples,
@@ -903,7 +1085,7 @@ def run_cycle_impl(
         "runtime_checkpoint": pinned,
         "previous_weights_pruned": pruned,
         "resource_account": resource_account,
-        "pool": stats,
+        "pool": dict(stats),
         "checked_at": _iso_now(),
     }
 
@@ -937,7 +1119,7 @@ def run_cycle_impl(
         tool,
         {
             **state,
-            "trained_example_total": total,
+            trained_counter_field: total,
             "last_run_at": _iso_now(),
             "last_action": action,
             "last_job_id": job_id,
@@ -948,7 +1130,7 @@ def run_cycle_impl(
             "last_maturity_recheck": summary.get("maturity_recheck"),
             "active_weights_version": lifecycle.active_weights_version,
             "resource_account": resource_account,
-            "pool": stats,
+            "pool": dict(stats),
             "consecutive_failures": 0,
             "gpu_busy_streak": 0,
             "gpu_busy_until": None,
