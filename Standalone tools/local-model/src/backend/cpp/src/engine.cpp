@@ -490,10 +490,15 @@ extern "C" int xcuda_matmul_f64(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
 extern "C" int xcuda_release_weights();
+extern "C" int xcuda_bf16_available();
+extern "C" int xcuda_matmul_bf16(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out);
 #endif
 
 namespace {
 std::atomic<bool> g_cuda_requested{false};
+std::atomic<bool> g_cuda_bf16_requested{false};
 
 bool env_flag(const char* name) {
     const char* value = std::getenv(name);
@@ -512,6 +517,12 @@ std::vector<double> matmul(
     std::vector<double> out(static_cast<size_t>(m * n));
 #if defined(XINGCHENG_CUDA)
     if (g_cuda_requested.load()) {
+        if (g_cuda_bf16_requested.load()) {
+            if (xcuda_matmul_bf16(a, m, k, b, n, out.data()) != 0) {
+                throw InferenceError("CUDA_BF16_MATMUL_FAILED");
+            }
+            return out;
+        }
         if (xcuda_matmul_f64(a, m, k, b, n, out.data()) != 0) {
             throw InferenceError("CUDA_MATMUL_FAILED");
         }
@@ -558,9 +569,14 @@ std::vector<double> matmul_grouped(
         for (size_t g = 0; g < group_rows.size(); ++g) {
             const int64_t m_g = group_rows[g];
             if (m_g == 0) continue;
-            if (xcuda_matmul_f64(
-                    a.data() + a_off, m_g, k, b_list[g], n,
-                    out.data() + c_off) != 0) {
+            const int rc = g_cuda_bf16_requested.load()
+                ? xcuda_matmul_bf16(
+                      a.data() + a_off, m_g, k, b_list[g], n,
+                      out.data() + c_off)
+                : xcuda_matmul_f64(
+                      a.data() + a_off, m_g, k, b_list[g], n,
+                      out.data() + c_off);
+            if (rc != 0) {
                 throw InferenceError("CUDA_MATMUL_FAILED");
             }
             a_off += m_g * k;
@@ -1239,6 +1255,20 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
 #else
         g_cuda_requested.store(false);
         throw InferenceError("CUDA_UNAVAILABLE");
+#endif
+    }
+    // bf16 GEMM is a further opt-in on the CUDA path (P1-1③): requested but
+    // kernels/device absent → fail closed at load, never silent fp64.
+    g_cuda_bf16_requested.store(env_flag("XINGCHENG_CPP_CUDA_BF16"));
+    if (g_cuda_bf16_requested.load()) {
+#if defined(XINGCHENG_CUDA)
+        if (!g_cuda_requested.load() || !xcuda_bf16_available()) {
+            g_cuda_bf16_requested.store(false);
+            throw InferenceError("CUDA_BF16_UNAVAILABLE");
+        }
+#else
+        g_cuda_bf16_requested.store(false);
+        throw InferenceError("CUDA_BF16_UNAVAILABLE");
 #endif
     }
 

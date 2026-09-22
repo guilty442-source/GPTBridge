@@ -73,7 +73,31 @@ int xcuda_release_weights() {
         cublasDestroy(g_handle);
         g_handle = nullptr;
     }
+#if defined(XINGCHENG_CUDA_KERNELS)
+    xcuda_bf16_release_weights();
+#endif
     return 0;
+}
+
+#if defined(XINGCHENG_CUDA_KERNELS)
+// Provided by src/kernels/matmul_bf16.cu when the nvcc toolchain is
+// available at build time (build_cpp.py sets XINGCHENG_CUDA_KERNELS).
+extern "C" int xcuda_bf16_kernel_probe();
+extern "C" int xcuda_bf16_release_weights();
+extern "C" int xcuda_matmul_bf16(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out);
+#endif
+
+// bf16 kernel availability: 1 only when the kernels object was linked AND a
+// CUDA device exists. Without the kernels TU this fails closed to 0, so the
+// engine's BF16 request path can never silently degrade to fp64.
+int xcuda_bf16_available() {
+#if defined(XINGCHENG_CUDA_KERNELS)
+    return xcuda_bf16_kernel_probe();
+#else
+    return 0;
+#endif
 }
 
 // Row-major C[m,n] = A[m,k] * B[k,n]. cuBLAS is column-major, so compute
