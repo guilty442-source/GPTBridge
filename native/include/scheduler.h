@@ -31,9 +31,11 @@ typedef struct {
     void* ctx;
     int32_t run_count;
     int32_t error_count;
+    int32_t paused_count;
     int64_t last_run_ms;
     int64_t last_duration_ms;
     int32_t enabled;
+    int32_t pausable;
 } gptbridge_sched_job_t;
 
 typedef struct {
@@ -43,8 +45,11 @@ typedef struct {
 } gptbridge_sched_t;
 
 int gptbridge_sched_init(gptbridge_sched_t* s);
-int gptbridge_sched_register(gptbridge_sched_t* s, const char* name, int64_t interval_ms, int64_t timeout_ms, gptbridge_sched_fn fn, void* ctx);
-int gptbridge_sched_tick(gptbridge_sched_t* s, int64_t now_ms); /* 執行所有到期 job，返回執行數 */
+/* 註冊錨定 now_ms（對齊 Python register()）：next_due = now_ms + (run_immediately ? 0 : interval_ms) */
+int gptbridge_sched_register(gptbridge_sched_t* s, const char* name, int64_t interval_ms, int64_t timeout_ms, int64_t now_ms, int32_t run_immediately, int32_t pausable, gptbridge_sched_fn fn, void* ctx);
+int gptbridge_sched_unregister(gptbridge_sched_t* s, const char* name);
+/* 執行所有到期 job，返回執行數；paused 非零時 pausable job 延後（next_due = now + interval、paused_count++）而不執行 */
+int gptbridge_sched_tick(gptbridge_sched_t* s, int64_t now_ms, int32_t paused);
 int gptbridge_sched_job_count(const gptbridge_sched_t* s);
 const gptbridge_sched_job_t* gptbridge_sched_find(const gptbridge_sched_t* s, const char* name);
 

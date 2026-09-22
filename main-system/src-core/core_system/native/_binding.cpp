@@ -34,7 +34,9 @@
 #include "governed_tool.h"
 
 #include <cstdio>
+#include <cstring>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 namespace py = pybind11;
@@ -392,14 +394,36 @@ public:
         }
     }
     bool register_job(const std::string& name, int64_t interval_ms,
-                      int64_t timeout_ms) {
+                      int64_t timeout_ms, int64_t now_ms,
+                      bool run_immediately, bool pausable) {
         if (sched_.count >= GPTBRIDGE_SCHED_MAX_JOBS) return false;
         counters_[sched_.count] = 0;
+        counter_index_[name] = sched_.count;
         return gptbridge_sched_register(
-                   &sched_, name.c_str(), interval_ms, timeout_ms,
+                   &sched_, name.c_str(), interval_ms, timeout_ms, now_ms,
+                   run_immediately ? 1 : 0, pausable ? 1 : 0,
                    &sched_count_tick, &counters_[sched_.count]) != 0;
     }
-    int tick(int64_t now_ms) { return gptbridge_sched_tick(&sched_, now_ms); }
+    bool unregister_job(const std::string& name) {
+        auto it = counter_index_.find(name);
+        if (it == counter_index_.end()) return false;
+        int32_t slot = it->second;
+        if (gptbridge_sched_unregister(&sched_, name.c_str()) == 0) {
+            return false;
+        }
+        counters_[slot] = 0;
+        /* shift-remove moved later jobs down one slot — rebind ctx pointers
+           and the name→slot index from the authoritative job order. */
+        counter_index_.clear();
+        for (int32_t i = 0; i < sched_.count; ++i) {
+            sched_.jobs[i].ctx = &counters_[i];
+            counter_index_[sched_.jobs[i].name] = i;
+        }
+        return true;
+    }
+    int tick(int64_t now_ms, bool paused) {
+        return gptbridge_sched_tick(&sched_, now_ms, paused ? 1 : 0);
+    }
     int job_count() const { return gptbridge_sched_job_count(&sched_); }
     py::object job_stats(const std::string& name) const {
         const gptbridge_sched_job_t* j =
@@ -408,6 +432,7 @@ public:
         py::dict out;
         out["run_count"] = j->run_count;
         out["error_count"] = j->error_count;
+        out["paused_count"] = j->paused_count;
         out["last_run_ms"] = j->last_run_ms;
         out["last_duration_ms"] = j->last_duration_ms;
         out["next_due_ms"] = j->next_due_ms;
@@ -418,6 +443,7 @@ public:
 private:
     gptbridge_sched_t sched_{};
     int64_t counters_[GPTBRIDGE_SCHED_MAX_JOBS] = {};
+    std::unordered_map<std::string, int32_t> counter_index_{};
 };
 
 class NativeOutbox {
@@ -957,6 +983,7 @@ PYBIND11_MODULE(_sovereign_native, m) {
     py::class_<NativeScheduler>(m, "NativeScheduler")
         .def(py::init<>())
         .def("register_job", &NativeScheduler::register_job)
+        .def("unregister_job", &NativeScheduler::unregister_job)
         .def("tick", &NativeScheduler::tick)
         .def("job_count", &NativeScheduler::job_count)
         .def("job_stats", &NativeScheduler::job_stats);

@@ -92,17 +92,48 @@ int main() {
         g_ran = 0;
         gptbridge_sched_t s;
         NT_CHECK(gptbridge_sched_init(&s) == 1, "init");
-        NT_CHECK(gptbridge_sched_register(&s, "a", 100, 50, counting_job, nullptr) == 1,
+        NT_CHECK(gptbridge_sched_register(&s, "a", 100, 50, 0, 0, 0, counting_job, nullptr) == 1,
                  "register a");
-        NT_CHECK(gptbridge_sched_register(&s, "b", 200, 50, counting_job, nullptr) == 1,
+        NT_CHECK(gptbridge_sched_register(&s, "b", 200, 50, 0, 0, 0, counting_job, nullptr) == 1,
                  "register b");
-        NT_CHECK(gptbridge_sched_tick(&s, 50) == 0, "nothing due at 50");
-        NT_CHECK(gptbridge_sched_tick(&s, 150) == 1 && g_ran == 1, "only a due at 150");
-        NT_CHECK(gptbridge_sched_tick(&s, 250) >= 1 && g_ran >= 2, "b due by 250");
+        NT_CHECK(gptbridge_sched_tick(&s, 50, 0) == 0, "nothing due at 50");
+        NT_CHECK(gptbridge_sched_tick(&s, 150, 0) == 1 && g_ran == 1, "only a due at 150");
+        NT_CHECK(gptbridge_sched_tick(&s, 250, 0) >= 1 && g_ran >= 2, "b due by 250");
         NT_CHECK(gptbridge_sched_find(&s, "a") != nullptr, "find a");
         NT_CHECK(gptbridge_sched_find(&s, "nope") == nullptr, "find missing");
     }
     NT_END_TEST(SUITE, "scheduler_due_jobs_and_isolation");
+
+    NT_TEST(SUITE, "scheduler_now_anchored_register_and_pause_deferral") {
+        g_ran = 0;
+        gptbridge_sched_t s;
+        NT_CHECK(gptbridge_sched_init(&s) == 1, "init");
+        /* now-anchored register: next_due = now + interval (Python parity) */
+        NT_CHECK(gptbridge_sched_register(&s, "later", 100, 50, 500, 0, 0, counting_job, nullptr) == 1,
+                 "register later at now=500");
+        NT_CHECK(gptbridge_sched_tick(&s, 550, 0) == 0, "not due before now+interval");
+        NT_CHECK(gptbridge_sched_tick(&s, 600, 0) == 1 && g_ran == 1, "due at now+interval");
+        /* run_immediately anchors next_due = now */
+        NT_CHECK(gptbridge_sched_register(&s, "now", 100, 50, 700, 1, 0, counting_job, nullptr) == 1,
+                 "register run_immediately");
+        NT_CHECK(gptbridge_sched_tick(&s, 700, 0) >= 1, "immediate job fires at once");
+        /* paused && pausable defers without firing (no catch-up burst) */
+        NT_CHECK(gptbridge_sched_register(&s, "lazy", 100, 50, 0, 0, 1, counting_job, nullptr) == 1,
+                 "register pausable");
+        int before = g_ran;
+        NT_CHECK(gptbridge_sched_tick(&s, 150, 1) == 0 && g_ran == before,
+                 "pausable job deferred while paused");
+        const gptbridge_sched_job_t* lazy = gptbridge_sched_find(&s, "lazy");
+        NT_CHECK(lazy != nullptr && lazy->paused_count == 1 &&
+                 lazy->next_due_ms == 250, "deferral reschedules forward");
+        NT_CHECK(gptbridge_sched_tick(&s, 250, 0) >= 1, "fires once released");
+        /* unregister removes and preserves order of the rest */
+        NT_CHECK(gptbridge_sched_unregister(&s, "later") == 1, "unregister later");
+        NT_CHECK(gptbridge_sched_find(&s, "later") == nullptr, "later gone");
+        NT_CHECK(gptbridge_sched_find(&s, "now") != nullptr, "order kept");
+        NT_CHECK(gptbridge_sched_unregister(&s, "ghost") == 0, "unknown unregister fails");
+    }
+    NT_END_TEST(SUITE, "scheduler_now_anchored_register_and_pause_deferral");
 
     NT_TEST(SUITE, "ipc_registry_request_lifecycle") {
         gptbridge_ipc_registry_t r;
