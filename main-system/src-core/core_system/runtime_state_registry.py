@@ -63,9 +63,25 @@ class ModuleRuntimeRecord:
 class RuntimeStateRegistry:
     """模組級雙軸狀態登錄簿；變更即寫盤（atomic）。"""
 
-    def __init__(self, state_path: str | Path) -> None:
+    def __init__(
+        self, state_path: str | Path, *, project_root: Path | None = None
+    ) -> None:
         self._path = Path(state_path)
         self._records: dict[str, ModuleRuntimeRecord] = {}
+        # §10.65 act-1: native shadow attaches only when project_root is
+        # given; policy mode != "shadow" or a missing extension yields None.
+        self._native_shadow = None
+        if project_root is not None:
+            try:
+                from .runtime_state_native_shadow import (
+                    RuntimeStateNativeShadow,
+                )
+
+                self._native_shadow = RuntimeStateNativeShadow.from_policy(
+                    Path(project_root)
+                )
+            except Exception:
+                self._native_shadow = None
         self._load()
 
     # ---- persistence ----------------------------------------------------
@@ -139,6 +155,19 @@ class RuntimeStateRegistry:
             record.last_error = ""
         record.updated_at = _now()
         self._persist()
+        if self._native_shadow is not None:
+            try:
+                self._native_shadow.observe_set_runtime(
+                    module_id,
+                    state,
+                    health=health,
+                    release_id=release_id,
+                    error=error,
+                    now_str=record.updated_at,
+                    py_record=record,
+                )
+            except Exception:
+                pass
         return record
 
     def set_capability_state(
@@ -150,6 +179,14 @@ class RuntimeStateRegistry:
         record.capability_state = state
         record.updated_at = _now()
         self._persist()
+        if self._native_shadow is not None:
+            try:
+                self._native_shadow.observe_set_capability(
+                    module_id, state, now_str=record.updated_at,
+                    py_record=record,
+                )
+            except Exception:
+                pass
         return record
 
     def heartbeat(self, module_id: str) -> ModuleRuntimeRecord:
@@ -157,6 +194,13 @@ class RuntimeStateRegistry:
         record.last_heartbeat = _now()
         record.updated_at = record.last_heartbeat
         self._persist()
+        if self._native_shadow is not None:
+            try:
+                self._native_shadow.observe_heartbeat(
+                    module_id, now_str=record.last_heartbeat
+                )
+            except Exception:
+                pass
         return record
 
     def record_error(self, module_id: str, error: str) -> ModuleRuntimeRecord:
@@ -164,6 +208,14 @@ class RuntimeStateRegistry:
         record.last_error = error[:500]
         record.updated_at = _now()
         self._persist()
+        if self._native_shadow is not None:
+            try:
+                self._native_shadow.observe_record_error(
+                    module_id, error, now_str=record.updated_at,
+                    py_record=record,
+                )
+            except Exception:
+                pass
         return record
 
     # ---- queries --------------------------------------------------------
@@ -193,7 +245,7 @@ class RuntimeStateRegistry:
             )
             if record.runtime_state == "FAILED":
                 failed.append(record.module_id)
-        return {
+        aggregate = {
             "schema": REGISTRY_VERSION,
             "module_count": len(self._records),
             "by_runtime_state": by_runtime,
@@ -201,6 +253,12 @@ class RuntimeStateRegistry:
             "failed_modules": sorted(failed),
             "generated_at": _now(),
         }
+        if self._native_shadow is not None:
+            try:
+                self._native_shadow.observe_aggregate(aggregate)
+            except Exception:
+                pass
+        return aggregate
 
 
 def _now() -> str:

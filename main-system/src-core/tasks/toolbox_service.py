@@ -115,7 +115,8 @@ class ToolboxService(
 
         self._runtime_state_registry = RuntimeStateRegistry(
             self.project_root / "main-system" / "runtime" / "state"
-            / "runtime-state-registry.json"
+            / "runtime-state-registry.json",
+            project_root=self.project_root,
         )
         # G83-2: immediate sweep of leftovers from previous crash-loop session
         try:
