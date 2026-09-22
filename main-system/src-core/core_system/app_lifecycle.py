@@ -117,6 +117,13 @@ class AppLifecycleMixin:
             pause_check=regulation_active
         )
 
+        # §1.1 自動化集中（P0-4）：自動化核心是唯一流程／排程註冊點——
+        # 清單（config/automation-flows.json）＋統一審計＋kill switch；
+        # 排程仍由共享 PeriodicScheduler 承載，核心只做治理包裹。
+        from tasks.automation_core import AutomationCore
+
+        self.automation_core = AutomationCore(self.periodic_scheduler)
+
         # System-wide automation coordinator (A63/A64 decision-layer).
         # Unifies all sovereign automation loops into a single
         # coordination surface with cross-sovereign health monitoring.

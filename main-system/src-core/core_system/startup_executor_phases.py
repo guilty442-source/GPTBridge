@@ -200,6 +200,7 @@ class StartupExecutorPhasesMixin:
             app.git_automation = GitAutomationService(
                 app.project_root,
                 scheduler=getattr(app, "periodic_scheduler", None),
+                automation_core=getattr(app, "automation_core", None),
             )
             await app.git_automation.start()
         _lap("git_automation_ms")

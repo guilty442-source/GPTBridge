@@ -95,6 +95,26 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
         self._running = True
         self._stop_event.clear()
         self._metrics["sovereigns_managed"] = len(_SOVEREIGN_ATTRS)
+        # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落私有迴圈。
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            if core.register_flow(
+                "system-automation-coordinator",
+                self._scheduled_tick,
+                interval_s=_COORDINATOR_INTERVAL_SECONDS,
+                run_immediately=True,
+            ):
+                _logger.info("SystemAutomationCoordinator started")
+                return {
+                    "status": "started",
+                    "sovereigns_managed": len(_SOVEREIGN_ATTRS),
+                    "interval_seconds": _COORDINATOR_INTERVAL_SECONDS,
+                    "loop": "automation-core",
+                }
+            _logger.info(
+                "SystemAutomationCoordinator disabled by automation core")
+            self._running = False
+            return {"status": "disabled", "loop": "automation-core"}
         scheduler = getattr(self.app, "periodic_scheduler", None)
         if scheduler is not None:
             # §10.63 R3: one shared loop instead of a private task.
@@ -127,8 +147,11 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
             return
         self._running = False
         self._stop_event.set()
+        core = getattr(self.app, "automation_core", None)
         scheduler = getattr(self.app, "periodic_scheduler", None)
-        if scheduler is not None:
+        if core is not None:
+            core.unregister("system-automation-coordinator")
+        elif scheduler is not None:
             scheduler.unregister("system-automation-coordinator")
         task = self._task
         self._task = None

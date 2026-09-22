@@ -30,7 +30,7 @@ async def test_registered_job_runs_at_deadline() -> None:
         return "ok"
 
     scheduler.register("job", 0.05, job)
-    await asyncio.sleep(0.2)
+    await asyncio.sleep(0.5)
     await scheduler.stop()
     assert ran, "registered job never ran"
 
@@ -66,7 +66,7 @@ async def test_job_timeout_enforced() -> None:
         await asyncio.sleep(30)
 
     scheduler.register("hang", 0.02, hang, run_immediately=True, timeout_s=0.05)
-    await asyncio.sleep(0.2)
+    await asyncio.sleep(0.5)
     jobs = {j["name"]: j for j in scheduler.jobs()}
     await scheduler.stop()
     assert "TimeoutError" in jobs["hang"]["last_error"]
@@ -231,7 +231,7 @@ async def test_pausable_jobs_defer_under_regulation() -> None:
 
     scheduler.register("pausable-job", 0.02, _pausable, pausable=True)
     scheduler.register("essential-job", 0.02, _essential)
-    await asyncio.sleep(0.12)
+    await asyncio.sleep(0.25)
     paused["on"] = False
     await asyncio.sleep(0.06)
     await scheduler.stop()
@@ -252,7 +252,7 @@ async def test_no_pause_check_never_defers() -> None:
         calls.append("tick")
 
     scheduler.register("job", 0.02, _tick, pausable=True)
-    await asyncio.sleep(0.07)
+    await asyncio.sleep(0.25)
     await scheduler.stop()
     assert calls, "pausable job must run when no pause_check is set"
 

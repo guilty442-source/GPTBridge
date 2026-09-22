@@ -253,6 +253,14 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
         return current >= self._next_due_epoch(self._load_state())
 
     async def start(self) -> None:
+        # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落私有迴圈。
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            core.register_flow(
+                "daily-global-cleaner",
+                self._scheduled_tick,
+            )
+            return
         scheduler = getattr(self.app, "periodic_scheduler", None)
         if scheduler is not None:
             # §10.63 R3: shared loop; the job re-checks is_due at a coarse
@@ -274,8 +282,11 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
 
     async def stop(self) -> None:
         self._stop_event.set()
+        core = getattr(self.app, "automation_core", None)
         scheduler = getattr(self.app, "periodic_scheduler", None)
-        if scheduler is not None:
+        if core is not None:
+            core.unregister("daily-global-cleaner")
+        elif scheduler is not None:
             scheduler.unregister("daily-global-cleaner")
         if self._task is not None:
             self._task.cancel()
