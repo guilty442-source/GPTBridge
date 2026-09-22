@@ -177,6 +177,70 @@ def _pool_stats(
     }
 
 
+def _sanitize_pool(
+    policy: SelfLearningPolicy,
+    examples: Mapping[str, list[dict[str, Any]]],
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
+    """§2.7-2 資料就緒閘：去重＋探針值汙染排除（皆 fail-closed 剔除）。
+
+    去重：``(input_text, target_text)`` 全等對跨 scope 只留首見
+    （scope 依 dict 序迭代＝收集器的檔名排序，決定性）。
+    汙染排除：input/target 含 maturity 探針值（沿用 chat-foundation
+    ``PROBE_VALUES``）的範例一律剔除，防止評測值洩入訓練集。"""
+    probe_values: frozenset[str] = frozenset()
+    if policy.exclude_probe_values:
+        from ..chat_foundation_dataset import PROBE_VALUES
+
+        probe_values = PROBE_VALUES
+    seen: set[tuple[str, str]] = set()
+    cleaned: dict[str, list[dict[str, Any]]] = {}
+    deduped = 0
+    contaminated = 0
+    for scope, records in examples.items():
+        kept: list[dict[str, Any]] = []
+        for record in records:
+            prompt = str(record.get("input_text") or "")
+            completion = str(record.get("target_text") or "")
+            if probe_values and any(
+                value in prompt or value in completion
+                for value in probe_values
+            ):
+                contaminated += 1
+                continue
+            key = (prompt, completion)
+            if policy.dedup_enabled:
+                if key in seen:
+                    deduped += 1
+                    continue
+                seen.add(key)
+            kept.append(record)
+        if kept:
+            cleaned[scope] = kept
+    return cleaned, {"deduped": deduped, "contaminated_dropped": contaminated}
+
+
+def _apply_dataset_cap(
+    examples: Mapping[str, list[dict[str, Any]]], cap: int
+) -> tuple[dict[str, list[dict[str, Any]]], int]:
+    """§2.7-8 資料上限：進資料集總例數超 cap 時決定性截斷。
+
+    展平序＝scope 字典序 → 各 scope 內 revision 升冪（收集器已排序），
+    保留前 ``cap`` 筆；回傳 (截斷後池, 截掉數)。"""
+    if cap <= 0:
+        return dict(examples), 0
+    flat: list[tuple[str, dict[str, Any]]] = []
+    for scope in sorted(examples):
+        for record in examples[scope]:
+            flat.append((scope, record))
+    if len(flat) <= cap:
+        return dict(examples), 0
+    kept = flat[:cap]
+    out: dict[str, list[dict[str, Any]]] = {}
+    for scope, record in kept:
+        out.setdefault(scope, []).append(record)
+    return out, len(flat) - cap
+
+
 def _quality_drift_status(
     policy: SelfLearningPolicy, stats: Mapping[str, Any]
 ) -> dict[str, Any] | None:
@@ -392,8 +456,20 @@ def run_cycle_impl(
     examples = collect_verified_examples(tool)
     if not examples:
         return {"ok": True, "action": "idle", "reason": "no-verified-examples", "total_examples": 0}
+    # §2.7-2 去重＋探針值汙染排除（先於統計，護欄量測乾淨池）
+    examples, sanitize_stats = _sanitize_pool(resolved_policy, examples)
+    if not examples:
+        return {
+            "ok": True,
+            "action": "idle",
+            "reason": "pool-empty-after-sanitize",
+            **sanitize_stats,
+            "policy": resolved_policy.to_dict(),
+            "checked_at": _iso_now(),
+        }
     # §2.7-1/2 範例池護欄（品質漂移／合成比例；資料池劣化先於門檻暴露）
     stats = _pool_stats(resolved_policy, examples)
+    stats.update(sanitize_stats)
     for gate in (
         _quality_drift_status(resolved_policy, stats),
         _synthetic_ratio_status(resolved_policy, stats),
@@ -474,6 +550,12 @@ def run_cycle_impl(
         curriculum["intent_filter"] = sorted(wanted)
         total = sum(len(recs) for recs in examples.values())
         new_examples = max(0, total - trained_total)
+
+    # §2.7-8 資料上限：進資料集總例數超政策上限時決定性截斷
+    examples, dataset_cap_truncated = _apply_dataset_cap(
+        examples, int(resolved_policy.max_dataset_examples)
+    )
+    dataset_examples = sum(len(recs) for recs in examples.values())
 
     from ..native_eval_suite import run_evaluation
     from ..sft_dataset import build_sft_dataset
@@ -711,6 +793,8 @@ def run_cycle_impl(
         "curriculum": curriculum,
         "new_examples": new_examples,
         "total_examples": total,
+        "dataset_examples": dataset_examples,
+        "dataset_cap_truncated": dataset_cap_truncated,
         "trigger": (
             "degradation-probe" if degradation_trigger else "data-threshold"
         ),

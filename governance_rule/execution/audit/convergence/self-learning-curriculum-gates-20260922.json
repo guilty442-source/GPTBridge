@@ -17,7 +17,10 @@
     "maturity_recheck_device": "重測裝置（預設 cpu）",
     "degradation_probe_enabled": "§2.7-1 能力退化探針觸發；資料未達 min_new_examples 時以套件 baseline_metrics 量測現役權重，退化且新例 ≥ degradation_min_examples → 降門檻觸發訓練（其餘閘門不變）",
     "degradation_probe_suite": "探針套件（預設 star-native-eval-dialogue-v1，用其 baseline_metrics 常數為對照）",
-    "degradation_min_examples": "退化觸發仍要求的最少新例（預設 1；0 新例 → idle degradation-detected-insufficient-data，誠實記錄不訓練）"
+    "degradation_min_examples": "退化觸發仍要求的最少新例（預設 1；0 新例 → idle degradation-detected-insufficient-data，誠實記錄不訓練）",
+    "dedup_enabled": "§2.7-2 去重（預設開啟）：(input_text,target_text) 全等對跨 scope 只留首見（scope 字典序，決定性），剔除數入 pool.deduped",
+    "exclude_probe_values": "§2.7-2 汙染排除（預設開啟）：input/target 含 chat-foundation PROBE_VALUES（星火測試/QZ-88/13 + 29/6 × 7）者剔除，剔除數入 pool.contaminated_dropped；全剔光 → idle pool-empty-after-sanitize",
+    "max_dataset_examples": "§2.7-8 資料上限（0=不設限）：進資料集總例數決定性截斷（scope 字典序→revision 升冪取前 N），截斷量入 summary.dataset_cap_truncated"
   },
   "degradation_probe_semantics": {
     "ordering": "只在 below-threshold 分支執行（已達門檻不浪費一次模型載入）",
@@ -35,14 +38,13 @@
   "resource_account": "§2.7-9 每循環記錄 elapsed_seconds/steps/device/dataset_example_count/train_count/validation_count 入循環報告與 state.resource_account",
   "defaults": "全部新閘門預設關閉（0/False/固定 sft 課程），既有行為不變；啟用值屬受管 runtime/settings/self-learning.json",
   "verification": {
-    "new_gate_tests": "tests/test_self_learning_gates.py 17/17 PASS — 合成上限阻斷/通過、品質漂移阻斷、maturity 狀態缺失/基礎未達阻斷、課程依層選擇(L4→dialogue,L7→refresh)、intent 篩空池阻斷、資源帳記錄、退化探針觸發/無資料閒置/未退化閒置/錯誤不觸發/套件缺失/指標退化判定、預設全關行為不變",
+    "new_gate_tests": "tests/test_self_learning_gates.py 21/21 PASS（含 dedup 剔除/汙染剔除/全污閒置/資料上限截斷；註：xdist 並行下偶發 worker 記憶體壓力當機，單跑全過——主機共載所致非邏輯失敗）— 合成上限阻斷/通過、品質漂移阻斷、maturity 狀態缺失/基礎未達阻斷、課程依層選擇(L4→dialogue,L7→refresh)、intent 篩空池阻斷、資源帳記錄、退化探針觸發/無資料閒置/未退化閒置/錯誤不觸發/套件缺失/指標退化判定、dedup/汙染/資料上限、預設行為不變",
     "existing_regression": "test_phase_self_learning + test_self_learning_quiet_hours + test_training_job_executor + test_lifecycle_resource_actions + test_retention_weight_retirement 28/28 PASS",
     "syntax": "import check OK; SelfLearningPolicy dataclass fields verified at HEAD"
   },
   "gaps_remaining": [
-    "§2.7-2 dedup/eval-probe contamination exclusion",
     "§2.7-3 non-SFT course types (DPO/distill/續訓/專家模組)",
-    "§2.7-8 data-size cap / resource-overspend auto-stop (步數/GPU 門檻已；資料量上限與超支停機未)",
+    "§2.7-8 resource-overspend auto-stop mid-training (資料上限已實作 max_dataset_examples；訓練中超支即停需 executor 內嵌預算計時，未實作)",
     "§2.7-7 rollback rehearsal — UNRESOLVED: _retire_previous_artifact prunes previous weights, conflicts with 保留上一代+rollback 實測; governor ruling needed",
     "§2.7-10 3 consecutive autonomous cycles acceptance + codex amendment"
   ]

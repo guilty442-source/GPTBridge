@@ -103,6 +103,14 @@ class SelfLearningPolicy:
     degradation_probe_suite: str = "star-native-eval-dialogue-v1"
     # 退化觸發時仍要求的最少新範例數（預設 1；0 新例無課程可訓）
     degradation_min_examples: int = 1
+    # §2.7-2 資料就緒閘：去重與汙染排除（預設開啟——資料安全屬性）
+    # 去重：(input_text, target_text) 全等對跨 scope 只留首見（scope 字典序）。
+    dedup_enabled: bool = True
+    # 汙染排除：含 maturity 探針值（chat-foundation PROBE_VALUES）者一律剔除。
+    exclude_probe_values: bool = True
+    # §2.7-8 防爆走：單循環進入資料集的範例總數上限（0=不設限）；
+    # 超限決定性截斷（scope 字典序→revision 序保留前 N），截斷量入帳。
+    max_dataset_examples: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
