@@ -79,6 +79,10 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
         self._min_interval = _COORDINATOR_INTERVAL_SECONDS
         self._max_interval = 300.0  # Max 5 minutes
         self._consecutive_healthy = 0
+        # §10.63 R3: the cycle runs on the shared PeriodicScheduler; the
+        # adaptive interval gates cycles inside the tick instead of
+        # sleeping a private task.
+        self._last_cycle_monotonic = 0.0
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -91,15 +95,45 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
         self._running = True
         self._stop_event.clear()
         self._metrics["sovereigns_managed"] = len(_SOVEREIGN_ATTRS)
-        try:
-            self._task = asyncio.create_task(
-                self._coordination_loop(),
-                name="system-automation-coordinator",
-            )
-        except RuntimeError:
-            self._task = None
+        # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落私有迴圈。
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            if core.register_flow(
+                "system-automation-coordinator",
+                self._scheduled_tick,
+                interval_s=_COORDINATOR_INTERVAL_SECONDS,
+                run_immediately=True,
+            ):
+                _logger.info("SystemAutomationCoordinator started")
+                return {
+                    "status": "started",
+                    "sovereigns_managed": len(_SOVEREIGN_ATTRS),
+                    "interval_seconds": _COORDINATOR_INTERVAL_SECONDS,
+                    "loop": "automation-core",
+                }
+            _logger.info(
+                "SystemAutomationCoordinator disabled by automation core")
             self._running = False
-            return {"status": "no_event_loop"}
+            return {"status": "disabled", "loop": "automation-core"}
+        scheduler = getattr(self.app, "periodic_scheduler", None)
+        if scheduler is not None:
+            # §10.63 R3: one shared loop instead of a private task.
+            scheduler.register(
+                "system-automation-coordinator",
+                _COORDINATOR_INTERVAL_SECONDS,
+                self._scheduled_tick,
+                run_immediately=True,
+            )
+        else:
+            try:
+                self._task = asyncio.create_task(
+                    self._coordination_loop(),
+                    name="system-automation-coordinator",
+                )
+            except RuntimeError:
+                self._task = None
+                self._running = False
+                return {"status": "no_event_loop"}
         _logger.info("SystemAutomationCoordinator started")
         return {
             "status": "started",
@@ -113,6 +147,12 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
             return
         self._running = False
         self._stop_event.set()
+        core = getattr(self.app, "automation_core", None)
+        scheduler = getattr(self.app, "periodic_scheduler", None)
+        if core is not None:
+            core.unregister("system-automation-coordinator")
+        elif scheduler is not None:
+            scheduler.unregister("system-automation-coordinator")
         task = self._task
         self._task = None
         if task is not None and not task.done():
@@ -126,6 +166,47 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
     # ------------------------------------------------------------------
     # Coordination loop
     # ------------------------------------------------------------------
+
+    async def _scheduled_tick(self) -> None:
+        """One guarded coordination iteration for the shared scheduler.
+
+        Preserves the private loop's semantics: the adaptive interval gates
+        cycle frequency, the circuit breaker isolates repeated failures,
+        and errors are counted and logged — never propagated into the
+        scheduler loop.
+        """
+        if not self._running or self._stop_event.is_set():
+            return
+        import time
+
+        now = time.monotonic()
+        if now - self._last_cycle_monotonic < self._adaptive_interval:
+            return
+        if self._consecutive_errors >= self._circuit_breaker_threshold:
+            if time.time() < self._circuit_open_until:
+                return
+            self._consecutive_errors = 0
+            self._circuit_open_until = 0.0
+            _logger.info(
+                "SystemAutomationCoordinator circuit breaker reset"
+            )
+        self._last_cycle_monotonic = now
+        try:
+            await self._coordination_cycle()
+            self._consecutive_errors = 0
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self._consecutive_errors += 1
+            if self._consecutive_errors >= self._circuit_breaker_threshold:
+                self._circuit_open_until = time.time() + 300  # 5 minutes
+                _logger.warning(
+                    "SystemAutomationCoordinator circuit breaker opened for 5 minutes after %d errors",
+                    self._consecutive_errors,
+                )
+            _logger.warning(
+                "system automation coordination error: %s", error
+            )
 
     async def _coordination_loop(self) -> None:
         """Background loop: periodic cross-sovereign coordination with circuit breaker and adaptive interval."""

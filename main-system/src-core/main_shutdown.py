@@ -40,8 +40,27 @@ class GPTBridgeAppShutdownMixin:
             self._shutdown_complete.set()  # type: ignore[attr-defined]
 
     async def _shutdown_once(self) -> None:
-        # Stop the tool isolation health monitor first — every tool exit
-        # from this point on is an intentional shutdown or a governed
+        backup_scheduler = getattr(self, "backup_scheduler", None)
+        if backup_scheduler is not None:
+            try:
+                backup_scheduler.stop()
+            except Exception:
+                pass
+            self.backup_scheduler = None
+
+        # Close tools owned by this main system before stopping its health
+        # monitor.  ToolboxService filters by process ownership and manifest,
+        # so independent standalone tools remain running.
+        try:
+            toolbox = getattr(self, "toolbox_service", None)
+            if toolbox is not None:
+                await toolbox.stop_process_registry_monitor()
+                await toolbox.shutdown_managed_tools()
+        except Exception:
+            pass
+
+        # Stop the tool isolation health monitor next — every remaining tool
+        # exit from this point on is an intentional shutdown or a governed
         # generation replacement, never a crash worth recording.
         try:
             from core_system.tool_isolation import get_isolation_manager
@@ -78,6 +97,12 @@ class GPTBridgeAppShutdownMixin:
             broker = getattr(self, "model_service_activation", None)
             if broker is not None:
                 await broker.stop()
+        except Exception:
+            pass
+        try:
+            sleeper = getattr(self, "sleep_policy", None)
+            if sleeper is not None:
+                await sleeper.stop()
         except Exception:
             pass
         # Release the saga runtime assembly (no background thread).
@@ -170,6 +195,23 @@ class GPTBridgeAppShutdownMixin:
 
         self._command_tasks.clear()  # type: ignore[attr-defined]
         self._command_task_meta.clear()  # type: ignore[attr-defined]
+
+        # §1.1 自動化集中：先停自動化核心（解除全部流程註冊＋審計），
+        # 再停共享 periodic loop — all consumers
+        # (coordinator/cleaner/memory maintainer) have unregistered above.
+        automation_core = getattr(self, "automation_core", None)
+        if automation_core is not None:
+            try:
+                await automation_core.stop()
+            except Exception:
+                pass
+        periodic_scheduler = getattr(self, "periodic_scheduler", None)
+        if periodic_scheduler is not None:
+            try:
+                await periodic_scheduler.stop()
+            except Exception:
+                pass
+
         await self.runtime_bootstrap.shutdown()  # type: ignore[attr-defined]
         if self.governance is not None:  # type: ignore[attr-defined]
             self.governance.close()  # type: ignore[attr-defined]

@@ -1,0 +1,16 @@
+{
+  "evidence": "自動化逐流程遷移：清理與保留 → 自動化核心（§10.67）",
+  "at": "2026-09-22T02:30:00Z",
+  "flow": "清理與保留",
+  "from": "分散：各模組各自內建清理排程（retention, cleaner, backer）",
+  "to": "automation core（C#）統一排程，模組只執行清理任務",
+  "mechanism": {
+    "schedule": "PeriodicScheduler（60s 掃描，drain-gated）",
+    "audit": "runtime/logs/retention.jsonl + sleep-transitions.jsonl",
+    "kill_switch": "sleep-policy.json enabled=false（默認關，需總督核定）",
+    "policy": "10.67E caps (10MB/module, 72h age, backups keep-1, staging-tmp sweep, lifecycle fail-closed)"
+  },
+  "check": "模組零內建排程（grep -r \"schedule\" tasks/ 僅 automation core 有）、單一自動化核心、審計集中",
+  "verdict": "MIGRATED (shadow, Python 仍權威，待觀察窗後 primary)",
+  "next": "資源管制與釋放 → 自動化核心（resource-governor 已 central，engine hooks per-module 待遷）"
+}

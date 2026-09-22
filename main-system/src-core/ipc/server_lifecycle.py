@@ -244,10 +244,42 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                         await notifier.maybe_notify()
                     except Exception:
                         pass
-                memory_task = asyncio.create_task(
-                    memory_maintainer.run(shutdown_event),
-                    name="main-system-idle-memory-maintenance",
-                )
+                # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落
+                # 私有 task（kill switch 不可繞過）。§10.63 R3: shared
+                # PeriodicScheduler fallback when no core exists.
+                _automation_core = getattr(
+                    app_instance, "automation_core", None)
+                _periodic = getattr(app_instance, "periodic_scheduler", None)
+                if _automation_core is not None and memory_maintainer is not None:
+                    _automation_core.register_flow(
+                        "idle-memory-maintenance",
+                        memory_maintainer.tick,
+                        interval_s=memory_maintainer.interval_seconds,
+                    )
+                    memory_task = None
+                elif _periodic is not None and memory_maintainer is not None:
+                    _periodic.register(
+                        "idle-memory-maintenance",
+                        memory_maintainer.interval_seconds,
+                        memory_maintainer.tick,
+                        pausable=True,
+                    )
+                    memory_task = None
+                else:
+                    memory_task = asyncio.create_task(
+                        memory_maintainer.run(shutdown_event),
+                        name="main-system-idle-memory-maintenance",
+                    )
+                # §10.11: perf-baseline collector rides the same governed
+                # flow surface (automation core → scheduler fallback).
+                try:
+                    from tasks.perf_baseline_job import (
+                        register as _register_perf_baseline,
+                    )
+
+                    _register_perf_baseline(app_instance)
+                except Exception:
+                    pass  # measurement must never break server startup
                 status_push_task = asyncio.create_task(
                     _runtime_status_push_loop(app_instance, shutdown_event),
                     name="main-system-runtime-status-push",
@@ -298,6 +330,12 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
     except KeyboardInterrupt:
         print("Stopping IPC server...")
     finally:
+        _automation_core = getattr(app_instance, "automation_core", None)
+        _periodic = getattr(app_instance, "periodic_scheduler", None)
+        if _automation_core is not None:
+            _automation_core.unregister("idle-memory-maintenance")
+        elif _periodic is not None:
+            _periodic.unregister("idle-memory-maintenance")
         if memory_maintainer is not None:
             await memory_maintainer.stop(memory_task)
         await app_instance.shutdown()

@@ -1,4 +1,4 @@
-"""Automated Codex update — five-sovereign audit gate (proposed A537).
+"""Automated Codex update — five-sovereign audit gate (A537; active).
 
 法典依據:
 - A382: the non-disruptive amendment flow (12 ordered steps); a Codex
@@ -103,7 +103,7 @@ SOVEREIGN_AUDIT_SPECS: tuple[SovereignAuditSpec, ...] = (
     SovereignAuditSpec(
         sovereign_id="decision-sovereign",
         domain="policy-precedence-and-decision-basis",
-        owner_sub_sovereign="policy-architecture-sub-sovereign",
+        owner_sub_sovereign="decision-sovereign",
         duties=(
             "verify the amendment change class and required review level",
             "verify no conflicting active successor in the same scope",
@@ -126,7 +126,7 @@ SOVEREIGN_AUDIT_SPECS: tuple[SovereignAuditSpec, ...] = (
     SovereignAuditSpec(
         sovereign_id="permission-sovereign",
         domain="directory-identity-and-access-lifecycle",
-        owner_sub_sovereign="directory-sub-sovereign",
+        owner_sub_sovereign="permission-sovereign",
         duties=(
             "verify directory rows, identity format and ownership",
             "verify lifecycle/effective parity and retirement markers",
@@ -149,7 +149,7 @@ SOVEREIGN_AUDIT_SPECS: tuple[SovereignAuditSpec, ...] = (
     SovereignAuditSpec(
         sovereign_id="system-runtime-sovereign",
         domain="runtime-continuity-and-reader-generation",
-        owner_sub_sovereign="runtime-state-sync-sub-sovereign",
+        owner_sub_sovereign="system-runtime-sovereign",
         duties=(
             "verify the amendment causes no restart, stop or disconnect",
             "verify old readers drain on the prior generation and new readers use the published generation",
@@ -172,7 +172,7 @@ SOVEREIGN_AUDIT_SPECS: tuple[SovereignAuditSpec, ...] = (
     SovereignAuditSpec(
         sovereign_id="automation-sovereign",
         domain="staging-seal-mirror-and-version-mechanics",
-        owner_sub_sovereign="release-update-sync-sub-sovereign",
+        owner_sub_sovereign="automation-sovereign",
         duties=(
             "verify staged generation isolation and non-authoritative status",
             "verify seal roots recomputation per SEAL_CANONICAL_V1",
@@ -235,6 +235,9 @@ _SPEC_BY_ID: Mapping[str, SovereignAuditSpec] = {
 SOVEREIGN_ALIASES: Mapping[str, str] = {
     "星澄": "xingcheng",
     "runtime-sovereign": "system-runtime-sovereign",
+    # A486: synchronization-sovereign canonically renamed automation-sovereign;
+    # one-directional legacy-name resolution only.
+    "synchronization-sovereign": "automation-sovereign",
 }
 
 NETWORK_AUDIT_SOVEREIGN = "xingcheng"

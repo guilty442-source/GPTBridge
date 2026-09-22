@@ -34,7 +34,23 @@ class StartMixin(StartValidationMixin, StartSpawnMixin, ToolWatcherMixin):
             except Exception:
                 return await self._start_tool_inner(payload)
             async with lock:
-                return await self._start_tool_inner(payload)
+                reserved = await asyncio.to_thread(
+                    self._acquire_cross_process_start_lock, tool_id_pre
+                )
+                if not reserved:
+                    return {
+                        "ok": False,
+                        "tool_id": tool_id_pre,
+                        "request_id": str(payload.get("request_id") or ""),
+                        "error_code": "TOOL_START_LOCKED",
+                        "message": "another backend process is starting this tool",
+                    }
+                try:
+                    return await self._start_tool_inner(payload)
+                finally:
+                    await asyncio.to_thread(
+                        self._release_cross_process_start_lock, tool_id_pre
+                    )
         return await self._start_tool_inner(payload)
 
     async def _start_tool_inner(self, payload: Dict[str, Any]) -> Dict[str, Any]:

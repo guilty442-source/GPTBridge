@@ -6,8 +6,8 @@ crash tracebacks and write repair signals to the information layer
 execute repair mutations — that is the maintenance sovereign's
 exclusive decision chain (A67/A72).
 
-Extracted from ``central_repair`` to keep each module under the A73
-600-effective-line boundary.
+Extracted from ``central_repair`` to keep each module under the
+A431/A432 (E160) 500-effective-line boundary.
 """
 
 from __future__ import annotations

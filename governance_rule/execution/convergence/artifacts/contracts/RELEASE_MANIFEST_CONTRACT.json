@@ -1,0 +1,15 @@
+{
+  "contract_code": "RELEASE_MANIFEST_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A575",
+  "fields": [
+    "release_identity",
+    "build_hash",
+    "dependency_lock",
+    "compatibility_checks",
+    "codex_reference"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

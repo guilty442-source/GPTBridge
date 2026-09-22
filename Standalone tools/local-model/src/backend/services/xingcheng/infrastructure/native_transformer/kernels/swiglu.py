@@ -25,11 +25,10 @@ def _triton_available() -> bool:
 def swiglu(gate: torch.Tensor, up: torch.Tensor) -> torch.Tensor:
     """SiLU(gate) * up。gate, up 同形狀。"""
     # 同 RMSNorm：Triton 路徑不支援 autograd，訓練時退回 PyTorch。
-    if (
-        gate.is_cuda
-        and _triton_available()
-        and not (gate.requires_grad or up.requires_grad)
-    ):
+    needs_backward = torch.is_grad_enabled() and (
+        gate.requires_grad or up.requires_grad
+    )
+    if gate.is_cuda and _triton_available() and not needs_backward:
         try:
             return _swiglu_triton(gate, up)
         except Exception:

@@ -11,7 +11,7 @@ not be treated as cross-module semantic authority. Two point styles are accepted
   in-memory store); they are embedded locally through hashing-based character
   n-gram vectors via ``embed_vector`` / ``_token_vector``.
 
-No numpy/scipy/third-party (A37/E23).  A C++ native kernel hook
+No numpy/scipy/third-party (A37/E23).  An optional native kernel hook
 (``local.native_kernel``) may accelerate the hot vector math when the compiled
 ``.pyd`` exists; when it does not, a pure Python fallback is used.
 """
@@ -23,10 +23,13 @@ import hashlib
 import math
 import re
 import sqlite3
+import struct
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final, Iterator
+from typing import Any, Final, Iterator, Optional
 
 from .native_kernel import available as _native_available
 from ..security.qdrant_scope import QdrantScopeError
@@ -49,15 +52,27 @@ class _Point:
     payload: dict[str, Any]
 
 
+@lru_cache(maxsize=8192)
+def _gram_digest(gram: str) -> tuple[int, float]:
+    """3-gram → (bucket_index_base, weight)；gram 在語料中高度重複，快取雜湊結果。
+
+    備註：hasher 無法跨不同輸入重用（`update()` 是累加語意），
+    正確做法是把「gram → digest」記憶化而非共享單一 hasher。
+    回傳未取模的 32-bit 值與權重，維度在呼叫端取模（快取與維度無關）。
+    """
+    digest = hashlib.blake2b(gram.encode("utf-8"), digest_size=8).digest()
+    index_base = int.from_bytes(digest[:4], "little")
+    weight = float(int.from_bytes(digest[4:], "little")) / float(2**64 - 1) + 1.0
+    return index_base, weight
+
+
 def _token_vector(text: str, dimension: int = _DIMENSION) -> list[float]:
     vector = [0.0] * dimension
     for token in _TOKENS.findall(str(text).lower()):
         for end in range(_NGRAM, len(token) + 1):
             gram = token[end - _NGRAM:end]
-            digest = hashlib.blake2b(gram.encode("utf-8"), digest_size=8).digest()
-            index = int.from_bytes(digest[:4], "little") % dimension
-            weight = float(int.from_bytes(digest[4:], "little")) / float(2**64 - 1) + 1.0
-            vector[index] += weight
+            index_base, weight = _gram_digest(gram)
+            vector[index_base % dimension] += weight
     return vector
 
 
@@ -74,6 +89,23 @@ def _cosine(left: list[float], right: list[float]) -> float:
     if left_norm <= 0.0 or right_norm <= 0.0:
         return 0.0
     return sum(a * b for a, b in zip(left, right)) / (left_norm * right_norm)
+
+
+def _unpack_vector(raw: Any) -> list[float] | None:
+    """Decode a stored vector — BLOB (float64 LE, new writes) or legacy JSON
+    text (rows written before W8)."""
+    if isinstance(raw, (bytes, bytearray, memoryview)):
+        blob = bytes(raw)
+        if not blob or len(blob) % 8:
+            return None
+        return list(struct.unpack(f"<{len(blob) // 8}d", blob))
+    try:
+        value = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return None
+    if isinstance(value, list) and all(isinstance(v, (int, float)) for v in value):
+        return [float(v) for v in value]
+    return None
 
 
 def embed_vector(text: str, dimension: int = _DIMENSION) -> list[float]:
@@ -124,6 +156,10 @@ class LocalVectorStore:
                     vector TEXT NOT NULL,
                     payload TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS collection_state (
+                    key TEXT NOT NULL PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
                 """
             )
 
@@ -150,16 +186,78 @@ class LocalVectorStore:
         except (TypeError, ValueError):
             return value
 
+    @staticmethod
+    def _declared_dimension(connection: sqlite3.Connection) -> Optional[int]:
+        """Declared collection dimension: collection_state first, then the
+        legacy MAX(collection_meta.vector_size) for databases predating the
+        state table."""
+        row = connection.execute(
+            "SELECT value FROM collection_state WHERE key = 'vector_size'"
+        ).fetchone()
+        if row is not None:
+            return int(row["value"])
+        row = connection.execute(
+            "SELECT MAX(vector_size) AS size FROM collection_meta"
+        ).fetchone()
+        if row is not None and row["size"] is not None:
+            return int(row["size"])
+        return None
+
     def ensure_collection(self, vector_size: int) -> None:
         with self._connect() as connection:
-            row = connection.execute(
-                "SELECT MAX(vector_size) AS size FROM collection_meta"
-            ).fetchone()
-        existing = int(row["size"]) if row is not None and row["size"] is not None else None
-        if existing is not None and int(vector_size) != existing:
+            existing = self._declared_dimension(connection)
+            if existing is None:
+                connection.execute(
+                    "INSERT OR REPLACE INTO collection_state (key, value)"
+                    " VALUES ('vector_size', ?)",
+                    (str(int(vector_size)),),
+                )
+                return
+        if int(vector_size) != existing:
             raise RuntimeError(
-                f"RAG_VECTOR_DIMENSION_MISMATCH: existing={existing}, requested={vector_size}"
+                f"RAG_VECTOR_DIMENSION_MISMATCH: existing={existing},"
+                f" requested={vector_size}; a deliberate dimension/index-version"
+                " change must go through reconcile_dimension()"
             )
+
+    def reconcile_dimension(
+        self, vector_size: int, *, index_version: Optional[str] = None
+    ) -> str:
+        """Apply a deliberate embedding dimension / index-version change.
+
+        This store is the degraded cache (``canonical: False``); its points
+        are re-embeddable from the canonical source, so a dimension change
+        is implemented as an explicit cache rebuild: all cached points and
+        document meta are dropped and a new collection epoch is recorded.
+        Returns ``'unchanged'`` when the declared dimension already matches,
+        ``'rebuilt'`` after a rebuild.  Never invoked implicitly — callers
+        must opt in after ``ensure_collection`` reports a mismatch.
+        """
+        with self._connect() as connection:
+            existing = self._declared_dimension(connection)
+            if existing == int(vector_size):
+                return "unchanged"
+            connection.execute("DELETE FROM collection_point")
+            connection.execute("DELETE FROM collection_meta")
+            row = connection.execute(
+                "SELECT value FROM collection_state WHERE key = 'epoch'"
+            ).fetchone()
+            epoch = (int(row["value"]) if row is not None else 0) + 1
+            state = {
+                "vector_size": str(int(vector_size)),
+                "epoch": str(epoch),
+                "reconciled_at": datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+            }
+            if index_version is not None:
+                state["index_version"] = str(index_version)
+            connection.executemany(
+                "INSERT OR REPLACE INTO collection_state (key, value)"
+                " VALUES (?, ?)",
+                list(state.items()),
+            )
+        return "rebuilt"
 
     def replace_document(
         self,
@@ -186,7 +284,25 @@ class LocalVectorStore:
                 row, size = self._prepare_point(point, document_id, resolved_module)
                 if not vector_size:
                     vector_size = size
+                elif size != vector_size:
+                    raise ValueError(
+                        f"RAG_POINT_DIMENSION_INCONSISTENT:"
+                        f" point={row[0]} size={size} expected={vector_size}"
+                    )
                 prepared.append(row)
+            declared = self._declared_dimension(connection)
+            if declared is None:
+                connection.execute(
+                    "INSERT OR REPLACE INTO collection_state (key, value)"
+                    " VALUES ('vector_size', ?)",
+                    (str(vector_size),),
+                )
+            elif vector_size != declared:
+                raise RuntimeError(
+                    f"RAG_VECTOR_DIMENSION_MISMATCH: existing={declared},"
+                    f" requested={vector_size}; a deliberate dimension/index-version"
+                    " change must go through reconcile_dimension()"
+                )
             connection.execute(
                 """
                 INSERT INTO collection_meta (
@@ -233,7 +349,7 @@ class LocalVectorStore:
             point_id,
             document_id,
             point_module,
-            json.dumps(vector),
+            sqlite3.Binary(struct.pack(f"<{len(vector)}d", *vector)),
             json.dumps(payload, ensure_ascii=False),
         )
         return row, len(vector)
@@ -260,10 +376,10 @@ class LocalVectorStore:
         rows = self._fetch_rows(module_ids, bounded_limit)
         scored: list[tuple[float, dict[str, Any]]] = []
         for row in rows:
-            stored = self._loads(row["vector"])
-            if not isinstance(stored, list) or len(stored) != len(query_vector):
+            stored = _unpack_vector(row["vector"])
+            if stored is None or len(stored) != len(query_vector):
                 continue
-            score = _cosine(query_vector, [float(value) for value in stored])
+            score = _cosine(query_vector, stored)
             scored.append((score, self._hit_record(row, score)))
         scored.sort(key=lambda item: item[0], reverse=True)
         return [record for score, record in scored[: max(0, int(limit))]]
@@ -316,6 +432,10 @@ class LocalVectorStore:
                 meta_row = connection.execute(
                     "SELECT COUNT(*) AS docs, MAX(vector_size) AS size FROM collection_meta"
                 ).fetchone()
+                state_rows = connection.execute(
+                    "SELECT key, value FROM collection_state"
+                ).fetchall()
+            collection_state = {str(r["key"]): r["value"] for r in state_rows}
             point_count = int(point_row["count"])
             return {
                 "available": True,
@@ -331,6 +451,13 @@ class LocalVectorStore:
                 "point_count": point_count,
                 "document_count": int(meta_row["docs"]),
                 "vector_size": int(meta_row["size"]) if meta_row["size"] is not None else None,
+                "collection_epoch": int(collection_state.get("epoch", "0") or 0),
+                "declared_vector_size": (
+                    int(collection_state["vector_size"])
+                    if collection_state.get("vector_size")
+                    else None
+                ),
+                "index_version": collection_state.get("index_version"),
                 "location": self.location,
             }
         except (OSError, ValueError, sqlite3.Error) as exc:

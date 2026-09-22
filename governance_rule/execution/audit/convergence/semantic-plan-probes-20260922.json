@@ -1,0 +1,65 @@
+{
+  "schema": "convergence-evidence/v1",
+  "item": "Phase-5 命令理解探針（star-semantic-plan/v1 對齊）",
+  "date": "2026-09-22",
+  "blueprint_refs": [
+    "星澄模型四層建置藍圖.md §3.3.1 Phase 5 待補（命令理解探針）",
+    "星澄模型四層建置藍圖.md Phase 5 驗收行（命令理解探針與對話探針並列）",
+    "星澄模型四層建置藍圖.md L5 門檻行 155"
+  ],
+  "artifacts": {
+    "probe_suite": "Standalone tools/local-model/xingcheng/eval/star-semantic-plan-probes-v1.json",
+    "suite_format": "star-semantic-plan-probes/v1",
+    "suite_cases": 24,
+    "runner": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/semantic_plan_probes.py",
+    "report_format": "star-semantic-plan-probe-report/v1",
+    "latest_report": "Standalone tools/local-model/xingcheng/runtime/logs/semantic-plan-probes-latest.json"
+  },
+  "measurement": {
+    "before_pass": 18,
+    "before_total": 24,
+    "before_pass_rate_pct": 75.0,
+    "after_pass": 24,
+    "after_total": 24,
+    "after_pass_rate_pct": 100.0,
+    "l5_threshold_pct": 75,
+    "threshold_met": true
+  },
+  "probe_coverage": [
+    "意圖抽取（coding/search/analysis/status/reading/data_organization/calculation/memory/training/repair/command_execution/conversation/visual）",
+    "動作抽取（generate/query/analyze/read/export/modify/delete/execute/schedule/update-as-modify）",
+    "對象抽取（file/folder/database/code/model）",
+    "參數抽取（numbers/versions/filenames/output_formats）",
+    "限制抽取（comprehension.constraints：prohibited/minimum/maximum；specific_constraints）",
+    "requested_outputs（summary/list/table/json）",
+    "多意圖排序與 tasks 序列",
+    "否定偵測（negations 非空）",
+    "破壞性操作閘門（destructive/confirmation_required/operation_allowed=false）",
+    "治理禁區表面（prohibited_intents：法典）"
+  ],
+  "gaps_found_and_fixed": {
+    "files": [
+      "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_constants.py"
+    ],
+    "changes": [
+      "_ACTION_ALIASES['generate'] += 寫一/寫支/寫段/寫篇/寫個/寫出/寫成/撰寫/編寫（裸『寫』刻意不加，避免吞掉寫入/描寫）",
+      "_ACTION_ALIASES 新增 13 個動作對齊引擎 ACTION_LEXICON：read/write/export/import/backup/restore/schedule/summarize/translate/open/reset/overwrite/format（含對應 _ACTION_LABELS 正規化標籤）",
+      "_OBJECT_ALIASES['code'] += 函式/腳本",
+      "_INTENTS['analysis'] += 失敗/錯誤訊息（診斷式 why-question）",
+      "探針 p19 期望值修正：『更新』在原生動作分類屬 modify（非獨立 update 動作）"
+    ],
+    "scope_note": "close（關閉）刻意未新增——既存 stop 別名含『關閉』且 dict 順序使 close 恆為 dead alias；單字『寫』未加（避免寫入/描寫誤判）"
+  },
+  "regression": {
+    "command": "pytest tests/test_chinese_semantic_engine.py test_chinese_semantic_engine_v2.py test_capability_evaluation.py test_native_eval_suite.py test_phase_native_dispatch.py test_phase_native_dialogue_route.py test_capability_composer.py test_native_engine.py model-dialogue/tests/test_model_dialogue_contracts.py model-dialogue/tests/test_generation_controls.py",
+    "passed": 93,
+    "failed": 0
+  },
+  "remaining_phase5_items": [
+    "eval suite dialogue v1（對話品質九類探針達標，v13 目前 0/4，見 l5-sft-v13 證據）",
+    "人工抽檢紀錄",
+    "xl-v3 啟用決策（Phase 8 路由）",
+    "run-to-run 變異穩定化（Phase 6 資料工程）"
+  ],
+  "notes": "命令理解為規則式語意層（不載權重、無 GPU），與 L5 對話品質（權重訓練）為並列兩軸；本證據僅閉合命令理解探針軸。"
+}

@@ -103,6 +103,13 @@ class CanonicalRagPipeline(
         # RAG-16: ACTIVE generation id bound to this pipeline; retrieval
         # drops hits carrying a different generation_id.
         self._active_generation: Optional[str] = None
+        # G50: production assembly point for the A486/A487 generation
+        # lifecycle.  Constructed during initialize() once Qdrant +
+        # PostgreSQL are proven; ``_generation_rebuild_required`` flags a
+        # config-fingerprint drift that demands a NEW generation (never an
+        # in-place edit of the ACTIVE one).
+        self.generation_manager: Optional[Any] = None
+        self._generation_rebuild_required = False
 
     @property
     def state(self) -> RagRuntimeState:
@@ -149,6 +156,44 @@ class CanonicalRagPipeline(
         # Step 2: PostgreSQL metadata authority
         pg_ok = await self.postgresql.initialize()
 
+        # G50: bind the ACTIVE index generation once both stores are
+        # proven — retrieval drops hits from any other generation
+        # (RAG-16), and a config-fingerprint drift marks the pipeline
+        # as needing a new-generation build before canonical indexing.
+        qdrant_client = getattr(self.qdrant, "client", None)
+        if qdrant_ok and pg_ok and qdrant_client is not None:
+            try:
+                from .generation import GenerationConfig, GenerationManager
+
+                self.generation_manager = GenerationManager(
+                    qdrant_client,
+                    GenerationConfig(
+                        alias_name=self.config.collection_name,
+                        embedding_model=self.config.embedding_model,
+                        embedding_dimension=self.config.embedding_dimension,
+                        chunk_size=self.config.chunk_size,
+                        chunk_overlap=self.config.chunk_overlap,
+                    ),
+                    self.postgresql,
+                )
+                active = await self.generation_manager.get_active_generation()
+                if active is not None:
+                    self._active_generation = str(active.generation_id)
+                    self._generation_rebuild_required = (
+                        await self.generation_manager.requires_rebuild(active)
+                    )
+                    if self._generation_rebuild_required:
+                        _logger.warning(
+                            "CanonicalRagPipeline: active generation %s "
+                            "fingerprint drifted from config — new "
+                            "generation build required",
+                            self._active_generation,
+                        )
+            except Exception as exc:
+                _logger.warning(
+                    "CanonicalRagPipeline: generation binding failed: %s", exc
+                )
+
         self._initialized = (
             qdrant_ok and pg_ok and self._blocked_reason is None
         )
@@ -156,6 +201,11 @@ class CanonicalRagPipeline(
 
         # A374: evaluate startup readiness gate.
         index_state_matches = self._initialized  # minimal: both stores up
+        if self._generation_rebuild_required:
+            # The ACTIVE generation's fingerprint no longer matches the
+            # configured embedding/index contract — canonical indexing is
+            # stale until a new generation is built/verified/activated.
+            index_state_matches = False
         if pg_ok:
             # If PostgreSQL is healthy, mirror any pending canonical queue
             # items into the local queue view so the startup gate can see

@@ -179,6 +179,7 @@ from .audit_protected import (
     check_forbidden_legacy,
     check_protected_sources,
 )
+from .audit_contract_axes import check_contract_axes
 from .audit_runtime_contracts import check_runtime_contracts
 from .audit_self_health import _verify_self_health_test_files
 
@@ -287,6 +288,7 @@ def audit_runtime_governance(
         lambda r: _collect(check_protected_sources, r),
         lambda r: _collect(check_forbidden_legacy, r),
         lambda r: _collect(check_runtime_contracts, r),
+        lambda r: _collect(check_contract_axes, r),
         lambda r: _collect(check_identity_permissions, r),
         lambda r: _collect(check_main_system_source, r),
         lambda r: _collect(check_shared_layer_structure, r),

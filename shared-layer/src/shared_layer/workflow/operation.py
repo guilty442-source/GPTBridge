@@ -44,6 +44,11 @@ class OperationStateError(RuntimeError):
     """Raised when the operation state machine is driven out of order."""
 
 
+# Y13: bound transition history — RUNNING ↔ REQUIRES_RECONCILE loops could
+# otherwise grow the list (and the in-memory operation) without limit.
+OPERATION_HISTORY_LIMIT = 64
+
+
 @dataclass
 class OperationLease:
     claimed_by: str = ""
@@ -101,6 +106,8 @@ class Operation:
         if self.status in TERMINAL_STATUSES:
             raise OperationStateError(f"OPERATION_TERMINAL:{self.status.value}")
         self.history.append(f"{self.status.value}->{target.value}")
+        if len(self.history) > OPERATION_HISTORY_LIMIT:
+            del self.history[: len(self.history) - OPERATION_HISTORY_LIMIT]
         self.status = target
         if now is not None:
             self.updated_at = now

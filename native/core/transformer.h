@@ -31,6 +31,26 @@ int gptbridge_native_transformer_softmax(
     const double* input, int64_t rows, int64_t cols,
     double* output);
 
+/* RMSNorm over each row of a 2D tensor [rows x cols]:
+ * output[r][c] = input[r][c] / sqrt(mean(input[r]^2) + eps) * weight[c].
+ * output must be pre-allocated with rows*cols doubles.
+ * Returns 0 on success, non-zero on invalid arguments. */
+int gptbridge_native_transformer_rmsnorm(
+    const double* input, int64_t rows, int64_t cols,
+    const double* weight, double eps,
+    double* output);
+
+/* Rotary position embedding over a [batch x heads x seq x head_dim] tensor.
+ * cos_table/sin_table are flattened [batch x seq x head_dim] tables;
+ * position-id gathering is the caller's responsibility.
+ * output must be pre-allocated with batch*heads*seq*head_dim doubles.
+ * Returns 0 on success, non-zero on invalid arguments. */
+int gptbridge_native_transformer_rope(
+    const double* input,
+    int64_t batch, int64_t heads, int64_t seq_len, int64_t head_dim,
+    const double* cos_table, const double* sin_table,
+    double* output);
+
 /* Scaled dot-product attention:
  *   scores[Q_rows x K_rows] = (Q * K^T) / sqrt(d_k)
  *   weights = softmax(scores)

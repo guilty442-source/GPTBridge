@@ -1,8 +1,8 @@
 """RMSNorm 自研 kernel。
 
-優先順序：Triton → PyTorch。
+優先順序：Triton → 原生 C → PyTorch。
 Triton 路徑在 CUDA 上提供 operator fusion（norm + scale + eps），
-降低 VRAM 存取量。CPU 或無 Triton 環境退回 PyTorch 參考實作。
+降低 VRAM 存取量。CPU 優先派送原生 C 核心，失敗再退回 PyTorch 參考實作。
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import torch
 
 from ..execution.backend import capabilities
+from ..execution.dispatch import native_rmsnorm
 
 
 def _triton_available() -> bool:
@@ -30,16 +31,18 @@ def rms_norm_weight(
     """
     # Triton kernel 不帶 autograd：訓練（需要梯度）時必須走 PyTorch 實作，
     # 否則梯度會在正規化層斷裂、模型無法收斂。
-    if (
-        hidden_states.is_cuda
-        and _triton_available()
-        and not (hidden_states.requires_grad or weight.requires_grad)
-    ):
+    needs_backward = torch.is_grad_enabled() and (
+        hidden_states.requires_grad or weight.requires_grad
+    )
+    if hidden_states.is_cuda and _triton_available() and not needs_backward:
         try:
             return _rms_norm_triton(hidden_states, weight, eps)
         except Exception:
             # 任何 ABI / kernel 編譯問題都退回 PyTorch
             pass
+    native = native_rmsnorm(hidden_states, weight, eps)
+    if native is not None:
+        return native
     return _rms_norm_torch(hidden_states, weight, eps)
 
 

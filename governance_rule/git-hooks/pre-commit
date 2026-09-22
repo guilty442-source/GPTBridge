@@ -78,12 +78,37 @@ def main() -> int:
     # a second time (the hook itself is already a Python process with
     # governance_rule on sys.path).
     os.environ.setdefault("GPTBRIDGE_AUDIT_SKIP_SELF_HEALTH", "1")
-    from governance_rule.execution.audit import audit_runtime_governance
 
-    errors = audit_runtime_governance(
-        project_root=WORKTREE_ROOT,
-        include_self_health=False,
+    # Native C++ audit engine IS the commit gate (P0-9 §1.1): FAIL/timeout
+    # is fail-closed.  The Python oracle (audit_runtime_governance) has
+    # moved out of the gate per blueprint — delegated semantic checks
+    # (codex/sqlite/dynamic-policy, currently ~29) run on the scheduled
+    # governed audit lane (permission-automation-audit →
+    # ``python -m governance_rule.execution.audit``) and on release gates.
+    # Escape hatch for manual verification, never silently on:
+    #   GPTBRIDGE_AUDIT_GATE_ORACLE=1 re-adds the python oracle inline.
+    from governance_rule.execution.audit.native_audit_gate import (
+        run_native_audit_gate,
     )
+    native = run_native_audit_gate(WORKTREE_ROOT)
+    if native.status in ("fail", "timeout"):
+        _snapshot = _lightweight_snapshot(WORKTREE_ROOT)
+        audit_log(2, "commit", actor, False,
+                  f"native audit engine gate failed ({native.summary()})",
+                  operation="commit", repo_snapshot=_snapshot)
+        for error in native.errors:
+            sys.stderr.write(f"[FAIL] {error}\n")
+        return 1
+
+    errors: list[str] = []
+    if os.environ.get("GPTBRIDGE_AUDIT_GATE_ORACLE") == "1":
+        from governance_rule.execution.audit import (
+            audit_runtime_governance,
+        )
+        errors = audit_runtime_governance(
+            project_root=WORKTREE_ROOT,
+            include_self_health=False,
+        )
     # Pre-compute a lightweight snapshot (skips binary patch generation).
     _snapshot = _lightweight_snapshot(WORKTREE_ROOT)
     if errors:
@@ -92,7 +117,9 @@ def main() -> int:
             sys.stderr.write(f"[FAIL] {error}\n")
         return 1
 
-    audit_log(2, "commit", actor, True, "pre-commit governance audit passed", operation="commit", repo_snapshot=_snapshot)
+    audit_log(2, "commit", actor, True,
+              f"pre-commit governance audit passed ({native.summary()})",
+              operation="commit", repo_snapshot=_snapshot)
     return 0
 
 

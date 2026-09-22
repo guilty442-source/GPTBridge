@@ -253,6 +253,26 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
         return current >= self._next_due_epoch(self._load_state())
 
     async def start(self) -> None:
+        # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落私有迴圈。
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            core.register_flow(
+                "daily-global-cleaner",
+                self._scheduled_tick,
+            )
+            return
+        scheduler = getattr(self.app, "periodic_scheduler", None)
+        if scheduler is not None:
+            # §10.63 R3: shared loop; the job re-checks is_due at a coarse
+            # cadence — due semantics unchanged (run_if_due only fires at
+            # the computed deadline).
+            scheduler.register(
+                "daily-global-cleaner",
+                300.0,
+                self._scheduled_tick,
+                pausable=True,
+            )
+            return
         if self._task is None or self._task.done():
             self._stop_event.clear()
             self._task = asyncio.create_task(
@@ -262,10 +282,43 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
 
     async def stop(self) -> None:
         self._stop_event.set()
+        core = getattr(self.app, "automation_core", None)
+        scheduler = getattr(self.app, "periodic_scheduler", None)
+        if core is not None:
+            core.unregister("daily-global-cleaner")
+        elif scheduler is not None:
+            scheduler.unregister("daily-global-cleaner")
         if self._task is not None:
             self._task.cancel()
             await asyncio.gather(self._task, return_exceptions=True)
             self._task = None
+
+    async def _scheduled_tick(self) -> None:
+        """One due-check for the shared scheduler (same body as _run_loop)."""
+        if self._stop_event.is_set():
+            return
+        try:
+            if self.is_due():
+                await self.run_if_due()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            state = self._load_state()
+            state.update(
+                {
+                    "last_ok": False,
+                    "last_status": "unexpected_failure",
+                    "last_completed_at": self._iso_now(),
+                    "last_error": {
+                        "error_code": "GLOBAL_CLEANER_UNEXPECTED_FAILURE",
+                        "message": f"{type(error).__name__}: {error}",
+                    },
+                }
+            )
+            try:
+                self._save_state(state)
+            except OSError:
+                pass
 
     async def _run_loop(self) -> None:
         try:

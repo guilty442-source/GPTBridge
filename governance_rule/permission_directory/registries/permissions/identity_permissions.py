@@ -6,19 +6,18 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_AI_ASSISTANT,
     IDENTITY_GROUP_AI_COLLABORATION,
     IDENTITY_GROUP_FILE_SORTER,
-    IDENTITY_GROUP_DOMAIN_TERM_EXTRACTOR,
     IDENTITY_GROUP_GLOBAL_CLEANER,
     IDENTITY_GROUP_GOVERNANCE_RULE,
     IDENTITY_GROUP_INVESTMENT_MOBILE,
     IDENTITY_GROUP_LOCAL_MODEL,
     IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE,
+    IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT,
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
     IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
     IDENTITY_GROUP_XINGCHENG_ASSISTANT,
-    IDENTITY_GROUP_CHINESE_SEMANTIC_ENGINE,
     IdentityPermissionBinding,
 )
 
@@ -89,17 +88,6 @@ IDENTITY_PERMISSION_BINDINGS: Final[
     IdentityPermissionBinding(
         group_id=IDENTITY_GROUP_FILE_SORTER,
         actor="governance/tool/file-sorter",
-        capabilities=(
-            "independent-tool-business-logic",
-            "independent-tool-user-settings",
-            "independent-tool-business-storage",
-            "system-channel-request-submit",
-            "system-channel-request-process",
-        ),
-    ),
-    IdentityPermissionBinding(
-        group_id=IDENTITY_GROUP_DOMAIN_TERM_EXTRACTOR,
-        actor="governance/tool/domain-term-extractor",
         capabilities=(
             "independent-tool-business-logic",
             "independent-tool-user-settings",
@@ -214,17 +202,17 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "ai-channel-request-submit",
         ),
     ),
+    # star-chat is a model-dialogue companion tool (manifest:
+    # companion_tool=true, host_tool_id=model-dialogue); it is a route
+    # actor on the AI channel so it needs channel-submit/process plus the
+    # AI-channel submit grant.  Business surfaces stay on the host.
     IdentityPermissionBinding(
-        group_id=IDENTITY_GROUP_CHINESE_SEMANTIC_ENGINE,
-        actor="governance/tool/chinese-semantic-engine",
+        group_id=IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT,
+        actor="governance/tool/star-chat",
         capabilities=(
-            "independent-tool-business-logic",
-            "independent-tool-user-settings",
-            "independent-tool-business-storage",
             "system-channel-request-submit",
             "system-channel-request-process",
             "ai-channel-request-submit",
-            "ai-channel-request-process",
         ),
     ),
 )

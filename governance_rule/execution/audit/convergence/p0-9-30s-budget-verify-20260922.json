@@ -1,0 +1,46 @@
+{
+  "artifact": "p0-9-30s-budget-verify",
+  "ts_utc": "2026-09-22T08:23:45Z",
+  "worker": "devin-cli",
+  "results": {
+    "precommit_hook_10_runs": {
+      "elapsed_s": [
+        0.72,
+        0.61,
+        0.62,
+        0.62,
+        0.81,
+        0.77,
+        0.62,
+        0.61,
+        0.7,
+        0.61
+      ],
+      "max_s": 0.81,
+      "budget_s": 30,
+      "all_exit_0": true,
+      "scope": "python governance_rule/git-hooks/pre-commit (diff --check + native engine + python oracle + audit_log)"
+    },
+    "native_engine": {
+      "passed": 244,
+      "failed": 0,
+      "delegated": 29,
+      "elapsed_s": 0.11
+    },
+    "native_test_suite": {
+      "elapsed_s": 27.0,
+      "pass": 42,
+      "fail": 0,
+      "blocked": 3,
+      "scope": "build.ps1 full build+run (9 suites)"
+    },
+    "timeout_fail_closed": {
+      "verified": true,
+      "method": "GPTBRIDGE_AUDIT_ENGINE_TIMEOUT=0.0001 -> status=timeout, hook exit=1"
+    },
+    "cache_invalidation": {
+      "manifest": "regenerated when codex sqlite newer (pre-existing)",
+      "engine_exe": "rebuilt when audit_engine.cpp/audit_engine.h newer than exe (added this change)"
+    }
+  }
+}

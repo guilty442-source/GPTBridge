@@ -1,0 +1,11 @@
+{
+  "schema": "ts-validation/v1",
+  "at": "2026-09-22T07:35:40Z",
+  "command": "npm run type-check (tsc --noEmit)",
+  "returncode": 0,
+  "elapsed_s": 37.8,
+  "passed": true,
+  "ts_errors": 0,
+  "error_samples": [],
+  "tail": "\n> gptbridge-auto-agent-ide@1.0.0 type-check\n> npx.cmd tsc --noEmit\n\n"
+}

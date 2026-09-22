@@ -1,0 +1,15 @@
+{
+  "registry_code": "MODEL_CONFIGURATION_REGISTRY",
+  "kind": "registry",
+  "source_provision": "A584",
+  "columns": [
+    "configuration_id",
+    "tokenizer",
+    "eval_suite",
+    "lifecycle",
+    "artifacts"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

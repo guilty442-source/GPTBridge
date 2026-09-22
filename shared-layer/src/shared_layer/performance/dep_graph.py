@@ -80,45 +80,94 @@ class DependencyGraph:
     """A directed dependency graph."""
     nodes: dict[str, DepNode] = field(default_factory=dict)
     edges: list[DepEdge] = field(default_factory=list)
+    # Y14: lazily built adjacency + memoized transitive closures, invalidated
+    # by a version counter bumped on every mutation.
+    _version: int = field(default=0, init=False, repr=False)
+    _built_version: int = field(default=-1, init=False, repr=False)
+    _fwd: dict[str, list[str]] | None = field(default=None, init=False, repr=False)
+    _rev: dict[str, list[str]] | None = field(default=None, init=False, repr=False)
+    _closure_deps: dict[int, dict[str, frozenset[str]]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _closure_rev: dict[int, dict[str, frozenset[str]]] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def add_node(self, node: DepNode) -> None:
         if node.node_id not in self.nodes:
             self.nodes[node.node_id] = node
+            self._version += 1
 
     def add_edge(self, edge: DepEdge) -> None:
         self.edges.append(edge)
+        self._version += 1
+
+    def _adjacency(self) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+        if self._fwd is None or self._rev is None:
+            fwd: dict[str, list[str]] = {}
+            rev: dict[str, list[str]] = {}
+            for e in self.edges:
+                fwd.setdefault(e.source, []).append(e.target)
+                rev.setdefault(e.target, []).append(e.source)
+            self._fwd, self._rev = fwd, rev
+        return self._fwd, self._rev
+
+    def _invalidate(self) -> None:
+        self._fwd = None
+        self._rev = None
+        self._closure_deps.clear()
+        self._closure_rev.clear()
 
     def dependents(self, node_id: str) -> list[str]:
         """Return node_ids that depend on the given node (reverse edges)."""
-        return [e.source for e in self.edges if e.target == node_id]
+        self._refresh()
+        _, rev = self._adjacency()
+        return list(rev.get(node_id, ()))
 
     def dependencies(self, node_id: str) -> list[str]:
         """Return node_ids that the given node depends on (forward edges)."""
-        return [e.target for e in self.edges if e.source == node_id]
+        self._refresh()
+        fwd, _ = self._adjacency()
+        return list(fwd.get(node_id, ()))
 
     def transitive_dependencies(self, node_id: str) -> set[str]:
-        """Return all transitive dependencies of a node."""
-        result: set[str] = set()
-        stack = [node_id]
-        while stack:
-            current = stack.pop()
-            for dep in self.dependencies(current):
-                if dep not in result:
-                    result.add(dep)
-                    stack.append(dep)
-        return result
+        """Return all transitive dependencies of a node (memoized per version)."""
+        return set(self._closure(node_id, self._closure_deps, forward=True))
 
     def transitive_dependents(self, node_id: str) -> set[str]:
-        """Return all transitive dependents of a node (reverse)."""
+        """Return all transitive dependents of a node (reverse, memoized)."""
+        return set(self._closure(node_id, self._closure_rev, forward=False))
+
+    def _edge_version_stale(self) -> bool:
+        # Mutations bump _version; adjacency rebuilt lazily on next access.
+        return self._built_version != self._version
+
+    def _closure(
+        self, node_id: str, cache: dict[int, dict[str, frozenset[str]]], *, forward: bool
+    ) -> frozenset[str]:
+        self._refresh()
+        bucket = cache.setdefault(self._version, {})
+        hit = bucket.get(node_id)
+        if hit is not None:
+            return hit
+        fwd, rev = self._adjacency()
+        adj = fwd if forward else rev
         result: set[str] = set()
         stack = [node_id]
         while stack:
             current = stack.pop()
-            for dep in self.dependents(current):
+            for dep in adj.get(current, ()):
                 if dep not in result:
                     result.add(dep)
                     stack.append(dep)
-        return result
+        frozen = frozenset(result)
+        bucket[node_id] = frozen
+        return frozen
+
+    def _refresh(self) -> None:
+        if self._edge_version_stale():
+            self._invalidate()
+            self._built_version = self._version
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -1,0 +1,12 @@
+{
+  "contract_version": 1,
+  "minimum_supported_contract_version": 1,
+  "description": "IPC contract axis: renderer <-> backend WebSocket/IPC surface (ipcSession loopback + session token; channel/handler pairs verified by contract tests).",
+  "axes": {
+    "transport": "ws://127.0.0.1:8766 + Electron invoke/handle",
+    "session": "ipcSession single-use token",
+    "channels": "declared channel<->handler pairs (G84 contract test)",
+    "release_check": "active_release_verify compares manifest ipc_contract_version with UI expectation"
+  },
+  "compatibility_rule": "consumer contract_version must satisfy minimum_supported_contract_version <= consumer <= contract_version"
+}

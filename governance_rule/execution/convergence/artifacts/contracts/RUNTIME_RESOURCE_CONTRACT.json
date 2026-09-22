@@ -1,0 +1,15 @@
+{
+  "contract_code": "RUNTIME_RESOURCE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A590",
+  "fields": [
+    "core",
+    "engine",
+    "budget",
+    "affinity",
+    "non_local_machine_rule"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

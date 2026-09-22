@@ -1,0 +1,67 @@
+{
+  "schema": "p0-9-native-audit-engine/v1",
+  "recorded_at": "2026-09-22T07:37:00Z",
+  "item": "P0-9 測試與審計套件 ≤30s — C/C++ 審計引擎（pre-commit 稽核流）",
+  "engine": {
+    "implementation": "native/audit/audit_engine.cpp (C++17, header native/include/audit_engine.h)",
+    "cli": "native/test_suites/bin/audit-engine.exe (build.ps1, /DGPTBRIDGE_AUDIT_ENGINE_CLI)",
+    "manifest": "governance_rule/execution/audit/audit_checks_manifest.json (star-audit-manifest/v1)",
+    "generator": "governance_rule/execution/audit/export_audit_manifest.py",
+    "gate": "governance_rule/execution/audit/native_audit_gate.py → pre-commit hook",
+    "native_kinds": [
+      "file-exists",
+      "file-not-exists",
+      "file-readonly",
+      "file-contains",
+      "text-no-pollution",
+      "json-parses",
+      "glob-min-count"
+    ]
+  },
+  "coverage": {
+    "native_checks": 91,
+    "delegated_checks": 154,
+    "note": "delegated=Python oracle 過渡覆蓋（顯式、計數、不靜默）；引擎未支援 kind 一律 delegated"
+  },
+  "measurements": {
+    "native_engine_live_repo": "0.095s / 91 checks / 0 fail",
+    "gate_module_end_to_end": "0.12s",
+    "python_audit_baseline": "1.88s (include_self_health=False)",
+    "ten_consecutive_gate_runs": {
+      "times_s": [
+        8.4,
+        3.96,
+        18.34,
+        25.19,
+        9.5,
+        11.93,
+        3.79,
+        2.88,
+        10.32,
+        4.55
+      ],
+      "min_s": 2.88,
+      "max_s": 25.19,
+      "mean_s": 9.88,
+      "fails": 0,
+      "all_within_30s": true,
+      "context": "INT-10 24h 運行中（真實環境負載）"
+    },
+    "timeout_fail_closed": "GPTBRIDGE_AUDIT_ENGINE_TIMEOUT=0.05 → hook exit=1 [FAIL]",
+    "native_suite": "audit_engine_suite 7/7 PASS；總 PASS=42 FAIL=0 BLOCKED=3"
+  },
+  "fail_closed_semantics": {
+    "manifest_parse_or_missing": "engine exit!=0 → gate fail → commit blocked",
+    "check_failure": "authoritative FAIL → commit blocked",
+    "timeout": "hard fail-closed (verified)",
+    "engine_unavailable": "delegated + recorded (python oracle covers same files)",
+    "cache_invalidation": "codex sqlite mtime > manifest mtime → regenerate before engine run"
+  },
+  "residuals": [
+    "154 項檢查仍 delegated（codex/sqlite/repo-layer 語義需 Python oracle；逐步擴充原生覆蓋）",
+    "Python oracle 長尾（單次觀測 25.19s）— 引擎覆蓋率提升後可降載",
+    "protected-source ast.parse / sqlite quick_check 未原生歸約",
+    "EXE 為建置產物（bin/ ignored）；閘門具備 on-demand 單檔編譯回退"
+  ],
+  "verdict": "SHADOW-ACTIVE — 原生引擎已嵌入 pre-commit 閘門且具權威否決權；Python oracle 並行覆蓋 delegated 項直到 parity"
+}

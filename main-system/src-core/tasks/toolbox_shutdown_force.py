@@ -35,7 +35,9 @@ class ForceCloseMixin:
     def _maintenance_not_ready_result(self, operation: str) -> Dict[str, Any]:
         raise NotImplementedError
 
-    def _authorize_tool_lifecycle(self, tool_id: str, action: str) -> None:
+    def _authorize_tool_lifecycle(
+        self, tool_id: str, action: str, *, allow_locked: bool = False
+    ) -> None:
         raise NotImplementedError
 
     async def _active_tool_process(self, tool_id: str) -> tuple[Any, Any, Any]:

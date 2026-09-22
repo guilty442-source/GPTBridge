@@ -119,8 +119,12 @@ class MaintenanceController:
         if get_telemetry_signals:
             self._get_signals = get_telemetry_signals
 
-    def start(self) -> None:
-        """Start the maintenance controller."""
+    def start(self, *, spawn_loop: bool = True) -> None:
+        """Start the maintenance controller.
+
+        ``spawn_loop=False`` starts without the private execution thread —
+        the caller then drives cadence itself via :meth:`run_once`
+        (§1.1 自動化集中：the automation core owns the schedule)."""
         with self._lock:
             if self._running:
                 return
@@ -137,13 +141,14 @@ class MaintenanceController:
             self._shutdown_event.clear()
             self._pause_event.clear()
 
-            # Start execution thread
-            self._execution_thread = threading.Thread(
-                target=self._execution_loop,
-                name="maintenance-controller",
-                daemon=True,
-            )
-            self._execution_thread.start()
+            # Start execution thread (skipped when externally driven)
+            if spawn_loop:
+                self._execution_thread = threading.Thread(
+                    target=self._execution_loop,
+                    name="maintenance-controller",
+                    daemon=True,
+                )
+                self._execution_thread.start()
 
     def stop(self, graceful: bool = True) -> None:
         """Stop the maintenance controller."""
@@ -223,46 +228,58 @@ class MaintenanceController:
             )
         return f"{job.engine}:{job.action_id}:{job.database_id}"
 
+    def run_once(self) -> None:
+        """One scheduling/execution iteration, externally driven.
+
+        §1.1 自動化集中：when the automation core owns the cadence
+        (``start(spawn_loop=False)``) this body is invoked per scheduler
+        tick instead of free-running on the private thread."""
+        if self._pause_event.is_set():
+            return
+        # Check generation change
+        if self._get_generation and self.config.revalidate_on_generation_change:
+            new_gen = self._get_generation()
+            if new_gen != self._current_generation:
+                self._current_generation = new_gen
+                self._scheduler.set_generation(new_gen)
+                # Revalidate running jobs
+                self._revalidate_running_jobs(new_gen)
+
+        # Get signals and state
+        signals = self._get_signals() if self._get_signals else {}
+        context = self._get_system_state() if self._get_system_state else {}
+        context["current_generation"] = self._current_generation
+
+        # Scheduling tick
+        admitted_jobs = self._scheduler.tick(signals, context)
+
+        # Persist admitted jobs
+        if self._persist_job:
+            for job in admitted_jobs:
+                self._persist_job(job)
+
+        # Execute queued jobs
+        self._execute_queued_jobs()
+
+        # Clean up completed
+        self._cleanup_completed()
+
     def _execution_loop(self) -> None:
         """Main execution loop."""
         while self._running and not self._shutdown_event.is_set():
             try:
-                # Check pause state
-                if self._pause_event.is_set():
-                    time.sleep(1.0)
-                    continue
-
-                # Check generation change
-                if self._get_generation and self.config.revalidate_on_generation_change:
-                    new_gen = self._get_generation()
-                    if new_gen != self._current_generation:
-                        self._current_generation = new_gen
-                        self._scheduler.set_generation(new_gen)
-                        # Revalidate running jobs
-                        self._revalidate_running_jobs(new_gen)
-
-                # Get signals and state
-                signals = self._get_signals() if self._get_signals else {}
-                context = self._get_system_state() if self._get_system_state else {}
-                context["current_generation"] = self._current_generation
-
-                # Scheduling tick
-                admitted_jobs = self._scheduler.tick(signals, context)
-
-                # Persist admitted jobs
-                if self._persist_job:
-                    for job in admitted_jobs:
-                        self._persist_job(job)
-
-                # Execute queued jobs
-                self._execute_queued_jobs()
-
-                # Clean up completed
-                self._cleanup_completed()
-
+                self.run_once()
             except Exception:
                 # Log but continue
                 time.sleep(1.0)
+
+            # §10.63 R2: bound the loop to the scheduler's configured tick
+            # cadence — previously the loop free-spun, paying a fresh PG
+            # health connect + ledger parse per iteration (the dominant
+            # share of measured idle CPU). Interruptible by shutdown.
+            self._shutdown_event.wait(
+                self.config.scheduler_config.tick_interval_seconds
+            )
 
     def _execute_queued_jobs(self) -> None:
         """Execute jobs from the queue."""

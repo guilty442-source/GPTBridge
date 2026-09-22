@@ -1,0 +1,24 @@
+{
+  "evidence": "按需啟動與休眠 §10.66 + 模組按需不常駐",
+  "at": "2026-09-22T01:20:00Z",
+  "verifier": "main-system/config/resident-core.json + periodic_scheduler + AutoReleaseManager",
+  "resident_core": {
+    "schema": "star-resident-core/v1",
+    "resident": ["ipc_server","governance_gates","runtime_state","backend_gateway_request_registry","periodic_scheduler","core_sovereigns","model_service_activation","maintenance_controller","connection_watchdog","authority_reanchor"],
+    "on_demand": ["hot_reload_watcher","RAG/CAG/DAG","local-model","ollama","standalone tools","Embedding/Reranker"],
+    "mode": "按需使用、不常駐，完成即釋放"
+  },
+  "on_demand": {
+    "RAG/CAG": "lazy import 2.43s/1153→0.66s/670 (AGENTS.md)",
+    "local-model": "A540 預設關閉，ModelServiceActivationBroker 懶啟動",
+    "hot_reload_watcher": "on-demand (ea6372e6), watch_loop false, 5ms",
+    "periodic_scheduler": "6→5 jobs (R5), pausable jobs 管制中延後"
+  },
+  "auto_release": {
+    "idle": "300s (AutoReleaseManager DEFAULT_IDLE_SECONDS)",
+    "check": "60s",
+    "pressure": "RAM>80% or VRAM>95% 立即釋放",
+    "evidence": "scripts/verify-10_64-engine-gpu.py PASS (idle 2s 驅逐, VRAM 95% 上限)"
+  },
+  "verdict": "PASS (按需啟動與休眠設計已定，實作見 resident-core.json 與 periodic_scheduler)"
+}

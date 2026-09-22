@@ -1,0 +1,13 @@
+{
+  "evidence": "單元制 primary/retire 觀察窗（§10.68）",
+  "at": "2026-09-22T02:50:00Z",
+  "hierarchy": "5 blocks / 10 units / 27 reparent (A594-596, r8/r9)",
+  "current": "shadow PASS (tools→model→shared→core→xingcheng 5 blocks all shadow, directory parity)",
+  "next": {
+    "primary": "C 為主路徑，Python 保留為回退，觀察窗 ≥2 release 週期（~60d），期間整體淨占用量測（RSS p95 < 前基線，ready ≤1.72s，idle CPU ≤3%）",
+    "retire": "Python 路徑移除，codex architecture_activation_states 列同步更新（受管 amendment，不得直接改庫），不留 shim",
+    "isolation": "按需一個單元或單一模組（runtime core 執行、decision core 裁決，全程審計）"
+  },
+  "check": "跨單元介面強制（<區塊>/<單元>/<模組> 目錄同步，跨單元僅受治理 IPC/契約），同單元共置",
+  "verdict": "SHADOW PASS, PRIMARY PENDING (2-release window)"
+}

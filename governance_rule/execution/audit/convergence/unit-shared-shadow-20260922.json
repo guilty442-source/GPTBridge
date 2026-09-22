@@ -1,0 +1,11 @@
+{
+  "evidence": "單元制搬移次輪 shared/shadow（§10.68）",
+  "at": "2026-09-22T02:20:00Z",
+  "order": "tools(done) → model(done) → shared → core → xingcheng",
+  "phase": "shared (shadow)",
+  "source": "shared-layer/src/* (database/adaptive/security/workflow/performance, information/resident/canonical)",
+  "shadow": "units/shared/information (shadow, parallel run, registry still information/standalone-service/resident/canonical, A8/A44/A49)",
+  "check": "architecture_registry parity, RLS + generation fence, workload lanes, outbox/inbox",
+  "next": "core → xingcheng each one round shadow→primary→retire",
+  "verdict": "SHADOW PASS (directory parity, no direct delete, contract version axis)"
+}

@@ -20,12 +20,12 @@ Hardening controls:
 from __future__ import annotations
 
 import asyncio
-import json
-import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
+
+from ._audit_writer import append_audit_record
 
 _MAX_LIST_LIMIT = 200
 _DEFAULT_LIST_LIMIT = 50
@@ -160,14 +160,7 @@ class SagaOperationsHandler:
 
     def _audit(self, event: str, extra: dict[str, Any]) -> None:
         record = {"event": event, "timestamp": _iso_now(), **extra}
-        try:
-            self._audit_ledger.parent.mkdir(parents=True, exist_ok=True)
-            line = json.dumps(record, ensure_ascii=False, sort_keys=True, default=str)
-            with self._audit_ledger.open("a", encoding="utf-8") as handle:
-                handle.write(line + os.linesep)
-                handle.flush()
-        except OSError:
-            pass  # audit persistence is best-effort
+        append_audit_record(self._audit_ledger, record)
 
 
 __all__ = ["SagaOperationsHandler"]

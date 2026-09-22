@@ -1,0 +1,557 @@
+{
+  "acceptance": "§10.64 ② engine/GPU idle auto-release long-duration validation",
+  "cycles": [
+    {
+      "cycle": 0,
+      "baseline_rss_mb": 517.6,
+      "loaded_rss_mb": 1645.2,
+      "released_rss_mb": 96.7,
+      "baseline_vram_mb": 0.0,
+      "loaded_vram_mb": 0.0,
+      "released_vram_mb": 0.0,
+      "released_vram_reserved_mb": 2.1
+    },
+    {
+      "cycle": 1,
+      "baseline_rss_mb": 517.6,
+      "loaded_rss_mb": 1410.3,
+      "released_rss_mb": 1290.2,
+      "baseline_vram_mb": 0.0,
+      "loaded_vram_mb": 0.0,
+      "released_vram_mb": 0.0,
+      "released_vram_reserved_mb": 2.1
+    }
+  ],
+  "events": [
+    {
+      "event": "generate",
+      "cycle": 0,
+      "ok": true,
+      "error": ""
+    },
+    {
+      "event": "released",
+      "cycle": 0,
+      "t": 1790040284.6
+    },
+    {
+      "event": "generate",
+      "cycle": 1,
+      "ok": true,
+      "error": ""
+    },
+    {
+      "event": "released",
+      "cycle": 1,
+      "t": 1790040712.0
+    }
+  ],
+  "samples": [
+    {
+      "t": 1790039920.8,
+      "rss_mb": 517.6,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 0.0,
+      "phase": "baseline"
+    },
+    {
+      "t": 1790039922.9,
+      "rss_mb": 1645.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-loaded"
+    },
+    {
+      "t": 1790039938.7,
+      "rss_mb": 1638.5,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790039953.7,
+      "rss_mb": 89.6,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790039968.8,
+      "rss_mb": 90.3,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790039983.8,
+      "rss_mb": 92.8,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790039998.8,
+      "rss_mb": 92.8,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040013.8,
+      "rss_mb": 92.8,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040028.9,
+      "rss_mb": 92.8,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040043.9,
+      "rss_mb": 93.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040058.9,
+      "rss_mb": 93.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040073.9,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040089.0,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040104.0,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040119.2,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040134.3,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040149.3,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040164.3,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040179.3,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040194.4,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040209.4,
+      "rss_mb": 93.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040224.4,
+      "rss_mb": 94.0,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040239.5,
+      "rss_mb": 94.0,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040254.5,
+      "rss_mb": 94.0,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040269.5,
+      "rss_mb": 94.0,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040284.6,
+      "rss_mb": 96.7,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-waiting"
+    },
+    {
+      "t": 1790040294.6,
+      "rss_mb": 96.7,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-settle"
+    },
+    {
+      "t": 1790040304.7,
+      "rss_mb": 96.7,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-settle"
+    },
+    {
+      "t": 1790040314.8,
+      "rss_mb": 96.7,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-settle"
+    },
+    {
+      "t": 1790040324.8,
+      "rss_mb": 96.7,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-settle"
+    },
+    {
+      "t": 1790040334.9,
+      "rss_mb": 96.7,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-settle"
+    },
+    {
+      "t": 1790040344.9,
+      "rss_mb": 96.7,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle0-settle"
+    },
+    {
+      "t": 1790040347.4,
+      "rss_mb": 1410.3,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-loaded"
+    },
+    {
+      "t": 1790040366.0,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040381.0,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040396.1,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040411.1,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040426.2,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040441.2,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040456.2,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040471.3,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040486.3,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040501.3,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040516.4,
+      "rss_mb": 1290.1,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040531.5,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040546.5,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040561.6,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040576.7,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040591.7,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040606.8,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040621.8,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040636.8,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040651.8,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040666.9,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040681.9,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040696.9,
+      "rss_mb": 1290.2,
+      "engine_cached": true,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040712.0,
+      "rss_mb": 1290.2,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-waiting"
+    },
+    {
+      "t": 1790040722.0,
+      "rss_mb": 1290.2,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-settle"
+    },
+    {
+      "t": 1790040732.3,
+      "rss_mb": 1290.2,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-settle"
+    },
+    {
+      "t": 1790040742.3,
+      "rss_mb": 1290.2,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-settle"
+    },
+    {
+      "t": 1790040752.4,
+      "rss_mb": 1290.2,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-settle"
+    },
+    {
+      "t": 1790040762.7,
+      "rss_mb": 1290.2,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-settle"
+    },
+    {
+      "t": 1790040772.8,
+      "rss_mb": 1290.2,
+      "engine_cached": false,
+      "vram_alloc_mb": 0.0,
+      "vram_reserved_mb": 2.1,
+      "phase": "cycle1-settle"
+    }
+  ],
+  "cuda": true,
+  "passed": true
+}

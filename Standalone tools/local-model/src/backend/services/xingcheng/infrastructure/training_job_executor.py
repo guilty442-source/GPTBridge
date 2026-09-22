@@ -13,10 +13,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from .transformer_training_repository import TransformerTrainingRepository
+
+
+# R10：進入訓練態時把推論資源（auto_release 登錄的引擎／KV）卸載，
+# 讓 VRAM／RAM 給訓練子程序；動作寫入可稽核帳本。
+_RESOURCE_ACTION_TRAINING_STATES = frozenset({"PRETRAINING", "SFT_TRAINING"})
+_RESOURCE_ACTION_LEDGER = "xingcheng/runtime/logs/lifecycle-resource-actions.jsonl"
 
 
 _ALLOWED_PRESETS = frozenset({
@@ -546,6 +556,41 @@ class TrainingJobExecutor:
         except ValueError:
             return
         lifecycle.save(self._lifecycle_dir(self.tool_root, lifecycle.model_id))
+        self._apply_lifecycle_resource_action(lifecycle, target)
+
+    def _apply_lifecycle_resource_action(self, lifecycle, target: str) -> None:
+        """R10 資源動作：`*_TRAINING` 進入時卸載推論引擎快取。
+
+        ``auto_release`` 只登錄推論側資源；釋放失敗或無資源時不影響
+        訓練簿記，有實際釋放才寫帳本。
+        """
+        if target not in _RESOURCE_ACTION_TRAINING_STATES:
+            return
+        try:
+            from .native_transformer.execution.auto_release import get_manager
+
+            manager = get_manager()
+            with manager._lock:  # noqa: SLF001 - 同程序生命週期控制
+                keys = list(manager._resources)  # noqa: SLF001
+            released = [k for k in keys if manager.release(k)]
+        except Exception:
+            return
+        if not released:
+            return
+        record = {
+            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "model_id": str(lifecycle.model_id),
+            "state": target,
+            "action": "release-inference-resources",
+            "released": released,
+        }
+        try:
+            ledger = self.tool_root / _RESOURCE_ACTION_LEDGER
+            ledger.parent.mkdir(parents=True, exist_ok=True)
+            with ledger.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
 
     def _lifecycle_fail(self, configuration, reason: str) -> None:
         try:
@@ -566,6 +611,132 @@ class TrainingJobExecutor:
             return dict(row)
         except ValueError:
             return self._job_row(job_id)
+
+    # ----------------------------------------------------- R1 程序分離
+
+    def _invoke_trainer(
+        self,
+        train_docs: list,
+        val_docs: list,
+        configuration: Mapping[str, Any],
+        *,
+        output_dir: Path,
+        resume: Path | None,
+    ) -> dict[str, Any]:
+        """R1：真實訓練器（``_default_train_fn``）在受治理子程序執行。
+
+        常駐推論服務進程不承載訓練負載；跨程序僅透過 spec／summary JSON
+        檔案契約，不共享記憶體。注入的 ``train_fn``（測試樁）維持同進程。
+        ``configuration["isolate_process"]=False`` 可關閉隔離（稽核理由）。
+        """
+        if self._train_fn is _default_train_fn and configuration.get(
+            "isolate_process", True
+        ):
+            return self._run_train_subprocess(
+                train_docs, val_docs, configuration,
+                output_dir=output_dir, resume=resume,
+            )
+        return self._train_fn(
+            train_docs, val_docs, configuration,
+            output_dir=output_dir, resume=resume,
+        )
+
+    def _run_train_subprocess(
+        self,
+        train_docs: list,
+        val_docs: list,
+        configuration: Mapping[str, Any],
+        *,
+        output_dir: Path,
+        resume: Path | None,
+    ) -> dict[str, Any]:
+        services_root = Path(__file__).resolve().parents[2]
+        output_dir.mkdir(parents=True, exist_ok=True)
+        train_file = output_dir / "train-docs.json"
+        val_file = output_dir / "val-docs.json"
+        spec_file = output_dir / "job-spec.json"
+        train_file.write_text(
+            json.dumps(train_docs, ensure_ascii=False), encoding="utf-8"
+        )
+        val_file.write_text(
+            json.dumps(val_docs, ensure_ascii=False), encoding="utf-8"
+        )
+        spec_file.write_text(
+            json.dumps(
+                {
+                    "schema": "star-training-job-spec/v1",
+                    "train_documents_file": str(train_file),
+                    "val_documents_file": str(val_file),
+                    "configuration": dict(configuration),
+                    "output_dir": str(output_dir),
+                    "resume": str(resume) if resume else None,
+                },
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        env = dict(os.environ)
+        pythonpath = env.get("PYTHONPATH") or ""
+        env["PYTHONPATH"] = (
+            str(services_root) + os.pathsep + pythonpath
+            if pythonpath
+            else str(services_root)
+        )
+        timeout_s = float(configuration.get("train_process_timeout_s") or 14_400)
+        stderr_log = output_dir / "train-stderr.log"
+        with stderr_log.open("ab") as stderr_handle:
+            try:
+                proc = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "xingcheng.infrastructure.training_job_worker",
+                        str(spec_file),
+                    ],
+                    cwd=str(services_root),
+                    env=env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=stderr_handle,
+                    timeout=timeout_s if timeout_s > 0 else None,
+                    check=False,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise TrainingJobExecutorError(
+                    "EXECUTOR_TRAINING_FAILED",
+                    f"training subprocess timed out after {timeout_s}s",
+                ) from exc
+        if proc.returncode != 0:
+            detail = ""
+            error_file = output_dir / "train-error.json"
+            if error_file.is_file():
+                try:
+                    detail = str(
+                        json.loads(error_file.read_text(encoding="utf-8")).get(
+                            "error"
+                        )
+                    )[:300]
+                except Exception:
+                    pass
+            raise TrainingJobExecutorError(
+                "EXECUTOR_TRAINING_FAILED",
+                detail or f"training subprocess exited {proc.returncode}",
+            )
+        summary_file = output_dir / "train-summary.json"
+        if not summary_file.is_file():
+            raise TrainingJobExecutorError(
+                "EXECUTOR_TRAINING_FAILED",
+                "training subprocess produced no summary",
+            )
+        try:
+            return dict(json.loads(summary_file.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise TrainingJobExecutorError(
+                "EXECUTOR_TRAINING_FAILED", f"summary unreadable: {exc}"
+            ) from exc
 
     def _runtime_state(self) -> dict[str, Any]:
         with self.repository._connect() as connection:
@@ -646,7 +817,7 @@ class TrainingJobExecutor:
                         with GpuCoordinator().acquire(
                             required_mb, priority="training", timeout=timeout_s
                         ):
-                            summary = self._train_fn(
+                            summary = self._invoke_trainer(
                                 train_docs,
                                 val_docs,
                                 configuration,
@@ -658,7 +829,7 @@ class TrainingJobExecutor:
                             "EXECUTOR_GPU_BUSY", str(exc)[:300]
                         ) from exc
                 else:
-                    summary = self._train_fn(
+                    summary = self._invoke_trainer(
                         train_docs,
                         val_docs,
                         configuration,

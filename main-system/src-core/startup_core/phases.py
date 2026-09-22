@@ -80,16 +80,44 @@ class PhaseMixin(StartupPhaseExecutionMixin):
         }
     def _phase_postgresql(self) -> dict[str, Any]:
         start = time.monotonic()
-        dsn = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "").strip()
+        # G89/G24: resolve through the governed credential store so the
+        # certified path still works after env DSNs are cleared; only when
+        # no DSN exists anywhere does this degrade to the TCP probe.
+        dsn = ""
+        dsn_source = "none"
+        try:
+            from shared_layer.security.dsn_policy import (  # noqa: PLC0415
+                DsnPolicyError,
+                DsnPurpose,
+                resolve_dsn,
+            )
+            binding = resolve_dsn(DsnPurpose.RUNTIME)
+            dsn = binding.dsn.strip()
+            dsn_source = binding.env_name
+        except Exception:
+            dsn = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "").strip()
+            dsn_source = "env-fallback" if dsn else "none"
+        certification: dict[str, Any] | None = None
 
         def _check() -> bool:
+            nonlocal certification
             if dsn:
                 try:
                     import psycopg  # noqa: WPS433 — conditional import
                     with psycopg.connect(dsn, connect_timeout=int(POSTGRES_CONNECT_TIMEOUT)) as conn:
                         conn.execute("SELECT 1").fetchone()
+                        # Migration 030: certify before marking READY —
+                        # schema/RLS/roles/migration-head/audit/contract,
+                        # not just SELECT 1.
+                        from shared_layer.database.startup_certifier import (  # noqa: PLC0415
+                            certify_startup,
+                        )
+                        certification = certify_startup(
+                            conn, certified_by="startup-phase:postgresql-start"
+                        )
                     return True
                 except Exception:
+                    certification = None
                     pass
             return self._probe_tcp("127.0.0.1", POSTGRESQL_PORT, timeout=POSTGRES_CONNECT_TIMEOUT)
 
@@ -97,6 +125,18 @@ class PhaseMixin(StartupPhaseExecutionMixin):
             if self._stop.is_set():
                 break
             if _check():
+                if certification is not None and not certification.get("ready"):
+                    return {
+                        "phase": "postgresql-start",
+                        "label": "啟動 PostgreSQL",
+                        "critical": True,
+                        "ready": False,
+                        "state": "fault",
+                        "fault_code": "POSTGRESQL_CERTIFICATION_FAILED",
+                        "message": "startup certification failed",
+                        "certification": certification,
+                        "duration_ms": int((time.monotonic() - start) * 1000),
+                    }
                 return {
                     "phase": "postgresql-start",
                     "label": "啟動 PostgreSQL",
@@ -105,6 +145,12 @@ class PhaseMixin(StartupPhaseExecutionMixin):
                     "state": "ok",
                     "fault_code": "POSTGRESQL_READY",
                     "message": "ready",
+                    "certification": (
+                        certification
+                        if certification is not None
+                        else "skipped:no-dsn"
+                    ),
+                    "dsn_source": dsn_source,
                     "duration_ms": int((time.monotonic() - start) * 1000),
                 }
             if attempt < POSTGRES_PROBE_ATTEMPTS - 1:

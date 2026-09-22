@@ -1,0 +1,26 @@
+{
+  "id": "p1-cuda-cublas-matmul-bridge",
+  "date": "2026-09-22",
+  "scope": "C++ inference engine CUDA matmul dispatch (independent acceleration track)",
+  "design": {
+    "bridge": "src/cuda_bridge.cpp — host-API-only cuBLAS Dgemm (fp64) with per-call H2D/D2H; compiled as plain C++ (no nvcc/device kernels — CUDA 12.0 cudafe++ incompatible with MSVC 18; kernels need compatible toolchain or precompiled cubin later)",
+    "dispatch": "matmul() routes to GPU only when XINGCHENG_CPP_CUDA=1 read at engine load; env unset -> C-core CPU path unchanged; env set without CUDA build/device -> CUDA_UNAVAILABLE fail-closed at load",
+    "governance": "capability in native layer; enablement decided by governed Python env — consistent with 'native provides execution, Python owns policy'; gpu_coordinator semantics apply to the Python caller",
+    "build": "build_cpp.py detects CUDA_PATH/cublas and links cudart+cublas; cpp_runtime.load_extension registers CUDA bin via os.add_dll_directory (Win32 ignores PATH for pyd deps)",
+    "layering": "native/ pure-C core untouched — acceleration lives in the C++ layer per blueprint 'GPU 為獨立加速軌'"
+  },
+  "validation": {
+    "build": "extension builds with XINGCHENG_CUDA=1, links cudart64_12+cublas64_12 (CUDA 12.0)",
+    "tests": "29 passed in 17.07s (3 new: opt-in logits parity atol 1e-6, opt-in greedy generation parity vs CPU, default-CPU unchanged; all skip cleanly without a device)",
+    "device": "real RTX GPU present; torch.cuda.is_available()=True; tests exercised the GPU path",
+    "fail_closed": "CUDA_UNAVAILABLE when requested without build/device; CUDA_MATMUL_FAILED on bridge errors"
+  },
+  "files": [
+    "Standalone tools/local-model/src/backend/cpp/src/cuda_bridge.cpp",
+    "Standalone tools/local-model/src/backend/cpp/src/engine.cpp",
+    "Standalone tools/local-model/src/backend/cpp/build_cpp.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_runtime.py",
+    "Standalone tools/local-model/tests/test_cpp_inference.py"
+  ],
+  "remaining": "device-resident weights (v1 copies per call), bf16/fp32 GEMM paths, GPU-resident KV cache, production routing through gpu_coordinator, long-duration validation (P3f)"
+}

@@ -1,0 +1,14 @@
+{
+  "contract_code": "REQUEST_LIFECYCLE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A580",
+  "fields": [
+    "transition",
+    "race_single_result",
+    "stream_ownership",
+    "cancel_semantics"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

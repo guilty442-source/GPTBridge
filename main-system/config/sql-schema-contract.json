@@ -1,0 +1,11 @@
+{
+  "contract_version": 1,
+  "minimum_supported_contract_version": 1,
+  "description": "SQL schema axis: shared-layer SQLite/PG schema version recorded in *_schema_metadata (schema_version row) and checked by shared_layer.health.check_schema_version.",
+  "axes": {
+    "sqlite_schema_version": "transformer_schema_metadata.schema_version",
+    "health_check": "check_schema_version(expected_schema_version)",
+    "workload_lanes": "workload_lanes.py lane isolation unchanged across v1"
+  },
+  "compatibility_rule": "schema migrations bump contract_version; readers declaring minimum_supported > 1 are incompatible"
+}

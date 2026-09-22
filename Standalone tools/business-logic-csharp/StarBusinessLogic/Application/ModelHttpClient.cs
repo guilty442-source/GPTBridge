@@ -3,77 +3,128 @@ using System.Text.Json;
 
 namespace StarBusinessLogic.Application;
 
-// 真實 HTTP 客戶端：呼叫 Python 的推論服務（如 StarTransformerRuntime / local-model 的 HTTP 端口）
-// Python 端需暴露 POST /v1/infer {prompt, context, intent, max_new_tokens, temperature, top_k, top_p}
-public sealed class HttpModelClient : IModelClient
+// 對接 Python 模型服務端點（star-model-service/v1）：
+//   POST /v1/infer    — governed 推論（Python 引擎或 XINGCHENG_CPP_RUNTIME 路由的 C++ 執行層）
+//   GET  /v1/status   — 控制面狀態
+//   POST /v1/release  — 顯式 auto-release（對應 Python AutoReleaseManager）
+// 僅允許 loopback 端點；session token 與 Python IPC 信任邊界一致（X-GPTBridge-Session-Token）。
+// 速度：連線重用 + 有界超時；正確性：契約失敗 fail-closed（不產生偽造回應）。
+public sealed class HttpModelClient : IModelClient, IDisposable
 {
     private readonly HttpClient _http;
-    private readonly string _endpoint;
-    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private readonly string _base;
+    private readonly string? _sessionToken;
 
-    public HttpModelClient(HttpClient http, string endpoint)
+    public HttpModelClient(
+        string endpoint,
+        string? sessionToken = null,
+        HttpMessageHandler? handler = null,
+        TimeSpan? timeout = null)
     {
-        _http = http ?? throw new ArgumentNullException(nameof(http));
-        _endpoint = endpoint?.TrimEnd('/') ?? throw new ArgumentNullException(nameof(endpoint));
+        if (!IsLoopback(endpoint)) throw new InvalidOperationException("MODEL_ENDPOINT_MUST_BE_LOOPBACK");
+        _base = endpoint.TrimEnd('/');
+        _sessionToken = sessionToken;
+        _http = handler is null ? new HttpClient { BaseAddress = new Uri(_base) }
+                                : new HttpClient(handler);
+        _http.Timeout = timeout ?? TimeSpan.FromSeconds(15);
+    }
+
+    private HttpRequestMessage BuildRequest(HttpMethod method, string path, object? body = null)
+    {
+        var request = new HttpRequestMessage(method, _base + path);
+        if (!string.IsNullOrEmpty(_sessionToken))
+            request.Headers.Add("X-GPTBridge-Session-Token", _sessionToken);
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
+        return request;
     }
 
     public async Task<ModelInferenceResponse> InferAsync(ModelInferenceRequest request, CancellationToken cancellationToken = default)
     {
-        // 正確性：輸入驗證，fail-closed
-        if (request == null) throw new ArgumentNullException(nameof(request));
-        if (string.IsNullOrWhiteSpace(request.Prompt)) throw new ArgumentException("PROMPT_REQUIRED");
-        if (!IsLoopback(_endpoint))
-            throw new InvalidOperationException("MODEL_ENDPOINT_MUST_BE_LOOPBACK");
-
-        var payload = new
+        if (string.IsNullOrWhiteSpace(request.Prompt)) throw new ArgumentException("PROMPT_REQUIRED", nameof(request));
+        using var httpRequest = BuildRequest(HttpMethod.Post, "/v1/infer", new
         {
             prompt = request.Prompt,
-            context = request.Context ?? string.Empty,
-            intent = request.Intent ?? "Conversation",
-            max_new_tokens = Math.Clamp(request.MaxNewTokens, 1, 2048),
-            temperature = Math.Clamp(request.Temperature, 0.0, 2.0),
-            top_k = Math.Clamp(request.TopK, 0, 100),
-            top_p = Math.Clamp(request.TopP, 0.0, 1.0),
-            extra = request.Extra
-        };
-
-        // 速度：單次請求超時 15s（對應 Python 的 inference 預期），避免無限等待
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(15));
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+            context = request.Context,
+            intent = request.Intent,
+            max_new_tokens = request.MaxNewTokens,
+            temperature = request.Temperature,
+            top_k = request.TopK,
+            top_p = request.TopP,
+            extra = request.Extra,
+        });
         try
         {
-            using var resp = await _http.PostAsJsonAsync($"{_endpoint}/v1/infer", payload, JsonOpts, cts.Token).ConfigureAwait(false);
-            resp.EnsureSuccessStatusCode();
-            var doc = await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cts.Token).ConfigureAwait(false);
+            using var response = await _http.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+            var doc = await response.Content.ReadFromJsonAsync<JsonDocument>(cancellationToken).ConfigureAwait(false);
+            if (doc is null) throw new InvalidOperationException("MODEL_RESPONSE_INVALID");
 
-            // 正確性：欄位缺失時回退而非拋例外
-            string text = doc.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() ?? string.Empty : string.Empty;
-            var tokens = new List<int>();
-            if (doc.TryGetProperty("token_ids", out var ti) && ti.ValueKind == JsonValueKind.Array)
+            var root = doc.RootElement;
+            if (root.TryGetProperty("ok", out var okEl) && okEl.ValueKind == JsonValueKind.False)
             {
-                foreach (var e in ti.EnumerateArray())
-                {
-                    if (e.TryGetInt32(out var v)) tokens.Add(v);
-                }
+                var code = root.TryGetProperty("error_code", out var ec) ? ec.GetString() ?? "INFERENCE_FAILED" : "INFERENCE_FAILED";
+                throw new InvalidOperationException($"MODEL_INFERENCE_FAILED: {code}");
             }
-            string modelId = doc.TryGetProperty("model_id", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() ?? "native_transformer" : "native_transformer";
-            double latency = doc.TryGetProperty("latency_ms", out var l) && l.TryGetDouble(out var d) ? d : sw.Elapsed.TotalMilliseconds;
-            return new ModelInferenceResponse(text, tokens, modelId, latency);
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"MODEL_HTTP_{(int)response.StatusCode}");
+
+            var text = root.TryGetProperty("text", out var t) ? t.GetString() ?? string.Empty : string.Empty;
+            var tokenIds = root.TryGetProperty("token_ids", out var ids) && ids.ValueKind == JsonValueKind.Array
+                ? ids.EnumerateArray().Select(e => e.GetInt32()).ToArray()
+                : Array.Empty<int>();
+            var modelId = root.TryGetProperty("model_id", out var m) ? m.GetString() ?? "unknown" : "unknown";
+            var latency = root.TryGetProperty("latency_ms", out var l) ? l.GetDouble() : 0.0;
+            var metadata = new Dictionary<string, object>();
+            if (root.TryGetProperty("decoder", out var d)) metadata["decoder"] = d.GetString() ?? string.Empty;
+            if (root.TryGetProperty("cpp_runtime", out var cpp) && (cpp.ValueKind == JsonValueKind.True || cpp.ValueKind == JsonValueKind.False))
+                metadata["cpp_runtime"] = cpp.GetBoolean();
+            return new ModelInferenceResponse(text, tokenIds, modelId, latency, metadata);
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new InvalidOperationException("MODEL_INFERENCE_TIMEOUT");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            throw;
+            throw; // 上層取消向外傳遞
         }
-        catch (Exception ex) when (ex is TaskCanceledException or TimeoutException or HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            // 正確性：網路/超時 fail-closed，回傳錯誤而非偽造成功
             throw new InvalidOperationException($"MODEL_INFERENCE_FAILED: {ex.Message}", ex);
         }
     }
 
+    // 控制面：引擎/旗標狀態（GET /v1/status）
+    public async Task<IReadOnlyDictionary<string, object>> StatusAsync(CancellationToken cancellationToken = default)
+    {
+        using var httpRequest = BuildRequest(HttpMethod.Get, "/v1/status");
+        using var response = await _http.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"MODEL_HTTP_{(int)response.StatusCode}");
+        var doc = await response.Content.ReadFromJsonAsync<JsonDocument>(cancellationToken).ConfigureAwait(false);
+        return doc?.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => (object)p.Value.Clone())
+               ?? new Dictionary<string, object>();
+    }
+
+    // 釋放生命週期：顯式卸載 cached engine（POST /v1/release；key 為 null 時全部釋放）
+    public async Task<IReadOnlyList<string>> ReleaseAsync(string? key = null, CancellationToken cancellationToken = default)
+    {
+        using var httpRequest = BuildRequest(HttpMethod.Post, "/v1/release", new { key });
+        using var response = await _http.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        var doc = await response.Content.ReadFromJsonAsync<JsonDocument>(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode || doc is null)
+            throw new InvalidOperationException($"MODEL_HTTP_{(int)response.StatusCode}");
+        return doc.RootElement.TryGetProperty("released", out var r) && r.ValueKind == JsonValueKind.Array
+            ? r.EnumerateArray().Select(e => e.GetString() ?? string.Empty).ToArray()
+            : Array.Empty<string>();
+    }
+
     private static bool IsLoopback(string endpoint)
     {
-        return endpoint.Contains("127.0.0.1") || endpoint.Contains("localhost") || endpoint.Contains("[::1]");
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)) return false;
+        if (uri.Scheme != Uri.UriSchemeHttp) return false;
+        return uri.Host is "127.0.0.1" or "localhost" or "::1";
     }
+
+    public void Dispose() => _http.Dispose();
 }

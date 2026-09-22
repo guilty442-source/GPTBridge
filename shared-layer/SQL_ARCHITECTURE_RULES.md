@@ -132,8 +132,8 @@ Source Resource → PG resource metadata → PG chunk metadata → Embedding
 - [x] idempotent transport（idempotency_key + lease + reclaim，遷移 114）
 - [x] bounded SQLite fallback（`security` / `workflow` 上限契約）
 - [x] SQLite → PG reconciliation（單向）
-- [ ] formal RAG metadata authority（**待接線**：`PostgreSQLMetadataAuthority` 接入 RAG pipeline）
-- [ ] startup certification 接上 runtime（`shared_layer.startup_gate` 已備）
-- [ ] backup restore certification 接上 scheduler
+- [x] formal RAG metadata authority（2026-09-21 核實：`PostgreSQLMetadataAuthority` 已由 `rag/pipeline.py:67` 實例化並接入 canonical_backend／generation／health_gate）
+- [x] startup certification 接上 runtime（2026-09-21：`_phase_postgresql` 於 DSN 存在時跑 `certify_startup` 完整檢查（schema/RLS/roles/migration-head/audit/contract）——不再只是 SELECT 1，認證失敗 → `POSTGRESQL_CERTIFICATION_FAILED` ready=False；`phases_execution` 以真實 phase 證據驅動 `StartupGate` 十階梯並寫入報告 `startup_ladder`（嚴格排序，無證據源的 MODULE_PRIVATE/RECOVERY/READ_MODEL/CORE 止步即如實記錄，不偽造）。殘留：TCP-probe 路徑無連線無法認證（記 `skipped:no-dsn`））
+- [x] backup restore certification 接上 scheduler（2026-09-21：`BackupScheduler` 新增 `restore_certifier` 注入點——備份完成→認證→寫入 `gptbridge_index.backup_catalog` 的 `restore_certified`/`restore_certification`；fail-closed：無 certifier 或拋錯皆記 `restore_certified=false` 不偽造；順帶修復原 INSERT 指向不存在的 `gptbridge_audit.backup_catalog` 且欄位不符 migration 016 的缺陷，7 測試綠。殘留：scheduler 本身尚無生產組裝點——部署層議題）
 - [x] migration/release contract（checksum 鎖 + 必備清單）
 - [x] cross-engine recovery test（`tests/test_workflow_consistency.py`）

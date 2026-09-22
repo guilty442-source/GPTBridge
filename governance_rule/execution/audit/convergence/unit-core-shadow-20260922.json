@@ -1,0 +1,11 @@
+{
+  "evidence": "單元制搬移次輪 core/shadow（§10.68）",
+  "at": "2026-09-22T02:30:00Z",
+  "order": "tools(done) → model(done) → shared(done) → core → xingcheng",
+  "phase": "core (shadow)",
+  "source": "main-system/src-core/* (runtime_core, scheduler, ipc_registry, activation prototypes)",
+  "shadow": "units/core/runtime (shadow, parallel run, C prototypes + Python authoritative, contract parity)",
+  "check": "native/core/runtime_core + scheduler + ipc_registry + activation C11, 8042-11780 byte objs, ALL PASS, directory parity",
+  "next": "xingcheng → final 5 blocks/10 units, cross-unit IPC only",
+  "verdict": "SHADOW PASS (same-unit co-located, same-host same-lifecycle, cross-unit governed IPC)"
+}

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import time
 import uuid
 from typing import TYPE_CHECKING, Any, Dict
 
@@ -142,12 +143,21 @@ async def process_command_task(
                 project_root=getattr(app, "project_root", None),
             )
             app._information_channel_gateway = gateway
+        dispatch_started = time.monotonic()
         event_name, payload_out = await gateway.dispatch(
             sender="authenticated-ui",
             destination="main-system",
             command=command,
             payload=payload,
         )
+        try:
+            from ipc.latency_ledger import record as _record_latency
+
+            _record_latency(
+                command, (time.monotonic() - dispatch_started) * 1000.0
+            )
+        except Exception:
+            pass  # §10.11: measurement must never break dispatch
 
         if isinstance(payload_out, dict) and payload.get("request_id"):
             payload_out.setdefault("request_id", str(payload.get("request_id")))

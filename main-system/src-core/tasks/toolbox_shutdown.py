@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 
-from .tool_lifecycle_budget import deadline_after
+from .tool_lifecycle_budget import TOOL_CLOSE_BUDGET_SECONDS, deadline_after
 from .toolbox_constants import _background_subprocess_kwargs, _run_hidden_subprocess
 from .toolbox_shutdown_force import ForceCloseMixin
 
@@ -27,6 +27,82 @@ class ShutdownMixin(ForceCloseMixin):
         """Compatibility alias for clients that still send the old stop command."""
 
         return await self.force_close_tool(payload)
+
+    async def shutdown_managed_tools(self) -> Dict[str, Any]:
+        """Stop main-system-owned tools while preserving independent tools.
+
+        The process registry is the ownership boundary.  A tool is eligible
+        only when this main system started an active owned process for it, and
+        manifests explicitly marked ``main_system_independent_tool`` are
+        excluded even if their process was registered by the toolbox.
+        """
+        registry = getattr(self, "_process_registry", None)
+        if registry is None:
+            return {"ok": True, "stopped": [], "skipped": []}
+        try:
+            registry.reconcile()
+            records = registry.snapshot().get("processes", [])
+        except Exception:
+            return {"ok": False, "stopped": [], "skipped": [], "error_code": "REGISTRY_UNAVAILABLE"}
+
+        tool_ids: set[str] = set()
+        skipped: set[str] = set()
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            if not record.get("owned") or record.get("shutdown_state") in {"exited", "failed"}:
+                continue
+            tool_id = str(record.get("module_id") or "").strip()
+            if not tool_id:
+                continue
+            try:
+                manifest, _tool_dir = self._load_manifest_cached(tool_id)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                # Fail closed: an unresolvable tool cannot be classified as
+                # main-system-owned for shutdown.
+                skipped.add(tool_id)
+                continue
+            if manifest.get("main_system_independent_tool") is True:
+                skipped.add(tool_id)
+                continue
+            tool_ids.add(tool_id)
+
+        async def close_one(tool_id: str) -> tuple[str, bool]:
+            try:
+                # Shutdown is an internal lifecycle transition, but it still
+                # passes through the normal permission sovereign.  It may
+                # close infrastructure whose public manifest is unload-locked.
+                self._authorize_tool_lifecycle(
+                    tool_id, "stop", allow_locked=True
+                )
+                try:
+                    from core_system.tool_isolation import get_isolation_manager
+
+                    get_isolation_manager(self.project_root).mark_expected_stop(tool_id)
+                except Exception:
+                    pass
+                await self._terminate_tracked_tool_processes(tool_id)
+                tool_dir = self._tool_directory_for_id(tool_id)
+                deadline = time.monotonic() + TOOL_CLOSE_BUDGET_SECONDS
+                _, remaining = await self._run_bounded_sweep(
+                    tool_id, tool_dir, deadline
+                )
+                if remaining:
+                    return tool_id, False
+                await self.update_status(tool_id, "stopped")
+                return tool_id, True
+            except Exception:
+                return tool_id, False
+
+        results = await asyncio.gather(*(close_one(tool_id) for tool_id in sorted(tool_ids)))
+        stopped = sorted(tool_id for tool_id, ok in results if ok)
+        failed = sorted(tool_id for tool_id, ok in results if not ok)
+        return {
+            "ok": not failed,
+            "stopped": stopped,
+            "failed": failed,
+            "skipped": sorted(skipped),
+        }
 
     def _sweep_and_stop_source_tool_processes(
         self,

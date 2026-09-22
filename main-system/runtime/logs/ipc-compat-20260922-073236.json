@@ -1,0 +1,148 @@
+{
+  "schema": "ipc-compat-check/v1",
+  "at": "2026-09-22T07:32:36Z",
+  "contract_version": 1,
+  "backend_command_count": 39,
+  "renderer_ws_sent": {
+    "app:check-third-party-updates": [
+      "main-system/src-ui/renderer/ui/panel/ThirdPartyPanel.tsx"
+    ],
+    "app:get-fault-analysis": [
+      "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx"
+    ],
+    "app:get-runtime-status": [
+      "main-system/src-ui/renderer/ui/App.tsx",
+      "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
+      "main-system/src-ui/renderer/ui/useAppState.ts"
+    ],
+    "app:get-saga-operation": [
+      "main-system/src-ui/renderer/ui/panel/SagaVisualizerPanel.tsx"
+    ],
+    "app:get-saga-operations": [
+      "main-system/src-ui/renderer/ui/panel/SagaVisualizerPanel.tsx"
+    ],
+    "app:get-third-party-status": [
+      "main-system/src-ui/renderer/ui/panel/ThirdPartyPanel.tsx"
+    ],
+    "app:probe-third-party-versions": [
+      "main-system/src-ui/renderer/ui/panel/ThirdPartyPanel.tsx"
+    ],
+    "app:update-third-party-tool": [
+      "main-system/src-ui/renderer/ui/panel/ThirdPartyPanel.tsx"
+    ],
+    "heartbeat_pong": [
+      "main-system/src-ui/renderer/shared/hooks/useBackendSocket.ts"
+    ],
+    "state_event_ack": [
+      "main-system/src-ui/renderer/shared/hooks/useBackendSocketOutbox.ts"
+    ],
+    "state_event_hello": [
+      "main-system/src-ui/renderer/shared/hooks/useBackendSocket.ts"
+    ],
+    "state_event_resync": [
+      "main-system/src-ui/renderer/shared/hooks/useBackendSocketOutbox.ts"
+    ],
+    "toolbox_force_close_tool": [
+      "main-system/src-ui/renderer/ui/panel/ExternalCollaborationPanel.tsx",
+      "main-system/src-ui/renderer/ui/toolbox/useToolboxApplications.ts"
+    ],
+    "toolbox_list_tools": [
+      "main-system/src-ui/renderer/ui/toolbox/useToolboxApplications.ts"
+    ],
+    "toolbox_start_tool": [
+      "main-system/src-ui/renderer/ui/panel/ExternalCollaborationPanel.tsx",
+      "main-system/src-ui/renderer/ui/toolbox/useToolboxApplications.ts"
+    ],
+    "xingcheng-deny-pending-action": [
+      "main-system/src-ui/renderer/ui/useAppState.ts"
+    ],
+    "xingcheng-set-native-model-enabled": [
+      "main-system/src-ui/renderer/ui/useAppState.ts"
+    ],
+    "xingcheng-set-repair-release": [
+      "main-system/src-ui/renderer/ui/useAppState.ts"
+    ],
+    "xingcheng-set-update-release": [
+      "main-system/src-ui/renderer/ui/useAppState.ts"
+    ]
+  },
+  "electron_channels": {
+    "registered": [
+      "app:ensure-backend-started",
+      "app:get-backend-session",
+      "app:get-platform-tool-sizes",
+      "app:get-status",
+      "app:get-ui-zoom",
+      "app:open-path",
+      "app:reload-window",
+      "app:reload-window-hard",
+      "app:restart",
+      "app:restart-backend",
+      "app:set-ui-zoom",
+      "dialog:create-file",
+      "dialog:open-file",
+      "dialog:select-folder",
+      "embedded-browser:close",
+      "embedded-browser:close-module",
+      "embedded-browser:create",
+      "embedded-browser:execute",
+      "embedded-browser:hide",
+      "embedded-browser:list",
+      "embedded-browser:navigate",
+      "embedded-browser:resize",
+      "embedded-browser:show",
+      "embedded-browser:url"
+    ],
+    "invoked": {
+      "app:ensure-backend-started": [
+        "main-system/src-ui/main/preload.ts"
+      ],
+      "app:open-path": [
+        "main-system/src-ui/main/preload.ts"
+      ],
+      "app:restart": [
+        "main-system/src-ui/main/preload.ts"
+      ],
+      "app:restart-backend": [
+        "main-system/src-ui/main/preload.ts"
+      ],
+      "dialog:create-file": [
+        "main-system/src-ui/main/preload.ts"
+      ],
+      "dialog:open-file": [
+        "main-system/src-ui/main/preload.ts"
+      ],
+      "dialog:select-folder": [
+        "main-system/src-ui/main/preload.ts"
+      ]
+    }
+  },
+  "compat_breaks": {
+    "renderer_sent_no_backend_route": {},
+    "electron_invoked_no_handler": {}
+  },
+  "info": {
+    "backend_routed_unused": [
+      "app:auto-update-third-party-tools",
+      "app:get-automation-switches",
+      "app:get-governance-rules",
+      "app:get-pending-actions",
+      "app:get-repair-status",
+      "app:hot-reload-backend",
+      "app:run-main-system-self-maintenance",
+      "app:set-automation-switch",
+      "sync-execute-approved-automatic-repair",
+      "sync-execute-approved-automatic-update",
+      "toolbox_cancel_tool_execution",
+      "toolbox_cancel_tool_run",
+      "toolbox_request_tool_execution",
+      "toolbox_run_tool",
+      "toolbox_stop_tool",
+      "xingcheng-confirm-automatic-repair",
+      "xingcheng-confirm-automatic-update",
+      "xingcheng-revoke-automatic-repair-confirmation",
+      "xingcheng-revoke-automatic-update-confirmation"
+    ]
+  },
+  "passed": true
+}

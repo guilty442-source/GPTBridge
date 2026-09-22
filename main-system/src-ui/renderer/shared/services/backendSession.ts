@@ -1,10 +1,8 @@
 type BackendSessionDescriptor = {
-  token?: unknown
   websocketUrl?: unknown
 }
 
 const LOOPBACK_HOST = '127.0.0.1'
-const MIN_TOKEN_LENGTH = 32
 
 function isValidLoopbackWebSocketUrl(value: string): boolean {
   let parsed: URL
@@ -27,8 +25,7 @@ export async function getAuthenticatedBackendWebSocketUrl(): Promise<string> {
     'app:get-backend-session'
   )) as BackendSessionDescriptor | null
   const websocketUrl = String(raw?.websocketUrl || '').trim()
-  const token = String(raw?.token || '').trim()
-  if (!isValidLoopbackWebSocketUrl(websocketUrl) || token.length < MIN_TOKEN_LENGTH) {
+  if (!isValidLoopbackWebSocketUrl(websocketUrl)) {
     throw new Error('後端驗證資訊無效，無法建立安全連線。')
   }
   return websocketUrl

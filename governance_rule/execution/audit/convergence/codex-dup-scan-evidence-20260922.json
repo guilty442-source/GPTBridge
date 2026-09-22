@@ -1,0 +1,23 @@
+{
+  "evidence": "法典語意去重掃描已填充 (r10)",
+  "at": "2026-09-22T03:49:55Z",
+  "scan_id": "DUPSCAN@2026-09-22T03:49:55Z",
+  "verifier": "codex_semantic_duplication_scan table (deterministic-exact-plus-classification)",
+  "result": {
+    "provisions": 800,
+    "pairs": 319600,
+    "cross_layer_restatement": 15,
+    "prohibition_shared": 151,
+    "template_instance": 2,
+    "total_findings": 168,
+    "status": "SCANNED",
+    "previous": "DUPSCAN@2026-09-16T09:33:57Z UNKNOWN -> superseded"
+  },
+  "findings_sample": [
+    ["A5","E2","cross-layer-restatement","token-jaccard=0.818"],
+    ["A13","E6","cross-layer-restatement","token-jaccard=0.750"],
+    ["A28","E7","cross-layer-restatement","token-jaccard=1.000"]
+  ],
+  "next": "依 §3.5 A 候選「共同禁止條+各條引用」等收斂，需同批 amendment（法典保留引用，不刪歷史）",
+  "notes": "blueprint §3.5 A 已由 r10 填充，待與 E 同批 amendment 收斂"
+}

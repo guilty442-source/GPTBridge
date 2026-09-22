@@ -38,6 +38,16 @@ _STATE_FILE = (
     Path(__file__).resolve().parents[2]
     / "runtime" / "state" / "model-service-activation.json"
 )
+from tasks.resource_governor_signal import (
+    regulation_active,
+    worker_admission_hold,
+)
+
+
+def _worker_admission_hold() -> bool:
+    """§10.64 control-law ⑤: deny new worker starts while the resource
+    governor is regulating (aggregate worker budget exceeded)."""
+    return worker_admission_hold()
 
 TARGET_TOOL_ID = "xingcheng"
 OWNER_TOOL_ID = "local-model"
@@ -99,6 +109,11 @@ class ModelServiceActivationBroker:
         self._last_result: dict[str, Any] = {}
         self._last_decision = ""
         self._explicit_stop_at = 0.0
+        self._broker_started_owner = False
+        self._next_release_at = 0.0
+        self._last_release_result: dict[str, Any] = {}
+        self._last_written_fingerprint: dict[str, Any] | None = None
+        self._last_write_at = 0.0
         _ACTIVE_BROKER = self
 
     # -- lifecycle ------------------------------------------------------
@@ -157,15 +172,23 @@ class ModelServiceActivationBroker:
         self._write_state()
         return decision
 
+    _STATE_HEARTBEAT_SECONDS = 60.0
+
     async def _ensure_inner(self) -> str:
         self._pending = await asyncio.to_thread(self._has_pending_dialogue_request)
         if not self._pending:
             self._backoff = self.min_backoff
-            return "idle"
+            return await self._maybe_release_owner()
         if getattr(self.app, "maintenance_ready", True) is not True:
             return "maintenance-pending"
         if getattr(self.app, "_shutting_down", False):
             return "shutting-down"
+        # §10.64 ⑤: while the governor is regulating, hold new worker
+        # starts (fail-closed load shedding).  User-explicit tool starts
+        # via the command surface are unaffected — this only gates the
+        # broker's automatic activation.
+        if _worker_admission_hold():
+            return "resource-hold"
         try:
             if await self.toolbox.tool_process_active(OWNER_TOOL_ID):
                 self._backoff = self.min_backoff
@@ -193,6 +216,7 @@ class ModelServiceActivationBroker:
         if self._last_result.get("ok") is True:
             self._next_attempt_at = now + self.cooldown
             self._backoff = self.min_backoff
+            self._broker_started_owner = True
             _logger.info(
                 "model service activated on demand: pid=%s",
                 self._last_result.get("pid"),
@@ -209,6 +233,50 @@ class ModelServiceActivationBroker:
         )
         return "start-failed"
 
+    async def _maybe_release_owner(self) -> str:
+        """§10.64 ⑥: governed auto-release of the on-demand owner.
+
+        While the governor's regulation is active and the pending window
+        is empty, release the owner through the same governed
+        ``ToolboxService.stop_tool`` path a user stop uses (expected-stop
+        marking, tracked-process termination, status update, audit).
+        Only owners this broker activated are released — an explicitly
+        user-started model is never force-closed by regulation.
+        """
+        if not self._broker_started_owner or not regulation_active():
+            return "idle"
+        try:
+            if not await self.toolbox.tool_process_active(OWNER_TOOL_ID):
+                self._broker_started_owner = False
+                return "idle"
+        except Exception:
+            return "idle"
+        now = time.monotonic()
+        if now < self._next_release_at:
+            return "release-cooldown"
+        payload = {
+            "tool_id": OWNER_TOOL_ID,
+            "request_id": f"model-release-{time.time_ns()}",
+        }
+        try:
+            result = await self.toolbox.stop_tool(payload)
+        except Exception as error:
+            result = {"ok": False, "message": f"{type(error).__name__}: {error}"}
+        self._last_release_result = result if isinstance(result, dict) else {}
+        self._next_release_at = now + self.cooldown
+        if self._last_release_result.get("ok") is True:
+            self._broker_started_owner = False
+            _logger.info(
+                "on-demand model owner released under resource regulation"
+            )
+            return "released"
+        _logger.warning(
+            "model owner auto-release failed: %s",
+            self._last_release_result.get("message")
+            or self._last_release_result.get("error_code"),
+        )
+        return "release-failed"
+
     def note_explicit_owner_stop(self) -> None:
         """Remember an explicit close of the owner so it is not resurrected.
 
@@ -218,6 +286,7 @@ class ModelServiceActivationBroker:
         still activate on demand — that is the intended dialogue behaviour.
         """
         self._explicit_stop_at = time.time()
+        self._broker_started_owner = False
         # Cooldown so the next observed request waits before a fresh attempt.
         self._next_attempt_at = time.monotonic() + self.cooldown
         _logger.info(
@@ -243,9 +312,14 @@ class ModelServiceActivationBroker:
         """
         explicit_stop_at = self._explicit_stop_at
         try:
-            from shared_layer.database.connection import get_connection_manager
+            from shared_layer.database.workload_lanes import (
+                WorkloadClass,
+                get_lane_pool,
+            )
 
-            with get_connection_manager().connection() as conn:
+            # §10.5: periodic broker probe — background lane so it can
+            # never starve the interactive lane's small inflight budget.
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 if explicit_stop_at > 0.0:
                     row = conn.execute(
                         """
@@ -299,6 +373,8 @@ class ModelServiceActivationBroker:
             "last_result_ok": self._last_result.get("ok"),
             "last_pid": self._last_result.get("pid"),
             "explicit_stop_at": round(self._explicit_stop_at, 1),
+            "broker_started_owner": self._broker_started_owner,
+            "last_release_ok": self._last_release_result.get("ok"),
             "last_error": self._last_result.get("message")
             or self._last_result.get("error_code"),
         }
@@ -307,6 +383,18 @@ class ModelServiceActivationBroker:
         """Best-effort runtime state surface for operators and audits."""
         payload = {"updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         payload.update(self.status())
+        # §10.63 R2: skip the disk write while nothing changed — an idle
+        # broker used to rewrite this file every 5 s.  A 60 s heartbeat
+        # keeps updated_at fresh for staleness checks.
+        fingerprint = {k: v for k, v in payload.items() if k != "updated_at"}
+        now = time.monotonic()
+        if (
+            fingerprint == self._last_written_fingerprint
+            and now - self._last_write_at < self._STATE_HEARTBEAT_SECONDS
+        ):
+            return
+        self._last_written_fingerprint = fingerprint
+        self._last_write_at = now
         temporary = _STATE_FILE.with_name(_STATE_FILE.name + f".{os.getpid()}.tmp")
         try:
             _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)

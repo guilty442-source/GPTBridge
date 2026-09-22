@@ -7,13 +7,37 @@ DailyGlobalCleanerService class.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from pathlib import Path
 from typing import Any
 
+_CAPS_POLICY_FILE = (
+    Path(__file__).resolve().parents[2] / "config" / "cleanup-caps-policy.json"
+)
+_CAPS_DEFAULTS: dict[str, Any] = {
+    "enabled": False,
+    "cap_bytes": 10 * 1024 * 1024,
+    "max_age_hours": 72.0,
+    "headroom": 0.9,
+    "backup_keep": 1,
+}
+
 
 class DailyGlobalCleanerSweepMixin:
     """Module self-cleanup sweep methods for DailyGlobalCleanerService."""
+
+    @staticmethod
+    def _caps_policy() -> dict[str, Any]:
+        """§10.67 E caps policy; disabled unless the governed file enables it."""
+        try:
+            raw = json.loads(_CAPS_POLICY_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return dict(_CAPS_DEFAULTS)
+        merged = dict(_CAPS_DEFAULTS)
+        if isinstance(raw, dict):
+            merged.update({k: v for k, v in raw.items() if k in _CAPS_DEFAULTS})
+        return merged
 
     async def _run_module_self_cleanup_sweep(
         self, byte_budget: int | None = None
@@ -67,6 +91,23 @@ class DailyGlobalCleanerSweepMixin:
                     module_root,
                     max_cleaned_bytes=remaining_budget,
                 )
+                # §10.67 E: caps enforcement (per-module 10MB / 72h /
+                # backups keep-one / staging-temp) after the safe sweep.
+                caps_policy = self._caps_policy()
+                if caps_policy.get("enabled") is True:
+                    from governance_rule.execution.tool_runtime.tool_caps_enforcement import (  # noqa: E501
+                        run_caps_enforcement,
+                    )
+                    caps = await asyncio.to_thread(
+                        run_caps_enforcement,
+                        module_id,
+                        module_root,
+                        cap_bytes=int(caps_policy["cap_bytes"]),
+                        max_age_hours=float(caps_policy["max_age_hours"]),
+                        headroom=float(caps_policy["headroom"]),
+                        backup_keep=int(caps_policy["backup_keep"]),
+                    )
+                    cleanup["caps_enforcement"] = caps
                 await asyncio.to_thread(
                     write_local_cleanup_state, module_root, cleanup
                 )

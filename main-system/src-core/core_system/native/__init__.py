@@ -23,18 +23,13 @@ def _load_native_extension() -> Any:
     """Load the governed native extension, or return None when not built.
 
     The artifact is built into ``main-system/dist-native`` and installed next
-    to this package; a packaged layout may keep only the latter.
+    to this package; a packaged layout may keep only the latter.  Prefer the
+    build output because Windows can keep an installed ``.pyd`` locked while a
+    governed rebuild has already produced the next artifact.
     """
 
-    try:
-        from . import _sovereign_native as native  # type: ignore
-
-        return native
-    except ImportError:  # pragma: no cover - depends on local build
-        pass
-
     directory = pathlib.Path(__file__).resolve().parent
-    candidates = [directory, directory.parents[2] / "dist-native"]
+    candidates = [directory.parents[2] / "dist-native", directory]
     for candidate in candidates:
         for suffix in importlib.machinery.EXTENSION_SUFFIXES:
             artifact = candidate / f"{_NATIVE_FILENAME}{suffix}"
@@ -88,7 +83,7 @@ else:
 
 
 def native_available() -> bool:
-    """Whether the compiled C++ kernel is loaded (vs the Python fallback)."""
+    """Whether the governed native compute extension is loaded."""
 
     return _NATIVE_AVAILABLE
 

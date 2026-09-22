@@ -56,9 +56,11 @@ class MainSystemSelfMaintenance:
         *,
         authentication: Any = None,
         interval_seconds: float | None = None,
+        automation_core: Any = None,
     ) -> None:
         self.project_root = Path(project_root).resolve()
         self.authentication = authentication
+        self._automation_core = automation_core
         env_interval = os.environ.get("GPTBRIDGE_MAIN_SELF_MAINTENANCE_INTERVAL")
         try:
             env_value = float(env_interval) if env_interval else None
@@ -95,6 +97,42 @@ class MainSystemSelfMaintenance:
 
         if self._running:
             return self.status()
+
+        loop_mode = "private-loop"
+        if self._automation_core is not None:
+            # §1.1 自動化集中：automation core 為唯一註冊點；kill-switch
+            # 拒絕時不回落私有迴圈。啟動 duty pass 屬一次性啟動工作，
+            # 仍以獨立 task 執行（非週期排程對象）。
+            registered = self._automation_core.register_flow(
+                "main-system-self-maintenance",
+                self.run_once,
+                interval_s=self.interval_seconds,
+                pausable=True,
+            )
+            self._running = registered
+            loop_mode = "automation-core" if registered else "disabled"
+            if not registered:
+                return {
+                    "ok": True,
+                    "role": "main-system-self-maintenance",
+                    "started_at": _iso_now(),
+                    "interval_seconds": self.interval_seconds,
+                    "startup_pass": "skipped-disabled",
+                    "loop": loop_mode,
+                }
+            self._startup_task = asyncio.create_task(
+                self._startup_pass(),
+                name="main-system-self-maintenance-startup",
+            )
+            return {
+                "ok": True,
+                "role": "main-system-self-maintenance",
+                "started_at": _iso_now(),
+                "interval_seconds": self.interval_seconds,
+                "startup_pass": "deferred-post-activation",
+                "loop": loop_mode,
+            }
+
         self._running = True
         self._loop_task = asyncio.create_task(
             self._periodic_loop(),
@@ -110,6 +148,7 @@ class MainSystemSelfMaintenance:
             "started_at": _iso_now(),
             "interval_seconds": self.interval_seconds,
             "startup_pass": "deferred-post-activation",
+            "loop": "private-loop",
         }
 
     async def _startup_pass(self) -> None:
@@ -123,6 +162,8 @@ class MainSystemSelfMaintenance:
 
     async def stop(self) -> None:
         self._running = False
+        if self._automation_core is not None:
+            self._automation_core.unregister("main-system-self-maintenance")
         if self._startup_task is not None:
             self._startup_task.cancel()
             with _suppress(asyncio.CancelledError):

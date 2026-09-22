@@ -1,0 +1,20 @@
+{
+  "evidence": "G89 DSN 秘密遷移收尾",
+  "at": "2026-09-22T01:25:00Z",
+  "credman": {
+    "status": "migrated",
+    "mechanism": "governed credential store (CredMan target) + resolve_dsn() at startup (dd352470)",
+    "fallback": "env still present as dev fallback, higher priority than store per resolve_dsn, but certified path works without env",
+    "verified": "TCP-probe fallback when no DSN, otherwise CredMan/env resolved, dsn_source logged"
+  },
+  "user_env": {
+    "HKCU\\Environment\\GPTBRIDGE_POSTGRES_DSN": "present (dbname=gptbridge user=gptbridge_runtime ...)",
+    "HKCU\\Environment\\GPTBRIDGE_POSTGRES_ADMIN_DSN": "present",
+    "HKCU\\Environment\\GPTBRIDGE_POSTGRES_BOOTSTRAP_SECRET": "present",
+    "HKCU\\Environment\\GPTBRIDGE_MODULE_DSNS": "present",
+    "expected": "cleared per operator decision (env still dev fallback, clearing is operator decision, not worker auto)",
+    "reader_DSN": "not set (GPTBRIDGE_POSTGRES_READER_DSN absent)"
+  },
+  "verdict": "partially verified (CredMan path PASS, User env clearing pending operator, reader DSN pending)",
+  "next": "operator to clear HKCU\\Environment GPTBRIDGE_POSTGRES_*_DSN after verifying CredMan path, then set reader DSN"
+}

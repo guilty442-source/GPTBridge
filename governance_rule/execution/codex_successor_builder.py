@@ -559,6 +559,14 @@ def _set_candidate_version(
 ) -> None:
     if not successor_version:
         return
+    from governance_rule.execution.codex_repository import codex_version_units
+
+    try:
+        codex_version_units(successor_version)
+    except ValueError as error:
+        raise SuccessorBuildError(
+            "SUCCESSOR_VERSION_INVALID", str(successor_version)
+        ) from error
     columns = _require_table(connection, "metadata")
     names = {str(column["name"]) for column in columns}
     if "key" not in names or "value" not in names:
@@ -593,17 +601,28 @@ def _formal_rule_errors(connection: sqlite3.Connection) -> tuple[str, ...]:
         evaluator_codes = formal_rules.registered_rule_codes()
     except (ImportError, RuntimeError, OSError, sqlite3.Error):
         return ("FORMAL_RULE_EVALUATOR_REGISTRY_UNAVAILABLE",)
+    parity_columns = [
+        name for name in ("parity_evidence_id", "parity_status") if name in names
+    ]
+    selected = ", ".join(
+        [_quote_identifier(code_column), _quote_identifier(status_column)]
+        + [_quote_identifier(name) for name in parity_columns]
+    )
     errors: list[str] = []
     rows = connection.execute(
-        f"SELECT {_quote_identifier(code_column)}, {_quote_identifier(status_column)} "
-        f"FROM {_quote_identifier(FORMAL_RULE_REGISTRY)}"
+        f"SELECT {selected} FROM {_quote_identifier(FORMAL_RULE_REGISTRY)}"
     )
-    for code, status in rows:
+    for row in rows:
+        code, status = row[0], row[1]
+        stored = dict(zip(parity_columns, row[2:]))
+        parity_evidence = bool(stored.get("parity_evidence_id")) or (
+            str(stored.get("parity_status") or "").strip().upper() == "VERIFIED"
+        )
         rule_code = str(code or "")
         state_errors = validate_rule_state(
             status,
             evaluator_registered=rule_code in evaluator_codes,
-            parity_evidence=False,
+            parity_evidence=parity_evidence,
         )
         for error in state_errors:
             errors.append(f"{FORMAL_RULE_REGISTRY}:{rule_code}:{error}")

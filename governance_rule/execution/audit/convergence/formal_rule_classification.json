@@ -1,0 +1,224 @@
+{
+  "classification": "FORMAL_RULE_CLASSIFICATION/v1",
+  "generated_at": "2026-09-21",
+  "total": 42,
+  "counts": {
+    "KEEP_DETERMINISTIC": 10,
+    "MOVE_TO_CONTRACT": 14,
+    "MOVE_TO_OBLIGATION": 7,
+    "MOVE_TO_TEST_SUITE": 8,
+    "RETIRE_AS_NON_EVALUATOR": 3
+  },
+  "rules": [
+    {
+      "rule_code": "FR-BACKEND-LIFECYCLE",
+      "controlling_provision_id": "A577",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-CONNECTION-RECOVERY",
+      "controlling_provision_id": "A571",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-CONNECTION-STATE",
+      "controlling_provision_id": "A581",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-CONVERGENCE-PLAN",
+      "controlling_provision_id": "A570",
+      "classification": "MOVE_TO_OBLIGATION"
+    },
+    {
+      "rule_code": "FR-DEV-RUNTIME-SEPARATION",
+      "controlling_provision_id": "A576",
+      "classification": "MOVE_TO_OBLIGATION"
+    },
+    {
+      "rule_code": "FR-DIALOGUE-TRAINING",
+      "controlling_provision_id": "A565",
+      "classification": "MOVE_TO_TEST_SUITE"
+    },
+    {
+      "rule_code": "FR-EVAL-SUITE",
+      "controlling_provision_id": "A568",
+      "classification": "MOVE_TO_TEST_SUITE"
+    },
+    {
+      "rule_code": "FR-EXECUTION-LEASE",
+      "controlling_provision_id": "A574",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-GIT-SQL-RAG-CAG-DAG-DIVISION",
+      "controlling_provision_id": "A555",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-GPU-ACCEL-TRACK",
+      "controlling_provision_id": "A552",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-IMPL-PRECEDENCE",
+      "controlling_provision_id": "A583",
+      "classification": "MOVE_TO_OBLIGATION"
+    },
+    {
+      "rule_code": "FR-INFER-CONSISTENCY",
+      "controlling_provision_id": "A566",
+      "classification": "MOVE_TO_TEST_SUITE"
+    },
+    {
+      "rule_code": "FR-INTEGRATED-GOALS",
+      "controlling_provision_id": "A582",
+      "classification": "RETIRE_AS_NON_EVALUATOR"
+    },
+    {
+      "rule_code": "FR-INTEGRATION-SEQUENCE",
+      "controlling_provision_id": "A578",
+      "classification": "MOVE_TO_OBLIGATION"
+    },
+    {
+      "rule_code": "FR-KV-CACHE-TESTS",
+      "controlling_provision_id": "A567",
+      "classification": "MOVE_TO_TEST_SUITE"
+    },
+    {
+      "rule_code": "FR-LANG-LAYERING",
+      "controlling_provision_id": "A551",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-MAINT-UPDATE-INTEGRATION",
+      "controlling_provision_id": "A572",
+      "classification": "MOVE_TO_OBLIGATION"
+    },
+    {
+      "rule_code": "FR-MODEL-MATURITY",
+      "controlling_provision_id": "A556",
+      "classification": "MOVE_TO_TEST_SUITE"
+    },
+    {
+      "rule_code": "FR-MODEL-MOE",
+      "controlling_provision_id": "A553",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-MODEL-SCALING",
+      "controlling_provision_id": "A563",
+      "classification": "MOVE_TO_OBLIGATION"
+    },
+    {
+      "rule_code": "FR-MODEL-TRAINING-TIERS",
+      "controlling_provision_id": "A557",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-MODULE-HASH-CHAIN",
+      "controlling_provision_id": "A589",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-MOE-QC",
+      "controlling_provision_id": "A564",
+      "classification": "MOVE_TO_TEST_SUITE"
+    },
+    {
+      "rule_code": "FR-MULTI-CONFIG-GPT",
+      "controlling_provision_id": "A584",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-MULTI-CORE-PARALLEL",
+      "controlling_provision_id": "A590",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-NO-SUB-SOVEREIGN-ALL-MODULES",
+      "controlling_provision_id": "A592",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-OLLAMA-ON-DEMAND",
+      "controlling_provision_id": "A586",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-ONDEMAND-MODULES",
+      "controlling_provision_id": "A587",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-PRETRAIN-DATA-PIPELINE",
+      "controlling_provision_id": "A558",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-RELEASE-MANIFEST",
+      "controlling_provision_id": "A575",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-REQUEST-LIFECYCLE",
+      "controlling_provision_id": "A580",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-REQUEST-REGISTRY",
+      "controlling_provision_id": "A579",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-SINGLE-BLUEPRINT",
+      "controlling_provision_id": "A559",
+      "classification": "RETIRE_AS_NON_EVALUATOR"
+    },
+    {
+      "rule_code": "FR-SINGLE-PURPOSE-MODULE",
+      "controlling_provision_id": "A588",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-SMALL-MODEL-BASELINE",
+      "controlling_provision_id": "A561",
+      "classification": "MOVE_TO_TEST_SUITE"
+    },
+    {
+      "rule_code": "FR-SOVEREIGN-TO-CORE-ENGINE",
+      "controlling_provision_id": "A591",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-TASK-LIFECYCLE",
+      "controlling_provision_id": "A573",
+      "classification": "KEEP_DETERMINISTIC"
+    },
+    {
+      "rule_code": "FR-TOOL-CALLING-COMPETENCE",
+      "controlling_provision_id": "A585",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-TRAIN-NTP-CORRECTNESS",
+      "controlling_provision_id": "A560",
+      "classification": "MOVE_TO_TEST_SUITE"
+    },
+    {
+      "rule_code": "FR-WEIGHT-EVOLUTION",
+      "controlling_provision_id": "A569",
+      "classification": "MOVE_TO_OBLIGATION"
+    },
+    {
+      "rule_code": "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE",
+      "controlling_provision_id": "A554",
+      "classification": "MOVE_TO_CONTRACT"
+    },
+    {
+      "rule_code": "FR-XINGCHENG-PRIMARY-GOAL",
+      "controlling_provision_id": "A562",
+      "classification": "RETIRE_AS_NON_EVALUATOR"
+    }
+  ]
+}

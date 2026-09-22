@@ -36,7 +36,7 @@ class RagDagPlanRejected(ValueError):
 HARD_MAX_STEPS = 64
 HARD_MAX_SECONDS = 600.0
 HARD_MAX_COST = 10_000.0
-HARD_MAX_ROUNDS = 8
+HARD_MAX_ROUNDS = 3
 
 KIND_REQUIRED_NODE_TYPES: Mapping[RagDagKind, tuple[RagDagNodeType, ...]] = {
     RagDagKind.QUERY: (

@@ -1,0 +1,121 @@
+{
+  "schema": "python-execution-modules/v1",
+  "generated_at_utc": "2026-09-22T01:10:00Z",
+  "total_python": 19,
+  "modules": [
+    {
+      "component_id": "governance_rule",
+      "role": "governance",
+      "path": "governance_rule",
+      "target": "Python (governance, stay)"
+    },
+    {
+      "component_id": "main-system",
+      "role": "decision",
+      "path": "main-system",
+      "target": "Python (governance, stay)"
+    },
+    {
+      "component_id": "boot-core",
+      "role": "startup",
+      "path": "main-system/src-core",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "bootstrap-entry",
+      "role": "startup",
+      "path": "main-system/launcher",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "decision-sovereign",
+      "role": "decision",
+      "path": "main-system/governance/sovereigns",
+      "target": "Python (governance, stay)"
+    },
+    {
+      "component_id": "synchronization-sovereign",
+      "role": "development-maintenance",
+      "path": "main-system/governance/sovereigns/automation_sovereign.py",
+      "target": "Python (governance, stay)"
+    },
+    {
+      "component_id": "xingcheng-sovereign",
+      "role": "decision",
+      "path": "main-system/governance/sovereigns",
+      "target": "Python (governance, stay)"
+    },
+    {
+      "component_id": "sub-sovereign-orchestration",
+      "role": "development-maintenance",
+      "path": "main-system/governance/sub-sovereigns",
+      "target": "Python (governance, stay)"
+    },
+    {
+      "component_id": "tokenizer",
+      "role": "information",
+      "path": "shared-layer/src/shared_layer/tokenizer.py",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "information-channel-gateway",
+      "role": "information",
+      "path": "shared-layer/src/channel_runtime.py",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "xingcheng-auto-learning-module",
+      "role": "model",
+      "path": "main-system/governance/sovereigns/xingcheng/learning_sub_sovereign.py",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "xingcheng-auto-repair-module",
+      "role": "model",
+      "path": "main-system/src-core/tasks/central_repair.py",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "investment-mobile",
+      "role": "development-maintenance",
+      "path": "Standalone tools/investment-mobile",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "system-rescue",
+      "role": "development-maintenance",
+      "path": "Standalone tools/system-rescue",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "self-commit-service",
+      "role": "development-maintenance",
+      "path": "governance_rule/execution/git_tiers",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "integration-plane",
+      "role": "development-maintenance",
+      "path": "governance_rule/execution/git_tiers",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "recovery-plane",
+      "role": "development-maintenance",
+      "path": "governance_rule/execution/git_tiers",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "language-review",
+      "role": "development-maintenance",
+      "path": "main-system/governance/sub-sovereigns",
+      "target": "C/C++/C# (migrate, per module language policy)"
+    },
+    {
+      "component_id": "model-training",
+      "role": "model",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
+      "target": "Python (on-demand training, stay)"
+    }
+  ]
+}

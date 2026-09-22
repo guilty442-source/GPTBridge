@@ -1,0 +1,243 @@
+{
+  "schema": "star-automation-flows/v1",
+  "comment": "§1.1 自動化集中（2026-09-22 總督核定；P0-4）— 全自動化流程清單與 owner。自動化核心（AutomationCore）是唯一排程／觸發註冊點：kind=periodic 的流程一律經核心註冊到共享 PeriodicScheduler；kind=event/on-demand 僅登錄觸發器（無自有排程）；kind=supervision-plane 為監督面流程（位於被監督行程之外，設計上不正屬於本註冊面）。enabled=false 為 kill switch：拒絕註冊並停跑，全程審計。清單外流程不得註冊排程（A10 allowlist，fail-closed）。",
+  "kill_switch": {
+    "comment": "flow.enabled=false → 註冊拒絕＋既有註冊解除；runtime/state/automation-flows-state.json 提供同语义 runtime override（disable 持久化）。清單檔與狀態檔皆受管設定。",
+    "state_file": "runtime/state/automation-flows-state.json",
+    "audit_ledger": "runtime/logs/automation-flows.jsonl"
+  },
+  "flows": {
+    "git-automation": {
+      "owner": "git-automation task（governance_rule/execution/git_tiers）",
+      "kind": "periodic",
+      "interval_s": 60,
+      "pausable": true,
+      "enabled": true,
+      "description": "worktree self-commit sweep（debounce）＋workspace sync cycle"
+    },
+    "daily-global-cleaner": {
+      "owner": "daily-global-cleaner service",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": true,
+      "description": "每日全域清理（due-gated，實際執行依 is_due 期限）"
+    },
+    "system-automation-coordinator": {
+      "owner": "system-automation-coordinator（決策層健康聚合）",
+      "kind": "periodic",
+      "interval_s": 60,
+      "pausable": false,
+      "enabled": true,
+      "description": "主宰健康聚合＋退化路由；內部自適應 60–300 s 與熔斷保留"
+    },
+    "maintenance-controller": {
+      "owner": "maintenance sovereign / maintenance_controller",
+      "kind": "periodic",
+      "interval_s": 30,
+      "pausable": true,
+      "enabled": true,
+      "description": "PG/SQLite/reconcile/backup 維護信號 tick；控制器 start(spawn_loop=False)，核心以 to_thread 驅動 run_once"
+    },
+    "permission-automation-lifecycle": {
+      "owner": "permission sovereign / PermissionLifecycleManager",
+      "kind": "periodic",
+      "interval_s": 3600,
+      "pausable": true,
+      "enabled": true,
+      "description": "權限授予過期／自動續期檢查（orchestrator 經核心註冊 run_once）"
+    },
+    "permission-automation-directory": {
+      "owner": "permission sovereign / DirectorySyncManager",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": true,
+      "description": "受管目錄快照同步（雜湊比對；orchestrator 經核心註冊 run_once）"
+    },
+    "permission-automation-compliance": {
+      "owner": "permission sovereign / ComplianceMonitor",
+      "kind": "periodic",
+      "interval_s": 60,
+      "pausable": true,
+      "enabled": true,
+      "description": "合規檢查／違規處理／風險評分（orchestrator 經核心註冊 run_once）"
+    },
+    "permission-automation-healing": {
+      "owner": "permission sovereign / SelfHealingManager",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": true,
+      "description": "權限平面自我修復健康檢查（orchestrator 經核心註冊 run_once）"
+    },
+    "permission-automation-audit": {
+      "owner": "permission sovereign / AuditScheduler",
+      "kind": "periodic",
+      "interval_s": 3600,
+      "pausable": true,
+      "enabled": true,
+      "description": "定期治理審計子行程（orchestrator 經核心註冊 run_once）"
+    },
+    "connection-watchdog": {
+      "owner": "connection-watchdog（boot_core 監督行程）",
+      "kind": "supervision-plane",
+      "interval_s": 60,
+      "pausable": true,
+      "enabled": true,
+      "description": "前端/後端連線探針（boot_core 監督行程內 thread 迴圈、自適應退避）。監督面正確歸屬：監督者不得位於被監督行程之自動化核心內（A69 分層；主行程 hang 時仍須可探針與修復），非待遷移項"
+    },
+    "state-outbox": {
+      "owner": "state-outbox",
+      "kind": "event",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "交易式 outbox：狀態變更事件＋重試期限驅動（無固定輪詢）"
+    },
+    "model-service-activation": {
+      "owner": "model-service-activation broker",
+      "kind": "event",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "偵測佇列 ai→xingcheng 請求並按需啟動 local-model（A540）"
+    },
+    "sleep-policy": {
+      "owner": "sleep-policy manager",
+      "kind": "event",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "按需休眠／喚醒決策執行（§10.66；休眠自動化 kill switch 另由 sleep-policy.json 治理）"
+    },
+    "resource-governor": {
+      "owner": "resource governor",
+      "kind": "supervision-plane",
+      "interval_s": 20,
+      "pausable": false,
+      "enabled": true,
+      "description": "§10.64 資源管制：scripts/resource-governor.py 獨立行程（Windows 工作排程／登入啟動）。監督面正確歸屬：管制對象含主系統本身，管制者必須活得比被管制者久（A170 監督邊界），非待遷移項。kill switch 只停動作不停觀測"
+    },
+    "update-manager": {
+      "owner": "update-manager",
+      "kind": "event",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "發布／更新流程（認證更新走 A330 例外鏈）"
+    },
+    "update-manager-auto": {
+      "owner": "UpdateManager（Assistant 開關 gated）",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": true,
+      "description": "自動更新偵測/決策/執行 tick（熔斷、健康閘、自適應間隔保留於 tick 內；interval 為註冊時基線）"
+    },
+    "hot-update-idle": {
+      "owner": "HotUpdateService idle mixin",
+      "kind": "periodic",
+      "interval_s": 30,
+      "pausable": true,
+      "enabled": true,
+      "description": "閒置時套用 deferred 模組替換（_idle_tick 經核心驅動）"
+    },
+    "hot-reload-watcher": {
+      "owner": "hot-reload-watcher",
+      "kind": "on-demand",
+      "interval_s": null,
+      "pausable": true,
+      "enabled": true,
+      "description": "按需（R5）：能力常駐、輪詢迴圈僅在 GPTBRIDGE_HOT_RELOAD_WATCH=1 啟動"
+    },
+    "authority-reanchor": {
+      "owner": "authority-reanchor service",
+      "kind": "periodic",
+      "interval_s": 3,
+      "pausable": false,
+      "enabled": true,
+      "description": "受管權威檔案 digest 探針（行程內完整性監督，經核心 to_thread 驅動 _probe_once）"
+    },
+    "main-system-self-maintenance": {
+      "owner": "MainSystemSelfMaintenance",
+      "kind": "periodic",
+      "interval_s": 21600,
+      "pausable": true,
+      "enabled": true,
+      "description": "主系統自我維護 duty pass（預設 6h，env 可覆寫；啟動 duty pass 屬一次性啟動工作非週期對象）"
+    },
+    "self-learning": {
+      "owner": "xingcheng self-learning",
+      "kind": "event",
+      "interval_s": 900,
+      "pausable": true,
+      "enabled": true,
+      "description": "verified 範例→SFT→eval→staged/activate；enabled=false 由 self-learning.json 治理（此處登錄排程歸屬）"
+    },
+    "retention": {
+      "owner": "xingcheng retention / §10.67",
+      "kind": "event",
+      "interval_s": null,
+      "pausable": true,
+      "enabled": true,
+      "description": "self-learning 循環末自動執行；retention.json 治理其 enabled"
+    },
+    "idle-memory-maintenance": {
+      "owner": "IdleMemoryMaintainer（resource_maintenance）",
+      "kind": "periodic",
+      "interval_s": 60,
+      "pausable": true,
+      "enabled": true,
+      "description": "閒置 RAM 釋放（EmptyWorkingSet）；§10.63 R3 起乘共享排程"
+    },
+    "runtime-status-push": {
+      "owner": "runtime-status push loop（ipc server_lifecycle）",
+      "kind": "event",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "就緒狀態推送：事件驅動＋無 UI shell 時降頻；私有 asyncio task（低延遲語義，不適合 15s 排程粒度）"
+    },
+    "tool-isolation-health": {
+      "owner": "tool isolation manager（iso_mgr.start_monitor）",
+      "kind": "supervision-plane",
+      "interval_s": 30,
+      "pausable": false,
+      "enabled": true,
+      "description": "工具行程健康監控 thread 迴圈（監控對象為外部工具行程，相對於被監督者位於其外）；行程內部署屬殘項，可評估改經核心 to_thread 驅動"
+    },
+    "maintenance-capability-monitor": {
+      "owner": "maintenance sovereign / capability",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": true,
+      "enabled": true,
+      "description": "能力偵測迴圈（唯讀 detection）；maintenance 主宰內部監督面殘項"
+    },
+    "maintenance-repair-chain": {
+      "owner": "maintenance sovereign / repair chain",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": true,
+      "enabled": true,
+      "description": "修復鏈輪詢迴圈；maintenance 主宰內部監督面殘項"
+    },
+    "backup-scheduler": {
+      "owner": "backup scheduler（shared-layer）",
+      "kind": "periodic",
+      "interval_s": 60,
+      "pausable": true,
+      "enabled": true,
+      "description": "受管備份排程（GPTBRIDGE_BACKUP_SCHEDULER=1 啟動條件控制）；核心驅動 run_once"
+    },
+    "perf-baseline": {
+      "owner": "perf-baseline collector（tasks/perf_baseline_job）",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": true,
+      "description": "§10.11 全系統效能基線定期快照；注入 IPC p50/p95/p99 等子系統量測；star-perf-baseline/v1"
+    }
+  }
+}

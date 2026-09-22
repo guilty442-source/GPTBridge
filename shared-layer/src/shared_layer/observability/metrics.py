@@ -103,8 +103,11 @@ class UnifiedMetrics:
             f'gptbridge_component_info{{component="{self.component}",type="{self.component_type}",version="{self.version}"}} 1'
         )
 
+        # Y15: snapshot tuples so serialization is safe even when a
+        # producer mutates the container concurrently (lock-free read
+        # window — callers may export without holding the collector lock).
         # Counters and gauges
-        for key, metric in self.metrics.items():
+        for key, metric in tuple(self.metrics.items()):
             name, labels = self._parse_key(key)
             labels_str = self._format_labels(labels)
             metric_type = self._infer_type(name)
@@ -113,7 +116,8 @@ class UnifiedMetrics:
             lines.append(f"{name}{labels_str} {metric.value}")
 
         # Histograms (export as summary with quantiles)
-        for key, values in self.histograms.items():
+        for key, values in tuple(self.histograms.items()):
+            values = list(values)
             if not values:
                 continue
             name, labels = self._parse_key(key)
@@ -143,9 +147,9 @@ class UnifiedMetrics:
             "version": self.version,
             "metrics": {
                 k: {"value": v.value, "timestamp": v.timestamp, "labels": v.labels}
-                for k, v in self.metrics.items()
+                for k, v in tuple(self.metrics.items())
             },
-            "histograms": {k: list(v) for k, v in self.histograms.items()},
+            "histograms": {k: list(v) for k, v in tuple(self.histograms.items())},
             "metadata": self.metadata,
             "collected_at": self.collected_at,
         }
@@ -230,30 +234,39 @@ class MetricsCollector:
             return dict(self._components)
 
     def export_prometheus(self) -> str:
-        """Export all metrics in Prometheus format."""
+        """Export all metrics in Prometheus format.
+
+        Y15: the component map is snapshotted under the lock, then the
+        expensive serialization runs outside it — exporters no longer
+        block register/unregister/reads for the full render.
+        """
         with self._lock:
-            lines: list[str] = []
-            lines.append("# GPTBridge Unified Metrics Export")
-            lines.append(f"# Generated at {datetime.now(timezone.utc).isoformat()}")
-            lines.append("")
+            components = dict(self._components)
 
-            for component, metrics in sorted(self._components.items()):
-                lines.append(f"# Component: {component} ({metrics.component_type})")
-                lines.append(metrics.to_prometheus())
+        lines: list[str] = []
+        lines.append("# GPTBridge Unified Metrics Export")
+        lines.append(f"# Generated at {datetime.now(timezone.utc).isoformat()}")
+        lines.append("")
 
-            return "\n".join(lines)
+        for component, metrics in sorted(components.items()):
+            lines.append(f"# Component: {component} ({metrics.component_type})")
+            lines.append(metrics.to_prometheus())
+
+        return "\n".join(lines)
 
     def export_json(self) -> dict[str, Any]:
-        """Export all metrics as JSON."""
+        """Export all metrics as JSON (snapshot under lock, render outside)."""
         with self._lock:
-            return {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "components": {
-                    name: metrics.to_dict()
-                    for name, metrics in self._components.items()
-                },
-                "global_labels": self._global_labels,
-            }
+            components = dict(self._components)
+            global_labels = dict(self._global_labels)
+        return {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "components": {
+                name: metrics.to_dict()
+                for name, metrics in components.items()
+            },
+            "global_labels": global_labels,
+        }
 
 
 # ================================================================

@@ -76,7 +76,12 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
     artifact_roots = frozenset({"worktrees", "backups"})
 
     def _scanned(manifest_path: Path) -> bool:
-        first = manifest_path.relative_to(root).parts[0]
+        relative_parts = manifest_path.relative_to(root).parts
+        first = relative_parts[0]
+        # Release manifests are release-layout contracts, not tool manifests;
+        # they are validated by release_layout/active_release_verify instead.
+        if relative_parts[:3] == ("main-system", "runtime", "releases"):
+            return False
         return not first.startswith(".") and first not in artifact_roots
 
     standalone_dir = root / "Standalone tools"

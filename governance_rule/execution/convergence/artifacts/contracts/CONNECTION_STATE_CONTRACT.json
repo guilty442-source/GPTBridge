@@ -1,0 +1,15 @@
+{
+  "contract_code": "CONNECTION_STATE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A581",
+  "fields": [
+    "connection_state",
+    "reconnect_bounds",
+    "backpressure_limit",
+    "heartbeat_kind",
+    "sequence_semantics"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

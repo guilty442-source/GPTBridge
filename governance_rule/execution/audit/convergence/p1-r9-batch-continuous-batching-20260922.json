@@ -1,0 +1,34 @@
+{
+  "id": "p1-r9-batch-continuous-batching",
+  "date": "2026-09-22",
+  "scope": "C++ inference engine batch>1: packed prefill + continuous decode",
+  "design": {
+    "kv_namespaces": "per-sequence KV block tables over shared paged pool (kv_alloc_slot/kv_free_slot, kMaxBatchSeqs=64); slot 0 reserved for single-seq path",
+    "prefill": "forward_batch_hidden packs all spans' tokens into shared GEMMs; attention is per-span causal with own KV namespace — no cross-sequence leakage",
+    "decode": "one packed forward per step over active sequences; EOS/max removes seq and frees its KV blocks immediately (continuous batching)",
+    "isolation": "single-seq forward_hidden delegates to packed path with one span; reset_cache re-activates slot 0",
+    "fail_closed": [
+      "PROMPT_EMPTY",
+      "BATCH_SIZE_EXCEEDED (>64)",
+      "SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS",
+      "KV_SLOT_INVALID",
+      "KV_CACHE_POSITION_MISMATCH",
+      "KV_MEMORY_LIMIT_EXCEEDED",
+      "BATCH_SLOT_EXHAUSTED"
+    ]
+  },
+  "validation": {
+    "cl_syntax": "engine.cpp + binding.cpp compile clean under MSVC 19.51 /std:c++17",
+    "tests": "22 passed in 7.52s (4 new: sequential-parity, unequal-length parity, fail-closed, MoE batch parity)",
+    "parity": "greedy batch output bitwise-identical to per-prompt sequential generate (dense + MoE bundles)",
+    "pool_reuse": "second identical batch reuses freed blocks — kv_memory_bytes unchanged",
+    "forward_reduction": "4 seqs x 5 steps: sequential 24 forwards -> batch 6 forwards (1 packed prefill + 5 packed decode steps)",
+    "wall_time_note": "toy 32-hidden scale: forward is us-scale so wall time within noise; throughput mechanism is structural (shared GEMMs, 4x fewer forward invocations)"
+  },
+  "files": [
+    "Standalone tools/local-model/src/backend/cpp/include/xingcheng_inference.hpp",
+    "Standalone tools/local-model/src/backend/cpp/src/engine.cpp",
+    "Standalone tools/local-model/src/backend/cpp/src/binding.cpp",
+    "Standalone tools/local-model/tests/test_cpp_inference.py"
+  ]
+}

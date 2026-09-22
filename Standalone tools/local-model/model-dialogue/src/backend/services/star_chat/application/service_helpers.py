@@ -55,17 +55,11 @@ class StarChatHelpersMixin:
             "model_selection_strategy": "full-pipeline-routing",
         },
     }
-    CONVERSATION_MODES = frozenset({"chat", "coding"})
-    MODE_INSTRUCTIONS = {
-        "chat": (
-            "目前是 Chat 模式。以自然、友善、直接的對話方式回應；專注問答、"
-            "討論、解釋與內容協作，不假設使用者要求操作程式專案。"
-        ),
-        "coding": (
-            "目前是 Coding 模式。以軟體工程師方式處理需求，優先提供可執行、"
-            "可驗證的程式方案，並結合已選擇的編程資料夾脈絡。"
-        ),
-    }
+    CHAT_INSTRUCTION = (
+        "以自然、友善、直接的對話方式回應；問答、討論、解釋、內容協作與程式"
+        "任務皆在對話內完成。使用者設定程式作業資料夾時，以受治理的唯讀工作"
+        "區工具脈絡處理程式需求，優先提供可執行、可驗證的方案。"
+    )
 
     @staticmethod
     def _bounded_text(value: Any, maximum: int) -> str:
@@ -74,30 +68,15 @@ class StarChatHelpersMixin:
     @classmethod
     def _conversation_prompt(cls, payload: dict[str, Any]) -> str:
         message = cls._bounded_text(payload.get("message") or payload.get("prompt"), 32_000)
-        mode = cls._conversation_mode(payload)
-        instruction = cls.MODE_INSTRUCTIONS[mode]
-        previous_mode = cls._bounded_text(
-            payload.get("previous_conversation_mode"), 16
-        ).casefold()
-        transition = ""
-        if previous_mode in cls.CONVERSATION_MODES and previous_mode != mode:
-            transition = (
-                f"模式切換通知：使用者已從 {previous_mode.title()} 切換至 "
-                f"{mode.title()}。請先完成角色與處理策略切換，再回應最新訊息。\n\n"
-            )
+        instruction = cls.CHAT_INSTRUCTION
         persona = cls._bounded_text(payload.get("persona"), 4_000)
         persona_block = (
             f"星澄人格設定：\n{persona}\n\n" if persona else ""
         )
         context = cls._conversation_context(payload)
         if not context:
-            return f"{transition}{persona_block}{instruction}\n\n使用者最新訊息：{message}"
-        return f"{transition}{persona_block}{instruction}\n\n以下是同一段對話的最近內容：\n{context}\n\n使用者最新訊息：{message}"
-
-    @classmethod
-    def _conversation_mode(cls, payload: dict[str, Any]) -> str:
-        mode = cls._bounded_text(payload.get("conversation_mode"), 16).casefold()
-        return mode if mode in cls.CONVERSATION_MODES else "chat"
+            return f"{persona_block}{instruction}\n\n使用者最新訊息：{message}"
+        return f"{persona_block}{instruction}\n\n以下是同一段對話的最近內容：\n{context}\n\n使用者最新訊息：{message}"
 
     @staticmethod
     def _context_budget(payload: dict[str, Any]) -> int:
@@ -259,7 +238,6 @@ class StarChatHelpersMixin:
         prompt: str,
         raw_message: str,
         command_context: str,
-        conversation_mode: str,
         controls: dict[str, Any],
     ) -> dict[str, Any]:
         intensity_settings = controls["intensity_settings"]
@@ -273,9 +251,9 @@ class StarChatHelpersMixin:
             "runtime_model": controls["runtime_model"],
             "programming_folder": self._bounded_text(
                 payload.get("programming_folder"), 1_024
-            ) if conversation_mode == "coding" else "",
-            "conversation_mode": conversation_mode,
-            "interaction_mode": f"model-dialogue-{conversation_mode}",
+            ),
+            "conversation_mode": "chat",
+            "interaction_mode": "model-dialogue-chat",
             "persona": self._bounded_text(payload.get("persona"), 4_000),
             "context_budget_characters": self._context_budget(payload),
             "task_intensity_mode": "automatic",

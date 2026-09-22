@@ -2,7 +2,7 @@
 
 對應技術棧：
   - Q/K/V projection：cuBLASLt (CUDA) / oneDNN (CPU) via nn.Linear
-  - RoPE：自研 kernel（Triton → PyTorch）
+  - RoPE：自研 kernel（CUDA Triton → CPU 原生 C → PyTorch）
   - Attention score：FlashAttention via torch SDPA（IO-aware，降低 VRAM 存取）
   - Output projection：cuBLASLt / oneDNN
 
@@ -123,7 +123,7 @@ def dispatch_attention(
     scaling: float,
     enable_gqa: bool = False,
 ) -> torch.Tensor:
-    """統一入口：Native Dispatch（C++ 核心）→ SDPA → 手動 softmax。
+    """統一入口：Native Dispatch（原生 C 計算核心）→ SDPA → 手動 softmax。
 
     依 A219，原生核心不可用、未達門檻或 parity 未通過時一律回退
     PyTorch 路徑；推論結果在容差內等價。

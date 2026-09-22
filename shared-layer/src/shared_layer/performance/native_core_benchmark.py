@@ -2,10 +2,10 @@
 
 Benchmarks the three native compute cores (parser, vector, transformer)
 against their Python fallbacks.  Measures the FULL end-to-end cost:
-    Python call → pybind11 conversion → C ABI → C++ compute →
+    Python call → pybind11 conversion → C ABI → pure-C compute →
     result conversion → Python return
 
-NOT just the C++ compute time.  This is required by A358.
+NOT just the native compute time.  This is required by A358.
 
 For each capability, benchmarks:
     - small / medium / large input sizes
@@ -50,6 +50,8 @@ from .native_dispatcher import (
     python_cosine_similarity,
     python_matmul,
     python_softmax,
+    python_rmsnorm,
+    python_rope,
     python_scaled_dot_product_attention,
     native_token_estimate,
     native_batch_token_estimate,
@@ -58,6 +60,8 @@ from .native_dispatcher import (
     native_cosine_similarity,
     native_matmul,
     native_softmax,
+    native_rmsnorm,
+    native_rope,
     native_scaled_dot_product_attention,
 )
 
@@ -137,27 +141,18 @@ def _check_parity(
     py_result = python_func(*args)
     nat_result = native_func(*args)
 
-    if isinstance(py_result, (int, float)):
-        return math.isclose(float(py_result), float(nat_result), rel_tol=tolerance, abs_tol=tolerance)
-    elif isinstance(py_result, list):
-        if len(py_result) != len(nat_result):
-            return False
-        for p, n in zip(py_result, nat_result):
-            if isinstance(p, (int, float)):
-                if not math.isclose(float(p), float(n), rel_tol=tolerance, abs_tol=tolerance):
-                    return False
-            elif isinstance(p, list):
-                if len(p) != len(n):
-                    return False
-                for pp, nn in zip(p, n):
-                    if not math.isclose(float(pp), float(nn), rel_tol=tolerance, abs_tol=tolerance):
-                        return False
-            else:
-                if p != n:
-                    return False
-        return True
-    else:
-        return py_result == nat_result
+    def equal(left: Any, right: Any) -> bool:
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return math.isclose(
+                float(left), float(right), rel_tol=tolerance, abs_tol=tolerance
+            )
+        if isinstance(left, (list, tuple)) and isinstance(right, (list, tuple)):
+            return len(left) == len(right) and all(
+                equal(p, n) for p, n in zip(left, right)
+            )
+        return left == right
+
+    return equal(py_result, nat_result)
 
 
 # --- Parser benchmark ---
@@ -324,6 +319,47 @@ def benchmark_transformer() -> dict[str, Any]:
             )
             results[f"parity_sm_{size_name}"] = _check_parity(
                 python_softmax, native_softmax, a, tolerance=1e-9,
+            )
+
+        # RMSNorm
+        weight = [1.0 + (i % 7) * 0.01 for i in range(cols)]
+        py_rn = _benchmark_callable(f"transformer.python.rn.{size_name}", python_rmsnorm, a, weight, 1e-5)
+        results[f"python_rn_{size_name}"] = py_rn
+
+        if native_ok:
+            nat_rn = _benchmark_callable(f"transformer.native.rn.{size_name}", native_rmsnorm, a, weight, 1e-5)
+            results[f"native_rn_{size_name}"] = nat_rn
+            results[f"speedup_rn_{size_name}"] = round(
+                py_rn["wall_p50_ms"] / nat_rn["wall_p50_ms"]
+                if nat_rn["wall_p50_ms"] > 0 else 0, 3
+            )
+            results[f"parity_rn_{size_name}"] = _check_parity(
+                python_rmsnorm, native_rmsnorm, a, weight, 1e-5, tolerance=1e-9,
+            )
+
+        # RoPE ([B=1, H=2, S=rows, D=cols] with gathered [B,S,D] tables)
+        rope_input = [[a for _ in range(2)]]
+        cos_table = [[ [math.cos((s + i) * 0.01) for i in range(cols)] for s in range(rows) ]]
+        sin_table = [[ [math.sin((s + i) * 0.01) for i in range(cols)] for s in range(rows) ]]
+        py_rope = _benchmark_callable(
+            f"transformer.python.rope.{size_name}",
+            python_rope, rope_input, cos_table, sin_table,
+        )
+        results[f"python_rope_{size_name}"] = py_rope
+
+        if native_ok:
+            nat_rope = _benchmark_callable(
+                f"transformer.native.rope.{size_name}",
+                native_rope, rope_input, cos_table, sin_table,
+            )
+            results[f"native_rope_{size_name}"] = nat_rope
+            results[f"speedup_rope_{size_name}"] = round(
+                py_rope["wall_p50_ms"] / nat_rope["wall_p50_ms"]
+                if nat_rope["wall_p50_ms"] > 0 else 0, 3
+            )
+            results[f"parity_rope_{size_name}"] = _check_parity(
+                python_rope, native_rope, rope_input, cos_table, sin_table,
+                tolerance=1e-9,
             )
 
         # Scaled dot-product attention

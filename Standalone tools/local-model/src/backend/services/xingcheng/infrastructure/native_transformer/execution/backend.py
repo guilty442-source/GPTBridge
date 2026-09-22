@@ -231,15 +231,17 @@ def enable_flash_attention(enabled: bool = True) -> None:
         pass
 
 
-_TRITON_KERNELS_ENABLED = False
+_TRITON_KERNELS_ENABLED = str(
+    os.environ.get("XINGCHENG_TRITON_KERNELS", "1")
+).strip().casefold() not in {"0", "false", "no", "off"}
 
 
 def triton_kernels_enabled() -> bool:
-    """自研 Triton kernel 是否啟用（預設關閉：品質優先）。
+    """自研 Triton kernel 是否啟用。
 
-    Triton kernel（RMSNorm／SwiGLU／RoPE）目前僅通過逐運算元數值比對，
-    在模型層級的困惑度與 PyTorch 參考實作仍有差異，因此預設關閉；
-    需要量測加速時才以 ``set_triton_kernels(True)`` 顯式開啟。
+    RMSNorm／SwiGLU／RoPE 已通過 CUDA 上逐運算元與模型層級 parity；
+    需要退回 PyTorch 時可設 ``XINGCHENG_TRITON_KERNELS=0`` 或呼叫
+    ``set_triton_kernels(False)``。需要梯度的訓練路徑仍自動回退 PyTorch。
     """
     return _TRITON_KERNELS_ENABLED
 

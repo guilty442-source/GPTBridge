@@ -1,9 +1,10 @@
-"""Source size limits and directory authority — A430/E160.
+"""Source size limits and directory authority — A430/A431/A432/E160.
 
-Per A430 (source-size-and-permission-managed-directory-control) and E160
-(source-size-directory-authority), handwritten source modules must obey
-bounded size limits, and the Permission Sovereign exclusively manages the
-source-structure directory registries.
+Per A430 (source-line evidence and self-decomposition directories),
+A431/A432 (module line-count roster, normalized counting and aggregation)
+and E160 (source-size-directory-authority), handwritten source modules must
+obey bounded size limits, and the Permission Sovereign exclusively manages
+the source-structure directory registries.
 
 This module is a re-export facade; the implementation lives in submodules:
 

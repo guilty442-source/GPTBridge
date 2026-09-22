@@ -1,0 +1,15 @@
+{
+  "contract_code": "CONNECTION_RECOVERY_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A571",
+  "fields": [
+    "layer",
+    "retry_policy",
+    "event_sequence",
+    "duplicate_detection",
+    "resume_rule"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

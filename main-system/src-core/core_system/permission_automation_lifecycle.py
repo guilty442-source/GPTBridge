@@ -113,6 +113,10 @@ class PermissionLifecycleManager:
         _logger.warning(f"Revoked permission grant: {grant_id}, reason: {reason}")
         return True
 
+    async def run_once(self) -> None:
+        """單次授予檢查——供 automation core 外部驅動（§1.1 自動化集中）。"""
+        await self._check_grants()
+
     async def _run_loop(self) -> None:
         """主循環。"""
         while self._running:

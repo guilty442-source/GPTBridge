@@ -29,13 +29,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
-import os
 import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
+
+from ._audit_writer import append_audit_record
 
 
 _QUERY_ALLOWLIST: frozenset[str] = frozenset(
@@ -251,14 +251,7 @@ class FaultAnalysisHandler:
 
     def _append_audit(self, record: dict[str, Any]) -> None:
         """Append a fault-query audit record to the durable JSONL ledger."""
-        try:
-            self._audit_ledger.parent.mkdir(parents=True, exist_ok=True)
-            line = json.dumps(record, ensure_ascii=False, sort_keys=True, default=str)
-            with self._audit_ledger.open("a", encoding="utf-8") as handle:
-                handle.write(line + os.linesep)
-                handle.flush()
-        except OSError:
-            pass  # audit persistence is best-effort
+        append_audit_record(self._audit_ledger, record)
 
 
 __all__ = ["FaultAnalysisHandler"]

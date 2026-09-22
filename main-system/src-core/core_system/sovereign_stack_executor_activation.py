@@ -148,6 +148,7 @@ class SovereignStackActivationMixin:
             app.main_system_self_maintenance = MainSystemSelfMaintenance(
                 sovereign.workspace_root,
                 authentication=getattr(app.governance, "authentication", None),
+                automation_core=getattr(app, "automation_core", None),
             )
         except Exception as error:
             app.main_system_self_maintenance = None

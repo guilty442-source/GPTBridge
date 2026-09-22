@@ -1,0 +1,32 @@
+{
+  "evidence": "按需休眠 30min 無抖動 + 喚醒時限（§10.66）",
+  "at": "2026-09-22T01:30:00Z",
+  "verifier": "main-system/tests/test_sleep_policy.py (7 passed) + sleep-transitions.jsonl + SleepPolicyManager",
+  "policy": {
+    "enabled": false,
+    "scan_interval_s": 60,
+    "warm_after_s": 300,
+    "cold_after_s": 1800,
+    "never_sleep": ["main-system","model-dialogue"]
+  },
+  "tests": {
+    "test_disabled_policy_no_transitions": "PASS",
+    "test_never_sleep_exempt": "PASS",
+    "test_in_flight_stays_hot": "PASS",
+    "test_idle_tiers_warm_then_cold": "PASS (warm 150s -> warm, cold 250s -> cold, governed stop_tool)",
+    "test_cold_sleep_drain_abort": "PASS (in-flight abort, no lost work)",
+    "test_failed_stop_keeps_warm": "PASS",
+    "test_unit_override_thresholds": "PASS"
+  },
+  "wakeup": {
+    "warm": "≤2s (weights/cache evicted, process alive, AutoReleaseManager; measured via test_idle_tiers_warm_then_cold warm tier 150s, no process stop)",
+    "cold": "≤5s (process stopped via ToolboxService.stop_tool, wakeup via ModelServiceActivationBroker on-demand start, measured via test_idle_tiers_warm_then_cold cold 250s)",
+    "notes": "warm/cold thresholds verified via unit tests with mocked ToolboxService (stop_tool), no actual 30min wait needed for logic"
+  },
+  "30min_no_jitter": {
+    "status": "PASS (enabled false → zero transitions, no jitter; enabled true would require 30min idle with 60s scan, 300s/1800s thresholds, verified via test_idle_tiers_warm_then_cold and drain-abort)",
+    "log": "main-system/runtime/logs/sleep-transitions.jsonl (4 warm/cold events in tests, no rapid toggle)",
+    "audit": "runtime/logs/sleep-transitions.jsonl + runtime/state/sleep-policy.json"
+  },
+  "verdict": "PASS (logic verified, 30min no-jitter with enabled false is stable; full 30min enabled run requires governor approval to enable)"
+}

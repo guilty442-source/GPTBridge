@@ -1,0 +1,14 @@
+{
+  "registry_code": "PROVIDER_ACTIVATION_POLICY_REGISTRY",
+  "kind": "registry",
+  "source_provision": "A586",
+  "columns": [
+    "provider_id",
+    "activation_policy",
+    "residency",
+    "owner"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

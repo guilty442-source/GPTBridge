@@ -20,6 +20,12 @@ def _runtime_layout() -> tuple[Path, Path]:
     source_core = root / "main-system" / "src-core"
     if not source_core.is_dir():
         source_core = root / "src-core"
+    if not source_core.is_dir() and (root / "backend").is_dir():
+        # Release candidates may package the backend under a flat ``backend``
+        # root instead of reproducing the development ``main-system/src-core``
+        # hierarchy.  Stay inside the configured release; never fall back to
+        # the source tree.
+        source_core = root / "backend"
     required = (source_core, root / "governance_rule", root / "shared-layer" / "src")
     missing = [str(path) for path in required if not path.exists()]
     if configured_root and missing:
@@ -33,9 +39,37 @@ _RUNTIME_ROOT, _SOURCE_CORE = _runtime_layout()
 sys.path.insert(0, str(_SOURCE_CORE))
 if _SOURCE_CORE.parent.name == "main-system":
     sys.path.insert(0, str(_SOURCE_CORE.parent))
+else:
+    # Flat-backend release layout keeps ``governance``/``package.json`` under
+    # ``<release>/main-system``; expose it so ``import governance`` resolves.
+    _flat_main_system = _RUNTIME_ROOT / "main-system"
+    if (_flat_main_system / "governance").is_dir():
+        sys.path.insert(0, str(_flat_main_system))
 sys.path.insert(0, str(_RUNTIME_ROOT / "governance_rule"))
 sys.path.insert(0, str(_RUNTIME_ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(_RUNTIME_ROOT))
+
+# §10.63 R1 startup slimming: the saga/workflow import chain (~800+ modules,
+# ~1.5 s) is only needed by phase-4 service assembly. Warm it on a daemon
+# thread so it overlaps the remaining boot imports instead of blocking the
+# phase boundary. Pure import only — no side effects; if the prefetch fails,
+# the phase-4 import raises there as usual (fail-closed unchanged).
+def _prefetch_boot_modules() -> None:
+    import importlib
+
+    for name in ("core_system.saga_runtime_integration",):
+        try:
+            importlib.import_module(name)
+        except Exception:
+            pass
+
+
+import threading
+
+_prefetch_thread = threading.Thread(
+    target=_prefetch_boot_modules, name="boot-module-prefetch", daemon=True
+)
+_prefetch_thread.start()
 
 from governance_rule.governance_policy import GOVERNANCE_RULE_CATALOG
 from core_system.runtime_bootstrap import RuntimeBootstrap

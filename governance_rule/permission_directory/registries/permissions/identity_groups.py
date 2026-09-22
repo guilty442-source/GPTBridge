@@ -7,19 +7,18 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_AI_ASSISTANT,
     IDENTITY_GROUP_AI_COLLABORATION,
     IDENTITY_GROUP_FILE_SORTER,
-    IDENTITY_GROUP_DOMAIN_TERM_EXTRACTOR,
     IDENTITY_GROUP_GLOBAL_CLEANER,
     IDENTITY_GROUP_GOVERNANCE_RULE,
     IDENTITY_GROUP_INVESTMENT_MOBILE,
     IDENTITY_GROUP_LOCAL_MODEL,
     IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE,
+    IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT,
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
     IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
     IDENTITY_GROUP_XINGCHENG_ASSISTANT,
-    IDENTITY_GROUP_CHINESE_SEMANTIC_ENGINE,
     CapabilityIdentity,
     IdentityGroup,
     ManifestBinding,
@@ -201,13 +200,6 @@ FILE_SORTER_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     language_name="file_sorter",
     codename="SORTER",
 )
-DOMAIN_TERM_EXTRACTOR_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
-    "domain-term-extractor",
-    group_id=IDENTITY_GROUP_DOMAIN_TERM_EXTRACTOR,
-    identity_code="T00001",
-    language_name="domain_term_extractor",
-    codename="TERM_EXTRACTOR",
-)
 XINGCHENG_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     "xingcheng",
     group_id=IDENTITY_GROUP_XINGCHENG,
@@ -278,12 +270,20 @@ MODEL_DIALOGUE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
     codename="DIALOGUE",
     root_template="Standalone tools/local-model/model-dialogue",
 )
-CHINESE_SEMANTIC_ENGINE_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
-    "chinese-semantic-engine",
-    group_id=IDENTITY_GROUP_CHINESE_SEMANTIC_ENGINE,
-    identity_code="S00002",
-    language_name="chinese_semantic_engine",
-    codename="SEMANTIC",
+# star-chat is a companion tool hosted by model-dialogue (manifest:
+# host_tool_id=model-dialogue, companion_tool=true, shared permission
+# owner=xingcheng).  It is a route actor on the AI channel and therefore
+# needs a registered identity and its own dedicated group (one identity
+# per group); its permissions stay narrower than the host's.
+STAR_CHAT_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
+    "star-chat",
+    group_id=IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT,
+    identity_code="D00002",
+    language_name="star_chat",
+    codename="STARCHAT",
+    root_template="Standalone tools/local-model/model-dialogue/star-chat",
+    code_scope="xingcheng-internal",
+    database_scope="all-project-databases-via-xingcheng-excluding-governance-rule",
 )
 del _business_tool_identity
 
@@ -319,7 +319,6 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     AI_ASSISTANT_IDENTITY,
     AI_COLLABORATION_IDENTITY,
     FILE_SORTER_IDENTITY,
-    DOMAIN_TERM_EXTRACTOR_IDENTITY,
     GLOBAL_CLEANER_IDENTITY,
     INVESTMENT_MOBILE_IDENTITY,
     XINGCHENG_IDENTITY,
@@ -328,7 +327,7 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     SYSTEM_RESCUE_IDENTITY,
     LOCAL_MODEL_IDENTITY,
     MODEL_DIALOGUE_IDENTITY,
-    CHINESE_SEMANTIC_ENGINE_IDENTITY,
+    STAR_CHAT_IDENTITY,
 )
 
 ACTIVE_IDENTITY_GROUP: Final[IdentityGroup] = IdentityGroup(

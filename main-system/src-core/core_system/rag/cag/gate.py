@@ -8,6 +8,8 @@ query).  Any failed check denies the hit fail-closed.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 from typing import Mapping
 
@@ -59,8 +61,37 @@ class CagGate:
         checks["model-version"] = entry.key.model_version == request.model_version
         checks["policy-version"] = entry.key.policy_version == request.policy_version
         checks["revision"] = entry.key.source_revision == request.source_revision
+        checks["rag-architectures"] = entry.key.rag_architectures == tuple(
+            sorted(request.rag_architectures)
+        )
+        checks["generation-mode"] = entry.key.generation_mode == request.generation_mode
+        checks["active-generation"] = (
+            entry.key.active_generation == request.active_generation
+        )
+        checks["embedding-model"] = entry.key.embedding_model == request.embedding_model
+        checks["embedding-dimension"] = (
+            entry.key.embedding_dimension == request.embedding_dimension
+        )
+        checks["reranker-version"] = (
+            entry.key.reranker_version == request.reranker_version
+        )
+        checks["chunk-policy-version"] = (
+            entry.key.chunk_policy_version == request.chunk_policy_version
+        )
+        checks["context-builder-version"] = (
+            entry.key.context_builder_version == request.context_builder_version
+        )
         checks["expiry"] = not entry.is_expired(now if now is not None else time.time())
         checks["authority"] = entry.authority in CACHE_AUTHORITIES
+        checks["state"] = entry.state == "VALID"
+        checks["payload-integrity"] = entry.payload_digest == hashlib.sha256(
+            json.dumps(
+                entry.payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                default=str,
+            ).encode("utf-8")
+        ).hexdigest()
 
         for check, passed in checks.items():
             if not passed:

@@ -24,6 +24,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import re
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -101,9 +104,18 @@ class ToolboxService(
         # starts (G83) when multiple callers race on shared-layer.
         self._tool_start_locks: dict[str, asyncio.Lock] = {}
         self._tool_start_lock_guard = asyncio.Lock()
+        self._registry_reconcile_task: asyncio.Task[Any] | None = None
+        self._registry_reconcile_stop = asyncio.Event()
         self._process_registry = ProcessRegistry(
             self.project_root / "main-system" / "runtime" / "state"
             / "process-registry.json"
+        )
+        # G47: unified module-level dual-axis runtime state (star-runtime-state/v1)
+        from core_system.runtime_state_registry import RuntimeStateRegistry
+
+        self._runtime_state_registry = RuntimeStateRegistry(
+            self.project_root / "main-system" / "runtime" / "state"
+            / "runtime-state-registry.json"
         )
         # G83-2: immediate sweep of leftovers from previous crash-loop session
         try:
@@ -142,6 +154,115 @@ class ToolboxService(
     def reconcile_process_registry(self) -> dict[str, int]:
         """Reconcile owned tool PIDs through the canonical registry."""
         return self._process_registry.reconcile()
+
+    async def start_process_registry_monitor(
+        self, interval_seconds: float = 30.0
+    ) -> None:
+        """Periodically reconcile owned PIDs while the main system is alive."""
+        if self._registry_reconcile_task is not None:
+            return
+        interval = max(1.0, float(interval_seconds))
+        self._registry_reconcile_stop.clear()
+
+        async def loop() -> None:
+            while not self._registry_reconcile_stop.is_set():
+                try:
+                    await asyncio.to_thread(self.reconcile_process_registry)
+                except Exception:
+                    pass
+                try:
+                    await asyncio.wait_for(
+                        self._registry_reconcile_stop.wait(), timeout=interval
+                    )
+                except asyncio.TimeoutError:
+                    continue
+
+        self._registry_reconcile_task = asyncio.create_task(
+            loop(), name="toolbox-process-registry-reconcile"
+        )
+
+    async def stop_process_registry_monitor(self) -> None:
+        """Stop the registry reconciler before managed tool shutdown."""
+        self._registry_reconcile_stop.set()
+        task = self._registry_reconcile_task
+        self._registry_reconcile_task = None
+        if task is not None:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    def _acquire_cross_process_start_lock(self, tool_id: str) -> bool:
+        """Atomically reserve a tool start across backend processes.
+
+        The per-process asyncio lock prevents local races; this directory
+        reservation closes the cross-process gap.  Dead owners are reclaimed
+        only after the canonical PID liveness check, otherwise startup fails
+        closed instead of creating a duplicate resident process.
+        """
+        if re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", tool_id) is None:
+            return False
+        lock_root = (
+            self.project_root / "main-system" / "runtime" / "state"
+            / "tool-start-locks"
+        )
+        lock_path = lock_root / tool_id
+        try:
+            lock_path.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            owner_path = lock_path / "owner.json"
+            try:
+                owner = json.loads(owner_path.read_text(encoding="utf-8"))
+                owner_pid = int(owner.get("pid") or 0)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                owner_pid = 0
+            if owner_pid > 0 and self._process_registry._pid_alive(owner_pid):
+                return False
+            try:
+                owner_path.unlink(missing_ok=True)
+                lock_path.rmdir()
+            except OSError:
+                return False
+            try:
+                lock_path.mkdir(parents=False, exist_ok=False)
+            except FileExistsError:
+                return False
+        except OSError:
+            return False
+
+        try:
+            (lock_path / "owner.json").write_text(
+                json.dumps(
+                    {"pid": os.getpid(), "tool_id": tool_id, "acquired_at": time.time()},
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            return True
+        except OSError:
+            try:
+                (lock_path / "owner.json").unlink(missing_ok=True)
+                lock_path.rmdir()
+            except OSError:
+                pass
+            return False
+
+    def _release_cross_process_start_lock(self, tool_id: str) -> None:
+        if re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", tool_id) is None:
+            return
+        lock_path = (
+            self.project_root / "main-system" / "runtime" / "state"
+            / "tool-start-locks" / tool_id
+        )
+        try:
+            owner_path = lock_path / "owner.json"
+            owner = json.loads(owner_path.read_text(encoding="utf-8"))
+            if int(owner.get("pid") or 0) != os.getpid():
+                return
+            owner_path.unlink(missing_ok=True)
+            lock_path.rmdir()
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            pass
 
     async def _get_tool_start_lock(self, tool_id: str) -> asyncio.Lock:
         """Per-tool lock for serializing concurrent starts (G83 dedup)."""

@@ -1,0 +1,15 @@
+{
+  "registry_code": "MODEL_TRAINING_TIER_REGISTRY",
+  "kind": "registry",
+  "source_provision": "A557",
+  "columns": [
+    "tier_code",
+    "configuration",
+    "gate",
+    "evidence",
+    "status"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

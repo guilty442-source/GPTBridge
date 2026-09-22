@@ -6,6 +6,8 @@ import json
 import re
 from pathlib import Path
 
+from ._file_cache import read_text_cached
+
 import governance_rule.execution.git_tiers
 from governance_rule.execution.chinese_codex_mirror import load_chinese_codex_parts
 from governance_rule.execution.codex_repository import (
@@ -68,7 +70,7 @@ def check_codex_consistency(root: Path, errors: list[str]) -> None:
     architecture_root = root / "governance_rule" / "codex"
     for path in architecture_root.glob("architecture-*.md"):
         try:
-            content = path.read_text(encoding="utf-8")
+            content = read_text_cached(path)
         except (OSError, UnicodeError) as error:
             errors.append(f"architecture text is invalid: {path.name}: {error}")
             continue
@@ -82,7 +84,7 @@ def check_git_tiers(root: Path, errors: list[str]) -> None:
     if not git_tiers_source.is_file():
         errors.append("git tier enforcement module is missing")
     else:
-        git_tiers_text = git_tiers_source.read_text(encoding="utf-8")
+        git_tiers_text = read_text_cached(git_tiers_source)
         if "TIER1_OPS" not in git_tiers_text or "TIER2_OPS" not in git_tiers_text or "TIER3_OPS" not in git_tiers_text:
             errors.append("git tier module is missing tier operation sets")
         if "def classify" not in git_tiers_text or "def enforce" not in git_tiers_text:
@@ -96,7 +98,7 @@ def check_git_tiers(root: Path, errors: list[str]) -> None:
     if not git_gate_source.is_file():
         errors.append("git gate wrapper is missing")
     else:
-        git_gate_text = git_gate_source.read_text(encoding="utf-8")
+        git_gate_text = read_text_cached(git_gate_source)
         if "from governance_rule.execution.git_tiers import" not in git_gate_text:
             errors.append("git gate wrapper does not import git_tiers module")
 
@@ -107,7 +109,7 @@ def check_git_tiers(root: Path, errors: list[str]) -> None:
             errors.append(f"governed Git hook is missing: {hook_name}")
     pre_push_source = hook_root / "pre-push"
     if pre_push_source.is_file():
-        hook_text = pre_push_source.read_text(encoding="utf-8")
+        hook_text = read_text_cached(pre_push_source)
         if "GOVERNANCE_AUTHORITY_APPROVAL" not in hook_text:
             errors.append("pre-push hook does not enforce governance authority approval")
         if "merge-base" not in hook_text or "refs/tags/" not in hook_text:
@@ -120,7 +122,7 @@ def check_metadata_contract(root: Path, errors: list[str]) -> None:
     if not metadata_contract.is_file():
         errors.append("metadata contract module is missing")
     else:
-        contract_text = metadata_contract.read_text(encoding="utf-8")
+        contract_text = read_text_cached(metadata_contract)
         for required in ("FIELD_MODULE_ID", "FIELD_RESOURCE_ID", "FIELD_LOCATOR_ID",
                          "FIELD_VERSION", "FIELD_CONTENT_HASH", "FIELD_UPDATED_AT",
                          "FIELD_STATUS", "ResourceMetadata", "validate_qdrant_payload"):
@@ -138,7 +140,7 @@ def check_reconcile_modules(root: Path, errors: list[str]) -> None:
     if not reconcile_module.is_file():
         errors.append("reconcile state store module is missing")
     else:
-        reconcile_text = reconcile_module.read_text(encoding="utf-8")
+        reconcile_text = read_text_cached(reconcile_module)
         if "ReconcileStateStore" not in reconcile_text:
             errors.append("reconcile module is missing ReconcileStateStore class")
         for forbidden_decision in (
@@ -155,7 +157,7 @@ def check_reconcile_modules(root: Path, errors: list[str]) -> None:
     )
     if not reconciliation_owner.is_file():
         errors.append("system data reconciliation owner is missing")
-    elif "class ReconcileService" not in reconciliation_owner.read_text(encoding="utf-8"):
+    elif "class ReconcileService" not in read_text_cached(reconciliation_owner):
         errors.append("system data reconciliation owner lacks decision service")
 
 
@@ -288,7 +290,7 @@ def check_sqlite_template(root: Path, errors: list[str]) -> None:
     if not sqlite_template.is_file():
         errors.append("SQLite module template is missing")
     else:
-        template_text = sqlite_template.read_text(encoding="utf-8")
+        template_text = read_text_cached(sqlite_template)
         for required_table in ("schema_version", "module_metadata",
                                "resource_metadata", "audit_event", "reconcile_state"):
             if required_table not in template_text:
@@ -307,7 +309,7 @@ def check_data_lineage(root: Path, errors: list[str]) -> None:
     if not lineage_migration.is_file():
         errors.append("Data lineage migration 018 is missing")
         return
-    text = lineage_migration.read_text(encoding="utf-8")
+    text = read_text_cached(lineage_migration)
     for required_object in (
         "gptbridge_index.data_lineage",
         "auto_populate_lineage",
@@ -326,7 +328,7 @@ def check_authority_marker(root: Path, errors: list[str]) -> None:
     if not authority_migration.is_file():
         errors.append("Authority marker migration 019 is missing")
         return
-    text = authority_migration.read_text(encoding="utf-8")
+    text = read_text_cached(authority_migration)
     for required_token in (
         "authority_class",
         "central-official",
@@ -345,7 +347,7 @@ def check_write_provenance(root: Path, errors: list[str]) -> None:
     if not provenance_migration.is_file():
         errors.append("Write provenance migration 020 is missing")
         return
-    text = provenance_migration.read_text(encoding="utf-8")
+    text = read_text_cached(provenance_migration)
     for required_object in (
         "executor_id",
         "correlation_id",
@@ -366,7 +368,7 @@ def check_provenance_helper(root: Path, errors: list[str]) -> None:
     if not helper.is_file():
         errors.append("Provenance helper module is missing")
         return
-    text = helper.read_text(encoding="utf-8")
+    text = read_text_cached(helper)
     for required_symbol in ("set_provenance", "clear_provenance", "gptbridge.actor_id"):
         if required_symbol not in text:
             errors.append(
@@ -380,7 +382,7 @@ def check_permission_snapshot(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Permission snapshot migration 021 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in (
         "permission_snapshot",
         "capture_permission_snapshot",
@@ -398,7 +400,7 @@ def check_schema_ownership_lock(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Schema ownership lock migration 022 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in (
         "gptbridge_migration_owner",
         "ddl_guard",
@@ -415,7 +417,7 @@ def check_ddl_audit(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("DDL audit migration 023 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in (
         "ddl_event",
         "audit_ddl_event",
@@ -432,7 +434,7 @@ def check_contract_handshake(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Contract version handshake migration 024 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in (
         "contract_version",
         "check_contract_compatibility",
@@ -450,7 +452,7 @@ def check_permission_snapshot_helper(root: Path, errors: list[str]) -> None:
     if not helper.is_file():
         errors.append("Permission snapshot helper module is missing")
         return
-    text = helper.read_text(encoding="utf-8")
+    text = read_text_cached(helper)
     if "capture_snapshot" not in text:
         errors.append("Permission snapshot helper is missing: capture_snapshot")
 
@@ -461,7 +463,7 @@ def check_sqlite_generation_fence(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SQLite generation fence migration 025 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("sqlite_generation", "upsert_sqlite_generation", "stale"):
         if required not in text:
             errors.append(f"SQLite generation fence migration 025 is missing: {required}")
@@ -473,7 +475,7 @@ def check_workload_class(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Workload class migration 026 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("workload_class", "interactive", "transport", "audit",
                      "reconciliation", "maintenance", "migration",
                      "statement_timeout_ms", "apply_workload_class"):
@@ -487,7 +489,7 @@ def check_two_stage_deletion(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Two-stage deletion migration 027 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("deletion_stage", "tombstone", "retention", "purged",
                      "tombstone_resource", "advance_deletion_stage",
                      "get_purge_eligible", "purge_after"):
@@ -501,7 +503,7 @@ def check_orphan_scanner(root: Path, errors: list[str]) -> None:
     if not scanner.is_file():
         errors.append("Orphan scanner module is missing")
         return
-    text = scanner.read_text(encoding="utf-8")
+    text = read_text_cached(scanner)
     if "scan_orphans" not in text:
         errors.append("Orphan scanner is missing: scan_orphans")
 
@@ -512,7 +514,7 @@ def check_deletion_coordinator(root: Path, errors: list[str]) -> None:
     if not coordinator.is_file():
         errors.append("Deletion coordinator module is missing")
         return
-    text = coordinator.read_text(encoding="utf-8")
+    text = read_text_cached(coordinator)
     for required in ("tombstone", "advance_stage", "get_purge_eligible"):
         if required not in text:
             errors.append(f"Deletion coordinator is missing: {required}")
@@ -524,7 +526,7 @@ def check_generation_fence_helper(root: Path, errors: list[str]) -> None:
     if not helper.is_file():
         errors.append("Generation fence helper module is missing")
         return
-    text = helper.read_text(encoding="utf-8")
+    text = read_text_cached(helper)
     for required in ("get_current_generation", "bump_generation", "is_connection_stale"):
         if required not in text:
             errors.append(f"Generation fence helper is missing: {required}")
@@ -536,7 +538,7 @@ def check_rebuild_certification(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Rebuild certification migration 028 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("rebuild_certification", "record_rebuild_certification",
                      "is_engine_certified", "certified"):
         if required not in text:
@@ -549,7 +551,7 @@ def check_watchdog_bloat_rpo_rto(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Watchdog/bloat/RPO-RTO migration 029 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("long_transaction_watchdog", "bloat_report",
                      "rpo_rto_class", "capacity_threshold",
                      "postgresql-central", "governance-codex-sqlite",
@@ -565,7 +567,7 @@ def check_readonly_domain_startup_cert(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Read-only domain + startup cert migration 030 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("readonly_domain", "set_domain_readonly",
                      "is_domain_readonly", "startup_certification",
                      "record_startup_certification", "is_database_ready",
@@ -581,7 +583,7 @@ def check_slo_metrics(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SLO metrics migration 031 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("slo_metric", "slo_observation",
                      "record_slo_observation",
                      "central-query-p95", "transport-claim-latency",
@@ -597,7 +599,7 @@ def check_unified_lifecycle_state(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Unified lifecycle state migration 050 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("lifecycle_state", "transition_lifecycle_state",
                      "get_lifecycle_state", "get_entities_by_state",
                      "ACTIVE", "STALE", "SUPERSEDED", "TOMBSTONED",
@@ -612,7 +614,7 @@ def check_transport_retention(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Transport retention migration 051 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("transport_retention_policy", "get_transport_archive_eligible",
                      "get_transport_purge_eligible",
                      "completed", "failed", "dead_letter",
@@ -627,7 +629,7 @@ def check_audit_retention_layering(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Audit retention layering migration 052 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("audit_retention_layer", "get_audit_archive_eligible",
                      "get_audit_long_term_eligible",
                      "hot", "archive", "long_term"):
@@ -641,7 +643,7 @@ def check_sqlite_per_class_retention(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SQLite per-class retention migration 053 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("sqlite_retention_policy", "get_sqlite_retention_for_class",
                      "retention_days", "archive_eligible", "purge_eligible"):
         if required not in text:
@@ -654,7 +656,7 @@ def check_qdrant_vector_lifecycle(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Qdrant vector lifecycle migration 054 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("qdrant_vector_lifecycle", "mark_vector_for_resource_state",
                      "confirm_vector_deleted", "get_vectors_pending_deletion",
                      "ACTIVE", "STALE", "RETRIEVAL_FORBIDDEN",
@@ -669,7 +671,7 @@ def check_purge_queue(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Purge queue migration 055 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("purge_queue", "enqueue_purge", "approve_purge",
                      "get_purge_eligible", "mark_purged",
                      "retention_until", "purge_status"):
@@ -683,7 +685,7 @@ def check_archive_catalog(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Archive catalog migration 056 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("archive_catalog", "register_archive", "verify_archive",
                      "find_archives", "storage_locator", "integrity_hash",
                      "record_count", "schema_version"):
@@ -697,7 +699,7 @@ def check_archive_versioning(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Archive versioning migration 057 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("archive_version_manifest", "mark_restore_tested",
                      "get_untested_archives",
                      "encoding", "archive_format_version", "checksum_algorithm"):
@@ -711,7 +713,7 @@ def check_retention_hold(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Retention hold migration 059 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("retention_hold", "place_hold", "release_hold",
                      "has_active_hold",
                      "audit_investigation", "governance_review",
@@ -726,7 +728,7 @@ def check_dependency_check(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Dependency check migration 060 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("dependency_check", "check_resource_dependencies",
                      "can_purge", "has_dependencies", "dependency_details"):
         if required not in text:
@@ -739,7 +741,7 @@ def check_archive_restore_test(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Archive restore test migration 061 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("archive_restore_test", "record_restore_test",
                      "get_failed_restore_tests",
                      "schema_check_passed", "row_count_match",
@@ -755,7 +757,7 @@ def check_capacity_quota(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Capacity quota migration 062 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("capacity_quota", "update_capacity_measurement",
                      "check_capacity_status",
                      "soft_limit_mb", "hard_limit_mb",
@@ -770,7 +772,7 @@ def check_purge_audit(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Purge audit migration 063 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("purge_audit_log", "record_purge", "verify_purge",
                      "get_purge_history",
                      "previous_hash", "deleted_from", "audit_hash"):
@@ -784,7 +786,7 @@ def check_lifecycle_manager_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Lifecycle manager module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("transition_state", "get_state", "enqueue_purge",
                      "get_purge_eligible", "check_dependencies",
                      "record_purge", "place_hold", "release_hold",
@@ -799,7 +801,7 @@ def check_audit_hash_chain(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Audit hash chain migration 064 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("event_hash", "previous_event_hash", "sequence",
                      "compute_event_hash", "populate_event_hash_chain",
                      "verify_audit_chain", "get_audit_head_hash"):
@@ -813,7 +815,7 @@ def check_reconcile_batch_digest(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Reconcile batch digest migration 065 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("reconcile_batch_digest", "batch_hash", "result_hash",
                      "start_reconcile_batch", "complete_reconcile_batch",
                      "verify_reconcile_batch",
@@ -828,7 +830,7 @@ def check_resource_content_hash(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Resource content hash migration 066 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("resource_content_hash", "resource_hash", "metadata_hash",
                      "locator_hash", "record_resource_hash",
                      "verify_resource_hash", "get_tampered_resources"):
@@ -842,7 +844,7 @@ def check_sqlite_database_digest(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SQLite database digest migration 067 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("sqlite_database_digest", "schema_hash", "revision_head",
                      "row_count", "critical_table_digest",
                      "record_sqlite_digest", "verify_sqlite_digest",
@@ -857,7 +859,7 @@ def check_qdrant_integrity_mapping(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Qdrant integrity mapping migration 068 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("qdrant_integrity_map", "chunk_hash", "embedding_version",
                      "qdrant_point_id", "resource_revision",
                      "record_qdrant_integrity", "verify_qdrant_integrity",
@@ -872,7 +874,7 @@ def check_merkle_root(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Merkle root migration 069 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("merkle_root", "compute_merkle_root", "record_merkle_root",
                      "verify_merkle_root", "get_merkle_root_for_domain",
                      "leaf_count", "leaf_hashes"):
@@ -886,7 +888,7 @@ def check_integrity_snapshot(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Integrity snapshot migration 070 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("integrity_snapshot", "schema_hash", "audit_head_hash",
                      "resource_merkle_root", "migration_head",
                      "create_integrity_snapshot", "get_latest_snapshot",
@@ -901,7 +903,7 @@ def check_restore_verification(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Restore verification migration 071 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("restore_verification", "expected_schema_hash",
                      "actual_schema_hash", "schema_match", "audit_match",
                      "merkle_match", "overall_passed",
@@ -916,7 +918,7 @@ def check_tamper_state(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Tamper state migration 072 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("tamper_state_registry", "record_tamper_state",
                      "resolve_tamper_state", "get_active_tamper_issues",
                      "verified", "unverified", "mismatch",
@@ -931,7 +933,7 @@ def check_fail_closed(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Fail-closed migration 073 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("fail_closed_action", "trigger_fail_closed",
                      "release_fail_closed", "is_fail_closed_active",
                      "get_active_fail_closed",
@@ -947,7 +949,7 @@ def check_integrity_verifier_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Integrity verifier module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("compute_hash", "compute_merkle_root",
                      "populate_event_hash_chain", "verify_audit_chain",
                      "get_audit_head_hash", "start_reconcile_batch",
@@ -967,7 +969,7 @@ def check_version_lock(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Version lock migration 074 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("version_lock", "lock_version", "get_version_lock",
                      "get_all_version_locks", "component", "version_string"):
         if required not in text:
@@ -980,7 +982,7 @@ def check_compatibility_matrix_ext(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Compatibility matrix ext migration 075 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("compatibility_matrix_ext", "record_compatibility",
                      "check_combination_allowed", "get_forbidden_combinations",
                      "postgresql_version", "psycopg_version",
@@ -995,7 +997,7 @@ def check_upgrade_classification(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Upgrade classification migration 076 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("upgrade_classification", "classify_upgrade",
                      "get_upgrade_class", "patch", "minor", "major",
                      "required_validation", "allows_unattended"):
@@ -1009,7 +1011,7 @@ def check_driver_compatibility_test(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Driver compatibility test migration 077 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("driver_compatibility_test", "record_driver_test",
                      "is_driver_version_verified", "get_failed_driver_tests",
                      "connection_pool", "transaction", "row_factory",
@@ -1024,7 +1026,7 @@ def check_pg_major_upgrade_rehearsal(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("PG major upgrade rehearsal migration 078 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("pg_major_upgrade_rehearsal", "start_pg_rehearsal",
                      "advance_pg_rehearsal", "get_rehearsal_summary",
                      "migration_check", "rls_check", "transport_test",
@@ -1039,7 +1041,7 @@ def check_sqlite_runtime_compat(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SQLite runtime compat migration 079 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("sqlite_runtime_compat", "record_sqlite_runtime_compat",
                      "check_sqlite_runtime_compat",
                      "python_version", "sqlite_library_version",
@@ -1054,7 +1056,7 @@ def check_qdrant_contract_compat(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Qdrant contract compat migration 080 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("qdrant_contract_compat", "record_qdrant_compat",
                      "is_qdrant_upgrade_safe",
                      "collection_schema", "payload_filter", "snapshot_format",
@@ -1069,7 +1071,7 @@ def check_sbom_dependency_inventory(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SBOM dependency inventory migration 081 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("sbom_dependency_inventory", "record_sbom_entry",
                      "verify_sbom_entry", "get_sbom_for_release",
                      "component", "component_type", "version",
@@ -1084,7 +1086,7 @@ def check_vulnerability_risk(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Vulnerability risk migration 082 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("vulnerability_risk", "record_vulnerability",
                      "resolve_vulnerability", "get_critical_vulnerabilities",
                      "critical_security", "important",
@@ -1100,7 +1102,7 @@ def check_dependency_drift(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Dependency drift migration 083 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("dependency_drift", "record_dependency_drift",
                      "resolve_dependency_drift", "get_unverified_dependencies",
                      "UNVERIFIED_DEPENDENCY", "MISMATCH", "VERIFIED",
@@ -1115,7 +1117,7 @@ def check_offline_bundle(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Offline bundle migration 084 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("offline_bundle", "register_offline_bundle",
                      "verify_offline_bundle", "get_offline_bundle",
                      "component", "version", "package_type",
@@ -1130,7 +1132,7 @@ def check_release_signature(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Release signature migration 085 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("release_signature", "sign_release",
                      "verify_release_signature", "get_latest_signature",
                      "bundle_hash", "component_count", "component_hashes",
@@ -1145,7 +1147,7 @@ def check_dependency_governor_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Dependency governor module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("compute_bundle_hash", "lock_version", "get_version_lock",
                      "record_compatibility", "check_combination_allowed",
                      "classify_upgrade", "get_upgrade_class",
@@ -1165,7 +1167,7 @@ def check_recovery_plan(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery plan migration 088 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_plan", "register_recovery_plan",
                      "certify_recovery_plan", "activate_recovery_plan",
                      "get_active_recovery_plan",
@@ -1180,7 +1182,7 @@ def check_recovery_incident(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery incident migration 089 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_incident", "open_recovery_incident",
                      "advance_incident_status", "get_active_incidents"):
         if required not in text:
@@ -1193,7 +1195,7 @@ def check_recovery_state_machine(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery state machine migration 090 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_state_machine", "recovery_state_transition",
                      "transition_recovery_state", "get_current_recovery_state",
                      "HEALTHY", "DEGRADED", "RECOVERING", "QUARANTINED"):
@@ -1207,7 +1209,7 @@ def check_pg_offline_recovery(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("PG offline recovery migration 091 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("pg_offline_recovery", "confirm_pg_failure",
                      "enter_degraded_mode", "fallback_status"):
         if required not in text:
@@ -1220,7 +1222,7 @@ def check_pg_recovery_verification(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("PG recovery verification migration 092 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("pg_recovery_verification", "record_pg_recovery_verification",
                      "is_pg_recoverable", "connection_ok", "schema_version_ok",
                      "rls_ok", "audit_ok", "transport_ok", "integrity_ok",
@@ -1235,7 +1237,7 @@ def check_reconcile_recovery_phase(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Reconcile recovery phase migration 093 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("reconcile_recovery_phase", "start_reconcile_recovery",
                      "advance_reconcile_recovery", "is_reconcile_complete"):
         if required not in text:
@@ -1248,7 +1250,7 @@ def check_recovery_generation(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery generation migration 094 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_generation", "create_recovery_generation",
                      "get_current_generation", "degraded", "recovered"):
         if required not in text:
@@ -1261,7 +1263,7 @@ def check_recovery_barrier(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery barrier migration 095 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_barrier", "raise_recovery_barrier",
                      "release_recovery_barrier", "is_recovery_barrier_active",
                      "RECOVERING_READ_ONLY"):
@@ -1275,7 +1277,7 @@ def check_transport_recovery(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Transport recovery migration 096 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("transport_recovery", "register_unknown_commit",
                      "resolve_commit_state", "get_unknown_commits",
                      "idempotency_key", "COMMITTED", "NOT_COMMITTED", "UNKNOWN"):
@@ -1289,7 +1291,7 @@ def check_lease_recovery(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Lease recovery migration 098 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("lease_recovery", "check_lease_expiry",
                      "reclaim_lease", "get_expired_leases",
                      "lease_until", "worker_generation"):
@@ -1303,7 +1305,7 @@ def check_sqlite_fallback_freeze(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SQLite fallback freeze migration 099 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("sqlite_fallback_freeze", "transition_fallback_state",
                      "get_fallback_state",
                      "fallback_open", "fallback_draining",
@@ -1318,7 +1320,7 @@ def check_qdrant_recovery(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Qdrant recovery migration 101 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("qdrant_recovery", "start_qdrant_recovery",
                      "update_qdrant_recovery", "indexing_backlog_count"):
         if required not in text:
@@ -1331,7 +1333,7 @@ def check_qdrant_full_rebuild(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Qdrant full rebuild migration 102 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("qdrant_full_rebuild", "start_qdrant_full_rebuild",
                      "advance_qdrant_rebuild", "collection_generation",
                      "old_collection_retired"):
@@ -1345,7 +1347,7 @@ def check_recovery_checkpoint(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery checkpoint migration 108 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_checkpoint", "save_recovery_checkpoint",
                      "resume_recovery_checkpoint", "get_latest_checkpoint",
                      "current_phase", "last_processed_revision", "batch_cursor"):
@@ -1359,7 +1361,7 @@ def check_recovery_idempotency(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery idempotency migration 109 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_idempotency", "check_or_mark_idempotent",
                      "mark_idempotent_complete", "operation_key"):
         if required not in text:
@@ -1372,7 +1374,7 @@ def check_recovery_safety_fence(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery safety fence migration 110 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_safety_fence", "check_safety_fence",
                      "record_fence_block", "drop_authoritative_database",
                      "truncate_official_data", "rewrite_governance_codex",
@@ -1387,7 +1389,7 @@ def check_chaos_drill(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Chaos drill migration 111 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("chaos_drill", "start_chaos_drill", "complete_chaos_drill",
                      "no_authority_inversion", "no_duplicate_write",
                      "no_lost_commit", "no_silent_conflict",
@@ -1402,7 +1404,7 @@ def check_recovery_certification(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Recovery certification migration 112 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("recovery_certification", "record_recovery_certification",
                      "certify_recovery_plan_v2", "is_recovery_plan_certified",
                      "integrity_result", "reconcile_result", "audit_result",
@@ -1417,7 +1419,7 @@ def check_recovery_orchestrator_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Recovery orchestrator module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("register_recovery_plan", "open_recovery_incident",
                      "transition_recovery_state", "create_recovery_generation",
                      "get_current_generation", "start_pg_offline_recovery",
@@ -1440,7 +1442,7 @@ def check_data_layer_contract(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Data layer contract migration 114 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("data_layer_contract", "register_data_layer_contract",
                      "activate_data_layer_contract",
                      "get_active_data_layer_contract",
@@ -1456,7 +1458,7 @@ def check_dependency_classification(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Dependency classification migration 115 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("dependency_classification", "authority", "required",
                      "degradable", "optional", "classify_dependency",
                      "get_dependency_classification",
@@ -1471,7 +1473,7 @@ def check_startup_phase(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Startup phase migration 116 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("startup_phase", "BOOTSTRAP", "GOVERNANCE_VALIDATED",
                      "DATABASE_FOUNDATION_READY", "CENTRAL_AUTHORITY_READY",
                      "PRIVATE_STATE_READY", "SEMANTIC_INDEX_READY",
@@ -1487,7 +1489,7 @@ def check_startup_phase_gate(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Startup phase gate migration 117 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("startup_phase_gate", "register_startup_gate",
                      "set_gate_result", "is_phase_complete",
                      "can_enable_write", "governance_ready",
@@ -1502,7 +1504,7 @@ def check_schema_readiness(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Schema readiness migration 118 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("schema_readiness", "set_schema_readiness",
                      "is_schema_ready", "is_pg_certified",
                      "is_audit_writable", "can_enable_business_write",
@@ -1518,7 +1520,7 @@ def check_rag_readiness_gate(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("RAG readiness gate migration 119 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("rag_readiness_gate", "evaluate_rag_readiness",
                      "is_rag_ready", "pg_rag_metadata_ready",
                      "qdrant_ready", "metadata_authority_wired",
@@ -1533,7 +1535,7 @@ def check_shutdown_phase(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Shutdown phase migration 120 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("shutdown_phase", "STOP_ACCEPTING_NEW_WORK",
                      "DRAIN_TRANSPORT", "FLUSH_AUDIT",
                      "CLOSE_QDRANT_CLIENT", "CLOSE_SQLITE",
@@ -1548,7 +1550,7 @@ def check_shutdown_audit(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Shutdown audit migration 121 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("shutdown_audit", "start_shutdown_audit",
                      "complete_shutdown_audit",
                      "was_last_shutdown_graceful",
@@ -1563,7 +1565,7 @@ def check_unclean_shutdown_detection(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Unclean shutdown detection migration 122 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("unclean_shutdown_detection", "detect_unclean_shutdown",
                      "mark_unclean_step_done",
                      "is_unclean_recovery_complete",
@@ -1580,7 +1582,7 @@ def check_cache_invalidation_policy(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Cache invalidation policy migration 123 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("cache_invalidation_policy", "register_cache_policy",
                      "should_invalidate_cache",
                      "check_generation_compatible",
@@ -1595,7 +1597,7 @@ def check_dependency_graph(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Dependency graph migration 124 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("data_layer_dependency_graph", "get_dependencies",
                      "get_dependents", "governance_codex",
                      "identity_permission", "postgresql",
@@ -1611,7 +1613,7 @@ def check_integration_rule(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Integration rule migration 125 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("integration_rule", "get_integration_rules",
                      "check_integration_rule",
                      "central structured authority",
@@ -1628,7 +1630,7 @@ def check_data_layer_contract_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Data layer contract module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("register_data_layer_contract", "activate_data_layer_contract",
                      "get_active_data_layer_contract", "classify_dependency",
                      "get_startup_order", "get_shutdown_order",
@@ -1653,7 +1655,7 @@ def check_database_release_manifest(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Database release manifest migration 040 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("database_release", "transition_release_state",
                      "get_active_release", "supersede_active_release",
                      "DRAFT", "VALIDATED", "CERTIFIED", "STAGED",
@@ -1670,7 +1672,7 @@ def check_release_manifest_file(root: Path, errors: list[str]) -> None:
         return
     import json
     try:
-        data = json.loads(manifest.read_text(encoding="utf-8"))
+        data = json.loads(read_text_cached(manifest))
     except (ValueError, json.JSONDecodeError) as exc:
         errors.append(f"database-release.json is invalid: {exc}")
         return
@@ -1689,7 +1691,7 @@ def check_release_manifest_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Release manifest module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("load_manifest", "validate_runtime", "get_compatibility_matrix"):
         if required not in text:
             errors.append(f"Release manifest module is missing: {required}")
@@ -1701,7 +1703,7 @@ def check_compatibility_matrix(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Compatibility matrix migration 041 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("release_compatibility", "check_compatibility",
                      "upsert_compatibility", "full", "read-only", "rejected"):
         if required not in text:
@@ -1714,7 +1716,7 @@ def check_migration_breaking_change(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Migration breaking change migration 042 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("migration_classification", "classify_migration",
                      "get_breaking_migrations",
                      "compatible", "conditional", "breaking",
@@ -1729,7 +1731,7 @@ def check_query_contract_version(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Query contract version migration 043 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("query_contract", "register_query_contract",
                      "deprecate_query_contract", "retire_query_contract",
                      "get_active_query_contract",
@@ -1744,7 +1746,7 @@ def check_rls_role_migration(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("RLS/Role migration 044 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("rls_role_migration", "record_rls_role_migration",
                      "get_rls_role_version",
                      "create_role", "grant", "create_policy",
@@ -1759,7 +1761,7 @@ def check_sqlite_template_release(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SQLite template release migration 045 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("sqlite_template_release", "register_sqlite_template",
                      "get_active_sqlite_template", "can_write_sqlite",
                      "template_version", "minimum_writer_version"):
@@ -1773,7 +1775,7 @@ def check_qdrant_contract_version(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Qdrant contract version migration 046 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("qdrant_contract", "register_qdrant_contract",
                      "deprecate_qdrant_contract", "retire_qdrant_contract",
                      "get_active_qdrant_contract",
@@ -1788,7 +1790,7 @@ def check_canary_upgrade(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Canary upgrade migration 047 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("canary_upgrade", "start_canary_upgrade",
                      "complete_canary_upgrade", "promote_canary_to_production",
                      "restoring", "migrating", "certifying",
@@ -1803,7 +1805,7 @@ def check_release_audit(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Release audit migration 048 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("database_release_audit", "start_release_audit",
                      "complete_release_audit", "get_release_audit_history",
                      "schema_hash", "migration_set"):
@@ -1817,7 +1819,7 @@ def check_roll_forward(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Roll forward migration 049 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("roll_forward_migration", "record_roll_forward",
                      "verify_roll_forward", "get_roll_forwards_for",
                      "fixes_migration_id", "corrective_sql"):
@@ -1831,7 +1833,7 @@ def check_workload_pool_query_class(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Workload pool/query class migration 032 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("workload_pool_config", "query_class", "apply_query_class",
                      "index", "transport", "audit", "reconcile", "maintenance",
                      "interactive", "index_lookup", "audit_write",
@@ -1846,7 +1848,7 @@ def check_query_fingerprint(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Query fingerprint migration 033 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("query_fingerprint", "record_query_fingerprint",
                      "get_hot_queries", "p95_latency_ms"):
         if required not in text:
@@ -1859,7 +1861,7 @@ def check_transport_hot_path_index(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Transport hot path index migration 034 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("tool_request_claim_path_idx", "tool_request_history",
                      "archive_completed_requests"):
         if required not in text:
@@ -1872,7 +1874,7 @@ def check_audit_hot_history_separation(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Audit hot/history separation migration 035 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("event_history", "archive_audit_events", "partition_threshold"):
         if required not in text:
             errors.append(f"Audit hot/history separation migration 035 is missing: {required}")
@@ -1884,7 +1886,7 @@ def check_wal_checkpoint_monitor(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("WAL checkpoint monitor migration 036 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("wal_checkpoint_snapshot", "record_wal_checkpoint_snapshot",
                      "checkpoint_duration_ms", "wal_rate_mb_per_min"):
         if required not in text:
@@ -1897,7 +1899,7 @@ def check_sqlite_classification(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("SQLite classification migration 037 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("sqlite_database_class", "upsert_sqlite_class",
                      "synchronous_setting", "backup_frequency_seconds",
                      "integrity_check_frequency_seconds", "retention_days",
@@ -1912,7 +1914,7 @@ def check_incremental_reconcile(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Incremental reconcile migration 038 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("reconcile_pending_queue", "enqueue_reconcile_pending",
                      "mark_reconciled", "get_pending_reconcile",
                      "purge_reconciled", "dirty"):
@@ -1926,7 +1928,7 @@ def check_performance_baseline(root: Path, errors: list[str]) -> None:
     if not migration.is_file():
         errors.append("Performance baseline migration 039 is missing")
         return
-    text = migration.read_text(encoding="utf-8")
+    text = read_text_cached(migration)
     for required in ("performance_baseline", "record_baseline",
                      "get_latest_baseline", "compare_baseline",
                      "p50_latency_ms", "p95_latency_ms", "p99_latency_ms"):
@@ -1940,7 +1942,7 @@ def check_query_fingerprint_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Query fingerprint module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("record", "get_hot"):
         if required not in text:
             errors.append(f"Query fingerprint module is missing: {required}")
@@ -1952,7 +1954,7 @@ def check_sqlite_pragma_policy_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("SQLite PRAGMA policy module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("apply_pragma", "get_pragma_policy", "journal_mode",
                      "foreign_keys", "busy_timeout", "synchronous"):
         if required not in text:
@@ -1965,7 +1967,7 @@ def check_sqlite_classification_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("SQLite classification module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("register", "get_class", "list_by_class"):
         if required not in text:
             errors.append(f"SQLite classification module is missing: {required}")
@@ -1977,7 +1979,7 @@ def check_sqlite_wal_governor_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("SQLite WAL governor module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("check_and_checkpoint", "get_wal_stats", "PASSIVE",
                      "RESTART", "TRUNCATE"):
         if required not in text:
@@ -1990,7 +1992,7 @@ def check_batch_writer_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Batch writer module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("BatchWriter", "add", "flush", "adjust_batch_size"):
         if required not in text:
             errors.append(f"Batch writer module is missing: {required}")
@@ -2002,7 +2004,7 @@ def check_locator_cache_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Locator cache module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("LocatorCache", "get", "put", "invalidate", "stats"):
         if required not in text:
             errors.append(f"Locator cache module is missing: {required}")
@@ -2014,7 +2016,7 @@ def check_prepared_query_catalog_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Prepared query catalog module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("CATALOG", "get_query", "list_queries",
                      "lookup_resource", "claim_request", "append_audit",
                      "update_index_state", "lookup_locator", "fetch_relationships"):
@@ -2028,7 +2030,7 @@ def check_performance_baseline_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Performance baseline module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("record", "get_latest", "compare"):
         if required not in text:
             errors.append(f"Performance baseline module is missing: {required}")
@@ -2040,7 +2042,7 @@ def check_rebuild_certifier_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Rebuild certifier module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("certify", "is_certified"):
         if required not in text:
             errors.append(f"Rebuild certifier is missing: {required}")
@@ -2052,7 +2054,7 @@ def check_watchdog_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Watchdog module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("check_long_transactions", "collect_bloat_report",
                      "get_rpo_rto_classes", "get_capacity_thresholds"):
         if required not in text:
@@ -2065,7 +2067,7 @@ def check_startup_certifier_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Startup certifier module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("certify_startup", "is_ready"):
         if required not in text:
             errors.append(f"Startup certifier is missing: {required}")
@@ -2077,7 +2079,7 @@ def check_readonly_domain_module(root: Path, errors: list[str]) -> None:
     if not module.is_file():
         errors.append("Read-only domain module is missing")
         return
-    text = module.read_text(encoding="utf-8")
+    text = read_text_cached(module)
     for required in ("set_readonly", "is_readonly"):
         if required not in text:
             errors.append(f"Read-only domain module is missing: {required}")
@@ -2092,7 +2094,7 @@ def check_embedded_browser(root: Path, errors: list[str]) -> None:
     ):
         full_path = root / module_path
         if full_path.is_file():
-            content = full_path.read_text(encoding="utf-8")
+            content = read_text_cached(full_path)
             if "from playwright" in content or "import playwright" in content:
                 errors.append(f"module still uses Playwright: {module_path}")
             if "async_playwright" in content and "InProcessEmbeddedBrowser" not in content:
@@ -2100,13 +2102,13 @@ def check_embedded_browser(root: Path, errors: list[str]) -> None:
 
     requirements = root / "main-system" / "requirements.txt"
     if requirements.is_file():
-        req_text = requirements.read_text(encoding="utf-8")
+        req_text = read_text_cached(requirements)
         if "playwright" in req_text.lower():
             errors.append("main-system/requirements.txt still depends on playwright")
 
     pyproject = root / "main-system" / "pyproject.toml"
     if pyproject.is_file():
-        py_text = pyproject.read_text(encoding="utf-8")
+        py_text = read_text_cached(pyproject)
         if "playwright" in py_text.lower():
             errors.append("main-system/pyproject.toml still depends on playwright")
 

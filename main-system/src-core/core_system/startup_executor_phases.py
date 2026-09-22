@@ -8,6 +8,8 @@ level work during the startup generation.
 from __future__ import annotations
 
 import asyncio
+import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -21,6 +23,42 @@ from .governed_startup_verify import (
     verify_dependency_classification,
 )
 from .startup_executor_types import PhaseRecord
+
+
+async def _start_backup_scheduler_if_enabled(app: Any) -> None:
+    """Assemble the single production BackupScheduler when explicitly enabled."""
+    if os.environ.get("GPTBRIDGE_BACKUP_SCHEDULER", "0") != "1":
+        return
+    if getattr(app, "backup_scheduler", None) is not None:
+        return
+    from psycopg import Connection
+    from shared_layer.database import DatabaseSettings
+    from shared_layer.database.backup_scheduler import get_backup_scheduler
+    from shared_layer.database.config import database_dsn
+    from shared_layer.database.restore_certification import certify_restore
+
+    settings = DatabaseSettings.from_environment()
+    if not settings.admin_dsn.strip():
+        raise RuntimeError("BACKUP_SCHEDULER_ADMIN_DSN_REQUIRED")
+
+    def certify(_backup_path: str):
+        with Connection.connect(database_dsn(settings.admin_dsn, settings.database)) as conn:
+            return certify_restore(conn)
+
+    scheduler = get_backup_scheduler(settings, restore_certifier=certify)
+    app.backup_scheduler = scheduler
+    # §1.1 自動化集中：automation core 持有節奏時不開私有 thread；
+    # 拒絕註冊（kill switch）即不啟動私有迴圈。
+    core = getattr(app, "automation_core", None)
+    if core is not None:
+        scheduler.start(spawn_loop=False)
+        core.register_flow(
+            "backup-scheduler",
+            lambda: asyncio.to_thread(scheduler.run_once),
+            interval_s=float(scheduler.check_interval),
+        )
+    else:
+        scheduler.start()
 
 
 class StartupExecutorPhasesMixin:
@@ -127,6 +165,14 @@ class StartupExecutorPhasesMixin:
         self, record: PhaseRecord
     ) -> None:
         """PHASE-4: normal information mode — channel + toolbox + status."""
+        timings: dict[str, float] = {}
+        mark = time.monotonic()
+
+        def _lap(name: str) -> None:
+            nonlocal mark
+            timings[name] = round((time.monotonic() - mark) * 1000, 1)
+            mark = time.monotonic()
+
         app = self.app  # type: ignore[attr-defined]
         if app.toolbox_service is None:
             from tasks.toolbox_service import ToolboxService
@@ -136,7 +182,13 @@ class StartupExecutorPhasesMixin:
                 governance=app.governance,
                 permission_sovereign=app.permission_sovereign,
             )
+        _lap("toolbox_construct_ms")
         await asyncio.to_thread(app.toolbox_service.reconcile_process_registry)
+        _lap("registry_reconcile_ms")
+        await app.toolbox_service.start_process_registry_monitor()
+        _lap("registry_monitor_ms")
+        await _start_backup_scheduler_if_enabled(app)
+        _lap("backup_scheduler_ms")
         if getattr(app, "model_service_activation", None) is None:
             from tasks.model_service_activation import (
                 ModelServiceActivationBroker,
@@ -146,11 +198,23 @@ class StartupExecutorPhasesMixin:
                 app, app.toolbox_service
             )
             await app.model_service_activation.start()
+        _lap("model_activation_ms")
+        if getattr(app, "sleep_policy", None) is None:
+            from tasks.sleep_policy import SleepPolicyManager
+
+            app.sleep_policy = SleepPolicyManager(app, app.toolbox_service)
+            await app.sleep_policy.start()
+        _lap("sleep_policy_ms")
         if getattr(app, "git_automation", None) is None:
             from tasks.git_automation import GitAutomationService
 
-            app.git_automation = GitAutomationService(app.project_root)
+            app.git_automation = GitAutomationService(
+                app.project_root,
+                scheduler=getattr(app, "periodic_scheduler", None),
+                automation_core=getattr(app, "automation_core", None),
+            )
             await app.git_automation.start()
+        _lap("git_automation_ms")
         if getattr(app, "saga_runtime", None) is None:
             from core_system.saga_runtime_integration import (
                 create_saga_runtime_integration,
@@ -158,12 +222,15 @@ class StartupExecutorPhasesMixin:
 
             app.saga_runtime = create_saga_runtime_integration(app)
             await app.saga_runtime.start()
+        _lap("saga_runtime_ms")
         if app.runtime_status_service is None:
             from tasks.runtime_status_service import RuntimeStatusService
 
             app.runtime_status_service = RuntimeStatusService(app)
         if getattr(app, "command_router", None) is None:
             await app.runtime_bootstrap.initialize_main()
+        _lap("initialize_main_ms")
+        record.detail["timings_ms"] = timings
         # The state-change notifier (created when the listener bound) is the
         # normal-mode information channel; absence means the listener never
         # came up — fail closed rather than proceed deaf.
@@ -173,6 +240,8 @@ class StartupExecutorPhasesMixin:
 
     async def _phase_classify_dependency_dag(self, record: PhaseRecord) -> None:
         """PHASE-5: build + verify the certified dependency DAG (E155/A191)."""
+        timings: dict[str, float] = {}
+        mark = time.monotonic()
         declarations = tuple(
             DependencyDeclaration(**entry) for entry in _cfg_dependency_manifest()
         )
@@ -185,14 +254,33 @@ class StartupExecutorPhasesMixin:
                 "dependency-classification-violation:"
                 + ",".join(check["violations"])
             )
+        timings["dag_ms"] = round((time.monotonic() - mark) * 1000, 1)
+        mark = time.monotonic()
         from shared_layer.service_probe import probe_registered_local_service
 
+        timings["probe_import_ms"] = round((time.monotonic() - mark) * 1000, 1)
+        mark = time.monotonic()
+
+        # Bounded-concurrent probes (§10.63 R1): unreachable dependencies
+        # burn the full timeout each — serial probing stacks those waits.
+        # gather preserves declaration order; the fail-closed verdict is
+        # unchanged.
+        probe_slots = asyncio.Semaphore(4)
+
+        async def _probe(identity: str):
+            async with probe_slots:
+                return await asyncio.to_thread(
+                    probe_registered_local_service, identity, timeout=0.75
+                )
+
+        probes = await asyncio.gather(
+            *(_probe(dep.identity) for dep in dag.dependencies)
+        )
+        timings["probes_ms"] = round((time.monotonic() - mark) * 1000, 1)
+        record.detail["timings_ms"] = timings
         dependency_evidence: dict[str, Any] = {}
         core_ready = True
-        for dep in dag.dependencies:
-            probe = await asyncio.to_thread(
-                probe_registered_local_service, dep.identity, timeout=0.75
-            )
+        for dep, probe in zip(dag.dependencies, probes):
             dependency_evidence[dep.identity] = {
                 "criticality": dep.criticality,
                 "reachable": probe.reachable,

@@ -42,8 +42,8 @@ from shared_layer.database.maintenance.maintenance_backup import (
     build_backup_signals as build_backup_maintenance_signals,
     collect_backup_info,
 )
-from shared_layer.database.connection import get_connection_manager
 from shared_layer.database.sqlite_classification import list_by_class
+from shared_layer.database.workload_lanes import WorkloadClass, get_lane_pool
 
 
 @dataclass
@@ -53,8 +53,17 @@ class MaintenanceControllerIntegration:
     app: Any
     controller: MaintenanceController | None = None
     _started: bool = False
+    # §1.1: True when the automation core drives run_once on the shared
+    # scheduler; False when the flow was denied (kill switch); None when
+    # the controller still uses its private thread (no core present).
+    _core_driven: bool | None = None
     _start_time: float = 0.0
     _persist_failures: int = 0
+    # §10.63 R2: both controller callbacks probed PG health independently —
+    # ~2 fresh admin connects per call, twice per 30 s tick.  A TTL under
+    # the tick interval shares one probe per tick; a failed probe is cached
+    # too, so fail-closed semantics surface unchanged.
+    _pg_health_cache: tuple[float, Any] | None = None
 
     async def start(self) -> dict[str, Any]:
         """Start the maintenance controller."""
@@ -80,8 +89,28 @@ class MaintenanceControllerIntegration:
         # Set callbacks
         self._set_callbacks()
 
-        # Start controller
-        self.controller.start()
+        # Start controller.
+        # §1.1 自動化集中：when the automation core is present it owns the
+        # cadence — the controller runs without its private thread and each
+        # scheduler tick drives ``run_once`` on a worker thread. A denied
+        # registration (unlisted/kill-switched) must not fall back to the
+        # private loop; the controller then reports started-but-not-driven.
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            self.controller.start(spawn_loop=False)
+
+            async def _driven_tick() -> None:
+                controller = self.controller
+                if controller is None or not controller.is_running():
+                    return
+                await asyncio.to_thread(controller.run_once)
+
+            self._core_driven = core.register_flow(
+                "maintenance-controller", _driven_tick
+            )
+        else:
+            self.controller.start()
+            self._core_driven = None
 
         self._started = True
 
@@ -89,6 +118,10 @@ class MaintenanceControllerIntegration:
             "ok": True,
             "started_at": time.time(),
             "duration_ms": int((time.monotonic() - self._start_time) * 1000),
+            "loop": (
+                "automation-core" if self._core_driven
+                else ("disabled" if core is not None else "private-thread")
+            ),
         }
 
     async def stop(self) -> dict[str, Any]:
@@ -97,6 +130,12 @@ class MaintenanceControllerIntegration:
             return {"ok": True, "already_stopped": True}
 
         stop_start = time.monotonic()
+
+        # §1.1: release the core registration before stopping so no
+        # in-flight tick can re-enter a stopped controller.
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            core.unregister("maintenance-controller")
 
         # Graceful stop
         self.controller.stop(graceful=True)
@@ -200,7 +239,7 @@ class MaintenanceControllerIntegration:
             from psycopg.types.json import Jsonb
 
             settings = DatabaseSettings.from_environment()
-            with get_connection_manager().connection() as conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 conn.execute(
                     """
                     INSERT INTO gptbridge_maintenance.maintenance_jobs
@@ -255,7 +294,7 @@ class MaintenanceControllerIntegration:
         """Load pending maintenance jobs from PostgreSQL."""
         try:
             settings = DatabaseSettings.from_environment()
-            with get_connection_manager().connection() as conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 rows = conn.execute(
                     """
                     SELECT job_id, action_id, action_version, engine, database_id, module_id,
@@ -306,13 +345,25 @@ class MaintenanceControllerIntegration:
         """Get current system generation."""
         try:
             from shared_layer.database.recovery_orchestrator import get_current_generation
-            with get_connection_manager().connection() as conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 return get_current_generation(conn)
         except Exception:
             return 0
 
+    _PG_HEALTH_TTL_S = 20.0
+
+    def _pg_health(self, settings: DatabaseSettings) -> Any:
+        now = time.monotonic()
+        cached = self._pg_health_cache
+        if cached is not None and now - cached[0] < self._PG_HEALTH_TTL_S:
+            return cached[1]
+        health = collect_pg_health(settings)
+        self._pg_health_cache = (now, health)
+        return health
+
     def _get_system_state(self) -> dict[str, Any]:
         """Get current system state for policy evaluation."""
+        generation = self._get_current_generation()
         state = {
             "recovery_state": "NORMAL",
             "pg_healthy": True,
@@ -321,8 +372,8 @@ class MaintenanceControllerIntegration:
             "transport_backlog": 0,
             "transport_oldest_pending_age_seconds": 0,
             "disk_pressure": 0,
-            "current_generation": self._get_current_generation(),
-            "job_generation": self._get_current_generation(),
+            "current_generation": generation,
+            "job_generation": generation,
             "maintenance_cooldown_active": False,
             "active_lease_conflict": False,
             "shutdown_draining": getattr(self.app, "_shutdown_started", False),
@@ -332,7 +383,7 @@ class MaintenanceControllerIntegration:
         # Check recovery state
         try:
             from shared_layer.database.recovery_orchestrator import is_recovery_barrier_active
-            with get_connection_manager().connection() as conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
                 if is_recovery_barrier_active(conn):
                     state["recovery_state"] = "RECOVERING"
         except Exception:
@@ -341,7 +392,7 @@ class MaintenanceControllerIntegration:
         # Get PostgreSQL health
         try:
             settings = DatabaseSettings.from_environment()
-            health = collect_pg_health(settings)
+            health = self._pg_health(settings)
             state["pg_healthy"] = health.available
             state["pg_latency_ms"] = health.latency_ms
             state["pg_lock_pressure"] = health.lock_pressure
@@ -357,8 +408,10 @@ class MaintenanceControllerIntegration:
         # PostgreSQL signals
         try:
             settings = DatabaseSettings.from_environment()
-            health = collect_pg_health(settings)
-            pool = collect_pg_pool_pressure(None)  # Would need pool instance
+            health = self._pg_health(settings)
+            from shared_layer.database.connection import peek_connection_manager
+
+            pool = collect_pg_pool_pressure(peek_connection_manager())
             locks = collect_pg_lock_pressure(settings)
             stats = collect_pg_statistics_freshness(settings)
             signals.update(build_pg_maintenance_signals(health, pool, locks, stats))
@@ -371,7 +424,7 @@ class MaintenanceControllerIntegration:
             from pathlib import Path
 
             sqlite_dbs: list[dict[str, Any]] = []
-            with get_connection_manager().connection() as registry_conn:
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as registry_conn:
                 for db_class in ["A", "B", "C", "D"]:
                     sqlite_dbs.extend(
                         list_by_class(registry_conn, db_class=db_class)
@@ -440,6 +493,13 @@ class MaintenanceControllerIntegration:
                     reconcile_backlog=int(signals.get("reconcile_pending") or 0),
                 )
             )
+            # S7: push the tuned pool bound into the live connection manager
+            # (peek — never construct the pool just to tune it).
+            from shared_layer.database.connection import peek_connection_manager
+
+            pool = peek_connection_manager()
+            if pool is not None:
+                get_plane().tuner.apply_pool_limits(pool)
         except Exception:
             pass
 

@@ -8,10 +8,10 @@ from pathlib import Path
 # Ensure all required modules are importable (shared_layer -> governance_rule -> main-system)
 # The tool_root is the local-model directory; shared-layer is in the main GPTBridge repo
 _TOOL_ROOT = Path(__file__).resolve().parents[6]
-_PROJECT_ROOT = _TOOL_ROOT.parents[3]  # E:\GPTBridge
+_PROJECT_ROOT = _TOOL_ROOT.parents[1]  # E:\GPTBridge
 for _p in (
     str(_PROJECT_ROOT / "shared-layer" / "src"),
-    str(_PROJECT_ROOT / "governance_rule"),
+    str(_PROJECT_ROOT),
     str(_PROJECT_ROOT / "main-system" / "src-core"),
 ):
     if _p not in sys.path:
@@ -21,6 +21,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -29,6 +30,7 @@ from .self_learning import (
     SNAPSHOT_RELATIVE,
     SelfLearningPolicy,
     _iso_now,
+    training_window_status,
     collect_verified_examples,
     load_policy,
     load_state,
@@ -38,7 +40,15 @@ from .self_learning import (
 
 LIFECYCLE_RELATIVE = "xingcheng/runtime/models/lifecycle/xingcheng-native"
 SETTINGS_RELATIVE = "runtime/settings/native-engine.json"
+MATURITY_STATE_RELATIVE = "xingcheng/runtime/state/model-maturity.json"
 MODEL_ID = "xingcheng-native"
+
+# §2.7-3 課程映射：依 maturity 首個未達級決定本循環課程（每循環單一課程）
+_CURRICULUM_COURSES: dict[int, str] = {
+    5: "sft-dialogue",
+    6: "sft-reasoning",
+    7: "sft-evolution",
+}
 
 
 def _write_report(tool: Path, payload: Mapping[str, Any]) -> Path:
@@ -85,6 +95,175 @@ def _retire_previous_artifact(previous: Path, keep: Path) -> bool:
         return False
 
 
+def _blocked(reason: str, **extra: Any) -> dict[str, Any]:
+    return {"ok": True, "action": "blocked", "reason": reason, **extra}
+
+
+def _failure_breaker_status(
+    policy: SelfLearningPolicy, state: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-8 連續失敗熔斷：達上限即停，非 force 可繞（fail-closed）。"""
+    limit = int(policy.max_consecutive_failures)
+    streak = int(state.get("consecutive_failures") or 0)
+    if limit <= 0 or streak < limit:
+        return None
+    return _blocked(
+        "failure-breaker",
+        consecutive_failures=streak,
+        max_consecutive_failures=limit,
+    )
+
+
+def _min_interval_status(
+    policy: SelfLearningPolicy, state: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-1 最低間隔：距上次循環活動不足 min_interval_s 即略過。"""
+    gap = int(policy.min_interval_s)
+    last_run = state.get("last_run_at")
+    if gap <= 0 or not last_run:
+        return None
+    try:
+        last_dt = datetime.fromisoformat(str(last_run).replace("Z", "+00:00"))
+        elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds()
+    except (ValueError, TypeError):
+        return _blocked("invalid-last-run-at", last_run_at=last_run)
+    if elapsed < gap:
+        return _blocked(
+            "min-interval", elapsed_s=round(elapsed, 1), min_interval_s=gap
+        )
+    return None
+
+
+def _daily_budget_status(
+    policy: SelfLearningPolicy, state: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-4/8 每日訓練嘗試次數預算（UTC 日計）。"""
+    cap = int(policy.max_cycles_per_day)
+    if cap <= 0:
+        return None
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    counter = state.get("cycles_today")
+    if (
+        isinstance(counter, Mapping)
+        and counter.get("date") == today
+        and int(counter.get("count") or 0) >= cap
+    ):
+        return _blocked(
+            "daily-cycle-budget", cycles_today=dict(counter), max_per_day=cap
+        )
+    return None
+
+
+def _pool_stats(
+    policy: SelfLearningPolicy,
+    examples: Mapping[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """範例池觀測：平均品質與合成／自我生成比例。"""
+    prefixes = tuple(str(p) for p in policy.synthetic_source_prefixes)
+    total = 0
+    synthetic = 0
+    quality_sum = 0.0
+    for records in examples.values():
+        for record in records:
+            total += 1
+            quality_sum += float(record.get("quality_score") or 0.0)
+            if str(record.get("source_type") or "").startswith(prefixes):
+                synthetic += 1
+    return {
+        "total": total,
+        "synthetic_count": synthetic,
+        "synthetic_ratio": (synthetic / total) if total else 0.0,
+        "pool_avg_quality": (quality_sum / total) if total else 0.0,
+    }
+
+
+def _quality_drift_status(
+    policy: SelfLearningPolicy, stats: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-1 品質漂移護欄：池平均品質低於下限即停（fail-closed）。"""
+    floor = float(policy.min_pool_avg_quality)
+    if floor <= 0:
+        return None
+    if float(stats["pool_avg_quality"]) < floor:
+        return _blocked(
+            "quality-drift",
+            pool_avg_quality=round(float(stats["pool_avg_quality"]), 4),
+            min_pool_avg_quality=floor,
+        )
+    return None
+
+
+def _synthetic_ratio_status(
+    policy: SelfLearningPolicy, stats: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-2 合成比例上限：自我生成資料超上限即停（防自我放大）。"""
+    cap = float(policy.max_synthetic_ratio)
+    if cap <= 0 or not stats["total"]:
+        return None
+    if float(stats["synthetic_ratio"]) > cap:
+        return _blocked(
+            "synthetic-ratio-exceeded",
+            synthetic_count=int(stats["synthetic_count"]),
+            total_examples=int(stats["total"]),
+            synthetic_ratio=round(float(stats["synthetic_ratio"]), 4),
+            max_synthetic_ratio=cap,
+        )
+    return None
+
+
+def _select_curriculum(
+    policy: SelfLearningPolicy, tool: Path
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """§2.7-3 課程選擇：依 maturity 首個未達級選課程。
+
+    回傳 ``(course_info, blocked)``；policy 未啟用時回固定 ``sft``。
+    啟用時 maturity 狀態不可讀或 certified_level < 4（對話基礎未達）
+    → fail-closed blocked。"""
+    if not policy.curriculum_enabled:
+        return {"course": "sft", "curriculum_enabled": False}, None
+    path = tool / MATURITY_STATE_RELATIVE
+    try:
+        maturity = json.loads(path.read_text(encoding="utf-8"))
+        certified = int(maturity["certified_level"])
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None, _blocked(
+            "maturity-state-unavailable", maturity_state=str(path)
+        )
+    if certified < 4:
+        return None, _blocked(
+            "curriculum-foundation-unmet", certified_level=certified
+        )
+    if certified >= 7:
+        course, target = "sft-refresh", None
+    else:
+        target = certified + 1
+        course = _CURRICULUM_COURSES[target]
+    return (
+        {
+            "course": course,
+            "target_level": target,
+            "certified_level": certified,
+            "curriculum_enabled": True,
+        },
+        None,
+    )
+
+
+def _inference_active() -> bool | None:
+    """True when a xingcheng inference engine is cached (idle or in-flight).
+
+    Returns None when the state cannot be determined — callers treat that
+    as fail-closed block (§2.7-4 與推論互斥)."""
+    try:
+        from .. import native_engine
+    except Exception:  # noqa: BLE001 — fail-closed signal, not silent pass
+        return None
+    cache = getattr(native_engine, "_engine_cache", None)
+    if cache is None:
+        return None
+    return bool(cache)
+
+
 def run_cycle_impl(
     tool_root: str | Path,
     *,
@@ -103,12 +282,69 @@ def run_cycle_impl(
             "checked_at": _iso_now(),
         }
 
+    breaker = _failure_breaker_status(resolved_policy, state)
+    if breaker is not None:
+        return {
+            **breaker,
+            "policy": resolved_policy.to_dict(),
+            "checked_at": _iso_now(),
+        }
+
+    window = training_window_status(resolved_policy)
+    if not window["allowed"]:
+        return {
+            "ok": True,
+            "action": "blocked",
+            "reason": window["reason"],
+            "training_window": window,
+            "policy": resolved_policy.to_dict(),
+            "checked_at": _iso_now(),
+        }
+
+    for gate in (
+        _min_interval_status(resolved_policy, state),
+        _daily_budget_status(resolved_policy, state),
+    ):
+        if gate is not None:
+            return {
+                **gate,
+                "policy": resolved_policy.to_dict(),
+                "checked_at": _iso_now(),
+            }
+
+    if resolved_policy.inference_exclusion:
+        active = _inference_active()
+        if active is not False:
+            return {
+                "ok": True,
+                "action": "blocked",
+                "reason": (
+                    "inference-active"
+                    if active
+                    else "inference-state-unavailable"
+                ),
+                "policy": resolved_policy.to_dict(),
+                "checked_at": _iso_now(),
+            }
+
     examples = collect_verified_examples(tool)
-    total = sum(len(records) for records in examples.values())
-    trained_total = int(state.get("trained_example_total") or 0)
-    new_examples = max(0, total - trained_total)
     if not examples:
         return {"ok": True, "action": "idle", "reason": "no-verified-examples", "total_examples": 0}
+    # §2.7-1/2 範例池護欄（品質漂移／合成比例；資料池劣化先於門檻暴露）
+    stats = _pool_stats(resolved_policy, examples)
+    for gate in (
+        _quality_drift_status(resolved_policy, stats),
+        _synthetic_ratio_status(resolved_policy, stats),
+    ):
+        if gate is not None:
+            return {
+                **gate,
+                "policy": resolved_policy.to_dict(),
+                "checked_at": _iso_now(),
+            }
+    total = int(stats["total"])
+    trained_total = int(state.get("trained_example_total") or 0)
+    new_examples = max(0, total - trained_total)
     if not force and new_examples < int(resolved_policy.min_new_examples):
         return {
             "ok": True,
@@ -118,6 +354,42 @@ def run_cycle_impl(
             "new_examples": new_examples,
             "threshold": int(resolved_policy.min_new_examples),
         }
+
+    # §2.7-3 課程選擇：決定本循環課程（單一課程；失敗即停由熔斷閘門承擔）
+    curriculum, curriculum_blocked = _select_curriculum(resolved_policy, tool)
+    if curriculum_blocked is not None:
+        return {
+            **curriculum_blocked,
+            "policy": resolved_policy.to_dict(),
+            "checked_at": _iso_now(),
+        }
+    course_intents = resolved_policy.curriculum_intent_map.get(
+        str(curriculum["course"])
+    )
+    if course_intents:
+        wanted = {str(intent) for intent in course_intents}
+        examples = {
+            scope: [
+                record
+                for record in records
+                if str(record.get("intent") or "") in wanted
+            ]
+            for scope, records in examples.items()
+        }
+        examples = {scope: recs for scope, recs in examples.items() if recs}
+        if not examples:
+            return {
+                **_blocked(
+                    "course-dataset-empty",
+                    course=str(curriculum["course"]),
+                    intents=sorted(wanted),
+                ),
+                "policy": resolved_policy.to_dict(),
+                "checked_at": _iso_now(),
+            }
+        curriculum["intent_filter"] = sorted(wanted)
+        total = sum(len(recs) for recs in examples.values())
+        new_examples = max(0, total - trained_total)
 
     from ..native_eval_suite import run_evaluation
     from ..sft_dataset import build_sft_dataset
@@ -145,12 +417,26 @@ def run_cycle_impl(
         except ValueError as error:
             last_error = error
     if snapshot is None:
-        return {
+        failure = {
             "ok": False,
             "action": "blocked",
             "reason": f"dataset-split-unavailable:{last_error}",
             "total_examples": total,
         }
+        save_state(
+            tool,
+            {
+                **state,
+                "last_run_at": _iso_now(),
+                "last_action": "training-failed",
+                "last_error": failure["reason"],
+                "consecutive_failures": int(
+                    state.get("consecutive_failures") or 0
+                )
+                + 1,
+            },
+        )
+        return failure
 
     repository = TransformerTrainingRepository(tool)
     dataset = repository.create_dataset(
@@ -195,10 +481,23 @@ def run_cycle_impl(
             "eval_every": max(1, int(resolved_policy.max_steps) // 2),
             "log_every": max(1, int(resolved_policy.max_steps) // 8),
             "device": str(resolved_policy.device),
+            "gpu_required_mb": int(resolved_policy.gpu_required_mb),
+            "curriculum_course": str(curriculum["course"]),
+            "maturity_target_level": curriculum.get("target_level"),
         },
         requested_by="star-self-learning",
     )
     job_id = str(job["job_id"])
+    # §2.7-4/8：訓練嘗試在啟動前先計入每日預算（crash 也計入，fail-closed）
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    counter = state.get("cycles_today")
+    count = (
+        int(counter.get("count") or 0)
+        if isinstance(counter, Mapping) and counter.get("date") == today
+        else 0
+    )
+    state = {**state, "cycles_today": {"date": today, "count": count + 1}}
+    save_state(tool, {**state, "last_run_at": _iso_now()})
     executor = (
         TrainingJobExecutor(repository, train_fn=train_fn)
         if train_fn is not None
@@ -222,6 +521,10 @@ def run_cycle_impl(
                 "last_action": "training-failed",
                 "last_job_id": job_id,
                 "last_error": failure.get("error_message"),
+                "consecutive_failures": int(
+                    state.get("consecutive_failures") or 0
+                )
+                + 1,
             },
         )
         failure["report"] = str(_write_report(tool, failure))
@@ -304,20 +607,61 @@ def run_cycle_impl(
             pruned = _retire_previous_artifact(active_path, artifact)
             action = "upgraded"
 
+    # §2.7-9 資源帳：訓練耗時／步數／資料量／裝置，留於報告與狀態
+    trainer_summary = report.get("summary") or {}
+    resource_account = {
+        "elapsed_seconds": trainer_summary.get("elapsed_seconds"),
+        "steps": trainer_summary.get("steps"),
+        "device": str(resolved_policy.device),
+        "dataset_example_count": snapshot["manifest"].get("example_count"),
+        "train_count": snapshot["manifest"].get("train_count"),
+        "validation_count": snapshot["manifest"].get("validation_count"),
+    }
+
     summary = {
         "ok": True,
         "action": action,
         "job_id": job_id,
         "adapter_id": adapter_id,
         "dataset_id": str(dataset["dataset_id"]),
+        "curriculum": curriculum,
         "new_examples": new_examples,
         "total_examples": total,
         "evaluations": evaluations,
         "released": released,
         "runtime_checkpoint": pinned,
         "previous_weights_pruned": pruned,
+        "resource_account": resource_account,
+        "pool": stats,
         "checked_at": _iso_now(),
     }
+
+    # §2.7-9 升級後 maturity 重測（政策啟用時；失敗記錄不中斷升級，
+    # 因 rollback 語義待裁決——結果留審計供治理判定）
+    if action == "upgraded" and resolved_policy.post_upgrade_maturity_recheck:
+        try:
+            from .maturity import certify, persist_report
+
+            recheck_report = certify(
+                checkpoint=artifact,
+                tool_root=tool,
+                device=str(resolved_policy.maturity_recheck_device),
+            )
+            recheck_path = persist_report(tool, recheck_report)
+            summary["maturity_recheck"] = {
+                "ok": True,
+                "certified_level": recheck_report.get("certified_level"),
+                "certified_level_name": recheck_report.get(
+                    "certified_level_name"
+                ),
+                "report": str(recheck_path),
+            }
+        except Exception as exc:  # noqa: BLE001 — 記錄而非吞沒
+            summary["maturity_recheck"] = {
+                "ok": False,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
     save_state(
         tool,
         {
@@ -328,7 +672,12 @@ def run_cycle_impl(
             "last_job_id": job_id,
             "last_adapter_id": adapter_id,
             "last_evaluations": evaluations,
+            "last_course": curriculum.get("course"),
+            "last_maturity_recheck": summary.get("maturity_recheck"),
             "active_weights_version": lifecycle.active_weights_version,
+            "resource_account": resource_account,
+            "pool": stats,
+            "consecutive_failures": 0,
             "last_error": None,
         },
     )

@@ -1,0 +1,15 @@
+{
+  "contract_code": "BACKEND_LIFECYCLE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A577",
+  "fields": [
+    "backend_identity",
+    "release_identity",
+    "generation",
+    "health_state",
+    "heartbeat"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

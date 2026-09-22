@@ -19,6 +19,7 @@ what the saga / reconcile workers decide.
 from __future__ import annotations
 
 import copy
+import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -280,11 +281,39 @@ class PostgresSagaStore:
 
     def __init__(self, connection_provider: Callable[[], ContextManager[Any]]) -> None:
         self._connection_provider = connection_provider
+        self._local = threading.local()
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Y6: batch subsequent store calls into one commit boundary.
+
+        While active, every store method on this thread reuses the ambient
+        connection and defers its commit; a single ``commit()`` runs when
+        the block exits cleanly.  Per-step persistence in
+        ``runtime.run_operation`` goes from up to 4 commits to 1.
+        """
+        with self._connection_provider() as connection:
+            previous = getattr(self._local, "ambient", None)
+            self._local.ambient = connection
+            try:
+                yield
+                connection.commit()
+            finally:
+                self._local.ambient = previous
 
     @contextmanager
     def _connection(self) -> Iterator[Any]:
+        ambient = getattr(self._local, "ambient", None)
+        if ambient is not None:
+            yield ambient
+            return
         with self._connection_provider() as connection:
             yield connection
+
+    def _commit(self, connection: Any) -> None:
+        """Commit unless an ambient ``transaction()`` owns the boundary."""
+        if getattr(self._local, "ambient", None) is not connection:
+            connection.commit()
 
     # -- operations ---------------------------------------------------------
 
@@ -318,10 +347,10 @@ class PostgresSagaStore:
                         "module_id": operation.module_id,
                     },
                 )
-                connection.commit()
+                self._commit(connection)
                 return operation, True
             existing = self._load_existing(connection, operation)
-            connection.commit()
+            self._commit(connection)
             if existing is None:
                 raise SagaStoreError("OPERATION_CONFLICT_UNRESOLVED")
             return existing, False
@@ -329,20 +358,20 @@ class PostgresSagaStore:
     def load_operation(self, operation_id: str) -> Operation | None:
         with self._connection() as connection:
             operation = self._load_operation(connection, operation_id)
-            connection.commit()
+            self._commit(connection)
             return operation
 
     def list_operations(self, limit: int = 50) -> list[dict[str, Any]]:
         bounded = max(1, min(int(limit), 200))
         with self._connection() as connection:
             rows = connection.execute(OPERATION_LIST_SQL, (bounded,)).fetchall()
-            connection.commit()
+            self._commit(connection)
             return [_operation_summary_from_row(row) for row in rows or ()]
 
     def list_step_rows(self, operation_id: str) -> list[dict[str, Any]]:
         with self._connection() as connection:
             rows = connection.execute(OPERATION_STEP_LIST_SQL, (operation_id,)).fetchall()
-            connection.commit()
+            self._commit(connection)
             return [_step_row_projection(row) for row in rows or ()]
 
     def claim_operation(
@@ -356,7 +385,7 @@ class PostgresSagaStore:
             claimed = None
             if row is not None:
                 claimed = self._load_operation(connection, operation_id)
-            connection.commit()
+            self._commit(connection)
             return claimed
 
     def claim_next_operation(
@@ -369,7 +398,7 @@ class PostgresSagaStore:
             ).fetchone()
             operation_id = str(row["operation_id"]) if row and row["operation_id"] else ""
             claimed = self._load_operation(connection, operation_id) if operation_id else None
-            connection.commit()
+            self._commit(connection)
             return claimed
 
     def claim_next_reconcile(
@@ -383,7 +412,7 @@ class PostgresSagaStore:
             claimed = None
             if row is not None:
                 claimed = self._load_operation(connection, str(row["operation_id"]))
-            connection.commit()
+            self._commit(connection)
             return claimed
 
     def heartbeat(self, operation_id: str, *, worker: str, lease_seconds: float) -> bool:
@@ -392,7 +421,7 @@ class PostgresSagaStore:
             row = connection.execute(
                 OPERATION_HEARTBEAT_SQL, (float(lease_seconds), operation_id, worker)
             ).fetchone()
-            connection.commit()
+            self._commit(connection)
             return row is not None
 
     def save_operation(self, operation: Operation) -> None:
@@ -412,7 +441,7 @@ class PostgresSagaStore:
                     operation.operation_id,
                 ),
             )
-            connection.commit()
+            self._commit(connection)
 
     def save_step(
         self, operation_id: str, spec: StepSpec, result: StepResult, *, attempt: int
@@ -432,7 +461,7 @@ class PostgresSagaStore:
                     result.error_code,
                 ),
             )
-            connection.commit()
+            self._commit(connection)
 
     def record_event(
         self,
@@ -445,7 +474,7 @@ class PostgresSagaStore:
         validate_event_type(event_type)
         with self._connection() as connection:
             self._insert_event(connection, operation_id, event_type, step_id, detail)
-            connection.commit()
+            self._commit(connection)
 
     # -- internals ----------------------------------------------------------
 
@@ -532,6 +561,12 @@ class InMemorySagaStore:
     _operations: dict[str, Operation] = field(default_factory=dict)
     _steps: dict[str, dict[str, tuple[StepSpec, StepResult, int]]] = field(default_factory=dict)
     _events: list[StoredEvent] = field(default_factory=list)
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Interface parity with ``PostgresSagaStore.transaction`` — the
+        in-memory store has no commit boundary, so this is a no-op."""
+        yield
 
     # -- operations ---------------------------------------------------------
 

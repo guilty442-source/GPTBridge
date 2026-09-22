@@ -174,6 +174,19 @@ class UpdateManager(UpdateExecutionMixin):
             return
         if self._auto_update_task is not None and not self._auto_update_task.done():
             return
+
+        # §1.1 自動化集中：automation core 為唯一註冊點；kill-switch
+        # 拒絕時不回落私有迴圈。
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            self._auto_core_driven = core.register_flow(
+                "update-manager-auto",
+                self._auto_update_tick,
+                interval_s=self._adaptive_interval,
+                pausable=True,
+            )
+            return
+
         self._stop_auto.clear()
         self._auto_update_task = asyncio.create_task(
             self._auto_update_loop(),
@@ -182,6 +195,11 @@ class UpdateManager(UpdateExecutionMixin):
 
     async def stop_auto_update(self) -> None:
         """Stop automatic update checking."""
+        if getattr(self, "_auto_core_driven", False):
+            core = getattr(self.app, "automation_core", None)
+            if core is not None:
+                core.unregister("update-manager-auto")
+            self._auto_core_driven = False
         self._stop_auto.set()
         if self._auto_update_task is not None:
             self._auto_update_task.cancel()

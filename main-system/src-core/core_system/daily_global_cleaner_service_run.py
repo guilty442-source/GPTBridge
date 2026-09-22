@@ -140,6 +140,88 @@ class DailyGlobalCleanerRunMixin:
         manager = ToolIsolationManager(Path(self.app.project_root))
         return await asyncio.to_thread(manager.purge_stale_quarantine)
 
+    async def _reconcile_release_retention(self) -> dict[str, Any]:
+        """§10.67 排程刪除——release 保留階層對帳與過期 ARCHIVE 清除。
+
+        只刪除「已通過三閘門降為 ARCHIVE 且超過保留期」的 release 目錄；
+        PREVIOUS／ACTIVE 永不動。對帳本身 fail-closed：未登錄目錄先註冊
+        PREVIOUS，pointer 缺失時不昇 ACTIVE、不刪除任何東西。
+        """
+
+        from core_system.active_release_persistence import ACTIVE_POINTER_PATH
+        from core_system.release_retention import (
+            ReleaseRetentionRegistry,
+            reconcile_release_retention,
+        )
+
+        project_root = Path(self.app.project_root)
+        registry = ReleaseRetentionRegistry(
+            project_root / "runtime" / "state" / "release-retention.json",
+            audit_path=(
+                project_root
+                / "runtime"
+                / "logs"
+                / "release-retention.jsonl"
+            ),
+        )
+        pointer = (
+            ACTIVE_POINTER_PATH
+            if ACTIVE_POINTER_PATH.is_file()
+            else None
+        )
+        return await asyncio.to_thread(
+            reconcile_release_retention,
+            project_root / "runtime" / "releases",
+            registry,
+            active_pointer_path=pointer,
+        )
+
+    async def _cleanup_rag_generations(self) -> dict[str, Any]:
+        """§10.67 排程刪除——RAG 索引世代清除。
+
+        只在 RAG runtime 已啟動時才執行（lazy contract：清理循環不得
+        為了掃除而喚醒 RAG）。實際刪除走
+        ``GenerationManager.cleanup_old_generations``——只動 RETIRED／
+        FAILED 世代、保留 rollback 視窗、容量閘未知時 fail-closed。
+        世代管理器活在 pipeline 的專用 loop 上，因此 coroutine 經
+        ``_loop_worker.submit`` 派回該 loop 並有界等待。
+        """
+
+        runtime = getattr(self.app, "rag_runtime", None)
+        pipeline = getattr(runtime, "_pipeline", None)
+        manager = getattr(pipeline, "generation_manager", None)
+        worker = getattr(runtime, "_loop_worker", None)
+        if manager is None or worker is None:
+            return {
+                "ok": True,
+                "operation": "rag-generation-cleanup",
+                "skipped": True,
+                "reason": "rag-not-started",
+            }
+        submit = getattr(worker, "submit", None)
+        if not callable(submit):
+            return {
+                "ok": False,
+                "operation": "rag-generation-cleanup",
+                "error_code": "RAG_LOOP_UNAVAILABLE",
+            }
+        try:
+            future = submit(manager.cleanup_old_generations())
+            result = await asyncio.to_thread(future.result, 120)
+        except Exception as error:
+            return {
+                "ok": False,
+                "operation": "rag-generation-cleanup",
+                "error_code": "RAG_GENERATION_CLEANUP_EXCEPTION",
+                "message": f"{type(error).__name__}: {error}",
+            }
+        record = (
+            result.to_dict() if hasattr(result, "to_dict") else dict(result)
+        )
+        record["ok"] = record.get("status") in ("OK", "ok", True)
+        record["operation"] = "rag-generation-cleanup"
+        return record
+
     def _classify_orphan_roots(self) -> dict[str, Any]:
         """Revalidate unregistered physical roots (classification only).
 
@@ -224,6 +306,22 @@ class DailyGlobalCleanerRunMixin:
                     "message": f"{type(error).__name__}: {error}",
                 }
             try:
+                findings["releases"] = await self._reconcile_release_retention()
+            except Exception as error:
+                findings["releases"] = {
+                    "ok": False,
+                    "error_code": "RELEASE_RETENTION_EXCEPTION",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            try:
+                findings["rag_generations"] = await self._cleanup_rag_generations()
+            except Exception as error:
+                findings["rag_generations"] = {
+                    "ok": False,
+                    "error_code": "RAG_GENERATION_CLEANUP_EXCEPTION",
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            try:
                 findings["orphans"] = self._classify_orphan_roots()
             except Exception as error:
                 findings["orphans"] = {
@@ -245,6 +343,7 @@ class DailyGlobalCleanerRunMixin:
                     "orphan-classification",
                     "retired-trash-residue",
                     "crash-quarantine-retention",
+                    "release-retention-reconciliation",
                 ),
                 "byte_quota": self.CYCLE_BYTE_QUOTA,
                 "cleaned_bytes": cleaned_bytes,
@@ -258,6 +357,7 @@ class DailyGlobalCleanerRunMixin:
                 findings["trash"].get("ok") is not False
                 and bool(findings["modules"].get("ok"))
                 and findings["quarantine"].get("ok") is not False
+                and findings["releases"].get("ok") is not False
                 and findings["orphans"].get("ok") is not False
             )
             state.update(

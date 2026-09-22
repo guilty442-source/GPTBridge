@@ -71,15 +71,15 @@
     "startup_dead_grace_seconds": 45.0
   },
   "governed_startup": {
-    "startup_deadline_ms": 30000,
+    "startup_deadline_ms": 10000,
     "phase_budget_ms": {
-      "phase-0-local-preflight": 500,
-      "phase-1-minimal-information-bootstrap": 500,
+      "phase-0-local-preflight": 400,
+      "phase-1-minimal-information-bootstrap": 400,
       "phase-2-read-official-codex": 1000,
-      "phase-3-load-permission-directory": 500,
-      "phase-4-switch-normal-information-mode": 500,
-      "phase-5-classify-dependency-dag": 1000,
-      "phase-6-activate-core-sovereigns": 25000
+      "phase-3-load-permission-directory": 400,
+      "phase-4-switch-normal-information-mode": 400,
+      "phase-5-classify-dependency-dag": 2400,
+      "phase-6-activate-core-sovereigns": 5000
     },
     "startup_phases": [
       "phase-0-local-preflight",

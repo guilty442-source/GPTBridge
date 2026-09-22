@@ -27,7 +27,20 @@ from .data_platform import (
     build_reconcile_callback,
     build_saga_services,
 )
-from .rag_platform import RagServices, build_rag_router
+
+# MS1/MS2 lazy RAG: ``rag_platform`` pulls the whole qdrant stack — keep it
+# out of ``import core_system.integration.data_platform`` (saga path) by
+# resolving these names on first attribute access instead of eagerly.
+_RAG_LAZY_NAMES = {"RagServices", "build_rag_router"}
+
+
+def __getattr__(name: str):  # PEP 562
+    if name in _RAG_LAZY_NAMES:
+        from .rag_platform import RagServices, build_rag_router
+
+        return {"RagServices": RagServices, "build_rag_router": build_rag_router}[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "DEFAULT_RECONCILE_BATCH",

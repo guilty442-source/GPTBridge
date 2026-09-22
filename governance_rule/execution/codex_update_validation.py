@@ -62,8 +62,27 @@ def longest_replacement_run(text: object) -> int:
     return longest
 
 
+def _has_cjk(text: str) -> bool:
+    return any("\u4e00" <= character <= "\u9fff" for character in text)
+
+
 def replacement_character_count(text: object) -> int:
-    return str(text or "").count("?")
+    """Count replacement damage: ``?`` that replaced non-ASCII text.
+
+    Legitimate ASCII question marks inside English rule prose (for example
+    A359/A360) are punctuation, not mirror damage.  Damage is counted when a
+    ``?`` sits in CJK context (CJK character within two characters) or forms
+    a run at/over the damage threshold.
+    """
+    value = str(text or "")
+    count = 0
+    for index, character in enumerate(value):
+        if character != "?":
+            continue
+        window = value[max(0, index - 2): index + 3]
+        if _has_cjk(window) or longest_replacement_run(value[max(0, index - 2): index + 3]) >= REPLACEMENT_RUN_THRESHOLD:
+            count += 1
+    return count
 
 
 def is_replacement_damaged(text: object, threshold: int = REPLACEMENT_RUN_THRESHOLD) -> bool:

@@ -98,13 +98,18 @@ class BootCoreLifecycleMixin:
         except Exception as error:
             self._warn_log_sink_failure(error)
 
+        # pythonw.exe / detached launchers have sys.stdout=None (or a dead
+        # pipe).  The relay must keep draining the child's stdout anyway —
+        # returning early leaves the pipe full and deadlocks the backend.
+        relay_out = getattr(sys.stdout, "buffer", None)
         try:
             for raw in iter(stream.readline, b""):
-                try:
-                    sys.stdout.buffer.write(raw)
-                    sys.stdout.buffer.flush()
-                except (BrokenPipeError, OSError):
-                    return
+                if relay_out is not None:
+                    try:
+                        relay_out.write(raw)
+                        relay_out.flush()
+                    except (BrokenPipeError, OSError):
+                        relay_out = None
                 line = ""
                 try:
                     line = raw.decode("utf-8", errors="replace").rstrip("\n\r")

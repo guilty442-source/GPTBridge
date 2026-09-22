@@ -119,6 +119,68 @@ def test_local_vector_store_is_fixed_location(tmp_path: Path) -> None:
         raise AssertionError("dimension mismatch accepted")
 
 
+def test_local_vector_store_dimension_write_guard_and_reconcile(tmp_path: Path) -> None:
+    """Embedding dimension / index-version changes go through an explicit
+    reconcile; writes carrying the wrong dimension fail closed."""
+
+    from shared_layer.local.vector_store import LocalVectorStore, embed_vector
+
+    store = LocalVectorStore(tmp_path)
+    vector = embed_vector("alpha beta")
+
+    store.replace_document(
+        "doc-1", [{"id": "p1", "vector": vector}], module_id="vaultly"
+    )
+
+    # Write-side guard: a point whose vector length differs from the
+    # declared collection dimension is refused, not silently mixed in.
+    try:
+        store.replace_document(
+            "doc-2", [{"id": "p2", "vector": vector + [0.0]}], module_id="vaultly"
+        )
+    except RuntimeError as exc:
+        assert "RAG_VECTOR_DIMENSION_MISMATCH" in str(exc)
+    else:
+        raise AssertionError("wrong-dimension write accepted")
+
+    # Mixed sizes inside one document are refused too.
+    try:
+        store.replace_document(
+            "doc-3",
+            [{"id": "p3", "vector": vector}, {"id": "p4", "vector": vector + [0.0]}],
+            module_id="vaultly",
+        )
+    except ValueError as exc:
+        assert "RAG_POINT_DIMENSION_INCONSISTENT" in str(exc)
+    else:
+        raise AssertionError("mixed-dimension document accepted")
+
+    # Explicit reconcile: cache rebuild for the new dimension.
+    new_size = len(vector) + 8
+    assert store.reconcile_dimension(new_size, index_version="v4") == "rebuilt"
+    status = store.status()
+    assert status["declared_vector_size"] == new_size
+    assert status["collection_epoch"] == 1
+    assert status["index_version"] == "v4"
+    assert status["point_count"] == 0
+    assert status["document_count"] == 0
+
+    # Idempotent when already at the declared dimension.
+    assert store.reconcile_dimension(new_size) == "unchanged"
+
+    # After reconcile the store accepts the new dimension and refuses the old.
+    store.ensure_collection(new_size)
+    store.replace_document(
+        "doc-9", [{"id": "p9", "vector": [0.1] * new_size}], module_id="vaultly"
+    )
+    try:
+        store.ensure_collection(len(vector))
+    except RuntimeError as exc:
+        assert "RAG_VECTOR_DIMENSION_MISMATCH" in str(exc)
+    else:
+        raise AssertionError("stale dimension accepted after reconcile")
+
+
 def test_local_hits_require_module_scope_and_stay_in_scope(tmp_path: Path) -> None:
     """Degraded local hits obey the same module-scope discipline as Qdrant."""
 
@@ -160,3 +222,55 @@ def test_xingcheng_self_database_write_is_executor_only() -> None:
     assert star["database_write_scope"] == "xingcheng-model-internal-unrestricted-excluding-permission-data"
     assert star["investment_database_write"] is True
     assert xingcheng_manifest["permissions"]["database_scope"] == "opaque-central-index-read-and-xingcheng-internal-read-write"
+
+
+def test_local_database_settings_identifier_boundaries() -> None:
+    """AA14: settings regex boundary cases — accept/reject at edges."""
+    import pytest
+
+    from shared_layer.local.database import LocalDatabaseSettings
+
+    # Valid baselines
+    LocalDatabaseSettings()
+    LocalDatabaseSettings(
+        admin_dsn="local:" + "a" * 1,
+        database="a" * 63,          # max identifier length
+        owner_role="z9_",
+    )
+    # admin_dsn boundaries
+    with pytest.raises(ValueError, match="GPTBRIDGE_LOCAL_DB_REQUIRED"):
+        LocalDatabaseSettings(admin_dsn="")
+    with pytest.raises(ValueError, match="GPTBRIDGE_LOCAL_DB_REQUIRED"):
+        LocalDatabaseSettings(admin_dsn="local:UPPER")           # uppercase rejected
+    with pytest.raises(ValueError, match="GPTBRIDGE_LOCAL_DB_REQUIRED"):
+        LocalDatabaseSettings(admin_dsn="local:" + "a" * 513)    # over 512-char tail
+    with pytest.raises(ValueError, match="GPTBRIDGE_LOCAL_DB_REQUIRED"):
+        LocalDatabaseSettings(admin_dsn="local:-lead-dash")      # leading dash rejected
+    # SQL identifier boundaries
+    with pytest.raises(ValueError, match="INVALID_LOCAL_IDENTIFIER:database"):
+        LocalDatabaseSettings(database="9starts_digit")
+    with pytest.raises(ValueError, match="INVALID_LOCAL_IDENTIFIER:database"):
+        LocalDatabaseSettings(database="a" * 64)                 # over 63
+    with pytest.raises(ValueError, match="INVALID_LOCAL_IDENTIFIER:owner_role"):
+        LocalDatabaseSettings(owner_role="has-dash")
+    with pytest.raises(ValueError, match="INVALID_LOCAL_IDENTIFIER:runtime_role"):
+        LocalDatabaseSettings(runtime_role="")
+
+
+def test_local_database_health_check_and_locator(tmp_path) -> None:
+    """AA5/AA15: health check reports + locator repository round-trip."""
+    import uuid
+
+    from shared_layer.local.database import LocalDatabaseHealthCheck
+    from shared_layer.local.module_locator import LocalModuleLocatorRepository
+
+    repo = LocalModuleLocatorRepository(tmp_path / "locator.sqlite3", "mod-a")
+    locator = uuid.uuid4()
+    repo.put(locator, "res-1", "shared-layer/x.txt")
+    assert repo.resolve(locator, "res-1") == "shared-layer/x.txt"
+    assert repo.resolve(locator, "res-missing") is None
+    assert repo.resolve(uuid.uuid4(), "res-1") is None
+
+    # Cross-module isolation: a different module_id sees nothing
+    other = LocalModuleLocatorRepository(tmp_path / "locator.sqlite3", "mod-b")
+    assert other.resolve(locator, "res-1") is None

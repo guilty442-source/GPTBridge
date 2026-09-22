@@ -1,0 +1,13 @@
+{
+  "id": "g41-moe-quant-layerwise-probes",
+  "date": "2026-09-22",
+  "scope": "G41 residual: layerwise RMS parity probes for MoE and quantized paths",
+  "validation": {
+    "tests": "31 passed in 7.37s (2 new: test_cpp_moe_layerwise_parity on mixed dense/MoE interval=2 model, test_cpp_quantized_layerwise_parity on INT8 bundle vs quantize_model)",
+    "coverage": "engine.layer_metrics traces embedding + per-layer + final-norm RMS; compared against torch forward-hook RMS with LAYER_PARITY_ATOL=1e-3 / RTOL=2e-2",
+    "quantized": "same dequantized weights both sides -> standard tolerance applies"
+  },
+  "files": [
+    "Standalone tools/local-model/tests/test_cpp_inference.py"
+  ]
+}

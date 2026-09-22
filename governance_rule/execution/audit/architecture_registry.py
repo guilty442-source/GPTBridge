@@ -17,6 +17,26 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+# O1: path-existence cache keyed by parent-directory mtime.  A path's
+# existence can only change when its parent directory's mtime changes
+# (create/delete/rename), so the signature is conservative — any directory
+# mutation invalidates the entry.  Audit-only helper; never persisted.
+_PATH_EXISTS_CACHE: dict[str, tuple[int, bool]] = {}
+
+
+def _path_exists(root: Path, relative: str) -> bool:
+    key = str(root / relative)
+    try:
+        signature = Path(key).parent.stat().st_mtime_ns
+    except OSError:
+        signature = -1
+    cached = _PATH_EXISTS_CACHE.get(key)
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    result = Path(key).exists()
+    _PATH_EXISTS_CACHE[key] = (signature, result)
+    return result
+
 REGISTRY_RELATIVE: Final[str] = "architecture_registry.json"
 SCHEMA_VERSION: Final[int] = 1
 
@@ -252,7 +272,7 @@ def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
             )
         if not component.physical_path and not component.external_locator:
             errors.append(f"component lacks physical_path: {component.component_id}")
-        elif component.physical_path and not (root / component.physical_path).exists():
+        elif component.physical_path and not _path_exists(root, component.physical_path):
             errors.append(
                 f"component physical_path does not exist: {component.component_id}:{component.physical_path}"
             )
@@ -301,16 +321,20 @@ def validate_dependency_graph(payload: dict[str, Any]) -> list[str]:
         for component in parsed
     }
     visiting: list[str] = []
+    # X7: position index so cycle extraction is O(1) instead of
+    # ``visiting.index()`` O(N) per dependency edge (O(N²) overall).
+    visiting_pos: dict[str, int] = {}
     state: dict[str, int] = {node: 0 for node in graph}  # 0=new 1=visiting 2=done
 
     def visit(node: str) -> bool:
         state[node] = 1
+        visiting_pos[node] = len(visiting)
         visiting.append(node)
         for dependency in graph.get(node, ()):
             if dependency not in graph:
                 continue
             if state[dependency] == 1:
-                cycle = visiting[visiting.index(dependency):] + [dependency]
+                cycle = visiting[visiting_pos[dependency]:] + [dependency]
                 errors.append(
                     "dependency graph contains a cycle: " + "->".join(cycle)
                 )
@@ -318,6 +342,7 @@ def validate_dependency_graph(payload: dict[str, Any]) -> list[str]:
             if state[dependency] == 0 and visit(dependency):
                 return True
         visiting.pop()
+        del visiting_pos[node]
         state[node] = 2
         return False
 
@@ -352,12 +377,30 @@ def validate_flows(payload: dict[str, Any]) -> list[str]:
 
 
 def discover_manifest_ids(project_root: Path) -> set[str]:
+    """Manifest ids from ``*/manifest.json`` plus ``Standalone tools`` at
+    depth 2–3.  O2: one ``iterdir`` on the root covers both the depth-1
+    glob and locating the tools dir; the tools subtree keeps targeted
+    globs (a full ``os.walk`` measurably scans deep trees like
+    node_modules — slower, not faster)."""
     root = Path(project_root)
     ids: set[str] = set()
     paths: list[Path] = []
-    paths.extend(sorted(root.glob("*/manifest.json")))
-    paths.extend(sorted((root / "Standalone tools").glob("*/manifest.json")))
-    paths.extend(sorted((root / "Standalone tools").glob("*/*/manifest.json")))
+    tools_root: Path | None = None
+    try:
+        children = sorted(root.iterdir())
+    except OSError:
+        children = []
+    for child in children:
+        if child.name.startswith("."):
+            continue
+        manifest = child / "manifest.json"
+        if manifest.is_file():
+            paths.append(manifest)
+        if child.name == "Standalone tools" and child.is_dir():
+            tools_root = child
+    if tools_root is not None:
+        paths.extend(sorted(tools_root.glob("*/manifest.json")))
+        paths.extend(sorted(tools_root.glob("*/*/manifest.json")))
     for path in paths:
         if path.parts and any(part.startswith(".") for part in path.relative_to(root).parts):
             continue

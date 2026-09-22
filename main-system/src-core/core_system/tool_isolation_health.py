@@ -540,6 +540,16 @@ class ToolIsolationHealthMixin:
                         continue
                     health = self.check_tool_health(tid, light=light)
                     if health.get("status") == "crashed":
+                        # TOCTOU guard: a governed stop may have marked
+                        # expected_stop between the flag check above and the
+                        # health verdict — re-read the entry before declaring
+                        # a crash.
+                        with self._lock:
+                            entry = self._entries.get(tid)
+                        if entry is not None and (
+                            entry.crashed or entry.quarantined or entry.expected_stop
+                        ):
+                            continue
                         if self._superseded_by_newer_generation():
                             with self._lock:
                                 replaced = self._entries.get(tid)

@@ -1,0 +1,14 @@
+{
+  "amendment_id": "codex-amendment-request-boilerplate-dedup-20260922",
+  "requested_by": "decision-sovereign",
+  "change_class": "provision-scope",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "required_gate": "five-sovereign-audit-unanimous-pass",
+  "source_path": "governance_rule/codex/data/governance_codex.sqlite3",
+  "previous_version": "E2:2026-09-21T15:11:59Z",
+  "new_version": "E2:2026-09-22T04:00:00Z",
+  "sha256": "pending-governor-build",
+  "description": "法典內部去重同批：12+4+11 共同禁止條 + INHERITS，A375 單一控制條，待五方稽核",
+  "status": "draft (pending governor build + five-sovereign audit)",
+  "evidence": "codex-dup-scan-evidence-20260922.json (800/15/151/2), governance-vs-business-rules-20260922-060043.json (93/269/175)"
+}

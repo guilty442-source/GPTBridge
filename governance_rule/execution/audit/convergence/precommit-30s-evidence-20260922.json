@@ -1,0 +1,19 @@
+{
+  "evidence": "pre-commit 5.46s ≤30s (A537)",
+  "at": "2026-09-22T02:50:00Z",
+  "verifier": "governance_rule/git-hooks/pre-commit (native audit gate + lightweight snapshot, self_health skipped)",
+  "result": {
+    "total_s": 5.46,
+    "budget_s": 30,
+    "native_audit_gate_s": 0.08,
+    "audit_runtime_governance_s": "~5.3",
+    "verdict": "PASS"
+  },
+  "probes": {
+    "native_audit": "0.08s PASS 91/0 (C++ audit_engine)",
+    "python_audit_light": "5.46s PASS (include_self_health=False, lightweight snapshot)",
+    "full_pytest": "415s (4700 items, not in gate, nightly)",
+    "full_audit": "17s (with self_health, not in gate)"
+  },
+  "notes": "測試套件已是 C (native/test_suites 6.6s), 審計 C 引擎已嵌入 pre-commit, Python 全量僅 nightly, 30s 預算 PASS"
+}

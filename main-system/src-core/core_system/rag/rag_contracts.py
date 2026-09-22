@@ -538,6 +538,17 @@ class RagPolicy:
     policy_id: str
     policy_version: str
 
+    dag_enabled: bool = True
+    cag_enabled: bool = True
+    cag_embedding_cache_enabled: bool = True
+    cag_evidence_cache_enabled: bool = True
+    cag_context_cache_enabled: bool = True
+    cag_answer_cache_enabled: bool = False
+    cag_ttl_seconds: int = 600
+    cag_max_entries: int = 4096
+    max_dag_nodes: int = 64
+    max_parallel_nodes: int = 4
+
     embedding_model: str = "qwen3-embedding:4b"
     embedding_dimension: int = 2560
 

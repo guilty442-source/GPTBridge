@@ -84,7 +84,15 @@ def resolve_dsn(
     environ: dict[str, str] | None = None,
     allow_elevated: bool = False,
 ) -> DsnBinding:
-    """Resolve the DSN for one purpose, enforcing runtime isolation."""
+    """Resolve the DSN for one purpose, enforcing runtime isolation.
+
+    Resolution order (G89): an env value of the form ``credman:GPTBridge/…``
+    is resolved through the governed credential store; when no env var is
+    set the canonical store target ``GPTBridge/postgres/dsn/<purpose>`` is
+    consulted; a plain env value remains the development fallback.
+    """
+    from . import credential_store
+
     env = environ if environ is not None else os.environ
     if purpose in _ELEVATED_PURPOSES and runtime_context_active() and not allow_elevated:
         raise DsnPolicyError(
@@ -92,8 +100,35 @@ def resolve_dsn(
         )
     for name in _PURPOSE_ENV[purpose]:
         value = str(env.get(name, "")).strip()
-        if value:
-            return DsnBinding(purpose=purpose, env_name=name, dsn=value)
+        if not value:
+            continue
+        if credential_store.is_credential_reference(value):
+            try:
+                resolved = credential_store.resolve_credential_reference(value)
+            except Exception as exc:
+                raise DsnPolicyError(
+                    f"DSN_CREDENTIAL_REFERENCE_UNAVAILABLE:{name}"
+                ) from exc
+            if resolved is None:
+                raise DsnPolicyError(
+                    f"DSN_CREDENTIAL_REFERENCE_UNRESOLVED:{name}"
+                )
+            return DsnBinding(purpose=purpose, env_name=name, dsn=resolved)
+        return DsnBinding(purpose=purpose, env_name=name, dsn=value)
+    try:
+        stored = credential_store.read_secret(
+            credential_store.DSN_TARGET_TEMPLATE.format(purpose=purpose.value)
+        )
+    except Exception as exc:
+        raise DsnPolicyError(
+            f"DSN_CREDENTIAL_STORE_UNAVAILABLE:{purpose.value}"
+        ) from exc
+    if stored:
+        return DsnBinding(
+            purpose=purpose,
+            env_name=f"credman:{credential_store.DSN_TARGET_TEMPLATE.format(purpose=purpose.value)}",
+            dsn=stored,
+        )
     raise DsnPolicyError(f"DSN_NOT_CONFIGURED:{purpose.value}:{','.join(_PURPOSE_ENV[purpose])}")
 
 

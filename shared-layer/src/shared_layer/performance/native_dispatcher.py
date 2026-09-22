@@ -15,8 +15,8 @@ savings.  A threshold of 0 means "always dispatch if available"; a
 threshold of N means "only dispatch when input size >= N".
 
 Safety rules (A221/E186):
-    - Python owns all memory; C++ borrows raw pointers + length.
-    - No C++ exceptions cross the ABI boundary.
+    - Python owns all memory; the C++ binding borrows raw pointers + length.
+    - No C++ exceptions cross the C ABI boundary.
     - No unbounded allocation; no per-request thread pool.
     - No cross-runtime free.
     - GIL released only during pure compute (never during conversion).
@@ -63,10 +63,14 @@ def _load_native() -> Any:
         import sys
         import pathlib
 
-        # Try the main-system native package first
+        # Prefer the governed build output; the package copy may be locked by a
+        # running process on Windows, while packaged layouts can omit dist-native.
         _here = pathlib.Path(__file__).resolve()
+        _project = _here.parents[4]
+        _native_pkg = _project / "main-system" / "src-core" / "core_system" / "native"
         _candidates = [
-            _here.parents[4] / "main-system" / "src-core" / "core_system" / "native",
+            _project / "main-system" / "dist-native",
+            _native_pkg,
         ]
         for cand in _candidates:
             if str(cand) not in sys.path:
@@ -101,6 +105,8 @@ DISPATCH_THRESHOLDS: dict[str, int] = {
     "vector.batch_dot": 8,              # 8+ pairs to justify batch boundary
     "transformer.matmul": 8,            # 8+ rows/cols to justify boundary
     "transformer.softmax": 8,
+    "transformer.rmsnorm": 4,           # 4+ rows to justify norm boundary
+    "transformer.rope": 64,             # 64+ sequence positions; smaller inputs lose to boundary cost
     "transformer.attention": 4,          # 4+ rows to justify attention boundary
 }
 
@@ -198,8 +204,7 @@ def native_l2_norm(a: Sequence[float]) -> float:
     n = _load_native()
     if n is None:
         return python_l2_norm(a)
-    import numpy as np
-    return float(n.vector_l2_norm(np.asarray(a, dtype=np.float64)))
+    return float(n.vector_l2_norm(_as_float64_array(a)))
 
 
 def native_cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
@@ -207,9 +212,8 @@ def native_cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
     n = _load_native()
     if n is None:
         return python_cosine_similarity(a, b)
-    import numpy as np
     return float(n.vector_cosine_similarity(
-        np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)))
+        _as_float64_array(a), _as_float64_array(b)))
 
 
 def dot(a: Sequence[float], b: Sequence[float]) -> float:
@@ -265,6 +269,45 @@ def python_softmax(input_2d: Sequence[Sequence[float]]) -> list[list[float]]:
     return result
 
 
+def python_rmsnorm(
+    input_2d: Sequence[Sequence[float]],
+    weight: Sequence[float],
+    eps: float,
+) -> list[list[float]]:
+    """Python fallback: RMSNorm over the last dimension."""
+    result: list[list[float]] = []
+    for row in input_2d:
+        variance = sum(x * x for x in row) / len(row) if row else 0.0
+        inv_rms = 1.0 / math.sqrt(variance + eps)
+        result.append([x * inv_rms * w for x, w in zip(row, weight)])
+    return result
+
+
+def python_rope(
+    input_4d: Sequence[Sequence[Sequence[Sequence[float]]]],
+    cos_table: Sequence[Sequence[Sequence[float]]],
+    sin_table: Sequence[Sequence[Sequence[float]]],
+) -> list[list[list[list[float]]]]:
+    """Python fallback: RoPE over [B,H,S,D] with [B,S,D] tables."""
+    output: list[list[list[list[float]]]] = []
+    for b, batch in enumerate(input_4d):
+        batch_out: list[list[list[float]]] = []
+        for h, head in enumerate(batch):
+            head_out: list[list[float]] = []
+            for s, row in enumerate(head):
+                half = len(row) // 2
+                rotated = [0.0] * len(row)
+                for i in range(half):
+                    x1, x2 = row[i], row[i + half]
+                    c, sn = cos_table[b][s][i], sin_table[b][s][i]
+                    rotated[i] = x1 * c - x2 * sn
+                    rotated[i + half] = x1 * sn + x2 * c
+                head_out.append(rotated)
+            batch_out.append(head_out)
+        output.append(batch_out)
+    return output
+
+
 def python_scaled_dot_product_attention(
     q: Sequence[Sequence[float]],
     k: Sequence[Sequence[float]],
@@ -301,10 +344,9 @@ def native_matmul(a: Sequence[Sequence[float]], b: Sequence[Sequence[float]]) ->
     n = _load_native()
     if n is None:
         return python_matmul(a, b)
-    import numpy as np
     result = n.transformer_matmul(
-        np.asarray(a, dtype=np.float64),
-        np.asarray(b, dtype=np.float64),
+        _as_float64_array(a),
+        _as_float64_array(b),
     )
     return result.tolist()
 
@@ -314,8 +356,41 @@ def native_softmax(input_2d: Sequence[Sequence[float]]) -> list[list[float]]:
     n = _load_native()
     if n is None:
         return python_softmax(input_2d)
-    import numpy as np
-    result = n.transformer_softmax(np.asarray(input_2d, dtype=np.float64))
+    result = n.transformer_softmax(_as_float64_array(input_2d))
+    return result.tolist()
+
+
+def native_rmsnorm(
+    input_2d: Sequence[Sequence[float]],
+    weight: Sequence[float],
+    eps: float,
+) -> list[list[float]]:
+    """Native dispatch: RMSNorm (if available)."""
+    n = _load_native()
+    if n is None:
+        return python_rmsnorm(input_2d, weight, eps)
+    result = n.transformer_rmsnorm(
+        _as_float64_array(input_2d),
+        _as_float64_array(weight),
+        float(eps),
+    )
+    return result.tolist()
+
+
+def native_rope(
+    input_4d: Sequence[Sequence[Sequence[Sequence[float]]]],
+    cos_table: Sequence[Sequence[Sequence[float]]],
+    sin_table: Sequence[Sequence[Sequence[float]]],
+) -> list[list[list[list[float]]]]:
+    """Native dispatch: RoPE (if available)."""
+    n = _load_native()
+    if n is None:
+        return python_rope(input_4d, cos_table, sin_table)
+    result = n.transformer_rope(
+        _as_float64_array(input_4d),
+        _as_float64_array(cos_table),
+        _as_float64_array(sin_table),
+    )
     return result.tolist()
 
 
@@ -328,11 +403,10 @@ def native_scaled_dot_product_attention(
     n = _load_native()
     if n is None:
         return python_scaled_dot_product_attention(q, k, v)
-    import numpy as np
     result = n.transformer_scaled_dot_product_attention(
-        np.asarray(q, dtype=np.float64),
-        np.asarray(k, dtype=np.float64),
-        np.asarray(v, dtype=np.float64),
+        _as_float64_array(q),
+        _as_float64_array(k),
+        _as_float64_array(v),
     )
     return result.tolist()
 
@@ -351,6 +425,30 @@ def softmax(input_2d: Sequence[Sequence[float]]) -> list[list[float]]:
     if should_dispatch("transformer.softmax", rows):
         return native_softmax(input_2d)
     return python_softmax(input_2d)
+
+
+def rmsnorm(
+    input_2d: Sequence[Sequence[float]],
+    weight: Sequence[float],
+    eps: float,
+) -> list[list[float]]:
+    """Dispatch RMSNorm to native or Python fallback."""
+    rows = len(input_2d)
+    if should_dispatch("transformer.rmsnorm", rows):
+        return native_rmsnorm(input_2d, weight, eps)
+    return python_rmsnorm(input_2d, weight, eps)
+
+
+def rope(
+    input_4d: Sequence[Sequence[Sequence[Sequence[float]]]],
+    cos_table: Sequence[Sequence[Sequence[float]]],
+    sin_table: Sequence[Sequence[Sequence[float]]],
+) -> list[list[list[list[float]]]]:
+    """Dispatch RoPE to native or Python fallback."""
+    seq_len = len(input_4d[0][0]) if input_4d and input_4d[0] else 0
+    if should_dispatch("transformer.rope", seq_len):
+        return native_rope(input_4d, cos_table, sin_table)
+    return python_rope(input_4d, cos_table, sin_table)
 
 
 def scaled_dot_product_attention(
@@ -393,8 +491,14 @@ __all__ = [
     "scaled_dot_product_attention",
     "python_matmul",
     "python_softmax",
+    "python_rmsnorm",
+    "python_rope",
     "python_scaled_dot_product_attention",
     "native_matmul",
     "native_softmax",
+    "native_rmsnorm",
+    "native_rope",
     "native_scaled_dot_product_attention",
+    "rmsnorm",
+    "rope",
 ]

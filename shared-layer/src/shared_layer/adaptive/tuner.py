@@ -29,6 +29,9 @@ class BoundedAdaptiveTuner:
             self.envelope.qdrant_upserts_min_per_second * 4
         )
         self._last_move = 0.0
+        # S2: direction hysteresis — after a shrink, growth requires a doubled
+        # dwell so chronic oscillation damps out; acute signals bypass dwell.
+        self._last_direction = 0
 
     # -- observations ------------------------------------------------------
 
@@ -40,22 +43,28 @@ class BoundedAdaptiveTuner:
             if self._latency_rising(signals):
                 self._shrink_batch(aggressive=True)
                 self._last_move = moment
+                self._last_direction = -1
             else:
-                if moment - self._last_move >= self.envelope.min_dwell_seconds:
+                dwell = self.envelope.min_dwell_seconds * (
+                    2 if self._last_direction < 0 else 1
+                )
+                if moment - self._last_move >= dwell:
                     if pressure in (PressureLevel.LOW, PressureLevel.MODERATE) and not signals.degraded:
                         self._grow(moment, pressure, signals)
                     elif pressure is PressureLevel.HIGH:
                         self._shrink_light()
+                        self._last_direction = -1
                     else:
                         self._shrink_batch(aggressive=True)
+                        self._last_direction = -1
             self._workers = self.envelope.clamp_reconcile_workers(
                 1 if pressure in (PressureLevel.HIGH, PressureLevel.CRITICAL) else self._workers
             )
             if pressure in (PressureLevel.LOW, PressureLevel.MODERATE) and not signals.degraded:
                 self._workers = self.envelope.clamp_reconcile_workers(self._workers + 1)
-                self._upsert_rate = self.envelope.clamp_upsert_rate(self._upsert_rate * 1.5)
+                self._upsert_rate = self.envelope.clamp_upsert_rate(self._upsert_rate * 1.25)
             else:
-                self._upsert_rate = self.envelope.clamp_upsert_rate(self._upsert_rate * 0.5)
+                self._upsert_rate = self.envelope.clamp_upsert_rate(self._upsert_rate * 0.75)
             return self.parameters()
 
     def _latency_rising(self, signals: LoadSignals) -> bool:
@@ -70,17 +79,22 @@ class BoundedAdaptiveTuner:
         self._pool_max = self.envelope.clamp_pool(self._pool_max + self.envelope.max_pool_step)
         idle = pressure is PressureLevel.LOW and signals.pg_latency_ms < self.envelope.pg_latency_moderate_ms
         if idle:
-            self._batch = self.envelope.clamp_batch(min(self.envelope.batch_max, max(self._batch * 2, self._batch + self.envelope.max_batch_step)))
+            # S2: smooth chronic growth ×1.25 (was ×2); step floor preserved.
+            self._batch = self.envelope.clamp_batch(min(self.envelope.batch_max, max(int(self._batch * 1.25), self._batch + self.envelope.max_batch_step)))
         elif self._batch < self.envelope.batch_min:
             self._batch = self.envelope.clamp_batch(self._batch + self.envelope.max_batch_step)
         self._last_move = moment
+        self._last_direction = 1
 
     def _shrink_light(self) -> None:
         self._pool_max = self.envelope.clamp_pool(self._pool_max - self.envelope.max_pool_step)
-        self._batch = self.envelope.clamp_batch(int(self._batch * 0.5))
+        # S2: smooth non-acute shrink ×0.75 (was ×0.5); acute path unchanged.
+        self._batch = self.envelope.clamp_batch(int(self._batch * 0.75))
 
     def _shrink_batch(self, *, aggressive: bool) -> None:
-        factor = 0.25 if aggressive else 0.5
+        # S2: acute signals keep the aggressive ×0.25 clamp; the chronic
+        # CRITICAL path smooths to ×0.75 (was ×0.5).
+        factor = 0.25 if aggressive else 0.75
         self._batch = self.envelope.clamp_batch(int(self._batch * factor))
 
     # -- parameters --------------------------------------------------------

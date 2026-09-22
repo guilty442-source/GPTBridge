@@ -1,0 +1,51 @@
+{
+  "schema": "codex-business-rule-conflict-scan/v1",
+  "generated_at": "2026-09-22T04:31:07Z",
+  "sources": {
+    "manifests": 11,
+    "boundary_capabilities": 27,
+    "registered_tool_identities": 15,
+    "routes": 5,
+    "module_assignments": 17,
+    "config_files": 17,
+    "codex_budget_keys": 23
+  },
+  "summary": {
+    "conflict": 0,
+    "overlap": 5,
+    "naming": 0
+  },
+  "findings": [
+    {
+      "axis": "capability-key",
+      "class": "overlap",
+      "subject": "ai-connections",
+      "detail": "shared-domain key across ['ai-assistant', 'investment-mobile', 'star-chat', 'xingcheng']; declarations are per-tool profiles (self-scoped source_owner), no shared-ownership conflict"
+    },
+    {
+      "axis": "capability-key",
+      "class": "overlap",
+      "subject": "investment-manager",
+      "detail": "shared-domain key across ['ai-assistant', 'investment-mobile']; all declarations agree owner=investment-mobile"
+    },
+    {
+      "axis": "capability-key",
+      "class": "overlap",
+      "subject": "system-health-check",
+      "detail": "declared by retired ['global-cleaner'] and active ['system-rescue'] — retired declaration is residue; active tool is the live owner"
+    },
+    {
+      "axis": "capability-owner",
+      "class": "overlap",
+      "subject": "system-health-check",
+      "detail": "manifest global-cleaner declares 'system-health-check' but boundary owner is 'tool:system-rescue'"
+    },
+    {
+      "axis": "deadline-budget",
+      "class": "overlap",
+      "subject": "main-system\\config\\startup_manifest.json:governed_startup.startup_deadline_ms",
+      "detail": "'startup_deadline_ms' duplicates codex 'startup_complete_deadline_ms' (same value 10000)"
+    }
+  ],
+  "note": "evidence-only scan; business rules are subordinate to the codex (sole authority); conflicts must converge via amendment or implementation fix, never dual-track"
+}

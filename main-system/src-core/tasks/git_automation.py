@@ -54,6 +54,8 @@ class GitAutomationService:
         sync_interval: float = _DEFAULT_SYNC_INTERVAL,
         debounce_seconds: float = _DEFAULT_DEBOUNCE_SECONDS,
         push: bool = False,
+        scheduler: Any | None = None,
+        automation_core: Any | None = None,
     ) -> None:
         self.project_root = Path(project_root).resolve()
         self.sweep_interval = max(10.0, float(sweep_interval))
@@ -69,6 +71,13 @@ class GitAutomationService:
         self._last_sync: dict[str, Any] = {}
         self._sweeps = 0
         self._syncs = 0
+        # §10.63 R3: shared PeriodicScheduler rides this service's sweep
+        # cadence instead of a private task (due gates unchanged).
+        # §1.1 自動化集中：when present the automation core is the single
+        # registration point (allowlist + unified audit + kill switch);
+        # denial must not fall back to a private loop.
+        self._scheduler = scheduler
+        self._automation_core = automation_core
 
     # -- lifecycle ------------------------------------------------------
 
@@ -78,6 +87,33 @@ class GitAutomationService:
         if not (self.project_root / ".git").exists():
             return {"status": "skipped", "reason": "not-a-git-worktree"}
         self._stop_event.clear()
+        if self._automation_core is not None:
+            if self._automation_core.register_flow(
+                "git-automation",
+                self._cycle_tick,
+                interval_s=self.sweep_interval,
+                run_immediately=True,
+            ):
+                _logger.info(
+                    "git automation started via automation core "
+                    "(sweep=%.0fs sync=%.0fs debounce=%.0fs)",
+                    self.sweep_interval, self.sync_interval,
+                    self.debounce_seconds,
+                )
+                return {"status": "started", "loop": "automation-core"}
+            _logger.info("git automation disabled by automation core")
+            return {"status": "disabled", "loop": "automation-core"}
+        if self._scheduler is not None:
+            self._scheduler.register(
+                "git-automation", self.sweep_interval, self._cycle_tick,
+                run_immediately=True, pausable=True,
+            )
+            _logger.info(
+                "git automation started on periodic scheduler "
+                "(sweep=%.0fs sync=%.0fs debounce=%.0fs)",
+                self.sweep_interval, self.sync_interval, self.debounce_seconds,
+            )
+            return {"status": "started", "loop": "periodic-scheduler"}
         try:
             self._task = asyncio.create_task(
                 self._loop(), name="git-automation"
@@ -93,6 +129,10 @@ class GitAutomationService:
 
     async def stop(self) -> None:
         self._stop_event.set()
+        if self._automation_core is not None:
+            self._automation_core.unregister("git-automation")
+        elif self._scheduler is not None:
+            self._scheduler.unregister("git-automation")
         task = self._task
         self._task = None
         if task is not None and not task.done():
@@ -107,11 +147,7 @@ class GitAutomationService:
     async def _loop(self) -> None:
         while not self._stop_event.is_set():
             try:
-                await self.run_sweep()
-                now = time.monotonic()
-                if now >= self._next_sync_at:
-                    await self.run_sync()
-                    self._next_sync_at = now + self.sync_interval
+                await self._cycle_tick()
             except asyncio.CancelledError:
                 raise
             except Exception as error:  # never kill the loop
@@ -124,6 +160,17 @@ class GitAutomationService:
                 continue
             except asyncio.CancelledError:
                 raise
+
+    async def _cycle_tick(self) -> None:
+        """One sweep + due-gated sync — shared by the private loop and the
+        PeriodicScheduler job (§10.63 R3)."""
+        if self._stop_event.is_set():
+            return
+        await self.run_sweep()
+        now = time.monotonic()
+        if now >= self._next_sync_at:
+            await self.run_sync()
+            self._next_sync_at = now + self.sync_interval
 
     # -- operations -----------------------------------------------------
 

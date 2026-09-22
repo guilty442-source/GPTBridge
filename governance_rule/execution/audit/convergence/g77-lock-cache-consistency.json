@@ -1,0 +1,36 @@
+{
+  "schema": "g77-lock-cache-consistency/v1",
+  "generated_at": "2026-09-22T02:37:57Z",
+  "uv_lock": "E:\\GPTBridge\\main-system\\uv.lock",
+  "wheel_cache_manifest": "E:\\GPTBridge\\main-system\\runtime\\releases\\wheel-cache\\wheel-cache-manifest.json",
+  "checks": {
+    "cache_entries_in_lock": {
+      "total": 52,
+      "foreign": [],
+      "version_mismatch": [],
+      "hash_mismatch": [],
+      "passed": true
+    },
+    "wheel_integrity": {
+      "missing_files": [],
+      "corrupt": [],
+      "label_mismatch": [],
+      "passed": true
+    },
+    "rc_venv_coverage": {
+      "checked_rcs": [
+        {
+          "rc": "rc-2026-09-22",
+          "declared_entries": 52,
+          "installed": 52,
+          "uncached": [],
+          "not_in_uv_lock": [],
+          "count_mismatch": false
+        }
+      ],
+      "passed": true
+    }
+  },
+  "passed": true,
+  "errors": []
+}

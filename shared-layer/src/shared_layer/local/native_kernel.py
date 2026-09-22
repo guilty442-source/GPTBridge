@@ -1,10 +1,10 @@
-"""native_kernel — optional C++ acceleration hook for the semantic index.
+"""native_kernel — optional native acceleration hook for the semantic index.
 
-Per A219 the hybrid stack keeps Python for governed orchestration and C++ for
-core compute / native performance.  This module loads a locally-built
-``_rag_native.pyd`` (C++ extension) when present and transparently falls back
-to pure-Python math otherwise, so the system stays stdlib-only and self-hosting
-(A37/E23) while still being able to use the native kernel.
+Per A219 the hybrid stack keeps Python for governed orchestration and uses the
+governed native compute layer for core math when available.  This module loads
+a locally-built ``_rag_native.pyd`` extension when present and transparently
+falls back to pure-Python math otherwise, so the system stays stdlib-only and
+self-hosting (A37/E23) while still being able to use the native kernel.
 """
 
 from __future__ import annotations

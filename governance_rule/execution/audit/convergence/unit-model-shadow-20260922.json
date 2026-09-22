@@ -1,0 +1,11 @@
+{
+  "evidence": "單元制搬移次輪 model/shadow（§10.68）",
+  "at": "2026-09-22T02:10:00Z",
+  "order": "tools(done) → model → shared → core → xingcheng",
+  "phase": "model (shadow)",
+  "source": "Standalone tools/local-model/* (platform + model-dialogue + xingcheng + local-model-hub)",
+  "shadow": "units/model/local-model (shadow, parallel run, Python still authoritative)",
+  "check": "lifecycle + maturity + native_engine pin + tokenizer, 1B quantized cap, distillation",
+  "next": "shared → core → xingcheng each one round shadow→primary→retire",
+  "verdict": "SHADOW PASS (directory parity, same-unit co-located, cross-unit via IPC)"
+}

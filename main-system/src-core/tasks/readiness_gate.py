@@ -218,7 +218,7 @@ class ReadinessGate:
         server handler — rather than inferring authentication from the
         WebSocket session token.  The handler only increments this
         counter for connections that passed ``_websocket_request_authorized``
-        (HMAC token + instance id check) during the handshake; an
+        (short-lived ticket or governed legacy token + instance id check) during the handshake; an
         unauthenticated socket is rejected with 403 before reaching the
         handler and is never counted.  This satisfies A67's requirement
         that authenticated-ipc-connected be a verified condition, not an

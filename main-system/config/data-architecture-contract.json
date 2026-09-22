@@ -133,7 +133,7 @@
     "assistant_classification": "independent-privileged-institution",
     "assistant_rank": "peer-to-sovereigns",
     "native_model_parent": "xingcheng-assistant-identity-group",
-    "consolidated_capability": "xingcheng-system-repair",
+    "consolidated_capability": "central-automatic-repair",
     "consolidated_capability_display_name": "自我學習與自動編程",
     "consolidated_capability_description": "自我學習與自動編程",
     "public_repair_capability_count": 1,

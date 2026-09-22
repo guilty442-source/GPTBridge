@@ -1,0 +1,39 @@
+{
+  "schema": "p0-9-native-audit-engine/v2",
+  "recorded_at": "2026-09-22T08:25:00Z",
+  "item": "P0-9 第二輪：delegated→native 覆蓋擴充（91→244）",
+  "coverage": {
+    "native_checks": 244,
+    "delegated_checks": 29,
+    "note": "8b62a780 AST 歸約器（canonical file+markers 模式 → file-contains，118 項）＋本輪手動結構性歸約"
+  },
+  "new_engine_kinds": [
+    "dir-exists（實體目錄且非 symlink，對齊 shared_layer_structure 語義）",
+    "file-not-contains（禁標掃描；optional=true 時缺席→PASS 對齊條件式語義；ignore_case 對齊 .lower() 語義）",
+    "json-has-keys（JSON 解析＋頂層鍵存在）"
+  ],
+  "manual_reductions": [
+    "check_metadata_contract（9 markers＋ownership doc）",
+    "check_shared_layer_structure（3 dirs＋3 readonly sources）",
+    "check_sqlite_template（8 markers）",
+    "check_embedded_browser（no-playwright 掃描＋2 必要模組）",
+    "check_orphan_scanner",
+    "check_git_tiers（classify()==3 語義留 delegated）",
+    "check_release_manifest_file（json-has-keys 11 keys）",
+    "check_architecture_sources（4 檔 markers）",
+    "check_main_system_source（禁標 2＋必標 2）"
+  ],
+  "measurements": {
+    "engine_live_run": "244 pass / 0 fail / 29 delegated in 0.259s",
+    "suite": "audit_engine_suite 9/9 PASS（新增 file-not-contains、json-has-keys+dir-exists 兩案）；總 PASS=44 FAIL=0 BLOCKED=3",
+    "gate_end_to_end": "pre-commit hook exit=0"
+  },
+  "fail_closed_preserved": [
+    "unreadable required target → FAIL（optional=false 預設）",
+    "optional conditional scan → 缺席 PASS（與 Python is_file guard 同義）",
+    "malformed json / non-object root → FAIL",
+    "symlink dir → FAIL（物理目錄要求）"
+  ],
+  "remaining_delegated_29": "codex/sqlite 查詢、動態 policy snapshot、subprocess、AST parse、複合語義（async_playwright∧¬embedded）、目錄關係圖等——非靜態檔案語義，維持 Python oracle",
+  "verdict": "NATIVE-EXPANDED — 引擎承擔 244/273 檢查；delegated 集中於 SQL/動態語義"
+}

@@ -1,0 +1,16 @@
+{
+  "contract_code": "PRETRAIN_DATA_PIPELINE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A558",
+  "fields": [
+    "source_class",
+    "traceability",
+    "verifiability",
+    "reproducibility",
+    "confidential_exclusion",
+    "artifact_hash"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

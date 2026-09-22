@@ -93,9 +93,33 @@ class HotUpdateIdleMixin:
             except asyncio.CancelledError:
                 break
 
+    async def _idle_tick(self) -> None:
+        """單次閒置檢查——供 automation core 外部驅動。"""
+        if self.pending_replacement_count() > 0 and self.is_idle():
+            try:
+                await asyncio.to_thread(self.apply_pending_replacements)
+            except Exception:
+                pass
+
     async def start(self) -> None:
-        """Begin the idle-period deferred-replacement loop."""
+        """Begin the idle-period deferred-replacement loop.
+
+        §1.1 自動化集中：automation core 為唯一註冊點；kill-switch
+        拒絕時不回落私有迴圈。
+        """
         if self._idle_task is not None and not self._idle_task.done():
+            return
+        core = getattr(getattr(self, "app", None), "automation_core", None)
+        if core is not None:
+            if core.register_flow(
+                "hot-update-idle",
+                self._idle_tick,
+                interval_s=self.interval_seconds,
+                pausable=True,
+            ):
+                self._core_driven = True
+                return
+            self._core_driven = False
             return
         self._stop_event = asyncio.Event()
         self._idle_task = asyncio.create_task(
@@ -103,6 +127,11 @@ class HotUpdateIdleMixin:
 
     async def stop(self) -> None:
         """Cancel the idle loop and cleanup resources."""
+        if getattr(self, "_core_driven", False):
+            core = getattr(getattr(self, "app", None), "automation_core", None)
+            if core is not None:
+                core.unregister("hot-update-idle")
+            self._core_driven = False
         if self._idle_task is not None:
             if self._stop_event is not None:
                 self._stop_event.set()

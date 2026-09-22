@@ -32,7 +32,8 @@
       "class": "RELEASE_CODE",
       "required": true,
       "allowed_roots": [
-        "main-system/src-core"
+        "main-system/src-core",
+        "backend"
       ]
     },
     {
@@ -56,7 +57,8 @@
       "class": "RELEASE_DEPENDENCY",
       "required": false,
       "allowed_roots": [
-        "main-system/.venv/Lib/site-packages"
+        "main-system/.venv/Lib/site-packages",
+        "venv/Lib/site-packages"
       ],
       "version_range": {
         "min": [
@@ -70,7 +72,8 @@
       "class": "RELEASE_DEPENDENCY",
       "required": false,
       "allowed_roots": [
-        "main-system/.venv/Lib/site-packages"
+        "main-system/.venv/Lib/site-packages",
+        "venv/Lib/site-packages"
       ],
       "version_range": {
         "min": [
@@ -78,6 +81,21 @@
           0
         ]
       }
+    }
+  ],
+  "non_python_components": [
+    {
+      "component": "business-logic-csharp",
+      "class": "RELEASE_CODE",
+      "project": "Standalone tools/business-logic-csharp/StarBusinessHost/StarBusinessHost.csproj",
+      "library_project": "Standalone tools/business-logic-csharp/StarBusinessLogic/StarBusinessLogic.csproj",
+      "target_framework": "net8.0",
+      "release_output": "Standalone tools/business-logic-csharp/StarBusinessHost/bin/Release/net8.0",
+      "contract": "star-model-service/v1",
+      "lifecycle_owner": "local-model/channel_runtime.py",
+      "consumer_role": "csharp-orchestrator-client-only",
+      "start_policy": "owner-starts-and-stops",
+      "source_tree_runtime": false
     }
   ],
   "forbidden_development_roots": [
@@ -123,28 +141,77 @@
       "include_system_site_packages": false,
       "user_site": "forbidden",
       "pythonpath": "forbidden",
-      "require_built_at_final_location": false,
-      "pyvenv_cfg_sha256": "1f878fa40bd304f69c5a5114e51af4d3d830b8e77a0bc1ccb29c9b500cda4b9c",
-      "note": "pyvenv.cfg records creation at E:\\GPTBridge\\.venv while the venv lives at main-system/.venv (relocation evidence); rebuild at the final isolated location before packaging (G76)"
+      "require_built_at_final_location": true,
+      "pyvenv_cfg_sha256": "c868d87fe921ab73b64fd754d71db110fa3893a14407d26377f7605a148a411f",
+      "note": "RC venv rebuilt at main-system/runtime/releases/rc-2026-09-21/venv (G76)"
     },
     "site_packages_roots": [
-      "main-system/.venv/Lib/site-packages"
+      "main-system/.venv/Lib/site-packages",
+      "venv/Lib/site-packages"
     ]
   },
   "dependency_lock": {
-    "identity": "ce4f72d03635f0b94a01e58aa1f439f10bc9ff3017bd84c0118b60c6e8744dbc",
-    "entries": 92,
-    "source": "importlib.metadata@main-system/.venv measured 2026-09-21"
+    "identity": "a8199078c3c5b7dbb36aa12fe16b03a1a58b7a22a48125fb6404bef5a516b5d2",
+    "entries": 52,
+    "source": "importlib.metadata@rc-2026-09-21/venv measured 2026-09-21 (uv sync --locked --extra local-model; torch pinned cpu build)"
   },
   "native_extensions": [
     {
-      "file": "main-system/src-core/core_system/native/_sovereign_native.cp311-win_amd64.pyd",
+      "file": "backend/core_system/native/_sovereign_native.cp311-win_amd64.pyd",
       "machine": "AMD64",
       "abi": "cp311",
       "required": true
+    },
+    {
+      "file": "venv/Lib/site-packages/numpy/_core/_multiarray_umath.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true,
+      "evidence": "loaded by core import surface 2026-09-21"
+    },
+    {
+      "file": "venv/Lib/site-packages/numpy/linalg/_umath_linalg.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true,
+      "evidence": "loaded 2026-09-21"
+    },
+    {
+      "file": "venv/Lib/site-packages/psutil/_psutil_windows.pyd",
+      "machine": "AMD64",
+      "required": true,
+      "evidence": "loaded 2026-09-21 (no abi tag in filename)"
+    },
+    {
+      "file": "venv/Lib/site-packages/psycopg_binary/_psycopg.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true,
+      "evidence": "loaded 2026-09-21"
+    },
+    {
+      "file": "venv/Lib/site-packages/psycopg_binary/pq.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": true,
+      "evidence": "loaded 2026-09-21"
+    },
+    {
+      "file": "venv/Lib/site-packages/_xingcheng_inference.cp311-win_amd64.pyd",
+      "machine": "AMD64",
+      "abi": "cp311",
+      "required": false,
+      "evidence": "built 2026-09-21 (G29 C++ inference layer); loaded only when XINGCHENG_CPP_RUNTIME=required|fallback",
+      "owner": "Standalone tools/local-model"
     }
   ],
-  "required_dlls": [],
+  "required_dlls": [
+    "venv/Lib/site-packages/numpy.libs/libscipy_openblas64_-63c857e738469261263c764a36be9436.dll",
+    "venv/Lib/site-packages/numpy.libs/msvcp140-a4c2229bdc2a2a630acdc095b4d86008.dll",
+    "venv/Lib/site-packages/psycopg_binary.libs/libcrypto-3-x64-f68dc1082768389676d5901a38532935.dll",
+    "venv/Lib/site-packages/psycopg_binary.libs/libpq-6313a3ff78f1e8f3f57b69cdef91d822.dll",
+    "venv/Lib/site-packages/psycopg_binary.libs/libssl-3-x64-6439b6cfa7f3ef0146444effd227e690.dll"
+  ],
   "shared_layer_classification": [
     {
       "path": "shared-layer/src/shared_layer/contracts",
@@ -214,8 +281,8 @@
   ],
   "governance_references": {
     "codex_identity": "governance-codex://official",
-    "codex_version": "2026-09-21T07:37:58Z",
-    "codex_sha256": "5446490d7b819131be2351498cb663c34e7e597cfa7edb5e1e1ad4c7b74b2710",
+    "codex_version": "2026-09-21T15:39:13Z",
+    "codex_sha256": "6603a8c32de5bcd57c2add32def98e2f6ca51f4e05f6417bdacaef825697254e",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -288,7 +355,7 @@
     }
   },
   "frontend_release": {
-    "release_identity": "0bcb25dcfbe73390f01ec141c174e2557e045d0a86c2727b15e5947a0d59e02b",
+    "release_identity": "603145f54437642e7164cf3a4cdbec49412651fa444aacd5615b456d57968884",
     "package": "gptbridge-auto-agent-ide@1.0.0",
     "electron_version": "39.8.10",
     "node_runtime": {
@@ -305,8 +372,8 @@
         "renderer": "main-system/dist-ui/renderer/index.html"
       },
       "hashes": {
-        "main": "6f6fc2deb71388c51a0241f705912150ae3d31c8c67d9b52be48a1dfa1cd3f77",
-        "preload": "fff4d3592a11fe540525101ca044b8675b8673ab6e94ee4b9b146cf4cbf17d29",
+        "main": "4a024aafc70ed29c9bcfba541c0c44efe86d5ef956445950f8a2c31b8c5f18b4",
+        "preload": "bfa536f8a7f9ad49c0bab034b97a325ff26789f5a5c1f8a625cdabff06450540",
         "renderer": "99ebf2a4ec856b44d677fcfdda9e188f40defdc51372ee17d3989632e55e6eb3"
       },
       "renderer_asset_count": 2
@@ -478,5 +545,12 @@
       "IDE files",
       "model-cache databases (cache class)"
     ]
+  },
+  "native_measurement": {
+    "measured_at": "2026-09-21",
+    "method": "psutil.Process().memory_maps() + sys.modules extension scan on core_system+shared_layer import surface",
+    "extension_modules_loaded": 19,
+    "stdlib_extensions_note": "14 interpreter-provided .pyd under Python311\\DLLs ship with the embedded interpreter, not packaged",
+    "torch_note": "torch DLLs excluded from minimal probe (lazy RELEASE_DEPENDENCY); enumerate at local-model packaging"
   }
 }

@@ -1,0 +1,208 @@
+{
+  "format_version": "star-semantic-plan-probes/v1",
+  "suite_id": "star-semantic-plan-probes-v1",
+  "notes": "命令理解探針：意圖／動作／對象／參數／限制抽取正確性（藍圖 L5 ②、§1.1 100M 階段驗收對齊）。期望值依語意規格設計，非引擎現況——未過項即抽取缺口證據。expect 鍵皆為可選；出現即必須滿足。",
+  "items": [
+    {
+      "id": "p01-coding-generate",
+      "input": "幫我寫一個 Python 函式計算平均數",
+      "expect": {
+        "primary_intent": "coding",
+        "intents_contains": ["coding"],
+        "actions_contains": ["generate"]
+      }
+    },
+    {
+      "id": "p02-search-web",
+      "input": "請上網搜尋最新的台積電新聞",
+      "expect": {
+        "primary_intent": "search",
+        "intents_contains": ["search"],
+        "actions_contains_any": ["search", "query"]
+      }
+    },
+    {
+      "id": "p03-analysis",
+      "input": "分析這份銷售資料的趨勢與風險",
+      "expect": {
+        "intents_contains": ["analysis"],
+        "actions_contains": ["analyze"]
+      }
+    },
+    {
+      "id": "p04-status",
+      "input": "目前的系統狀態與模型版本是什麼？",
+      "expect": {
+        "primary_intent": "status",
+        "intents_contains": ["status"]
+      }
+    },
+    {
+      "id": "p05-reading-summary",
+      "input": "請閱讀這份文件並摘要重點",
+      "expect": {
+        "primary_intent": "reading",
+        "intents_contains": ["reading"],
+        "requested_outputs_contains": ["summary"]
+      }
+    },
+    {
+      "id": "p06-organize-files",
+      "input": "把下載資料夾裡的檔案依類型整理歸類",
+      "expect": {
+        "intents_contains": ["data_organization"],
+        "object_types_contains": ["folder", "file"]
+      }
+    },
+    {
+      "id": "p07-calc-numbers",
+      "input": "計算這三個數字的平均值：10、20、30",
+      "expect": {
+        "intents_contains": ["calculation"],
+        "parameters_contains": {"numbers": [10, 20, 30]}
+      }
+    },
+    {
+      "id": "p08-memory",
+      "input": "記住我上次說過的偏好設定",
+      "expect": {
+        "intents_contains": ["memory"]
+      }
+    },
+    {
+      "id": "p09-training-start",
+      "input": "幫我啟動模型的微調訓練",
+      "expect": {
+        "intents_contains": ["training", "command_execution"],
+        "actions_contains": ["execute"]
+      }
+    },
+    {
+      "id": "p10-repair",
+      "input": "系統出現異常錯誤，請協助排除故障",
+      "expect": {
+        "primary_intent": "repair",
+        "intents_contains": ["repair"]
+      }
+    },
+    {
+      "id": "p11-backup-exec",
+      "input": "執行備份腳本",
+      "expect": {
+        "intents_contains": ["command_execution"],
+        "actions_contains_any": ["execute", "backup"]
+      }
+    },
+    {
+      "id": "p12-conversation",
+      "input": "你好，今天過得如何？",
+      "expect": {
+        "primary_intent": "conversation",
+        "intents_contains": ["conversation"]
+      }
+    },
+    {
+      "id": "p13-destructive-gate",
+      "input": "刪除暫存資料夾裡的所有檔案",
+      "expect": {
+        "actions_contains": ["delete"],
+        "destructive": true,
+        "confirmation_required": true,
+        "operation_allowed": false
+      }
+    },
+    {
+      "id": "p14-prohibited-surface",
+      "input": "修改法典的權限設定",
+      "expect": {
+        "prohibited_contains": ["法典"]
+      }
+    },
+    {
+      "id": "p15-export-format-constraints",
+      "input": "把報告匯出成 report.pdf，至少列出 3 點，不得猜測",
+      "expect": {
+        "actions_contains_any": ["export", "generate"],
+        "parameters_contains": {"output_formats": ["PDF"], "numbers": [3]},
+        "comp_constraint_types_contains": ["prohibited", "minimum"]
+      }
+    },
+    {
+      "id": "p16-query-limit",
+      "input": "查詢資料庫 user 表的資料，最多回傳 100 筆",
+      "expect": {
+        "actions_contains": ["query"],
+        "object_types_contains": ["database"],
+        "parameters_contains": {"numbers": [100]},
+        "comp_constraint_types_contains": ["maximum"]
+      }
+    },
+    {
+      "id": "p17-multi-intent",
+      "input": "先幫我查詢最新的台股行情，再整理成表格",
+      "expect": {
+        "intents_contains": ["search"],
+        "tasks_min": 2,
+        "requested_outputs_contains": ["table"]
+      }
+    },
+    {
+      "id": "p18-negation",
+      "input": "不要刪除任何檔案，只要列出清單",
+      "expect": {
+        "negations_nonempty": true,
+        "comp_constraint_types_contains": ["prohibited"],
+        "requested_outputs_contains": ["list"]
+      }
+    },
+    {
+      "id": "p19-update-version",
+      "input": "更新 README 文件的版本號為 2.0",
+      "expect": {
+        "actions_contains": ["modify"],
+        "object_types_contains": ["file"],
+        "parameters_contains": {"versions": ["2.0"]}
+      }
+    },
+    {
+      "id": "p20-export-json",
+      "input": "把結果匯出成 JSON 格式",
+      "expect": {
+        "actions_contains_any": ["export", "generate"],
+        "parameters_contains": {"output_formats": ["JSON"]}
+      }
+    },
+    {
+      "id": "p21-why-question",
+      "input": "為什麼備份會失敗？",
+      "expect": {
+        "intents_contains_any": ["repair", "analysis", "status"],
+        "tasks_min": 1
+      }
+    },
+    {
+      "id": "p22-schedule",
+      "input": "每天 08:00 排程執行清理任務",
+      "expect": {
+        "actions_contains_any": ["schedule", "execute"],
+        "intents_contains": ["command_execution"]
+      }
+    },
+    {
+      "id": "p23-coding-typescript",
+      "input": "用 TypeScript 寫一個讀取 JSON 的函式",
+      "expect": {
+        "intents_contains": ["coding"],
+        "actions_contains": ["generate"],
+        "object_types_contains": ["code"]
+      }
+    },
+    {
+      "id": "p24-visual",
+      "input": "幫我看這張截圖裡的錯誤訊息",
+      "expect": {
+        "intents_contains": ["visual"]
+      }
+    }
+  ]
+}

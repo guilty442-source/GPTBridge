@@ -22,22 +22,55 @@ import json
 import os
 import sys
 import threading
+from contextlib import nullcontext
 import time
 from pathlib import Path
 from typing import Any, Mapping
 
-from .native_transformer.checkpoint import (
-    default_checkpoint_dir,
-    load_checkpoint,
-)
-from .native_transformer.execution.backend import default_dtype, resolve_device
-from .native_transformer.inference import (
-    Generator,
-    PrefixKVStore,
-    Sampler,
-    SamplingConfig,
-)
-from .native_transformer.tokenizer import XingChengTokenizer
+from types import SimpleNamespace
+
+_native_components: SimpleNamespace | None = None
+_native_components_lock = threading.Lock()
+
+
+def _native() -> SimpleNamespace:
+    """R7 延遲載入：native_transformer（連同 torch）延到首次推論才匯入。
+
+    control_status／settings／旗標路由等輕量路徑不付 torch 匯入成本；
+    C++ runtime 路徑亦可避免拉起 Python 引擎的重依賴。
+    """
+    global _native_components
+    if _native_components is None:
+        with _native_components_lock:
+            if _native_components is None:
+                from .native_transformer.checkpoint import (
+                    default_checkpoint_dir,
+                    load_checkpoint,
+                )
+                from .native_transformer.execution.backend import (
+                    default_dtype,
+                    resolve_device,
+                )
+                from .native_transformer.inference import (
+                    Generator,
+                    PrefixKVStore,
+                    Sampler,
+                    SamplingConfig,
+                )
+                from .native_transformer.tokenizer import XingChengTokenizer
+
+                _native_components = SimpleNamespace(
+                    default_checkpoint_dir=default_checkpoint_dir,
+                    load_checkpoint=load_checkpoint,
+                    default_dtype=default_dtype,
+                    resolve_device=resolve_device,
+                    Generator=Generator,
+                    PrefixKVStore=PrefixKVStore,
+                    Sampler=Sampler,
+                    SamplingConfig=SamplingConfig,
+                    XingChengTokenizer=XingChengTokenizer,
+                )
+    return _native_components
 
 NATIVE_ENGINE_ENV = "XINGCHENG_NATIVE_ENGINE"
 NATIVE_CHECKPOINT_ENV = "XINGCHENG_NATIVE_CHECKPOINT"
@@ -119,7 +152,7 @@ def configured_checkpoint_path() -> Path:
     if configured:
         candidate = Path(configured)
         return candidate if candidate.is_absolute() else tool_root() / candidate
-    directory = default_checkpoint_dir()
+    directory = _native().default_checkpoint_dir()
     candidates = sorted(
         directory.rglob("*.pt"), key=lambda item: item.stat().st_mtime, reverse=True
     ) if directory.is_dir() else []
@@ -263,7 +296,7 @@ class NativeTransformerEngine:
         quantize: int | None = None,
         device: str | torch.device | None = None,
     ) -> None:
-        loaded = load_checkpoint(checkpoint_path)
+        loaded = _native().load_checkpoint(checkpoint_path)
         self.checkpoint_path = Path(checkpoint_path)
         self.model = loaded["model"]
         self.config = loaded["config"]
@@ -277,9 +310,9 @@ class NativeTransformerEngine:
             self.model = quantize_model(self.model, n_bits=int(quantize))
             self.quantization = f"int{int(quantize)}"
         tokenizer = loaded.get("tokenizer")
-        self.tokenizer = tokenizer or XingChengTokenizer.from_config(self.config)
+        self.tokenizer = tokenizer or _native().XingChengTokenizer.from_config(self.config)
         # 推論裝置：有 CUDA 用 CUDA（GPU 加速），否則 CPU。
-        self.device = resolve_device(device)
+        self.device = _native().resolve_device(device)
         self.gpu_budget_downgraded = False
         if self.device.type == "cuda":
             # MS3：CUDA 推論先過 GpuCoordinator VRAM 預算，與訓練共用
@@ -297,11 +330,13 @@ class NativeTransformerEngine:
                 pass
         # CUDA / MPS 走 bf16（Tensor Core GEMM + mem-efficient attention）；
         # CPU 維持 fp32。int8/uint8 量化 buffer 不受浮點 dtype cast 影響。
-        self.model = self.model.to(device=self.device, dtype=default_dtype(self.device))
-        self.prefix_store = PrefixKVStore(
+        self.model = self.model.to(
+            device=self.device, dtype=_native().default_dtype(self.device)
+        )
+        self.prefix_store = _native().PrefixKVStore(
             max_entries=8, tag=f"xingcheng-native:{self.state_sha256[:12]}"
         )
-        self._generator = Generator(
+        self._generator = _native().Generator(
             self.model, device=self.device, prefix_store=self.prefix_store
         )
         self._lock = threading.Lock()
@@ -314,7 +349,7 @@ class NativeTransformerEngine:
         """
         import torch as _torch
 
-        bytes_per_param = 4 if default_dtype(device) == _torch.float32 else 2
+        bytes_per_param = 4 if _native().default_dtype(device) == _torch.float32 else 2
         required_mb = max(
             256.0, (self._parameter_count * bytes_per_param * 1.5) / (1024**2)
         )
@@ -368,6 +403,16 @@ class NativeTransformerEngine:
             return False
         path = configured_checkpoint_path()
         return path.is_file()
+
+    def _generation_gpu_budget_mb(self, prompt_tokens: int, max_new_tokens: int) -> float:
+        """Estimate transient KV/activation VRAM for one request.
+
+        Model weights were admitted once at engine load; this budget covers
+        only request-local growth so generation does not double-count them.
+        """
+        hidden = int(getattr(self.config, "hidden_size", 0) or 0)
+        bytes_needed = max(0, prompt_tokens + max_new_tokens) * hidden * 4
+        return max(256.0, min(2048.0, bytes_needed * 1.5 / (1024**2)))
 
     def generate(
         self,
@@ -488,8 +533,8 @@ class NativeTransformerEngine:
         if seed is None:
             seed = defaults["seed"]
         do_sample = temperature_value > 0 or top_k_value > 0 or top_p_value < 1.0
-        sampler = Sampler(
-            SamplingConfig(
+        sampler = _native().Sampler(
+            _native().SamplingConfig(
                 do_sample=do_sample,
                 temperature=temperature_value,
                 top_k=top_k_value,
@@ -525,19 +570,42 @@ class NativeTransformerEngine:
                 except Exception:
                     pass
 
-        try:
-            with self._lock:
-                if seed is not None:
-                    try:
-                        torch.manual_seed(int(seed))
-                    except (TypeError, ValueError):
-                        pass
-                generated = self._generator.generate(
-                    ids,
-                    max_new_tokens=max_new,
-                    sampling=sampler.config,
-                    on_token=_on_token if progress_callback is not None or cancel_event is not None else None,
+        generation_gate = nullcontext()
+        generation_budget_mb = 0.0
+        if self.device.type == "cuda":
+            generation_budget_mb = self._generation_gpu_budget_mb(
+                len(prompt_ids), max_new
+            )
+            try:
+                from shared_layer.adaptive.gpu_coordinator import GpuCoordinator
+
+                generation_gate = GpuCoordinator().acquire(
+                    generation_budget_mb,
+                    priority="inference",
+                    timeout=float(os.environ.get("XINGCHENG_GPU_ACQUIRE_TIMEOUT_S", "15")),
                 )
+            except Exception as error:
+                return {
+                    "ok": False,
+                    "error_code": "GPU_GENERATION_BUDGET_BUSY",
+                    "message": str(error),
+                    "fallback_required": True,
+                    "gpu_budget_required_mb": generation_budget_mb,
+                }
+        try:
+            with generation_gate:
+                with self._lock:
+                    if seed is not None:
+                        try:
+                            torch.manual_seed(int(seed))
+                        except (TypeError, ValueError):
+                            pass
+                    generated = self._generator.generate(
+                        ids,
+                        max_new_tokens=max_new,
+                        sampling=sampler.config,
+                        on_token=_on_token if progress_callback is not None or cancel_event is not None else None,
+                    )
         except _NativeGenerationCancelled:
             return {
                 "ok": False,
@@ -607,6 +675,8 @@ class NativeTransformerEngine:
                             "eval_count": len(out_ids),
                             "latency_ms": latency_ms,
                             "device": str(self.device),
+                            "gpu_budget_required_mb": generation_budget_mb,
+                            "gpu_budget_gate": "per-request" if self.device.type == "cuda" else "not-applicable",
                             "third_party_foundation_weights": False,
                             "loopback_runtime_used": False,
                         },
@@ -631,6 +701,8 @@ class NativeTransformerEngine:
             "parameter_count": self._parameter_count,
             "quantization": self.quantization,
             "device": str(self.device),
+            "gpu_budget_required_mb": generation_budget_mb,
+            "gpu_budget_gate": "per-request" if self.device.type == "cuda" else "not-applicable",
             "prefix_cache": {
                 "reused_tokens": int(getattr(self._generator, "last_prefix_reuse", 0)),
                 "entries": len(self.prefix_store),
@@ -724,11 +796,25 @@ def native_engine_for(
 
 
 def _release_engine(engine: NativeTransformerEngine) -> None:
-    """把 engine 從快取移除（auto_release 回調）；權重釋放交由 GC。"""
+    """把 engine 從快取移除（auto_release 回調）並歸還已釋放的 VRAM。
+
+    in-flight generate 持有的強參照不受影響：``torch.cuda.empty_cache``
+    只歸還不再被引用的 allocator 區塊，進行中的張量不會被回收。
+    """
     with _engine_lock:
         for cache_key, cached in list(_engine_cache.items()):
             if cached is engine:
                 _engine_cache.pop(cache_key, None)
+    import gc
+
+    gc.collect()
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass  # 歸還失敗不影響釋放語意；下次觸發再試
 
 
 def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
@@ -740,6 +826,35 @@ def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
             "message": "原生引擎未啟用（XINGCHENG_NATIVE_ENGINE）",
             "fallback_required": False,
         }
+    # G29/P3f：正式 C++ 推論執行層路由。required 為 fail-closed；
+    # fallback 在 C++ 層失敗時記錄帳本後才允許回到 Python 路徑。
+    try:
+        from .native_transformer.cpp_runtime import (
+            cpp_runtime_mode,
+            generate_via_cpp_engine,
+            record_cpp_fallback,
+        )
+
+        mode = cpp_runtime_mode()
+    except Exception:
+        mode = "off"
+    if mode == "invalid":
+        return {
+            "ok": False,
+            "error_code": "CPP_RUNTIME_MODE_INVALID",
+            "message": "XINGCHENG_CPP_RUNTIME 必須為 off/required/fallback",
+            "fallback_required": False,
+        }
+    if mode in ("required", "fallback"):
+        result = generate_via_cpp_engine(request)
+        if result.get("ok") or mode == "required":
+            return result
+        try:
+            record_cpp_fallback(
+                f"{result.get('error_code')}: {result.get('message')}"
+            )
+        except Exception:
+            pass
     try:
         engine = native_engine_for()
     except FileNotFoundError as error:

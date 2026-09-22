@@ -1,0 +1,16 @@
+{
+  "contract_code": "TASK_LIFECYCLE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A573",
+  "fields": [
+    "task_id",
+    "state",
+    "transition",
+    "interrupted_recovery",
+    "idempotency_key",
+    "receipt"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

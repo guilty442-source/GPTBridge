@@ -16,6 +16,7 @@ edge-profile/
 main-system/development-tools/devin/*.local.json
 dist/
 dist-ui/
+dist-native/
 release/*
 !release/child-tools/
 !release/child-tools/**

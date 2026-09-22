@@ -1,0 +1,15 @@
+{
+  "contract_code": "SYSTEM_CONVERGENCE_CONTRACT",
+  "kind": "contract",
+  "source_provision": "A570",
+  "fields": [
+    "workstream",
+    "active_generation_fencing",
+    "runtime_state",
+    "contract_compatibility",
+    "baseline"
+  ],
+  "owner": "system-runtime-sovereign",
+  "status": "declared-pending-implementation",
+  "introduced_version": "2026-09-21"
+}

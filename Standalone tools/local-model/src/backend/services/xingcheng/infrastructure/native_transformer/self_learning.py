@@ -23,7 +23,7 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[8]
 for _p in (
     str(_PROJECT_ROOT / "shared-layer" / "src"),
-    str(_PROJECT_ROOT / "governance_rule"),
+    str(_PROJECT_ROOT),
     str(_PROJECT_ROOT / "main-system" / "src-core"),
 ):
     if _p not in sys.path:
@@ -35,7 +35,9 @@ import os
 import sqlite3
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, time as clock_time, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any, Callable, Mapping, Sequence
 
 POLICY_FORMAT = "star-self-learning-policy/v1"
@@ -61,7 +63,39 @@ class SelfLearningPolicy:
     lr: float = 5e-5
     warmup_steps: int = 20
     device: str = "cuda"
+    gpu_required_mb: int = 0
     val_permille: int = 100
+    training_timezone: str = "Asia/Taipei"
+    quiet_hours_start: str = "22:00"
+    quiet_hours_end: str = "07:00"
+    # §2.7 閘門預設關閉（0/disabled），受管設定檔明示開啟——沿用
+    # min_new_examples 等欄位慣例：程式預設為後備值，生效值以政策檔為準。
+    # §2.7-1 觸發政策：兩次訓練啟動的最小間隔（事件驅動＋最低間隔）
+    min_interval_s: int = 0
+    # §2.7-4/8 資源與防爆走：每日訓練嘗試次數上限（UTC 日計）
+    max_cycles_per_day: int = 0
+    # §2.7-8 防爆走：連續訓練失敗熔斷；達上限後 stop（政策檔調整才可復歸）
+    max_consecutive_failures: int = 0
+    # §2.7-4 與推論互斥：星澄推論引擎已載入（含閒置快取）時不啟動訓練；
+    # 狀態無法判定時 fail-closed 阻斷
+    inference_exclusion: bool = True
+    # §2.7-2 合成／自我生成資料比例上限（防自我放大；0=停用）。
+    # source_type 以任一前綴開頭者計入合成／自我生成。
+    max_synthetic_ratio: float = 0.0
+    synthetic_source_prefixes: tuple[str, ...] = (
+        "synthetic",
+        "self-distillation",
+    )
+    # §2.7-1 品質漂移護欄：範例池平均品質低於下限即停（0=停用）
+    min_pool_avg_quality: float = 0.0
+    # §2.7-3 課程選擇：依 maturity 未達項決定本循環課程
+    # （預設關閉＝沿用固定 SFT；開啟時 maturity 狀態不可讀 → fail-closed）
+    curriculum_enabled: bool = False
+    # 課程→intent 過濾（空 dict＝不過濾）；過濾後無資料 → blocked
+    curriculum_intent_map: dict[str, list[str]] = field(default_factory=dict)
+    # §2.7-9 升級後 maturity 重測（預設關閉；結果記錄於報告與狀態）
+    post_upgrade_maturity_recheck: bool = False
+    maturity_recheck_device: str = "cpu"
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -77,6 +111,12 @@ class SelfLearningPolicy:
         }
         if "suites" in fields and not isinstance(fields["suites"], tuple):
             fields["suites"] = tuple(str(item) for item in fields["suites"])
+        if "synthetic_source_prefixes" in fields and not isinstance(
+            fields["synthetic_source_prefixes"], tuple
+        ):
+            fields["synthetic_source_prefixes"] = tuple(
+                str(item) for item in fields["synthetic_source_prefixes"]
+            )
         return cls(**fields)
 
 
@@ -94,6 +134,41 @@ def load_policy(tool_root: str | Path) -> SelfLearningPolicy:
         )
     except (OSError, json.JSONDecodeError, TypeError):
         return SelfLearningPolicy()
+
+
+def training_window_status(
+    policy: SelfLearningPolicy,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Return whether autonomous training is allowed in Taipei local time.
+
+    Invalid timezone or clock configuration is fail-closed.  A window whose
+    start is later than its end crosses midnight (22:00→07:00 by default).
+    """
+    try:
+        zone = ZoneInfo(policy.training_timezone)
+        start_parts = tuple(int(part) for part in policy.quiet_hours_start.split(":", 1))
+        end_parts = tuple(int(part) for part in policy.quiet_hours_end.split(":", 1))
+        if len(start_parts) != 2 or len(end_parts) != 2:
+            raise ValueError("time must be HH:MM")
+        start = clock_time(*start_parts)
+        end = clock_time(*end_parts)
+        local = (now or datetime.now(timezone.utc)).astimezone(zone).time()
+    except (ValueError, TypeError, ZoneInfoNotFoundError):
+        return {
+            "allowed": False,
+            "reason": "invalid-training-window",
+            "timezone": policy.training_timezone,
+        }
+    quiet = (local >= start or local < end) if start > end else start <= local < end
+    return {
+        "allowed": not quiet,
+        "reason": "quiet-hours" if quiet else "allowed",
+        "timezone": policy.training_timezone,
+        "local_time": local.strftime("%H:%M"),
+        "quiet_hours": f"{policy.quiet_hours_start}-{policy.quiet_hours_end}",
+    }
 
 
 def save_policy(tool_root: str | Path, policy: SelfLearningPolicy) -> dict[str, Any]:
