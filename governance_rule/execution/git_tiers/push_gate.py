@@ -132,7 +132,8 @@ def mandatory_test_gate(
         gate["detail"] = f"runner-error:{type(exc).__name__}"
         return gate
     gate["duration_ms"] = int((time.monotonic() - started) * 1000)
-    gate["returncode"] = int(getattr(result, "returncode", -1) or -1)
+    rc = getattr(result, "returncode", None)
+    gate["returncode"] = int(rc) if rc is not None else -1
     tail = str(getattr(result, "stderr", "") or getattr(result, "stdout", ""))
     gate["detail"] = tail.strip()[-300:]
     gate["passed"] = gate["returncode"] == 0
