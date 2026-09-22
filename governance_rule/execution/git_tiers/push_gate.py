@@ -1,10 +1,24 @@
-"""Pre-push mandatory test gate + push/convergence audit evidence (§10.69).
+"""Pre-push mandatory native test gate + push/convergence audit evidence (§10.69).
 
 §10.69-C① push preconditions: all worktrees clean, governance audit PASS,
 **mandatory tests PASS**, and ``origin/main`` an ancestor of local ``main``.
-The test gate is the missing piece: a bounded pytest selection run against
-the integrated ``main`` worktree immediately before ``git push``.  A gate
-failure denies the push (fail-closed) and is audited like every other gate.
+The test gate is the canonical native suite — per the 2026-09-22 governor
+directive (§1.1) test/audit verdicts come only from the main-system suites
+(``native/test_suites`` C tests + C/C++ audit engine); **pytest is never a
+gate**.  The gate therefore runs the ``*_suite.exe`` binaries built by the
+canonical ``native/test_suites/build.ps1`` harness:
+
+- binaries stale against their link inputs (or missing) → one bounded
+  rebuild through ``build.ps1`` (it owns the suite→source link map; no
+  second build recipe is duplicated here);
+- every suite then executes in the shared ``bin/`` directory with a
+  per-suite bound and a whole-run budget (§3.1: suite time over ~30 s is a
+  defect, not a timeout to raise);
+- any ``FAIL`` case, crash, stale report, build failure or unavailable
+  toolchain denies the push (fail-closed); ``BLOCKED`` cases are the
+  suite's own environmental-abstain verdict — they are recorded as
+  ``incomplete_evidence`` but do not deny (matching the native
+  orchestrator's INCOMPLETE_EVIDENCE ≠ FAIL semantics).
 
 §10.69-C④/F④: every push attempt (granted or denied) records a consolidated
 decision record — gate outcomes, revisions, result — into the governed audit
@@ -17,12 +31,16 @@ Config: ``main-system/config/automation-flows.json`` →
 ``flows.git-automation.push_gate`` (the git-automation flow tunables root):
 
     {"enabled": true,
-     "mandatory_tests": ["governance_rule/execution/git_tiers/tests"],
-     "test_timeout_s": 300}
+     "auto_build": true,
+     "build_timeout_s": 600,
+     "suite_timeout_s": 30,
+     "run_budget_s": 120,
+     "lock_wait_s": 30}
 
-``enabled=false`` skips the test run but is recorded in the evidence record
-(governed-config choice, never silent).  An unreadable or malformed manifest
-fails closed: the gate reports ``config-error`` and the push is denied.
+``enabled=false`` records the governed decision but still denies the push:
+the mandatory-test PASS precondition (C①) cannot be configured away, only
+recorded.  An unreadable or malformed manifest fails closed: the gate
+reports ``config-error`` and the push is denied.
 """
 from __future__ import annotations
 
@@ -31,10 +49,12 @@ import os
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterator, Mapping
 
 from .git_repository import GitRepository
+from .process_lock import LockBusyError, ProcessFileLock
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _FLOWS_CONFIG = (
@@ -42,17 +62,35 @@ _FLOWS_CONFIG = (
 )
 _STATE_FILENAME = "gptbridge-push-gate.json"
 _STATE_SCHEMA = "gptbridge-push-gate/v1"
+_LOCK_FILENAME = "push-test-gate.lock"
 
-# Bounded default: the git-tier suite guards exactly what the push gate
-# protects (tier enforcement, self-commit, worktree/merge safety).  The
-# manifest list replaces it wholesale — there is no implicit union.
-DEFAULT_MANDATORY_TESTS: tuple[str, ...] = (
-    "governance_rule/execution/git_tiers/tests",
-    "main-system/tests/test_git_tier_governance.py",
+# Canonical native suite locations (single source: native/test_suites).
+_NATIVE_TEST_DIR = Path("native") / "test_suites"
+_BUILD_SCRIPT = _NATIVE_TEST_DIR / "build.ps1"
+_BIN_DIR = _NATIVE_TEST_DIR / "bin"
+_SUITE_GLOB = "*_suite.exe"
+_REPORT_SUFFIX = ".json"
+
+# Link inputs that invalidate cached suite binaries (build.ps1 $suites map
+# roots): a newer code file in any of these means the binaries no longer
+# test the tree that would be pushed.
+_DEP_ROOTS = (
+    _NATIVE_TEST_DIR,
+    Path("native") / "core",
+    Path("native") / "include",
+    Path("native") / "tool_runtime",
+    Path("native") / "audit",
+    Path("Standalone tools") / "local-model" / "src" / "backend" / "cpp",
 )
-DEFAULT_TEST_TIMEOUT_S: float = 300.0
+_CODE_SUFFIXES = frozenset({".c", ".cpp", ".h", ".hpp"})
+
+DEFAULT_BUILD_TIMEOUT_S = 600.0
+DEFAULT_SUITE_TIMEOUT_S = 30.0
+DEFAULT_RUN_BUDGET_S = 120.0
+DEFAULT_LOCK_WAIT_S = 30.0
 
 Runner = Callable[..., Any]
+Builder = Callable[..., Any]
 
 
 def push_gate_config() -> dict[str, Any]:
@@ -60,12 +98,16 @@ def push_gate_config() -> dict[str, Any]:
 
     Fail-closed: an unreadable/malformed manifest yields ``config_error``
     set (callers must treat the gate as denied).  ``enabled`` defaults to
-    True — the gate is mandatory unless a governed edit turns it off.
+    True — the gate is mandatory; disabling it is recorded but still
+    denies the push (C① precondition cannot be configured away).
     """
     defaults: dict[str, Any] = {
         "enabled": True,
-        "mandatory_tests": list(DEFAULT_MANDATORY_TESTS),
-        "test_timeout_s": DEFAULT_TEST_TIMEOUT_S,
+        "auto_build": True,
+        "build_timeout_s": DEFAULT_BUILD_TIMEOUT_S,
+        "suite_timeout_s": DEFAULT_SUITE_TIMEOUT_S,
+        "run_budget_s": DEFAULT_RUN_BUDGET_S,
+        "lock_wait_s": DEFAULT_LOCK_WAIT_S,
     }
     try:
         raw = json.loads(_FLOWS_CONFIG.read_text(encoding="utf-8"))
@@ -78,79 +120,301 @@ def push_gate_config() -> dict[str, Any]:
     if not isinstance(entry, Mapping):
         return defaults
     merged = dict(defaults)
-    if "enabled" in entry:
-        merged["enabled"] = bool(entry.get("enabled"))
-    tests = entry.get("mandatory_tests")
-    if isinstance(tests, (list, tuple)) and tests:
-        merged["mandatory_tests"] = [str(t) for t in tests]
-    timeout = entry.get("test_timeout_s")
-    if isinstance(timeout, (int, float)) and timeout > 0:
-        merged["test_timeout_s"] = float(timeout)
+    for key in ("enabled", "auto_build"):
+        if key in entry:
+            merged[key] = bool(entry.get(key))
+    for key in (
+        "build_timeout_s", "suite_timeout_s", "run_budget_s", "lock_wait_s",
+    ):
+        value = entry.get(key)
+        if isinstance(value, (int, float)) and value > 0:
+            merged[key] = float(value)
     return merged
+
+
+def _suite_exes(bin_dir: Path) -> list[Path]:
+    """Suite binaries; ``_``-prefixed helpers are not suites."""
+    try:
+        return sorted(
+            p for p in bin_dir.glob(_SUITE_GLOB)
+            if p.is_file() and not p.name.startswith("_")
+        )
+    except OSError:
+        return []
+
+
+def _newest_source_mtime(root: Path) -> float:
+    """Newest mtime across the suite link inputs (0 when none found)."""
+    newest = 0.0
+    for rel in _DEP_ROOTS:
+        dep_root = Path(root) / rel
+        if not dep_root.is_dir():
+            continue
+        try:
+            for path in dep_root.rglob("*"):
+                if (
+                    path.is_file()
+                    and path.suffix.lower() in _CODE_SUFFIXES
+                ):
+                    newest = max(newest, path.stat().st_mtime)
+        except OSError:
+            continue
+    return newest
+
+
+def _binaries_stale(root: Path, exes: list[Path]) -> bool:
+    """True when any link input is newer than the oldest suite binary."""
+    if not exes:
+        return True
+    oldest = min(exe.stat().st_mtime for exe in exes)
+    return _newest_source_mtime(root) > oldest
+
+
+def _powershell() -> str:
+    return os.environ.get("GPTBRIDGE_POWERSHELL", "powershell.exe")
+
+
+def _build_suites(root: Path, timeout_s: float, builder: Builder | None) -> Any:
+    """One bounded rebuild via the canonical build.ps1 (returns proc)."""
+    script = Path(root) / _BUILD_SCRIPT
+    run = builder or (
+        lambda timeout: subprocess.run(
+            [
+                _powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(script),
+            ],
+            cwd=Path(root),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    )
+    return run(timeout_s)
+
+
+def _run_suite(exe: Path, bin_dir: Path, timeout_s: float, runner: Runner) -> Any:
+    """Run one suite binary; it writes ``<stem>.json`` into ``bin/``."""
+    return runner(exe, bin_dir, timeout_s)
+
+
+def _default_runner(exe: Path, cwd: Path, timeout_s: float) -> Any:
+    return subprocess.run(
+        [str(exe), exe.stem],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout_s,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+
+
+def _fresh_suite_report(bin_dir: Path, exe: Path, since: float) -> dict[str, Any]:
+    """Parse the suite's ``<stem>.json`` only when written by this run."""
+    path = bin_dir / f"{exe.stem}{_REPORT_SUFFIX}"
+    try:
+        if path.stat().st_mtime < since:
+            return {}
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+@contextmanager
+def _gate_lock(root: Path, wait_s: float) -> Iterator[None]:
+    """Serialize gate runs: suite binaries write per-suite reports into the
+    shared ``bin/`` directory, so concurrent runs would interleave."""
+    repo = GitRepository(root)
+    result = repo.run(["rev-parse", "--git-common-dir"])
+    raw = (result.stdout or "").strip()
+    common = Path(raw)
+    if not common.is_absolute():
+        common = repo.path / common
+    lock_path = common.resolve() / "gptbridge-automation" / _LOCK_FILENAME
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + max(0.0, wait_s)
+    while True:
+        try:
+            with ProcessFileLock(lock_path):
+                yield
+            return
+        except LockBusyError:
+            if time.monotonic() >= deadline:
+                raise
 
 
 def mandatory_test_gate(
     root: str | Path,
     *,
     runner: Runner | None = None,
+    builder: Builder | None = None,
     config: Mapping[str, Any] | None = None,
+    lock: Any | None = None,
 ) -> dict[str, Any]:
-    """Run the configured mandatory tests against ``root`` (bounded).
+    """Run the native test suite against ``root`` (bounded, fail-closed).
 
     Returns a gate record: ``passed`` is False on any test failure,
-    timeout, missing interpreter, or config error — the push path treats
-    every non-pass as a denial (fail-closed).
+    suite crash/timeout, stale-or-missing binaries that cannot be rebuilt,
+    build failure, or config error — the push path treats every non-pass
+    as a denial.
     """
     cfg = dict(config) if config is not None else push_gate_config()
     gate: dict[str, Any] = {
         "gate": "mandatory-tests",
+        "harness": "native-test-suite/v1",
         "passed": False,
         "skipped": False,
-        "tests": list(cfg.get("mandatory_tests") or ()),
-        "timeout_s": float(cfg.get("test_timeout_s") or DEFAULT_TEST_TIMEOUT_S),
-        "returncode": None,
+        "suites": [],
+        "totals": {"pass": 0, "fail": 0, "blocked": 0, "cases": 0},
+        "failures": [],
+        "rebuilt": False,
+        "incomplete_evidence": False,
         "duration_ms": 0,
         "detail": "",
     }
-    if cfg.get("config_error"):
-        gate["detail"] = f"config-error:{cfg['config_error']}"
+    started = time.monotonic()
+
+    def _done(detail: str) -> dict[str, Any]:
+        gate["duration_ms"] = int((time.monotonic() - started) * 1000)
+        gate["detail"] = detail
         return gate
+
+    if cfg.get("config_error"):
+        return _done(f"config-error:{cfg['config_error']}")
     if not cfg.get("enabled", True):
         gate["skipped"] = True
-        gate["detail"] = "push_gate.enabled=false (governed config)"
-        return gate
-    if not gate["tests"]:
-        gate["detail"] = "no-mandatory-tests-configured"
-        return gate
+        return _done(
+            "push_gate.enabled=false (governed config); "
+            "mandatory-test PASS precondition unmet"
+        )
 
-    run = runner or _pytest_runner
-    started = time.monotonic()
+    bin_dir = Path(root) / _BIN_DIR
+    run = runner or _default_runner
+    suite_timeout = float(cfg.get("suite_timeout_s") or DEFAULT_SUITE_TIMEOUT_S)
+    run_budget = float(cfg.get("run_budget_s") or DEFAULT_RUN_BUDGET_S)
+    lock_wait = float(cfg.get("lock_wait_s") or DEFAULT_LOCK_WAIT_S)
+
     try:
-        result = run(root, gate["tests"], gate["timeout_s"])
-    except Exception as exc:  # noqa: BLE001 - gate must total to a verdict
-        gate["duration_ms"] = int((time.monotonic() - started) * 1000)
-        gate["detail"] = f"runner-error:{type(exc).__name__}"
-        return gate
-    gate["duration_ms"] = int((time.monotonic() - started) * 1000)
-    rc = getattr(result, "returncode", None)
-    gate["returncode"] = int(rc) if rc is not None else -1
-    tail = str(getattr(result, "stderr", "") or getattr(result, "stdout", ""))
-    gate["detail"] = tail.strip()[-300:]
-    gate["passed"] = gate["returncode"] == 0
-    return gate
+        with (lock if lock is not None else _gate_lock(root, lock_wait)):
+            exes = _suite_exes(bin_dir)
+            if _binaries_stale(Path(root), exes):
+                if not cfg.get("auto_build", True):
+                    return _done(
+                        "test-binaries-stale-or-missing "
+                        "(push_gate.auto_build=false)"
+                    )
+                try:
+                    proc = _build_suites(
+                        Path(root),
+                        float(
+                            cfg.get("build_timeout_s")
+                            or DEFAULT_BUILD_TIMEOUT_S
+                        ),
+                        builder,
+                    )
+                except subprocess.TimeoutExpired:
+                    return _done("build-timeout")
+                except Exception as exc:  # noqa: BLE001 — fail closed
+                    return _done(f"build-error:{type(exc).__name__}")
+                exes = _suite_exes(bin_dir)
+                if not exes or _binaries_stale(Path(root), exes):
+                    rc = getattr(proc, "returncode", "?")
+                    return _done(f"build-failed:rc={rc}")
+                gate["rebuilt"] = True
 
+            run_started = time.monotonic()
+            for exe in exes:
+                if time.monotonic() - run_started > run_budget:
+                    return _done(
+                        f"run-budget-exceeded:{run_budget}s "
+                        f"(ran {len(gate['suites'])}/{len(exes)})"
+                    )
+                case_started = time.time()
+                try:
+                    proc = _run_suite(exe, bin_dir, suite_timeout, run)
+                except subprocess.TimeoutExpired:
+                    proc = None
+                    suite_error = f"timeout>{suite_timeout}s"
+                except Exception as exc:  # noqa: BLE001 — fail closed
+                    proc = None
+                    suite_error = f"spawn-error:{type(exc).__name__}"
+                report = _fresh_suite_report(bin_dir, exe, case_started)
+                cases = report.get("cases") if report else None
+                if not isinstance(cases, list):
+                    suite_error = (
+                        suite_error
+                        if proc is None
+                        else f"report-missing:rc={proc.returncode}"
+                    )
+                    cases = [
+                        {
+                            "suite": exe.stem,
+                            "name": "suite_execution",
+                            "status": "FAIL",
+                            "detail": suite_error,
+                        }
+                    ]
+                entry = {
+                    "suite": exe.stem,
+                    "pass": int(report.get("passed", 0)) if report else 0,
+                    "fail": int(report.get("failed", 0)) if report else 0,
+                    "blocked": int(report.get("blocked", 0)) if report else 0,
+                    "returncode": (
+                        getattr(proc, "returncode", None) if proc else None
+                    ),
+                }
+                gate["suites"].append(entry)
+                totals = gate["totals"]
+                for case in cases:
+                    if not isinstance(case, dict):
+                        continue
+                    status = str(case.get("status", "")).upper()
+                    totals["cases"] += 1
+                    if status == "PASS":
+                        totals["pass"] += 1
+                    elif status == "BLOCKED":
+                        totals["blocked"] += 1
+                    else:
+                        totals["fail"] += 1
+                        if len(gate["failures"]) < 8:
+                            gate["failures"].append(
+                                f"{case.get('suite', exe.stem)}/"
+                                f"{case.get('name', '?')}: "
+                                f"{str(case.get('detail', ''))[:120]}"
+                            )
+                if proc is not None and proc.returncode not in (0, 1):
+                    totals["fail"] += 1
+                    gate["failures"].append(
+                        f"{exe.stem}/suite_exit: rc={proc.returncode}"
+                    )
+    except LockBusyError:
+        return _done(f"gate-busy:{_LOCK_FILENAME}")
+    except Exception as exc:  # noqa: BLE001 — gate must total to a verdict
+        return _done(f"gate-error:{type(exc).__name__}")
 
-def _pytest_runner(root: str | Path, tests: list[str], timeout_s: float) -> Any:
-    """Bounded pytest run on the repo root (pytest.ini supplies -n/timeout)."""
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", *tests],
-        cwd=Path(root),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=max(5.0, float(timeout_s)),
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    totals = gate["totals"]
+    gate["incomplete_evidence"] = totals["blocked"] > 0
+    if totals["fail"] > 0:
+        return _done(
+            f"{totals['fail']} failed case(s): "
+            + "; ".join(gate["failures"][:4])
+        )
+    if totals["cases"] == 0:
+        return _done("no-test-cases-executed")
+    gate["passed"] = True
+    suffix = (
+        f" ({totals['blocked']} blocked — incomplete evidence)"
+        if totals["blocked"]
+        else ""
+    )
+    return _done(
+        f"{totals['pass']} pass / {totals['blocked']} blocked "
+        f"across {len(gate['suites'])} suites{suffix}"
     )
 
 
@@ -270,8 +534,9 @@ def record_push_evidence(
 ) -> dict[str, Any]:
     """Consolidated push decision record (C④/F④): ledger + state file.
 
-    One record carries the mandatory-test gate outcome plus the revisions
-    involved, so a push is provably preceded by audit PASS + test PASS.
+    One record carries the mandatory native-test gate outcome plus the
+    revisions involved, so a push is provably preceded by audit PASS +
+    native suite PASS.
     """
     from . import audit_log
 
@@ -284,10 +549,19 @@ def record_push_evidence(
     ).strip()
     gate_summary = "none"
     if test_gate is not None:
+        totals = (
+            test_gate.get("totals")
+            if isinstance(test_gate.get("totals"), Mapping)
+            else {}
+        )
         gate_summary = (
             f"tests={'pass' if test_gate.get('passed') else 'fail'}"
             f" skipped={bool(test_gate.get('skipped'))}"
-            f" rc={test_gate.get('returncode')}"
+            f" suites={len(test_gate.get('suites') or [])}"
+            f" pass={totals.get('pass', 0)}"
+            f" fail={totals.get('fail', 0)}"
+            f" blocked={totals.get('blocked', 0)}"
+            f" rebuilt={bool(test_gate.get('rebuilt'))}"
             f" ms={test_gate.get('duration_ms')}"
         )
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -326,8 +600,10 @@ def record_push_evidence(
 
 
 __all__ = [
-    "DEFAULT_MANDATORY_TESTS",
-    "DEFAULT_TEST_TIMEOUT_S",
+    "DEFAULT_BUILD_TIMEOUT_S",
+    "DEFAULT_LOCK_WAIT_S",
+    "DEFAULT_RUN_BUDGET_S",
+    "DEFAULT_SUITE_TIMEOUT_S",
     "mandatory_test_gate",
     "push_gate_config",
     "record_convergence_evidence",
