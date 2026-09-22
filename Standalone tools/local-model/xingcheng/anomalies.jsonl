@@ -1,1 +1,1 @@
-{"type": "model-dir-size", "severity": "warning", "detail": "29122041567 bytes"}
+{"type": "stale-checkpoint", "severity": "warning", "detail": "transformer-runtime-checkpoints.sqlite3 age 72.0h"}

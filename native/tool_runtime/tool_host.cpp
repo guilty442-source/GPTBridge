@@ -726,6 +726,9 @@ void ToolHost::conn_loop(intptr_t sock) {
     case gtw::GateDecision::Shutdown:
         send_all(c, gtw::http_ok_bytes("OK", "text/plain"));
         impl_->stop_flag.store(true);
+        /* 同 request_stop：關 listen socket 喚醒阻塞中的 accept()，
+           否則 run() 的 join 會卡死。 */
+        closesocket(impl_->listen_sock);
         break;
     case gtw::GateDecision::Upgrade: {
         std::string accept_key;
