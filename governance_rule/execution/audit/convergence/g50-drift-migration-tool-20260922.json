@@ -1,0 +1,41 @@
+{
+  "artifact": "g50-drift-migration-tool",
+  "blueprint_section": "P2 Embedding residual / G50 / RAG lifecycle",
+  "date": "2026-09-22",
+  "objective": "Post-drift new-generation builds are triggered by the migration tool, not ad-hoc rebuild calls.",
+  "implementation": {
+    "new_module": "main-system/src-core/core_system/rag/lifecycle/migration.py",
+    "api": {
+      "apply_migration(plan, apply_metadata=?, build_vector_generation=?, validate=?) -> MigrationReport": "executes a MigrationPlan phase-by-phase (DETECT/PLAN -> APPLY_METADATA -> BUILD_VECTOR_GENERATION -> VALIDATE -> ACTIVATE)",
+      "MigrationReport": "{plan, phases_completed, ok, vector_generation_built, blocked_reason}"
+    },
+    "drift_entry_point": "PipelineRecoveryMixin.migrate_schema(generation_manager, current=..., target=..., apply_metadata=?, validate=?, benchmark_fn=?) — plans the migration and wires BUILD_VECTOR_GENERATION to rebuild_canonical (PG-authority rebuild -> validate -> benchmark -> atomic promote)",
+    "fail_closed": [
+      "metadata axis changed but no apply_metadata executor -> blocked 'metadata-migration-executor-missing', nothing mutated",
+      "vector axis changed but no builder -> blocked 'vector-generation-builder-missing'",
+      "rebuild report incomplete (no VALIDATE+ACTIVATE in steps_completed) -> blocked 'vector-generation-build-incomplete', ACTIVATE never marked",
+      "executor raises -> blocked '<phase>-failed:<err>' and the sequence stops",
+      "validate callable returning falsy -> blocked 'validation-failed', ACTIVATE never reached"
+    ]
+  },
+  "verification": {
+    "pytest": {
+      "file": "main-system/tests/test_rag_lifecycle.py",
+      "result": "35 passed in 29.95s",
+      "new_cases": [
+        "metadata-only plan executed via injected executor",
+        "missing metadata executor -> blocked, ACTIVATE never reached",
+        "vector plan -> governed build via rebuild_canonical, all phases completed",
+        "incomplete rebuild -> blocked before VALIDATE/ACTIVATE",
+        "missing vector builder -> blocked",
+        "failing metadata executor stops sequence before vector phase",
+        "validator gate rejects -> ACTIVATE never reached",
+        "migrate_schema drift entry -> plans + triggers governed vector build"
+      ]
+    }
+  },
+  "residual": [
+    "call-site wiring: production trigger for migrate_schema on _generation_rebuild_required (currently the flag only blocks canonical indexing until an operator/governed flow invokes the migration tool)",
+    "metadata-axis apply_metadata executor for PG schema migrations (none exist yet — blocked by design until supplied)"
+  ]
+}
