@@ -1,0 +1,16 @@
+{
+  "id": "g48-contract-axis-separation",
+  "date": "2026-09-22",
+  "scope": "G48 residual: six release version axes (codex / permission / ipc / sql_schema / frontend / frontend-backend) — full axis separation + per-axis breaking-change tests",
+  "validation": {
+    "tests": "7 passed (test_g48_contract_axis_separation.py): all-axes-consistent baseline, independent version-field schema proof, per-axis breaking-change isolation matrix (each break yields only its own error-code family, other axes clean), codex variants, ipc both-direction rejection, sql_schema consumer window, real-repo axes present+valid",
+    "regression": "47 passed across test_release_compatibility_gates + test_frontend_release_isolation + test_ipc_surface_pairing + test_config_contract + g48 suite; test_contract_validator 5/5",
+    "audit": "native audit engine 363 pass / 0 fail / 26 delegated in 11.25s",
+    "separation_proof": "breaking each axis produces only that axis's error family (CODEX_/PERMISSION_/IPC_CONTRACT_/FRONTEND_/IPC_*_UNSUPPORTED/sql-schema registry errors); zero cross-axis contamination",
+    "contract_repin": "release-dependencies.json refreshed to live state — codex_version/codex_sha256 -> 2026-09-22T10:23:53Z rev68, frontend artifact hashes (main/renderer) re-pinned to stable 2026-09-21T14:17Z build, config required_files re-pinned (tool-runtime-contract/tool-isolation-policy/startup_manifest/native-engine) — all drift was from already-committed governed changes"
+  },
+  "files": [
+    "governance_rule/tests/test_g48_contract_axis_separation.py",
+    "shared-layer/release-dependencies.json"
+  ]
+}

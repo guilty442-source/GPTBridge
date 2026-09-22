@@ -1,0 +1,79 @@
+{
+  "schema": "dialogue-eval-record/v1",
+  "date": "2026-09-22",
+  "purpose": "Phase-5 v18 (weights v21) chat-path eval vs active weights + manual inspection samples",
+  "checkpoint": "E:\\GPTBridge\\Standalone tools\\local-model\\xingcheng\\runtime\\models\\jobs\\manual-sft-v18-20260922\\final.pt",
+  "baseline_checkpoint": "E:\\GPTBridge\\Standalone tools\\local-model\\xingcheng\\runtime\\models\\jobs\\star-transformer-job-a7a2a5e769ac4dba90c0c2ed\\final.pt",
+  "suite": "star-native-eval-dialogue-v1",
+  "suite_sha256": "4a9ca449262c826efebac8255bed1a4a151d157e761289139a63eea824f843fc",
+  "metrics": {
+    "perplexity": 150.2283297094777,
+    "generation_ok": true,
+    "tokens_per_second": 3.91,
+    "latency_ms_mean": 8181.672,
+    "quantization": "none",
+    "checkpoint_sha256": "0baecf13c8e0b5be7cf7d76c8e001daa710310afe5531b61c9c55ca023489ba0"
+  },
+  "baseline_metrics": {
+    "perplexity": 71.65939181627898,
+    "generation_ok": true,
+    "tokens_per_second": 3.83,
+    "latency_ms_mean": 8365.125,
+    "quantization": "none",
+    "checkpoint_sha256": "de8f42cd62b364a69b2e11ff61bf62cb4adc24ef8c364cce456c4ccf99fd5e7a"
+  },
+  "comparison": {
+    "perplexity_delta_pct": 109.6422,
+    "perplexity_gate": "<= 40.0%",
+    "perplexity_ok": false,
+    "generation_ok": true,
+    "tokens_per_second_ok": true,
+    "tokens_per_second_ratio_ok": true,
+    "baseline_tokens_per_second": 3.83
+  },
+  "passed": false,
+  "manual_inspection_samples": [
+    {
+      "prompt": "你好，你是誰？",
+      "output": "好的，我記住了：論夢",
+      "stopped_by_eos": false,
+      "elapsed_ms": 880.1
+    },
+    {
+      "prompt": "請用一句話說明星澄模型。",
+      "output": "好的，我記住了：山山",
+      "stopped_by_eos": false,
+      "elapsed_ms": 2155.0
+    },
+    {
+      "prompt": "今天天氣如何？",
+      "output": "好的，我記住了：夢夢濤夢",
+      "stopped_by_eos": false,
+      "elapsed_ms": 1446.7
+    },
+    {
+      "prompt": "1+1 等於多少？",
+      "output": "好的，我記住了：11光",
+      "stopped_by_eos": false,
+      "elapsed_ms": 581.3
+    },
+    {
+      "prompt": "請列出三個顏色。",
+      "output": "好的，我記住了：signal12松",
+      "stopped_by_eos": false,
+      "elapsed_ms": 2133.9
+    },
+    {
+      "prompt": "謝謝你的幫忙。",
+      "output": "好的，我記住了：竹松",
+      "stopped_by_eos": false,
+      "elapsed_ms": 2276.6
+    }
+  ],
+  "notes": [
+    "ChatSession path (chat template + system prompt) - same as maturity L5 probes",
+    "greedy decode, seed 42, CPU, independent session per prompt",
+    "baseline = active weights per governor tps-ratio ruling",
+    "manual_inspection_samples verbatim for human adjudication"
+  ]
+}

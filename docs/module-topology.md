@@ -12,9 +12,10 @@ ai-collaboration + file-sorter + vaultly
 
 Retirement notes:
 
-- `global-cleaner` is retired and non-executable. Its identity, lineage
-  and audit records remain registered as evidence; automatic cleanup is
-  owned in-process by the main-system internal cleanup service.
+- `global-cleaner` was retired, non-executable, and its folder deleted
+  (E14, 2026-09-22). Its identity, lineage and audit records remain
+  registered as evidence; automatic cleanup is owned in-process by the
+  main-system internal cleanup service.
 - `system-rescue` is a main-system internal service only, not an
   independent tool.
 - `xingcheng` is an independent privileged institution, outside the
