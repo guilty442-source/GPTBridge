@@ -152,10 +152,47 @@ class ModelResourceManager:
         self._loaded[model_id] = LoadedModel(
             model_id=model_id, role=cls.value, vram_mb=vram_mb, ram_mb=ram_mb
         )
+        self._observe_plane()
         return AdmitDecision(True, "admitted", cls.value, model_id)
 
     def release(self, model_id: str) -> bool:
-        return self._loaded.pop(model_id, None) is not None
+        released = self._loaded.pop(model_id, None) is not None
+        if released:
+            self._observe_plane()
+        return released
+
+    def _observe_plane(self) -> None:
+        """P4 adaptive plane 生產者：模型子系統記憶體壓力。
+
+        ``model_load_pct``＝受管模型已佔 RAM／VRAM 各自對「已佔＋可用」
+        池的比例取 max（遙測缺失的池略過；兩池皆不可得則不寫，
+        fail-closed）。欄位級合併，不覆寫其他生產者的量測。失敗靜默：
+        訊號只是提示，不得影響資源閘門主流程。
+        """
+        try:
+            managed_ram = sum(m.ram_mb for m in self._loaded.values())
+            managed_vram = sum(m.vram_mb for m in self._loaded.values())
+            shares: list[float] = []
+            if self._ram_free_fn is not None:
+                ram_free = self._ram_free_fn()
+                if ram_free is not None and managed_ram + ram_free > 0:
+                    shares.append(managed_ram / (managed_ram + ram_free) * 100.0)
+            if self._gpu_free_fn is not None:
+                gpu_free = self._gpu_free_fn()
+                if gpu_free is not None and managed_vram + gpu_free > 0:
+                    shares.append(
+                        managed_vram / (managed_vram + gpu_free) * 100.0
+                    )
+            if not shares:
+                return
+            from shared_layer.adaptive import LoadSignals, get_plane
+
+            get_plane().observe_merge(
+                LoadSignals(model_load_pct=max(shares)),
+                fields=("model_load_pct",),
+            )
+        except Exception:
+            pass
 
     def loaded(self) -> list[LoadedModel]:
         return list(self._loaded.values())

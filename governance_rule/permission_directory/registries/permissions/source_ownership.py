@@ -116,6 +116,7 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "surface_reduction.py",
         "test_matrix_consolidation.py",
         "tokenizer.py",
+        "transport_notify.py",
     }
 )
 SHARED_LAYER_ALLOWED_PREFIXES: Final[tuple[str, ...]] = (
