@@ -326,9 +326,7 @@ class MaintenanceRepairChainMixin:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return  # no running loop — best-effort notification skipped
-        try:
-            loop.create_task(
-                self._notify_ui(
+        coro = self._notify_ui(
                     "maintenance:repair-completed",
                     {
                         "ok": ok,
@@ -340,10 +338,14 @@ class MaintenanceRepairChainMixin:
                         "health_authority": self.ROLE,
                         "decision_authority": "decision-sovereign",
                     },
-                )
-            )
+        )
+        try:
+            if loop.is_closed():
+                coro.close()
+                return
+            loop.create_task(coro)
         except Exception:
-            pass  # Best-effort.
+            coro.close()  # never schedule an orphaned coroutine
 
 
 __all__ = ["MaintenanceRepairChainMixin"]
