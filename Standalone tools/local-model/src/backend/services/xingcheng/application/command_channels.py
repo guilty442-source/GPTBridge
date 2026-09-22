@@ -234,7 +234,7 @@ class CommandChannelsMixin:
                     "cache_owner": "xingcheng",
                     "cache_storage": "local-model/runtime/cache/companions/star-chat",
                     "backup_owner": "xingcheng",
-                    "backup_storage": "global-cleaner/data/business/backups/xingcheng",
+                    "backup_storage": "system-rescue/data/business/backups/xingcheng",
                     "separate_model_service": False,
                     "separate_settings_layer": False,
                     "separate_business_layer": False,

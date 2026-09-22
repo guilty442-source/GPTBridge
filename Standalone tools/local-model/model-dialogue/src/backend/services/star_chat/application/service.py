@@ -362,7 +362,7 @@ class StarChatService(StarChatHelpersMixin):
             "cache_owner": "model-dialogue",
             "cache_storage": "model-dialogue/runtime/cache",
             "backup_owner": "model-dialogue",
-            "backup_storage": "global-cleaner/data/business/backups/model-dialogue",
+            "backup_storage": "system-rescue/data/business/backups/model-dialogue",
             "separated_from_model_service": True,
             "database_shared": True,
             "separate_business_layer": False,

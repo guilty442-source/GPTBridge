@@ -6,7 +6,7 @@
   "display_version": "1.0",
   "shared_permission_profile": "ai-investment-manager-v1",
   "shared_code_root": "Standalone tools/ai-assistant",
-  "managed_backup_storage": "global-cleaner/data/business/backups/ai-assistant",
+  "managed_backup_storage": "system-rescue/data/business/backups/ai-assistant",
   "status": "stopped",
   "enabled": true,
   "has_custom_ui": true,

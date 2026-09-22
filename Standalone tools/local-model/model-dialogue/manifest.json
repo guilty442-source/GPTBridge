@@ -25,7 +25,7 @@
   "shared_cache_owner": "model-dialogue",
   "cache_storage": "model-dialogue/runtime/cache",
   "backup_owner": "model-dialogue",
-  "backup_storage": "global-cleaner/data/business/backups/model-dialogue",
+  "backup_storage": "system-rescue/data/business/backups/model-dialogue",
   "permissions": {
     "profile": "local-model-platform-v1",
     "business_permission_owner": "model-dialogue",

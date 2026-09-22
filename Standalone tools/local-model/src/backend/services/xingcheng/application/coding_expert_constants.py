@@ -20,7 +20,6 @@ class CodingExpertConstants:
             "ai-assistant",
             "ai-collaboration",
             "file-sorter",
-            "global-cleaner",
             "investment-mobile",
             "xingcheng",
             "main-system",

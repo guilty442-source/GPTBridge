@@ -28,7 +28,7 @@
   "shared_cache_owner": "xingcheng",
   "cache_storage": "xingcheng/runtime/cache",
   "backup_owner": "xingcheng",
-  "backup_storage": "global-cleaner/data/business/backups/xingcheng",
+  "backup_storage": "system-rescue/data/business/backups/xingcheng",
   "permissions": {
     "profile": "local-model-platform-v1",
     "business_permission_owner": "xingcheng",

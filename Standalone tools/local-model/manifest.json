@@ -36,7 +36,7 @@
   "shared_cache_owner": "local-model",
   "cache_storage": "local-model/runtime/cache",
   "backup_owner": "local-model",
-  "backup_storage": "global-cleaner/data/business/backups/local-model",
+  "backup_storage": "system-rescue/data/business/backups/local-model",
   "permissions": {
     "profile": "local-model-platform-v1",
     "business_permission_owner": "local-model",

@@ -99,7 +99,7 @@ def health_payload() -> dict[str, Any]:
         "cache_owner": "model-dialogue",
         "cache_storage": "model-dialogue/runtime/cache",
         "backup_owner": "model-dialogue",
-        "backup_storage": "global-cleaner/data/business/backups/model-dialogue",
+        "backup_storage": "system-rescue/data/business/backups/model-dialogue",
         "main_system_independent_tool": True,
         "companion_tool": False,
         "companion_owner": "",
