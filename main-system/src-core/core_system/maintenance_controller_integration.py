@@ -315,50 +315,50 @@ class MaintenanceControllerIntegration:
         """Load pending maintenance jobs from PostgreSQL."""
         try:
             settings = DatabaseSettings.from_environment()
-            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
-                rows = conn.execute(
-                    """
-                    SELECT job_id, action_id, action_version, engine, database_id, module_id,
-                           risk_class, priority, status, generation, attempt_count,
-                           scheduled_at, started_at, completed_at, lease_until,
-                           before_state, after_state, result_code, error_code
-                    FROM gptbridge_maintenance.maintenance_jobs
-                    WHERE status IN ('PLANNED', 'QUEUED', 'RUNNING', 'VERIFYING', 'DEFERRED')
-                    ORDER BY priority, scheduled_at
-                    """
-                ).fetchall()
+            # §10.5 殘項：單次唯讀走 pool.execute 一次性介面。
+            rows = get_lane_pool().execute(
+                WorkloadClass.BACKGROUND,
+                """
+                SELECT job_id, action_id, action_version, engine, database_id, module_id,
+                       risk_class, priority, status, generation, attempt_count,
+                       scheduled_at, started_at, completed_at, lease_until,
+                       before_state, after_state, result_code, error_code
+                FROM gptbridge_maintenance.maintenance_jobs
+                WHERE status IN ('PLANNED', 'QUEUED', 'RUNNING', 'VERIFYING', 'DEFERRED')
+                ORDER BY priority, scheduled_at
+                """,
+            )
+            from shared_layer.database.maintenance.models import (
+                MaintenanceJob,
+                MaintenanceJobStatus,
+                MaintenanceRiskClass,
+            )
+            from uuid import UUID
 
-                from shared_layer.database.maintenance.models import (
-                    MaintenanceJob,
-                    MaintenanceJobStatus,
-                    MaintenanceRiskClass,
-                )
-                from uuid import UUID
-
-                jobs = []
-                for row in rows:
-                    jobs.append(MaintenanceJob(
-                        job_id=UUID(str(row[0])),
-                        action_id=row[1],
-                        action_version=row[2],
-                        engine=row[3],
-                        database_id=row[4],
-                        module_id=row[5],
-                        risk_class=MaintenanceRiskClass(row[6]),
-                        priority=row[7],
-                        status=MaintenanceJobStatus(row[8]),
-                        generation=row[9],
-                        attempt_count=row[10],
-                        scheduled_at=row[11],
-                        started_at=row[12],
-                        completed_at=row[13],
-                        lease_until=row[14],
-                        before_state=row[15] or {},
-                        after_state=row[16] or {},
-                        result_code=row[17] or "",
-                        error_code=row[18] or "",
-                    ))
-                return jobs
+            jobs = []
+            for row in rows:
+                jobs.append(MaintenanceJob(
+                    job_id=UUID(str(row[0])),
+                    action_id=row[1],
+                    action_version=row[2],
+                    engine=row[3],
+                    database_id=row[4],
+                    module_id=row[5],
+                    risk_class=MaintenanceRiskClass(row[6]),
+                    priority=row[7],
+                    status=MaintenanceJobStatus(row[8]),
+                    generation=row[9],
+                    attempt_count=row[10],
+                    scheduled_at=row[11],
+                    started_at=row[12],
+                    completed_at=row[13],
+                    lease_until=row[14],
+                    before_state=row[15] or {},
+                    after_state=row[16] or {},
+                    result_code=row[17] or "",
+                    error_code=row[18] or "",
+                ))
+            return jobs
         except Exception:
             return []
 

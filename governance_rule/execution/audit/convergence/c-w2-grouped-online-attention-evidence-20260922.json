@@ -1,0 +1,37 @@
+{
+  "schema": "c-w2-grouped-online-attention-evidence/v1",
+  "date": "2026-09-22T17:34Z",
+  "worker": "devin-cli",
+  "blueprint_item": "§11.2 W2-1: C 核心 grouped GEMM（逐專家 gather／GEMM 迴圈）＋線上分塊注意力（W1 殘）",
+  "scope": "native/core/transformer.c, native/core/transformer.h, native/include/gptbridge_native.h, native/test_suites/suite_simd_kernels.cpp, main-system/src-core/core_system/native/_binding.cpp",
+  "change": {
+    "matmul_grouped": "gptbridge_native_transformer_matmul_grouped — 單次 ABI 派送整個專家組迴圈：a 為各組列塊串接 [sum(group_rows) x k]，b_list[g] 為該組 [k x n] 權重，c 依組序回寫串接輸出；零列組允許、負列數／null b_list[g] fail-closed。C++ 引擎 MoE 路徑（engine.cpp）已由逐專家 gather/GEMM 迴圈改為 packed group rows + 三次 grouped 派送（gate/up/down）＋加權 scatter-add，語意與 modules/moe.py 相同。",
+    "attention_online": "gptbridge_native_transformer_attention_online — FlashAttention 式線上 softmax：按 K 分塊（block_k）維護 running max m 與 running sum l，逐塊 rescale 累加器，block_scores 工作區僅需 min(block_k, k_rows) doubles（原 SDPA 需 q_rows x k_rows）。數值上等價：l_run >= 1 恆成立（首塊最大元貢獻 exp(0)=1），無除零。",
+    "helpers": "抽取 dot_row／axpy_row SIMD 共用內核（AVX-512 8×double FMA／AVX2 4×double／scalar tail），sdpa step-1 dot 與 step-3 accumulate 改走相同內核（重構不改語意，parity 測試覆蓋）。",
+    "binding": "_binding.cpp 新增 transformer_attention_online(q,k,v,block_k) 與 transformer_matmul_grouped(a, group_rows, b_list) wrapper（GIL 僅於純計算段釋放）；.pyd 重建受 INT-10 窗口閘控，源碼先落地。",
+    "semantics_preserved": ["fp64 everywhere", "caller-provided output/workspace（C 核心零分配）", "GPTBRIDGE_SIMD_LEVEL 環境降級語義不變", "A219 parity 契約與 Python fallback 不變"]
+  },
+  "parity": {
+    "simd_kernels_suite": {
+      "scalar_GPTBRIDGE_SIMD_LEVEL_none": "10/10 PASS",
+      "avx2": "10/10 PASS",
+      "detected_avx512": "10/10 PASS"
+    },
+    "new_cases": [
+      "attention_online_matches_scalar_reference（block_k < / = / > k_rows 三組形狀，tol 1e-9 vs 兩趟式 ref_sdpa）",
+      "matmul_grouped_matches_scalar_reference（含零列組，tol 1e-8 vs ref_matmul_grouped）"
+    ],
+    "invalid_arguments_fail_closed": "新增 6 項：online block_k=0／d_k mismatch／k≠v rows；grouped 負 group_rows／null b_list／groups=0 — 全數 fail-closed",
+    "native_full_gate": "20 suites / 134 cases / 0 FAIL / 0 BLOCKED（native-report.json）"
+  },
+  "bench": {
+    "level": "avx512（偵測）",
+    "matmul_grouped_4x32x96x48_us": 19.028,
+    "sdpa_online_32x128x64x64_b32_us": 466.044,
+    "sdpa_32x48x64x64_us": 40.624,
+    "note": "線上注意力的收益是有界工作區（block_k=32 → 32 doubles vs 32×128=4096），小形狀下逐 K 列成本略高於兩趟式為預期取捨；長序列下 q×k scores 分配消失。scalar 層 bench 同錄（bench_none.json）。"
+  },
+  "build": "MSVC（build.ps1 全量重建 20 suites）；transformer.c 為純 C（無 C++ 引入，符合共通原則）",
+  "deferred": "生產 .pyd 重建與 Python dispatcher 派送線路待 INT-10 窗口解除後的受管構建；C++ 引擎生產啟用（XINGCHENG_CPP_RUNTIME）仍為 W2-2。",
+  "untouched": ["既存 sdpa/matmul/softmax/rmsnorm/rope ABI 簽名", "Python 訓練路徑（永不派送）", "KV pool 佈局", "prefix cache"]
+}

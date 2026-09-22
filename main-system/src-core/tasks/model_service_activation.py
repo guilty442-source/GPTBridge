@@ -539,41 +539,44 @@ class ModelServiceActivationBroker:
 
             # §10.5: periodic broker probe — background lane so it can
             # never starve the interactive lane's small inflight budget.
-            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
-                if explicit_stop_at > 0.0:
-                    row = conn.execute(
-                        """
-                        SELECT 1
-                        FROM gptbridge_transport.tool_request
-                        WHERE channel_id = 'ai'
-                          AND target_tool_id = %s
-                          AND status = 'queued'
-                          AND created_at > now() - (%s || ' minutes')::interval
-                          AND created_at > to_timestamp(%s)
-                          AND (deadline_at IS NULL OR deadline_at > now())
-                        LIMIT 1
-                        """,
-                        (
-                            TARGET_TOOL_ID,
-                            str(_PENDING_WINDOW_MINUTES),
-                            explicit_stop_at,
-                        ),
-                    ).fetchone()
-                else:
-                    row = conn.execute(
-                        """
-                        SELECT 1
-                        FROM gptbridge_transport.tool_request
-                        WHERE channel_id = 'ai'
-                          AND target_tool_id = %s
-                          AND status = 'queued'
-                          AND created_at > now() - (%s || ' minutes')::interval
-                          AND (deadline_at IS NULL OR deadline_at > now())
-                        LIMIT 1
-                        """,
-                        (TARGET_TOOL_ID, str(_PENDING_WINDOW_MINUTES)),
-                    ).fetchone()
-                return row is not None
+            # §10.5 殘項：單次唯讀探針走 pool.execute 一次性介面。
+            pool = get_lane_pool()
+            if explicit_stop_at > 0.0:
+                rows = pool.execute(
+                    WorkloadClass.BACKGROUND,
+                    """
+                    SELECT 1
+                    FROM gptbridge_transport.tool_request
+                    WHERE channel_id = 'ai'
+                      AND target_tool_id = %s
+                      AND status = 'queued'
+                      AND created_at > now() - (%s || ' minutes')::interval
+                      AND created_at > to_timestamp(%s)
+                      AND (deadline_at IS NULL OR deadline_at > now())
+                    LIMIT 1
+                    """,
+                    (
+                        TARGET_TOOL_ID,
+                        str(_PENDING_WINDOW_MINUTES),
+                        explicit_stop_at,
+                    ),
+                )
+            else:
+                rows = pool.execute(
+                    WorkloadClass.BACKGROUND,
+                    """
+                    SELECT 1
+                    FROM gptbridge_transport.tool_request
+                    WHERE channel_id = 'ai'
+                      AND target_tool_id = %s
+                      AND status = 'queued'
+                      AND created_at > now() - (%s || ' minutes')::interval
+                      AND (deadline_at IS NULL OR deadline_at > now())
+                    LIMIT 1
+                    """,
+                    (TARGET_TOOL_ID, str(_PENDING_WINDOW_MINUTES)),
+                )
+            return len(rows) > 0
         except Exception as error:
             _logger.debug("pending dialogue probe unavailable: %s", error)
             return False
