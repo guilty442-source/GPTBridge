@@ -246,6 +246,7 @@ def _gate_lock(root: Path, wait_s: float) -> Iterator[None]:
         except LockBusyError:
             if time.monotonic() >= deadline:
                 raise
+            time.sleep(0.5)
 
 
 def mandatory_test_gate(
@@ -359,6 +360,7 @@ def mandatory_test_gate(
                             "detail": suite_error,
                         }
                     ]
+                    report = {"passed": 0, "failed": 1, "blocked": 0}
                 entry = {
                     "suite": exe.stem,
                     "pass": int(report.get("passed", 0)) if report else 0,
