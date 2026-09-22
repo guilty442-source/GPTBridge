@@ -21,3 +21,11 @@
 ## 下一步
 
 - 以 `engine.cpp` 的 `matmul` 路徑為基線，量測 `prefill 512` 延遲與配置次數，再做 W1 分塊
+
+## 實作結果（2026-09-22，證據 `c-w1-qk-simd-evidence-20260922.json`）
+
+- 已落地：每頭一次解析 K/V 來源指標陣列（取代逐元素 `kv_slot` 查表）、移除 `k_all`/`v_all`/`k_t`/`head_out` 每頭暫存、`scores` 提升為每層單一重用緩衝、Q·K 改 streaming `dot_f64`、P·V 改 `axpy_f64` 直接累加進 `attn_flat`、AVX2 `__m256d` 核心＋`cpuid`/`xgetbv` 執行期偵測＋純量回退（masked 位置完全跳過不計算）
+- 與原計畫差異：scores 用每層重用 `std::vector` 而非 `mem_pool`（語義相同、零 C ABI 改動）；blocked GEMM 改 streaming dot＋axpy（head_dim=64 時記憶體配置收益更大且數值更貼近原實作）
+- 等價：top-32 logits 順序全同、最大差 1.5e-14（門檻 1e-3）、gen4 token 全同；KV cache 5/5、C↔C++ 一致性 4/4 PASS
+- 延遲（共載主機、min-of-runs）：prefill256 3609→2718 ms（−24.7%）、prefill512 6234→5750 ms（−7.7%）
+- 未做（後續）：FlashAttention 分塊、AVX-512 `__m512d`、跨層 scores pool 上限管控

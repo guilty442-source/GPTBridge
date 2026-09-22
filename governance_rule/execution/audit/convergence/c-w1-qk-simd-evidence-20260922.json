@@ -1,0 +1,37 @@
+{
+  "schema": "c-w1-qk-simd-evidence/v1",
+  "date": "2026-09-22",
+  "scope": "Standalone tools/local-model/src/backend/cpp/src/engine.cpp attention path (W1)",
+  "baseline_reference": "w1-parity-before.json (xingcheng/runtime/logs)",
+  "change": {
+    "q_times_k": "per-head k_all/v_all gather + k_t transpose + C-ABI matmul replaced by streaming dot_f64(q_row, k_src) with per-head K/V source-pointer resolution (one kv_slot lookup per (head, token) instead of per (s,t) element access)",
+    "pv": "scores x V matmul + head_out copy replaced by direct axpy_f64 accumulate into attn_flat",
+    "scores_buffer": "single scores vector per layer reused across all heads (was one allocation per head)",
+    "simd": "AVX2 __m256d kernels for dot/axpy; runtime detection via cpuid+xgetbv (MSVC) / __builtin_cpu_supports (GCC/Clang); scalar fallback identical semantics",
+    "masked_positions": "skipped entirely (no dot computed for t > position_offset + s)",
+    "semantics_preserved": ["causal mask t <= position_offset + s", "GQA kv_head = h / head_ratio", "FP64 everywhere", "softmax still via C ABI", "1/sqrt(head_dim) scale", "paged KV cache layout"]
+  },
+  "parity": {
+    "top32_logits_order": "exact match",
+    "top32_logits_max_abs_diff": 1.509903313490213e-14,
+    "minmax_logits_abs_diff": [3.552713678800501e-15, 1.7763568394002505e-15],
+    "tolerance": 0.001,
+    "gen4_token_ids": "exact match",
+    "gen4_text": "(QdrantState.",
+    "verdict": "PASS (diff is FP64 reassociation noise, 12 orders below tolerance)"
+  },
+  "latency_ms": {
+    "note": "noisy shared host (INT-10 + concurrent workers); min-of-runs compared",
+    "prefill256": {"before": [3609, 4250], "after": [2985, 2718, 2813, 3578], "min_delta_pct": -24.7},
+    "prefill512": {"before": [6234, 11297], "after": [11844, 8266, 5750], "min_delta_pct": -7.7},
+    "fwd64": {"before": [594, 609], "after": [671]},
+    "allocations_removed_per_head": "k_all, v_all, k_t, scores, head_out (5 vectors); kv_slot element lookups reduced to per-(head,token) pointer resolution"
+  },
+  "native_suites": {
+    "kv_cache_suite": "5/5 PASS",
+    "consistency_suite": "4/4 PASS (c_vs_cpp matmul/softmax contracts)"
+  },
+  "build": "MSVC 14.51, /O2, cp311+cp313 pyd built and installed to venv site-packages",
+  "scalar_fallback": "dot_f64/axpy_f64 compiled with runtime cpu_has_avx() gate; non-AVX hosts take identical scalar path (verified by code path, host is AVX-capable)",
+  "untouched": ["native/core (pure C)", "Python inference path", "KV pool layout", "prefix cache", "model loading"]
+}

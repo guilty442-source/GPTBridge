@@ -23,6 +23,14 @@
 #include <string_view>
 #include <unordered_set>
 
+#if defined(_M_X64) || defined(__x86_64__)
+#define XINGCHENG_W1_X64 1
+#include <immintrin.h>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+#endif
+
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -488,6 +496,75 @@ std::vector<double> linear(
     const std::vector<double>& transposed_weight,
     int64_t out_features) {
     return matmul(input.data(), rows, in_features, transposed_weight.data(), out_features);
+}
+
+// ── W1 attention kernels ───────────────────────────────────────────────
+// Streaming Q·K dot and score·V accumulate used by the attention loop.
+// AVX is used when the CPU supports it (runtime-detected once); scalar
+// fallback keeps identical semantics on machines without AVX.
+
+bool cpu_has_avx() {
+#if XINGCHENG_W1_X64
+    static const bool supported = [] {
+#if defined(_MSC_VER)
+        int regs[4] = {0, 0, 0, 0};
+        __cpuidex(regs, 1, 0);
+        const bool osxsave = (regs[2] & (1 << 27)) != 0;
+        const bool avx = (regs[2] & (1 << 28)) != 0;
+        if (!osxsave || !avx) return false;
+        return (_xgetbv(0) & 0x6) == 0x6;
+#else
+        __builtin_cpu_init();
+        return __builtin_cpu_supports("avx");
+#endif
+    }();
+    return supported;
+#else
+    return false;
+#endif
+}
+
+double dot_f64(const double* a, const double* b, int64_t n) {
+#if XINGCHENG_W1_X64
+    if (cpu_has_avx()) {
+        __m256d acc0 = _mm256_setzero_pd();
+        __m256d acc1 = _mm256_setzero_pd();
+        int64_t i = 0;
+        for (; i + 8 <= n; i += 8) {
+            acc0 = _mm256_add_pd(acc0, _mm256_mul_pd(
+                _mm256_loadu_pd(a + i), _mm256_loadu_pd(b + i)));
+            acc1 = _mm256_add_pd(acc1, _mm256_mul_pd(
+                _mm256_loadu_pd(a + i + 4), _mm256_loadu_pd(b + i + 4)));
+        }
+        acc0 = _mm256_add_pd(acc0, acc1);
+        const __m128d pair = _mm_add_pd(
+            _mm256_castpd256_pd128(acc0), _mm256_extractf128_pd(acc0, 1));
+        double sum = _mm_cvtsd_f64(pair)
+            + _mm_cvtsd_f64(_mm_unpackhi_pd(pair, pair));
+        for (; i < n; ++i) sum += a[i] * b[i];
+        return sum;
+    }
+#endif
+    double sum = 0.0;
+    for (int64_t i = 0; i < n; ++i) sum += a[i] * b[i];
+    return sum;
+}
+
+void axpy_f64(double* out, double weight, const double* v, int64_t n) {
+#if XINGCHENG_W1_X64
+    if (cpu_has_avx()) {
+        const __m256d wv = _mm256_set1_pd(weight);
+        int64_t i = 0;
+        for (; i + 4 <= n; i += 4) {
+            _mm256_storeu_pd(out + i, _mm256_add_pd(
+                _mm256_loadu_pd(out + i),
+                _mm256_mul_pd(wv, _mm256_loadu_pd(v + i))));
+        }
+        for (; i < n; ++i) out[i] += weight * v[i];
+        return;
+    }
+#endif
+    for (int64_t i = 0; i < n; ++i) out[i] += weight * v[i];
 }
 
 std::vector<double> rmsnorm(
@@ -1239,38 +1316,36 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
 
         std::vector<double> attn_flat(static_cast<size_t>(seq * q_dim), 0.0);
         const int64_t head_ratio = cfg.num_attention_heads / cfg.num_key_value_heads;
+        // W1: one scores buffer per layer reused across heads; per-head
+        // K/V source pointers resolved once — replaces the per-head
+        // k_all/v_all gather, k_t transpose and per-head scores/head_out
+        // allocations with a streaming Q·K dot + score·V accumulate
+        // (masked positions skip the dot entirely).
+        std::vector<double> scores(static_cast<size_t>(seq * total_len));
+        std::vector<const double*> k_srcs(static_cast<size_t>(total_len));
+        std::vector<const double*> v_srcs(static_cast<size_t>(total_len));
+        const double scale = 1.0 / std::sqrt(static_cast<double>(cfg.head_dim));
         for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
             const int64_t kv_head = h / head_ratio;
-            std::vector<double> k_all(static_cast<size_t>(total_len * cfg.head_dim));
-            std::vector<double> v_all(static_cast<size_t>(total_len * cfg.head_dim));
             for (int64_t t = 0; t < total_len; ++t) {
-                const double* k_src = nullptr;
-                const double* v_src = nullptr;
                 if (t < position_offset) {
-                    k_src = kv_slot(true, layer_idx, t, kv_head);
-                    v_src = kv_slot(false, layer_idx, t, kv_head);
+                    k_srcs[static_cast<size_t>(t)] = kv_slot(true, layer_idx, t, kv_head);
+                    v_srcs[static_cast<size_t>(t)] = kv_slot(false, layer_idx, t, kv_head);
                 } else {
                     const int64_t s = t - position_offset;
-                    k_src = k_heads.data() + (kv_head * seq + s) * cfg.head_dim;
-                    v_src = v_heads.data() + (kv_head * seq + s) * cfg.head_dim;
-                }
-                std::copy_n(k_src, cfg.head_dim, k_all.data() + t * cfg.head_dim);
-                std::copy_n(v_src, cfg.head_dim, v_all.data() + t * cfg.head_dim);
-            }
-            std::vector<double> k_t(static_cast<size_t>(cfg.head_dim * total_len));
-            for (int64_t d = 0; d < cfg.head_dim; ++d) {
-                for (int64_t t = 0; t < total_len; ++t) {
-                    k_t[static_cast<size_t>(d * total_len + t)] = k_all[static_cast<size_t>(t * cfg.head_dim + d)];
+                    k_srcs[static_cast<size_t>(t)] =
+                        k_heads.data() + (kv_head * seq + s) * cfg.head_dim;
+                    v_srcs[static_cast<size_t>(t)] =
+                        v_heads.data() + (kv_head * seq + s) * cfg.head_dim;
                 }
             }
             const double* q_head = q_heads.data() + h * seq * cfg.head_dim;
-            std::vector<double> scores = matmul(q_head, seq, cfg.head_dim, k_t.data(), total_len);
-            const double scale = 1.0 / std::sqrt(static_cast<double>(cfg.head_dim));
             for (int64_t s = 0; s < seq; ++s) {
+                const double* q_row = q_head + s * cfg.head_dim;
+                double* srow = scores.data() + s * total_len;
                 for (int64_t t = 0; t < total_len; ++t) {
-                    double& value = scores[static_cast<size_t>(s * total_len + t)];
-                    value = (t <= position_offset + s)
-                        ? value * scale
+                    srow[t] = (t <= position_offset + s)
+                        ? dot_f64(q_row, k_srcs[static_cast<size_t>(t)], cfg.head_dim) * scale
                         : -std::numeric_limits<double>::infinity();
                 }
             }
@@ -1278,13 +1353,14 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
                 gptbridge_native_transformer_softmax(
                     scores.data(), seq, total_len, scores.data()),
                 "attention-softmax");
-            std::vector<double> head_out = matmul(
-                scores.data(), seq, total_len, v_all.data(), cfg.head_dim);
             for (int64_t s = 0; s < seq; ++s) {
-                std::copy_n(
-                    head_out.data() + s * cfg.head_dim,
-                    cfg.head_dim,
-                    attn_flat.data() + s * q_dim + h * cfg.head_dim);
+                const double* srow = scores.data() + s * total_len;
+                double* out = attn_flat.data() + s * q_dim + h * cfg.head_dim;
+                for (int64_t t = 0; t < total_len; ++t) {
+                    axpy_f64(
+                        out, srow[t], v_srcs[static_cast<size_t>(t)],
+                        cfg.head_dim);
+                }
             }
         }
 
