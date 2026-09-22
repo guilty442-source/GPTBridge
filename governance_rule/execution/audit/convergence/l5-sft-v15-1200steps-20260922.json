@@ -1,7 +1,7 @@
 {
-  "evidence": "L5 SFT v15 1200 steps (medium 27M) — maturity L5 certified 4/4 dialogue probes",
+  "evidence": "L5 SFT v15 1200 steps (medium 27M) — maturity 全階梯認證 L7（L5 dialogue 4/4、L6 reasoning_tools、L7 controlled_evolution）",
   "at": "2026-09-22T11:29:31Z",
-  "lineage": "v13 (1691 rec/200步) 0/4 → v14 (5711 rec/800步) 1/4 → v15 (5653 rec/1200步) 4/4 PASS",
+  "lineage": "v13 (1691 rec/200步) L5 0/4 → v14 (5711 rec/800步) 1/4 → v15 (5653 rec/1200步) L5 4/4 且 L6/L7 全過",
   "dataset": "Standalone tools/local-model/xingcheng/runtime/sft/chat-foundation-v15-mixed.jsonl",
   "dataset_format": "star-chat-foundation/v1",
   "records": 5653,
@@ -29,10 +29,15 @@
     "eval_perplexity": 5.54
   },
   "evaluation": {
-    "probe": "maturity ladder L0-L5 (cpu, certify)",
-    "result": "L0-L4 pass, L5 dialogue_instruction pass (>=0.75 ratio)",
-    "report": "xingcheng/runtime/logs/maturity-20260922-112931.json",
-    "verdict": "PASS — certified_level=5"
+    "probe": "maturity ladder (cpu, certify)",
+    "result": "L0-L4 pass, L5 dialogue_instruction pass, L6 reasoning_tools pass, L7 controlled_evolution pass",
+    "reports": [
+      "xingcheng/runtime/logs/maturity-20260922-112931.json",
+      "xingcheng/runtime/logs/maturity-20260922-113656.json",
+      "xingcheng/runtime/logs/maturity-20260922-113923.json"
+    ],
+    "l7_detail": "kill_switch_ok(disabled fail-closed) + lifecycle_mechanics_ok + governed_cycle_ok(self-learning-20260921-130352 通過報告＋18 權重代＋3 評估報告)",
+    "verdict": "PASS — certified_level=7（全階梯）"
   },
   "comparison": {
     "v13": {"records": 1691, "steps": 200, "final_loss": 1.61, "l5": "0/4"},
