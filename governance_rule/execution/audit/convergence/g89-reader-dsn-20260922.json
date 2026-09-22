@@ -1,0 +1,22 @@
+{
+  "evidence": "G89 reader DSN 設立",
+  "at": "2026-09-22T14:30Z",
+  "worker": "devin",
+  "provision": {
+    "script": "scripts/provision-reader-dsn.py (idempotent; --dry-run / --rotate; secrets never printed)",
+    "login_role": "gptbridge_reader (LOGIN, member of NOLOGIN grant group gptbridge_xingcheng_reader)",
+    "group_role": "gptbridge_xingcheng_reader — RoleContract: SELECT on gptbridge_index/gptbridge_rag/gptbridge_audit (+ security/workflow/registry grants present on live DB)",
+    "credential_store": "CredMan target GPTBridge/postgres/dsn/reader",
+    "dsn_shape": "dbname=gptbridge user=gptbridge_reader password=<stored> host=127.0.0.1 port=5432"
+  },
+  "verification": {
+    "resolved_via_store": true,
+    "role": "gptbridge_reader",
+    "can_select_rag": true,
+    "write_denied": true,
+    "credentials_separated": true,
+    "note": "resolve_dsn(READER) verified with GPTBRIDGE_POSTGRES_* / GPTBRIDGE_XINGCHENG_* env masked — resolution flows through the governed credential store path"
+  },
+  "residual": "User env GPTBRIDGE_POSTGRES_*_DSN 清除仍屬操作者決策（env 為 dev fallback 且優先級高於 store）",
+  "observation": "deleted tool global-cleaner 的 PG 角色 gptbridge_module_global_cleaner_reader/executor 與資料庫 gptbridge_module_global_cleaner 仍存在於 live PostgreSQL——屬 E14-C 實體刪除之外的 DB 層殘留；DROP 為破壞性操作，留待總督／操作者裁決"
+}
