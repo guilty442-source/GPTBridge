@@ -1,0 +1,1358 @@
+{
+  "schema": "codex-semantic-duplication-scan/v1",
+  "generated_at": "2026-09-22T03:48:53Z",
+  "provisions_scanned": 800,
+  "pairs_examined": 319600,
+  "summary": {
+    "cross-layer-restatement": 15,
+    "prohibition-shared": 151,
+    "template-instance": 2
+  },
+  "findings": [
+    {
+      "provision_a": "A5",
+      "provision_b": "E2",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.818",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A13",
+      "provision_b": "E6",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.750",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A28",
+      "provision_b": "E7",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=1.000",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A29",
+      "provision_b": "E16",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.917",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A42",
+      "provision_b": "E28",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.706",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A45",
+      "provision_b": "P20",
+      "layers": "article<->principle",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=1.000",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A49",
+      "provision_b": "E35",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.816",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A58",
+      "provision_b": "E44",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.743",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A151",
+      "provision_b": "E126",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.765",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A166",
+      "provision_b": "E141",
+      "layers": "article<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.759",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A236",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A237",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A238",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A239",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A240",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A241",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A242",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A243",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A235",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A237",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A238",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A239",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A240",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A241",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A242",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A243",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A236",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A238",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A239",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A240",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A241",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A242",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A243",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A237",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A239",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A240",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A241",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A242",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A243",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A238",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A239",
+      "provision_b": "A240",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A239",
+      "provision_b": "A241",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A239",
+      "provision_b": "A242",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A239",
+      "provision_b": "A243",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A239",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A239",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A239",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A239",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A240",
+      "provision_b": "A241",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A240",
+      "provision_b": "A242",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A240",
+      "provision_b": "A243",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A240",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A240",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A240",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A240",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A241",
+      "provision_b": "A242",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A241",
+      "provision_b": "A243",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A241",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A241",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A241",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A241",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A242",
+      "provision_b": "A243",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A242",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A242",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A242",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A242",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A243",
+      "provision_b": "A244",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A243",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A243",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A243",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A244",
+      "provision_b": "A245",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A244",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A244",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A245",
+      "provision_b": "A246",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A245",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A246",
+      "provision_b": "A247",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A248",
+      "provision_b": "A249",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A248",
+      "provision_b": "A250",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A248",
+      "provision_b": "A251",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A249",
+      "provision_b": "A250",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A249",
+      "provision_b": "A251",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A250",
+      "provision_b": "A251",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A308",
+      "provision_b": "A309",
+      "layers": "article<->article",
+      "classification": "template-instance",
+      "similarity_basis": "rule-jaccard=0.906",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A316",
+      "provision_b": "A317",
+      "layers": "article<->article",
+      "classification": "template-instance",
+      "similarity_basis": "rule-jaccard=0.938",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A504",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A505",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A506",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A507",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A508",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A509",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A510",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A511",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A503",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A505",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A506",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A507",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A508",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A509",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A510",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A511",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A504",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A506",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A507",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A508",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A509",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A510",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A511",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A505",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A506",
+      "provision_b": "A507",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A506",
+      "provision_b": "A508",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A506",
+      "provision_b": "A509",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A506",
+      "provision_b": "A510",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A506",
+      "provision_b": "A511",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A506",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A506",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A506",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A507",
+      "provision_b": "A508",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A507",
+      "provision_b": "A509",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A507",
+      "provision_b": "A510",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A507",
+      "provision_b": "A511",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A507",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A507",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A507",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A508",
+      "provision_b": "A509",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A508",
+      "provision_b": "A510",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A508",
+      "provision_b": "A511",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A508",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A508",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A508",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A509",
+      "provision_b": "A510",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A509",
+      "provision_b": "A511",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A509",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A509",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A509",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A510",
+      "provision_b": "A511",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A510",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A510",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A510",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A511",
+      "provision_b": "A512",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A511",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A511",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A512",
+      "provision_b": "A513",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A512",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A513",
+      "provision_b": "A514",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "A529",
+      "provision_b": "A530",
+      "layers": "article<->article",
+      "classification": "prohibition-shared",
+      "similarity_basis": "normalized-prohibition",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "P9",
+      "provision_b": "E1",
+      "layers": "principle<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.800",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "P19",
+      "provision_b": "E24",
+      "layers": "principle<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.909",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "P24",
+      "provision_b": "E36",
+      "layers": "principle<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.737",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "P49",
+      "provision_b": "E75",
+      "layers": "principle<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.706",
+      "merge_candidate": "review-required"
+    },
+    {
+      "provision_a": "P85",
+      "provision_b": "E120",
+      "layers": "principle<->edict",
+      "classification": "cross-layer-restatement",
+      "similarity_basis": "token-jaccard=0.833",
+      "merge_candidate": "review-required"
+    }
+  ],
+  "note": "evidence-only scan; fills codex_semantic_duplication_scan via governed amendment; merge candidates require manual/sovereign review — never auto-merge"
+}
