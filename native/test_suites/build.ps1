@@ -98,9 +98,42 @@ $suites = @(
             (Join-Path $auditDir "audit_engine.cpp")
         )
     },
-    @{ src = "suite_blocked.cpp"; exe = "baseline_suite.exe" },
-    @{ src = "suite_blocked.cpp"; exe = "eval_suite.exe" },
-    @{ src = "suite_blocked.cpp"; exe = "dialogue_suite.exe" }
+    @{
+        src = "suite_baseline.cpp"; exe = "baseline_suite.exe"
+        # §10.60 baseline：真實 cpp bundle 載入＋確定性＋反退化（已解鎖）
+        inc = @(
+            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\include")
+        )
+        extra = @(
+            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\src\engine.cpp"),
+            (Join-Path $coreDir "transformer.c"),
+            (Join-Path $coreDir "kv_pool.c")
+        )
+    },
+    @{
+        src = "suite_eval.cpp"; exe = "eval_suite.exe"
+        # §10.60 eval：star-native-eval-v1 ppl＋sanity＋tps 閘門
+        inc = @(
+            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\include")
+        )
+        extra = @(
+            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\src\engine.cpp"),
+            (Join-Path $coreDir "transformer.c"),
+            (Join-Path $coreDir "kv_pool.c")
+        )
+    },
+    @{
+        src = "suite_dialogue.cpp"; exe = "dialogue_suite.exe"
+        # §10.60 dialogue：star-native-eval-dialogue-v1 同構閘門
+        inc = @(
+            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\include")
+        )
+        extra = @(
+            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\src\engine.cpp"),
+            (Join-Path $coreDir "transformer.c"),
+            (Join-Path $coreDir "kv_pool.c")
+        )
+    }
 )
 
 $bat = Join-Path $out "_build.bat"
@@ -112,7 +145,11 @@ foreach ($suite in $suites) {
     if ($suite.ContainsKey("extra")) {
         foreach ($e in $suite.extra) { $extraSrcs += " `"$e`"" }
     }
-    $lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$exePath /Fo:$out\ `"$srcPath`"$extraSrcs >nul || exit /b 1"
+    $extraInc = ""
+    if ($suite.ContainsKey("inc")) {
+        foreach ($i in $suite.inc) { $extraInc += " /I`"$i`"" }
+    }
+    $lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`"$extraInc /Fe:$exePath /Fo:$out\ `"$srcPath`"$extraSrcs >nul || exit /b 1"
 }
 # 獨立審計引擎 CLI（pre-commit 閘門嵌入式）
 $auditExe = Join-Path $out "audit-engine.exe"

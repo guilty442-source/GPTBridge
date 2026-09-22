@@ -1,0 +1,80 @@
+// Suite: native dialogue eval — star-native-eval-dialogue-v1 規格語義
+// （§10.60 dialogue；取代 BLOCKED_MODEL_RUNTIME）：held-out 對話語料
+// ppl（決定性截斷）＋「你好」sanity 生成＋min_tps 閘門。
+#include "suite_model_common.hpp"
+#include "harness.hpp"
+
+namespace {
+
+const char* SUITE = "STAR_DIALOGUE_SUITE";
+const char* SPEC_REL =
+    "Standalone tools/local-model/xingcheng/eval/"
+    "star-native-eval-dialogue-v1.json";
+constexpr int64_t kEvalTokenCap = 512;
+
+suite_model::xc::NativeInferenceEngine g_engine;
+suite_model::EvalSpec g_spec;
+
+bool ensure_loaded() {
+    if (!g_engine.loaded()) {
+        const auto bundle =
+            suite_model::find_bundle_dir(suite_model::find_repo_root());
+        if (bundle.empty()) return false;
+        g_engine.load(bundle.string());
+    }
+    return g_engine.loaded();
+}
+
+} // namespace
+
+int main() {
+    NT_SUITE(SUITE);
+
+    NT_TEST(SUITE, "dialogue_suite_spec_loads") {
+        const auto root = suite_model::find_repo_root();
+        NT_CHECK(!root.empty(), "repo root");
+        std::string err;
+        NT_CHECK(suite_model::load_eval_spec(root / SPEC_REL,
+                                             &g_spec, &err),
+                 "dialogue spec");
+        NT_CHECK(g_spec.suite_id == "star-native-eval-dialogue-v1",
+                 "suite_id");
+        NT_CHECK(g_spec.sanity_prompt == "你好", "sanity prompt");
+    }
+    NT_END_TEST(SUITE, "dialogue_suite_spec_loads");
+
+    NT_TEST(SUITE, "dialogue_perplexity_beats_uniform") {
+        NT_CHECK(ensure_loaded(), "engine.load");
+        const auto ids = suite_model::eval_tokens(
+            g_engine, g_spec.eval_text, kEvalTokenCap);
+        NT_CHECK(ids.size() >= 32, "eval tokens");
+        const auto [nll, count] = g_engine.sequence_nll(ids);
+        NT_CHECK(count >= 31, "scored tokens");
+        const double ppl =
+            std::exp(nll / static_cast<double>(count));
+        NT_CHECK(std::isfinite(ppl) && ppl > 1.0, "ppl finite");
+        NT_CHECK(ppl < 8192.0, "ppl beats uniform");
+    }
+    NT_END_TEST(SUITE, "dialogue_perplexity_beats_uniform");
+
+    NT_TEST(SUITE, "dialogue_sanity_generation_and_tps_gate") {
+        NT_CHECK(ensure_loaded(), "engine.load");
+        const auto prompt = g_engine.encode(
+            g_spec.sanity_prompt, true, false, 0);
+        suite_model::xc::SamplingConfig greedy;
+        greedy.do_sample = false;
+        const auto t0 = std::chrono::steady_clock::now();
+        const auto out = g_engine.generate(
+            prompt, g_spec.sanity_max_new, greedy);
+        const double secs = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - t0).count();
+        if (g_spec.require_generation)
+            NT_CHECK(!out.empty(), "require_generation");
+        const double tps = secs > 0 ? out.size() / secs : 0.0;
+        NT_CHECK(tps >= g_spec.min_tps,
+                 "min_tokens_per_second gate");
+    }
+    NT_END_TEST(SUITE, "dialogue_sanity_generation_and_tps_gate");
+
+    return native_tests::report("dialogue_suite.json");
+}
