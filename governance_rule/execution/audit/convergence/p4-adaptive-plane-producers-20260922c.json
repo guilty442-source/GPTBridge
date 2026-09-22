@@ -1,0 +1,46 @@
+{
+  "evidence_id": "p4-adaptive-plane-producers-c",
+  "ts": "2026-09-22T18:49:24Z",
+  "item": "P4 adaptive plane：全欄位生產者收尾——observe→observe_merge 遷移＋sqlite 聚合＋qdrant 延遲",
+  "changes": [
+    "maintenance_controller_integration：observe() 整體替換改 observe_merge（此前每 tick 會抹掉 perf-baseline／資源總管／連線池注入的欄位）；加掛 sqlite_pending_count（WAL≥50MB DB 數）／sqlite_db_bytes／sqlite_wal_bytes 聚合",
+    "QdrantCanonicalRuntime.search → observe_merge(qdrant_latency_ms)：canonical 檢索路徑量測，失敗靜默",
+    "並行工作者補 pipeline_recovery：qdrant_backlog／degraded／degraded_seconds（RagRuntimeStateMachine.seconds_in_state 錨定）"
+  ],
+  "producers": {
+    "maintenance_controller": [
+      "pg_latency_ms",
+      "lock_contention_pct",
+      "active_connections",
+      "transport_backlog",
+      "reconcile_backlog",
+      "sqlite_pending_count",
+      "sqlite_db_bytes",
+      "sqlite_wal_bytes"
+    ],
+    "perf_baseline_job": [
+      "cpu_pct",
+      "ram_pct"
+    ],
+    "model_resource_manager": [
+      "model_load_pct"
+    ],
+    "connection_manager": [
+      "pool_wait_timeouts",
+      "pg_wait_ms"
+    ],
+    "qdrant_canonical_runtime": [
+      "qdrant_latency_ms"
+    ],
+    "pipeline_recovery": [
+      "qdrant_backlog",
+      "degraded",
+      "degraded_seconds"
+    ]
+  },
+  "verification": {
+    "new_tests": "test_adaptive_plane_merge.py 11/11 PASS",
+    "regression": "maintenance/rag/qdrant 相關檔逐檔全綠（101＋56＋35＋36 PASS）"
+  },
+  "residual": "無——LoadSignals 全欄位皆有實生產者；消費端行為仍 ALLOW-by-default 直至訊號持續"
+}
