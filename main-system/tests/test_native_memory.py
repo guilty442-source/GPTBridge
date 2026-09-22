@@ -310,6 +310,18 @@ def test_native_build_layers_are_explicit_and_valid():
     assert manifest["binding_layer"] == [
         "main-system/src-core/core_system/native/_binding.cpp"
     ]
-    assert manifest["public_c_abi"] == ["native/include/gptbridge_native.h"]
+    assert manifest["public_c_abi"] == [
+        "native/include/gptbridge_native.h",
+        "native/include/watchdog.h",
+        "native/include/scheduler.h",
+        "native/include/outbox.h",
+        "native/include/maintenance.h",
+        "native/include/ipc_registry.h",
+        "native/include/runtime_state.h",
+        "native/include/activation_broker.h",
+        "native/include/system_rescue.h",
+        "native/include/governed_tool.h",
+        "native/include/a263_channel_core.h",
+    ]
     assert all(path.endswith(".c") for path in manifest["c_core_layer"])
     assert manifest["link_language"] == "c++"
