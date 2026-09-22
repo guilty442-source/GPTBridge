@@ -1,1 +1,1 @@
-{"type": "model-dir-size", "severity": "warning", "detail": "26825773790 bytes"}
+{"type": "assignment-unmaterialized", "severity": "info", "child": "dependency-sync-sub-sovereign", "detail": "module VAULTLY manager not materialized"}
