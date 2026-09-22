@@ -68,6 +68,17 @@ class SelfLearningPolicy:
     training_timezone: str = "Asia/Taipei"
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "07:00"
+    # §2.7 閘門預設關閉（0/disabled），受管設定檔明示開啟——沿用
+    # min_new_examples 等欄位慣例：程式預設為後備值，生效值以政策檔為準。
+    # §2.7-1 觸發政策：兩次訓練啟動的最小間隔（事件驅動＋最低間隔）
+    min_interval_s: int = 0
+    # §2.7-4/8 資源與防爆走：每日訓練嘗試次數上限（UTC 日計）
+    max_cycles_per_day: int = 0
+    # §2.7-8 防爆走：連續訓練失敗熔斷；達上限後 stop（政策檔調整才可復歸）
+    max_consecutive_failures: int = 0
+    # §2.7-4 與推論互斥：星澄推論引擎已載入（含閒置快取）時不啟動訓練；
+    # 狀態無法判定時 fail-closed 阻斷
+    inference_exclusion: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

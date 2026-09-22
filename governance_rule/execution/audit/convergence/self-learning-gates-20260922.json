@@ -1,0 +1,29 @@
+{
+  "schema": "self-learning-gates/v1",
+  "date": "2026-09-22",
+  "scope": "§2.7 星澄自主訓練 — items 1/4/8 gate implementation",
+  "files": [
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py"
+  ],
+  "implemented": {
+    "min_interval_s": "§2.7-1 最低間隔 — state.last_run_at + policy.min_interval_s; invalid timestamp fail-closed (invalid-last-run-at)",
+    "max_cycles_per_day": "§2.7-4/8 每日嘗試預算 — state.cycles_today {date,count} UTC; counted at job creation so crashes count",
+    "max_consecutive_failures": "§2.7-8 連續失敗熔斷 — state.consecutive_failures; +1 on training-failed/dataset-split-unavailable, reset on staged/upgraded/rejected; force cannot bypass",
+    "inference_exclusion": "§2.7-4 與推論互斥 — blocks while native_engine._engine_cache non-empty (same-process); indeterminate state fail-closed (inference-state-unavailable); cross-process covered by executor GPU gate (evidenced 2026-09-22 08:39Z timeout)"
+  },
+  "defaults": "all three budget/breaker/interval gates default 0 (off); operative values set in governed runtime/settings/self-learning.json (gitignored governed config — policy changes are governor-controlled per §2.7-1); inference_exclusion defaults True",
+  "verification": {
+    "gate_matrix_smoke": "9/9 scenarios correct (breaker block/pass, interval block/disable/invalid-ts, daily-cap/stale-date, inference active/unknown/clean)",
+    "existing_suite": "tests/test_phase_self_learning.py + test_self_learning_quiet_hours.py 9/9 PASS (175s)",
+    "note": "defaults opt-in keeps existing local test expectations (tests/ is gitignored local harness)"
+  },
+  "gaps_remaining": [
+    "§2.7-3 curriculum selection (fixed SFT today)",
+    "§2.7-1 quality-drift / capability-degradation triggers",
+    "§2.7-2 synthetic-ratio cap",
+    "§2.7-9 post-cycle maturity re-test + resource accounting",
+    "§2.7-7 rollback rehearsal (conflict: _retire_previous_artifact deletes previous weights; §2.7 wants previous kept — governor ruling needed)",
+    "§2.7-10 3 consecutive autonomous cycles acceptance + codex amendment"
+  ]
+}

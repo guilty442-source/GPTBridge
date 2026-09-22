@@ -21,6 +21,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -86,6 +87,80 @@ def _retire_previous_artifact(previous: Path, keep: Path) -> bool:
         return False
 
 
+def _blocked(reason: str, **extra: Any) -> dict[str, Any]:
+    return {"ok": True, "action": "blocked", "reason": reason, **extra}
+
+
+def _failure_breaker_status(
+    policy: SelfLearningPolicy, state: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-8 連續失敗熔斷：達上限即停，非 force 可繞（fail-closed）。"""
+    limit = int(policy.max_consecutive_failures)
+    streak = int(state.get("consecutive_failures") or 0)
+    if limit <= 0 or streak < limit:
+        return None
+    return _blocked(
+        "failure-breaker",
+        consecutive_failures=streak,
+        max_consecutive_failures=limit,
+    )
+
+
+def _min_interval_status(
+    policy: SelfLearningPolicy, state: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-1 最低間隔：距上次循環活動不足 min_interval_s 即略過。"""
+    gap = int(policy.min_interval_s)
+    last_run = state.get("last_run_at")
+    if gap <= 0 or not last_run:
+        return None
+    try:
+        last_dt = datetime.fromisoformat(str(last_run).replace("Z", "+00:00"))
+        elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds()
+    except (ValueError, TypeError):
+        return _blocked("invalid-last-run-at", last_run_at=last_run)
+    if elapsed < gap:
+        return _blocked(
+            "min-interval", elapsed_s=round(elapsed, 1), min_interval_s=gap
+        )
+    return None
+
+
+def _daily_budget_status(
+    policy: SelfLearningPolicy, state: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-4/8 每日訓練嘗試次數預算（UTC 日計）。"""
+    cap = int(policy.max_cycles_per_day)
+    if cap <= 0:
+        return None
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    counter = state.get("cycles_today")
+    if (
+        isinstance(counter, Mapping)
+        and counter.get("date") == today
+        and int(counter.get("count") or 0) >= cap
+    ):
+        return _blocked(
+            "daily-cycle-budget", cycles_today=dict(counter), max_per_day=cap
+        )
+    return None
+
+
+def _inference_active() -> bool | None:
+    """True when a xingcheng inference engine is cached (idle or in-flight).
+
+    Returns None when the state cannot be determined — callers treat that
+    as fail-closed block (§2.7-4 與推論互斥)."""
+    try:
+        from .. import native_engine
+    except Exception:  # noqa: BLE001 — fail-closed signal, not silent pass
+        return None
+    cache = getattr(native_engine, "_engine_cache", None)
+    if cache is None:
+        return None
+    return bool(cache)
+
+
 def run_cycle_impl(
     tool_root: str | Path,
     *,
@@ -104,6 +179,14 @@ def run_cycle_impl(
             "checked_at": _iso_now(),
         }
 
+    breaker = _failure_breaker_status(resolved_policy, state)
+    if breaker is not None:
+        return {
+            **breaker,
+            "policy": resolved_policy.to_dict(),
+            "checked_at": _iso_now(),
+        }
+
     window = training_window_status(resolved_policy)
     if not window["allowed"]:
         return {
@@ -114,6 +197,32 @@ def run_cycle_impl(
             "policy": resolved_policy.to_dict(),
             "checked_at": _iso_now(),
         }
+
+    for gate in (
+        _min_interval_status(resolved_policy, state),
+        _daily_budget_status(resolved_policy, state),
+    ):
+        if gate is not None:
+            return {
+                **gate,
+                "policy": resolved_policy.to_dict(),
+                "checked_at": _iso_now(),
+            }
+
+    if resolved_policy.inference_exclusion:
+        active = _inference_active()
+        if active is not False:
+            return {
+                "ok": True,
+                "action": "blocked",
+                "reason": (
+                    "inference-active"
+                    if active
+                    else "inference-state-unavailable"
+                ),
+                "policy": resolved_policy.to_dict(),
+                "checked_at": _iso_now(),
+            }
 
     examples = collect_verified_examples(tool)
     total = sum(len(records) for records in examples.values())
@@ -157,12 +266,26 @@ def run_cycle_impl(
         except ValueError as error:
             last_error = error
     if snapshot is None:
-        return {
+        failure = {
             "ok": False,
             "action": "blocked",
             "reason": f"dataset-split-unavailable:{last_error}",
             "total_examples": total,
         }
+        save_state(
+            tool,
+            {
+                **state,
+                "last_run_at": _iso_now(),
+                "last_action": "training-failed",
+                "last_error": failure["reason"],
+                "consecutive_failures": int(
+                    state.get("consecutive_failures") or 0
+                )
+                + 1,
+            },
+        )
+        return failure
 
     repository = TransformerTrainingRepository(tool)
     dataset = repository.create_dataset(
@@ -212,6 +335,16 @@ def run_cycle_impl(
         requested_by="star-self-learning",
     )
     job_id = str(job["job_id"])
+    # §2.7-4/8：訓練嘗試在啟動前先計入每日預算（crash 也計入，fail-closed）
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    counter = state.get("cycles_today")
+    count = (
+        int(counter.get("count") or 0)
+        if isinstance(counter, Mapping) and counter.get("date") == today
+        else 0
+    )
+    state = {**state, "cycles_today": {"date": today, "count": count + 1}}
+    save_state(tool, {**state, "last_run_at": _iso_now()})
     executor = (
         TrainingJobExecutor(repository, train_fn=train_fn)
         if train_fn is not None
@@ -235,6 +368,10 @@ def run_cycle_impl(
                 "last_action": "training-failed",
                 "last_job_id": job_id,
                 "last_error": failure.get("error_message"),
+                "consecutive_failures": int(
+                    state.get("consecutive_failures") or 0
+                )
+                + 1,
             },
         )
         failure["report"] = str(_write_report(tool, failure))
@@ -342,6 +479,7 @@ def run_cycle_impl(
             "last_adapter_id": adapter_id,
             "last_evaluations": evaluations,
             "active_weights_version": lifecycle.active_weights_version,
+            "consecutive_failures": 0,
             "last_error": None,
         },
     )
