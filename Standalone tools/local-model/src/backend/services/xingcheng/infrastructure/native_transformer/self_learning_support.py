@@ -40,7 +40,15 @@ from .self_learning import (
 
 LIFECYCLE_RELATIVE = "xingcheng/runtime/models/lifecycle/xingcheng-native"
 SETTINGS_RELATIVE = "runtime/settings/native-engine.json"
+MATURITY_STATE_RELATIVE = "xingcheng/runtime/state/model-maturity.json"
 MODEL_ID = "xingcheng-native"
+
+# §2.7-3 課程映射：依 maturity 首個未達級決定本循環課程（每循環單一課程）
+_CURRICULUM_COURSES: dict[int, str] = {
+    5: "sft-dialogue",
+    6: "sft-reasoning",
+    7: "sft-evolution",
+}
 
 
 def _write_report(tool: Path, payload: Mapping[str, Any]) -> Path:
@@ -146,6 +154,101 @@ def _daily_budget_status(
     return None
 
 
+def _pool_stats(
+    policy: SelfLearningPolicy,
+    examples: Mapping[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """範例池觀測：平均品質與合成／自我生成比例。"""
+    prefixes = tuple(str(p) for p in policy.synthetic_source_prefixes)
+    total = 0
+    synthetic = 0
+    quality_sum = 0.0
+    for records in examples.values():
+        for record in records:
+            total += 1
+            quality_sum += float(record.get("quality_score") or 0.0)
+            if str(record.get("source_type") or "").startswith(prefixes):
+                synthetic += 1
+    return {
+        "total": total,
+        "synthetic_count": synthetic,
+        "synthetic_ratio": (synthetic / total) if total else 0.0,
+        "pool_avg_quality": (quality_sum / total) if total else 0.0,
+    }
+
+
+def _quality_drift_status(
+    policy: SelfLearningPolicy, stats: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-1 品質漂移護欄：池平均品質低於下限即停（fail-closed）。"""
+    floor = float(policy.min_pool_avg_quality)
+    if floor <= 0:
+        return None
+    if float(stats["pool_avg_quality"]) < floor:
+        return _blocked(
+            "quality-drift",
+            pool_avg_quality=round(float(stats["pool_avg_quality"]), 4),
+            min_pool_avg_quality=floor,
+        )
+    return None
+
+
+def _synthetic_ratio_status(
+    policy: SelfLearningPolicy, stats: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """§2.7-2 合成比例上限：自我生成資料超上限即停（防自我放大）。"""
+    cap = float(policy.max_synthetic_ratio)
+    if cap <= 0 or not stats["total"]:
+        return None
+    if float(stats["synthetic_ratio"]) > cap:
+        return _blocked(
+            "synthetic-ratio-exceeded",
+            synthetic_count=int(stats["synthetic_count"]),
+            total_examples=int(stats["total"]),
+            synthetic_ratio=round(float(stats["synthetic_ratio"]), 4),
+            max_synthetic_ratio=cap,
+        )
+    return None
+
+
+def _select_curriculum(
+    policy: SelfLearningPolicy, tool: Path
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """§2.7-3 課程選擇：依 maturity 首個未達級選課程。
+
+    回傳 ``(course_info, blocked)``；policy 未啟用時回固定 ``sft``。
+    啟用時 maturity 狀態不可讀或 certified_level < 4（對話基礎未達）
+    → fail-closed blocked。"""
+    if not policy.curriculum_enabled:
+        return {"course": "sft", "curriculum_enabled": False}, None
+    path = tool / MATURITY_STATE_RELATIVE
+    try:
+        maturity = json.loads(path.read_text(encoding="utf-8"))
+        certified = int(maturity["certified_level"])
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None, _blocked(
+            "maturity-state-unavailable", maturity_state=str(path)
+        )
+    if certified < 4:
+        return None, _blocked(
+            "curriculum-foundation-unmet", certified_level=certified
+        )
+    if certified >= 7:
+        course, target = "sft-refresh", None
+    else:
+        target = certified + 1
+        course = _CURRICULUM_COURSES[target]
+    return (
+        {
+            "course": course,
+            "target_level": target,
+            "certified_level": certified,
+            "curriculum_enabled": True,
+        },
+        None,
+    )
+
+
 def _inference_active() -> bool | None:
     """True when a xingcheng inference engine is cached (idle or in-flight).
 
@@ -225,11 +328,23 @@ def run_cycle_impl(
             }
 
     examples = collect_verified_examples(tool)
-    total = sum(len(records) for records in examples.values())
-    trained_total = int(state.get("trained_example_total") or 0)
-    new_examples = max(0, total - trained_total)
     if not examples:
         return {"ok": True, "action": "idle", "reason": "no-verified-examples", "total_examples": 0}
+    # §2.7-1/2 範例池護欄（品質漂移／合成比例；資料池劣化先於門檻暴露）
+    stats = _pool_stats(resolved_policy, examples)
+    for gate in (
+        _quality_drift_status(resolved_policy, stats),
+        _synthetic_ratio_status(resolved_policy, stats),
+    ):
+        if gate is not None:
+            return {
+                **gate,
+                "policy": resolved_policy.to_dict(),
+                "checked_at": _iso_now(),
+            }
+    total = int(stats["total"])
+    trained_total = int(state.get("trained_example_total") or 0)
+    new_examples = max(0, total - trained_total)
     if not force and new_examples < int(resolved_policy.min_new_examples):
         return {
             "ok": True,
@@ -239,6 +354,42 @@ def run_cycle_impl(
             "new_examples": new_examples,
             "threshold": int(resolved_policy.min_new_examples),
         }
+
+    # §2.7-3 課程選擇：決定本循環課程（單一課程；失敗即停由熔斷閘門承擔）
+    curriculum, curriculum_blocked = _select_curriculum(resolved_policy, tool)
+    if curriculum_blocked is not None:
+        return {
+            **curriculum_blocked,
+            "policy": resolved_policy.to_dict(),
+            "checked_at": _iso_now(),
+        }
+    course_intents = resolved_policy.curriculum_intent_map.get(
+        str(curriculum["course"])
+    )
+    if course_intents:
+        wanted = {str(intent) for intent in course_intents}
+        examples = {
+            scope: [
+                record
+                for record in records
+                if str(record.get("intent") or "") in wanted
+            ]
+            for scope, records in examples.items()
+        }
+        examples = {scope: recs for scope, recs in examples.items() if recs}
+        if not examples:
+            return {
+                **_blocked(
+                    "course-dataset-empty",
+                    course=str(curriculum["course"]),
+                    intents=sorted(wanted),
+                ),
+                "policy": resolved_policy.to_dict(),
+                "checked_at": _iso_now(),
+            }
+        curriculum["intent_filter"] = sorted(wanted)
+        total = sum(len(recs) for recs in examples.values())
+        new_examples = max(0, total - trained_total)
 
     from ..native_eval_suite import run_evaluation
     from ..sft_dataset import build_sft_dataset
@@ -331,6 +482,8 @@ def run_cycle_impl(
             "log_every": max(1, int(resolved_policy.max_steps) // 8),
             "device": str(resolved_policy.device),
             "gpu_required_mb": int(resolved_policy.gpu_required_mb),
+            "curriculum_course": str(curriculum["course"]),
+            "maturity_target_level": curriculum.get("target_level"),
         },
         requested_by="star-self-learning",
     )
@@ -454,20 +607,61 @@ def run_cycle_impl(
             pruned = _retire_previous_artifact(active_path, artifact)
             action = "upgraded"
 
+    # §2.7-9 資源帳：訓練耗時／步數／資料量／裝置，留於報告與狀態
+    trainer_summary = report.get("summary") or {}
+    resource_account = {
+        "elapsed_seconds": trainer_summary.get("elapsed_seconds"),
+        "steps": trainer_summary.get("steps"),
+        "device": str(resolved_policy.device),
+        "dataset_example_count": snapshot["manifest"].get("example_count"),
+        "train_count": snapshot["manifest"].get("train_count"),
+        "validation_count": snapshot["manifest"].get("validation_count"),
+    }
+
     summary = {
         "ok": True,
         "action": action,
         "job_id": job_id,
         "adapter_id": adapter_id,
         "dataset_id": str(dataset["dataset_id"]),
+        "curriculum": curriculum,
         "new_examples": new_examples,
         "total_examples": total,
         "evaluations": evaluations,
         "released": released,
         "runtime_checkpoint": pinned,
         "previous_weights_pruned": pruned,
+        "resource_account": resource_account,
+        "pool": stats,
         "checked_at": _iso_now(),
     }
+
+    # §2.7-9 升級後 maturity 重測（政策啟用時；失敗記錄不中斷升級，
+    # 因 rollback 語義待裁決——結果留審計供治理判定）
+    if action == "upgraded" and resolved_policy.post_upgrade_maturity_recheck:
+        try:
+            from .maturity import certify, persist_report
+
+            recheck_report = certify(
+                checkpoint=artifact,
+                tool_root=tool,
+                device=str(resolved_policy.maturity_recheck_device),
+            )
+            recheck_path = persist_report(tool, recheck_report)
+            summary["maturity_recheck"] = {
+                "ok": True,
+                "certified_level": recheck_report.get("certified_level"),
+                "certified_level_name": recheck_report.get(
+                    "certified_level_name"
+                ),
+                "report": str(recheck_path),
+            }
+        except Exception as exc:  # noqa: BLE001 — 記錄而非吞沒
+            summary["maturity_recheck"] = {
+                "ok": False,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
     save_state(
         tool,
         {
@@ -478,7 +672,11 @@ def run_cycle_impl(
             "last_job_id": job_id,
             "last_adapter_id": adapter_id,
             "last_evaluations": evaluations,
+            "last_course": curriculum.get("course"),
+            "last_maturity_recheck": summary.get("maturity_recheck"),
             "active_weights_version": lifecycle.active_weights_version,
+            "resource_account": resource_account,
+            "pool": stats,
             "consecutive_failures": 0,
             "last_error": None,
         },

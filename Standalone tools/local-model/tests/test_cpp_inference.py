@@ -872,3 +872,64 @@ def test_cpp_quantized_layerwise_parity(tmp_path: Path) -> None:
         abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
         for a, e in zip(actual, expected)
     )
+
+
+# P3f GPU coordination: the C++ CUDA opt-in must pass through
+# GpuCoordinator's budget gate at CppInferenceEngine load; denial or an
+# unreachable coordinator degrades to CPU and is ledger-audited
+# (fail-soft, same contract as native engine _gate_cuda_device).
+
+
+def test_cpp_cuda_gate_degrades_when_coordinator_unreachable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    _patched_roots(monkeypatch, tmp_path)
+    checkpoint = _tiny_checkpoint(tmp_path)
+    monkeypatch.setenv("XINGCHENG_CPP_CUDA", "1")
+    events: list[dict] = []
+    monkeypatch.setattr(cpp_runtime, "_ledger_append", events.append)
+
+    engine = cpp_runtime.CppInferenceEngine(checkpoint)
+    assert engine._engine.cuda_active() is False
+    assert engine._engine.logits([1, 9, 10])
+    assert any(
+        e.get("event") == "gpu-budget-downgrade" and e.get("engine") == "cpp"
+        for e in events
+    )
+    # Scoped env restores the caller's prior value, never pops it.
+    assert os.environ.get("XINGCHENG_CPP_CUDA") == "1"
+
+
+def test_cpp_cuda_gate_grants_within_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA device not present")
+    try:
+        from shared_layer.adaptive.gpu_coordinator import (  # noqa: F401
+            GpuCoordinator,
+        )
+    except ModuleNotFoundError:
+        pytest.skip("shared_layer not importable in this env")
+
+    _patched_roots(monkeypatch, tmp_path)
+    checkpoint = _tiny_checkpoint(tmp_path)
+    monkeypatch.setenv("XINGCHENG_CPP_CUDA", "1")
+    engine = cpp_runtime.CppInferenceEngine(checkpoint)
+    assert engine._engine.cuda_active() is True
+    module = cpp_runtime.load_extension()
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    assert engine._engine.generate([1, 9, 10, 11], 4, sampling)
+
+
+def test_cpp_cuda_gate_default_off(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patched_roots(monkeypatch, tmp_path)
+    checkpoint = _tiny_checkpoint(tmp_path)
+    monkeypatch.delenv("XINGCHENG_CPP_CUDA", raising=False)
+    engine = cpp_runtime.CppInferenceEngine(checkpoint)
+    assert engine._engine.cuda_active() is False

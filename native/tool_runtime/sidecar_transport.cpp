@@ -46,6 +46,48 @@ struct ProxySidecar::Impl {
 
     ~Impl() { close_all(); }
 
+    /* 讀滿一行（協定丟棄行不在此層判斷）。deadline_at 超過或斷管回
+       false；子行程退出時先排乾殘留位元組。 */
+    bool read_line(double deadline_at, std::string* out) {
+        for (;;) {
+            const auto nl = pending.find('\n');
+            if (nl != std::string::npos) {
+                *out = pending.substr(0, nl);
+                pending.erase(0, nl + 1);
+                if (!out->empty() && out->back() == '\r') out->pop_back();
+                return true;
+            }
+            DWORD avail = 0;
+            if (!PeekNamedPipe(stdout_r, nullptr, 0, nullptr, &avail,
+                               nullptr)) {
+                return false; /* 斷管 */
+            }
+            if (avail == 0) {
+                if (WaitForSingleObject(process, 0) != WAIT_TIMEOUT) {
+                    DWORD leftover = 0;
+                    PeekNamedPipe(stdout_r, nullptr, 0, nullptr,
+                                  &leftover, nullptr);
+                    if (leftover == 0) return false;
+                } else if (now_seconds() >= deadline_at) {
+                    return false;
+                } else {
+                    Sleep(kPollMs);
+                    continue;
+                }
+            }
+            char buf[8192];
+            DWORD want = avail > 0
+                             ? (avail < sizeof(buf) ? avail : sizeof(buf))
+                             : sizeof(buf);
+            DWORD got = 0;
+            if (!ReadFile(stdout_r, buf, want, &got, nullptr)) {
+                return false;
+            }
+            if (got == 0) continue;
+            pending.append(buf, got);
+        }
+    }
+
     void close_all() {
         for (HANDLE* h :
              {&child_stdin_r, &child_stdout_w, &stdin_w, &stdout_r}) {
@@ -134,51 +176,6 @@ bool ProxySidecar::start(const std::string& command_line,
     return true;
 }
 
-namespace {
-
-bool read_line(ProxySidecar::Impl* impl, double deadline_at,
-               std::string* out) {
-    for (;;) {
-        const auto nl = impl->pending.find('\n');
-        if (nl != std::string::npos) {
-            *out = impl->pending.substr(0, nl);
-            impl->pending.erase(0, nl + 1);
-            if (!out->empty() && out->back() == '\r') out->pop_back();
-            return true;
-        }
-        DWORD avail = 0;
-        if (!PeekNamedPipe(impl->stdout_r, nullptr, 0, nullptr, &avail,
-                           nullptr)) {
-            return false; /* 斷管 */
-        }
-        if (avail == 0) {
-            if (WaitForSingleObject(impl->process, 0) != WAIT_TIMEOUT) {
-                /* 子行程已退出；排乾殘留位元組後再判一次 */
-                DWORD leftover = 0;
-                PeekNamedPipe(impl->stdout_r, nullptr, 0, nullptr,
-                              &leftover, nullptr);
-                if (leftover == 0) return false;
-            } else if (now_seconds() >= deadline_at) {
-                return false;
-            } else {
-                Sleep(kPollMs);
-                continue;
-            }
-        }
-        char buf[8192];
-        DWORD want = avail > 0 ? (avail < sizeof(buf) ? avail : sizeof(buf))
-                               : sizeof(buf);
-        DWORD got = 0;
-        if (!ReadFile(impl->stdout_r, buf, want, &got, nullptr)) {
-            return false;
-        }
-        if (got == 0) continue;
-        impl->pending.append(buf, got);
-    }
-}
-
-} // namespace
-
 bool ProxySidecar::call(const std::string& op,
                         const std::string& args_json, ProxyResponse* out,
                         SidecarError* err) {
@@ -208,7 +205,7 @@ bool ProxySidecar::call(const std::string& op,
     const double deadline_at = now_seconds() + kDefaultCallDeadlineSeconds;
     std::string resp_line;
     for (;;) {
-        if (!read_line(impl_, deadline_at, &resp_line)) {
+        if (!impl_->read_line(deadline_at, &resp_line)) {
             if (err) {
                 err->code = running() ? "PROXY_TIMEOUT"
                                       : "PROXY_DISCONNECTED";

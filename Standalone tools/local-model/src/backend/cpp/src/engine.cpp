@@ -1229,6 +1229,10 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     }
 }
 
+bool NativeInferenceEngine::cuda_active() const {
+    return g_cuda_requested.load();
+}
+
 void NativeInferenceEngine::unload() {
     bundle_.reset();
     tokenizer_.reset();

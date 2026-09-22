@@ -31,6 +31,7 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
         .def("load", &NativeInferenceEngine::load, py::arg("bundle_dir"))
         .def("unload", &NativeInferenceEngine::unload)
         .def("loaded", &NativeInferenceEngine::loaded)
+        .def("cuda_active", &NativeInferenceEngine::cuda_active)
         .def(
             "encode",
             &NativeInferenceEngine::encode,

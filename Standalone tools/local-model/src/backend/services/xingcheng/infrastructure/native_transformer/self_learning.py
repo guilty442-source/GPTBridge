@@ -79,6 +79,23 @@ class SelfLearningPolicy:
     # §2.7-4 與推論互斥：星澄推論引擎已載入（含閒置快取）時不啟動訓練；
     # 狀態無法判定時 fail-closed 阻斷
     inference_exclusion: bool = True
+    # §2.7-2 合成／自我生成資料比例上限（防自我放大；0=停用）。
+    # source_type 以任一前綴開頭者計入合成／自我生成。
+    max_synthetic_ratio: float = 0.0
+    synthetic_source_prefixes: tuple[str, ...] = (
+        "synthetic",
+        "self-distillation",
+    )
+    # §2.7-1 品質漂移護欄：範例池平均品質低於下限即停（0=停用）
+    min_pool_avg_quality: float = 0.0
+    # §2.7-3 課程選擇：依 maturity 未達項決定本循環課程
+    # （預設關閉＝沿用固定 SFT；開啟時 maturity 狀態不可讀 → fail-closed）
+    curriculum_enabled: bool = False
+    # 課程→intent 過濾（空 dict＝不過濾）；過濾後無資料 → blocked
+    curriculum_intent_map: dict[str, list[str]] = field(default_factory=dict)
+    # §2.7-9 升級後 maturity 重測（預設關閉；結果記錄於報告與狀態）
+    post_upgrade_maturity_recheck: bool = False
+    maturity_recheck_device: str = "cpu"
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -94,6 +111,12 @@ class SelfLearningPolicy:
         }
         if "suites" in fields and not isinstance(fields["suites"], tuple):
             fields["suites"] = tuple(str(item) for item in fields["suites"])
+        if "synthetic_source_prefixes" in fields and not isinstance(
+            fields["synthetic_source_prefixes"], tuple
+        ):
+            fields["synthetic_source_prefixes"] = tuple(
+                str(item) for item in fields["synthetic_source_prefixes"]
+            )
         return cls(**fields)
 
 

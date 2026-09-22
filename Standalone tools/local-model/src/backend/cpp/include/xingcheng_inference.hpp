@@ -139,6 +139,7 @@ public:
     void load(const std::string& bundle_dir);
     void unload();
     bool loaded() const { return bundle_ != nullptr; }
+    bool cuda_active() const;
 
     std::vector<int64_t> encode(
         const std::string& text,

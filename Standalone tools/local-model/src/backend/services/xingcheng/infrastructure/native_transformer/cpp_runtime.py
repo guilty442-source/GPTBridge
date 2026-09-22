@@ -308,15 +308,18 @@ class CppInferenceEngine:
             with coordinator.acquire(
                 required_mb, priority="inference", timeout=timeout
             ):
+                prev = os.environ.get("XINGCHENG_CPP_CUDA")
                 os.environ["XINGCHENG_CPP_CUDA"] = "1"
                 try:
                     return load_engine(
                         self.bundle_dir, kv_memory_limit=limit
                     )
                 finally:
-                    os.environ.pop("XINGCHENG_CPP_CUDA", None)
+                    if prev is None:
+                        os.environ.pop("XINGCHENG_CPP_CUDA", None)
+                    else:
+                        os.environ["XINGCHENG_CPP_CUDA"] = prev
         except Exception as error:
-            os.environ.pop("XINGCHENG_CPP_CUDA", None)
             self._record_cuda_downgrade(required_mb, error)
             return load_engine(self.bundle_dir, kv_memory_limit=limit)
 
