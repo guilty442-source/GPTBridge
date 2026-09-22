@@ -74,6 +74,9 @@ std::string args_submit_request(const std::string& channel,
 std::string args_submit_response(const std::string& channel,
                                  const std::string& target_tool_id,
                                  const std::string& request_id);
+std::string args_submit_cancel(const std::string& channel,
+                               const std::string& target_tool_id,
+                               const std::string& request_id);
 std::string args_push(const std::string& channel,
                       const std::string& target_tool_id,
                       const std::string& command,

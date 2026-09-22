@@ -130,6 +130,9 @@ struct ToolHost::Impl {
     std::thread claim_thread;
     std::mutex conn_mu;
     std::set<SOCKET> conns;
+    /* 活動 conn 執行緒數（detached）：run() 必須等其歸零才釋放
+       impl_/WSACleanup，否則 conn 收尾路徑對已釋放 impl_ UAF。 */
+    std::atomic<int> active_conns{0};
 
     /* waiters: request_id → ws socket（{cmd}_result 推送目標） */
     std::mutex waiter_mu;
@@ -487,6 +490,9 @@ int ToolHost::run() {
         for (SOCKET s : impl_->conns) closesocket(s);
         impl_->conns.clear();
     }
+    /* detached conn 執行緒收尾（conns 已關 → recv/send 即返回）；
+       歸零前不得釋放 impl_／WSACleanup（UAF 防線）。 */
+    while (impl_->active_conns.load() > 0) Sleep(1);
     if (impl_->sidecar) impl_->sidecar->stop();
     if (impl_->submit_sidecar) impl_->submit_sidecar->stop();
     WSACleanup();
@@ -500,9 +506,18 @@ ToolHost::~ToolHost() {
         request_stop();
         if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
         if (impl_->claim_thread.joinable()) impl_->claim_thread.join();
+        {
+            std::lock_guard<std::mutex> lk(impl_->conn_mu);
+            for (SOCKET s : impl_->conns) closesocket(s);
+            impl_->conns.clear();
+        }
         if (impl_->sidecar) impl_->sidecar->stop();
         if (impl_->submit_sidecar) impl_->submit_sidecar->stop();
         WSACleanup();
+    }
+    if (impl_) {
+        /* 同 run()：detached conn 執行緒歸零後才可釋放 impl_。 */
+        while (impl_->active_conns.load() > 0) Sleep(1);
     }
 }
 
@@ -674,8 +689,11 @@ void ToolHost::accept_loop() {
         }
         impl_->n_connections.fetch_add(1);
         {
+            /* active_conns 與 conns 同鎖入帳：執行緒排程前就計數，
+               run() 排空才不會在「已建立未啟動」窗口漏數。 */
             std::lock_guard<std::mutex> lk(impl_->conn_mu);
             impl_->conns.insert(c);
+            impl_->active_conns.fetch_add(1);
         }
         std::thread([this, c] { conn_loop(c); }).detach();
     }
@@ -683,6 +701,11 @@ void ToolHost::accept_loop() {
 
 void ToolHost::conn_loop(intptr_t sock) {
     const SOCKET c = static_cast<SOCKET>(sock);
+    /* 計數已於 accept_loop 入帳；此處只負責離開時銷帳。 */
+    struct ConnGuard {
+        std::atomic<int>& n;
+        ~ConnGuard() { n.fetch_sub(1); }
+    } guard{impl_->active_conns};
     std::string buf;
     buf.reserve(8192);
     char tmp[8192];
@@ -864,9 +887,11 @@ void ToolHost::handle_ws_message(intptr_t sock, const std::string& text) {
         bool cancelled = false;
         const std::string& ch = impl_->cfg.process_channels.front();
         if (!request_id.empty() &&
-            impl_->proxy_submit("cancel",
-                                tpx::args_request_id(ch, request_id),
-                                &resp) &&
+            impl_->proxy_submit(
+                "cancel",
+                tpx::args_submit_cancel(ch, impl_->cfg.tool_id,
+                                        request_id),
+                &resp) &&
             resp.ok &&
             resp.result.type == jl::JsonValue::Type::Bool) {
             cancelled = resp.result.boolean;

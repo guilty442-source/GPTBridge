@@ -234,9 +234,12 @@ bool read_frame(SOCKET s, gtw::WsFrame* out, int timeout_ms = 5000) {
     static std::map<SOCKET, std::string> pending;
     std::string& buf = pending[s];
     char tmp[4096];
-    timeval tv{0, 100000};
+    /* Winsock SO_RCVTIMEO 取 DWORD 毫秒——誤傳 timeval{0,...}
+       前 4 bytes 為 0 → 逾時=無限 → recv 永久阻塞（本 bug）。 */
+    DWORD rcv_ms = 100;
     setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,
-               reinterpret_cast<const char*>(&tv), sizeof(tv));
+               reinterpret_cast<const char*>(&rcv_ms),
+               sizeof(rcv_ms));
     const auto deadline = std::chrono::steady_clock::now() +
                           std::chrono::milliseconds(timeout_ms);
     while (std::chrono::steady_clock::now() < deadline) {
@@ -808,11 +811,13 @@ int main() {
             send(ws, masked_text(cmd).data(),
                  static_cast<int>(masked_text(cmd).size()), 0);
             gtw::WsFrame f;
+
             if (!check(read_frame(ws, &f, 15000) &&
                            f.payload.find("COMMAND_RECEIVED") !=
                                std::string::npos,
                        "recv COMMAND_RECEIVED (live e2e)"))
                 return false;
+
             if (!check(read_frame(ws, &f, 15000) &&
                            f.payload.find("echo_result") !=
                                std::string::npos &&

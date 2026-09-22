@@ -201,6 +201,16 @@ std::string args_submit_response(const std::string& channel,
     return join_obj(f);
 }
 
+std::string args_submit_cancel(const std::string& channel,
+                               const std::string& target_tool_id,
+                               const std::string& request_id) {
+    std::vector<std::string> f;
+    kv_str(&f, "channel", channel);
+    kv_str(&f, "target_tool_id", target_tool_id);
+    kv_str(&f, "request_id", request_id);
+    return join_obj(f);
+}
+
 std::string args_push(const std::string& channel,
                       const std::string& target_tool_id,
                       const std::string& command,
