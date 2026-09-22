@@ -1,0 +1,46 @@
+{
+  "schema": "star-governor-lasso-evidence/v1",
+  "at": "2026-09-22T14:22Z",
+  "scope": "\u00a710.64 Process Lasso-inspired tier: ProBalance, CPU limiter, background-equivalent, EcoQoS, per-program rules, monitoring surface",
+  "policy": {
+    "control_actions_default": "off \u2014 enable via CLI flags or rules-file defaults; per-program rules cannot enable a globally-off feature",
+    "monitoring_surface_default": "on \u2014 I/O counters, action state flags, responsiveness latency, feature snapshot",
+    "protections_unchanged": "governance plane, system/security processes, kill switch GPTBRIDGE_GOVERNOR_DISABLE, every action audited; all actions reversible"
+  },
+  "implementation": {
+    "governor": "scripts/resource-governor.py",
+    "rules_file": "main-system/config/resource-governor-rules.json (defaults all false, programs empty)",
+    "tests": "main-system/tests/test_resource_governor.py"
+  },
+  "api_facts": {
+    "os": "Windows 11 26200 (10.0.26200)",
+    "process_mode_background": "SetPriorityClass(PROCESS_MODE_BACKGROUND_BEGIN) fails ERROR_INVALID_PARAMETER (87) on other processes \u2014 documented current-process-only, verified live; cross-process equivalent implemented instead",
+    "background_equivalent": "IDLE_PRIORITY_CLASS + SetProcessInformation(ProcessMemoryPriority=1) + NtSetInformationProcess(ProcessIoPriority=0) \u2014 all verified on a live child process",
+    "ecoqos": "SetProcessInformation(ProcessPowerThrottling, EXECUTION_SPEED) \u2014 verified True on a live child",
+    "cpu_limiter": "Job Object CPU rate hard cap (SetInformationJobObject + AssignProcessToJobObject) \u2014 set, in-place update and clear verified on a live child",
+    "io_priority": "NtSetInformationProcess(ProcessIoPriority class 33): NTSTATUS 0 for very-low(0) and normal(2)"
+  },
+  "tests": {
+    "result": "14 passed (full file, live API probe enabled)",
+    "default_gate": "13 passed; the live probe is skipped unless GPTBRIDGE_GOVERNOR_API_PROBE=1",
+    "cases_added": [
+      "rules loading/validation (priority/affinity/limit/background/ecoqos/exclude, invalid JSON fail-closed)",
+      "feature flags default off; explicit CLI disable beats rules default",
+      "rule actions applied once and held (never auto-reverted)",
+      "dynamic tiers feature-gated; releases on calm",
+      "ProBalance strain demote/restore over the responsiveness hysteresis",
+      "monitoring surface fields (I/O counters, flags, responsiveness, features)",
+      "live Windows API probe on a child process"
+    ]
+  },
+  "dry_run_snapshot_excerpt": {
+    "command": "python scripts/resource-governor.py --once --dry-run",
+    "processes": 158,
+    "tracked": 158,
+    "responsiveness": {"latency_ms": 8.19, "baseline_ms": 8.19, "ratio": 1.0, "strained": false},
+    "probalance": {"enabled": false, "strained": false, "demoted": 0},
+    "features": {"probalance": false, "cpu_limiter": false, "background_mode": false, "ecoqos": false, "limiter_percent": 10.0, "resp_strain_ratio": 1.8, "rules_loaded": true, "rules_error": null},
+    "top_cpu_example": {"name": "Devin.exe", "cpu": 100.3, "plane": "external", "io_read_mb": 10395.8, "io_write_mb": 9313.6, "flags": []},
+    "actions": []
+  }
+}

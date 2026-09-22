@@ -16,12 +16,29 @@ Fail-closed semantics mirror the other act-1 shadows:
   * modes other than ``"shadow"`` are refused (``"primary"``/``"retire"``
     are later acts).
 
-Known intentional modeling gaps (recorded, not hidden): the C gate composes
-M2 as ``authorized`` only, while the Python policy additionally requires
-the M1 health conjunction for M2; generation mismatches, queue capacity
-and duplicate ids refuse natively where the Python gate has no equivalent,
-and the Python budget/lease/cooldown gates sit downstream of the compared
-verdict — each shapes a divergence record rather than a silent pass.
+Flag mapping (the caller supplies the gate inputs; ``policy_context`` is
+folded here into ``system_blocked``):
+
+  * ``system_idle`` — the verdict of a parallel ``evaluate_policy(M1)``
+    probe: False whenever any global block *or* a health threshold fails.
+    Consulted by the C M1 and M2 gates (M2 = authorized ∧ M1-health,
+    matching ``evaluate_policy``).
+  * ``system_blocked`` — the union of ``evaluate_policy``'s global early
+    returns (blocking recovery state, shutdown draining, cooldown, lease
+    conflict).  Refuses every class, matching Python — required for exact
+    M0 parity.
+  * ``authorized`` — ``governed_authorization`` for M2.
+  * generation mismatch is checked inside the C layer itself.
+
+Known intentional modeling gaps (recorded, not hidden): ``get_next_job``
+pops FIFO from a queue already filled in priority order while ``next_due``
+picks min(priority, scheduled_at) with expiry — ordering divergences under
+equal timestamps are evidence, not noise; Python expires queued jobs by
+``admitted_at`` age inside ``tick`` where the C side expires inside
+``next_due``; post-policy vetoes (budget / lease / cooldown) are mirrored
+via ``observe_admit_veto`` so the C table tracks the actually-enqueued
+set; ``requeue_job`` is only reached by startup recovery and is not
+mirrored.
 """
 
 from __future__ import annotations
@@ -62,6 +79,35 @@ def _now_ms() -> int:
 def _risk_ord(risk_class: Any) -> int:
     value = getattr(risk_class, "value", risk_class)
     return _RISK_ORD.get(str(value), -1)
+
+
+def _system_blocked(policy_context: Optional[dict[str, Any]]) -> bool:
+    """Fold ``evaluate_policy``'s global early returns into one flag.
+
+    ``None`` (older call-site shape, or a stubbed observer test) degrades
+    to ``False`` — the divergence record still carries the inputs.
+    """
+    if not policy_context:
+        return False
+    try:
+        from shared_layer.database.maintenance.policies import (
+            DEFAULT_POLICY,
+            SystemRecoveryState,
+        )
+    except Exception:
+        return False
+    recovery = policy_context.get("recovery_state", SystemRecoveryState.NORMAL)
+    if isinstance(recovery, str):
+        try:
+            recovery = SystemRecoveryState(recovery)
+        except ValueError:
+            recovery = SystemRecoveryState.NORMAL
+    return (
+        recovery in DEFAULT_POLICY.recovery_states_blocking
+        or bool(policy_context.get("shutdown_draining", False))
+        or bool(policy_context.get("maintenance_cooldown_active", False))
+        or bool(policy_context.get("active_lease_conflict", False))
+    )
 
 
 class MaintenanceNativeShadow:
@@ -177,11 +223,13 @@ class MaintenanceNativeShadow:
         system_idle: bool,
         authorized: bool,
         py_executable: bool,
+        policy_context: Optional[dict[str, Any]] = None,
     ) -> None:
         """Compare the class-ladder admission verdict item-by-item."""
         if self._disabled:
             return
         try:
+            blocked = _system_blocked(policy_context)
             verdict = bool(
                 self._mt.admit(
                     str(job_id),
@@ -192,9 +240,14 @@ class MaintenanceNativeShadow:
                     bool(system_idle),
                     bool(authorized),
                     _now_ms(),
+                    system_blocked=blocked,
                 )
             )
             if verdict != bool(py_executable):
+                if verdict:
+                    # Phantom admit: resync the mirror so it cannot spam
+                    # dispatch-divergence on every later tick.
+                    self._mt.cancel(str(job_id))
                 self._emit(
                     {
                         "kind": "divergence",
@@ -209,6 +262,7 @@ class MaintenanceNativeShadow:
                             "generation": int(generation),
                             "system_idle": bool(system_idle),
                             "authorized": bool(authorized),
+                            "system_blocked": blocked,
                         },
                         "python": {"executable": bool(py_executable)},
                         "native": {"admitted": verdict},
@@ -257,15 +311,31 @@ class MaintenanceNativeShadow:
         except Exception as exc:
             self._disable("native-dispatch-error", exc)
 
+    def observe_admit_veto(self, job_id: str) -> None:
+        """Python refused a policy-admitted job on a downstream gate
+        (budget / lease-conflict re-eval / cooldown / lease acquire) —
+        withdraw the mirrored native job so the tables stay comparable."""
+        if self._disabled:
+            return
+        try:
+            self._mt.cancel(str(job_id))
+        except Exception as exc:
+            self._disable("native-veto-error", exc)
+
     def observe_terminal(self, job_id: str, *, ok: bool) -> None:
-        """Mirror job completion/failure into the native queue state."""
+        """Mirror job completion/failure into the native queue state.
+
+        Failure is a terminal withdrawal: Python's ``complete_job`` does
+        not requeue failed jobs, so a C ``fail`` deferral would wrongly
+        resurrect them.
+        """
         if self._disabled:
             return
         try:
             done = (
                 self._mt.complete(str(job_id))
                 if ok
-                else self._mt.fail(str(job_id), _now_ms())
+                else self._mt.cancel(str(job_id))
             )
             if not done:
                 self._emit(
