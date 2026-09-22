@@ -1,0 +1,538 @@
+provision_id,subject,primary_dimension,kind,owners,delegation_note
+A1,governance-rule,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A10,authorization,安全與稽核,governance,,retain in codex (governance/boundary)
+A100,deterministic-version-classification,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A101,module-execution-native-source-launch,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A102,loaded-governed-backend-module-runtime-reexecution,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A103,bounded-codex-proxy,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A104,candidate-build-review-and-human-seal,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A107,codex-storage-format,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A108,ghost-provision-prohibition,安全與稽核,governance,,retain in codex (governance/boundary)
+A109,version-increment-accuracy,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A11,fail-closed,安全與稽核,governance,permission,retain in codex (governance/boundary)
+A111,explicit-sovereign-powers,治理/權責,governance,explicit-sovereign,retain in codex (governance/boundary)
+A112,cryptography-and-key-lifecycle,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A113,data-retention,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A114,backup-integrity,安全與稽核,governance,,retain in codex (governance/boundary)
+A115,time-and-clock,時限/預算,governance,,retain in codex (governance/boundary)
+A116,resource-quota,模型/推論,business,automation;automation-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A117,api-contract-versioning,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A118,security-operations,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A119,codex-conflict-procedure,安全與稽核,governance,eligible-sovereign,retain in codex (governance/boundary)
+A12,sovereign-decision,治理/權責,governance,decision;permission,retain in codex (governance/boundary)
+A120,codex-language-style,安全與稽核,governance,,retain in codex (governance/boundary)
+A121,security-boundary-enforcement,安全與稽核,governance,,retain in codex (governance/boundary)
+A122,codex-interpretation-hierarchy,安全與稽核,governance,eligible-sovereign,retain in codex (governance/boundary)
+A123,system-learning-sovereign,安全與稽核,governance,learning-evidence-sync-sub-sovereign;system-learning-sovereign,retain in codex (governance/boundary)
+A124,system-programming-sovereign,模型/推論,business,automation;programming-sovereign;sub-sovereign;system-programming-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A125,maintenance-sovereign-focused-duty,安全與稽核,governance,decision;decision-sovereign;health-maintenance-test-sub-sovereign;maintenance-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A126,system-sovereign-dual-division,工程實作要求,business,decision;direct-cross-sovereign;system-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A127,sovereign-rank-and-view-alignment,工程實作要求,business,automation;automation-sovereign;decision;decision-sovereign;legacy-single-system-sovereign;permission;permission-sovereign;runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A128,adaptive-sovereign-responsibility-map,資料/SQL,business,adaptive-sovereign;automation;cross-sovereign;decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A13,hot-update,安全與稽核,governance,,retain in codex (governance/boundary)
+A130,adaptive-sub-sovereign-topology,資料/SQL,business,adaptive-sub-sovereign;may-operate-without-sub-sovereign;runtime-sovereign;startup-sub-sovereign;sub-sovereign;unnecessary-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A131,sub-sovereign-capability-ceiling,流程/程序,business,sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A132,registered-sovereign-codex-view-allowlist,治理/權責,governance,registered-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A134,permission-sovereign-independent-special-status,治理/權責,governance,independent-special-authority-sovereign;other-sovereign;permission;permission-sovereign;system-permission-sovereign,retain in codex (governance/boundary)
+A137,星澄-review-isolation,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A138,星澄-review-thinking,治理/權責,governance,decision,retain in codex (governance/boundary)
+A139,星澄-review-power,安全與稽核,governance,,retain in codex (governance/boundary)
+A14,immutability,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A140,星澄-information-interface,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A141,星澄-review-model-modes,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A144,codex-view-exclusive-audience,治理/權責,governance,registered-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A145,星澄-auxiliary-system-duty,安全與稽核,governance,,retain in codex (governance/boundary)
+A146,converged-system-status,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A148,canonical-sovereign-folder-name,治理/權責,governance,canonical-sovereign;must-exactly-equal-effective-sovereign,retain in codex (governance/boundary)
+A149,platform-management-owner,流程/程序,business,decision;decision-sovereign;legacy-system-sovereign;runtime-sovereign;startup-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A15,protection,安全與稽核,governance,,retain in codex (governance/boundary)
+A150,decision-boundary,治理/權責,governance,decision;permission;sub-sovereign,retain in codex (governance/boundary)
+A151,tool-and-platform-service-ownership,治理/權責,governance,decision;decision-sovereign;runtime-sovereign,retain in codex (governance/boundary)
+A152,frontend-backend-recovery-boundary,工程實作要求,business,decision;decision-sovereign;health-maintenance-test-sub-sovereign;learning-evidence-sync-sub-sovereign;release-update-sync-sub-sovereign;runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A154,repair-responsibility-chain,安全與稽核,governance,decision;permission;system-runtime,retain in codex (governance/boundary)
+A155,explicit-sovereign-prohibitions,安全與稽核,governance,cross-sovereign;explicit-sovereign;permission,retain in codex (governance/boundary)
+A156,星澄-grouped-authority,治理/權責,governance,,retain in codex (governance/boundary)
+A157,unsigned-version-effect,安全與稽核,governance,,retain in codex (governance/boundary)
+A158,physical-folder-exceptions,時限/預算,governance,,retain in codex (governance/boundary)
+A159,architecture-alignment-verification,安全與稽核,governance,startup-sub-sovereign,retain in codex (governance/boundary)
+A160,sovereign-identity-namespace,治理/權責,governance,mixed-sovereign,retain in codex (governance/boundary)
+A161,entity-classification-authority,工程實作要求,business,as-system-sovereign;infer-sovereign;is-authoritative-for-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A163,multi-worker-automatic-git-delivery,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A165,code-replication-prohibition,資料/SQL,business,forbidden-without-permission-sovereign;permission;release-update-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A166,code-extraction-prohibition,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A17,amendment,未分類,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A170,automatic-system-health-preservation,資料/SQL,business,decision;decision-sovereign;health-maintenance-test-sub-sovereign;permission;runtime-dispatch-or-release-update-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A173,single-codex-with-星澄-only-Chinese-exception,時限/預算,governance,access-by-sovereign;permission;permission-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A174,permission-managed-official-and-星澄-Chinese-view,資料/SQL,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A175,hot-update-hot-reload-release-certification,資料/SQL,business,decision;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A176,frontend-backend-connection-fault-tolerance,時限/預算,governance,decision;permission;system-runtime,retain in codex (governance/boundary)
+A177,universal-information-layer-connection-exclusivity,時限/預算,governance,decision;sovereign-sub-sovereign,retain in codex (governance/boundary)
+A178,system-runtime-stability,時限/預算,governance,automation;automation-sovereign;decision;decision-sovereign;permission;permission-sovereign;repair-without-sovereign;restart-only-through-runtime-sovereign;system-runtime,retain in codex (governance/boundary)
+A181,certified-hot-update-persistence-and-reset-prevention,資料/SQL,business,decision;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A182,version-authority-and-repair-reset-prohibition,模型/推論,business,decision;permission;permission-sovereign;release-update-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A184,reciprocal-main-system-independent-tool-runtime-isolation,時限/預算,governance,,retain in codex (governance/boundary)
+A185,source-size-and-permission-managed-directory-control,資料/SQL,business,decision;other-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A186,layered-information-system-and-tiered-view-access,模型/推論,business,decision;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A187,separated-sovereign-validation-chain,時限/預算,governance,decision;decision-sovereign;permission;permission-sovereign;runtime-sovereign;separated-sovereign,retain in codex (governance/boundary)
+A188,sovereign-collaboration-and-information-layer-handoff,時限/預算,governance,all-sovereign;automation;automation-sovereign;channel-contract-sync-sub-sovereign;decision;decision-sovereign;denial-is-not-overridable-by-other-sovereign;direct-sovereign;each-specialized-sovereign;hands-verified-readiness-to-runtime-sovereign;health-maintenance-test-sub-sovereign;learning-evidence-sync-sub-sovereign;permission;permission-sovereign;release-update-sync-sub-sovereign;runtime-sovereign;startup-sub-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A189,星澄-exclusive-auxiliary-information-channel,模型/推論,business,permission;system-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A191,startup-dependency-classification-and-legacy-order-retirement,時限/預算,governance,decision;permission,retain in codex (governance/boundary)
+A192,optimized-startup-sovereign-responsibility,時限/預算,governance,and-sovereign;atomically-handoff-runtime-ownership-to-runtime-sovereign;decision;optimized-startup-sovereign;permission;permission-sovereign;startup-sub-sovereign,retain in codex (governance/boundary)
+A193,official-startup-entry-and-ui-launcher,模型/推論,business,decision;permission;system-runtime,"delegate to sovereign/module domain (successor, retain reference only)"
+A194,startup-readiness-handoff-and-lifecycle-finality,流程/程序,business,permission;runtime-sovereign;startup-sub-sovereign;system-runtime,"delegate to sovereign/module domain (successor, retain reference only)"
+A195,backend-state-to-frontend-projection-synchronization,時限/預算,governance,permission,retain in codex (governance/boundary)
+A196,stable-single-window-process-per-application-session,時限/預算,governance,decision;runtime-sovereign,retain in codex (governance/boundary)
+A197,third-party-sovereign-optimized-responsibility,模型/推論,business,automation;automation-sovereign;decision;dependency-sync-sub-sovereign;legacy-third-party-sub-sovereign;owned-by-data-governance-sub-sovereign;permission;release-update-sync-sub-sovereign;specialized-decision-sovereign;system-runtime;third-party-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A198,local-code-and-third-party-dependency-boundary,資料/SQL,business,decision;legacy-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A199,ten-second-complete-startup-deadline,時限/預算,governance,acknowledged-by-runtime-sovereign;permission;permission-sovereign;startup-sub-sovereign,retain in codex (governance/boundary)
+A2,function,資料/SQL,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A20,星澄-power,治理/權責,governance,,retain in codex (governance/boundary)
+A200,global-timestamp-propagation,時限/預算,governance,decision;permission,retain in codex (governance/boundary)
+A201,absolute-gptbridge-code-root-containment,模型/推論,business,decision;permission;permission-sovereign;release-update-sync-sub-sovereign;runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A202,absolute-environment-dependency-root,模型/推論,business,decision;dependency-sync-sub-sovereign;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A203,python-cpp-responsibility-boundary,時限/預算,governance,decision;permission,retain in codex (governance/boundary)
+A204,single-versioned-c-abi,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A205,fixed-typescript-python-api-boundary,時限/預算,governance,permission,retain in codex (governance/boundary)
+A206,csharp-windows-function-deduplication,時限/預算,governance,decision;permission,retain in codex (governance/boundary)
+A207,sql-query-pushdown,時限/預算,governance,decision,retain in codex (governance/boundary)
+A208,automatic-six-language-governance-check,時限/預算,governance,automation;permission;permission-sovereign,retain in codex (governance/boundary)
+A209,six-language-file-conventions,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A210,six-language-test-boundary,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A211,canonical-six-language-role-map,時限/預算,governance,,retain in codex (governance/boundary)
+A212,fixed-python-native-performance-mainline,時限/預算,governance,,retain in codex (governance/boundary)
+A213,converged-c-and-pybind11-native-boundaries,安全與稽核,governance,,retain in codex (governance/boundary)
+A214,cpp-performance-core-six-domain-decomposition,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A215,exclusive-six-language-source-extension-map,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A216,sql-first-data-reduction-python-semantic-business-boundary,時限/預算,governance,decision,retain in codex (governance/boundary)
+A217,python-native-csharp-windows-dotnet-boundary,工程實作要求,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A218,python-api-load-classification-and-native-dispatch,時限/預算,governance,,retain in codex (governance/boundary)
+A219,python-api-native-unavailability-fallback,時限/預算,governance,,retain in codex (governance/boundary)
+A22,permission-termination,治理/權責,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A220,c-interface-cpp-implementation-separation,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A221,canonical-native-physical-tree,時限/預算,governance,,retain in codex (governance/boundary)
+A222,canonical-command-naming,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A223,permission-sovereign-owned-canonical-fault-code-directory,安全與稽核,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A224,permission-sovereign-owned-canonical-command-code-directory,時限/預算,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A225,permission-sovereign-owned-canonical-maintenance-manual-directory,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A226,permission-sovereign-owned-canonical-test-flow-directory,時限/預算,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A227,permission-sovereign-owned-canonical-project-architecture-directory,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A228,directory-special-law-exclusive-ownership,模型/推論,business,any-other-sovereign;data-governance-sub-sovereign;decision;directory-write-without-permission-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A229,codex-three-tier-consolidation-framework,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A23,permission-identifiers,工程實作要求,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A230,main-codex-outline-boundary,時限/預算,governance,permission,retain in codex (governance/boundary)
+A231,directory-special-law-gap-closure-and-implementation-acceptance,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A232,complete-governed-directory-domain-set,模型/推論,business,directory-owned-by-other-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A233,content-adaptive-unified-directory-and-requirement-format,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A234,星澄-exclusive-confidential-chinese-codex-exception,時限/預算,governance,permission;permission-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A235,permission-identity-special-law,資料/SQL,business,decision;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A236,information-communication-special-law,資料/SQL,business,automation;automation-sovereign;channel-contract-sync-sub-sovereign;decision;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A237,runtime-lifecycle-fault-isolation-special-law,模型/推論,business,decision;permission;permission-sovereign;runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A238,data-authority-storage-rag-special-law,模型/推論,business,data-governance-sub-sovereign;decision;decision-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A239,model-resource-gpu-special-law,模型/推論,business,automation;automation-sovereign;decision;permission;permission-sovereign;resource-dependency-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A240,language-source-native-boundary-special-law,模型/推論,business,decision;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A241,version-release-hot-update-rollback-special-law,資料/SQL,business,automation;automation-sovereign;decision;permission;permission-sovereign;release-update-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A242,third-party-network-supply-chain-special-law,模型/推論,business,automation;automation-sovereign;decision;dependency-sync-sub-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A243,audit-evidence-timestamp-retention-special-law,資料/SQL,business,decision;decision-sovereign;health-maintenance-test-sub-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A244,ui-window-projection-synchronization-special-law,資料/SQL,business,decision;permission;permission-sovereign;runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A245,git-worktree-special-law,資料/SQL,business,automation;automation-sovereign;decision;permission;permission-sovereign;release-update-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A246,learning-system-special-law,資料/SQL,business,automation;automation-sovereign;decision;learning-evidence-sync-sub-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A247,automatic-maintenance-repair-special-law,模型/推論,business,decision;decision-sovereign;health-maintenance-test-sub-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A248,privacy-personal-data-special-law,模型/推論,business,data-governance-sub-sovereign;decision;decision-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A249,cryptography-key-management-special-law,資料/SQL,business,automation;automation-sovereign;permission;permission-sovereign;resource-dependency-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A25,maintenance-health,資料/SQL,business,health-maintenance-test-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A250,disaster-recovery-continuity-special-law,模型/推論,business,decision;decision-sovereign;health-maintenance-test-sub-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A251,test-validation-evaluation-special-law,時限/預算,governance,automation;automation-sovereign;permission;permission-sovereign;release-update-sync-sub-sovereign,retain in codex (governance/boundary)
+A252,codex-consolidation-conflict-normalization-and-confidentiality-closure,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A253,special-law-lifecycle-activation-and-external-closure,模型/推論,business,decision;domain-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A254,channel-continuity-and-disconnection-elimination-special-law,時限/預算,governance,automation;automation-sovereign;channel-contract-sync-sub-sovereign;permission;permission-sovereign;runtime-sovereign,retain in codex (governance/boundary)
+A255,ten-second-total-startup-control-special-law,時限/預算,governance,decision;permission;runtime-sovereign;startup-sub-sovereign,retain in codex (governance/boundary)
+A256,live-backend-code-change-continuity-special-law,模型/推論,business,decision;decision-sovereign;permission;permission-sovereign;release-update-sync-sub-sovereign;runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A257,reconnect-with-zero-automatic-code-overwrite-special-law,模型/推論,business,decision;decision-sovereign;permission;permission-sovereign;release-update-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A258,automatic-repair-preservation-and-no-overwrite-special-law,模型/推論,business,decision;decision-sovereign;health-maintenance-test-sub-sovereign;permission;permission-sovereign;release-update-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A259,whole-codex-repair-and-continuity-integration,時限/預算,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A260,星澄-read-only-view-of-permission-sovereign-directories-special-law,模型/推論,business,permission;permission-sovereign;read-only-view-of-permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A261,automatic-repair-preservation-special-law,資料/SQL,business,decision;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A262,update-and-reload-special-law,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A263,channel-stability-and-reconnect-special-law,時限/預算,governance,,retain in codex (governance/boundary)
+A264,programming-language-boundary-special-law,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A265,startup-control-special-law,時限/預算,governance,,retain in codex (governance/boundary)
+A266,independent-tool-lifecycle-isolation-special-law,時限/預算,governance,permission,retain in codex (governance/boundary)
+A267,identity-group-special-law,模型/推論,business,decision;permission;permission-sovereign;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A268,directory-codename-reference-and-environment-indirection-special-law,時限/預算,governance,decision;permission;permission-sovereign,retain in codex (governance/boundary)
+A269,global-fault-code-reference-and-no-hardcoded-error-special-law,時限/預算,governance,permission,retain in codex (governance/boundary)
+A270,directory-coverage-and-special-law-convergence,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A271,coverage-test-and-special-law-conflict-closure,時限/預算,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A272,exact-code-trace-and-activation-evidence-closure,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A273,complete-global-registry-traceability-and-routing,時限/預算,governance,permission,retain in codex (governance/boundary)
+A274,complete-command-contract-and-sovereign-effectivity-closure,時限/預算,governance,active-sovereign;complete-command-contract-and-sovereign;permission,retain in codex (governance/boundary)
+A275,complete-seal-timestamp-trust-and-component-evidence,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A276,main-system-platform-core-physical-directory-classification,資料/SQL,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A277,model-dialogue-local-model-top-level-directory-classification,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A278,standalone-tools-top-level-directory-classification,資料/SQL,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A279,governance-codex-codex-directory-classification,資料/SQL,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A28,runtime,流程/程序,business,system-runtime;system-runtime-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A280,canonical-top-level-directory-integration-and-system-tool-convergence,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A281,git-top-level-directory-classification,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A282,launcher-convergence-into-main-system,模型/推論,business,decision;runtime-sovereign;startup-sub-sovereign;system-runtime,"delegate to sovereign/module domain (successor, retain reference only)"
+A283,shared-layer-convergence-into-main-system,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A284,gptbridge-canonical-layered-project-architecture,模型/推論,business,automation;automation-sovereign;decision;decision-sovereign;module-sovereign;permission;permission-sovereign;runtime-sovereign;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A285,human-governor-manual-version-baseline-reset,安全與稽核,governance,permission,retain in codex (governance/boundary)
+A286,version-epoch-identity-and-natural-evolution,安全與稽核,governance,,retain in codex (governance/boundary)
+A287,decision-sovereign-and-sub-sovereign-boundary,安全與稽核,governance,automation;automation-sovereign;decision;decision-sovereign;decision-sovereign-and-sub-sovereign;generic-unregistered-system-sovereign;permission;runtime-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A288,architecture-catalog-state-and-boundary-model,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A289,permission-owned-module-test-suite-architecture-directory,模型/推論,business,decision;decision-sovereign;health-maintenance-test-sub-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A29,codex,治理/權責,governance,,retain in codex (governance/boundary)
+A290,top-level-directory-path-special-law,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A291,mandatory-declaration-and-implementation-force,時限/預算,governance,,retain in codex (governance/boundary)
+A292,mandatory-implementation-obligation-special-law,時限/預算,governance,decision;health-maintenance-test-sub-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A293,anti-jailbreak-and-instruction-provenance-special-law,模型/推論,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A294,system-stability-fault-reduction-self-repair-speed-and-isolation-special-law,時限/預算,governance,automation;automation-sovereign;decision;decision-sovereign;health-maintenance-test-sub-sovereign;permission;permission-sovereign;resource-dependency-sync-sub-sovereign;runtime-sovereign,retain in codex (governance/boundary)
+A295,星澄-audit-inspection-capability-strengthening,時限/預算,governance,decision;health-maintenance-test-sub-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A296,noninterrupting-channel-anomaly-isolation,時限/預算,governance,,retain in codex (governance/boundary)
+A297,top-level-sovereign-decision-only-boundary,時限/預算,governance,automation;automation-sovereign;decision;decision-sovereign;permission;permission-sovereign;runtime-sovereign;sub-sovereign;top-level-sovereign,retain in codex (governance/boundary)
+A298,governance-authority-canonical-name-renamed-to-codex,安全與稽核,governance,decision,retain in codex (governance/boundary)
+A299,system-decision-sovereign-renamed-to-decision-sovereign,安全與稽核,governance,active-use-of-system-decision-sovereign;decision;decision-sovereign;system-decision-sovereign;system-decision-sovereign-renamed-to-decision-sovereign,retain in codex (governance/boundary)
+A3,storage,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A30,resource,模型/推論,business,permission;resource-dependency-sync-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A300,system-runtime-sovereign-renamed-to-runtime-sovereign,安全與稽核,governance,active-use-of-system-runtime-sovereign;decision;runtime-sovereign;system-runtime;system-runtime-sovereign;system-runtime-sovereign-renamed-to-runtime-sovereign;system-sub-sovereign,retain in codex (governance/boundary)
+A301,automation-sovereign,模型/推論,business,automation;automation-sovereign;decision;permission;specialized-decision-sovereign;system-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A302,maintenance-sovereign-demoted-under-decision-sovereign,資料/SQL,business,decision;decision-sovereign;maintenance-sovereign;maintenance-sovereign-demoted-under-decision-sovereign;maintenance-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A303,startup-sovereign-demoted-under-runtime-sovereign,工程實作要求,business,decision;runtime-sovereign;startup-sovereign;startup-sovereign-demoted-under-runtime-sovereign;startup-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A304,data-sovereign-demoted-under-decision-sovereign,模型/推論,business,data-sovereign;data-sovereign-demoted-under-decision-sovereign;data-sub-sovereign;decision;decision-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A305,resource-sovereign-demoted-under-automation-sovereign,工程實作要求,business,automation;automation-sovereign;decision;resource-sovereign;resource-sovereign-demoted-under-automation-sovereign;resource-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A306,integration-sovereign-demoted-under-automation-sovereign,工程實作要求,business,automation;automation-sovereign;decision;integration-sovereign;integration-sovereign-demoted-under-automation-sovereign;integration-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A307,third-party-sovereign-demoted-under-automation-sovereign,工程實作要求,business,automation;automation-sovereign;decision;third-party-sovereign;third-party-sovereign-demoted-under-automation-sovereign;third-party-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A308,language-review-sovereign-demoted-under-permission-sovereign,工程實作要求,business,decision;language-review-sovereign;language-review-sovereign-demoted-under-permission-sovereign;language-review-sub-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A309,system-programming-sovereign-demoted-under-automation-sovereign,工程實作要求,business,automation;automation-sovereign;decision;system-programming-sovereign;system-programming-sovereign-demoted-under-automation-sovereign;system-programming-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A31,data,資料/SQL,business,data-governance-sub-sovereign;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A310,learning-system-sovereign-demoted-under-automation-sovereign,工程實作要求,business,automation;automation-sovereign;decision;learning-system-sovereign;learning-system-sovereign-demoted-under-automation-sovereign;learning-system-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A311,星澄-renamed-星澄-chinese-and-elevated-independent-privileged-institution,安全與稽核,governance,as-sovereign;decision;permission;sub-sovereign,retain in codex (governance/boundary)
+A312,permission-sovereign-authority-converged-to-permission-review-only,時限/預算,governance,decision;decision-sovereign;directory-sub-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A313,permission-review-authority-transferred-to-星澄,安全與稽核,governance,decision;decision-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A314,automatic-cleanup-backup-repair-update-converged-under-automation-sovereign,時限/預算,governance,automatic-cleanup-backup-repair-update-converged-under-automation-sovereign;automation;automation-sovereign;decision;permission;sub-sovereign,retain in codex (governance/boundary)
+A315,complete-sub-sovereign-parent-reallocation,資料/SQL,business,automation;automation-sovereign;change-acceptance-sub-sovereign;complete-sub-sovereign;data-governance-sub-sovereign;decision;decision-sovereign;directory-sub-sovereign;health-maintenance-test-sub-sovereign;identity-group-sub-sovereign;integration-sub-sovereign;language-review-sub-sovereign;learning-system-sub-sovereign;permission;permission-sovereign;policy-architecture-sub-sovereign;priority-capability-sub-sovereign;resource-sub-sovereign;runtime-sovereign;startup-sub-sovereign;sub-sovereign;system-programming-sub-sovereign;system-sub-sovereign;third-party-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A316,directory-sub-sovereign-under-permission-sovereign,安全與稽核,governance,decision;decision-sovereign;directory-sub-sovereign;directory-sub-sovereign-under-permission-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A317,identity-group-sub-sovereign-under-permission-sovereign,安全與稽核,governance,decision;decision-sovereign;identity-group-sub-sovereign;identity-group-sub-sovereign-under-permission-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A318,decision-runtime-automation-sovereign-exclusive-boundaries,時限/預算,governance,automation;automation-sovereign;cross-sovereign;decision;decision-runtime-automation-sovereign;decision-sovereign;permission;runtime-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A319,permission-sovereign-and-星澄-independent-privileged-institution-boundary,安全與稽核,governance,decision;decision-sovereign;permission;permission-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A32,integration,工程實作要求,business,channel-contract-sync-sub-sovereign;cross-sovereign;decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A320,governance-authority-fully-renamed-to-codex,安全與稽核,governance,decision,retain in codex (governance/boundary)
+A321,星澄-canonical-identity-full-renaming,安全與稽核,governance,,retain in codex (governance/boundary)
+A322,automation-sovereign-integrated-duty-and-child-split,模型/推論,business,automatic-log-sync-sub-sovereign;automation;automation-sovereign;channel-contract-sync-sub-sovereign;cleanup-retention-sync-sub-sovereign;decision;dependency-sync-sub-sovereign;integration-sub-sovereign;learning-evidence-sync-sub-sovereign;learning-system-sub-sovereign;release-update-sync-sub-sovereign;repair-backup-sync-sub-sovereign;resource-dependency-sync-sub-sovereign;resource-sub-sovereign;runtime-state-sync-sub-sovereign;sub-sovereign;system-programming-sub-sovereign;third-party-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A323,decision-sovereign-child-reallocation,資料/SQL,business,change-acceptance-sub-sovereign;data-governance-sub-sovereign;data-sub-sovereign;decision;decision-sovereign;health-maintenance-test-sub-sovereign;maintenance-sub-sovereign;permission;permission-sovereign;permission-sub-sovereign;policy-architecture-sub-sovereign;priority-capability-sub-sovereign;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A324,sub-sovereign-three-duty-maximum,安全與稽核,governance,decision;sub-sovereign,retain in codex (governance/boundary)
+A325,capability-based-module-to-sub-sovereign-reallocation,模型/推論,business,automatic-log-sync-sub-sovereign;automation;capability-based-module-to-sub-sovereign;change-acceptance-sub-sovereign;channel-contract-sync-sub-sovereign;cleanup-retention-sync-sub-sovereign;data-governance-sub-sovereign;decision;directory-sub-sovereign;health-maintenance-test-sub-sovereign;identity-group-sub-sovereign;learning-evidence-sync-sub-sovereign;permission;policy-architecture-sub-sovereign;primary-sub-sovereign;priority-capability-sub-sovereign;release-update-sync-sub-sovereign;repair-backup-sync-sub-sovereign;resource-dependency-sync-sub-sovereign;runtime-state-sync-sub-sovereign;startup-sub-sovereign;sub-sovereign;system-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A326,information-layer-permission-and-channel-operation-boundary,資料/SQL,business,automation;automation-sovereign;channel-contract-sync-sub-sovereign;decision;decision-sovereign;permission;permission-sovereign;runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A327,canonical-human-name-and-machine-domain-alias-boundary,資料/SQL,business,sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A328,xingcheng-free-entry-and-exit-privilege,安全與稽核,governance,decision;permission;sub-sovereign,retain in codex (governance/boundary)
+A329,backend-code-update-automation-sovereign-privilege,時限/預算,governance,automation;automation-sovereign;backend-code-update-automation-sovereign;decision;decision-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A33,boundary-data-integrity,資料/SQL,business,data-governance-sub-sovereign;health-maintenance-test-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A330,automation-sovereign-global-update-execution-and-convergence,時限/預算,governance,automation;automation-sovereign;decision;permission,retain in codex (governance/boundary)
+A331,whole-codex-integrity-and-gap-closure-special-law,資料/SQL,business,decision;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A332,legacy-authority-reference-resolution-special-law,資料/SQL,business,decision;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A333,physical-architecture-parent-and-path-convergence-special-law,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A334,machine-readable-sovereign-hierarchy-module-assignment-and-signature-special-law,安全與稽核,governance,decision;machine-readable-sovereign;permission;sub-sovereign,retain in codex (governance/boundary)
+A335,codex-directory-closure-certification-and-non-indexing-special-law,模型/推論,business,decision;permission;permission-sovereign;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A336,xingcheng-native-programming-language-review-and-system-automation-executor-special-law,模型/推論,business,automation;automation-sovereign;decision;language-review-sub-sovereign;permission;permission-sovereign;sub-sovereign;system-programming-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A337,xingcheng-whole-system-parallel-automatic-operation-special-law,時限/預算,governance,automation;automation-sovereign;decision;language-review-sub-sovereign;permission;permission-sovereign;sub-sovereign;system-programming-sub-sovereign,retain in codex (governance/boundary)
+A338,exact-language-statistics-and-powershell-governed-script-exception-special-law,時限/預算,governance,automation;decision;permission,retain in codex (governance/boundary)
+A339,canonical-pybind11-c-api-c-thunk-cpp-path-and-logical-domain-map,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A340,cross-language-boundary-release-hard-gate,模型/推論,business,automation;automation-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A341,exclusive-language-capability-owner-and-caller-matrix,時限/預算,governance,decision,retain in codex (governance/boundary)
+A342,canonical-python-application-domain-infrastructure-architecture,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A343,correctness-first-python-first-native-promotion-record-special-law,資料/SQL,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A344,single-c-abi-contract-and-pybind11-purpose-separation-special-law,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A345,minimal-c-abi-function-budget-and-deferred-capability-table-special-law,時限/預算,governance,,retain in codex (governance/boundary)
+A346,cpp-six-domain-namespace-and-include-dependency-special-law,時限/預算,governance,,retain in codex (governance/boundary)
+A347,language-role-directory-query-budget-and-source-origin-special-law,時限/預算,governance,,retain in codex (governance/boundary)
+A348,language-boundary-gate-and-data-only-policy-evidence-only-checker-special-law,資料/SQL,business,decision;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A349,powershell-governance-conflict-and-legacy-infrastructure-evidence-special-law,資料/SQL,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A35,architecture-hybrid,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A350,canonical-typescript-python-sql-native-csharp-topology-special-law,時限/預算,governance,permission,retain in codex (governance/boundary)
+A351,cross-language-allowed-use-and-direct-prohibition-matrix,模型/推論,business,decision;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A352,explicit-language-and-native-dependency-fail-matrix,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A353,semantic-dependency-evidence-and-a205-information-layer-verification,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A354,typescript-governance-checker-structure-and-dependency-dag-evidence-special-law,資料/SQL,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A355,contract-parity-gate,時限/預算,governance,,retain in codex (governance/boundary)
+A356,unique-capability-registry-and-ownership-role-model,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A357,native-promotion-gate,時限/預算,governance,,retain in codex (governance/boundary)
+A358,native-promotion-budget-benchmark-evidence-and-lifecycle,時限/預算,governance,,retain in codex (governance/boundary)
+A359,build-abi-toolchain-artifact-reproducibility-gate,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A360,release-compatibility-evidence-aggregation-and-upgrade-gate,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A361,language-governance-final-decision-and-evidence-freshness-gate,資料/SQL,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A362,unified-language-source-index-graph-ir-and-incremental-planner,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A363,governance-full-scan-baseline-incremental-golden-parity-and-cache-correctness,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A364,language-governance-schema-v1-stability-freeze-and-regression-corpus,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A365,cross-store-reconciliation-global-resource-id-transport-audit-and-recovery-priority,時限/預算,governance,,retain in codex (governance/boundary)
+A366,xingcheng-auxiliary-repair-update-user-switch-confirmation-and-fault-cardinality,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A367,mandatory-cross-store-data-governance-stage-order,時限/預算,governance,permission,retain in codex (governance/boundary)
+A368,database-runtime-pool-query-schema-health-and-cross-engine-integrity,時限/預算,governance,,retain in codex (governance/boundary)
+A369,unified-observable-verifiable-recoverable-local-data-platform,時限/預算,governance,,retain in codex (governance/boundary)
+A370,three-engine-self-observation-diagnosis-and-controlled-optimization,時限/預算,governance,,retain in codex (governance/boundary)
+A371,qdrant-default-rag-execution-reembedding-reconciliation-and-four-rag-behaviors,時限/預算,governance,,retain in codex (governance/boundary)
+A372,mandatory-local-rag-six-stage-implementation-order,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A373,canonical-rag-takeover-reconciliation-queue-double-write-and-evaluation,時限/預算,governance,permission,retain in codex (governance/boundary)
+A374,rag-index-state-reconciliation-collection-topology-and-reranker-fallback,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A375,governed-multi-ai-git-coordination-and-delivery-infrastructure,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A376,codex-non-sovereign-xingcheng-model-dialogue-and-information-layer-boundaries,模型/推論,business,active-sovereign;codex-non-sovereign;decision;non-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A377,whole-codex-integration-precedence-lifecycle-and-coherence-closure,模型/推論,business,automation;automation-sovereign;decision;decision-sovereign;non-sovereign;permission;permission-sovereign;runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A378,xingcheng-consolidated-special-law,時限/預算,governance,automation;decision;permission;permission-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A379,codex-directory-closure-certification-and-non-indexing-clean-successor,時限/預算,governance,decision;permission;permission-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A38,codex-language,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A380,xingcheng-auxiliary-manual-repair-update-release-switches,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A381,codex-roster-lifecycle-and-scoped-successor-closure,模型/推論,business,automation;automation-sovereign;decision;decision-sovereign;effective-sovereign;own-domain-sovereign;permission;permission-sovereign;runtime-sovereign;system-runtime;system-runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A382,non-disruptive-codex-amendment-ordinance-flow,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A383,codex-readonly-state-review-isolation,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A384,test-management-roster-and-historical-correction-closure,資料/SQL,business,automatic-log-sync-sub-sovereign;automation;automation-sovereign;change-acceptance-sub-sovereign;channel-contract-sync-sub-sovereign;cleanup-retention-sync-sub-sovereign;data-governance-sub-sovereign;decision;decision-sovereign;dependency-sync-sub-sovereign;directory-sub-sovereign;health-maintenance-test-sub-sovereign;identity-group-sub-sovereign;learning-evidence-sync-sub-sovereign;permission;permission-sovereign;policy-architecture-sub-sovereign;priority-capability-sub-sovereign;release-update-sync-sub-sovereign;repair-backup-sync-sub-sovereign;resource-dependency-sync-sub-sovereign;runtime-state-sync-sub-sovereign;startup-sub-sovereign;sub-sovereign;system-runtime;system-runtime-sovereign;system-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A385,dynamic-test-management-roster-and-closure-status-successor,資料/SQL,business,automation;automation-sovereign;decision;decision-sovereign;health-maintenance-test-sub-sovereign;permission;permission-sovereign;sub-sovereign;system-runtime;system-runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A386,dynamic-governance-code-resolution-and-hardcoding-elimination,時限/預算,governance,permission,retain in codex (governance/boundary)
+A387,codex-canonical-reference-code-only-policy,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A388,governed-environment-variable-binding-fallback,時限/預算,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A389,timestamp-only-hardcoding-invariant,時限/預算,governance,,retain in codex (governance/boundary)
+A39,actors,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A390,permission-sovereign-formal-audit-validation-authority,安全與稽核,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A391,canonical-timestamp-envelope-fields,時限/預算,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A392,xingcheng-codex-implementation-compliance-classification,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A393,precise-coded-fault-and-compliance-detail-display,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A394,code-reference-and-hardcoding-separation-successor,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A395,canonical-version-number-contract,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A396,automatic-repair-and-update-command-code-registration,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A397,canonical-timestamp-envelope-successor,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A398,automatic-repair-update-command-contract-successor,安全與稽核,governance,automation;automation-sovereign;decision;permission;permission-sovereign,retain in codex (governance/boundary)
+A399,timestamp-version-cross-codex-separation-interpretation,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A40,bootstrap,治理/權責,governance,,retain in codex (governance/boundary)
+A400,whole-system-modular-architecture,工程實作要求,business,automation,"delegate to sovereign/module domain (successor, retain reference only)"
+A401,module-code-and-identity-group-itemization,模型/推論,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A402,modular-field-scoped-refresh-no-whole-ui-refresh,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A403,module-fault-isolation-and-main-system-liveness,時限/預算,governance,,retain in codex (governance/boundary)
+A404,modular-automation-and-automation-isolation,工程實作要求,business,automation;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A405,independent-tool-single-instance-entity,時限/預算,governance,,retain in codex (governance/boundary)
+A406,timestamp-derived-version-identity-successor,時限/預算,governance,,retain in codex (governance/boundary)
+A407,timestamp-version-separation-interpretation-successor,安全與稽核,governance,,retain in codex (governance/boundary)
+A408,automatic-command-contract-timestamp-version-successor,資料/SQL,business,automation;automation-sovereign;decision;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A409,dynamic-reference-policy-timestamp-version-successor,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A41,governor-and-seal,安全與稽核,governance,,retain in codex (governance/boundary)
+A410,canonical-evidence-timestamp-envelope-successor,資料/SQL,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A411,timestamp-version-issuance-and-collision-successor,時限/預算,governance,,retain in codex (governance/boundary)
+A412,timestamp-version-change-classification-successor,資料/SQL,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A413,timestamp-version-ledger-and-recovery-integrity,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A414,user-authorized-history-deletion-successor,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A415,active-successor-reference-and-legacy-binding-closure,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A416,typed-complete-successor-resolution-successor,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A417,codex-internal-modular-architecture,模型/推論,business,non-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A418,codex-indexed-search-performance-special-law,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A419,codex-internal-module-manifest-and-seal,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A42,directory-write,資料/SQL,business,data-governance-sub-sovereign;decision;direct-mutation-by-permission-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A420,codex-search-index-freshness-and-query-plan-gate,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A421,codex-module-lifecycle-count-and-orphan-identity-closure,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A422,codex-module-and-search-manifest-complete-binding,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A423,codex-search-physical-index-and-dependency-dag-evidence,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A424,codex-internal-module-directory-uniform-format-successor,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A425,whole-system-recursive-modular-architecture,時限/預算,governance,automation;permission,retain in codex (governance/boundary)
+A426,universal-module-source-line-limit,資料/SQL,business,sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A427,mandatory-module-self-decomposition,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A428,bounded-self-decomposition-orchestration-and-evidence-closure,時限/預算,governance,automation;decision;permission;permission-sovereign,retain in codex (governance/boundary)
+A429,module-self-decomposition-command-state-and-exception-closure,時限/預算,governance,automation;permission;permission-sovereign,retain in codex (governance/boundary)
+A430,source-line-evidence-and-self-decomposition-directory-special-law,時限/預算,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A431,module-line-count-registry-special-law,模型/推論,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A432,module-line-count-roster-normalized-counting-and-aggregation,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A433,authored-source-inventory-and-line-roster-completeness,資料/SQL,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A434,module-line-roster-ownership-cohesion-and-fragmentation-gate,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A435,codex-read-access-tier-and-import-time-self-declaration-convergence,模型/推論,business,decision;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A436,permission-decision-and-directory-authority-execution-boundary,資料/SQL,business,decision;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A437,internal-call-and-governed-boundary-classification,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A438,canonical-sovereign-sub-sovereign-executor-responsibility-model,模型/推論,business,canonical-sovereign-sub-sovereign;decision;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A439,canonical-identity-conversion-contract,工程實作要求,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A44,four-functions-local,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A440,one-module-one-test-suite-schema,時限/預算,governance,sub-sovereign,retain in codex (governance/boundary)
+A441,health-governance-outline,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A442,health-contract-machine-verifiable-schema,時限/預算,governance,,retain in codex (governance/boundary)
+A443,health-observation-classification-contract,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A444,health-recovery-orchestration-contract,時限/預算,governance,decision,retain in codex (governance/boundary)
+A445,formal-rule-contract-and-precedence-convergence,資料/SQL,business,decision;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A446,execution-pipeline-contract-decomposition,時限/預算,governance,decision,retain in codex (governance/boundary)
+A447,connection-boundary-and-low-cost-legal-paths,時限/預算,governance,permission,retain in codex (governance/boundary)
+A448,receipt-token-and-audit-event-machine-schemas,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A449,technical-pass-versus-external-verification-status,安全與稽核,governance,,retain in codex (governance/boundary)
+A45,interface-layer,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A450,formal-rule-schema-registry-and-migration-gate,時限/預算,governance,decision;permission,retain in codex (governance/boundary)
+A451,execution-receipt-tier-profile,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A452,codex-official-read-session-and-attested-reader-schema,資料/SQL,business,permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A453,attested-execution-identity-derivation,安全與稽核,governance,,retain in codex (governance/boundary)
+A454,permission-decision-transport-and-append-only-ledger,時限/預算,governance,decision;permission,retain in codex (governance/boundary)
+A455,independent-verification-verdict-record,安全與稽核,governance,decision,retain in codex (governance/boundary)
+A456,user-authorized-revision-history-resumption-genesis,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A457,single-chinese-codex-mirror-three-part-storage,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A458,bidirectional-multiplexed-channel-special-law,時限/預算,governance,automation;automation-sovereign;decision;permission;permission-sovereign,retain in codex (governance/boundary)
+A459,sovereign-multicore-parallel-collaboration-special-law,時限/預算,governance,automation;automation-sovereign;decision;decision-sovereign;permission;runtime-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A46,audit-ledger,資料/SQL,business,data-governance-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A460,independent-tool-complete-modularization-special-law,資料/SQL,business,sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A461,sovereign-subsovereign-direct-information-layer-route,時限/預算,governance,automation;automation-sovereign;decision;permission;permission-sovereign;sovereign-sub-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A462,provision-normativity-classification-contract,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A463,formal-rule-semantic-and-evaluator-parity-contract,時限/預算,governance,permission,retain in codex (governance/boundary)
+A464,seal-candidate-certification-and-release-status-contract,安全與稽核,governance,,retain in codex (governance/boundary)
+A465,active-identity-metadata-and-dynamic-location-contract,安全與稽核,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A466,codex-derived-registry-index-and-identity-classification-closure,資料/SQL,business,decision;non-sovereign;permission;permission-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A467,investment-mobile-standalone-root-correction,時限/預算,governance,,retain in codex (governance/boundary)
+A468,directory-governance-data-closure-and-three-stage-acceptance-gate,資料/SQL,business,decision;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A469,codex-external-non-indexing-and-internal-derived-search-clean-successor,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A47,violation-closure,安全與稽核,governance,,retain in codex (governance/boundary)
+A470,directory-coverage-requirement-complete-alignment,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A471,revision-history-current-and-pre-genesis-state-normalization,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A472,language-governance-freeze-acceptance-event,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A473,epoch-two-canonical-identity-and-seal-authority,安全與稽核,governance,,retain in codex (governance/boundary)
+A474,lifecycle-lineage-reference-and-multi-predecessor-contract,安全與稽核,governance,,retain in codex (governance/boundary)
+A475,A233-special-law-normalization-complete-closure,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A476,current-seal-component-and-trust-anchor-continuity,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A477,registered-bounded-codex-proxy-clean-successor,模型/推論,business,decision;permission;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A478,codex-normative-authority-terminology-clean-successor,安全與稽核,governance,decision,retain in codex (governance/boundary)
+A479,provision-classification-and-formal-parity-clean-successor,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A48,amendment-execution,未分類,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A480,machine-schema-complete-typed-registry-contract,資料/SQL,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A481,executable-module-test-suite-cardinality-clean-successor,時限/預算,governance,sub-sovereign,retain in codex (governance/boundary)
+A482,normalized-test-flow-command-fault-manual-trace-contract,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A483,canonical-command-permission-action-contract,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A484,desktop-exe-sole-main-system-user-startup-entry,時限/預算,governance,permission;startup-sub-sovereign,retain in codex (governance/boundary)
+A485,learning-sub-sovereign-transfer-to-xingcheng,模型/推論,business,automation;automation-sovereign;decision;learning-evidence-sync-sub-sovereign;learning-sub-sovereign;privileged-institution-managed-sub-sovereign;to-learning-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A486,automation-sovereign-canonical-rename,資料/SQL,business,automation;automation-sovereign;decision;learning-sub-sovereign;permission;synchronization-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A487,timestamp-version-model-exclusive-successor,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A488,timestamp-codex-amendment-flow-successor,安全與稽核,governance,,retain in codex (governance/boundary)
+A489,current-governance-closure-graph-contract,安全與稽核,governance,,retain in codex (governance/boundary)
+A49,formal-tools,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A490,governance-closure-priority-and-evidence-plan,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A491,implementation-obligation-mandated-state-clean-successor,時限/預算,governance,,retain in codex (governance/boundary)
+A492,three-batch-governance-closure-and-dynamic-parity,安全與稽核,governance,,retain in codex (governance/boundary)
+A493,A407-A410-reference-normalization-successor,安全與稽核,governance,,retain in codex (governance/boundary)
+A494,system-runtime-canonical-id-and-display-name-successor,安全與稽核,governance,decision;runtime-sovereign;sub-sovereign;system-runtime;system-runtime-sovereign,retain in codex (governance/boundary)
+A495,current-manifest-hash-succession-and-directory-derivation-contract,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A496,current-topology-and-startup-consolidation-successor,流程/程序,business,automation;runtime-sovereign;startup-sub-sovereign;sub-sovereign;system-runtime;system-runtime-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A497,current-binding-search-directory-access-and-certification-contract,資料/SQL,business,parent-sovereign;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A498,machine-schema-formal-evidence-and-descriptor-convergence,時限/預算,governance,,retain in codex (governance/boundary)
+A499,cross-store-data-authority-provenance-resilience-and-readiness-contract,資料/SQL,business,decision;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A5,delegation,流程/程序,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A50,programming-language-review,模型/推論,business,sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A500,canonical-cryptographic-and-comparison-terminology-contract,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A501,postgresql-sql-authority-migration-security-fallback-audit-and-readiness-contract,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A502,sql-migration-authority-and-priority-data-schema-directory-contract,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A503,sql-authority-boundary,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A504,postgresql-object-level-schema-authority,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A505,sql-migration-chain,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A506,database-security-projection,資料/SQL,business,decision;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A507,postgresql-schema-drift-gate,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A508,sqlite-private-state-boundary,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A509,sqlite-reconciliation-contract,時限/預算,governance,permission,retain in codex (governance/boundary)
+A510,sql-audit-transport-integrity,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A511,sql-recovery-authority,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A512,sql-capability-health-and-degradation,模型/推論,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A513,sql-governance-verification-suite,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A514,sql-governance-closure-rule,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A515,exact-sql-directory-migration-and-closure-machine-contract,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A516,sql-object-canonicalization-security-reconciliation-audit-and-closure-semantics,模型/推論,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A517,sql-live-inventory-migration-reconstruction-security-role-sqlite-and-closure-coverage,模型/推論,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A518,information-layer-shared-transport-and-central-audit-sql-closure,時限/預算,governance,permission,retain in codex (governance/boundary)
+A519,sql-transaction-concurrency-pool-migration-execution-and-outbox-inbox-closure,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A52,rag-architecture,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A520,complete-sql-governance-successor-and-five-domain-release-closure,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A521,全專案架構圖,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A522,Git 架構圖,安全與稽核,governance,,retain in codex (governance/boundary)
+A523,SQL 架構圖,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A524,RAG 架構圖,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A525,程式語言架構圖,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A526,七個獨立工具架構圖,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A527,中文法典五分卷鏡像法,治理/權責,governance,,retain in codex (governance/boundary)
+A528,架構圖與法典同步法,治理/權責,governance,,retain in codex (governance/boundary)
+A529,歷史工具拓撲更正,治理/權責,governance,,retain in codex (governance/boundary)
+A53,git-operation-tiers,安全與稽核,governance,,retain in codex (governance/boundary)
+A530,歷史星澄工具分類更正,治理/權責,governance,,retain in codex (governance/boundary)
+A531,七工具名冊法,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A532,現行拓撲衝突閉合法,治理/權責,governance,,retain in codex (governance/boundary)
+A533,七工具與機構拓撲完整整改 successor,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A534,七工具與機構拓撲完整 successor,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A535,身分與會話驗證基線,安全與稽核,governance,permission,retain in codex (governance/boundary)
+A536,隱私與個資最小化 successor,模型/推論,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A537,退役清理、架構同步與執行時限條例,時限/預算,governance,,retain in codex (governance/boundary)
+A538,自動法典更新強制同步條例,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A539,法典文字完整性與轉碼防護條例,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A540,獨立工具五秒生命週期與本地模型選擇啟動條例,時限/預算,governance,,retain in codex (governance/boundary)
+A541,模型對話星澄優先自動路由條例,模型/推論,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A542,外部協作雙欄使用者介面條例,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A543,外部協作介面收斂條例,安全與稽核,governance,,retain in codex (governance/boundary)
+A544,外部協作整合控制與自動記錄條例,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A545,外部協作需求卡片退役條例,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A546,星澄內部自我升級條例,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A547,故障手冊移交星澄學習模組條例,安全與稽核,governance,fault-directory-transfer-from-permission-sovereign;learning-evidence-sync-sub-sovereign;permission;permission-sovereign,retain in codex (governance/boundary)
+A548,星澄內部故障告知與自主維修條例,時限/預算,governance,,retain in codex (governance/boundary)
+A549,全專案 DAG／CAG／RAG 混合架構條例,時限/預算,governance,permission,retain in codex (governance/boundary)
+A55,file-extension-conventions,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A550,星澄模組行數豁免條例,時限/預算,governance,,retain in codex (governance/boundary)
+A551,language-positioning-and-responsibility,時限/預算,governance,decision;permission,retain in codex (governance/boundary)
+A552,gpu-acceleration-separate-track,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A553,xingcheng-model-architecture-moe,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A554,xingcheng-autonomous-training-and-upgrade,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A555,git-sql-rag-cag-dag-integration-division,時限/預算,governance,,retain in codex (governance/boundary)
+A556,xingcheng-unified-model-maturity,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A557,xingcheng-model-training-tiers,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A558,xingcheng-pretraining-data-pipeline,模型/推論,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A559,single-shared-blueprint,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A56,test-framework-tiering,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A560,xingcheng-ntp-correctness-tests,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A561,xingcheng-small-model-training-baseline,時限/預算,governance,,retain in codex (governance/boundary)
+A562,xingcheng-primary-goal-command-and-chat,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A563,xingcheng-medium-base-scaling-strategy,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A564,xingcheng-moe-training-quality-control,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A565,xingcheng-native-dialogue-training,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A566,xingcheng-python-cpp-inference-consistency,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A567,xingcheng-kv-cache-correctness-and-performance,時限/預算,governance,,retain in codex (governance/boundary)
+A568,xingcheng-native-capability-evaluation,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A569,xingcheng-weight-evolution,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A57,self-health-test-necessity,模型/推論,business,health-maintenance-test-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A570,gptbridge-system-convergence,模型/推論,business,decision,"delegate to sovereign/module domain (successor, retain reference only)"
+A571,gptbridge-connection-recovery-and-event-sequence,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A572,gptbridge-maintenance-update-integration,安全與稽核,governance,,retain in codex (governance/boundary)
+A573,gptbridge-unified-task-lifecycle,時限/預算,governance,,retain in codex (governance/boundary)
+A574,gptbridge-runtime-execution-lease,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A575,gptbridge-release-manifest,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A576,gptbridge-dev-runtime-separation,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A577,gptbridge-backend-lifecycle-contract,時限/預算,governance,,retain in codex (governance/boundary)
+A578,gptbridge-integration-sequence,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A579,gptbridge-request-registry,時限/預算,governance,,retain in codex (governance/boundary)
+A58,embedded-browser-governed-access,工程實作要求,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A580,gptbridge-request-lifecycle-and-streaming-attribution,時限/預算,governance,permission,retain in codex (governance/boundary)
+A581,gptbridge-connection-state-reconnect-backpressure,時限/預算,governance,,retain in codex (governance/boundary)
+A582,gptbridge-integrated-objectives,模型/推論,business,automation;permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A583,gptbridge-implementation-precedence,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A584,xingcheng-multi-configuration-gpt,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A585,xingcheng-tool-calling-competence,流程/程序,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A586,ollama-on-demand-activation,時限/預算,governance,permission,retain in codex (governance/boundary)
+A587,main-system-on-demand-modules,時限/預算,governance,permission,retain in codex (governance/boundary)
+A588,project-single-purpose-modules,時限/預算,governance,,retain in codex (governance/boundary)
+A589,project-blockchain-style-module-records,時限/預算,governance,decision,retain in codex (governance/boundary)
+A590,main-system-multi-core-parallelism,時限/預算,governance,automation;decision;permission;system-runtime,retain in codex (governance/boundary)
+A591,sovereigns-become-core-engines,資料/SQL,business,automation;decision;permission;system-runtime,"delegate to sovereign/module domain (successor, retain reference only)"
+A592,sub-sovereign-elimination-full-modularization,時限/預算,governance,decision;permission;sub-sovereign,retain in codex (governance/boundary)
+A6,permission,治理/權責,governance,permission;permission-sovereign,retain in codex (governance/boundary)
+A65,cross-layer-information-layer,資料/SQL,business,decision;equal-to-sovereign;information-layer-own-sovereign;sovereign-or-sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A66,module-execution-layer,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A68,module-fine-grained-decomposition,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A69,execution-layer-internal-tiering,安全與稽核,governance,sub-sovereign,retain in codex (governance/boundary)
+A7,permission-directory,資料/SQL,business,permission,"delegate to sovereign/module domain (successor, retain reference only)"
+A74,single-codex-citation-entry,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A75,postgresql-cannot-change-codex,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A77,absolute-codex-immutability,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A78,codex-authenticity-without-decider,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A79,codex-modification-history,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A8,system-responsibility,模型/推論,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A80,complete-codex-traceability,治理/權責,governance,,retain in codex (governance/boundary)
+A82,codex-always-read-only,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
+A83,codex-highest-authority,安全與稽核,governance,,retain in codex (governance/boundary)
+A85,per-provision-codex-identity,治理/權責,governance,,retain in codex (governance/boundary)
+A86,new-provision-identity-and-effective-time,安全與稽核,governance,,retain in codex (governance/boundary)
+A87,provision-update-recertification,安全與稽核,governance,,retain in codex (governance/boundary)
+A88,atomic-provision-supersession,安全與稽核,governance,,retain in codex (governance/boundary)
+A89,sovereign-decision-codex-basis,治理/權責,governance,decision,retain in codex (governance/boundary)
+A91,sovereign-only-codex-use,資料/SQL,business,registered-sovereign;sub-sovereign,"delegate to sovereign/module domain (successor, retain reference only)"
+A94,codex-without-codex-view,安全與稽核,governance,,retain in codex (governance/boundary)
+A95,highest-authority-application-boundary,治理/權責,governance,,retain in codex (governance/boundary)
+A96,codex-reference-normalization,安全與稽核,governance,decision;eligible-sovereign;sub-sovereign,retain in codex (governance/boundary)
+A98,single-channel-authentication,安全與稽核,governance,allowlisted-sovereign,retain in codex (governance/boundary)
+A99,codex-corruption-recovery,資料/SQL,business,,"delegate to sovereign/module domain (successor, retain reference only)"
