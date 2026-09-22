@@ -1,7 +1,7 @@
 {
   "schema": "self-learning-curriculum-gates/v1",
   "date": "2026-09-22",
-  "scope": "§2.7 星澄自主訓練 — items 1 (品質漂移) / 2 (合成上限) / 3 (SFT 課程選擇) / 9 (maturity 重測＋資源帳)",
+  "scope": "§2.7 星澄自主訓練 — items 1 (品質漂移＋退化探針) / 2 (合成上限) / 3 (SFT 課程選擇) / 9 (maturity 重測＋資源帳)",
   "files": [
     "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py",
     "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py"
@@ -9,12 +9,20 @@
   "note": "implementation landed under auto-commit 6d1e5287 (auto-commit swept the two files mid-edit together with a foreign worker's cpp_inference changes; content verified intact at HEAD before evidence write)",
   "new_policy_fields": {
     "max_synthetic_ratio": "§2.7-2 合成/自我生成資料比例上限 (0=off)；超上限整循環 blocked synthetic-ratio-exceeded，防自我放大",
-    "synthetic_source_prefixes": "來源前綴白名單，預設 (self-distillation, synthetic, ollama-governed)；統計入 pool.synthetic_* 與循環報告",
+    "synthetic_source_prefixes": "來源前綴白名單，預設 (synthetic, self-distillation)；統計入 pool.synthetic_* 與循環報告",
     "min_pool_avg_quality": "§2.7-1 品質漂移觸發 (0=off)；verified 池平均 quality_score 低於門檻 → blocked quality-drift",
     "curriculum_enabled": "§2.7-3 課程選擇；讀 model-maturity.json 認證層決定本循環 SFT 課程",
     "curriculum_intent_map": "課程→intent 白名單篩池；篩後空池 blocked course-dataset-empty",
     "post_upgrade_maturity_recheck": "§2.7-9 升級後重測 maturity 並記入報告/state.last_maturity_recheck；失敗記錄不暗改 active",
-    "maturity_recheck_device": "重測裝置（預設 cpu）"
+    "maturity_recheck_device": "重測裝置（預設 cpu）",
+    "degradation_probe_enabled": "§2.7-1 能力退化探針觸發；資料未達 min_new_examples 時以套件 baseline_metrics 量測現役權重，退化且新例 ≥ degradation_min_examples → 降門檻觸發訓練（其餘閘門不變）",
+    "degradation_probe_suite": "探針套件（預設 star-native-eval-dialogue-v1，用其 baseline_metrics 常數為對照）",
+    "degradation_min_examples": "退化觸發仍要求的最少新例（預設 1；0 新例 → idle degradation-detected-insufficient-data，誠實記錄不訓練）"
+  },
+  "degradation_probe_semantics": {
+    "ordering": "只在 below-threshold 分支執行（已達門檻不浪費一次模型載入）",
+    "fail_closed": "探針量測失敗／套件缺失／無現役權重 → degraded=False 不觸發，錯誤記錄於結果 degradation_probe 與 state.last_degradation_probe",
+    "recording": "觸發時 summary.trigger=degradation-probe；閒置時結果附 degradation_probe 供稽核"
   },
   "curriculum_mapping": {
     "state_unreadable_or_missing": "blocked maturity-state-unavailable (fail-closed)",
@@ -27,12 +35,11 @@
   "resource_account": "§2.7-9 每循環記錄 elapsed_seconds/steps/device/dataset_example_count/train_count/validation_count 入循環報告與 state.resource_account",
   "defaults": "全部新閘門預設關閉（0/False/固定 sft 課程），既有行為不變；啟用值屬受管 runtime/settings/self-learning.json",
   "verification": {
-    "new_gate_tests": "tests/test_self_learning_gates.py 10/10 PASS — 合成上限阻斷/通過、品質漂移阻斷、maturity 狀態缺失/基礎未達阻斷、課程依層選擇(L4→dialogue,L7→refresh)、intent 篩空池阻斷、資源帳記錄、預設全關行為不變",
+    "new_gate_tests": "tests/test_self_learning_gates.py 17/17 PASS — 合成上限阻斷/通過、品質漂移阻斷、maturity 狀態缺失/基礎未達阻斷、課程依層選擇(L4→dialogue,L7→refresh)、intent 篩空池阻斷、資源帳記錄、退化探針觸發/無資料閒置/未退化閒置/錯誤不觸發/套件缺失/指標退化判定、預設全關行為不變",
     "existing_regression": "test_phase_self_learning + test_self_learning_quiet_hours + test_training_job_executor + test_lifecycle_resource_actions + test_retention_weight_retirement 28/28 PASS",
     "syntax": "import check OK; SelfLearningPolicy dataclass fields verified at HEAD"
   },
   "gaps_remaining": [
-    "§2.7-1 capability-degradation probe trigger (品質漂移已實作；退化探針未)",
     "§2.7-2 dedup/eval-probe contamination exclusion",
     "§2.7-3 non-SFT course types (DPO/distill/續訓/專家模組)",
     "§2.7-8 data-size cap / resource-overspend auto-stop (步數/GPU 門檻已；資料量上限與超支停機未)",

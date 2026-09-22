@@ -249,6 +249,68 @@ def _select_curriculum(
     )
 
 
+def _degradation_probe(
+    policy: SelfLearningPolicy, tool: Path
+) -> dict[str, Any] | None:
+    """§2.7-1 能力退化探針：以政策套件 baseline_metrics 量測現役權重。
+
+    未啟用回 ``None``；否則回傳至少含 ``ok``／``degraded`` 的 dict。
+    量測失敗 fail-closed＝``degraded=False``（不觸發訓練），錯誤保留。"""
+    if not policy.degradation_probe_enabled:
+        return None
+    suite_rel = (
+        Path("xingcheng") / "eval" / f"{policy.degradation_probe_suite}.json"
+    )
+    suite_path = tool / suite_rel
+    if not suite_path.is_file():
+        return {
+            "ok": False,
+            "degraded": False,
+            "suite": str(policy.degradation_probe_suite),
+            "error": "suite-missing",
+        }
+    try:
+        from ..native_eval_suite import (
+            compare_metrics,
+            evaluate_checkpoint,
+            load_suite,
+        )
+        from .lifecycle import ModelLifecycle
+
+        lifecycle = ModelLifecycle.load_or_create(
+            tool / LIFECYCLE_RELATIVE, MODEL_ID
+        )
+        active = lifecycle.active_weights()
+        if active is None or not Path(str(active["path"])).is_file():
+            return {
+                "ok": False,
+                "degraded": False,
+                "suite": str(policy.degradation_probe_suite),
+                "error": "active-weights-missing",
+            }
+        suite = load_suite(suite_path)
+        metrics = evaluate_checkpoint(Path(str(active["path"])), suite)
+        comparison, passed = compare_metrics(
+            dict(suite.get("baseline_metrics") or {}),
+            metrics,
+            dict(suite["quality_gates"]),
+        )
+        return {
+            "ok": True,
+            "degraded": not passed,
+            "suite": str(policy.degradation_probe_suite),
+            "metrics": metrics,
+            "comparison": comparison,
+        }
+    except Exception as exc:  # noqa: BLE001 — 探針失敗不觸發、記錄不吞沒
+        return {
+            "ok": False,
+            "degraded": False,
+            "suite": str(policy.degradation_probe_suite),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 def _inference_active() -> bool | None:
     """True when a xingcheng inference engine is cached (idle or in-flight).
 
@@ -345,15 +407,37 @@ def run_cycle_impl(
     total = int(stats["total"])
     trained_total = int(state.get("trained_example_total") or 0)
     new_examples = max(0, total - trained_total)
+    degradation_trigger: dict[str, Any] | None = None
     if not force and new_examples < int(resolved_policy.min_new_examples):
-        return {
-            "ok": True,
-            "action": "idle",
-            "reason": "below-threshold",
-            "total_examples": total,
-            "new_examples": new_examples,
-            "threshold": int(resolved_policy.min_new_examples),
-        }
+        # §2.7-1 能力退化探針：資料未達門檻時量測現役權重是否退化；
+        # 退化且仍有可訓新例 → 降門檻觸發（其餘閘門不變）
+        probe = _degradation_probe(resolved_policy, tool)
+        if probe is not None and probe.get("degraded"):
+            if new_examples < int(resolved_policy.degradation_min_examples):
+                return {
+                    "ok": True,
+                    "action": "idle",
+                    "reason": "degradation-detected-insufficient-data",
+                    "degradation_probe": probe,
+                    "total_examples": total,
+                    "new_examples": new_examples,
+                    "threshold": int(resolved_policy.min_new_examples),
+                    "policy": resolved_policy.to_dict(),
+                    "checked_at": _iso_now(),
+                }
+            degradation_trigger = probe
+        else:
+            result = {
+                "ok": True,
+                "action": "idle",
+                "reason": "below-threshold",
+                "total_examples": total,
+                "new_examples": new_examples,
+                "threshold": int(resolved_policy.min_new_examples),
+            }
+            if probe is not None:
+                result["degradation_probe"] = probe
+            return result
 
     # §2.7-3 課程選擇：決定本循環課程（單一課程；失敗即停由熔斷閘門承擔）
     curriculum, curriculum_blocked = _select_curriculum(resolved_policy, tool)
@@ -627,6 +711,10 @@ def run_cycle_impl(
         "curriculum": curriculum,
         "new_examples": new_examples,
         "total_examples": total,
+        "trigger": (
+            "degradation-probe" if degradation_trigger else "data-threshold"
+        ),
+        "degradation_probe": degradation_trigger,
         "evaluations": evaluations,
         "released": released,
         "runtime_checkpoint": pinned,
@@ -673,6 +761,7 @@ def run_cycle_impl(
             "last_adapter_id": adapter_id,
             "last_evaluations": evaluations,
             "last_course": curriculum.get("course"),
+            "last_degradation_probe": summary.get("degradation_probe"),
             "last_maturity_recheck": summary.get("maturity_recheck"),
             "active_weights_version": lifecycle.active_weights_version,
             "resource_account": resource_account,

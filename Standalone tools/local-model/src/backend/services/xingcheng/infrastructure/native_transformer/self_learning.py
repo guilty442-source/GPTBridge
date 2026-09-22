@@ -96,6 +96,13 @@ class SelfLearningPolicy:
     # §2.7-9 升級後 maturity 重測（預設關閉；結果記錄於報告與狀態）
     post_upgrade_maturity_recheck: bool = False
     maturity_recheck_device: str = "cpu"
+    # §2.7-1 能力退化探針觸發：資料未達 min_new_examples 時，以探針套件
+    # 的 baseline_metrics 量測現役權重；退化即降門檻觸發訓練。
+    # 探針量測失敗 fail-closed＝不觸發（錯誤記錄於循環結果與狀態）。
+    degradation_probe_enabled: bool = False
+    degradation_probe_suite: str = "star-native-eval-dialogue-v1"
+    # 退化觸發時仍要求的最少新範例數（預設 1；0 新例無課程可訓）
+    degradation_min_examples: int = 1
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
