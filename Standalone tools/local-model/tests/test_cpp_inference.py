@@ -1099,3 +1099,33 @@ def test_cpp_cuda_layerwise_parity(
         abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
         for a, e in zip(actual, expected)
     )
+
+
+def test_cpp_engine_sequence_nll_matches_teacher_forced_loss(
+    tmp_path: Path,
+) -> None:
+    """sequence_nll mirrors the eval-suite perplexity metric: teacher-forced
+    next-token NLL over the full sequence (labels shifted internally)."""
+    import math
+
+    module = cpp_runtime.load_extension()
+    model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+
+    ids = [1, 9, 10, 11, 12, 13, 7]
+    nll, scored = engine.sequence_nll(ids)
+    assert scored == len(ids) - 1
+    cpp_ppl = math.exp(nll / scored)
+
+    ids_t = torch.tensor([ids], dtype=torch.long)
+    with torch.no_grad():
+        loss = float(model(ids_t, labels=ids_t)["loss"].item())
+    torch_ppl = math.exp(loss)
+    assert cpp_ppl == pytest.approx(torch_ppl, rel=2e-3, abs=2e-3)
+
+    # Degenerate inputs stay fail-closed-ish: <2 tokens scores nothing.
+    assert engine.sequence_nll([5]) == (0.0, 0)
+    engine.unload()
+    with pytest.raises(Exception):
+        engine.sequence_nll(ids)

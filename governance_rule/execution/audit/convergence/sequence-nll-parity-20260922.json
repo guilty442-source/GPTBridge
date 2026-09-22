@@ -1,0 +1,43 @@
+{
+  "artifact": "sequence-nll-parity-20260922",
+  "date": "2026-09-22",
+  "scope": "NativeInferenceEngine::sequence_nll — teacher-forced next-token NLL, one packed forward, no KV writes; mirrors native_eval_suite.evaluate_checkpoint metric (ppl = exp(nll / scored_count))",
+  "implementation": {
+    "api": "std::pair<double, int64_t> sequence_nll(const std::vector<int64_t>& input_ids)",
+    "header": "Standalone tools/local-model/src/backend/cpp/include/xingcheng_inference.hpp",
+    "engine": "Standalone tools/local-model/src/backend/cpp/src/engine.cpp",
+    "binding": "Standalone tools/local-model/src/backend/cpp/src/binding.cpp",
+    "semantics": [
+      "ENGINE_NOT_LOADED when engine unloaded",
+      "{0.0, 0} for fewer than two input ids",
+      "packed forward_hidden over full sequence; logits computed for all but final position",
+      "invalid target ids skipped (no out-of-range access)",
+      "numerically stable log-sum-exp (subtract max, log(sum exp), minus target logit)"
+    ]
+  },
+  "validation": {
+    "python_parity": {
+      "test": "test_cpp_engine_sequence_nll_matches_teacher_forced_loss",
+      "file": "Standalone tools/local-model/tests/test_cpp_inference.py",
+      "result": "1 passed, 40 deselected in 67.89s",
+      "reference": "native_transformer/benchmark.py _perplexity (teacher-forced loss over tiny PyTorch model, vocab=64 hidden=32 2 layers)"
+    },
+    "native_suites": {
+      "baseline_suite.exe": {
+        "result": "6/6 PASS",
+        "relevant_case": "sequence_nll_scored_and_finite (232ms) — NLL finite, scored>0, perplexity sane"
+      },
+      "eval_suite.exe": {
+        "result": "3/3 PASS",
+        "relevant_case": "heldout_perplexity_beats_uniform (32.1s) — real bundle held-out ppl < uniform baseline via sequence_nll"
+      },
+      "dialogue_suite.exe": {
+        "result": "3/3 PASS",
+        "relevant_case": "dialogue_perplexity_beats_uniform (26.6s) — same metric over dialogue spec"
+      }
+    },
+    "extension": "Standalone tools/local-model/dist-native/_xingcheng_inference.cp311-win_amd64.pyd rebuilt with binding"
+  },
+  "determinism": "greedy/packed-forward path is deterministic; sequence_nll reuses forward_hidden with no KV writes",
+  "fail_closed": "unloaded engine → ENGINE_NOT_LOADED; empty/short input → zero scored tokens (caller must guard div-by-zero)"
+}
