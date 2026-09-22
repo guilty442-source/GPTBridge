@@ -28,6 +28,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import ast
 import inspect
 import json
 import sys
@@ -74,6 +75,187 @@ def _iter_python_check_names(audit_pkg: object) -> list[str]:
             if name.startswith("check_") and name not in names:
                 names.append(name)
     return names
+
+
+def _path_join_literal(node: ast.AST) -> str | None:
+    """``root / "a" / "b"`` → ``"a/b"``; anything else → None."""
+    parts: list[str] = []
+    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        if not (
+            isinstance(node.right, ast.Constant)
+            and isinstance(node.right.value, str)
+        ):
+            return None
+        parts.append(node.right.value)
+        node = node.left
+    if isinstance(node, ast.Name) and node.id == "root" and parts:
+        return "/".join(reversed(parts))
+    return None
+
+
+def _is_missing_guard(stmt: ast.stmt, var: str) -> bool:
+    """``if not <var>.is_file(): errors.append(...); return`` guard."""
+    if not isinstance(stmt, ast.If) or stmt.orelse:
+        return False
+    test = stmt.test
+    if not (
+        isinstance(test, ast.UnaryOp)
+        and isinstance(test.op, ast.Not)
+        and isinstance(test.operand, ast.Call)
+        and isinstance(test.operand.func, ast.Attribute)
+        and test.operand.func.attr == "is_file"
+        and isinstance(test.operand.func.value, ast.Name)
+        and test.operand.func.value.id == var
+    ):
+        return False
+    return bool(stmt.body) and all(
+        isinstance(s, (ast.Expr, ast.Return)) for s in stmt.body
+    ) and any(isinstance(s, ast.Return) for s in stmt.body)
+
+
+def _text_read_target(stmt: ast.stmt, var: str) -> str | None:
+    """``text = read_text_cached(<var>)`` / ``text = <var>.read_text(...)``
+    → assigned name; else None."""
+    if not (
+        isinstance(stmt, ast.Assign)
+        and len(stmt.targets) == 1
+        and isinstance(stmt.targets[0], ast.Name)
+        and isinstance(stmt.value, ast.Call)
+    ):
+        return None
+    func = stmt.value.func
+    if (
+        isinstance(func, ast.Name)
+        and func.id == "read_text_cached"
+        and len(stmt.value.args) == 1
+        and isinstance(stmt.value.args[0], ast.Name)
+        and stmt.value.args[0].id == var
+    ):
+        return stmt.targets[0].id
+    if (
+        isinstance(func, ast.Attribute)
+        and func.attr == "read_text"
+        and isinstance(func.value, ast.Name)
+        and func.value.id == var
+    ):
+        return stmt.targets[0].id
+    return None
+
+
+def _marker_loop(stmt: ast.stmt, text_var: str) -> list[str] | None:
+    """``for m in ("a", "b"): if m not in <text_var>: errors.append(...)``
+    → marker list; else None."""
+    if not (
+        isinstance(stmt, ast.For)
+        and not stmt.orelse
+        and isinstance(stmt.target, ast.Name)
+        and isinstance(stmt.iter, (ast.Tuple, ast.List))
+        and len(stmt.body) == 1
+        and isinstance(stmt.body[0], ast.If)
+        and not stmt.body[0].orelse
+    ):
+        return None
+    markers: list[str] = []
+    for element in stmt.iter.elts:
+        if not (
+            isinstance(element, ast.Constant)
+            and isinstance(element.value, str)
+        ):
+            return None
+        markers.append(element.value)
+    marker_var = stmt.target.id
+    condition = stmt.body[0].test
+    if not (
+        isinstance(condition, ast.Compare)
+        and isinstance(condition.left, ast.Name)
+        and condition.left.id == marker_var
+        and len(condition.ops) == 1
+        and isinstance(condition.ops[0], ast.NotIn)
+        and len(condition.comparators) == 1
+        and isinstance(condition.comparators[0], ast.Name)
+        and condition.comparators[0].id == text_var
+    ):
+        return None
+    if not all(
+        isinstance(s, ast.Expr)
+        and isinstance(s.value, ast.Call)
+        and isinstance(s.value.func, ast.Attribute)
+        and s.value.func.attr == "append"
+        for s in stmt.body[0].body
+    ):
+        return None
+    return markers
+
+
+def _reduce_marker_check(
+    function: ast.FunctionDef,
+) -> tuple[str, list[str]] | None:
+    """Reduce the canonical ``file exists + required markers`` check body
+    to ``(relative_path, markers)``; None when the body carries any other
+    semantics (stays delegated — never silently weaken a check)."""
+    body = list(function.body)
+    if body and isinstance(body[0], ast.Expr) and isinstance(
+        body[0].value, ast.Constant
+    ):
+        body = body[1:]
+    if not 2 <= len(body) <= 4:
+        return None
+    assign = body[0]
+    if not (
+        isinstance(assign, ast.Assign)
+        and len(assign.targets) == 1
+        and isinstance(assign.targets[0], ast.Name)
+    ):
+        return None
+    path_var = assign.targets[0].id
+    relative = _path_join_literal(assign.value)
+    if relative is None:
+        return None
+    index = 1
+    if index < len(body) and isinstance(body[index], ast.If):
+        if not _is_missing_guard(body[index], path_var):
+            return None
+        index += 1
+    if index >= len(body):
+        return None
+    text_var = _text_read_target(body[index], path_var)
+    if text_var is None:
+        return None
+    index += 1
+    if index != len(body) - 1:
+        return None
+    markers = _marker_loop(body[index], text_var)
+    if markers is None:
+        return None
+    return relative, markers
+
+
+def _iter_reducible_marker_checks() -> dict[str, tuple[str, list[str]]]:
+    """``{check_name: (relative_path, markers)}`` for every ``check_*``
+    whose body is exactly the canonical markers pattern."""
+    import importlib
+
+    reducible: dict[str, tuple[str, list[str]]] = {}
+    for module_name in _CHECK_MODULES:
+        module = importlib.import_module(
+            f"governance_rule.execution.audit.{module_name}"
+        )
+        module_file = getattr(module, "__file__", None)
+        if not module_file:
+            continue
+        tree = ast.parse(
+            Path(module_file).read_text(encoding="utf-8")
+        )
+        for node in tree.body:
+            if not (
+                isinstance(node, ast.FunctionDef)
+                and node.name.startswith("check_")
+            ):
+                continue
+            reduced = _reduce_marker_check(node)
+            if reduced is not None and node.name not in reducible:
+                reducible[node.name] = reduced
+    return reducible
 
 
 def _protected_sources(root: Path) -> list[str]:
@@ -166,10 +348,25 @@ def build_manifest(root: Path) -> dict[str, object]:
             "path": relative,
         })
 
+    # --- reducible marker checks (native: file-contains) --------------
+    # Every ``check_*`` whose body is exactly "file exists + required
+    # markers" is emitted as a native file-contains check — the engine's
+    # unreadable→FAIL covers the is_file guard.  Bodies carrying any other
+    # semantics stay delegated.
+    reducible = _iter_reducible_marker_checks()
+    for name, (relative, markers) in reducible.items():
+        checks.append({
+            "id": f"module-markers:{name}",
+            "kind": "file-contains",
+            "path": relative,
+            "markers": markers,
+        })
+
     # --- delegated: every Python check not natively covered -----------
+    covered = _NATIVE_COVERED | set(reducible)
     delegated_names = [
         name for name in _iter_python_check_names(None)
-        if name not in _NATIVE_COVERED
+        if name not in covered
     ]
     for name in delegated_names:
         checks.append({
