@@ -14,6 +14,15 @@ namespace py = pybind11;
 using xingcheng::inference::NativeInferenceEngine;
 using xingcheng::inference::SamplingConfig;
 
+#if defined(XINGCHENG_CUDA)
+extern "C" int xcuda_bf16_available();
+#if defined(XINGCHENG_CUDA_KERNELS)
+extern "C" int xcuda_matmul_bf16(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out);
+#endif
+#endif
+
 PYBIND11_MODULE(_xingcheng_inference, m) {
     m.doc() = "Xingcheng formal C++ inference runtime over the public C ABI.";
 
@@ -88,23 +97,20 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
         py::arg("max_json_bytes") = 64 * 1024);
 
 #if defined(XINGCHENG_CUDA)
-    m.def("_cuda_bf16_available", []() {
-        extern "C" int xcuda_bf16_available();
-        return xcuda_bf16_available();
-    });
+    m.def("_cuda_bf16_available", &xcuda_bf16_available);
 #if defined(XINGCHENG_CUDA_KERNELS)
     m.def(
         "_probe_matmul_bf16",
         [](const std::vector<double>& a, int64_t m_rows, int64_t k,
            const std::vector<double>& b, int64_t n) {
-            extern "C" int xcuda_matmul_bf16(
-                const double*, long long, long long,
-                const double*, long long, double*);
             std::vector<double> out(
                 static_cast<size_t>(m_rows * n));
             const int rc = xcuda_matmul_bf16(
                 a.data(), m_rows, k, b.data(), n, out.data());
-            if (rc != 0) throw std::runtime_error("bf16 matmul rc=" + std::to_string(rc));
+            if (rc != 0) {
+                throw std::runtime_error(
+                    "bf16 matmul rc=" + std::to_string(rc));
+            }
             return out;
         });
 #endif

@@ -157,6 +157,12 @@ public:
     // G41 layerwise parity probe: RMS of the hidden stream at each stage
     // (embedding, each transformer layer output, final norm). No KV writes.
     std::vector<double> layer_metrics(const std::vector<int64_t>& input_ids);
+    // Phase-5E per-module parity probe: RMS at each module boundary —
+    // [embedding] + per-layer {input_norm, post-RoPE q, attention out
+    // (post-o_proj, pre-residual), post_attention_norm, MLP out
+    // (pre-residual)} + [final_norm]. For non-RoPE configs the q tap
+    // reads the post-projection queries. No KV writes.
+    std::vector<double> module_metrics(const std::vector<int64_t>& input_ids);
     std::vector<int64_t> generate(
         const std::vector<int64_t>& prompt_ids,
         int64_t max_new_tokens,
@@ -290,14 +296,16 @@ private:
         bool append_cache);
     std::vector<double> forward_batch_hidden(
         const std::vector<BatchSpan>& spans,
-        std::vector<double>* layer_rms = nullptr);
+        std::vector<double>* layer_rms = nullptr,
+        std::vector<double>* module_rms = nullptr);
     std::vector<std::vector<double>> forward_batch_last_logits(
         const std::vector<BatchSpan>& spans);
     std::vector<double> forward_hidden(
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,
         bool append_cache,
-        std::vector<double>* layer_rms = nullptr);
+        std::vector<double>* layer_rms = nullptr,
+        std::vector<double>* module_rms = nullptr);
     int64_t sample_next(
         const std::vector<double>& logits,
         const std::vector<int64_t>& previous,

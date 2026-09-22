@@ -1638,23 +1638,32 @@ std::vector<double> NativeInferenceEngine::layer_metrics(
     return trace;
 }
 
+std::vector<double> NativeInferenceEngine::module_metrics(
+    const std::vector<int64_t>& input_ids) {
+    std::vector<double> trace;
+    forward_hidden(input_ids, 0, false, nullptr, &trace);
+    return trace;
+}
+
 std::vector<double> NativeInferenceEngine::forward_hidden(
     const std::vector<int64_t>& input_ids,
     int64_t position_offset,
     bool append_cache,
-    std::vector<double>* layer_rms) {
+    std::vector<double>* layer_rms,
+    std::vector<double>* module_rms) {
     // R9: the single-sequence path is the packed batch path with one span.
     BatchSpan span;
     span.slot = 0;
     span.ids = &input_ids;
     span.position_offset = position_offset;
     span.append_cache = append_cache;
-    return forward_batch_hidden({span}, layer_rms);
+    return forward_batch_hidden({span}, layer_rms, module_rms);
 }
 
 std::vector<double> NativeInferenceEngine::forward_batch_hidden(
     const std::vector<BatchSpan>& spans,
-    std::vector<double>* layer_rms) {
+    std::vector<double>* layer_rms,
+    std::vector<double>* module_rms) {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
     if (spans.empty()) throw InferenceError("INPUT_EMPTY");
     const ModelConfig& cfg = bundle_->config();
@@ -1713,6 +1722,9 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
     }
     if (layer_rms != nullptr) {
         layer_rms->push_back(hidden_rms(hidden, total_tokens, hidden_size));
+    }
+    if (module_rms != nullptr) {
+        module_rms->push_back(hidden_rms(hidden, total_tokens, hidden_size));
     }
 
     const int64_t q_dim = cfg.num_attention_heads * cfg.head_dim;
