@@ -880,11 +880,23 @@ def test_cpp_quantized_layerwise_parity(tmp_path: Path) -> None:
 # (fail-soft, same contract as native engine _gate_cuda_device).
 
 
-def test_cpp_cuda_gate_degrades_when_coordinator_unreachable(
+def test_cpp_cuda_gate_degrades_on_budget_denial(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import contextlib
     import os
 
+    try:
+        import shared_layer.adaptive.gpu_coordinator as gpu_coord
+    except ModuleNotFoundError:
+        pytest.skip("shared_layer not importable in this env")
+
+    @contextlib.contextmanager
+    def _denied(self, required_mb, priority="training", timeout=300):
+        raise TimeoutError(f"GPU acquire timeout: need {required_mb}MB")
+        yield
+
+    monkeypatch.setattr(gpu_coord.GpuCoordinator, "acquire", _denied)
     _patched_roots(monkeypatch, tmp_path)
     checkpoint = _tiny_checkpoint(tmp_path)
     monkeypatch.setenv("XINGCHENG_CPP_CUDA", "1")
