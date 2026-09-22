@@ -112,6 +112,10 @@
 - 傳輸層：central PG（`gptbridge_transport.tool_request`，RLS 身分綁定）或
   本地 degraded SQLite store（`LocalSharedLayerStore`，含 `notification_stamp`）。
   C++ 工具不應直連傳輸庫——建議一律走 §7-B 代理，傳輸層維持 Python 管有。
+  **代理線協定已定版**：`star-governed-transport-proxy/v1`
+  （`convergence/governed-transport-proxy-v1.md`，2026-09-22）——
+  操作集、JSONL envelope、hello 綁定、錯誤碼閉集、P1 常駐代理／P2 stdio
+  sidecar 兩部署形態、shadow parity 清單。
 
 ## 6. 健康快照 schema（`/health`）
 

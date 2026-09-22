@@ -43,3 +43,31 @@
   凍結 §1–§6 線上語義＋12 項 shadow parity 判據；`issue_token` 屬治理認證面，
   **未核定前 M1 採模式 B**（C++ 工具體＋Python transport 代理，不觸 token ABI）。
 - `investment-mobile`（M1 C#）同受此規格約束；兩者共用同一 governed runtime 協定。
+
+## 進度（2026-09-22）：M1 `system-rescue` shadow 原型落地
+
+- `native/core/system_rescue.c`＋`include/system_rescue.h`：platform_packager
+  決策自由語義——`_verify_tool_package` 判定樹（MISSING→METADATA_MISSING→
+  METADATA_INVALID→STALE→OK）、`_normalize_packager_report` 錯誤碼映射、
+  `verify_packaged_tool` sidecar 判定（含 UNREADABLE）、`verify_all` 聚合、
+  `_main` CLI 路由階梯、FIPS-180-4 SHA-256（hashlib 等值）。
+- `native/core/governed_tool.c`＋`include/governed_tool.h`：
+  `star-governed-tool-runtime-abi/v1` 判定子集（§9 parity 清單之純語義項）——
+  env/tool_id/token/port 校驗、`workspace_instance_id`（sha256[:16] mixin 版）、
+  `/shutdown`·WS 閘門（compare_digest 語義）、命令前置校驗、idle_poll 演化
+  ＋wait_timeout、channel_health ≥3 degraded；§5 token ABI 未觸（模式 B）。
+- 綁定：`sr_*`＋`gt_*` 薄綁定入 `_sovereign_native`；canonical build 註冊。
+- 證據：native suites `system_rescue_suite` 6＋`governed_tool_suite` 10 全
+  PASS；`main-system/tests/test_native_m1_shadow.py` 13 測試（Python 權威
+  函式 vs C 逐項比對；`.pyd` 受 INT-10 鎖定期間 graceful skip，Python 側
+  判定已對暫存樹實測）。`.pyd` rebuild 待 INT-10 窗口後執行。
+- 傳輸代理協定已定版：`star-governed-transport-proxy/v1`
+  （`convergence/governed-transport-proxy-v1.md`）——模式 B 的線協定：
+  JSONL 操作集（claim/respond/cancel/notify/request/response/hello）、
+  錯誤碼閉集、P1 主系統常駐代理（目標）／P2 per-tool stdio sidecar
+  （過渡）兩部署形態、6 項代理層 parity 判據；token 發行與傳輸庫
+  仍 Python 管有（E4 邊界不變）。
+- 未做（M1 殘項）：C++ 工具體行程（ABI §1–§4 線上實作＋transport
+  proxy v1 客戶端）、Python 代理端點（P1 或 P2 擇一先行）、
+  shadow→primary 觀察窗、parity 零差異證據、runtime flag、
+  load/unload 資源釋放驗收。
