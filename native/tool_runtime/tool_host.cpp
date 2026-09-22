@@ -57,9 +57,12 @@ namespace jl = jsonlite;
 
 void th_trace(const char* tag, const std::string& v) {
     FILE* f = fopen("tool_host_trace.log", "a");
-    if (f) { fprintf(f, "%s|%s\n", tag, v.c_str()); fclose(f); }
+    if (f) {
+        fprintf(f, "%s|%s", tag, v.c_str());
+        fputc('\n', f);
+        fclose(f);
+    }
 }
-void (th_trace_unused_ok)(const char*, const std::string&); /* 除錯用 */
 namespace gtw = gptbridge::gtw;
 namespace tpx = gptbridge::tpx;
 
