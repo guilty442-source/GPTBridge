@@ -1,0 +1,19 @@
+{
+  "evidence_id": "p4-adaptive-plane-producers",
+  "ts": "2026-09-22T18:09:27Z",
+  "item": "P4 adaptive plane 殘項：第三／第四訊號生產者",
+  "changes": [
+    "ModelResourceManager.request_load/release → observe_merge(model_load_pct)：受管模型已佔 RAM／VRAM 各對（已佔＋可用）池之比例取 max；遙測缺失的池略過、兩池皆缺不寫（fail-closed）；閘門主流程例外靜默",
+    "ConnectionManager 滿池等待路徑 → observe_merge(pool_wait_timeouts 累計＋pg_wait_ms 最近等待)；附帶修正：原碼持 _lock 阻塞等待 get(timeout=10)，改為放手等待（滿池等待不再阻塞歸還路徑）；stats() 新增 pool_wait_timeouts"
+  ],
+  "files": [
+    "main-system/src-core/core_system/model_resource_manager.py",
+    "shared-layer/src/shared_layer/database/connection.py",
+    "main-system/tests/test_adaptive_plane_merge.py"
+  ],
+  "verification": {
+    "new_tests": "test_adaptive_plane_merge.py 9/9 PASS",
+    "regression": "resource/notify/activation 35 PASS；connection|pool|dedicated 33 PASS"
+  },
+  "residual": "qdrant_backlog／qdrant_latency_ms／sqlite_*／degraded 等欄位仍 opt-in 待接"
+}

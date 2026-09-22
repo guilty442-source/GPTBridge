@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import sys
+import pytest
+from queue import Empty
 from pathlib import Path
 
 _SHARED = Path(__file__).resolve().parents[2] / "shared-layer" / "src"
@@ -146,3 +148,100 @@ def test_resource_manager_vram_share(tmp_path, monkeypatch):
     assert d2.admitted
     # vram (4000+900)/(4900+1000)=83.1%；ram 2000/10000=20% → 83.1
     assert abs(plane.signals.model_load_pct - 83.05) < 0.1
+
+
+class _FakeStatus:
+    name = "IDLE"
+
+
+class _FakeInfo:
+    transaction_status = _FakeStatus()
+
+
+class _FakeConn:
+    closed = False
+    info = _FakeInfo()
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        self.closed = True
+
+
+class _EmptyThenRaise:
+    """get_nowait/get 皆 Empty → 觸發滿池逾時路徑。"""
+
+    def get_nowait(self):
+        raise Empty
+
+    def get(self, timeout=0):
+        raise Empty
+
+    def put_nowait(self, item):
+        pass
+
+    def qsize(self):
+        return 0
+
+
+class _EmptyThenConn:
+    def __init__(self):
+        self.conn = _FakeConn()
+        self.returned = []
+
+    def get_nowait(self):
+        raise Empty
+
+    def get(self, timeout=0):
+        return self.conn
+
+    def put_nowait(self, item):
+        self.returned.append(item)
+
+    def qsize(self):
+        return 0
+
+
+def _bare_manager(idle):
+    from queue import Empty as _E  # noqa: F401
+    from threading import Lock
+
+    from shared_layer.database.connection import ConnectionManager
+
+    mgr = object.__new__(ConnectionManager)
+    mgr._idle = idle
+    mgr._lock = Lock()
+    mgr._connection_count = 1
+    mgr._dedicated_count = 0
+    mgr._max_size = 1
+    mgr._opened = True
+    mgr._pool_wait_timeouts = 0
+    return mgr
+
+
+def test_pool_wait_timeout_published(tmp_path, monkeypatch):
+    """滿池逾時 → pool_wait_timeouts+1 ＋ pg_wait_ms 注入（Empty 仍向上傳）。"""
+    plane = AdaptiveDataPlane()
+    monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
+
+    mgr = _bare_manager(_EmptyThenRaise())
+    with pytest.raises(Empty):
+        with mgr.connection():
+            pass
+    assert plane.signals.pool_wait_timeouts == 1
+    assert plane.signals.pg_wait_ms >= 0.0
+
+
+def test_pool_wait_success_publishes_wait_ms(tmp_path, monkeypatch):
+    """滿池等待後成功取得 → pg_wait_ms 更新、逾時計數不變。"""
+    plane = AdaptiveDataPlane()
+    monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
+
+    idle = _EmptyThenConn()
+    mgr = _bare_manager(idle)
+    with mgr.connection() as conn:
+        assert conn is idle.conn
+    assert plane.signals.pool_wait_timeouts == 0
+    assert plane.signals.pg_wait_ms >= 0.0
+    assert idle.returned == [idle.conn]  # 連線歸還池

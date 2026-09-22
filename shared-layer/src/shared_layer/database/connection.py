@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from contextlib import contextmanager
 from queue import Empty, Full, LifoQueue
 from threading import Lock
@@ -63,6 +64,7 @@ class ConnectionManager:
         self._lock = Lock()
         self._connection_count = 0
         self._dedicated_count = 0
+        self._pool_wait_timeouts = 0
         self._opened = False
 
     def _new_connection(self) -> Connection[dict[str, Any]]:
@@ -120,6 +122,7 @@ class ConnectionManager:
                 "idle_connections": idle,
                 "active_connections": max(0, count - idle),
                 "dedicated_connections": self._dedicated_count,
+                "pool_wait_timeouts": self._pool_wait_timeouts,
             }
 
     def close(self) -> None:
@@ -163,9 +166,21 @@ class ConnectionManager:
             connection = self._idle.get_nowait()
         except Empty:
             with self._lock:
-                if self._connection_count >= self._max_size:
+                at_cap = self._connection_count >= self._max_size
+            if at_cap:
+                start = time.monotonic()
+                try:
                     connection = self._idle.get(timeout=10)
-                else:
+                except Empty:
+                    with self._lock:
+                        self._pool_wait_timeouts += 1
+                    self._observe_plane_wait((time.monotonic() - start) * 1000.0)
+                    raise
+                self._observe_plane_wait((time.monotonic() - start) * 1000.0)
+            else:
+                with self._lock:
+                    connection = self._new_connection()
+                    self._connection_count += 1
                     connection = self._new_connection()
                     self._connection_count += 1
         try:
@@ -195,6 +210,27 @@ class ConnectionManager:
                     connection.close()
                 with self._lock:
                     self._connection_count -= 1
+
+    def _observe_plane_wait(self, wait_ms: float) -> None:
+        """P4 adaptive plane 生產者：pool 等待量測。
+
+        ``pool_wait_timeouts``＝累計逾時次數（絕對值）；
+        ``pg_wait_ms``＝最近一次滿池等待毫秒。欄位級合併，
+        不覆寫其他生產者；失敗靜默——訊號只是提示，
+        不得影響連線取得主流程。
+        """
+        try:
+            from ..adaptive import LoadSignals, get_plane
+
+            get_plane().observe_merge(
+                LoadSignals(
+                    pool_wait_timeouts=self._pool_wait_timeouts,
+                    pg_wait_ms=wait_ms,
+                ),
+                fields=("pool_wait_timeouts", "pg_wait_ms"),
+            )
+        except Exception:
+            pass
 
 
 _MANAGER: "ConnectionManager | None" = None
