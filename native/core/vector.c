@@ -13,6 +13,8 @@
 #include "memory.h"
 
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__) || defined(__AVX512F__) || defined(__AVX2__)
 #include <immintrin.h>
@@ -74,6 +76,22 @@ static gptbridge_vec_level gptbridge_vector_simd_level(void) {
     if (gptbridge_vector_have_avx512f() && gptbridge_vector_have_avx512vl() && gptbridge_vector_have_avx512dq() && gptbridge_vector_have_fma()) cached = GPTBRIDGE_VEC_AVX512;
     else if (gptbridge_vector_have_avx2() && gptbridge_vector_have_fma()) cached = GPTBRIDGE_VEC_AVX2;
     else cached = GPTBRIDGE_VEC_NONE;
+    /* GPTBRIDGE_SIMD_LEVEL diagnostic override may only lower the level
+     * below the CPUID-detected capability (mirrors transformer.c). */
+    {
+        const char* forced = getenv("GPTBRIDGE_SIMD_LEVEL");
+        gptbridge_vec_level requested = cached;
+        if (forced && forced[0]) {
+            if (!strcmp(forced, "none") || !strcmp(forced, "scalar") || !strcmp(forced, "0")) {
+                requested = GPTBRIDGE_VEC_NONE;
+            } else if (!strcmp(forced, "avx2") || !strcmp(forced, "1")) {
+                requested = GPTBRIDGE_VEC_AVX2;
+            } else if (!strcmp(forced, "avx512") || !strcmp(forced, "2")) {
+                requested = GPTBRIDGE_VEC_AVX512;
+            }
+            if (requested < cached) cached = requested;
+        }
+    }
     return (gptbridge_vec_level)cached;
 }
 

@@ -11,6 +11,8 @@
 #include "memory.h"
 
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* Always expose AVX-512/AVX2 intrinsics on x86-64 when immintrin.h is
  * available; actual execution is gated by runtime CPUID in
@@ -116,6 +118,25 @@ static gptbridge_simd_level gptbridge_native_simd_level(void) {
         cached = GPTBRIDGE_SIMD_AVX2;
     } else {
         cached = GPTBRIDGE_SIMD_NONE;
+    }
+
+    /* Diagnostic/test override (ACC-1 acceptance): GPTBRIDGE_SIMD_LEVEL
+     * = none|scalar|avx2|avx512 may only LOWER the dispatched level below
+     * the CPUID-detected capability — it never enables instructions the
+     * CPU lacks, so non-AVX hosts still take the identical scalar path. */
+    {
+        const char* forced = getenv("GPTBRIDGE_SIMD_LEVEL");
+        gptbridge_simd_level requested = cached;
+        if (forced && forced[0]) {
+            if (!strcmp(forced, "none") || !strcmp(forced, "scalar") || !strcmp(forced, "0")) {
+                requested = GPTBRIDGE_SIMD_NONE;
+            } else if (!strcmp(forced, "avx2") || !strcmp(forced, "1")) {
+                requested = GPTBRIDGE_SIMD_AVX2;
+            } else if (!strcmp(forced, "avx512") || !strcmp(forced, "2")) {
+                requested = GPTBRIDGE_SIMD_AVX512;
+            }
+            if (requested < cached) cached = requested;
+        }
     }
     return (gptbridge_simd_level)cached;
 }
