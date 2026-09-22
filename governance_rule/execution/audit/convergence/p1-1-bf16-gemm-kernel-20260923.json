@@ -1,0 +1,31 @@
+{
+  "schema": "convergence-evidence/v1",
+  "evidence_id": "p1-1-bf16-gemm-kernel-20260923",
+  "recorded_at_utc": "2026-09-22T18:08:57Z",
+  "item": "P1-1③ bf16 GEMM 自研 kernel（工具鏈前置解除）",
+  "toolchain_resolution": {
+    "blocker": "nvcc 12.0 拒 VS18 預設工具集（v145 STL 硬性 static_assert／template 失敗）",
+    "resolution": "vcvars64.bat -vcvars_ver=<v> 選用並存舊工具集——14.16(v141)／14.29(v142) 直過；14.44(v143) 需 -allow-unsupported-compiler；probe.cu 實測 RC=0",
+    "build": "build_cpp.py _compile_cuda_kernels：nvcc+MSVC toolset 14.16.27023，-gencode compute_80/sm_86 + compute_80 PTX"
+  },
+  "changes": [
+    "cpp/src/kernels/matmul_bf16.cu：16x16 tiled bf16 GEMM（fp32 累加）＋f64→bf16 轉換 kernel＋bf16 device-resident 權重快取（B operand，VRAM 為 fp64 四分之一）＋extern C API（xcuda_matmul_bf16／xcuda_bf16_kernel_probe／xcuda_bf16_release_weights）",
+    "cuda_bridge.cpp：xcuda_bf16_available（kernels TU 缺席 fail-closed 回 0）＋stub matmul＋release 掛接",
+    "engine.cpp：XINGCHENG_CPP_CUDA_BF16 opt-in 閘（請求但不可用→load 時 CUDA_BF16_UNAVAILABLE fail-closed）＋matmul／matmul_grouped 派送",
+    "binding.cpp：_cuda_bf16_available／_probe_matmul_bf16 私有探針",
+    "build_cpp.py：nvcc/工具集偵測→.cu→.obj→extra_objects＋XINGCHENG_CUDA_KERNELS macro",
+    "tests/test_cpp_bf16_matmul.py：parity／precision-envelope／determinism＋weight-cache"
+  ],
+  "tests": [
+    "kernel parity vs bf16-quantized-input fp64 reference：5 shapes（33x17x9→256x512x256）scaled err ≤0.0069（fp32 累加項）",
+    "precision envelope vs true fp64：≤0.14 scaled（bf16 輸入量化固有包絡，測試界 <0.25）",
+    "determinism：bf16 weight-cache 路徑 bit-identical",
+    "engine fail-closed：BF16=1 無 CUDA=1 → load 時 CUDA_BF16_UNAVAILABLE",
+    "engine live：CUDA=1+BF16=1 載入 705MB bundle 1.58s、cuda_active、lm_head logits 經 bf16 GEMM（8192 維 0.54s）",
+    "pytest 3/3 PASS（test_cpp_bf16_matmul.py）"
+  ],
+  "deferred": [
+    "P1-1① 長時驗證（窗口型）② device-resident KV（待 GPU attention kernel）③殘 fp8 ④生產啟用評估（GPU 窗口＋Python governed 設定接線）"
+  ],
+  "notes": "bf16 為 opt-in 評估路徑，預設仍 fp64 cuBLAS；治理決策層維持 Python 側 env/設定擁有。"
+}
