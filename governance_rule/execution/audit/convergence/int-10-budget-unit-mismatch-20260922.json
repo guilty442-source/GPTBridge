@@ -14,14 +14,14 @@
     "ram_side_consistent": "worker_ram_pct = rss/total*100 為整機份額，與 worker_ram_budget 單位一致——僅 cpu 側有單位錯配"
   },
   "window_reanalysis": {
-    "window": "2026-09-22T14:50Z 起",
-    "samples": 1471,
-    "flagged_over_budget": 33,
-    "cpu_pct_max_per_core_units": 144.6,
-    "cpu_pct_max_machine_share_pct": 9.04,
-    "job_cap_ceiling_per_core_units": 160,
-    "conclusion": "33 筆標記樣本全部落在 Job 硬頂（160 逐核單位≈整機 10%）之內；最高值 144.6 恰為 cap 壓制痕跡。以修正單位重讀：現窗判據④ 0 筆真實超限"
+    "method": "全帳本重核算（2026-09-22T18:33Z）：閾 160 逐核單位＝16 核×10% 整機；RAM 側閾 worker_ram_budget=30 整機 %",
+    "windows": {
+      "voided_1255z": {"samples": 54, "flagged": 2, "cpu_over_160": 0, "ram_over_30": 0, "max_cpu_per_core": 21.5, "max_cpu_machine_pct": 1.34, "max_ram_pct": 2.22},
+      "voided_1323z": {"samples": 322, "flagged": 30, "cpu_over_160": 0, "ram_over_30": 0, "max_cpu_per_core": 107.4, "max_cpu_machine_pct": 6.71, "max_ram_pct": 3.34},
+      "current_1450z": {"samples": 1629, "flagged": 33, "cpu_over_160": 0, "ram_over_30": 0, "max_cpu_per_core": 144.6, "max_cpu_machine_pct": 9.04, "max_ram_pct": 2.29}
+    },
+    "conclusion": "三窗帳本記錄樣本在修正口徑下皆零真實超限；33 筆現窗標記全部落在 Job 硬頂（160 逐核單位≈整機 10%）之內，最高 144.6 恰為 cap 壓制痕跡",
+    "caveat": "帳本只證明『已記錄樣本』無超限：13:23Z fork-storm 期的短命新進程可能未被 5s 採樣捕捉（當時 Job cap 亦未上線），該窗歷史作廢裁定不受此重核算影響"
   },
-  "prior_windows": "12:55Z（2 筆）與 13:23Z（23+ 筆）作廢窗之超限計數同受此旗標影響——13:23Z fork-storm 期是否曾真正突破 cap 需以 160 逐核單位為閾重新核算（當時 Job cap 尚未上線，故該窗的真實超限仍可能成立）",
   "decision_needed": "判定屬總督：①修正旗標（worker_cpu_pct/logical 或 budget*logical）並以修正口徑重讀現窗；或②維持嚴格口徑。修正本體是一行，但屬窗口期變更量測儀器，需核定後執行。"
 }
