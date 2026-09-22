@@ -377,9 +377,7 @@ def test_executor_kills_subprocess_on_rss_overbudget(tmp_path: Path) -> None:
     repository = TransformerTrainingRepository(tmp_path)
     executor = _subprocess_executor(repository)
     output_dir = tmp_path / "job-rss"
-    with pytest.raises(
-        TrainingJobExecutorError, match="EXECUTOR_RESOURCE_OVERBUDGET"
-    ):
+    with pytest.raises(TrainingJobExecutorError) as exc_info:
         executor._invoke_trainer(
             [{"source": "t", "text": "hello", "sha256": _sha("hello")}],
             [],
@@ -391,6 +389,7 @@ def test_executor_kills_subprocess_on_rss_overbudget(tmp_path: Path) -> None:
             output_dir=output_dir,
             resume=None,
         )
+    assert exc_info.value.error_code == "EXECUTOR_RESOURCE_OVERBUDGET"
     error = json.loads((output_dir / "train-error.json").read_text())
     assert "resource budget exceeded" in error["error"]
 
@@ -414,10 +413,7 @@ def test_executor_fails_closed_when_rss_monitor_unavailable(
     monkeypatch.setitem(sys.modules, "psutil", None)
     repository = TransformerTrainingRepository(tmp_path)
     executor = _subprocess_executor(repository)
-    with pytest.raises(
-        TrainingJobExecutorError,
-        match="EXECUTOR_RESOURCE_MONITOR_UNAVAILABLE",
-    ):
+    with pytest.raises(TrainingJobExecutorError) as exc_info:
         executor._invoke_trainer(
             [{"source": "t", "text": "hello", "sha256": _sha("hello")}],
             [],
@@ -425,6 +421,7 @@ def test_executor_fails_closed_when_rss_monitor_unavailable(
             output_dir=tmp_path / "job-nomon",
             resume=None,
         )
+    assert exc_info.value.error_code == "EXECUTOR_RESOURCE_MONITOR_UNAVAILABLE"
 
 
 def test_executor_fails_job_on_out_of_bounds_resource_budget(

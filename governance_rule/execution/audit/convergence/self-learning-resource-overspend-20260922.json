@@ -1,0 +1,33 @@
+{
+  "schema": "self-learning-resource-overspend/v1",
+  "date": "2026-09-22",
+  "scope": "§2.7-8 星澄自主訓練 — 訓練中資源超支即停（executor 內嵌預算計時）",
+  "files": [
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/budget.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/sft.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/pretrain.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/dpo.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_executor.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py"
+  ],
+  "design": {
+    "check": "training/budget.py check_train_budget(config, device, started)：步邊界呼叫；max_train_seconds（wall-clock，量自 started）與 max_train_vram_mb（torch.cuda.memory_allocated，僅 CUDA 裝置）超限回傳停止原因字串，未超限回傳 None；0=不設限",
+    "loop_stop": "sft_train / pretrain / dpo_train 每步完成（含邊界 checkpoint 寫入）後檢查，超限印 train-stopped 事件並 break；final.pt 照常落地，summary 記 stopped_reason（time-budget-exceeded / vram-budget-exceeded）與實際完成步數",
+    "executor": "_INT_BOUNDS 新增 max_train_seconds (0..86400) / max_train_vram_mb (0..1,048,576)；pretrain/sft 經 dataclass splat 透傳、dpo 顯式透傳；job spec 跨子程序契約不變",
+    "cycle_fail_closed": "self-learning 政策欄位 train_time_budget_s / train_vram_budget_mb（預設 0=關）寫入 job configuration；run_job 成功但 summary.stopped_reason 非空 → 循環 action=resource-overspend：checkpoint 僅由 executor 註冊為候選（不評估、不 stage、不啟用），consecutive_failures+1（與 training-failed 熔斷語意一致），resource_account 與 stopped_reason 入循環報告與 state",
+    "versus_process_timeout": "既有 train_process_timeout_s 為子程序硬逾時（kill → EXECUTOR_TRAINING_FAILED 無 checkpoint）；新預算為訓練迴圈內優雅即停——checkpoint 保留可稽核，fail-closed 由循環層決策"
+  },
+  "defaults": "全部預算欄位預設 0=不設限，既有行為不變；生效值屬受管 runtime/settings/self-learning.json 或 job configuration",
+  "verification": {
+    "new_gate_tests": "tests/test_self_learning_gates.py 新增 3/3 PASS：test_resource_overspend_fail_closed（stopped_reason→resource-overspend、不評估不啟用、consecutive_failures=1、resource_account 入帳）、test_budget_config_passed_to_job（政策預算透傳 job configuration）、test_check_train_budget_time（時間預算單元判定：逾限回原因/未逾 None/0 停用）",
+    "regression": "test_dataset_cap_truncates + test_resource_account_recorded + test_gates_default_disabled_unchanged 3/3 PASS（同批 -k 過濾執行 6/6，130.68s）",
+    "syntax": "py_compile 7 production files + test file OK",
+    "note": "依藍圖規定正式驗收閘門為主系統測試套件＋稽核引擎；本地 pytest 為輔助證據（tests/ 依慣例 gitignored 不追蹤）"
+  },
+  "gaps_remaining": [
+    "§2.7-3 non-SFT course types (DPO/distill/續訓/專家模組)；DPO 另缺 language_preference_pair 資料（現況 0 筆）",
+    "§2.7-7 rollback rehearsal — UNRESOLVED: _retire_previous_artifact prunes previous weights, conflicts with 保留上一代+rollback 實測; governor ruling needed",
+    "§2.7-10 3 consecutive autonomous cycles acceptance + codex amendment"
+  ]
+}
