@@ -1,0 +1,21 @@
+{
+  "evidence_id": "g50-model-resource-broker-gate",
+  "ts": "2026-09-22T17:18:54Z",
+  "item": "G50 / §10.7 待辦：模型載入點改經 request_load（漸進遷移第一步）",
+  "change": "ModelServiceActivationBroker 啟動閘前接入 ModelResourceManager.request_load；RAM 需求由 native-engine.json 釘定 checkpoint 大小 ×1.5 估測；否決 fail-closed（不啟動＋退避＋admission 帳本）；啟動失敗／治理釋放／明示停止對稱 release",
+  "files": [
+    "main-system/src-core/core_system/model_resource_manager.py",
+    "main-system/src-core/tasks/model_service_activation.py",
+    "main-system/tests/test_model_service_activation.py",
+    "main-system/tests/test_activation_broker_native_shadow.py"
+  ],
+  "verification": {
+    "tests": "test_model_service_activation.py + test_model_resource_manager.py + test_activation_broker_native_shadow.py: 35/35 PASS",
+    "fail_closed": [
+      "resource-denied",
+      "resource-estimate-unavailable",
+      "resource-gate-error"
+    ]
+  },
+  "residual": "Ollama 按需啟動、embedding/reranker、引擎內部 CUDA 載入點尚未接 request_load"
+}

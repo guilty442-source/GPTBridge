@@ -297,6 +297,10 @@ def _broker(toolbox, **kwargs):
     app = SimpleNamespace(maintenance_ready=True, _shutting_down=False)
     kwargs.setdefault("idle_interval", 5.0)
     kwargs.setdefault("pending_interval", 1.0)
+    # §10.7 resource gate is orthogonal to the §10.65 shadow ladder under
+    # test; disable it explicitly so fixture roots without weights stay
+    # focused on shadow parity.
+    kwargs.setdefault("resource_manager", None)
     return ModelServiceActivationBroker(app, toolbox, **kwargs)
 
 
