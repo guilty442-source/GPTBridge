@@ -17,6 +17,7 @@ int main() { return 0; } /* windows-only suite */
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <filesystem>
 #include <map>
 #include <mutex>
 #include <string>
@@ -569,7 +570,7 @@ int main() {
                 strncpy_s(root_buf, env_root, MAX_PATH - 1);
             } else {
                 GetFullPathNameA(
-                    (std::string(cwd) + "\\..\\..\\..\\..").c_str(),
+                    (std::string(cwd) + "\\..\\..\\..").c_str(),
                     MAX_PATH, root_buf, nullptr);
             }
             const std::string root = root_buf;
@@ -654,6 +655,220 @@ int main() {
                 !sidecar.call("ping", tpx::args_empty(), &resp, &err) &&
                     !err.code.empty(),
                 "post-stop call fails with error code");
+        }();
+        if (blocked)
+            native_tests::record_blocked(SUITE, name, detail);
+        else
+            native_tests::record(SUITE, name, pass, detail,
+                                 native_tests::now_ms() - t0);
+    }
+
+    /* live e2e：tool_host 以真實 ProxySidecar spawn 兩支
+       proxy_wire_agent（process＋submit 綁定；檔案佇列共享狀態），
+       WS 命令走真實 TransportProxyAgent dispatch 全程——
+       request→佇列→claim→execute→respond→waiter 推送＋
+       cancel→request_cancelled→不 respond。python/agent 缺失 →
+       BLOCKED。 */
+    {
+        const char* name = "live_sidecar_e2e";
+        const double t0 = native_tests::now_ms();
+        std::string detail;
+        bool blocked = false;
+        const bool pass = [&]() -> bool {
+            auto check = [&](bool cond, const char* msg) -> bool {
+                if (!cond) detail = msg;
+                return cond;
+            };
+            namespace fs = std::filesystem;
+            char cwd[MAX_PATH] = {0};
+            GetCurrentDirectoryA(MAX_PATH, cwd);
+            char root_buf[MAX_PATH] = {0};
+            const char* env_root = std::getenv("GPTBRIDGE_PROJECT_ROOT");
+            if (env_root && env_root[0]) {
+                strncpy_s(root_buf, env_root, MAX_PATH - 1);
+            } else {
+                GetFullPathNameA(
+                    (std::string(cwd) + "\\..\\..\\..\\..").c_str(),
+                    MAX_PATH, root_buf, nullptr);
+            }
+            const fs::path root = root_buf;
+            const fs::path agent =
+                root / "native" / "test_suites" / "proxy_wire_agent.py";
+            if (GetFileAttributesA(agent.generic_string().c_str()) ==
+                INVALID_FILE_ATTRIBUTES) {
+                detail = "wire agent missing";
+                blocked = true;
+                return true;
+            }
+            std::vector<std::string> candidates;
+            if (const char* p = std::getenv("GPTBRIDGE_TEST_PYTHON");
+                p && p[0])
+                candidates.push_back(std::string(p));
+            candidates.push_back(
+                (root / "main-system" / ".venv" / "Scripts" /
+                 "python.exe")
+                    .generic_string());
+            candidates.push_back("python");
+            std::string py;
+            for (const auto& c : candidates) {
+                if (c == "python" ||
+                    GetFileAttributesA(c.c_str()) !=
+                        INVALID_FILE_ATTRIBUTES) {
+                    py = c;
+                    break;
+                }
+            }
+            if (py.empty()) {
+                detail = "python unavailable for live sidecar e2e";
+                blocked = true;
+                return true;
+            }
+            const fs::path queue_dir =
+                root / "native" / "test_suites" / "bin" /
+                ("_wire_queue_" +
+                 std::to_string(GetCurrentProcessId()));
+            fs::create_directories(queue_dir);
+            SetEnvironmentVariableA(
+                "GPTBRIDGE_WIRE_QUEUE",
+                queue_dir.generic_string().c_str());
+
+            WSADATA wsa;
+            if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+                return check(false, "wsa");
+            const int port = free_port();
+
+            th::ToolHostConfig cfg;
+            cfg.tool_id = "test-tool";
+            cfg.port = port;
+            cfg.session_token = TOKEN;
+            cfg.shutdown_token = "sh-token";
+            char wsid[GPTBRIDGE_GT_INSTANCE_ID_LEN + 1] = {0};
+            gptbridge_gt_workspace_instance_id("test-tool", port, wsid);
+            cfg.workspace_instance_id = wsid;
+            const std::string cmdline =
+                "\"" + py + "\" \"" + agent.generic_string() + "\"";
+            cfg.proxy_command_line = cmdline;
+            cfg.proxy_command_line_submit = cmdline;
+            cfg.submit_actor = "governance/tool/test-tool";
+            cfg.submit_authorizer =
+                "governance_rule.permission_directory.registries."
+                "permissions.tool_routes:authorize_tool_self_route";
+
+            std::atomic<bool> slow_started{false};
+            th::ToolHostHooks hooks;
+            hooks.executor = [&](const std::string& command,
+                                 const jl::JsonValue& payload,
+                                 const std::string&,
+                                 const std::atomic<bool>& cancelled) {
+                if (command == "slow") {
+                    slow_started.store(true);
+                    for (int i = 0; i < 800 && !cancelled.load(); ++i)
+                        Sleep(10);
+                    return jobj({{"ok", jbool(true)}});
+                }
+                return jobj({{"ok", jbool(true)},
+                             {"echo_command", jstr(command)},
+                             {"echo_x", payload.get("x")
+                                             ? *payload.get("x")
+                                             : jl::JsonValue{}}});
+            };
+
+            th::ToolHost host;
+            std::string err;
+            if (!host.start(cfg, std::move(hooks), &err))
+                return check(false, ("start: " + err).c_str());
+
+            SOCKET ws = connect_loop(port);
+            const std::string wsreq =
+                "GET /?token=" + TOKEN + "&instance=" +
+                std::string(wsid) +
+                " HTTP/1.1\r\nUpgrade: websocket\r\n"
+                "Connection: Upgrade\r\n"
+                "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+                "Sec-WebSocket-Version: 13\r\n\r\n";
+            send(ws, wsreq.data(), static_cast<int>(wsreq.size()), 0);
+            char rbuf[512];
+            int rn = recv(ws, rbuf, sizeof(rbuf) - 1, 0);
+            rbuf[rn > 0 ? rn : 0] = '\0';
+            if (!check(std::string(rbuf).find("101") !=
+                           std::string::npos,
+                       "ws upgrade 101 (live e2e)"))
+                return false;
+
+            const std::string cmd = jl::json_serialize(jobj({
+                {"command", jstr("echo")},
+                {"payload", jobj({{"request_id", jstr("r-live-1")},
+                                  {"tool_id", jstr("test-tool")},
+                                  {"x", jstr("v")}})},
+            }));
+            send(ws, masked_text(cmd).data(),
+                 static_cast<int>(masked_text(cmd).size()), 0);
+            gtw::WsFrame f;
+            if (!check(read_frame(ws, &f, 15000) &&
+                           f.payload.find("COMMAND_RECEIVED") !=
+                               std::string::npos,
+                       "recv COMMAND_RECEIVED (live e2e)"))
+                return false;
+            if (!check(read_frame(ws, &f, 15000) &&
+                           f.payload.find("echo_result") !=
+                               std::string::npos &&
+                           f.payload.find("r-live-1") !=
+                               std::string::npos,
+                       "recv echo_result (live e2e)"))
+                return false;
+            bool done_seen = false;
+            for (int i = 0; i < 100 && !done_seen; ++i) {
+                done_seen =
+                    fs::exists(queue_dir / "done-r-live-1.json");
+                if (!done_seen) Sleep(50);
+            }
+            if (!check(done_seen, "respond persisted (live e2e)"))
+                return false;
+
+            const std::string slow = jl::json_serialize(jobj({
+                {"command", jstr("slow")},
+                {"payload", jobj({{"request_id", jstr("r-live-2")},
+                                  {"tool_id", jstr("test-tool")}})},
+            }));
+            send(ws, masked_text(slow).data(),
+                 static_cast<int>(masked_text(slow).size()), 0);
+            if (!check(read_frame(ws, &f, 15000) &&
+                           f.payload.find("COMMAND_RECEIVED") !=
+                               std::string::npos,
+                       "recv slow received (live e2e)"))
+                return false;
+            for (int i = 0; i < 500 && !slow_started.load(); ++i)
+                Sleep(10);
+            if (!check(slow_started.load(),
+                       "slow executor started (live e2e)"))
+                return false;
+            const std::string cc = jl::json_serialize(jobj({
+                {"command", jstr("toolbox_cancel_tool_run")},
+                {"payload", jobj({{"request_id", jstr("r-live-2")}})},
+            }));
+            send(ws, masked_text(cc).data(),
+                 static_cast<int>(masked_text(cc).size()), 0);
+            if (!check(read_frame(ws, &f, 15000) &&
+                           f.payload.find("\"cancelled\":true") !=
+                               std::string::npos,
+                       "cancelled true (live e2e)"))
+                return false;
+            bool unexpected = false;
+            if (read_frame(ws, &f, 3000))
+                unexpected =
+                    f.payload.find("slow_result") != std::string::npos;
+            if (!check(!unexpected,
+                       "cancelled request not responded (live e2e)"))
+                return false;
+
+            closesocket(ws);
+            host.request_stop();
+            host.run();
+            WSACleanup();
+            SetEnvironmentVariableA("GPTBRIDGE_WIRE_QUEUE", nullptr);
+            std::error_code ec;
+            fs::remove_all(queue_dir, ec);
+            return true;
         }();
         if (blocked)
             native_tests::record_blocked(SUITE, name, detail);

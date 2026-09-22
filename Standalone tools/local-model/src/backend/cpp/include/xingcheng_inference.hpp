@@ -148,6 +148,12 @@ public:
         int64_t max_length = 0) const;
     std::string decode(const std::vector<int64_t>& ids, bool skip_special = true) const;
     std::vector<double> logits(const std::vector<int64_t>& input_ids);
+    // Teacher-forced next-token NLL: one packed forward (no KV writes),
+    // returns {sum of -log p(id[i+1] | id[0..i]), scored tokens}.
+    // perplexity = exp(nll / count); deterministic, mirrors the Python
+    // eval-suite metric (native_eval_suite.evaluate_checkpoint).
+    std::pair<double, int64_t> sequence_nll(
+        const std::vector<int64_t>& input_ids);
     // G41 layerwise parity probe: RMS of the hidden stream at each stage
     // (embedding, each transformer layer output, final norm). No KV writes.
     std::vector<double> layer_metrics(const std::vector<int64_t>& input_ids);
