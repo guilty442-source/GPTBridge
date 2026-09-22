@@ -339,17 +339,10 @@ class StarChatService(StarChatHelpersMixin):
     async def _handle_status(
         self, payload: dict[str, Any], request_id: str, command: str
     ) -> tuple[str, dict[str, Any]]:
-        prepare_mode = self._bounded_text(
-            payload.get("prepare_mode"), 16
-        ).casefold()
         if await self._target_ready():
             result = await self._request(
                 "xingcheng_status",
-                {
-                    "prepare_mode": prepare_mode
-                    if prepare_mode in self.CONVERSATION_MODES
-                    else ""
-                },
+                {},
                 timeout_seconds=120,
                 parent_request_id=request_id,
                 cancel_event=payload.get("_cancel_event"),
@@ -390,20 +383,22 @@ class StarChatService(StarChatHelpersMixin):
         progress_callback: Callable[[dict[str, Any]], Any] | None,
         command: str,
     ) -> tuple[str, dict[str, Any]]:
-        conversation_mode = self._conversation_mode(payload)
         raw_message = self._bounded_text(
             payload.get("message") or payload.get("prompt"), 32_000,
         )
         command_context = self._conversation_context(payload)
         programming_tool_result: dict[str, Any] = {}
-        if conversation_mode == "coding":
+        has_programming_scope = bool(
+            self._bounded_text(payload.get("programming_folder"), 1_024)
+        )
+        if has_programming_scope:
             command_context, payload, programming_tool_result = (
                 await self._collect_coding_context(
                     payload, raw_message, command_context
                 )
             )
         prompt = self._conversation_prompt(payload)
-        if command_context and conversation_mode == "coding":
+        if command_context and has_programming_scope:
             prompt = f"{prompt}\n\n{command_context}"
         if not prompt:
             return f"{command}_result", {
@@ -430,8 +425,7 @@ class StarChatService(StarChatHelpersMixin):
         result = await self._request(
             "xingcheng_infer",
             self._infer_payload(
-                payload, prompt, raw_message, command_context,
-                conversation_mode, controls,
+                payload, prompt, raw_message, command_context, controls,
             ),
             timeout_seconds=(
                 600.0 if target_ready else self._ACTIVATION_TIMEOUT_SECONDS
@@ -452,7 +446,7 @@ class StarChatService(StarChatHelpersMixin):
                 "message": "星澄模型服務啟動逾時，請稍後再試，或先啟動「本機模型」工具。",
             }
         result["channel_workflow"] = self._channel_workflow()
-        if conversation_mode == "coding":
+        if has_programming_scope:
             result["programming_tools"] = programming_tool_result
         return f"{command}_result", result
 

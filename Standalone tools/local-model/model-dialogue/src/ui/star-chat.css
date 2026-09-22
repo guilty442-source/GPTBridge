@@ -72,13 +72,6 @@ button { color: inherit; }
 .star-main { min-width: 0; min-height: 0; height: 100vh; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); }
 .star-main > header { min-height: 105px; padding: 26px clamp(26px, 4vw, 54px) 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(153, 195, 184, .08); }
 .title-block { display: grid; gap: 10px; }
-.conversation-mode-switch { width: fit-content; padding: 3px; display: flex; gap: 3px; border: 1px solid rgba(108, 175, 157, .2); border-radius: 11px; background: rgba(5, 14, 20, .68); }
-.conversation-mode-switch button { min-width: 92px; padding: 7px 12px; display: flex; align-items: baseline; justify-content: center; gap: 6px; border: 0; border-radius: 8px; background: transparent; color: #69857e; cursor: pointer; transition: .18s ease; }
-.conversation-mode-switch button span { font-size: 11px; font-weight: 800; letter-spacing: .04em; }
-.conversation-mode-switch button small { font-size: 9px; color: inherit; }
-.conversation-mode-switch button.active { background: rgba(88, 215, 180, .16); color: #dff8f1; box-shadow: 0 3px 12px rgba(0, 0, 0, .16); }
-.conversation-mode-switch button:disabled { opacity: .5; cursor: default; }
-[data-conversation-mode="coding"] .conversation-mode-switch button.active { background: rgba(100, 146, 238, .18); color: #dce8ff; }
 .eyebrow { color: #59d6b4; font-size: 9px; letter-spacing: .24em; font-weight: 800; }
 h1 { margin: 5px 0 0; font-size: clamp(25px, 3vw, 34px); font-weight: 620; letter-spacing: .02em; }
 .ghost-button { border: 1px solid rgba(146, 189, 177, .18); background: rgba(12, 27, 34, .65); border-radius: 9px; padding: 9px 13px; color: #98afa9; cursor: pointer; font-size: 12px; }
@@ -212,7 +205,6 @@ h1 { margin: 5px 0 0; font-size: clamp(25px, 3vw, 34px); font-weight: 620; lette
   .messages, .teach-workspace { padding-left: 18px; padding-right: 18px; }.composer-wrap { padding-left: 16px; padding-right: 16px; }
   .mode-switch, .vote-roster { grid-template-columns: 1fr; }.training-actions { align-items: stretch; flex-direction: column; }.training-actions button { width: 100%; }
   .star-main > header { align-items: flex-start; gap: 10px; }.header-actions { align-items: stretch; flex-direction: column; }.model-picker select { min-width: 170px; max-width: 190px; }
-  .conversation-mode-switch button { min-width: 78px; padding-left: 8px; padding-right: 8px; }
   .advanced-settings-panel { position: fixed; left: 16px; right: 16px; top: auto; width: auto; grid-template-columns: 1fr; }
   .advanced-settings-panel .model-picker:last-child { grid-column: auto; }
 }

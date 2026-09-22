@@ -6,7 +6,6 @@ type ReasoningLevel = 'auto' | 'light' | 'intermediate' | 'high-high' | 'ultra-h
 type ReasoningEffort = 'low' | 'medium' | 'high'
 type GenerationSpeed = 'auto' | 'slow' | 'low' | 'medium' | 'high' | 'ultra'
 type TaskIntensity = 'auto' | 'simple' | 'normal' | 'intermediate' | 'difficult'
-type ConversationMode = 'chat' | 'coding'
 type Message = {
   id: string
   role: 'user' | 'assistant'
@@ -58,7 +57,6 @@ const HISTORY_BUDGET_BY_INTENSITY: Record<TaskIntensity, number> = {
 
 const DEFAULT_MODEL = 'gemma4:e2b-it-qat'
 const PROGRAMMING_FOLDER_STORAGE_KEY = 'star-chat.programming-folder.v1'
-const CONVERSATION_MODE_STORAGE_KEY = 'star-chat.conversation-mode.v1'
 const AUTO_MODEL: ModelOption = {
   name: '',
   label: '自動模型路由（速度、推理與能力強度）',
@@ -214,10 +212,6 @@ export function StarChatWindowApp() {
   const { request, cancelRequests, status } = useStarChatBackend()
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft] = useState('')
-  const [conversationMode, setConversationMode] = useState<ConversationMode>(() =>
-    window.localStorage.getItem(CONVERSATION_MODE_STORAGE_KEY) === 'coding' ? 'coding' : 'chat'
-  )
-  const [pendingModeTransition, setPendingModeTransition] = useState<ConversationMode | null>(null)
   const [generating, setGenerating] = useState(false)
   const [modelReady, setModelReady] = useState<boolean | null>(null)
   const [models, setModels] = useState<ModelOption[]>(DEFAULT_MODELS)
@@ -320,11 +314,6 @@ export function StarChatWindowApp() {
   }, [messages, generating, scrolledAway])
 
   useEffect(() => {
-    window.localStorage.setItem(CONVERSATION_MODE_STORAGE_KEY, conversationMode)
-    setFolderError('')
-  }, [conversationMode])
-
-  useEffect(() => {
     const remembered = window.localStorage.getItem(PROGRAMMING_FOLDER_STORAGE_KEY)?.trim() || ''
     if (remembered) setProgrammingFolder(remembered)
   }, [])
@@ -372,8 +361,6 @@ export function StarChatWindowApp() {
         history,
         max_output_tokens: maxOutputTokens,
         runtime_model: selectedModel,
-        conversation_mode: conversationMode,
-        previous_conversation_mode: pendingModeTransition,
         context_budget_characters: hardwareContext.characters,
       }
       // 「自動」= 不指定檔位，交由系統依任務與負載決定。
@@ -396,7 +383,7 @@ export function StarChatWindowApp() {
             cpu_cores: hardwareContext.cpuCores,
           },
           autonomous_agent: true,
-          programming_folder: conversationMode === 'coding' ? programmingFolder : '',
+          programming_folder: programmingFolder,
         },
         610_000,
         (progress) => {
@@ -435,7 +422,6 @@ export function StarChatWindowApp() {
         : instruction?.status === 'input-required'
           ? '命令已理解・需要補充輸入'
           : ''
-      setPendingModeTransition(null)
       setActiveGenerationModel(models.find((item) => item.name === model)?.label || model)
       setGenerationPhase('responding')
       setMessages((current) => {
@@ -519,24 +505,8 @@ export function StarChatWindowApp() {
     window.localStorage.setItem(PROGRAMMING_FOLDER_STORAGE_KEY, selected)
   }
 
-  const switchConversationMode = (nextMode: ConversationMode) => {
-    if (nextMode === conversationMode || generating) return
-    const previousMode = conversationMode
-    setConversationMode(nextMode)
-    setPendingModeTransition(previousMode)
-    if (connected) {
-      void request('star_chat_status', { prepare_mode: nextMode }, 120_000).catch(() => undefined)
-    }
-    setMessages((current) => [...current, {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: `已切換為 ${nextMode === 'chat' ? 'Chat' : 'Coding'} 模式；下次送出時會先通知模型完成角色切換。`,
-      notice: true,
-    }])
-  }
-
   return (
-    <div className="star-shell" data-conversation-mode={conversationMode}>
+    <div className="star-shell">
       <aside className="star-sidebar">
         <div className="brand"><span className="brand-mark">模</span><div><strong>模型對話</strong><small>本機模型對話入口</small></div></div>
         <nav aria-label="主要功能"><button className="active"><span>✦</span> 模型對話</button></nav>
@@ -550,18 +520,14 @@ export function StarChatWindowApp() {
       <main className="star-main">
         <header>
           <div className="title-block"><span className="eyebrow">GOVERNED LOCAL INTELLIGENCE</span><h1>模型對話</h1>
-            <div className="conversation-mode-switch" role="group" aria-label="對話模式">
-              <button type="button" className={conversationMode === 'chat' ? 'active' : ''} aria-pressed={conversationMode === 'chat'} onClick={() => switchConversationMode('chat')} disabled={generating}><span>Chat</span><small>一般對話</small></button>
-              <button type="button" className={conversationMode === 'coding' ? 'active' : ''} aria-pressed={conversationMode === 'coding'} onClick={() => switchConversationMode('coding')} disabled={generating}><span>Coding</span><small>程式工作</small></button>
-            </div>
           </div>
           <div className="header-actions">
-            {conversationMode === 'coding' && <label className="programming-folder-picker">
-              <span>Coding 作業頂層資料夾</span>
+            <label className="programming-folder-picker">
+              <span>程式作業頂層資料夾</span>
               <div><input value={programmingFolder} readOnly title={programmingFolder} placeholder="尚未設定" /><button type="button" onClick={() => void selectProgrammingFolder()} disabled={generating}>設定</button></div>
-              <small className="folder-scan-summary">{programmingFolder ? '程式作業範圍限制於此資料夾' : '未設定時使用預設工作區，仍可執行編程任務'}</small>
+              <small className="folder-scan-summary">{programmingFolder ? '程式作業範圍限制於此資料夾，於對話內以受治理工具處理' : '未設定時程式任務以對話內推理完成'}</small>
               {folderError && <small>{folderError}</small>}
-            </label>}
+            </label>
             <details className="advanced-settings">
               <summary>進階設定 <small>{models.find((item) => item.name === selectedModel)?.label || '自動模型'}</small></summary>
               <div className="advanced-settings-panel">
@@ -611,12 +577,10 @@ export function StarChatWindowApp() {
             {messages.length === 0 && (
               <div className="welcome">
                 <div className="welcome-orbit"><span>模</span></div>
-                <h2>{conversationMode === 'chat' ? 'Chat 模式，現在可以開始聊聊。' : 'Coding 模式，準備處理程式任務。'}</h2>
-                <p>{conversationMode === 'chat' ? '適合問答、討論、整理想法與撰寫內容；模型會以自然對話方式回應。' : '選擇編程資料夾後，模型會以程式工程語境分析、編寫、檢查與修正程式。'}</p>
+                <h2>現在可以開始聊聊。</h2>
+                <p>問答、討論、整理想法、撰寫內容與程式任務都在對話內完成；設定程式作業資料夾後，模型會以受治理工具分析、編寫與檢查程式。</p>
                 <div className="suggestions">
-                  {(conversationMode === 'chat'
-                    ? ['幫我整理今天的想法', '用簡單方式解釋一個概念', '幫我潤飾這段文字']
-                    : ['幫我把需求拆成可執行步驟', '設計一個 Python API 並附測試', '依照我的命令編寫、檢查並修正程式']).map((item) => (
+                  {['幫我整理今天的想法', '用簡單方式解釋一個概念', '幫我潤飾這段文字', '設計一個 Python API 並附測試'].map((item) => (
                     <button key={item} onClick={() => setDraft(item)}>{item}</button>
                   ))}
                 </div>
@@ -642,7 +606,7 @@ export function StarChatWindowApp() {
             <div className="composer">
               <textarea aria-label="傳送訊息給所選模型" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage() }
-              }} placeholder={conversationMode === 'chat' ? '輸入想聊的內容…' : '輸入程式需求、錯誤訊息或開發指令…'} disabled={generating} />
+              }} placeholder="輸入想聊的內容、程式需求或開發指令…" disabled={generating} />
               {generating
                 ? <button className="stop-button" aria-label="停止產生回答" title="停止產生回答" onClick={stopGenerating}>■</button>
                 : <button aria-label="送出訊息" onClick={() => void sendMessage()} disabled={!draft.trim() || !connected}>↑</button>}
@@ -651,7 +615,7 @@ export function StarChatWindowApp() {
               <button type="button" disabled={generating || !connected} onClick={() => void runDiagnostic('star_chat_codex_alignment', '法典 × 實作對齊檢查')}>法典 × 實作對齊</button>
               <button type="button" disabled={generating || !connected} onClick={() => void runDiagnostic('star_chat_architecture_sync', '中文法典 × 架構圖同步檢查')}>法典 × 架構圖同步</button>
             </div>
-            <small className="composer-hint">{conversationMode === 'chat' ? 'Chat 一般對話' : 'Coding 程式工作'} · Enter 送出 · Shift + Enter 換行 · 上下文依本機負載自動調整</small>
+            <small className="composer-hint">Enter 送出 · Shift + Enter 換行 · 上下文依本機負載自動調整</small>
           </div>
         </section>
       </main>
