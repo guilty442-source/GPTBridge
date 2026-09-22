@@ -270,6 +270,16 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                         memory_maintainer.run(shutdown_event),
                         name="main-system-idle-memory-maintenance",
                     )
+                # §10.11: perf-baseline collector rides the same governed
+                # flow surface (automation core → scheduler fallback).
+                try:
+                    from tasks.perf_baseline_job import (
+                        register as _register_perf_baseline,
+                    )
+
+                    _register_perf_baseline(app_instance)
+                except Exception:
+                    pass  # measurement must never break server startup
                 status_push_task = asyncio.create_task(
                     _runtime_status_push_loop(app_instance, shutdown_event),
                     name="main-system-runtime-status-push",
