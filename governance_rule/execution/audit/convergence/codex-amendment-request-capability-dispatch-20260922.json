@@ -1,0 +1,59 @@
+{
+  "amendment_id": "codex-amendment-request-capability-dispatch-20260922",
+  "requested_by": "devin-cli",
+  "change_class": "registry-materialization",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "required_gate": "five-sovereign-audit-unanimous-pass",
+  "source_path": "governance_rule/codex/data/governance_codex.sqlite3",
+  "blueprint_anchor": "local-model blueprint §10.53 item 3 (capability dispatch runtime wiring + activation gate)",
+  "status": "staged-awaiting-governor",
+  "problem": {
+    "summary": "A594 retired learning-evidence-sync-sub-sovereign; sovereign-commanded learning (auto-loop/teach/reconcile/push/status) now fails closed with child-parent-mismatch at learning_command.py:52; test_xingcheng_learning_command.py 5 tests failing. Codex closure CAPABILITY_DISPATCH_CLOSURE = INCOMPLETE_EVIDENCE (P0): 'MODULE_CAPABILITY_REGISTRY + RULE_CAPABILITY_DISPATCH_V1 planned'.",
+    "missing_authority": "no codex table materializes module capabilities or retired-identity dispatch routes; module_capability_registry.json is derived-evidence (self-declared 'pending CUTOVER gate ratification'); supersession_registry holds only non-authoritative legacy rows; runtime must not treat convergence JSON as authority (A334 single-authority)",
+    "runtime_gap": "validate_child_parent/parent_of/resolve_sovereign read sovereign_hierarchy_registry active rows only; retired identities resolve to None; delegate_to then fails TARGET_SOVEREIGN_UNAVAILABLE even if the guard were relaxed — fix requires dispatch authority consulted by both guard and resolution"
+  },
+  "proposed_delta": {
+    "tables": [
+      {
+        "name": "module_capability_registry",
+        "purpose": "codify MODULE_CAPABILITY_REGISTRY/v1 taxonomy (43 modules, schema-validated by capability_dispatch_parity.json 43/43)",
+        "columns": "module_identity, single_responsibility, capability_codes, runtime_form, permission_requirements, contract_version, owner_engine_domain, execution_identity, status, version_identity",
+        "population": "import derived registry as codex rows; per-module review is governor-side"
+      },
+      {
+        "name": "capability_dispatch_registry",
+        "purpose": "route capabilities of retired sub-sovereigns to successor execution identities (RULE_CAPABILITY_DISPATCH_V1)",
+        "columns": "retired_identity, capability_code, successor_module_identity, execution_identity, decision_authority, owner_domain, status, version_identity",
+        "minimal_row": {
+          "retired_identity": "learning-evidence-sync-sub-sovereign",
+          "capability_code": "duty:learning-evidence",
+          "successor_module_identity": "xingcheng-auto-learning-module",
+          "execution_identity": "xingcheng-native-model",
+          "decision_authority": "星澄",
+          "owner_domain": "xingcheng-domain",
+          "status": "active"
+        },
+        "remaining_18_retired_identities": "listed in sub_sovereign_retirement_matrix.json — all prescribe execution_route 'capability dispatch (RULE_CAPABILITY_DISPATCH_V1)'; successor mapping for each is governor-side completion"
+      },
+      {
+        "name": "formal_rule_registry row",
+        "purpose": "RULE_CAPABILITY_DISPATCH_V1 predicate: delegation to a retired sub-sovereign identity MUST resolve via active capability_dispatch_registry row to its successor execution identity; absent/ambiguous mapping fails closed"
+      }
+    ],
+    "runtime_semantics_after_ratification": "registries gain dispatch_route_of(retired_identity) -> {decision_authority, execution_identity} from capability_dispatch_registry; learning_command gate validates dispatch route instead of raw child-parent; resolve_sovereign resolves retired identity through successor module instance; no change for active identities"
+  },
+  "unblocks": [
+    "test_xingcheng_learning_command.py 5 failures (commanded learning surface dead since rev69 A594)",
+    "CAPABILITY_DISPATCH_CLOSURE evidence path (P0)",
+    "blueprint §10.53 item 3 runtime wiring + activation gate",
+    "remaining 17 retired-identity dispatch routes (W4-1 convergence)"
+  ],
+  "evidence": [
+    "convergence/a594-learning-command-regression-20260922.json",
+    "convergence/learning-command-retired-child-diagnosis-20260922.json",
+    "convergence/sub_sovereign_retirement_matrix.json",
+    "convergence/module_capability_registry.json (derived, pending ratification)",
+    "convergence/capability_dispatch_parity.json (43/43 schema-ok)"
+  ],
+  "worker_note": "runtime wiring intentionally NOT implemented pre-ratification — writing dispatch against a self-proposed table would create unauthorized authority; wiring is mechanical once schema lands"
+}
