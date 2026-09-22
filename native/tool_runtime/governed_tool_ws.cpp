@@ -11,7 +11,8 @@ namespace gtw {
 namespace {
 
 const size_t MAX_HEADER_BYTES = 16 * 1024;
-const size_t MAX_WS_PAYLOAD = 2 * 1024 * 1024;
+/* websockets 預設 max_size = 2**20；runtime 未覆寫 → 1 MiB。 */
+const size_t MAX_WS_PAYLOAD = 1 * 1024 * 1024;
 
 /* ---- url percent-decode（query 用；'+'→' ' 同 parse_qs） ---- */
 std::string url_decode(const std::string& s) {
@@ -125,6 +126,58 @@ std::string base64_encode(const uint8_t* data, size_t n) {
         out += (i + 2 < n) ? T[v & 63] : '=';
     }
     return out;
+}
+
+int b64val(char c) {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;
+}
+
+/* 嚴格 base64 解碼（長度須 4 倍數、'=' 只允於結尾）；失敗回空串。 */
+std::string b64decode(const std::string& s) {
+    if (s.empty() || s.size() % 4) return "";
+    std::string out;
+    for (size_t i = 0; i < s.size(); i += 4) {
+        int v[4];
+        for (int j = 0; j < 4; ++j) {
+            const char c = s[i + j];
+            if (c == '=') {
+                if (i + 4 != s.size() || j < 2) return "";
+                v[j] = -2;
+            } else {
+                v[j] = b64val(c);
+                if (v[j] < 0) return "";
+            }
+        }
+        const uint32_t n = (uint32_t(v[0]) << 18) |
+                           (uint32_t(v[1] < 0 ? 0 : v[1]) << 12) |
+                           (uint32_t(v[2] < 0 ? 0 : v[2]) << 6) |
+                           uint32_t(v[3] < 0 ? 0 : v[3]);
+        out += static_cast<char>((n >> 16) & 0xFF);
+        if (v[2] >= 0) out += static_cast<char>((n >> 8) & 0xFF);
+        if (v[3] >= 0) out += static_cast<char>(n & 0xFF);
+    }
+    return out;
+}
+
+/* Connection header 以逗號分隔 token，含指定 token（不分大小寫）。 */
+bool has_token(const char* header_value, const char* token) {
+    if (header_value == nullptr) return false;
+    const std::string s = lower(header_value);
+    size_t pos = 0;
+    while (pos <= s.size()) {
+        const size_t comma = s.find(',', pos);
+        const size_t end = comma == std::string::npos ? s.size() : comma;
+        const std::string item = trim(s.substr(pos, end - pos));
+        if (item == token) return true;
+        if (comma == std::string::npos) break;
+        pos = comma + 1;
+    }
+    return false;
 }
 
 } // namespace
@@ -281,6 +334,23 @@ std::string ws_upgrade_response(const std::string& sec_websocket_key) {
     return out;
 }
 
+bool ws_validate_upgrade(const HttpRequest& req, std::string* accept_key) {
+    const char* upgrade = req.header("upgrade");
+    if (upgrade == nullptr || lower(upgrade) != "websocket") return false;
+    if (!has_token(req.header("connection"), "upgrade")) return false;
+    const char* version = req.header("sec-websocket-version");
+    if (version == nullptr || std::string(version) != "13") return false;
+    const char* key = req.header("sec-websocket-key");
+    if (key == nullptr || b64decode(key).size() != 16) return false;
+    const char* origin = req.header("origin");
+    if (origin != nullptr && std::string(origin) != "file://" &&
+        std::string(origin) != "null") {
+        return false;
+    }
+    if (accept_key) *accept_key = ws_accept_key(key);
+    return true;
+}
+
 int64_t ws_frame_decode(const uint8_t* buf, size_t size, WsFrame* out) {
     if (size < 2) return 0;
     const bool fin = (buf[0] & 0x80) != 0;
@@ -303,12 +373,14 @@ int64_t ws_frame_decode(const uint8_t* buf, size_t size, WsFrame* out) {
         if (size < pos + 2) return 0;
         len = (uint64_t(buf[pos]) << 8) | buf[pos + 1];
         pos += 2;
+        if (len < 126) return -1;               /* 非最小長度編碼 */
     } else if (len == 127) {
         if (size < pos + 8) return 0;
         len = 0;
         for (int i = 0; i < 8; ++i)
             len = (len << 8) | buf[pos + i];
         pos += 8;
+        if (len < 0x10000) return -1;           /* 非最小長度編碼 */
         if (len & (1ull << 63)) return -1;      /* MSB must be 0 */
     }
     if (len > MAX_WS_PAYLOAD) return -1;
@@ -342,6 +414,18 @@ std::string ws_frame_encode(bool fin, WsOp opcode, const std::string& payload) {
     }
     out += payload;
     return out;
+}
+
+std::string ws_pong(const std::string& ping_payload) {
+    return ws_frame_encode(true, WsOp::Pong, ping_payload);
+}
+
+std::string ws_close(uint16_t code, const std::string& reason) {
+    std::string payload;
+    payload += static_cast<char>((code >> 8) & 0xFF);
+    payload += static_cast<char>(code & 0xFF);
+    payload += reason;
+    return ws_frame_encode(true, WsOp::Close, payload);
 }
 
 } // namespace gtw

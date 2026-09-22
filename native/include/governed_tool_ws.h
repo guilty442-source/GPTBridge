@@ -72,6 +72,15 @@ std::string ws_accept_key(const std::string& sec_websocket_key);
 /* upgrade 放行回應（101 Switching Protocols）。 */
 std::string ws_upgrade_response(const std::string& sec_websocket_key);
 
+/* 握手驗證（websockets.serve 伺服端 parity）：
+ *   Upgrade: websocket（不分大小寫）
+ *   Connection 含 upgrade token
+ *   Sec-WebSocket-Version: 13
+ *   Sec-WebSocket-Key 為合法 base64 且解出 16 bytes
+ *   Origin 缺省／"file://"／"null"（origins=(None,"file://","null")）
+ * 通過回 true 且 *accept_key 填 Sec-WebSocket-Accept。 */
+bool ws_validate_upgrade(const HttpRequest& req, std::string* accept_key);
+
 enum class WsOp : uint8_t {
     Continuation = 0x0, Text = 0x1, Binary = 0x2,
     Close = 0x8, Ping = 0x9, Pong = 0xA
@@ -85,12 +94,17 @@ struct WsFrame {
 
 /* 從 buf 解一個 server 視角入站 frame（client→server 必須 MASK=1）。
  * 回 0=需更多資料；>0=消耗的位元組數（frame 寫入 out）；
- * 回 -1=協定錯（未 mask／保留 opcode／長度逾 2 MiB／控制帧碎裂）——
+ * 回 -1=協定錯（未 mask／保留 opcode／非最小長度編碼／
+ * 長度逾 1 MiB（websockets 預設 max_size）／控制帧碎裂或 >125）——
  * 呼叫方應關閉連線。 */
 int64_t ws_frame_decode(const uint8_t* buf, size_t size, WsFrame* out);
 
 /* server→client 出站 frame（不 mask）。 */
 std::string ws_frame_encode(bool fin, WsOp opcode, const std::string& payload);
+
+/* 便捷封包：pong 回聲 ping payload；close 帶 2-byte code＋reason。 */
+std::string ws_pong(const std::string& ping_payload);
+std::string ws_close(uint16_t code, const std::string& reason);
 
 } // namespace gtw
 } // namespace gptbridge

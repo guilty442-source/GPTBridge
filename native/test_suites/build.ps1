@@ -71,16 +71,7 @@ $suites = @(
             (Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp")
         )
     },
-    @{
-        src = "suite_ws_http_gate.cpp"; exe = "ws_http_gate_suite.exe"
-        # M1 工具宿主線層：HTTP 閘門＋RFC6455 codec（零 I/O）
-        extra = @(
-            (Join-Path $nativeRoot "tool_runtime\http_gate.cpp"),
-            (Join-Path $nativeRoot "tool_runtime\ws_codec.cpp"),
-            (Join-Path $coreDir "governed_tool.c"),
-            (Join-Path $coreDir "system_rescue.c")
-        )
-    },
+
     @{
         src = "suite_a263_channel_core.cpp"; exe = "a263_channel_core_suite.exe"
         # M2 前置：A263 channel 決定性語義（零 I/O，Python 為權威 shadow）
