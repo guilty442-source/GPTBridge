@@ -131,13 +131,22 @@ def _spawn(release: Path, state_root: Path, port: int) -> subprocess.Popen[bytes
     env["GPTBRIDGE_IPC_STATE_ROOT"] = str(state_root / "ipc-state")
     # rc-2026-09-21's backend/main.py predates the flat-layout ``governance``
     # sys.path entry (dev main.py adds <release>/main-system when governance/
-    # exists there).  Inject it via PYTHONPATH instead of editing the RC;
-    # recorded in the report as a release defect compensation.
-    extra_path = str(release / "main-system")
-    existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (
-        extra_path + os.pathsep + existing if existing else extra_path
-    )
+    # exists there).  Inject it via PYTHONPATH only when the release's
+    # main.py lacks the native fix — newer RCs need no compensation.
+    main_py = release / "backend" / "main.py"
+    try:
+        needs_flat_path = "_flat_main_system" not in main_py.read_text(
+            encoding="utf-8"
+        )
+    except OSError:
+        needs_flat_path = False
+    if needs_flat_path:
+        env["GPTBRIDGE_04B10_FLAT_PATH_COMPENSATED"] = "1"
+        extra_path = str(release / "main-system")
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            extra_path + os.pathsep + existing if existing else extra_path
+        )
     python_exe = release / "venv" / "Scripts" / "python.exe"
     if not python_exe.is_file():
         python_exe = Path(sys.executable)
@@ -313,11 +322,18 @@ def main() -> int:
         "test_id": "04B-10",
         "release": str(release),
         "sandbox": str(sandbox),
-        "compensations": [
-            "PYTHONPATH=<release>/main-system injected: rc backend/main.py "
-            "predates the flat-layout governance sys.path entry — next RC "
-            "must repackage main.py",
-        ],
+        "compensations": (
+            [
+                "PYTHONPATH=<release>/main-system injected: rc backend/main.py "
+                "predates the flat-layout governance sys.path entry — next RC "
+                "must repackage main.py",
+            ]
+            if "_flat_main_system"
+            not in (release / "backend" / "main.py").read_text(
+                encoding="utf-8"
+            )
+            else []
+        ),
         "started_at": _utcnow(),
         "scenarios": {},
     }

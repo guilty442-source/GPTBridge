@@ -26,7 +26,13 @@ from pathlib import Path
 
 ROOT = Path(r"E:\GPTBridge")
 RELEASES = ROOT / "main-system" / "runtime" / "releases"
-RC_ID = "rc-2026-09-21"
+# 04B repack rule: each repack is a NEW RC (never overwrite an existing
+# release).  --rc-id overrides the default date-derived id.
+_RC_ARG = next(
+    (a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--rc-id=")),
+    None,
+)
+RC_ID = _RC_ARG or f"rc-{time.strftime('%Y-%m-%d', time.gmtime())}"
 RC = RELEASES / RC_ID
 FIXTURES = RELEASES / "fixtures" / RC_ID
 VENV_PY = ROOT / "main-system" / ".venv" / "Scripts" / "python.exe"
@@ -317,7 +323,8 @@ def fault_scenarios() -> None:
     if RUN_ISOLATED_START:
         harness = ROOT / "scripts" / "integration-04b-isolated-start.py"
         proc = subprocess.run(
-            [str(VENV_PY), str(harness), "--timeout", "150"],
+            [str(VENV_PY), str(harness), "--timeout", "150",
+             "--release", str(RC)],
             capture_output=True, text=True, timeout=600,
         )
         report_path = (
