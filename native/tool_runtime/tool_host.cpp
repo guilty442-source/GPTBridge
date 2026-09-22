@@ -987,6 +987,13 @@ void ToolHost::handle_ws_message(intptr_t sock, const std::string& text) {
 
 void ToolHost::claim_loop() {
     int64_t idle_ms = GPTBRIDGE_GT_IDLE_INITIAL_MS;
+    /* §4 通知加速（Python _listen_for_notifications 的單執行緒對映）：
+       佇列空轉等待期間以 notification_stamp 探針輪詢各 process 通道
+       ——250ms 週期；store 寫入戳變化即中斷等待、idle 重置 250ms 並
+       即刻重取，不枯等 backoff。回 null（central PG 傳輸無本地訊號）
+       或探針失敗 → 該輪略過（Python 對 probe 例外吞沒、不計
+       channel_health——此處同）。 */
+    std::map<std::string, std::pair<int64_t, int64_t>> last_stamps;
     while (!impl_->stop_flag.load()) {
         bool got = false;
         for (const auto& ch : impl_->cfg.process_channels) {
@@ -1020,12 +1027,52 @@ void ToolHost::claim_loop() {
             idle_ms = GPTBRIDGE_GT_IDLE_INITIAL_MS;
             continue;
         }
-        idle_ms = gptbridge_gt_idle_next_ms(idle_ms, 0);
+        /* Python：wait_timeout = max(idle_poll, 0.05) 用**當前**
+           idle_poll，逾時才 ×1.5；notify 命中 → 重置 0.25。 */
         const int64_t wait =
             gptbridge_gt_wait_timeout_ms(idle_ms, 0);
         const int64_t deadline = impl_->now_ms() + wait;
-        while (!impl_->stop_flag.load() && impl_->now_ms() < deadline)
-            Sleep(10);
+        int64_t next_probe = impl_->now_ms();
+        bool notified = false;
+        while (!impl_->stop_flag.load()) {
+            const int64_t now = impl_->now_ms();
+            if (now >= deadline) break;
+            if (now >= next_probe) {
+                bool changed = false;
+                for (const auto& ch : impl_->cfg.process_channels) {
+                    tpx::ProxyResponse st;
+                    if (!impl_->proxy("notification_stamp",
+                                      tpx::args_channel(ch), &st) ||
+                        !st.ok)
+                        continue;
+                    /* result 形狀：[int,int]（本地 store 寫入戳）或
+                       null（PG 傳輸 → 無本地訊號，跳過）。 */
+                    const auto& arr = st.result.array;
+                    if (st.result.type != jl::JsonValue::Type::Array ||
+                        arr.size() < 2 ||
+                        arr[0].type != jl::JsonValue::Type::Number ||
+                        arr[1].type != jl::JsonValue::Type::Number) {
+                        last_stamps.erase(ch);
+                        continue;
+                    }
+                    const std::pair<int64_t, int64_t> stamp{
+                        static_cast<int64_t>(arr[0].number),
+                        static_cast<int64_t>(arr[1].number)};
+                    auto it = last_stamps.find(ch);
+                    if (it == last_stamps.end() || it->second != stamp) {
+                        last_stamps[ch] = stamp;
+                        changed = true; /* 首次觀測亦視為變化（Python 同） */
+                    }
+                }
+                next_probe = now + 250;
+                if (changed) { notified = true; break; }
+            }
+            const int64_t slice =
+                (std::min)(deadline, next_probe) - now;
+            if (slice <= 0) continue;
+            Sleep(static_cast<DWORD>((std::min)(slice, int64_t(10))));
+        }
+        idle_ms = gptbridge_gt_idle_next_ms(idle_ms, notified ? 1 : 0);
     }
 }
 

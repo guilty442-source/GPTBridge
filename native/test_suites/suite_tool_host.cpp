@@ -65,6 +65,21 @@ struct FakeProxy {
     std::vector<std::string> cancelled;
     int hellos = 0;
     int claims = 0;
+    /* notification_stamp：本地 store 寫入戳替身——bump 即「有寫入」。 */
+    std::atomic<int64_t> stamp{0};
+    std::atomic<int> stamp_probes{0};
+
+    void enqueue_request(const std::string& request_id,
+                         const std::string& command) {
+        jl::JsonValue row = jobj({});
+        row.object.emplace_back("request_id", jstr(request_id));
+        jl::JsonValue pl = jobj({{"request_id", jstr(request_id)}});
+        pl.object.emplace_back("_governed_command", jstr(command));
+        row.object.emplace_back("payload", pl);
+        row.object.emplace_back("requester_actor", jstr("t"));
+        std::lock_guard<std::mutex> lk(mu);
+        queued.push_back(std::move(row));
+    }
 
     bool call(const std::string& op, const std::string& args_json,
               tpx::ProxyResponse* out, tpx::SidecarError*) {
@@ -124,6 +139,16 @@ struct FakeProxy {
             if (op == "cancel" && !hit && !id.empty())
                 cancelled.push_back(id);
             out->result = jbool(hit); /* 真實線路：純 bool */
+        }
+        else if (op == "notification_stamp") {
+            stamp_probes.fetch_add(1);
+            /* 真實線路：[mtime_ns, size] 或 null（PG）。 */
+            jl::JsonValue arr;
+            arr.type = jl::JsonValue::Type::Array;
+            arr.array.push_back(
+                jnum(static_cast<double>(stamp.load())));
+            arr.array.push_back(jnum(7));
+            out->result = std::move(arr);
         }
         else { out->result = jl::JsonValue{}; }
         return true;
@@ -548,6 +573,72 @@ int main() {
         WSACleanup();
     }
     NT_END_TEST(SUITE, "cancel_during_execution");
+
+    NT_TEST(SUITE, "notify_stamp_wake") {
+        /* §4 通知加速：notification_stamp 寫入戳變化須中斷空轉退避
+           即刻重取（Python _listen_for_notifications 等價）。
+           無喚醒路徑時最壞需等滿當前 backoff（封頂 500ms）。 */
+        WSADATA wsa;
+        NT_CHECK(WSAStartup(MAKEWORD(2, 2), &wsa) == 0, "wsa");
+        const int port = free_port();
+        FakeProxy proxy;
+
+        th::ToolHostConfig cfg;
+        cfg.tool_id = "test-tool";
+        cfg.port = port;
+        cfg.session_token = TOKEN;
+        cfg.shutdown_token = "";
+        char wsid[GPTBRIDGE_GT_INSTANCE_ID_LEN + 1] = {0};
+        gptbridge_gt_workspace_instance_id("test-tool", port, wsid);
+        cfg.workspace_instance_id = wsid;
+
+        th::ToolHostHooks hooks;
+        hooks.executor = [&](const std::string& command,
+                             const jl::JsonValue&,
+                             const std::string&,
+                             const std::atomic<bool>&) {
+            return jobj({{"ok", jbool(true)},
+                         {"echo_command", jstr(command)}});
+        };
+        hooks.proxy_call = [&](const std::string& op,
+                               const std::string& args,
+                               tpx::ProxyResponse* out,
+                               tpx::SidecarError* e) {
+            return proxy.call(op, args, out, e);
+        };
+
+        th::ToolHost host;
+        std::string err;
+        NT_CHECK(host.start(cfg, std::move(hooks), &err), "start");
+
+        /* 等空轉 ramp 進入深退避；stamp 探針須已在輪詢。 */
+        Sleep(900);
+        NT_CHECK(proxy.stamp_probes.load() > 0, "stamp probe running");
+
+        /* store 寫入 → stamp 變化＋新 request：須即刻喚醒重取
+           （遠低於 500ms backoff 期滿）。 */
+        proxy.stamp.fetch_add(1);
+        proxy.enqueue_request("r-wake", "echo");
+        const auto t0 = std::chrono::steady_clock::now();
+        bool responded = false;
+        while (std::chrono::steady_clock::now() - t0 <
+               std::chrono::milliseconds(400)) {
+            {
+                std::lock_guard<std::mutex> lk(proxy.mu);
+                if (!proxy.responded.empty()) {
+                    responded = true;
+                    break;
+                }
+            }
+            Sleep(10);
+        }
+        NT_CHECK(responded,
+                 "stamp change woke claim loop (<400ms)");
+        host.request_stop();
+        host.run();
+        WSACleanup();
+    }
+    NT_END_TEST(SUITE, "notify_stamp_wake");
 
     /* live P2 sidecar：真實 spawn `python -m transport_proxy`，
        驗證 CreateProcess 管道＋JSONL codec＋代理 dispatch 端到端。

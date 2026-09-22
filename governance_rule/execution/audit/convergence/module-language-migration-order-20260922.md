@@ -116,10 +116,14 @@
   COMMAND_RECEIVED→claim→execute→respond→waiter `_result` 推送、
   異形 DENIED、cancel 執行中旗標傳遞不回應（13d00404 修 WS 結果
   投遞＋/shutdown 關閉時 accept 解除阻塞）。
-- 未做（M1 殘項）：以真實 P2 Python sidecar 取代注入 proxy 的
-  live smoke（`python -m …transport_proxy` 子行程端到端）、
-  shadow→primary 觀察窗、parity 零差異證據、runtime flag、
-  load/unload 資源釋放驗收、`notify_for_request` 喚醒路徑。
+- 未做（M1 殘項）：shadow→primary 觀察窗、parity 零差異證據、
+  runtime flag、load/unload 資源釋放驗收。
+- 已補（同日）：live P2 Python sidecar smoke（`python -m
+  …transport_proxy` 真實子行程 ping/hello fail-closed 端到端，
+  `suite_tool_host.cpp::live_p2_sidecar_smoke`）；通知喚醒路徑
+  （`claim_loop` 空轉期以 `notification_stamp` 探針 250ms 輪詢
+  process 通道——寫入戳變化即中斷退避即刻重取，對齊 Python
+  `_listen_for_notifications`；`notify_stamp_wake` 測試 PASS）。
 
 - M1 `investment-mobile` C# shadow（同日補）：`native/test_suites/csharp_investment`
   （net10.0）重實作決策自由語義——`InvestmentMobileService.owns/handle/_status`、
