@@ -215,12 +215,21 @@ def test_gate_denies_on_empty_cases(tmp_path: Path) -> None:
 
 
 def test_gate_denies_on_run_budget(tmp_path: Path) -> None:
+    import time
+
     d = _bin_dir(tmp_path)
     _exe(d, "a_suite.exe")
     _exe(d, "b_suite.exe")
+
+    def slow_runner(exe: Path, cwd: Path, timeout: float):
+        (cwd / f"{exe.stem}.json").write_text(
+            json.dumps(_report()), encoding="utf-8")
+        time.sleep(0.05)
+        return _completed(0)
+
     gate = _gate(
-        tmp_path, runner=_runner_writing(_report()),
-        config=_cfg(run_budget_s=0.0001),
+        tmp_path, runner=slow_runner,
+        config=_cfg(run_budget_s=0.01),
     )
     assert gate["passed"] is False
     assert "run-budget-exceeded" in gate["detail"]
@@ -266,10 +275,7 @@ def test_convergence_evidence_records_state(
             if "rev-list" in joined:
                 return _completed(0, "0")
             if "rev-parse" in joined:
-
-            if "rev-parse" in joined:
-                return _completed(0, "abc123
-")
+                return _completed(0, "abc123\n")
             return _completed(0, "")
 
     monkeypatch.setattr(push_gate, "GitRepository", FakeRepo)
@@ -301,8 +307,7 @@ def test_push_evidence_denial_and_grant(
             self.path = Path(path)
 
         def run(self, args):  # noqa: ANN001
-            return _completed(0, "deadbeef
-")
+            return _completed(0, "deadbeef\n")
 
     monkeypatch.setattr(push_gate, "GitRepository", FakeRepo)
     records = []
