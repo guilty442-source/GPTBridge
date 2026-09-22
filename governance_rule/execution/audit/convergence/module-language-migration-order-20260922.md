@@ -146,8 +146,16 @@
   Python 側等值語義 25/25 逐項比對（shadow parity）。
 - transport／WebSocket／SQLite store／token 簽發仍 Python 管有
   （A177/E4 邊界不變）；本核心只覆蓋協定中的純語義層。
+- 已補（同日）：A263 parity 放行套件——`suite_a263_channel_core.cpp`
+  增三項情境測試並輸出 `a263_parity_matrix.json`（heartbeat deadline
+  sweep 8 列、outbox append→限窗取送→resync replay 不丟未確認、ack
+  亂序單調＋resync 雙游標收斂）；`main-system/tests/
+  test_native_m2_a263_parity.py` 以真實 Python 物件
+  （`TransactionalOutbox`、bare `A263Channel._handle_control/
+  _handle_resync`、`HeartbeatMixin` 實例屬性＋實跑 `_heartbeat_loop`
+  活體驗證）逐鍵重播比對——native 14/14 PASS、pytest 4/4 PASS，
+  M2→M3 放行門檻之三項 parity 判據落地。
 - 未做（M2 殘項）：C++ 非同步執行面（send/receive loop、state 機轉移、
-  outbox 事件持有與回放）、ChannelTransport 實作面對接、A263 parity
-  套件（M2→M3 放行門檻之三項：heartbeat deadline／outbox 不丟未確認
-  事件／cursor 收斂——本核心為其判定函式基底）、雙軌 flag 與觀察窗。
+  outbox 事件持有與回放）、ChannelTransport 實作面對接、雙軌 flag 與
+  觀察窗。
 - 證據：`convergence/a263-channel-core-20260922.json`。

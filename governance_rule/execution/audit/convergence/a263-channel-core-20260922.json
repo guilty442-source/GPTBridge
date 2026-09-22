@@ -37,11 +37,22 @@
   ],
   "measurement": {
     "native_suite": "a263_channel_core_suite",
-    "native_cases_pass": 11,
+    "native_cases_pass": 14,
     "native_cases_fail": 0,
     "full_native_report": "PASS=87 FAIL=0 BLOCKED=3（3 為刻意保留 stub 套件）",
     "python_shadow_parity_checks": 25,
-    "python_shadow_parity_fail": 0
+    "python_shadow_parity_fail": 0,
+    "parity_suite": {
+      "native_scenarios": [
+        "heartbeat_deadline",
+        "outbox_no_loss_replay",
+        "cursor_convergence"
+      ],
+      "matrix": "native/test_suites/bin/a263_parity_matrix.json",
+      "python_replay": "main-system/tests/test_native_m2_a263_parity.py",
+      "python_tests_pass": 4,
+      "python_tests_fail": 0
+    }
   },
   "boundary": {
     "stays_python": [
@@ -56,7 +67,6 @@
   "remaining_m2_items": [
     "C++ 非同步執行面（send/receive loop、state 機轉移、outbox 持有＋回放）",
     "ChannelTransport 對接（模式 B 代理或原生傳輸）",
-    "A263 parity 套件三項放行判據之端到端實測（本核心為判定基底）",
     "雙軌 runtime flag＋shadow→primary 觀察窗",
     "load/unload 資源釋放驗收"
   ]
