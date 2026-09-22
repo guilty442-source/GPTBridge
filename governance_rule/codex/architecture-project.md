@@ -70,6 +70,12 @@ flowchart TB
 
 星澄助理提供系統自動更新總開關、候選項目、逐項選擇與結果。自動化核心只管理流程與排程；裁決核心裁決爭議，權限核心執行權限檢核與稽核，運行核心向已登錄的單一職責模組下發執行、驗證及失敗回復命令。任何核心均不得直接執行模組工作，退役子主宰不得再取得 current owner 或路由。全域開關關閉時仍可用當前單項許可執行指定項目；任何門檻失敗均 fail-closed 並保留最後已驗證版本。
 
+## Runtime 規則索引
+
+Runtime 規則索引是由正式法典生成的唯讀、可重建、非權威投影。查詢路徑固定為「法典有效條文與 successor 解析 → 規則正規化 → 緊湊 generation → 精確鍵／倒排集合／位元集合 → Runtime 查詢」，不得把索引內容反向寫回法典或藉索引推導新權限。
+
+索引以 `RUNTIME_RULE_INDEX_V2` 為唯一機器契約，提供 provision、rule code、owner、capability、trigger、phase、severity、effect、deadline、resource、data class、dependency 與 successor 等查詢維度。精確鍵採直接定位，多條件查詢採最小集合優先交集；目前 generation 必須與現行法典版本、有效條文集合及 successor resolution 完全一致，否則整個索引拒絕啟用並回到正式法典查詢。generation 只能完整建置、驗證後原子切換，讀取端不得看見半成品。
+
 星澄助理提供逐項「單項許可」與「不許可」按鈕，讓使用者分別決定每一個更新或修復是否執行。單項許可只綁定一個明確 action identity、現行證據摘要、期限與一次性執行權，不得移轉、重播或擴張到其他項目；執行完成、失敗、證據變更或逾期即失效。不許可只終止指定項目，不影響其他項目。自動化主宰仍只負責分工，實際工作仍由受治理模組執行器完成。
 
 Git 管來源與歷史；PostgreSQL 管已宣告的中央正式狀態；Qdrant 僅保存語意候選；SQLite 僅保存 owner 私有狀態與有界降級資料；模型只負責推論。
