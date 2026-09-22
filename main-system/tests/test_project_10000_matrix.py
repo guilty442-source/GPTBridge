@@ -27,7 +27,20 @@ from governance_rule.governance_policy import governance_policy_snapshot
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TOOL_IDS = tuple(code_rule_directory_snapshot().approved_tool_ids)
+from governance_rule.permission_directory.registries.permissions.identity_groups import (
+    identity_group_snapshot,
+)
+
+_RETIRED_TOOL_IDS = {
+    identity.bound_tool_id
+    for identity in identity_group_snapshot().identities
+    if identity.lifecycle == "retired"
+}
+TOOL_IDS = tuple(
+    tool_id
+    for tool_id in code_rule_directory_snapshot().approved_tool_ids
+    if tool_id not in _RETIRED_TOOL_IDS
+)
 # Reduced from 3000 to 100 for performance - only real cases + minimal fakes for boundary testing
 CASES_PER_TOOL = 100
 TARGET_ADDITIONAL_CASES = len(TOOL_IDS) * CASES_PER_TOOL

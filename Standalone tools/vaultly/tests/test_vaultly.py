@@ -17,7 +17,6 @@ for _p in (
     str(_ROOT / "main-system"),
     str(_ROOT / "main-system" / "src" / "backend" / "services"),
     str(_ROOT / "local-model" / "src" / "backend" / "services"),
-    str(_ROOT / "global-cleaner" / "src"),
     str(_ROOT / "ai-assistant" / "src"),
     str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
     str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),

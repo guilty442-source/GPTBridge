@@ -17,7 +17,6 @@ for _p in (
     str(_ROOT / "main-system"),
     str(_ROOT / "main-system" / "src" / "backend" / "services"),
     str(_ROOT / "Standalone tools" / "local-model" / "src" / "backend" / "services"),
-    str(_ROOT / "Standalone tools" / "global-cleaner" / "src"),
     str(_ROOT / "Standalone tools" / "ai-assistant" / "src"),
     str(_ROOT / "Standalone tools" / "ai-assistant" / "src" / "backend" / "services"),
     str(_ROOT / "Standalone tools" / "ai-collaboration" / "src" / "backend" / "services"),
@@ -84,7 +83,7 @@ class InvestmentMobileService:
             "cache_owner": "investment-mobile",
             "cache_storage": "investment-mobile/runtime/cache",
             "backup_owner": "investment-mobile",
-            "backup_storage": "global-cleaner/data/business/backups/investment-mobile",
+            "backup_storage": "system-rescue/data/business/backups/investment-mobile",
             "separate_business_layer": False,
             "separate_settings_layer": False,
             "database": "xingcheng-shared-repository",
@@ -184,7 +183,7 @@ def test_mobile_runtime_has_no_separate_repository(tmp_path: Path) -> None:
     assert status["cache_owner"] == "investment-mobile"
     assert status["cache_storage"] == "investment-mobile/runtime/cache"
     assert status["backup_owner"] == "investment-mobile"
-    assert status["backup_storage"] == "global-cleaner/data/business/backups/investment-mobile"
+    assert status["backup_storage"] == "system-rescue/data/business/backups/investment-mobile"
     assert status["separate_business_layer"] is False
     assert status["separate_settings_layer"] is False
     assert status["database"] == "xingcheng-shared-repository"
