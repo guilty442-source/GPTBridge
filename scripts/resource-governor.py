@@ -458,9 +458,9 @@ def govern_once(
         if key not in seen:
             records.pop(key, None)
 
-    # §10.64 aggregate worker budget + hysteresis control law:
-    # 3 consecutive over-budget samples -> regulate; 5 consecutive samples
-    # under 80% of budget -> release (no flapping).
+    # §10.64 aggregate worker budget + hysteresis control law (strict
+    # INT-10 semantics): first over-budget sample -> regulate; 5 consecutive
+    # samples under 80% of budget -> release (no flapping).
     total_mem = psutil.virtual_memory()
     total_ram_mb = total_mem.total / (1024 * 1024)
     worker_ram_pct = (worker_rss_mb / total_ram_mb * 100.0) if total_ram_mb else 0.0
