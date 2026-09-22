@@ -1,0 +1,18 @@
+{
+  "artifact": "ec7-test-coverage-20260922",
+  "date": "2026-09-22",
+  "blueprint_item": "P8 / EC-7 測試",
+  "worker": "devin-cli",
+  "coverage_matrix": {
+    "routing": "test_ai_collaboration_routing.py（provider 路由、固定責任、investment 直連拒絕、一般模式選擇）",
+    "workflows": "test_ai_collaboration_workflows.py（並行六工、瀏覽器等待三循環＋終端接手、embedded browser session、授權僅 embedded browser）",
+    "browser_session": "test_ai_collaboration_session_verification.py（session per-agent 重用、逾時降級）",
+    "captcha": "test_ai_collaboration_session_verification.py（頁面級 captcha/Cloudflare 偵測→waiting_verification）",
+    "memory_automation": "test_ai_collaboration_auto_memory.py（EC-3：correlation＋可查詢重用＋免手動卡片）",
+    "offline": "queue_when_offline=false（manifest 斷言＋xingcheng 端 test_unbound_client_fails_closed：AI_CHANNEL_NOT_CONNECTED 不排隊）",
+    "failure_isolation": "test_ai_collaboration_failure_isolation.py（單 agent 例外不擴散、owner 失敗不阻斷統籌）",
+    "channel_wiring": "test_ai_collaboration_channel_wiring.py（EC-1 端到端）"
+  },
+  "verification": "Standalone tools/ai-collaboration/tests/: 36/36 passed",
+  "verdict": "EC-7 測試矩陣全覆蓋綠燈"
+}

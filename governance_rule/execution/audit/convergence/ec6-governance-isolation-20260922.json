@@ -1,0 +1,19 @@
+{
+  "artifact": "ec6-governance-isolation-20260922",
+  "date": "2026-09-22",
+  "blueprint_item": "P8 / EC-6 治理／稽核／隔離",
+  "worker": "devin-cli",
+  "scope": "ai-collaboration identity/permission, correlation/audit, process isolation, failure boundary",
+  "findings": {
+    "identity_permission": "service._requester_tool_id 依 _authorized_requester_actor 閘門：ai-assistant PERMISSION_DENIED、未知 actor PERMISSION_DENIED、xingcheng→固定責任、ai-collaboration/main-system→一般模式；ai_nexus_complete_browser_response 限 ai-collaboration/main-system",
+    "correlation_audit": "記憶項攜帶 source_message_id correlation＋source_agent_id＋content_hash（EC-3 證據 ec3-auto-memory-correlation-20260922）；group message/response/task 均有 id 可供稽核追溯",
+    "process_isolation_watchdog": "ToolIsolationManager（core_system.tool_isolation）以 Windows Job Object 隔離工具程序樹；tool-isolation-policy.json 新增 ai-collaboration 顯式條目（512MB/40%CPU/loopback-only/tool-scoped/重啟 3 次 backoff[2,5,15]）；health_check 5s interval；crash_containment 隔離 quarantine dir",
+    "failure_boundary": "_run_agent_message 例外逐 agent 隔離（except→response/agent failed，不影響同群其他 AI）；新增測試證明 claude 爆炸時 gemini 完成、固定責任 owner 失敗時 chatgpt 統籌仍完成"
+  },
+  "changes": [
+    "main-system/config/tool-isolation-policy.json: +per_tool_overrides.ai-collaboration 顯式隔離/預算條目",
+    "tests/test_ai_collaboration_failure_isolation.py: 故障隔離 2 測試＋manifest 邊界＋隔離政策覆蓋＋ai-assistant 拒絕"
+  ],
+  "verification": "Standalone tools/ai-collaboration/tests/: 36/36 passed",
+  "verdict": "EC-6 四要素閉合：身分閘門、correlation/audit 追溯、程序樹隔離＋watchdog、故障邊界皆有實作與測試"
+}

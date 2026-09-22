@@ -1,0 +1,20 @@
+{
+  "artifact": "ec8-resource-privacy-20260922",
+  "date": "2026-09-22",
+  "blueprint_item": "P8 / EC-8 資源與隱私",
+  "worker": "devin-cli",
+  "findings": {
+    "shared_browser_context": "manifest.capabilities.external-ai.browser.shared_browser_context=true；open_agent 回傳 shared_browser_context；單一前景分頁（shared-foreground-browser-tab）",
+    "no_fallback_browser": "browser.fallback_browser=false；send_terminal_fallback 僅回傳失敗結果（browser_only, 無替代瀏覽器）；authorize_agent automatic_inference_fallback=null",
+    "tool_database_only": "permissions.database_scope=tool-database-only；capabilities.external-ai.data_scope=tool-database-only；memory_interchange direct_database_access=false",
+    "no_direct_ai_assistant": "direct_ai_assistant_access=false＋_requester_tool_id 對 governance/tool/ai-assistant 恆 PERMISSION_DENIED（測試斷言）",
+    "isolation_budget": "tool-isolation-policy.json per_tool_overrides.ai-collaboration：loopback-only（外部 HTTPS 由 Electron BrowserView 程序承擔，工具 Python 端不出網）、tool-scoped FS、512MB/40%CPU、崩潰重啟 3 次",
+    "privacy": "queue_when_offline=false（離線不排隊外送）；uses_api_key=false；僅 embedded-browser-view transport"
+  },
+  "changes": [
+    "tool-isolation-policy.json 顯式 ai-collaboration 條目",
+    "test_manifest_declares_resource_and_privacy_boundaries＋test_isolation_policy_covers_tool_budgets 回歸斷言"
+  ],
+  "verification": "Standalone tools/ai-collaboration/tests/: 36/36 passed",
+  "verdict": "EC-8 資源與隱私邊界閉合且由測試鎖定"
+}
