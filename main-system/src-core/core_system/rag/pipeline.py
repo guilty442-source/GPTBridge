@@ -429,20 +429,13 @@ class CanonicalRagPipeline(
         await self.attempt_recovery()
         if not self.is_ready():
             raise RuntimeError("RAG pipeline not ready")
-        from .observability import RAG_METRICS, current_trace
+        from .observability import RAG_METRICS, current_trace, timed_stage
         RAG_METRICS.inc("rag_query_total")
         RAG_METRICS.inc("canonical_query_total")
         trace = current_trace()
+        started = time.perf_counter()
         try:
-            if trace is not None:
-                with trace.stage("qdrant"):
-                    hits = await self.qdrant.search(
-                        query_vector=query_embedding,
-                        module_ids=module_ids,
-                        top_k=top_k,
-                        score_threshold=score_threshold,
-                    )
-            else:
+            with timed_stage("qdrant"):
                 hits = await self.qdrant.search(
                     query_vector=query_embedding,
                     module_ids=module_ids,
@@ -452,20 +445,21 @@ class CanonicalRagPipeline(
         except Exception:
             RAG_METRICS.inc("rag_query_failed_total")
             RAG_METRICS.inc("qdrant_error_total")
+            RAG_METRICS.observe_latency(
+                (time.perf_counter() - started) * 1000
+            )
             raise
         if not hits:
             RAG_METRICS.inc("retrieval_zero_result_total")
+            RAG_METRICS.observe_latency(
+                (time.perf_counter() - started) * 1000
+            )
             return []
         # Canonical read barrier: one batch PG lookup proves every hit —
         # chunk metadata exists, resource is not tombstoned, module scope is
         # in the governed request scope — and hydrates content from the PG
         # authority (Qdrant payloads never carry content).
-        if trace is not None:
-            with trace.stage("postgres_fts"):
-                chunk_rows = await self.postgresql.fetch_chunks_for_points(
-                    tuple(module_ids), [str(hit.get("id")) for hit in hits]
-                )
-        else:
+        with timed_stage("postgres_fts"):
             chunk_rows = await self.postgresql.fetch_chunks_for_points(
                 tuple(module_ids), [str(hit.get("id")) for hit in hits]
             )
@@ -521,6 +515,7 @@ class CanonicalRagPipeline(
             }
             proved.append(record)
         RAG_METRICS.inc("rag_query_success_total")
+        RAG_METRICS.observe_latency((time.perf_counter() - started) * 1000)
         if trace is not None:
             trace.hit_count = len(proved)
         return proved
@@ -536,9 +531,11 @@ class CanonicalRagPipeline(
         await self.attempt_recovery()
         if not self.is_ready():
             raise RuntimeError("RAG pipeline not ready")
-        return await self.postgresql.keyword_search(
-            query, module_ids=module_ids, limit=limit
-        )
+        from .observability import timed_stage
+        with timed_stage("postgres_fts"):
+            return await self.postgresql.keyword_search(
+                query, module_ids=module_ids, limit=limit
+            )
 
     # ------------------------------------------------------------------
     # A52: Four sub-architecture retrievers — share Qdrant + PostgreSQL +

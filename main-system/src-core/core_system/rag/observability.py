@@ -152,6 +152,23 @@ def end_trace() -> Optional[dict[str, Any]]:
     return trace.finish() if trace is not None else None
 
 
+@contextlib.contextmanager
+def timed_stage(
+    stage: str, metrics: Optional["RagMetrics"] = None
+) -> Iterator[None]:
+    """Time one stage: mark the active trace (if any) and always record
+    the sample into the metrics registry — §10.11 perf-baseline feed."""
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        trace = current_trace()
+        if trace is not None:
+            trace.mark(stage, elapsed_ms)
+        (metrics or RAG_METRICS).observe_stage(stage, elapsed_ms)
+
+
 # ---------------------------------------------------------------------------
 # Metrics registry — the programmatic status surface (RAG-16B)
 # ---------------------------------------------------------------------------
@@ -195,6 +212,7 @@ class RagMetrics:
         self._counters = {name: 0 for name in COUNTERS}
         self._gauges: dict[str, Any] = {name: 0 for name in GAUGES}
         self._latencies: list[float] = []
+        self._stage_latencies: dict[str, list[float]] = {}
         self._max_samples = max_latency_samples
 
     def inc(self, name: str, amount: int = 1) -> None:
@@ -215,6 +233,14 @@ class RagMetrics:
             if len(self._latencies) > self._max_samples:
                 del self._latencies[: len(self._latencies) - self._max_samples]
 
+    def observe_stage(self, stage: str, ms: float) -> None:
+        """Record one per-stage latency sample (§10.11 baseline feed)."""
+        with self._lock:
+            samples = self._stage_latencies.setdefault(str(stage), [])
+            samples.append(float(ms))
+            if len(samples) > self._max_samples:
+                del samples[: len(samples) - self._max_samples]
+
     def record_drops(self, drops: dict[str, int]) -> None:
         for reason, count in drops.items():
             counter = f"{reason}_hit_dropped_total"
@@ -226,6 +252,10 @@ class RagMetrics:
 
         with self._lock:
             lat = list(self._latencies)
+            stage_lat = {
+                stage: list(samples)
+                for stage, samples in self._stage_latencies.items()
+            }
             snap: dict[str, Any] = dict(self._counters)
             snap.update(self._gauges)
         snap["retrieval_latency_p50"] = (
@@ -234,6 +264,15 @@ class RagMetrics:
         snap["retrieval_latency_p95"] = (
             percentile(lat, 0.95) if lat else 0.0
         )
+        snap["stages"] = {
+            stage: {
+                "samples": len(samples),
+                "p50_ms": percentile(samples, 0.50),
+                "p95_ms": percentile(samples, 0.95),
+            }
+            for stage, samples in stage_lat.items()
+            if samples
+        }
         return snap
 
 
@@ -251,4 +290,5 @@ __all__ = [
     "begin_trace",
     "current_trace",
     "end_trace",
+    "timed_stage",
 ]

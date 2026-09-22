@@ -114,6 +114,10 @@ class RagDagExecutor:
                 handler, node, plan.context, upstream
             )
             latency_ms = int((time.monotonic() - node_started) * 1000)
+            # §10.11: feed per-stage latency into the RAG metrics surface
+            # consumed by the perf-baseline snapshot.
+            from ..observability import RAG_METRICS
+            RAG_METRICS.observe_stage(node.node_type.value, latency_ms)
 
             if error == "node-timeout":
                 results.append(
