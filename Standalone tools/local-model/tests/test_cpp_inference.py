@@ -570,3 +570,88 @@ def test_cpp_moe_config_fail_closed(tmp_path: Path) -> None:
     engine = module.NativeInferenceEngine()
     with pytest.raises(RuntimeError, match="MOE_CONFIG_UNSUPPORTED"):
         engine.load(str(bundle))
+
+
+# R9 batch>1：packed prefill + continuous decode must be bitwise-identical
+# to running each prompt through the single-sequence path (greedy), and the
+# per-sequence KV namespaces must fully release when the batch finishes.
+
+
+def test_cpp_generate_batch_matches_sequential(tmp_path: Path) -> None:
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+
+    prompts = [[1, 9, 10, 11], [2, 7], [1, 9, 10, 11, 12, 13], [3]]
+    expected = [engine.generate(list(p), 5, sampling) for p in prompts]
+    single_probe = engine.generate([1, 9, 10], 3, sampling)
+    actual = engine.generate_batch([list(p) for p in prompts], 5, sampling)
+    assert actual == expected
+    # Continuous release: a second identical batch reuses the freed blocks
+    # from the pool free-list instead of growing pool capacity.
+    after_first = engine.kv_memory_bytes()
+    engine.generate_batch([list(p) for p in prompts], 5, sampling)
+    assert engine.kv_memory_bytes() == after_first
+    # Slot 0 stays usable: the single-sequence path works after a batch.
+    assert engine.generate([1, 9, 10], 3, sampling) == single_probe
+
+
+def test_cpp_generate_batch_unequal_lengths_parity(tmp_path: Path) -> None:
+    """Unequal prompt lengths exercise per-span causal masks."""
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+
+    prompts = [[1, 9, 10, 11, 12, 13, 14, 15], [2]]
+    batched = engine.generate_batch([list(p) for p in prompts], 4, sampling)
+    sequential = [engine.generate(list(p), 4, sampling) for p in prompts]
+    assert batched == sequential
+
+
+def test_cpp_generate_batch_fail_closed(tmp_path: Path) -> None:
+    module = cpp_runtime.load_extension()
+    _model, config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+
+    with pytest.raises(RuntimeError, match="PROMPT_EMPTY"):
+        engine.generate_batch([[1, 2], []], 2, sampling)
+    with pytest.raises(RuntimeError, match="BATCH_SIZE_EXCEEDED"):
+        engine.generate_batch([[1]] * 65, 1, sampling)
+    with pytest.raises(
+        RuntimeError, match="SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS"
+    ):
+        engine.generate_batch(
+            [[1] * config.max_position_embeddings], 1, sampling
+        )
+    # Engine stays usable after rejected batches.
+    assert engine.generate([1, 9], 2, sampling)
+
+
+def test_cpp_moe_generate_batch_parity(tmp_path: Path) -> None:
+    """R9 over R5: packed MoE prefill/decode matches sequential runs."""
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_moe_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+
+    prompts = [[1, 9, 10, 11], [2, 7, 3]]
+    expected = [engine.generate(list(p), 4, sampling) for p in prompts]
+    actual = engine.generate_batch([list(p) for p in prompts], 4, sampling)
+    assert actual == expected
+    after_first = engine.kv_memory_bytes()
+    engine.generate_batch([list(p) for p in prompts], 4, sampling)
+    assert engine.kv_memory_bytes() == after_first

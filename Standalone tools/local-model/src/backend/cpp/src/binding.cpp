@@ -55,6 +55,12 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
             py::arg("max_new_tokens"),
             py::arg("sampling"))
         .def(
+            "generate_batch",
+            &NativeInferenceEngine::generate_batch,
+            py::arg("prompts"),
+            py::arg("max_new_tokens"),
+            py::arg("sampling"))
+        .def(
             "generate_text",
             &NativeInferenceEngine::generate_text,
             py::arg("prompt"),

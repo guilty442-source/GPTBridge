@@ -150,6 +150,14 @@ public:
         const std::vector<int64_t>& prompt_ids,
         int64_t max_new_tokens,
         const SamplingConfig& sampling);
+    // R9 batch>1: packed prefill over all prompts, then continuous decode —
+    // every step packs the active sequences' tokens into one forward and
+    // finished sequences drop out (EOS/max), releasing their KV blocks.
+    // Bounded by kMaxBatchSeqs; prefix cache stays a single-sequence path.
+    std::vector<std::vector<int64_t>> generate_batch(
+        const std::vector<std::vector<int64_t>>& prompts,
+        int64_t max_new_tokens,
+        const SamplingConfig& sampling);
     std::string generate_text(
         const std::string& prompt,
         int64_t max_new_tokens,
@@ -199,6 +207,15 @@ private:
         uint64_t tick = 0;
     };
 
+    // R9: one span = one sequence's tokens inside a packed forward call.
+    struct BatchSpan {
+        int64_t slot = 0;
+        const std::vector<int64_t>* ids = nullptr;
+        int64_t position_offset = 0;
+        bool append_cache = false;
+    };
+    static constexpr int64_t kMaxBatchSeqs = 64;
+
     std::unique_ptr<WeightBundle> bundle_;
     std::unique_ptr<ByteLevelBPETokenizer> tokenizer_;
     std::vector<LayerWeights> layers_;
@@ -217,21 +234,33 @@ private:
     // return to kv_free_blocks_ on reset_cache (bounded, audited via
     // kv_memory_bytes / KV_MEMORY_LIMIT_EXCEEDED).
     gptbridge_kv_pool* kv_pool_ = nullptr;
-    std::vector<int32_t> kv_block_table_;
+    // R9: per-slot block tables so batched sequences share the pool without
+    // aliasing each other's KV; slot 0 serves the single-sequence path.
+    std::vector<std::vector<int32_t>> kv_block_tables_;
+    std::vector<bool> kv_slot_active_;
+    std::vector<int64_t> kv_lens_;
     int64_t kv_block_stride_ = 0;
-    int64_t kv_len_ = 0;
     int64_t kv_limit_bytes_ = 0;
     std::vector<int64_t> sequence_;
 
     void validate_supported() const;
     void reset_cache();
     int32_t kv_alloc_block();
-    void kv_ensure_position(int64_t position);
-    double* kv_slot(bool key_cache, int64_t layer, int64_t position, int64_t head);
+    int64_t kv_alloc_slot();
+    void kv_free_slot(int64_t slot);
+    void kv_ensure_position(int64_t slot, int64_t position);
+    double* kv_slot(
+        int64_t slot, bool key_cache,
+        int64_t layer, int64_t position, int64_t head);
     std::vector<double> forward_last_logits(
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,
         bool append_cache);
+    std::vector<double> forward_batch_hidden(
+        const std::vector<BatchSpan>& spans,
+        std::vector<double>* layer_rms = nullptr);
+    std::vector<std::vector<double>> forward_batch_last_logits(
+        const std::vector<BatchSpan>& spans);
     std::vector<double> forward_hidden(
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,

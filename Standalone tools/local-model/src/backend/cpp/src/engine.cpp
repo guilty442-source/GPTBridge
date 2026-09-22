@@ -1115,8 +1115,9 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     }
     kv_pool_ = gptbridge_kv_pool_create(kv_block_stride_, kv_limit_bytes_);
     if (kv_pool_ == nullptr) throw InferenceError("KV_POOL_CREATE_FAILED");
-    kv_block_table_.clear();
-    kv_len_ = 0;
+    kv_block_tables_.clear();
+    kv_slot_active_.clear();
+    kv_lens_.clear();
 
     const std::filesystem::path tokenizer_path = root / "tokenizer.json";
     if (std::filesystem::exists(tokenizer_path)) {
@@ -1137,11 +1138,12 @@ void NativeInferenceEngine::unload() {
         gptbridge_kv_pool_destroy(kv_pool_);
         kv_pool_ = nullptr;
     }
-    kv_block_table_.clear();
+    kv_block_tables_.clear();
+    kv_slot_active_.clear();
+    kv_lens_.clear();
     kv_block_stride_ = 0;
     lm_head_t_.clear();
     sequence_.clear();
-    kv_len_ = 0;
 }
 
 void NativeInferenceEngine::validate_supported() const {
@@ -1194,19 +1196,52 @@ int32_t NativeInferenceEngine::kv_alloc_block() {
     return id;
 }
 
-void NativeInferenceEngine::kv_ensure_position(int64_t position) {
+int64_t NativeInferenceEngine::kv_alloc_slot() {
+    // R9: bounded per-sequence KV namespaces over the shared pool.
+    for (int64_t i = 0; i < static_cast<int64_t>(kv_slot_active_.size()); ++i) {
+        if (!kv_slot_active_[static_cast<size_t>(i)]) {
+            kv_slot_active_[static_cast<size_t>(i)] = true;
+            kv_block_tables_[static_cast<size_t>(i)].clear();
+            kv_lens_[static_cast<size_t>(i)] = 0;
+            return i;
+        }
+    }
+    if (static_cast<int64_t>(kv_slot_active_.size()) >= kMaxBatchSeqs) {
+        throw InferenceError("BATCH_SLOT_EXHAUSTED");
+    }
+    kv_slot_active_.push_back(true);
+    kv_block_tables_.emplace_back();
+    kv_lens_.push_back(0);
+    return static_cast<int64_t>(kv_slot_active_.size()) - 1;
+}
+
+void NativeInferenceEngine::kv_free_slot(int64_t slot) {
+    if (slot < 0 || slot >= static_cast<int64_t>(kv_block_tables_.size())) {
+        return;
+    }
+    for (const int32_t block : kv_block_tables_[static_cast<size_t>(slot)]) {
+        gptbridge_kv_pool_release(kv_pool_, block);
+    }
+    kv_block_tables_[static_cast<size_t>(slot)].clear();
+    kv_lens_[static_cast<size_t>(slot)] = 0;
+    kv_slot_active_[static_cast<size_t>(slot)] = false;
+}
+
+void NativeInferenceEngine::kv_ensure_position(int64_t slot, int64_t position) {
     const int64_t block_index = position / kKvBlockTokens;
-    while (static_cast<int64_t>(kv_block_table_.size()) <= block_index) {
-        kv_block_table_.push_back(kv_alloc_block());
+    std::vector<int32_t>& table = kv_block_tables_[static_cast<size_t>(slot)];
+    while (static_cast<int64_t>(table.size()) <= block_index) {
+        table.push_back(kv_alloc_block());
     }
 }
 
 double* NativeInferenceEngine::kv_slot(
-    bool key_cache, int64_t layer, int64_t position, int64_t head) {
+    int64_t slot, bool key_cache, int64_t layer, int64_t position, int64_t head) {
     const ModelConfig& cfg = bundle_->config();
     const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
     const int64_t block =
-        kv_block_table_[static_cast<size_t>(position / kKvBlockTokens)];
+        kv_block_tables_[static_cast<size_t>(slot)]
+            [static_cast<size_t>(position / kKvBlockTokens)];
     const int64_t offset = block * kv_block_stride_ +
         layer * (kKvBlockTokens * kv_dim) +
         (position % kKvBlockTokens) * kv_dim + head * cfg.head_dim;
@@ -1216,11 +1251,13 @@ double* NativeInferenceEngine::kv_slot(
 }
 
 void NativeInferenceEngine::reset_cache() {
-    for (const int32_t block : kv_block_table_) {
-        gptbridge_kv_pool_release(kv_pool_, block);
+    for (int64_t slot = 0;
+         slot < static_cast<int64_t>(kv_block_tables_.size()); ++slot) {
+        kv_free_slot(slot);
     }
-    kv_block_table_.clear();
-    kv_len_ = 0;
+    // Slot 0 is the single-sequence namespace: keep it live after every
+    // reset (kv_alloc_slot returns the first inactive slot → slot 0).
+    kv_alloc_slot();
     sequence_.clear();
 }
 
@@ -1260,183 +1297,241 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
     int64_t position_offset,
     bool append_cache,
     std::vector<double>* layer_rms) {
+    // R9: the single-sequence path is the packed batch path with one span.
+    BatchSpan span;
+    span.slot = 0;
+    span.ids = &input_ids;
+    span.position_offset = position_offset;
+    span.append_cache = append_cache;
+    return forward_batch_hidden({span}, layer_rms);
+}
+
+std::vector<double> NativeInferenceEngine::forward_batch_hidden(
+    const std::vector<BatchSpan>& spans,
+    std::vector<double>* layer_rms) {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
-    if (input_ids.empty()) throw InferenceError("INPUT_EMPTY");
+    if (spans.empty()) throw InferenceError("INPUT_EMPTY");
     const ModelConfig& cfg = bundle_->config();
-    const int64_t seq = static_cast<int64_t>(input_ids.size());
-    if (position_offset < 0 || seq <= 0 ||
-        position_offset + seq > cfg.max_position_embeddings) {
-        throw InferenceError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
-    }
-    if (append_cache && position_offset != kv_len_) {
-        throw InferenceError("KV_CACHE_POSITION_MISMATCH");
+    const int64_t hidden_size = cfg.hidden_size;
+    std::vector<int64_t> starts(spans.size());
+    int64_t total_tokens = 0;
+    for (size_t i = 0; i < spans.size(); ++i) {
+        const BatchSpan& span = spans[i];
+        if (span.ids == nullptr || span.ids->empty()) {
+            throw InferenceError("INPUT_EMPTY");
+        }
+        const int64_t seq = static_cast<int64_t>(span.ids->size());
+        if (span.position_offset < 0 ||
+            span.position_offset + seq > cfg.max_position_embeddings) {
+            throw InferenceError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
+        }
+        if (span.append_cache || span.position_offset > 0) {
+            // Cached-KV access needs a live per-sequence namespace.
+            if (span.slot < 0 ||
+                span.slot >= static_cast<int64_t>(kv_lens_.size()) ||
+                !kv_slot_active_[static_cast<size_t>(span.slot)]) {
+                throw InferenceError("KV_SLOT_INVALID");
+            }
+            if (span.append_cache &&
+                span.position_offset != kv_lens_[static_cast<size_t>(span.slot)]) {
+                throw InferenceError("KV_CACHE_POSITION_MISMATCH");
+            }
+        }
+        starts[i] = total_tokens;
+        total_tokens += seq;
     }
 
-    std::vector<double> hidden(static_cast<size_t>(seq * cfg.hidden_size));
-    for (int64_t s = 0; s < seq; ++s) {
-        const int64_t token = input_ids[static_cast<size_t>(s)];
-        if (token < 0 || token >= cfg.vocab_size) {
-            throw InferenceError("TOKEN_ID_OUT_OF_RANGE");
-        }
-        std::copy_n(
-            embedding_.data + token * cfg.hidden_size,
-            cfg.hidden_size,
-            hidden.data() + s * cfg.hidden_size);
-        if (cfg.position_embedding_type == "learned") {
-            const TensorView& pos = bundle_->tensor("model.embeddings.position_embeddings.weight");
-            const int64_t position = position_offset + s;
-            for (int64_t d = 0; d < cfg.hidden_size; ++d) {
-                hidden[static_cast<size_t>(s * cfg.hidden_size + d)] +=
-                    pos.data[position * cfg.hidden_size + d];
+    std::vector<double> hidden(static_cast<size_t>(total_tokens * hidden_size));
+    for (size_t i = 0; i < spans.size(); ++i) {
+        const BatchSpan& span = spans[i];
+        const int64_t seq = static_cast<int64_t>(span.ids->size());
+        const int64_t base = starts[i];
+        for (int64_t s = 0; s < seq; ++s) {
+            const int64_t token = (*span.ids)[static_cast<size_t>(s)];
+            if (token < 0 || token >= cfg.vocab_size) {
+                throw InferenceError("TOKEN_ID_OUT_OF_RANGE");
+            }
+            std::copy_n(
+                embedding_.data + token * hidden_size,
+                hidden_size,
+                hidden.data() + static_cast<size_t>((base + s) * hidden_size));
+            if (cfg.position_embedding_type == "learned") {
+                const TensorView& pos = bundle_->tensor("model.embeddings.position_embeddings.weight");
+                const int64_t position = span.position_offset + s;
+                for (int64_t d = 0; d < hidden_size; ++d) {
+                    hidden[static_cast<size_t>((base + s) * hidden_size + d)] +=
+                        pos.data[position * hidden_size + d];
+                }
             }
         }
     }
     if (layer_rms != nullptr) {
-        layer_rms->push_back(hidden_rms(hidden, seq, cfg.hidden_size));
+        layer_rms->push_back(hidden_rms(hidden, total_tokens, hidden_size));
     }
 
     const int64_t q_dim = cfg.num_attention_heads * cfg.head_dim;
     const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
-    const int64_t total_len = position_offset + seq;
-    std::vector<double> cos;
-    std::vector<double> sin;
-    rope_tables(seq, position_offset, cfg.head_dim, cfg.rope_theta, cos, sin);
+    // Per-span RoPE tables (each sequence carries its own position offset).
+    std::vector<std::vector<double>> rope_cos(spans.size());
+    std::vector<std::vector<double>> rope_sin(spans.size());
+    if (cfg.position_embedding_type == "rope") {
+        for (size_t i = 0; i < spans.size(); ++i) {
+            rope_tables(
+                static_cast<int64_t>(spans[i].ids->size()),
+                spans[i].position_offset, cfg.head_dim, cfg.rope_theta,
+                rope_cos[i], rope_sin[i]);
+        }
+    }
 
     for (int64_t layer_idx = 0; layer_idx < cfg.num_hidden_layers; ++layer_idx) {
         LayerWeights& layer = layers_[static_cast<size_t>(layer_idx)];
         std::vector<double> normed = rmsnorm(
-            hidden, seq, cfg.hidden_size, layer.input_norm, cfg.rms_norm_eps);
+            hidden, total_tokens, hidden_size, layer.input_norm, cfg.rms_norm_eps);
+        // Projections and FFN are token-wise: the packed rows of all spans
+        // share one GEMM — that sharing is the R9 throughput win.
         std::vector<double> q_flat = linear(
-            normed, seq, cfg.hidden_size, layer.q_proj_t, q_dim);
+            normed, total_tokens, hidden_size, layer.q_proj_t, q_dim);
         std::vector<double> k_flat = linear(
-            normed, seq, cfg.hidden_size, layer.k_proj_t, kv_dim);
+            normed, total_tokens, hidden_size, layer.k_proj_t, kv_dim);
         std::vector<double> v_flat = linear(
-            normed, seq, cfg.hidden_size, layer.v_proj_t, kv_dim);
+            normed, total_tokens, hidden_size, layer.v_proj_t, kv_dim);
 
-        std::vector<double> q_heads(static_cast<size_t>(cfg.num_attention_heads * seq * cfg.head_dim));
-        std::vector<double> k_heads(static_cast<size_t>(cfg.num_key_value_heads * seq * cfg.head_dim));
-        std::vector<double> v_heads(static_cast<size_t>(cfg.num_key_value_heads * seq * cfg.head_dim));
-        for (int64_t s = 0; s < seq; ++s) {
-            for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
-                std::copy_n(
-                    q_flat.data() + s * q_dim + h * cfg.head_dim,
-                    cfg.head_dim,
-                    q_heads.data() + (h * seq + s) * cfg.head_dim);
-            }
-            for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
-                std::copy_n(
-                    k_flat.data() + s * kv_dim + h * cfg.head_dim,
-                    cfg.head_dim,
-                    k_heads.data() + (h * seq + s) * cfg.head_dim);
-                std::copy_n(
-                    v_flat.data() + s * kv_dim + h * cfg.head_dim,
-                    cfg.head_dim,
-                    v_heads.data() + (h * seq + s) * cfg.head_dim);
-            }
-        }
+        std::vector<double> attn_flat(static_cast<size_t>(total_tokens * q_dim), 0.0);
+        const int64_t head_ratio = cfg.num_attention_heads / cfg.num_key_value_heads;
+        const double scale = 1.0 / std::sqrt(static_cast<double>(cfg.head_dim));
+        // Attention is the only span-aware stage: each sequence attends
+        // exclusively to its own KV namespace (fresh projections + its own
+        // cached prefix); no cross-sequence leakage is possible.
+        for (size_t i = 0; i < spans.size(); ++i) {
+            const BatchSpan& span = spans[i];
+            const int64_t seq = static_cast<int64_t>(span.ids->size());
+            const int64_t base = starts[i];
+            const int64_t total_len = span.position_offset + seq;
 
-        if (cfg.position_embedding_type == "rope") {
-            std::vector<double> q_rope(q_heads.size());
-            std::vector<double> k_rope(k_heads.size());
-            checked_c_call(
-                gptbridge_native_transformer_rope(
-                    q_heads.data(), 1, cfg.num_attention_heads, seq, cfg.head_dim,
-                    cos.data(), sin.data(), q_rope.data()),
-                "rope-q");
-            checked_c_call(
-                gptbridge_native_transformer_rope(
-                    k_heads.data(), 1, cfg.num_key_value_heads, seq, cfg.head_dim,
-                    cos.data(), sin.data(), k_rope.data()),
-                "rope-k");
-            q_heads.swap(q_rope);
-            k_heads.swap(k_rope);
-        }
-
-        if (append_cache) {
+            std::vector<double> q_heads(static_cast<size_t>(cfg.num_attention_heads * seq * cfg.head_dim));
+            std::vector<double> k_heads(static_cast<size_t>(cfg.num_key_value_heads * seq * cfg.head_dim));
+            std::vector<double> v_heads(static_cast<size_t>(cfg.num_key_value_heads * seq * cfg.head_dim));
             for (int64_t s = 0; s < seq; ++s) {
-                const int64_t position = position_offset + s;
-                kv_ensure_position(position);
+                for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
+                    std::copy_n(
+                        q_flat.data() + static_cast<size_t>((base + s) * q_dim + h * cfg.head_dim),
+                        cfg.head_dim,
+                        q_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim));
+                }
                 for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
                     std::copy_n(
-                        k_heads.data() + (h * seq + s) * cfg.head_dim,
+                        k_flat.data() + static_cast<size_t>((base + s) * kv_dim + h * cfg.head_dim),
                         cfg.head_dim,
-                        kv_slot(true, layer_idx, position, h));
+                        k_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim));
                     std::copy_n(
-                        v_heads.data() + (h * seq + s) * cfg.head_dim,
+                        v_flat.data() + static_cast<size_t>((base + s) * kv_dim + h * cfg.head_dim),
                         cfg.head_dim,
-                        kv_slot(false, layer_idx, position, h));
+                        v_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim));
                 }
             }
-        }
 
-        std::vector<double> attn_flat(static_cast<size_t>(seq * q_dim), 0.0);
-        const int64_t head_ratio = cfg.num_attention_heads / cfg.num_key_value_heads;
-        // W1: one scores buffer per layer reused across heads; per-head
-        // K/V source pointers resolved once — replaces the per-head
-        // k_all/v_all gather, k_t transpose and per-head scores/head_out
-        // allocations with a streaming Q·K dot + score·V accumulate
-        // (masked positions skip the dot entirely).
-        std::vector<double> scores(static_cast<size_t>(seq * total_len));
-        std::vector<const double*> k_srcs(static_cast<size_t>(total_len));
-        std::vector<const double*> v_srcs(static_cast<size_t>(total_len));
-        const double scale = 1.0 / std::sqrt(static_cast<double>(cfg.head_dim));
-        for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
-            const int64_t kv_head = h / head_ratio;
-            for (int64_t t = 0; t < total_len; ++t) {
-                if (t < position_offset) {
-                    k_srcs[static_cast<size_t>(t)] = kv_slot(true, layer_idx, t, kv_head);
-                    v_srcs[static_cast<size_t>(t)] = kv_slot(false, layer_idx, t, kv_head);
-                } else {
-                    const int64_t s = t - position_offset;
-                    k_srcs[static_cast<size_t>(t)] =
-                        k_heads.data() + (kv_head * seq + s) * cfg.head_dim;
-                    v_srcs[static_cast<size_t>(t)] =
-                        v_heads.data() + (kv_head * seq + s) * cfg.head_dim;
+            if (cfg.position_embedding_type == "rope") {
+                std::vector<double> q_rope(q_heads.size());
+                std::vector<double> k_rope(k_heads.size());
+                checked_c_call(
+                    gptbridge_native_transformer_rope(
+                        q_heads.data(), 1, cfg.num_attention_heads, seq, cfg.head_dim,
+                        rope_cos[i].data(), rope_sin[i].data(), q_rope.data()),
+                    "rope-q");
+                checked_c_call(
+                    gptbridge_native_transformer_rope(
+                        k_heads.data(), 1, cfg.num_key_value_heads, seq, cfg.head_dim,
+                        rope_cos[i].data(), rope_sin[i].data(), k_rope.data()),
+                    "rope-k");
+                q_heads.swap(q_rope);
+                k_heads.swap(k_rope);
+            }
+
+            if (span.append_cache) {
+                for (int64_t s = 0; s < seq; ++s) {
+                    const int64_t position = span.position_offset + s;
+                    kv_ensure_position(span.slot, position);
+                    for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
+                        std::copy_n(
+                            k_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim),
+                            cfg.head_dim,
+                            kv_slot(span.slot, true, layer_idx, position, h));
+                        std::copy_n(
+                            v_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim),
+                            cfg.head_dim,
+                            kv_slot(span.slot, false, layer_idx, position, h));
+                    }
                 }
             }
-            const double* q_head = q_heads.data() + h * seq * cfg.head_dim;
-            for (int64_t s = 0; s < seq; ++s) {
-                const double* q_row = q_head + s * cfg.head_dim;
-                double* srow = scores.data() + s * total_len;
+
+            // W1: one scores buffer per span reused across heads; per-head
+            // K/V source pointers resolved once — streaming Q·K dot +
+            // score·V accumulate (masked positions skip the dot entirely).
+            std::vector<double> scores(static_cast<size_t>(seq * total_len));
+            std::vector<const double*> k_srcs(static_cast<size_t>(total_len));
+            std::vector<const double*> v_srcs(static_cast<size_t>(total_len));
+            for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
+                const int64_t kv_head = h / head_ratio;
                 for (int64_t t = 0; t < total_len; ++t) {
-                    srow[t] = (t <= position_offset + s)
-                        ? dot_f64(q_row, k_srcs[static_cast<size_t>(t)], cfg.head_dim) * scale
-                        : -std::numeric_limits<double>::infinity();
+                    if (t < span.position_offset) {
+                        k_srcs[static_cast<size_t>(t)] =
+                            kv_slot(span.slot, true, layer_idx, t, kv_head);
+                        v_srcs[static_cast<size_t>(t)] =
+                            kv_slot(span.slot, false, layer_idx, t, kv_head);
+                    } else {
+                        const int64_t s = t - span.position_offset;
+                        k_srcs[static_cast<size_t>(t)] =
+                            k_heads.data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
+                        v_srcs[static_cast<size_t>(t)] =
+                            v_heads.data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
+                    }
                 }
-            }
-            checked_c_call(
-                gptbridge_native_transformer_softmax(
-                    scores.data(), seq, total_len, scores.data()),
-                "attention-softmax");
-            for (int64_t s = 0; s < seq; ++s) {
-                const double* srow = scores.data() + s * total_len;
-                double* out = attn_flat.data() + s * q_dim + h * cfg.head_dim;
-                for (int64_t t = 0; t < total_len; ++t) {
-                    axpy_f64(
-                        out, srow[t], v_srcs[static_cast<size_t>(t)],
-                        cfg.head_dim);
+                const double* q_head =
+                    q_heads.data() + static_cast<size_t>(h * seq * cfg.head_dim);
+                for (int64_t s = 0; s < seq; ++s) {
+                    const double* q_row = q_head + s * cfg.head_dim;
+                    double* srow = scores.data() + s * total_len;
+                    for (int64_t t = 0; t < total_len; ++t) {
+                        srow[t] = (t <= span.position_offset + s)
+                            ? dot_f64(q_row, k_srcs[static_cast<size_t>(t)], cfg.head_dim) * scale
+                            : -std::numeric_limits<double>::infinity();
+                    }
+                }
+                checked_c_call(
+                    gptbridge_native_transformer_softmax(
+                        scores.data(), seq, total_len, scores.data()),
+                    "attention-softmax");
+                for (int64_t s = 0; s < seq; ++s) {
+                    const double* srow = scores.data() + s * total_len;
+                    double* out = attn_flat.data() +
+                        static_cast<size_t>((base + s) * q_dim + h * cfg.head_dim);
+                    for (int64_t t = 0; t < total_len; ++t) {
+                        axpy_f64(
+                            out, srow[t], v_srcs[static_cast<size_t>(t)],
+                            cfg.head_dim);
+                    }
                 }
             }
         }
 
         std::vector<double> attn_out = linear(
-            attn_flat, seq, q_dim, layer.o_proj_t, cfg.hidden_size);
+            attn_flat, total_tokens, q_dim, layer.o_proj_t, cfg.hidden_size);
         for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += attn_out[i];
 
-        normed = rmsnorm(hidden, seq, cfg.hidden_size, layer.post_norm, cfg.rms_norm_eps);
+        normed = rmsnorm(hidden, total_tokens, hidden_size, layer.post_norm, cfg.rms_norm_eps);
         if (layer.is_moe) {
             // R5 grouped sparse MoE (token-choice, mirrors modules/moe.py):
             // router softmax over experts → deterministic top-k → weights
             // renormalized inside top-k → per-expert gather / SwiGLU GEMM /
-            // weighted scatter-add. Grouped execution keeps each expert's
-            // matmul dense while computing only the selected experts.
+            // weighted scatter-add. Positions index the packed rows, so
+            // expert groups naturally span all sequences in the batch.
             const int64_t experts = cfg.moe_num_experts;
             const int64_t top_k = cfg.moe_top_k;
             std::vector<double> probs = linear(
-                normed, seq, cfg.hidden_size, layer.router_t, experts);
-            std::vector<int64_t> top_idx(static_cast<size_t>(seq * top_k));
-            std::vector<double> top_w(static_cast<size_t>(seq * top_k));
-            for (int64_t s = 0; s < seq; ++s) {
+                normed, total_tokens, hidden_size, layer.router_t, experts);
+            std::vector<int64_t> top_idx(static_cast<size_t>(total_tokens * top_k));
+            std::vector<double> top_w(static_cast<size_t>(total_tokens * top_k));
+            for (int64_t s = 0; s < total_tokens; ++s) {
                 double* row = probs.data() + static_cast<size_t>(s * experts);
                 const double mx = *std::max_element(row, row + experts);
                 double total = 0.0;
@@ -1461,13 +1556,13 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
                 }
             }
             std::vector<double> mlp_out(
-                static_cast<size_t>(seq * cfg.hidden_size), 0.0);
+                static_cast<size_t>(total_tokens * hidden_size), 0.0);
             for (int64_t e = 0; e < experts; ++e) {
                 std::vector<int64_t> positions;
                 std::vector<double> weights;
-                positions.reserve(static_cast<size_t>(seq));
-                weights.reserve(static_cast<size_t>(seq));
-                for (int64_t s = 0; s < seq; ++s) {
+                positions.reserve(static_cast<size_t>(total_tokens));
+                weights.reserve(static_cast<size_t>(total_tokens));
+                for (int64_t s = 0; s < total_tokens; ++s) {
                     for (int64_t k = 0; k < top_k; ++k) {
                         if (top_idx[static_cast<size_t>(s * top_k + k)] == e) {
                             positions.push_back(s);
@@ -1480,21 +1575,21 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
                 if (positions.empty()) continue;
                 const int64_t rows = static_cast<int64_t>(positions.size());
                 std::vector<double> expert_in(
-                    static_cast<size_t>(rows * cfg.hidden_size));
+                    static_cast<size_t>(rows * hidden_size));
                 for (int64_t r = 0; r < rows; ++r) {
                     std::copy_n(
                         normed.data() + static_cast<size_t>(
-                            positions[static_cast<size_t>(r)] * cfg.hidden_size),
-                        cfg.hidden_size,
+                            positions[static_cast<size_t>(r)] * hidden_size),
+                        hidden_size,
                         expert_in.data() +
-                            static_cast<size_t>(r * cfg.hidden_size));
+                            static_cast<size_t>(r * hidden_size));
                 }
                 std::vector<double> gate = linear(
-                    expert_in, rows, cfg.hidden_size,
+                    expert_in, rows, hidden_size,
                     layer.expert_gate_t[static_cast<size_t>(e)],
                     cfg.intermediate_size);
                 std::vector<double> up = linear(
-                    expert_in, rows, cfg.hidden_size,
+                    expert_in, rows, hidden_size,
                     layer.expert_up_t[static_cast<size_t>(e)],
                     cfg.intermediate_size);
                 std::vector<double> act(
@@ -1506,14 +1601,14 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
                 std::vector<double> expert_out = linear(
                     act, rows, cfg.intermediate_size,
                     layer.expert_down_t[static_cast<size_t>(e)],
-                    cfg.hidden_size);
+                    hidden_size);
                 for (int64_t r = 0; r < rows; ++r) {
                     const double w = weights[static_cast<size_t>(r)];
                     const double* src = expert_out.data() +
-                        static_cast<size_t>(r * cfg.hidden_size);
+                        static_cast<size_t>(r * hidden_size);
                     double* dst = mlp_out.data() + static_cast<size_t>(
-                        positions[static_cast<size_t>(r)] * cfg.hidden_size);
-                    for (int64_t d = 0; d < cfg.hidden_size; ++d) {
+                        positions[static_cast<size_t>(r)] * hidden_size);
+                    for (int64_t d = 0; d < hidden_size; ++d) {
                         dst[d] += w * src[d];
                     }
                 }
@@ -1521,32 +1616,63 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
             for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
         } else {
             std::vector<double> gate = linear(
-                normed, seq, cfg.hidden_size, layer.gate_proj_t, cfg.intermediate_size);
+                normed, total_tokens, hidden_size, layer.gate_proj_t, cfg.intermediate_size);
             std::vector<double> up = linear(
-                normed, seq, cfg.hidden_size, layer.up_proj_t, cfg.intermediate_size);
-            std::vector<double> mlp_in(static_cast<size_t>(seq * cfg.intermediate_size));
+                normed, total_tokens, hidden_size, layer.up_proj_t, cfg.intermediate_size);
+            std::vector<double> mlp_in(static_cast<size_t>(total_tokens * cfg.intermediate_size));
             for (size_t i = 0; i < mlp_in.size(); ++i) {
                 const double g = gate[i];
                 mlp_in[i] = (g / (1.0 + std::exp(-g))) * up[i];
             }
             std::vector<double> mlp_out = linear(
-                mlp_in, seq, cfg.intermediate_size, layer.down_proj_t, cfg.hidden_size);
+                mlp_in, total_tokens, cfg.intermediate_size, layer.down_proj_t, hidden_size);
             for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
         }
         if (layer_rms != nullptr) {
-            layer_rms->push_back(hidden_rms(hidden, seq, cfg.hidden_size));
+            layer_rms->push_back(hidden_rms(hidden, total_tokens, hidden_size));
         }
     }
 
-    if (append_cache) {
-        kv_len_ = total_len;
+    for (const BatchSpan& span : spans) {
+        if (span.append_cache) {
+            kv_lens_[static_cast<size_t>(span.slot)] =
+                span.position_offset + static_cast<int64_t>(span.ids->size());
+        }
     }
     std::vector<double> normed = rmsnorm(
-        hidden, seq, cfg.hidden_size, final_norm_, cfg.rms_norm_eps);
+        hidden, total_tokens, hidden_size, final_norm_, cfg.rms_norm_eps);
     if (layer_rms != nullptr) {
-        layer_rms->push_back(hidden_rms(normed, seq, cfg.hidden_size));
+        layer_rms->push_back(hidden_rms(normed, total_tokens, hidden_size));
     }
     return normed;
+}
+
+std::vector<std::vector<double>> NativeInferenceEngine::forward_batch_last_logits(
+    const std::vector<BatchSpan>& spans) {
+    // Packed forward → gather each span's last-position hidden row → one
+    // lm_head GEMM for the whole batch → slice back per span.
+    const std::vector<double> hidden = forward_batch_hidden(spans);
+    const ModelConfig& cfg = bundle_->config();
+    const int64_t hidden_size = cfg.hidden_size;
+    std::vector<double> last_rows;
+    last_rows.reserve(static_cast<size_t>(spans.size() * hidden_size));
+    int64_t base = 0;
+    for (const BatchSpan& span : spans) {
+        const int64_t seq = static_cast<int64_t>(span.ids->size());
+        const double* last =
+            hidden.data() + static_cast<size_t>((base + seq - 1) * hidden_size);
+        last_rows.insert(last_rows.end(), last, last + hidden_size);
+        base += seq;
+    }
+    std::vector<double> logits = matmul(
+        last_rows.data(), static_cast<int64_t>(spans.size()),
+        hidden_size, lm_head_t_.data(), cfg.vocab_size);
+    std::vector<std::vector<double>> out(spans.size());
+    for (size_t i = 0; i < spans.size(); ++i) {
+        const double* row = logits.data() + i * cfg.vocab_size;
+        out[i].assign(row, row + cfg.vocab_size);
+    }
+    return out;
 }
 
 int64_t NativeInferenceEngine::sample_next(
@@ -1652,23 +1778,23 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     if (hit_index != prefix_cache_.size()) {
         PrefixEntry& hit = prefix_cache_[hit_index];
         for (int64_t position = 0; position < prefix_len; ++position) {
-            kv_ensure_position(position);
+            kv_ensure_position(0, position);
         }
         for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
             for (int64_t position = 0; position < prefix_len; ++position) {
                 std::copy_n(
                     hit.k.data() + (layer * prefix_len + position) * kv_dim,
                     kv_dim,
-                    kv_slot(true, layer, position, 0));
+                    kv_slot(0, true, layer, position, 0));
                 std::copy_n(
                     hit.v.data() + (layer * prefix_len + position) * kv_dim,
                     kv_dim,
-                    kv_slot(false, layer, position, 0));
+                    kv_slot(0, false, layer, position, 0));
             }
         }
         hit.tick = ++prefix_tick_;
         ++prefix_hits_;
-        kv_len_ = prefix_len;
+        kv_lens_[0] = prefix_len;
     } else {
         ++prefix_misses_;
     }
@@ -1680,7 +1806,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     if (forward_begin == static_cast<int64_t>(prompt_ids.size())) {
         forward_begin -= 1;
         forward_offset = prefix_len - 1;
-        kv_len_ = forward_offset;
+        kv_lens_[0] = forward_offset;
     }
     std::vector<int64_t> suffix(
         prompt_ids.begin() + forward_begin, prompt_ids.end());
@@ -1688,8 +1814,8 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         forward_last_logits(suffix, forward_offset, true);
 
     // Snapshot the prompt prefix for future reuse (bounded, LRU-evicted).
-    if (prefix_cache_max_entries_ > 0 && kv_len_ > 0) {
-        const int64_t store_len = kv_len_;
+    if (prefix_cache_max_entries_ > 0 && kv_lens_[0] > 0) {
+        const int64_t store_len = kv_lens_[0];
         const int64_t entry_bytes =
             2 * cfg.num_hidden_layers * store_len * kv_dim * 8;
         if (entry_bytes <= prefix_cache_max_bytes_) {
@@ -1732,8 +1858,8 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                         cfg.num_hidden_layers * store_len * kv_dim));
                 for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
                     for (int64_t position = 0; position < store_len; ++position) {
-                        const double* k_src = kv_slot(true, layer, position, 0);
-                        const double* v_src = kv_slot(false, layer, position, 0);
+                        const double* k_src = kv_slot(0, true, layer, position, 0);
+                        const double* v_src = kv_slot(0, false, layer, position, 0);
                         entry.k.insert(entry.k.end(), k_src, k_src + kv_dim);
                         entry.v.insert(entry.v.end(), v_src, v_src + kv_dim);
                     }
@@ -1748,9 +1874,134 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         generated.push_back(token);
         sequence_.push_back(token);
         if (token == cfg.eos_token_id || step + 1 >= max_new_tokens) break;
-        next_logits = forward_last_logits({token}, kv_len_, true);
+        next_logits = forward_last_logits({token}, kv_lens_[0], true);
     }
     return generated;
+}
+
+std::vector<std::vector<int64_t>> NativeInferenceEngine::generate_batch(
+    const std::vector<std::vector<int64_t>>& prompts,
+    int64_t max_new_tokens,
+    const SamplingConfig& sampling) {
+    // R9 continuous batching: packed prefill over all prompts, then decode
+    // steps pack every still-active sequence's token into one forward.
+    // A sequence leaves the active set on EOS (or the shared step cap) and
+    // its KV blocks return to the pool immediately — later sequences never
+    // wait for earlier ones to finish.
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    if (prompts.empty()) return {};
+    if (max_new_tokens <= 0) return {};
+    if (static_cast<int64_t>(prompts.size()) > kMaxBatchSeqs) {
+        throw InferenceError("BATCH_SIZE_EXCEEDED");
+    }
+    const ModelConfig& cfg = bundle_->config();
+    reset_cache();
+
+    struct SeqState {
+        int64_t slot = -1;
+        std::vector<int64_t> prompt;
+        std::vector<int64_t> generated;
+        std::vector<int64_t> context;
+        std::vector<double> logits;
+        bool done = false;
+    };
+    std::vector<SeqState> seqs(prompts.size());
+    size_t allocated = 0;
+    try {
+        for (size_t i = 0; i < prompts.size(); ++i) {
+            if (prompts[i].empty()) throw InferenceError("PROMPT_EMPTY");
+            if (static_cast<int64_t>(prompts[i].size()) + max_new_tokens >
+                cfg.max_position_embeddings) {
+                throw InferenceError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
+            }
+            seqs[i].prompt = prompts[i];
+            seqs[i].context = prompts[i];
+            seqs[i].slot = kv_alloc_slot();
+            ++allocated;
+        }
+    } catch (...) {
+        for (size_t i = 0; i < allocated; ++i) kv_free_slot(seqs[i].slot);
+        throw;
+    }
+
+    // Prefill: every sequence packs into one forward.
+    {
+        std::vector<BatchSpan> spans;
+        spans.reserve(seqs.size());
+        for (SeqState& seq : seqs) {
+            BatchSpan span;
+            span.slot = seq.slot;
+            span.ids = &seq.prompt;
+            span.position_offset = 0;
+            span.append_cache = true;
+            spans.push_back(span);
+        }
+        std::vector<std::vector<double>> logits =
+            forward_batch_last_logits(spans);
+        for (size_t i = 0; i < seqs.size(); ++i) {
+            seqs[i].logits = std::move(logits[i]);
+        }
+    }
+
+    const uint64_t base_seed =
+        sampling.seed ? sampling.seed : 0x9E3779B97F4A7C15ULL;
+    std::vector<uint64_t> rng(seqs.size());
+    for (size_t i = 0; i < seqs.size(); ++i) {
+        rng[i] = base_seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL;
+    }
+
+    std::vector<int64_t> step_tokens(seqs.size());
+    for (int64_t step = 0; step < max_new_tokens; ++step) {
+        int64_t active = 0;
+        for (size_t i = 0; i < seqs.size(); ++i) {
+            SeqState& seq = seqs[i];
+            if (seq.done) continue;
+            const int64_t token =
+                sample_next(seq.logits, seq.context, sampling, rng[i]);
+            seq.generated.push_back(token);
+            seq.context.push_back(token);
+            step_tokens[i] = token;
+            if (token == cfg.eos_token_id || step + 1 >= max_new_tokens) {
+                seq.done = true;
+                kv_free_slot(seq.slot);  // continuous: release mid-batch
+            } else {
+                ++active;
+            }
+        }
+        if (active == 0) break;
+        // One-token span per active sequence — packed into a single forward.
+        std::vector<std::vector<int64_t>> one_token(
+            static_cast<size_t>(active), std::vector<int64_t>(1));
+        std::vector<BatchSpan> spans;
+        spans.reserve(static_cast<size_t>(active));
+        size_t w = 0;
+        for (SeqState& seq : seqs) {
+            if (seq.done) continue;
+            one_token[w][0] =
+                step_tokens[static_cast<size_t>(&seq - seqs.data())];
+            BatchSpan span;
+            span.slot = seq.slot;
+            span.ids = &one_token[w];
+            span.position_offset = kv_lens_[static_cast<size_t>(seq.slot)];
+            span.append_cache = true;
+            spans.push_back(span);
+            ++w;
+        }
+        std::vector<std::vector<double>> logits =
+            forward_batch_last_logits(spans);
+        w = 0;
+        for (SeqState& seq : seqs) {
+            if (seq.done) continue;
+            seq.logits = std::move(logits[w++]);
+        }
+    }
+
+    std::vector<std::vector<int64_t>> out(seqs.size());
+    for (size_t i = 0; i < seqs.size(); ++i) {
+        out[i] = std::move(seqs[i].generated);
+        if (!seqs[i].done) kv_free_slot(seqs[i].slot);
+    }
+    return out;
 }
 
 std::string NativeInferenceEngine::generate_text(
