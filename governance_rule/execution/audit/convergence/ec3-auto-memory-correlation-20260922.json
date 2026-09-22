@@ -1,0 +1,18 @@
+{
+ "schema": "convergence-evidence/v1",
+ "check": "ec3-auto-memory-end-to-end",
+ "worker": "devin-cli/cosmic-papaya",
+ "timestamp_utc": "2026-09-22T14:2xZ",
+ "scope": "EC-3 自動記憶：協作完成自動記錄需求＋回覆摘要（來源 AI、時間、correlation）、可查詢重用、免手動卡片",
+ "gap_found": "add_memory_item 未寫入 schema 已有的 source_agent_id/content_hash/business_scope，且無 source_message_id correlation 欄位——記憶無法回溯到協作訊息",
+ "changes": [
+  "collab_repo_schema.py: ai_nexus_memory_items 新增 source_message_id 欄（CREATE + _ensure_column 遷移）",
+  "collab_repo_memory_tasks.py: add_memory_item 接受 source_agent_id/source_message_id/business_scope、計算 content_hash(sha256)；list_memory_items 回傳 source_message_id",
+  "collab_svc_memory.py: _auto_memory_from_group_message 傳入 source_message_id=group_message.message_id、來源 agent_ids、business_scope；_add_memory 接受 source 欄位"
+ ],
+ "tests": {
+  "new": "tests/test_ai_collaboration_auto_memory.py: 2 passed（correlation＋可查詢重用＋免手動卡片；manual source 欄位）",
+  "regression": "pytest tests/ (ai-collaboration): 22 passed in 180s"
+ },
+ "verdict": "PASS — EC-3 機制面端到端驗證完成：fixed-task 流程完成後自動寫記憶（kind=auto、需求+回覆摘要含 [agent_id] status、source_message_id correlation、created_at、content_hash），list_memory_items 可查詢重用，全程無手動卡片"
+}
