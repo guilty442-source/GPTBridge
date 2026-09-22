@@ -5,6 +5,8 @@ manifest（star-audit-manifest/v1）由 Python 受管工具產生；本引擎執
 */
 #include "audit_engine.h"
 
+#include "jsonlite.h"
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -19,189 +21,16 @@ manifest（star-audit-manifest/v1）由 Python 受管工具產生；本引擎執
 namespace fs = std::filesystem;
 
 namespace gptbridge {
+
+using jsonlite::JsonError;
+using jsonlite::JsonParser;
+using jsonlite::JsonValue;
+
 namespace {
 
-/* ------------------------------------------------------------------
- * Minimal JSON reader — sufficient for the governed manifest schema
- * (objects, arrays, strings, numbers, bools, null). Fail-closed:
- * any malformed input raises JsonError and aborts the manifest load.
- * ------------------------------------------------------------------ */
-
-struct JsonValue {
-    enum class Type { Null, Bool, Number, String, Array, Object } type = Type::Null;
-    bool boolean = false;
-    double number = 0.0;
-    std::string string;
-    std::vector<JsonValue> array;
-    std::vector<std::pair<std::string, JsonValue>> object;
-
-    const JsonValue* get(const std::string& key) const {
-        if (type != Type::Object) return nullptr;
-        for (const auto& kv : object)
-            if (kv.first == key) return &kv.second;
-        return nullptr;
-    }
-};
-
-struct JsonError {};
-
-class JsonParser {
-public:
-    explicit JsonParser(const std::string& text) : p_(text.data()), end_(p_ + text.size()) {}
-
-    JsonValue parse() {
-        skip_ws();
-        JsonValue v = value();
-        skip_ws();
-        if (p_ != end_) throw JsonError{};
-        return v;
-    }
-
-private:
-    const char* p_;
-    const char* end_;
-
-    void skip_ws() {
-        while (p_ < end_ && (*p_ == ' ' || *p_ == '\t' || *p_ == '\n' || *p_ == '\r')) ++p_;
-    }
-    char peek() { return p_ < end_ ? *p_ : '\0'; }
-    char take() { if (p_ >= end_) throw JsonError{}; return *p_++; }
-    void expect(char c) { if (take() != c) throw JsonError{}; }
-
-    JsonValue value() {
-        skip_ws();
-        switch (peek()) {
-            case '{': return object_value();
-            case '[': return array_value();
-            case '"': { JsonValue v; v.type = JsonValue::Type::String; v.string = string_value(); return v; }
-            case 't': literal("true"); { JsonValue v; v.type = JsonValue::Type::Bool; v.boolean = true; return v; }
-            case 'f': literal("false"); { JsonValue v; v.type = JsonValue::Type::Bool; return v; }
-            case 'n': literal("null"); return JsonValue{};
-            default: return number_value();
-        }
-    }
-
-    void literal(const char* word) {
-        while (*word) { if (take() != *word++) throw JsonError{}; }
-    }
-
-    JsonValue object_value() {
-        JsonValue v; v.type = JsonValue::Type::Object;
-        expect('{');
-        skip_ws();
-        if (peek() == '}') { ++p_; return v; }
-        for (;;) {
-            skip_ws();
-            expect('"');
-            --p_;
-            std::string key = string_value();
-            skip_ws();
-            expect(':');
-            v.object.emplace_back(std::move(key), value());
-            skip_ws();
-            char c = take();
-            if (c == '}') return v;
-            if (c != ',') throw JsonError{};
-        }
-    }
-
-    JsonValue array_value() {
-        JsonValue v; v.type = JsonValue::Type::Array;
-        expect('[');
-        skip_ws();
-        if (peek() == ']') { ++p_; return v; }
-        for (;;) {
-            v.array.push_back(value());
-            skip_ws();
-            char c = take();
-            if (c == ']') return v;
-            if (c != ',') throw JsonError{};
-        }
-    }
-
-    std::string string_value() {
-        std::string out;
-        expect('"');
-        for (;;) {
-            char c = take();
-            if (c == '"') return out;
-            if (c == '\\') {
-                char e = take();
-                switch (e) {
-                    case '"': out += '"'; break;
-                    case '\\': out += '\\'; break;
-                    case '/': out += '/'; break;
-                    case 'b': out += '\b'; break;
-                    case 'f': out += '\f'; break;
-                    case 'n': out += '\n'; break;
-                    case 'r': out += '\r'; break;
-                    case 't': out += '\t'; break;
-                    case 'u': {
-                        /* \uXXXX → UTF-8 (BMP only; surrogate pairs decode) */
-                        unsigned cp = hex4();
-                        if (cp >= 0xD800 && cp <= 0xDBFF) {
-                            if (take() == '\\' && take() == 'u') {
-                                unsigned lo = hex4();
-                                if (lo >= 0xDC00 && lo <= 0xDFFF) {
-                                    cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
-                                }
-                            } else throw JsonError{};
-                        }
-                        append_utf8(out, cp);
-                        break;
-                    }
-                    default: throw JsonError{};
-                }
-            } else {
-                out += c;
-            }
-        }
-    }
-
-    unsigned hex4() {
-        unsigned v = 0;
-        for (int i = 0; i < 4; ++i) {
-            char c = take();
-            v <<= 4;
-            if (c >= '0' && c <= '9') v += c - '0';
-            else if (c >= 'a' && c <= 'f') v += c - 'a' + 10;
-            else if (c >= 'A' && c <= 'F') v += c - 'A' + 10;
-            else throw JsonError{};
-        }
-        return v;
-    }
-
-    static void append_utf8(std::string& out, unsigned cp) {
-        if (cp < 0x80) out += static_cast<char>(cp);
-        else if (cp < 0x800) {
-            out += static_cast<char>(0xC0 | (cp >> 6));
-            out += static_cast<char>(0x80 | (cp & 0x3F));
-        } else if (cp < 0x10000) {
-            out += static_cast<char>(0xE0 | (cp >> 12));
-            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-            out += static_cast<char>(0x80 | (cp & 0x3F));
-        } else {
-            out += static_cast<char>(0xF0 | (cp >> 18));
-            out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
-            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-            out += static_cast<char>(0x80 | (cp & 0x3F));
-        }
-    }
-
-    JsonValue number_value() {
-        const char* start = p_;
-        if (peek() == '-') ++p_;
-        while (p_ < end_ && (std::isdigit(static_cast<unsigned char>(*p_)) ||
-               *p_ == '.' || *p_ == 'e' || *p_ == 'E' || *p_ == '+' || *p_ == '-'))
-            ++p_;
-        if (p_ == start) throw JsonError{};
-        JsonValue v;
-        v.type = JsonValue::Type::Number;
-        try { v.number = std::stod(std::string(start, p_)); }
-        catch (...) { throw JsonError{}; }
-        return v;
-    }
-};
+/* JSON reader moved to shared native/include/jsonlite.h (extracted
+ * unchanged; audit semantics preserved — malformed input still throws
+ * JsonError and aborts the manifest load). */
 
 /* ------------------------------------------------------------------
  * File helpers (read-only)

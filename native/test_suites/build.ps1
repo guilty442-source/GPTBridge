@@ -58,6 +58,13 @@ $suites = @(
         )
     },
     @{
+        src = "suite_transport_proxy_client.cpp"; exe = "transport_proxy_client_suite.exe"
+        # M1 模式 B：proxy 客戶端編解碼＋request_sync 等待語義（零 I/O）
+        extra = @(
+            (Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp")
+        )
+    },
+    @{
         src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
         # P0-9 審計引擎：連結真實原生實作
         extra = @(
