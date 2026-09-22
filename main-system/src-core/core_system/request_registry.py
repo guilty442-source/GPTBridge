@@ -64,6 +64,16 @@ REQUEST_FIELDS = (
     "timeout",
     "cancellation_state",
     "error_code",
+    # A579 codex fields (W4-3): present-but-empty until a caller supplies them —
+    # field existence means the tracking capability is available.
+    "streaming_attribution",
+    "priority_class",
+    "correlation_id",
+    "operation_id",
+    "actor_id",
+    "module_id",
+    "decision_id",
+    "stream_owner",
 )
 
 _CREATED = "CREATED"
@@ -88,6 +98,14 @@ class RequestRecord:
     timeout: float = 0.0
     cancellation_state: str = ""
     error_code: str = ""
+    streaming_attribution: str = ""
+    priority_class: str = ""
+    correlation_id: str = ""
+    operation_id: str = ""
+    actor_id: str = ""
+    module_id: str = ""
+    decision_id: str = ""
+    stream_owner: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -185,6 +203,14 @@ class RequestRegistry:
         method: str = "",
         cancelled: bool | None = None,
         status: str = "",
+        streaming_attribution: str = "",
+        priority_class: str = "",
+        correlation_id: str = "",
+        operation_id: str = "",
+        actor_id: str = "",
+        module_id: str = "",
+        decision_id: str = "",
+        stream_owner: str = "",
     ) -> RequestResult:
         """建立或更新請求紀錄。
 
@@ -205,6 +231,16 @@ class RequestRegistry:
             status = str(legacy.get("status") or status)
             if "cancelled" in legacy:
                 cancelled = bool(legacy["cancelled"])
+            streaming_attribution = str(
+                legacy.get("streaming_attribution") or streaming_attribution
+            )
+            priority_class = str(legacy.get("priority_class") or priority_class)
+            correlation_id = str(legacy.get("correlation_id") or correlation_id)
+            operation_id = str(legacy.get("operation_id") or operation_id)
+            actor_id = str(legacy.get("actor_id") or actor_id)
+            module_id = str(legacy.get("module_id") or module_id)
+            decision_id = str(legacy.get("decision_id") or decision_id)
+            stream_owner = str(legacy.get("stream_owner") or stream_owner)
         if not request_id:
             return RequestResult(False, "request-id-required")
         existing = self._records.get(request_id)
@@ -217,6 +253,14 @@ class RequestRegistry:
                 backend_generation=backend_generation,
                 release_id=release_id,
                 method=method,
+                streaming_attribution=streaming_attribution,
+                priority_class=priority_class,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+                actor_id=actor_id,
+                module_id=module_id,
+                decision_id=decision_id,
+                stream_owner=stream_owner,
             )
             self._records[request_id] = existing
             if self._native_shadow is not None:
@@ -239,6 +283,22 @@ class RequestRegistry:
                 existing.release_id = release_id
             if method:
                 existing.method = method
+            if streaming_attribution:
+                existing.streaming_attribution = streaming_attribution
+            if priority_class:
+                existing.priority_class = priority_class
+            if correlation_id:
+                existing.correlation_id = correlation_id
+            if operation_id:
+                existing.operation_id = operation_id
+            if actor_id:
+                existing.actor_id = actor_id
+            if module_id:
+                existing.module_id = module_id
+            if decision_id:
+                existing.decision_id = decision_id
+            if stream_owner:
+                existing.stream_owner = stream_owner
         if status:
             existing.status = status
             if self._native_shadow is not None:

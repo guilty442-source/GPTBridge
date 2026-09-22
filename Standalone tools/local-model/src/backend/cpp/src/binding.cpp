@@ -16,6 +16,7 @@ using xingcheng::inference::SamplingConfig;
 
 #if defined(XINGCHENG_CUDA)
 extern "C" int xcuda_bf16_available();
+extern "C" int xcuda_kv_available();
 #if defined(XINGCHENG_CUDA_KERNELS)
 extern "C" int xcuda_matmul_bf16(
     const double* a, long long m, long long k,
@@ -102,6 +103,7 @@ PYBIND11_MODULE(_xingcheng_inference, m) {
 
 #if defined(XINGCHENG_CUDA)
     m.def("_cuda_bf16_available", &xcuda_bf16_available);
+    m.def("_cuda_kv_available", &xcuda_kv_available);
 #if defined(XINGCHENG_CUDA_KERNELS)
     m.def(
         "_probe_matmul_bf16",
