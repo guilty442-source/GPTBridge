@@ -1,0 +1,24 @@
+{
+  "id": "p1-cuda-device-resident-weights",
+  "date": "2026-09-22",
+  "scope": "CUDA bridge v2: device-resident weights — eliminate per-call H2D weight copies",
+  "design": {
+    "invariant": "every xcuda_matmul_f64 B operand is a transposed weight whose host pointer is stable for the engine lifetime (bundle storage / owned dequantized tensors) and immutable after load",
+    "cache": "host pointer -> device buffer unordered_map under mutex; first use uploads, later calls reuse",
+    "transient": "activations (A) and outputs (C) stay per-call; single shared cuBLAS handle instead of per-call create/destroy",
+    "release": "xcuda_release_weights() frees all cached buffers + handle on engine unload — stale pointers can never alias new tensors"
+  },
+  "validation": {
+    "tests": "33 passed, 2 skipped (shared_layer env)",
+    "cuda_path": "test_cpp_cuda_opt_in_logits_parity / generation_parity exercise the resident-weight path on real GPU — logits parity 1e-6, greedy token-exact incl. generate_batch"
+  },
+  "remaining": [
+    "device-resident KV — only meaningful once attention runs on-device (GPU attention kernels; blocked on nvcc/MSVC-18 or newer toolchain)",
+    "bf16 GEMM and custom kernels (same toolchain blocker)",
+    "long-duration validation (window-type)"
+  ],
+  "files": [
+    "Standalone tools/local-model/src/backend/cpp/src/cuda_bridge.cpp",
+    "Standalone tools/local-model/src/backend/cpp/src/engine.cpp"
+  ]
+}

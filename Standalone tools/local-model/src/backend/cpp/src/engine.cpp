@@ -489,6 +489,7 @@ extern "C" int xcuda_available();
 extern "C" int xcuda_matmul_f64(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
+extern "C" int xcuda_release_weights();
 #endif
 
 namespace {
@@ -1236,6 +1237,9 @@ bool NativeInferenceEngine::cuda_active() const {
 void NativeInferenceEngine::unload() {
     bundle_.reset();
     tokenizer_.reset();
+#if defined(XINGCHENG_CUDA)
+    if (g_cuda_requested.load()) xcuda_release_weights();
+#endif
     g_cuda_requested.store(false);
     layers_.clear();
     prefix_cache_.clear();
