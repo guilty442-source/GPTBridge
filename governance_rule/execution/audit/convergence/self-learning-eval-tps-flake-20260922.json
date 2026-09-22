@@ -1,0 +1,27 @@
+{
+  "schema": "self-learning-eval-tps-flake/v1",
+  "date": "2026-09-22",
+  "scope": "self-learning 升級閘門的環境敏感缺陷：min_tokens_per_second 絕對地板量測的是機器負載而非模型品質",
+  "incident": {
+    "cycle": "star-transformer-job-ccaf4c6cd20e4dd99b37a8a6（2026-09-22T12:09Z）",
+    "outcome": "rejected——tokens_per_second_ok=false（perplexity_delta 18.79% ≤40% pass、generation_ok pass）",
+    "waste": "訓練 1171.85s GPU + 400 步完成後僅因 tps 閘拒絕"
+  },
+  "root_cause": {
+    "benchmark": "native_transformer/benchmark.py run_benchmark() 第 87 行硬編碼 device=torch.device(cpu)",
+    "gate": "eval suite star-native-eval-dialogue-v1 quality_gates.min_tokens_per_second=5.0（絕對地板）",
+    "measured": "現役 82M baseline 同一 CPU benchmark 在當前負載下實測 0.29 tok/s——baseline 自身也過不了 5.0 閘",
+    "verdict": "閘門量測環境負載：機器忙時任何 candidate（含 baseline）都必然 fail，升級在高負載期實質不可能"
+  },
+  "supporting": "run_evaluation 每循環已在同 session 量測 baseline（record_adapter_evaluation 存 baseline_metrics）——相對比較的資料已存在，僅 compare_metrics 未用於 tps",
+  "recommendation": [
+    "A（建議）：compare_metrics 新增相對閘 min_tps_baseline_ratio（candidate_tps >= baseline_tps * ratio，同 session 同裝置量測，負載不變）；suite JSON 以 ratio 取代或並存絕對地板——屬治理合約變更，待裁決",
+    "B：tps 改以生產 C++ engine 路徑量測（Python CPU benchmark 本來就不代表生產推理）",
+    "C：tps 量測納入 GpuCoordinator/資源協調，於受控條件下取樣"
+  ],
+  "status": "defect documented; suite/gate semantics unchanged pending governance decision",
+  "related": [
+    "self-learning-gpu-busy-backoff-20260922.json",
+    "maturity-l5-active-artifact-20260922.json"
+  ]
+}
