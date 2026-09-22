@@ -48,7 +48,13 @@ def _load_manifests() -> dict[str, dict]:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        tool_id = str(data.get("id") or path.parent.name)
+        # dataset/artifact manifests (corpus-*, dataset snapshots) are not
+        # tools — a tool manifest declares an id plus runtime/permissions
+        if not data.get("id") or not (
+            data.get("runtime") or data.get("permissions") or data.get("capabilities")
+        ):
+            continue
+        tool_id = str(data["id"])
         data["_path"] = str(path.relative_to(ROOT))
         manifests[tool_id] = data
     return manifests

@@ -1,18 +1,18 @@
 {
   "schema": "codex-business-rule-conflict-scan/v1",
-  "generated_at": "2026-09-22T03:37:06Z",
+  "generated_at": "2026-09-22T04:31:07Z",
   "sources": {
-    "manifests": 14,
+    "manifests": 11,
     "boundary_capabilities": 27,
     "registered_tool_identities": 15,
     "routes": 5,
     "module_assignments": 17,
-    "config_files": 15,
+    "config_files": 17,
     "codex_budget_keys": 23
   },
   "summary": {
     "conflict": 0,
-    "overlap": 8,
+    "overlap": 5,
     "naming": 0
   },
   "findings": [
@@ -39,24 +39,6 @@
       "class": "overlap",
       "subject": "system-health-check",
       "detail": "manifest global-cleaner declares 'system-health-check' but boundary owner is 'tool:system-rescue'"
-    },
-    {
-      "axis": "module-assignment",
-      "class": "overlap",
-      "subject": "corpus",
-      "detail": "active tool has no module_assignment_registry row (execution_identity 'CORPUS')"
-    },
-    {
-      "axis": "module-assignment",
-      "class": "overlap",
-      "subject": "corpus-v1",
-      "detail": "active tool has no module_assignment_registry row (execution_identity 'CORPUS_V1')"
-    },
-    {
-      "axis": "module-assignment",
-      "class": "overlap",
-      "subject": "corpus-v2",
-      "detail": "active tool has no module_assignment_registry row (execution_identity 'CORPUS_V2')"
     },
     {
       "axis": "deadline-budget",
