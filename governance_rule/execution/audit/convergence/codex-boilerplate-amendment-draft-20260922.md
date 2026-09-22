@@ -15,6 +15,9 @@
 - 同批 amendment：`common-prohibition` + `INHERITS` 引用，不刪歷史、不變效力，`codex_convergence_closure` 重建
 - 法典 `codex_semantic_duplication_scan` 已由 `DUPSCAN@2026-09-16 UNKNOWN` → `DUPSCAN@2026-09-22T03:49:55Z SCANNED` 填充
 
-## 下一步
+## 狀態（2026-09-22 補記）
 
-- 依 `3.5A: dedup design drafted` 待 governor 用詞核定後發布，屆時重建 `runtime-rule-index` + `business_rule_delegation` 對照
+- **已由總督側發布為 rev68 `2026-09-22T10:23:53Z`**（A601 三組共同禁止條＋27 條 INHERITS；
+  同批 A602 下放、A603 Git 收斂至 A375）。本草案不再送審，僅存歷史。
+- mirror 與 `runtime-rule-index` + `business_rule_delegation` 已於 10:27Z 重建；
+  殘項＝dupscan `review-required` 跨層重述與模板實例列（見藍圖 §3.5.0 A）。

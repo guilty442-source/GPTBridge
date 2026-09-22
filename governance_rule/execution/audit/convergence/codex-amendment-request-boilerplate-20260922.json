@@ -9,6 +9,7 @@
   "new_version": "E2:2026-09-22T04:00:00Z",
   "sha256": "pending-governor-build",
   "description": "法典內部去重同批：12+4+11 共同禁止條 + INHERITS，A375 單一控制條，待五方稽核",
-  "status": "draft (pending governor build + five-sovereign audit)",
-  "evidence": "codex-dup-scan-evidence-20260922.json (800/15/151/2), governance-vs-business-rules-20260922-060043.json (93/269/175)"
+  "status": "superseded-by-rev68-2026-09-22T10:23:53Z",
+  "evidence": "codex-dup-scan-evidence-20260922.json (800/15/151/2), governance-vs-business-rules-20260922-060043.json (93/269/175)",
+  "superseded_note": "governor-side publication applied this batch as revision 68 (A601 dedup, A602 delegation, A603 git-convergence); this staged worker request is closed without execution"
 }
