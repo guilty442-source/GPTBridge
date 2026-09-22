@@ -281,8 +281,8 @@
   ],
   "governance_references": {
     "codex_identity": "governance-codex://official",
-    "codex_version": "2026-09-21T15:39:13Z",
-    "codex_sha256": "6603a8c32de5bcd57c2add32def98e2f6ca51f4e05f6417bdacaef825697254e",
+    "codex_version": "2026-09-22T10:23:53Z",
+    "codex_sha256": "f56b4fc4dcb54ad11e4c76fbb1ba8d67ec94b67428ac67804acacbf75ca930a5",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -372,9 +372,9 @@
         "renderer": "main-system/dist-ui/renderer/index.html"
       },
       "hashes": {
-        "main": "4a024aafc70ed29c9bcfba541c0c44efe86d5ef956445950f8a2c31b8c5f18b4",
+        "main": "01bdc55f6b0f985d499e017f0868a7d0631f860b3f2ffa1a31ddfc8cceec9462",
         "preload": "bfa536f8a7f9ad49c0bab034b97a325ff26789f5a5c1f8a625cdabff06450540",
-        "renderer": "99ebf2a4ec856b44d677fcfdda9e188f40defdc51372ee17d3989632e55e6eb3"
+        "renderer": "716ceaa1e4eacdf06cfb18e68edd43ad4f52380ecfcb6431d77a77dc62287780"
       },
       "renderer_asset_count": 2
     },

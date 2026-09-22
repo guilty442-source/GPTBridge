@@ -1,6 +1,6 @@
 {
  "registry": "MODULE_CAPABILITY_REGISTRY/v1",
- "generated_at": "2026-09-22T06:25:29Z",
+ "generated_at": "2026-09-22T13:17:49Z",
  "authority": "derived-evidence; code taxonomy pending CUTOVER gate ratification",
  "modules": [
   {
@@ -634,17 +634,13 @@
    "single_responsibility": "development-maintenance duty module: global-cleaner",
    "capability_codes": [
     "duty:global-cleaner",
-    "role:development-maintenance",
-    "grant:global-cleanup",
-    "grant:managed-backup"
+    "role:development-maintenance"
    ],
    "resource_requirements": {
     "runtime_form": "standalone-service"
    },
    "permission_requirements": [
-    "identity:retired-global-cleaner",
-    "grant:global-cleanup",
-    "grant:managed-backup"
+    "identity:retired-global-cleaner"
    ],
    "contract_version": "module-capability/v1",
    "runtime_state": "retired",
@@ -660,6 +656,7 @@
     "duty:system-rescue",
     "role:development-maintenance",
     "grant:central-automatic-repair",
+    "grant:managed-backup",
     "grant:system-health-check"
    ],
    "resource_requirements": {
@@ -668,6 +665,7 @@
    "permission_requirements": [
     "identity:main-system:system-rescue",
     "grant:central-automatic-repair",
+    "grant:managed-backup",
     "grant:system-health-check"
    ],
    "contract_version": "module-capability/v1",
