@@ -127,6 +127,7 @@ def _validate_channel_actors(
         "governance/tool/ai-collaboration",
         "governance/tool/investment-mobile",
         "governance/tool/model-dialogue",
+        "governance/tool/star-chat",
         "governance/tool/xingcheng",
     }
     if ai_submit_actors != expected_ai_submit_actors:
@@ -139,6 +140,7 @@ def _validate_channel_actors(
     expected_ai_process_actors = expected_ai_submit_actors - {
         "governance/tool/investment-mobile",
         "governance/tool/model-dialogue",
+        "governance/tool/star-chat",
     }
     if ai_process_actors != expected_ai_process_actors:
         errors.append("AI channel processing actors are invalid")
@@ -155,7 +157,7 @@ def _validate_code_rules(
     """Validate code rules against identity and capability data."""
     # Companion tools (e.g. star-chat) share their owner's approved actor
     # name and are not separately listed in the approved actor name list.
-    _COMPANION_ACTORS = frozenset()
+    _COMPANION_ACTORS = frozenset({"governance/tool/star-chat"})
     if (identity_actors - _COMPANION_ACTORS) != set(code_rules.approved_actor_names):
         errors.append("identity actors do not match the approved name list")
     if capability_name_set - set(code_rules.approved_capability_names):

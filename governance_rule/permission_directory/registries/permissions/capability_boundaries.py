@@ -397,7 +397,9 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "system-health-check", "tool:global-cleaner",
+        # A592: global-cleaner retired; ownership moved to the active
+        # system-rescue tool (which already requires this capability).
+        "system-health-check", "tool:system-rescue",
         "gptbridge-global-system-health-read-only", "none",
         (
             CapabilityGrant(

@@ -207,7 +207,7 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
             "version": self.VERSION,
             "management_owner": self.MANAGEMENT_OWNER,
             "execution_owner": "governed-executor",
-            "capability_id": "xingcheng-system-repair",
+            "capability_id": "central-automatic-repair",
             "module_id": "xingcheng-auto-repair-module",
             "enabled": True,
             "delegation": "governed-executor-only",
