@@ -282,6 +282,21 @@ def overlay_contract() -> dict:
         modules.append(item)
     contract["modules"] = modules
     contract["runtime_environment"]["venv"].pop("pyvenv_cfg_sha256", None)
+    # The contract's codex pin is authored once and the live codex is
+    # amended continuously — a stale pin cannot pass.  Rebind the
+    # reference to the codex snapshot shipped inside this RC (the file
+    # the manifest hashes and the isolated backend actually loads);
+    # contract-version pins stay as real compatibility gates.
+    refs = contract.setdefault("governance_references", {})
+    snap_con = sqlite3.connect(
+        f"file:{RC_CODEX.as_posix()}?mode=ro&immutable=1", uri=True
+    )
+    snap_version = dict(
+        snap_con.execute("select key, value from metadata")
+    ).get("codex_version")
+    snap_con.close()
+    refs["codex_version"] = snap_version
+    refs["codex_sha256"] = sha_file(RC_CODEX)
     native = []
     for entry in contract.get("native_extensions") or []:
         item = dict(entry)
