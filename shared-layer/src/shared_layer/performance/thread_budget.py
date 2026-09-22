@@ -45,9 +45,14 @@ def bounded_threads(
     *,
     budget: Optional[int] = None,
 ) -> int:
-    """Clamp ``threads_per_worker`` so threads × workers ≤ budget."""
+    """Clamp ``threads_per_worker`` so threads × workers ≤ budget.
+
+    ``parallel_workers`` is itself clamped through :func:`bounded_workers`
+    first, so the product invariant holds even when the requested worker
+    count exceeds the budget on its own.
+    """
     limit = core_budget() if budget is None else max(1, int(budget))
-    workers = max(1, int(parallel_workers))
+    workers = bounded_workers(parallel_workers, budget=limit)
     return max(1, min(int(threads_per_worker), max(1, limit // workers)))
 
 

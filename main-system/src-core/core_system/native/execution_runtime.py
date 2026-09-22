@@ -72,6 +72,9 @@ class NativeExecutionRuntime:
             raise ValueError("max_workers must be >= 1")
         if queue_limit < 1:
             raise ValueError("queue_limit must be >= 1")
+        from shared_layer.performance.thread_budget import bounded_workers
+
+        max_workers = bounded_workers(max_workers)
         self._max_workers = max_workers
         self._queue_limit = queue_limit
         self._executor = ThreadPoolExecutor(

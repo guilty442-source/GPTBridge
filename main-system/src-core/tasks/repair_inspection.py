@@ -308,7 +308,9 @@ class DatabaseRecoveryInspector:
             for database in self.sqlite_candidates(self.target_root)
             if _inside(database, self.target_root)
         ]
-        max_workers = min(4, len(databases)) or 1
+        from shared_layer.performance.thread_budget import bounded_workers
+
+        max_workers = bounded_workers(len(databases))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             results = list(
                 executor.map(

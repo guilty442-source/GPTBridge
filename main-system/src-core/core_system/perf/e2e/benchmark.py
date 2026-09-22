@@ -83,10 +83,13 @@ class E2EBenchmark:
             # Single fresh execution — no warmup; captures first-call cost.
             reports = [self._run_once(path_name, fn)]
         elif state == "contended":
+            from shared_layer.performance.thread_budget import bounded_workers
+
             for _ in range(warmup):
                 self._run_once(path_name, fn)
             with ThreadPoolExecutor(
-                max_workers=concurrency, thread_name_prefix="e2e-bench"
+                max_workers=bounded_workers(concurrency),
+                thread_name_prefix="e2e-bench",
             ) as pool:
                 reports = list(
                     pool.map(
