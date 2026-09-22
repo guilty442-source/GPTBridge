@@ -138,3 +138,25 @@ async def test_broker_wait_times_out_without_notify():
     started = time.monotonic()
     await broker._wait_stop_or_wake(0.2)
     assert time.monotonic() - started >= 0.2
+
+
+@pytest.mark.asyncio
+async def test_execution_waiter_woken_by_notify():
+    """toolbox_execution：notify 按 request_id 喚醒對應 waiter。"""
+    from tasks.toolbox_execution import ExecutionMixin
+
+    mixin = ExecutionMixin.__new__(ExecutionMixin)
+    loop = asyncio.get_running_loop()
+    mixin._notify_waiters = {}
+    mixin._notify_loop = loop
+    event = asyncio.Event()
+    mixin._notify_waiters["req-7"] = event
+
+    mixin._on_transport_notify("system", "req-other")
+    await asyncio.sleep(0)  # 讓 call_soon_threadsafe 有機會跑
+    assert not event.is_set()  # 不同 request_id 不喚醒
+
+    mixin._on_transport_notify("system", "req-7")
+    started = time.monotonic()
+    await mixin._sleep_or_notify(5.0, event)
+    assert time.monotonic() - started < 5.0

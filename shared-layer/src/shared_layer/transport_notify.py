@@ -65,18 +65,25 @@ class TransportNotifyListener:
             if callback in subs:
                 return
             subs.append(callback)
-        self._resubscribe.set()
+            new_channel = len(subs) == 1
+        # 只有「新 channel」才需要重新 LISTEN；同 channel 加回呼不必重連。
+        if new_channel:
+            self._resubscribe.set()
 
     def unsubscribe(
         self, channel_id: str, callback: Callable[[str, str], None]
     ) -> None:
+        removed_channel = False
         with self._lock:
-            subs = self._subscribers.get(str(channel_id).strip())
+            key = str(channel_id).strip()
+            subs = self._subscribers.get(key)
             if subs and callback in subs:
                 subs.remove(callback)
                 if not subs:
-                    self._subscribers.pop(str(channel_id).strip(), None)
-        self._resubscribe.set()
+                    self._subscribers.pop(key, None)
+                    removed_channel = True
+        if removed_channel:
+            self._resubscribe.set()
 
     def subscribed_channels(self) -> list[str]:
         with self._lock:

@@ -148,61 +148,74 @@ class ExecutionMixin(ExecutionVerificationMixin):
         deadline = time.monotonic() + timeout_seconds
         poll_interval = 0.1
 
-        first_poll_error: str | None = None
-        while time.monotonic() < deadline:
-            try:
-                response = await asyncio.to_thread(
-                    self.permission_sovereign.tool_execution_response,
-                    channel_tool_id,
-                    request_id,
-                )
-                first_poll_error = None
-            except (OSError, ValueError, PermissionError) as exc:
-                if first_poll_error is None:
-                    import traceback
-                    first_poll_error = (
-                        f"{type(exc).__name__}: {exc}\n"
-                        + "".join(traceback.format_exception(exc))
-                    )
-                # The first poll may fail while the tool process is still
-                # starting up or the governance token is being issued. Keep
-                # retrying until the deadline; only report the error if it
-                # never succeeds.
-                await asyncio.sleep(poll_interval)
-                poll_interval = min(poll_interval * 1.5, 0.5)
-                continue
+        # §10.63/G26: LISTEN/NOTIFY 喚醒——完成通知到達即提前醒來重查；
+        # 輪詢退避保留為 fail-closed 備援（通知丟失不影響正確性）。
+        loop = asyncio.get_running_loop()
+        done_event = asyncio.Event()
+        self._ensure_notify_subscription(loop)
+        waiters = getattr(self, "_notify_waiters", None)
+        if waiters is None:
+            waiters = self._notify_waiters = {}
+        waiters[request_id] = done_event
 
-            if response is not None:
-                # consume_response returns a row dict with status/response/progress.
-                # Only return when the request is actually completed; otherwise
-                # keep polling (the row is not deleted until completed/cancelled).
-                status = response.get("status") if isinstance(response, dict) else None
-                if status in ("completed", "failed", "cancelled"):
-                    if isinstance(response, dict):
-                        result = response.get("response")
-                        if isinstance(result, dict):
-                            result.setdefault("tool_id", tool_id)
-                            result.setdefault("request_id", request_id)
-                            return result
+        first_poll_error: str | None = None
+        try:
+            while time.monotonic() < deadline:
+                try:
+                    response = await asyncio.to_thread(
+                        self.permission_sovereign.tool_execution_response,
+                        channel_tool_id,
+                        request_id,
+                    )
+                    first_poll_error = None
+                except (OSError, ValueError, PermissionError) as exc:
+                    if first_poll_error is None:
+                        import traceback
+                        first_poll_error = (
+                            f"{type(exc).__name__}: {exc}\n"
+                            + "".join(traceback.format_exception(exc))
+                        )
+                    # The first poll may fail while the tool process is still
+                    # starting up or the governance token is being issued. Keep
+                    # retrying until the deadline; only report the error if it
+                    # never succeeds.
+                    await self._sleep_or_notify(poll_interval, done_event)
+                    poll_interval = min(poll_interval * 1.5, 0.5)
+                    continue
+
+                if response is not None:
+                    # consume_response returns a row dict with status/response/progress.
+                    # Only return when the request is actually completed; otherwise
+                    # keep polling (the row is not deleted until completed/cancelled).
+                    status = response.get("status") if isinstance(response, dict) else None
+                    if status in ("completed", "failed", "cancelled"):
+                        if isinstance(response, dict):
+                            result = response.get("response")
+                            if isinstance(result, dict):
+                                result.setdefault("tool_id", tool_id)
+                                result.setdefault("request_id", request_id)
+                                return result
+                            return {
+                                "ok": False,
+                                "tool_id": tool_id,
+                                "request_id": request_id,
+                                "error_code": "INVALID_TOOL_RESPONSE",
+                                "message": "Tool process returned an invalid response",
+                            }
+                        # cancelled or completed with no response dict
                         return {
                             "ok": False,
                             "tool_id": tool_id,
                             "request_id": request_id,
-                            "error_code": "INVALID_TOOL_RESPONSE",
-                            "message": "Tool process returned an invalid response",
+                            "error_code": "TOOL_RUN_{}".format(status.upper()),
+                            "message": f"Tool run status: {status}",
                         }
-                    # cancelled or completed with no response dict
-                    return {
-                        "ok": False,
-                        "tool_id": tool_id,
-                        "request_id": request_id,
-                        "error_code": "TOOL_RUN_{}".format(status.upper()),
-                        "message": f"Tool run status: {status}",
-                    }
-                # status is "queued" or "claimed" — keep polling
+                    # status is "queued" or "claimed" — keep polling
 
-            await asyncio.sleep(poll_interval)
-            poll_interval = min(poll_interval * 1.5, 0.5)
+                await self._sleep_or_notify(poll_interval, done_event)
+                poll_interval = min(poll_interval * 1.5, 0.5)
+        finally:
+            waiters.pop(request_id, None)
 
         if first_poll_error is not None:
             return {
@@ -220,6 +233,47 @@ class ExecutionMixin(ExecutionVerificationMixin):
             "error_code": "TOOL_RUN_TIMEOUT",
             "message": f"Tool run timed out after {timeout_seconds}s",
         }
+
+    # -- LISTEN/NOTIFY wake (§10.63/G26) ----------------------------------
+
+    def _ensure_notify_subscription(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Lazy：訂閱 system 頻道一次；回呼按 request_id 分派喚醒對應 waiter。"""
+        self._notify_loop = loop
+        if getattr(self, "_notify_subscribed", False):
+            return
+        try:
+            from shared_layer.transport_notify import (
+                get_transport_notify_listener,
+            )
+
+            listener = get_transport_notify_listener()
+            listener.subscribe("system", self._on_transport_notify)
+            listener.start()
+            self._notify_subscribed = True
+        except Exception:
+            self._notify_subscribed = False
+
+    def _on_transport_notify(self, channel: str, request_id: str) -> None:
+        """LISTEN 回呼（監聽執行緒）——按 request_id 喚醒對應 waiter。"""
+        waiters = getattr(self, "_notify_waiters", None) or {}
+        event = waiters.get(request_id)
+        loop = getattr(self, "_notify_loop", None)
+        if event is None or loop is None:
+            return
+        try:
+            loop.call_soon_threadsafe(event.set)
+        except Exception:
+            pass
+
+    async def _sleep_or_notify(
+        self, seconds: float, event: asyncio.Event
+    ) -> None:
+        """睡到 notify 喚醒或輪詢逾時（先到者為準；通知僅為提示）。"""
+        try:
+            await asyncio.wait_for(event.wait(), timeout=seconds)
+            event.clear()
+        except asyncio.TimeoutError:
+            pass
 
     async def cancel_tool_execution(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         tool_id = str(payload.get("tool_id", "")).strip()
