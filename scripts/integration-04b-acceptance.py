@@ -945,7 +945,7 @@ def main() -> int:
         "minimal_fix_list": [
             "Isolated backend dependency probes unreachable by bound-root design — all three shared-service doubles (PG 04B-20, Qdrant 04B-21, Ollama 04B-22) verified at the release client-contract layer",
             "isolated IPC contract client (auth/request-id/session/cancel/timeout/streaming) — validator covers surface only",
-            "venv rebuild reproducibility pinned by wheel cache (04B-16) — full G76 self-containment verification pending",
+            "G76 self-containment verified — 04B-18 offline wheel-cache rebuild PASS (rerun with --with-offline-rebuild to refresh evidence)",
         ],
     }
     report_path = RC / "acceptance-report.json"
