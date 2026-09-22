@@ -494,6 +494,11 @@ extern "C" int xcuda_bf16_available();
 extern "C" int xcuda_matmul_bf16(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
+// P1-1③ residual: fp8 (e4m3) weight-storage GEMM (kernels/matmul_fp8.cu).
+extern "C" int xcuda_fp8_available();
+extern "C" int xcuda_matmul_fp8(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out);
 // P1-1② device-resident KV + online-softmax attention (kernels/kv_attention.cu).
 extern "C" int xcuda_kv_available();
 extern "C" int xcuda_kv_alloc(
@@ -512,6 +517,7 @@ extern "C" int xcuda_kv_attention(
 namespace {
 std::atomic<bool> g_cuda_requested{false};
 std::atomic<bool> g_cuda_bf16_requested{false};
+std::atomic<bool> g_cuda_fp8_requested{false};
 std::atomic<bool> g_cuda_kv_requested{false};
 
 bool env_flag(const char* name) {
@@ -534,6 +540,12 @@ std::vector<double> matmul(
         if (g_cuda_bf16_requested.load()) {
             if (xcuda_matmul_bf16(a, m, k, b, n, out.data()) != 0) {
                 throw InferenceError("CUDA_BF16_MATMUL_FAILED");
+            }
+            return out;
+        }
+        if (g_cuda_fp8_requested.load()) {
+            if (xcuda_matmul_fp8(a, m, k, b, n, out.data()) != 0) {
+                throw InferenceError("CUDA_FP8_MATMUL_FAILED");
             }
             return out;
         }
@@ -585,6 +597,10 @@ std::vector<double> matmul_grouped(
             if (m_g == 0) continue;
             const int rc = g_cuda_bf16_requested.load()
                 ? xcuda_matmul_bf16(
+                      a.data() + a_off, m_g, k, b_list[g], n,
+                      out.data() + c_off)
+                : g_cuda_fp8_requested.load()
+                ? xcuda_matmul_fp8(
                       a.data() + a_off, m_g, k, b_list[g], n,
                       out.data() + c_off)
                 : xcuda_matmul_f64(
@@ -1287,6 +1303,25 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         throw InferenceError("CUDA_BF16_UNAVAILABLE");
 #endif
     }
+    // fp8 weight-storage GEMM (P1-1③ residual): same opt-in contract as
+    // bf16. bf16 and fp8 are mutually exclusive precision domains —
+    // requesting both is ambiguous configuration, not a precedence rule.
+    g_cuda_fp8_requested.store(env_flag("XINGCHENG_CPP_CUDA_FP8"));
+    if (g_cuda_fp8_requested.load()) {
+        if (g_cuda_bf16_requested.load()) {
+            g_cuda_fp8_requested.store(false);
+            throw InferenceError("CUDA_PRECISION_CONFLICT");
+        }
+#if defined(XINGCHENG_CUDA)
+        if (!g_cuda_requested.load() || !xcuda_fp8_available()) {
+            g_cuda_fp8_requested.store(false);
+            throw InferenceError("CUDA_FP8_UNAVAILABLE");
+        }
+#else
+        g_cuda_fp8_requested.store(false);
+        throw InferenceError("CUDA_FP8_UNAVAILABLE");
+#endif
+    }
     // P1-1② device-resident KV: opt-in on the CUDA path; the int8 KV format
     // has no device representation, so requesting both fails closed.
     g_cuda_kv_requested.store(env_flag("XINGCHENG_CPP_CUDA_KV"));
@@ -1431,6 +1466,7 @@ void NativeInferenceEngine::unload() {
         xcuda_release_weights();
         g_cuda_requested.store(false);
         g_cuda_bf16_requested.store(false);
+        g_cuda_fp8_requested.store(false);
         g_cuda_kv_requested.store(false);
         cuda_session_owned_ = false;
     }

@@ -328,6 +328,18 @@ class RagRuntimeStateMachine:
         )
         return item
 
+    @property
+    def seconds_in_state(self) -> float:
+        """Elapsed seconds since the last guarded transition (wall clock)."""
+        with self._lock:
+            try:
+                entered = datetime.fromisoformat(self._last_transition_at)
+            except ValueError:
+                return 0.0
+            return max(
+                0.0, (datetime.now(timezone.utc) - entered).total_seconds()
+            )
+
     # -- Status snapshot ----------------------------------------------------
 
     def status(self) -> dict[str, Any]:

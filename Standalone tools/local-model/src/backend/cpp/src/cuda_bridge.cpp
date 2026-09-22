@@ -62,6 +62,8 @@ extern "C" {
 // build time (build_cpp.py sets XINGCHENG_CUDA_KERNELS).
 int xcuda_bf16_kernel_probe();
 int xcuda_bf16_release_weights();
+int xcuda_fp8_kernel_probe();
+int xcuda_fp8_release_weights();
 int xcuda_kv_kernel_probe();
 int xcuda_kv_alloc(long long layers, long long kv_heads, long long head_dim,
                    long long max_len);
@@ -76,6 +78,11 @@ int xcuda_kv_attention(long long layer, const double* q, long long heads,
 // Stubs so the symbols always resolve; the bf16/KV request paths fail
 // closed through *_available()==0 before ever reaching these.
 int xcuda_matmul_bf16(
+    const double*, long long, long long,
+    const double*, long long, double*) {
+    return 3;
+}
+int xcuda_matmul_fp8(
     const double*, long long, long long,
     const double*, long long, double*) {
     return 3;
@@ -111,6 +118,7 @@ int xcuda_release_weights() {
     }
 #if defined(XINGCHENG_CUDA_KERNELS)
     xcuda_bf16_release_weights();
+    xcuda_fp8_release_weights();
 #endif
     xcuda_kv_free();
     return 0;
@@ -122,6 +130,15 @@ int xcuda_release_weights() {
 int xcuda_bf16_available() {
 #if defined(XINGCHENG_CUDA_KERNELS)
     return xcuda_bf16_kernel_probe();
+#else
+    return 0;
+#endif
+}
+
+// fp8 kernel availability: same fail-closed contract.
+int xcuda_fp8_available() {
+#if defined(XINGCHENG_CUDA_KERNELS)
+    return xcuda_fp8_kernel_probe();
 #else
     return 0;
 #endif

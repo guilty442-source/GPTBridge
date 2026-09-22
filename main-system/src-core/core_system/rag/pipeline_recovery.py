@@ -483,6 +483,28 @@ class PipelineRecoveryMixin:
             "active": self._degraded_pipeline is not None,
             "canonical": False,
         }
+        # P4 adaptive plane 生產者：qdrant_backlog / degraded / degraded_seconds。
+        # 欄位級合併、失敗靜默——量測只是提示，不得影響健康檢查主流程。
+        try:
+            from shared_layer.adaptive import LoadSignals, get_plane
+
+            is_degraded = state == RagRuntimeState.DEGRADED
+            get_plane().observe_merge(
+                LoadSignals(
+                    qdrant_backlog=int(
+                        (result["outbox"] or {}).get("pending") or 0
+                    ),
+                    degraded=is_degraded,
+                    degraded_seconds=(
+                        self._state_machine.seconds_in_state
+                        if is_degraded
+                        else 0.0
+                    ),
+                ),
+                fields=("qdrant_backlog", "degraded", "degraded_seconds"),
+            )
+        except Exception:
+            pass
         return result
 
     # ------------------------------------------------------------------
