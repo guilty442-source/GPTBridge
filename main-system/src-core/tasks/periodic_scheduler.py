@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 _logger = logging.getLogger("gptbridge.periodic_scheduler")
@@ -32,6 +33,7 @@ class PeriodicScheduler:
         tick_seconds: float = BASE_TICK_SECONDS,
         job_timeout_s: float = DEFAULT_JOB_TIMEOUT_SECONDS,
         pause_check: Callable[[], bool] | None = None,
+        project_root: Path | None = None,
     ) -> None:
         self._tick_seconds = tick_seconds
         self._job_timeout_s = job_timeout_s
@@ -42,6 +44,21 @@ class PeriodicScheduler:
         self._jobs: dict[str, dict[str, Any]] = {}
         self._stop = asyncio.Event()
         self._task: asyncio.Task[Any] | None = None
+        # §10.65 act-1 shadow: when the governed policy enables it, a C
+        # job table runs in parallel and every tick is compared — Python
+        # stays authoritative, any native error disables the shadow only.
+        self._native_shadow = None
+        if project_root is not None:
+            try:
+                from .periodic_scheduler_native_shadow import (
+                    SchedulerNativeShadow,
+                )
+
+                self._native_shadow = SchedulerNativeShadow.from_policy(
+                    project_root
+                )
+            except Exception:
+                self._native_shadow = None
 
     def register(
         self,
@@ -59,21 +76,32 @@ class PeriodicScheduler:
 
         ``pausable`` marks non-essential work that may defer while the
         scheduler's ``pause_check`` reports active regulation."""
+        now = time.monotonic()
+        resolved_timeout_s = timeout_s or self._job_timeout_s
         self._jobs[name] = {
             "interval_s": float(interval_s),
             "tick": tick,
             "pausable": bool(pausable),
-            "timeout_s": timeout_s or self._job_timeout_s,
+            "timeout_s": resolved_timeout_s,
             "next_due": (
-                time.monotonic()
+                now
                 if run_immediately
-                else time.monotonic() + float(interval_s)
+                else now + float(interval_s)
             ),
             "last_started": None,
             "last_duration_ms": None,
             "last_error": None,
             "run_count": 0,
         }
+        if self._native_shadow is not None:
+            self._native_shadow.observe_register(
+                name,
+                interval_s=float(interval_s),
+                timeout_s=resolved_timeout_s,
+                run_immediately=run_immediately,
+                pausable=pausable,
+                now_s=now,
+            )
         # Lazily start the shared loop when the first job registers and an
         # event loop is available (services start at different phases).
         if self._task is None or self._task.done():
@@ -81,6 +109,8 @@ class PeriodicScheduler:
 
     def unregister(self, name: str) -> None:
         self._jobs.pop(name, None)
+        if self._native_shadow is not None:
+            self._native_shadow.observe_unregister(name)
 
     def start(self) -> dict[str, Any]:
         if self._task is not None and not self._task.done():
@@ -166,6 +196,10 @@ class PeriodicScheduler:
                 )
                 job["run_count"] += 1
                 next_due = min(next_due, job["next_due"])
+            if self._native_shadow is not None:
+                self._native_shadow.observe_tick(
+                    now_s=now, paused=paused, py_jobs=self._jobs
+                )
             wait_s = max(0.05, next_due - time.monotonic())
             try:
                 await asyncio.wait_for(self._stop.wait(), timeout=wait_s)

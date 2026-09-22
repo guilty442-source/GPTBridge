@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from typing import Any
@@ -13,27 +14,41 @@ class CollabRepoMemoryTasksMixin:
     def list_memory_items(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT memory_id, kind, title, content, business_scope, source_agent_id, owner_model_id, status, content_hash, created_at, updated_at FROM ai_nexus_memory_items ORDER BY updated_at DESC LIMIT 100"
+                "SELECT memory_id, kind, title, content, business_scope, source_agent_id, owner_model_id, status, content_hash, source_message_id, created_at, updated_at FROM ai_nexus_memory_items ORDER BY updated_at DESC LIMIT 100"
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def add_memory_item(self, kind: str, title: str, content: str) -> dict[str, Any]:
+    def add_memory_item(
+        self,
+        kind: str,
+        title: str,
+        content: str,
+        *,
+        source_agent_id: str = "",
+        source_message_id: str = "",
+        business_scope: str = "general",
+    ) -> dict[str, Any]:
         now = utc_now()
         memory_id = uuid.uuid4().hex[:16]
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO ai_nexus_memory_items
-                (memory_id, kind, title, content, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (memory_id, kind, title, content, business_scope, source_agent_id, content_hash, source_message_id, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (memory_id, kind, title, content, now, now),
+                (memory_id, kind, title, content, business_scope, source_agent_id, content_hash, source_message_id, now, now),
             )
         return {
             "memory_id": memory_id,
             "kind": kind,
             "title": title,
             "content": content,
+            "business_scope": business_scope,
+            "source_agent_id": source_agent_id,
+            "content_hash": content_hash,
+            "source_message_id": source_message_id,
             "created_at": now,
             "updated_at": now,
         }

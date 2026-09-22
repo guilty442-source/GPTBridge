@@ -14,7 +14,15 @@ class CollabSvcMemoryMixin:
             return {"ok": False, "message": "記憶內容不可空白"}
         if not title:
             title = content[:40]
-        item = self.repository.add_memory_item(kind, title, content)
+        item = self.repository.add_memory_item(
+            kind,
+            title,
+            content,
+            source_agent_id=str(payload.get("source_agent_id", "")).strip(),
+            source_message_id=str(payload.get("source_message_id", "")).strip(),
+            business_scope=str(payload.get("business_scope", "general")).strip()
+            or "general",
+        )
         return {
             "ok": True,
             "memory_item": item,
@@ -66,10 +74,20 @@ class CollabSvcMemoryMixin:
                 "\n\n".join(response_lines) if response_lines else "尚無可用回覆。",
             ]
         )
+        agent_ids = sorted(
+            {
+                str(response.get("agent_id") or "")
+                for response in group_message.get("responses", [])
+                if isinstance(response, dict) and str(response.get("agent_id") or "")
+            }
+        )
         return self.repository.add_memory_item(
             "auto",
             f"AI 協作：{self._shorten(content, 28)}",
             memory_content,
+            source_agent_id=",".join(agent_ids),
+            source_message_id=str(group_message.get("message_id") or ""),
+            business_scope=str(group_message.get("business_scope") or "general"),
         )
 
     @staticmethod

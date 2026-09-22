@@ -85,6 +85,7 @@ _SCHEMA_SCRIPT = """
                     owner_model_id TEXT NOT NULL DEFAULT 'ai-collaboration',
                     status TEXT NOT NULL DEFAULT 'accepted',
                     content_hash TEXT NOT NULL DEFAULT '',
+                    source_message_id TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -146,6 +147,7 @@ class CollabRepoSchemaMixin:
         self._ensure_column(connection, "ai_nexus_memory_items", "owner_model_id", "TEXT NOT NULL DEFAULT 'ai-collaboration'")
         self._ensure_column(connection, "ai_nexus_memory_items", "status", "TEXT NOT NULL DEFAULT 'accepted'")
         self._ensure_column(connection, "ai_nexus_memory_items", "content_hash", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_memory_items", "source_message_id", "TEXT NOT NULL DEFAULT ''")
 
     @staticmethod
     def _ensure_column(

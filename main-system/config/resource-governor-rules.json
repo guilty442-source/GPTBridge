@@ -1,0 +1,13 @@
+{
+  "version": "star-resource-governor-rules/v1",
+  "description": "Per-program resource rules for the Process Lasso-inspired governor tier. Every control feature defaults to off; enable globally in 'defaults' (or via CLI flags) and refine per program below. 'exclude' keeps a program unmanaged (monitoring only). cpu_limit_percent is a share of total machine CPU (100 = one full core).",
+  "defaults": {
+    "probalance": false,
+    "cpu_limiter": false,
+    "background_mode": false,
+    "ecoqos": false,
+    "limiter_percent": 10.0,
+    "resp_strain_ratio": 1.8
+  },
+  "programs": {}
+}

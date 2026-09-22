@@ -114,7 +114,8 @@ class AppLifecycleMixin:
         from tasks.resource_governor_signal import regulation_active
 
         self.periodic_scheduler = PeriodicScheduler(
-            pause_check=regulation_active
+            pause_check=regulation_active,
+            project_root=self.project_root,
         )
 
         # §1.1 自動化集中（P0-4）：自動化核心是唯一流程／排程註冊點——

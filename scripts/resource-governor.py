@@ -1264,6 +1264,26 @@ def run_watch(config: GovernorConfig) -> int:
         return 0
 
 
+def _feature_args(config: GovernorConfig) -> list[str]:
+    """CLI passthrough for the Process Lasso-inspired features."""
+    args: list[str] = []
+    if config.probalance_flag:
+        args.append("--probalance")
+    if config.cpu_limiter_flag:
+        args.append("--cpu-limiter")
+    if config.background_mode_flag:
+        args.append("--background-mode")
+    if config.ecoqos_flag:
+        args.append("--ecoqos")
+    if config.limiter_percent_arg is not None:
+        args.extend(["--limiter-percent", str(config.limiter_percent_arg)])
+    if config.resp_ratio_arg is not None:
+        args.extend(["--resp-ratio", str(config.resp_ratio_arg)])
+    if config.rules_path != RULES_FILE:
+        args.extend(["--rules", str(config.rules_path)])
+    return args
+
+
 def run_start(config: GovernorConfig) -> int:
     if _lock_is_busy():
         print("resource-governor already running")
@@ -1276,6 +1296,7 @@ def run_start(config: GovernorConfig) -> int:
         "--watch",
         "--interval",
         str(config.interval),
+        *_feature_args(config),
     ]
     if config.log_samples:
         command.append("--log-samples")
@@ -1344,7 +1365,14 @@ def _installed_pythonw() -> str:
 
 
 def _launch_arguments(config: GovernorConfig) -> str:
-    return f'"{PROJECT_ROOT / "scripts" / "resource-governor.py"}" --watch --interval {config.interval}'
+    parts = [
+        str(PROJECT_ROOT / "scripts" / "resource-governor.py"),
+        "--watch",
+        "--interval",
+        str(config.interval),
+        *_feature_args(config),
+    ]
+    return subprocess.list2cmdline(parts)
 
 
 def _task_xml(arguments: str, target: str) -> str:
@@ -1489,6 +1517,47 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sustain", type=int, default=SUSTAIN_SAMPLES, help="busy samples before priority drop (default 3)")
     parser.add_argument("--no-affinity", action="store_true", help="never cap CPU affinity")
     parser.add_argument("--log-samples", action="store_true", help="append per-cycle worker-ledger samples to the action log (30 min p95 audits)")
+    parser.add_argument(
+        "--rules",
+        default=None,
+        help="per-program rules JSON (default: main-system/config/resource-governor-rules.json)",
+    )
+    parser.add_argument(
+        "--probalance",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="ProBalance responsiveness control (default: rules file, off)",
+    )
+    parser.add_argument(
+        "--cpu-limiter",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Job Object CPU hard-cap limiter (default: rules file, off)",
+    )
+    parser.add_argument(
+        "--background-mode",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="background I/O + memory priority for offenders (default: off)",
+    )
+    parser.add_argument(
+        "--ecoqos",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="PowerThrottling efficiency mode for offenders (default: off)",
+    )
+    parser.add_argument(
+        "--limiter-percent",
+        type=float,
+        default=None,
+        help="CPU limiter cap, percent of total machine CPU (default 10)",
+    )
+    parser.add_argument(
+        "--resp-ratio",
+        type=float,
+        default=None,
+        help="ProBalance strain ratio over the responsiveness baseline (default 1.8)",
+    )
     return parser
 
 
