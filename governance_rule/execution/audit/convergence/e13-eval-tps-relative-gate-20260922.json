@@ -1,0 +1,14 @@
+{
+  "schema": "gptbridge-evidence/v1",
+  "evidence_id": "e13-eval-tps-relative-gate-20260922",
+  "recorded_at_utc": "2026-09-22T13:23:38Z",
+  "governor_ruling": "2026-09-22: ???? ? ????????C++ engine ?????? E11",
+  "defect": "eval gate min_tokens_per_second=5.0 absolute floor measured machine load on a hardcoded CPU benchmark; 82M baseline measured 0.29 tps under load and self-failed; 12:09Z cycle rejected after 1172s training solely on this gate (self-learning-eval-tps-flake-20260922.json)",
+  "changes": [
+    "native_eval_suite.compare_metrics: new min_tps_baseline_ratio gate ? candidate tps >= baseline tps x ratio; missing/unverifiable baseline tps fails closed; comparison reports tokens_per_second_ratio_ok + baseline_tokens_per_second",
+    "star-native-eval-dialogue-v1.json: min_tokens_per_second removed; min_tps_baseline_ratio=0.9 (baseline = current active weights measured in the same run via baseline_checkpoint)",
+    "self_learning_support._degradation_probe: tps gates excluded ? probe measures quality drift, not throughput; recorded as tps_gate=not-applicable-degradation-probe"
+  ],
+  "tests": "test_native_eval_suite.py +3 cases (ratio pass/fail, missing-baseline fail-closed, ratio+floor AND, no-gate unchanged); suite 35 passed",
+  "deferred": "C++ engine measurement path for eval tps -> E11 scope"
+}
