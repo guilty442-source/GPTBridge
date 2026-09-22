@@ -1,0 +1,32 @@
+﻿{
+  "schema_version": "governor-ruling-request/v1",
+  "item": "P1-9 subitem 2",
+  "requested_by": "devin-cli",
+  "requested_at_utc": "2026-09-22T18:45Z",
+  "question": "P6 驗收「測試 20 s」的口徑：全量 native suite 執行（現量測 87.6 s）或更窄範圍？",
+  "evidence": "convergence/p6-test-20s-20260922.json",
+  "measured": {
+    "whole_run_seconds": 87.6,
+    "composition": "model-eval suites (baseline/eval/dialogue) 55.1s — unblocked since checkpoint became available; tool_host pair 29.4s; contract suites ~32s",
+    "per_suite_bound": "every suite < 30s — section 3.1 push-gate bound holds; only the P6 20s whole-run figure fails"
+  },
+  "options": [
+    {
+      "id": "a",
+      "label": "scope-to-contract-suites",
+      "description": "「測試 20 s」解讀為契約套件（tool_host + governance suites），model-eval 套件另有自身 SLA；20s 口徑以契約套件量測 ~32s 仍需微調或接受"
+    },
+    {
+      "id": "b",
+      "label": "amend-budget",
+      "description": "修訂 P6 的 20 s 全量上限——suite 數自原量測時 13 增至 21，且 checkpoint 可用後 model-eval 套件開始實跑"
+    },
+    {
+      "id": "c",
+      "label": "treat-as-defect",
+      "description": "視為效能缺陷：並行化 suite 執行或縮減 model-eval 套件範圍以回到 20 s 內"
+    }
+  ],
+  "status": "pending-governor-ruling",
+  "note": "P1-9 subitems 1/3/4 already PASS with evidence; this ruling is the only remaining gate to close the item."
+}
