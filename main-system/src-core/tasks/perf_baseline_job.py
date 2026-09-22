@@ -53,6 +53,29 @@ def _rag_metrics(app: Any) -> dict[str, Any] | None:
         return None
 
 
+def _observe_adaptive_plane() -> None:
+    """P4 adaptive plane 第二訊號生產者：系統 CPU／RAM 水位。
+
+    欄位級合併（observe_merge）——本生產者僅擁有 cpu_pct／ram_pct，
+    不覆寫 maintenance controller 的 pg／lock／backlog 量測。
+    失敗靜默：量測只是提示，不得影響快照主流程。
+    """
+    try:
+        import psutil
+
+        from shared_layer.adaptive import LoadSignals, get_plane
+
+        get_plane().observe_merge(
+            LoadSignals(
+                cpu_pct=float(psutil.cpu_percent(interval=None)),
+                ram_pct=float(psutil.virtual_memory().percent),
+            ),
+            fields=("cpu_pct", "ram_pct"),
+        )
+    except Exception:
+        pass
+
+
 def _persist_latest(project_root: Any, snapshot: dict[str, Any]) -> None:
     """Refresh only the rolling ``latest`` pointer — a 5-minute cadence
     must not accumulate one timestamped snapshot per run (~288/day)."""
@@ -85,6 +108,7 @@ def build_tick(app: Any):
         snapshot["workload_lanes"] = _workload_lane_metrics(app)
         snapshot["rag"] = _rag_metrics(app)
         await asyncio.to_thread(_persist_latest, project_root, snapshot)
+        _observe_adaptive_plane()
 
     return tick
 

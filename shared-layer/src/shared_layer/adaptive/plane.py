@@ -17,7 +17,7 @@ call site is explicitly updated to consult it.
 from __future__ import annotations
 
 import threading
-from typing import Final
+from typing import Final, Iterable
 
 from .admission import AdmissionController, ModuleUsage, class_for_workload
 from .breakers import DomainBreakerRegistry
@@ -70,6 +70,25 @@ class AdaptiveDataPlane:
         with self._lock:
             self._signals = signals
             self._last_parameters = self.tuner.observe(signals)
+            return dict(self._last_parameters)
+
+    def observe_merge(
+        self, signals: LoadSignals, *, fields: Iterable[str]
+    ) -> dict[str, int | float]:
+        """欄位級合併觀測——多生產者支援（P4 adaptive plane 殘項）。
+
+        ``observe()`` 整體替換會抹掉其他生產者的量測；各生產者擁有
+        不相交的欄位集合，只覆寫 ``fields`` 內的欄位，其餘保留上次觀測值
+        （初次觀測時未覆寫欄位 = 預設「無壓力」，語意正確）。
+        未知欄位名略過（fail-closed：不憑空生欄位）。
+        """
+        with self._lock:
+            merged = self._signals
+            for name in fields:
+                if hasattr(merged, name) and hasattr(signals, name):
+                    setattr(merged, name, getattr(signals, name))
+            self._signals = merged
+            self._last_parameters = self.tuner.observe(merged)
             return dict(self._last_parameters)
 
     @property

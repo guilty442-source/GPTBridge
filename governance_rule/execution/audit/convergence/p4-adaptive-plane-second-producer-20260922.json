@@ -1,0 +1,15 @@
+{
+  "evidence_id": "p4-adaptive-plane-second-producer",
+  "ts": "2026-09-22T17:56:09Z",
+  "item": "P4 adaptive plane 殘項：訊號生產者不再單一",
+  "change": "AdaptiveDataPlane.observe_merge(signals, fields) 欄位級合併（各生產者擁有不相交欄位集，未知欄位略過 fail-closed）；perf-baseline tick 以 psutil 系統 cpu_percent/virtual_memory().percent 注入 cpu_pct／ram_pct（opt-in，失敗靜默不影響快照主流程）",
+  "files": [
+    "shared-layer/src/shared_layer/adaptive/plane.py",
+    "main-system/src-core/tasks/perf_baseline_job.py",
+    "main-system/tests/test_adaptive_plane_merge.py"
+  ],
+  "verification": {
+    "tests": "test_adaptive_plane_merge.py 4/4 PASS"
+  },
+  "residual": "transport_backlog／model_load_pct 等其他生產者仍 opt-in 待接"
+}
