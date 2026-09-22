@@ -36,6 +36,7 @@ _RC_ARG = next(
 )
 RC_ID = _RC_ARG or f"rc-{time.strftime('%Y-%m-%d', time.gmtime())}"
 RC = RELEASES / RC_ID
+RC_CODEX = RC / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 FIXTURES = Path(tempfile.mkdtemp(prefix=f"04b-fixtures-{RC_ID}-"))
 VENV_PY = ROOT / "main-system" / ".venv" / "Scripts" / "python.exe"
 CODEX = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
@@ -115,6 +116,19 @@ def _copy_venv(target: Path) -> bool:
     return False
 
 
+def _rmtree_ro(path: Path) -> None:
+    """rmtree that clears the read-only bit governance puts on payloads."""
+    def _fix(fn, p, _exc):
+        try:
+            os.chmod(p, 0o666)
+            fn(p)
+        except OSError:
+            pass
+    shutil.rmtree(path, ignore_errors=True)
+    if path.exists():
+        shutil.rmtree(path, onerror=_fix)
+
+
 def build_rc() -> None:
     RC.mkdir(parents=True, exist_ok=True)
     # Code payloads are re-copied on every build so a repack always
@@ -125,14 +139,14 @@ def build_rc() -> None:
         target = RC / stale
         if not target.exists():
             continue
-        shutil.rmtree(target, ignore_errors=True)
+        _rmtree_ro(target)
         if target.exists():
             # Windows delete-pending locks (AV indexing, mapped handles)
             # block unlink but not rename — move aside so the fresh copy
             # lands under the clean name, then best-effort clean up.
             aside = RC / f"{stale}.stale-{os.getpid()}"
             target.rename(aside)
-            shutil.rmtree(aside, ignore_errors=True)
+            _rmtree_ro(aside)
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
     shutil.copytree(ROOT / "main-system" / "src-core", RC / "backend", ignore=ignore)
     shutil.copytree(ROOT / "main-system" / "config", RC / "config")
@@ -145,9 +159,23 @@ def build_rc() -> None:
     # (persistent-data boundary).
     gov_ignore = shutil.ignore_patterns(
         "__pycache__", "*.pyc", "*.jsonl", "archive", "git_audit_chain",
-        "convergence", "runtime",
+        "convergence", "runtime", "governance_codex.sqlite3*",
     )
     shutil.copytree(GOV_ROOT, RC / "governance_rule", ignore=gov_ignore)
+    # The live codex DB is amended continuously — a raw file copy can
+    # catch it mid-write and drifts away from the manifest by the time
+    # validation runs.  Ship an atomic snapshot (SQLite backup API) so
+    # manifest hash/version and the shipped file are the same bytes.
+    RC_CODEX.parent.mkdir(parents=True, exist_ok=True)
+    src_con = sqlite3.connect(f"file:{CODEX.as_posix()}?mode=ro", uri=True)
+    dst_con = sqlite3.connect(str(RC_CODEX))
+    try:
+        src_con.backup(dst_con)
+    finally:
+        dst_con.close()
+        src_con.close()
+    # Parity with the dev tree: empty top-level placeholder file.
+    (RC / "governance_rule" / "codex" / "governance_codex.sqlite3").touch()
     # Flat-layout seed: main.py exposes <release>/main-system so
     # ``import governance`` resolves; the isolated harness seeds its
     # state root from the same directory.
@@ -191,7 +219,9 @@ def build_rc() -> None:
     probe_version = env_report["version"]
     lock_identity = hashlib.sha256("\n".join(distributions).encode("utf-8")).hexdigest()
     frontend_surface = json.loads((ROOT / "main-system" / "config" / "ipc-surface-frontend.json").read_text(encoding="utf-8"))
-    con = sqlite3.connect(f"file:{CODEX.as_posix()}?mode=ro&immutable=1", uri=True)
+    # Governance identity is taken from the shipped snapshot, not the
+    # live codex — the live DB keeps mutating while the run proceeds.
+    con = sqlite3.connect(f"file:{RC_CODEX.as_posix()}?mode=ro&immutable=1", uri=True)
     codex_version = dict(con.execute("select key, value from metadata")).get("codex_version")
     sovereigns = sorted(str(row[0]) for row in con.execute("select sovereign_id from sovereigns"))
     auth_version = con.execute("select version_identity from identity_authentication_contract limit 1").fetchone()[0]
@@ -213,7 +243,7 @@ def build_rc() -> None:
         "ipc_contract": {"identity": frontend_surface["surface_version"], "tool_runtime_contract": "main-system/config/tool-runtime-contract.json"},
         "governance_compatibility": {
             "codex_version": codex_version,
-            "codex_sha256": sha_file(CODEX),
+            "codex_sha256": sha_file(RC_CODEX),
             "governance_runtime_contract_version": auth_version,
             "permission_contract_version": permission_version,
             "sovereign_registry_identity": hashlib.sha256("\n".join(sovereigns).encode("utf-8")).hexdigest(),
@@ -300,7 +330,7 @@ def run_validation() -> dict:
         shared_root=None,
         extra_paths=[str(RC / "backend"), str(RC / "shared_runtime"), str(GOV_ROOT), str(ROOT)],
         cwd=str(RC),
-        codex_path=str(CODEX),
+        codex_path=str(RC_CODEX),
         repo_root=str(ROOT),
         allowed_dependency_roots=[str(ROOT / "main-system" / ".venv")],
         check_frontend_release=False,
@@ -363,7 +393,7 @@ def fault_scenarios() -> None:
 
     # 04B-06 governance incompatibility
     tampered = {"governance_references": {"codex_sha256": "0" * 64}}
-    errors = validate_governance_references(tampered, codex_path=str(CODEX))
+    errors = validate_governance_references(tampered, codex_path=str(RC_CODEX))
     record("04B-06", "governance incompatibility rejected", "CODEX_HASH_MISMATCH", str(errors), "PASS" if "CODEX_HASH_MISMATCH" in errors else "FAIL", "validator", "CODEX_HASH_MISMATCH")
 
     # 04B-07 runtime configuration missing
@@ -487,6 +517,11 @@ def _payload_leaks() -> list[str]:
     ):
         if (gov / state_dir).is_dir():
             leaks.append(f"governance_rule/{state_dir}")
+    # Rename-aside leftovers from delete-pending locks are payload
+    # pollution too — they must never remain in a finished candidate.
+    leaks += [
+        p.name for p in RC.glob("*.stale-*") if p.exists()
+    ]
     return leaks
 
 
