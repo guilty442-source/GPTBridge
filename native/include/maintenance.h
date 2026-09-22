@@ -29,7 +29,8 @@ typedef enum {
     GPTBRIDGE_MT_VERIFYING = 3,
     GPTBRIDGE_MT_DEFERRED = 4,
     GPTBRIDGE_MT_COMPLETED = 5,
-    GPTBRIDGE_MT_FAILED = 6
+    GPTBRIDGE_MT_FAILED = 6,
+    GPTBRIDGE_MT_CANCELLED = 7  /* 准入後遭 Python 側下游閘門否決（budget/lease/cooldown） */
 } gptbridge_mt_status_t;
 
 typedef enum {
@@ -77,11 +78,15 @@ int gptbridge_mt_init(gptbridge_mt_t* mt,
                       int64_t retry_backoff_ms,
                       int64_t current_generation);
 
-/* 准入：依風險等級與旗標判定；回傳 1=入佇列，0=拒（fail-closed） */
+/* 准入：依風險等級與旗標判定；回傳 1=入佇列，0=拒（fail-closed）。
+   system_blocked 非零時全部等級皆拒 — 對齊 Python evaluate_policy 的
+   全域阻斷（recovery / shutdown_draining / cooldown / lease_conflict，
+   由呼叫方收斂為單一旗標注入）。 */
 int gptbridge_mt_admit(gptbridge_mt_t* mt,
                        const gptbridge_mt_job_t* job,
                        int32_t system_idle,
                        int32_t authorized,
+                       int32_t system_blocked,
                        int64_t now_ms);
 
 /* 取下一個到期 job（priority 小者先；過期 job 直接標 FAILED 並跳過） */
@@ -90,6 +95,10 @@ gptbridge_mt_job_t* gptbridge_mt_next_due(gptbridge_mt_t* mt, int64_t now_ms);
 /* 結果回報：成功 → COMPLETED；失敗 → 未達上限 DEFERRED＋backoff，達上限 FAILED */
 int gptbridge_mt_complete(gptbridge_mt_t* mt, const char* job_id);
 int gptbridge_mt_fail(gptbridge_mt_t* mt, const char* job_id, int64_t now_ms);
+
+/* 撤回：Python 准入後被下游閘門（budget/lease/cooldown）否決的 job —
+   標 CANCELLED 退出佇列，槽位可被回收（對齊 Python 端未入隊狀態） */
+int gptbridge_mt_cancel(gptbridge_mt_t* mt, const char* job_id);
 
 /* TTL 快取：有效內回傳快取；失效回 0（呼叫方重新探測後 set） */
 int gptbridge_mt_cache_get(gptbridge_mt_cache_t* c, int64_t now_ms,

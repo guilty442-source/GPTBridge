@@ -303,6 +303,101 @@ int main() {
     }
     NT_END_TEST(SUITE, "reconnect_backoff_and_dead");
 
+    NT_TEST(SUITE, "parity_pipeline_matrix") {
+        /* M2→M3 parity 放行判據之端到端情境：把固定劇本（3 事件＋
+           3 訊息＋hello → ack 亂序 → resync 回放）跑過執行面，輸出
+           a263_runtime_matrix.json；Python 端
+           test_native_m2_a263_parity.py 以真實 A263Channel 重播同
+           劇本逐鍵比對（Python 為權威）。 */
+        FakeTransport t;
+        chan::A263ChannelRuntime ch;
+        std::string err;
+        NT_CHECK(ch.start(base_cfg(), base_hooks(t), &err), "start");
+        ch.append_state_event("e1", "T", "op", jobj({{"i", jnum(1)}}));
+        ch.append_state_event("e2", "T", "op", jobj({{"i", jnum(2)}}));
+        ch.append_state_event("e3", "T", "op", jobj({{"i", jnum(3)}}));
+        ch.send_message(chan::MessagePriority::COMMAND,
+                        jobj({{"id", jstr("m1")}}));
+        ch.send_message(chan::MessagePriority::CONTROL,
+                        jobj({{"id", jstr("m2")}}));
+        ch.send_message(chan::MessagePriority::COMMAND,
+                        jobj({{"id", jstr("m3")}}));
+        NT_CHECK(ch.connect("bg", "s"), "connect");
+        NT_CHECK(t.wait_sent(7, 3000), "hello+3ev+3msg");
+
+        /* ack 亂序：2 → 5 → 1 → cursor 2,5,5。 */
+        std::vector<uint64_t> ack_traj;
+        const int acks[] = {2, 5, 1};
+        for (int a : acks) {
+            ch.handle_incoming(jobj(
+                {{"type", jstr("control")},
+                 {"command", jstr("state_event_ack")},
+                 {"payload", jobj({{"cursor", jnum(a)}})}}));
+            ack_traj.push_back(ch.acked_cursor());
+        }
+        NT_CHECK(ack_traj[0] == 2 && ack_traj[1] == 5 &&
+                     ack_traj[2] == 5, "ack trajectory");
+
+        /* resync cursor=1 → 回放 seq 2,3。 */
+        const size_t before = t.size();
+        ch.handle_incoming(jobj(
+            {{"type", jstr("control")},
+             {"command", jstr("state_event_resync")},
+             {"payload", jobj({{"cursor", jnum(1)}})}}));
+        NT_CHECK(t.wait_sent(before + 2, 3000), "replay sent");
+        NT_CHECK(t.seq_at(before) == 2 && t.seq_at(before + 1) == 3,
+                 "replayed unconfirmed");
+
+        /* 匯出 matrix：分流為 control/event/message 序列——同層序
+           是契約，跨層位置受 pass 邊界競態影響（Python 同）。 */
+        std::string controls = "[", events = "[", msgs = "[";
+        bool fc = true, fe = true, fm = true;
+        for (size_t i = 0; i < t.size(); ++i) {
+            auto k = t.kind_at(i);
+            if (k.second == "state_event_hello" ||
+                k.first == "control") {
+                if (!fc) controls += ",";
+                controls += "{\"command\":\"" + k.second + "\"}";
+                fc = false;
+            } else if (k.first == "state_event") {
+                if (!fe) events += ",";
+                char buf[96];
+                std::snprintf(buf, sizeof(buf),
+                              "{\"sequence\":%.0f}", t.seq_at(i));
+                events += buf;
+                fe = false;
+            } else {
+                std::string id;
+                {
+                    std::lock_guard<std::mutex> lk(t.mu);
+                    const jl::JsonValue* idv = t.sent[i].get("id");
+                    if (idv) id = idv->string;
+                }
+                if (!fm) msgs += ",";
+                msgs += "{\"id\":\"" + id + "\"}";
+                fm = false;
+            }
+        }
+        controls += "]"; events += "]"; msgs += "]";
+        FILE* m = std::fopen("a263_runtime_matrix.json", "w");
+        NT_CHECK(m != nullptr, "matrix file");
+        std::fprintf(m,
+            "{\"schema\":\"a263-runtime-matrix/v1\",\"scenario\":"
+            "\"channel_pipeline\",\"controls\":%s,\"state_events\":%s,"
+            "\"messages\":%s,\"ack_input\":[2,5,1],\"ack_trajectory\":"
+            "[%llu,%llu,%llu],\"resync_cursor\":1,\"final_acked\":%llu,"
+            "\"final_sent\":%llu}",
+            controls.c_str(), events.c_str(), msgs.c_str(),
+            (unsigned long long)ack_traj[0],
+            (unsigned long long)ack_traj[1],
+            (unsigned long long)ack_traj[2],
+            (unsigned long long)ch.acked_cursor(),
+            (unsigned long long)ch.sent_upto());
+        std::fclose(m);
+        ch.disconnect();
+    }
+    NT_END_TEST(SUITE, "parity_pipeline_matrix");
+
     NT_TEST(SUITE, "backpressure_and_drop_oldest") {
         /* backpressure enabled：queue_len>=cap → 拒收；停用時
            deque(maxlen) 語義：恆收但丟最舊。control 恆容量檢查。 */

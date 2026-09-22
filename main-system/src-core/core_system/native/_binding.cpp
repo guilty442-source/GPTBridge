@@ -526,7 +526,8 @@ public:
     }
     bool admit(const std::string& job_id, const std::string& action_id,
                int risk_class, int priority, int64_t generation,
-               bool system_idle, bool authorized, int64_t now_ms) {
+               bool system_idle, bool authorized, int64_t now_ms,
+               bool system_blocked) {
         gptbridge_mt_job_t job{};
         std::snprintf(job.job_id, GPTBRIDGE_MT_ID_MAX, "%s", job_id.c_str());
         std::snprintf(job.action_id, GPTBRIDGE_MT_ID_MAX, "%s",
@@ -538,7 +539,8 @@ public:
         job.scheduled_at_ms = now_ms;
         job.next_attempt_ms = now_ms;
         return gptbridge_mt_admit(&mt_, &job, system_idle ? 1 : 0,
-                                  authorized ? 1 : 0, now_ms) != 0;
+                                  authorized ? 1 : 0,
+                                  system_blocked ? 1 : 0, now_ms) != 0;
     }
     py::object next_due(int64_t now_ms) {
         gptbridge_mt_job_t* j = gptbridge_mt_next_due(&mt_, now_ms);
@@ -556,10 +558,27 @@ public:
     bool fail(const std::string& job_id, int64_t now_ms) {
         return gptbridge_mt_fail(&mt_, job_id.c_str(), now_ms) != 0;
     }
+    bool cancel(const std::string& job_id) {
+        return gptbridge_mt_cancel(&mt_, job_id.c_str()) != 0;
+    }
     int job_count() const { return mt_.count; }
+    /* TTL probe cache (same-tick shared probe result, failure cached too).
+       get returns None on miss/expiry, else the stored ok flag. */
+    py::object cache_get(int64_t now_ms, int64_t ttl_ms) {
+        int32_t ok = 0;
+        if (!gptbridge_mt_cache_get(&cache_, now_ms, ttl_ms,
+                                    nullptr, &ok)) {
+            return py::none();
+        }
+        return py::bool_(ok != 0);
+    }
+    void cache_set(int64_t now_ms, bool probe_ok) {
+        gptbridge_mt_cache_set(&cache_, now_ms, probe_ok ? 1 : 0, nullptr);
+    }
 
 private:
     gptbridge_mt_t mt_{};
+    gptbridge_mt_cache_t cache_{};
 };
 
 // --- E2 transport/registration-surface prototype (§10.65 shadow) ---
@@ -1007,11 +1026,18 @@ PYBIND11_MODULE(_sovereign_native, m) {
 
     py::class_<NativeMaintenance>(m, "NativeMaintenance")
         .def(py::init<int64_t, int64_t, int32_t, int64_t, int64_t>())
-        .def("admit", &NativeMaintenance::admit)
+        .def("admit", &NativeMaintenance::admit,
+             py::arg("job_id"), py::arg("action_id"), py::arg("risk_class"),
+             py::arg("priority"), py::arg("generation"),
+             py::arg("system_idle"), py::arg("authorized"),
+             py::arg("now_ms"), py::arg("system_blocked") = false)
         .def("next_due", &NativeMaintenance::next_due)
         .def("complete", &NativeMaintenance::complete)
         .def("fail", &NativeMaintenance::fail)
-        .def("job_count", &NativeMaintenance::job_count);
+        .def("cancel", &NativeMaintenance::cancel)
+        .def("job_count", &NativeMaintenance::job_count)
+        .def("cache_get", &NativeMaintenance::cache_get)
+        .def("cache_set", &NativeMaintenance::cache_set);
 
     // E2 transport/registration-surface prototype (§10.65 shadow mode).
     py::class_<NativeIpcRegistry>(m, "NativeIpcRegistry")

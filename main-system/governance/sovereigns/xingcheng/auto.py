@@ -43,6 +43,7 @@ class XingchengAutoMixin:
     _last_snapshot: dict[str, Any]
     _pending_anomalies: list[dict[str, Any]]
     _learning_armed: bool
+    _auto_wake: asyncio.Event | None = None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

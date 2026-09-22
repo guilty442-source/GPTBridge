@@ -93,11 +93,23 @@ class MaintenanceScheduler:
         self._lock = threading.RLock()
         self._draining = False
         self._current_generation = 0
+        self._native_shadow: Any = None
+
+    def set_native_shadow(self, shadow: Any) -> None:
+        """Attach a §10.65 native-shadow observer (None disables)."""
+        with self._lock:
+            self._native_shadow = shadow
 
     def set_generation(self, generation: int) -> None:
         """Update current system generation."""
         with self._lock:
             self._current_generation = generation
+            shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                shadow.observe_generation(generation)
+            except Exception:
+                pass
 
     def is_draining(self) -> bool:
         """Check if scheduler is draining (shutdown)."""
@@ -167,6 +179,30 @@ class MaintenanceScheduler:
             risk_class=candidate.risk_class,
             system_state=policy_context,
         )
+
+        shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                idle_gate = self._policy_evaluator(
+                    risk_class=MaintenanceRiskClass.M1_SAFE_AUTO,
+                    system_state=policy_context,
+                )
+                shadow.observe_admit(
+                    str(candidate.candidate_id),
+                    str(candidate.action_id),
+                    risk_class=candidate.risk_class,
+                    priority=int(getattr(candidate, "priority", 0)),
+                    generation=int(policy_context["job_generation"]),
+                    system_idle=bool(idle_gate.allowed),
+                    authorized=bool(policy_context["governed_authorization"]),
+                    py_executable=bool(
+                        decision.allowed
+                        and candidate.risk_class
+                        != MaintenanceRiskClass.M3_APPROVAL_REQUIRED
+                    ),
+                )
+            except Exception:
+                pass
 
         if not decision.allowed:
             # M3 candidates are recorded but not executed
@@ -267,12 +303,25 @@ class MaintenanceScheduler:
         """Get the next job to execute (caller must handle execution)."""
         with self._lock:
             if not self._queue:
+                shadow = self._native_shadow
+                if shadow is not None:
+                    try:
+                        shadow.observe_dispatch(None)
+                    except Exception:
+                        pass
                 return None
 
             # Pop highest priority (lowest number)
             scheduled = self._queue.popleft()
             job = scheduled.job.with_status(MaintenanceJobStatus.RUNNING)
             self._running[job.job_id] = scheduled
+
+            shadow = self._native_shadow
+            if shadow is not None:
+                try:
+                    shadow.observe_dispatch(str(job.job_id))
+                except Exception:
+                    pass
 
             return job, scheduled.action
 
@@ -308,6 +357,16 @@ class MaintenanceScheduler:
 
             # Record cooldown
             self.budget.record_maintenance(action_id)
+
+            shadow = self._native_shadow
+            if shadow is not None:
+                try:
+                    shadow.observe_terminal(
+                        str(job_id),
+                        ok=(status == MaintenanceJobStatus.COMPLETED),
+                    )
+                except Exception:
+                    pass
 
             return True
 

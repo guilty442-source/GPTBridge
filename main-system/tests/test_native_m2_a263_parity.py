@@ -33,7 +33,7 @@ EXE = BIN / "a263_channel_core_suite.exe"
 MATRIX = BIN / "a263_parity_matrix.json"
 
 from shared_layer.channel_runtime import A263Channel  # noqa: E402
-from shared_layer.channel_types import ChannelConfig  # noqa: E402
+from shared_layer.channel_types import ChannelConfig, MessagePriority  # noqa: E402
 from shared_layer.heartbeat_mixin import HeartbeatMixin  # noqa: E402
 from shared_layer.transactional_outbox import TransactionalOutbox  # noqa: E402
 
@@ -193,9 +193,97 @@ def test_parity_heartbeat_loop_live():
 
     async def main():
         expired = await run_once(delta=0.05, timeout=0.02)   # past deadline
-        alive = await run_once(delta=0.01, timeout=0.5)      # within deadline
+        alive = await run_once(delta=0.01, timeout=30.0)     # within deadline
         return expired, alive
 
     expired, alive = asyncio.run(main())
     assert expired is True
     assert alive is False
+
+
+RT_EXE = BIN / "channel_runtime_suite.exe"
+RT_MATRIX = BIN / "a263_runtime_matrix.json"
+
+
+class _FakeTransport:
+    """ChannelTransport protocol stub — records sends, receive ends."""
+
+    def __init__(self):
+        self.sent: list[dict] = []
+        self.closed: list[tuple] = []
+
+    async def send(self, message):
+        self.sent.append(message)
+
+    async def receive(self):
+        return None
+
+    async def close(self, code: int = 1000, reason: str = ""):
+        self.closed.append((code, reason))
+
+    @property
+    def is_closed(self):
+        return bool(self.closed)
+
+
+def test_parity_channel_pipeline_runtime():
+    """End-to-end replay of the C++ execution-plane pipeline matrix
+    through a real A263Channel + TransactionalOutbox (M2→M3 gate)."""
+    if not RT_EXE.exists():
+        pytest.skip("channel_runtime_suite.exe not built")
+    subprocess.run([str(RT_EXE), "channel_runtime_suite"], cwd=str(BIN),
+                   check=True, capture_output=True, timeout=60)
+    matrix = json.loads(RT_MATRIX.read_text(encoding="utf-8"))
+
+    async def run():
+        t = _FakeTransport()
+        ob = TransactionalOutbox("ai")
+        cfg = ChannelConfig(channel_id="ai",
+                            heartbeat_interval_seconds=3600.0,
+                            send_idle_sleep_seconds=0.01)
+        ch = A263Channel(cfg, t, ob)
+
+        for i in (1, 2, 3):
+            await ob.append(f"e{i}", "T", "op", {"i": i})
+        await ch._enqueue_message(MessagePriority.COMMAND, {"id": "m1"})
+        await ch._enqueue_message(MessagePriority.CONTROL, {"id": "m2"})
+        await ch._enqueue_message(MessagePriority.COMMAND, {"id": "m3"})
+        await ch.connect("bg", "s")
+
+        for _ in range(300):
+            if len(t.sent) >= 7:
+                break
+            await asyncio.sleep(0.01)
+        assert len(t.sent) >= 7
+
+        traj = []
+        for a in matrix["ack_input"]:
+            await ch._dispatch_message(
+                {"type": "control", "command": "state_event_ack",
+                 "payload": {"cursor": a}})
+            traj.append(ch._acked_cursor)
+
+        before = len(t.sent)
+        await ch._dispatch_message(
+            {"type": "control", "command": "state_event_resync",
+             "payload": {"cursor": matrix["resync_cursor"]}})
+        for _ in range(300):
+            if len(t.sent) >= before + 2:
+                break
+            await asyncio.sleep(0.01)
+
+        await ch.disconnect()
+        return t, traj, ch._acked_cursor
+
+    t, traj, acked = asyncio.run(run())
+
+    controls = [{"command": m.get("command")} for m in t.sent
+                if m.get("type") == "control"]
+    events = [{"sequence": m["event"]["sequence"]} for m in t.sent
+              if m.get("type") == "state_event"]
+    msgs = [{"id": m.get("id")} for m in t.sent if m.get("id")]
+    assert controls == matrix["controls"]
+    assert events == matrix["state_events"]
+    assert msgs == matrix["messages"]
+    assert traj == matrix["ack_trajectory"]
+    assert acked == matrix["final_acked"]

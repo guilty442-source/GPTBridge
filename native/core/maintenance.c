@@ -31,12 +31,15 @@ int gptbridge_mt_admit(gptbridge_mt_t* mt,
                        const gptbridge_mt_job_t* job,
                        int32_t system_idle,
                        int32_t authorized,
+                       int32_t system_blocked,
                        int64_t now_ms) {
     if (!mt || !job || !job->job_id[0]) return 0;
-    if (mt->count >= GPTBRIDGE_MT_MAX_JOBS) return 0; /* 有界佇列 */
     if (_find(mt, job->job_id)) return 0;             /* 冪等去重 */
     /* generation 不匹配即拒（enforce_generation_match） */
     if (job->generation != mt->current_generation) return 0;
+    /* 全域阻斷：對齊 Python evaluate_policy 的 recovery/drain/cooldown/
+       lease-conflict 早退 — 所有風險等級一併拒絕（fail-closed） */
+    if (system_blocked) return 0;
     switch (job->risk_class) {
         case GPTBRIDGE_MT_M0: break;                          /* 恆入 */
         case GPTBRIDGE_MT_M1: if (!system_idle) return 0; break;
@@ -44,7 +47,22 @@ int gptbridge_mt_admit(gptbridge_mt_t* mt,
         case GPTBRIDGE_MT_M3: return 0; /* 僅候選：不自動執行 */
         default: return 0;              /* 未知等級 fail-closed */
     }
-    gptbridge_mt_job_t* slot = &mt->jobs[mt->count++];
+    /* 准入通過後才佔槽：未滿取新槽，滿了回收終態槽位（對齊 Python 佇列
+       只持有活動 job），無可回收槽位才拒（fail-closed） */
+    gptbridge_mt_job_t* slot = NULL;
+    if (mt->count < GPTBRIDGE_MT_MAX_JOBS) {
+        slot = &mt->jobs[mt->count++];
+    } else {
+        for (int32_t i = 0; i < mt->count; ++i) {
+            gptbridge_mt_status_t st = mt->jobs[i].status;
+            if (st == GPTBRIDGE_MT_COMPLETED || st == GPTBRIDGE_MT_FAILED ||
+                st == GPTBRIDGE_MT_CANCELLED) {
+                slot = &mt->jobs[i];
+                break;
+            }
+        }
+        if (!slot) return 0;
+    }
     *slot = *job;
     slot->status = GPTBRIDGE_MT_QUEUED;
     slot->next_attempt_ms = now_ms;
@@ -94,6 +112,15 @@ int gptbridge_mt_fail(gptbridge_mt_t* mt, const char* job_id, int64_t now_ms) {
     }
     j->status = GPTBRIDGE_MT_DEFERRED;
     j->next_attempt_ms = now_ms + mt->retry_backoff_ms * j->attempt_count;
+    return 1;
+}
+
+int gptbridge_mt_cancel(gptbridge_mt_t* mt, const char* job_id) {
+    gptbridge_mt_job_t* j = _find(mt, job_id);
+    if (!j) return 0;
+    if (j->status == GPTBRIDGE_MT_COMPLETED || j->status == GPTBRIDGE_MT_FAILED)
+        return 0; /* 終態不可撤 */
+    j->status = GPTBRIDGE_MT_CANCELLED;
     return 1;
 }
 

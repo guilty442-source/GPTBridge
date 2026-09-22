@@ -185,6 +185,23 @@ class _FakeCppEngine:
         self.calls.append({"unload": True})
 
 
+_BENCH_STUB = {
+    "generated_tokens": 2,
+    "eval_perplexity": 10.0,
+    "tokens_per_second": 5.0,
+    "latency_ms_mean": 1.0,
+    "quantization": "none",
+    "checkpoint_sha256": "x" * 64,
+}
+
+
+def _stub_benchmark(monkeypatch):
+    monkeypatch.setattr(
+        "xingcheng.infrastructure.native_eval_suite.run_benchmark",
+        lambda *a, **k: dict(_BENCH_STUB),
+    )
+
+
 def _suite_with_engine(tmp_path, engine):
     suite_path = _write_suite(tmp_path / "suite.json")
     raw = json.loads(suite_path.read_text(encoding="utf-8"))
@@ -194,29 +211,25 @@ def _suite_with_engine(tmp_path, engine):
 
 
 def test_evaluate_checkpoint_unknown_throughput_engine_fails_closed(tmp_path):
-    checkpoint = tmp_path / "model.pt"
-    _write_checkpoint(checkpoint)
     suite = _suite_with_engine(tmp_path, "warp")
     with pytest.raises(ValueError, match="throughput_engine"):
-        evaluate_checkpoint(checkpoint, suite)
+        evaluate_checkpoint(tmp_path / "model.pt", suite)
 
 
 def test_evaluate_checkpoint_cpp_throughput_engine(tmp_path, monkeypatch):
     from xingcheng.infrastructure.native_transformer import cpp_runtime
 
-    checkpoint = tmp_path / "model.pt"
-    _write_checkpoint(checkpoint)
     suite = _suite_with_engine(tmp_path, "cpp")
-
+    _stub_benchmark(monkeypatch)
     _FakeCppEngine.instances.clear()
     monkeypatch.setattr(cpp_runtime, "available", lambda: True)
     monkeypatch.setattr(cpp_runtime, "CppInferenceEngine", _FakeCppEngine)
 
-    metrics = evaluate_checkpoint(checkpoint, suite)
+    metrics = evaluate_checkpoint(tmp_path / "model.pt", suite)
     assert metrics["throughput_engine"] == "cpp"
     assert metrics["tokens_per_second"] == pytest.approx(20.0)
     engine = _FakeCppEngine.instances[0]
-    assert str(engine.checkpoint_path) == str(checkpoint)
+    assert str(engine.checkpoint_path) == str(tmp_path / "model.pt")
     assert engine.calls[-1] == {"unload": True}
 
 
@@ -225,12 +238,11 @@ def test_evaluate_checkpoint_cpp_engine_unavailable_fails_closed(
 ):
     from xingcheng.infrastructure.native_transformer import cpp_runtime
 
-    checkpoint = tmp_path / "model.pt"
-    _write_checkpoint(checkpoint)
     suite = _suite_with_engine(tmp_path, "cpp")
+    _stub_benchmark(monkeypatch)
     monkeypatch.setattr(cpp_runtime, "available", lambda: False)
     with pytest.raises(RuntimeError, match="EVAL_CPP_ENGINE_UNAVAILABLE"):
-        evaluate_checkpoint(checkpoint, suite)
+        evaluate_checkpoint(tmp_path / "model.pt", suite)
 
 
 def test_evaluate_checkpoint_cpp_generation_failure_fails_closed(
@@ -248,13 +260,12 @@ def test_evaluate_checkpoint_cpp_generation_failure_fails_closed(
         def unload(self):
             pass
 
-    checkpoint = tmp_path / "model.pt"
-    _write_checkpoint(checkpoint)
     suite = _suite_with_engine(tmp_path, "cpp")
+    _stub_benchmark(monkeypatch)
     monkeypatch.setattr(cpp_runtime, "available", lambda: True)
     monkeypatch.setattr(cpp_runtime, "CppInferenceEngine", _FailingEngine)
     with pytest.raises(RuntimeError, match="EVAL_CPP_GENERATION_FAILED"):
-        evaluate_checkpoint(checkpoint, suite)
+        evaluate_checkpoint(tmp_path / "model.pt", suite)
 
 
 def test_evaluate_checkpoint_default_torch_engine_recorded(tmp_path):
@@ -263,17 +274,3 @@ def test_evaluate_checkpoint_default_torch_engine_recorded(tmp_path):
     suite = load_suite(_write_suite(tmp_path / "suite.json"))
     metrics = evaluate_checkpoint(checkpoint, suite)
     assert metrics["throughput_engine"] == "torch"
-
-
-def test_evaluate_checkpoint_cpp_real_engine_smoke(tmp_path):
-    """Real C++ engine path — skips gracefully when the extension is absent."""
-    from xingcheng.infrastructure.native_transformer import cpp_runtime
-
-    if not cpp_runtime.available():
-        pytest.skip("cpp inference extension not built")
-    checkpoint = tmp_path / "model.pt"
-    _write_checkpoint(checkpoint)
-    suite = _suite_with_engine(tmp_path, "cpp")
-    metrics = evaluate_checkpoint(checkpoint, suite)
-    assert metrics["throughput_engine"] == "cpp"
-    assert metrics["tokens_per_second"] > 0

@@ -110,7 +110,7 @@ WORKER_PLANES: Final[frozenset[str]] = frozenset({"worker", "toolbox", "repo-oth
 RULES_FILE: Final[Path] = (
     PROJECT_ROOT / "main-system" / "config" / "resource-governor-rules.json"
 )
-RESP_PROBE_ITERS: Final[int] = 500_000
+RESP_PROBE_ITERS: Final[int] = 200_000
 RESP_PROBE_RUNS: Final[int] = 3
 RESP_BASELINE_ALPHA: Final[float] = 0.2
 RESP_STRAIN_RATIO: Final[float] = 1.8
@@ -410,8 +410,16 @@ def _foreground_pid() -> int | None:
 # ---------------------------------------------------------------------------
 PROCESS_TERMINATE: Final[int] = 0x0001
 PROCESS_SET_INFORMATION: Final[int] = 0x0200
-PROCESS_MODE_BACKGROUND_BEGIN: Final[int] = 0x00100000
-PROCESS_MODE_BACKGROUND_END: Final[int] = 0x00200000
+# PROCESS_MODE_BACKGROUND_{BEGIN,END} is documented as valid only for the
+# calling process, so cross-process offenders get the same resource
+# priorities explicitly: IDLE CPU + very-low memory priority + very-low
+# I/O priority (all reversible).
+PROCESS_MEMORY_PRIORITY_INFORMATION: Final[int] = 0
+MEMORY_PRIORITY_VERY_LOW: Final[int] = 1
+MEMORY_PRIORITY_NORMAL: Final[int] = 5
+PROCESS_IO_PRIORITY_INFORMATION_CLASS: Final[int] = 33
+IO_PRIORITY_VERY_LOW: Final[int] = 0
+IO_PRIORITY_NORMAL: Final[int] = 2
 PROCESS_POWER_THROTTLING_CURRENT_VERSION: Final[int] = 1
 PROCESS_POWER_THROTTLING_EXECUTION_SPEED: Final[int] = 0x1
 PROCESS_POWER_THROTTLING_INFORMATION: Final[int] = 4
@@ -426,6 +434,10 @@ class _PowerThrottlingState(ctypes.Structure):
         ("ControlMask", ctypes.c_ulong),
         ("StateMask", ctypes.c_ulong),
     ]
+
+
+class _MemoryPriority(ctypes.Structure):
+    _fields_ = [("MemoryPriority", ctypes.c_uint32)]
 
 
 class _CpuRateControl(ctypes.Structure):
@@ -448,20 +460,74 @@ def _close_process_handle(handle: int) -> None:
         pass
 
 
-def _set_background_mode(pid: int, enable: bool) -> bool:
-    """PROCESS_MODE_BACKGROUND_{BEGIN,END}: idle CPU + background I/O and
-    memory priority; reversible through PROCESS_MODE_BACKGROUND_END."""
+def _set_process_priority_class(pid: int, priority_class: int) -> bool:
     handle = _open_process_handle(pid, PROCESS_SET_INFORMATION)
     if not handle:
         return False
     try:
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        mode = PROCESS_MODE_BACKGROUND_BEGIN if enable else PROCESS_MODE_BACKGROUND_END
-        return bool(kernel32.SetPriorityClass(handle, mode))
+        return bool(kernel32.SetPriorityClass(handle, priority_class))
     except OSError:
         return False
     finally:
         _close_process_handle(handle)
+
+
+def _set_memory_priority(pid: int, priority: int) -> bool:
+    handle = _open_process_handle(pid, PROCESS_SET_INFORMATION)
+    if not handle:
+        return False
+    try:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        info = _MemoryPriority(priority)
+        return bool(
+            kernel32.SetProcessInformation(
+                handle,
+                PROCESS_MEMORY_PRIORITY_INFORMATION,
+                ctypes.byref(info),
+                ctypes.sizeof(info),
+            )
+        )
+    except OSError:
+        return False
+    finally:
+        _close_process_handle(handle)
+
+
+def _set_io_priority(pid: int, priority: int) -> bool:
+    handle = _open_process_handle(pid, PROCESS_SET_INFORMATION)
+    if not handle:
+        return False
+    try:
+        ntdll = ctypes.WinDLL("ntdll", use_last_error=True)
+        value = ctypes.c_uint32(priority)
+        status = ntdll.NtSetInformationProcess(
+            handle,
+            PROCESS_IO_PRIORITY_INFORMATION_CLASS,
+            ctypes.byref(value),
+            ctypes.sizeof(value),
+        )
+        return int(status) == 0
+    except OSError:
+        return False
+    finally:
+        _close_process_handle(handle)
+
+
+def _set_background_mode(pid: int, enable: bool) -> bool:
+    """Background-equivalent bundle for another process (PROCESS_MODE_
+    BACKGROUND_* is valid only on the calling process): IDLE CPU priority,
+    very-low memory priority and very-low I/O priority; fully reversible.
+    """
+    priority_class = (
+        psutil.IDLE_PRIORITY_CLASS if enable else psutil.NORMAL_PRIORITY_CLASS
+    )
+    memory = MEMORY_PRIORITY_VERY_LOW if enable else MEMORY_PRIORITY_NORMAL
+    io_priority = IO_PRIORITY_VERY_LOW if enable else IO_PRIORITY_NORMAL
+    cpu_ok = _set_process_priority_class(pid, priority_class)
+    memory_ok = _set_memory_priority(pid, memory)
+    io_ok = _set_io_priority(pid, io_priority)
+    return cpu_ok and (memory_ok or io_ok)
 
 
 def _set_ecoqos(pid: int, enable: bool) -> bool:
@@ -1008,6 +1074,11 @@ def govern_once(
                 if record.bg_set and "bg" not in record.rule_hold:
                     ok = True if dry_run else _set_background_mode(pid, False)
                     record.bg_set = False
+                    if record.rule_priority is not None and not dry_run:
+                        try:
+                            proc.nice(record.rule_priority)
+                        except psutil.Error:
+                            pass
                     actions.append(
                         {"action": "background-mode-released", "pid": pid,
                          "name": name, "ok": ok}

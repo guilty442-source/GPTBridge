@@ -224,20 +224,28 @@ int main() {
         std::strncpy(j.action_id, "pg-vacuum", sizeof(j.action_id) - 1);
         j.risk_class = GPTBRIDGE_MT_M1;
         j.generation = 7;
-        NT_CHECK(gptbridge_mt_admit(&mt, &j, 0, 0, 0) == 0,
+        NT_CHECK(gptbridge_mt_admit(&mt, &j, 0, 0, 0, 0) == 0,
                  "M1 rejected when not idle");
-        NT_CHECK(gptbridge_mt_admit(&mt, &j, 1, 0, 0) == 1,
+        NT_CHECK(gptbridge_mt_admit(&mt, &j, 1, 0, 0, 0) == 1,
                  "M1 admitted when idle");
         gptbridge_mt_job_t j2 = j;
         std::strncpy(j2.job_id, "job-2", sizeof(j2.job_id) - 1);
         j2.risk_class = GPTBRIDGE_MT_M3;
-        NT_CHECK(gptbridge_mt_admit(&mt, &j2, 1, 1, 0) == 0,
+        NT_CHECK(gptbridge_mt_admit(&mt, &j2, 1, 1, 0, 0) == 0,
                  "M3 candidate never auto-runs");
         gptbridge_mt_job_t j3 = j;
         std::strncpy(j3.job_id, "job-3", sizeof(j3.job_id) - 1);
         j3.generation = 8;
-        NT_CHECK(gptbridge_mt_admit(&mt, &j3, 1, 1, 0) == 0,
+        NT_CHECK(gptbridge_mt_admit(&mt, &j3, 1, 1, 0, 0) == 0,
                  "generation mismatch rejected");
+        /* global block (recovery/drain/cooldown/lease-conflict folded in
+           by the caller) refuses every class, including M0 */
+        gptbridge_mt_job_t jb{};
+        std::strncpy(jb.job_id, "job-blocked", sizeof(jb.job_id) - 1);
+        jb.risk_class = GPTBRIDGE_MT_M0;
+        jb.generation = 7;
+        NT_CHECK(gptbridge_mt_admit(&mt, &jb, 1, 1, 1, 0) == 0,
+                 "system_blocked refuses even M0");
         gptbridge_mt_job_t* due = gptbridge_mt_next_due(&mt, 100);
         NT_CHECK(due != nullptr && due->status == GPTBRIDGE_MT_RUNNING,
                  "due job runs");
