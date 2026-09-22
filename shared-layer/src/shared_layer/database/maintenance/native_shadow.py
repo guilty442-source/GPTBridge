@@ -2,7 +2,7 @@
 
 Runs the C ``NativeMaintenance`` job table in parallel with the Python
 ``MaintenanceScheduler``.  Python remains the authoritative path: admission
-gates, next-due selection, terminal transitions and the TTL probe cache are
+gates, dispatch selection, terminal transitions and the TTL probe cache are
 compared item-by-item and divergences are appended to
 ``runtime/logs/native-shadow/maintenance-controller.jsonl`` as governed
 audit evidence.
@@ -15,13 +15,16 @@ Fail-closed semantics mirror ``connection_watchdog_native_shadow``:
   * modes other than ``"shadow"`` are refused (``"primary"``/``"retire"``
     are later acts).
 
-Flag mapping (caller folds Python's policy context into the two C inputs):
+Flag mapping (the caller supplies the two C gate inputs):
 
-  * ``system_blocked`` — the union of ``evaluate_policy``'s global early
-    returns: blocking recovery state, shutdown draining, cooldown active,
-    active lease conflict.  Refuses every class, matching Python.
-  * ``system_idle`` — the M1 health gate: ``pg_healthy`` and all load
-    thresholds within ``DEFAULT_POLICY`` bounds.  Consulted by M1 and M2.
+  * ``system_idle`` — the verdict of a parallel ``evaluate_policy(M1)``
+    probe: False whenever any global block (recovery / drain / cooldown /
+    lease-conflict / generation mismatch) *or* a health threshold fails.
+    Consulted by the C M1 and M2 gates.
+  * ``system_blocked`` — folded from ``policy_context`` here: the union of
+    ``evaluate_policy``'s global early returns (blocking recovery state,
+    shutdown draining, cooldown, lease conflict).  Refuses every class,
+    matching Python — required for exact M0 parity.
   * ``authorized`` — ``governed_authorization`` for M2.
   * generation mismatch is checked inside the C layer itself.
 
@@ -33,6 +36,9 @@ Known intentional modeling gaps (recorded, not hidden):
   * Python expires queued jobs by ``admitted_at`` age inside ``tick``;
     the C side expires them inside ``next_due``.  Same bound, different
     trigger point.
+  * Post-policy vetoes (budget / lease-conflict re-eval / cooldown /
+    lease-acquire failure) are mirrored via ``observe_admit_veto`` so the
+    C table tracks the actually-enqueued set, not just policy admits.
   * ``requeue_job`` is only reached by startup recovery (and currently
     no-ops on an empty ``_running`` map); it is not mirrored.
   * A non-default ``policy_evaluator`` makes the flag folding approximate;
@@ -47,7 +53,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from .models import MaintenanceRiskClass, MaintenanceJobStatus
+from .models import MaintenanceRiskClass
 from .policies import DEFAULT_POLICY, SystemRecoveryState
 
 _COMPONENT = "maintenance_controller"
@@ -72,45 +78,30 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _ms(seconds: float) -> int:
-    return int(round(seconds * 1000))
+def _now_ms() -> int:
+    return int(time.monotonic() * 1000)
 
 
-def _fold_flags(policy_context: dict[str, Any]) -> tuple[bool, bool, bool]:
-    """Fold Python's policy context into the C gate inputs.
+def _system_blocked(policy_context: Optional[dict[str, Any]]) -> bool:
+    """Fold ``evaluate_policy``'s global early returns into one flag.
 
-    Returns ``(system_idle, authorized, system_blocked)``.  This is an
-    independent restatement of ``evaluate_policy``'s non-class-specific
-    gates under ``DEFAULT_POLICY`` — the comparison target for the C
-    risk-class switch.
+    ``None`` (older call-site shape, or a stubbed observer test) degrades
+    to ``False`` — the divergence record still carries the inputs.
     """
+    if not policy_context:
+        return False
     recovery = policy_context.get("recovery_state", SystemRecoveryState.NORMAL)
     if isinstance(recovery, str):
         try:
             recovery = SystemRecoveryState(recovery)
         except ValueError:
             recovery = SystemRecoveryState.NORMAL
-    system_blocked = (
+    return (
         recovery in DEFAULT_POLICY.recovery_states_blocking
         or bool(policy_context.get("shutdown_draining", False))
         or bool(policy_context.get("maintenance_cooldown_active", False))
         or bool(policy_context.get("active_lease_conflict", False))
     )
-    system_idle = (
-        bool(policy_context.get("pg_healthy", True))
-        and float(policy_context.get("pg_latency_ms", 0) or 0)
-            <= DEFAULT_POLICY.pg_max_latency_ms
-        and float(policy_context.get("pg_lock_pressure", 0) or 0)
-            <= DEFAULT_POLICY.pg_max_lock_pressure
-        and float(policy_context.get("transport_backlog", 0) or 0)
-            <= DEFAULT_POLICY.transport_max_backlog
-        and float(policy_context.get("transport_oldest_pending_age_seconds", 0) or 0)
-            <= DEFAULT_POLICY.transport_max_oldest_age_seconds
-        and float(policy_context.get("disk_pressure", 0) or 0)
-            <= DEFAULT_POLICY.disk_max_pressure
-    )
-    authorized = bool(policy_context.get("governed_authorization", False))
-    return system_idle, authorized, system_blocked
 
 
 class MaintenanceNativeShadow:
@@ -183,26 +174,28 @@ class MaintenanceNativeShadow:
 
     def observe_admit(
         self,
-        *,
         job_id: str,
         action_id: str,
+        *,
         risk_class: MaintenanceRiskClass,
         priority: int,
         generation: int,
-        policy_context: dict[str, Any],
-        py_allowed: bool,
-        now_s: float,
+        system_idle: bool,
+        authorized: bool,
+        py_executable: bool,
+        policy_context: Optional[dict[str, Any]] = None,
     ) -> bool:
-        """Compare the C admission gate with Python's ``decision.allowed``.
+        """Compare the C admission gate with Python's executable verdict.
 
-        Returns the native verdict so the caller can veto the mirrored
-        job when a downstream Python gate (budget/lease/cooldown) refuses
-        a policy-admitted candidate.
+        ``py_executable`` is ``decision.allowed`` minus the M3
+        candidate-only case — both sides treat M3 as never-executing.
+        Returns the native verdict; a phantom admit is cancelled so it
+        cannot spam dispatch comparisons on later ticks.
         """
         if self._disabled:
             return False
         try:
-            system_idle, authorized, system_blocked = _fold_flags(policy_context)
+            blocked = _system_blocked(policy_context)
             native_allowed = bool(
                 self._mt.admit(
                     job_id,
@@ -210,13 +203,13 @@ class MaintenanceNativeShadow:
                     _RISK_TO_C.get(risk_class, -1),
                     int(priority),
                     int(generation),
-                    system_idle,
-                    authorized,
-                    _ms(now_s),
-                    system_blocked=system_blocked,
+                    bool(system_idle),
+                    bool(authorized),
+                    _now_ms(),
+                    system_blocked=blocked,
                 )
             )
-            if native_allowed != bool(py_allowed):
+            if native_allowed != bool(py_executable):
                 self._emit(
                     {
                         "kind": "admission-divergence",
@@ -225,18 +218,18 @@ class MaintenanceNativeShadow:
                         "mismatches": ["allowed"],
                         "inputs": {
                             "risk_class": risk_class.value,
-                            "system_idle": system_idle,
-                            "authorized": authorized,
-                            "system_blocked": system_blocked,
+                            "system_idle": bool(system_idle),
+                            "authorized": bool(authorized),
+                            "system_blocked": blocked,
                             "generation": int(generation),
                         },
-                        "python": {"allowed": bool(py_allowed)},
+                        "python": {"executable": bool(py_executable)},
                         "native": {"allowed": native_allowed},
                     }
                 )
                 if native_allowed:
-                    # Resync the mirror: the phantom native job would
-                    # otherwise spam dispatch-divergence on every tick.
+                    # Resync the mirror: the phantom job would otherwise
+                    # spam dispatch-divergence on every later tick.
                     self._mt.cancel(job_id)
             return native_allowed
         except Exception as exc:  # fail-closed: native never affects Python
@@ -245,8 +238,8 @@ class MaintenanceNativeShadow:
 
     def observe_admit_veto(self, job_id: str) -> None:
         """Python refused a policy-admitted job on a downstream gate
-        (budget / lease conflict / cooldown) — withdraw the mirrored
-        native job so the queues stay comparable."""
+        (budget / lease-conflict re-eval / cooldown / lease acquire) —
+        withdraw the mirrored native job so the queues stay comparable."""
         if self._disabled:
             return
         try:
@@ -256,17 +249,13 @@ class MaintenanceNativeShadow:
 
     # --- dispatch / terminal transitions ---
 
-    def observe_next_due(
-        self,
-        *,
-        py_job_id: Optional[str],
-        now_s: float,
-    ) -> None:
-        """Compare the C priority/expiry pick with Python's FIFO pop."""
+    def observe_dispatch(self, py_job_id: Optional[str]) -> None:
+        """Compare the C priority/expiry pick with Python's FIFO pop
+        (``None`` when the Python queue was empty)."""
         if self._disabled:
             return
         try:
-            picked = self._mt.next_due(_ms(now_s))
+            picked = self._mt.next_due(_now_ms())
             native_id = str(picked["job_id"]) if picked else None
             if native_id != py_job_id:
                 self._emit(
@@ -278,35 +267,29 @@ class MaintenanceNativeShadow:
                     }
                 )
         except Exception as exc:
-            self._disable("native-next-due-error", exc)
+            self._disable("native-dispatch-error", exc)
 
-    def observe_complete(
-        self,
-        *,
-        job_id: str,
-        py_status: MaintenanceJobStatus,
-    ) -> None:
-        """Mirror ``complete_job``: success → COMPLETED, failure →
+    def observe_terminal(self, job_id: str, *, ok: bool) -> None:
+        """Mirror ``complete_job``: ``ok`` → COMPLETED, failure →
         terminal withdrawal (Python does not requeue failed jobs, so a
         C ``fail`` deferral would wrongly resurrect them)."""
         if self._disabled:
             return
         try:
-            if py_status == MaintenanceJobStatus.SUCCEEDED:
-                native_ok = bool(self._mt.complete(job_id))
-            else:
-                native_ok = bool(self._mt.cancel(job_id))
+            native_ok = bool(
+                self._mt.complete(job_id) if ok else self._mt.cancel(job_id)
+            )
             if not native_ok:
                 self._emit(
                     {
                         "kind": "transition-divergence",
                         "job_id": job_id,
                         "detail": "native had no such job",
-                        "python": {"status": py_status.value},
+                        "python": {"succeeded": bool(ok)},
                     }
                 )
         except Exception as exc:
-            self._disable("native-complete-error", exc)
+            self._disable("native-terminal-error", exc)
 
     # --- TTL probe cache ---
 

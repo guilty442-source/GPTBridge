@@ -376,10 +376,27 @@ class MaintenanceControllerIntegration:
     def _pg_health(self, settings: DatabaseSettings) -> Any:
         now = time.monotonic()
         cached = self._pg_health_cache
-        if cached is not None and now - cached[0] < self._PG_HEALTH_TTL_S:
+        hit = cached is not None and now - cached[0] < self._PG_HEALTH_TTL_S
+        shadow = getattr(self, "_native_shadow", None)
+        if shadow is not None:
+            try:
+                shadow.observe_probe_cache(
+                    now_s=now, ttl_s=self._PG_HEALTH_TTL_S, py_hit=hit
+                )
+            except Exception:
+                pass
+        if hit:
             return cached[1]
         health = collect_pg_health(settings)
         self._pg_health_cache = (now, health)
+        if shadow is not None:
+            try:
+                shadow.observe_probe_store(
+                    now_s=now,
+                    probe_ok=bool(getattr(health, "available", False)),
+                )
+            except Exception:
+                pass
         return health
 
     def _get_system_state(self) -> dict[str, Any]:

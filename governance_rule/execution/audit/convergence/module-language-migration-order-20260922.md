@@ -165,6 +165,16 @@
   drop-oldest 語義；判定全委派 `a263_channel_core`，transport／時鐘
   ／睡眠注入（模式 B 邊界不變）。`suite_channel_runtime.cpp` 6/6
   PASS（連跑 5 輪全綠）。
+- 已補（同日）：parity 套件升級為端到端——`suite_channel_runtime.cpp`
+  輸出 `a263_runtime_matrix.json`（channel_pipeline 劇本：hello＋
+  3 事件＋priority 批次＋ack 亂序＋resync 回放）；Python 端以真實
+  `A263Channel`＋`TransactionalOutbox`＋假 transport 重播逐鍵比對。
+  **此端到端 parity 抓到一個 Python 權威側真 bug**：`_send_loop`
+  的 `asyncio.wait_for(wakeup, timeout)` 逾時丟出 TimeoutError 被
+  外層 `except Exception` 吞入 → `heartbeat_dead.set()` → send
+  loop 在首次空轉逾時即死亡（預設 1ms），resync 回放永遠不會發生
+  ——已修（逾時捕獲後 continue；對齊註解原意與 C++ 行為）。
+  pytest 5/5 PASS、native 7/7 PASS。
 - 未做（M2 殘項）：ChannelTransport 實作面對接（真實 WS/SQLite
   代理綁定）、雙軌 flag 與 shadow→primary 觀察窗、load/unload
   資源釋放驗收。

@@ -111,6 +111,17 @@ class MaintenanceScheduler:
             except Exception:
                 pass
 
+    def _shadow_veto(self, candidate: MaintenanceCandidate) -> None:
+        """Tell the native shadow that a policy-admitted candidate was
+        refused by a downstream gate (budget/lease/cooldown) — the
+        mirrored job is withdrawn so the tables stay comparable."""
+        shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                shadow.observe_admit_veto(str(candidate.candidate_id))
+            except Exception:
+                pass
+
     def is_draining(self) -> bool:
         """Check if scheduler is draining (shutdown)."""
         return self._draining
@@ -200,6 +211,7 @@ class MaintenanceScheduler:
                         and candidate.risk_class
                         != MaintenanceRiskClass.M3_APPROVAL_REQUIRED
                     ),
+                    policy_context=policy_context,
                 )
             except Exception:
                 pass
@@ -213,6 +225,7 @@ class MaintenanceScheduler:
         # Check budget
         budget_ok, budget_reason = check_budget(self.budget, candidate.engine, candidate.risk_class.value)
         if not budget_ok:
+            self._shadow_veto(candidate)
             return None
 
         # Check lease conflict
@@ -230,11 +243,13 @@ class MaintenanceScheduler:
                 system_state=policy_context,
             )
             if not decision.allowed:
+                self._shadow_veto(candidate)
                 return None
 
         # Check cooldown
         cooldown_ok, _ = self.budget.check_cooldown(candidate.action_id, action.cooldown_seconds)
         if not cooldown_ok:
+            self._shadow_veto(candidate)
             return None
 
         # Create job
@@ -273,6 +288,7 @@ class MaintenanceScheduler:
                 error_code=job.error_code,
             )
         except LeaseConflictError:
+            self._shadow_veto(candidate)
             return None
 
         # Reserve budget
@@ -363,7 +379,7 @@ class MaintenanceScheduler:
                 try:
                     shadow.observe_terminal(
                         str(job_id),
-                        ok=(status == MaintenanceJobStatus.COMPLETED),
+                        ok=(status == MaintenanceJobStatus.SUCCEEDED),
                     )
                 except Exception:
                     pass

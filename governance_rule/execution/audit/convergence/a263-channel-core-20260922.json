@@ -53,10 +53,11 @@
       ],
       "matrix": "native/test_suites/bin/a263_parity_matrix.json",
       "python_replay": "main-system/tests/test_native_m2_a263_parity.py",
-      "python_tests_pass": 4,
-      "python_tests_fail": 0
+      "python_tests_pass": 5,
+      "python_tests_fail": 0,
+      "runtime_matrix": "native/test_suites/bin/a263_runtime_matrix.json"
     },
-    "channel_runtime_suite_cases_pass": 6,
+    "channel_runtime_suite_cases_pass": 7,
     "channel_runtime_suite_cases_fail": 0
   },
   "boundary": {
@@ -73,5 +74,11 @@
     "ChannelTransport 對接（模式 B 代理或原生傳輸綁定）",
     "雙軌 runtime flag＋shadow→primary 觀察窗",
     "load/unload 資源釋放驗收"
-  ]
+  ],
+  "python_authority_fix": {
+    "file": "shared-layer/src/shared_layer/channel_runtime.py",
+    "bug": "_send_loop idle wait_for TimeoutError 被 except Exception 吞入 → heartbeat_dead → send loop 首次空轉即死",
+    "fix": "catch asyncio.TimeoutError and re-loop (documented park intent)",
+    "found_by": "a263_runtime_matrix parity replay"
+  }
 }
