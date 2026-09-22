@@ -115,17 +115,18 @@ def _rotate_codex_read_audit_if_large() -> None:
     ceiling = _env_int(_AUDIT_ROTATION_BYTES_ENV, _AUDIT_ROTATION_BYTES_DEFAULT)
     if ceiling <= 0:
         return
+    audit_path = _audit_path()
     try:
-        if AUDIT_PATH.stat().st_size < ceiling:
+        if audit_path.stat().st_size < ceiling:
             return
     except OSError:
         return
     month = time.strftime("%Y-%m", time.localtime())
-    archive_dir = AUDIT_PATH.parent / "archive" / "codex-read" / month
+    archive_dir = audit_path.parent / "archive" / "codex-read" / month
     archive_dir.mkdir(parents=True, exist_ok=True)
-    target = archive_dir / f"{AUDIT_PATH.name}-{int(time.time())}.jsonl"
+    target = archive_dir / f"{audit_path.name}-{int(time.time())}.jsonl"
     try:
-        os.replace(AUDIT_PATH, target)
+        os.replace(audit_path, target)
     except OSError:
         return
     retention = _env_int(_AUDIT_RETENTION_HOURS_ENV, _AUDIT_RETENTION_HOURS_DEFAULT)
@@ -146,7 +147,7 @@ def _rotate_codex_read_audit_if_large() -> None:
 # new entry operations (already-minted sessions deny on their next check).
 # ---------------------------------------------------------------------------
 
-ENTRY_STATE_PATH: Final[Path] = AUDIT_PATH.parent / "codex_entry_state.json"
+ENTRY_STATE_PATH: Final[Path] = _audit_path().parent / "codex_entry_state.json"
 _ENTRY_STATE_ENV: Final[str] = "GPTBRIDGE_CODEX_ENTRY_STATE"
 _STATE_LOCK = threading.Lock()
 
@@ -371,11 +372,12 @@ def record_session_audit(
         "result": str(result),
         "request_count": int(request_count),
     }
+    audit_path = _audit_path()
     try:
-        AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        audit_path.parent.mkdir(parents=True, exist_ok=True)
         with _AUDIT_LOCK:
             _rotate_codex_read_audit_if_large()
-        with _AUDIT_LOCK, AUDIT_PATH.open("a", encoding="utf-8") as handle:
+        with _AUDIT_LOCK, audit_path.open("a", encoding="utf-8") as handle:
             if os.name == "nt":
                 # Cross-process byte-range lock: two processes appending to
                 # the same ledger must never interleave a record.
@@ -473,7 +475,6 @@ __all__ = [
     "ACCESS_BOUNDED",
     "ACCESS_CHINESE",
     "ACCESS_REVIEW",
-    "AUDIT_PATH",
     "BOUNDED_WILDCARD_KINDS",
     "COMPONENT_ACTORS",
     "DEFAULT_CONTEXT_TTL",

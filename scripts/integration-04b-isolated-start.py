@@ -129,6 +129,17 @@ def _spawn(release: Path, state_root: Path, port: int) -> subprocess.Popen[bytes
     env["GPTBRIDGE_WORKSPACE_ROOT"] = str(state_root)
     env["GPTBRIDGE_IPC_PORT"] = str(port)
     env["GPTBRIDGE_IPC_STATE_ROOT"] = str(state_root / "ipc-state")
+    # Release payload must stay immutable: redirect every module-relative
+    # audit sink to the sandbox state root (§10.19 boundary — a release
+    # never accumulates official state).
+    audit_root = state_root / "governance-audit"
+    env["GPTBRIDGE_AUDIT_CHAIN_DIR"] = str(audit_root / "git_audit_chain")
+    env["GPTBRIDGE_CAPABILITY_LEDGER"] = str(
+        audit_root / "capability_ledger.jsonl"
+    )
+    env["GPTBRIDGE_CODEX_AUDIT_PATH"] = str(
+        audit_root / "codex_read_audit.jsonl"
+    )
     # rc-2026-09-21's backend/main.py predates the flat-layout ``governance``
     # sys.path entry (dev main.py adds <release>/main-system when governance/
     # exists there).  Inject it via PYTHONPATH only when the release's

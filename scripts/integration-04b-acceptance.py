@@ -133,9 +133,6 @@ def build_rc() -> None:
         "convergence", "runtime",
     )
     shutil.copytree(GOV_ROOT, RC / "governance_rule", ignore=gov_ignore)
-    for sub in ("execution/audit", "execution/audit/archive",
-                "execution/audit/git_audit_chain", "runtime/audit"):
-        (RC / "governance_rule" / sub).mkdir(parents=True, exist_ok=True)
     # Flat-layout seed: main.py exposes <release>/main-system so
     # ``import governance`` resolves; the isolated harness seeds its
     # state root from the same directory.
@@ -464,14 +461,17 @@ def _payload_leaks() -> list[str]:
         for p in RC.rglob("*.jsonl")
         if p.is_file() and "governance_rule" in p.parts
     ]
+    # Audit-state dirs by exact path (generic names like ``runtime`` are
+    # legitimate code dirs elsewhere in the tree).
     gov = RC / "governance_rule"
-    if gov.is_dir():
-        leaks += [
-            str(p.relative_to(RC))
-            for p in gov.rglob("*")
-            if p.is_dir()
-            and p.name in {"archive", "git_audit_chain", "convergence", "runtime"}
-        ]
+    for state_dir in (
+        "execution/audit/archive",
+        "execution/audit/git_audit_chain",
+        "execution/audit/convergence",
+        "runtime",
+    ):
+        if (gov / state_dir).is_dir():
+            leaks.append(f"governance_rule/{state_dir}")
     return leaks
 
 
