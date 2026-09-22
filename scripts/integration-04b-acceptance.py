@@ -115,9 +115,13 @@ def _copy_venv(target: Path) -> bool:
 
 
 def build_rc() -> None:
-    if RC.exists():
-        return
-    RC.mkdir(parents=True)
+    RC.mkdir(parents=True, exist_ok=True)
+    # Code payloads are re-copied on every build so a repack always
+    # reflects current source; only the venv (GBs) is reused when the
+    # interpreter already exists.
+    for stale in ("backend", "config", "shared_runtime", "shared-layer",
+                  "governance_rule", "main-system"):
+        shutil.rmtree(RC / stale, ignore_errors=True)
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
     shutil.copytree(ROOT / "main-system" / "src-core", RC / "backend", ignore=ignore)
     shutil.copytree(ROOT / "main-system" / "config", RC / "config")
