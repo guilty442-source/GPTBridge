@@ -313,6 +313,15 @@ def _resolve_features(config: "GovernorConfig", defaults: dict[str, Any]) -> dic
         limiter_value = float(limiter)
     except (TypeError, ValueError):
         limiter_value = DEFAULT_LIMITER_PERCENT
+    job_percent = (
+        config.worker_job_percent_arg
+        if config.worker_job_percent_arg is not None
+        else defaults.get("worker_job_percent", WORKER_CPU_BUDGET_PCT)
+    )
+    try:
+        job_percent_value = float(job_percent)
+    except (TypeError, ValueError):
+        job_percent_value = WORKER_CPU_BUDGET_PCT
     try:
         ratio_value = float(ratio)
     except (TypeError, ValueError):
@@ -327,6 +336,10 @@ def _resolve_features(config: "GovernorConfig", defaults: dict[str, Any]) -> dic
         "limiter_percent": max(
             LIMITER_MIN_PERCENT, min(LIMITER_MAX_PERCENT, limiter_value)
         ),
+        "worker_job_cap": _feature_enabled(
+            config.worker_job_cap_flag, defaults, "worker_job_cap"
+        ),
+        "worker_job_percent": max(1.0, min(100.0, job_percent_value)),
         "resp_ratio": max(1.05, ratio_value),
     }
 
@@ -444,7 +457,13 @@ class _CpuRateControl(ctypes.Structure):
     _fields_ = [("ControlFlags", ctypes.c_uint32), ("CpuRate", ctypes.c_uint32)]
 
 
-_ACTIVE_LIMITS: dict[tuple[int, float], int] = {}
+_ACTIVE_LIMITS: dict[tuple[object, float], int] = {}
+
+# Shared Job Object for the worker-plane aggregate hard cap (INT-10 strict
+# budget): every worker-plane process is assigned to the SAME job so the
+# kernel enforces the aggregate CpuRate, and children spawned by members
+# inherit membership at birth -- fork-storms stay contained.
+_WORKER_JOB_KEY: tuple[str, float] = ("worker-aggregate", 0.0)
 
 
 def _open_process_handle(pid: int, access: int) -> int | None:
@@ -573,31 +592,12 @@ def _set_cpu_limit(key: tuple[int, float], pid: int, percent: float) -> bool:
         _cpu_rate_value(percent),
     )
     job = _ACTIVE_LIMITS.get(key)
-    if job:
-        try:
-            return bool(
-                kernel32.SetInformationJobObject(
-                    job,
-                    JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION_CLASS,
-                    ctypes.byref(info),
-                    ctypes.sizeof(info),
-                )
-            )
-        except OSError:
-            return False
-    job = kernel32.CreateJobObjectW(None, None)
+    created = False
     if not job:
-        return False
-    process_handle = _open_process_handle(
-        pid,
-        PROCESS_SET_QUOTA
-        | PROCESS_SET_INFORMATION
-        | PROCESS_TERMINATE
-        | PROCESS_QUERY_LIMITED_INFORMATION,
-    )
-    if not process_handle:
-        _close_process_handle(job)
-        return False
+        job = kernel32.CreateJobObjectW(None, None)
+        if not job:
+            return False
+        created = True
     try:
         ok = bool(
             kernel32.SetInformationJobObject(
@@ -607,13 +607,38 @@ def _set_cpu_limit(key: tuple[int, float], pid: int, percent: float) -> bool:
                 ctypes.sizeof(info),
             )
         )
-        ok = ok and bool(kernel32.AssignProcessToJobObject(job, process_handle))
+    except OSError:
+        ok = False
+    process_handle = _open_process_handle(
+        pid,
+        PROCESS_SET_QUOTA
+        | PROCESS_SET_INFORMATION
+        | PROCESS_TERMINATE
+        | PROCESS_QUERY_LIMITED_INFORMATION,
+    )
+    if not process_handle:
+        if created:
+            _close_process_handle(job)
+        return False
+    try:
+        # Shared-key callers (worker aggregate job) hand us the same job for
+        # many pids: skip the assign only when the process is already a member.
+        in_job = ctypes.c_bool(False)
+        if kernel32.IsProcessInJob(
+            process_handle, job, ctypes.byref(in_job)
+        ) and in_job.value:
+            pass
+        else:
+            ok = ok and bool(
+                kernel32.AssignProcessToJobObject(job, process_handle)
+            )
     except OSError:
         ok = False
     finally:
         _close_process_handle(process_handle)
     if not ok:
-        _close_process_handle(job)
+        if created:
+            _close_process_handle(job)
         return False
     _ACTIVE_LIMITS[key] = job
     return True
@@ -666,6 +691,11 @@ class GovernorConfig:
         self.ecoqos_flag: bool | None = getattr(args, "ecoqos", None)
         self.limiter_percent_arg: float | None = getattr(args, "limiter_percent", None)
         self.resp_ratio_arg: float | None = getattr(args, "resp_ratio", None)
+        # Worker-plane aggregate Job Object hard cap (INT-10 strict budget).
+        self.worker_job_cap_flag: bool | None = getattr(args, "worker_job_cap", None)
+        self.worker_job_percent_arg: float | None = getattr(
+            args, "worker_job_percent", None
+        )
 
 
 class ProcessRecord:
@@ -673,6 +703,7 @@ class ProcessRecord:
         "busy", "calm", "prio_set", "aff_set", "reg_aff_set", "last_trim",
         "pb_set", "bg_set", "eco_set", "limit_set",
         "rule_applied", "rule_hold", "rule_priority", "rule_aff_set",
+        "job_member",
     )
 
     def __init__(self) -> None:
@@ -690,6 +721,7 @@ class ProcessRecord:
         self.rule_hold: set[str] = set()
         self.rule_priority: int | None = None
         self.rule_aff_set = False
+        self.job_member = False
 
 
 def _protected(proc: psutil.Process, name: str, exe: str | None) -> bool:
@@ -872,6 +904,24 @@ def govern_once(
             # §10.64: governance / core-execution plane is never regulated.
             if plane == "governance":
                 continue
+            # Worker-plane aggregate Job Object hard cap (INT-10 strict
+            # budget): while enabled every worker-plane process joins the
+            # shared job whose CpuRate equals the aggregate budget, and its
+            # future children inherit membership at spawn.
+            if (
+                features["worker_job_cap"]
+                and plane in WORKER_PLANES
+                and not record.job_member
+            ):
+                ok = True if dry_run else _set_cpu_limit(
+                    _WORKER_JOB_KEY, pid, features["worker_job_percent"]
+                )
+                record.job_member = True
+                actions.append(
+                    {"action": "worker-job-capped", "pid": pid, "name": name,
+                     "limiter_percent": features["worker_job_percent"],
+                     "ok": ok}
+                )
             if features["probalance"] and pid != foreground_pid:
                 pb_candidates.append((cpu, proc, pid, name, plane, record))
 
@@ -1258,6 +1308,8 @@ def govern_once(
             "background_mode": features["background_mode"],
             "ecoqos": features["ecoqos"],
             "limiter_percent": features["limiter_percent"],
+            "worker_job_cap": features["worker_job_cap"],
+            "worker_job_percent": features["worker_job_percent"],
             "resp_strain_ratio": features["resp_ratio"],
             "rules_path": str(config.rules_path),
             "rules_loaded": bool(defaults or programs),
@@ -1343,6 +1395,7 @@ def _feature_args(config: GovernorConfig) -> list[str]:
         ("cpu-limiter", config.cpu_limiter_flag),
         ("background-mode", config.background_mode_flag),
         ("ecoqos", config.ecoqos_flag),
+        ("worker-job-cap", config.worker_job_cap_flag),
     ):
         if value is not None:
             args.append(f"--{flag}" if value else f"--no-{flag}")
@@ -1350,6 +1403,10 @@ def _feature_args(config: GovernorConfig) -> list[str]:
         args.extend(["--limiter-percent", str(config.limiter_percent_arg)])
     if config.resp_ratio_arg is not None:
         args.extend(["--resp-ratio", str(config.resp_ratio_arg)])
+    if config.worker_job_percent_arg is not None:
+        args.extend(
+            ["--worker-job-percent", str(config.worker_job_percent_arg)]
+        )
     if config.rules_path != RULES_FILE:
         args.extend(["--rules", str(config.rules_path)])
     return args
@@ -1628,6 +1685,20 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="ProBalance strain ratio over the responsiveness baseline (default 1.8)",
+    )
+    parser.add_argument(
+        "--worker-job-cap",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="shared Job Object hard cap on the worker-plane aggregate "
+        "(default: rules file, off)",
+    )
+    parser.add_argument(
+        "--worker-job-percent",
+        type=float,
+        default=None,
+        help="worker aggregate CPU cap, percent of total machine CPU "
+        "(default: worker budget)",
     )
     return parser
 

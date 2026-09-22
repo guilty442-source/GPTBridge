@@ -108,6 +108,15 @@ $suites = @(
         )
     },
     @{
+        src = "suite_simd_kernels.cpp"; exe = "simd_kernels_suite.exe"
+        # ACC-1：純 C SIMD 核心等價／回退驗收（連結真實 transformer.c／vector.c）
+        inc = @($coreDir)
+        extra = @(
+            (Join-Path $coreDir "transformer.c"),
+            (Join-Path $coreDir "vector.c")
+        )
+    },
+    @{
         src = "suite_baseline.cpp"; exe = "baseline_suite.exe"
         # §10.60 baseline：真實 cpp bundle 載入＋確定性＋反退化（已解鎖）
         inc = @(

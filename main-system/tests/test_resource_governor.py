@@ -518,3 +518,62 @@ def test_windows_api_probe_on_child_process() -> None:
     finally:
         child.terminate()
         child.wait(timeout=10)
+
+
+# ---------------------------------------------------------------------------
+# Worker-plane aggregate Job Object hard cap (INT-10 strict budget)
+# ---------------------------------------------------------------------------
+def test_worker_job_cap_assigns_shared_aggregate_job(monkeypatch) -> None:
+    """Every worker-plane process joins the shared job at the aggregate
+    budget rate; children spawned by members inherit the cap at birth."""
+    calls = _patch_lasso_actions(monkeypatch)
+    procs = [_worker(810, 5.0), _worker(811, 5.0)]
+    records: dict = {}
+    regulation = {"over": 0, "under": 0, "active": False, "pre": False}
+    cfg = dict(worker_job_cap=True, dry_run=False)
+    _run(procs, monkeypatch, regulation=regulation, records=records, **cfg)
+    limited = [c for c in calls if c[0] == "limit"]
+    assert limited == [
+        ("limit", 810, gov.WORKER_CPU_BUDGET_PCT),
+        ("limit", 811, gov.WORKER_CPU_BUDGET_PCT),
+    ]
+    _run(procs, monkeypatch, regulation=regulation, records=records, **cfg)
+    assert (
+        len([c for c in calls if c[0] == "limit"]) == 2
+    ), "job membership is assigned once per process"
+
+
+def test_worker_job_cap_defaults_off(monkeypatch) -> None:
+    calls = _patch_lasso_actions(monkeypatch)
+    procs = [_worker(820, 95.0)]
+    _run(procs, monkeypatch, dry_run=False)
+    assert [c for c in calls if c[0] == "limit"] == []
+
+
+def test_worker_job_cap_percent_override(monkeypatch) -> None:
+    calls = _patch_lasso_actions(monkeypatch)
+    procs = [_worker(830, 5.0)]
+    _run(
+        procs, monkeypatch,
+        worker_job_cap=True, worker_job_percent=7.5, dry_run=False,
+    )
+    assert ("limit", 830, 7.5) in calls
+
+
+def test_worker_job_cap_governance_plane_exempt(monkeypatch) -> None:
+    calls = _patch_lasso_actions(monkeypatch)
+    gov_proc = _FakeProc(
+        840, "python.exe", cpu=5.0,
+        exe=r"e:\gptbridge\main-system\.venv\python.exe",
+        cmdline="python main.py --serve",
+    )
+    _run([gov_proc], monkeypatch, worker_job_cap=True, dry_run=False)
+    assert calls == [], "governance plane must never join the worker job"
+
+
+def test_worker_job_cap_feature_args_preserved() -> None:
+    config = _config(worker_job_cap=True, worker_job_percent=7.5)
+    args = gov._feature_args(config)
+    assert "--worker-job-cap" in args
+    assert "--worker-job-percent" in args
+    assert "7.5" in args
