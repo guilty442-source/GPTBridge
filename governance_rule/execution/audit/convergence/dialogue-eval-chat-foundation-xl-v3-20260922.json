@@ -1,0 +1,66 @@
+{
+  "schema": "dialogue-eval-record/v1",
+  "date": "2026-09-22",
+  "purpose": "Phase-5 xl-v3 activation decision input: dialogue suite + samples",
+  "checkpoint": "E:\\GPTBridge\\Standalone tools\\local-model\\xingcheng\\runtime\\models\\chat-foundation-xl-v3\\final.pt",
+  "suite": "star-native-eval-dialogue-v1",
+  "suite_sha256": "b93b020b47b805ca3f6963acdc1621560a2e3143839d074538d512b36f97f7e4",
+  "metrics": {
+    "perplexity": 1015.9382325095305,
+    "generation_ok": true,
+    "tokens_per_second": 0.71,
+    "latency_ms_mean": 44811.852,
+    "quantization": "none",
+    "checkpoint_sha256": "80d61d16236cd2aa83f7be54e2d211fc5dfbfff03a7dc5219dfdfb580b87ca06"
+  },
+  "comparison": {
+    "perplexity_delta_pct": null,
+    "perplexity_gate": "<= 40.0%",
+    "perplexity_ok": true,
+    "generation_ok": true,
+    "tokens_per_second_ok": false
+  },
+  "passed": false,
+  "manual_inspection_samples": [
+    {
+      "prompt": "你好，你是誰？",
+      "output": "\n\ne_fal_f\"\n\ne_fal_fal_f",
+      "new_tokens": 23,
+      "elapsed_ms": 16662.7
+    },
+    {
+      "prompt": "請用一句話說明星澄模型。",
+      "output": "mber falcon\n\nember falcon falcon\n\nfalcon falcon\n\nfalcon falcon\n\nfalcon fal",
+      "new_tokens": 41,
+      "elapsed_ms": 11402.6
+    },
+    {
+      "prompt": "今天天氣如何？",
+      "output": "\nOne managed test file per-layer (CAG)\n\nThe canonical governed runtime — the ``StarChatService`` loop that ends in\n``await runtime.run()`` — lives at ``../src",
+      "new_tokens": 41,
+      "elapsed_ms": 9287.1
+    },
+    {
+      "prompt": "1+1 等於多少？",
+      "output": "，GPTBridge 的本地原生語言模型。\n\nOne\n\nclass\n\n\nfrom .cleanup import (\n    MAIN,\n    MAIN_SORTER_STATE_KEYS,\n    CATEGORY_LARGE_VIDEO",
+      "new_tokens": 40,
+      "elapsed_ms": 12787.4
+    },
+    {
+      "prompt": "請列出三個顏色。",
+      "output": "記住了：深藍\n\n好的，我記住了：深藍\n\n好的，我記住了：meadow\n\nmeadow\n\nmeadow",
+      "new_tokens": 39,
+      "elapsed_ms": 14991.7
+    },
+    {
+      "prompt": "謝謝你的幫忙。",
+      "output": "記住了：falcon vertex\n\nfalcon vertex\n\nfalcon vertex\n\nfalcon vertex\n\nfal",
+      "new_tokens": 41,
+      "elapsed_ms": 9925.3
+    }
+  ],
+  "notes": [
+    "baseline_metrics empty in suite -> perplexity gate vacuous; recorded absolute ppl as baseline candidate for future suites",
+    "greedy decode, seed 42, CPU"
+  ]
+}
