@@ -1054,3 +1054,48 @@ def test_cpp_kv_int8_prefix_cache_reuse(
     assert engine.generate(list(extended), 4, sampling) == cold.generate(
         list(extended), 4, sampling
     )
+
+
+def test_cpp_int4_quantized_layerwise_parity(tmp_path: Path) -> None:
+    """G41: per-stage hidden RMS on an INT4-packed bundle vs the
+    quantized PyTorch model (identical dequantized weights)."""
+    from xingcheng.infrastructure.native_transformer.quantization.quantizer import (
+        quantize_model,
+    )
+
+    module = cpp_runtime.load_extension()
+    model, config, bundle, _report = _export_tiny_model(
+        tmp_path, quantize_bits=4
+    )
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12]
+    expected = _torch_layer_rms(quantize_model(model, n_bits=4), ids)
+    actual = list(engine.layer_metrics(ids))
+    assert len(actual) == len(expected) == config.num_hidden_layers + 2
+    assert all(
+        abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
+        for a, e in zip(actual, expected)
+    )
+
+
+def test_cpp_cuda_layerwise_parity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """G41: per-stage hidden RMS through the cuBLAS matmul path."""
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA device not present")
+    module = cpp_runtime.load_extension()
+    model, config, bundle, _report = _export_tiny_model(tmp_path)
+    monkeypatch.setenv("XINGCHENG_CPP_CUDA", "1")
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    assert engine.cuda_active() is True
+    ids = [1, 9, 10, 11, 12]
+    expected = _torch_layer_rms(model, ids)
+    actual = list(engine.layer_metrics(ids))
+    assert len(actual) == len(expected) == config.num_hidden_layers + 2
+    assert all(
+        abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
+        for a, e in zip(actual, expected)
+    )
