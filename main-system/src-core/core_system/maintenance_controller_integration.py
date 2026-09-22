@@ -90,19 +90,15 @@ class MaintenanceControllerIntegration:
         try:
             from pathlib import Path
 
-            from shared_layer.database.maintenance.native_shadow import (
+            from tasks.maintenance_controller_native_shadow import (
                 MaintenanceNativeShadow,
             )
 
-            sc = config.scheduler_config
             get_gen = config.get_current_generation
             self._native_shadow = MaintenanceNativeShadow.from_policy(
                 Path(getattr(self.app, "project_root", "E:/GPTBridge")),
-                tick_interval_ms=int(sc.tick_interval_seconds * 1000),
-                max_job_age_ms=int(sc.max_job_age_seconds * 1000),
-                max_retry_attempts=int(sc.max_retry_attempts),
-                retry_backoff_ms=int(sc.retry_backoff_base_seconds * 1000),
-                generation=int(get_gen()) if get_gen else 0,
+                scheduler_config=config.scheduler_config,
+                current_generation=int(get_gen()) if get_gen else 0,
             )
             self.controller.set_native_shadow(self._native_shadow)
         except Exception:
