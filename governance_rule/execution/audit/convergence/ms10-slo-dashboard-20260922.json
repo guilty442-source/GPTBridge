@@ -1,0 +1,16 @@
+{
+  "schema": "gptbridge-evidence/v1",
+  "evidence_id": "ms10-slo-dashboard-20260922",
+  "recorded_at_utc": "2026-09-22T17:05:00Z",
+  "item": "MS10 SLO dashboard (P2-4 second half); MS6 remains blocked on P3/P7",
+  "changes": [
+    "src-ui/main/perfSlo.ts: reads star-perf-baseline/v1 snapshot (main-system/runtime/state/perf-baseline-latest.json, 300s cadence via tasks/perf_baseline_job.py), evaluates metrics against declared budgets (backend RSS <=220MB; idle CPU <=3% shown as reference), fail-closed available=false on missing/malformed snapshot",
+    "ipcHandlers.ts + preload.ts: new governed channel app:get-perf-slo",
+    "renderer AppSloDrawer.tsx: SLO drawer polling every 30s while open, 40-sample history ring with trend arrows, over-budget alert styling, per-command IPC p95 table",
+    "App.tsx: drawer trigger + ModuleBoundary mount; locales/zh-TW.json product.slo* strings; App.css slo-* styles",
+    "scripts/test_perf_slo.ts + npm script test:perf-slo (ts-node assert convention)"
+  ],
+  "budgets_source": "blueprint RAM table: backend resident RSS <=220MB (30min p95); idle CPU <=3%; snapshot values are instantaneous samples — budget shown as reference line, 30min p95 acceptance stays with the sampling audit",
+  "tests": "test:perf-slo all assertions passed; npx tsc --noEmit clean",
+  "data_source": "live verified: runtime/state/perf-baseline-latest.json captured_at 2026-09-22T16:46:11Z (ipc=null when ledger has no samples; fields shown as 尚無量測, never fabricated)"
+}
