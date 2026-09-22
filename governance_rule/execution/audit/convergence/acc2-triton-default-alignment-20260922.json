@@ -1,0 +1,27 @@
+{
+  "schema": "acc2-triton-default-alignment/v1",
+  "date": "2026-09-22",
+  "worker": "devin-cli",
+  "item": "P2-2 Triton 預設對齊（ACC-2）",
+  "discrepancy": "受管設定 native-engine.json note 記「Triton 自研 kernel 預設關閉（品質優先）」，程式預設 XINGCHENG_TRITON_KERNELS 缺省=1（啟用）——note 與程式不一致",
+  "decision": "預設維持啟用（on）；note 改為與程式一致",
+  "rationale": [
+    "84b57f34 Enable validated Triton transformer kernels：RMSNorm/SwiGLU/RoPE 已通過 CUDA 逐運算元＋模型層級 parity（atol/rtol 1e-3）後才預設啟用——啟用本身是驗證後決策，非預設漂移",
+    "藍圖 §5.5/ACC-2：三 kernel 實編譯證據存在（sm86 cubin/ptx、triton 3.8.0）＋模型級 parity ≤1e-3",
+    "啟用仍受 has_triton and has_cuda 硬體閘限制；無 GPU/無 triton 環境自動走 PyTorch 路徑",
+    "需要梯度的訓練路徑自動退回 PyTorch（backend.triton_kernels_enabled 文件明載）",
+    "XINGCHENG_TRITON_KERNELS=0 / set_triton_kernels(False) 為既有關閉途徑"
+  ],
+  "changes": {
+    "settings_note": "Standalone tools/local-model/runtime/settings/native-engine.json note 更新為「預設啟用（parity 已驗；env=0 可關閉）」",
+    "code": "無程式變更（execution/backend.py L245-262 預設=1 維持）"
+  },
+  "verification": {
+    "flag_default": "triton_kernels_enabled() == True（env 未設）",
+    "env_off": "XINGCHENG_TRITON_KERNELS=0 → False",
+    "runtime_setter": "set_triton_kernels(False) → False",
+    "hardware_gate": "kernels/*.py 皆要求 cap.has_triton and cap.has_cuda"
+  },
+  "residual": "ACC-2 其餘殘項：Gluon 另軌評估（本項不含）",
+  "verdict": "PASS — 受管設定與程式預設一致"
+}
