@@ -1175,3 +1175,142 @@ def test_cpp_engine_multi_tile_attention_parity(tmp_path: Path) -> None:
     actual_ids = engine.generate(ids, 20, sampling)
     assert actual_ids == expected_ids
     engine.unload()
+
+
+# W3-4 per-module probes: the layerwise RMS probe (G41) only observes the
+# residual stream at layer boundaries; a miswired RMSNorm/RoPE/Attention/MLP
+# inside a block could hide behind it. module_metrics() taps each module
+# output inside the block so every stage is independently parried against
+# the PyTorch reference. Layout mirrors the C++ trace:
+#   [embed] + per-layer {input_norm, post-RoPE q, attention out,
+#   post_attention_norm, mlp out} + [final_norm]
+
+MODULES_PER_LAYER = 5
+
+
+def _torch_module_rms(model: XingChengForCausalLM, ids: list[int]) -> list[float]:
+    """RMS at each module boundary per layer, in forward order."""
+    from xingcheng.infrastructure.native_transformer.modules import (
+        attention as attention_mod,
+    )
+
+    def _rms(tensor: torch.Tensor) -> float:
+        return float(tensor.double().pow(2).mean().sqrt())
+
+    def _hook(key: str, record: dict):
+        def _fn(_module, _inputs, output):
+            hidden = output[0] if isinstance(output, tuple) else output
+            record[key] = _rms(hidden)
+        return _fn
+
+    rope_rms: list[float] = []
+    orig_apply_rope = attention_mod.apply_rope
+
+    def _rope_probe(q, k, cos, sin, position_ids=None):
+        q_rot, k_rot = orig_apply_rope(
+            q, k, cos, sin, position_ids=position_ids
+        )
+        rope_rms.append(_rms(q_rot))
+        return q_rot, k_rot
+
+    per_layer: list[dict] = []
+    final: list[float] = []
+    hooks = []
+    attention_mod.apply_rope = _rope_probe
+    try:
+        with torch.no_grad():
+            batch = torch.tensor([ids], dtype=torch.long)
+            embed_rms = _rms(model.model.embeddings(batch))
+            for layer in model.model.layers:
+                record: dict = {}
+                per_layer.append(record)
+                hooks.append(
+                    layer.input_norm.register_forward_hook(
+                        _hook("norm1", record)
+                    )
+                )
+                hooks.append(
+                    layer.attention.q_proj.register_forward_hook(
+                        _hook("qproj", record)
+                    )
+                )
+                hooks.append(
+                    layer.attention.register_forward_hook(
+                        _hook("attn", record)
+                    )
+                )
+                hooks.append(
+                    layer.post_attention_norm.register_forward_hook(
+                        _hook("norm2", record)
+                    )
+                )
+                hooks.append(
+                    layer.mlp.register_forward_hook(_hook("mlp", record))
+                )
+            hooks.append(
+                model.model.final_norm.register_forward_hook(
+                    lambda _m, _i, out: final.append(_rms(out))
+                )
+            )
+            model(batch)
+    finally:
+        attention_mod.apply_rope = orig_apply_rope
+        for hook in hooks:
+            hook.remove()
+
+    metrics = [embed_rms]
+    for index, record in enumerate(per_layer):
+        # RoPE is norm-preserving; when the config wires no cos/sin the
+        # pre-rotation q_proj stream is the equivalent tap.
+        rope = (
+            rope_rms[index] if index < len(rope_rms) else record["qproj"]
+        )
+        metrics += [
+            record["norm1"], rope, record["attn"], record["norm2"],
+            record["mlp"],
+        ]
+    metrics.append(final[0])
+    return metrics
+
+
+def test_cpp_module_parity_with_pytorch(tmp_path: Path) -> None:
+    """W3-4: per-module RMSNorm/RoPE/Attention/MLP RMS must match PyTorch."""
+    model, config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = cpp_runtime.load_extension().NativeInferenceEngine()
+    engine.load(str(bundle))
+
+    ids = [1, 9, 10, 11, 12]
+    expected = _torch_module_rms(model, ids)
+    actual = list(engine.module_metrics(ids))
+
+    assert len(actual) == MODULES_PER_LAYER * config.num_hidden_layers + 2
+    assert len(actual) == len(expected)
+    drift = [
+        abs(a - e) / max(abs(e), LAYER_PARITY_ATOL)
+        for a, e in zip(actual, expected)
+    ]
+    assert all(
+        abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
+        for a, e in zip(actual, expected)
+    ), f"module parity drift {drift} exceeds contract"
+
+
+def test_cpp_moe_module_parity(tmp_path: Path) -> None:
+    """W3-4: per-module RMS on a mixed dense/MoE model (gate path tap)."""
+    module = cpp_runtime.load_extension()
+    model, config, bundle, _report = _export_moe_model(
+        tmp_path, num_experts=4, top_k=2, interval=2
+    )
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12]
+    expected = _torch_module_rms(model, ids)
+    actual = list(engine.module_metrics(ids))
+    assert (
+        len(actual) == len(expected)
+        == MODULES_PER_LAYER * config.num_hidden_layers + 2
+    )
+    assert all(
+        abs(a - e) <= LAYER_PARITY_ATOL + LAYER_PARITY_RTOL * abs(e)
+        for a, e in zip(actual, expected)
+    )

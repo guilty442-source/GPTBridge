@@ -522,14 +522,21 @@ class MaintenanceControllerIntegration:
         try:
             from shared_layer.adaptive import LoadSignals, get_plane
 
-            get_plane().observe(
+            get_plane().observe_merge(
                 LoadSignals(
                     pg_latency_ms=float(signals.get("pg_latency_ms") or 0.0),
                     lock_contention_pct=float(signals.get("lock_pressure") or 0.0),
                     active_connections=int(signals.get("pg_connections") or 0),
                     transport_backlog=int(signals.get("transport_backlog") or 0),
                     reconcile_backlog=int(signals.get("reconcile_pending") or 0),
-                )
+                ),
+                fields=(
+                    "pg_latency_ms",
+                    "lock_contention_pct",
+                    "active_connections",
+                    "transport_backlog",
+                    "reconcile_backlog",
+                ),
             )
             # S7: push the tuned pool bound into the live connection manager
             # (peek — never construct the pool just to tune it).
