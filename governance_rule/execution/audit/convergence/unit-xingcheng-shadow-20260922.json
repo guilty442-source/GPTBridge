@@ -1,0 +1,11 @@
+{
+  "evidence": "單元制搬移末輪 xingcheng/shadow（§10.68）",
+  "at": "2026-09-22T02:40:00Z",
+  "order": "tools(done) → model(done) → shared(done) → core(done) → xingcheng",
+  "phase": "xingcheng (shadow)",
+  "source": "main-system/governance/sovereigns/xingcheng/* + Standalone tools/local-model/xingcheng/* (domain + assistant separation)",
+  "shadow": "units/xingcheng/domain (shadow, parallel run, assistant separate host, governed IPC only, zh-TW visible only to assistant)",
+  "check": "assistant vs domain separation, tool_call + reasoning, L5-L7, 5-block/10-unit/27 reparent (A594-596)",
+  "next": "全量 shadow→primary→retire 逐輪，附整體淨占用量測，跨單元介面強制，隔離實測",
+  "verdict": "SHADOW PASS (5 blocks/10 units, hierarchy published r8/r9, directory parity)"
+}
