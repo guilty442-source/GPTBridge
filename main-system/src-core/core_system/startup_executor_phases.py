@@ -195,7 +195,9 @@ class StartupExecutorPhasesMixin:
             )
 
             app.model_service_activation = ModelServiceActivationBroker(
-                app, app.toolbox_service
+                app,
+                app.toolbox_service,
+                project_root=app.project_root,
             )
             await app.model_service_activation.start()
         _lap("model_activation_ms")

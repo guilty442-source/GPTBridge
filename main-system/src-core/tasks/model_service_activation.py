@@ -115,21 +115,23 @@ class ModelServiceActivationBroker:
         self._last_release_result: dict[str, Any] = {}
         self._last_written_fingerprint: dict[str, Any] | None = None
         self._last_write_at = 0.0
-        # §10.65 act-1: native shadow — policy mode != "shadow" or a
-        # missing extension yields None (fail-closed).
-        try:
-            from tasks.model_service_activation_native_shadow import (
-                ActivationBrokerNativeShadow,
-            )
+        # §10.65 act-1: native shadow attaches only when project_root is
+        # given; policy mode != "shadow" or a missing extension yields None.
+        self._native_shadow = None
+        if project_root is not None:
+            try:
+                from tasks.model_service_activation_native_shadow import (
+                    ActivationBrokerNativeShadow,
+                )
 
-            self._native_shadow = ActivationBrokerNativeShadow.from_policy(
-                Path(project_root) if project_root else None,
-                cooldown_s=self.cooldown,
-                min_backoff_s=self.min_backoff,
-                max_backoff_s=self.max_backoff,
-            )
-        except Exception:
-            self._native_shadow = None
+                self._native_shadow = ActivationBrokerNativeShadow.from_policy(
+                    Path(project_root),
+                    cooldown_s=self.cooldown,
+                    min_backoff_s=self.min_backoff,
+                    max_backoff_s=self.max_backoff,
+                )
+            except Exception:
+                self._native_shadow = None
         _ACTIVE_BROKER = self
 
     # -- lifecycle ------------------------------------------------------
