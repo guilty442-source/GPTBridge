@@ -321,7 +321,16 @@ class CppInferenceEngine:
                         os.environ["XINGCHENG_CPP_CUDA"] = prev
         except Exception as error:
             self._record_cuda_downgrade(required_mb, error)
-            return load_engine(self.bundle_dir, kv_memory_limit=limit)
+            # Denied admission must actually run on CPU: strip the caller's
+            # own env opt-in for this load (restored afterwards) — the C++
+            # engine enables CUDA whenever the env is set at load time.
+            prev = os.environ.get("XINGCHENG_CPP_CUDA")
+            os.environ.pop("XINGCHENG_CPP_CUDA", None)
+            try:
+                return load_engine(self.bundle_dir, kv_memory_limit=limit)
+            finally:
+                if prev is not None:
+                    os.environ["XINGCHENG_CPP_CUDA"] = prev
 
     def _record_cuda_downgrade(
         self, required_mb: float, error: Exception

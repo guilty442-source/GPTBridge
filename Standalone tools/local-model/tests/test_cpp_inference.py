@@ -880,6 +880,31 @@ def test_cpp_quantized_layerwise_parity(tmp_path: Path) -> None:
 # (fail-soft, same contract as native engine _gate_cuda_device).
 
 
+def test_cpp_cuda_gate_degrades_when_coordinator_unreachable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Coordinator import failure degrades to CPU even when the caller's
+    env already opted in — the env is stripped for this load and restored
+    after (regression: except path must not leave the env set)."""
+    import os
+
+    _patched_roots(monkeypatch, tmp_path)
+    checkpoint = _tiny_checkpoint(tmp_path)
+    monkeypatch.setenv("XINGCHENG_CPP_CUDA", "1")
+    monkeypatch.delitem(sys.modules, "shared_layer", raising=False)
+    events: list[dict] = []
+    monkeypatch.setattr(cpp_runtime, "_ledger_append", events.append)
+
+    engine = cpp_runtime.CppInferenceEngine(checkpoint)
+    assert engine._engine.cuda_active() is False
+    assert engine._engine.logits([1, 9, 10])
+    assert any(
+        e.get("event") == "gpu-budget-downgrade" and e.get("engine") == "cpp"
+        for e in events
+    )
+    assert os.environ.get("XINGCHENG_CPP_CUDA") == "1"
+
+
 def test_cpp_cuda_gate_degrades_on_budget_denial(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -910,7 +935,6 @@ def test_cpp_cuda_gate_degrades_on_budget_denial(
         e.get("event") == "gpu-budget-downgrade" and e.get("engine") == "cpp"
         for e in events
     )
-    # Scoped env restores the caller's prior value, never pops it.
     assert os.environ.get("XINGCHENG_CPP_CUDA") == "1"
 
 

@@ -1,0 +1,34 @@
+{
+  "id": "p1-p3f-gpu-coordination-gate",
+  "date": "2026-09-22",
+  "scope": "P3f actionable portion: wire the C++ CUDA opt-in through GpuCoordinator admission (governed GPU coordination semantics)",
+  "semantics": {
+    "request_source": "env XINGCHENG_CPP_CUDA -> settings cpp_cuda -> default off (_cpp_cuda_requested)",
+    "admission": "GpuCoordinator.acquire(required_mb=weights_bytes*1.5 floor 256MB, priority='inference', timeout=XINGCHENG_GPU_ACQUIRE_TIMEOUT_S default 15s)",
+    "granted": "env set to '1' only inside the admission window and restored to its prior value after engine.load",
+    "denied": "CPU load with the caller's env opt-in stripped for that load (regression-fixed: except path must not leave env set), ledger event 'gpu-budget-downgrade' engine='cpp'",
+    "contract": "fail-soft on the interactive path — same contract as native engine _gate_cuda_device; denial never blocks inference",
+    "observability": "engine.cuda_active() binding exposes the C++ g_cuda_requested flag for audit"
+  },
+  "validation": {
+    "tests": "33 passed, 2 skipped (2 tests require shared_layer importable — run under main-system conftest env)",
+    "cases": [
+      "test_cpp_cuda_gate_degrades_when_coordinator_unreachable — ImportError path: CPU load, ledger event, caller env restored",
+      "test_cpp_cuda_gate_degrades_on_budget_denial — patched acquire TimeoutError: CPU load + ledger (shared_layer env only)",
+      "test_cpp_cuda_gate_grants_within_budget — real coordinator grant activates CUDA (shared_layer+GPU env only)",
+      "test_cpp_cuda_gate_default_off — no request: CPU"
+    ]
+  },
+  "remaining": [
+    "long-duration validation (window-type work, same class as INT-10)",
+    "device-resident weights/KV (eliminate per-call H2D copies)",
+    "bf16 GEMM and custom kernels (blocked on nvcc/MSVC-18 incompatibility or newer toolchain)"
+  ],
+  "files": [
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_runtime.py",
+    "Standalone tools/local-model/src/backend/cpp/include/xingcheng_inference.hpp",
+    "Standalone tools/local-model/src/backend/cpp/src/engine.cpp",
+    "Standalone tools/local-model/src/backend/cpp/src/binding.cpp",
+    "Standalone tools/local-model/tests/test_cpp_inference.py"
+  ]
+}
