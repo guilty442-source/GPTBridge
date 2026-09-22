@@ -1,0 +1,100 @@
+{
+  "evidence": "per-tool governed test suite <=20s SLA (P1-9)",
+  "schema": "star-tool-test-sla/v1",
+  "at": "2026-09-22T16:50:28.935686Z",
+  "sla_seconds": 20.0,
+  "tools": [
+    {
+      "tool_id": "ai-assistant",
+      "seconds": 17.11,
+      "tests": 5,
+      "returncode": 0,
+      "tail": [
+        "",
+        ".....................                                                    [100%]",
+        "21 passed in 14.20s"
+      ],
+      "ok": true,
+      "within_sla": true
+    },
+    {
+      "tool_id": "ai-collaboration",
+      "seconds": 4.48,
+      "tests": 2,
+      "returncode": 0,
+      "tail": [
+        "",
+        "....................                                                     [100%]",
+        "20 passed in 2.91s"
+      ],
+      "ok": true,
+      "within_sla": true
+    },
+    {
+      "tool_id": "file-sorter",
+      "seconds": 5.94,
+      "tests": 6,
+      "returncode": 1,
+      "tail": [
+        "FAILED tests\\test_file_sorter_cleanup.py::test_minicpm_visual_service_recognizes_decodable_image",
+        "FAILED tests\\test_file_sorter_cleanup.py::test_minicpm_visual_service_compares_images_with_model",
+        "2 failed, 17 passed in 5.08s"
+      ],
+      "ok": false,
+      "within_sla": true
+    },
+    {
+      "tool_id": "investment-mobile",
+      "seconds": 11.51,
+      "tests": 1,
+      "returncode": 0,
+      "tail": [
+        "",
+        ".                                                                        [100%]",
+        "1 passed in 8.83s"
+      ],
+      "ok": true,
+      "within_sla": true
+    },
+    {
+      "tool_id": "local-model",
+      "seconds": 142.87,
+      "tests": 21,
+      "returncode": 0,
+      "tail": [
+        "........................................................................ [ 94%]",
+        "......................................................................   [100%]",
+        "1222 passed in 141.14s (0:02:21)"
+      ],
+      "ok": false,
+      "within_sla": false
+    },
+    {
+      "tool_id": "model-dialogue",
+      "seconds": 2.84,
+      "tests": 1,
+      "returncode": 0,
+      "tail": [
+        "",
+        ".                                                                        [100%]",
+        "1 passed in 1.94s"
+      ],
+      "ok": true,
+      "within_sla": true
+    },
+    {
+      "tool_id": "vaultly",
+      "seconds": 4.82,
+      "tests": 1,
+      "returncode": 0,
+      "tail": [
+        "",
+        "...............................................................          [100%]",
+        "63 passed in 3.52s"
+      ],
+      "ok": true,
+      "within_sla": true
+    }
+  ],
+  "ok": false
+}
