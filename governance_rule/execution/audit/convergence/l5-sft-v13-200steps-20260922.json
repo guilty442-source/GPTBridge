@@ -1,0 +1,37 @@
+{
+  "evidence": "L5 SFT v13 200 steps (medium 27M) - training completed, L5 probes still 0/4",
+  "at": "2026-09-22T00:35:00Z",
+  "dataset": "Standalone tools/local-model/xingcheng/runtime/sft/chat-foundation-v13-mixed.jsonl",
+  "dataset_format": "star-chat-foundation/v1",
+  "records": 1691,
+  "chat": 1386,
+  "replay": 305,
+  "echo_scale": 500,
+  "seed": 20260922,
+  "training": {
+    "init_checkpoint": "Standalone tools/local-model/xingcheng/runtime/models/medium-dense-v1/final.pt",
+    "output_dir": "Standalone tools/local-model/xingcheng/runtime/models/jobs/manual-sft-v13-20260922",
+    "config": {
+      "max_length": 256,
+      "batch_size": 8,
+      "grad_accum": 2,
+      "lr": 5e-05,
+      "max_steps": 200,
+      "warmup_steps": 20,
+      "device": "cuda"
+    },
+    "elapsed_seconds": 82.65,
+    "first_loss": 4.976391792297363,
+    "final_loss": 1.6109751462936401,
+    "eval_loss": 1.953746885061264,
+    "eval_perplexity": 7.05507266515623
+  },
+  "evaluation": {
+    "probe": "L5 dialogue_instruction 4 probes (cpu)",
+    "result": "0/4 (turn_boundary false due to truncated <|eot|>, echo false, choice encoding error, multiturn false)",
+    "verdict": "FAIL",
+    "next": "continue training to 500 steps or adjust LR/echo_scale, re-evaluate with full maturity harness"
+  },
+  "verifier": "scripts/verify-10_64-resource-budget.py and _tmp_probe2_cpu.py (cpu)",
+  "notes": "probe-free dataset verified (0 bad lines), training loss decreased but generation still random codes; need larger unique pool or longer training"
+}
