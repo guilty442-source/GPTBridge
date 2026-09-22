@@ -85,6 +85,87 @@ def record(test_id: str, name: str, expected: str, actual: str, status: str, evi
 _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
+WHEEL_CACHE = RELEASES / "wheel-cache"
+WHEEL_CACHE_MANIFEST = WHEEL_CACHE / "wheel-cache-manifest.json"
+
+
+def build_wheel_cache(distributions: list[str], probe: str) -> dict:
+    """Materialize wheels for every locked dist into the shared cache (G77).
+
+    The cache lives at ``releases/wheel-cache/`` — outside any single RC
+    payload — so offline rebuilds install with
+    ``pip install --no-index --find-links <cache>``.  Incremental: dists
+    already cached are verified by sha256 and skipped.
+    """
+    WHEEL_CACHE.mkdir(parents=True, exist_ok=True)
+    existing: dict[str, dict] = {}
+    if WHEEL_CACHE_MANIFEST.is_file():
+        try:
+            existing = {
+                e["dist"]: e
+                for e in json.loads(
+                    WHEEL_CACHE_MANIFEST.read_text(encoding="utf-8")
+                ).get("entries", [])
+            }
+        except (OSError, ValueError):
+            existing = {}
+    entries: list[dict] = []
+    missing: list[str] = []
+    for dist in distributions:
+        cached = existing.get(dist)
+        if cached and (WHEEL_CACHE / cached["file"]).is_file() and (
+            sha_file(WHEEL_CACHE / cached["file"]) == cached["sha256"]
+        ):
+            entries.append(cached)
+            continue
+        proc = subprocess.run(
+            [
+                str(VENV_PY), "-m", "pip", "download",
+                "--no-deps", "--only-binary", ":all:",
+                "-d", str(WHEEL_CACHE), dist,
+            ],
+            capture_output=True, text=True, timeout=900,
+            creationflags=_CREATE_NO_WINDOW,
+        )
+        if proc.returncode != 0:
+            missing.append(dist)
+            continue
+        saved = next(
+            (line.split("Saved ", 1)[1].strip()
+             for line in proc.stdout.splitlines() if line.startswith("Saved ")),
+            "",
+        )
+        wheel = Path(saved)
+        if not wheel.is_file() or wheel.parent != WHEEL_CACHE:
+            wheel = next(
+                (WHEEL_CACHE / f for f in os.listdir(WHEEL_CACHE)
+                 if f.startswith(dist.split("==")[0].replace("-", "_").lower().replace(".", "_"))
+                 and f.endswith(".whl")),
+                None,
+            )
+        if wheel is None or not Path(wheel).is_file():
+            missing.append(dist)
+            continue
+        wheel = Path(wheel)
+        entries.append({
+            "dist": dist,
+            "file": wheel.name,
+            "sha256": sha_file(wheel),
+        })
+    manifest = {
+        "schema": "release-wheel-cache/v1",
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "probe_python": probe,
+        "entries": sorted(entries, key=lambda e: e["dist"]),
+        "missing": sorted(missing),
+    }
+    WHEEL_CACHE_MANIFEST.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
 def git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, creationflags=_CREATE_NO_WINDOW).stdout.strip()
 
@@ -257,6 +338,17 @@ def build_rc() -> None:
             "rule": "official data, settings and weights stay outside the release",
         },
         "secrets": "none copied (.env excluded by construction)",
+    }
+    wheel_cache = build_wheel_cache(distributions, probe)
+    manifest["wheel_cache"] = {
+        "path": str(WHEEL_CACHE),
+        "manifest_sha256": sha_file(WHEEL_CACHE_MANIFEST),
+        "entries": len(wheel_cache["entries"]),
+        "missing": wheel_cache["missing"],
+        "offline_rebuild": (
+            f"pip install --no-index --find-links {WHEEL_CACHE} "
+            "<dist>==<version> per lock"
+        ),
     }
     (RC / "release-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -586,6 +678,24 @@ def main() -> int:
     payload_boundary_check()
     process_cleanup_check()
 
+    # 04B-16 wheel cache covers the dependency lock (G77 offline rebuild)
+    manifest_data = json.loads(
+        (RC / "release-manifest.json").read_text(encoding="utf-8")
+    )
+    wc = manifest_data.get("wheel_cache") or {}
+    locked = manifest_data["dependency_lock"]["entries"]
+    missing = wc.get("missing") or []
+    covered = wc.get("entries") == locked and not missing
+    record(
+        "04B-16",
+        "wheel cache covers every locked distribution (offline rebuild)",
+        f"entries={locked} all cached",
+        f"cached={wc.get('entries')} missing={missing[:4]}",
+        "PASS" if covered else "FAIL",
+        f"{WHEEL_CACHE_MANIFEST}",
+        "" if covered else "WHEEL_CACHE_INCOMPLETE",
+    )
+
     report = {
         "report": "integration-04b-acceptance/v1",
         "release_id": RC_ID,
@@ -598,11 +708,9 @@ def main() -> int:
         },
         "completion": "NOT_COMPLETE",
         "minimal_fix_list": [
-            "rc backend/main.py predates the flat-layout governance sys.path "
-            "fix — repackage so PYTHONPATH compensation is unnecessary "
-            "(04B-10 harness evidence)",
             "shared service read-only test doubles for PG/Qdrant/Ollama compatibility — 04B-09 partial",
-            "venv copy or rebuild at final location for full release self-containment (G76/G77)",
+            "isolated IPC contract client (auth/request-id/session/cancel/timeout/streaming) — validator covers surface only",
+            "venv rebuild reproducibility pinned by wheel cache (04B-16) — full G76 self-containment verification pending",
         ],
     }
     report_path = RC / "acceptance-report.json"
