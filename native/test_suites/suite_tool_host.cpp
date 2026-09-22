@@ -16,6 +16,7 @@ int main() { return 0; } /* windows-only suite */
 #include <chrono>
 #include <cstring>
 #include <deque>
+#include <map>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -225,7 +226,10 @@ int64_t decode_server_frame(const std::string& buf, gtw::WsFrame* out) {
 /* 讀一個 server→client frame。recv 逾時只重試；
    真正斷線/錯誤或 deadline 才回 false。 */
 bool read_frame(SOCKET s, gtw::WsFrame* out, int timeout_ms = 5000) {
-    std::string buf;
+    /* 一次 recv 可能含多個 frame；殘留位元必須跨呼叫保留，
+       否則下一幀被丟棄 → 後續讀取假性逾時。 */
+    static std::map<SOCKET, std::string> pending;
+    std::string& buf = pending[s];
     char tmp[4096];
     timeval tv{0, 100000};
     setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,
@@ -234,15 +238,16 @@ bool read_frame(SOCKET s, gtw::WsFrame* out, int timeout_ms = 5000) {
                           std::chrono::milliseconds(timeout_ms);
     while (std::chrono::steady_clock::now() < deadline) {
         const int64_t used = decode_server_frame(buf, out);
-        if (used > 0) return true;
-        if (used < 0) return false;
+        if (used > 0) { buf.erase(0, static_cast<size_t>(used)); return true; }
+        if (used < 0) { pending.erase(s); return false; }
         const int n = recv(s, tmp, sizeof(tmp), 0);
         if (n > 0) {
             buf.append(tmp, static_cast<size_t>(n));
             continue;
         }
-        if (n == 0) return false;               /* peer closed */
+        if (n == 0) { pending.erase(s); return false; } /* peer closed */
         if (WSAGetLastError() == WSAETIMEDOUT) continue;
+        pending.erase(s);
         return false;
     }
     return false;

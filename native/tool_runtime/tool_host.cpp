@@ -236,6 +236,7 @@ struct ToolHost::Impl {
         }
         if (!replaced)
             merged.object.emplace_back("request_id", jstr(request_id));
+        std::lock_guard<std::mutex> lk(send_mu);
         send_all(s, http_event_frame(
                       command.empty() ? "error" : command + "_result",
                       merged));
@@ -761,9 +762,13 @@ void ToolHost::ws_loop(intptr_t sock, std::string pending) {
         if (used > 0) {
             buf.erase(0, static_cast<size_t>(used));
             if (f.opcode == gtw::WsOp::Ping) {
+                std::lock_guard<std::mutex> lk(impl_->send_mu);
                 if (!send_all(c, gtw::ws_pong(f.payload))) break;
             } else if (f.opcode == gtw::WsOp::Close) {
-                send_all(c, gtw::ws_close(1000, ""));
+                {
+                    std::lock_guard<std::mutex> lk(impl_->send_mu);
+                    send_all(c, gtw::ws_close(1000, ""));
+                }
                 break;
             } else if (f.opcode == gtw::WsOp::Text ||
                        f.opcode == gtw::WsOp::Binary ||
