@@ -1,0 +1,13 @@
+{
+  "evidence": "C++ P3f GPU 協調語義（CPU-only 路徑）",
+  "at": "2026-09-22T02:45:00Z",
+  "verifier": "Standalone tools/local-model/src/backend/cpp/src/engine.cpp:978 (KV_MEMORY_LIMIT_EXCEEDED) + gptbridge_kv_pool_create + XINGCHENG_CPP_RUNTIME off/required/fallback",
+  "result": {
+    "status": "CPU-only PASS (MoE/quant/CUDA/batch>1 fail-closed)",
+    "kv_limit": "load 時 fail-closed (kv_limit_bytes >0 && kv_bytes > limit)",
+    "gpu_coord": "暫不適用 (C++ CPU-only, Python 側 GpuCoordinator 95% 上限 + TimeoutError, native_engine 300s auto_release)",
+    "long_validation": "pending (需 24h 連續 + VRAM 0MB 引擎走 CPU 驗證)"
+  },
+  "next": "CUDA 軌獨立（ACC-2）+ C++ 量化/批處理（R5/R9）+ 長時 24h VRAM 驗證",
+  "notes": "P3f 語義已對齊 Python GpuCoordinator，但 C++ 路徑當前僅 CPU，需另軌 CUDA 實作"
+}
