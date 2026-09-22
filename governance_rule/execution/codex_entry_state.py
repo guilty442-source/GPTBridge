@@ -77,9 +77,19 @@ DEFAULT_SESSION_TTL: Final[float] = 120.0
 DEFAULT_CONTEXT_TTL: Final[float] = 300.0
 DIGEST_FLUSH_BOUND: Final[int] = 256
 
-AUDIT_PATH: Final[Path] = (
-    Path(__file__).resolve().parent / "audit" / "codex_read_audit.jsonl"
-)
+_AUDIT_PATH_ENV: Final[str] = "GPTBRIDGE_CODEX_AUDIT_PATH"
+
+
+def _audit_path() -> Path:
+    """Codex read-audit ledger.  Module-relative by default; overridable
+    so release payloads (which must stay immutable) can redirect writes
+    to a state root."""
+    override = os.environ.get(_AUDIT_PATH_ENV, "").strip()
+    if override:
+        return Path(override)
+    return (
+        Path(__file__).resolve().parent / "audit" / "codex_read_audit.jsonl"
+    )
 _AUDIT_LOCK = threading.Lock()
 
 # The codex read-audit ledger appends once per codex read; without a size
