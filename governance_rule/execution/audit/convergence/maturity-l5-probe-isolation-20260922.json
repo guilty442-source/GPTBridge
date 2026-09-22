@@ -1,0 +1,15 @@
+{
+  "schema": "maturity-l5-probe-isolation/v1",
+  "date": "2026-09-22",
+  "scope": "成熟度 harness L5 探針語義修正：每探針獨立 ChatSession（與 L6 同規）",
+  "file": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py",
+  "problem": "_test_l5 原先四個探針共用單一 ChatSession——turn_boundary/echo/choice 的退化回覆（如 ||||| 迴圈）全部累積進 multiturn_memory 的上下文。多輪記憶探針被迫在垃圾歷史中回憶 QZ-88，評測結果依賴前序探針輸出品質 → run-to-run 變異（藍圖 §3.3.1 記載 multiturn_memory 在臨界、3 輪僅 v3 通過的變異來源之一）。L6 (_test_l6) 已是每探針獨立 session，L5 不一致。",
+  "fix": "ChatSession 建構移入 for spec 迴圈：每探針全新對話；multiturn_memory 仍在自己兩輪內驗證記憶（spec['turns'] 依序送入同一 session）。",
+  "verification": {
+    "method": "python -m xingcheng.infrastructure.native_transformer.maturity --checkpoint medium-dense-v1/final.pt --device cpu --max-level 5（不落盤）",
+    "result": "certified_level=4 不變；L5 仍 0/4——四探針輸出均為 |/不 退化迴圈，session 隔離未改變判決 → 證明 L5 缺口是模型品質本身而非 harness 汙染（誠實負向證據）",
+    "l4_status": "pass 3/4 generation probes（duration 14.9s）",
+    "note": "正式驗收閘門為主系統測試套件＋稽核引擎；本次為輔助驗證。修正的長期價值：未來 checkpoint（v14 訓練）之臨界 multiturn_memory 評測不再受跨探針汙染影響"
+  },
+  "related": "chat-session 本身經檢視無解碼缺陷（raw_text/text 切分、END_OF_TURN 截斷、eos 判定皆正確）；v13 證據之 'choice encoding error' 實為模型退化輸出的表象"
+}
