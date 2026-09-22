@@ -215,9 +215,12 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     )
     assert environment["TEMP"] == environment["GPTBRIDGE_TOOL_TEMP_ROOT"]
 
-    # Identity resolution: model-dialogue is its own sealed runtime
-    # identity; local-model's runtime claims the nested xingcheng identity.
-    assert service._governed_runtime_tool_id("model-dialogue") == "model-dialogue"
+    # Identity resolution: model-dialogue hosts the sealed star-chat
+    # companion runtime (model-dialogue/star-chat/manifest.json) — the
+    # dialogue surface runs on the lightweight star-chat identity so the
+    # local model is never a start prerequisite of the window;
+    # local-model's runtime claims the nested xingcheng identity.
+    assert service._governed_runtime_tool_id("model-dialogue") == "star-chat"
     assert service._governed_runtime_tool_id("local-model") == "xingcheng"
 
     owner_environment = service._tool_environment(
