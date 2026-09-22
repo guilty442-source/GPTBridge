@@ -950,6 +950,8 @@ def govern_once(
                                     "name": name, "cpu": round(cpu, 1),
                                     "limiter_percent": features["limiter_percent"],
                                     "ok": ok})
+            if (
+                rss_mb >= config.mem_trim_mb
                 and calm_now
                 and now - record.last_trim >= config.trim_cooldown
             ):
@@ -961,32 +963,104 @@ def govern_once(
                     {"action": "working-set-trimmed", "pid": pid, "name": name,
                      "cpu": round(cpu, 1), "mem_mb": round(rss_mb, 1), "ok": trimmed}
                 )
-            if (
-                calm_now
-                and record.calm >= config.calm_samples
-                and (record.prio_set or record.aff_set)
-            ):
-                if not dry_run:
+            if record.pb_set and not strained and calm_now:
+                if not dry_run and not record.bg_set:
                     try:
-                        proc.nice(psutil.NORMAL_PRIORITY_CLASS)
+                        target = (
+                            record.rule_priority
+                            if record.rule_priority is not None
+                            else psutil.NORMAL_PRIORITY_CLASS
+                        )
+                        proc.nice(target)
                     except psutil.Error:
                         pass
-                    if record.aff_set:
+                record.pb_set = False
+                actions.append(
+                    {"action": "probalance-restored", "pid": pid, "name": name}
+                )
+            if calm_now and record.calm >= config.calm_samples:
+                if record.prio_set and not record.pb_set and not record.bg_set:
+                    if not dry_run:
+                        try:
+                            target = (
+                                record.rule_priority
+                                if record.rule_priority is not None
+                                else psutil.NORMAL_PRIORITY_CLASS
+                            )
+                            proc.nice(target)
+                        except psutil.Error:
+                            pass
+                    record.prio_set = False
+                    actions.append(
+                        {"action": "restored", "pid": pid, "name": name,
+                         "cpu": round(cpu, 1)}
+                    )
+                if record.aff_set:
+                    if not dry_run and not record.rule_aff_set:
                         try:
                             proc.cpu_affinity(list(range(logical)))
                         except (AttributeError, psutil.Error):
                             pass
-                record.prio_set = False
-                record.aff_set = False
-                actions.append(
-                    {"action": "restored", "pid": pid, "name": name, "cpu": round(cpu, 1)}
-                )
+                    record.aff_set = False
+                    actions.append(
+                        {"action": "affinity-restored", "pid": pid, "name": name}
+                    )
+                if record.bg_set and "bg" not in record.rule_hold:
+                    ok = True if dry_run else _set_background_mode(pid, False)
+                    record.bg_set = False
+                    actions.append(
+                        {"action": "background-mode-released", "pid": pid,
+                         "name": name, "ok": ok}
+                    )
+                if record.eco_set and "eco" not in record.rule_hold:
+                    ok = True if dry_run else _set_ecoqos(pid, False)
+                    record.eco_set = False
+                    actions.append(
+                        {"action": "ecoqos-released", "pid": pid, "name": name,
+                         "ok": ok}
+                    )
+                if record.limit_set and "limit" not in record.rule_hold:
+                    ok = True if dry_run else _clear_cpu_limit(key)
+                    record.limit_set = False
+                    actions.append(
+                        {"action": "cpu-limit-released", "pid": pid, "name": name,
+                         "ok": ok}
+                    )
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, OSError):
             continue
 
     for key in list(records):
         if key not in seen:
             records.pop(key, None)
+            _clear_cpu_limit(key)
+
+    # ProBalance (Process Lasso-style): while the responsiveness signal is
+    # strained, temporarily demote the top foreground-external CPU consumers;
+    # they are restored as soon as the strain clears (see the per-process
+    # release path above).  Bounded per cycle.
+    pb_demoted = 0
+    if features["probalance"] and strained:
+        active = sum(1 for item in records.values() if item.pb_set)
+        for cpu, proc, pid, name, plane, record in sorted(
+            pb_candidates, key=lambda item: item[0], reverse=True
+        ):
+            if active + pb_demoted >= PROBALANCE_MAX_DEMOTIONS:
+                break
+            if record.pb_set or record.prio_set or record.bg_set:
+                continue
+            if cpu < config.cpu_busy:
+                continue
+            if not dry_run:
+                try:
+                    proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+                except psutil.Error:
+                    continue
+            record.pb_set = True
+            pb_demoted += 1
+            actions.append(
+                {"action": "probalance-demote", "pid": pid, "name": name,
+                 "cpu": round(cpu, 1), "plane": plane}
+            )
 
     # §10.64 aggregate worker budget + hysteresis control law (strict
     # INT-10 semantics): first over-budget sample -> regulate; 5 consecutive
@@ -1086,6 +1160,37 @@ def govern_once(
             "pre": regulation["pre"],
             "over_samples": regulation["over"],
             "under_samples": regulation["under"],
+            "strained": bool(regulation.get("strained", False)),
+        },
+        "responsiveness": {
+            "enabled": features["probalance"],
+            "latency_ms": round(latency_ms, 2),
+            "baseline_ms": (
+                round(regulation["resp_baseline"], 2)
+                if isinstance(regulation.get("resp_baseline"), (int, float))
+                else None
+            ),
+            "ratio": regulation.get("resp_ratio"),
+            "strained": bool(regulation.get("strained", False)),
+            "strain_samples": int(regulation.get("strain_hits", 0)),
+            "calm_samples": int(regulation.get("calm_hits", 0)),
+        },
+        "probalance": {
+            "enabled": features["probalance"],
+            "strained": strained,
+            "demoted": sum(1 for item in records.values() if item.pb_set),
+            "max_demotions": PROBALANCE_MAX_DEMOTIONS,
+        },
+        "features": {
+            "probalance": features["probalance"],
+            "cpu_limiter": features["cpu_limiter"],
+            "background_mode": features["background_mode"],
+            "ecoqos": features["ecoqos"],
+            "limiter_percent": features["limiter_percent"],
+            "resp_strain_ratio": features["resp_ratio"],
+            "rules_path": str(config.rules_path),
+            "rules_loaded": bool(defaults or programs),
+            "rules_error": rules_error,
         },
         "worker_admission_hold": regulation["active"] or regulation["pre"],
         "actions": actions,

@@ -217,6 +217,7 @@ bool A263ChannelRuntime::send_message(MessagePriority priority,
            訊息（恆回 true）；鏡像同語義。 */
         while (impl_->message_queue.size() > impl_->cfg.max_queue_size)
             impl_->message_queue.pop_front();
+    }
     impl_->wakeup.notify_all();
     return true;
 }

@@ -9,6 +9,7 @@
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "channel_runtime.h"
@@ -66,7 +67,7 @@ struct FakeTransport {
                 std::lock_guard<std::mutex> lk(mu);
                 if (sent.size() >= n) return true;
             }
-            Sleep(5);
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
         return false;
     }
