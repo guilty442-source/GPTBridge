@@ -27,6 +27,7 @@
 #include "scheduler.h"
 #include "outbox.h"
 #include "maintenance.h"
+#include "ipc_registry.h"
 
 #include <cstdio>
 #include <stdexcept>
@@ -531,6 +532,67 @@ private:
     gptbridge_mt_t mt_{};
 };
 
+// --- E2 transport/registration-surface prototype (§10.65 shadow) ---
+// Thin holder over the pure-C request registry in native/core/ipc_registry.c.
+// Python owns the struct by value; the C layer performs no I/O and no
+// authority calls (governance gates stay on the Python path).
+
+static const char* REQ_STATES[] = {
+    "CREATED", "QUEUED", "RUNNING", "COMPLETED",
+    "FAILED", "CANCELLED", "TIMED_OUT", "INTERRUPTED"};
+
+class NativeIpcRegistry {
+public:
+    NativeIpcRegistry() {
+        if (!gptbridge_ipc_registry_init(&reg_)) {
+            throw std::runtime_error("ipc_registry init failed");
+        }
+    }
+    bool create(const std::string& request_id, int32_t generation) {
+        return gptbridge_ipc_registry_create(
+                   &reg_, request_id.c_str(), generation) != 0;
+    }
+    bool set_status(const std::string& request_id, int status) {
+        return gptbridge_ipc_registry_set_status(
+                   &reg_, request_id.c_str(),
+                   static_cast<gptbridge_req_status_t>(status)) != 0;
+    }
+    bool cancel(const std::string& request_id) {
+        return gptbridge_ipc_registry_cancel(&reg_, request_id.c_str()) != 0;
+    }
+    py::object find(const std::string& request_id) const {
+        const gptbridge_ipc_request_t* r =
+            gptbridge_ipc_registry_find(&reg_, request_id.c_str());
+        if (r == nullptr) return py::none();
+        py::dict out;
+        out["request_id"] = r->request_id;
+        out["backend_id"] = r->backend_id;
+        out["backend_generation"] = r->backend_generation;
+        out["status"] = REQ_STATES[r->status];
+        out["cancelled"] = static_cast<bool>(r->cancelled);
+        return out;
+    }
+    int count() const { return gptbridge_ipc_registry_count(&reg_); }
+    bool transport_send(const std::string& payload, int64_t seq) {
+        gptbridge_ipc_transport_msg_t msg{};
+        std::snprintf(msg.payload, sizeof(msg.payload), "%s",
+                      payload.c_str());
+        msg.seq = static_cast<uint64_t>(seq);
+        return gptbridge_ipc_transport_send(&msg) != 0;
+    }
+    py::object transport_recv() {
+        gptbridge_ipc_transport_msg_t msg{};
+        if (!gptbridge_ipc_transport_recv(&msg)) return py::none();
+        py::dict out;
+        out["payload"] = msg.payload;
+        out["seq"] = static_cast<int64_t>(msg.seq);
+        return out;
+    }
+
+private:
+    gptbridge_ipc_registry_t reg_{};
+};
+
 // --- Module ---
 
 PYBIND11_MODULE(_sovereign_native, m) {
@@ -611,4 +673,15 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("complete", &NativeMaintenance::complete)
         .def("fail", &NativeMaintenance::fail)
         .def("job_count", &NativeMaintenance::job_count);
+
+    // E2 transport/registration-surface prototype (§10.65 shadow mode).
+    py::class_<NativeIpcRegistry>(m, "NativeIpcRegistry")
+        .def(py::init<>())
+        .def("create", &NativeIpcRegistry::create)
+        .def("set_status", &NativeIpcRegistry::set_status)
+        .def("cancel", &NativeIpcRegistry::cancel)
+        .def("find", &NativeIpcRegistry::find)
+        .def("count", &NativeIpcRegistry::count)
+        .def("transport_send", &NativeIpcRegistry::transport_send)
+        .def("transport_recv", &NativeIpcRegistry::transport_recv);
 }
