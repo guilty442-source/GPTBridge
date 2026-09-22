@@ -157,12 +157,15 @@ class StartupPhaseExecutionMixin:
             # AA2: bounded worker pool (never one worker per declaration)
             # plus dependency-aware submission order — a declaration that
             # another declared service requires starts earliest.
-            workers = max(
-                1,
+            from shared_layer.performance.thread_budget import (
+                bounded_workers,
+            )
+
+            workers = bounded_workers(
                 min(
                     STARTUP_PHASE_MAX_WORKERS,
                     len(BOOTSTRAP_PHASES) + len(declarations),
-                ),
+                )
             )
             ordered_deps = _dependency_start_order(declarations)
             with ThreadPoolExecutor(

@@ -310,9 +310,38 @@ def running_source_runtime_process_ids(entry_file: Path) -> list[int]:
     return _powershell_process_ids(command, environment)
 
 
+def _native_packaged_backend_ids(tool_dir: Path) -> list[int] | None:
+    """Resolve packaged-backend PIDs from the native snapshot.
+
+    Returns ``None`` when psutil is unavailable so the caller falls back to
+    the PowerShell/CIM query.  Matches the CIM predicate exactly: python
+    process whose ``ExecutablePath`` is under ``tool_dir`` and whose command
+    line contains ``channel_runtime.py``.
+    """
+    snapshot = _snapshot_processes_native()
+    if snapshot is None:
+        return None
+    root = os.path.normcase(str(tool_dir.resolve()))
+    process_ids: list[int] = []
+    for proc in snapshot:
+        exe = proc["executable_path"]
+        cmd = proc["command_line"]
+        if not (exe and cmd):
+            continue
+        if (
+            os.path.normcase(exe).startswith(root)
+            and "channel_runtime.py" in cmd.lower()
+        ):
+            process_ids.append(int(proc["pid"]))
+    return process_ids
+
+
 def running_packaged_backend_process_ids(tool_dir: Path) -> list[int]:
     if os.name != "nt":
         return []
+    native = _native_packaged_backend_ids(tool_dir)
+    if native is not None:
+        return native
     environment = os.environ.copy()
     environment["GPTBRIDGE_PACKAGED_TOOL_ROOT"] = str(tool_dir.resolve())
     command = (
@@ -348,9 +377,30 @@ def running_source_ui_process_ids(tool_id: str) -> list[int]:
     return _powershell_process_ids(command, environment)
 
 
+def _force_stop_process_ids_native(process_ids: list[int]) -> list[int] | None:
+    """psutil kill pass; ``None`` when psutil is unavailable.
+
+    Same contract as the PowerShell path: best-effort per-PID kill, returns
+    the attempted id list.
+    """
+    try:
+        import psutil
+    except ImportError:
+        return None
+    for process_id in process_ids:
+        try:
+            psutil.Process(process_id).kill()
+        except psutil.Error:
+            continue
+    return list(process_ids)
+
+
 def _force_stop_process_ids(process_ids: list[int]) -> list[int]:
     if os.name != "nt" or not process_ids:
         return []
+    native = _force_stop_process_ids_native(process_ids)
+    if native is not None:
+        return native
     environment = os.environ.copy()
     environment["GPTBRIDGE_PROCESS_IDS"] = ",".join(str(pid) for pid in process_ids)
     command = (

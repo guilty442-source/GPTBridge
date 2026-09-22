@@ -1055,7 +1055,6 @@ _DECLARED_PROVISION_RULES: dict[str, str] = {
     "FR-ONDEMAND-MODULES": "A587",
     "FR-SINGLE-PURPOSE-MODULE": "A588",
     "FR-MODULE-HASH-CHAIN": "A589",
-    "FR-MULTI-CORE-PARALLEL": "A590",
     "FR-SOVEREIGN-TO-CORE-ENGINE": "A591",
     "FR-NO-SUB-SOVEREIGN-ALL-MODULES": "A592",
 }
@@ -1091,6 +1090,37 @@ def _declared_provision_evaluator(
         return True, "PASS", f"declared provision {provision_id} is active"
 
     return evaluator
+
+
+@register_rule("FR-MULTI-CORE-PARALLEL")
+def _multi_core_parallel(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A590): provision active AND the thread/worker
+    allocation stays inside the fixed five-core budget —
+    threads_per_worker × parallel_workers ≤ budget_cores ≤ 5, and no
+    unbounded worker pools."""
+    passed, code, reason = _declared_provision_evaluator("A590")(facts)
+    if not passed:
+        return passed, code, reason
+    try:
+        budget = int(facts.get("budget_cores"))
+        threads = int(facts.get("threads_per_worker"))
+        workers = int(facts.get("parallel_workers"))
+        unbounded = int(facts.get("unbounded_pools") or 0)
+    except (TypeError, ValueError):
+        return False, "INCOMPLETE_EVIDENCE", "thread-budget facts required"
+    if unbounded > 0:
+        return False, "FAIL_CLOSED", f"unbounded worker pools: {unbounded}"
+    if min(threads, workers, budget) < 1:
+        return False, "FAIL_CLOSED", "threads/workers/budget must be >= 1"
+    if budget > 5:
+        return False, "FAIL_CLOSED", f"core budget {budget} exceeds cap 5"
+    if threads * workers > budget:
+        return (
+            False,
+            "FAIL_CLOSED",
+            f"threads×workers {threads * workers} exceeds budget {budget}",
+        )
+    return True, "PASS", "allocation within five-core budget"
 
 
 for _rule_code, _provision_id in _DECLARED_PROVISION_RULES.items():

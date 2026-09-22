@@ -329,8 +329,12 @@ class MainSystemSelfMaintenance:
 
             # ast.parse is I/O+CPU per file; scanning all sources serially
             # is a measurable startup cost — bounded parallel scan instead.
+            from shared_layer.performance.thread_budget import (
+                bounded_workers,
+            )
+
             with ThreadPoolExecutor(
-                max_workers=min(8, max(1, len(sources))),
+                max_workers=bounded_workers(len(sources)),
                 thread_name_prefix="stability-scan",
             ) as executor:
                 problems = [

@@ -213,12 +213,10 @@ def _default_runner(exe: Path, cwd: Path, timeout_s: float) -> Any:
     )
 
 
-def _fresh_suite_report(bin_dir: Path, exe: Path, since: float) -> dict[str, Any]:
-    """Parse the suite's ``<stem>.json`` only when written by this run."""
+def _suite_report(bin_dir: Path, exe: Path) -> dict[str, Any]:
+    """Parse the suite's ``<stem>.json`` report."""
     path = bin_dir / f"{exe.stem}{_REPORT_SUFFIX}"
     try:
-        if path.stat().st_mtime < since:
-            return {}
         data = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return {}
@@ -335,7 +333,14 @@ def mandatory_test_gate(
                         f"run-budget-exceeded:{run_budget}s "
                         f"(ran {len(gate['suites'])}/{len(exes)})"
                     )
-                case_started = time.time()
+                # Remove the previous report first: existence afterwards is
+                # the freshness proof — mtime comparison is unreliable on
+                # filesystems with coarse timestamp granularity.
+                report_path = bin_dir / f"{exe.stem}{_REPORT_SUFFIX}"
+                try:
+                    report_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
                 try:
                     proc = _run_suite(exe, bin_dir, suite_timeout, run)
                 except subprocess.TimeoutExpired:
@@ -344,7 +349,7 @@ def mandatory_test_gate(
                 except Exception as exc:  # noqa: BLE001 — fail closed
                     proc = None
                     suite_error = f"spawn-error:{type(exc).__name__}"
-                report = _fresh_suite_report(bin_dir, exe, case_started)
+                report = _suite_report(bin_dir, exe)
                 cases = report.get("cases") if report else None
                 if not isinstance(cases, list):
                     suite_error = (

@@ -211,6 +211,13 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "open_findings": 0,
         "tests_pass": True,
     },
+    # A590: five-core budget — 2 threads × 2 workers = 4 ≤ 5, bounded.
+    "FR-MULTI-CORE-PARALLEL": {
+        "budget_cores": 5,
+        "threads_per_worker": 2,
+        "parallel_workers": 2,
+        "unbounded_pools": 0,
+    },
     # A502: current schema hash equals migrations result hash, parity exact.
     "RULE_SQL_MIGRATION_AUTHORITY": {
         "current_postgresql_schema_hash": "h",

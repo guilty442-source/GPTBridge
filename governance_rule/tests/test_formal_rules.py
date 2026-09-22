@@ -496,3 +496,47 @@ def test_parity_run_records_evidence_for_every_rule(tmp_path: Path) -> None:
     target = write_report(report, tmp_path / "parity.json")
     reloaded = json.loads(target.read_text(encoding="utf-8"))
     assert reloaded["evaluated"] == report["evaluated"]
+
+
+def test_multi_core_parallel_bounded_workers_predicate() -> None:
+    """A590: provision must be active AND the allocation must fit the
+    fixed five-core budget (threads × workers ≤ budget ≤ 5, bounded)."""
+    ruleset = load_formal_rules()
+    rule = ruleset.rule("FR-MULTI-CORE-PARALLEL")
+    assert rule is not None
+
+    ok = evaluate_rule(rule, {
+        "budget_cores": 5,
+        "threads_per_worker": 2,
+        "parallel_workers": 2,
+        "unbounded_pools": 0,
+    })
+    assert ok.passed is True
+
+    over_cap = evaluate_rule(rule, {
+        "budget_cores": 6,
+        "threads_per_worker": 1,
+        "parallel_workers": 1,
+        "unbounded_pools": 0,
+    })
+    assert over_cap.passed is False  # budget may never exceed five cores
+
+    oversubscribed = evaluate_rule(rule, {
+        "budget_cores": 5,
+        "threads_per_worker": 4,
+        "parallel_workers": 2,
+        "unbounded_pools": 0,
+    })
+    assert oversubscribed.passed is False  # 4×2=8 > 5
+
+    unbounded = evaluate_rule(rule, {
+        "budget_cores": 5,
+        "threads_per_worker": 1,
+        "parallel_workers": 1,
+        "unbounded_pools": 2,
+    })
+    assert unbounded.passed is False
+
+    missing = evaluate_rule(rule, {})
+    assert missing.passed is False
+    assert missing.decision == "INCOMPLETE_EVIDENCE"

@@ -113,7 +113,10 @@ def with_workers(
     evidence; values are clamped to a sane bound, never derived from
     hardware_concurrency."""
     import dataclasses
-    workers = max(1, min(int(workers), 16))
+
+    from shared_layer.performance.thread_budget import bounded_workers
+
+    workers = bounded_workers(workers)
     return dataclasses.replace(policy, max_workers=workers)
 
 

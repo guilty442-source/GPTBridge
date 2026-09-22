@@ -212,8 +212,12 @@ class CAGIntegration:
             except Exception:
                 return None
 
+        from shared_layer.performance.thread_budget import (
+            bounded_workers,
+        )
+
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=len(self.PRELOAD_MODULE_GROUPS),
+            max_workers=bounded_workers(len(self.PRELOAD_MODULE_GROUPS)),
             thread_name_prefix="cag-preload",
         ) as pool:
             contexts = list(pool.map(_load, self.PRELOAD_MODULE_GROUPS))
