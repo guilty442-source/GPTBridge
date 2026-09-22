@@ -113,7 +113,9 @@ class RagOrchestrator:
         pools = self._dispatch(plan.rag_architectures, query, scope)
         fused = mark_conflicts(architecture_fusion(pools))
         if self._reranker and fused:
-            fused = self._reranker(query, fused)
+            from ..observability import timed_stage
+            with timed_stage("reranker"):
+                fused = self._reranker(query, fused)
         report = evaluate_sufficiency(
             fused, policy=self._policy, required_aspects=required_aspects
         )
@@ -141,7 +143,9 @@ class RagOrchestrator:
                 self._pool_by_arch(result.evidence)
             ))
             if self._reranker and fused:
-                fused = self._reranker(query, fused)
+                from ..observability import timed_stage
+                with timed_stage("reranker"):
+                    fused = self._reranker(query, fused)
             report = result.final_report
             agentic_rounds = result.rounds
 

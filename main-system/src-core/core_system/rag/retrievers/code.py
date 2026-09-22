@@ -121,7 +121,9 @@ class CodeRetriever:
             fused.sort(key=lambda r: -float(r.get("rrf_score") or 0.0))
         # Apply reranker if available
         if self._reranker and fused:
-            ranked, meta = self._reranker(request.query_text, fused[:request.candidate_limit])
+            from ..observability import timed_stage
+            with timed_stage("reranker"):
+                ranked, meta = self._reranker(request.query_text, fused[:request.candidate_limit])
         else:
             ranked, meta = fused[:request.top_k], {
                 "reranker_applied": False, "fallback": "rrf+symbol-boost"

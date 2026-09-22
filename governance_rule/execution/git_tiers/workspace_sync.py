@@ -239,7 +239,6 @@ def synchronize(
         if push:
             from .push_gate import (
                 mandatory_test_gate,
-                record_convergence_evidence,
                 record_push_evidence,
             )
 

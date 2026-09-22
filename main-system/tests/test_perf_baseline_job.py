@@ -75,3 +75,78 @@ async def test_tick_collects_and_persists(tmp_path) -> None:
         tmp_path / "main-system" / "runtime" / "state" / "perf-baseline-latest.json"
     )
     assert latest.exists()
+
+
+def test_observe_stage_records_bounded_samples() -> None:
+    """§10.11: per-stage latency surface for the perf baseline."""
+    from core_system.rag.observability import RagMetrics
+
+    m = RagMetrics(max_latency_samples=4)
+    for ms in (10.0, 20.0, 30.0, 40.0, 50.0):
+        m.observe_stage("reranker", ms)
+    stage = m.snapshot()["stages"]["reranker"]
+    assert stage["samples"] == 4  # bounded to max_latency_samples
+    assert stage["p50_ms"] <= stage["p95_ms"]
+
+
+def test_timed_stage_marks_trace_and_metrics() -> None:
+    from core_system.rag.observability import (
+        RagMetrics,
+        begin_trace,
+        current_trace,
+        end_trace,
+        timed_stage,
+    )
+
+    metrics = RagMetrics()
+    begin_trace("rag-timed-1")
+    try:
+        with timed_stage("qdrant", metrics):
+            pass
+        trace = current_trace()
+        assert trace is not None
+        assert trace.timings.qdrant_ms >= 0
+    finally:
+        end_trace()
+    assert metrics.snapshot()["stages"]["qdrant"]["samples"] == 1
+
+
+def test_timed_stage_without_trace_still_records() -> None:
+    from core_system.rag.observability import RagMetrics, timed_stage
+
+    metrics = RagMetrics()
+    with timed_stage("postgres_fts", metrics):
+        pass
+    assert metrics.snapshot()["stages"]["postgres_fts"]["samples"] == 1
+
+
+def test_rag_metrics_none_until_runtime_started() -> None:
+    """Lazy RAG (A586): never report metrics for a runtime that never started."""
+    from tasks.perf_baseline_job import _rag_metrics
+
+    assert _rag_metrics(SimpleNamespace()) is None
+    assert _rag_metrics(SimpleNamespace(rag_runtime=None)) is None
+
+
+def test_rag_metrics_snapshot_when_runtime_started() -> None:
+    from tasks.perf_baseline_job import _rag_metrics
+
+    snap = _rag_metrics(SimpleNamespace(rag_runtime=object()))
+    assert snap is not None
+    assert "stages" in snap
+    assert "rag_query_total" in snap
+
+
+@pytest.mark.asyncio
+async def test_tick_injects_rag_snapshot(tmp_path) -> None:
+    import json
+
+    app = SimpleNamespace(project_root=tmp_path, rag_orchestrator=object())
+    tick = build_tick(app)
+    await tick()
+    latest = (
+        tmp_path / "main-system" / "runtime" / "state" / "perf-baseline-latest.json"
+    )
+    data = json.loads(latest.read_text(encoding="utf-8"))
+    assert data["rag"] is not None
+    assert "stages" in data["rag"]

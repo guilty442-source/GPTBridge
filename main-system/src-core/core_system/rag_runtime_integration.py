@@ -174,7 +174,9 @@ async def _hybrid_search_reranked_async(
             "fallback": "rrf-hybrid-ranking",
         }
     try:
-        ranked, meta = reranker(query_text, fused[:candidate_limit])
+        from .rag.observability import timed_stage
+        with timed_stage("reranker"):
+            ranked, meta = reranker(query_text, fused[:candidate_limit])
     except Exception as exc:
         return fused[:top_k], {
             "reranker_applied": False,

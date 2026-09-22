@@ -37,6 +37,22 @@ def _workload_lane_metrics(app: Any) -> dict[str, Any] | None:
         return None
 
 
+def _rag_metrics(app: Any) -> dict[str, Any] | None:
+    """RAG stage-latency surface — only when the lazy RAG runtime was
+    actually started (A586: never start RAG just to measure it)."""
+    if (
+        getattr(app, "rag_runtime", None) is None
+        and getattr(app, "rag_orchestrator", None) is None
+    ):
+        return None
+    try:
+        from core_system.rag.observability import RAG_METRICS
+
+        return RAG_METRICS.snapshot()
+    except Exception:
+        return None
+
+
 def _persist_latest(project_root: Any, snapshot: dict[str, Any]) -> None:
     """Refresh only the rolling ``latest`` pointer — a 5-minute cadence
     must not accumulate one timestamped snapshot per run (~288/day)."""
@@ -67,6 +83,7 @@ def build_tick(app: Any):
         )
         snapshot["ipc"] = _ipc_metrics()
         snapshot["workload_lanes"] = _workload_lane_metrics(app)
+        snapshot["rag"] = _rag_metrics(app)
         await asyncio.to_thread(_persist_latest, project_root, snapshot)
 
     return tick
