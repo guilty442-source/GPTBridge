@@ -1,0 +1,34 @@
+{
+  "schema": "convergence-evidence/v1",
+  "evidence_id": "p1-1-fp8-gemm-kernel-20260923",
+  "recorded_at_utc": "2026-09-22T18:46:05Z",
+  "item": "P1-1③殘 fp8（e4m3）權重儲存 GEMM kernel",
+  "design": {
+    "layout": "B 權重以 e4m3 於 device-resident 快取（VRAM 為 bf16 一半、fp64 八分之一）；A activation 轉 fp32；fp32 累加",
+    "hw_note": "sm_86（RTX 3050）無硬體 fp8 tensor core——cuda_fp8.h 軟模擬轉換；此為權重儲存壓縮評估路徑，非吞吐主張",
+    "exclusivity": "bf16 與 fp8 互斥精度域——同時請求 → load 時 CUDA_PRECISION_CONFLICT fail-closed（非隱式優先序）"
+  },
+  "gates": {
+    "env": "XINGCHENG_CPP_CUDA_FP8=1（治理層擁有）",
+    "fail_closed": "FP8=1 無 CUDA=1 或無 kernels/裝置 → CUDA_FP8_UNAVAILABLE；kernel rc!=0 → CUDA_FP8_MATMUL_FAILED"
+  },
+  "defect_fixed": "device 權重快取以 host 指標為鍵——探針路徑的 transient 緩衝可能重用位址導致不同權重共用陳舊 device 拷貝（128x256x128 parity 實測揭露：err 86 超量化上界 16）。修復：probe 改用 *_uncached 入口（bf16/fp8 皆然），engine 權重路徑維持快取（指標穩定契約）。同缺陷於 bf16 探針一併修復",
+  "changes": [
+    "cpp/src/kernels/matmul_fp8.cu：e4m3 量化 kernel＋tiled GEMM＋device 權重快取＋extern-C（cached/uncached 雙入口）",
+    "matmul_bf16.cu：重構 run_bf16/upload_bf16＋新增 _uncached 探針入口",
+    "cuda_bridge.cpp：xcuda_fp8_available＋release＋stub",
+    "engine.cpp：XINGCHENG_CPP_CUDA_FP8 閘＋matmul/matmul_grouped 派送＋bf16/fp8 互斥 fail-closed",
+    "binding.cpp：_cuda_fp8_available／_probe_matmul_fp8（走 uncached）",
+    "build_cpp.py：matmul_fp8.cu 入 CU_SOURCES",
+    "tests/test_cpp_fp8_matmul.py：parity／量化包絡／determinism／互斥 fail-closed"
+  ],
+  "tests": [
+    "parity vs e4m3-quantized-B fp64 參照：4 shapes scaled err <0.01",
+    "量化包絡：|err| ≤ max|a|·Σ|b-fp8(b)| 逐列精確上界＋5% fp32 鬆量",
+    "determinism：bit-identical；bf16/fp8 互斥 → CUDA_PRECISION_CONFLICT",
+    "pytest：fp8 4/4＋bf16 回歸 3/3＋kv 回歸 3/3（共 10/10）"
+  ],
+  "deferred": [
+    "P1-1① 長時驗證（窗口型）④生產啟用評估（GPU 窗口＋Python governed 設定接線）"
+  ]
+}
