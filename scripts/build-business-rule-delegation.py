@@ -30,7 +30,39 @@ OUT_CSV = OUT_JSON.with_suffix(".csv")
 
 GOVERNANCE_DIMS = {"治理/權責", "安全與稽核", "時限/預算"}
 # 其餘視為 business（模型、資料、工程、流程）
-SCHEMA = "business-rule-delegation/v1"
+SCHEMA = "business-rule-delegation/v2"
+
+# §10.68 單元制：section → 業務主宰單元（E② 歸屬標示）。
+# 未列出的 section 一律 unassigned-review-needed（fail-closed：不猜測歸屬）。
+SECTION_TO_UNIT = {
+    "system-responsibility": "UNIT_RUNTIME",
+    "星澄模型與主系統整合條例": "UNIT_ENGINE",
+    "learning-system-special-law": "UNIT_ENGINE",
+    "model-resource-gpu-special-law": "UNIT_ENGINE",
+    "data-authority-storage-rag-special-law": "UNIT_DATA",
+    "startup-control-special-law": "UNIT_BOOTSTRAP",
+    "runtime-lifecycle-fault-isolation-special-law": "UNIT_RUNTIME",
+    "version-release-hot-update-rollback-special-law": "UNIT_AUTOMATION",
+    "git-worktree-special-law": "UNIT_AUTOMATION",
+    "automatic-maintenance-repair-special-law": "UNIT_AUTOMATION",
+    "disaster-recovery-continuity-special-law": "UNIT_AUTOMATION",
+    "test-validation-evaluation-special-law": "UNIT_PERMISSION",
+    "independent-tool-lifecycle-isolation-special-law": "BLOCK_TOOLS",
+    "ui-window-projection-synchronization-special-law": "BLOCK_TOOLS",
+    "language-source-native-boundary-special-law": "UNIT_PLATFORM",
+    "information-communication-special-law": "UNIT_PLATFORM",
+    "top-level-directory-path-special-law": "UNIT_PERMISSION",
+    "directory-special-law": "UNIT_PERMISSION",
+    "permission": "UNIT_PERMISSION",
+    "permission-identity-special-law": "UNIT_PERMISSION",
+    "identity-group-membership-and-authority-special-law": "UNIT_PERMISSION",
+    "星澄-chinese-codex-confidentiality-special-law": "UNIT_ASSISTANT",
+    "privacy-personal-data-special-law": "UNIT_DATA",
+    "cryptography-key-management-special-law": "UNIT_PERMISSION",
+    "audit-evidence-timestamp-retention-special-law": "UNIT_PERMISSION",
+    "third-party-network-supply-chain-special-law": "UNIT_PERMISSION",
+    "mandatory-implementation-obligation-special-law": "UNIT_DECISION",
+}
 
 
 def load_index() -> dict:
@@ -39,12 +71,20 @@ def load_index() -> dict:
     return json.loads(INDEX_PATH.read_text(encoding="utf-8"))
 
 
-def classify_primary(primary: str) -> str:
-    # 治理/權責 與 安全與稽核 屬治理；其餘為業務（需下放）
-    # 時限/預算 的 governance 性質：若同時命中治理維度則歸治理，否則業務；
-    # 此處依 blueprint 原則「法典只保留治理、權責與邊界」，
-    # 將 時限/預算 暫歸 governance（邊界），但標示為 boundary_governance 供複核。
-    if primary in GOVERNANCE_DIMS:
+def classify(info: dict) -> str:
+    """governance = 純治理維度；business = 純業務維度；mixed = 兩者兼有。
+
+    fail-closed：任何命中治理維度的條文不得整條下放；
+    mixed 條文下放業務內容、法典保留治理殼層。
+    """
+    dims = set(info.get("dimensions") or [])
+    primary = info.get("primary_dimension") or "未分類"
+    dims.add(primary)
+    has_gov = bool(dims & GOVERNANCE_DIMS)
+    has_biz = bool(dims - GOVERNANCE_DIMS - {"未分類"})
+    if has_gov and has_biz:
+        return "mixed"
+    if has_gov:
         return "governance"
     return "business"
 
@@ -53,24 +93,33 @@ def build() -> dict:
     idx = load_index()
     provisions: dict = idx.get("provisions", {})
     rows: list[dict] = []
-    counts = {"governance": 0, "business": 0}
+    counts = {"governance": 0, "business": 0, "mixed": 0}
     for pid in sorted(provisions):
         info = provisions[pid]
         primary = info.get("primary_dimension") or "未分類"
-        kind = classify_primary(primary)
+        section = info.get("section", "")
+        kind = classify(info)
         counts[kind] += 1
+        owning_unit = (
+            "codex-retained" if kind == "governance"
+            else SECTION_TO_UNIT.get(section, "unassigned-review-needed")
+        )
         rows.append({
             "provision_id": pid,
             "subject": info.get("subject", ""),
+            "section": section,
             "primary_dimension": primary,
             "dimensions": info.get("dimensions", []),
             "kind": kind,
+            "owning_unit": owning_unit,
             "owners": info.get("owners", []),
             "tier": info.get("tier", ""),
             "lifecycle": info.get("lifecycle", ""),
             "delegation_note": (
                 "retain in codex (governance/boundary)" if kind == "governance"
-                else "delegate to sovereign/module domain (successor, retain reference only)"
+                else "delegate business content, retain governance shell"
+                if kind == "mixed"
+                else "delegate to owning unit domain (successor, retain reference only)"
             ),
         })
     payload = {
@@ -89,6 +138,11 @@ def build() -> dict:
             "provisions_total": len(rows),
             "governance": counts["governance"],
             "business": counts["business"],
+            "mixed": counts["mixed"],
+            "owning_unit_unassigned": sum(
+                1 for r in rows
+                if r["owning_unit"] == "unassigned-review-needed"
+            ),
         },
         "rows": rows,
     }
@@ -103,9 +157,9 @@ def write_outputs(payload: dict) -> None:
     # csv
     with OUT_CSV.open("w", encoding="utf-8", newline="") as fh:
         w = csv.writer(fh)
-        w.writerow(["provision_id", "subject", "primary_dimension", "kind", "owners", "delegation_note"])
+        w.writerow(["provision_id", "subject", "section", "primary_dimension", "kind", "owning_unit", "owners", "delegation_note"])
         for r in payload["rows"]:
-            w.writerow([r["provision_id"], r["subject"], r["primary_dimension"], r["kind"], ";".join(r["owners"]), r["delegation_note"]])
+            w.writerow([r["provision_id"], r["subject"], r["section"], r["primary_dimension"], r["kind"], r["owning_unit"], ";".join(r["owners"]), r["delegation_note"]])
 
 
 def main(argv: list[str] | None = None) -> int:
