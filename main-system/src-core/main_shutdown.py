@@ -99,6 +99,12 @@ class GPTBridgeAppShutdownMixin:
                 await broker.stop()
         except Exception:
             pass
+        try:
+            sleeper = getattr(self, "sleep_policy", None)
+            if sleeper is not None:
+                await sleeper.stop()
+        except Exception:
+            pass
         # Release the saga runtime assembly (no background thread).
         try:
             saga_runtime = getattr(self, "saga_runtime", None)

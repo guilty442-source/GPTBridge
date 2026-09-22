@@ -188,6 +188,12 @@ class StartupExecutorPhasesMixin:
             )
             await app.model_service_activation.start()
         _lap("model_activation_ms")
+        if getattr(app, "sleep_policy", None) is None:
+            from tasks.sleep_policy import SleepPolicyManager
+
+            app.sleep_policy = SleepPolicyManager(app, app.toolbox_service)
+            await app.sleep_policy.start()
+        _lap("sleep_policy_ms")
         if getattr(app, "git_automation", None) is None:
             from tasks.git_automation import GitAutomationService
 
