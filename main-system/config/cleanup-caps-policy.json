@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "cap_bytes": 10485760,
+  "max_age_hours": 72.0,
+  "headroom": 0.9,
+  "backup_keep": 1
+}
