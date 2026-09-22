@@ -46,7 +46,7 @@ int main() {
     NT_TEST(SUITE, "heldout_perplexity_beats_uniform") {
         NT_CHECK(ensure_loaded(), "engine.load");
         const auto ids = suite_model::eval_tokens(
-            g_engine, g_spec.eval_text, kEvalTokenCap);
+            g_engine, g_spec.eval_text, g_spec.eval_token_cap);
         NT_CHECK(ids.size() >= 32, "eval tokens truncated cap");
         const auto [nll, count] = g_engine.sequence_nll(ids);
         NT_CHECK(count >= 31, "scored tokens");

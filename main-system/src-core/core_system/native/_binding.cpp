@@ -339,6 +339,126 @@ static py::object transformer_scaled_dot_product_attention(
     return output;
 }
 
+static py::object transformer_attention_online(
+        py::array_t<double> q,
+        py::array_t<double> k,
+        py::array_t<double> v,
+        int64_t block_k) {
+    auto q_buf = q.request();
+    auto k_buf = k.request();
+    auto v_buf = v.request();
+    if (q_buf.ndim != 2 || k_buf.ndim != 2 || v_buf.ndim != 2) {
+        throw std::invalid_argument("attention_online requires 2-D arrays");
+    }
+    int64_t q_rows = static_cast<int64_t>(q_buf.shape[0]);
+    int64_t d_k = static_cast<int64_t>(q_buf.shape[1]);
+    int64_t k_rows = static_cast<int64_t>(k_buf.shape[0]);
+    int64_t d_k_in = static_cast<int64_t>(k_buf.shape[1]);
+    int64_t v_rows = static_cast<int64_t>(v_buf.shape[0]);
+    int64_t d_v = static_cast<int64_t>(v_buf.shape[1]);
+    if (d_k != d_k_in) {
+        throw std::invalid_argument("attention_online: Q and K dims must match");
+    }
+    if (k_rows != v_rows) {
+        throw std::invalid_argument("attention_online: K and V rows must match");
+    }
+    if (block_k <= 0) {
+        throw std::invalid_argument("attention_online: block_k must be positive");
+    }
+
+    const double* q_ptr = static_cast<const double*>(q_buf.ptr);
+    const double* k_ptr = static_cast<const double*>(k_buf.ptr);
+    const double* v_ptr = static_cast<const double*>(v_buf.ptr);
+
+    py::array_t<double> output({static_cast<py::ssize_t>(q_rows), static_cast<py::ssize_t>(d_v)});
+    auto out_buf = output.request();
+    double* out_ptr = static_cast<double*>(out_buf.ptr);
+
+    // Bounded scores workspace: ONE K-block, not [q_rows x k_rows].
+    const int64_t blk = block_k < k_rows ? block_k : k_rows;
+    std::vector<double> block_scores(static_cast<size_t>(blk), 0.0);
+
+    int rc;
+    {
+        py::gil_scoped_release release;
+        rc = gptbridge_native_transformer_attention_online(
+            q_ptr, q_rows, d_k,
+            k_ptr, k_rows, d_k_in,
+            v_ptr, v_rows, d_v,
+            block_k,
+            out_ptr, block_scores.data());
+    }
+    if (rc != 0) {
+        throw std::runtime_error("attention_online failed");
+    }
+    return output;
+}
+
+static py::object transformer_matmul_grouped(
+        py::array_t<double> a,
+        py::array_t<int64_t> group_rows,
+        py::list b_list) {
+    auto a_buf = a.request();
+    auto r_buf = group_rows.request();
+    if (a_buf.ndim != 2 || r_buf.ndim != 1) {
+        throw std::invalid_argument(
+            "matmul_grouped requires 2-D a and 1-D group_rows");
+    }
+    const int64_t k = static_cast<int64_t>(a_buf.shape[1]);
+    const int64_t groups = static_cast<int64_t>(r_buf.shape[0]);
+    if (groups <= 0 || static_cast<int64_t>(b_list.size()) != groups) {
+        throw std::invalid_argument(
+            "matmul_grouped: b_list length must equal group_rows length");
+    }
+
+    std::vector<py::array_t<double>> holders;
+    std::vector<const double*> b_ptrs;
+    holders.reserve(static_cast<size_t>(groups));
+    b_ptrs.reserve(static_cast<size_t>(groups));
+    int64_t n = -1;
+    for (int64_t g = 0; g < groups; ++g) {
+        holders.push_back(b_list[g].cast<py::array_t<double>>());
+        auto info = holders.back().request();
+        if (info.ndim != 2 || info.shape[0] != k ||
+            (n >= 0 && info.shape[1] != n)) {
+            throw std::invalid_argument(
+                "matmul_grouped: each b must be [k x n] with matching dims");
+        }
+        if (n < 0) n = static_cast<int64_t>(info.shape[1]);
+        b_ptrs.push_back(static_cast<const double*>(info.ptr));
+    }
+
+    const int64_t* rows_ptr = static_cast<const int64_t*>(r_buf.ptr);
+    int64_t total = 0;
+    for (int64_t g = 0; g < groups; ++g) {
+        if (rows_ptr[g] < 0) {
+            throw std::invalid_argument(
+                "matmul_grouped: group_rows entries must be non-negative");
+        }
+        total += rows_ptr[g];
+    }
+    if (a_buf.shape[0] != total) {
+        throw std::invalid_argument(
+            "matmul_grouped: a rows must equal sum(group_rows)");
+    }
+
+    py::array_t<double> c({static_cast<py::ssize_t>(total),
+                           static_cast<py::ssize_t>(n)});
+    auto c_buf = c.request();
+    int rc;
+    {
+        py::gil_scoped_release release;
+        rc = gptbridge_native_transformer_matmul_grouped(
+            static_cast<const double*>(a_buf.ptr), rows_ptr, groups,
+            b_ptrs.data(), k, n,
+            static_cast<double*>(c_buf.ptr));
+    }
+    if (rc != 0) {
+        throw std::runtime_error("matmul_grouped failed");
+    }
+    return c;
+}
+
 // --- E1 execution-surface prototypes (§10.65 shadow) ---
 // Thin holders over the pure-C state machines in native/core/. Python owns
 // the structs by value; the C layer performs no I/O and no authority calls.
@@ -989,6 +1109,10 @@ PYBIND11_MODULE(_sovereign_native, m) {
           "RMSNorm over the last dimension of a 2-D float array.");
     m.def("transformer_rope", &transformer_rope,
           "RoPE over a [B,H,S,D] float array with [B,S,D] cos/sin tables.");
+    m.def("transformer_matmul_grouped", &transformer_matmul_grouped,
+          "Grouped matmul over concatenated row-blocks (R5 MoE grouped GEMM)");
+    m.def("transformer_attention_online", &transformer_attention_online,
+          "Online (blocked) scaled dot-product attention, bounded scores workspace");
     m.def("transformer_scaled_dot_product_attention",
           &transformer_scaled_dot_product_attention,
           "Scaled dot-product attention: Q, K, V -> output.");

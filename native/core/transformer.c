@@ -272,6 +272,83 @@ static void row_scale(double* row, int64_t cols, double scale) {
     for (; c < cols; ++c) row[c] *= scale;
 }
 
+/* Row dot product a·b over n doubles.
+ * SIMD: AVX-512 8×double FMA, AVX2 4×double (FMA when compiled); scalar
+ * tail covers the remainder (and the whole row when the SIMD headers are
+ * unavailable at compile time). */
+static double dot_row(const double* a, const double* b, int64_t n,
+                      gptbridge_simd_level simd) {
+    double sum = 0.0;
+    int64_t i = 0;
+
+    if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_HAVE_AVX512
+        __m512d acc = _mm512_setzero_pd();
+        for (; i + 8 <= n; i += 8) {
+            acc = _mm512_fmadd_pd(
+                _mm512_loadu_pd(a + i), _mm512_loadu_pd(b + i), acc);
+        }
+        {
+            double tmp[8];
+            _mm512_storeu_pd(tmp, acc);
+            sum = tmp[0] + tmp[1] + tmp[2] + tmp[3]
+                + tmp[4] + tmp[5] + tmp[6] + tmp[7];
+        }
+#endif
+    } else if (simd == GPTBRIDGE_SIMD_AVX2) {
+#ifdef GPTBRIDGE_HAVE_AVX2
+        __m256d acc = _mm256_setzero_pd();
+        for (; i + 4 <= n; i += 4) {
+#if defined(__FMA__)
+            acc = _mm256_fmadd_pd(
+                _mm256_loadu_pd(a + i), _mm256_loadu_pd(b + i), acc);
+#else
+            acc = _mm256_add_pd(acc, _mm256_mul_pd(
+                _mm256_loadu_pd(a + i), _mm256_loadu_pd(b + i)));
+#endif
+        }
+        {
+            double tmp[4];
+            _mm256_storeu_pd(tmp, acc);
+            sum = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+        }
+#endif
+    }
+    for (; i < n; ++i) sum += a[i] * b[i];
+    return sum;
+}
+
+/* y[j] += w * x[j] over n doubles — SIMD axpy with broadcast w. */
+static void axpy_row(double* y, double w, const double* x, int64_t n,
+                     gptbridge_simd_level simd) {
+    int64_t j = 0;
+
+    if (simd == GPTBRIDGE_SIMD_AVX512) {
+#ifdef GPTBRIDGE_HAVE_AVX512
+        const __m512d wv = _mm512_set1_pd(w);
+        for (; j + 8 <= n; j += 8) {
+            const __m512d xv = _mm512_loadu_pd(x + j);
+            const __m512d yv = _mm512_loadu_pd(y + j);
+            _mm512_storeu_pd(y + j, _mm512_fmadd_pd(wv, xv, yv));
+        }
+#endif
+    } else if (simd == GPTBRIDGE_SIMD_AVX2) {
+#ifdef GPTBRIDGE_HAVE_AVX2
+        const __m256d wv = _mm256_set1_pd(w);
+        for (; j + 4 <= n; j += 4) {
+            const __m256d xv = _mm256_loadu_pd(x + j);
+            const __m256d yv = _mm256_loadu_pd(y + j);
+#if defined(__FMA__)
+            _mm256_storeu_pd(y + j, _mm256_fmadd_pd(wv, xv, yv));
+#else
+            _mm256_storeu_pd(y + j, _mm256_add_pd(yv, _mm256_mul_pd(wv, xv)));
+#endif
+        }
+#endif
+    }
+    for (; j < n; ++j) y[j] += w * x[j];
+}
+
 /* Shared row-major i-k-j (axpy) kernel: C[M x N] = A[M x K] * B[K x N].
  * Callers validate arguments and the output extent; this kernel only runs
  * the loop.  SIMD: axpy with broadcast a_val.  AVX-512: 8×double per
@@ -678,47 +755,7 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
         const double* q_row = q + i * d_k;
         double* score_row = scores_temp + i * k_rows;
         for (j = 0; j < k_rows; ++j) {
-            const double* k_row = k + j * d_k;
-            double dot_val = 0.0;
-
-            if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_HAVE_AVX512
-                __m512d acc = _mm512_setzero_pd();
-                int64_t d8 = 0;
-                for (; d8 + 8 <= d_k; d8 += 8) {
-                    __m512d qv = _mm512_loadu_pd(q_row + d8);
-                    __m512d kv = _mm512_loadu_pd(k_row + d8);
-                    acc = _mm512_fmadd_pd(qv, kv, acc);
-                }
-                double tmp[8]; _mm512_storeu_pd(tmp, acc);
-                dot_val = tmp[0] + tmp[1] + tmp[2] + tmp[3] + tmp[4] + tmp[5] + tmp[6] + tmp[7];
-                for (; d8 < d_k; ++d8) dot_val += q_row[d8] * k_row[d8];
-#else
-                for (d = 0; d < d_k; ++d) dot_val += q_row[d] * k_row[d];
-#endif
-            } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_HAVE_AVX2
-                __m256d acc = _mm256_setzero_pd();
-                int64_t d4 = 0;
-                for (; d4 + 4 <= d_k; d4 += 4) {
-                    __m256d qv = _mm256_loadu_pd(q_row + d4);
-                    __m256d kv = _mm256_loadu_pd(k_row + d4);
-#if defined(__FMA__)
-                    acc = _mm256_fmadd_pd(qv, kv, acc);
-#else
-                    acc = _mm256_add_pd(acc, _mm256_mul_pd(qv, kv));
-#endif
-                }
-                double tmp[4]; _mm256_storeu_pd(tmp, acc);
-                dot_val = tmp[0] + tmp[1] + tmp[2] + tmp[3];
-                for (; d4 < d_k; ++d4) dot_val += q_row[d4] * k_row[d4];
-#else
-                for (d = 0; d < d_k; ++d) dot_val += q_row[d] * k_row[d];
-#endif
-            } else {
-                for (d = 0; d < d_k; ++d) dot_val += q_row[d] * k_row[d];
-            }
-            score_row[j] = dot_val * scale;
+            score_row[j] = dot_row(q_row, k + j * d_k, d_k, simd) * scale;
         }
     }
 
@@ -771,45 +808,92 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
             }
         }
         for (j = 1; j < k_rows; ++j) {
-            const double w = weight_row[j];
-            const double* v_row = v + j * d_v;
-
-            if (simd == GPTBRIDGE_SIMD_AVX512) {
-#ifdef GPTBRIDGE_HAVE_AVX512
-                __m512d wv = _mm512_set1_pd(w);
-                int64_t d8 = 0;
-                for (; d8 + 8 <= d_v; d8 += 8) {
-                    __m512d ov = _mm512_loadu_pd(out_row + d8);
-                    __m512d vv = _mm512_loadu_pd(v_row + d8);
-                    ov = _mm512_fmadd_pd(wv, vv, ov);
-                    _mm512_storeu_pd(out_row + d8, ov);
-                }
-                for (; d8 < d_v; ++d8) out_row[d8] += w * v_row[d8];
-#else
-                for (d = 0; d < d_v; ++d) out_row[d] += w * v_row[d];
-#endif
-            } else if (simd == GPTBRIDGE_SIMD_AVX2) {
-#ifdef GPTBRIDGE_HAVE_AVX2
-                __m256d wv = _mm256_set1_pd(w);
-                int64_t d4 = 0;
-                for (; d4 + 4 <= d_v; d4 += 4) {
-                    __m256d ov = _mm256_loadu_pd(out_row + d4);
-                    __m256d vv = _mm256_loadu_pd(v_row + d4);
-#if defined(__FMA__)
-                    ov = _mm256_fmadd_pd(wv, vv, ov);
-#else
-                    ov = _mm256_add_pd(ov, _mm256_mul_pd(wv, vv));
-#endif
-                    _mm256_storeu_pd(out_row + d4, ov);
-                }
-                for (; d4 < d_v; ++d4) out_row[d4] += w * v_row[d4];
-#else
-                for (d = 0; d < d_v; ++d) out_row[d] += w * v_row[d];
-#endif
-            } else {
-                for (d = 0; d < d_v; ++d) out_row[d] += w * v_row[d];
-            }
+            axpy_row(out_row, weight_row[j], v + j * d_v, d_v, simd);
         }
+    }
+
+    return 0;
+}
+
+int gptbridge_native_transformer_attention_online(
+    const double* q, int64_t q_rows, int64_t d_k,
+    const double* k, int64_t k_rows, int64_t d_k_in,
+    const double* v, int64_t v_rows, int64_t d_v,
+    int64_t block_k,
+    double* output,
+    double* block_scores) {
+    /* q/k/v: BORROWED_READONLY; output + block_scores workspace:
+     * CALLER_PROVIDED_OUTPUT.  block_scores holds ONE K-block
+     * (min(block_k, k_rows) doubles) instead of the full
+     * q_rows x k_rows scores matrix — W2 online/blocked attention
+     * (FlashAttention-style running-max softmax, bounded workspace). */
+    int64_t out_elems = 0;
+    int64_t blk;
+    gptbridge_native_mem_out_view out;
+    gptbridge_native_mem_out_view ws;
+    gptbridge_simd_level simd;
+    double scale;
+    int64_t i, j, j0, d;
+
+    if (q == NULL || k == NULL || v == NULL ||
+        q_rows <= 0 || d_k <= 0 || k_rows <= 0 || d_v <= 0 ||
+        block_k <= 0 || d_k != d_k_in || k_rows != v_rows) {
+        return 1;
+    }
+    blk = block_k < k_rows ? block_k : k_rows;
+    if (!gptbridge_native_mem_checked_mul_i64(q_rows, d_v, &out_elems)) {
+        return 1;  /* shape overflow → never write */
+    }
+    out = gptbridge_native_mem_caller_output(output, out_elems);
+    ws = gptbridge_native_mem_caller_output(block_scores, blk);
+    if (!gptbridge_native_mem_mut_view_valid(out) ||
+        !gptbridge_native_mem_mut_view_valid(ws)) {
+        return 1;
+    }
+
+    scale = 1.0 / sqrt((double)d_k);
+    simd = gptbridge_native_simd_level();
+
+    for (i = 0; i < q_rows; ++i) {
+        const double* q_row = q + i * d_k;
+        double* out_row = output + i * d_v;
+        double m_run = 0.0;  /* running max of all scores seen so far */
+        double l_run = 0.0;  /* running unnormalized exp-sum */
+        int seen = 0;
+
+        for (d = 0; d < d_v; ++d) out_row[d] = 0.0;
+
+        for (j0 = 0; j0 < k_rows; j0 += blk) {
+            const int64_t bs = (k_rows - j0 < blk) ? (k_rows - j0) : blk;
+            const double* k_blk = k + j0 * d_k;
+            const double* v_blk = v + j0 * d_v;
+            double bmax, m_new, rescale;
+
+            for (j = 0; j < bs; ++j) {
+                block_scores[j] =
+                    dot_row(q_row, k_blk + j * d_k, d_k, simd) * scale;
+            }
+
+            /* Online softmax merge: m_new = max(m_run, bmax); rescale the
+             * accumulator by exp(m_run - m_new) then add
+             * exp(s_j - m_new) * V_j for this block. */
+            bmax = row_max(block_scores, bs);
+            m_new = (seen && m_run > bmax) ? m_run : bmax;
+            rescale = seen ? exp(m_run - m_new) : 0.0;
+            row_scale(out_row, d_v, rescale);
+            l_run = rescale * l_run +
+                row_exp_sum(block_scores, bs, m_new, block_scores);
+            for (j = 0; j < bs; ++j) {
+                axpy_row(out_row, block_scores[j],
+                         v_blk + j * d_v, d_v, simd);
+            }
+            m_run = m_new;
+            seen = 1;
+        }
+
+        /* l_run >= 1 after the first block (the block-max element
+         * contributes exp(0) = 1), so the division is safe. */
+        row_scale(out_row, d_v, 1.0 / l_run);
     }
 
     return 0;

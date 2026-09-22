@@ -76,6 +76,21 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
     double* output,
     double* scores_temp);
 
+/* Online (blocked) scaled dot-product attention — FlashAttention-style
+ * running-max softmax; computes the same result as
+ * gptbridge_native_transformer_scaled_dot_product_attention but with a
+ * bounded scores workspace: block_scores must hold at least
+ * min(block_k, k_rows) doubles (one K-block), independent of k_rows.
+ * output must be pre-allocated with Q_rows * d_v doubles.
+ * Returns 0 on success, non-zero on invalid arguments. */
+int gptbridge_native_transformer_attention_online(
+    const double* q, int64_t q_rows, int64_t d_k,
+    const double* k, int64_t k_rows, int64_t d_k_in,
+    const double* v, int64_t v_rows, int64_t d_v,
+    int64_t block_k,
+    double* output,
+    double* block_scores);
+
 /* Effective SIMD dispatch level after CPUID detection and the
  * GPTBRIDGE_SIMD_LEVEL diagnostic cap: 0 = scalar, 1 = AVX2+FMA,
  * 2 = AVX-512.  Test/diagnostic aid for ACC-1 acceptance. */

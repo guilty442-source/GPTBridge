@@ -41,32 +41,11 @@ class PhaseMixin(StartupPhaseExecutionMixin):
 
         ok = _check_api()
         if not ok:
-            # Attempt to start Ollama (mirrors startup_orchestrator behavior).
-            appdata = os.environ.get("LOCALAPPDATA", "")
-            ollama_root = Path(appdata) / "Programs" / "Ollama"
-            app = ollama_root / "ollama app.exe"
-            server = ollama_root / "ollama.exe"
-            creationflags = (
-                int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
-                | int(getattr(subprocess, "DETACHED_PROCESS", 0) or 0)
-            )
-            try:
-                cmd = (
-                    [str(app)] if app.is_file()
-                    else [str(server), "serve"] if server.is_file()
-                    else None
-                )
-                if cmd:
-                    subprocess.Popen(  # noqa: S603 — governed local tool spawn
-                        cmd,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=creationflags,
-                    )
-            except Exception:
-                pass
-            if not self._stop.wait(timeout=1.5):
+            # §10.7: spawn 與需求啟動共用同一受治理實作（core_system.ollama_demand）。
+            from core_system.ollama_demand import _spawn_ollama
+
+            pid, _cmd = _spawn_ollama()
+            if pid is not None and not self._stop.wait(timeout=1.5):
                 ok = _check_api()
         return {
             "phase": "ollama-start",

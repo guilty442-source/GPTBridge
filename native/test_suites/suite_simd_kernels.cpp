@@ -15,6 +15,7 @@ extern "C" {
 #include "vector.h"
 }
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -126,6 +127,18 @@ void ref_sdpa(const double* q, int64_t qr, int64_t dk,
         }
 }
 
+void ref_matmul_grouped(const double* a, const int64_t* group_rows,
+                        int64_t groups,
+                        const std::vector<const double*>& b_list,
+                        int64_t k, int64_t n, double* c) {
+    int64_t a_off = 0, c_off = 0;
+    for (int64_t g = 0; g < groups; ++g) {
+        ref_matmul(a + a_off, group_rows[g], k, b_list[g], n, c + c_off);
+        a_off += group_rows[g] * k;
+        c_off += group_rows[g] * n;
+    }
+}
+
 double ref_dot(const double* a, const double* b, int64_t n) {
     double s = 0.0;
     for (int64_t i = 0; i < n; ++i) s += a[i] * b[i];
@@ -190,6 +203,23 @@ int run_bench(const char* out_path) {
         bench_ms([&]() { gptbridge_native_transformer_rope(rp_in.data(), 2, 8, 64, 64, rp_ct.data(), rp_st.data(), rp_out.data()); bench_sink += rp_out[0]; }, 500)});
     entries.push_back({"sdpa_32x48x64x64", 300,
         bench_ms([&]() { gptbridge_native_transformer_scaled_dot_product_attention(q.data(), 32, 64, kk.data(), 48, 64, v.data(), 48, 64, sdpa_out.data(), scores.data()); bench_sink += sdpa_out[0]; }, 300)});
+    std::vector<double> onl_k(128 * 64), onl_v(128 * 64), onl_out(32 * 64),
+        onl_ws(32);  // bounded workspace: one K-block, not 32x128 scores
+    fill(onl_k); fill(onl_v);
+    entries.push_back({"sdpa_online_32x128x64x64_b32", 300,
+        bench_ms([&]() { gptbridge_native_transformer_attention_online(q.data(), 32, 64, onl_k.data(), 128, 64, onl_v.data(), 128, 64, 32, onl_out.data(), onl_ws.data()); bench_sink += onl_out[0]; }, 300)});
+    // grouped matmul: 4 expert groups (rows 8+0+16+8), k=96, n=48
+    {
+        const int64_t gk = 96, gn = 48;
+        const int64_t grows_arr[] = {8, 0, 16, 8};
+        std::vector<double> ga(32 * gk), gc(32 * gn);
+        std::vector<std::vector<double>> gb(4, std::vector<double>(gk * gn));
+        std::vector<const double*> gb_p(4);
+        fill(ga);
+        for (int g = 0; g < 4; ++g) { fill(gb[g]); gb_p[g] = gb[g].data(); }
+        entries.push_back({"matmul_grouped_4x32x96x48", 300,
+            bench_ms([&]() { gptbridge_native_transformer_matmul_grouped(ga.data(), grows_arr, 4, gb_p.data(), gk, gn, gc.data()); bench_sink += gc[0]; }, 300)});
+    }
     entries.push_back({"vector_dot_8191", 2000,
         bench_ms([&]() { bench_sink += gptbridge_native_vector_dot(va.data(), vb.data(), 8191); }, 2000)});
     entries.push_back({"vector_batch_dot_16x1025", 500,
@@ -313,6 +343,49 @@ int main(int argc, char** argv) {
     }
     NT_END_TEST(SUITE, "sdpa_matches_scalar_reference");
 
+    NT_TEST(SUITE, "attention_online_matches_scalar_reference") {
+        // {q_rows, d_k, k_rows, d_v, block_k} — block_k < / = / > k_rows
+        const int64_t cfgs[][5] = {
+            {4, 16, 37, 24, 8}, {9, 13, 64, 29, 128}, {3, 11, 50, 17, 16}};
+        for (const auto& s : cfgs) {
+            std::vector<double> q(s[0] * s[1]), k(s[2] * s[1]), v(s[2] * s[3]);
+            fill(q); fill(k); fill(v);
+            std::vector<double> got(s[0] * s[3], 0.0), want(s[0] * s[3], 0.0),
+                ws((std::size_t)std::min<int64_t>(s[4], s[2]));
+            NT_CHECK(gptbridge_native_transformer_attention_online(
+                         q.data(), s[0], s[1], k.data(), s[2], s[1],
+                         v.data(), s[2], s[3], s[4],
+                         got.data(), ws.data()) == 0,
+                     "attention_online rc");
+            ref_sdpa(q.data(), s[0], s[1], k.data(), s[2], v.data(), s[3],
+                     want.data());
+            NT_CHECK_NEAR(0.0, max_abs_diff(got, want), 1e-9,
+                          "attention_online parity");
+        }
+    }
+    NT_END_TEST(SUITE, "attention_online_matches_scalar_reference");
+
+    NT_TEST(SUITE, "matmul_grouped_matches_scalar_reference") {
+        const int64_t k = 17, n = 11;
+        const int64_t group_rows[] = {3, 0, 5, 2};  // empty group allowed
+        const int64_t groups = 4, total = 10;
+        std::vector<double> a(total * k);
+        std::vector<std::vector<double>> b(groups, std::vector<double>(k * n));
+        std::vector<const double*> b_p(groups);
+        fill(a);
+        for (int64_t g = 0; g < groups; ++g) { fill(b[g]); b_p[g] = b[g].data(); }
+        std::vector<double> got(total * n, -1.0), want(total * n, -1.0);
+        NT_CHECK(gptbridge_native_transformer_matmul_grouped(
+                     a.data(), group_rows, groups, b_p.data(), k, n,
+                     got.data()) == 0,
+                 "matmul_grouped rc");
+        ref_matmul_grouped(a.data(), group_rows, groups, b_p, k, n,
+                           want.data());
+        NT_CHECK_NEAR(0.0, max_abs_diff(got, want), 1e-8,
+                      "matmul_grouped parity");
+    }
+    NT_END_TEST(SUITE, "matmul_grouped_matches_scalar_reference");
+
     NT_TEST(SUITE, "vector_ops_match_scalar_reference") {
         const int64_t dims[] = {5, 64, 1027};
         for (int64_t dim : dims) {
@@ -346,6 +419,25 @@ int main(int argc, char** argv) {
         NT_CHECK(gptbridge_native_transformer_rope(buf, 1, 1, 1, 3, buf, buf, buf) != 0, "rope odd head_dim");
         NT_CHECK(gptbridge_native_transformer_scaled_dot_product_attention(
                      buf, 1, 4, buf, 2, 8, buf, 2, 4, buf, buf) != 0, "sdpa dk mismatch");
+        NT_CHECK(gptbridge_native_transformer_attention_online(
+                     buf, 1, 4, buf, 2, 4, buf, 2, 4, 0, buf, buf) != 0, "online zero block_k");
+        NT_CHECK(gptbridge_native_transformer_attention_online(
+                     buf, 1, 4, buf, 2, 8, buf, 2, 4, 8, buf, buf) != 0, "online dk mismatch");
+        NT_CHECK(gptbridge_native_transformer_attention_online(
+                     buf, 1, 4, buf, 2, 4, buf, 3, 4, 8, buf, buf) != 0, "online k/v rows mismatch");
+        {
+            const int64_t bad_rows[] = {2, -1};
+            const double* one_b[] = {buf, buf};
+            NT_CHECK(gptbridge_native_transformer_matmul_grouped(
+                         buf, bad_rows, 2, one_b, 2, 2, buf) != 0,
+                     "grouped negative group_rows");
+            NT_CHECK(gptbridge_native_transformer_matmul_grouped(
+                         buf, bad_rows, 2, nullptr, 2, 2, buf) != 0,
+                     "grouped null b_list");
+            NT_CHECK(gptbridge_native_transformer_matmul_grouped(
+                         buf, bad_rows, 0, one_b, 2, 2, buf) != 0,
+                     "grouped zero groups");
+        }
         NT_CHECK(gptbridge_native_vector_batch_dot(nullptr, nullptr, 1, 4, buf) != 0, "batch_dot null");
     }
     NT_END_TEST(SUITE, "invalid_arguments_fail_closed");
