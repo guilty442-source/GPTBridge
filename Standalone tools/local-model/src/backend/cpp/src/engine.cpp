@@ -1511,6 +1511,34 @@ std::vector<double> NativeInferenceEngine::logits(const std::vector<int64_t>& in
     return forward_last_logits(input_ids, 0, false);
 }
 
+std::pair<double, int64_t> NativeInferenceEngine::sequence_nll(
+    const std::vector<int64_t>& input_ids) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    if (input_ids.size() < 2) return {0.0, 0};
+    const std::vector<double> hidden =
+        forward_hidden(input_ids, 0, false);
+    const ModelConfig& cfg = bundle_->config();
+    const int64_t rows = static_cast<int64_t>(input_ids.size()) - 1;
+    const int64_t h = cfg.hidden_size;
+    const int64_t v = cfg.vocab_size;
+    double nll = 0.0;
+    int64_t scored = 0;
+    for (int64_t i = 0; i < rows; ++i) {
+        const int64_t target = input_ids[static_cast<size_t>(i + 1)];
+        if (target < 0 || target >= v) continue;
+        const std::vector<double> row = matmul(
+            hidden.data() + static_cast<size_t>(i) * h, 1, h,
+            lm_head_t_.data(), v);
+        const double mx =
+            *std::max_element(row.begin(), row.end());
+        double se = 0.0;
+        for (const double x : row) se += std::exp(x - mx);
+        nll += (mx + std::log(se)) - row[static_cast<size_t>(target)];
+        ++scored;
+    }
+    return {nll, scored};
+}
+
 std::vector<double> NativeInferenceEngine::forward_last_logits(
     const std::vector<int64_t>& input_ids,
     int64_t position_offset,

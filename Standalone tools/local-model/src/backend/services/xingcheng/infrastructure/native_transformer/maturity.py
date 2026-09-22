@@ -519,14 +519,18 @@ def _test_l5(ctx: MaturityContext, result: LevelResult) -> None:
 
     pass_ratio_gate = float(ctx.gates.get("dialogue_pass_ratio", 0.75))
     max_new = int(ctx.gates.get("dialogue_max_new_tokens", 48))
-    session = ChatSession(
-        generator=_build_generator(ctx),
-        tokenizer=ctx.tokenizer,
-        system_prompt="你是星澄，一個本地模型。簡短回答。",
-    )
+    generator = _build_generator(ctx)
     probe_results: list[dict[str, Any]] = []
     passed = 0
     for spec in _L5_PROBES:
+        # 每探針獨立 session（與 L6 同規）：前一探針的退化回覆不進入
+        # 後續上下文——multiturn_memory 只須記住自己兩輪內的值，
+        # 跨探針汙染會讓認證出現 run-to-run 變異。
+        session = ChatSession(
+            generator=generator,
+            tokenizer=ctx.tokenizer,
+            system_prompt="你是星澄，一個本地模型。簡短回答。",
+        )
         reply = None
         for turn in spec["turns"]:
             reply = session.step(turn, max_new_tokens=max_new)
