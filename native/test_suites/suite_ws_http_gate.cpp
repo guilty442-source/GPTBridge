@@ -8,6 +8,9 @@
 #include "http_gate.h"
 #include "ws_codec.h"
 
+namespace gate = gptbridge::gate;
+namespace ws = gptbridge::ws;
+
 namespace {
 const char* SUITE = "WS_HTTP_GATE_SUITE";
 const char* TOKEN64 =
@@ -286,7 +289,8 @@ int main() {
         /* non-minimal length encoding → protocol error */
         const char bad_len[] = "\x81\xFE\x00\x05";
         NT_CHECK(!ws::ws_frame_decode(
-                     std::string(bad_len, 4) + "\x00\x00\x00\x00aaaaa",
+                     std::string(bad_len, 4) +
+                         "\x00\x00\x00\x00" "aaaaa",
                      &f, &used, &perr),
                  "non-minimal ext len rejected");
         NT_CHECK(perr, "flagged");
