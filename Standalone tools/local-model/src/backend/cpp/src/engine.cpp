@@ -777,7 +777,8 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
         if (info.type != JsonValue::Type::Object) {
             throw InferenceError("TENSOR_INFO_INVALID");
         }
-        if (json_string(info, "dtype") != "float64") {
+        const std::string dtype = json_string(info, "dtype");
+        if (dtype != "float64" && dtype != "int8" && dtype != "int4_packed") {
             throw InferenceError("TENSOR_DTYPE_UNSUPPORTED:" + name);
         }
         const std::string endian = json_string(info, "endianness");
@@ -789,14 +790,66 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
         item.bytes = json_int(info, "bytes");
         item.shape = json_shape(json_field(info, "shape"));
         const int64_t elements = checked_product(item.shape);
-        if (item.offset < 0 || item.bytes != elements * 8 ||
+        int64_t expected_bytes = elements * 8;
+        if (dtype == "int8") {
+            expected_bytes = elements;
+        } else if (dtype == "int4_packed") {
+            if (item.shape.size() != 2) {
+                throw InferenceError("TENSOR_INT4_SHAPE_UNSUPPORTED:" + name);
+            }
+            const int64_t rows = elements / item.shape.back();
+            expected_bytes = rows * ((item.shape.back() + 1) / 2);
+        }
+        if (item.offset < 0 || item.bytes != expected_bytes ||
             item.offset > bundle.weights_bytes_ ||
             item.bytes > bundle.weights_bytes_ - item.offset) {
             throw InferenceError("TENSOR_BOUNDS_INVALID:" + name);
         }
         TensorView view;
         view.shape = item.shape;
-        view.data = reinterpret_cast<const double*>(bundle.blob_->data + item.offset);
+        if (dtype == "float64") {
+            view.data = reinterpret_cast<const double*>(
+                bundle.blob_->data + item.offset);
+        } else {
+            // Weight-only per-tensor symmetric quantization (mirrors
+            // kernels/quant.py): dequantize once at load into owned fp64
+            // storage so every downstream GEMM is unchanged.
+            const JsonValue* scale_v = json_optional(info, "scale");
+            if (scale_v == nullptr ||
+                scale_v->type != JsonValue::Type::Number ||
+                !(scale_v->number > 0.0)) {
+                throw InferenceError("TENSOR_SCALE_INVALID:" + name);
+            }
+            const double scale = scale_v->number;
+            const unsigned char* raw = bundle.blob_->data + item.offset;
+            bundle.owned_tensors_.emplace_back(
+                static_cast<size_t>(elements));
+            std::vector<double>& dst = bundle.owned_tensors_.back();
+            if (dtype == "int8") {
+                for (int64_t i = 0; i < elements; ++i) {
+                    dst[static_cast<size_t>(i)] =
+                        static_cast<double>(
+                            reinterpret_cast<const int8_t*>(raw)[i]) * scale;
+                }
+            } else {
+                // int4_packed: two 4-bit values per byte along the last dim
+                // (low nibble = even index, high nibble = odd), shifted +8.
+                const int64_t last = item.shape.back();
+                const int64_t rows = elements / last;
+                const int64_t packed_row = (last + 1) / 2;
+                for (int64_t r = 0; r < rows; ++r) {
+                    const unsigned char* prow = raw + r * packed_row;
+                    double* drow = dst.data() + r * last;
+                    for (int64_t c = 0; c < last; ++c) {
+                        const unsigned char byte = prow[c / 2];
+                        const int64_t nibble =
+                            (c % 2 == 0) ? (byte & 0x0F) : (byte >> 4);
+                        drow[c] = static_cast<double>(nibble - 8) * scale;
+                    }
+                }
+            }
+            view.data = dst.data();
+        }
         bundle.tensors_.emplace(name, item);
         bundle.views_.emplace(name, view);
     }
@@ -1153,7 +1206,10 @@ void NativeInferenceEngine::validate_supported() const {
          cfg.moe_top_k > cfg.moe_num_experts || cfg.moe_layer_interval < 1)) {
         throw InferenceError("MOE_CONFIG_UNSUPPORTED");
     }
-    if (cfg.quantization != "none") throw InferenceError("QUANTIZED_INFERENCE_UNSUPPORTED");
+    if (cfg.quantization != "none" && cfg.quantization != "int8" &&
+        cfg.quantization != "int4") {
+        throw InferenceError("QUANTIZED_INFERENCE_UNSUPPORTED");
+    }
     if (cfg.norm_type != "rmsnorm") throw InferenceError("NORM_TYPE_UNSUPPORTED");
     if (!cfg.use_swiglu || cfg.hidden_act != "silu") {
         throw InferenceError("MLP_TYPE_UNSUPPORTED");

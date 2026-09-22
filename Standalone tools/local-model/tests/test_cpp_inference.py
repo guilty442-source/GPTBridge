@@ -48,14 +48,16 @@ def _tiny_config() -> XingChengConfig:
     )
 
 
-def _export_tiny_model(tmp_path: Path):
+def _export_tiny_model(tmp_path: Path, quantize_bits: int | None = None):
     torch.manual_seed(23)
     config = _tiny_config()
     model = XingChengForCausalLM(config)
     checkpoint = tmp_path / "tiny.pt"
     save_checkpoint(checkpoint, model, config=config)
     bundle = tmp_path / "bundle"
-    report = export_checkpoint_for_cpp(checkpoint, bundle)
+    report = export_checkpoint_for_cpp(
+        checkpoint, bundle, quantize_bits=quantize_bits
+    )
     return model, config, bundle, report
 
 
@@ -655,3 +657,114 @@ def test_cpp_moe_generate_batch_parity(tmp_path: Path) -> None:
     after_first = engine.kv_memory_bytes()
     engine.generate_batch([list(p) for p in prompts], 4, sampling)
     assert engine.kv_memory_bytes() == after_first
+
+
+# Weight-only per-tensor symmetric quantization (INT8 / true-4-bit packed):
+# export emits int8/int4_packed tensors + scale; the engine dequantizes at
+# load, so parity is measured against the quantized PyTorch model.
+
+
+def _quantized_reference_logits(model, n_bits, ids):
+    from xingcheng.infrastructure.native_transformer.quantization.quantizer import (
+        quantize_model,
+    )
+
+    quantized = quantize_model(model, n_bits=n_bits)
+    with torch.no_grad():
+        return quantized(torch.tensor([ids], dtype=torch.long))["logits"][
+            0, -1
+        ].double()
+
+
+def test_cpp_int8_quantized_logits_parity(tmp_path: Path) -> None:
+    module = cpp_runtime.load_extension()
+    model, _config, bundle, report = _export_tiny_model(
+        tmp_path, quantize_bits=8
+    )
+    assert report["quantization"] == "int8"
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12]
+    expected = _quantized_reference_logits(model, 8, ids)
+    actual = torch.tensor(engine.logits(ids), dtype=torch.float64)
+    assert torch.allclose(actual, expected, atol=2e-3, rtol=2e-3)
+
+
+def test_cpp_int4_quantized_logits_parity(tmp_path: Path) -> None:
+    module = cpp_runtime.load_extension()
+    model, _config, bundle, report = _export_tiny_model(
+        tmp_path, quantize_bits=4
+    )
+    assert report["quantization"] == "int4"
+    fp64_bytes = _export_tiny_model(tmp_path / "fp64")[3]["weights_bytes"]
+    assert report["weights_bytes"] < fp64_bytes // 4
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12]
+    expected = _quantized_reference_logits(model, 4, ids)
+    actual = torch.tensor(engine.logits(ids), dtype=torch.float64)
+    assert torch.allclose(actual, expected, atol=2e-3, rtol=2e-3)
+
+
+def test_cpp_quantized_greedy_generation(tmp_path: Path) -> None:
+    """Quantized engine runs the full generate + batch paths end to end."""
+    module = cpp_runtime.load_extension()
+    model, _config, bundle, _report = _export_tiny_model(
+        tmp_path, quantize_bits=8
+    )
+    from xingcheng.infrastructure.native_transformer.quantization.quantizer import (
+        quantize_model,
+    )
+
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+    qmodel = quantize_model(model, n_bits=8)
+    expected = Generator(
+        qmodel, sampler=Sampler(SamplingConfig(do_sample=False, repetition_penalty=1.0)),
+        device=torch.device("cpu"),
+    ).generate(
+        torch.tensor([[1, 9, 10, 11]], dtype=torch.long),
+        max_new_tokens=4,
+        use_cache=True,
+    )[0].tolist()
+    assert engine.generate([1, 9, 10, 11], 4, sampling) == expected
+    batched = engine.generate_batch([[1, 9, 10, 11], [2, 7]], 4, sampling)
+    assert batched[0] == expected
+
+
+def test_cpp_quantization_fail_closed(tmp_path: Path) -> None:
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    manifest_path = bundle / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["config"]["quantization"] = "fp8"  # still unsupported
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    engine = module.NativeInferenceEngine()
+    with pytest.raises(RuntimeError, match="QUANTIZED_INFERENCE_UNSUPPORTED"):
+        engine.load(str(bundle))
+
+    _model2, _config2, bundle2, _r = _export_tiny_model(
+        tmp_path / "q8", quantize_bits=8
+    )
+    manifest_path2 = bundle2 / "manifest.json"
+    manifest2 = json.loads(manifest_path2.read_text(encoding="utf-8"))
+    name = next(
+        n for n, i in manifest2["tensors"].items() if i["dtype"] == "int8"
+    )
+    del manifest2["tensors"][name]["scale"]
+    manifest_path2.write_text(
+        json.dumps(manifest2, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    engine2 = module.NativeInferenceEngine()
+    with pytest.raises(RuntimeError, match="TENSOR_SCALE_INVALID"):
+        engine2.load(str(bundle2))
+
+    with pytest.raises(ValueError, match="QUANTIZE_BITS_UNSUPPORTED"):
+        _export_tiny_model(tmp_path / "bad", quantize_bits=3)

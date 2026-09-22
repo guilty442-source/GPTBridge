@@ -1,0 +1,32 @@
+{
+  "id": "p1-quant-int8-int4-weight-only",
+  "date": "2026-09-22",
+  "scope": "C++ inference engine weight-only quantization: INT8 + true-4-bit packed INT4",
+  "design": {
+    "export": "cpp_export.py quantize_bits param (8/4) + XINGCHENG_NATIVE_QUANTIZATION env fallback; per-tensor symmetric quantization of every nn.Linear weight except lm_head / MoE router / embeddings (mirrors quantize_model); int4 uses true 4-bit packing (2 values/byte, low nibble even index, +8 offset)",
+    "bundle": "per-tensor dtype field float64|int8|int4_packed + per-tensor scale; manifest config.quantization = none|int8|int4",
+    "engine": "WeightBundle::load dtype dispatch dequantizes quantized tensors once at load into owned fp64 buffers — all downstream GEMMs unchanged; validate_supported accepts int8/int4, fp8 stays fail-closed",
+    "fail_closed": [
+      "QUANTIZED_INFERENCE_UNSUPPORTED (fp8/unknown)",
+      "TENSOR_DTYPE_UNSUPPORTED",
+      "TENSOR_SCALE_INVALID",
+      "TENSOR_INT4_SHAPE_UNSUPPORTED",
+      "TENSOR_BOUNDS_INVALID",
+      "CPP_EXPORT_QUANTIZE_BITS_UNSUPPORTED"
+    ]
+  },
+  "validation": {
+    "cl_syntax": "engine.cpp compiles clean under MSVC 19.51 /std:c++17",
+    "tests": "26 passed in 7.91s (4 new: int8 logits parity, int4 logits parity + blob <1/4 fp64, quantized greedy generate + generate_batch vs quantized PyTorch reference, fail-closed fp8/missing-scale/bad-bits)",
+    "parity": "engine logits match quantize_model(n_bits) PyTorch reference within atol/rtol 2e-3 (same dequantized weights, fp32-vs-fp64 only)",
+    "greedy": "quantized engine generate matches quantized PyTorch Generator token-for-token; batch path verified on quantized bundle",
+    "size": "int4 bundle weights.bin < fp64_bytes/4 on tiny fixture"
+  },
+  "files": [
+    "Standalone tools/local-model/src/backend/cpp/include/xingcheng_inference.hpp",
+    "Standalone tools/local-model/src/backend/cpp/src/engine.cpp",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_export.py",
+    "Standalone tools/local-model/tests/test_cpp_inference.py"
+  ],
+  "remaining": "KV INT8 cache (per-token/per-head) and per-channel/group-wise quantization are separate blueprint items; CUDA still fail-closed"
+}

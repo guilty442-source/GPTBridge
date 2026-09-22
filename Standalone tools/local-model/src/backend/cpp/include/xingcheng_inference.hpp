@@ -10,6 +10,7 @@
 #define XINGCHENG_INFERENCE_HPP
 
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -92,6 +93,9 @@ private:
     ModelConfig config_;
     std::unordered_map<std::string, TensorInfo> tensors_;
     std::unordered_map<std::string, TensorView> views_;
+    // Owned dequantized weights for int8/int4_packed tensors — deque keeps
+    // element addresses stable so TensorView::data stays valid as it grows.
+    std::deque<std::vector<double>> owned_tensors_;
     std::unique_ptr<Blob> blob_;
     int64_t weights_bytes_ = 0;
     std::string weights_sha256_;
