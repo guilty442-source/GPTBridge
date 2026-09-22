@@ -114,6 +114,20 @@ def _build_engine(root: Path) -> bool:
         return False
 
 
+def _engine_stale(root: Path, exe: Path) -> bool:
+    """Engine binary cache invalidation: the cached exe must be rebuilt
+    when the single-TU source or its public header is newer, otherwise a
+    stale binary would keep executing superseded check logic."""
+    exe_mtime = exe.stat().st_mtime
+    for dep in (
+        root / "native" / "audit" / "audit_engine.cpp",
+        root / "native" / "include" / "audit_engine.h",
+    ):
+        if dep.is_file() and dep.stat().st_mtime > exe_mtime:
+            return True
+    return False
+
+
 def _refresh_manifest_if_stale(root: Path) -> str | None:
     """Regenerate the manifest when the governed codex is newer
     (法典變更 → cache invalidation, P0-9 ④).  Returns an error string on
@@ -143,7 +157,7 @@ def _refresh_manifest_if_stale(root: Path) -> str | None:
 def run_native_audit_gate(root: Path) -> NativeAuditResult:
     """Execute the native audit engine against the governed manifest."""
     exe = root / ENGINE_EXE_RELATIVE
-    if not exe.is_file():
+    if not exe.is_file() or _engine_stale(root, exe):
         if not _build_engine(root):
             return NativeAuditResult(
                 status="delegated",
