@@ -83,3 +83,70 @@ def test_measurement_ledger_appends(tmp_path):
     entry = json.loads(lines[0])
     assert entry["role"] == "fast_chat"
     assert entry["metrics"]["ttft_ms"] == 340
+
+
+def test_shared_manager_factory_singleton(monkeypatch):
+    """§10.7: get_model_resource_manager 共享實例 + lazy 遙測。"""
+    import core_system.model_resource_manager as mod
+
+    monkeypatch.setattr(mod, "_SHARED", None)
+    mgr = mod.get_model_resource_manager()
+    assert mgr is mod.get_model_resource_manager()
+    assert mgr._ledger_path.name == "model-resource-ledger.jsonl"
+
+
+def test_embedding_load_gated_by_resource_manager(monkeypatch):
+    """§10.7 漸進遷移：LocalEmbeddingProvider 載入前經 request_load；
+    否決 fail-closed，載入失敗對稱 release。"""
+    import sys
+    import types
+
+    from core_system.rag.embeddings import LocalEmbeddingProvider
+
+    calls = {"requests": [], "releases": []}
+
+    class _Mgr:
+        def __init__(self, admit):
+            self.admit = admit
+
+        def request_load(self, role, model_id, *, vram_mb=0, ram_mb=0):
+            calls["requests"].append((role, model_id, ram_mb))
+            return type("D", (), {"admitted": self.admit, "reason": "x"})()
+
+        def release(self, model_id):
+            calls["releases"].append(model_id)
+            return True
+
+    import core_system.model_resource_manager as mod
+
+    # 否決 → fail-closed，不觸碰 sentence_transformers
+    monkeypatch.setattr(mod, "_SHARED", _Mgr(admit=False))
+    provider = LocalEmbeddingProvider()
+    try:
+        provider._load_model()
+    except RuntimeError as exc:
+        assert "resource gate" in str(exc)
+    else:
+        raise AssertionError("denied load must fail closed")
+    assert calls["requests"] and calls["requests"][0][2] == 512
+    assert provider._model is None
+
+    # 核准但載入拋錯 → 對稱 release
+    calls["requests"].clear()
+    monkeypatch.setattr(mod, "_SHARED", _Mgr(admit=True))
+    fake_st = types.ModuleType("sentence_transformers")
+
+    class _ST:
+        def __init__(self, name):
+            raise RuntimeError("load boom")
+
+    fake_st.SentenceTransformer = _ST
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_st)
+    provider2 = LocalEmbeddingProvider()
+    try:
+        provider2._load_model()
+    except RuntimeError as exc:
+        assert "load boom" in str(exc)
+    else:
+        raise AssertionError("load failure must propagate")
+    assert calls["releases"] == ["sentence-transformers/all-MiniLM-L6-v2"]

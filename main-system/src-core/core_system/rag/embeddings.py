@@ -150,11 +150,36 @@ class LocalEmbeddingProvider(EmbeddingProvider):
     def dimension(self) -> int:
         return self._dimension
 
+    # §10.7：embedding 屬 on_demand 角色，載入前經受管資源閘門。
+    # all-MiniLM-L6-v2 權重 ~90MB；512MB 為含執行期 overhead 之保守估測。
+    _EMBEDDING_RAM_REQUIRED_MB = 512
+
     def _load_model(self) -> None:
         if self._model is None:
-            from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(self._model_name)
-            self._dimension = self._model.get_sentence_embedding_dimension()
+            from core_system.model_resource_manager import (
+                ModelRole,
+                get_model_resource_manager,
+            )
+
+            mgr = get_model_resource_manager()
+            model_id = f"sentence-transformers/{self._model_name}"
+            decision = mgr.request_load(
+                ModelRole.EMBEDDING,
+                model_id,
+                ram_mb=self._EMBEDDING_RAM_REQUIRED_MB,
+            )
+            if not decision.admitted:
+                raise RuntimeError(
+                    f"embedding load denied by resource gate: {decision.reason}"
+                )
+            try:
+                from sentence_transformers import SentenceTransformer
+
+                self._model = SentenceTransformer(self._model_name)
+                self._dimension = self._model.get_sentence_embedding_dimension()
+            except Exception:
+                mgr.release(model_id)
+                raise
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
