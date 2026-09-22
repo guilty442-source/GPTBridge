@@ -1,0 +1,15 @@
+{
+  "schema": "p0-7-startup-timeout-failclosed/v1",
+  "generated_at": "2026-09-22T16:57:13Z",
+  "item": "P0-7③ startup gate deadline fail-closed real test",
+  "test_file": "main-system/tests/test_startup_gate_deadline.py",
+  "method": "StartupPhaseExecutionMixin._run_startup_phases driven with stubbed phase probes; real gate logic/DAG/deadline arithmetic. STARTUP_GATE_DEADLINE_SECONDS monkeypatched to 0.05s; postgresql-start stub sleeps 0.2s.",
+  "results": {
+    "test_deadline_exceeded_fails_closed": "PASS — deadline_exceeded=True, gate_ok=False, state=FAILED, exit_code=2, ladder never CORE_READY",
+    "test_within_deadline_passes_gate": "PASS — same harness inside deadline: gate_ok=True, exit_code=0",
+    "test_stop_flag_alone_also_fails_closed": "PASS — stop flag vetoes gate even within deadline"
+  },
+  "pytest": "3 passed in 14.96s",
+  "deadline_source": "startup_core/phases_constants.py: STARTUP_GATE_DEADLINE_SECONDS (certified default 8.0s; probe_constants.startup_gate_deadline_seconds)",
+  "fail_closed_path": "phases_execution.py: deadline_exceeded -> gate_ok=False -> state=FAILED -> exit_code=2"
+}

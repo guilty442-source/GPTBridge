@@ -20,6 +20,7 @@ import {
   getWorkspaceSize,
 } from './platform-tool-sizes'
 import { getSystemMetrics } from './systemMetrics'
+import { getPerfSlo } from './perfSlo'
 import { AdaptiveZoomController } from './adaptiveZoom'
 
 const sourceProduction = !app.isPackaged
@@ -80,6 +81,11 @@ export function registerIpcHandlers(
       bootTimestamp: Date.now(),
       systemMetrics: getSystemMetrics(),
     }
+  })
+
+  ipcMain.handle('app:get-perf-slo', async () => {
+    const paths = getRuntimePathLibrary()
+    return getPerfSlo(paths.workspaceRoot)
   })
 
   ipcMain.handle('app:ensure-backend-started', async () => {
