@@ -365,6 +365,7 @@ class ModelServiceActivationBroker:
         self._next_release_at = now + self.cooldown
         if self._last_release_result.get("ok") is True:
             self._broker_started_owner = False
+            self._release_resource_admission()
             _logger.info(
                 "on-demand model owner released under resource regulation"
             )
@@ -375,6 +376,90 @@ class ModelServiceActivationBroker:
             or self._last_release_result.get("error_code"),
         )
         return self._shadow_release(False, now, "release-failed")
+
+    # -- resource admission gate (§10.7; fail-closed) ----------------------
+
+    _RAM_HEADROOM = 1.5  # 權重→RAM 執行期 overhead，對齊引擎載入估算慣例
+
+    def _resource_gate(self, facts: dict[str, Any]) -> str | None:
+        """§10.7：載入前經 ``ModelResourceManager.request_load`` 資源閘門。
+
+        否決／估測不可用／閘門錯誤一律 fail-closed（不啟動、退避、記帳）。
+        僅在 manager 接上時生效（production 必接）。
+        """
+        mgr = self._resource_manager
+        if mgr is None:
+            return None
+        required_mb = self._estimate_owner_ram_mb()
+        facts["ram_required_mb"] = required_mb
+        if required_mb is None:
+            _logger.warning(
+                "model resource gate: cannot estimate owner RAM requirement"
+            )
+            return "resource-estimate-unavailable"
+        try:
+            from core_system.model_resource_manager import ModelRole
+
+            decision = mgr.request_load(
+                ModelRole.XINGCHENG_NATIVE, TARGET_TOOL_ID, ram_mb=required_mb
+            )
+        except Exception as error:
+            _logger.warning("model resource gate error: %s", error)
+            return "resource-gate-error"
+        facts["resource_admitted"] = bool(decision.admitted)
+        facts["resource_reason"] = decision.reason
+        try:
+            mgr.record_measurement(
+                TARGET_TOOL_ID,
+                ModelRole.XINGCHENG_NATIVE,
+                {
+                    "event": "admission",
+                    "admitted": decision.admitted,
+                    "reason": decision.reason,
+                    "ram_required_mb": required_mb,
+                },
+            )
+        except Exception:
+            pass
+        if not decision.admitted:
+            self._backoff = min(self.max_backoff, self._backoff * 2.0)
+            self._next_attempt_at = time.monotonic() + self._backoff
+            _logger.warning(
+                "model activation denied by resource gate (retry in %.0fs): %s",
+                self._backoff,
+                decision.reason,
+            )
+            return "resource-denied"
+        return None
+
+    def _estimate_owner_ram_mb(self) -> int | None:
+        """由 ``native-engine.json`` 釘定 checkpoint 檔案大小估 RAM 需求。
+
+        權重無論走 CPU 或 GPU 都必須進 RAM；VRAM 不列入硬性閘門
+        （引擎逾時會自行降級 CPU）。無法定位權重 → None（fail-closed）。
+        """
+        root = self._project_root
+        if root is None:
+            return None
+        try:
+            tool_root = root / "Standalone tools" / "local-model"
+            settings = tool_root / "runtime" / "settings" / "native-engine.json"
+            checkpoint = json.loads(settings.read_text(encoding="utf-8"))[
+                "checkpoint"
+            ]
+            size_mb = (tool_root / checkpoint).stat().st_size / (1024 * 1024)
+            return int(size_mb * self._RAM_HEADROOM) + 1
+        except Exception:
+            return None
+
+    def _release_resource_admission(self) -> None:
+        mgr = self._resource_manager
+        if mgr is None:
+            return
+        try:
+            mgr.release(TARGET_TOOL_ID)
+        except Exception:
+            pass
 
     # -- native shadow helpers (§10.65 act-1; fail-closed, Python authoritative)
 
@@ -415,6 +500,7 @@ class ModelServiceActivationBroker:
         """
         self._explicit_stop_at = time.time()
         self._broker_started_owner = False
+        self._release_resource_admission()
         # Cooldown so the next observed request waits before a fresh attempt.
         now = time.monotonic()
         self._next_attempt_at = now + self.cooldown
