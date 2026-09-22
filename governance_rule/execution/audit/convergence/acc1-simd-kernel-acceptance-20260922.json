@@ -1,0 +1,32 @@
+{
+  "schema": "acc1-simd-kernel-acceptance/v1",
+  "date": "2026-09-22",
+  "scope": "native/core/transformer.c + native/core/vector.c 純 C SIMD 核心（matmul／softmax／rmsnorm／rope／sdpa／vector dot·l2·cosine·batch_dot）",
+  "host": "AMD Ryzen 7 7800X3D（AVX2+FMA+AVX-512F/VL/DQ 實測可用）",
+  "change": {
+    "dispatch_override": "GPTBRIDGE_SIMD_LEVEL=none|scalar|avx2|avx512 診斷覆寫——僅能將派送等級壓低至 CPUID 偵測能力以下（min(requested, detected)），不得在無 AVX 機器上啟用不支援指令；無效值忽略",
+    "diagnostic_export": "gptbridge_native_simd_effective_level()（transformer.h）回傳生效等級 0/1/2",
+    "acceptance_suite": "native/test_suites/suite_simd_kernels.cpp — 獨立純量參照實作對每核心做等價比對（含 SIMD 主體＋尾端迴圈之非整倍尺寸），fail-closed 邊界檢查，--bench 模式輸出各核心 ns 計時",
+    "build_wiring": "native/test_suites/build.ps1 註冊 simd_kernels_suite（連結真實 transformer.c／vector.c）"
+  },
+  "equivalence": {
+    "method": "獨立 scalar reference（suite 內實作，非重複生產碼）vs 派送核心輸出",
+    "tolerance": "abs ≤1e-9（fp64 重結合誤差餘裕；契約等價門檻 1e-3）",
+    "levels_tested": ["none", "avx2", "avx512"],
+    "cases_per_level": "8/8 PASS（level 生效斷言＋matmul／softmax／rmsnorm／rope／sdpa／vector_ops 等價＋invalid-args fail-closed）",
+    "verdict": "PASS — 三個派送等級皆與純量語意等價"
+  },
+  "speedup_min_of_4_runs_us_per_op": {
+    "note": "共享主機（INT-10＋並行工作者）有噪聲；採 min-of-runs 慣例（同 c-w1-qk-simd）",
+    "matmul_64x192x96": {"none": 311.90, "avx2": 212.83, "avx512": 146.07, "avx512_delta_pct": -53.2},
+    "softmax_64x257": {"none": 122.59, "avx2": 58.26, "avx512": 108.04, "avx512_delta_pct": -11.9, "note": "exp 仍逐元素純量；SIMD 僅加速 load/store 段"},
+    "rmsnorm_64x255": {"none": 16.37, "avx2": 5.41, "avx512": 5.88, "avx512_delta_pct": -64.1},
+    "rope_2x8x64x64": {"none": 35.21, "avx2": 16.57, "avx512": 17.04, "avx512_delta_pct": -51.6},
+    "sdpa_32x48x64x64": {"none": 90.48, "avx2": 25.81, "avx512": 33.43, "avx512_delta_pct": -63.0},
+    "vector_dot_8191": {"none": 2.04, "avx2": 1.26, "avx512": 0.96, "avx512_delta_pct": -53.0},
+    "vector_batch_dot_16x1025": {"none": 4.81, "avx2": 2.75, "avx512": 2.19, "avx512_delta_pct": -54.4}
+  },
+  "no_avx_fallback": "env 強制 none 之運行即無 AVX 路徑實證（8/8 PASS）；派送永遠 min(requested, CPUID-detected)，無 AVX 硬體上恆走純量",
+  "build": "MSVC 14.51（VS18）／std:c++17／O2；cl 單元編譯零警告級輸出",
+  "untouched": ["_binding.cpp", "C++ engine", "Python 路徑", "KV pool"]
+}
