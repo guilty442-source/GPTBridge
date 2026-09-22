@@ -1,0 +1,19 @@
+{
+  "schema": "convergence-evidence/v1",
+  "evidence_id": "p1-8-eval-token-cap-20260923",
+  "recorded_at_utc": "2026-09-22T17:37:11Z",
+  "item": "P1-8 推送閘殘項：eval/dialogue 套件逾 30s 缺陷修正",
+  "changes": [
+    "suite_model_common.hpp: EvalSpec + eval_token_cap (default 128, clamped [32,2048]) parsed from spec JSON",
+    "suite_eval.cpp / suite_dialogue.cpp: hardcoded kEvalTokenCap=512 replaced by spec-driven g_spec.eval_token_cap",
+    "star-native-eval-v1.json / star-native-eval-dialogue-v1.json: eval_token_cap=128"
+  ],
+  "tests": [
+    "eval_suite.exe: 3/3 PASS in 22.1s (heldout NLL 18.75s; was 32.5s at cap=512) — under 30s suite budget",
+    "dialogue_suite.exe: 3/3 PASS in 11.4s (heldout NLL 10.58s)",
+    "mandatory_test_gate full run: 134 pass / 0 fail / 0 blocked across 20 suites, rebuilt=true — push gate PASS",
+    "invariants preserved: >=32 encoded tokens, >=31 scored tokens, deterministic truncation, ppl<uniform(8192), generation+tps gates unchanged"
+  ],
+  "deferred": [],
+  "notes": "suite_timeout_s=30 unchanged (defect fixed, not timeout raised). Concurrent worker activity in native/core observed during gate runs; final run green."
+}
