@@ -8,6 +8,7 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
 
 $nativeRoot = Split-Path $PSScriptRoot -Parent
 $coreDir = Join-Path $nativeRoot "core"
+$auditDir = Join-Path $nativeRoot "audit"
 $includeDir = Join-Path $nativeRoot "include"
 
 $suites = @(
@@ -28,6 +29,13 @@ $suites = @(
             (Join-Path $coreDir "maintenance.c")
         )
     },
+    @{
+        src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
+        # P0-9 審計引擎：連結真實原生實作
+        extra = @(
+            (Join-Path $auditDir "audit_engine.cpp")
+        )
+    },
     @{ src = "suite_blocked.cpp"; exe = "baseline_suite.exe" },
     @{ src = "suite_blocked.cpp"; exe = "eval_suite.exe" },
     @{ src = "suite_blocked.cpp"; exe = "dialogue_suite.exe" }
@@ -42,8 +50,12 @@ foreach ($suite in $suites) {
     if ($suite.ContainsKey("extra")) {
         foreach ($e in $suite.extra) { $extraSrcs += " `"$e`"" }
     }
-    $lines += "cl /nologo /std:c++17 /O2 /EHsc /I`"$includeDir`" /Fe:$exePath /Fo:$out\ `"$srcPath`"$extraSrcs >nul || exit /b 1"
+    $lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$exePath /Fo:$out\ `"$srcPath`"$extraSrcs >nul || exit /b 1"
 }
+# 獨立審計引擎 CLI（pre-commit 閘門嵌入式）
+$auditExe = Join-Path $out "audit-engine.exe"
+$auditSrc = Join-Path $auditDir "audit_engine.cpp"
+$lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe:$auditExe /Fo:$out\ `"$auditSrc`" >nul || exit /b 1"
 Set-Content -Path $bat -Value $lines -Encoding ASCII
 cmd /c $bat
 if ($LASTEXITCODE -ne 0) { Write-Output "BUILD FAILED"; exit 1 }

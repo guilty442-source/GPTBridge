@@ -1,0 +1,1245 @@
+{
+  "schema": "star-audit-manifest/v1",
+  "generated_at": "2026-09-22T07:26:13Z",
+  "generator": "governance_rule.execution.audit.export_audit_manifest",
+  "coverage": {
+    "native_checks": 91,
+    "delegated_checks": 154,
+    "native_kinds": [
+      "file-exists",
+      "file-not-exists",
+      "file-readonly",
+      "file-contains",
+      "text-no-pollution",
+      "json-parses",
+      "glob-min-count"
+    ]
+  },
+  "checks": [
+    {
+      "id": "forbidden-legacy:main-system/src-core/core_logger.py",
+      "kind": "file-not-exists",
+      "path": "main-system/src-core/core_logger.py"
+    },
+    {
+      "id": "forbidden-legacy:main-system/src-core/core_system/boundaries.py",
+      "kind": "file-not-exists",
+      "path": "main-system/src-core/core_system/boundaries.py"
+    },
+    {
+      "id": "forbidden-legacy:main-system/src-core/governance",
+      "kind": "file-not-exists",
+      "path": "main-system/src-core/governance"
+    },
+    {
+      "id": "forbidden-legacy:main-system/scripts/audit_runtime_governance.py",
+      "kind": "file-not-exists",
+      "path": "main-system/scripts/audit_runtime_governance.py"
+    },
+    {
+      "id": "forbidden-legacy:platform_tools",
+      "kind": "file-not-exists",
+      "path": "platform_tools"
+    },
+    {
+      "id": "protected-source:governance_rule/governance_policy.py",
+      "kind": "file-exists",
+      "path": "governance_rule/governance_policy.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/governance_policy.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/governance_policy.py"
+    },
+    {
+      "id": "protected-source:governance_rule/codex/__init__.py",
+      "kind": "file-exists",
+      "path": "governance_rule/codex/__init__.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/codex/__init__.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/codex/__init__.py"
+    },
+    {
+      "id": "protected-source:governance_rule/codex/data/governance_codex.sqlite3",
+      "kind": "file-exists",
+      "path": "governance_rule/codex/data/governance_codex.sqlite3"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/codex/data/governance_codex.sqlite3",
+      "kind": "file-readonly",
+      "path": "governance_rule/codex/data/governance_codex.sqlite3"
+    },
+    {
+      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+      "kind": "file-exists",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+      "kind": "file-readonly",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+      "kind": "file-exists",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+      "kind": "file-readonly",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
+    },
+    {
+      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+      "kind": "file-exists",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+      "kind": "file-readonly",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/chinese_codex_mirror.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/chinese_codex_mirror.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/chinese_codex_mirror.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/chinese_codex_mirror.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/codex_repository.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/codex_repository.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/codex_repository.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/codex_repository.py"
+    },
+    {
+      "id": "protected-source:governance_rule/code_rule_directory.py",
+      "kind": "file-exists",
+      "path": "governance_rule/code_rule_directory.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/code_rule_directory.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/code_rule_directory.py"
+    },
+    {
+      "id": "protected-source:governance_rule/permission_directory/directory_authority.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/directory_authority.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/permission_directory/directory_authority.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/permission_directory/directory_authority.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/authentication/__init__.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/authentication/__init__.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/authentication/__init__.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/authentication/__init__.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/integrity/__init__.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/integrity/__init__.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/integrity/__init__.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/integrity/__init__.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/versioning/__init__.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/versioning/__init__.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/versioning/__init__.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/versioning/__init__.py"
+    },
+    {
+      "id": "protected-source:governance_rule/permission_directory/execution/identity_registry/__init__.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/execution/identity_registry/__init__.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/permission_directory/execution/identity_registry/__init__.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/permission_directory/execution/identity_registry/__init__.py"
+    },
+    {
+      "id": "protected-source:governance_rule/permission_directory/execution/path_guard/__init__.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/execution/path_guard/__init__.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/permission_directory/execution/path_guard/__init__.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/permission_directory/execution/path_guard/__init__.py"
+    },
+    {
+      "id": "protected-source:main-system/src-core/core_system/governance_runtime.py",
+      "kind": "file-exists",
+      "path": "main-system/src-core/core_system/governance_runtime.py"
+    },
+    {
+      "id": "protected-source-readonly:main-system/src-core/core_system/governance_runtime.py",
+      "kind": "file-readonly",
+      "path": "main-system/src-core/core_system/governance_runtime.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/tool_runtime/__init__.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/tool_runtime/__init__.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/__init__.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/tool_runtime/__init__.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/tool_runtime/governed_runtime.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/tool_runtime/governed_runtime.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/governed_runtime.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/tool_runtime/governed_runtime.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/tool_runtime/tool_self_repair.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/tool_runtime/tool_self_repair.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/tool_self_repair.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/tool_runtime/tool_self_repair.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/tool_runtime/tool_local_cleanup.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/tool_runtime/tool_local_cleanup.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/tool_local_cleanup.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/tool_runtime/tool_local_cleanup.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/tool_runtime/sub_sovereign.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/tool_runtime/sub_sovereign.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/sub_sovereign.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/tool_runtime/sub_sovereign.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/git_tiers/__init__.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/git_tiers/__init__.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/git_tiers/__init__.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/git_tiers/__init__.py"
+    },
+    {
+      "id": "protected-source:governance_rule/permission_directory/registries/permissions/identity_groups.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/registries/permissions/identity_groups.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/identity_groups.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/permission_directory/registries/permissions/identity_groups.py"
+    },
+    {
+      "id": "protected-source:governance_rule/permission_directory/registries/permissions/identity_permissions.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/registries/permissions/identity_permissions.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/identity_permissions.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/permission_directory/registries/permissions/identity_permissions.py"
+    },
+    {
+      "id": "protected-source:governance_rule/permission_directory/registries/permissions/capability_boundaries.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/registries/permissions/capability_boundaries.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/capability_boundaries.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/permission_directory/registries/permissions/capability_boundaries.py"
+    },
+    {
+      "id": "protected-source:governance_rule/permission_directory/registries/permissions/tool_routes.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/registries/permissions/tool_routes.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/tool_routes.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/permission_directory/registries/permissions/tool_routes.py"
+    },
+    {
+      "id": "protected-source:governance_rule/permission_directory/registries/permissions/source_ownership.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/registries/permissions/source_ownership.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/source_ownership.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/permission_directory/registries/permissions/source_ownership.py"
+    },
+    {
+      "id": "architecture-pollution:architecture-git.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-git.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-languages.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-languages.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-project.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-project.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-rag.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-rag.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-sql.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-sql.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-ai-assistant.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-ai-assistant.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-ai-collaboration.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-ai-collaboration.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-business-logic-csharp.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-business-logic-csharp.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-file-sorter.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-file-sorter.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-investment-mobile.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-investment-mobile.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-local-model.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-local-model.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-model-dialogue.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-model-dialogue.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-system-rescue.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-system-rescue.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-vaultly.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-vaultly.md"
+    },
+    {
+      "id": "mirror-part-pollution:governance_codex.zh-TW.part-1.txt",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "mirror-part-pollution:governance_codex.zh-TW.part-2.txt",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
+    },
+    {
+      "id": "mirror-part-pollution:governance_codex.zh-TW.part-3.txt",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
+    },
+    {
+      "id": "mirror-part-pollution:governance_codex.zh-TW.part-4.txt",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-4.txt"
+    },
+    {
+      "id": "mirror-part-pollution:governance_codex.zh-TW.part-5.txt",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-5.txt"
+    },
+    {
+      "id": "contract-parse:main-system/config/ai-connection-contract.json",
+      "kind": "json-parses",
+      "path": "main-system/config/ai-connection-contract.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/backend-lifecycle-contract.json",
+      "kind": "json-parses",
+      "path": "main-system/config/backend-lifecycle-contract.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/cleanup-caps-policy.json",
+      "kind": "json-parses",
+      "path": "main-system/config/cleanup-caps-policy.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/data-architecture-contract.json",
+      "kind": "json-parses",
+      "path": "main-system/config/data-architecture-contract.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/ipc-contract.json",
+      "kind": "json-parses",
+      "path": "main-system/config/ipc-contract.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/ipc-surface-backend.json",
+      "kind": "json-parses",
+      "path": "main-system/config/ipc-surface-backend.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/ipc-surface-frontend.json",
+      "kind": "json-parses",
+      "path": "main-system/config/ipc-surface-frontend.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/resident-core.json",
+      "kind": "json-parses",
+      "path": "main-system/config/resident-core.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/sleep-policy.json",
+      "kind": "json-parses",
+      "path": "main-system/config/sleep-policy.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/sql-schema-contract.json",
+      "kind": "json-parses",
+      "path": "main-system/config/sql-schema-contract.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/tool-isolation-policy.json",
+      "kind": "json-parses",
+      "path": "main-system/config/tool-isolation-policy.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/tool-runtime-contract.json",
+      "kind": "json-parses",
+      "path": "main-system/config/tool-runtime-contract.json"
+    },
+    {
+      "id": "contract-parse:main-system/config/automation-flows.json",
+      "kind": "json-parses",
+      "path": "main-system/config/automation-flows.json"
+    },
+    {
+      "id": "python-check:check_archive_catalog",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_archive_restore_test",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_archive_versioning",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_audit_hash_chain",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_audit_hot_history_separation",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_audit_retention_layering",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_authority_marker",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_batch_writer_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_cache_invalidation_policy",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_canary_upgrade",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_capacity_quota",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_chaos_drill",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_compatibility_matrix",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_compatibility_matrix_ext",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_contract_handshake",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_data_layer_contract",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_data_layer_contract_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_data_lineage",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_database_release_manifest",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_ddl_audit",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_deletion_coordinator",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_dependency_check",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_dependency_classification",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_dependency_drift",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_dependency_governor_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_dependency_graph",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_driver_compatibility_test",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_embedded_browser",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_fail_closed",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_generation_fence_helper",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_git_tiers",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_incremental_reconcile",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_integration_rule",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_integrity_snapshot",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_integrity_verifier_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_lease_recovery",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_lifecycle_manager_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_locator_cache_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_merkle_root",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_metadata_contract",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_migration_breaking_change",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_offline_bundle",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_orphan_scanner",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_performance_baseline",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_performance_baseline_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_permission_snapshot",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_permission_snapshot_helper",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_pg_major_upgrade_rehearsal",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_pg_offline_recovery",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_pg_recovery_verification",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_prepared_query_catalog_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_provenance_helper",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_purge_audit",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_purge_queue",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_qdrant_contract_compat",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_qdrant_contract_version",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_qdrant_full_rebuild",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_qdrant_integrity_mapping",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_qdrant_recovery",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_qdrant_vector_lifecycle",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_query_contract_version",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_query_fingerprint",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_query_fingerprint_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_rag_readiness_gate",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_readonly_domain_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_readonly_domain_startup_cert",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_rebuild_certification",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_rebuild_certifier_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_reconcile_batch_digest",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_reconcile_modules",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_reconcile_recovery_phase",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_barrier",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_certification",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_checkpoint",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_generation",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_idempotency",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_incident",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_orchestrator_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_plan",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_safety_fence",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_recovery_state_machine",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_release_audit",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_release_manifest_file",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_release_manifest_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_release_signature",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_resource_content_hash",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_restore_verification",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_retention_hold",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_rls_role_migration",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_roll_forward",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sbom_dependency_inventory",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_schema_ownership_lock",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_schema_readiness",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_shutdown_audit",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_shutdown_phase",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_slo_metrics",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sql_migrations",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_classification",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_classification_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_database_digest",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_fallback_freeze",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_generation_fence",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_per_class_retention",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_pragma_policy_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_runtime_compat",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_template",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_template_release",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_sqlite_wal_governor_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_startup_certifier_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_startup_phase",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_startup_phase_gate",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_tamper_state",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_transport_hot_path_index",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_transport_recovery",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_transport_retention",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_two_stage_deletion",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_unclean_shutdown_detection",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_unified_lifecycle_state",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_upgrade_classification",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_version_lock",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_vulnerability_risk",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_wal_checkpoint_monitor",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_watchdog_bloat_rpo_rto",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_watchdog_module",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_workload_class",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_workload_pool_query_class",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_write_provenance",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_codex_text_integrity",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_architecture_sources",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_authority_policy",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_identity_permissions",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_main_system_source",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_repair_policy",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_shared_layer_policy",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_shared_layer_structure",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_third_party_inventory",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_tool_isolation_hardening",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_activation_states",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_architecture_registry",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_directory_audit",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_directory_catalog_coverage",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_directory_identity_and_format",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_directory_mirror_parity",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_directory_relationships",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_directory_schemas",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_directory_seal",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_provision_classification",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_formal_rules",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_implementation_obligations",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_tool_identity_registration",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_tool_manifests",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:check_contract_axes",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
+    },
+    {
+      "id": "python-check:protected-source-semantic",
+      "kind": "delegated",
+      "reason": "ast.parse / sqlite quick_check / duplicate detection"
+    },
+    {
+      "id": "python-check:codex-consistency-semantic",
+      "kind": "delegated",
+      "reason": "codex repository + mirror identity sync"
+    }
+  ]
+}

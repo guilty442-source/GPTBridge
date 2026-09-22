@@ -78,6 +78,24 @@ def main() -> int:
     # a second time (the hook itself is already a Python process with
     # governance_rule on sys.path).
     os.environ.setdefault("GPTBRIDGE_AUDIT_SKIP_SELF_HEALTH", "1")
+
+    # Native C++ audit engine (P0-9 §1.1): authoritative for every check
+    # kind it supports; FAIL/timeout is fail-closed.  "delegated" means the
+    # engine could not run in this environment — the Python oracle below
+    # still covers the same governed files during the transition.
+    from governance_rule.execution.audit.native_audit_gate import (
+        run_native_audit_gate,
+    )
+    native = run_native_audit_gate(WORKTREE_ROOT)
+    if native.status in ("fail", "timeout"):
+        _snapshot = _lightweight_snapshot(WORKTREE_ROOT)
+        audit_log(2, "commit", actor, False,
+                  f"native audit engine gate failed ({native.summary()})",
+                  operation="commit", repo_snapshot=_snapshot)
+        for error in native.errors:
+            sys.stderr.write(f"[FAIL] {error}\n")
+        return 1
+
     from governance_rule.execution.audit import audit_runtime_governance
 
     errors = audit_runtime_governance(
@@ -92,7 +110,9 @@ def main() -> int:
             sys.stderr.write(f"[FAIL] {error}\n")
         return 1
 
-    audit_log(2, "commit", actor, True, "pre-commit governance audit passed", operation="commit", repo_snapshot=_snapshot)
+    audit_log(2, "commit", actor, True,
+              f"pre-commit governance audit passed ({native.summary()})",
+              operation="commit", repo_snapshot=_snapshot)
     return 0
 
 
