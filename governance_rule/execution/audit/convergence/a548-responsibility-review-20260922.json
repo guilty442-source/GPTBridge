@@ -1,0 +1,73 @@
+{
+  "artifact": "a548-responsibility-review",
+  "date": "2026-09-22",
+  "worker": "devin",
+  "blueprint_item": "E14 收尾組 / §10.68 C. 權責衝突：A548 vs A366/A380/A408 字面牴觸",
+  "adjudication": "2026-09-22 總督裁定：全面責任檢討（①兩域界定 ②三線權責邊界 ③clarification amendment，不改既有特別法效力）",
+  "provisions_reviewed": [
+    "A548",
+    "A366",
+    "A380",
+    "A408",
+    "A554",
+    "A152",
+    "A154",
+    "A259",
+    "A261",
+    "E127",
+    "E128"
+  ],
+  "literal_conflict": {
+    "a548": "故障訊息必須經資訊層內部通道直接告知星澄，由星澄自主發起受治理維修；FORBID:user-confirmation-gating-xingcheng-repair",
+    "a366": "EXECUTION-GATE: a repair/update mutation may execute only when its corresponding switch is enabled AND the user confirms the concrete pending action",
+    "a380": "enabled state only permits presentation of a concrete action for decision; each action still requires the A366 one-time user confirmation",
+    "a408": "GATE: enabled matching switch, current unrevoked single-use confirmation, permission proof, synchronization decision, before hash and generation are all required",
+    "contradiction": "A366/A380/A408 的「repair mutation」字面涵蓋一切修復異動，與 A548 禁止使用者確認閘控星澄自主維修直接牴觸"
+  },
+  "domain_boundary": {
+    "domain_a_xingcheng_internal_fault": {
+      "name": "星澄自身內部故障域（A548）",
+      "definition": "資訊層健康訊號判定之受治理執行期故障：主系統原始碼語法錯誤（MAIN_SYSTEM_SOURCE_SYNTAX_FAILED）、工具執行期崩潰（TOOL_RUNTIME_CRASH）、套件缺失／未驗證／過期（EXECUTABLE_MISSING、PACKAGE_UNVERIFIED、STALE_TOOL_PACKAGE、INCOMPATIBLE_TOOL_RUNTIME、SOURCE_RUNTIME_NOT_READY）、自有域異常",
+      "flow": "health-signal > 資訊層 repair-requests.json > maintenance sovereign 健康分類（A152/A154 health-only）> 內部通道通知星澄 handle_internal_fault_repair > 星澄自主發起 decision_sovereign.decide_and_route_repair > permission 檢核 > governed executor > independent verification > learning store（E127）> 資訊層 > 狀態投影式 UI 通知（E128）",
+      "gate": "可修復性判定→權限檢核→稽核登錄→執行→獨立驗證→學習回饋；無使用者開關、無使用者確認",
+      "assistant_notification": "status-only 狀態投影；不構成許可、決策或執行入口，不得阻擋或延遲自主維修"
+    },
+    "domain_b_user_facing_update": {
+      "name": "使用者面自動更新域（A366/A380/A408）",
+      "definition": "使用者可見系統之版本異動：系統更新、第三方元件更新、hot-reload 預檢更新意圖（pending queue 僅餘 kind=\"update\" 生產者）",
+      "flow": "pending action > update_release／automatic_update_enabled 開關 > 一次性確認（standing-switch 或 single-item）> 同步派發 > 執行 > 證據刷新",
+      "gate": "開關啟用＋當期未撤銷單次確認＋權限證明＋同步決策＋before hash＋generation",
+      "exclusion": "星澄自體升級屬 owned-domain 內部生命週期（A554），不由 update_release 控制（_SELF_UPGRADE_HANDLING=owned-domain-internal）"
+    },
+    "boundary_rule": "補救措施為恢復受治理執行期穩態者屬甲域；交付版本異動至使用者面者屬乙域；同一事件不雙軌——內部故障修復永不需使用者確認，版本更新永不自動放行"
+  },
+  "three_line_review": {
+    "repair": {
+      "owner": "A548 自主受治理鏈（maintenance 分類→星澄自主→decision→permission→executor→verify→learning）",
+      "user_surface": "repair_release／automatic_repair_enabled 已依 2026-09-18 總督指令退役（pinned managed-by=system-audit-flow；寫入回 SWITCH_RETIRED）；pending queue 無 kind=repair 生產者",
+      "verdict": "實作已全面落於甲域；法典文字需 clarification 收斂字面牴觸"
+    },
+    "update": {
+      "owner": "A366/A380/A408 使用者面（update_release＋一次性確認＋契約版本＋角色分離）",
+      "user_surface": "update_release／automatic_update_enabled 為真實使用者開關；confirmation_service 完整保留 expiry／digest／single-execution 閘",
+      "verdict": "維持既有特別法效力不變"
+    },
+    "learning": {
+      "owner": "A554 自主學習／自體升級（無使用者開關；kill switch 為 operator 政策）；E127 修復學習僅記錄驗證結果",
+      "bound": "RepairLearningStore 可學方法僅非異動 artifact_rebuild；targeted_patch 不得由學習配方自我授權",
+      "verdict": "不屬 A366/A380 開關範圍；與兩域均不牴觸"
+    }
+  },
+  "implementation_evidence": [
+    "main-system/src-core/core_system/auto_action_policy.py: automatic_repair_execution_allowed() 恆 True（switch retired, governor directive 2026-09-18）；set_automation_switch 對 repair 開關拋出 retired 錯誤",
+    "main-system/src-core/core_system/xingcheng_control/commands.py: xingcheng-set-repair-release 回 SWITCH_RETIRED；repair_release 狀態回報 managed/system-audit-flow",
+    "main-system/src-core/core_system/xingcheng_control/surface.py: is_repair_release_enabled() 恆 True（system-audit-flow 託管）；update_release 為真實開關",
+    "main-system/src-core/core_system/maintenance_repair_chain.py: 分類後經 xingcheng_sovereign.handle_internal_fault_repair 內部通知星澄自主發起；UI 通知為 status-only",
+    "main-system/governance/sovereigns/xingcheng/auto.py: handle_internal_fault_repair 回傳 user_confirmation=not-required、assistant_notification=status-only、notification_channel=internal-information-layer",
+    "main-system/src-core/core_system/auto_repair_chain.py: 完整受治理鏈（分類→決策→權限→執行→獨立驗證→學習），無使用者確認閘",
+    "main-system/src-core/core_system/confirmation_service.py + update_manager*.py + third_party_manager_updates.py + hot_reload_watcher_preflight.py: pending queue 僅 kind=update；更新線完整保留開關＋確認閘"
+  ],
+  "conclusion": "實作層兩域已分離且與裁定一致；殘留僅為法典文字字面牴觸。clarification amendment（change_class=clarification，precedence 2，meaning-clarification-without-scope-duty-or-access-change）已 staged，為四條文附加 domain-scope 澄清語句，不更動既有特別法效力。",
+  "staged_amendment_request": "main-system/runtime/state/codex-amendment-request-a548-domain-clarification-2026-09-22.json",
+  "residual": "codex 實際寫入需經受治理 amendment pipeline（五主宰一致稽核門）於協調窗口執行"
+}
