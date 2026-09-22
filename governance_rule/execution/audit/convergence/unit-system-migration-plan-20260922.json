@@ -1,0 +1,51 @@
+{
+  "evidence": "單元制落地搬移順序（§10.68）",
+  "at": "2026-09-22T01:30:00Z",
+  "order": ["tools","model","shared","core","xingcheng"],
+  "hierarchy": {
+    "blocks": 5,
+    "units": 10,
+    "reparents": 27,
+    "articles": ["A594","A595","A596"],
+    "codex_version": "E2:2026-09-21T15:11:59Z -> r8/r9 candidate bd91fa9f/265d091f"
+  },
+  "steps": [
+    {
+      "phase": "tools",
+      "from": "Standalone tools/* (7 independent tools)",
+      "to": "<block>/tools/<unit>/ (tools block, per-tool unit)",
+      "check": "tool isolation policy 512-2048 MB, 5s start/stop, manifest + permission routes"
+    },
+    {
+      "phase": "model",
+      "from": "Standalone tools/local-model/*",
+      "to": "<block>/model/<unit>/ (model block)",
+      "check": "tokenizer + checkpoint + lifecycle + maturity, native_engine pin"
+    },
+    {
+      "phase": "shared",
+      "from": "shared-layer/src/*",
+      "to": "<block>/shared/<unit>/ (information layer, resident/canonical)",
+      "check": "A8/A44/A49, architecture_registry vs physical_path, RLS + generation fence"
+    },
+    {
+      "phase": "core",
+      "from": "main-system/src-core/*",
+      "to": "<block>/core/<unit>/ (runtime core, C)",
+      "check": "native/core/runtime_core + scheduler + ipc_registry prototypes"
+    },
+    {
+      "phase": "xingcheng",
+      "from": "main-system/governance/sovereigns/xingcheng/*",
+      "to": "<block>/xingcheng/<unit>/ (xingcheng domain)",
+      "check": "assistant vs domain separation, tool_call + reasoning, L5-L7"
+    }
+  ],
+  "invariants": [
+    "目錄結構必須與層級同步（<區塊>/<單元>/<模組>），不得跨層混放",
+    "同一單元之模組放置在一起（同目錄/同宿主/同生命週期），跨單元走受治理介面",
+    "每步受管搬移（flag → 觀察窗 → codex 列更新 → 移除），不留 shim/臨時檔（大型重構直接覆蓋）",
+    "隔離按需（一個單元或單一模組），由運行核心執行、決策核心裁決，全程審計"
+  ],
+  "next": "依序 tools→model→shared→core→xingcheng 每步一輪 shadow→primary→retire，附整體淨占用量測"
+}
