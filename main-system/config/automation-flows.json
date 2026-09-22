@@ -33,19 +33,19 @@
     },
     "maintenance-controller": {
       "owner": "maintenance sovereign / maintenance_controller",
-      "kind": "private-loop",
+      "kind": "periodic",
       "interval_s": 30,
       "pausable": true,
       "enabled": true,
-      "description": "PG/SQLite/reconcile/backup 維護信號 tick；私有迴圈待遷移至核心"
+      "description": "PG/SQLite/reconcile/backup 維護信號 tick；控制器 start(spawn_loop=False)，核心以 to_thread 驅動 run_once"
     },
     "connection-watchdog": {
-      "owner": "connection-watchdog",
-      "kind": "private-loop",
+      "owner": "connection-watchdog（boot_core 監督行程）",
+      "kind": "external-process",
       "interval_s": 60,
       "pausable": true,
       "enabled": true,
-      "description": "前端/後端連線探針（thread 迴圈、自適應退避）；待遷移"
+      "description": "前端/後端連線探針（boot_core 監督行程內 thread 迴圈、自適應退避）；非主系統行程內排程對象"
     },
     "state-outbox": {
       "owner": "state-outbox",
@@ -73,11 +73,11 @@
     },
     "resource-governor": {
       "owner": "resource governor",
-      "kind": "private-loop",
+      "kind": "external-process",
       "interval_s": 20,
       "pausable": false,
       "enabled": true,
-      "description": "§10.64 資源管制循環；kill switch 只停動作不停觀測"
+      "description": "§10.64 資源管制：scripts/resource-governor.py 獨立行程（非行程內排程對象）；行程生命週期接管為另一遷移面。kill switch 只停動作不停觀測"
     },
     "update-manager": {
       "owner": "update-manager",

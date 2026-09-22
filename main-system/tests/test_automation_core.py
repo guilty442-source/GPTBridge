@@ -258,4 +258,36 @@ def test_real_manifest_covers_registered_flows() -> None:
         assert flow_id in flows, flow_id
         assert flows[flow_id].get("owner"), flow_id
         assert flows[flow_id].get("kind") in (
-            "periodic", "event", "on-demand", "private-loop")
+            "periodic", "event", "on-demand", "private-loop",
+            "external-process")
+
+
+def test_maintenance_controller_externally_driven(tmp_path: Path) -> None:
+    """MaintenanceController start(spawn_loop=False) + core-driven run_once:
+    the private thread is gone; the shared scheduler owns the cadence."""
+    from shared_layer.database.maintenance.controller import MaintenanceController
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]
+                           / "shared-layer" / "src"))
+
+    ticks: list[int] = []
+
+    controller = MaintenanceController()
+    controller._scheduler.tick = lambda signals, context: ticks.append(1) or []
+    controller.start(spawn_loop=False)
+    try:
+        assert controller.is_running() is True
+        assert controller._execution_thread is None
+
+        core = _core(tmp_path, {"maintenance-controller": dict(_FLOW)})
+
+        async def driven() -> None:
+            await asyncio.to_thread(controller.run_once)
+
+        assert core.register_flow(
+            "maintenance-controller", driven, interval_s=30) is True
+        asyncio.run(
+            core._scheduler.jobs_map["maintenance-controller"]["tick"]())
+        assert ticks == [1]
+    finally:
+        controller.stop(graceful=False)

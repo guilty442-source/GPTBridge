@@ -53,6 +53,10 @@ class MaintenanceControllerIntegration:
     app: Any
     controller: MaintenanceController | None = None
     _started: bool = False
+    # §1.1: True when the automation core drives run_once on the shared
+    # scheduler; False when the flow was denied (kill switch); None when
+    # the controller still uses its private thread (no core present).
+    _core_driven: bool | None = None
     _start_time: float = 0.0
     _persist_failures: int = 0
     # §10.63 R2: both controller callbacks probed PG health independently —
@@ -85,8 +89,28 @@ class MaintenanceControllerIntegration:
         # Set callbacks
         self._set_callbacks()
 
-        # Start controller
-        self.controller.start()
+        # Start controller.
+        # §1.1 自動化集中：when the automation core is present it owns the
+        # cadence — the controller runs without its private thread and each
+        # scheduler tick drives ``run_once`` on a worker thread. A denied
+        # registration (unlisted/kill-switched) must not fall back to the
+        # private loop; the controller then reports started-but-not-driven.
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            self.controller.start(spawn_loop=False)
+
+            async def _driven_tick() -> None:
+                controller = self.controller
+                if controller is None or not controller.is_running():
+                    return
+                await asyncio.to_thread(controller.run_once)
+
+            self._core_driven = core.register_flow(
+                "maintenance-controller", _driven_tick
+            )
+        else:
+            self.controller.start()
+            self._core_driven = None
 
         self._started = True
 
@@ -94,6 +118,10 @@ class MaintenanceControllerIntegration:
             "ok": True,
             "started_at": time.time(),
             "duration_ms": int((time.monotonic() - self._start_time) * 1000),
+            "loop": (
+                "automation-core" if self._core_driven
+                else ("disabled" if core is not None else "private-thread")
+            ),
         }
 
     async def stop(self) -> dict[str, Any]:
@@ -102,6 +130,12 @@ class MaintenanceControllerIntegration:
             return {"ok": True, "already_stopped": True}
 
         stop_start = time.monotonic()
+
+        # §1.1: release the core registration before stopping so no
+        # in-flight tick can re-enter a stopped controller.
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            core.unregister("maintenance-controller")
 
         # Graceful stop
         self.controller.stop(graceful=True)
