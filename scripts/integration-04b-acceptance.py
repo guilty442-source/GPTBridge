@@ -96,11 +96,20 @@ def _copy_venv(target: Path) -> bool:
     for candidate in sorted(RELEASES.glob("rc-*"), reverse=True):
         source = candidate / "venv" / "Scripts" / "python.exe"
         if candidate != RC and source.is_file():
-            shutil.copytree(
-                candidate / "venv", target,
-                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            # robocopy: site-packages contain >260-char paths that
+            # shutil.copytree cannot reach on Windows.
+            result = subprocess.run(
+                [
+                    "robocopy", str(candidate / "venv"), str(target),
+                    "/E", "/COPY:DAT", "/DCOPY:T", "/R:0", "/W:0",
+                    "/XD", "__pycache__", "/XF", "*.pyc",
+                    "/NFL", "/NDL", "/NJH", "/NJS", "/NP",
+                ],
+                capture_output=True,
+                creationflags=_CREATE_NO_WINDOW,
             )
-            return True
+            if result.returncode <= 7:
+                return True
     return False
 
 
