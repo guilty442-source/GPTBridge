@@ -180,3 +180,24 @@ def test_status_reports_certifier_presence(tmp_path):
     assert sched.get_status()["restore_certifier"] is False
     sched2, _ = _scheduler(tmp_path, certifier=lambda p: None)
     assert sched2.get_status()["restore_certifier"] is True
+
+
+def test_externally_driven_run_once(tmp_path):
+    """§1.1 自動化集中：start(spawn_loop=False) runs no private thread;
+    each run_once performs one due-check iteration (automation core
+    drives the cadence)."""
+    _make_backup(tmp_path)
+    sched, conn = _scheduler(tmp_path)
+    sched._jobs["postgresql"] = ScheduledBackup(
+        engine="postgresql", rpo_seconds=3600,
+    )
+    sched.start(spawn_loop=False)
+    try:
+        assert sched._thread is None
+        sched._jobs["postgresql"].next_backup = None  # force due
+        sched.run_once()
+        job = sched._jobs["postgresql"]
+        assert job.last_backup is not None
+        assert _catalog_insert(conn) is not None
+    finally:
+        sched.stop()

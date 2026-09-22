@@ -46,8 +46,19 @@ async def _start_backup_scheduler_if_enabled(app: Any) -> None:
             return certify_restore(conn)
 
     scheduler = get_backup_scheduler(settings, restore_certifier=certify)
-    scheduler.start()
     app.backup_scheduler = scheduler
+    # §1.1 自動化集中：automation core 持有節奏時不開私有 thread；
+    # 拒絕註冊（kill switch）即不啟動私有迴圈。
+    core = getattr(app, "automation_core", None)
+    if core is not None:
+        scheduler.start(spawn_loop=False)
+        core.register_flow(
+            "backup-scheduler",
+            lambda: asyncio.to_thread(scheduler.run_once),
+            interval_s=float(scheduler.check_interval),
+        )
+    else:
+        scheduler.start()
 
 
 class StartupExecutorPhasesMixin:

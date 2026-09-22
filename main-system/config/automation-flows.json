@@ -137,11 +137,11 @@
     },
     "backup-scheduler": {
       "owner": "backup scheduler（shared-layer）",
-      "kind": "private-loop",
-      "interval_s": null,
+      "kind": "periodic",
+      "interval_s": 60,
       "pausable": true,
       "enabled": true,
-      "description": "受管備份排程（thread 迴圈，_start_backup_scheduler_if_enabled 啟動條件控制）；待遷移至核心"
+      "description": "受管備份排程（GPTBRIDGE_BACKUP_SCHEDULER=1 啟動條件控制）；核心驅動 run_once"
     }
   }
 }

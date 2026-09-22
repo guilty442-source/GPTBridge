@@ -11,7 +11,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
 from psycopg import Connection
@@ -197,26 +197,40 @@ class BackupScheduler:
     def _schedule_next(self, job: ScheduledBackup) -> None:
         """Calculate next backup time based on frequency."""
         freq = job.rpo_seconds  # Use RPO as frequency for now
-        job.next_backup = datetime.now(timezone.utc).replace(microsecond=0)
-        job.next_backup = job.next_backup.replace(second=job.next_backup.second + freq)
+        job.next_backup = (
+            datetime.now(timezone.utc).replace(microsecond=0)
+            + timedelta(seconds=freq)
+        )
+
+    def run_once(self) -> None:
+        """One due-check iteration, externally driven.
+
+        §1.1 自動化集中：when the automation core owns the cadence
+        (``start(spawn_loop=False)``) each scheduler tick calls this
+        instead of the private thread loop. Lock semantics unchanged —
+        a running backup still holds ``_lock``."""
+        with self._lock:
+            now = datetime.now(timezone.utc)
+            for job in self._jobs.values():
+                if job.next_backup is None or now >= job.next_backup:
+                    self._run_backup(job)
+                    self._schedule_next(job)
 
     def _scheduler_loop(self) -> None:
         """Main scheduler loop."""
         while self._running:
             try:
-                with self._lock:
-                    now = datetime.now(timezone.utc)
-                    for job in self._jobs.values():
-                        if job.next_backup is None or now >= job.next_backup:
-                            self._run_backup(job)
-                            self._schedule_next(job)
+                self.run_once()
             except Exception as e:
                 _logger.error("BackupScheduler: loop error: %s", e)
 
             time.sleep(self.check_interval)
 
-    def start(self) -> None:
-        """Start the scheduler in a background thread."""
+    def start(self, *, spawn_loop: bool = True) -> None:
+        """Start the scheduler.
+
+        ``spawn_loop=False`` starts without the private thread — the
+        caller drives cadence via :meth:`run_once` (automation core)."""
         with self._lock:
             if self._running:
                 return
@@ -224,8 +238,9 @@ class BackupScheduler:
             # Initialize next backup times
             for job in self._jobs.values():
                 self._schedule_next(job)
-            self._thread = threading.Thread(target=self._scheduler_loop, daemon=True, name="backup-scheduler")
-            self._thread.start()
+            if spawn_loop:
+                self._thread = threading.Thread(target=self._scheduler_loop, daemon=True, name="backup-scheduler")
+                self._thread.start()
             _logger.info("BackupScheduler: started")
 
     def stop(self) -> None:
