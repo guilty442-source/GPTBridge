@@ -559,6 +559,14 @@ def _set_candidate_version(
 ) -> None:
     if not successor_version:
         return
+    from governance_rule.execution.codex_repository import codex_version_units
+
+    try:
+        codex_version_units(successor_version)
+    except ValueError as error:
+        raise SuccessorBuildError(
+            "SUCCESSOR_VERSION_INVALID", str(successor_version)
+        ) from error
     columns = _require_table(connection, "metadata")
     names = {str(column["name"]) for column in columns}
     if "key" not in names or "value" not in names:
