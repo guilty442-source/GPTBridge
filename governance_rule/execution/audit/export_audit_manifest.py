@@ -70,6 +70,7 @@ _NATIVE_COVERED = frozenset({
     "check_release_manifest_module",
     "check_architecture_sources",
     "check_main_system_source",
+    "check_reconcile_modules",      # state-store contains + forbidden + owner
 })
 
 
@@ -237,8 +238,135 @@ def _reduce_marker_check(
         return None
     markers = _marker_loop(body[index], text_var)
     if markers is None:
+        markers = _single_marker(body[index], text_var)
+    if markers is None:
         return None
     return relative, markers
+
+
+def _single_marker(stmt: ast.stmt, text_var: str) -> list[str] | None:
+    """``if "literal" not in <text_var>: errors.append(...)``
+    → single-marker list; else None."""
+    if not (isinstance(stmt, ast.If) and not stmt.orelse):
+        return None
+    condition = stmt.test
+    if not (
+        isinstance(condition, ast.Compare)
+        and isinstance(condition.left, ast.Constant)
+        and isinstance(condition.left.value, str)
+        and len(condition.ops) == 1
+        and isinstance(condition.ops[0], ast.NotIn)
+        and len(condition.comparators) == 1
+        and isinstance(condition.comparators[0], ast.Name)
+        and condition.comparators[0].id == text_var
+    ):
+        return None
+    if not all(
+        isinstance(s, ast.Expr)
+        and isinstance(s.value, ast.Call)
+        and isinstance(s.value.func, ast.Attribute)
+        and s.value.func.attr == "append"
+        for s in stmt.body
+    ):
+        return None
+    return [condition.left.value]
+
+
+def _reduce_dir_filelist_check(
+    function: ast.FunctionDef,
+) -> tuple[str, list[str]] | None:
+    """Reduce the canonical ``dir = root/"a"; for name in ("x.sql",...):
+    if not (dir/name).is_file(): errors.append(...)`` body to
+    ``(dir_relative, [names])``; else None."""
+    body = list(function.body)
+    if body and isinstance(body[0], ast.Expr) and isinstance(
+        body[0].value, ast.Constant
+    ):
+        body = body[1:]
+    if len(body) != 2:
+        return None
+    assign, loop = body
+    if not (
+        isinstance(assign, ast.Assign)
+        and len(assign.targets) == 1
+        and isinstance(assign.targets[0], ast.Name)
+    ):
+        return None
+    dir_var = assign.targets[0].id
+    dir_relative = _path_join_literal(assign.value)
+    if dir_relative is None:
+        return None
+    if not (
+        isinstance(loop, ast.For)
+        and not loop.orelse
+        and isinstance(loop.target, ast.Name)
+        and isinstance(loop.iter, (ast.Tuple, ast.List))
+        and len(loop.body) == 1
+        and isinstance(loop.body[0], ast.If)
+        and not loop.body[0].orelse
+    ):
+        return None
+    names: list[str] = []
+    for element in loop.iter.elts:
+        if not (
+            isinstance(element, ast.Constant)
+            and isinstance(element.value, str)
+        ):
+            return None
+        names.append(element.value)
+    name_var = loop.target.id
+    test = loop.body[0].test
+    if not (
+        isinstance(test, ast.UnaryOp)
+        and isinstance(test.op, ast.Not)
+        and isinstance(test.operand, ast.Call)
+        and isinstance(test.operand.func, ast.Attribute)
+        and test.operand.func.attr == "is_file"
+        and isinstance(test.operand.func.value, ast.BinOp)
+        and isinstance(test.operand.func.value.op, ast.Div)
+        and isinstance(test.operand.func.value.left, ast.Name)
+        and test.operand.func.value.left.id == dir_var
+        and isinstance(test.operand.func.value.right, ast.Name)
+        and test.operand.func.value.right.id == name_var
+    ):
+        return None
+    if not all(
+        isinstance(s, ast.Expr)
+        and isinstance(s.value, ast.Call)
+        and isinstance(s.value.func, ast.Attribute)
+        and s.value.func.attr == "append"
+        for s in loop.body[0].body
+    ):
+        return None
+    return dir_relative, names
+
+
+def _iter_reducible_filelist_checks() -> dict[str, tuple[str, list[str]]]:
+    """``{check_name: (dir_relative, names)}`` for canonical
+    directory-filelist existence checks."""
+    import importlib
+
+    reducible: dict[str, tuple[str, list[str]]] = {}
+    for module_name in _CHECK_MODULES:
+        module = importlib.import_module(
+            f"governance_rule.execution.audit.{module_name}"
+        )
+        module_file = getattr(module, "__file__", None)
+        if not module_file:
+            continue
+        tree = ast.parse(
+            Path(module_file).read_text(encoding="utf-8")
+        )
+        for node in tree.body:
+            if not (
+                isinstance(node, ast.FunctionDef)
+                and node.name.startswith("check_")
+            ):
+                continue
+            reduced = _reduce_dir_filelist_check(node)
+            if reduced is not None and node.name not in reducible:
+                reducible[node.name] = reduced
+    return reducible
 
 
 def _iter_reducible_marker_checks() -> dict[str, tuple[str, list[str]]]:
@@ -372,6 +500,18 @@ def build_manifest(root: Path) -> dict[str, object]:
             "path": relative,
             "markers": markers,
         })
+
+    # --- reducible directory-filelist checks (native: file-exists) ------
+    # ``for name in (literal tuple): if not (dir/name).is_file(): fail``
+    # → one file-exists per literal name (e.g. check_sql_migrations).
+    filelist = _iter_reducible_filelist_checks()
+    for name, (dir_relative, names) in filelist.items():
+        for filename in names:
+            checks.append({
+                "id": f"dir-filelist:{name}:{filename}",
+                "kind": "file-exists",
+                "path": f"{dir_relative}/{filename}",
+            })
 
     # --- static contract / structure checks (native reducible) ---------
     def contains(check_id: str, path: str, markers: list[str],
@@ -527,6 +667,22 @@ def build_manifest(root: Path) -> dict[str, object]:
         contains(f"architecture:network-allowlist:{name}",
                  path, ["NETWORK_DESTINATION_ALLOWLIST"])
 
+    # check_reconcile_modules — two-file contains/forbidden semantics.
+    # shared_layer/reconcile.py: must hold ReconcileStateStore and must
+    # NOT hold decision surfaces; core_system/data_reconciliation.py is
+    # the sole decision owner (must hold class ReconcileService).
+    contains("reconcile:state-store",
+             "shared-layer/src/shared_layer/reconcile.py",
+             ["ReconcileStateStore"])
+    not_contains("reconcile:no-decision-surface",
+                 "shared-layer/src/shared_layer/reconcile.py",
+                 ["class ReconcileService",
+                  "def _push_to_central",
+                  "def _pull_from_central"])
+    contains("reconcile:decision-owner",
+             "main-system/src-core/core_system/data_reconciliation.py",
+             ["class ReconcileService"])
+
     # check_main_system_source
     not_contains("main-system:no-legacy-enforcer",
                  "main-system/src-core/main.py",
@@ -541,7 +697,7 @@ def build_manifest(root: Path) -> dict[str, object]:
              ['if tool_id == "governance_rule"'])
 
     # --- delegated: every Python check not natively covered -----------
-    covered = _NATIVE_COVERED | set(reducible)
+    covered = _NATIVE_COVERED | set(reducible) | set(filelist)
     delegated_names = [
         name for name in _iter_python_check_names(None)
         if name not in covered

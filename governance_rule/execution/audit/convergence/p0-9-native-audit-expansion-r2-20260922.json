@@ -1,0 +1,33 @@
+{
+  "evidence": "p0-9-native-audit-expansion-r2-20260922",
+  "recorded_at": "2026-09-22T08:31:02.677386+00:00",
+  "blueprint": "P0-9 residual: delegated->native reduction round 3",
+  "reductions": {
+    "check_sql_migrations": "dir-filelist AST reducer: for name in literal-tuple + (dir/name).is_file() -> ~108 file-exists entries",
+    "check_permission_snapshot_helper": "single-marker reducer: if \"lit\" not in text: errors.append -> file-contains",
+    "check_reconcile_modules": "manual 3-check set: state-store contains + forbidden-decision not-contains + decision-owner contains"
+  },
+  "coverage": {
+    "native": 363,
+    "delegated": 26,
+    "kinds": {
+      "file-exists": 150,
+      "file-contains": 134,
+      "file-readonly": 30,
+      "text-no-pollution": 19,
+      "json-parses": 13,
+      "file-not-contains": 8,
+      "file-not-exists": 5,
+      "dir-exists": 3,
+      "json-has-keys": 1
+    }
+  },
+  "live_run": {
+    "elapsed_s": 0.23,
+    "pass": 363,
+    "fail": 0,
+    "delegated": 26,
+    "status": "pass"
+  },
+  "remaining_delegated_boundary": "sqlite/codex queries, directory catalog/schema/seal, dynamic policy snapshots, subprocess, AST-parse semantics, compound conditions, third-party inventory field assertions — python oracle on scheduled governed lane"
+}

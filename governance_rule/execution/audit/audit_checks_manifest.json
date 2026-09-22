@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-22T08:15:01Z",
+  "generated_at": "2026-09-22T08:30:27Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 244,
-    "delegated_checks": 29,
+    "native_checks": 363,
+    "delegated_checks": 26,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -566,6 +566,14 @@
       ]
     },
     {
+      "id": "module-markers:check_permission_snapshot_helper",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/database/permission_snapshot.py",
+      "markers": [
+        "capture_snapshot"
+      ]
+    },
+    {
       "id": "module-markers:check_sqlite_generation_fence",
       "kind": "file-contains",
       "path": "shared-layer/migrations/025_sqlite_generation_fence.sql",
@@ -604,6 +612,14 @@
         "advance_deletion_stage",
         "get_purge_eligible",
         "purge_after"
+      ]
+    },
+    {
+      "id": "module-markers:check_orphan_scanner",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/database/orphan_scanner.py",
+      "markers": [
+        "scan_orphans"
       ]
     },
     {
@@ -2165,6 +2181,576 @@
       ]
     },
     {
+      "id": "dir-filelist:check_sql_migrations:004_global_and_module_version_tables.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/004_global_and_module_version_tables.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:005_central_index_composite_indexes.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/005_central_index_composite_indexes.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:006_audit_append_only_enforcement.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/006_audit_append_only_enforcement.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:007_transport_idempotency_key.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/007_transport_idempotency_key.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:008_rls_role_isolation.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/008_rls_role_isolation.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:018_data_lineage.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/018_data_lineage.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:019_authority_marker.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/019_authority_marker.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:020_write_provenance.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/020_write_provenance.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:021_permission_snapshot.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/021_permission_snapshot.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:022_schema_ownership_lock.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/022_schema_ownership_lock.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:023_ddl_audit.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/023_ddl_audit.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:024_contract_version_handshake.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/024_contract_version_handshake.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:025_sqlite_generation_fence.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/025_sqlite_generation_fence.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:026_workload_class.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/026_workload_class.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:027_two_stage_deletion.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/027_two_stage_deletion.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:028_rebuild_certification.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/028_rebuild_certification.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:029_watchdog_bloat_rpo_rto.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/029_watchdog_bloat_rpo_rto.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:030_readonly_domain_startup_cert.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/030_readonly_domain_startup_cert.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:031_slo_metrics.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/031_slo_metrics.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:032_workload_pool_query_class.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/032_workload_pool_query_class.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:033_query_fingerprint.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/033_query_fingerprint.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:034_transport_hot_path_index.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/034_transport_hot_path_index.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:035_audit_hot_history_separation.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/035_audit_hot_history_separation.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:036_wal_checkpoint_monitor.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/036_wal_checkpoint_monitor.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:037_sqlite_classification.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/037_sqlite_classification.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:038_incremental_reconcile.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/038_incremental_reconcile.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:039_performance_baseline.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/039_performance_baseline.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:040_database_release_manifest.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/040_database_release_manifest.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:041_compatibility_matrix.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/041_compatibility_matrix.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:042_migration_breaking_change.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/042_migration_breaking_change.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:043_query_contract_version.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/043_query_contract_version.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:044_rls_role_migration.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/044_rls_role_migration.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:045_sqlite_template_release.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/045_sqlite_template_release.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:046_qdrant_contract_version.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/046_qdrant_contract_version.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:047_canary_upgrade.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/047_canary_upgrade.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:048_release_audit.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/048_release_audit.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:049_roll_forward.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/049_roll_forward.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:058_transport_priority_queue.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/058_transport_priority_queue.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:050_unified_lifecycle_state.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/050_unified_lifecycle_state.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:051_transport_retention.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/051_transport_retention.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:052_audit_retention_layering.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/052_audit_retention_layering.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:053_sqlite_per_class_retention.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/053_sqlite_per_class_retention.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:054_qdrant_vector_lifecycle.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/054_qdrant_vector_lifecycle.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:055_purge_queue.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/055_purge_queue.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:056_archive_catalog.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/056_archive_catalog.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:057_archive_versioning.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/057_archive_versioning.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:059_retention_hold.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/059_retention_hold.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:060_dependency_check.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/060_dependency_check.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:061_archive_restore_test.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/061_archive_restore_test.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:062_capacity_quota.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/062_capacity_quota.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:063_purge_audit.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/063_purge_audit.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:064_audit_hash_chain.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/064_audit_hash_chain.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:065_reconcile_batch_digest.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/065_reconcile_batch_digest.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:066_resource_content_hash.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/066_resource_content_hash.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:067_sqlite_database_digest.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/067_sqlite_database_digest.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:068_qdrant_integrity_mapping.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/068_qdrant_integrity_mapping.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:069_merkle_root.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/069_merkle_root.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:070_integrity_snapshot.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/070_integrity_snapshot.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:071_restore_verification.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/071_restore_verification.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:072_tamper_state.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/072_tamper_state.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:073_fail_closed.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/073_fail_closed.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:074_version_lock.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/074_version_lock.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:075_compatibility_matrix_ext.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/075_compatibility_matrix_ext.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:076_upgrade_classification.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/076_upgrade_classification.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:077_driver_compatibility_test.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/077_driver_compatibility_test.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:078_pg_major_upgrade_rehearsal.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/078_pg_major_upgrade_rehearsal.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:079_sqlite_runtime_compat.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/079_sqlite_runtime_compat.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:080_qdrant_contract_compat.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/080_qdrant_contract_compat.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:081_sbom_dependency_inventory.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/081_sbom_dependency_inventory.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:082_vulnerability_risk.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/082_vulnerability_risk.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:083_dependency_drift.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/083_dependency_drift.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:084_offline_bundle.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/084_offline_bundle.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:085_release_signature.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/085_release_signature.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:086_lineage_core.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/086_lineage_core.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:087_security_identity_control.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/087_security_identity_control.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:088_recovery_plan.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/088_recovery_plan.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:089_recovery_incident.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/089_recovery_incident.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:090_recovery_state_machine.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/090_recovery_state_machine.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:091_pg_offline_recovery.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/091_pg_offline_recovery.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:092_pg_recovery_verification.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/092_pg_recovery_verification.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:093_reconcile_recovery_phase.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/093_reconcile_recovery_phase.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:094_recovery_generation.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/094_recovery_generation.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:095_recovery_barrier.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/095_recovery_barrier.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:096_transport_recovery.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/096_transport_recovery.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:097_unknown_commit_resolution.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/097_unknown_commit_resolution.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:098_lease_recovery.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/098_lease_recovery.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:099_sqlite_fallback_freeze.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/099_sqlite_fallback_freeze.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:100_recovery_priority.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/100_recovery_priority.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:101_qdrant_recovery.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/101_qdrant_recovery.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:102_qdrant_full_rebuild.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/102_qdrant_full_rebuild.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:103_sqlite_single_recovery.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/103_sqlite_single_recovery.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:104_codex_sqlite_recovery.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/104_codex_sqlite_recovery.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:105_backup_restore_orchestration.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/105_backup_restore_orchestration.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:106_pitr_boundary.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/106_pitr_boundary.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:107_recovery_retry_policy.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/107_recovery_retry_policy.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:108_recovery_checkpoint.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/108_recovery_checkpoint.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:109_recovery_idempotency.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/109_recovery_idempotency.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:110_recovery_safety_fence.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/110_recovery_safety_fence.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:111_chaos_drill.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/111_chaos_drill.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:112_recovery_certification.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/112_recovery_certification.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:113_workflow_operation.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/113_workflow_operation.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:114_data_layer_contract.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/114_data_layer_contract.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:115_dependency_classification.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/115_dependency_classification.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:116_startup_phase.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/116_startup_phase.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:117_startup_phase_gate.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/117_startup_phase_gate.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:118_schema_readiness.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/118_schema_readiness.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:119_rag_readiness_gate.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/119_rag_readiness_gate.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:120_shutdown_phase.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/120_shutdown_phase.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:121_shutdown_audit.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/121_shutdown_audit.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:122_unclean_shutdown_detection.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/122_unclean_shutdown_detection.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:123_cache_invalidation_policy.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/123_cache_invalidation_policy.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:124_data_layer_dependency_graph.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/124_data_layer_dependency_graph.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:125_integration_rule.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/125_integration_rule.sql"
+    },
+    {
+      "id": "dir-filelist:check_sql_migrations:126_transport_lease_idempotency_catchup.sql",
+      "kind": "file-exists",
+      "path": "shared-layer/migrations/126_transport_lease_idempotency_catchup.sql"
+    },
+    {
       "id": "metadata-contract:fields",
       "kind": "file-contains",
       "path": "shared-layer/src/shared_layer/metadata_contract.py",
@@ -2412,6 +2998,32 @@
       ]
     },
     {
+      "id": "reconcile:state-store",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/reconcile.py",
+      "markers": [
+        "ReconcileStateStore"
+      ]
+    },
+    {
+      "id": "reconcile:no-decision-surface",
+      "kind": "file-not-contains",
+      "path": "shared-layer/src/shared_layer/reconcile.py",
+      "markers": [
+        "class ReconcileService",
+        "def _push_to_central",
+        "def _pull_from_central"
+      ]
+    },
+    {
+      "id": "reconcile:decision-owner",
+      "kind": "file-contains",
+      "path": "main-system/src-core/core_system/data_reconciliation.py",
+      "markers": [
+        "class ReconcileService"
+      ]
+    },
+    {
       "id": "main-system:no-legacy-enforcer",
       "kind": "file-not-contains",
       "path": "main-system/src-core/main.py",
@@ -2443,21 +3055,6 @@
       "markers": [
         "if tool_id == \"governance_rule\""
       ]
-    },
-    {
-      "id": "python-check:check_permission_snapshot_helper",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
-    },
-    {
-      "id": "python-check:check_reconcile_modules",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
-    },
-    {
-      "id": "python-check:check_sql_migrations",
-      "kind": "delegated",
-      "reason": "python oracle (transition)"
     },
     {
       "id": "python-check:check_codex_text_integrity",
