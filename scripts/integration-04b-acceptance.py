@@ -86,21 +86,78 @@ def git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, creationflags=_CREATE_NO_WINDOW).stdout.strip()
 
 
+def _copy_venv(target: Path) -> bool:
+    """Place a venv at the release's final isolation location (G76).
+
+    The previous RC ships a verified, locked, final-location uv venv —
+    reuse it as the release-owned runtime instead of the mutable dev
+    venv.  Returns True when a release venv exists afterwards.
+    """
+    for candidate in sorted(RELEASES.glob("rc-*"), reverse=True):
+        source = candidate / "venv" / "Scripts" / "python.exe"
+        if candidate != RC and source.is_file():
+            shutil.copytree(
+                candidate / "venv", target,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            )
+            return True
+    return False
+
+
 def build_rc() -> None:
     if RC.exists():
         return
     RC.mkdir(parents=True)
-    shutil.copytree(ROOT / "main-system" / "src-core", RC / "backend", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
+    shutil.copytree(ROOT / "main-system" / "src-core", RC / "backend", ignore=ignore)
     shutil.copytree(ROOT / "main-system" / "config", RC / "config")
-    shutil.copytree(SHARED_SRC, RC / "shared_runtime", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    shutil.copytree(SHARED_SRC, RC / "shared_runtime", ignore=ignore)
+    # Current backend/main.py requires <release>/governance_rule and
+    # <release>/shared-layer/src under GPTBRIDGE_RELEASE_ROOT.
+    shutil.copytree(SHARED_SRC, RC / "shared-layer" / "src", ignore=ignore)
+    # governance_rule ships CODE only — audit ledgers, archives and
+    # runtime state are official data and stay outside the release
+    # (persistent-data boundary).
+    gov_ignore = shutil.ignore_patterns(
+        "__pycache__", "*.pyc", "*.jsonl", "archive", "git_audit_chain",
+        "convergence", "runtime",
+    )
+    shutil.copytree(GOV_ROOT, RC / "governance_rule", ignore=gov_ignore)
+    for sub in ("execution/audit", "execution/audit/archive",
+                "execution/audit/git_audit_chain", "runtime/audit"):
+        (RC / "governance_rule" / sub).mkdir(parents=True, exist_ok=True)
+    # Flat-layout seed: main.py exposes <release>/main-system so
+    # ``import governance`` resolves; the isolated harness seeds its
+    # state root from the same directory.
+    shutil.copytree(
+        ROOT / "main-system" / "governance",
+        RC / "main-system" / "governance",
+        ignore=ignore,
+    )
+    shutil.copy2(
+        ROOT / "main-system" / "package.json",
+        RC / "main-system" / "package.json",
+    )
     for sub in ("logs", "state", "temp"):
         (RC / "runtime" / sub).mkdir(parents=True, exist_ok=True)
 
-    distributions = sorted(
-        f"{dist.metadata['Name']}=={dist.version}"
-        for dist in __import__("importlib.metadata", fromlist=["distributions"]).distributions()
-        if dist.metadata["Name"]
-    )
+    release_python = RC / "venv" / "Scripts" / "python.exe"
+    if not release_python.is_file():
+        _copy_venv(RC / "venv")
+    probe = str(release_python if release_python.is_file() else VENV_PY)
+    env_report = json.loads(subprocess.run(
+        [
+            probe, "-c",
+            "import importlib.metadata, json, sys; print(json.dumps({"
+            "'dists': sorted(f'{d.metadata[\"Name\"]}=={d.version}' for d in "
+            "importlib.metadata.distributions() if d.metadata['Name']),"
+            "'version': '.'.join(map(str, sys.version_info[:3]))}))",
+        ],
+        capture_output=True, text=True, check=True,
+        creationflags=_CREATE_NO_WINDOW,
+    ).stdout)
+    distributions = env_report["dists"]
+    probe_version = env_report["version"]
     lock_identity = hashlib.sha256("\n".join(distributions).encode("utf-8")).hexdigest()
     frontend_surface = json.loads((ROOT / "main-system" / "config" / "ipc-surface-frontend.json").read_text(encoding="utf-8"))
     con = sqlite3.connect(f"file:{CODEX.as_posix()}?mode=ro&immutable=1", uri=True)
@@ -120,8 +177,8 @@ def build_rc() -> None:
             "config": tree_hash(RC / "config"),
             "shared_runtime": tree_hash(RC / "shared_runtime"),
         },
-        "dependency_lock": {"identity": lock_identity, "entries": len(distributions), "source": "importlib.metadata@main-system/.venv"},
-        "python_runtime": {"executable": str(VENV_PY), "version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}", "arch": __import__("platform").machine()},
+        "dependency_lock": {"identity": lock_identity, "entries": len(distributions), "source": f"importlib.metadata@{probe}"},
+        "python_runtime": {"executable": probe, "version": probe_version, "arch": __import__("platform").machine()},
         "ipc_contract": {"identity": frontend_surface["surface_version"], "tool_runtime_contract": "main-system/config/tool-runtime-contract.json"},
         "governance_compatibility": {
             "codex_version": codex_version,
