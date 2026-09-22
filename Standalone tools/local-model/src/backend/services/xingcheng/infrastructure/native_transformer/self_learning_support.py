@@ -20,6 +20,8 @@ for _p in (
 import argparse
 import hashlib
 import json
+import signal
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Mapping
@@ -1302,6 +1304,104 @@ def _execute_governed_cycle(
     return summary
 
 
+def _emit_json(obj: Mapping[str, Any]) -> None:
+    print(json.dumps(obj, ensure_ascii=False), flush=True)
+
+
+def _install_stop_signals(stop: threading.Event) -> dict[int, Any]:
+    """SIGTERM／SIGINT（Windows 另有 SIGBREAK）→ 設停機旗標。
+
+    回傳原有 handler 表供退出時還原。非主執行緒等無法註冊訊號的
+    情境 fail-open 略過——kill-switch drain 路徑仍可停機。
+    """
+    previous: dict[int, Any] = {}
+
+    def _request_stop(_signum: int, _frame: Any) -> None:
+        stop.set()
+
+    candidates = [signal.SIGTERM, signal.SIGINT]
+    sigbreak = getattr(signal, "SIGBREAK", None)
+    if sigbreak is not None:
+        candidates.append(sigbreak)
+    for sig in candidates:
+        try:
+            previous[int(sig)] = signal.signal(sig, _request_stop)
+        except (OSError, RuntimeError, ValueError):
+            continue
+    return previous
+
+
+def _restore_stop_signals(previous: Mapping[int, Any]) -> None:
+    for sig, handler in previous.items():
+        try:
+            signal.signal(sig, handler)
+        except (OSError, RuntimeError, ValueError):
+            continue
+
+
+def _sleep_or_stop(stop: threading.Event, seconds: float) -> bool:
+    """切片睡眠（≤1s 一切）：停機旗標設立即提早醒來。
+
+    回傳 True ＝被要求停機（含睡眠期間收到旗標）。"""
+    deadline = time.monotonic() + max(0.0, float(seconds))
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0.0:
+            return stop.is_set()
+        if stop.wait(min(1.0, remaining)):
+            return True
+
+
+def _watch_loop(
+    tool: Path,
+    *,
+    interval: float,
+    emit: Callable[[dict[str, Any]], None] | None = None,
+    cycle_fn: Callable[[], dict[str, Any]] | None = None,
+    enabled_fn: Callable[[], bool] | None = None,
+    stop_event: threading.Event | None = None,
+) -> int:
+    """§2.7 watch 停機（stop/drain）語義。
+
+    - SIGTERM／SIGINT／（Windows）SIGBREAK 設停機旗標；旗標只在
+      **循環邊界**檢查——進行中循環跑完才退出（drain），不截斷
+      訓練子程序；閒置段以 ≤1s 切片睡眠使停機要求及時生效。
+    - kill-switch drain：循環結束後重讀政策，`enabled=false` 即記
+      ``watch-stop``（reason=``disabled-kill-switch``）並退出——
+      fail-closed 不空轉重試。
+    - 退出時還原訊號 handler；外部注入 ``stop_event`` 時不接管訊號
+      （供嵌入／測試路徑自行控停）。
+    """
+    emit = emit or _emit_json
+    stop = stop_event if stop_event is not None else threading.Event()
+    if cycle_fn is None:
+
+        def cycle_fn() -> dict[str, Any]:
+            return run_cycle(tool, policy=load_policy(tool), force=False)
+
+    if enabled_fn is None:
+
+        def enabled_fn() -> bool:
+            return bool(load_policy(tool).enabled)
+
+    previous = {} if stop_event is not None else _install_stop_signals(stop)
+    emit({"event": "watch-start", "interval": interval, "tool_root": str(tool)})
+    try:
+        while True:
+            if stop.is_set():
+                emit({"event": "watch-stop", "reason": "stop-signal"})
+                return 0
+            emit(cycle_fn())
+            if not enabled_fn():
+                emit({"event": "watch-stop", "reason": "disabled-kill-switch"})
+                return 0
+            if _sleep_or_stop(stop, interval):
+                emit({"event": "watch-stop", "reason": "stop-signal"})
+                return 0
+    finally:
+        _restore_stop_signals(previous)
+
+
 def run_cli(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="星澄自我學習與自動升級")
     parser.add_argument("--tool-root", default=None)
@@ -1326,18 +1426,7 @@ def run_cli(argv: list[str] | None = None) -> int:
         policy.enabled = bool(args.enable)
         save_policy(tool, policy)
     if args.watch:
-        interval = max(30.0, float(args.interval))
-        print(
-            json.dumps(
-                {"event": "watch-start", "interval": interval, "tool_root": str(tool)},
-                ensure_ascii=False,
-            ),
-            flush=True,
-        )
-        while True:
-            cycle = run_cycle(tool, policy=load_policy(tool), force=False)
-            print(json.dumps(cycle, ensure_ascii=False), flush=True)
-            time.sleep(interval)
+        return _watch_loop(tool, interval=max(30.0, float(args.interval)))
     if args.status or not args.run_once:
         print(
             json.dumps(

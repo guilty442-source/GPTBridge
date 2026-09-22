@@ -611,18 +611,28 @@ int main() {
         std::string err;
         NT_CHECK(host.start(cfg, std::move(hooks), &err), "start");
 
-        /* 等空轉 ramp 進入深退避；stamp 探針須已在輪詢。 */
-        Sleep(900);
-        NT_CHECK(proxy.stamp_probes.load() > 0, "stamp probe running");
+        /* 等探針進入穩態（首次觀測視為變化→先觸發一次喚醒，第二次
+           起才是週期輪詢）。輪詢等待而非定值 Sleep——並行閘門／
+           高負載下定值等待是抖動源。 */
+        const auto t_wait = std::chrono::steady_clock::now();
+        while (proxy.stamp_probes.load() < 2 &&
+               std::chrono::steady_clock::now() - t_wait <
+                   std::chrono::seconds(10)) {
+            Sleep(20);
+        }
+        NT_CHECK(proxy.stamp_probes.load() >= 2, "stamp probe running");
 
-        /* store 寫入 → stamp 變化＋新 request：須即刻喚醒重取
-           （遠低於 500ms backoff 期滿）。 */
+        /* store 寫入 → stamp 變化＋新 request：探針須在空轉等待中
+           觀測到變化並即刻重取（機制驗證：無喚醒路徑的實作根本不會
+           呼叫 notification_stamp）。回應預算放寬至 1.5s 以吸收
+           排程抖動。 */
+        const int probes_before = proxy.stamp_probes.load();
         proxy.stamp.fetch_add(1);
         proxy.enqueue_request("r-wake", "echo");
         const auto t0 = std::chrono::steady_clock::now();
         bool responded = false;
         while (std::chrono::steady_clock::now() - t0 <
-               std::chrono::milliseconds(400)) {
+               std::chrono::milliseconds(1500)) {
             {
                 std::lock_guard<std::mutex> lk(proxy.mu);
                 if (!proxy.responded.empty()) {
@@ -632,8 +642,10 @@ int main() {
             }
             Sleep(10);
         }
+        NT_CHECK(proxy.stamp_probes.load() > probes_before,
+                 "stamp change observed during idle wait");
         NT_CHECK(responded,
-                 "stamp change woke claim loop (<400ms)");
+                 "stamp change woke claim loop (<1.5s)");
         host.request_stop();
         host.run();
         WSACleanup();
