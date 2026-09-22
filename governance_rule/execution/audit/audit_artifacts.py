@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -1935,31 +1936,40 @@ def check_bounded_worker_pools(root: Path, errors: list[str]) -> None:
         base = root / rel_root
         if not base.is_dir():
             continue
-        for path in sorted(base.rglob("*.py")):
-            if any(part in _POOL_SKIP_DIRS for part in path.parts):
-                continue
-            if path.name.startswith("test_"):
-                continue
-            text = read_text_cached(path)
-            consts = {
-                name: int(value)
-                for name, value in _CONST_INT.findall(text)
-            }
-            for match in _POOL_CALL.finditer(text):
-                window = text[match.end() : match.end() + 240]
-                arg = _MAX_WORKERS_ARG.search(window)
-                rel_path = path.relative_to(root).as_posix()
-                if arg is None:
-                    errors.append(
-                        f"{rel_path}: worker pool missing explicit max_workers"
-                    )
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [
+                name for name in dirnames if name not in _POOL_SKIP_DIRS
+            ]
+            for filename in sorted(filenames):
+                if not filename.endswith(".py") or filename.startswith("test_"):
                     continue
-                expr = arg.group(1).strip()
-                if not _bounded_workers_expr(expr, text, consts):
-                    errors.append(
-                        f"{rel_path}: worker pool not provably inside the "
-                        f"five-core budget: max_workers={expr}"
-                    )
+                path = Path(dirpath) / filename
+                try:
+                    if b"PoolExecutor" not in path.read_bytes():
+                        continue
+                except OSError:
+                    continue
+                text = read_text_cached(path)
+                consts = {
+                    name: int(value)
+                    for name, value in _CONST_INT.findall(text)
+                }
+                for match in _POOL_CALL.finditer(text):
+                    window = text[match.end() : match.end() + 240]
+                    arg = _MAX_WORKERS_ARG.search(window)
+                    rel_path = path.relative_to(root).as_posix()
+                    if arg is None:
+                        errors.append(
+                            f"{rel_path}: worker pool missing explicit "
+                            "max_workers"
+                        )
+                        continue
+                    expr = arg.group(1).strip()
+                    if not _bounded_workers_expr(expr, text, consts):
+                        errors.append(
+                            f"{rel_path}: worker pool not provably inside the "
+                            f"five-core budget: max_workers={expr}"
+                        )
 
 
 def check_query_fingerprint(root: Path, errors: list[str]) -> None:

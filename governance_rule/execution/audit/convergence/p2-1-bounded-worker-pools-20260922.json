@@ -1,0 +1,24 @@
+{
+  "item": "P2-1",
+  "clause": "§10.30 / A590",
+  "recorded_at": "2026-09-22T17:00Z",
+  "scan_seconds": 0.61,
+  "scan_roots": [
+    "main-system/src-core",
+    "main-system/governance",
+    "shared-layer/src",
+    "governance_rule",
+    "Standalone tools"
+  ],
+  "unbounded_or_unrouted_pools": [],
+  "converged_residuals": {
+    "audit_self_health batch pool": "chunks 6 -> 5, max_workers=min(len(chunks), _SELF_HEALTH_BATCH_CHUNKS)",
+    "shared_layer.startup health probes": "bounded_workers(2)",
+    "shared_layer.performance.benchmark": "bounded_workers(config.concurrency)",
+    "xingcheng market_data_search": "bounded_workers(payload max_workers|4)  (was min(...,6))",
+    "ai_nexus analytics_market_yahoo _fetch_all": "bounded_workers(...)  (was min(...,12)); caller defaults 8/12 -> 5"
+  },
+  "audit_check": "check_bounded_worker_pools registered in audit_checks.py",
+  "tests": "governance_rule/tests/test_bounded_worker_pools.py (7 tests)",
+  "note": "audit pools cannot import shared_layer (self-contained); bounds expressed as local min() clamps verified by this check"
+}
