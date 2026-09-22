@@ -1260,12 +1260,14 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     // CUDA opt-in is decided by the governed layer via env; requesting it
     // without a CUDA build or device fails closed at load.
     g_cuda_requested.store(env_flag("XINGCHENG_CPP_CUDA"));
+    cuda_session_owned_ = false;
     if (g_cuda_requested.load()) {
 #if defined(XINGCHENG_CUDA)
         if (!xcuda_available()) {
             g_cuda_requested.store(false);
             throw InferenceError("CUDA_UNAVAILABLE");
         }
+        cuda_session_owned_ = true;
 #else
         g_cuda_requested.store(false);
         throw InferenceError("CUDA_UNAVAILABLE");
@@ -1423,10 +1425,16 @@ void NativeInferenceEngine::unload() {
     bundle_.reset();
     tokenizer_.reset();
 #if defined(XINGCHENG_CUDA)
-    if (g_cuda_requested.load()) xcuda_release_weights();
+    // Only the instance that activated the CUDA session tears it down — a
+    // stale engine's destructor must not free a live engine's device state.
+    if (cuda_session_owned_) {
+        xcuda_release_weights();
+        g_cuda_requested.store(false);
+        g_cuda_bf16_requested.store(false);
+        g_cuda_kv_requested.store(false);
+        cuda_session_owned_ = false;
+    }
 #endif
-    g_cuda_requested.store(false);
-    g_cuda_kv_requested.store(false);
     kv_device_active_ = false;
     layers_.clear();
     prefix_cache_.clear();

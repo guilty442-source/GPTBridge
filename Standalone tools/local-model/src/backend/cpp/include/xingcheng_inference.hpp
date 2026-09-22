@@ -269,6 +269,11 @@ private:
     // kernel; host pool stays the source of truth. Only reachable when
     // !kv_int8_ (int8 format unsupported on device → load fails closed).
     bool kv_device_active_ = false;
+    // CUDA session ownership: the weight cache / KV buffers / cuBLAS handle
+    // are process-global, so only the instance that activated CUDA may tear
+    // them down — otherwise destructing a stale engine would wipe a live
+    // engine's device state (write-through mirror then fails mid-forward).
+    bool cuda_session_owned_ = false;
     std::vector<int64_t> sequence_;
 
     struct KvSrc {
