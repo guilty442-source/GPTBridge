@@ -8,6 +8,21 @@ pressure automatically:
   * extreme CPU hog    -> CPU affinity capped to half of the logical CPUs
   * large idle process -> working set trimmed (paged out, reloaded on use)
 
+Process Lasso-inspired tier (2026-09-22; every new *action* defaults to
+OFF and is enabled through CLI flags or the rules file — the monitoring
+surface is always on):
+
+  * ProBalance           -> responsiveness probe (scheduling latency)
+                            temporarily demotes foreground-external CPU
+                            hogs while the system is strained
+  * CPU limiter          -> Job Object CPU rate hard cap for sustained
+                            offenders (kernel-enforced, releasable)
+  * background mode      -> PROCESS_MODE_BACKGROUND (I/O + memory priority)
+  * EcoQoS               -> PowerThrottling execution-speed efficiency mode
+  * per-program rules    -> main-system/config/resource-governor-rules.json
+                            (priority / affinity / cpu_limit_percent /
+                            background / ecoqos / exclude)
+
 Actions are reverted once the process stays calm, are logged as JSONL,
 and every cycle writes a status snapshot.  Protected system and security
 processes (including the user's antivirus) are never touched.
@@ -19,6 +34,7 @@ Usage:
   python scripts/resource-governor.py --watch
   python scripts/resource-governor.py --install-logon / --uninstall-logon
   python scripts/resource-governor.py --install-task / --uninstall-task
+  python scripts/resource-governor.py --watch --probalance --background-mode
 """
 from __future__ import annotations
 
@@ -83,7 +99,37 @@ REGULATED_WORKER_BUSY_PCT: Final[float] = 2.0
 GOVERNOR_DISABLE_ENV: Final[str] = "GPTBRIDGE_GOVERNOR_DISABLE"
 WORKER_PLANES: Final[frozenset[str]] = frozenset({"worker", "toolbox", "repo-other"})
 
-PROCESS_ATTRS: Final[list[str]] = ["pid", "name", "exe", "username", "memory_info"]
+# ---------------------------------------------------------------------------
+# Process Lasso-inspired integration (2026-09-22 governor directive).
+# Every new CONTROL action defaults OFF (CLI flag or rules-file defaults);
+# the monitoring surface (I/O counters, action state, responsiveness
+# metric) is always on.  Actions stay reversible, audited, bounded by the
+# existing protections (governance plane, system/security processes, kill
+# switch, A593).
+# ---------------------------------------------------------------------------
+RULES_FILE: Final[Path] = (
+    PROJECT_ROOT / "main-system" / "config" / "resource-governor-rules.json"
+)
+RESP_PROBE_ITERS: Final[int] = 500_000
+RESP_PROBE_RUNS: Final[int] = 3
+RESP_BASELINE_ALPHA: Final[float] = 0.2
+RESP_STRAIN_RATIO: Final[float] = 1.8
+RESP_RELEASE_RATIO: Final[float] = 1.2
+RESP_STRAIN_SAMPLES: Final[int] = 2
+RESP_CALM_SAMPLES: Final[int] = 3
+PROBALANCE_MAX_DEMOTIONS: Final[int] = 5
+DEFAULT_LIMITER_PERCENT: Final[float] = 10.0
+LIMITER_MIN_PERCENT: Final[float] = 1.0
+LIMITER_MAX_PERCENT: Final[float] = 100.0
+RULE_PRIORITIES: Final[dict[str, int]] = {
+    "normal": psutil.NORMAL_PRIORITY_CLASS,
+    "below_normal": psutil.BELOW_NORMAL_PRIORITY_CLASS,
+    "idle": psutil.IDLE_PRIORITY_CLASS,
+}
+
+PROCESS_ATTRS: Final[list[str]] = [
+    "pid", "name", "exe", "username", "memory_info", "io_counters",
+]
 
 PROTECTED_NAMES: Final[frozenset[str]] = frozenset(
     {
@@ -182,6 +228,349 @@ def _trim_working_set(pid: int) -> bool:
         )
     finally:
         kernel32.CloseHandle(handle)
+
+
+# ---------------------------------------------------------------------------
+# Per-program rules (Process Lasso-style persistent rules).
+# ---------------------------------------------------------------------------
+class ProgramRule:
+    __slots__ = (
+        "exclude", "priority", "affinity", "cpu_limit_percent",
+        "background", "ecoqos",
+    )
+
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.exclude = bool(payload.get("exclude", False))
+        priority = payload.get("priority")
+        self.priority = (
+            RULE_PRIORITIES.get(str(priority).strip().lower())
+            if priority not in (None, "")
+            else None
+        )
+        affinity = payload.get("affinity")
+        if (
+            isinstance(affinity, list)
+            and affinity
+            and all(isinstance(cpu, (int, float)) and int(cpu) >= 0 for cpu in affinity)
+        ):
+            self.affinity: list[int] | None = [int(cpu) for cpu in affinity]
+        else:
+            self.affinity = None
+        limit = payload.get("cpu_limit_percent")
+        self.cpu_limit_percent = (
+            max(LIMITER_MIN_PERCENT, min(LIMITER_MAX_PERCENT, float(limit)))
+            if isinstance(limit, (int, float)) and float(limit) > 0
+            else 0.0
+        )
+        self.background = bool(payload.get("background", False))
+        self.ecoqos = bool(payload.get("ecoqos", False))
+
+
+def load_rules(path: Path) -> tuple[dict[str, Any], dict[str, ProgramRule], str | None]:
+    """Load the rules file; fail-closed to monitoring-only on any error."""
+    if not path.is_file():
+        return {}, {}, None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {}, {}, f"{type(exc).__name__}: {exc}"
+    if not isinstance(payload, dict):
+        return {}, {}, "root must be an object"
+    defaults_raw = payload.get("defaults")
+    defaults = defaults_raw if isinstance(defaults_raw, dict) else {}
+    programs: dict[str, ProgramRule] = {}
+    raw_programs = payload.get("programs")
+    if isinstance(raw_programs, dict):
+        for key, entry in raw_programs.items():
+            if not isinstance(key, str) or not isinstance(entry, dict):
+                continue
+            try:
+                programs[key.strip().lower()] = ProgramRule(entry)
+            except (TypeError, ValueError) as exc:
+                return defaults, programs, f"{key}: {type(exc).__name__}: {exc}"
+    return defaults, programs, None
+
+
+def _feature_enabled(flag: bool | None, defaults: dict[str, Any], key: str) -> bool:
+    if flag is not None:
+        return bool(flag)
+    value = defaults.get(key)
+    return bool(value) if isinstance(value, bool) else False
+
+
+def _resolve_features(config: "GovernorConfig", defaults: dict[str, Any]) -> dict[str, Any]:
+    limiter = (
+        config.limiter_percent_arg
+        if config.limiter_percent_arg is not None
+        else defaults.get("limiter_percent", DEFAULT_LIMITER_PERCENT)
+    )
+    ratio = (
+        config.resp_ratio_arg
+        if config.resp_ratio_arg is not None
+        else defaults.get("resp_strain_ratio", RESP_STRAIN_RATIO)
+    )
+    try:
+        limiter_value = float(limiter)
+    except (TypeError, ValueError):
+        limiter_value = DEFAULT_LIMITER_PERCENT
+    try:
+        ratio_value = float(ratio)
+    except (TypeError, ValueError):
+        ratio_value = RESP_STRAIN_RATIO
+    return {
+        "probalance": _feature_enabled(config.probalance_flag, defaults, "probalance"),
+        "cpu_limiter": _feature_enabled(config.cpu_limiter_flag, defaults, "cpu_limiter"),
+        "background_mode": _feature_enabled(
+            config.background_mode_flag, defaults, "background_mode"
+        ),
+        "ecoqos": _feature_enabled(config.ecoqos_flag, defaults, "ecoqos"),
+        "limiter_percent": max(
+            LIMITER_MIN_PERCENT, min(LIMITER_MAX_PERCENT, limiter_value)
+        ),
+        "resp_ratio": max(1.05, ratio_value),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Responsiveness probe (ProBalance signal; monitoring surface).
+# ---------------------------------------------------------------------------
+def _responsiveness_sample(iters: int = RESP_PROBE_ITERS) -> float:
+    """Wall-clock milliseconds for a fixed tiny workload.
+
+    Scheduling delays, CPU contention and frequency throttling all inflate
+    the result, so the median over a few runs tracks how responsive the
+    machine currently is; the governor itself runs at IDLE priority.
+    """
+    start = time.perf_counter()
+    accumulator = 0
+    for value in range(iters):
+        accumulator += value
+    elapsed = time.perf_counter() - start
+    if accumulator < 0:  # pragma: no cover - keeps the loop observable
+        time.sleep(0)
+    return elapsed * 1000.0
+
+
+def measure_responsiveness(runs: int = RESP_PROBE_RUNS) -> float:
+    samples = sorted(_responsiveness_sample() for _ in range(max(1, runs)))
+    return samples[len(samples) // 2]
+
+
+def _responsiveness_update(
+    state: dict[str, Any], latency_ms: float, ratio: float
+) -> bool:
+    """Hysteretic strain detector over the responsiveness signal."""
+    baseline = state.get("resp_baseline")
+    if not isinstance(baseline, (int, float)) or baseline <= 0:
+        state["resp_baseline"] = latency_ms
+        state["strain_hits"] = 0
+        state["calm_hits"] = 0
+        state["strained"] = False
+        state["resp_ratio"] = 1.0
+        return False
+    current_ratio = latency_ms / baseline if baseline > 0 else 1.0
+    state["resp_ratio"] = round(current_ratio, 3)
+    if current_ratio >= ratio:
+        state["strain_hits"] = int(state.get("strain_hits", 0)) + 1
+        state["calm_hits"] = 0
+    elif current_ratio <= RESP_RELEASE_RATIO:
+        state["calm_hits"] = int(state.get("calm_hits", 0)) + 1
+        state["strain_hits"] = 0
+        if not state.get("strained"):
+            state["resp_baseline"] = (
+                (1.0 - RESP_BASELINE_ALPHA) * baseline
+                + RESP_BASELINE_ALPHA * latency_ms
+            )
+    else:
+        state["strain_hits"] = 0
+        state["calm_hits"] = 0
+    if not state.get("strained") and int(state.get("strain_hits", 0)) >= RESP_STRAIN_SAMPLES:
+        state["strained"] = True
+    elif state.get("strained") and int(state.get("calm_hits", 0)) >= RESP_CALM_SAMPLES:
+        state["strained"] = False
+    return bool(state.get("strained"))
+
+
+def _foreground_pid() -> int | None:
+    """PID owning the foreground window (never demoted by ProBalance)."""
+    try:
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        hwnd = user32.GetForegroundWindow()
+        if not hwnd:
+            return None
+        pid = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        return int(pid.value) or None
+    except OSError:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Windows actions: background mode, EcoQoS, Job Object CPU hard cap.
+# ---------------------------------------------------------------------------
+PROCESS_TERMINATE: Final[int] = 0x0001
+PROCESS_SET_INFORMATION: Final[int] = 0x0200
+PROCESS_MODE_BACKGROUND_BEGIN: Final[int] = 0x00100000
+PROCESS_MODE_BACKGROUND_END: Final[int] = 0x00200000
+PROCESS_POWER_THROTTLING_CURRENT_VERSION: Final[int] = 1
+PROCESS_POWER_THROTTLING_EXECUTION_SPEED: Final[int] = 0x1
+PROCESS_POWER_THROTTLING_INFORMATION: Final[int] = 4
+JOB_OBJECT_CPU_RATE_CONTROL_ENABLE: Final[int] = 0x1
+JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP: Final[int] = 0x4
+JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION_CLASS: Final[int] = 15
+
+
+class _PowerThrottlingState(ctypes.Structure):
+    _fields_ = [
+        ("Version", ctypes.c_ulong),
+        ("ControlMask", ctypes.c_ulong),
+        ("StateMask", ctypes.c_ulong),
+    ]
+
+
+class _CpuRateControl(ctypes.Structure):
+    _fields_ = [("ControlFlags", ctypes.c_uint32), ("CpuRate", ctypes.c_uint32)]
+
+
+_ACTIVE_LIMITS: dict[tuple[int, float], int] = {}
+
+
+def _open_process_handle(pid: int, access: int) -> int | None:
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(access, False, pid)
+    return handle or None
+
+
+def _close_process_handle(handle: int) -> None:
+    try:
+        ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(handle)
+    except OSError:
+        pass
+
+
+def _set_background_mode(pid: int, enable: bool) -> bool:
+    """PROCESS_MODE_BACKGROUND_{BEGIN,END}: idle CPU + background I/O and
+    memory priority; reversible through PROCESS_MODE_BACKGROUND_END."""
+    handle = _open_process_handle(pid, PROCESS_SET_INFORMATION)
+    if not handle:
+        return False
+    try:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        mode = PROCESS_MODE_BACKGROUND_BEGIN if enable else PROCESS_MODE_BACKGROUND_END
+        return bool(kernel32.SetPriorityClass(handle, mode))
+    except OSError:
+        return False
+    finally:
+        _close_process_handle(handle)
+
+
+def _set_ecoqos(pid: int, enable: bool) -> bool:
+    """PowerThrottling execution-speed toggle (Windows efficiency mode)."""
+    handle = _open_process_handle(pid, PROCESS_SET_INFORMATION)
+    if not handle:
+        return False
+    try:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        state = _PowerThrottlingState(
+            PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+            PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+            PROCESS_POWER_THROTTLING_EXECUTION_SPEED if enable else 0,
+        )
+        return bool(
+            kernel32.SetProcessInformation(
+                handle,
+                PROCESS_POWER_THROTTLING_INFORMATION,
+                ctypes.byref(state),
+                ctypes.sizeof(state),
+            )
+        )
+    except OSError:
+        return False
+    finally:
+        _close_process_handle(handle)
+
+
+def _cpu_rate_value(percent: float) -> int:
+    return max(1, min(10000, int(round(percent * 100))))
+
+
+def _set_cpu_limit(key: tuple[int, float], pid: int, percent: float) -> bool:
+    """Hard-cap a process's CPU share with a Job Object rate control.
+
+    ``percent`` is a share of total machine CPU (100 = one full core);
+    enforcement is kernel-side, no thread suspension.  A process already
+    inside a restrictive job may refuse nesting — fail-soft.
+    """
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    info = _CpuRateControl(
+        JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
+        _cpu_rate_value(percent),
+    )
+    job = _ACTIVE_LIMITS.get(key)
+    if job:
+        try:
+            return bool(
+                kernel32.SetInformationJobObject(
+                    job,
+                    JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION_CLASS,
+                    ctypes.byref(info),
+                    ctypes.sizeof(info),
+                )
+            )
+        except OSError:
+            return False
+    job = kernel32.CreateJobObjectW(None, None)
+    if not job:
+        return False
+    process_handle = _open_process_handle(
+        pid,
+        PROCESS_SET_QUOTA
+        | PROCESS_SET_INFORMATION
+        | PROCESS_TERMINATE
+        | PROCESS_QUERY_LIMITED_INFORMATION,
+    )
+    if not process_handle:
+        _close_process_handle(job)
+        return False
+    try:
+        ok = bool(
+            kernel32.SetInformationJobObject(
+                job,
+                JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION_CLASS,
+                ctypes.byref(info),
+                ctypes.sizeof(info),
+            )
+        )
+        ok = ok and bool(kernel32.AssignProcessToJobObject(job, process_handle))
+    except OSError:
+        ok = False
+    finally:
+        _close_process_handle(process_handle)
+    if not ok:
+        _close_process_handle(job)
+        return False
+    _ACTIVE_LIMITS[key] = job
+    return True
+
+
+def _clear_cpu_limit(key: tuple[int, float]) -> bool:
+    job = _ACTIVE_LIMITS.pop(key, None)
+    if not job:
+        return False
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    try:
+        info = _CpuRateControl(0, 0)
+        kernel32.SetInformationJobObject(
+            job,
+            JOB_OBJECT_CPU_RATE_CONTROL_INFORMATION_CLASS,
+            ctypes.byref(info),
+            ctypes.sizeof(info),
+        )
+    except OSError:
+        pass
+    _close_process_handle(job)
+    return True
+
 
 
 class GovernorConfig:

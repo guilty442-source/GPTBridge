@@ -982,9 +982,13 @@ PYBIND11_MODULE(_sovereign_native, m) {
 
     py::class_<NativeScheduler>(m, "NativeScheduler")
         .def(py::init<>())
-        .def("register_job", &NativeScheduler::register_job)
+        .def("register_job", &NativeScheduler::register_job,
+             py::arg("name"), py::arg("interval_ms"), py::arg("timeout_ms"),
+             py::arg("now_ms") = 0, py::arg("run_immediately") = false,
+             py::arg("pausable") = false)
         .def("unregister_job", &NativeScheduler::unregister_job)
-        .def("tick", &NativeScheduler::tick)
+        .def("tick", &NativeScheduler::tick,
+             py::arg("now_ms"), py::arg("paused") = false)
         .def("job_count", &NativeScheduler::job_count)
         .def("job_stats", &NativeScheduler::job_stats);
 

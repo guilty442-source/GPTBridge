@@ -1,0 +1,25 @@
+{
+  "schema": "star-evidence/v1",
+  "item": "E13 self-learning watch stop/drain semantics (§2.7)",
+  "implemented_by": "governor (direct edit, committed via auto-commit 930dae99)",
+  "implementation": {
+    "file": "self_learning_support.py",
+    "functions": "_install_stop_signals / _restore_stop_signals / _sleep_or_stop / _watch_loop",
+    "semantics": [
+      "SIGTERM/SIGINT/(Windows) SIGBREAK set stop flag; flag checked only at cycle boundary -> in-flight cycle completes (drain), training subprocess never truncated",
+      "idle wait uses <=1s sliced sleep so stop requests take effect promptly",
+      "kill-switch drain: after each cycle policy re-read; enabled=false -> watch-stop reason=disabled-kill-switch (fail-closed, no idle retry)",
+      "signal handlers restored on exit; injected stop_event => no signal takeover (embed/test paths)"
+    ]
+  },
+  "verification": {
+    "method": "direct _watch_loop exercise with injected cycle_fn/enabled_fn/stop_event",
+    "checks": [
+      "drain-on-stop: stop raised mid-cycle -> cycle completes, exits rc=0 with watch-stop/stop-signal",
+      "kill-switch-drain: enabled_fn false after cycle -> watch-stop/disabled-kill-switch, rc=0",
+      "sliced-sleep-wake: 60s interval exits ~1.2s after stop (<=1s slice granularity)"
+    ],
+    "result": "3/3 pass; py_compile clean"
+  },
+  "at": "2026-09-22T13:55:00Z"
+}
