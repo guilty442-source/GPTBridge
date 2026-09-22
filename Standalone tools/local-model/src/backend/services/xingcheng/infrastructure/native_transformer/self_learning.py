@@ -133,6 +133,25 @@ class SelfLearningPolicy:
     dpo_min_new_pairs: int = 8
     # DPO KL 錨定強度（reference＝循環起點的現役權重凍結副本）
     dpo_beta: float = 0.1
+    # §2.7-3 蒸餾課程型別：有機範例池不足（below-threshold／池空）時
+    # 改走教師蒸餾——本地教師模型（Ollama）依第一方文件／身分文本
+    # 產生候選、全數過品質閘門後成 star-transformer-sft/v1 快照，
+    # 接同一條受管 SFT→評估→啟用路徑。預設關閉，受管設定檔明示
+    # 開啟；教師不可達或合格數不足 fail-closed 回 idle（外部相依，
+    # 不計入連續失敗熔斷）。
+    distill_enabled: bool = False
+    distill_endpoint: str = "http://127.0.0.1:11434"
+    # 教師模型清單；空 tuple＝沿用 distill 模組 DEFAULT_TEACHER_MODELS
+    distill_teacher_models: tuple[str, ...] = ()
+    # 主題來源：grounded＝第一方法典／文件段落改寫；conversation＝
+    # 身分文本 grounding 的一般對話問答
+    distill_topic_mode: str = "grounded"
+    distill_max_topics: int = 24
+    # 每循環合格範例上限（0=不設限）
+    distill_max_examples: int = 48
+    # 合格範例低於此數即 idle 不訓練（不產生碎料資料集）
+    distill_min_accepted: int = 8
+    distill_timeout_s: float = 300.0
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -153,6 +172,12 @@ class SelfLearningPolicy:
         ):
             fields["synthetic_source_prefixes"] = tuple(
                 str(item) for item in fields["synthetic_source_prefixes"]
+            )
+        if "distill_teacher_models" in fields and not isinstance(
+            fields["distill_teacher_models"], tuple
+        ):
+            fields["distill_teacher_models"] = tuple(
+                str(item) for item in fields["distill_teacher_models"]
             )
         return cls(**fields)
 
