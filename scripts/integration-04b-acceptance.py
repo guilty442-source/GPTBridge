@@ -690,6 +690,50 @@ def fault_scenarios() -> None:
             "scripts/integration-04b-isolated-start.py::_fake_pg_server",
             "" if sd_ok else "SERVICE_DOUBLE_ACCEPTED",
         )
+        # 04B-21/04B-22 — Qdrant/Ollama protocol-level doubles, same
+        # pattern as 04B-20 but at the HTTP contract layer the release
+        # actually speaks (the RC venv carries httpx; qdrant_client is
+        # lazily loaded and intentionally absent from the lock).
+        qd = scenarios.get("qdrant-double") or {}
+        qd_ok = bool(qd.get("ok"))
+        record(
+            "04B-21",
+            "qdrant protocol double (compatible accept + incompatible reject)",
+            "double receives GET /collections; compatible qdrant envelope "
+            "accepted; incompatible 500 rejected fail-closed",
+            json.dumps(
+                {
+                    "hits": qd.get("compatible_hits"),
+                    "bad_hits": qd.get("incompatible_hits"),
+                    "accepted": qd.get("compatible_accepted"),
+                    "rejected": qd.get("incompatible_rejected"),
+                },
+                ensure_ascii=False,
+            )[:300],
+            "PASS" if qd_ok else "FAIL",
+            "scripts/integration-04b-isolated-start.py::_scenario_qdrant_double",
+            "" if qd_ok else "QDRANT_DOUBLE_FAILED",
+        )
+        od = scenarios.get("ollama-double") or {}
+        od_ok = bool(od.get("ok"))
+        record(
+            "04B-22",
+            "ollama protocol double (compatible accept + incompatible reject)",
+            "double receives GET /api/version + POST /api/embed; compatible "
+            "answers accepted; incompatible 500 rejected fail-closed",
+            json.dumps(
+                {
+                    "hits": od.get("compatible_hits"),
+                    "bad_hits": od.get("incompatible_hits"),
+                    "accepted": od.get("compatible_accepted"),
+                    "rejected": od.get("incompatible_rejected"),
+                },
+                ensure_ascii=False,
+            )[:300],
+            "PASS" if od_ok else "FAIL",
+            "scripts/integration-04b-isolated-start.py::_scenario_ollama_double",
+            "" if od_ok else "OLLAMA_DOUBLE_FAILED",
+        )
     else:
         record("04B-10", "backend mid-start failure", "isolated start harness",
                "not executed (--with-isolated-start not passed)", "BLOCKED",
@@ -706,6 +750,18 @@ def fault_scenarios() -> None:
                "requires --with-isolated-start",
                "not executed (--with-isolated-start not passed)", "BLOCKED",
                "double: scripts/integration-04b-isolated-start.py::_fake_pg_server",
+               "BLOCKED_ENV")
+        record("04B-21",
+               "qdrant protocol double (compatible accept + incompatible reject)",
+               "requires --with-isolated-start",
+               "not executed (--with-isolated-start not passed)", "BLOCKED",
+               "double: scripts/integration-04b-isolated-start.py::_scenario_qdrant_double",
+               "BLOCKED_ENV")
+        record("04B-22",
+               "ollama protocol double (compatible accept + incompatible reject)",
+               "requires --with-isolated-start",
+               "not executed (--with-isolated-start not passed)", "BLOCKED",
+               "double: scripts/integration-04b-isolated-start.py::_scenario_ollama_double",
                "BLOCKED_ENV")
 
 
@@ -887,7 +943,7 @@ def main() -> int:
         },
         "completion": "NOT_COMPLETE",
         "minimal_fix_list": [
-            "Qdrant/Ollama protocol-level test doubles — PG incompatible double landed (04B-20); isolated backend dependency probes unreachable by bound-root design, doubles verified at the release client-contract layer",
+            "Isolated backend dependency probes unreachable by bound-root design — all three shared-service doubles (PG 04B-20, Qdrant 04B-21, Ollama 04B-22) verified at the release client-contract layer",
             "isolated IPC contract client (auth/request-id/session/cancel/timeout/streaming) — validator covers surface only",
             "venv rebuild reproducibility pinned by wheel cache (04B-16) — full G76 self-containment verification pending",
         ],

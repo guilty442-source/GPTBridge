@@ -467,6 +467,242 @@ def _scenario_service_double(
     return observed
 
 
+
+def _fake_http_service(
+    port: int,
+    hits: list[dict],
+    stop: threading.Event,
+    routes: dict,
+) -> None:
+    """Minimal HTTP/1.1 protocol test double (Qdrant/Ollama).
+
+    ``routes`` maps ``(METHOD, path)`` to ``(status, payload_dict)``;
+    unknown paths answer 404.  Every request line is recorded so the
+    scenario can prove the release client stack actually engaged the
+    double at protocol level (not merely TCP).
+    """
+    reasons = {200: "OK", 404: "Not Found", 500: "Internal Server Error"}
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", port))
+    server.listen(8)
+    server.settimeout(0.5)
+    try:
+        while not stop.is_set():
+            try:
+                conn, _ = server.accept()
+            except socket.timeout:
+                continue
+            try:
+                conn.settimeout(3.0)
+                request = b""
+                while b"\r\n\r\n" not in request and len(request) < 65536:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        break
+                    request += chunk
+                head, _, body = request.partition(b"\r\n\r\n")
+                lines = head.split(b"\r\n")
+                parts = lines[0].decode("latin-1", "replace").split(" ")
+                method = parts[0] if parts else ""
+                target = parts[1] if len(parts) > 1 else ""
+                hits.append({"at": _utcnow(), "method": method, "path": target})
+                content_length = 0
+                for line in lines[1:]:
+                    key, _, value = line.partition(b":")
+                    if key.strip().lower() == b"content-length":
+                        try:
+                            content_length = int(value.strip())
+                        except ValueError:
+                            content_length = 0
+                while len(body) < content_length:
+                    chunk = conn.recv(min(65536, content_length - len(body)))
+                    if not chunk:
+                        break
+                    body += chunk
+                status, payload = routes.get(
+                    (method, target), (404, {"error": "04b double: no route"})
+                )
+                out = json.dumps(payload).encode("utf-8")
+                reason = reasons.get(status, "Status")
+                conn.sendall(
+                    (
+                        f"HTTP/1.1 {status} {reason}\r\n"
+                        "Content-Type: application/json\r\n"
+                        f"Content-Length: {len(out)}\r\n"
+                        "Connection: close\r\n\r\n"
+                    ).encode("ascii")
+                    + out
+                )
+            except OSError:
+                pass
+            finally:
+                conn.close()
+    finally:
+        server.close()
+
+
+def _http_double_probe(release: Path, code: str, timeout_s: float = 30.0):
+    """Run a client-contract probe with the RC's own venv interpreter.
+
+    Exit codes returned by the probe code: 0 accepted, 4 accepted-but-
+    wrong-content, 5 rejected (client raised), 9 client library missing.
+    """
+    python_exe = release / "venv" / "Scripts" / "python.exe"
+    if not python_exe.is_file():
+        python_exe = Path(sys.executable)
+    return subprocess.run(
+        [str(python_exe), "-X", "utf8", "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=timeout_s,
+        cwd=str(release),
+    )
+
+
+def _scenario_protocol_double(
+    release: Path,
+    service: str,
+    routes_ok: dict,
+    routes_bad: dict,
+    probe_template: str,
+) -> dict:
+    """Two-phase protocol double: compatible accepted, incompatible rejected.
+
+    Mirrors 04B-20 at HTTP protocol level — an incompatible service must
+    never be mistaken for ready (negative), and a protocol-correct answer
+    must be accepted (positive control proving the double exercises the
+    real client contract, not a client that rejects everything).
+    """
+    observed: dict = {"service": service}
+    for phase, routes in (("compatible", routes_ok), ("incompatible", routes_bad)):
+        double_port = _free_port()
+        hits: list = []
+        stop = threading.Event()
+        server = threading.Thread(
+            target=_fake_http_service,
+            args=(double_port, hits, stop, routes),
+            daemon=True,
+        )
+        server.start()
+        try:
+            probe = _http_double_probe(
+                release, probe_template.replace("__PORT__", str(double_port))
+            )
+        finally:
+            stop.set()
+            server.join(timeout=5)
+        observed[f"{phase}_port"] = double_port
+        observed[f"{phase}_hits"] = hits
+        observed[f"{phase}_saw_request"] = bool(hits)
+        observed[f"{phase}_returncode"] = probe.returncode
+        observed[f"{phase}_stderr_tail"] = (probe.stderr or "").strip().splitlines()[-2:]
+    observed["compatible_accepted"] = observed["compatible_returncode"] == 0
+    observed["incompatible_rejected"] = observed["incompatible_returncode"] == 5
+    observed["ok"] = bool(
+        observed["compatible_saw_request"]
+        and observed["incompatible_saw_request"]
+        and observed["compatible_accepted"]
+        and observed["incompatible_rejected"]
+    )
+    return observed
+
+
+_QDRANT_PROBE = (
+    "import sys\n"
+    "try:\n"
+    "    import httpx\n"
+    "except Exception:\n"
+    "    sys.exit(9)\n"
+    "try:\n"
+    "    r = httpx.get('http://127.0.0.1:__PORT__/collections', timeout=5)\n"
+    "    r.raise_for_status()\n"
+    "    names = [c.get('name') for c in r.json().get('result', {}).get('collections', [])]\n"
+    "except Exception:\n"
+    "    sys.exit(5)\n"
+    "sys.exit(0 if '04b_double_collection' in names else 4)\n"
+)
+
+
+_OLLAMA_PROBE = (
+    "import sys\n"
+    "try:\n"
+    "    import httpx\n"
+    "except Exception:\n"
+    "    sys.exit(9)\n"
+    "try:\n"
+    "    v = httpx.get('http://127.0.0.1:__PORT__/api/version', timeout=5)\n"
+    "    v.raise_for_status()\n"
+    "    version = v.json().get('version')\n"
+    "    e = httpx.post('http://127.0.0.1:__PORT__/api/embed',\n"
+    "                   json={'model': '04b', 'input': ['x']}, timeout=5)\n"
+    "    e.raise_for_status()\n"
+    "    emb = e.json().get('embeddings')\n"
+    "except Exception:\n"
+    "    sys.exit(5)\n"
+    "sys.exit(0 if version and emb and emb[0] else 4)\n"
+)
+
+
+def _scenario_qdrant_double(release: Path, state_root: Path, port: int, timeout_s: float) -> dict:
+    """Qdrant protocol double at the release client-contract layer.
+
+    The RC venv intentionally carries no ``qdrant_client`` (lazy RAG), so
+    the release contract is the HTTP surface itself: ``GET /collections``
+    must return the qdrant envelope ``result.collections``.  An
+    incompatible endpoint (HTTP 500) must be rejected.
+    """
+    routes_ok = {
+        ("GET", "/collections"): (
+            200,
+            {
+                "result": {"collections": [{"name": "04b_double_collection"}]},
+                "status": "ok",
+                "time": 0.001,
+            },
+        ),
+    }
+    routes_bad = {
+        ("GET", "/collections"): (
+            500,
+            {"status": {"error": "04b test double: incompatible service"}},
+        ),
+    }
+    result = _scenario_protocol_double(
+        release, "qdrant", routes_ok, routes_bad, _QDRANT_PROBE
+    )
+    result["note"] = (
+        "release contract = HTTP GET /collections qdrant envelope; "
+        "compatible accepted, incompatible (500) rejected fail-closed"
+    )
+    return result
+
+
+def _scenario_ollama_double(release: Path, state_root: Path, port: int, timeout_s: float) -> dict:
+    """Ollama protocol double at the release client-contract layer.
+
+    Release clients probe ``GET /api/version`` and embed via
+    ``POST /api/embed`` (httpx is in the RC lock).  Incompatible answers
+    must be rejected; protocol-correct answers accepted.
+    """
+    routes_ok = {
+        ("GET", "/api/version"): (200, {"version": "0.0.0-04b-double"}),
+        ("POST", "/api/embed"): (200, {"embeddings": [[0.01, 0.02, 0.03]]}),
+    }
+    routes_bad = {
+        ("GET", "/api/version"): (500, {"error": "04b test double: incompatible service"}),
+        ("POST", "/api/embed"): (500, {"error": "04b test double: incompatible service"}),
+    }
+    result = _scenario_protocol_double(
+        release, "ollama", routes_ok, routes_bad, _OLLAMA_PROBE
+    )
+    result["note"] = (
+        "release contract = GET /api/version + POST /api/embed via httpx; "
+        "compatible accepted, incompatible (500) rejected fail-closed"
+    )
+    return result
+
+
 def _scenario_lifecycle(release: Path, state_root: Path, port: int, timeout_s: float) -> dict:
     lines: list[str] = []
     done = threading.Event()
@@ -605,6 +841,8 @@ def main() -> int:
             ("lifecycle", _scenario_lifecycle),
             ("mid-start-kill", _scenario_mid_start_kill),
             ("service-double", _scenario_service_double),
+            ("qdrant-double", _scenario_qdrant_double),
+            ("ollama-double", _scenario_ollama_double),
         ):
             port = _free_port()
             result = fn(release, sandbox, port, args.timeout)
