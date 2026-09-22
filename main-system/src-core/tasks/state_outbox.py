@@ -65,6 +65,12 @@ class OutboxPublisher:
         self._sessions: dict[int, dict[str, Any]] = {}
         self._wake = asyncio.Event()
         self._last_prune_at = 0.0
+        try:
+            from tasks.state_outbox_native_shadow import OutboxNativeShadow
+
+            self._native_shadow = OutboxNativeShadow.from_policy(project_root)
+        except Exception:
+            self._native_shadow = None
 
     @property
     def store(self) -> OutboxStore:
@@ -121,10 +127,17 @@ class OutboxPublisher:
             "sent_upto": 0,
             "last_attempt": 0.0,
         }
+        if self._native_shadow is not None:
+            self._native_shadow.observe_register(session_id)
         return session_id
 
     def unregister_session(self, ui: Any) -> None:
-        self._sessions.pop(id(ui), None)
+        session = self._sessions.pop(id(ui), None)
+        if (
+            session is not None
+            and self._native_shadow is not None
+        ):
+            self._native_shadow.observe_unregister(session["session_id"])
 
     def _session_for(self, ui: Any) -> dict[str, Any] | None:
         return self._sessions.get(id(ui))
@@ -156,6 +169,17 @@ class OutboxPublisher:
         session["acked"] = cursor_int
         session["sent_upto"] = cursor_int
         session["last_attempt"] = 0.0
+        if self._native_shadow is not None:
+            self._native_shadow.observe_hello(
+                session_id,
+                cursor=cursor_int,
+                generation_matches=(
+                    client_generation == self._backend_generation
+                ),
+                latest_sequence=latest_sequence,
+                py_reset=reset,
+                py_cursor=cursor_int,
+            )
         self._wake.set()
         return {
             "session_id": session_id,
@@ -176,8 +200,13 @@ class OutboxPublisher:
             ack = int(cursor)
         except (TypeError, ValueError):
             return
-        if ack > session["acked"]:
+        accepted = ack > session["acked"]
+        if accepted:
             session["acked"] = ack
+        if self._native_shadow is not None:
+            self._native_shadow.observe_ack(
+                session["session_id"], cursor=ack, py_accepted=accepted
+            )
         self._prune()
 
     def handle_resync(self, ui: Any, cursor: Any) -> dict[str, Any]:
@@ -192,6 +221,10 @@ class OutboxPublisher:
         session["acked"] = cursor_int
         session["sent_upto"] = session["acked"]
         session["last_attempt"] = 0.0
+        if self._native_shadow is not None:
+            self._native_shadow.observe_resync(
+                session["session_id"], cursor=cursor_int
+            )
         self._wake.set()
         return {
             "session_id": session["session_id"],
@@ -213,6 +246,8 @@ class OutboxPublisher:
                 # wake at the earliest retry deadline instead of a fixed
                 # POLL_INTERVAL_SECONDS poll.
                 next_retry = self._next_retry_deadline()
+                if self._native_shadow is not None:
+                    self._native_shadow.observe_retry_deadline(next_retry)
                 if next_retry is None:
                     await self._wake.wait()
                 else:
@@ -258,6 +293,15 @@ class OutboxPublisher:
                 and now - session["last_attempt"] >= RETRY_INTERVAL_SECONDS
             ):
                 start_after = session["acked"]
+            if self._native_shadow is not None:
+                self._native_shadow.observe_drain_plan(
+                    session["session_id"],
+                    py_window_open=start_after < window_end,
+                    py_start_after=start_after,
+                    py_limit=max(
+                        0, min(DRAIN_BATCH_LIMIT, window_end - start_after)
+                    ),
+                )
             if start_after >= window_end:
                 continue
             # Offload SQLite fetch to a thread so the event loop is never
@@ -283,9 +327,17 @@ class OutboxPublisher:
                     dead.append(key)
                     break
                 session["sent_upto"] = event["sequence"]
+                if self._native_shadow is not None:
+                    self._native_shadow.observe_mark_sent(
+                        session["session_id"], sequence=event["sequence"]
+                    )
             session["last_attempt"] = now
         for key in dead:
-            self._sessions.pop(key, None)
+            dead_session = self._sessions.pop(key, None)
+            if dead_session is not None and self._native_shadow is not None:
+                self._native_shadow.observe_unregister(
+                    dead_session["session_id"]
+                )
 
     def _prune(self) -> None:
         # Acks arrive once per delivered batch; a DELETE + MAX() scan per
@@ -299,6 +351,11 @@ class OutboxPublisher:
             floor = min(s["acked"] for s in self._sessions.values())
         else:
             floor = self._store.max_sequence()
+        if self._native_shadow is not None:
+            self._native_shadow.observe_prune_floor(
+                py_floor=floor,
+                latest_sequence=self._store.max_sequence(),
+            )
         try:
             self._store.prune(below_sequence=floor)
         except Exception:

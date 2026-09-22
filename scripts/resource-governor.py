@@ -590,10 +590,24 @@ class GovernorConfig:
         # §10.64 worker aggregate budget (single-core-equivalent).
         self.worker_cpu_budget: float = WORKER_CPU_BUDGET_PCT
         self.worker_ram_budget: float = WORKER_RAM_BUDGET_PCT
+        # Process Lasso-inspired tier (all control features default OFF:
+        # None = defer to the rules-file defaults, which are false).
+        rules_arg = getattr(args, "rules", None)
+        self.rules_path: Path = Path(rules_arg) if rules_arg else RULES_FILE
+        self.probalance_flag: bool | None = getattr(args, "probalance", None)
+        self.cpu_limiter_flag: bool | None = getattr(args, "cpu_limiter", None)
+        self.background_mode_flag: bool | None = getattr(args, "background_mode", None)
+        self.ecoqos_flag: bool | None = getattr(args, "ecoqos", None)
+        self.limiter_percent_arg: float | None = getattr(args, "limiter_percent", None)
+        self.resp_ratio_arg: float | None = getattr(args, "resp_ratio", None)
 
 
 class ProcessRecord:
-    __slots__ = ("busy", "calm", "prio_set", "aff_set", "reg_aff_set", "last_trim")
+    __slots__ = (
+        "busy", "calm", "prio_set", "aff_set", "reg_aff_set", "last_trim",
+        "pb_set", "bg_set", "eco_set", "limit_set",
+        "rule_applied", "rule_hold", "rule_priority", "rule_aff_set",
+    )
 
     def __init__(self) -> None:
         self.busy = 0
@@ -602,6 +616,14 @@ class ProcessRecord:
         self.aff_set = False
         self.reg_aff_set = False
         self.last_trim = 0.0
+        self.pb_set = False
+        self.bg_set = False
+        self.eco_set = False
+        self.limit_set = False
+        self.rule_applied = False
+        self.rule_hold: set[str] = set()
+        self.rule_priority: int | None = None
+        self.rule_aff_set = False
 
 
 def _protected(proc: psutil.Process, name: str, exe: str | None) -> bool:
@@ -678,6 +700,18 @@ def govern_once(
         "1", "true", "yes",
     }
     dry_run = config.dry_run or disabled
+    defaults, programs, rules_error = load_rules(config.rules_path)
+    features = _resolve_features(config, defaults)
+    if rules_error and regulation.get("rules_error") != rules_error:
+        _log_action({
+            "action": "rules-invalid",
+            "path": str(config.rules_path),
+            "error": rules_error,
+        })
+    regulation["rules_error"] = rules_error
+    latency_ms = measure_responsiveness()
+    strained = _responsiveness_update(regulation, latency_ms, features["resp_ratio"])
+    foreground_pid = _foreground_pid()
     worker_cpu_pct = 0.0
     worker_rss_mb = 0.0
     # Windows user processes do not expose a universal hard global CPU quota
@@ -702,6 +736,7 @@ def govern_once(
     actions: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
     seen: set[tuple[int, float]] = set()
+    pb_candidates: list[tuple[float, Any, int, str, str, ProcessRecord]] = []
 
     for proc in psutil.process_iter(PROCESS_ATTRS):
         try:
@@ -730,15 +765,97 @@ def govern_once(
                 cpu = proc.cpu_percent(None)
                 rss_mb = float(info["memory_info"].rss) / (1024 * 1024) if info.get("memory_info") else 0.0
                 plane = _classify_plane(proc, name, info.get("exe"))
+                io_counters = info.get("io_counters")
+                io_read_mb = (
+                    float(io_counters.read_bytes) / (1024 * 1024)
+                    if io_counters is not None else 0.0
+                )
+                io_write_mb = (
+                    float(io_counters.write_bytes) / (1024 * 1024)
+                    if io_counters is not None else 0.0
+                )
+                flags: list[str] = []
+                if record.pb_set:
+                    flags.append("probalance")
+                if record.bg_set:
+                    flags.append("background")
+                if record.eco_set:
+                    flags.append("ecoqos")
+                if record.limit_set:
+                    flags.append("limit")
+                if record.rule_applied:
+                    flags.append("rule")
                 rows.append({"pid": pid, "name": name, "cpu": round(cpu, 1),
-                             "mem_mb": round(rss_mb, 1), "plane": plane})
+                             "mem_mb": round(rss_mb, 1), "plane": plane,
+                             "io_read_mb": round(io_read_mb, 1),
+                             "io_write_mb": round(io_write_mb, 1),
+                             "flags": flags})
                 if plane in WORKER_PLANES:
                     worker_cpu_pct += cpu
                     worker_rss_mb += rss_mb
 
+            rule = None
+            if programs:
+                exe_name = ""
+                if info.get("exe"):
+                    exe_name = str(info["exe"]).rsplit("\\", 1)[-1].lower()
+                rule = programs.get(exe_name) or programs.get(name.lower())
+            if rule is not None and rule.exclude:
+                continue
+
             # §10.64: governance / core-execution plane is never regulated.
             if plane == "governance":
                 continue
+            if features["probalance"] and pid != foreground_pid:
+                pb_candidates.append((cpu, proc, pid, name, plane, record))
+
+            # Process Lasso-style persistent rules: applied once per process,
+            # then held (never auto-reverted) until the process exits.
+            if rule is not None and not record.rule_applied:
+                record.rule_applied = True
+                if rule.background and features["background_mode"]:
+                    ok = True if dry_run else _set_background_mode(pid, True)
+                    record.bg_set = True
+                    record.rule_hold.add("bg")
+                    actions.append({"action": "rule-background-mode", "pid": pid,
+                                    "name": name, "ok": ok})
+                if rule.ecoqos and features["ecoqos"]:
+                    ok = True if dry_run else _set_ecoqos(pid, True)
+                    record.eco_set = True
+                    record.rule_hold.add("eco")
+                    actions.append({"action": "rule-ecoqos", "pid": pid,
+                                    "name": name, "ok": ok})
+                if rule.cpu_limit_percent > 0 and features["cpu_limiter"]:
+                    ok = True if dry_run else _set_cpu_limit(
+                        key, pid, rule.cpu_limit_percent
+                    )
+                    record.limit_set = True
+                    record.rule_hold.add("limit")
+                    actions.append({"action": "rule-cpu-limited", "pid": pid,
+                                    "name": name,
+                                    "limiter_percent": rule.cpu_limit_percent,
+                                    "ok": ok})
+                if rule.priority is not None and not (
+                    rule.background and features["background_mode"]
+                ):
+                    if not dry_run:
+                        try:
+                            proc.nice(rule.priority)
+                        except psutil.Error:
+                            pass
+                    record.rule_priority = rule.priority
+                    actions.append({"action": "rule-priority", "pid": pid,
+                                    "name": name, "priority": rule.priority})
+                if rule.affinity and config.affinity:
+                    if not dry_run:
+                        try:
+                            proc.cpu_affinity(rule.affinity)
+                        except (AttributeError, psutil.Error):
+                            pass
+                    record.rule_aff_set = True
+                    record.rule_hold.add("affinity")
+                    actions.append({"action": "rule-affinity", "pid": pid,
+                                    "name": name, "cpus": len(rule.affinity)})
 
             throttling_workers = (
                 (regulation["active"] or regulation["pre"])
@@ -807,8 +924,32 @@ def govern_once(
                         )
                 except (AttributeError, psutil.Error):
                     pass
+            # Process Lasso-inspired dynamic tiers (all default OFF; worker
+            # planes only for the intrusive ones, unlike the priority path).
             if (
-                rss_mb >= config.mem_trim_mb
+                extreme_now
+                and plane in WORKER_PLANES
+                and record.busy >= config.extreme_sustain
+            ):
+                if features["background_mode"] and not record.bg_set:
+                    ok = True if dry_run else _set_background_mode(pid, True)
+                    record.bg_set = True
+                    actions.append({"action": "background-mode", "pid": pid,
+                                    "name": name, "cpu": round(cpu, 1), "ok": ok})
+                if features["ecoqos"] and not record.eco_set:
+                    ok = True if dry_run else _set_ecoqos(pid, True)
+                    record.eco_set = True
+                    actions.append({"action": "ecoqos", "pid": pid, "name": name,
+                                    "cpu": round(cpu, 1), "ok": ok})
+                if features["cpu_limiter"] and not record.limit_set:
+                    ok = True if dry_run else _set_cpu_limit(
+                        key, pid, features["limiter_percent"]
+                    )
+                    record.limit_set = True
+                    actions.append({"action": "cpu-limited", "pid": pid,
+                                    "name": name, "cpu": round(cpu, 1),
+                                    "limiter_percent": features["limiter_percent"],
+                                    "ok": ok})
                 and calm_now
                 and now - record.last_trim >= config.trim_cooldown
             ):

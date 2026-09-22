@@ -92,6 +92,15 @@ $suites = @(
         )
     },
     @{
+        src = "suite_channel_runtime.cpp"; exe = "channel_runtime_suite.exe"
+        # M2：A263 channel 非同步執行面（send/receive loop、state 機、
+        #    outbox 持有＋回放）——transport 注入（模式 B）
+        extra = @(
+            (Join-Path $nativeRoot "tool_runtime\channel_runtime.cpp"),
+            (Join-Path $coreDir "a263_channel_core.c")
+        )
+    },
+    @{
         src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
         # P0-9 審計引擎：連結真實原生實作
         extra = @(

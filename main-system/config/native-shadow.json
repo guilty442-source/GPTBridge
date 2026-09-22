@@ -4,7 +4,7 @@
   "components": {
     "connection_watchdog": { "mode": "shadow" },
     "periodic_scheduler": { "mode": "off" },
-    "state_outbox": { "mode": "off" },
+    "state_outbox": { "mode": "shadow" },
     "maintenance_controller": { "mode": "off" }
   }
 }

@@ -43,24 +43,85 @@ def load_suite(path: str | Path) -> dict[str, Any]:
     return suite
 
 
+def _measure_cpp_throughput(
+    checkpoint_path: str | Path,
+    *,
+    prompt: str,
+    max_new_tokens: int,
+    seed: int,
+) -> float:
+    """以生產 C++ 推論引擎量測吞吐（E11：eval tps C++ 量測路徑）。
+
+    torch 基準迴圈量的是機器負載；C++ 引擎是實際服役路徑，tps 才有
+    工程意義。引擎不可用、生成失敗或零 token 一律 fail-closed——
+    評估不得以未驗證的量測放行。
+    """
+    from .native_transformer.cpp_runtime import (
+        CppInferenceEngine,
+        available,
+    )
+
+    if not available():
+        raise RuntimeError("EVAL_CPP_ENGINE_UNAVAILABLE")
+    engine = CppInferenceEngine(checkpoint_path)
+    try:
+        result = engine.generate(
+            prompt=prompt,
+            max_tokens=max_new_tokens,
+            temperature=0.0,
+            top_k=0,
+            top_p=1.0,
+            seed=seed,
+        )
+        if not result.get("ok"):
+            raise RuntimeError(
+                f"EVAL_CPP_GENERATION_FAILED:{result.get('error_code')}"
+            )
+        eval_count = int(result.get("eval_count") or 0)
+        latency_ms = float(result.get("latency_ms") or 0.0)
+        if eval_count <= 0 or latency_ms <= 0.0:
+            raise RuntimeError("EVAL_CPP_NO_TOKENS")
+        return eval_count / (latency_ms / 1000.0)
+    finally:
+        engine.unload()
+
+
 def evaluate_checkpoint(
     checkpoint_path: str | Path,
     suite: Mapping[str, Any],
     *,
     quantize: int | None = None,
 ) -> dict[str, Any]:
-    """對單一 checkpoint 跑套件：perplexity + 生成健檢 + 吞吐。"""
+    """對單一 checkpoint 跑套件：perplexity + 生成健檢 + 吞吐。
+
+    吞吐引擎由套件 ``throughput_engine`` 選擇：``torch``（預設，沿用
+    Python 基準迴圈）或 ``cpp``（生產 C++ 引擎量測）。未知值
+    fail-closed；量測引擎記入 metrics 供稽核。
+    """
     prompt = str(suite.get("sanity_prompt") or "def main():")
     max_new = int(suite.get("sanity_max_new_tokens") or 16)
+    seed = int(suite.get("seed") or 42)
+    throughput_engine = str(suite.get("throughput_engine") or "torch")
+    if throughput_engine not in ("torch", "cpp"):
+        raise ValueError(
+            f"eval suite throughput_engine unknown: {throughput_engine}"
+        )
     report = run_benchmark(
         checkpoint_path,
         prompt=prompt,
         max_new_tokens=max_new,
         repeat=1,
-        seed=int(suite.get("seed") or 42),
+        seed=seed,
         quantize=quantize,
         eval_text=str(suite["eval_text"]),
     )
+    if throughput_engine == "cpp":
+        report["tokens_per_second"] = _measure_cpp_throughput(
+            checkpoint_path,
+            prompt=prompt,
+            max_new_tokens=max_new,
+            seed=seed,
+        )
     generation_ok = bool(report["generated_tokens"] > 0)
     return {
         "perplexity": report.get("eval_perplexity"),
@@ -69,6 +130,7 @@ def evaluate_checkpoint(
         "latency_ms_mean": report["latency_ms_mean"],
         "quantization": report["quantization"],
         "checkpoint_sha256": report["checkpoint_sha256"],
+        "throughput_engine": throughput_engine,
     }
 
 

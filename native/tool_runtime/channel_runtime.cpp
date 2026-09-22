@@ -213,7 +213,10 @@ bool A263ChannelRuntime::send_message(MessagePriority priority,
             return false;
         impl_->message_queue.emplace_back(
             static_cast<int32_t>(priority), message);
-    }
+        /* Python deque(maxlen)：backpressure 停用時越界靜默丟棄最舊
+           訊息（恆回 true）；鏡像同語義。 */
+        while (impl_->message_queue.size() > impl_->cfg.max_queue_size)
+            impl_->message_queue.pop_front();
     impl_->wakeup.notify_all();
     return true;
 }
@@ -359,18 +362,25 @@ void A263ChannelRuntime::receive_loop() {
 }
 
 void A263ChannelRuntime::heartbeat_loop() {
-    /* _heartbeat_loop：每 interval 檢查 deadline；逾期 → dead＋close。
-       以 wakeup CV 計時等待（disconnect/dead notify 可即刻解除阻塞，
-       對應 Python 的 task.cancel()）。 */
+    /* _heartbeat_loop：每 interval 檢查一次 deadline（Python：sleep →
+       ping → 檢查）。以 wakeup CV 實現可中斷等待——enqueue notify
+       不縮短間隔（提早醒來未屆期會繼續睡），dead/disconnect 的
+       notify 才即刻退出（對應 task.cancel()）。 */
+    double next_check = impl_->now() + impl_->cfg.heartbeat_interval_seconds;
     while (!impl_->heartbeat_dead.load()) {
         {
             std::unique_lock<std::mutex> lk(impl_->mu);
-            impl_->wakeup.wait_for(
-                lk, std::chrono::duration<double>(
-                        impl_->cfg.heartbeat_interval_seconds));
+            while (!impl_->heartbeat_dead.load() &&
+                   impl_->now() < next_check) {
+                impl_->wakeup.wait_for(
+                    lk, std::chrono::duration<double>(
+                            (std::max)(0.001,
+                                       next_check - impl_->now())));
+            }
         }
         if (impl_->heartbeat_dead.load()) break;
         poll_heartbeat();
+        next_check = impl_->now() + impl_->cfg.heartbeat_interval_seconds;
     }
 }
 
@@ -479,7 +489,9 @@ bool A263ChannelRuntime::connect(const std::string& backend_generation,
 
     set_state(GPTBRIDGE_A263_STATE_CONNECTING);
     impl_->heartbeat_dead.store(false);
-    impl_->last_pong.store(impl_->now());
+    /* Python 不在 connect 重置 _last_pong_received（初值 0.0，僅
+       pong 更新）——對端須於首個 interval 檢查前 pong，否則逾期；
+       此處鏡像同語義，不代設。 */
 
     start_threads();
     enqueue_hello();
@@ -533,7 +545,7 @@ bool A263ChannelRuntime::reconnect(int64_t snapshot_cursor,
     impl_->backend_generation = backend_generation;
     impl_->session_id = session_id;
     impl_->gen_created_at = utc_now_iso();
-    impl_->last_pong.store(impl_->now());
+    /* _last_pong_received 跨 reconnect 不重置（Python 同）。 */
 
     start_threads();
     enqueue_resync(static_cast<uint64_t>(snapshot_cursor));
