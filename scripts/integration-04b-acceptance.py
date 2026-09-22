@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import socket
 import sqlite3
@@ -121,7 +122,17 @@ def build_rc() -> None:
     # interpreter already exists.
     for stale in ("backend", "config", "shared_runtime", "shared-layer",
                   "governance_rule", "main-system"):
-        shutil.rmtree(RC / stale, ignore_errors=True)
+        target = RC / stale
+        if not target.exists():
+            continue
+        shutil.rmtree(target, ignore_errors=True)
+        if target.exists():
+            # Windows delete-pending locks (AV indexing, mapped handles)
+            # block unlink but not rename — move aside so the fresh copy
+            # lands under the clean name, then best-effort clean up.
+            aside = RC / f"{stale}.stale-{os.getpid()}"
+            target.rename(aside)
+            shutil.rmtree(aside, ignore_errors=True)
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
     shutil.copytree(ROOT / "main-system" / "src-core", RC / "backend", ignore=ignore)
     shutil.copytree(ROOT / "main-system" / "config", RC / "config")
