@@ -149,3 +149,19 @@ def test_report_failure_idempotent_while_degraded() -> None:
     state = m.report_canonical_failure("still down")
     assert state == RagRuntimeState.DEGRADED
     assert m.status()["last_error"] == "still down"
+
+
+def test_seconds_in_state_counts_from_last_transition() -> None:
+    m = _machine()
+    m.evaluate_startup(
+        qdrant_healthy=False, postgresql_healthy=False, index_state_matches=False
+    )
+    assert m.state == RagRuntimeState.DEGRADED
+    secs = m.seconds_in_state
+    assert secs >= 0.0
+
+
+def test_seconds_in_state_invalid_timestamp_is_zero() -> None:
+    m = _machine()
+    m._last_transition_at = "not-a-timestamp"
+    assert m.seconds_in_state == 0.0

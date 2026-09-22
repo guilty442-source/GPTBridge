@@ -36,6 +36,8 @@ CPP_SOURCES = (
 # ``XINGCHENG_CUDA_KERNELS`` (bf16 request path then fails closed).
 CU_SOURCES = (
     HERE / "src" / "kernels" / "matmul_bf16.cu",
+    # P1-1③ residual: fp8 e4m3 weight-storage GEMM.
+    HERE / "src" / "kernels" / "matmul_fp8.cu",
     # P1-1② device-resident KV + online-softmax attention.
     HERE / "src" / "kernels" / "kv_attention.cu",
 )

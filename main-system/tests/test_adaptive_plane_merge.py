@@ -311,3 +311,93 @@ def test_qdrant_search_failure_silent_on_plane_error(tmp_path, monkeypatch):
         rt.search(query_vector=[0.1], module_ids=("mod-1",))
     )
     assert hits == []  # 檢索本身成功
+
+
+def test_rag_health_check_feeds_backlog_and_degraded(monkeypatch):
+    """CanonicalRagPipeline.health_check → qdrant_backlog/degraded/
+    degraded_seconds 欄位級注入（欄位所有權：不覆寫他人生產者）。"""
+    import asyncio
+    from types import SimpleNamespace
+
+    from core_system.rag.pipeline import CanonicalRagPipeline
+    from core_system.rag.rag_qdrant import RagPipelineConfig
+
+    cfg = RagPipelineConfig(
+        qdrant_url="http://unused",
+        qdrant_api_key=None,
+        collection_name="col",
+        postgresql_dsn="postgresql://unused",
+    )
+    pipe = CanonicalRagPipeline(cfg)
+    pipe.qdrant = SimpleNamespace(
+        is_healthy=lambda: False, last_error=None, collection_error=None
+    )
+
+    async def _outbox_stats():
+        return {"pending": 7, "retry": 0, "dead_letter": 0}
+
+    pipe.postgresql = SimpleNamespace(
+        is_healthy=lambda: False,
+        outbox_stats=_outbox_stats,
+        reconciliation_status=None,
+    )
+    # DEGRADED：stores 不健康 → attempt_recovery 早退、維持降級態
+    pipe._state_machine.evaluate_startup(
+        qdrant_healthy=False,
+        postgresql_healthy=False,
+        index_state_matches=False,
+    )
+
+    plane = AdaptiveDataPlane()
+    plane.observe_merge(LoadSignals(cpu_pct=50.0), fields=("cpu_pct",))
+    monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
+
+    asyncio.run(pipe.health_check())
+
+    assert plane.signals.qdrant_backlog == 7
+    assert plane.signals.degraded is True
+    assert plane.signals.degraded_seconds >= 0.0
+    assert plane.signals.cpu_pct == 50.0  # 不互踩
+
+
+def test_rag_health_check_canonical_reports_not_degraded(monkeypatch):
+    """CANONICAL 態：degraded=False、degraded_seconds=0、backlog 仍實測。"""
+    import asyncio
+    from types import SimpleNamespace
+
+    from core_system.rag.pipeline import CanonicalRagPipeline
+    from core_system.rag.rag_qdrant import RagPipelineConfig
+
+    cfg = RagPipelineConfig(
+        qdrant_url="http://unused",
+        qdrant_api_key=None,
+        collection_name="col",
+        postgresql_dsn="postgresql://unused",
+    )
+    pipe = CanonicalRagPipeline(cfg)
+    pipe.qdrant = SimpleNamespace(
+        is_healthy=lambda: True, last_error=None, collection_error=None
+    )
+
+    async def _outbox_stats():
+        return {"pending": 0}
+
+    pipe.postgresql = SimpleNamespace(
+        is_healthy=lambda: True,
+        outbox_stats=_outbox_stats,
+        reconciliation_status=None,
+    )
+    pipe._state_machine.evaluate_startup(
+        qdrant_healthy=True,
+        postgresql_healthy=True,
+        index_state_matches=True,
+    )
+
+    plane = AdaptiveDataPlane()
+    monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
+
+    asyncio.run(pipe.health_check())
+
+    assert plane.signals.qdrant_backlog == 0
+    assert plane.signals.degraded is False
+    assert plane.signals.degraded_seconds == 0.0
