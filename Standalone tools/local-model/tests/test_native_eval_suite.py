@@ -127,3 +127,43 @@ def test_run_evaluation_records_and_validates(tmp_path):
             candidate_checkpoint=cand,
             suite_path=suite_path,
         )
+
+
+def test_compare_metrics_tps_ratio_gate():
+    gates = {"min_tps_baseline_ratio": 0.9}
+    base = {"tokens_per_second": 10.0}
+    _, ok = compare_metrics(
+        base, {"generation_ok": True, "tokens_per_second": 9.0}, gates
+    )
+    assert ok
+    cmp_, bad = compare_metrics(
+        base, {"generation_ok": True, "tokens_per_second": 8.9}, gates
+    )
+    assert not bad
+    assert cmp_["tokens_per_second_ratio_ok"] is False
+    # baseline tps missing -> fail closed
+    _, denied = compare_metrics(
+        {}, {"generation_ok": True, "tokens_per_second": 99.0}, gates
+    )
+    assert not denied
+
+
+def test_compare_metrics_tps_ratio_and_floor():
+    gates = {"min_tokens_per_second": 5.0, "min_tps_baseline_ratio": 0.5}
+    base = {"tokens_per_second": 20.0}
+    _, ok = compare_metrics(
+        base, {"generation_ok": True, "tokens_per_second": 10.0}, gates
+    )
+    assert ok
+    _, bad = compare_metrics(
+        base, {"generation_ok": True, "tokens_per_second": 4.9}, gates
+    )
+    assert not bad
+
+
+def test_compare_metrics_no_tps_gate_unchanged():
+    gates = {"require_generation": True}
+    _, ok = compare_metrics(
+        {}, {"generation_ok": True, "tokens_per_second": 0.0}, gates
+    )
+    assert ok

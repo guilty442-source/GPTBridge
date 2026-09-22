@@ -9,10 +9,8 @@ from .source_ownership_helpers import (
     _check_shared_layer_sources,
     _check_cross_tool_imports,
     _check_ai_assistant_network,
-    _check_global_cleaner_vaultly,
     _check_main_system_business,
 )
-from .identity_groups import identity_group_snapshot
 
 
 SHARED_LAYER_ROOT: Final[str] = "shared-layer/src/shared_layer"
@@ -49,12 +47,6 @@ FILE_SORTER_PACKAGE_ROOT: Final[str] = (
     "Standalone tools/file-sorter/src/backend/services/file_sorter"
 )
 FILE_SORTER_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
-    {"application", "domain", "infrastructure"}
-)
-GLOBAL_CLEANER_PACKAGE_ROOT: Final[str] = (
-    "Standalone tools/global-cleaner/src/backend/services/project_cleaner"
-)
-GLOBAL_CLEANER_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application", "domain", "infrastructure"}
 )
 VAULTLY_PACKAGE_ROOT: Final[str] = "Standalone tools/vaultly/src/backend/services/vaultly"
@@ -208,38 +200,10 @@ OWNED_IMPORT_PREFIXES: Final[dict[str, str]] = {
     "file_sorter": "Standalone tools/file-sorter",
     "investment_mobile": "Standalone tools/investment-mobile",
     "xingcheng": "Standalone tools/local-model",
-    "project_cleaner": "Standalone tools/global-cleaner",
     "vaultly": "Standalone tools/vaultly",
     "star_chat": "Standalone tools/local-model",
     "system_rescue": "Standalone tools/system-rescue",
 }
-
-
-def _retired_owner_roots() -> frozenset[str]:
-    """Bound roots of identities retired under A533/A534.
-
-    Retired identities remain registered as lineage/audit evidence; their
-    owner roots are excluded from active source-layer requirements.
-    """
-    return frozenset(
-        str(bound_root).replace("\\", "/").rstrip("/")
-        for identity in identity_group_snapshot().identities
-        if identity.lifecycle == "retired"
-        for bound_root in identity.bound_roots
-        if str(bound_root).strip()
-    )
-
-
-def _owned_by_retired_root(
-    package_root: str,
-    retired_roots: frozenset[str],
-) -> bool:
-    normalized = package_root.replace("\\", "/").rstrip("/")
-    return any(
-        normalized == owner_root
-        or normalized.startswith(f"{owner_root}/")
-        for owner_root in retired_roots
-    )
 
 
 def source_ownership_errors(project_root: Path) -> list[str]:
@@ -247,7 +211,6 @@ def source_ownership_errors(project_root: Path) -> list[str]:
     errors: list[str] = []
     shared_root = root / SHARED_LAYER_ROOT
     assistant_package = root / AI_ASSISTANT_PACKAGE_ROOT
-    retired_roots = _retired_owner_roots()
 
     # The four source scans are independent and mostly I/O bound; running
     # them concurrently (with one shared read cache, so overlapping files
@@ -341,26 +304,6 @@ def source_ownership_errors(project_root: Path) -> list[str]:
         if (root / relative).exists():
             errors.append(f"legacy file-sorter source remains: {relative}")
 
-    cleaner_package = root / GLOBAL_CLEANER_PACKAGE_ROOT
-    cleaner_retired = _owned_by_retired_root(
-        GLOBAL_CLEANER_PACKAGE_ROOT, retired_roots
-    )
-    _check_package_layers(
-        root, GLOBAL_CLEANER_PACKAGE_ROOT, GLOBAL_CLEANER_REQUIRED_LAYERS,
-        "global-cleaner", errors,
-        retired=cleaner_retired,
-    )
-    legacy_cleaner_sources = (
-        "Standalone tools/global-cleaner/src/backend/cleanup_engine.py",
-        "Standalone tools/global-cleaner/src/backend/business_history.py",
-        "Standalone tools/global-cleaner/src/backend/cleanup_service.py",
-    )
-    for relative in legacy_cleaner_sources:
-        if (root / relative).exists():
-            errors.append(f"legacy global-cleaner source remains: {relative}")
-    if not cleaner_retired:
-        _check_global_cleaner_vaultly(root, cleaner_package, errors)
-
     _check_package_layers(
         root, VAULTLY_PACKAGE_ROOT, VAULTLY_REQUIRED_LAYERS,
         "vaultly", errors,
@@ -393,8 +336,6 @@ __all__ = (
     "INVESTMENT_MOBILE_REQUIRED_LAYERS",
     "FILE_SORTER_PACKAGE_ROOT",
     "FILE_SORTER_REQUIRED_LAYERS",
-    "GLOBAL_CLEANER_PACKAGE_ROOT",
-    "GLOBAL_CLEANER_REQUIRED_LAYERS",
     "VAULTLY_PACKAGE_ROOT",
     "VAULTLY_REQUIRED_LAYERS",
     "STAR_CHAT_PACKAGE_ROOT",

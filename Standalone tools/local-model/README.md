@@ -8,7 +8,7 @@
 
 `model-dialogue/` 是純對話介面與獨立生命週期程式，只在 GPTBridge 主系統中以 `star-chat` 顯示。介面不再提供訓練、外部協作或能力編成工作區；訓練與能力編成只由星澄原生模型內部自行處理。
 
-模型對話的 Electron／網路／暫存快取集中於 `local-model/runtime/cache/companions/star-chat`；備份只由全域清理寫入 `global-cleaner/data/business/backups/xingcheng`。測試產生物則統一由 `global-cleaner/runtime/test-artifacts` 建立與清除。
+模型對話的 Electron／網路／暫存快取集中於 `local-model/runtime/cache/companions/star-chat`；備份由受管封存庫保存於 `system-rescue/data/business/backups/xingcheng`。測試產生物統一於 `main-system/runtime/temp` 建立，由主系統內部清理服務清除。
 
 ## 多模組架構
 

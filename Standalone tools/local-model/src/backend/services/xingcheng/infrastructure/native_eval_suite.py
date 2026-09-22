@@ -82,6 +82,7 @@ def compare_metrics(
     max_regression = float(gates.get("max_perplexity_regression_pct", 5.0))
     require_generation = bool(gates.get("require_generation", True))
     min_tps = float(gates.get("min_tokens_per_second") or 0.0)
+    tps_ratio = float(gates.get("min_tps_baseline_ratio") or 0.0)
 
     base_ppl = baseline.get("perplexity")
     cand_ppl = candidate.get("perplexity")
@@ -94,11 +95,17 @@ def compare_metrics(
     generation_ok = (
         bool(candidate.get("generation_ok")) if require_generation else True
     )
-    tps_ok = (
-        float(candidate.get("tokens_per_second") or 0.0) >= min_tps
-        if min_tps > 0
-        else True
-    )
+    cand_tps = float(candidate.get("tokens_per_second") or 0.0)
+    tps_ok = cand_tps >= min_tps if min_tps > 0 else True
+    base_tps = baseline.get("tokens_per_second")
+    tps_ratio_ok = True
+    if tps_ratio > 0:
+        tps_ratio_ok = (
+            base_tps is not None
+            and float(base_tps) > 0
+            and cand_tps >= float(base_tps) * tps_ratio
+        )
+        tps_ok = tps_ok and tps_ratio_ok
     passed = ppl_ok and generation_ok and tps_ok
     comparison = {
         "perplexity_delta_pct": (
@@ -108,6 +115,10 @@ def compare_metrics(
         "perplexity_ok": ppl_ok,
         "generation_ok": generation_ok,
         "tokens_per_second_ok": tps_ok,
+        "tokens_per_second_ratio_ok": tps_ratio_ok,
+        "baseline_tokens_per_second": (
+            round(float(base_tps), 4) if base_tps is not None else None
+        ),
     }
     return comparison, passed
 

@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import random
 import threading
+import time
 import urllib.request
 from collections import deque
 from dataclasses import asdict
@@ -140,6 +141,18 @@ class ConnectionWatchdog(
         self._last_error: Optional[str] = None
         self._error_counts: dict[str, int] = {}
         self._last_error_time = 0.0
+        try:
+            from .connection_watchdog_native_shadow import WatchdogNativeShadow
+
+            self._native_shadow = WatchdogNativeShadow.from_policy(
+                self.project_root,
+                min_interval_ms=int(self._min_probe_interval * 1000),
+                max_interval_ms=int(self._max_probe_interval * 1000),
+                dead_threshold=dead_threshold,
+                retry_grace=CONNECTION_PROBE_RETRY_GRACE,
+            )
+        except Exception:
+            self._native_shadow = None
 
     def set_repair_callback(self, callback: Any) -> None:
         """Set a callback to invoke when connection repair is needed."""
@@ -212,6 +225,16 @@ class ConnectionWatchdog(
                 self._repair_callback("FRONTEND_BACKEND_DISCONNECTED", snapshot)
             except Exception:
                 pass
+        if self._native_shadow is not None:
+            self._native_shadow.observe_probe(
+                backend_process_alive=backend_process_alive,
+                backend_http_healthy=backend_http,
+                frontend_connected=frontend_connected,
+                py_state=new_state,
+                py_consecutive_dead=new_dead,
+                py_repair_trigger=trigger,
+                now_ms=int(time.time() * 1000),
+            )
         self._write_state()
         return snapshot
 
@@ -231,6 +254,10 @@ class ConnectionWatchdog(
                 else:
                     self._consecutive_stable = 0
                     self._adaptive_probe_interval = self._min_probe_interval
+                if self._native_shadow is not None:
+                    self._native_shadow.observe_interval(
+                        int(round(self._adaptive_probe_interval * 1000))
+                    )
             except Exception:
                 pass
             jittered_interval = self._adaptive_probe_interval * random.uniform(0.9, 1.1)

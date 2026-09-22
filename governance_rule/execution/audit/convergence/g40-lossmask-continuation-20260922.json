@@ -1,0 +1,78 @@
+{
+ "check": "g40-assistant-loss-mask-and-stateful-continuation",
+ "worker": "devin-cli/cosmic-papaya",
+ "timestamp_utc": "2026-09-22T13:25Z",
+ "checkpoint": "manual-sft-v18-20260922/final.pt (weights v21, registered not activated)",
+ "tokenizer": "xingcheng-bpe-8k-v1",
+ "method": "encode_conversation + SFTDataset unmasked-label-span decode; ChatSession 3-scenario continuation probe (greedy, fresh sessions); BOS-mask assert included",
+ "results": {
+  "mask_checks": [
+   {
+    "case": "synthetic_5turn_2asst",
+    "spans": 2,
+    "decoded": [
+     "好的，我記住了：藍鵲\n<|eot|>\n",
+     "藍鵲\n<|eot|>\n"
+    ],
+    "assistant_only": true
+   },
+   {
+    "case": "memory_record_2asst",
+    "spans": 2,
+    "decoded": [
+     "好的，我記住了：RT-42\n<|eot|>\n",
+     "RT-42\n<|eot|>\n"
+    ],
+    "assistant_only": true
+   },
+   {
+    "case": "prompt_completion",
+    "spans": 1,
+    "decoded": [
+     "\n\n後續完成文字<|eos|>"
+    ],
+    "completion_only": true
+   }
+  ],
+  "continuation": [
+   {
+    "scenario": "mem",
+    "turns": [
+     "請記住密語：藍鵲",
+     "繼續"
+    ],
+    "replies": [
+     "腦龍",
+     "聲石"
+    ]
+   },
+   {
+    "scenario": "echo",
+    "turns": [
+     "請只輸出：青龍",
+     "繼續"
+    ],
+    "replies": [
+     "青龍",
+     "青龍"
+    ]
+   },
+   {
+    "scenario": "arith",
+    "turns": [
+     "計算 55 + 17，只輸出數字",
+     "繼續"
+    ],
+    "replies": [
+     "好的，我記住了：56",
+     "56"
+    ]
+   }
+  ],
+  "non_fixed_answer": true
+ },
+ "verdict": {
+  "loss_mask": "PASS - system/user/tool/role-marker/BOS all masked; only assistant content+<|eot|> keeps labels; prompt/completion path labels only completion+<|eos|>",
+  "continuation_statefulness": "PASS(formal) - three-scenario '繼續' replies all distinct (state-dependent, not a fixed answer); semantic quality still bounded by the 27M capability asymptote (mem scenario gibberish, arith does not resume the task) - quality gap belongs to the already-recorded echo/dialogue-quality adjudication, not a masking/mechanism defect"
+ }
+}

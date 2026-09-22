@@ -30,18 +30,8 @@ def _check_package_layers(
     required_layers: frozenset[str],
     package_label: str,
     errors: list[str],
-    *,
-    retired: bool = False,
 ) -> None:
-    """Check that a package has all required layers and no stray sources.
-
-    A533/A534: a retired owner is non-executable evidence; its package is
-    not required to keep service layers.  Only active owners fail the
-    layer requirement (a retired package that still exists is dead data,
-    not a missing-layer fault).
-    """
-    if retired:
-        return
+    """Check that a package has all required layers and no stray sources."""
     package = root / package_root
     for layer in required_layers:
         if not (package / layer / "__init__.py").is_file():
@@ -166,28 +156,6 @@ def _check_ai_assistant_network(
             )
 
 
-def _check_global_cleaner_vaultly(
-    root: Path,
-    cleaner_package: Path,
-    errors: list[str],
-) -> None:
-    """Check global-cleaner sources for vaultly private storage references."""
-    cleaner_owned_sources = list(cleaner_package.rglob("*.py"))
-    cleaner_rules = root / "Standalone tools/global-cleaner/src/backend/services/project_cleaner/domain/cleanup_rules.json"
-    if cleaner_rules.is_file():
-        cleaner_owned_sources.append(cleaner_rules)
-    for source in cleaner_owned_sources:
-        try:
-            content = source.read_text(encoding="utf-8").replace("\\", "/").casefold()
-        except (OSError, UnicodeError):
-            continue
-        if "vaultly/data/" in content:
-            errors.append(
-                "global-cleaner must not address vaultly private storage: "
-                f"{source.relative_to(root).as_posix()}"
-            )
-
-
 def _check_main_system_business(
     root: Path,
     forbidden_terms: tuple[str, ...],
@@ -242,6 +210,5 @@ __all__ = [
     "_check_shared_layer_sources",
     "_check_cross_tool_imports",
     "_check_ai_assistant_network",
-    "_check_global_cleaner_vaultly",
     "_check_main_system_business",
 ]

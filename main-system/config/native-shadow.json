@@ -1,0 +1,10 @@
+{
+  "schema": "native-shadow-policy/v1",
+  "note": "§10.65 dual-track runtime flags — one entry per migrating component. Modes: off (Python only), shadow (C parallel + item-by-item compare + divergence audit, Python authoritative), primary/retire are later acts and are refused by the act-1 harness (fail-closed to Python).",
+  "components": {
+    "connection_watchdog": { "mode": "shadow" },
+    "periodic_scheduler": { "mode": "off" },
+    "state_outbox": { "mode": "off" },
+    "maintenance_controller": { "mode": "off" }
+  }
+}

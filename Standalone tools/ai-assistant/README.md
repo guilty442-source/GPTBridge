@@ -26,7 +26,7 @@ Project ID: `ai-assistant`
 - `investment_star_service.py`：唯一的 AI 通道邊界。
 - `investment_mobile_bridge.py`：已分離手機工具的最小橋接介面。
 - `investment-mobile/`：手機介面與連線程式的共用原始碼；手機版仍以 `investment-mobile` 獨立工具 ID 啟停，但設定、資料與投資業務只由 投資管家的共用 repository 保存，兩者共用 `ai-investment-manager-v1` 業務權限。
-- 手機版快取集中於 `ai-assistant/runtime/cache/companions/investment-mobile`；備份只由全域清理寫入 `global-cleaner/data/business/backups/ai-assistant`，不在手機介面建立快取或備份根目錄。
+- 手機版快取集中於 `ai-assistant/runtime/cache/companions/investment-mobile`；備份由受管封存庫保存於 `system-rescue/data/business/backups/ai-assistant`，不在手機介面建立快取或備份根目錄。
 - `ExcelMappingEditor.tsx`、`HoldingEditor.tsx`：獨立表單元件；持股編輯採固定視窗，不受頁面捲動位置影響。
 - `StarAccountingPanel.tsx`：帳務的精簡專屬工作區。
 
@@ -38,14 +38,14 @@ Project ID: `ai-assistant`
 
 ## 測試
 
-所有測試必須由全域清理的測試執行器啟動：
+測試以主系統 venv 直接執行：
 
 ```powershell
-python global-cleaner\src\test_runner.py -- python -m pytest -q ai-assistant\tests
-python global-cleaner\src\test_runner.py -- npm.cmd --prefix main-system run type-check
-python global-cleaner\src\test_runner.py -- npm.cmd --prefix main-system run smoke:ai-assistant-ui
+main-system\.venv\Scripts\python.exe -m pytest -q "Standalone tools\ai-assistant\tests"
+npm.cmd --prefix main-system run type-check
+npm.cmd --prefix main-system run smoke:ai-assistant-ui
 ```
 
-測試產生物一律放入各工具或共用層的暫存區，測試完成後由全域清理刪除檔案並保留暫存資料夾。
+測試產生物一律放入各工具或共用層的暫存區，測試完成後由主系統內部清理服務刪除檔案並保留暫存資料夾。
 
 所有投資分析均為輔助資訊，不構成投資建議。
