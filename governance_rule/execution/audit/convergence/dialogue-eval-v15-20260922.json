@@ -1,0 +1,66 @@
+{
+  "schema": "dialogue-eval-record/v1",
+  "date": "2026-09-22",
+  "purpose": "Phase-5 v15 candidate: dialogue suite + samples (run 1)",
+  "checkpoint": "E:\\GPTBridge\\Standalone tools\\local-model\\xingcheng\\runtime\\models\\jobs\\manual-sft-v15-20260922\\final.pt",
+  "suite": "star-native-eval-dialogue-v1",
+  "suite_sha256": "b93b020b47b805ca3f6963acdc1621560a2e3143839d074538d512b36f97f7e4",
+  "metrics": {
+    "perplexity": 135.99930090126017,
+    "generation_ok": true,
+    "tokens_per_second": 19.76,
+    "latency_ms_mean": 1619.523,
+    "quantization": "none",
+    "checkpoint_sha256": "276527f0cd00ed7dc1ebcafb84806b0ff757abecdacda744a4e9e99936926cfe"
+  },
+  "comparison": {
+    "perplexity_delta_pct": null,
+    "perplexity_gate": "<= 40.0%",
+    "perplexity_ok": true,
+    "generation_ok": true,
+    "tokens_per_second_ok": true
+  },
+  "passed": true,
+  "manual_inspection_samples": [
+    {
+      "prompt": "你好，你是誰？",
+      "output": "�光\n<|eot|>\n光濤光\n<|eot|>\n光濤光\n<",
+      "new_tokens": 35,
+      "elapsed_ms": 720.2
+    },
+    {
+      "prompt": "請用一句話說明星澄模型。",
+      "output": "��\n\n- 光愾愾\n<|eot|>\n- 濤光濤\n<",
+      "new_tokens": 34,
+      "elapsed_ms": 628.0
+    },
+    {
+      "prompt": "今天天氣如何？",
+      "output": "好的，我記住了：色濤聲\n<|eot|>\n色",
+      "new_tokens": 31,
+      "elapsed_ms": 706.9
+    },
+    {
+      "prompt": "1+1 等於多少？",
+      "output": "\n- 潾聲\n- 愾\n- 愾\n- 愾\n- 愾\n- ",
+      "new_tokens": 36,
+      "elapsed_ms": 1075.6
+    },
+    {
+      "prompt": "請列出三個顏色。",
+      "output": "�\n\n- 愾松愾\n<|eot|>\n- 想光想\n<|",
+      "new_tokens": 35,
+      "elapsed_ms": 658.4
+    },
+    {
+      "prompt": "謝謝你的幫忙。",
+      "output": "\n-09 光\n-09-09 光\n-09-09\n\n-09-09 光\n-09-09",
+      "new_tokens": 33,
+      "elapsed_ms": 737.9
+    }
+  ],
+  "notes": [
+    "baseline_metrics empty in suite -> perplexity gate vacuous; recorded absolute ppl as baseline candidate for future suites",
+    "greedy decode, seed 42, CPU"
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "schema": "dialogue-eval-record/v1",
+  "date": "2026-09-22",
+  "purpose": "Phase-5 v15 chat-path eval, run a (stability)",
+  "checkpoint": "E:\\GPTBridge\\Standalone tools\\local-model\\xingcheng\\runtime\\models\\jobs\\manual-sft-v15-20260922\\final.pt",
+  "suite": "star-native-eval-dialogue-v1",
+  "suite_sha256": "b93b020b47b805ca3f6963acdc1621560a2e3143839d074538d512b36f97f7e4",
+  "metrics": {
+    "perplexity": 135.99930090126017,
+    "generation_ok": true,
+    "tokens_per_second": 1.94,
+    "latency_ms_mean": 16520.462,
+    "quantization": "none",
+    "checkpoint_sha256": "276527f0cd00ed7dc1ebcafb84806b0ff757abecdacda744a4e9e99936926cfe"
+  },
+  "comparison": {
+    "perplexity_delta_pct": null,
+    "perplexity_gate": "<= 40.0%",
+    "perplexity_ok": true,
+    "generation_ok": true,
+    "tokens_per_second_ok": false
+  },
+  "passed": false,
+  "manual_inspection_samples": [
+    {
+      "prompt": "你好，你是誰？",
+      "output": "好的，我記住了：夢夢",
+      "stopped_by_eos": false,
+      "elapsed_ms": 931.2
+    },
+    {
+      "prompt": "請用一句話說明星澄模型。",
+      "output": "好的，我記住了：山夢",
+      "stopped_by_eos": false,
+      "elapsed_ms": 676.8
+    },
+    {
+      "prompt": "今天天氣如何？",
+      "output": "好的，我記住了：色濤",
+      "stopped_by_eos": false,
+      "elapsed_ms": 824.1
+    },
+    {
+      "prompt": "1+1 等於多少？",
+      "output": "好的，我記住了：11白",
+      "stopped_by_eos": false,
+      "elapsed_ms": 741.0
+    },
+    {
+      "prompt": "請列出三個顏色。",
+      "output": "好的，我記住了：山色",
+      "stopped_by_eos": false,
+      "elapsed_ms": 749.2
+    },
+    {
+      "prompt": "謝謝你的幫忙。",
+      "output": "好的，我記住了：色",
+      "stopped_by_eos": false,
+      "elapsed_ms": 950.6
+    }
+  ],
+  "notes": [
+    "ChatSession path (chat template + system prompt) — same as maturity L5 probes; earlier raw-generate samples were OOD",
+    "greedy decode, seed 42, CPU, independent session per prompt"
+  ]
+}
