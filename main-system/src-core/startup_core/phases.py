@@ -80,7 +80,23 @@ class PhaseMixin(StartupPhaseExecutionMixin):
         }
     def _phase_postgresql(self) -> dict[str, Any]:
         start = time.monotonic()
-        dsn = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "").strip()
+        # G89/G24: resolve through the governed credential store so the
+        # certified path still works after env DSNs are cleared; only when
+        # no DSN exists anywhere does this degrade to the TCP probe.
+        dsn = ""
+        dsn_source = "none"
+        try:
+            from shared_layer.security.dsn_policy import (  # noqa: PLC0415
+                DsnPolicyError,
+                DsnPurpose,
+                resolve_dsn,
+            )
+            binding = resolve_dsn(DsnPurpose.RUNTIME)
+            dsn = binding.dsn.strip()
+            dsn_source = binding.env_name
+        except Exception:
+            dsn = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "").strip()
+            dsn_source = "env-fallback" if dsn else "none"
         certification: dict[str, Any] | None = None
 
         def _check() -> bool:
@@ -134,6 +150,7 @@ class PhaseMixin(StartupPhaseExecutionMixin):
                         if certification is not None
                         else "skipped:no-dsn"
                     ),
+                    "dsn_source": dsn_source,
                     "duration_ms": int((time.monotonic() - start) * 1000),
                 }
             if attempt < POSTGRES_PROBE_ATTEMPTS - 1:
