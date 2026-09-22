@@ -49,6 +49,9 @@ _INT_BOUNDS = {
     "seed": (42, 0, 2**63 - 1),
     "max_train_documents": (0, 0, 10_000_000),
     "max_length": (512, 64, 4_096),
+    # §2.7-8 訓練中資源超支即停：executor 內嵌預算計時（0=不設限）
+    "max_train_seconds": (0, 0, 86_400),
+    "max_train_vram_mb": (0, 0, 1_048_576),
 }
 
 
@@ -236,6 +239,8 @@ def _default_dpo_train_fn(
         checkpoint_every=int(configuration.get("checkpoint_every") or 50),
         seed=int(configuration.get("seed") or 42),
         device=configuration.get("device"),
+        max_train_seconds=float(configuration.get("max_train_seconds") or 0),
+        max_train_vram_mb=int(configuration.get("max_train_vram_mb") or 0),
     )
     summary = dpo_train(
         model, tokenizer, pairs, config, output_dir=output_dir, resume=resume
@@ -776,8 +781,11 @@ class TrainingJobExecutor:
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             while True:
+                wait_s = interval_s
+                if deadline is not None:
+                    wait_s = min(wait_s, max(0.1, deadline - time.monotonic()))
                 try:
-                    proc.wait(timeout=interval_s)
+                    proc.wait(timeout=wait_s)
                     break
                 except subprocess.TimeoutExpired:
                     pass
@@ -873,6 +881,7 @@ class TrainingJobExecutor:
                     "tokens_seen": summary.get("tokens_seen"),
                     "final_loss": summary.get("final_loss"),
                     "eval": summary.get("eval") or {},
+                    "resource": summary.get("resource") or {},
                     "output_path": str(job.get("output_path") or ""),
                     "automatic_weight_replacement": int(
                         self._runtime_state().get(

@@ -5,6 +5,7 @@ import _xingcheng_test_support as _support  # noqa: F401
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -364,3 +365,90 @@ def test_executor_fails_closed_when_gpu_budget_unavailable(
     assert result["error_code"] == "EXECUTOR_GPU_BUSY"
     assert result["job"]["status"] == "failed"
     assert "GPU acquire timeout" in result["job"]["error_message"]
+
+
+def _subprocess_executor(repository) -> TrainingJobExecutor:
+    """Executor bound to the real trainer so ``_invoke_trainer`` takes the
+    governed subprocess path (injected stubs stay in-process)."""
+    return TrainingJobExecutor(repository)
+
+
+def test_executor_kills_subprocess_on_rss_overbudget(tmp_path: Path) -> None:
+    repository = TransformerTrainingRepository(tmp_path)
+    executor = _subprocess_executor(repository)
+    output_dir = tmp_path / "job-rss"
+    with pytest.raises(
+        TrainingJobExecutorError, match="EXECUTOR_RESOURCE_OVERBUDGET"
+    ):
+        executor._invoke_trainer(
+            [{"source": "t", "text": "hello", "sha256": _sha("hello")}],
+            [],
+            {
+                "train_max_rss_mb": 1,
+                "resource_sample_interval_s": 1,
+                "train_process_timeout_s": 120,
+            },
+            output_dir=output_dir,
+            resume=None,
+        )
+    error = json.loads((output_dir / "train-error.json").read_text())
+    assert "resource budget exceeded" in error["error"]
+
+
+def test_executor_kills_subprocess_on_process_timeout(tmp_path: Path) -> None:
+    repository = TransformerTrainingRepository(tmp_path)
+    executor = _subprocess_executor(repository)
+    with pytest.raises(TrainingJobExecutorError, match="timed out"):
+        executor._invoke_trainer(
+            [{"source": "t", "text": "hello", "sha256": _sha("hello")}],
+            [],
+            {"train_process_timeout_s": 1, "resource_sample_interval_s": 1},
+            output_dir=tmp_path / "job-timeout",
+            resume=None,
+        )
+
+
+def test_executor_fails_closed_when_rss_monitor_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(sys.modules, "psutil", None)
+    repository = TransformerTrainingRepository(tmp_path)
+    executor = _subprocess_executor(repository)
+    with pytest.raises(
+        TrainingJobExecutorError,
+        match="EXECUTOR_RESOURCE_MONITOR_UNAVAILABLE",
+    ):
+        executor._invoke_trainer(
+            [{"source": "t", "text": "hello", "sha256": _sha("hello")}],
+            [],
+            {"train_max_rss_mb": 128},
+            output_dir=tmp_path / "job-nomon",
+            resume=None,
+        )
+
+
+def test_executor_fails_job_on_out_of_bounds_resource_budget(
+    tmp_path: Path,
+) -> None:
+    repository = TransformerTrainingRepository(tmp_path)
+    job = _queued_job(repository, tmp_path, train_max_rss_mb=2_000_000)
+    executor = TrainingJobExecutor(repository, train_fn=_fake_train_fn)
+    result = executor.run_job(str(job["job_id"]))
+    assert result["ok"] is False
+    assert result["error_code"] == "EXECUTOR_CONFIG_INVALID"
+
+
+def test_executor_normalizes_resource_budget_keys(tmp_path: Path) -> None:
+    repository = TransformerTrainingRepository(tmp_path)
+    job = _queued_job(
+        repository,
+        tmp_path,
+        train_process_timeout_s=60,
+        train_max_rss_mb=512,
+        resource_sample_interval_s=2,
+    )
+    executor = TrainingJobExecutor(repository, train_fn=_fake_train_fn)
+    config = executor._normalize_configuration(executor._job_row(str(job["job_id"])))
+    assert config["train_process_timeout_s"] == 60
+    assert config["train_max_rss_mb"] == 512
+    assert config["resource_sample_interval_s"] == 2

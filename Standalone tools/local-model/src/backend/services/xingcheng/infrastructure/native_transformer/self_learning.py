@@ -111,6 +111,11 @@ class SelfLearningPolicy:
     # §2.7-8 防爆走：單循環進入資料集的範例總數上限（0=不設限）；
     # 超限決定性截斷（scope 字典序→revision 序保留前 N），截斷量入帳。
     max_dataset_examples: int = 0
+    # §2.7-8 訓練中資源超支即停：executor 內嵌預算計時（0=不設限）。
+    # 超限時訓練器在步邊界跳出、summary 記 stopped_reason；循環層
+    # fail-closed 記 resource-overspend，不評估不啟用。
+    train_time_budget_s: int = 0
+    train_vram_budget_mb: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

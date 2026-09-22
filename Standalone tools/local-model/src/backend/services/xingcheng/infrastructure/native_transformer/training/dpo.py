@@ -21,6 +21,7 @@ import torch.nn.functional as F
 from ..checkpoint import load_checkpoint, save_checkpoint
 from ..execution.backend import resolve_device
 from ..modules.model import XingChengForCausalLM
+from .budget import check_train_budget
 
 
 @dataclass
@@ -36,6 +37,9 @@ class DpoConfig:
     checkpoint_every: int = 50
     seed: int = 42
     device: str | None = None
+    # §2.7-8 訓練中資源超支即停（0=不設限）；步邊界檢查，超限跳出仍存 final.pt
+    max_train_seconds: float = 0
+    max_train_vram_mb: int = 0
 
 
 def _encode_pair(
@@ -163,6 +167,7 @@ def dpo_train(
     pairs_seen = 0
     started = time.time()
     checkpoint_paths: list[str] = []
+    stopped_reason: str | None = None
 
     for step in range(start_step, config.max_steps):
         picks = torch.randint(
@@ -252,6 +257,23 @@ def dpo_train(
             )
             checkpoint_paths.append(info["path"])
 
+        stopped_reason = check_train_budget(config, device, started)
+        if stopped_reason:
+            print(
+                json.dumps(
+                    {
+                        "event": "dpo-train-stopped",
+                        "step": step + 1,
+                        "stopped_reason": stopped_reason,
+                        "elapsed_seconds": round(time.time() - started, 1),
+                    },
+                    ensure_ascii=False,
+                ),
+                flush=True,
+            )
+            break
+
+    completed_steps = start_step + len(history)
     final = save_checkpoint(
         target / "final.pt",
         policy,
@@ -259,17 +281,17 @@ def dpo_train(
         optimizer=optimizer,
         metadata={
             "phase": "dpo",
-            "step": config.max_steps,
+            "step": completed_steps,
             "pairs_seen": pairs_seen,
             "beta": config.beta,
         },
-        extra={"step": config.max_steps, "pairs_seen": pairs_seen},
+        extra={"step": completed_steps, "pairs_seen": pairs_seen},
     )
     checkpoint_paths.append(final["path"])
     elapsed = max(1e-6, time.time() - started)
     summary = {
         "phase": "dpo",
-        "steps": config.max_steps,
+        "steps": completed_steps,
         "start_step": start_step,
         "pairs": len(normalized_pairs),
         "pairs_seen": pairs_seen,
@@ -279,6 +301,7 @@ def dpo_train(
         "final_accuracy": accuracies[-1] if accuracies else None,
         "elapsed_seconds": round(elapsed, 2),
         "checkpoints": checkpoint_paths,
+        "stopped_reason": stopped_reason,
         "config": asdict(config),
     }
     (target / "dpo_summary.json").write_text(

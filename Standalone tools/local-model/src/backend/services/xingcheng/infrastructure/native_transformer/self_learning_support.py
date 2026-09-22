@@ -648,6 +648,8 @@ def run_cycle_impl(
             "log_every": max(1, int(resolved_policy.max_steps) // 8),
             "device": str(resolved_policy.device),
             "gpu_required_mb": int(resolved_policy.gpu_required_mb),
+            "max_train_seconds": int(resolved_policy.train_time_budget_s),
+            "max_train_vram_mb": int(resolved_policy.train_vram_budget_mb),
             "curriculum_course": str(curriculum["course"]),
             "maturity_target_level": curriculum.get("target_level"),
         },
@@ -687,6 +689,41 @@ def run_cycle_impl(
                 "last_action": "training-failed",
                 "last_job_id": job_id,
                 "last_error": failure.get("error_message"),
+                "consecutive_failures": int(
+                    state.get("consecutive_failures") or 0
+                )
+                + 1,
+            },
+        )
+        failure["report"] = str(_write_report(tool, failure))
+        return failure
+
+    # §2.7-8 訓練中資源超支即停：executor 內嵌預算在步邊界中止訓練時，
+    # 循環層 fail-closed——checkpoint 由 executor 註冊但不評估不啟用，
+    # 計入連續失敗（熔斷語意與 training-failed 一致）。
+    stopped_reason = (report.get("summary") or {}).get("stopped_reason")
+    if stopped_reason:
+        trainer_summary = report.get("summary") or {}
+        failure = {
+            "ok": False,
+            "action": "resource-overspend",
+            "job_id": job_id,
+            "stopped_reason": stopped_reason,
+            "total_examples": total,
+            "resource_account": {
+                "elapsed_seconds": trainer_summary.get("elapsed_seconds"),
+                "steps": trainer_summary.get("steps"),
+                "device": str(resolved_policy.device),
+            },
+        }
+        save_state(
+            tool,
+            {
+                **state,
+                "last_run_at": _iso_now(),
+                "last_action": "resource-overspend",
+                "last_job_id": job_id,
+                "last_error": stopped_reason,
                 "consecutive_failures": int(
                     state.get("consecutive_failures") or 0
                 )
