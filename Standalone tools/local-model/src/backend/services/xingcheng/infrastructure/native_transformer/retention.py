@@ -52,7 +52,7 @@ class RetentionPolicy:
     keep_maturity_reports: int = 10   # 另加數量上限（取較嚴者）
     keep_self_learning_reports: int = 10
     keep_snapshots: int = 5           # self-learning 匯出快照數量
-    keep_weight_versions: int = 2     # §10.67：權重世代保留 active＋上一代
+    keep_weight_versions: int = 1     # §10.67：權重世代 prune-latest（2026-09-22 總督裁定；active 版本與釘定路徑仍永不退役）
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

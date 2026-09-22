@@ -23,6 +23,7 @@ import json
 import os
 import tempfile
 import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -184,6 +185,85 @@ class ModelLifecycle:
                 return entry
         raise ValueError(f"WEIGHTS_VERSION_UNKNOWN:{version}")
 
+    def rollback_target_versions(
+        self,
+        *,
+        compat_fingerprint: str | None,
+        compat_resolver: Callable[[Path], str | None] | None = None,
+        exclude_versions: Iterable[int] | None = None,
+        min_maturity_level: int = 1,
+    ) -> list[int]:
+        """2026-09-22 總督裁定 rollback 語義的合格留存版本清單。
+
+        合格目標必須同時滿足：
+
+        - 留存：仍在 ``versions``（未退役）且權重檔案仍存在（未 prune）；
+        - 已認證：metadata 帶成熟度證據（``maturity_level`` 達下限，
+          或留有 ``maturity_report``）；
+        - 相容：config 指紋與錨點一致（先取 metadata ``config_sha256``，
+          缺紀錄時由 ``compat_resolver`` 惰性推算；無法證明相容者
+          deny-by-default 不合格）。
+
+        ``compat_fingerprint`` 為空視為無相容錨點——一律回傳空清單
+        （fail-closed，不對無錨點放行）。
+        """
+        if not compat_fingerprint:
+            return []
+        excluded = {int(v) for v in (exclude_versions or ())}
+        targets: list[int] = []
+        for entry in self.artifacts.get("weights", {}).get("versions", []):
+            version = int(entry.get("version") or 0)
+            if version in excluded:
+                continue
+            path = Path(str(entry.get("path") or ""))
+            if not path.is_file():
+                continue
+            metadata = entry.get("metadata") or {}
+            certified = False
+            level = metadata.get("maturity_level")
+            try:
+                if level is not None:
+                    certified = int(level) >= int(min_maturity_level)
+            except (TypeError, ValueError):
+                certified = False
+            if not certified:
+                certified = bool(
+                    str(metadata.get("maturity_report") or "").strip()
+                )
+            if not certified:
+                continue
+            fingerprint = str(metadata.get("config_sha256") or "")
+            if not fingerprint and compat_resolver is not None:
+                fingerprint = str(compat_resolver(path) or "")
+            if not fingerprint or fingerprint != str(compat_fingerprint):
+                continue
+            targets.append(version)
+        return sorted(targets)
+
+    def governed_rollback_weights(
+        self,
+        version: int,
+        *,
+        compat_fingerprint: str | None,
+        compat_resolver: Callable[[Path], str | None] | None = None,
+        exclude_versions: Iterable[int] | None = None,
+        min_maturity_level: int = 1,
+    ) -> dict[str, Any]:
+        """受閘 rollback（2026-09-22 總督裁定）：目標須為已認證且相容之
+        留存版本；不合格或無留存版本時 fail-closed 拒絕
+        （``WEIGHTS_ROLLBACK_DENIED``），active 指標不變。"""
+        targets = self.rollback_target_versions(
+            compat_fingerprint=compat_fingerprint,
+            compat_resolver=compat_resolver,
+            exclude_versions=exclude_versions,
+            min_maturity_level=min_maturity_level,
+        )
+        if int(version) not in targets:
+            raise ValueError(f"WEIGHTS_ROLLBACK_DENIED:{int(version)}")
+        entry = self.rollback_weights(version)
+        self.history[-1]["gate"] = "star-rollback-gate/v1"
+        return entry
+
     def active_weights(self) -> dict[str, Any] | None:
         for entry in self.artifacts.get("weights", {}).get("versions", []):
             if int(entry["version"]) == self.active_weights_version:
@@ -192,7 +272,7 @@ class ModelLifecycle:
 
     def retire_weights(
         self,
-        keep_latest: int = 2,
+        keep_latest: int = 1,
         *,
         extra_keep_paths: set[str] | None = None,
     ) -> list[dict[str, Any]]:
@@ -200,7 +280,10 @@ class ModelLifecycle:
 
         保留規則：最新 ``keep_latest`` 個版本**加上**當前 active 版本（回滾後
         active 可能不是最新）以及 ``extra_keep_paths`` 指向的版本
-        （如 ``native-engine.json`` 釘定的 checkpoint）。退役版本的中繼資料
+        （如 ``native-engine.json`` 釘定的 checkpoint）。
+        2026-09-22 總督裁定 prune-latest 優先：預設只留最新一代；
+        rollback 目標為已認證且相容之留存版本，無留存即 fail-closed。
+        退役版本的中繼資料
         與 sha256 保留於 ``artifacts.weights.retired`` 作為證據；其檔案路徑
         自此不再受生命週期引用保護，可由 retention 掃除實體檔案。
         """
