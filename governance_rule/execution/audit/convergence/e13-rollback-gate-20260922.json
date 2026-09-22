@@ -1,0 +1,45 @@
+{
+  "schema": "star-evidence/v1",
+  "item": "E13 self-learning rollback gate (prune-latest semantics)",
+  "ruling": "2026-09-22 governor: prune-latest priority; rollback target = any retained certified+compatible version; fail-closed when no retained version",
+  "implemented": {
+    "lifecycle.rollback_target_versions": "retained (in versions + file present) AND certified (maturity_level>=min or maturity_report) AND compatible (config fingerprint == anchor; metadata config_sha256 or lazy resolver; deny-by-default without anchor)",
+    "lifecycle.governed_rollback_weights": "gate-enforced rollback; WEIGHTS_ROLLBACK_DENIED fail-closed, active pointer unchanged; history event tagged star-rollback-gate/v1",
+    "self_learning_support._weights_config_fingerprint": "sha256 of embedded canonical config_json (torch.load, weights_only-first)",
+    "self_learning_support._attempt_governed_rollback": "post-upgrade maturity-recheck failure -> governed rollback + lifecycle persist + runtime pin repoint; denial recorded",
+    "prune ordering": "_retire_previous_artifact deferred until after maturity recheck resolves; skipped on recheck failure or completed rollback (previous file is the recovery path)",
+    "certification stamping": "on recheck pass, maturity_level + maturity_report are written into the new weights entry metadata (future rollback candidates carry certification evidence)",
+    "state": "last_rollback recorded in self-learning state + summary"
+  },
+  "verification": {
+    "method": "direct exercise with real tiny checkpoints (XingChengForCausalLM + save_checkpoint; real config_json fingerprints, not stubs)",
+    "checks_passed": 16,
+    "checks_failed": 0,
+    "cases": [
+      "fingerprint-same-config-equal",
+      "fingerprint-diff-config-differs",
+      "targets-only-v1 (retained+certified+compatible only)",
+      "governed-rollback-active-v1",
+      "deny-uncertified",
+      "deny-incompatible",
+      "deny-no-anchor (fail-closed)",
+      "deny-file-pruned",
+      "deny-retired",
+      "e2e-rolled-back + active-restored + runtime-repinned",
+      "e2e-persisted (lifecycle.json + gate tag)",
+      "e2e-denied-no-eligible + active-unchanged + pin-unchanged"
+    ],
+    "regression": "pytest tests/test_self_learning_gates.py test_phase_self_learning.py test_retention_weight_retirement.py test_lifecycle_resource_actions.py: 43 passed"
+  },
+  "files": [
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py",
+    "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py"
+  ],
+  "remaining_e13": [
+    "distill course type beyond DPO/SFT",
+    "stop/drain semantics",
+    "3 consecutive autonomous cycles acceptance (GPU windows)",
+    "codex amendment (needs coordination window)"
+  ],
+  "at": "2026-09-22T13:05:00Z"
+}

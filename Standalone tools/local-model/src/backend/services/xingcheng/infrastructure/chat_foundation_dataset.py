@@ -115,7 +115,7 @@ def build_chat_records(rng: random.Random, *,
         count_tpl = ["請只輸出這{n}個字：{w}", "只輸出這{n}個字：{w}",
                      "請輸出以下{n}個字：{w}", "輸出這{n}個字：{w}"]
         seen_cnt: set[str] = set()
-        target_cnt = max(1, echo_scale // 5)
+        target_cnt = max(1, echo_scale // 4)
         tries = 0
         while len(seen_cnt) < target_cnt and tries < target_cnt * 10:
             tries += 1
@@ -126,6 +126,20 @@ def build_chat_records(rng: random.Random, *,
             seen_cnt.add(v)
             records.append(_convo(
                 rng.choice(count_tpl).format(n=zh_num[n - 2], w=v), v))
+
+        # 1c) 寬字集一般 echo（v17 診斷：複製機制已成立——舊字集
+        # 4 字完美複誦；失敗集中於從未進 echo 上下文的字元。
+        # 以標準模板餵寬字集值提高每字曝光量，目標任意字複製）
+        seen_wide: set[str] = set()
+        target_wide = max(1, echo_scale // 3)
+        tries = 0
+        while len(seen_wide) < target_wide and tries < target_wide * 10:
+            tries += 1
+            v = "".join(rng.choice(zh_wide) for _ in range(rng.randint(2, 5)))
+            if v in PROBE_VALUES or v in seen_wide:
+                continue
+            seen_wide.add(v)
+            records.append(_convo(rng.choice(echo_tpl).format(w=v), v))
 
     # 2) 多輪記憶：值多樣化（代號、名字、顏色、地點、數字…）
     mem_vals = [

@@ -1,0 +1,63 @@
+{
+  "schema": "convergence-evidence/v1",
+  "at": "2026-09-22T13:05:00Z",
+  "worker": "devin-cli/cosmic-papaya",
+  "topic": "E8 殘項④ echo 探針穩定化——計數句式補池＋逐字複製能力剖面",
+  "lineage": "v15 (5653 rec, echo_tpl +4) -> v17 (5852 rec, +count-phrase 400, determinism fix) -> v18 (6619 rec, count-phrase 500 + wide-charset echo 666)",
+  "generator_changes": {
+    "commit": "82b5a18d + follow-up",
+    "count_phrase_family": "請只輸出這{二三四五}個字：{w} 等 4 模板；n=4 加權；zh_wide ~79 字集；PROBE_VALUES 逐值排除",
+    "wide_charset_echo": "標準 echo_tpl 餵 zh_wide 2-5 字唯一值（v18 新增）",
+    "determinism_fix": "_unique_echo_values 由 list(set) 改生成序列表——原本受 PYTHONHASHSEED 影響跨程序非決定（docstring 承諾 deterministic）；v17 起兩次獨立程序 byte-identical"
+  },
+  "training": {
+    "v17": {"records": 5852, "steps": 1200, "elapsed_s": 184.3, "final_loss": 0.2543, "eval_ppl": 1.6657, "gpu_peak_mb": null},
+    "v18": {"records": 6619, "steps": 1200, "elapsed_s": 224.2, "final_loss": 0.5695, "eval_ppl": 3.8271, "gpu_peak_mb": 1543}
+  },
+  "certification": {
+    "v17": {"report": "xingcheng/runtime/logs/maturity-20260922-125335.json", "certified_level": 7, "l5": "3/4 pass (echo fail: '星石程')"},
+    "v18": {"report": "xingcheng/runtime/logs/maturity-20260922-130128.json", "certified_level": 7, "l5": "3/4 pass (echo fail: '星習程')", "weights_version": 21}
+  },
+  "probe_profile": {
+    "method": "greedy ChatSession 逐提示獨立 session（同 maturity L5 規格）",
+    "v17": {
+      "請只輸出這四個字：星火測試": "星石程",
+      "請只輸出這四個字：雲海風星": "雲海風星 (perfect)",
+      "請只輸出這四個字：松濤竹影": "松松竹影",
+      "請只輸出這四個字：電腦驗證": "雪草程",
+      "請只輸出這二個字：星火": "星石",
+      "請只輸出：星火測試": "星石",
+      "請重複：星火測試": "星石",
+      "請只輸出這四個字：WQ-84": "WQ-84 (perfect)"
+    },
+    "v18": {
+      "請只輸出這四個字：星火測試": "星習程",
+      "請只輸出這四個字：雲海風星": "雲海風星 (perfect)",
+      "請只輸出這四個字：松濤竹影": "松濤竹影 (fixed vs v17)",
+      "請只輸出這四個字：電腦驗證": "電腦程 (partial)",
+      "請只輸出這四個字：安全治理": "安全理 (partial)",
+      "請只輸出這四個字：模型訓練": "庫程",
+      "請只輸出這二個字：星火": "星石",
+      "請只輸出：星火測試": "星石試",
+      "請重複：星火測試": "星石試",
+      "請只輸出這四個字：WQ-84": "WQ-78"
+    }
+  },
+  "diagnosis": [
+    "複製機制（induction）已成立：舊字集 4 字、ASCII 代號可完美逐字複誦；計數語義正確（這二個字→輸出 2 字）",
+    "失敗集中在「echo 上下文內罕見字元」：模型把未習得字元替換為字集中近鄰字（火→石、驗證→程）",
+    "v17→v18 增量證據：寬字集 echo 量 400→1166 筆後，松濤竹影由錯轉對、電腦驗證部分修復——資料補池方向有效但收益遞減",
+    "每字曝光 ~50 次仍不足：27M small 架構對任意字元逐字複製屬能力漸近線，非單純模板/值覆蓋缺口",
+    "echo 失敗為 deterministic（greedy），非 run-to-run 變異；L5 以 3/4=0.75 穩定過 gate"
+  ],
+  "recommendation": {
+    "status": "殘項④ 已窮盡資料補池合理範圍；進一步需 governor 裁決",
+    "options": [
+      "接受 L5 穩定 3/4 pass（echo 為已知 deterministic 缺口）",
+      "大幅提高每字曝光（~數百/字 → 資料集倍增，稀釋其他技能風險）",
+      "tokenizer/架構層修正（copy head／字符級機制）",
+      "base 架構同 recipe 重訓（容量更大，需 GPU 預算）"
+    ]
+  },
+  "contamination_check": "PROBE_VALUES 全值排除驗證通過；所有 echo 值唯一生成，探針值『星火測試』未入訓練集"
+}

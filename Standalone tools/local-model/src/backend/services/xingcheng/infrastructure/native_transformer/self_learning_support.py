@@ -18,6 +18,7 @@ for _p in (
         sys.path.insert(0, _p)
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -1121,6 +1122,7 @@ def _execute_governed_cycle(
     released: list[str] = []
     pinned: str | None = None
     pruned = False
+    new_entry: dict[str, Any] | None = None
     if all_passed:
         staged = repository.release_adapter(
             adapter_id,
@@ -1138,7 +1140,7 @@ def _execute_governed_cycle(
                 reason="auto-activate after all evaluation gates passed",
             )
             released.append(str(activated["status"]))
-            lifecycle.register_artifact(
+            new_entry = lifecycle.register_artifact(
                 "weights",
                 artifact,
                 metadata={
@@ -1151,7 +1153,8 @@ def _execute_governed_cycle(
             )
             lifecycle.save(lifecycle_dir)
             pinned = _pin_runtime_checkpoint(tool, artifact)
-            pruned = _retire_previous_artifact(active_path, artifact)
+            # prune-latest 延後到重測定案之後（見下方）：重測窗口內上一代
+            # 檔案是唯一回滾目標，先刪會讓 rollback 閘永遠 fail-closed。
             action = "upgraded"
 
     # §2.7-9 資源帳：訓練耗時／步數／資料量／裝置＋GPU/RSS 細項，
@@ -1185,8 +1188,12 @@ def _execute_governed_cycle(
         "checked_at": _iso_now(),
     }
 
-    # §2.7-9 升級後 maturity 重測（政策啟用時；失敗記錄不中斷升級，
-    # 因 rollback 語義待裁決——結果留審計供治理判定）
+    # §2.7-9 升級後 maturity 重測（政策啟用時）。2026-09-22 總督裁定
+    # rollback 語義：重測失敗 → 受閘回滾至已認證且相容之留存版本
+    # （無合格留存版本則 fail-closed 拒絕並留稽核）；重測通過才把
+    # 成熟度證據寫入新版本 metadata（成為未來的回滾候選）並依
+    # prune-latest 移除上一代權重檔。
+    recheck_ok = True
     if action == "upgraded" and resolved_policy.post_upgrade_maturity_recheck:
         try:
             from .maturity import certify, persist_report
@@ -1205,11 +1212,34 @@ def _execute_governed_cycle(
                 ),
                 "report": str(recheck_path),
             }
+            if new_entry is not None:
+                new_entry.setdefault("metadata", {})["maturity_level"] = (
+                    recheck_report.get("certified_level")
+                )
+                new_entry["metadata"]["maturity_report"] = recheck_path.name
+                lifecycle.save(lifecycle_dir)
         except Exception as exc:  # noqa: BLE001 — 記錄而非吞沒
+            recheck_ok = False
             summary["maturity_recheck"] = {
                 "ok": False,
                 "error": f"{type(exc).__name__}: {exc}",
             }
+        if not recheck_ok:
+            summary["rollback"] = _attempt_governed_rollback(
+                tool,
+                lifecycle,
+                lifecycle_dir,
+                anchor_path=active_path,
+                exclude_version=int((new_entry or {}).get("version") or -1),
+            )
+
+    # prune-latest（2026-09-22 總督裁定）：僅在升級乾淨落地後移除上一代
+    # 權重檔；重測失敗（無論回滾成敗）保留上一代檔案作為復原路徑，
+    # 回滾成功時上一代已是 active 更不能刪。
+    rolled_back = bool((summary.get("rollback") or {}).get("rolled_back"))
+    if action == "upgraded" and recheck_ok and not rolled_back:
+        pruned = _retire_previous_artifact(active_path, artifact)
+    summary["previous_weights_pruned"] = pruned
 
     save_state(
         tool,
@@ -1224,6 +1254,7 @@ def _execute_governed_cycle(
             "last_course": curriculum.get("course"),
             "last_degradation_probe": summary.get("degradation_probe"),
             "last_maturity_recheck": summary.get("maturity_recheck"),
+            "last_rollback": summary.get("rollback"),
             "active_weights_version": lifecycle.active_weights_version,
             "resource_account": resource_account,
             "pool": dict(stats),
