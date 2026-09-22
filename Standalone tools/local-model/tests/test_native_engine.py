@@ -271,8 +271,12 @@ def test_scope_gate_refuses_out_of_scope(monkeypatch, tmp_path) -> None:
 def test_cpu_thread_budget_bounded(monkeypatch, tmp_path) -> None:
     from xingcheng.infrastructure import native_engine as module
 
+    # §10.30 unified entry: configured values clamp to the five-core
+    # budget cap (was: independent cap of 16).
+    from shared_layer.performance.thread_budget import core_budget
+
     _settings_file(monkeypatch, tmp_path, {"cpu_threads": 64})
-    assert module.cpu_thread_budget() == 16
+    assert module.cpu_thread_budget() == core_budget()
     _settings_file(monkeypatch, tmp_path, {"cpu_threads": -3})
     assert 1 <= module.cpu_thread_budget() <= 4
     _settings_file(monkeypatch, tmp_path, {})
