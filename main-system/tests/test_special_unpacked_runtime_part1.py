@@ -227,10 +227,10 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
         "model-dialogue",
         dialogue_root,
         manifest,
-        governance_tool_id="model-dialogue",
+        governance_tool_id="star-chat",
     )
     assert owner_environment["GPTBRIDGE_STANDALONE_TOOL_ID"] == "model-dialogue"
-    assert governance.bootstrap_tool_ids[-1] == "model-dialogue"
+    assert governance.bootstrap_tool_ids[-1] == "star-chat"
 
     mobile_root = ROOT / "Standalone tools" / "investment-mobile"
     mobile_manifest = json.loads(_read_text_cached(str((mobile_root / "manifest.json"))))

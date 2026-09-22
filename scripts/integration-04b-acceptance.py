@@ -629,6 +629,7 @@ def fault_scenarios() -> None:
             [str(VENV_PY), str(harness), "--timeout", "150",
              "--release", str(RC)],
             capture_output=True, text=True, timeout=600,
+            creationflags=_CREATE_NO_WINDOW,
         )
         report_path = (
             ROOT / "main-system" / "runtime" / "state"

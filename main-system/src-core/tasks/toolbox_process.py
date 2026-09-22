@@ -52,8 +52,17 @@ class ProcessMixin:
                 self.project_root / binding.path_template.format(tool_id=bound_id)
             ).resolve()
             try:
-                bound_manifest.relative_to(tool_root)
+                relative_parts = bound_manifest.parent.relative_to(tool_root).parts
             except ValueError:
+                continue
+            # A binding nested inside a deeper tool root belongs to that
+            # sub-tool (e.g. star-chat lives under model-dialogue, which is
+            # itself nested under local-model); only direct participants of
+            # this tool directory count here.
+            if any(
+                (tool_root.joinpath(*relative_parts[:depth]) / "manifest.json").is_file()
+                for depth in range(1, len(relative_parts))
+            ):
                 continue
             if bound_manifest.is_file():
                 candidates.append(bound_id)

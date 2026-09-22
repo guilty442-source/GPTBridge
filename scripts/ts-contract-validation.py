@@ -16,6 +16,8 @@ import sys
 import time
 from pathlib import Path
 
+_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 ROOT = Path(__file__).resolve().parent.parent
 MS = ROOT / "main-system"
 LOG_DIR = MS / "runtime" / "logs"
@@ -31,6 +33,7 @@ def main() -> int:
             capture_output=True,
             text=True,
             timeout=TIMEOUT_S,
+            creationflags=_CREATE_NO_WINDOW,
         )
         rc = proc.returncode
         stdout = (proc.stdout or "")[-4000:]

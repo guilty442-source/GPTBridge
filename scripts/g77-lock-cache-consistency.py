@@ -201,6 +201,7 @@ def main() -> int:
                     "importlib.metadata.distributions() if d.metadata['Name'])))",
                 ],
                 capture_output=True, text=True, check=True, timeout=120,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             ).stdout
             installed = set(json.loads(out))
             cached = {e["dist"] for e in entries}

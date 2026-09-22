@@ -40,6 +40,8 @@ import shutil
 import signal
 import socket
 import subprocess
+
+_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 import sys
 import tempfile
 import threading
@@ -183,6 +185,7 @@ def _spawn(
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        creationflags=_CREATE_NO_WINDOW,
     )
 
 
@@ -509,6 +512,7 @@ def _scenario_service_double(
         ],
         capture_output=True, text=True, timeout=30,
         cwd=str(release),
+        creationflags=_CREATE_NO_WINDOW,
     )
     stop.set()
     server.join(timeout=5)
@@ -624,6 +628,7 @@ def _http_double_probe(release: Path, code: str, timeout_s: float = 30.0):
         text=True,
         timeout=timeout_s,
         cwd=str(release),
+        creationflags=_CREATE_NO_WINDOW,
     )
 
 
