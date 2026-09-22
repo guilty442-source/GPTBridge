@@ -103,16 +103,26 @@ def resolve_dsn(
         if not value:
             continue
         if credential_store.is_credential_reference(value):
-            resolved = credential_store.resolve_credential_reference(value)
+            try:
+                resolved = credential_store.resolve_credential_reference(value)
+            except Exception as exc:
+                raise DsnPolicyError(
+                    f"DSN_CREDENTIAL_REFERENCE_UNAVAILABLE:{name}"
+                ) from exc
             if resolved is None:
                 raise DsnPolicyError(
                     f"DSN_CREDENTIAL_REFERENCE_UNRESOLVED:{name}"
                 )
             return DsnBinding(purpose=purpose, env_name=name, dsn=resolved)
         return DsnBinding(purpose=purpose, env_name=name, dsn=value)
-    stored = credential_store.read_secret(
-        credential_store.DSN_TARGET_TEMPLATE.format(purpose=purpose.value)
-    )
+    try:
+        stored = credential_store.read_secret(
+            credential_store.DSN_TARGET_TEMPLATE.format(purpose=purpose.value)
+        )
+    except Exception as exc:
+        raise DsnPolicyError(
+            f"DSN_CREDENTIAL_STORE_UNAVAILABLE:{purpose.value}"
+        ) from exc
     if stored:
         return DsnBinding(
             purpose=purpose,

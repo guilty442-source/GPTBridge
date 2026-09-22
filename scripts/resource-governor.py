@@ -194,6 +194,7 @@ class GovernorConfig:
         self.trim_cooldown: float = TRIM_COOLDOWN_SECONDS
         self.affinity: bool = not args.no_affinity
         self.dry_run: bool = bool(args.dry_run)
+        self.log_samples: bool = bool(getattr(args, "log_samples", False))
         # §10.64 worker aggregate budget (single-core-equivalent).
         self.worker_cpu_budget: float = WORKER_CPU_BUDGET_PCT
         self.worker_ram_budget: float = WORKER_RAM_BUDGET_PCT
@@ -538,6 +539,14 @@ def govern_once(
         "disabled": disabled,
     }
     _write_state(snapshot)
+    # §10.64 acceptance ①: per-cycle ledger samples are what a 30 min
+    # p95 audit is computed from — opt-in via --log-samples.
+    if config.log_samples:
+        _log_action({
+            "action": "sample",
+            "worker_ledger": snapshot["worker_ledger"],
+            "regulation": snapshot["regulation"],
+        })
     return snapshot
 
 
@@ -607,6 +616,8 @@ def run_start(config: GovernorConfig) -> int:
         "--interval",
         str(config.interval),
     ]
+    if config.log_samples:
+        command.append("--log-samples")
     creationflags = 0x00000008 | 0x00000200
     subprocess.Popen(  # noqa: S603
         command,
@@ -816,6 +827,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mem-trim-mb", type=float, default=MEM_TRIM_MB, help="working-set trim threshold MB (default 1500)")
     parser.add_argument("--sustain", type=int, default=SUSTAIN_SAMPLES, help="busy samples before priority drop (default 3)")
     parser.add_argument("--no-affinity", action="store_true", help="never cap CPU affinity")
+    parser.add_argument("--log-samples", action="store_true", help="append per-cycle worker-ledger samples to the action log (30 min p95 audits)")
     return parser
 
 
