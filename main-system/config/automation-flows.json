@@ -119,13 +119,29 @@
       "enabled": true,
       "description": "self-learning 循環末自動執行；retention.json 治理其 enabled"
     },
-    "backup-scheduler": {
-      "owner": "backup scheduler",
+    "idle-memory-maintenance": {
+      "owner": "IdleMemoryMaintainer（resource_maintenance）",
       "kind": "periodic",
+      "interval_s": 60,
+      "pausable": true,
+      "enabled": true,
+      "description": "閒置 RAM 釋放（EmptyWorkingSet）；§10.63 R3 起乘共享排程"
+    },
+    "runtime-status-push": {
+      "owner": "runtime-status push loop（ipc server_lifecycle）",
+      "kind": "event",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "就緒狀態推送：事件驅動＋無 UI shell 時降頻；私有 asyncio task（低延遲語義，不適合 15s 排程粒度）"
+    },
+    "backup-scheduler": {
+      "owner": "backup scheduler（shared-layer）",
+      "kind": "private-loop",
       "interval_s": null,
       "pausable": true,
       "enabled": true,
-      "description": "受管備份排程（_start_backup_scheduler_if_enabled 啟動條件控制）"
+      "description": "受管備份排程（thread 迴圈，_start_backup_scheduler_if_enabled 啟動條件控制）；待遷移至核心"
     }
   }
 }

@@ -244,10 +244,20 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                         await notifier.maybe_notify()
                     except Exception:
                         pass
-                # §10.63 R3: idle-memory maintenance rides the shared
-                # PeriodicScheduler instead of a private task.
+                # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落
+                # 私有 task（kill switch 不可繞過）。§10.63 R3: shared
+                # PeriodicScheduler fallback when no core exists.
+                _automation_core = getattr(
+                    app_instance, "automation_core", None)
                 _periodic = getattr(app_instance, "periodic_scheduler", None)
-                if _periodic is not None and memory_maintainer is not None:
+                if _automation_core is not None and memory_maintainer is not None:
+                    _automation_core.register_flow(
+                        "idle-memory-maintenance",
+                        memory_maintainer.tick,
+                        interval_s=memory_maintainer.interval_seconds,
+                    )
+                    memory_task = None
+                elif _periodic is not None and memory_maintainer is not None:
                     _periodic.register(
                         "idle-memory-maintenance",
                         memory_maintainer.interval_seconds,
@@ -310,8 +320,11 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
     except KeyboardInterrupt:
         print("Stopping IPC server...")
     finally:
+        _automation_core = getattr(app_instance, "automation_core", None)
         _periodic = getattr(app_instance, "periodic_scheduler", None)
-        if _periodic is not None:
+        if _automation_core is not None:
+            _automation_core.unregister("idle-memory-maintenance")
+        elif _periodic is not None:
             _periodic.unregister("idle-memory-maintenance")
         if memory_maintainer is not None:
             await memory_maintainer.stop(memory_task)
