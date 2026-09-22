@@ -112,6 +112,19 @@ int main() {
         const std::string no_q = "GET /ws HTTP/1.1\r\n\r\n";
         NT_CHECK(gtw::route_request(parse_req(no_q, &c), tok, inst, "sh")
                      == gtw::GateDecision::Forbidden, "no query");
+        /* parse_qs parity: blank-valued params dropped entirely —
+           `token=&token=<valid>` must see the later value, not "" */
+        const std::string blank_first =
+            "GET /ws?token=&token=" + tok + "&instance=" + inst +
+            " HTTP/1.1\r\n\r\n";
+        NT_CHECK(gtw::route_request(parse_req(blank_first, &c), tok, inst,
+                                    "sh") == gtw::GateDecision::Upgrade,
+                 "blank token pair dropped (parse_qs)");
+        const std::string blank_only =
+            "GET /ws?token=&instance=" + inst + " HTTP/1.1\r\n\r\n";
+        NT_CHECK(gtw::route_request(parse_req(blank_only, &c), tok, inst,
+                                    "sh") == gtw::GateDecision::Forbidden,
+                 "all-blank token absent");
     }
     NT_END_TEST(SUITE, "route_request_ladder");
 
