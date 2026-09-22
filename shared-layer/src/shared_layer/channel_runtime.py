@@ -231,10 +231,16 @@ class A263Channel(ConnectionMixin, HeartbeatMixin):
 
                 # Park until enqueued again; re-check heartbeat in case the
                 # transport died while we were blocked in a send-completion.
+                # Idle timeout is normal — wait_for raises TimeoutError and
+                # must NOT reach the outer `except Exception` (which marks the
+                # channel dead); catch it and re-loop.
                 self._send_wakeup.clear()
-                await asyncio.wait_for(
-                    self._send_wakeup.wait(), timeout=self.config.send_idle_sleep_seconds
-                )
+                try:
+                    await asyncio.wait_for(
+                        self._send_wakeup.wait(), timeout=self.config.send_idle_sleep_seconds
+                    )
+                except asyncio.TimeoutError:
+                    pass
         except asyncio.CancelledError:
             raise
         except Exception:

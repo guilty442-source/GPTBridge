@@ -242,6 +242,35 @@ def _read_records(path: Path) -> list[dict]:
     ]
 
 
+def _shadow_log(tmp_path: Path) -> Path:
+    return (
+        tmp_path
+        / "main-system"
+        / "runtime"
+        / "logs"
+        / "native-shadow"
+        / "periodic-scheduler.jsonl"
+    )
+
+
+async def _wait_for(predicate, timeout_s: float = 15.0) -> bool:
+    """Poll until predicate() — loaded hosts delay asyncio timers far past
+    their nominal deadline, so fixed sleeps are unreliable evidence."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        await asyncio.sleep(0.02)
+    return predicate()
+
+
+def _bad_records(records: list[dict]) -> list[dict]:
+    return [
+        r for r in records
+        if r["kind"] in ("divergence", "membership-divergence", "register-refused")
+    ]
+
+
 @requires_native
 @pytest.mark.asyncio
 async def test_real_native_shadow_stays_in_lockstep(tmp_path: Path) -> None:
@@ -255,25 +284,15 @@ async def test_real_native_shadow_stays_in_lockstep(tmp_path: Path) -> None:
 
     sched.register("a", 0.05, job, run_immediately=True)
     sched.register("b", 0.05, job, pausable=True)
-    await asyncio.sleep(0.3)
-    await sched.stop()
-    records = _read_records(
-        tmp_path
-        / "main-system"
-        / "runtime"
-        / "logs"
-        / "native-shadow"
-        / "periodic-scheduler.jsonl"
+    observed = await _wait_for(
+        lambda: all(
+            j["run_count"] >= 1 for j in sched.jobs()
+        )
+        and len(sched.jobs()) == 2
     )
-    bad = [
-        r for r in records
-        if r["kind"] in ("divergence", "membership-divergence", "register-refused")
-    ]
-    assert bad == []
-    # Python path unaffected and still authoritative
-    jobs = {j["name"]: j for j in sched.jobs()}
-    assert jobs["a"]["run_count"] >= 1
-    assert jobs["b"]["run_count"] >= 1
+    await sched.stop()
+    assert observed, "jobs never ran within polling window"
+    assert _bad_records(_read_records(_shadow_log(tmp_path))) == []
 
 
 @requires_native
@@ -292,22 +311,14 @@ async def test_real_native_pause_defers_pausable_in_lockstep(
 
     sched.register("defer", 0.05, job, pausable=True)
     sched.register("essential", 0.05, job, pausable=False)
-    await asyncio.sleep(0.2)
-    await sched.stop()
-    records = _read_records(
-        tmp_path
-        / "main-system"
-        / "runtime"
-        / "logs"
-        / "native-shadow"
-        / "periodic-scheduler.jsonl"
+    observed = await _wait_for(
+        lambda: (
+            lambda jobs: jobs.get("essential", {}).get("run_count", 0) >= 1
+            and jobs.get("defer", {}).get("paused_count", 0) >= 1
+        )({j["name"]: j for j in sched.jobs()})
     )
-    bad = [
-        r for r in records
-        if r["kind"] in ("divergence", "membership-divergence", "register-refused")
-    ]
-    assert bad == []
+    await sched.stop()
+    assert observed, "pause/defer behaviour never observed within window"
+    assert _bad_records(_read_records(_shadow_log(tmp_path))) == []
     jobs = {j["name"]: j for j in sched.jobs()}
-    assert jobs["defer"]["paused_count"] >= 1
     assert jobs["defer"]["run_count"] == 0
-    assert jobs["essential"]["run_count"] >= 1

@@ -43,7 +43,9 @@ int gptbridge_mt_admit(gptbridge_mt_t* mt,
     switch (job->risk_class) {
         case GPTBRIDGE_MT_M0: break;                          /* 恆入 */
         case GPTBRIDGE_MT_M1: if (!system_idle) return 0; break;
-        case GPTBRIDGE_MT_M2: if (!authorized) return 0; break;
+        /* M2：需授權旗標且需通過 M1 健康閘（對齊 Python evaluate_policy：
+           M2 = governed_authorization ∧ M1 health checks） */
+        case GPTBRIDGE_MT_M2: if (!authorized || !system_idle) return 0; break;
         case GPTBRIDGE_MT_M3: return 0; /* 僅候選：不自動執行 */
         default: return 0;              /* 未知等級 fail-closed */
     }

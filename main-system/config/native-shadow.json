@@ -5,6 +5,6 @@
     "connection_watchdog": { "mode": "shadow" },
     "periodic_scheduler": { "mode": "shadow" },
     "state_outbox": { "mode": "shadow" },
-    "maintenance_controller": { "mode": "off" }
+    "maintenance_controller": { "mode": "shadow" }
   }
 }

@@ -562,6 +562,9 @@ public:
         return gptbridge_mt_cancel(&mt_, job_id.c_str()) != 0;
     }
     int job_count() const { return mt_.count; }
+    void set_generation(int64_t generation) {
+        mt_.current_generation = generation;
+    }
     /* TTL probe cache (same-tick shared probe result, failure cached too).
        get returns None on miss/expiry, else the stored ok flag. */
     py::object cache_get(int64_t now_ms, int64_t ttl_ms) {
@@ -1036,6 +1039,7 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("fail", &NativeMaintenance::fail)
         .def("cancel", &NativeMaintenance::cancel)
         .def("job_count", &NativeMaintenance::job_count)
+        .def("set_generation", &NativeMaintenance::set_generation)
         .def("cache_get", &NativeMaintenance::cache_get)
         .def("cache_set", &NativeMaintenance::cache_set);
 

@@ -36,7 +36,7 @@ typedef enum {
 typedef enum {
     GPTBRIDGE_MT_M0 = 0, /* 恆入 */
     GPTBRIDGE_MT_M1 = 1, /* 僅 idle */
-    GPTBRIDGE_MT_M2 = 2, /* 需授權 */
+    GPTBRIDGE_MT_M2 = 2, /* 需授權＋M1 健康閘 */
     GPTBRIDGE_MT_M3 = 3  /* 僅候選：不自動執行 */
 } gptbridge_mt_class_t;
 
