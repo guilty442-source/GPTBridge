@@ -140,6 +140,7 @@ must never push directly.
 ## Git Automation (main-system task)
 
 > Normative authority: Codex A163/A375。
+> Tunables single source: `main-system/config/automation-flows.json`（`git-automation` flow）。
 
 The old `automation_supervisor` process fleet (one watcher process per
 worktree + periodic sync) is replaced by a single in-process main-system
@@ -175,6 +176,7 @@ longer the default path — prefer the in-process task.
 ## 星澄 Self-Learning & Automatic Upgrade
 
 > Normative authority: Codex A554。
+> Tunables single source: `Standalone tools/local-model/runtime/settings/self-learning.json`。
 
 The native model learns from its own verified data and can upgrade itself
 through the same governed pipeline used for manual training:
@@ -254,6 +256,7 @@ Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
 ## 星澄 Data Retention (`star-retention-policy/v1`)
 
 > Normative authority: Codex A113/A114。
+> Tunables single source: `Standalone tools/local-model/runtime/settings/retention.json`。
 
 Bounds local-model runtime growth: old governed job dirs, logs, maturity /
 self-learning reports and SFT snapshots are pruned by count and age.
@@ -276,6 +279,7 @@ Implementation: `native_transformer/retention.py` (`apply_retention`).
 ## 星澄 Training GPU Gate & Auto-Release
 
 > Normative authority: Codex A239/A116。
+> Tunables single source: `Standalone tools/local-model/runtime/settings/native-engine.json`＋bounded config keys（`gpu_required_mb`／`gpu_acquire_timeout_s`／`auto_release_idle_seconds`）。
 
 - `TrainingJobExecutor.run_job` gates CUDA training through
   `shared_layer.adaptive.gpu_coordinator` before starting: jobs wait for
@@ -324,6 +328,7 @@ reactivate the previous generation).
 ## On-Demand Model Activation (Lazy 星澄)
 
 > Normative authority: Codex A586。
+> Tunables single source: `main-system/config/tool-isolation-policy.json`＋`sleep-policy.json`。
 
 `model-dialogue` opens without the local model (governor directive 2026-09-17).
 When a dialogue message is sent while the model owner (`local-model`, runtime
