@@ -8,6 +8,7 @@ import { mainSystemLocale } from '@/locales/main-system'
 import { useAppState } from '@/ui/useAppState'
 import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
 import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
+import { AppSloDrawer } from '@/ui/AppSloDrawer'
 import { ExternalCollaborationPanel } from '@/ui/panel/ExternalCollaborationPanel'
 import { SagaVisualizerPanel } from '@/ui/panel/SagaVisualizerPanel'
 import { ModuleBoundary } from '@/shared/components/ModuleBoundary'
@@ -157,6 +158,7 @@ export default function App() {
   const [drawerSovereign, setDrawerSovereign] = useState(false)
   const [drawerXingcheng, setDrawerXingcheng] = useState(false)
   const [drawerCapacity, setDrawerCapacity] = useState(false)
+  const [drawerSlo, setDrawerSlo] = useState(false)
   const [drawerThirdParty, setDrawerThirdParty] = useState(false)
   const [drawerExternalCollaboration, setDrawerExternalCollaboration] = useState(false)
   const [drawerSagaVisualizer, setDrawerSagaVisualizer] = useState(false)
@@ -297,6 +299,20 @@ export default function App() {
           <button
             type="button"
             className="drawer-trigger"
+            onClick={() => setDrawerSlo(true)}
+          >
+            <span className="drawer-trigger__icon" aria-hidden="true">P</span>
+            <span className="drawer-trigger__text">
+              <strong>{t.sloDashboard}</strong>
+              <small>{t.sloDashboardHint}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="drawer-trigger"
             onClick={() => setDrawerExternalCollaboration(true)}
           >
             <span className="drawer-trigger__icon" aria-hidden="true">{ec.icon}</span>
@@ -427,6 +443,13 @@ export default function App() {
           sharedLayerFileCount={sharedLayerFileCount}
           workspaceSizeBytes={workspaceSizeBytes}
           workspaceFileCount={workspaceFileCount}
+        />
+      </ModuleBoundary>
+
+      <ModuleBoundary name="效能 SLO">
+        <AppSloDrawer
+          open={drawerSlo}
+          onClose={() => setDrawerSlo(false)}
         />
       </ModuleBoundary>
     </div>

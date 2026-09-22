@@ -376,6 +376,83 @@ button:focus-visible {
   line-height: 1.6;
 }
 
+/* â”€â”€ SLO dashboard (MS10) â”€â”€ */
+.slo-status {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.slo-status--ok {
+  color: #8be0a8;
+  border-color: rgba(139, 224, 168, 0.35);
+}
+
+.slo-status--warn {
+  color: #f4d598;
+  border-color: rgba(243, 185, 85, 0.35);
+}
+
+.slo-status--over {
+  color: #ff9d9d;
+  border-color: rgba(255, 120, 120, 0.45);
+}
+
+.slo-status--measured {
+  color: #9db8e8;
+  border-color: rgba(157, 184, 232, 0.3);
+}
+
+.slo-status--unknown {
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.capacity-row[data-status="over"] {
+  border-color: rgba(255, 120, 120, 0.45);
+}
+
+.capacity-row[data-status="warn"] {
+  border-color: rgba(243, 185, 85, 0.3);
+}
+
+.slo-trend {
+  font-size: 10px;
+  color: var(--subtle);
+}
+
+.slo-trend--up { color: #f4d598; }
+.slo-trend--down { color: #8be0a8; }
+.slo-trend--flat { color: var(--muted); }
+
+.slo-command-list {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+
+.slo-command-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.slo-command-row dt {
+  color: var(--muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.slo-command-row dd {
+  margin: 0;
+  color: var(--subtle);
+  font-size: 11px;
+}
+
 .xingcheng-report { display: grid; gap: 14px; }
 .xingcheng-report__summary,
 .xingcheng-issue {
@@ -535,7 +612,7 @@ button:focus-visible {
   .hero-grid { grid-template-columns: 1fr; }
 }
 
-/* ¢w¢w Module fault isolation ¢w¢w */
+/* ï¿½wï¿½w Module fault isolation ï¿½wï¿½w */
 .module-fault {
   display: grid;
   gap: 4px;
