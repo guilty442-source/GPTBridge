@@ -1,0 +1,114 @@
+{
+  "schema": "model-catalog-lifecycle-classification/v1",
+  "date": "2026-09-22",
+  "scope": "§3.2 殘項：模型目錄未登錄 lifecycle 頂層目錄逐項歸屬判定（唯讀盤點，處置屬總督／操作者裁決，worker 未刪改任何檔案）",
+  "registry_state": {
+    "lifecycle": "xingcheng/runtime/models/lifecycle/xingcheng-native/lifecycle.json",
+    "weights_versions": 18,
+    "active_weights_version": 18,
+    "pinned_active": "jobs/star-transformer-job-a7a2a5e769ac4dba90c0c2ed/final.pt (native-engine.json)",
+    "maturity_certified": "medium-dense-v1/final.pt @ L4 (model-maturity.json)",
+    "registered_top_level_dirs": [
+      "chat-foundation-v2 (v14)",
+      "chat-foundation-v6 (v13)",
+      "chat-foundation-xl-v1 (v15)",
+      "chat-foundation-xl-v3 (v16)",
+      "jobs/ (14 versions, governed)"
+    ]
+  },
+  "unregistered_dirs": [
+    {
+      "dir": "medium-dense-v1", "size_mb": 627.8,
+      "summary": "pretrain 1000 steps, eval ppl 20.29",
+      "role": "現行 L4 認證錨點（model-maturity.json checkpoint 直指此 final.pt）；人工抽檢與 eval suite 皆以它為品質基線",
+      "recommendation": "register（weights 版本，activate=false）——認證錨點未入帳屬治理缺口；註冊後 retention 明確保護"
+    },
+    {
+      "dir": "medium-moe-v1", "size_mb": 3338.0,
+      "summary": "pretrain 1000 steps, eval ppl 17.21",
+      "role": "MoE 預訓練基線；Phase 9 MoE 主線骨幹候選（藍圖：達標後評估 base_moe，R5 稀疏執行已落地）",
+      "recommendation": "register——Phase 9 依賴項，刪除將阻斷 MoE 主線"
+    },
+    {
+      "dir": "pretrain-xlarge-1k", "size_mb": 2890.4,
+      "summary": "pretrain 1000 steps, eval ppl 15.69",
+      "role": "xlarge 預訓練基線（早期容量對照）",
+      "recommendation": "register 或 archive——指標最佳的預訓練基線之一；若僅作歷史對照可明確封存"
+    },
+    {
+      "dir": "base-dense-v1", "size_mb": 1873.1,
+      "summary": "pretrain 1000 steps, eval ppl 14.85",
+      "role": "base 規模預訓練基線（ppl 最佳）",
+      "recommendation": "register 或 archive——同上"
+    },
+    {
+      "dir": "chat-foundation-v2", "size_mb": 1873.1,
+      "summary": "sft 500 steps, eval ppl 3.37（final_loss 0.0007 顯示嚴重過擬合小資料集）",
+      "role": "v2 資料集世代的 SFT 產物（已登錄為 v14）",
+      "recommendation": "已登錄——本表僅供對照；保留與否隨 keep_weight_versions 政策"
+    },
+    {
+      "dir": "chat-foundation-v6", "size_mb": 1873.1,
+      "summary": "sft 500 steps, eval ppl 32.59",
+      "role": "v6 世代 SFT（已登錄為 v13，曾為 L4 認證對象）",
+      "recommendation": "已登錄——同上"
+    },
+    {
+      "dir": "chat-foundation-xl-v1", "size_mb": 5748.3,
+      "summary": "sft 400 steps, eval ppl 19.30",
+      "role": "xl 線 SFT（已登錄為 v15）",
+      "recommendation": "已登錄——同上"
+    },
+    {
+      "dir": "chat-foundation-xl-v3", "size_mb": 2890.1,
+      "summary": "sft 800 steps, eval ppl 5.08",
+      "role": "唯一 L5 認證權重（v16，未啟用——vocab 32000 與現行 tokenizer 不相容，啟用屬 Phase 8 路由決策）",
+      "recommendation": "已登錄且具認證意義——必須保留"
+    },
+    {
+      "dir": "baseline-small-5m-metrics", "size_mb": 116.1,
+      "summary": "pretrain 60 steps, eval ppl 2538.5",
+      "role": "metrics 驗證用小步數實驗",
+      "recommendation": "archive/delete 候選——實驗性殘留，無認證引用"
+    },
+    {
+      "dir": "baseline-small-5m-formal", "size_mb": 116.1,
+      "summary": "pretrain 500 steps, eval ppl 346.9",
+      "role": "小型正式基線",
+      "recommendation": "archive/delete 候選"
+    },
+    {
+      "dir": "baseline-small-5m-formal-1k", "size_mb": 116.1,
+      "summary": "pretrain 1000 steps, eval ppl 178.1",
+      "role": "小型基線延長版",
+      "recommendation": "archive/delete 候選"
+    },
+    {
+      "dir": "baseline-small-5m-gpu-1k", "size_mb": 116.1,
+      "summary": "pretrain 1000 steps, eval ppl 176.9",
+      "role": "GPU 對照小型基線",
+      "recommendation": "archive/delete 候選"
+    },
+    {
+      "dir": "baseline-small-5m-gpu-2k", "size_mb": 116.1,
+      "summary": "pretrain 2000 steps, eval ppl 91.1",
+      "role": "GPU 對照小型基線最長版",
+      "recommendation": "archive/delete 候選"
+    },
+    {
+      "dir": "baseline-small-gpu", "size_mb": 58.0,
+      "summary": "pretrain 60 steps, eval ppl 1548.2",
+      "role": "早期 GPU 煙測",
+      "recommendation": "archive/delete 候選"
+    }
+  ],
+  "totals": {
+    "unregistered_dirs": 10,
+    "unregistered_mb": 7658.9,
+    "recommend_register_mb": 6856.1,
+    "recommend_archive_or_delete_mb": 696.6,
+    "note": "藍圖原估 ~10GB／11 目錄；實測 10 目錄 ~7.6GB（chat-foundation-v2/v6/xl-v1/xl-v3 經查證已登錄為 v13–v16，從未登錄清單剔除後列入對照）"
+  },
+  "disposition_authority": "歸屬處置（register／archive／delete）屬總督或操作者裁決——本報告僅為判定依據；worker 未執行任何刪除或註冊",
+  "operational_note": "lifecycle transitions 顯示 self-learning watch 自 2026-09-22T04:37Z 起每 ~15 分鐘 EXECUTOR_GPU_BUSY 重試（GPU 可用 ~2.1GB < 需求），每輪新建 dataset+job+FAILED 轉移——fail-closed 正確但帳本噪音與 cycle budget 消耗持續累積，建議治理層評估 GPU 不可用期間的退避策略（指數退避或熔斷啟用）"
+}

@@ -606,6 +606,43 @@ class PipelineRecoveryMixin:
             return evaluate_rebuild(tuple(steps), rebuilt, len(resources))
         finally:
             self._migrating = False
+
+    async def migrate_schema(
+        self,
+        generation_manager: Any,
+        *,
+        current: Any,
+        target: Any,
+        apply_metadata: Any = None,
+        validate: Any = None,
+        benchmark_fn: Any = None,
+    ) -> Any:
+        """G50/P2 migration tool entry: schema drift -> plan -> governed
+        phase execution.
+
+        Vector-axis drift triggers ``rebuild_canonical`` (new generation
+        built from PostgreSQL authority, validated, benchmarked, then
+        atomically promoted). The metadata axis requires an injected
+        ``apply_metadata`` executor — a plan lacking one is blocked
+        before any mutation. Returns ``lifecycle.MigrationReport``.
+        """
+        from .lifecycle.migration import apply_migration
+        from .lifecycle.schema_versions import plan_migration
+
+        plan = plan_migration(current, target)
+
+        async def _build(_plan: Any) -> Any:
+            return await self.rebuild_canonical(
+                generation_manager, benchmark_fn=benchmark_fn
+            )
+
+        return await apply_migration(
+            plan,
+            apply_metadata=apply_metadata,
+            build_vector_generation=_build,
+            validate=validate,
+        )
+
     # ------------------------------------------------------------------
     # RAG-16: unified status / manifest surface
     # ------------------------------------------------------------------

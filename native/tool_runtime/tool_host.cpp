@@ -1083,8 +1083,13 @@ void ToolHost::execute_claimed(const std::string& channel,
     });
 
     bool cancelled = false;
-    while (!done.load() && !impl_->stop_flag.load()) {
+    while (!impl_->stop_flag.load()) {
+        /* 旗標先於 done 檢查：取消命中於執行收尾窗口（executor 因旗標
+           提前結束）仍須判 cancelled——ABI §4：執行中取消不 respond。
+           Python asyncio 以 request_cancelled 輪詢命中為準；本機旗標
+           是 toolbox_cancel_tool_run 的等價本機通道。 */
         if (flag->load()) { cancelled = true; break; }
+        if (done.load()) break;
         tpx::ProxyResponse resp;
         /* 線路形狀：result 為純 bool。 */
         if (impl_->proxy("request_cancelled",

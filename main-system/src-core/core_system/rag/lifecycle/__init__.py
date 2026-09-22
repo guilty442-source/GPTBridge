@@ -42,6 +42,7 @@ from .generation import (
     GenerationState,
 )
 from .manifest import RagSystemManifest, build_manifest
+from .migration import MigrationReport, apply_migration
 from .schema_versions import (
     MigrationPhase,
     MigrationPlan,
@@ -83,6 +84,7 @@ __all__ = [
     "MemoryDeletionScope",
     "MigrationPhase",
     "MigrationPlan",
+    "MigrationReport",
     "PHASE_ORDER",
     "ProvenanceEdge",
     "REBUILD_SEQUENCE",
@@ -100,6 +102,7 @@ __all__ = [
     "TakeoverReport",
     "UpgradePhase",
     "advance_deletion",
+    "apply_migration",
     "benchmark_gate",
     "build_manifest",
     "cascade_invalidation",
