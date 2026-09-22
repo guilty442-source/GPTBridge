@@ -947,7 +947,6 @@ def main() -> int:
         "minimal_fix_list": [
             "Isolated backend dependency probes unreachable by bound-root design — all three shared-service doubles (PG 04B-20, Qdrant 04B-21, Ollama 04B-22) verified at the release client-contract layer",
             "IPC streaming surface (task_progress/task_finished) unobservable under bound-root runtime_failed — task_queue is a startup-phase construct; heartbeat-deadline timeout + teardown resilience probed live in 04B-19",
-            "G76 self-containment verified — 04B-18 offline wheel-cache rebuild PASS (rerun with --with-offline-rebuild to refresh evidence)",
         ],
     }
     report_path = RC / "acceptance-report.json"
