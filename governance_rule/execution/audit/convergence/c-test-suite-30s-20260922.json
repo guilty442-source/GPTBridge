@@ -1,0 +1,208 @@
+{
+  "evidence": "C test suite <=30s (A537)",
+  "at": "2026-09-22T01:15:00Z",
+  "verifier": "native/test_suites/build.ps1 (MSVC, 6.6s)",
+  "result": {
+    "harness": "native-test-suite/v1",
+    "cases": [
+      {
+        "suite": "NTP_CORRECTNESS_SUITE",
+        "name": "softmax_sums_to_one_and_is_stable",
+        "status": "PASS",
+        "ms": 0.009,
+        "detail": ""
+      },
+      {
+        "suite": "NTP_CORRECTNESS_SUITE",
+        "name": "temperature_sharpens_distribution",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "NTP_CORRECTNESS_SUITE",
+        "name": "greedy_is_argmax_and_deterministic",
+        "status": "PASS",
+        "ms": 0.001,
+        "detail": ""
+      },
+      {
+        "suite": "NTP_CORRECTNESS_SUITE",
+        "name": "top_k_keeps_k_candidates_ordered",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "NTP_CORRECTNESS_SUITE",
+        "name": "top_p_nucleus_contains_mass",
+        "status": "PASS",
+        "ms": 0.001,
+        "detail": ""
+      },
+      {
+        "suite": "NTP_CORRECTNESS_SUITE",
+        "name": "negative_tests_reject_degenerate_inputs",
+        "status": "PASS",
+        "ms": 0.001,
+        "detail": ""
+      },
+      {
+        "suite": "KV_CACHE_SUITE",
+        "name": "append_and_position_tracking",
+        "status": "PASS",
+        "ms": 0.003,
+        "detail": ""
+      },
+      {
+        "suite": "KV_CACHE_SUITE",
+        "name": "gqa_layout_shares_kv_heads",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "KV_CACHE_SUITE",
+        "name": "int8_per_token_scale_roundtrip_within_tolerance",
+        "status": "PASS",
+        "ms": 0.001,
+        "detail": ""
+      },
+      {
+        "suite": "KV_CACHE_SUITE",
+        "name": "per_token_scales_are_independent",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "KV_CACHE_SUITE",
+        "name": "causal_consistency_blocks_future_positions",
+        "status": "PASS",
+        "ms": 0.001,
+        "detail": ""
+      },
+      {
+        "suite": "MOE_QC_SUITE",
+        "name": "top2_routing_is_deterministic",
+        "status": "PASS",
+        "ms": 0.007,
+        "detail": ""
+      },
+      {
+        "suite": "MOE_QC_SUITE",
+        "name": "balanced_load_has_high_entropy",
+        "status": "PASS",
+        "ms": 0.002,
+        "detail": ""
+      },
+      {
+        "suite": "MOE_QC_SUITE",
+        "name": "expert_collapse_is_detected",
+        "status": "PASS",
+        "ms": 0.001,
+        "detail": ""
+      },
+      {
+        "suite": "MOE_QC_SUITE",
+        "name": "router_float32_path_is_used",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "MOE_QC_SUITE",
+        "name": "measured_flops_formula_matches_dense_and_sparse",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "PYTHON_CPP_CONSISTENCY_SUITE",
+        "name": "c_vs_cpp_matmul_within_tolerance",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "PYTHON_CPP_CONSISTENCY_SUITE",
+        "name": "c_vs_cpp_softmax_sum_within_tolerance",
+        "status": "PASS",
+        "ms": 0.001,
+        "detail": ""
+      },
+      {
+        "suite": "PYTHON_CPP_CONSISTENCY_SUITE",
+        "name": "quantization_tested_separately_not_bit_exact",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "PYTHON_CPP_CONSISTENCY_SUITE",
+        "name": "shared_weights_same_tokenizer_contract",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "STAR_MODEL_MATURITY_SUITE",
+        "name": "l0_parameter_counts_are_positive_and_ordered",
+        "status": "PASS",
+        "ms": 0.001,
+        "detail": ""
+      },
+      {
+        "suite": "STAR_MODEL_MATURITY_SUITE",
+        "name": "l0_initial_weights_are_finite",
+        "status": "PASS",
+        "ms": 0.005,
+        "detail": ""
+      },
+      {
+        "suite": "STAR_MODEL_MATURITY_SUITE",
+        "name": "l1_forward_accumulation_is_finite",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "STAR_MODEL_MATURITY_SUITE",
+        "name": "l1_gradient_step_decreases_loss",
+        "status": "PASS",
+        "ms": 0.0,
+        "detail": ""
+      },
+      {
+        "suite": "STAR_MODEL_MATURITY_SUITE",
+        "name": "l2_overfit_small_sample_reaches_threshold",
+        "status": "PASS",
+        "ms": 0.015,
+        "detail": ""
+      },
+      {
+        "suite": "baseline_suite",
+        "name": "requires_native_model_runtime",
+        "status": "BLOCKED",
+        "ms": 0.0,
+        "detail": "BLOCKED_MODEL_RUNTIME: checkpoint and native runtime required"
+      },
+      {
+        "suite": "eval_suite",
+        "name": "requires_native_model_runtime",
+        "status": "BLOCKED",
+        "ms": 0.0,
+        "detail": "BLOCKED_MODEL_RUNTIME: checkpoint and native runtime required"
+      },
+      {
+        "suite": "dialogue_suite",
+        "name": "requires_native_model_runtime",
+        "status": "BLOCKED",
+        "ms": 0.0,
+        "detail": "BLOCKED_MODEL_RUNTIME: checkpoint and native runtime required"
+      }
+    ]
+  },
+  "summary": "PASS=25 FAIL=0 BLOCKED=3, total 6.6s under 30s",
+  "notes": "testing suite already C, audit C/C++ still pending"
+}

@@ -1,0 +1,58 @@
+{
+  "schema": "automation-centralization-registry/v1",
+  "generated_at_utc": "2026-09-22T01:00:00Z",
+  "authority": "derived-rebuildable-non-authoritative; source is tasks/ and scripts inventory",
+  "principle": "自動化核心集中化：所有自動化由 automation core 統一編排/排程/審計，模組只執行、不得內建排程（藍圖 §1.1 自動化集中）",
+  "central_owner": "automation-sovereign (C# automation core, co-located with decision/permission/runtime)",
+  "flows": [
+    {
+      "flow": "Git 提交/同步",
+      "current": "main-system/src-core/tasks/git_automation.py (GitAutomationService, in-process, 60s/300s)",
+      "target": "automation core 統一排程",
+      "audit": "git_tier_audit.jsonl",
+      "kill_switch": "GOVERNANCE_AUTHORITY_APPROVAL",
+      "status": "centralized (in-process service)"
+    },
+    {
+      "flow": "清理與保留 §10.67",
+      "current": "main-system/src-core/tasks/ + governance_rule/execution/retention",
+      "target": "automation core",
+      "audit": "retention.jsonl",
+      "status": "scattered (needs migration)"
+    },
+    {
+      "flow": "資源管制與釋放 §10.64",
+      "current": "scripts/resource-governor.py + shared_layer/adaptive/gpu_coordinator + native_transformer/execution/auto_release",
+      "target": "automation core (resource governor as central, engine register via AutoReleaseManager)",
+      "audit": "resource-governor.jsonl + native-engine-executions.jsonl",
+      "status": "partially centralized (governor central, engine hooks per-module)"
+    },
+    {
+      "flow": "發布/更新同步",
+      "current": "main-system/src-core/tasks/ + governance_rule/execution/git_tiers/workspace_sync",
+      "target": "automation core",
+      "audit": "git_tier_audit.jsonl + release-retention.jsonl",
+      "status": "scattered"
+    },
+    {
+      "flow": "按需啟動 §10.66",
+      "current": "main-system/src-core/tasks/model_service_activation.py + core_system/process_registry + resident-core.json",
+      "target": "automation core (on-demand lifecycle)",
+      "audit": "process-registry.json + model-resource-ledger.jsonl",
+      "status": "partially centralized (activation broker central, per-tool still own)"
+    },
+    {
+      "flow": "週期/觸發排程",
+      "current": "main-system/src-core/tasks/periodic_scheduler.py (6 jobs) + tasks/* individual loops",
+      "target": "automation core (single PeriodicScheduler, pausable jobs)",
+      "audit": "periodic_scheduler state",
+      "status": "centralized (periodic_scheduler central, but tasks still register own intervals)"
+    }
+  ],
+  "invariants": [
+    "模組只執行、不得各自內建排程/輪詢",
+    "統一審計與 kill switch（GOVERNANCE_AUTHORITY_APPROVAL / GPTBRIDGE_GOVERNOR_DISABLE）",
+    "按需模組完成即釋放，管制中 pausable jobs 暫停"
+  ],
+  "next": "逐流程遷移至 automation core，驗收：模組零內建排程、單一自動化核心、審計集中"
+}
