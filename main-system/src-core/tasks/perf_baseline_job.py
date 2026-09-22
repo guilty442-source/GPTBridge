@@ -29,12 +29,10 @@ def _ipc_metrics() -> dict[str, Any] | None:
 
 
 def _workload_lane_metrics(app: Any) -> dict[str, Any] | None:
-    pool = getattr(app, "_workload_lane_pool", None)
-    if pool is None:
-        return None
-    stats = getattr(pool, "stats", None)
     try:
-        return stats() if callable(stats) else None
+        from shared_layer.database.workload_lanes import get_lane_pool
+
+        return get_lane_pool().stats()
     except Exception:
         return None
 
