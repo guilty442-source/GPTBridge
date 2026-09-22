@@ -6,6 +6,8 @@
     "periodic_scheduler": { "mode": "shadow" },
     "state_outbox": { "mode": "shadow" },
     "maintenance_controller": { "mode": "shadow" },
+    "request_registry": { "mode": "shadow" },
+    "ipc_server": { "mode": "shadow" },
     "request_registry": { "mode": "shadow" }
   }
 }

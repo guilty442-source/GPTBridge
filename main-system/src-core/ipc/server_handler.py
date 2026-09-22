@@ -40,6 +40,14 @@ async def handler(websocket, app_instance):
     # write_ipc_connection_state expects the workspace root and appends
     # main-system/runtime/state itself.
     _PROJECT_ROOT = Path(__file__).resolve().parents[3]
+    # §10.65 act-1: native transport shadow — one per connection; policy
+    # mode != "shadow" or a missing extension yields None (fail-closed).
+    try:
+        from .ipc_transport_native_shadow import IpcTransportNativeShadow
+
+        _ipc_shadow = IpcTransportNativeShadow.from_policy(_PROJECT_ROOT)
+    except Exception:
+        _ipc_shadow = None
     try:
         _active_connections = getattr(app_instance, "_active_ws_connections", 0) + 1
         app_instance._active_ws_connections = _active_connections
@@ -158,6 +166,9 @@ async def handler(websocket, app_instance):
             # message as liveness, not only heartbeat_pong responses, so a
             # busy session is never killed while traffic is flowing.
             heartbeat_state["last_pong"] = time.monotonic()
+            if _ipc_shadow is not None:
+                with contextlib.suppress(Exception):
+                    _ipc_shadow.observe_inbound(message)
             try:
                 data = json.loads(message)
                 if not isinstance(data, dict):

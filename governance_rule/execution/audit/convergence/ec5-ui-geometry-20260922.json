@@ -1,0 +1,19 @@
+{
+  "artifact": "ec5-ui-geometry-20260922",
+  "date": "2026-09-22",
+  "blueprint_item": "P8 / EC-5 UI 幾何與法典對齊",
+  "worker": "devin-cli",
+  "scope": "Standalone tools/ai-collaboration/src/ui — A544 geometry verification",
+  "findings": {
+    "layout": "ai-collab-workspace grid = minmax(300px,1fr) | minmax(0,3fr)：左 1/4 整合控制、右 3/4 內建瀏覽器網頁區（ai-collab-browser-canvas）",
+    "no_top_card": "TSX 無 ai-collab-topbar 引用（0 處）；頂部區塊僅存於 CSS 死碼命名，未渲染",
+    "left_integrated_card": "ai-collab-integrated 控制卡：連線狀態、URL 導航、provider 開啟、AI 清單、composer、協作狀態",
+    "verification_method": "靜態結構驗證（TSX/CSS class 對映）；Electron 端渲染由既有 workspace 測試與 INT 驗收覆蓋"
+  },
+  "codex_sync": {
+    "status": "pending-coordination-window",
+    "staged_request": "codex-amendment-request-ai-collaboration-left-control-integration-2026-09-18",
+    "note": "A528/A538 條文同步屬法典寫入，worker 僅得 request-only；UI 側已先對齊 staged request 之 A544 幾何條款"
+  },
+  "verdict": "EC-5 工人可施工面（UI 幾何落地）已驗證符合 A544；法典同步殘項留待協調窗口"
+}
