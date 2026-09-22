@@ -1,0 +1,11 @@
+{
+  "evidence": "單元制搬移首輪 tools/shadow（§10.68）",
+  "at": "2026-09-22T02:00:00Z",
+  "order": "tools → model → shared → core → xingcheng",
+  "phase": "tools (shadow)",
+  "source": "Standalone tools/file-sorter (7 tools: local-model, model-dialogue, ai-assistant, investment-mobile, ai-collaboration, file-sorter, vaultly)",
+  "shadow": "units/tools/file-sorter (shadow, parallel run, Python still authoritative)",
+  "check": "tool isolation policy 512-2048 MB, 5s start/stop, manifest + permission routes, directory parity diff 0 errors (codex r8/r9)",
+  "next": "model → shared → core → xingcheng each one round shadow→primary→retire, per-step overall net occupancy measured",
+  "verdict": "SHADOW PASS (directory parity, no cross-layer mix, same-unit co-located, cross-unit via governed IPC)"
+}
