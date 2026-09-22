@@ -1,0 +1,31 @@
+{
+  "schema": "int10-mid-window-review/v1",
+  "generated_at": "2026-09-22T09:39:40.567610+00:00",
+  "window": "2026-09-21T23:18Z .. 2026-09-22T23:18Z",
+  "evaluated_at_utc": "2026-09-22T09:38:56Z",
+  "source_report": "main-system/runtime/logs/integration-10-20260922-093856/report.json",
+  "passing": [
+    "no_unexpected_restart",
+    "health_probes",
+    "no_orphans"
+  ],
+  "flags": {
+    "resource_budget": {
+      "samples": 1475,
+      "over_budget": 101,
+      "last_over_at": "2026-09-22T08:39Z",
+      "classification": "over-budget samples cluster under regulation.active=true (governor-engaged bursts); strict check counts any over-budget sample as fail — check docstring itself reserves criterion review for regulated bursts",
+      "action_needed": "criterion review at window end (or governor ruling now)"
+    },
+    "log_hygiene": {
+      "error_lines": 9,
+      "signatures": {
+        "Xingcheng auto-loop error: CODEX_UNAVAILABLE": 8,
+        "RuntimeWarning: Enable tracemalloc": 1
+      },
+      "classification": "8 lines are the pre-fix first-occurrence warnings of the known transient; commit 7199bdb6 demotes repeats to debug so no new lines are expected; the historical lines remain inside the window under strict reading",
+      "action_needed": "criterion review (accept pre-fix transient) or window restart (resets ~10.3h accumulated uptime)"
+    }
+  },
+  "recommendation": "governor decision before 23:18Z: accept-regulated/known-transient via criterion review, or restart window (cost: full 24h re-accumulation)"
+}
