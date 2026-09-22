@@ -1,0 +1,15 @@
+{
+  "evidence": "E14 / P2 Embedding 殘項① — 生產端呼叫政策（受管 flow 登錄）",
+  "at": "2026-09-22T14:40Z",
+  "worker": "devin",
+  "decision": "run_schema_migration 之生產端呼叫政策採『受管 flow 登錄』形式：於 star-automation-flows/v1 清單登錄 rag-schema-migration 為 kind=on-demand — 僅 operator／受管流程顯式呼叫，永不於維護 tick 或 init 自動觸發（A10 allowlist；清單外不得註冊排程）",
+  "entry": "main-system/config/automation-flows.json → flows.rag-schema-migration",
+  "governed_entry": "main-system/src-core/core_system/rag_runtime_integration.py::run_schema_migration — migrate_schema → apply_migration → rebuild_canonical（PG authority → validate → atomic promote）；無 current/target 且無指紋漂移時為 no-op",
+  "axes": {
+    "vector": "漂移時經 governed rebuild 建新世代（rebuild_canonical）",
+    "metadata": "apply_metadata executor 現無 → 含 APPLY_METADATA 相位之 plan 一律 fail-closed blocked（metadata-migration-executor-missing），依設計保留",
+    "fingerprint": "pipeline._generation_rebuild_required 旗標觸發向量軸新世代"
+  },
+  "residual": "②PG metadata 軸 apply_metadata executor：依設計 blocked（無 executor 即阻斷，非缺陷）",
+  "verification": "main-system/tests/test_automation_core.py::test_real_manifest_covers_registered_flows — manifest 結構合法（owner＋kind ∈ periodic/event/on-demand/private-loop/external-process/supervision-plane）"
+}

@@ -239,6 +239,14 @@
       "pausable": true,
       "enabled": true,
       "description": "§10.11 全系統效能基線定期快照；注入 IPC p50/p95/p99 等子系統量測；star-perf-baseline/v1"
+    },
+    "rag-schema-migration": {
+      "owner": "RagRuntimeIntegration.run_schema_migration（rag lifecycle migration executor）",
+      "kind": "on-demand",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "P2/G50 schema-drift 受管入口：僅 operator／受管流程顯式呼叫，絕不於維護 tick 或 init 自動觸發；向量軸漂移走 rebuild_canonical 新世代建置；metadata 軸無 apply_metadata executor 即 fail-closed 阻斷（依設計）"
     }
   }
 }
