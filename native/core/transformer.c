@@ -141,6 +141,10 @@ static gptbridge_simd_level gptbridge_native_simd_level(void) {
     return (gptbridge_simd_level)cached;
 }
 
+int gptbridge_native_simd_effective_level(void) {
+    return (int)gptbridge_native_simd_level();
+}
+
 /* Find max in a row for numerical stability of softmax.
  * Vectorized: AVX-512 (8×double), AVX2 (4×double), scalar fallback. */
 static double row_max(const double* row, int64_t cols) {

@@ -66,6 +66,11 @@ int gptbridge_native_transformer_scaled_dot_product_attention(
     double* output,
     double* scores_temp);
 
+/* Effective SIMD dispatch level after CPUID detection and the
+ * GPTBRIDGE_SIMD_LEVEL diagnostic cap: 0 = scalar, 1 = AVX2+FMA,
+ * 2 = AVX-512.  Test/diagnostic aid for ACC-1 acceptance. */
+int gptbridge_native_simd_effective_level(void);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
