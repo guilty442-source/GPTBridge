@@ -96,6 +96,21 @@ def _config(**kw) -> gov.GovernorConfig:
     return gov.GovernorConfig(args)
 
 
+def test_feature_args_preserve_explicit_disable() -> None:
+    config = _config(
+        probalance=False,
+        cpu_limiter=True,
+        background_mode=False,
+        ecoqos=None,
+    )
+    args = gov._feature_args(config)
+    assert "--no-probalance" in args
+    assert "--cpu-limiter" in args
+    assert "--no-background-mode" in args
+    assert "--ecoqos" not in args
+    assert "--no-ecoqos" not in args
+
+
 def _machine() -> _FakeProc:
     return _FakeProc(9999, "python.exe", username="u")
 

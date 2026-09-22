@@ -1267,14 +1267,14 @@ def run_watch(config: GovernorConfig) -> int:
 def _feature_args(config: GovernorConfig) -> list[str]:
     """CLI passthrough for the Process Lasso-inspired features."""
     args: list[str] = []
-    if config.probalance_flag:
-        args.append("--probalance")
-    if config.cpu_limiter_flag:
-        args.append("--cpu-limiter")
-    if config.background_mode_flag:
-        args.append("--background-mode")
-    if config.ecoqos_flag:
-        args.append("--ecoqos")
+    for flag, value in (
+        ("probalance", config.probalance_flag),
+        ("cpu-limiter", config.cpu_limiter_flag),
+        ("background-mode", config.background_mode_flag),
+        ("ecoqos", config.ecoqos_flag),
+    ):
+        if value is not None:
+            args.append(f"--{flag}" if value else f"--no-{flag}")
     if config.limiter_percent_arg is not None:
         args.extend(["--limiter-percent", str(config.limiter_percent_arg)])
     if config.resp_ratio_arg is not None:
