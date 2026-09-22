@@ -98,10 +98,28 @@
   id 對帳同步 `call()`、讀取期限、`PROXY_DISCONNECTED/SPAWN_FAILED/
   TIMEOUT`；Windows-only，非 Windows fail-closed）；driver `sidecar`
   模式以真實 spawn 子行程端到端驗證，wire 測試 11/11 PASS。
-- 未做（M1 殘項）：C++ 工具體行程（ABI §1–§4 線上實作：HTTP/WS
-  閘門伺服器＋queue worker，以 `ProxySidecar` 走 P2 代理）、
+- **C++ 工具體骨架已落地**（同日）：`native/include/tool_host.h`＋
+  `tool_runtime/tool_host.cpp`（`ToolHost`，winsock2、Windows-only、
+  非 Windows fail-closed）——組合 governed_tool C 判定＋
+  governed_tool_ws 閘門＋transport_proxy_client codec＋
+  `ProxySidecar`/注入式 `ProxyCallFn` 成可執行行程：§1 env 載入
+  （含 manifest.id 比對、tool_root 深度規則、bootstrap pop-after-read、
+  wsid 計算）、§2 僅 127.0.0.1 監聽＋route 階梯＋握手驗證、§3 命令
+  受理（tool_id `or` 語義 falsy→self/truthy 異形→DENIED、waiter 先
+  登記再 submit、COMMAND_RECEIVED、訊息級 frame 重組）、§4
+  claim→execute→respond 迴圈（idle backoff、100ms cancel 輪詢→旗標
+  ＋cancellation→不 respond、channel_health degraded、
+  `waiters[request_id]` 結果回推）；submit 側走獨立
+  `proxy_submit_call`/第二 sidecar 綁定（submit actor/authorizer）。
+  `suite_tool_host.cpp` **3/3 PASS**：真實 loopback socket 端到端——
+  /health/metrics/shutdown 閘門、WS upgrade 正負路徑、命令→
+  COMMAND_RECEIVED→claim→execute→respond→waiter `_result` 推送、
+  異形 DENIED、cancel 執行中旗標傳遞不回應（13d00404 修 WS 結果
+  投遞＋/shutdown 關閉時 accept 解除阻塞）。
+- 未做（M1 殘項）：以真實 P2 Python sidecar 取代注入 proxy 的
+  live smoke（`python -m …transport_proxy` 子行程端到端）、
   shadow→primary 觀察窗、parity 零差異證據、runtime flag、
-  load/unload 資源釋放驗收。
+  load/unload 資源釋放驗收、`notify_for_request` 喚醒路徑。
 
 - M1 `investment-mobile` C# shadow（同日補）：`native/test_suites/csharp_investment`
   （net10.0）重實作決策自由語義——`InvestmentMobileService.owns/handle/_status`、
