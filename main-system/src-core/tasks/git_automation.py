@@ -252,12 +252,25 @@ class GitAutomationService:
         if self._automation_core is not None:
             entry = self._automation_core.flow_entry("git-automation") or {}
             push = bool(entry.get("push", push))
-        result = await asyncio.to_thread(
-            synchronize,
-            self.project_root,
-            commit_dirty=True,
-            push=push,
-        )
+        try:
+            result = await asyncio.to_thread(
+                synchronize,
+                self.project_root,
+                commit_dirty=True,
+                push=push,
+            )
+        except Exception as exc:
+            # Lock-busy is routine serialization (a manual or concurrent
+            # sync holds gptbridge-workspace-sync.lock): skip this cycle
+            # as a normal status instead of failing the flow — an error
+            # log per collision poisons log-hygiene budgets (INT-10).
+            from governance_rule.execution.git_tiers.process_lock import (
+                LockBusyError,
+            )
+
+            if not isinstance(exc, LockBusyError):
+                raise
+            result = "skipped:lock-busy"
         self._syncs += 1
         self._last_sync = {"at": time.time(), "result": result}
         self._write_state()
