@@ -180,6 +180,48 @@ class ModelResourceManager:
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+_LEDGER_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "runtime" / "state" / "model-resource-ledger.jsonl"
+)
+
+
+def _gpu_free_mb() -> Optional[float]:
+    """VRAM 遙測：GPU 協調器雙源查詢；無 GPU／查詢失敗 → None（fail-closed）。"""
+    try:
+        from shared_layer.adaptive.gpu_coordinator import query_gpu
+
+        status = query_gpu()
+        return status.free_mb if status is not None else None
+    except Exception:
+        return None
+
+
+def _ram_free_mb() -> Optional[float]:
+    """RAM 遙測：psutil available；psutil 不可用 → None（fail-closed）。"""
+    try:
+        import psutil
+
+        return psutil.virtual_memory().available / (1024 * 1024)
+    except Exception:
+        return None
+
+
+_SHARED: "ModelResourceManager | None" = None
+
+
+def get_model_resource_manager() -> ModelResourceManager:
+    """§10.7：共享受管排程器。lazy 建構，import 期間零副作用。"""
+    global _SHARED
+    if _SHARED is None:
+        _SHARED = ModelResourceManager(
+            ledger_path=_LEDGER_PATH,
+            gpu_free_fn=_gpu_free_mb,
+            ram_free_fn=_ram_free_mb,
+        )
+    return _SHARED
+
+
 __all__ = [
     "AdmitDecision",
     "DEFAULT_POLICIES",
@@ -189,4 +231,5 @@ __all__ = [
     "ModelRole",
     "Retention",
     "RolePolicy",
+    "get_model_resource_manager",
 ]

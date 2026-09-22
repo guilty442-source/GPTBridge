@@ -1,0 +1,45 @@
+{
+  "evidence": "P6 test <=20s dedicated measurement (P1-9)",
+  "schema": "star-p6-test-sla/v1",
+  "at": "2026-09-22T17:06:00Z",
+  "verifier": "native/test_suites *_suite.exe binaries, gate-style invocation (worker devin-cli)",
+  "sla_seconds": 20.0,
+  "total_seconds": 87.57,
+  "within_sla": false,
+  "suite_seconds": {
+    "a263_channel_core_suite": 0.09,
+    "activation_broker_suite": 0.24,
+    "audit_engine_suite": 0.55,
+    "baseline_suite": 5.52,
+    "channel_runtime_suite": 0.19,
+    "consistency_suite": 0.07,
+    "dialogue_suite": 21.74,
+    "eval_suite": 27.88,
+    "governed_tool_suite": 0.28,
+    "governed_tool_ws_suite": 0.33,
+    "kv_cache_suite": 0.05,
+    "maturity_suite": 0.13,
+    "moe_qc_suite": 0.09,
+    "ntp_suite": 0.13,
+    "runtime_core_suite": 0.17,
+    "runtime_state_suite": 0.25,
+    "simd_kernels_suite": 0.07,
+    "system_rescue_suite": 0.14,
+    "tool_host_suite": 14.22,
+    "_verify_tool_host_suite": 15.14,
+    "transport_proxy_client_suite": 0.32
+  },
+  "composition": {
+    "contract_suites_s": 32.43,
+    "model_eval_suites_s": 55.14,
+    "note": "baseline/eval/dialogue abstained (BLOCKED_MODEL_RUNTIME) in the earlier 6.6s measurement; they execute now that a runtime checkpoint exists. tool_host_suite + _verify_tool_host_suite contribute 29.4s of governed IPC contract cases."
+  },
+  "prior_measurement": {
+    "native_s": 6.6,
+    "precommit_s": 0.81,
+    "source": "c-test-suite-30s-20260922.json / precommit-30s-evidence-20260922.json"
+  },
+  "per_suite_30s_bound": "all suites < 30s (worst eval_suite 27.88s) - satisfies section-3.1 per-suite bound",
+  "gap": "whole-run 87.6s exceeds the P6 20s bound; scope ruling needed (contract-only vs whole fleet incl. model-eval suites)",
+  "ok": false
+}

@@ -91,10 +91,12 @@ class ModelServiceActivationBroker:
         min_backoff: float = _DEFAULT_MIN_BACKOFF_SECONDS,
         max_backoff: float = _DEFAULT_MAX_BACKOFF_SECONDS,
         project_root: Path | None = None,
+        resource_manager: Any = None,
     ) -> None:
         global _ACTIVE_BROKER
         self.app = app
         self.toolbox = toolbox_service
+        self._project_root = Path(project_root) if project_root is not None else None
         self.idle_interval = max(0.5, float(idle_interval))
         self.pending_interval = max(0.25, float(pending_interval))
         self.cooldown = max(0.0, float(cooldown))
@@ -115,6 +117,23 @@ class ModelServiceActivationBroker:
         self._last_release_result: dict[str, Any] = {}
         self._last_written_fingerprint: dict[str, Any] | None = None
         self._last_write_at = 0.0
+        # §10.7: governed model-resource admission gate.  Attaches only when
+        # a manager is injected or project_root is given (same attach rule as
+        # the native shadow below); production wiring always passes
+        # project_root, so the gate is always active in production.
+        if resource_manager is not None:
+            self._resource_manager = resource_manager
+        elif project_root is not None:
+            try:
+                from core_system.model_resource_manager import (
+                    get_model_resource_manager,
+                )
+
+                self._resource_manager = get_model_resource_manager()
+            except Exception:
+                self._resource_manager = None
+        else:
+            self._resource_manager = None
         # §10.65 act-1: native shadow attaches only when project_root is
         # given; policy mode != "shadow" or a missing extension yields None.
         self._native_shadow = None
@@ -256,6 +275,13 @@ class ModelServiceActivationBroker:
         if now < self._next_attempt_at:
             return self._shadow_ensure(facts, "throttled")
 
+        # §10.7: resource admission gate — the model owner only starts when
+        # the governed ModelResourceManager admits the load; denials are
+        # fail-closed (no start, backoff, ledgered).
+        denied = self._resource_gate(facts)
+        if denied is not None:
+            return self._shadow_ensure(facts, denied)
+
         # Gate passed — the native ladder must agree before the toolbox
         # call; the post-call result is mirrored separately.
         self._shadow_ensure(facts, "should-start")
@@ -271,6 +297,10 @@ class ModelServiceActivationBroker:
         except Exception as error:
             result = {"ok": False, "message": f"{type(error).__name__}: {error}"}
         self._last_result = result if isinstance(result, dict) else {}
+
+        if self._last_result.get("ok") is not True:
+            # Admission never materialised — free the reservation.
+            self._release_resource_admission()
 
         if self._last_result.get("ok") is True:
             self._next_attempt_at = now + self.cooldown

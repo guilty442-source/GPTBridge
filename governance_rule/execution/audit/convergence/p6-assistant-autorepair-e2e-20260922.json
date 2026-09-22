@@ -1,0 +1,22 @@
+{
+  "evidence": "P6 end-to-end: Xingcheng assistant + auto-repair chains (P1-9)",
+  "schema": "star-p6-e2e/v1",
+  "at": "2026-09-22T17:05:00Z",
+  "verifier": "main-system/.venv pytest, worker devin-cli",
+  "suites": {
+    "test_auto_repair_e2e.py": "health signal -> classify -> permission -> plan -> governed execute -> verify -> finalize -> learn -> report (G15 full-chain, fail-closed)",
+    "test_autonomous_repair.py": "autonomous repair orchestration",
+    "test_auto_repair_chain.py": "repair chain stages",
+    "test_xingcheng_runtime_control.py": "assistant identity stores + native model status + repair-switch boundary",
+    "test_model_service_activation.py": "lazy model activation broker (assistant dialogue -> governed start)",
+    "test_repair_learning.py": "repair knowledge learning",
+    "test_repair_teaching.py": "governed repair teaching"
+  },
+  "result": {
+    "passed": 76,
+    "failed": 0,
+    "elapsed_s": 27.86
+  },
+  "known_residual": "test_xingcheng_learning_command.py x5 FAIL since codex rev69 (2026-09-22T16:21:08Z) retired learning-evidence-sync-sub-sovereign under A594; validate_child_parent fails closed so commanded learning delegation now always refuses - convergence belongs to the codex-amendment/P1-3 workstream, not P6.",
+  "ok": true
+}
