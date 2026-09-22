@@ -68,6 +68,8 @@ whole index was committed after the listing was noticed).
 
 ## Git Hooks
 
+> Normative authority: Codex A53/A245/A375（A375 為 Git 流程單一控制條）。本節為操作手冊，數值與規則以法典為準。
+
 - **pre-commit**: runs `git diff --cached --check` (whitespace check) + audit log
 - **pre-push**: blocks force-push / ref deletion / non-fast-forward unless `GOVERNANCE_AUTHORITY_APPROVAL=1`
 - **pre-merge-commit**: same as pre-commit
@@ -87,6 +89,8 @@ Hooks are installed in `.git/hooks/` and shared across all worktrees.
 Worktrees share the same `.git` directory. Hooks, config, and objects are common.
 
 ## Automatic Self-Commit (per worktree)
+
+> Normative authority: Codex A163/A375。
 
 Each worktree can automatically commit the changes made inside its own checkout.
 The service only commits — it **never pushes**.
@@ -113,6 +117,8 @@ operation `auto-commit`. Implementation:
 
 ## Automatic Worktree Synchronization
 
+> Normative authority: Codex A163/A375。
+
 Commit each checkout, merge worker branches into `main`, audit the integrated
 result, then fast-forward all clean worktrees. Conflicts stop the cycle. Only
 the coordinator may push `main`; it never force-pushes, deletes refs, resets,
@@ -132,6 +138,8 @@ worktrees are clean, governance audits pass, integration succeeds, and
 must never push directly.
 
 ## Git Automation (main-system task)
+
+> Normative authority: Codex A163/A375。
 
 The old `automation_supervisor` process fleet (one watcher process per
 worktree + periodic sync) is replaced by a single in-process main-system
@@ -165,6 +173,8 @@ The legacy `scripts/git-supervisor.py` entry point still works but is no
 longer the default path — prefer the in-process task.
 
 ## 星澄 Self-Learning & Automatic Upgrade
+
+> Normative authority: Codex A554。
 
 The native model learns from its own verified data and can upgrade itself
 through the same governed pipeline used for manual training:
@@ -207,6 +217,8 @@ Implementation: `native_transformer/self_learning.py` +
 
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 
+> Normative authority: Codex A556/A557。
+
 Unified maturity ladder; the certified level is decided **only by executed
 tests** — parameter count is recorded as evidence, never a criterion.
 Levels must pass consecutively; the first `fail`/`skipped` level caps the
@@ -241,6 +253,8 @@ Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
 
 ## 星澄 Data Retention (`star-retention-policy/v1`)
 
+> Normative authority: Codex A113/A114。
+
 Bounds local-model runtime growth: old governed job dirs, logs, maturity /
 self-learning reports and SFT snapshots are pruned by count and age.
 **Never deletes** paths referenced by any `lifecycle.json` artifact version
@@ -260,6 +274,8 @@ Runs automatically at the end of every self-learning cycle; manual:
 Implementation: `native_transformer/retention.py` (`apply_retention`).
 
 ## 星澄 Training GPU Gate & Auto-Release
+
+> Normative authority: Codex A239/A116。
 
 - `TrainingJobExecutor.run_job` gates CUDA training through
   `shared_layer.adaptive.gpu_coordinator` before starting: jobs wait for
@@ -289,6 +305,8 @@ Implementation: `native_transformer/retention.py` (`apply_retention`).
 
 ## Lazy RAG/CAG (MS1/MS2)
 
+> Normative authority: Codex A586/A587。
+
 RAG + CAG are capability-critical, not boot-critical. By default the
 composition root does NOT import or construct them — measured import
 baseline: 2.43 s / 1153 modules / 176 MB RSS → 0.66 s / 670 modules /
@@ -304,6 +322,8 @@ boot. Acceptance tests: `main-system/tests/test_p0_lazy_lifecycle_handover.py`
 reactivate the previous generation).
 
 ## On-Demand Model Activation (Lazy 星澄)
+
+> Normative authority: Codex A586。
 
 `model-dialogue` opens without the local model (governor directive 2026-09-17).
 When a dialogue message is sent while the model owner (`local-model`, runtime
@@ -335,6 +355,8 @@ identity `xingcheng`) is not running:
 - model-dialogue 於送出前若 owner 未啟動，會先走懶啟動；報告以 zh-TW 摘要顯示於對話。
 
 ## Resource Governor
+
+> Normative authority: Codex A30/A116/A593。
 
 Adaptive CPU/memory governor that watches every process owned by the current
 user and lowers resource pressure automatically: sustained CPU hogs get
@@ -455,6 +477,8 @@ without distributed transactions / 2PC:
   Tests: `shared-layer/tests/test_workflow_consistency.py`.
 
 ## Architecture Registry (single source of truth)
+
+> Normative authority: Codex A201/A232/A281。
 
 `governance_rule/execution/audit/architecture_registry.json` is the one
 machine-readable topology authority: every component declares
