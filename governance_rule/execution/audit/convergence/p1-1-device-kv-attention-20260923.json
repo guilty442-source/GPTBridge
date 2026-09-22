@@ -1,0 +1,39 @@
+{
+  "schema": "convergence-evidence/v1",
+  "evidence_id": "p1-1-device-kv-attention-20260923",
+  "recorded_at_utc": "2026-09-22T18:33:48Z",
+  "item": "P1-1② device-resident KV＋CUDA online-softmax attention kernel",
+  "design": {
+    "layout": "device fp64 K/V 連續緩衝 [layer][kv_head][pos][head_dim]，load 時按 worst-case（layers×kv_heads×max_pos×head_dim×8B×2）配置",
+    "coherence": "host paged pool 仍為 source of truth——append 寫入 write-through 鏡像（slot 0）；非 append 的 current-step K/V 於注意力派送時上載同位 scratch；跨位置僅寫 kv_len 界內，reset 不需清空 device",
+    "kernel": "kv_attention_kernel：每 block 一 (head, q_row)，128 執行緒、tile=128 位置線上 softmax（running max/sum/acc，永不實體化 seq×total_len 分數矩陣），fp64 全程——與 host W1 線上注意力同語義",
+    "scope": "僅 slot 0 單序列路徑上 device；batch>1 其他 slot 維持 host 迴圈（同 layer 可混跑）"
+  },
+  "gates": {
+    "env": "XINGCHENG_CPP_CUDA_KV=1（治理層擁有）",
+    "fail_closed": [
+      "KV=1 無 CUDA=1 或無 kernels/裝置 → load 時 CUDA_KV_UNAVAILABLE",
+      "KV=1 + XINGCHENG_CPP_KV_INT8=1 → CUDA_KV_UNSUPPORTED_CONFIG（int8 無 device 格式，不靜默異精度）",
+      "鏡像寫入/注意力 kernel 失敗 → CUDA_KV_WRITE_FAILED／CUDA_ATTENTION_FAILED（forward 層 fail-closed）"
+    ]
+  },
+  "defect_fixed": "cuda_session_owned_：全域 CUDA 狀態（權重快取/cuBLAS handle/KV 緩衝）原由任一 engine unload/destructor 無條件釋放——舊 engine 延遲析構會清掉現役 engine 的 device 狀態；改為僅啟用 CUDA 之實例可拆卸",
+  "build_fix": "build_cpp.py 原本 nvcc 失敗靜默略過 kernels TU（kv_attention.cu 初次編譯錯誤導致整批 kernels 被丟且無訊息）；現在印出失敗診斷尾部 15 行",
+  "changes": [
+    "cpp/src/kernels/kv_attention.cu：probe/alloc/free/write_rows/attention extern-C API",
+    "cuda_bridge.cpp：xcuda_kv_available＋write/attention stub＋release 掛接",
+    "engine.cpp：XINGCHENG_CPP_CUDA_KV 閘＋alloc＋kv_write 鏡像＋slot0 注意力派送＋ownership 修復",
+    "xingcheng_inference.hpp：kv_device_active_／cuda_session_owned_",
+    "binding.cpp：_cuda_kv_available 探針",
+    "build_cpp.py：kv_attention.cu 入 CU_SOURCES＋nvcc 失敗診斷",
+    "tests/test_cpp_kv_device.py：fail-closed×2＋parity＋generate 決定性"
+  ],
+  "tests": [
+    "logits parity（同 cuBLAS f64 GEMM，KV=0 vs KV=1）：scaled max|d| = 1.2e-14",
+    "generate greedy 4 tokens：位元一致 [202,202,4617,6410]",
+    "pytest test_cpp_kv_device.py 3/3＋test_cpp_bf16_matmul.py 回歸 3/3"
+  ],
+  "deferred": [
+    "P1-1① 長時驗證（窗口型）③殘 fp8④生產啟用評估（GPU 窗口）"
+  ]
+}
