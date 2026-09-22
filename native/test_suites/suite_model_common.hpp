@@ -22,7 +22,7 @@
 
 namespace suite_model {
 
-namespace jl = jsonlite;
+namespace jl = gptbridge::jsonlite;
 namespace xc = xingcheng::inference;
 namespace fs = std::filesystem;
 

@@ -574,7 +574,11 @@ int main() {
                     MAX_PATH, root_buf, nullptr);
             }
             const std::string root = root_buf;
-            std::string pythonpath = root;
+            /* transport_proxy import 鏈需要 repo root＋兩個 src 根
+               （shared_layer／tasks 等皆不在 root 頂層）。 */
+            std::string pythonpath =
+                root + ";" + root + "\\shared-layer\\src;" + root +
+                "\\main-system\\src-core";
             if (const char* pp = std::getenv("PYTHONPATH"); pp && pp[0])
                 pythonpath += ";" + std::string(pp);
             _putenv_s("PYTHONPATH", pythonpath.c_str());
@@ -688,7 +692,7 @@ int main() {
                 strncpy_s(root_buf, env_root, MAX_PATH - 1);
             } else {
                 GetFullPathNameA(
-                    (std::string(cwd) + "\\..\\..\\..\\..").c_str(),
+                    (std::string(cwd) + "\\..\\..\\..").c_str(),
                     MAX_PATH, root_buf, nullptr);
             }
             const fs::path root = root_buf;
