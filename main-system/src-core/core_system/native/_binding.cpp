@@ -31,6 +31,7 @@
 #include "runtime_state.h"
 #include "activation_broker.h"
 #include "system_rescue.h"
+#include "governed_tool.h"
 
 #include <cstdio>
 #include <stdexcept>
@@ -837,6 +838,69 @@ static py::str sr_cli_dispatch_name(bool all_flag,
         package_flag ? 1 : 0)));
 }
 
+// --- M1 governed-tool-runtime ABI adapters (star-governed-tool-runtime-abi/v1)
+// Stateless decision subset; transport/token/network stay in Python.
+
+static py::str gt_workspace_instance_id(const std::string& tool_id,
+                                        int64_t port) {
+    char out[GPTBRIDGE_GT_INSTANCE_ID_LEN + 1];
+    if (!gptbridge_gt_workspace_instance_id(tool_id.c_str(), port, out)) {
+        throw std::runtime_error("workspace_instance_id failed");
+    }
+    return py::str(out);
+}
+
+static bool gt_env_gate(bool project_root_ok, bool tool_dir_ok,
+                        const std::string& session_token, int64_t port,
+                        bool bootstrap_ok) {
+    return gptbridge_gt_env_gate(
+               project_root_ok ? 1 : 0, tool_dir_ok ? 1 : 0,
+               session_token.c_str(), port, bootstrap_ok ? 1 : 0) != 0;
+}
+
+static bool gt_shutdown_gate(const py::object& env_token,
+                             const py::object& provided_token) {
+    std::string env, provided;
+    const char* pe = nullptr;
+    const char* pp2 = nullptr;
+    if (!env_token.is_none()) {
+        env = py::cast<std::string>(env_token);
+        pe = env.c_str();
+    }
+    if (!provided_token.is_none()) {
+        provided = py::cast<std::string>(provided_token);
+        pp2 = provided.c_str();
+    }
+    return gptbridge_gt_shutdown_gate(pe, pp2) != 0;
+}
+
+static bool gt_ws_gate(const std::string& session_token,
+                       const std::string& provided_token,
+                       const std::string& expected_instance,
+                       const std::string& provided_instance) {
+    return gptbridge_gt_ws_gate(session_token.c_str(),
+                                provided_token.c_str(),
+                                expected_instance.c_str(),
+                                provided_instance.c_str()) != 0;
+}
+
+static bool gt_request_valid(const std::string& command,
+                             bool payload_is_dict,
+                             const std::string& request_id,
+                             const py::object& payload_tool_id,
+                             const std::string& self_tool_id) {
+    std::string tool;
+    const char* pt = nullptr;
+    if (!payload_tool_id.is_none()) {
+        tool = py::cast<std::string>(payload_tool_id);
+        pt = tool.c_str();
+    }
+    return gptbridge_gt_request_valid(command.c_str(),
+                                      payload_is_dict ? 1 : 0,
+                                      request_id.c_str(), pt,
+                                      self_tool_id.c_str()) != 0;
+}
+
 // --- Module ---
 
 PYBIND11_MODULE(_sovereign_native, m) {
@@ -965,4 +1029,28 @@ PYBIND11_MODULE(_sovereign_native, m) {
           "SHA-256 hex digest, equal to hashlib.sha256().hexdigest().");
     m.def("sr_cli_dispatch", &sr_cli_dispatch_name,
           "system-rescue CLI arg routing (operation name string).");
+
+    // M1 governed-tool-runtime ABI decision subset (mode B shadow).
+    m.def("gt_tool_id_valid", &gptbridge_gt_tool_id_valid,
+          "tool_id regex ^[a-z0-9][a-z0-9_-]{1,63}$.");
+    m.def("gt_session_token_valid", &gptbridge_gt_session_token_valid,
+          "session token format ^[a-f0-9]{64}$.");
+    m.def("gt_port_valid", &gptbridge_gt_port_valid,
+          "IPC port range 1024-65535.");
+    m.def("gt_env_gate", &gt_env_gate,
+          "Conjunction of injected env/bootstrap facts (PERMISSION_DENIED).");
+    m.def("gt_workspace_instance_id", &gt_workspace_instance_id,
+          "sha256('{tool_id}:{port}')[:16] workspace instance id.");
+    m.def("gt_shutdown_gate", &gt_shutdown_gate,
+          "/shutdown token gate (hmac.compare_digest semantics).");
+    m.def("gt_ws_gate", &gt_ws_gate,
+          "WS upgrade gate (lowercased token + instance compare).");
+    m.def("gt_request_valid", &gt_request_valid,
+          "Command pre-validation (PERMISSION_DENIED form).");
+    m.def("gt_idle_next_ms", &gptbridge_gt_idle_next_ms,
+          "idle_poll evolution (notify/request -> 250, timeout x1.5 cap 500).");
+    m.def("gt_wait_timeout_ms", &gptbridge_gt_wait_timeout_ms,
+          "Wait timeout: notify pending -> 50, else max(idle_poll, 50).");
+    m.def("gt_health_degraded", &gptbridge_gt_health_degraded,
+          "channel_health degraded at >=3 consecutive failures.");
 }

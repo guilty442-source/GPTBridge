@@ -50,6 +50,14 @@ $suites = @(
         )
     },
     @{
+        src = "suite_governed_tool.cpp"; exe = "governed_tool_suite.exe"
+        # M1 governed-tool ABI prototype (sha256 from system_rescue.c)
+        extra = @(
+            (Join-Path $coreDir "governed_tool.c"),
+            (Join-Path $coreDir "system_rescue.c")
+        )
+    },
+    @{
         src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
         # P0-9 審計引擎：連結真實原生實作
         extra = @(
