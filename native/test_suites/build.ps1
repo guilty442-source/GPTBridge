@@ -1,4 +1,4 @@
-# Build + run the native test suites (MSVC, no Python).
+﻿# Build + run the native test suites (MSVC, no Python).
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File native/test_suites/build.ps1
 $ErrorActionPreference = "Stop"
 $vs = "E:\Program Files\Microsoft Visual Studio\18\Community"
@@ -65,6 +65,13 @@ $suites = @(
         )
     },
     @{
+        src = "suite_a263_channel_core.cpp"; exe = "a263_channel_core_suite.exe"
+        # M2 前置：A263 channel 決定性語義（零 I/O，Python 為權威 shadow）
+        extra = @(
+            (Join-Path $coreDir "a263_channel_core.c")
+        )
+    },
+    @{
         src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
         # P0-9 審計引擎：連結真實原生實作
         extra = @(
@@ -91,6 +98,11 @@ foreach ($suite in $suites) {
 $auditExe = Join-Path $out "audit-engine.exe"
 $auditSrc = Join-Path $auditDir "audit_engine.cpp"
 $lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe:$auditExe /Fo:$out\ `"$auditSrc`" >nul || exit /b 1"
+# M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
+$driverExe = Join-Path $out "proxy_client_driver.exe"
+$driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
+$tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
+$lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$driverExe /Fo:$out\ `"$driverSrc`" `"$tpxSrc`" >nul || exit /b 1"
 Set-Content -Path $bat -Value $lines -Encoding ASCII
 cmd /c $bat
 if ($LASTEXITCODE -ne 0) { Write-Output "BUILD FAILED"; exit 1 }

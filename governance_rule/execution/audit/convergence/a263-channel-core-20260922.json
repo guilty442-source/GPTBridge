@@ -1,0 +1,63 @@
+{
+  "schema": "convergence-evidence/v1",
+  "item": "M2 前置：A263 channel 決定性核心 C 原型（information-channel-gateway 語言外移）",
+  "date": "2026-09-22",
+  "blueprint_refs": [
+    "module-language-migration-order-20260922.md M2 information-channel-gateway",
+    "M2→M3 放行條件：A263 parity 套件（heartbeat deadline／outbox 不丟未確認事件／cursor 收斂）"
+  ],
+  "artifacts": {
+    "header": "native/include/a263_channel_core.h",
+    "source": "native/core/a263_channel_core.c",
+    "suite": "native/test_suites/suite_a263_channel_core.cpp",
+    "build_wiring": [
+      "native/test_suites/build.ps1（a263_channel_core_suite 登錄）",
+      "main-system/src-core/core_system/native/build_native.py（canonical C 源＋公開標頭清單）"
+    ]
+  },
+  "python_reference": [
+    "shared-layer/src/shared_layer/channel_runtime.py",
+    "shared-layer/src/shared_layer/connection_mixin.py",
+    "shared-layer/src/shared_layer/heartbeat_mixin.py",
+    "shared-layer/src/shared_layer/transactional_outbox.py",
+    "shared-layer/src/shared_layer/channel_types.py"
+  ],
+  "semantics_covered": [
+    "ChannelState 列舉→.value 名稱（closed/connecting/open/reconnecting/dead）",
+    "generation 遞增（connect/reconnect 皆 +1）",
+    "reconnect 上限：attempts_after_increment > max → DEAD；退避 base*2^(attempt-1)，attempt=0 fail-closed 視同 1",
+    "heartbeat deadline：now-last_pong > timeout（嚴格大於；恰等於逾時值仍存活）",
+    "ack cursor 單調遞增（只在更大時前進）",
+    "resync 收斂：acked_cursor＋sent_upto 同設為 peer cursor",
+    "outbox fetch_after 視窗 [cursor+1, min(cursor+1+limit, latest+1))",
+    "outbox sequence=latest+1；idempotency_key/full_id='channel:seq'（NULL/短緩衝 fail-closed）",
+    "backpressure：queue_len>=capacity 拒收（停用時恆收；control queue 恆強制）",
+    "message batch 依 MessagePriority 值穩定排序（同值保 FIFO，Python sort 語義）",
+    "snapshot verify：cursor>=0"
+  ],
+  "measurement": {
+    "native_suite": "a263_channel_core_suite",
+    "native_cases_pass": 11,
+    "native_cases_fail": 0,
+    "full_native_report": "PASS=87 FAIL=0 BLOCKED=3（3 為刻意保留 stub 套件）",
+    "python_shadow_parity_checks": 25,
+    "python_shadow_parity_fail": 0
+  },
+  "boundary": {
+    "stays_python": [
+      "ChannelTransport 實作（send/receive/close）",
+      "WebSocket IPC",
+      "SharedLayerChannel/SQLite store",
+      "token 簽發（GovernanceAuthenticationService）",
+      "asyncio 任務排程與 callback 分派"
+    ],
+    "note": "A177/E4 邊界不變：C 核心只含無副作用判定函式；事實由呼叫方注入"
+  },
+  "remaining_m2_items": [
+    "C++ 非同步執行面（send/receive loop、state 機轉移、outbox 持有＋回放）",
+    "ChannelTransport 對接（模式 B 代理或原生傳輸）",
+    "A263 parity 套件三項放行判據之端到端實測（本核心為判定基底）",
+    "雙軌 runtime flag＋shadow→primary 觀察窗",
+    "load/unload 資源釋放驗收"
+  ]
+}

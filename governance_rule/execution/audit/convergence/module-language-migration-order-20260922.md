@@ -67,8 +67,24 @@
   錯誤碼閉集、P1 主系統常駐代理（目標）／P2 per-tool stdio sidecar
   （過渡）兩部署形態、6 項代理層 parity 判據；token 發行與傳輸庫
   仍 Python 管有（E4 邊界不變）。
-- 未做（M1 殘項）：C++ 工具體行程（ABI §1–§4 線上實作＋transport
-  proxy v1 客戶端）、Python 代理端點（P1 或 P2 擇一先行）、
+- 傳輸代理兩側已落地（同日）：Python 端
+  `governance_rule/execution/tool_runtime/transport_proxy.py`
+  （`TransportProxyAgent`；P2 stdio sidecar＋`python -m` 入口、
+  channel factory／authorizer 可注入、`shared-layer/tests/
+  test_transport_proxy.py`）；原生端 `native/tool_runtime/
+  transport_proxy_client.cpp`（零 I/O codec——encode/decode＋args
+  builders＋`RequestWaiter` request_sync parity；`tool_runtime` 層已於
+  `build_native.py` 宣告）。stdio/process 接線屬工具宿主職責。
+- 線協定 interop 證據：`native/test_suites/driver_proxy_client.cpp`
+  （codec CLI）＋`proxy_wire_agent.py`（真實 `TransportProxyAgent`＋
+  echo-recording fake channels）＋`main-system/tests/
+  test_native_proxy_wire.py`——C++ encode→真實 agent→C++ decode
+  逐 op 驗證：hello 綁定、全部 process/submit 操作、
+  `_governed_command` 注入、`RequestWaiter` Completed＋request_id
+  剝離、錯誤碼閉集（CHANNEL_NOT_BOUND/BAD_ENVELOPE/
+  PERMISSION_DENIED/未 hello）、丟棄語義；7 測試全 PASS。
+- 未做（M1 殘項）：C++ 工具體行程（ABI §1–§4 線上實作：HTTP/WS
+  閘門伺服器＋queue worker，以 proxy client 走 P2 sidecar）、
   shadow→primary 觀察窗、parity 零差異證據、runtime flag、
   load/unload 資源釋放驗收。
 
@@ -79,3 +95,22 @@
   通道包裝、use-cases、presenters；`InvestmentMobileShadow.exe` 輸出 51 案例
   JSON 矩陣，`test_native_m1_investment_shadow.py` 8 測試以真實 Python 函式
   ＋同型 stub 逐鍵比對全 PASS。transport/token/網路/DB 仍留 Python（模式 B）。
+
+## 進度（2026-09-22）：M2 `information-channel-gateway` 決定性核心 C 原型
+
+- `native/core/a263_channel_core.c`＋`include/a263_channel_core.h`：
+  `channel_runtime.py`＋`connection_mixin.py`＋`heartbeat_mixin.py`＋
+  `transactional_outbox.py` 的決定性（零 I/O）語義——ChannelState 名稱、
+  generation 遞增、reconnect 上限→DEAD＋指數退避、heartbeat deadline
+  （嚴格大於）、ack cursor 單調、resync 雙游標收斂、outbox fetch_after
+  視窗與 sequence/idempotency_key、backpressure、message batch 依
+  priority 穩定排序（Python sort 穩定語義）、snapshot cursor>=0。
+- `native/test_suites/suite_a263_channel_core.cpp`：11 案全 PASS；
+  Python 側等值語義 25/25 逐項比對（shadow parity）。
+- transport／WebSocket／SQLite store／token 簽發仍 Python 管有
+  （A177/E4 邊界不變）；本核心只覆蓋協定中的純語義層。
+- 未做（M2 殘項）：C++ 非同步執行面（send/receive loop、state 機轉移、
+  outbox 事件持有與回放）、ChannelTransport 實作面對接、A263 parity
+  套件（M2→M3 放行門檻之三項：heartbeat deadline／outbox 不丟未確認
+  事件／cursor 收斂——本核心為其判定函式基底）、雙軌 flag 與觀察窗。
+- 證據：`convergence/a263-channel-core-20260922.json`。

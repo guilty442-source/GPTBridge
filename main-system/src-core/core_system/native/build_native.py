@@ -40,6 +40,7 @@ PUBLIC_C_ABI_HEADERS = (
     NATIVE_ROOT / "include" / "activation_broker.h",
     NATIVE_ROOT / "include" / "system_rescue.h",
     NATIVE_ROOT / "include" / "governed_tool.h",
+    NATIVE_ROOT / "include" / "a263_channel_core.h",
 )
 C_CORE_SOURCES = (
     NATIVE_ROOT / "bridge" / "gptbridge_native.c",
@@ -55,6 +56,7 @@ C_CORE_SOURCES = (
     NATIVE_ROOT / "core" / "activation_broker.c",
     NATIVE_ROOT / "core" / "system_rescue.c",
     NATIVE_ROOT / "core" / "governed_tool.c",
+    NATIVE_ROOT / "core" / "a263_channel_core.c",
 )
 C_PRIVATE_HEADERS = (
     NATIVE_ROOT / "core" / "memory.h",
@@ -73,6 +75,12 @@ TEST_SUITE_ROOT = NATIVE_ROOT / "test_suites"
 # pure-C core or the pybind extension; declared so the validator can
 # exclude this layer while keeping it auditable.
 AUDIT_TOOL_ROOT = NATIVE_ROOT / "audit"
+# C++17 native tool-runtime layer: native/tool_runtime hosts mode-B
+# tool-side runtimes (e.g. transport_proxy_client.cpp — zero-I/O codec;
+# stdio/process wiring lives in the tool host). NOT part of the pure-C
+# core or the pybind extension; declared so the validator can exclude
+# this layer while keeping it auditable.
+TOOL_RUNTIME_ROOT = NATIVE_ROOT / "tool_runtime"
 
 
 def _relative(path: pathlib.Path) -> str:
@@ -90,6 +98,7 @@ def native_build_manifest() -> dict[str, Any]:
         "private_c_headers": [_relative(path) for path in C_PRIVATE_HEADERS],
         "test_suite_layer": _relative(TEST_SUITE_ROOT),
         "audit_tool_layer": _relative(AUDIT_TOOL_ROOT),
+        "tool_runtime_layer": _relative(TOOL_RUNTIME_ROOT),
         "output_root": _relative(DIST_NATIVE),
         "link_language": "c++",
     }
@@ -112,6 +121,7 @@ def validate_layering() -> dict[str, Any]:
         and path.suffix.lower() in CPP_SUFFIXES
         and TEST_SUITE_ROOT not in path.parents
         and AUDIT_TOOL_ROOT not in path.parents
+        and TOOL_RUNTIME_ROOT not in path.parents
     )
     for path in cpp_files:
         errors.append(f"C++ source inside pure-C native root: {_relative(path)}")
