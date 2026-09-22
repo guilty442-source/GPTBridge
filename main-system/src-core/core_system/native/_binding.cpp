@@ -20,9 +20,15 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/stl.h>
 
 #include "gptbridge_native.h"
+#include "watchdog.h"
+#include "scheduler.h"
+#include "outbox.h"
+#include "maintenance.h"
 
+#include <cstdio>
 #include <stdexcept>
 #include <vector>
 
@@ -326,6 +332,205 @@ static py::object transformer_scaled_dot_product_attention(
     return output;
 }
 
+// --- E1 execution-surface prototypes (§10.65 shadow) ---
+// Thin holders over the pure-C state machines in native/core/. Python owns
+// the structs by value; the C layer performs no I/O and no authority calls.
+
+static const char* WD_STATES[] = {
+    "unknown", "connected", "degraded", "disconnected", "starting"};
+
+class NativeWatchdog {
+public:
+    NativeWatchdog(int64_t min_interval_ms, int64_t max_interval_ms,
+                   int32_t dead_threshold, int32_t retry_grace) {
+        if (!gptbridge_wd_init(&wd_, min_interval_ms, max_interval_ms,
+                               dead_threshold, retry_grace)) {
+            throw std::invalid_argument("watchdog init failed");
+        }
+    }
+    py::object probe(bool backend_process_alive, bool backend_http_healthy,
+                     bool frontend_connected, int64_t now_ms) {
+        gptbridge_wd_probe_t p{backend_process_alive ? 1 : 0,
+                               backend_http_healthy ? 1 : 0,
+                               frontend_connected ? 1 : 0};
+        gptbridge_wd_event_t ev{};
+        int repair = gptbridge_wd_probe(&wd_, &p, now_ms, &ev);
+        if (ev.from_state == ev.to_state && !repair) {
+            return py::none();
+        }
+        py::dict out;
+        out["from_state"] = WD_STATES[ev.from_state];
+        out["to_state"] = WD_STATES[ev.to_state];
+        out["trigger_repair"] = static_cast<bool>(ev.trigger_repair);
+        out["at_ms"] = ev.at_ms;
+        out["repair_fired"] = static_cast<bool>(repair);
+        return out;
+    }
+    int64_t next_interval_ms() { return gptbridge_wd_next_interval_ms(&wd_); }
+    std::string state() const { return WD_STATES[wd_.state]; }
+    int32_t consecutive_dead() const { return wd_.consecutive_dead; }
+    int64_t probe_count() const { return wd_.probe_count; }
+
+private:
+    gptbridge_wd_t wd_{};
+};
+
+static void sched_count_tick(void* ctx) {
+    ++(*static_cast<int64_t*>(ctx));
+}
+
+class NativeScheduler {
+public:
+    NativeScheduler() {
+        if (!gptbridge_sched_init(&sched_)) {
+            throw std::runtime_error("scheduler init failed");
+        }
+    }
+    bool register_job(const std::string& name, int64_t interval_ms,
+                      int64_t timeout_ms) {
+        if (sched_.count >= GPTBRIDGE_SCHED_MAX_JOBS) return false;
+        counters_[sched_.count] = 0;
+        return gptbridge_sched_register(
+                   &sched_, name.c_str(), interval_ms, timeout_ms,
+                   &sched_count_tick, &counters_[sched_.count]) != 0;
+    }
+    int tick(int64_t now_ms) { return gptbridge_sched_tick(&sched_, now_ms); }
+    int job_count() const { return gptbridge_sched_job_count(&sched_); }
+    py::object job_stats(const std::string& name) const {
+        const gptbridge_sched_job_t* j =
+            gptbridge_sched_find(&sched_, name.c_str());
+        if (j == nullptr) return py::none();
+        py::dict out;
+        out["run_count"] = j->run_count;
+        out["error_count"] = j->error_count;
+        out["last_run_ms"] = j->last_run_ms;
+        out["last_duration_ms"] = j->last_duration_ms;
+        out["next_due_ms"] = j->next_due_ms;
+        out["enabled"] = static_cast<bool>(j->enabled);
+        return out;
+    }
+
+private:
+    gptbridge_sched_t sched_{};
+    int64_t counters_[GPTBRIDGE_SCHED_MAX_JOBS] = {};
+};
+
+class NativeOutbox {
+public:
+    NativeOutbox() {
+        if (!gptbridge_ob_init(&reg_)) {
+            throw std::runtime_error("outbox init failed");
+        }
+    }
+    bool register_session(const std::string& sid) {
+        return gptbridge_ob_register(&reg_, sid.c_str()) != 0;
+    }
+    bool unregister_session(const std::string& sid) {
+        return gptbridge_ob_unregister(&reg_, sid.c_str()) != 0;
+    }
+    py::dict hello(const std::string& sid, int64_t cursor,
+                   bool generation_matches, int64_t latest_sequence) {
+        int32_t reset = 0;
+        int64_t effective = gptbridge_ob_hello(
+            &reg_, sid.c_str(), cursor, generation_matches ? 1 : 0,
+            latest_sequence, &reset);
+        py::dict out;
+        out["effective_cursor"] = effective;
+        out["reset"] = static_cast<bool>(reset);
+        return out;
+    }
+    bool ack(const std::string& sid, int64_t cursor) {
+        return gptbridge_ob_ack(&reg_, sid.c_str(), cursor) != 0;
+    }
+    bool resync(const std::string& sid, int64_t cursor) {
+        return gptbridge_ob_resync(&reg_, sid.c_str(), cursor) != 0;
+    }
+    py::dict drain_plan(const std::string& sid, int64_t now_ms,
+                        int64_t retry_ms) {
+        int64_t start_after = 0, limit = 0;
+        int rc = gptbridge_ob_drain_plan(&reg_, sid.c_str(), now_ms, retry_ms,
+                                       &start_after, &limit);
+        py::dict out;
+        out["has_work"] = rc != 0;
+        out["start_after"] = start_after;
+        out["limit"] = limit;
+        return out;
+    }
+    bool mark_sent(const std::string& sid, int64_t seq, int64_t now_ms) {
+        return gptbridge_ob_mark_sent(&reg_, sid.c_str(), seq, now_ms) != 0;
+    }
+    int64_t next_retry_deadline(int64_t retry_ms) const {
+        int64_t deadline = 0;
+        gptbridge_ob_next_retry_deadline(&reg_, retry_ms, &deadline);
+        return deadline;
+    }
+    int64_t prune_floor(int64_t latest_sequence) const {
+        return gptbridge_ob_prune_floor(&reg_, latest_sequence);
+    }
+    py::object session(const std::string& sid) const {
+        const gptbridge_ob_session_t* s =
+            gptbridge_ob_find(&reg_, sid.c_str());
+        if (s == nullptr) return py::none();
+        py::dict out;
+        out["acked"] = s->acked;
+        out["sent_upto"] = s->sent_upto;
+        out["last_attempt_ms"] = s->last_attempt_ms;
+        return out;
+    }
+
+private:
+    gptbridge_ob_registry_t reg_{};
+};
+
+class NativeMaintenance {
+public:
+    NativeMaintenance(int64_t tick_interval_ms, int64_t max_job_age_ms,
+                      int32_t max_retry_attempts, int64_t retry_backoff_ms,
+                      int64_t current_generation) {
+        if (!gptbridge_mt_init(&mt_, tick_interval_ms, max_job_age_ms,
+                               max_retry_attempts, retry_backoff_ms,
+                               current_generation)) {
+            throw std::invalid_argument("maintenance init failed");
+        }
+    }
+    bool admit(const std::string& job_id, const std::string& action_id,
+               int risk_class, int priority, int64_t generation,
+               bool system_idle, bool authorized, int64_t now_ms) {
+        gptbridge_mt_job_t job{};
+        std::snprintf(job.job_id, GPTBRIDGE_MT_ID_MAX, "%s", job_id.c_str());
+        std::snprintf(job.action_id, GPTBRIDGE_MT_ID_MAX, "%s",
+                      action_id.c_str());
+        job.risk_class = static_cast<gptbridge_mt_class_t>(risk_class);
+        job.priority = priority;
+        job.status = GPTBRIDGE_MT_PLANNED;
+        job.generation = generation;
+        job.scheduled_at_ms = now_ms;
+        job.next_attempt_ms = now_ms;
+        return gptbridge_mt_admit(&mt_, &job, system_idle ? 1 : 0,
+                                  authorized ? 1 : 0, now_ms) != 0;
+    }
+    py::object next_due(int64_t now_ms) {
+        gptbridge_mt_job_t* j = gptbridge_mt_next_due(&mt_, now_ms);
+        if (j == nullptr) return py::none();
+        py::dict out;
+        out["job_id"] = j->job_id;
+        out["action_id"] = j->action_id;
+        out["status"] = static_cast<int>(j->status);
+        out["attempt_count"] = j->attempt_count;
+        return out;
+    }
+    bool complete(const std::string& job_id) {
+        return gptbridge_mt_complete(&mt_, job_id.c_str()) != 0;
+    }
+    bool fail(const std::string& job_id, int64_t now_ms) {
+        return gptbridge_mt_fail(&mt_, job_id.c_str(), now_ms) != 0;
+    }
+    int job_count() const { return mt_.count; }
+
+private:
+    gptbridge_mt_t mt_{};
+};
+
 // --- Module ---
 
 PYBIND11_MODULE(_sovereign_native, m) {
@@ -369,4 +574,41 @@ PYBIND11_MODULE(_sovereign_native, m) {
     m.def("transformer_scaled_dot_product_attention",
           &transformer_scaled_dot_product_attention,
           "Scaled dot-product attention: Q, K, V -> output.");
+
+    // E1 execution-surface prototypes (§10.65 shadow mode).
+    py::class_<NativeWatchdog>(m, "NativeWatchdog")
+        .def(py::init<int64_t, int64_t, int32_t, int32_t>())
+        .def("probe", &NativeWatchdog::probe)
+        .def("next_interval_ms", &NativeWatchdog::next_interval_ms)
+        .def("state", &NativeWatchdog::state)
+        .def("consecutive_dead", &NativeWatchdog::consecutive_dead)
+        .def("probe_count", &NativeWatchdog::probe_count);
+
+    py::class_<NativeScheduler>(m, "NativeScheduler")
+        .def(py::init<>())
+        .def("register_job", &NativeScheduler::register_job)
+        .def("tick", &NativeScheduler::tick)
+        .def("job_count", &NativeScheduler::job_count)
+        .def("job_stats", &NativeScheduler::job_stats);
+
+    py::class_<NativeOutbox>(m, "NativeOutbox")
+        .def(py::init<>())
+        .def("register_session", &NativeOutbox::register_session)
+        .def("unregister_session", &NativeOutbox::unregister_session)
+        .def("hello", &NativeOutbox::hello)
+        .def("ack", &NativeOutbox::ack)
+        .def("resync", &NativeOutbox::resync)
+        .def("drain_plan", &NativeOutbox::drain_plan)
+        .def("mark_sent", &NativeOutbox::mark_sent)
+        .def("next_retry_deadline", &NativeOutbox::next_retry_deadline)
+        .def("prune_floor", &NativeOutbox::prune_floor)
+        .def("session", &NativeOutbox::session);
+
+    py::class_<NativeMaintenance>(m, "NativeMaintenance")
+        .def(py::init<int64_t, int64_t, int32_t, int64_t, int64_t>())
+        .def("admit", &NativeMaintenance::admit)
+        .def("next_due", &NativeMaintenance::next_due)
+        .def("complete", &NativeMaintenance::complete)
+        .def("fail", &NativeMaintenance::fail)
+        .def("job_count", &NativeMaintenance::job_count);
 }

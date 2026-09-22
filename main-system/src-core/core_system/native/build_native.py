@@ -20,6 +20,7 @@ import pathlib
 import shutil
 import sys
 import sysconfig
+import time
 from typing import Any
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -28,12 +29,22 @@ NATIVE_ROOT = PROJECT_ROOT / "native"
 DIST_NATIVE = HERE.parents[2] / "dist-native"
 
 BINDING_SOURCES = (HERE / "_binding.cpp",)
-PUBLIC_C_ABI_HEADERS = (NATIVE_ROOT / "include" / "gptbridge_native.h",)
+PUBLIC_C_ABI_HEADERS = (
+    NATIVE_ROOT / "include" / "gptbridge_native.h",
+    NATIVE_ROOT / "include" / "watchdog.h",
+    NATIVE_ROOT / "include" / "scheduler.h",
+    NATIVE_ROOT / "include" / "outbox.h",
+    NATIVE_ROOT / "include" / "maintenance.h",
+)
 C_CORE_SOURCES = (
     NATIVE_ROOT / "bridge" / "gptbridge_native.c",
     NATIVE_ROOT / "core" / "parser.c",
     NATIVE_ROOT / "core" / "vector.c",
     NATIVE_ROOT / "core" / "transformer.c",
+    NATIVE_ROOT / "core" / "watchdog.c",
+    NATIVE_ROOT / "core" / "scheduler.c",
+    NATIVE_ROOT / "core" / "outbox.c",
+    NATIVE_ROOT / "core" / "maintenance.c",
 )
 C_PRIVATE_HEADERS = (
     NATIVE_ROOT / "core" / "memory.h",
@@ -183,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
         "--build-lib", str(DIST_NATIVE),
         "--build-temp", str(DIST_NATIVE / ".native-build"),
     ]
+    build_started = time.time()
     setup(name="sovereign-native", ext_modules=[_make_extension()])
     shutil.rmtree(DIST_NATIVE / ".native-build", ignore_errors=True)
 
@@ -193,7 +205,15 @@ def main(argv: list[str] | None = None) -> int:
             "pybind11 unavailable); existing installs left untouched."
         )
         return 0
-    for artifact in artifacts:
+    fresh = [a for a in artifacts if a.stat().st_mtime >= build_started]
+    if not fresh:
+        print(
+            "[build_native] WARNING: link produced no fresh artifact "
+            "(existing .pyd likely locked by a running process); "
+            "stale installs left untouched."
+        )
+        return 0
+    for artifact in fresh:
         print(f"[build_native] built {artifact}")
         for target in _install(artifact):
             print(f"[build_native] installed {target}")
