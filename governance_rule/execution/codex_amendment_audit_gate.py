@@ -235,6 +235,9 @@ _SPEC_BY_ID: Mapping[str, SovereignAuditSpec] = {
 SOVEREIGN_ALIASES: Mapping[str, str] = {
     "星澄": "xingcheng",
     "runtime-sovereign": "system-runtime-sovereign",
+    # A486: synchronization-sovereign canonically renamed automation-sovereign;
+    # one-directional legacy-name resolution only.
+    "synchronization-sovereign": "automation-sovereign",
 }
 
 NETWORK_AUDIT_SOVEREIGN = "xingcheng"

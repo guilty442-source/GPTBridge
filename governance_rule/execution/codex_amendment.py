@@ -34,7 +34,12 @@ ACTIVE_SOVEREIGN_REQUESTERS: Final[tuple[str, ...]] = (
     "xingcheng",
 )
 
-SOVEREIGN_ALIASES: Final[dict[str, str]] = {"星澄": "xingcheng"}
+SOVEREIGN_ALIASES: Final[dict[str, str]] = {
+    "星澄": "xingcheng",
+    # A486: synchronization-sovereign canonically renamed automation-sovereign;
+    # one-directional legacy-name resolution only.
+    "synchronization-sovereign": "automation-sovereign",
+}
 
 # A412 change classes, ordered by impact; the pipeline records
 # criterion/precedence/required-review alongside the class.
