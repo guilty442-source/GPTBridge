@@ -352,25 +352,11 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "global-cleanup", "tool:global-cleaner",
-        "gptbridge-global-garbage-and-excess-log-cleanup-only",
-        "delete-only-no-general-storage-write",
-        (
-            CapabilityGrant(
-                "read", "global-cleanup-candidates", "global-read-only",
-                path_match="within", path_roots=(".",),
-            ),
-            CapabilityGrant(
-                "delete", "validated-global-garbage", "none",
-                path_match="within", path_roots=(".",),
-                excluded_path_roots=IMMUTABLE_AUTHORITY_ROOTS,
-            ),
-        ), False, False,
-    ),
-    CapabilityAuthority(
-        "managed-backup", "tool:global-cleaner",
-        "per-owner-backup-create-verify-retain-and-governed-extract-only",
-        "global-cleaner-backup-and-shared-extract-staging-only",
+        # E14 retirement: global-cleanup grant removed with the retired
+        # global-cleaner; cleanup runs in-process via the internal service.
+        "managed-backup", "tool:system-rescue",
+        "per-owner-backup-archive-custody-and-governed-extract-only",
+        "system-rescue-backup-archive-and-shared-extract-staging-only",
         (
             CapabilityGrant(
                 "read-source", "backup-owner-source", "global-read-only",
@@ -380,18 +366,18 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
             CapabilityGrant(
                 "create-backup", "managed-backup-root", "owner-scoped-backup",
                 path_match="within",
-                path_roots=("Standalone tools/global-cleaner/data/business/backups",),
+                path_roots=("Standalone tools/system-rescue/data/business/backups",),
             ),
             CapabilityGrant(
                 "delete-excess", "managed-backup-root", "owner-scoped-backup",
                 path_match="within",
-                path_roots=("Standalone tools/global-cleaner/data/business/backups",),
+                path_roots=("Standalone tools/system-rescue/data/business/backups",),
             ),
             CapabilityGrant(
                 "extract-backup", "backup-extract-staging", "backup-extract",
                 path_match="within",
                 path_roots=(
-                    "Standalone tools/global-cleaner/runtime/temp/shared-layer/backup-extract",
+                    "main-system/runtime/temp/shared-layer/backup-extract",
                 ),
             ),
         ), False, False,

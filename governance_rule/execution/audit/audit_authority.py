@@ -235,7 +235,7 @@ def check_repair_policy(root: Path, errors: list[str]) -> None:
     repair_policy = policy.automatic_repair
     if (
         not repair_policy.backup_assistance_allowed
-        or repair_policy.backup_owner != "global-cleaner-only"
+        or repair_policy.backup_owner != "system-rescue-only"
         or repair_policy.direct_backup_access
         or repair_policy.backup_request_channel
         != "governed-shared-layer-request-channel-only"

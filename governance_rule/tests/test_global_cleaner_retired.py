@@ -24,3 +24,9 @@ def test_legacy_global_cleaner_sources_are_absent() -> None:
         "Standalone tools/global-cleaner/src/backend/cleanup_service.py",
     ):
         assert not (_ROOT / relative).exists()
+
+
+def test_global_cleaner_directory_is_removed() -> None:
+    """E14: the retired tool directory was deleted after the managed
+    backup archive migrated to system-rescue custody."""
+    assert not (_ROOT / "Standalone tools" / "global-cleaner").exists()

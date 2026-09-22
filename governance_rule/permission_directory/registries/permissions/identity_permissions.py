@@ -97,6 +97,9 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         ),
     ),
     IdentityPermissionBinding(
+        # Retired identity (A533/A534): residual executable capabilities
+        # stripped 2026-09-22 (E14 directory deletion); generic channel and
+        # own-scope capabilities remain as lineage evidence only.
         group_id=IDENTITY_GROUP_GLOBAL_CLEANER,
         actor="governance/tool/global-cleaner",
         capabilities=(
@@ -105,9 +108,6 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "independent-tool-business-storage",
             "system-channel-request-submit",
             "system-channel-request-process",
-            "global-cleanup",
-            "managed-backup",
-            "system-health-check",
         ),
     ),
     IdentityPermissionBinding(
@@ -177,6 +177,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "system-channel-request-process",
             "system-health-check",
             "central-automatic-repair",
+            "managed-backup",
         ),
     ),
     IdentityPermissionBinding(
