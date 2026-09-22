@@ -796,11 +796,25 @@ def native_engine_for(
 
 
 def _release_engine(engine: NativeTransformerEngine) -> None:
-    """把 engine 從快取移除（auto_release 回調）；權重釋放交由 GC。"""
+    """把 engine 從快取移除（auto_release 回調）並歸還已釋放的 VRAM。
+
+    in-flight generate 持有的強參照不受影響：``torch.cuda.empty_cache``
+    只歸還不再被引用的 allocator 區塊，進行中的張量不會被回收。
+    """
     with _engine_lock:
         for cache_key, cached in list(_engine_cache.items()):
             if cached is engine:
                 _engine_cache.pop(cache_key, None)
+    import gc
+
+    gc.collect()
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass  # 歸還失敗不影響釋放語意；下次觸發再試
 
 
 def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
