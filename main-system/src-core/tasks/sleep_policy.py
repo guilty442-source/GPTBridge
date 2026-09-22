@@ -259,14 +259,19 @@ class SleepPolicyManager:
                 ).fetchone()
                 last = conn.execute(
                     """
-                    SELECT max(extract(epoch from updated_at))
+                    SELECT max(extract(epoch from updated_at)) AS last_activity
                     FROM gptbridge_transport.tool_request
                     WHERE target_tool_id = %s
                     """,
                     (tool_id,),
                 ).fetchone()
             drained = row is None
-            last_activity = float(last[0]) if last and last[0] else None
+            # dict_row: fetchone() returns {"last_activity": ...} — indexing
+            # a dict with 0 raises KeyError and wrongly fails closed.
+            last_value = (last or {}).get("last_activity") if isinstance(
+                last, dict
+            ) else (last[0] if last else None)
+            last_activity = float(last_value) if last_value else None
             return drained, last_activity
         except Exception as error:
             _logger.debug("drain probe unavailable for %s: %s", tool_id, error)

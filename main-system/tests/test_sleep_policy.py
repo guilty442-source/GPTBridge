@@ -13,6 +13,15 @@ sys.path.insert(0, str(ROOT / "main-system" / "src-core"))
 sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 
 from tasks.sleep_policy import SleepPolicyManager  # noqa: E402
+import tasks.sleep_policy as _sp  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _no_real_audit(monkeypatch, tmp_path):
+    """Unit tests must not append to the real sleep-transitions ledger."""
+    monkeypatch.setattr(
+        _sp, "_AUDIT_FILE", tmp_path / "sleep-transitions.jsonl"
+    )
 
 
 class _FakeToolbox:
@@ -129,3 +138,70 @@ def test_unit_override_thresholds():
     _run(mgr, toolbox, policy, {"file-sorter": (True, time.time() - 50)})
     assert mgr._tiers["file-sorter"] == "cold"
     assert toolbox.stopped == ["file-sorter"]
+
+
+def test_drain_state_sync_dict_rows(monkeypatch):
+    """The connection manager yields dict_row results — indexing a dict
+    with [0] must not raise and fail closed (regression)."""
+    epoch = time.time() - 120
+
+    class _Conn:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def execute(self, sql, params):
+            if "last_activity" in sql:
+                return self._rows["last"]
+            return self._rows["inflight"]
+
+    class _Cursor:
+        def __init__(self, row):
+            self._row = row
+
+        def fetchone(self):
+            return self._row
+
+    class _Mgr:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def connection(self):
+            return _Conn(self._rows)
+
+    import tasks.sleep_policy as sp
+
+    toolbox = _FakeToolbox([])
+    mgr = SleepPolicyManager(_App(), toolbox)
+
+    rows_idle = {
+        "inflight": _Cursor(None),
+        "last": _Cursor({"last_activity": epoch}),
+    }
+    monkeypatch.setattr(
+        sp, "_get_conn_mgr", lambda: _Mgr(rows_idle), raising=False
+    )
+    # patch the lazily imported connection manager factory
+    import shared_layer.database.connection as dbc
+
+    monkeypatch.setattr(
+        dbc, "get_connection_manager", lambda: _Mgr(rows_idle)
+    )
+    drained, last = mgr._drain_state_sync("file-sorter")
+    assert drained is True
+    assert last == pytest.approx(epoch)
+
+    rows_busy = {
+        "inflight": _Cursor({"?column?": 1}),
+        "last": _Cursor({"last_activity": epoch}),
+    }
+    monkeypatch.setattr(
+        dbc, "get_connection_manager", lambda: _Mgr(rows_busy)
+    )
+    drained, _ = mgr._drain_state_sync("file-sorter")
+    assert drained is False
