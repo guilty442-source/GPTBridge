@@ -357,7 +357,7 @@ def test_audit_records_are_metadata_only() -> None:
         "scope_hash", "codex_version", "correlation", "result",
         "request_count",
     }
-    path = state.AUDIT_PATH
+    path = state._audit_path()
     if not path.is_file():
         pytest.skip("no audit records yet")
     lines = path.read_text(encoding="utf-8").strip().splitlines()[-50:]
