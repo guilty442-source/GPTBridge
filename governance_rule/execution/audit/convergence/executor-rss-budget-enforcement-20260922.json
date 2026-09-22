@@ -1,0 +1,42 @@
+{
+  "artifact": "executor-rss-budget-enforcement",
+  "blueprint_section": "2.7-8 (defense-in-depth, executor layer)",
+  "date": "2026-09-22",
+  "objective": "Executor-embedded resource budget enforcement for the governed training subprocess: cooperative step-boundary budgets (native_transformer/training/budget.py) already landed via self-learning-resource-overspend; this adds the external hard-stop layer.",
+  "implementation": {
+    "module": "xingcheng/infrastructure/training_job_executor.py",
+    "bounded_keys": {
+      "train_max_rss_mb": "0..1048576, 0=disabled; process-tree RSS ceiling",
+      "resource_sample_interval_s": "1..600, default 5",
+      "train_process_timeout_s": "0..86400, default 14400 — previously read from configuration but never normalized, so the configured value was silently dropped (always 14400); now an honored bounded key"
+    },
+    "monitor": [
+      "Popen + wait-loop replaces subprocess.run(timeout=...)",
+      "per-tick process-tree RSS via psutil (leader + recursive children)",
+      "RSS > budget -> _kill_process_tree + train-error.json + EXECUTOR_RESOURCE_OVERBUDGET",
+      "elapsed > train_process_timeout_s -> _kill_process_tree + EXECUTOR_TRAINING_FAILED",
+      "budget set but psutil unavailable -> EXECUTOR_RESOURCE_MONITOR_UNAVAILABLE before spawn (fail-closed)",
+      "deadline-aware wait slice so the timeout fires on time rather than at interval boundary"
+    ],
+    "accounting": "summary['resource'] = {peak_rss_mb, rss_budget_mb, rss_samples, elapsed_s} -> audit payload 'resource' (training-job-executed event)"
+  },
+  "verification": {
+    "pytest": {
+      "file": "Standalone tools/local-model/tests/test_training_job_executor.py",
+      "result": "17 passed in 62.45s",
+      "new_cases": [
+        "kills_subprocess_on_rss_overbudget (1MB cap, 14MB worker killed, train-error.json written)",
+        "kills_subprocess_on_process_timeout (1s timeout honored at deadline)",
+        "fails_closed_when_rss_monitor_unavailable (psutil blocked -> MONITOR_UNAVAILABLE, no spawn)",
+        "fails_job_on_out_of_bounds_resource_budget (2_000_000MB -> EXECUTOR_CONFIG_INVALID)",
+        "normalizes_resource_budget_keys (bounded keys reach configuration)"
+      ]
+    }
+  },
+  "fail_closed": [
+    "overrun kills whole process tree, job transitions failed via existing executor error path",
+    "monitor unavailable + budget configured -> no training start",
+    "out-of-bounds budget values rejected at normalization"
+  ],
+  "scope_note": "VRAM/time step-boundary budgets are owned by native_transformer/training/budget.py (self_learning policy train_time_budget_s/train_vram_budget_mb). This layer covers host RSS and hard-kill semantics the cooperative checks cannot provide."
+}

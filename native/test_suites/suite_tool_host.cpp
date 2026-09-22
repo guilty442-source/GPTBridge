@@ -14,6 +14,7 @@ int main() { return 0; } /* windows-only suite */
 
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <map>
@@ -25,6 +26,7 @@ int main() { return 0; } /* windows-only suite */
 #include "governed_tool.h"
 #include "governed_tool_ws.h"
 #include "jsonlite.h"
+#include "sidecar_transport.h"
 #include "tool_host.h"
 
 namespace {
@@ -542,6 +544,123 @@ int main() {
         WSACleanup();
     }
     NT_END_TEST(SUITE, "cancel_during_execution");
+
+    /* live P2 sidecar：真實 spawn `python -m transport_proxy`，
+       驗證 CreateProcess 管道＋JSONL codec＋代理 dispatch 端到端。
+       無受管 env（bootstrap/token）故 hello 預期 fail-closed；
+       python 缺失 → BLOCKED（證據不完整，非 PASS）。
+       手動 record（非 NT_TEST）：BLOCKED 與 PASS/FAIL 只能記一筆。 */
+    {
+        const char* name = "live_p2_sidecar_smoke";
+        const double t0 = native_tests::now_ms();
+        std::string detail;
+        bool blocked = false;
+        const bool pass = [&]() -> bool {
+            auto check = [&](bool cond, const char* msg) -> bool {
+                if (!cond) detail = msg;
+                return cond;
+            };
+            /* repo root：套件 exe 在 native/test_suites/bin 下執行。 */
+            char cwd[MAX_PATH] = {0};
+            GetCurrentDirectoryA(MAX_PATH, cwd);
+            char root_buf[MAX_PATH] = {0};
+            const char* env_root = std::getenv("GPTBRIDGE_PROJECT_ROOT");
+            if (env_root && env_root[0]) {
+                strncpy_s(root_buf, env_root, MAX_PATH - 1);
+            } else {
+                GetFullPathNameA(
+                    (std::string(cwd) + "\\..\\..\\..\\..").c_str(),
+                    MAX_PATH, root_buf, nullptr);
+            }
+            const std::string root = root_buf;
+            std::string pythonpath = root;
+            if (const char* pp = std::getenv("PYTHONPATH"); pp && pp[0])
+                pythonpath += ";" + std::string(pp);
+            _putenv_s("PYTHONPATH", pythonpath.c_str());
+
+            std::vector<std::string> candidates;
+            if (const char* p = std::getenv("GPTBRIDGE_TEST_PYTHON");
+                p && p[0])
+                candidates.push_back("\"" + std::string(p) + "\"");
+            candidates.push_back("python");
+            candidates.push_back(
+                "\"" + root +
+                "\\main-system\\.venv\\Scripts\\python.exe\"");
+
+            tpx::ProxySidecar sidecar;
+            tpx::SidecarError err;
+            tpx::ProxyResponse resp;
+            bool live = false;
+            for (const auto& exe : candidates) {
+                if (!sidecar.start(
+                        exe + " -m governance_rule.execution."
+                              "tool_runtime.transport_proxy",
+                        &err))
+                    continue;
+                if (sidecar.call("ping", tpx::args_empty(), &resp,
+                                 &err) &&
+                    resp.ok) {
+                    live = true;
+                    break;
+                }
+                sidecar.stop();
+            }
+            if (!live) {
+                detail = "python unavailable for live sidecar spawn";
+                blocked = true;
+                return true;
+            }
+            if (!check(resp.valid, "ping response decoded")) return false;
+            const jl::JsonValue* pong = resp.result.get("pong");
+            if (!check(pong && pong->type == jl::JsonValue::Type::Bool &&
+                           pong->boolean,
+                       "ping pong true"))
+                return false;
+
+            /* hello 前的 process op → PERMISSION_DENIED（協定層）。 */
+            if (!check(sidecar.call("claim", tpx::args_channel("system"),
+                                    &resp, &err),
+                       "pre-hello claim transport ok"))
+                return false;
+            if (!check(!resp.ok &&
+                           resp.error_code == "PERMISSION_DENIED",
+                       "pre-hello claim denied"))
+                return false;
+
+            /* 無受管 env 的 hello → fail-closed（不崩潰、回錯誤）。 */
+            if (!check(sidecar.call(
+                           "hello",
+                           tpx::args_hello(
+                               "test-tool", "ws-instance-1",
+                               {tpx::HelloChannel{"system", "process"}},
+                               {}),
+                           &resp, &err),
+                       "unauthenticated hello transport ok"))
+                return false;
+            if (!check(!resp.ok && !resp.error_code.empty(),
+                       "unauthenticated hello fail-closed"))
+                return false;
+
+            /* 代理仍活（錯誤不殺連線）→ ping 再通。 */
+            if (!check(
+                    sidecar.call("ping", tpx::args_empty(), &resp,
+                                 &err) &&
+                        resp.ok,
+                    "sidecar survives hello failure"))
+                return false;
+
+            sidecar.stop();
+            return check(
+                !sidecar.call("ping", tpx::args_empty(), &resp, &err) &&
+                    !err.code.empty(),
+                "post-stop call fails with error code");
+        }();
+        if (blocked)
+            native_tests::record_blocked(SUITE, name, detail);
+        else
+            native_tests::record(SUITE, name, pass, detail,
+                                 native_tests::now_ms() - t0);
+    }
 
     return native_tests::report("tool_host_suite.json");
 }
