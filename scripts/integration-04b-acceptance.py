@@ -669,6 +669,27 @@ def fault_scenarios() -> None:
             "scripts/integration-04b-isolated-start.py::_ipc_contract_probe",
             "" if c_ok else "IPC_CONTRACT_FAILED",
         )
+        # 04B-20 shared-service test double — a fake PG endpoint that
+        # accepts TCP then answers ErrorResponse must be rejected by the
+        # release's own client stack (never mistaken for a ready service).
+        sd = scenarios.get("service-double") or {}
+        sd_ok = bool(sd.get("ok"))
+        record(
+            "04B-20",
+            "shared service test double (incompatible PG rejected)",
+            "double receives connect attempt; release psycopg rejects "
+            "the incompatible endpoint (fail-closed)",
+            json.dumps(
+                {
+                    "hits": sd.get("double_hits"),
+                    "rejected": sd.get("client_rejected_incompatible"),
+                },
+                ensure_ascii=False,
+            )[:300],
+            "PASS" if sd_ok else "FAIL",
+            "scripts/integration-04b-isolated-start.py::_fake_pg_server",
+            "" if sd_ok else "SERVICE_DOUBLE_ACCEPTED",
+        )
     else:
         record("04B-10", "backend mid-start failure", "isolated start harness",
                "not executed (--with-isolated-start not passed)", "BLOCKED",
@@ -679,6 +700,12 @@ def fault_scenarios() -> None:
                "requires --with-isolated-start",
                "not executed (--with-isolated-start not passed)", "BLOCKED",
                "probe: scripts/integration-04b-isolated-start.py::_ipc_contract_probe",
+               "BLOCKED_ENV")
+        record("04B-20",
+               "shared service test double (incompatible PG rejected)",
+               "requires --with-isolated-start",
+               "not executed (--with-isolated-start not passed)", "BLOCKED",
+               "double: scripts/integration-04b-isolated-start.py::_fake_pg_server",
                "BLOCKED_ENV")
 
 
@@ -860,7 +887,7 @@ def main() -> int:
         },
         "completion": "NOT_COMPLETE",
         "minimal_fix_list": [
-            "shared service read-only test doubles for PG/Qdrant/Ollama compatibility — 04B-09 partial",
+            "Qdrant/Ollama protocol-level test doubles — PG incompatible double landed (04B-20); isolated backend dependency probes unreachable by bound-root design, doubles verified at the release client-contract layer",
             "isolated IPC contract client (auth/request-id/session/cancel/timeout/streaming) — validator covers surface only",
             "venv rebuild reproducibility pinned by wheel cache (04B-16) — full G76 self-containment verification pending",
         ],

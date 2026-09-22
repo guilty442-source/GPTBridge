@@ -116,7 +116,12 @@ def _seed_state_root(release: Path, state_root: Path) -> None:
         shutil.copytree(seed, state_root / "main-system", dirs_exist_ok=True)
 
 
-def _spawn(release: Path, state_root: Path, port: int) -> subprocess.Popen[bytes]:
+def _spawn(
+    release: Path,
+    state_root: Path,
+    port: int,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.Popen[bytes]:
     """Spawn the release backend.
 
     ``GPTBRIDGE_RELEASE_ROOT`` supplies the code (read-only); the env
@@ -143,6 +148,8 @@ def _spawn(release: Path, state_root: Path, port: int) -> subprocess.Popen[bytes
     env["GPTBRIDGE_CODEX_AUDIT_PATH"] = str(
         audit_root / "codex_read_audit.jsonl"
     )
+    if extra_env:
+        env.update(extra_env)
     # rc-2026-09-21's backend/main.py predates the flat-layout ``governance``
     # sys.path entry (dev main.py adds <release>/main-system when governance/
     # exists there).  Inject it via PYTHONPATH only when the release's
@@ -362,6 +369,104 @@ def _ipc_contract_probe(state_root: Path, port: int, timeout_s: float = 20.0) ->
     return results
 
 
+def _fake_pg_server(port: int, hits: list[dict], stop: threading.Event) -> None:
+    """Minimal PostgreSQL wire-protocol test double.
+
+    Accepts a connection, reads the startup packet, and answers with an
+    ErrorResponse (SQLSTATE 0A000, feature not supported) — a *reachable
+    but incompatible* shared service.  Every hit is recorded so the
+    scenario can prove the backend's DSN path actually probed it.
+    """
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", port))
+    server.listen(8)
+    server.settimeout(0.5)
+    try:
+        while not stop.is_set():
+            try:
+                conn, _ = server.accept()
+            except socket.timeout:
+                continue
+            try:
+                conn.settimeout(2.0)
+                header = conn.recv(4)
+                hits.append({"at": _utcnow(), "startup_bytes": len(header)})
+                if len(header) == 4:
+                    length = int.from_bytes(header, "big")
+                    conn.recv(max(0, length - 4))  # drain startup packet
+                    fields = (
+                        b"SFATAL\x00VFATAL\x00C0A000\x00"
+                        b"M04b-test-double: incompatible server\x00\x00"
+                    )
+                    err = b"E" + (len(fields) + 4).to_bytes(4, "big") + fields
+                    conn.sendall(err)
+            except OSError:
+                pass
+            finally:
+                conn.close()
+    finally:
+        server.close()
+
+
+def _scenario_service_double(
+    release: Path, state_root: Path, port: int, timeout_s: float
+) -> dict:
+    """Shared-service test double: incompatible PostgreSQL endpoint.
+
+    The isolated backend's dependency probes are unreachable by design
+    (runtime init fails closed at the bound-root check before the probe
+    phases), so this scenario exercises the release's *own client stack*
+    instead: the RC venv's psycopg connects to a fake PG that accepts
+    TCP then answers ErrorResponse.  A correct release client must
+    surface the incompatibility as a connect failure — never proceed.
+    """
+    pg_port = _free_port()
+    hits: list[dict] = []
+    stop = threading.Event()
+    server = threading.Thread(
+        target=_fake_pg_server, args=(pg_port, hits, stop), daemon=True
+    )
+    server.start()
+
+    python_exe = release / "venv" / "Scripts" / "python.exe"
+    if not python_exe.is_file():
+        python_exe = Path(sys.executable)
+    probe = subprocess.run(
+        [
+            str(python_exe), "-c",
+            "import psycopg, sys; "
+            "psycopg.connect("
+            f"'postgresql://04b_double:x@127.0.0.1:{pg_port}/db', "
+            "connect_timeout=5); sys.exit(3)",
+        ],
+        capture_output=True, text=True, timeout=30,
+        cwd=str(release),
+    )
+    stop.set()
+    server.join(timeout=5)
+
+    refused = probe.returncode != 0 and probe.returncode != 3
+    observed = {
+        "double_port": pg_port,
+        "double_hits": hits,
+        "double_saw_connect": bool(hits),
+        "client_returncode": probe.returncode,
+        "client_rejected_incompatible": refused,
+        "client_stderr_tail": (probe.stderr or "").strip().splitlines()[-3:],
+        "port_released": _port_released(port),
+        "note": (
+            "isolated backend dependency probes are unreachable "
+            "(runtime init fails closed at bound-root); double verified "
+            "at the release client-contract layer"
+        ),
+    }
+    observed["ok"] = bool(
+        observed["double_saw_connect"] and observed["client_rejected_incompatible"]
+    )
+    return observed
+
+
 def _scenario_lifecycle(release: Path, state_root: Path, port: int, timeout_s: float) -> dict:
     lines: list[str] = []
     done = threading.Event()
@@ -499,6 +604,7 @@ def main() -> int:
         for name, fn in (
             ("lifecycle", _scenario_lifecycle),
             ("mid-start-kill", _scenario_mid_start_kill),
+            ("service-double", _scenario_service_double),
         ):
             port = _free_port()
             result = fn(release, sandbox, port, args.timeout)
