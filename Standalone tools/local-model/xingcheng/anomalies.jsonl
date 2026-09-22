@@ -1,1 +1,1 @@
-{"type": "stale-checkpoint", "severity": "warning", "detail": "transformer-runtime-checkpoints.sqlite3 age 73.9h"}
+{"type": "assignment-unmaterialized", "severity": "info", "child": "dependency-sync-sub-sovereign", "detail": "module VAULTLY manager not materialized"}
