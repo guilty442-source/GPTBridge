@@ -10,8 +10,10 @@
 #include "gptbridge_native.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -478,6 +480,28 @@ void checked_c_call(int rc, const char* operation) {
     }
 }
 
+// CUDA acceleration track (independent of the four-language layering; the
+// pure-C core is untouched). Runtime-enable only: XINGCHENG_CPP_CUDA=1 is
+// read at engine load — the governed Python layer owns the decision after
+// GPU coordination; the native layer only provides capability.
+#if defined(XINGCHENG_CUDA)
+extern "C" int xcuda_available();
+extern "C" int xcuda_matmul_f64(
+    const double* a, long long m, long long k,
+    const double* b, long long n, double* out);
+#endif
+
+namespace {
+std::atomic<bool> g_cuda_requested{false};
+
+bool env_flag(const char* name) {
+    const char* value = std::getenv(name);
+    if (value == nullptr) return false;
+    const std::string v(value);
+    return v == "1" || v == "true" || v == "TRUE" || v == "yes";
+}
+}  // namespace
+
 std::vector<double> matmul(
     const double* a,
     int64_t m,
@@ -485,6 +509,18 @@ std::vector<double> matmul(
     const double* b,
     int64_t n) {
     std::vector<double> out(static_cast<size_t>(m * n));
+#if defined(XINGCHENG_CUDA)
+    if (g_cuda_requested.load()) {
+        if (xcuda_matmul_f64(a, m, k, b, n, out.data()) != 0) {
+            throw InferenceError("CUDA_MATMUL_FAILED");
+        }
+        return out;
+    }
+#else
+    if (g_cuda_requested.load()) {
+        throw InferenceError("CUDA_UNAVAILABLE");
+    }
+#endif
     checked_c_call(
         gptbridge_native_transformer_matmul(a, m, k, b, k, n, out.data()),
         "matmul");
@@ -1091,6 +1127,20 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     bundle_ = std::make_unique<WeightBundle>(WeightBundle::load((root / "manifest.json").string()));
     const ModelConfig& cfg = bundle_->config();
     validate_supported();
+    // CUDA opt-in is decided by the governed layer via env; requesting it
+    // without a CUDA build or device fails closed at load.
+    g_cuda_requested.store(env_flag("XINGCHENG_CPP_CUDA"));
+    if (g_cuda_requested.load()) {
+#if defined(XINGCHENG_CUDA)
+        if (!xcuda_available()) {
+            g_cuda_requested.store(false);
+            throw InferenceError("CUDA_UNAVAILABLE");
+        }
+#else
+        g_cuda_requested.store(false);
+        throw InferenceError("CUDA_UNAVAILABLE");
+#endif
+    }
 
     embedding_ = bundle_->tensor("model.embeddings.word_embeddings.weight");
     final_norm_ = bundle_->tensor("model.final_norm.weight");
@@ -1182,6 +1232,7 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
 void NativeInferenceEngine::unload() {
     bundle_.reset();
     tokenizer_.reset();
+    g_cuda_requested.store(false);
     layers_.clear();
     prefix_cache_.clear();
     prefix_tick_ = 0;

@@ -43,8 +43,31 @@ def _extension_dir() -> Path:
     return tool_root() / "dist-native"
 
 
+def _cuda_bin_dirs() -> list[str]:
+    """CUDA bin dirs for dependent-DLL resolution (Windows ignores PATH for
+    extension-module dependencies since Python 3.8)."""
+    dirs: list[str] = []
+    for raw in (
+        os.environ.get("CUDA_PATH"),
+        os.environ.get("CUDA_HOME"),
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0",
+    ):
+        if not raw:
+            continue
+        bin_dir = Path(raw) / "bin"
+        if bin_dir.is_dir():
+            dirs.append(str(bin_dir))
+    return dirs
+
+
 def load_extension() -> Any:
     """Import ``_xingcheng_inference`` from dist-native or site-packages."""
+    if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
+        for cuda_bin in _cuda_bin_dirs():
+            try:
+                os.add_dll_directory(cuda_bin)
+            except OSError:
+                pass
     dist = str(_extension_dir())
     if dist not in sys.path:
         sys.path.insert(0, dist)

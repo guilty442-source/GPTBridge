@@ -10,6 +10,7 @@ Layer contract:
 
 from __future__ import annotations
 
+import os
 import pathlib
 import shutil
 import sys
@@ -24,6 +25,9 @@ DIST_NATIVE = LOCAL_MODEL_ROOT / "dist-native"
 CPP_SOURCES = (
     HERE / "src" / "binding.cpp",
     HERE / "src" / "engine.cpp",
+    # Host-API-only CUDA bridge (cuBLAS/cudart, no device kernels) — plain
+    # C++ compilation works everywhere; guarded internally by XINGCHENG_CUDA.
+    HERE / "src" / "cuda_bridge.cpp",
 )
 C_SOURCES = (
     NATIVE_ROOT / "bridge" / "gptbridge_native.c",
@@ -34,18 +38,53 @@ C_SOURCES = (
 )
 
 
+def _cuda_home() -> pathlib.Path | None:
+    candidates = [
+        os.environ.get("CUDA_PATH"),
+        os.environ.get("CUDA_HOME"),
+        r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0",
+    ]
+    for raw in candidates:
+        if not raw:
+            continue
+        home = pathlib.Path(raw)
+        if (home / "include" / "cublas_v2.h").is_file() and (
+            home / "lib" / "x64" / "cublas.lib"
+        ).is_file():
+            return home
+    return None
+
+
 def _extension():
     import pybind11
     from setuptools import Extension
 
+    include_dirs = [
+        pybind11.get_include(),
+        str(HERE / "include"),
+        str(NATIVE_ROOT / "include"),
+    ]
+    define_macros: list[tuple[str, str]] = []
+    libraries: list[str] = []
+    library_dirs: list[str] = []
+
+    cuda_home = _cuda_home()
+    if cuda_home is not None:
+        libraries.extend(["cudart", "cublas"])
+        library_dirs.append(str(cuda_home / "lib" / "x64"))
+        include_dirs.append(str(cuda_home / "include"))
+        define_macros.append(("XINGCHENG_CUDA", "1"))
+        print(f"[build_cpp] CUDA bridge enabled ({cuda_home})")
+    else:
+        print("[build_cpp] CUDA toolkit not found — building CPU-only")
+
     return Extension(
         "_xingcheng_inference",
         [str(path) for path in (*CPP_SOURCES, *C_SOURCES)],
-        include_dirs=[
-            pybind11.get_include(),
-            str(HERE / "include"),
-            str(NATIVE_ROOT / "include"),
-        ],
+        include_dirs=include_dirs,
+        define_macros=define_macros,
+        libraries=libraries,
+        library_dirs=library_dirs,
         language="c++",
         extra_compile_args=(
             ["/std:c++17", "/utf-8"] if sys.platform == "win32" else ["-std=c++17"]

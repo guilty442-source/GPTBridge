@@ -768,3 +768,62 @@ def test_cpp_quantization_fail_closed(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="QUANTIZE_BITS_UNSUPPORTED"):
         _export_tiny_model(tmp_path / "bad", quantize_bits=3)
+
+
+# CUDA bridge (independent acceleration track): opt-in via
+# XINGCHENG_CPP_CUDA=1 read at engine load; fp64 cuBLAS Dgemm must match
+# the C-core matmul path; CPU remains the default.
+
+
+def test_cpp_cuda_opt_in_logits_parity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA device not present")
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    ids = [1, 9, 10, 11, 12]
+
+    cpu_engine = module.NativeInferenceEngine()
+    cpu_engine.load(str(bundle))
+    expected = torch.tensor(cpu_engine.logits(ids), dtype=torch.float64)
+
+    monkeypatch.setenv("XINGCHENG_CPP_CUDA", "1")
+    gpu_engine = module.NativeInferenceEngine()
+    gpu_engine.load(str(bundle))
+    actual = torch.tensor(gpu_engine.logits(ids), dtype=torch.float64)
+    assert torch.allclose(actual, expected, atol=1e-6, rtol=1e-6)
+
+
+def test_cpp_cuda_opt_in_generation_parity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA device not present")
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    sampling = module.SamplingConfig()
+    sampling.do_sample = False
+    sampling.repetition_penalty = 1.0
+
+    cpu_engine = module.NativeInferenceEngine()
+    cpu_engine.load(str(bundle))
+    expected = cpu_engine.generate([1, 9, 10, 11], 4, sampling)
+
+    monkeypatch.setenv("XINGCHENG_CPP_CUDA", "1")
+    gpu_engine = module.NativeInferenceEngine()
+    gpu_engine.load(str(bundle))
+    assert gpu_engine.generate([1, 9, 10, 11], 4, sampling) == expected
+    assert gpu_engine.generate_batch([[1, 9, 10, 11], [2, 7]], 4, sampling)[
+        0
+    ] == expected
+
+
+def test_cpp_cuda_default_cpu_unchanged(tmp_path: Path) -> None:
+    """Without the env opt-in the engine stays on the C-core CPU path."""
+    module = cpp_runtime.load_extension()
+    _model, _config, bundle, _report = _export_tiny_model(tmp_path)
+    engine = module.NativeInferenceEngine()
+    engine.load(str(bundle))
+    ids = [1, 9, 10, 11, 12]
+    assert engine.logits(ids)
