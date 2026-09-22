@@ -90,6 +90,7 @@ class ModelServiceActivationBroker:
         cooldown: float = _DEFAULT_COOLDOWN_SECONDS,
         min_backoff: float = _DEFAULT_MIN_BACKOFF_SECONDS,
         max_backoff: float = _DEFAULT_MAX_BACKOFF_SECONDS,
+        project_root: Path | None = None,
     ) -> None:
         global _ACTIVE_BROKER
         self.app = app
@@ -114,6 +115,21 @@ class ModelServiceActivationBroker:
         self._last_release_result: dict[str, Any] = {}
         self._last_written_fingerprint: dict[str, Any] | None = None
         self._last_write_at = 0.0
+        # §10.65 act-1: native shadow — policy mode != "shadow" or a
+        # missing extension yields None (fail-closed).
+        try:
+            from tasks.model_service_activation_native_shadow import (
+                ActivationBrokerNativeShadow,
+            )
+
+            self._native_shadow = ActivationBrokerNativeShadow.from_policy(
+                Path(project_root) if project_root else None,
+                cooldown_s=self.cooldown,
+                min_backoff_s=self.min_backoff,
+                max_backoff_s=self.max_backoff,
+            )
+        except Exception:
+            self._native_shadow = None
         _ACTIVE_BROKER = self
 
     # -- lifecycle ------------------------------------------------------
@@ -158,6 +174,17 @@ class ModelServiceActivationBroker:
             except Exception as error:  # never kill the loop
                 _logger.warning("model activation broker cycle error: %s", error)
             interval = self.pending_interval if self._pending else self.idle_interval
+            shadow = self._native_shadow
+            if shadow is not None:
+                try:
+                    shadow.observe_poll_interval(
+                        bool(self._pending),
+                        self.idle_interval,
+                        self.pending_interval,
+                        py_interval=interval,
+                    )
+                except Exception:
+                    pass
             try:
                 await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
             except asyncio.TimeoutError:
@@ -170,36 +197,66 @@ class ModelServiceActivationBroker:
         decision = await self._ensure_inner()
         self._last_decision = decision
         self._write_state()
+        shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                shadow.observe_status(
+                    {
+                        "attempts": self._attempts,
+                        "backoff_seconds": self._backoff,
+                        "next_attempt_at": self._next_attempt_at,
+                        "next_release_at": self._next_release_at,
+                        "broker_started_owner": self._broker_started_owner,
+                        "explicit_stop_at": self._explicit_stop_at,
+                    }
+                )
+            except Exception:
+                pass
         return decision
 
     _STATE_HEARTBEAT_SECONDS = 60.0
 
     async def _ensure_inner(self) -> str:
+        facts: dict[str, Any] = {"pending": False}
         self._pending = await asyncio.to_thread(self._has_pending_dialogue_request)
+        facts["pending"] = bool(self._pending)
         if not self._pending:
             self._backoff = self.min_backoff
             return await self._maybe_release_owner()
-        if getattr(self.app, "maintenance_ready", True) is not True:
-            return "maintenance-pending"
-        if getattr(self.app, "_shutting_down", False):
-            return "shutting-down"
+        facts["maintenance_ready"] = (
+            getattr(self.app, "maintenance_ready", True) is True
+        )
+        if not facts["maintenance_ready"]:
+            return self._shadow_ensure(facts, "maintenance-pending")
+        facts["shutting_down"] = bool(getattr(self.app, "_shutting_down", False))
+        if facts["shutting_down"]:
+            return self._shadow_ensure(facts, "shutting-down")
         # §10.64 ⑤: while the governor is regulating, hold new worker
         # starts (fail-closed load shedding).  User-explicit tool starts
         # via the command surface are unaffected — this only gates the
         # broker's automatic activation.
-        if _worker_admission_hold():
-            return "resource-hold"
+        facts["admission_hold"] = bool(_worker_admission_hold())
+        if facts["admission_hold"]:
+            return self._shadow_ensure(facts, "resource-hold")
         try:
-            if await self.toolbox.tool_process_active(OWNER_TOOL_ID):
+            owner_active = await self.toolbox.tool_process_active(OWNER_TOOL_ID)
+            facts["liveness_known"] = True
+            facts["owner_active"] = bool(owner_active)
+            if owner_active:
                 self._backoff = self.min_backoff
-                return "owner-running"
+                return self._shadow_ensure(facts, "owner-running")
         except Exception as error:
             _logger.warning("model owner liveness check failed: %s", error)
-            return "liveness-unknown"
+            return self._shadow_ensure(facts, "liveness-unknown")
 
         now = time.monotonic()
+        facts["now_monotonic"] = now
         if now < self._next_attempt_at:
-            return "throttled"
+            return self._shadow_ensure(facts, "throttled")
+
+        # Gate passed — the native ladder must agree before the toolbox
+        # call; the post-call result is mirrored separately.
+        self._shadow_ensure(facts, "should-start")
 
         payload = {
             "tool_id": OWNER_TOOL_ID,
@@ -221,7 +278,7 @@ class ModelServiceActivationBroker:
                 "model service activated on demand: pid=%s",
                 self._last_result.get("pid"),
             )
-            return "started"
+            return self._shadow_start(True, now, "started")
 
         delay = self._backoff
         self._backoff = min(self.max_backoff, self._backoff * 2.0)
@@ -231,7 +288,7 @@ class ModelServiceActivationBroker:
             delay,
             self._last_result.get("message") or self._last_result.get("error_code"),
         )
-        return "start-failed"
+        return self._shadow_start(False, now, "start-failed")
 
     async def _maybe_release_owner(self) -> str:
         """§10.64 ⑥: governed auto-release of the on-demand owner.
@@ -243,17 +300,27 @@ class ModelServiceActivationBroker:
         Only owners this broker activated are released — an explicitly
         user-started model is never force-closed by regulation.
         """
-        if not self._broker_started_owner or not regulation_active():
-            return "idle"
+        facts: dict[str, Any] = {"pending": False}
+        if not self._broker_started_owner:
+            return self._shadow_ensure(facts, "idle")
+        facts["regulation_active"] = bool(regulation_active())
+        if not facts["regulation_active"]:
+            return self._shadow_ensure(facts, "idle")
         try:
-            if not await self.toolbox.tool_process_active(OWNER_TOOL_ID):
+            owner_active = await self.toolbox.tool_process_active(OWNER_TOOL_ID)
+            facts["liveness_known"] = True
+            facts["owner_active"] = bool(owner_active)
+            if not owner_active:
                 self._broker_started_owner = False
-                return "idle"
+                return self._shadow_ensure(facts, "idle")
         except Exception:
-            return "idle"
+            return self._shadow_ensure(facts, "idle")
         now = time.monotonic()
+        facts["now_monotonic"] = now
         if now < self._next_release_at:
-            return "release-cooldown"
+            return self._shadow_ensure(facts, "release-cooldown")
+
+        self._shadow_ensure(facts, "should-release")
         payload = {
             "tool_id": OWNER_TOOL_ID,
             "request_id": f"model-release-{time.time_ns()}",
@@ -269,13 +336,42 @@ class ModelServiceActivationBroker:
             _logger.info(
                 "on-demand model owner released under resource regulation"
             )
-            return "released"
+            return self._shadow_release(True, now, "released")
         _logger.warning(
             "model owner auto-release failed: %s",
             self._last_release_result.get("message")
             or self._last_release_result.get("error_code"),
         )
-        return "release-failed"
+        return self._shadow_release(False, now, "release-failed")
+
+    # -- native shadow helpers (§10.65 act-1; fail-closed, Python authoritative)
+
+    def _shadow_ensure(self, facts: dict[str, Any], decision: str) -> str:
+        shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                shadow.observe_ensure(facts, py_decision=decision)
+            except Exception:
+                pass
+        return decision
+
+    def _shadow_start(self, ok: bool, now: float, decision: str) -> str:
+        shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                shadow.observe_start_result(ok, now, py_decision=decision)
+            except Exception:
+                pass
+        return decision
+
+    def _shadow_release(self, ok: bool, now: float, decision: str) -> str:
+        shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                shadow.observe_release_result(ok, now, py_decision=decision)
+            except Exception:
+                pass
+        return decision
 
     def note_explicit_owner_stop(self) -> None:
         """Remember an explicit close of the owner so it is not resurrected.
@@ -288,7 +384,14 @@ class ModelServiceActivationBroker:
         self._explicit_stop_at = time.time()
         self._broker_started_owner = False
         # Cooldown so the next observed request waits before a fresh attempt.
-        self._next_attempt_at = time.monotonic() + self.cooldown
+        now = time.monotonic()
+        self._next_attempt_at = now + self.cooldown
+        shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                shadow.observe_explicit_stop(now, self._explicit_stop_at)
+            except Exception:
+                pass
         _logger.info(
             "model owner explicit stop recorded at %.0f; pre-stop queued "
             "requests will not auto-start the model",
@@ -388,10 +491,23 @@ class ModelServiceActivationBroker:
         # keeps updated_at fresh for staleness checks.
         fingerprint = {k: v for k, v in payload.items() if k != "updated_at"}
         now = time.monotonic()
-        if (
+        py_due = not (
             fingerprint == self._last_written_fingerprint
             and now - self._last_write_at < self._STATE_HEARTBEAT_SECONDS
-        ):
+        )
+        shadow = self._native_shadow
+        if shadow is not None:
+            try:
+                shadow.observe_state_write_due(
+                    fingerprint != self._last_written_fingerprint,
+                    now,
+                    self._last_write_at,
+                    self._STATE_HEARTBEAT_SECONDS,
+                    py_due=py_due,
+                )
+            except Exception:
+                pass
+        if not py_due:
             return
         self._last_written_fingerprint = fingerprint
         self._last_write_at = now
