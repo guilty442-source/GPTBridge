@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 /* ---------- Queue ---------- */
 int gptbridge_rc_queue_init(gptbridge_rc_queue_t* q, int32_t capacity) {
