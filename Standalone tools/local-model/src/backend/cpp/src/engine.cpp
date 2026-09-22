@@ -608,13 +608,57 @@ void axpy_f64(double* out, double weight, const double* v, int64_t n) {
 
 // KV INT8 helpers: fp64 operand against packed int8 storage; the caller
 // folds the per-token/per-head scale into the weight or the score.
+// AVX2 mirrors the fp64 kernels — sign-extend 8 int8 lanes per step.
 double dot_int8(const double* a, const int8_t* q, int64_t n) {
+#if XINGCHENG_W1_X64
+    if (cpu_has_avx()) {
+        __m256d acc0 = _mm256_setzero_pd();
+        __m256d acc1 = _mm256_setzero_pd();
+        int64_t i = 0;
+        for (; i + 8 <= n; i += 8) {
+            const __m128i v8 = _mm_loadl_epi64(
+                reinterpret_cast<const __m128i*>(q + i));
+            const __m128i v32 = _mm_cvtepi8_epi32(v8);
+            acc0 = _mm256_add_pd(acc0, _mm256_mul_pd(
+                _mm256_loadu_pd(a + i), _mm256_cvtepi32_pd(v32)));
+            acc1 = _mm256_add_pd(acc1, _mm256_mul_pd(
+                _mm256_loadu_pd(a + i + 4),
+                _mm256_cvtepi32_pd(_mm_srli_si128(v32, 8))));
+        }
+        acc0 = _mm256_add_pd(acc0, acc1);
+        const __m128d pair = _mm_add_pd(
+            _mm256_castpd256_pd128(acc0), _mm256_extractf128_pd(acc0, 1));
+        double sum = _mm_cvtsd_f64(pair)
+            + _mm_cvtsd_f64(_mm_unpackhi_pd(pair, pair));
+        for (; i < n; ++i) sum += a[i] * static_cast<double>(q[i]);
+        return sum;
+    }
+#endif
     double sum = 0.0;
     for (int64_t i = 0; i < n; ++i) sum += a[i] * static_cast<double>(q[i]);
     return sum;
 }
 
 void axpy_int8(double* out, double weight, const int8_t* q, int64_t n) {
+#if XINGCHENG_W1_X64
+    if (cpu_has_avx()) {
+        const __m256d wv = _mm256_set1_pd(weight);
+        int64_t i = 0;
+        for (; i + 8 <= n; i += 8) {
+            const __m128i v8 = _mm_loadl_epi64(
+                reinterpret_cast<const __m128i*>(q + i));
+            const __m128i v32 = _mm_cvtepi8_epi32(v8);
+            _mm256_storeu_pd(out + i, _mm256_add_pd(
+                _mm256_loadu_pd(out + i),
+                _mm256_mul_pd(wv, _mm256_cvtepi32_pd(v32))));
+            _mm256_storeu_pd(out + i + 4, _mm256_add_pd(
+                _mm256_loadu_pd(out + i + 4),
+                _mm256_mul_pd(wv, _mm256_cvtepi32_pd(_mm_srli_si128(v32, 8)))));
+        }
+        for (; i < n; ++i) out[i] += weight * static_cast<double>(q[i]);
+        return;
+    }
+#endif
     for (int64_t i = 0; i < n; ++i) out[i] += weight * static_cast<double>(q[i]);
 }
 
