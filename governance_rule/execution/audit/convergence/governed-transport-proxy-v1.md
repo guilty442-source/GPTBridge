@@ -17,27 +17,35 @@
 兩形態**線協定完全相同**（§3），僅連線建立與身分綁定方式不同（§4）。
 sidecar 為按需行程——隨工具啟動、stdin EOF 即退出，不構成常駐 Python。
 
-## 2. 操作集（對映 `SharedLayerChannel`）
+## 2. 操作集（對映 `SharedLayerChannel` 實際簽名）
 
-| op | 對映方法 | 說明 | 側 |
-| --- | --- | --- | --- |
-| `hello` | — | 綁定工具身分（tool_id/instance/通道清單）；首個必須、其它 op 之前 | 控制 |
-| `ping` | — | 活性探測；回 `{"pong":true}` | 控制 |
-| `claim` | `claim(channel, timeout, lease_seconds)` | 取待處理請求（SKIP-LOCKED／lease 語義在 store，代理只轉發） | process |
-| `respond` | `respond(request_id, result)` | 回覆已 claim 請求；僅 `claimed` 態成功 | process |
-| `request_cancelled` | `request_cancelled(request_id)` | 輪詢取消旗標（100ms 窗由呼叫方實作） | process |
-| `notify_for_request` | `notify_for_request(request_id)` | 執行中進度/事件通知 | process |
-| `notification_stamp` | `notification_stamp(channel)` | 本地 store 的通知戳（無 LISTEN/NOTIFY 時輪詢用） | process |
-| `claim_pushed` | `claim_pushed(request_id, worker_id)` | push 模式下認領推送請求 | process |
-| `acknowledge_push` | `acknowledge_push(request_id, worker_id)` | push 確認 | process |
-| `request` | `request(target_tool_id, command, payload, timeout_seconds)` | submit 側送請求；回 `request_id`，**不阻塞等 result** | submit |
-| `response` | `response(request_id, timeout_seconds)` | 取回覆（代理內可阻塞至 timeout；原生側以短輪詢亦可） | submit |
-| `cancel` | `cancel(request_id)` | submit 側取消 | submit |
+| op | 對映方法 | args | result | 側 |
+| --- | --- | --- | --- | --- |
+| `hello` | — | tool_id, workspace_instance_id, channels, submit 路由 | 代理身分＋生效通道 | 控制 |
+| `ping` | — | — | `{"pong":true}` | 控制 |
+| `claim` | `claim()` | channel | request dict 或 `null` | process |
+| `respond` | `respond(request_id, response)` | channel, request_id, response | bool | process |
+| `request_cancelled` | `request_cancelled(request_id)` | channel, request_id | bool | process |
+| `progress` | `progress(request_id, payload)` | channel, request_id, payload | bool | process |
+| `notify_for_request` | `notify_for_request(request_id)` | channel, request_id | `null` | process |
+| `notification_stamp` | `notification_stamp()` | channel | `[int,int]` 或 `null` | process |
+| `push` | `push(target, push_id, payload)` | channel, target_tool_id, command, payload, push_id? | `{"push_id"}` | submit |
+| `claim_pushed` | `claim_pushed()` | channel | push dict 或 `null` | process |
+| `acknowledge_push` | `acknowledge_push(push_id, response?)` | channel, push_id, response? | bool | process |
+| `request` | `request(target, request_id, payload)` | channel, target_tool_id, command, payload, request_id? | `{"request_id","queued":true}` | submit |
+| `response` | `response(target, request_id)` | channel, target_tool_id, request_id | state dict 或 `null`（**非阻塞**） | submit |
+| `cancel` | `cancel(target, request_id)` | channel, target_tool_id, request_id | bool | submit |
 
-- 代理**不得**新增語義：租約、重取、重試、reclaim、actor 授權檢查
-  一律沿用 `SharedLayerChannel`／store 現行行為。
-- 每個 op 的 token 發行、capability/action/data_scope 逐項由代理內部
-  依 ABI §5 表執行——**原生側永遠不見 token**。
+- **簽名以 `SharedLayerChannel` 為準**：`claim()` 無參數（lease／SKIP-LOCKED
+  在 store 內部）；`request` 的 `request_id` 由呼叫方產生（缺省時代理產
+  `request-<uuid4hex>`，對齊 `GovernedRequestClient`）；`response()` 為
+  單次非阻塞 consume——**timeout／截止輪詢在原生側**（對齊
+  `request_sync` 的 50ms 輪詢＋deadline＋逾時 `cancel` 語義，可 parity 測）。
+- `request`/`push` 由代理注入 `_governed_command`（同 `request_sync`），
+  並先執行 hello 綁定的路由授權。
+- 代理**不得**新增語義：租約、reclaim、actor 授權檢查一律沿用
+  `SharedLayerChannel`／store 現行行為；token 發行逐項由代理內部依
+  ABI §5 表執行——**原生側永遠不見 token**。
 
 ## 3. 線協定（JSONL，UTF-8，一行一訊息）
 
@@ -69,7 +77,8 @@ sidecar 為按需行程——隨工具啟動、stdin EOF 即退出，不構成�
   "tool_id":"system-rescue",
   "workspace_instance_id":"<instance>",
   "channels":{"system":"process","ai":"submit"},
-  "bootstrap":{ ...GPTBRIDGE_TOOL_GOVERNANCE_BOOTSTRAP 內容... }
+  "submit":{"ai":{"actor":"governance/tool/investment-mobile",
+                  "authorizer":"governance_rule.permission_directory.registries.permissions.tool_routes:authorize_investment_mobile_route"}}
 }}
 → {"ok":true,"result":{"agent":"star-governed-transport-proxy","v":1,
    "channels":{"system":"process","ai":"submit"}}}
@@ -77,15 +86,21 @@ sidecar 為按需行程——隨工具啟動、stdin EOF 即退出，不構成�
 
 - P1（常駐代理）：連線為 loopback TCP／具名管道；`hello` 前連線無權限，
   hello 驗證 `tool_id` 存在於工具註冊表、`workspace_instance_id` 與
-  註冊 instance 一致、bootstrap 必要欄位齊全——任一不符 →
-  `PERMISSION_DENIED` 並關閉連線。
+  註冊 instance 一致——任一不符 → `PERMISSION_DENIED` 並關閉連線。
 - P2（stdio sidecar）：行程擁有關係即信任邊界；仍須 hello 以建立
   代理內的 channel 例項；hello 失敗 → 代理立即以非零碼退出。
+  認證材料（bootstrap env）由 sidecar 自繼承 env 讀取，同
+  `GovernedToolRuntime.load_authentication`。
 - `channels` 宣告對齊 ABI：`process`=入站 claim、`submit`=出站 request。
-  代理依宣告建構對應 `SharedLayerChannel`；未宣告的通道 op →
-  `CHANNEL_NOT_BOUND`。
-- bootstrap 內容：P1 由工具於 hello 傳入（loopback＋instance 綁定）；
-  P2 由 sidecar 自繼承 env 讀取，`hello.args.bootstrap` 可省略。
+  代理依宣告建構對應 `SharedLayerChannel`；對未宣告通道或 mode 不符的
+  op → `CHANNEL_NOT_BOUND`（submit 通道收 claim、process 通道收 request
+  皆拒）。
+- **`submit` 路由綁定**：凡宣告 `submit` 的通道，`hello` 必須帶
+  `submit.<channel>.actor` 與 `submit.<channel>.authorizer`
+  （`module:function` dotted path）——缺任一 → `PERMISSION_DENIED`。
+  代理對每次 `request`/`push` 呼叫 `authorizer(actor, target_tool_id,
+  command)`，對齊 `GovernedRequestClient` 的 `authorize_route` 契約；
+  原生側不實作路由政策。
 
 ## 4. 錯誤碼（`error.code` 列舉，封閉集）
 
@@ -95,7 +110,7 @@ sidecar 為按需行程——隨工具啟動、stdin EOF 即退出，不構成�
 | `CHANNEL_NOT_BOUND` | 對未宣告通道執行 op，或通道 mode 不符（submit 通道收 claim 等） |
 | `REQUEST_NOT_FOUND` | respond/response/cancel 指向不存在或已終態的 request_id |
 | `NOT_CLAIMED` | respond 時 request 非 `claimed` 態（含重複 respond → ok:false） |
-| `TIMEOUT` | claim/response 於 timeout 內無結果（正常控制流，非故障） |
+| `TIMEOUT` | 保留碼：v1 操作皆非阻塞故不由代理發出；claim 無件即 `result:null` |
 | `TRANSPORT_ERROR` | 傳輸庫例外；`message` 帶摘要，**不帶** SQL/內部路徑 |
 | `PROXY_SHUTDOWN` | 代理關閉中；原生側應停止新請求並走自身關閉流程 |
 | `PROXY_DISCONNECTED` | 連線中斷後原生側對未完成請求的本地合成錯誤（非代理發出） |
@@ -107,15 +122,19 @@ store 決定，代理與原生側只負責如實轉發與如實失敗。
 
 ## 5. 提交側語義補充
 
-- `request` 回 `{request_id, queued:true}`；回覆以 `response(request_id,
-  timeout)` 取得。原生側可自行選擇阻塞等（代理內阻塞）或短輪詢。
-- `response` 逾時回 `TIMEOUT`（request 仍存活，可再問）；request 被
-  對方 `PERMISSION_DENIED` 時回覆為 `{"ok":false,"error_code":...}`
-  的正常 result——**不屬於 `error.code` 層**（兩層錯誤不混淆：
-  transport 層 vs 對端業務層）。
-- `GovernedRequestClient` 之路由授權（如
-  `authorize_investment_mobile_route`）由代理於 `request` 時執行——
-  原生側不實作路由政策，送錯路由 → `PERMISSION_DENIED`。
+- `request` 回 `{request_id, queued:true}`；`response` 為單次非阻塞
+  consume，回傳**原始 state dict**（`status`/`response`/`progress`）或
+  `null`（無更新）。原生側實作 `request_sync` 的 deadline 輪詢：
+  `status=="completed"` → 取 `response` dict（去 `request_id`、附
+  `queued:false`、`transport`）；`status=="cancelled"` →
+  `GOVERNED_REQUEST_CANCELLED`；逾 deadline → `cancel` 後
+  `GOVERNED_REQUEST_TIMEOUT`。此判定邏輯屬決策自由語義，可原生實作
+  並納入 parity。
+- request 被對端以 `PERMISSION_DENIED` 形式回覆時，它是正常 result
+  ——**不屬於 `error.code` 層**（兩層錯誤不混淆：transport 層 vs
+  對端業務層）。
+- 路由授權由代理於 `request`/`push` 時執行（§3 `submit` 綁定）；
+  `TIMEOUT` 不見於本層——無結果即 `null`，逾時判定在原生側。
 
 ## 6. 與 runtime ABI 的接縫
 
