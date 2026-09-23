@@ -1,0 +1,23 @@
+﻿{
+  "schema": "star-convergence-evidence/v1",
+  "item": "G96-delegated-execution-closure",
+  "date": "2026-09-23",
+  "actor": "devin-cli (execution side); @devin-cli 04:11Z claim holds manifest/python-field + row closure",
+  "problem": "pre-commit + sync gates ran only the C++ engine; manifest `delegated` rows were counted but never executed in the same request (the scheduled python lane was disabled), so one Audit Request could not prove unsupported checks ran.",
+  "implemented": {
+    "audit_checks.run_delegated_checks": "resolves every `python-check:*` delegated id to a callable (manifest `python` field authoritative, id-name convention + _DELEGATED_CHECK_ALIASES for older rows); aggregates dedupe (directory sub-checks -> check_directory_audit; manifest pair members -> _manifest_pair); unresolvable ids fail closed; union with a fresh build_manifest() recomputation gives manifest-generation parity (drift is an error, union still runs); oracle-only source_ownership_errors included; per-check hard deadline via as_completed timeout + cancel; shared 30s budget",
+    "native_audit_gate.run_audit_request": "canonical chain: engine -> (pass) delegated execution merged into one verdict; engine unavailable -> full python oracle fallback; engine fail/timeout fail-closed; total elapsed bounded by AUDIT_FLOW_BUDGET_SECONDS; result.delegated_executed records coverage",
+    "call sites": "pre-commit, workspace_sync, repo_sync switched to run_audit_request; GPTBRIDGE_AUDIT_GATE_ORACLE=1 remains the manual full-oracle hatch",
+    "manifest refresh": "native_audit_gate regenerates the manifest when codex OR any audit_*.py module is newer (code drift previously never refreshed)"
+  },
+  "measurements": {
+    "engine": "363 pass / 0 fail / 27 delegated in ~1.2-1.7s",
+    "delegated_execution": "20 unique callables covering all 27 delegated ids + oracle-only; ~9s warm",
+    "total_request": "11.0s warm / 20.3s cold (manifest regen) — within 30s A537 budget"
+  },
+  "verification": {
+    "tests": "governance_rule/tests/test_delegated_audit_gate.py 5/5 + test_audit_lazy_entry.py 5/5",
+    "oracle": "python -m governance_rule.execution.audit -> PASS exit 0 (unchanged full-oracle semantics)",
+    "cooperation_note": "execution layer implemented here while the G96 claimant was adding the manifest `python` target field; they merged field-consumption + deadline/coverage improvements into this implementation in-flight"
+  }
+}
