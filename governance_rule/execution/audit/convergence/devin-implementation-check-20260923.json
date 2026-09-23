@@ -116,5 +116,17 @@
   "produced": "codex-amendment-request-a609-convergence-completion-20260924.json (draft-awaiting-governor): proposes CONVERGENCE_014 (E2 controls A5) + CONVERGENCE_015 (E16 controls A29) registry insertions; verified all 11 other flagged cross-layer pairs already registered",
   "result": "audit PASS; formal/audit tests 87/87; full suite 5085 green; amendment request committed a5ac41a0",
   "residual": "implementation-side exhausted; all open items are governor-path (parity 74, obligations 62, capability-dispatch, A609 registry completion pending authorization, xingcheng learning route, A502 schema-hash verification program)"
+ },
+ "round_7": {
+  "scope": "cross-surface verification (TS compile/checkers, health-service semantics, in-flight syntax, worktree divergence)",
+  "verified": [
+   "tsc --noEmit clean (incl. governance-bootstrap.ts mirror parts 4-5); TS governance checkers PASS",
+   "codex_health_service: codex.codex_version is int (unix-epoch encoding); >= CODEX_VERSION_UNIT valid; format_codex_version dual-mode renders timestamp for epoch-valued ints — mirror version comparison correct",
+   "all 46 in-flight worker-modified .py files parse (no syntax breakage mid-edit)",
+   "all 4 worktree branches at 401d7311, 0-ahead/62-behind main — clean fast-forward point, no stale-code reintroduction risk on sync",
+   "codex_health_service + codex_diagnostics use governed load_governance_codex with fail-closed session revocation"
+  ],
+  "result": "no new implementation drift; authority still 03:13:43Z seq-74 (successor normalization for authorized five-core-language amendment pending)",
+  "residual": "unchanged — all open items on governor/migration-owner path"
  }
 }
