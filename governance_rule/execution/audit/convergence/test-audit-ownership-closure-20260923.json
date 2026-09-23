@@ -1,0 +1,86 @@
+{
+ "schema": "test-audit-ownership-closure/v1",
+ "report_id": "TestAuditOwnershipClosure",
+ "recorded_at_utc": "2026-09-23T06:20:00Z",
+ "scope": "converge test/audit language ownership; no new orchestrator/audit-engine/push-gate/scheduler/hybrid-host; fix only evidenced discrepancies",
+ "phase1_entities": {
+  "harness": "native/test_suites/harness.hpp — C++17 header-only, zero deps; CaseResult{suite,name,passed,blocked,detail,ms}; report() emits PASS/FAIL/BLOCKED + counts; exit code fails only on FAIL (BLOCKED classified downstream by G99 registry)",
+  "build": "native/test_suites/build.ps1 — compile/link orchestration only: bounded-parallel cl (default 4, cap 8), per-batch 600s cap, 600s lock-wait; its standalone run phase uses 300s/suite but is NOT the governed gate path",
+  "report": "native/test_suites/bin/native-report.json — CURRENT: 145 cases, all PASS, 21 suite tags (supersedes stale 134 baseline and the much older 27-EXE/2-BLOCKED report)",
+  "manifest": "bin/suite-manifest.json — 21 suites, revision=43b84ac3, emitted by build.ps1; empty/missing revision treated as stale (G99 binding)",
+  "push_gate": "governance_rule/execution/git_tiers/push_gate.py — Python outer governance gate (permitted); invokes C# orchestrator, never spawns suite exes itself",
+  "csharp_orchestrator": "native/test_suites/csharp/Program.cs — SOLE native suite runner (G97): bounded parallel, per-suite timeout→synthesized FAIL, report consolidation, criticality classification parity with push_gate",
+  "inventory": "governance_rule/execution/convergence/test-ownership-inventory.json — regenerated canonical main-tree only",
+  "baseline_corrections": {
+   "suite_exe_count": "claimed 8 → actual 21 manifest suites (+ _verify_tool_host_suite helper, proxy_client_driver driver — non-suite auxiliaries)",
+   "inventory_total": "claimed 1542 → file held 1542 but 1177/1542 (76%) were .worktrees/.kilo duplicate copies; catch-all rglob lacked worktree exclusion — FIXED; canonical = 367",
+   "pass_baseline": "claimed 134 → current report 145 PASS / 0 FAIL / 0 BLOCKED (suite set grew: kv_engine_suite et al.)"
+  }
+ },
+ "phase2_native_runtime_zero_python": {
+  "exe_dependencies": "dumpbin //dependents on baseline/kv_engine/audit_engine/dialogue/simd_kernels suites: KERNEL32.dll (+bcrypt.dll) only; static CRT; no python3*.dll, no CUDA, no managed runtime",
+  "process_tree": "push_gate → TestSuiteOrchestrator.exe (C#, dotnet) → Process.Start(suite.exe) — suite exes are leaves; no interpreter mediation",
+  "documented_exception": "suite_tool_host.cpp live P2 sidecar test spawns `python -m transport_proxy` as the SUBJECT UNDER TEST (cross-language integration; python absent → BLOCKED not silent-skip). proxy_wire_agent.py is a test fixture. Neither makes the suite itself Python-executed.",
+  "verdict": "native test execution is zero-Python; Python push gate is the sanctioned outer verifier; G98-approved Python governance tests untouched"
+ },
+ "phase3_ownership_mapping": {
+  "canonical_inventory": {"python-unit":316,"native-unit":22,"csharp-xunit":12,"abi-boundary":6,"parity":4,"cross-language-integration":7,"total":367},
+  "method": "per-capability grouping over canonical paths; overlap = capability with both py-unit and native coverage",
+  "overlap_analysis": [
+   {"capability":"kv","py":"test_kv_cache_matrix + test_phase7_kv_cache (PyTorch training-side KVCache/triton/dtype matrix)","native":"kv_cache_suite (mock ref model) + kv_engine_suite (real engine pool, G95)","verdict":"DIFFERENT SUBJECTS — PyTorch training KV is the parity source for the C++ engine; no dedup"},
+   {"capability":"ntp","py":"test_ntp_correctness (PyTorch loss/packing/sft encode)","native":"ntp_suite (C sampling numerics)","verdict":"different subjects — keep"},
+   {"capability":"inference/engine","py":"test_cpp_inference (pyd binding contract/env gates/fail-closed) + test_cpp_{bf16,fp8,kv_device,batch} (CUDA/batch paths no suite binary covers)","native":"baseline/eval/dialogue suites (engine semantics on real bundle)","verdict":"boundary already documented in test_cpp_inference docstring; suite owns engine semantics, pytest owns binding/governance seam — keep"},
+   {"capability":"audit","py":"audit_checks delegates (governance semantics)","native":"audit_engine_suite","verdict":"complementary by design (delegated lane)"},
+   {"capability":"channel/transport/tool-host/activation/system-rescue/moe/runtime-state","verdict":"native suites own runtime semantics; co-located py tests are governance/binding-side or stale-path artifacts — no evidenced duplication"}
+  ],
+  "migration_candidates": "NONE qualify under the strict rule (native ownership + equal coverage + parity evidence). All py-unit tests examined are PyTorch-training-side, pyd-binding-contract, or governance-semantic — none re-test behavior a native suite owns.",
+  "discrepancy_fixed": "build-test-ownership-inventory.py catch-all now excludes .worktrees/.kilo — inventory 1542→367 canonical; regenerated artifact committed",
+  "governance_tests_preserved": "python decision/permission/governance/fail-closed/cross-language tests untouched (316 py-unit remain canonical)"
+ },
+ "phase4_push_gate_semantics": {
+  "status_map": {
+   "PASS": "counts toward totals; all-PASS + verdict PASS → gate passed",
+   "FAIL": "any failed case → deny (N failed case(s)); suite timeout synthesizes a FAIL case (Program.cs) → counted failure → deny",
+   "BLOCKED": "classified via suite_criticality.json → blocked_classifications; release-critical/unregistered/missing-registry → deny; experimental-only → incomplete_evidence=true, passed=true (INCOMPLETE_EVIDENCE ≠ clean PASS — recorded, never counted as PASS)",
+   "TIMEOUT": "orchestrator-level run budget (120s) → deny run-budget-exceeded; per-suite timeout → FAIL case → deny",
+   "STALE": "stale binaries/manifest → one bounded rebuild (auto_build) else deny; missing/empty manifest revision → stale → deny; report-missing → deny; 0 cases → deny"
+  },
+  "verified": "verdict not in {PASS,INCOMPLETE_EVIDENCE} → deny fail-closed (unknown verdicts never promoted); revision_match binds manifest revision to HEAD",
+  "csharp_no_overwrite": "orchestrator deletes only the PREVIOUS run's per-suite json then the suite regenerates it; consolidated report is a separate file (native-orchestration-report.json); raw per-suite evidence never overwritten by aggregation",
+  "release_semantics": "FAIL/TIMEOUT/STALE → push denied ⇒ VERIFIED_RELEASE unreachable; BLOCKED → INCOMPLETE_EVIDENCE ⇒ no complete VERIFIED_RELEASE"
+ },
+ "phase5_cpp_audit_hotpath": {
+  "engine": "native/audit/audit_engine.cpp — 437 lines, single TU, rebuilt bounded by the gate",
+  "native_kinds": {"file-exists":150,"file-contains":134,"file-readonly":30,"text-no-pollution":19,"json-parses":13,"file-not-contains":8,"file-not-exists":5,"dir-exists":3,"json-has-keys":1,"_total_native":363},
+  "delegated": {"count":27,"kind":"python-check:*","rationale":"governance semantics (authority policy, codex integrity, directory audit, contract axes, protected-source semantic) — correctly stay Python-oracle per A537/G96 delegated lane; executed under the same request so an unfinished delegated set can never pass silently"},
+  "failure_scenarios": {
+   "normal":"all 9 kinds covered by audit_engine_suite tests",
+   "violation":"per-kind fail detail asserted in suite",
+   "missing_manifest":"manifest_fail_closed test + gate regenerates manifest per request",
+   "corrupt_manifest":"manifest_fail_closed (malformed JSON → fail-closed)",
+   "unsupported_kind":"explicit delegated handoff (unsupported kind → DELEGATED status, never silent)",
+   "crash":"nonzero rc / spawn error → gate fail-closed",
+   "timeout":"ENGINE_TIMEOUT_S → status timeout → fail-closed, ends request before delegated lane",
+   "stale_report":"engine rebuilt when sources newer; report produced fresh per run — staleness structurally excluded"
+  },
+  "authority_boundary": "C++ owns audit EXECUTION of reducible kinds; governance semantics and permission authority remain Python — no drift observed; delegated count is explicit in every report"
+ },
+ "phase6_budgets": {
+  "parallelism": "max_parallel_suites=4 / hard cap 8 — enforced identically in push_gate clamp, automation-flows.json, C# orchestrator Math.Clamp(1,8), build.ps1; CORE_BUDGET_CAP=5 (thread_budget.py) + worker-plane 10% aggregate Job Object hard cap unchanged",
+  "timeouts_hard": {"build_s":600,"suite_s":30,"run_budget_s":120,"lock_wait_s":30,"source":"automation-flows.json flows.git-automation.push_gate == push_gate defaults"},
+  "perf_targets_distinct": {
+   "codex_targets":"architecture-git.md: startup 10s, mandatory suite 20s, audit 30s — PERFORMANCE targets, not timeouts",
+   "measurement_objects":"C# orchestrator decomposes process_startup_ms vs actual_test_ms vs result_collection_ms per suite; harness records per-case ms; SIMD bench reports us_per_op (simd_bench_*.json); native-core p95 in shared-layer/performance/native_core_v1.json; IPC p50/p95/p99 via latency_ledger + perf-baseline flow",
+   "separation_verified":"no code path converts a slow-but-passing case into FAIL except the 30s suite cap (a defect bound, documented in push_gate docstring); p95 targets live in benchmark artifacts, never in the gate"
+  },
+  "note":"user-cited 'p95 1ms/5ms' and 'build 20s': closest codified values are codex 20s mandatory-suite target and sub-ms/5ms-band native-op p95s in native_core_v1.json — both are targets, correctly not timeouts"
+ },
+ "gate_results": {"push_gate_tests":"32 passed (G99 suite)","orchestrator_build":"0 warnings 0 errors","current_report":"145 PASS / 0 FAIL / 0 BLOCKED / 21 suites"},
+ "unconverged": [
+  "suite_kv_cache uses an in-file mock reference model — engine-level KV is covered by kv_engine_suite (G95), but the mock-model suite's authority should be re-examined if kv_engine_suite reaches full parity (watch item, not a defect)",
+  "build.ps1 standalone run phase uses 300s/suite while the governed gate uses 30s — same capability, two bounds; harmless (gate never uses the standalone path) but flagged for documentation",
+  "test ownership for NEW suites must keep suite_criticality.json registration mandatory (unregistered = release-critical default already fail-closed)",
+  "cpp_runtime production flip (P12 residual) still pending INT-10 window — unrelated to this closure but noted for traceability"
+ ],
+ "recommendation_adopted": "convergence criteria = unique test owner per native capability + no lost Python governance tests + complete C++ audit failure evidence + correct push-gate status semantics — NOT python-test migration count"
+}
