@@ -258,7 +258,7 @@ class HybridOrchestrator:
             task_instruction=task_instruction,
         )
         executor = RagDagExecutor(handlers, node_timeout_seconds=30.0)
-        result = executor.execute(plan=RagDagPlanner().plan(request, context))
+        result = executor.execute(RagDagPlanner().plan(request, context))
 
         node_evidence = {r.node_id: r.evidence for r in result.node_results}
         succeeded = result.state is RagDagState.SUCCEEDED
@@ -279,15 +279,6 @@ class HybridOrchestrator:
             ranked, required_aspects=required_aspects
         )
         return OrchestratorResult(
-            plan=None,
-            evidence=tuple(ranked),
-            report=report,
-            context=built,
-            generation=route_generation(generation_mode),
-            agentic_rounds=0,
-            degraded=not succeeded or report.degraded,
-            # type: ignore[attr-defined] — see below
-        ) if not hasattr(OrchestratorResult, "metadata") else OrchestratorResult(
             plan=None,
             evidence=tuple(ranked),
             report=report,

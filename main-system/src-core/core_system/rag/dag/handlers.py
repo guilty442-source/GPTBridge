@@ -28,6 +28,10 @@ from .contracts import (
 )
 
 _ARCH_BY_NAME = {arch.value: arch for arch in RagArchitecture}
+# tolerate bare names ("hybrid") alongside enum values ("hybrid-rag")
+_ARCH_BY_NAME.update(
+    {arch.value.removesuffix("-rag"): arch for arch in RagArchitecture}
+)
 
 
 def _resolve(ref: Any, upstream: Mapping[str, Mapping[str, Any]]) -> Any:
