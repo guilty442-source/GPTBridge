@@ -67,19 +67,26 @@ def _window_lines(start: datetime, end: datetime):
 
 
 def _check_uptime(start: datetime, end: datetime, now: datetime) -> dict:
-    try:
-        import psutil
-    except ImportError:
-        return {"passed": False, "blocked": True, "detail": "psutil unavailable"}
+    shared_src = ROOT / "shared-layer" / "src"
+    if str(shared_src) not in sys.path:
+        sys.path.insert(0, str(shared_src))
+    from shared_layer.performance import process_metrics
+
+    if not process_metrics.metrics_available():
+        return {"passed": False, "blocked": True,
+                "detail": "process metrics unavailable"}
     backends = []
-    for p in psutil.process_iter(["pid", "create_time", "cmdline"]):
-        try:
-            cmd = " ".join(p.info["cmdline"] or [])
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+    for pid in process_metrics.process_list():
+        cmd_raw = process_metrics.process_cmdline(pid)
+        if cmd_raw is None:
             continue
+        cmd = cmd_raw
         if "main.py" in cmd and "--serve" in cmd and "main-system" in cmd:
+            create_time = process_metrics.process_create_time(pid)
+            if create_time is None:
+                continue
             backends.append(
-                {"pid": p.info["pid"], "create_time": p.info["create_time"], "cmd": cmd[:120]}
+                {"pid": pid, "create_time": create_time, "cmd": cmd[:120]}
             )
     covered = []
     grace = 120.0  # process spawn lands seconds after the nominal start
