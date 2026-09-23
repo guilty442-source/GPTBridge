@@ -129,10 +129,13 @@ class RagMetadataDocumentsMixin:
                     "DELETE FROM gptbridge_rag.chunk WHERE resource_id = %s",
                     (resource_id,),
                 )
-                for chunk in chunks:
-                    await cur.execute(
+                if chunks:
+                    await cur.executemany(
                         _CHUNK_INSERT_SQL,
-                        _chunk_params(chunk, resource_id, module_id, embedding_model),
+                        [
+                            _chunk_params(chunk, resource_id, module_id, embedding_model)
+                            for chunk in chunks
+                        ],
                     )
             return True
         except Exception as exc:

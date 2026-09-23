@@ -195,6 +195,8 @@ class PipelineOutboxMixin:
         if fetch is None:
             return stats
         events = await fetch(batch)
+        succeeded_ids: list[str] = []
+        batch_mark = getattr(self.postgresql, "mark_outbox_succeeded", None)
         for event in events:
             stats["processed"] += 1
             event_id = str(event["event_id"])
@@ -207,9 +209,12 @@ class PipelineOutboxMixin:
             else:
                 last_error = "apply returned False"
             if ok:
-                await self.postgresql.mark_outbox(
-                    event_id, OutboxState.SUCCEEDED.value, terminal=True
-                )
+                if batch_mark is not None:
+                    succeeded_ids.append(event_id)
+                else:
+                    await self.postgresql.mark_outbox(
+                        event_id, OutboxState.SUCCEEDED.value, terminal=True
+                    )
                 stats["succeeded"] += 1
                 continue
             if attempts >= _OUTBOX_MAX_ATTEMPTS:
@@ -232,6 +237,11 @@ class PipelineOutboxMixin:
                     error=last_error, next_retry_at=retry_at,
                 )
                 stats["retried"] += 1
+        if succeeded_ids and batch_mark is not None:
+            # G102: one UPDATE for the whole successful batch instead of
+            # per-event round trips.  Apply is idempotent (Qdrant upsert /
+            # delete replay), so a crash before this flush simply replays.
+            await batch_mark(succeeded_ids)
         return stats
 
     # -- RAG-10: tombstone / delete guarantee -----------------------------------

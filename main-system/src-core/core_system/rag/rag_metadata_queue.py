@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from .rag_qdrant import IndexState
 from .runtime_state import ReconciliationQueueItem
@@ -816,6 +816,30 @@ class RagMetadataReconciliationMixin:
                 "PostgreSQLMetadataAuthority: mark_outbox failed: %s", exc
             )
             return False
+
+    async def mark_outbox_succeeded(self, event_ids: Sequence[str]) -> int:
+        """Batch terminal SUCCEEDED transition — one UPDATE per drain pass
+        instead of one per event (G102 N+1 fix).  Returns rows updated."""
+        if not self._healthy or not self._conn or not event_ids:
+            return 0
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """UPDATE gptbridge_rag.outbox_event
+                       SET state = 'SUCCEEDED',
+                           attempt_count = attempt_count + 1,
+                           last_error = NULL, next_retry_at = NULL,
+                           updated_at = now(), completed_at = now()
+                       WHERE event_id = ANY(%s)""",
+                    ([str(e) for e in event_ids],),
+                )
+                return cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: mark_outbox_succeeded failed: %s",
+                exc,
+            )
+            return 0
 
     async def outbox_stats(self) -> dict[str, int]:
         """Outbox backlog grouped by state — DEAD_LETTER stays observable."""

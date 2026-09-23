@@ -284,10 +284,10 @@ class LocalSqliteRagRepository:
                 "DELETE FROM gptbridge_rag_chunk WHERE resource_id = ?",
                 (resource_id,),
             )
-            for chunk in chunks:
-                connection.execute(
+            if chunks:
+                connection.executemany(
                     _CHUNK_INSERT_SQL,
-                    _chunk_params(chunk, document, resource_id),
+                    [_chunk_params(chunk, document, resource_id) for chunk in chunks],
                 )
             connection.execute(
                 _INDEX_STATE_UPSERT_SQL,

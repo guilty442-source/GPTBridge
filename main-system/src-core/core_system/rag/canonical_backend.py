@@ -61,6 +61,10 @@ from .generation_binder import GenerationBinder
 
 _logger = logging.getLogger("gptbridge.rag.canonical_backend")
 
+# Bounded reconciliation scan — full-table sweeps require explicit opt-in
+# via ``RagReconcileRequest.full_scan`` (G102 unbounded-query fix).
+_RECONCILE_SCAN_LIMIT = 10_000
+
 
 class CanonicalRagBackend:
     """Canonical RAG backend: Qdrant (alias) + PostgreSQL + Outbox.
@@ -738,8 +742,22 @@ class CanonicalRagBackend:
                     query += f" AND resource_id IN ({placeholders})"
                     params.extend(request.resource_ids)
 
+                if not request.full_scan:
+                    # G102: bounded scan — an unbounded index_state sweep can
+                    # pin a large table scan in one transaction.  Callers that
+                    # truly need the full table pass full_scan=True.
+                    query += " ORDER BY resource_id, chunk_id LIMIT %s"
+                    params.append(_RECONCILE_SCAN_LIMIT)
+
                 cur.execute(query, params)
                 rows = cur.fetchall()
+                if not request.full_scan and len(rows) >= _RECONCILE_SCAN_LIMIT:
+                    _logger.warning(
+                        "CanonicalRagBackend.reconcile: scan hit bound %d "
+                        "(request %s) — rerun with full_scan=True or narrower "
+                        "filters to cover the remainder",
+                        _RECONCILE_SCAN_LIMIT, request.request_id,
+                    )
 
             checked = len(rows)
 
