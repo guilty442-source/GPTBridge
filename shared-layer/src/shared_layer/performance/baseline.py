@@ -15,11 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-try:
-    import psutil
-    _HAS_PSUTIL = True
-except ImportError:  # pragma: no cover
-    _HAS_PSUTIL = False
+from . import process_metrics as _metrics
 
 
 BASELINE_VERSION = "1.0"
@@ -39,8 +35,8 @@ class MachineProfile:
 
 def capture_machine_profile() -> MachineProfile:
     """Capture the current machine profile."""
-    cpu_count = psutil.cpu_count(logical=True) if _HAS_PSUTIL else 0
-    mem = psutil.virtual_memory().total if _HAS_PSUTIL else 0
+    cpu_count = _metrics.cpu_count()
+    mem = max(0, _metrics.system_memory_total_bytes())
     return MachineProfile(
         python_version=sys.version.split()[0],
         platform=platform.platform(),

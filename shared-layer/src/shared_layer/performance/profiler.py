@@ -17,11 +17,9 @@ from dataclasses import dataclass, field
 from io import StringIO
 from typing import Any, Callable, Sequence
 
-try:
-    import psutil
-    _HAS_PSUTIL = True
-except ImportError:  # pragma: no cover
-    _HAS_PSUTIL = False
+import os
+
+from . import process_metrics as _metrics
 
 
 @dataclass(frozen=True)
@@ -97,10 +95,9 @@ def profile_callable(
     """Profile a single invocation of ``func``."""
     profiler = cProfile.Profile()
     tracemalloc.start()
-    process = psutil.Process() if _HAS_PSUTIL else None
     cpu_start = time.process_time()
     wall_start = time.perf_counter()
-    mem_start = process.memory_info().rss if process else 0
+    mem_start = max(0, _metrics.process_working_set_bytes(os.getpid()))
 
     profiler.enable()
     func(*args, **kwargs)
@@ -110,7 +107,7 @@ def profile_callable(
     cpu = time.process_time() - cpu_start
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
-    peak_memory = max(peak, process.memory_info().rss - mem_start if process else 0)
+    peak_memory = max(peak, max(0, _metrics.process_working_set_bytes(os.getpid())) - mem_start)
 
     stats = pstats.Stats(profiler)
     total_calls = stats.total_calls

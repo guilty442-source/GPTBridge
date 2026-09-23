@@ -26,11 +26,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-try:
-    import psutil
-    _HAS_PSUTIL = True
-except ImportError:
-    _HAS_PSUTIL = False
+import os
+
+from . import process_metrics as _metrics
 
 
 BUILD_BASELINE_VERSION = "1.0"
@@ -126,8 +124,8 @@ def _capture_env() -> dict[str, Any]:
     return {
         "python_version": sys.version.split()[0],
         "platform": platform.platform(),
-        "cpu_count": psutil.cpu_count(logical=True) if _HAS_PSUTIL else 0,
-        "memory_total_bytes": psutil.virtual_memory().total if _HAS_PSUTIL else 0,
+        "cpu_count": _metrics.cpu_count(),
+        "memory_total_bytes": max(0, _metrics.system_memory_total_bytes()),
     }
 
 
@@ -144,9 +142,7 @@ def _time_step(
     """Time a single build step."""
     cpu_start = time.process_time()
     wall_start = time.perf_counter()
-    mem_start = 0
-    if _HAS_PSUTIL:
-        mem_start = psutil.Process().memory_info().rss
+    mem_start = max(0, _metrics.process_working_set_bytes(os.getpid()))
 
     success = True
     error_msg = ""
@@ -175,8 +171,8 @@ def _time_step(
     wall = time.perf_counter() - wall_start
     cpu = time.process_time() - cpu_start
     mem = 0
-    if _HAS_PSUTIL:
-        mem = max(0, psutil.Process().memory_info().rss - mem_start)
+    mem_end = _metrics.process_working_set_bytes(os.getpid())
+    mem = max(0, mem_end - mem_start) if mem_end >= 0 else 0
 
     return BuildStepResult(
         step_name=step_name,

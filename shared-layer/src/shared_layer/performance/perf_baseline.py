@@ -26,11 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-try:
-    import psutil
-    _HAS_PSUTIL = True
-except ImportError:  # pragma: no cover
-    _HAS_PSUTIL = False
+from . import process_metrics as _metrics
 
 PERF_BASELINE_VERSION = "2.0"
 
@@ -59,8 +55,8 @@ class EnvironmentProfile:
 
 def capture_environment_profile() -> EnvironmentProfile:
     """Capture the current environment profile."""
-    cpu_count = psutil.cpu_count(logical=True) if _HAS_PSUTIL else 0
-    mem = psutil.virtual_memory().total if _HAS_PSUTIL else 0
+    cpu_count = _metrics.cpu_count()
+    mem = max(0, _metrics.system_memory_total_bytes())
 
     # Detect compiler (best-effort)
     compiler = ""
