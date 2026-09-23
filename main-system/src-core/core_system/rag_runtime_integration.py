@@ -337,13 +337,14 @@ def _build_retrievers(
     surface: _SyncRetrievalSurface,
     embed_query: Callable[[str], list[float]],
     is_canonical: Callable[[], bool],
+    reranker: Any = None,
 ) -> dict[str, Callable[[str, dict[str, Any]], list[RagEvidence]]]:
     """Build the four formal ToolFns the orchestrator may dispatch."""
 
     def _retrieve_hybrid(query: str, scope: dict[str, Any]) -> list[RagEvidence]:
         try:
             embedding = embed_query(query)
-            result = HybridRetriever(surface).retrieve(
+            result = HybridRetriever(surface, reranker=reranker).retrieve(
                 HybridRetrievalRequest(
                     query_text=query,
                     query_embedding=embedding,
@@ -498,8 +499,20 @@ class RagRuntimeIntegration:
                 and not self._pipeline.blocked_reason
             )
 
-        retrievers = _build_retrievers(surface, _embed_query, _is_canonical)
-        self._orchestrator = RagOrchestrator(retrievers)
+        # G50: wire the governed local reranker into both surfaces — the
+        # hybrid retriever's dict surface and the orchestrator's evidence
+        # surface.  Construction is lazy; the model only loads (through
+        # the resource gate) on first use and every failure falls back
+        # to RRF order.
+        from .rag.reranker import LocalCrossEncoderReranker
+
+        reranker = LocalCrossEncoderReranker()
+        retrievers = _build_retrievers(
+            surface, _embed_query, _is_canonical, reranker=reranker
+        )
+        self._orchestrator = RagOrchestrator(
+            retrievers, reranker=reranker.rerank_evidence
+        )
 
         def _audit_sink(record: Any) -> None:
             try:
