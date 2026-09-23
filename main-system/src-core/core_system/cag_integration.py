@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import os
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -42,6 +43,7 @@ class CAGIntegration:
     _hybrid: HybridOrchestrator | None = None
     _rag_orchestrator: RagOrchestrator | None = None
     _preload_task: "asyncio.Task[None] | None" = None
+    _refresh_task: "asyncio.Task[None] | None" = None
     _preload_done: bool = False
     _started: bool = False
 
@@ -100,6 +102,15 @@ class CAGIntegration:
             self._preload_background()
         )
 
+        # Auto-refresh loop: preloaded contexts expire after their TTL
+        # and without a refresher every query would permanently fall
+        # back to RAG until restart.  The loop re-loads contexts that are
+        # missing or within one interval of expiry — real retrieval off
+        # the event loop, bounded cadence, fail-soft per group.
+        self._refresh_task = asyncio.get_running_loop().create_task(
+            self._refresh_loop()
+        )
+
         self._started = True
 
         return {
@@ -118,14 +129,15 @@ class CAGIntegration:
 
         stop_start = time.monotonic()
 
-        task = self._preload_task
-        if task is not None and not task.done():
-            task.cancel()
-            try:
-                await task
-            except (asyncio.CancelledError, Exception):
-                pass
+        for task in (self._preload_task, self._refresh_task):
+            if task is not None and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
         self._preload_task = None
+        self._refresh_task = None
 
         # Clear contexts
         if self._cag_manager:
@@ -197,6 +209,66 @@ class CAGIntegration:
             except Exception:
                 pass
 
+    async def _refresh_loop(self) -> None:
+        """Periodically refresh preloaded contexts before their TTL lapses."""
+        interval = max(
+            30.0,
+            float(os.environ.get("GPTBRIDGE_CAG_REFRESH_INTERVAL_S", "600")),
+        )
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                refreshed = await asyncio.to_thread(
+                    self._refresh_expiring_sync, interval
+                )
+                if refreshed:
+                    self.app._log(
+                        {
+                            "type": "status",
+                            "message": "CAG contexts refreshed",
+                            "ok": True,
+                            "refreshed_contexts": refreshed,
+                        }
+                    )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 — bounded channel
+                try:
+                    self.app._log(
+                        {
+                            "type": "status",
+                            "message": "CAG refresh failed",
+                            "ok": False,
+                            "reason": str(exc),
+                        }
+                    )
+                except Exception:
+                    pass
+
+    def _refresh_expiring_sync(self, interval: float) -> int:
+        """Reload module groups whose context is absent or expires within
+        one refresh interval (blocking — run off-loop)."""
+        if not self._cag_loader or not self._cag_manager:
+            return 0
+        refreshed = 0
+        for modules in self.PRELOAD_MODULE_GROUPS:
+            remaining = self._cag_manager.seconds_until_expiry(modules)
+            if remaining is not None and remaining > interval:
+                continue
+            try:
+                context = self._cag_loader.load_context(
+                    modules, query_hints=tuple(modules)
+                )
+            except Exception:
+                continue
+            if context.documents:
+                try:
+                    self._cag_manager.store(context)
+                    refreshed += 1
+                except Exception:
+                    pass
+        return refreshed
+
     def _preload_contexts_sync(self) -> int:
         """Load contexts for core module groups (blocking — run off-loop)."""
         if not self._cag_loader or not self._cag_manager:
@@ -244,6 +316,10 @@ class CAGIntegration:
             "preloading": (
                 self._preload_task is not None
                 and not self._preload_task.done()
+            ),
+            "refreshing": (
+                self._refresh_task is not None
+                and not self._refresh_task.done()
             ),
             "preload_done": self._preload_done,
             "cag_stats": self._cag_manager.stats() if self._cag_manager else {},

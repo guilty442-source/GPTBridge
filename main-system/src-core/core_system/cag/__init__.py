@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
@@ -152,43 +153,63 @@ class ContextLoader:
 
 
 class ContextManager:
-    """Manages active CAG contexts with LRU eviction."""
+    """Manages active CAG contexts with LRU eviction.
+
+    Thread-safe: preload/refresh run on background threads while query
+    threads read — every public method takes the lock."""
 
     def __init__(self, config: CAGConfig | None = None) -> None:
         self._config = config or CAGConfig()
         self._contexts: dict[str, CAGContext] = {}
         self._access_order: list[str] = []
+        self._lock = threading.Lock()
 
     def store(self, context: CAGContext) -> None:
         """Store a context."""
-        if context.context_id in self._contexts:
-            self._access_order.remove(context.context_id)
-        self._contexts[context.context_id] = context
-        self._access_order.append(context.context_id)
-        self._evict_if_needed()
+        with self._lock:
+            if context.context_id in self._contexts:
+                self._access_order.remove(context.context_id)
+            self._contexts[context.context_id] = context
+            self._access_order.append(context.context_id)
+            self._evict_if_needed()
 
     def get(self, context_id: str) -> Optional[CAGContext]:
         """Retrieve a context by ID."""
-        ctx = self._contexts.get(context_id)
-        if ctx and not ctx.is_expired():
-            # Move to end (MRU)
-            self._access_order.remove(context_id)
-            self._access_order.append(context_id)
-            return ctx
-        elif ctx:
-            self._remove(context_id)
+        with self._lock:
+            ctx = self._contexts.get(context_id)
+            if ctx and not ctx.is_expired():
+                # Move to end (MRU)
+                self._access_order.remove(context_id)
+                self._access_order.append(context_id)
+                return ctx
+            if ctx:
+                self._remove(context_id)
         return None
 
     def find_by_modules(self, module_ids: tuple[str, ...]) -> Optional[CAGContext]:
         """Find a usable context for modules — an empty context must not
         hijack queries that real retrieval could answer."""
-        for ctx in self._contexts.values():
-            if (
-                not ctx.is_expired()
-                and ctx.documents
-                and set(ctx.module_ids) == set(module_ids)
-            ):
-                return ctx
+        with self._lock:
+            for ctx in self._contexts.values():
+                if (
+                    not ctx.is_expired()
+                    and ctx.documents
+                    and set(ctx.module_ids) == set(module_ids)
+                ):
+                    return ctx
+        return None
+
+    def seconds_until_expiry(
+        self, module_ids: tuple[str, ...]
+    ) -> Optional[float]:
+        """Remaining TTL of the context covering exactly these modules
+        (negative when already expired); ``None`` when none usable exists.
+        Drives the background refresh loop — expired or empty contexts
+        count as needing refresh, missing ones need a first load."""
+        with self._lock:
+            for ctx in self._contexts.values():
+                if ctx.documents and set(ctx.module_ids) == set(module_ids):
+                    return ctx.ttl_seconds - (time.time() - ctx.created_at)
         return None
 
     def _evict_if_needed(self) -> None:
@@ -204,11 +225,12 @@ class ContextManager:
             self._access_order.remove(context_id)
 
     def stats(self) -> dict[str, Any]:
-        return {
-            "active_contexts": len(self._contexts),
-            "total_tokens": sum(c.total_tokens for c in self._contexts.values()),
-            "expired": sum(1 for c in self._contexts.values() if c.is_expired()),
-        }
+        with self._lock:
+            return {
+                "active_contexts": len(self._contexts),
+                "total_tokens": sum(c.total_tokens for c in self._contexts.values()),
+                "expired": sum(1 for c in self._contexts.values() if c.is_expired()),
+            }
 
 
 class ContextRouter:
@@ -241,10 +263,16 @@ class ContextRouter:
         # Try to find existing context
         context = self._manager.find_by_modules(module_ids)
 
-        if context is None and self._config.enable_preload:
-            # Load new context
-            context = self._loader.load_context(module_ids)
-            self._manager.store(context)
+        if context is None and self._config.enable_preload and module_ids:
+            # On-demand population: load_context with no query hints can
+            # only produce an empty shell (dead work + a junk LRU entry),
+            # so pass the query itself as the retrieval hint — ad-hoc
+            # module sets self-populate and get reused by later queries.
+            context = self._loader.load_context(
+                module_ids, query_hints=(query,)
+            )
+            if context.documents:
+                self._manager.store(context)
 
         if context and context.documents and not context.is_expired():
             # Use pre-loaded context
