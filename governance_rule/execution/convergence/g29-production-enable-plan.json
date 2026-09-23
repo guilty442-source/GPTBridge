@@ -1,0 +1,26 @@
+{
+  "schema": "g29-production-enable-plan/v1",
+  "generated_at_utc": "2026-09-23T07:00Z",
+  "current": {
+    "cpp_runtime_mode": "off",
+    "env_gate": "XINGCHENG_CPP_RUNTIME",
+    "batch_production_caller": "none (Python batch=1 only)",
+    "pyd_status": "staged, not yet linked to production dispatcher"
+  },
+  "target": {
+    "cpp_runtime_mode": "fallback (C++ primary, Python fallback on fail-closed)",
+    "env_gate": "XINGCHENG_CPP_RUNTIME=fallback",
+    "batch_production_caller": "native_engine dispatcher with batch>1 (generate_batch)",
+    "pyd_status": "production .pyd linked via execution/dispatch.py"
+  },
+  "steps": [
+    "1. Verify scheduler_parity_suite passes (G100) — ensures C scheduler primary is safe",
+    "2. Enable XINGCHENG_CPP_RUNTIME=fallback in main-system/config/native-engine.json (governed, not code)",
+    "3. Wire execution/dispatch.py to call native_engine.generate_batch when batch>1",
+    "4. Rebuild production .pyd via native/test_suites/build.ps1 (requires P0-1 window release, 5-core budget)",
+    "5. Measure parity: logits diff <=1e-3, greedy identical, p95 <5ms, no Python fallback in hot path"
+  ],
+  "acceptance": "logits diff <=1e-3, greedy identical, p95 <5ms, no fallback in hot path, P0-1 window not polluted",
+  "blocked_by": "P0-1 24h window (heavy build) + G100 shadow→primary gate (2-release window)",
+  "note": "Per G29: production enable is P1, not blocking P0-1; plan is derived, not authoritative"
+}
