@@ -1,23 +1,29 @@
 {
-  "schema": "convergence-evidence/v1",
-  "evidence_id": "g101-generation-snapshot-20260923",
-  "recorded_at_utc": "2026-09-23T05:21:54Z",
-  "item": "G101 Git 收斂 increment 1: per-generation shared snapshot + event invalidation + affected scope",
-  "changes": [
-    "git_tiers/generation_snapshot.py (new): GenerationSnapshot — head_oid/branch/upstream/ahead/behind/dirty/fingerprint/changed/staged/unstaged paths + affected_scope + status_map from ONE 'status --porcelain=v2 -z --branch' + one 'diff --numstat HEAD' per capture; zero-subprocess probe (.git HEAD ref content + index sha256 + packed-refs/MERGE_HEAD stat) keyed per worktree; post-capture re-probe so git status's own index refresh never self-invalidates; notify_changed() event invalidation; scope_of() mapping (Standalone tools/<tool>, .worktrees/<name>, top-level dir, (root))",
-    "self_commit.py: run_once/_run_once_unlocked accept shared snapshot (skips duplicate porcelain read); notify_changed after successful commit; commit subject now names affected scopes",
-    "git_automation.py: sweep consumes generation_snapshot per worktree (fingerprint keeps numstat semantics so debounce contract unchanged) and passes it to run_once — one capture per worktree per tick instead of status+porcelain; sweep state records affected_scope",
-    "workspace_sync.py: per-worktree dirty check reads the shared snapshot (max_age_s=0 hard freshness) instead of a separate status call"
-  ],
-  "tests": [
-    "git_tiers/tests/test_generation_snapshot.py: 10/10 — fields, dirty paths + scope mapping, cache reuse, probe-change recapture, notify_changed invalidation, TTL-0 hard freshness, dirty-edit TTL aging, non-worktree, scope_of mapping, staged/unstaged split",
-    "test_self_commit.py::test_commit_lease_defers_sweep standalone PASS (50s; slow but green — xdist worker kill is a pre-existing environment issue)",
-    "real-repo smoke: capture 1.78s → cached 0.000s; dirty=True, scopes=(root, local-model, governance_rule, main-system, shared-layer)"
-  ],
-  "deferred": [
-    "filesystem watcher (ReadDirectoryChangesW) for external writes — dirty edits between ticks still rely on sweep cadence (probe only covers .git metadata); notify_changed covers in-process writers now",
-    "queue-event-driven sync trigger (merge-queue writes waking the sync cycle before the 300s interval)",
-    "per-scope commit splitting — debounce already batches a task's stable changes into one commit; splitting by affected_scope is a larger behavior change needing its own increment"
-  ],
-  "notes": "freshness contract: probe covers commits/staging/checkouts (0-subprocess); pure worktree edits are TTL-bounded — correctness gates pass max_age_s=0, the 60s sweep passes its interval. ahead/behind come free from porcelain branch.ab."
+ "schema": "convergence-evidence/v1",
+ "evidence_id": "g101-generation-snapshot-20260923",
+ "recorded_at_utc": "2026-09-23T05:31:25Z",
+ "item": "G101 Git 整合 increment 1+2: per-generation shared snapshot + event invalidation + affected scope + queue-event sync",
+ "changes": [
+  "git_tiers/generation_snapshot.py (new): GenerationSnapshot — head_oid/branch/upstream/ahead/behind/dirty/fingerprint/changed/staged/unstaged paths + affected_scope + status_map from ONE 'status --porcelain=v2 -z --branch' + one 'diff --numstat HEAD' per capture; zero-subprocess probe (.git HEAD ref content + index sha256 + packed-refs/MERGE_HEAD stat) keyed per worktree; post-capture re-probe so git status's own index refresh never self-invalidates; notify_changed() event invalidation; scope_of() mapping (Standalone tools/<tool>, .worktrees/<name>, top-level dir, (root))",
+  "self_commit.py: run_once/_run_once_unlocked accept shared snapshot (skips duplicate porcelain read); notify_changed after successful commit; commit subject now names affected scopes",
+  "git_automation.py: sweep consumes generation_snapshot per worktree (fingerprint keeps numstat semantics so debounce contract unchanged) and passes it to run_once — one capture per worktree per tick instead of status+porcelain; sweep state records affected_scope",
+  "workspace_sync.py: per-worktree dirty check reads the shared snapshot (max_age_s=0 hard freshness) instead of a separate status call",
+  "workspace_sync.py: dirty-worktree gate reads generation_snapshot(path, max_age_s=0.0) — one snapshot read path for all correctness gates (commit 12d22fe9; split from a foreign run_audit_request hunk in the same file)",
+  "git_automation.py: _cycle_tick probes merge-queue file each sweep tick — a pending entry is a queue event that runs the sync immediately instead of waiting for the 300s interval; queue-file path resolved once via git-common-dir, no per-tick subprocess"
+ ],
+ "tests": [
+  "git_tiers/tests/test_generation_snapshot.py: 10/10 — fields, dirty paths + scope mapping, cache reuse, probe-change recapture, notify_changed invalidation, TTL-0 hard freshness, dirty-edit TTL aging, non-worktree, scope_of mapping, staged/unstaged split",
+  "test_self_commit.py::test_commit_lease_defers_sweep standalone PASS (50s; slow but green — xdist worker kill is a pre-existing environment issue)",
+  "real-repo smoke: capture 1.78s → cached 0.000s; dirty=True, scopes=(root, local-model, governance_rule, main-system, shared-layer)",
+  "queue-file resolution verified on real repo (.git/gptbridge-automation/merge-queue/queue.json, pending=False)",
+  "cycle-tick contract verified: queue event with sync not due -> sync ran; no event + not due -> no sync"
+ ],
+ "deferred": [
+  "filesystem watcher (ReadDirectoryChangesW) for external writes — dirty edits between ticks still rely on sweep cadence (probe only covers .git metadata); notify_changed covers in-process writers now",
+  "per-scope commit splitting — debounce already batches a task's stable changes into one commit; splitting by affected_scope is a larger behavior change needing its own increment",
+  "filesystem watcher (ReadDirectoryChangesW) for writes outside git operations — deferred; TTL+probe covers invalidation today",
+  "per-scope commit grouping (split one dirty worktree into per-scope commits) — deferred pending authorization model",
+  "single integration push — coordinator-owned, follows G66/G67 closure"
+ ],
+ "notes": "freshness contract: probe covers commits/staging/checkouts (0-subprocess); pure worktree edits are TTL-bounded — correctness gates pass max_age_s=0, the 60s sweep passes its interval. ahead/behind come free from porcelain branch.ab."
 }

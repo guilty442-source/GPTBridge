@@ -66,6 +66,7 @@ class GitAutomationService:
         self._stop_event = asyncio.Event()
         self._dirty_since: dict[str, tuple[str, float]] = {}
         self._next_sync_at = 0.0
+        self._queue_file_path: Path | None = None
         self._last_sweep: dict[str, Any] = {}
         self._last_sync: dict[str, Any] = {}
         self._sweeps = 0
@@ -162,14 +163,61 @@ class GitAutomationService:
 
     async def _cycle_tick(self) -> None:
         """One sweep + due-gated sync — shared by the private loop and the
-        PeriodicScheduler job (§10.63 R3)."""
+        PeriodicScheduler job (§10.63 R3).  G101/§3.3: a pending merge-queue
+        entry is a queue event — it runs the sync early instead of waiting
+        for the fixed interval."""
         if self._stop_event.is_set():
             return
         await self.run_sweep()
         now = time.monotonic()
-        if now >= self._next_sync_at:
+        queue_event = await asyncio.to_thread(self._queue_has_pending)
+        if queue_event or now >= self._next_sync_at:
             await self.run_sync()
             self._next_sync_at = now + self.sync_interval
+
+    def _queue_file(self) -> Path | None:
+        """Merge-queue file in the repo-common dir (resolved once — the
+        layout never changes for a service instance)."""
+        if self._queue_file_path is not None:
+            return self._queue_file_path
+        from governance_rule.execution.git_tiers.git_repository import (
+            GitRepository,
+        )
+
+        try:
+            repo = GitRepository(self.project_root)
+            raw = (
+                repo.run(["rev-parse", "--git-common-dir"]).stdout or ""
+            ).strip()
+            common = Path(raw)
+            if not common.is_absolute():
+                common = repo.path / common
+            self._queue_file_path = (
+                common.resolve()
+                / "gptbridge-automation"
+                / "merge-queue"
+                / "queue.json"
+            )
+        except Exception:
+            self._queue_file_path = None
+        return self._queue_file_path
+
+    def _queue_has_pending(self) -> bool:
+        """True when the merge queue holds a pending entry (queue event).
+
+        The queue file lives in the repo-common dir so a cheap read per
+        tick detects cross-process enqueues without parsing every cycle.
+        """
+        queue_file = self._queue_file()
+        try:
+            payload = json.loads(queue_file.read_text(encoding="utf-8"))
+        except Exception:
+            return False
+        entries = payload.get("entries") if isinstance(payload, dict) else []
+        return any(
+            isinstance(e, dict) and e.get("status") == "pending"
+            for e in entries or []
+        )
 
     # -- operations -----------------------------------------------------
 
