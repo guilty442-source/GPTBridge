@@ -2,8 +2,8 @@
 
 Loads and validates command_code_directory contracts for the gateway.
 
-The authoritative directory is the governance codex SQLite
-(``governance_rule/codex/data/governance_codex.sqlite3`` —
+The authoritative directory is the governance codex
+(``postgresql://local/gptbridge_codex`` —
 ``command_code_directory(command_code)``).  A legacy JSON directory
 (``<project_root>/command_code_directory/*.json``) is still honoured for
 compatibility.  Lookups re-check the sources so a codex amendment becomes

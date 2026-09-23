@@ -7,6 +7,8 @@ import re
 import sqlite3
 from pathlib import Path
 
+import psycopg
+
 from governance_rule.execution.codex_repository import (
     codex_readonly_connection,
     codex_version_units,
@@ -86,7 +88,7 @@ def check_directory_audit(root: Path, errors: list[str]) -> None:
     for check in checks:
         try:
             check(root, errors)
-        except sqlite3.Error as error:
+        except (sqlite3.Error, psycopg.Error) as error:
             errors.append(f"{check.__name__} failed reading the codex: {error}")
 
 
