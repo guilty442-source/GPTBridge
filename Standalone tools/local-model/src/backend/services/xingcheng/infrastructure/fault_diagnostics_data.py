@@ -23,9 +23,6 @@ from pathlib import Path
 from typing import Any, Final
 
 
-_CODEX_RELATIVE: Final[tuple[str, ...]] = (
-    "governance_rule", "codex", "data", "governance_codex.sqlite3",
-)
 _STATE_RELATIVE: Final[tuple[str, ...]] = (
     "main-system", "runtime", "state",
 )

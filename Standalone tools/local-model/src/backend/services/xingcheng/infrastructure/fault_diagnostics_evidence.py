@@ -52,7 +52,7 @@ class FaultDiagnosticsEvidenceMixin:
 
     def fault_code_directory(self) -> list[dict[str, Any]]:
         """All registered fault codes from the authoritative directory."""
-        if not self.codex_path.is_file():
+        if not self._codex_available():
             return []
         try:
             rows = self._codex_read(
@@ -77,7 +77,7 @@ class FaultDiagnosticsEvidenceMixin:
 
     def maintenance_manuals(self) -> list[dict[str, Any]]:
         """All governed maintenance-manual rows."""
-        if not self.codex_path.is_file():
+        if not self._codex_available():
             return []
         try:
             rows = self._codex_read(

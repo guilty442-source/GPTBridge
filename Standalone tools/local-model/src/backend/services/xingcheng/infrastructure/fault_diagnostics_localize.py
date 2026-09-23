@@ -17,7 +17,7 @@ class FaultDiagnosticsLocalizeMixin:
 
     def _module_owner_index(self) -> dict[str, dict[str, str]]:
         """A334 module_assignment_registry → module ownership index."""
-        if not self.codex_path.is_file():
+        if not self._codex_available():
             return {}
         try:
             rows = self._codex_read(

@@ -16,17 +16,12 @@ reports findings and governed remediation steps only.
 """
 
 from __future__ import annotations
-import json
-import re
-import sqlite3
 from pathlib import Path
-from typing import Any, Final
 
 from .fault_diagnostics_aux import FaultDiagnosticsAuxMixin
 from .fault_diagnostics_evidence import FaultDiagnosticsEvidenceMixin
 from .fault_diagnostics_localize import FaultDiagnosticsLocalizeMixin
 from .fault_diagnostics_data import (
-    _CODEX_RELATIVE,
     _FAULT_KEYWORDS,
     _STATE_RELATIVE,
 )
@@ -41,8 +36,19 @@ class FaultDiagnostics(
 
     def __init__(self, project_root: Path | str) -> None:
         self.project_root = Path(project_root).resolve()
-        self.codex_path = self.project_root.joinpath(*_CODEX_RELATIVE)
         self.state_dir = self.project_root.joinpath(*_STATE_RELATIVE)
+
+    def _codex_available(self) -> bool:
+        """True when the governed PostgreSQL codex authority answers."""
+        try:
+            from governance_rule.execution.codex_postgresql import (
+                authority_state,
+            )
+
+            authority_state()
+            return True
+        except Exception:
+            return False
 
     @staticmethod
     def looks_like_fault(text: str) -> bool:
