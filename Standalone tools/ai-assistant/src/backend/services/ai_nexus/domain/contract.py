@@ -6,7 +6,7 @@ from pathlib import Path
 
 def _investment_app_version() -> str:
     try:
-        from core_system.versioning import component_version
+        from shared_layer.registry.versioning import component_version
 
         return component_version("ai-assistant")
     except Exception:

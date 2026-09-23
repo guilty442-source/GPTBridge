@@ -7,7 +7,7 @@ from typing import Final
 
 def _file_sorter_version() -> str:
     try:
-        from core_system.versioning import component_version
+        from shared_layer.registry.versioning import component_version
 
         return component_version("file-sorter")
     except Exception:

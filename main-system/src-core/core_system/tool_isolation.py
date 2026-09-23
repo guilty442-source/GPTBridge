@@ -114,6 +114,8 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
         self._policy_mtime: float = 0.0
         self._monitor_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        # §1.1: True when the automation core drives the health cadence.
+        self._core_driven: bool | None = None
         self._crash_callbacks: list = []
 
     def _load_policy_config(self) -> dict[str, Any]:

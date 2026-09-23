@@ -18,7 +18,7 @@ __all__ = ["AiCollaborationService"]
 
 def _service_version() -> str:
     try:
-        from core_system.versioning import component_version
+        from shared_layer.registry.versioning import component_version
 
         return component_version("ai-collaboration")
     except Exception:

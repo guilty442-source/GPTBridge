@@ -302,7 +302,11 @@ async def run_startup_sequence(app: Any) -> bool:
                     crash_info["exit_code"] = entry.process.returncode
                 notifier.push_tool_crash_event(tool_id, crash_info, loop=loop)
             iso_mgr.register_crash_callback(_on_crash)
-        iso_mgr.start_monitor(interval=30.0, light=True)
+        iso_mgr.start_monitor(
+            interval=30.0,
+            light=True,
+            automation_core=getattr(app, "automation_core", None),
+        )
     except Exception as error:
         app._record_startup_failure("tool_isolation_monitor", error)
     app._mark_startup_phase("main_runtime_ready")

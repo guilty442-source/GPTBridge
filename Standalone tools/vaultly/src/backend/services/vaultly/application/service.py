@@ -22,7 +22,7 @@ from .vaultly_utils import VaultlyUtilsMixin
 
 def _service_version() -> str:
     try:
-        from core_system.versioning import component_version
+        from shared_layer.registry.versioning import component_version
 
         return component_version("vaultly")
     except Exception:

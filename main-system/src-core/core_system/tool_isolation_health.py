@@ -6,6 +6,7 @@ and the background monitoring loop for the ToolIsolationManager.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -474,18 +475,48 @@ class ToolIsolationHealthMixin:
             tool_ids = list(self._entries.keys())
         return [self.shutdown_tool(tid, timeout) for tid in tool_ids]
 
-    def start_monitor(self, interval: float = 30.0, *, light: bool = True) -> None:
-        """Start a background thread that periodically checks tool health.
+    def start_monitor(
+        self,
+        interval: float = 30.0,
+        *,
+        light: bool = True,
+        automation_core: Any = None,
+    ) -> None:
+        """Start periodic tool health checks.
+
+        §1.1 自動化集中：when the automation core is handed in it owns the
+        cadence via the ``tool-isolation-health`` flow — a denied
+        registration (unlisted/kill-switched) does NOT fall back to the
+        private thread.  Without a core the monitor keeps its daemon
+        thread.
 
         Args:
             interval: Check interval in seconds (default 30s).
             light: If True, use light checks (process alive only). If False, use
                    full psutil CPU/memory checks.
+            automation_core: governed flow registry, or None.
         """
         if self._monitor_thread is not None and self._monitor_thread.is_alive():
             return
         self._stop_event.clear()
         self._monitor_light = light
+        if automation_core is not None:
+            async def _tick() -> None:
+                await asyncio.to_thread(self._monitor_once)
+
+            self._core_driven = bool(
+                automation_core.register_flow(
+                    "tool-isolation-health", _tick, interval_s=interval
+                )
+            )
+            if not self._core_driven:
+                _logger.warning("tool_isolation_monitor flow denied")
+            else:
+                _logger.info(
+                    "tool_isolation_monitor_started loop=automation-core "
+                    "interval=%.1fs", interval,
+                )
+            return
         self._monitor_thread = threading.Thread(
             target=self._monitor_loop,
             args=(interval,),
@@ -522,47 +553,51 @@ class ToolIsolationHealthMixin:
         active = str(state.get("active_generation") or "").strip()
         return bool(active) and active != generation
 
+    def _monitor_once(self) -> None:
+        """One health sweep over tracked tools — the flow-tick unit."""
+        light = getattr(self, "_monitor_light", True)
+        with self._lock:
+            tool_ids = list(self._entries.keys())
+        for tid in tool_ids:
+            if self._stop_event.is_set():
+                break
+            with self._lock:
+                entry = self._entries.get(tid)
+            if entry is not None and (
+                entry.crashed or entry.quarantined or entry.expected_stop
+            ):
+                continue
+            health = self.check_tool_health(tid, light=light)
+            if health.get("status") == "crashed":
+                # TOCTOU guard: a governed stop may have marked
+                # expected_stop between the flag check above and the
+                # health verdict — re-read the entry before declaring
+                # a crash.
+                with self._lock:
+                    entry = self._entries.get(tid)
+                if entry is not None and (
+                    entry.crashed or entry.quarantined or entry.expected_stop
+                ):
+                    continue
+                if self._superseded_by_newer_generation():
+                    with self._lock:
+                        replaced = self._entries.get(tid)
+                        if replaced is not None:
+                            replaced.crashed = True
+                    continue
+                _logger.warning(
+                    "tool_isolation_crash_detected tool_id=%s pid=%s",
+                    tid, health.get("pid"),
+                )
+                # handle_crash already invokes crash callbacks;
+                # do not duplicate the notification here.
+                self.handle_crash(tid)
+
     def _monitor_loop(self, interval: float) -> None:
         """Background health check loop — detects crashes and notifies."""
-        light = getattr(self, "_monitor_light", True)
         while not self._stop_event.is_set():
             try:
-                with self._lock:
-                    tool_ids = list(self._entries.keys())
-                for tid in tool_ids:
-                    if self._stop_event.is_set():
-                        break
-                    with self._lock:
-                        entry = self._entries.get(tid)
-                    if entry is not None and (
-                        entry.crashed or entry.quarantined or entry.expected_stop
-                    ):
-                        continue
-                    health = self.check_tool_health(tid, light=light)
-                    if health.get("status") == "crashed":
-                        # TOCTOU guard: a governed stop may have marked
-                        # expected_stop between the flag check above and the
-                        # health verdict — re-read the entry before declaring
-                        # a crash.
-                        with self._lock:
-                            entry = self._entries.get(tid)
-                        if entry is not None and (
-                            entry.crashed or entry.quarantined or entry.expected_stop
-                        ):
-                            continue
-                        if self._superseded_by_newer_generation():
-                            with self._lock:
-                                replaced = self._entries.get(tid)
-                                if replaced is not None:
-                                    replaced.crashed = True
-                            continue
-                        _logger.warning(
-                            "tool_isolation_crash_detected tool_id=%s pid=%s",
-                            tid, health.get("pid"),
-                        )
-                        # handle_crash already invokes crash callbacks;
-                        # do not duplicate the notification here.
-                        self.handle_crash(tid)
+                self._monitor_once()
             except Exception as exc:
                 _logger.error("tool_isolation_monitor_error: %s", exc, exc_info=True)
             self._stop_event.wait(timeout=interval)

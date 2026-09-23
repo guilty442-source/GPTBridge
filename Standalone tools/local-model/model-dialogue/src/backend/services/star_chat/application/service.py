@@ -13,7 +13,7 @@ from .service_helpers import StarChatHelpersMixin
 
 def _service_version() -> str:
     try:
-        from core_system.versioning import component_version
+        from shared_layer.registry.versioning import component_version
 
         return component_version("model-dialogue")
     except Exception:
