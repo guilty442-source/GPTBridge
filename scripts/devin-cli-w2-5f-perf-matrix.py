@@ -1,4 +1,4 @@
-﻿"""W2-3 Phase 5F: Python/C++ dual-path performance matrix (per-layer + end-to-end).
+"""W2-3 Phase 5F: Python/C++ dual-path performance matrix (per-layer + end-to-end).
 
 Builds tiny XingCheng models (fixed seed/config), exports the C++ bundle,
 and times both inference paths:

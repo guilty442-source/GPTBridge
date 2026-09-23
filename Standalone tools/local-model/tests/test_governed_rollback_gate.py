@@ -1,4 +1,4 @@
-﻿"""Governed rollback gate (2026-09-22 governor ruling: prune-latest first).
+"""Governed rollback gate (2026-09-22 governor ruling: prune-latest first).
 
 Rollback targets must be retained, certified and config-compatible; the
 gate fails closed (WEIGHTS_ROLLBACK_DENIED) otherwise.

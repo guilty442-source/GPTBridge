@@ -1,4 +1,4 @@
-﻿"""P1-7：CLI／watch 路徑必須涵蓋 apply_retention（§10.67）。"""
+"""P1-7：CLI／watch 路徑必須涵蓋 apply_retention（§10.67）。"""
 from __future__ import annotations
 
 import _xingcheng_test_support as _support  # noqa: F401

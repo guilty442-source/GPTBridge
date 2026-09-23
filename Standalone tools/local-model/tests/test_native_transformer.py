@@ -1,4 +1,4 @@
-﻿"""local-model native transformer consolidated test suite (A57/E43)
+"""local-model native transformer consolidated test suite (A57/E43)
 
 One managed test file per module, maintained by the
 maintenance sovereign for self-health (self-test collection).

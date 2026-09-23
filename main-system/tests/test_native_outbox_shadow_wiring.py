@@ -1,4 +1,4 @@
-﻿"""§10.65 act-1 shadow wiring tests for state_outbox.
+"""§10.65 act-1 shadow wiring tests for state_outbox.
 
 Covers flag gating, item-by-item comparison of hello/ack/drain-plan
 decisions, divergence auditing, and fail-closed behaviour.  Native-

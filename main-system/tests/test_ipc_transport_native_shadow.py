@@ -1,4 +1,4 @@
-﻿"""section 10.65 act-1 shadow wiring tests for ipc_server transport.
+"""section 10.65 act-1 shadow wiring tests for ipc_server transport.
 
 The harness pushes each inbound WebSocket frame through the C
 NativeIpcRegistry single-slot transport and compares the echoed payload

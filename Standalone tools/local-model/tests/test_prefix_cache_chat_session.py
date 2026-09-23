@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Prefix KV 重用、多輪 ChatSession、executor 生命週期簿記。"""
 from __future__ import annotations
 

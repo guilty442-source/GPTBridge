@@ -1,4 +1,4 @@
-﻿"""EC-3 自動記憶端到端：correlation／來源 AI／可查詢重用／免手動卡片。"""
+"""EC-3 自動記憶端到端：correlation／來源 AI／可查詢重用／免手動卡片。"""
 from __future__ import annotations
 
 from _ai_collaboration_test_support import *  # noqa: F401,F403

@@ -1,4 +1,4 @@
-﻿"""星澄原生對話路由：自有權重優先回答（settings 啟用時）。"""
+"""星澄原生對話路由：自有權重優先回答（settings 啟用時）。"""
 from __future__ import annotations
 
 import _xingcheng_test_support as _support  # noqa: F401

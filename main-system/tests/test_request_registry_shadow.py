@@ -1,4 +1,4 @@
-﻿"""§10.65 act-1 shadow wiring tests for request_registry.
+"""§10.65 act-1 shadow wiring tests for request_registry.
 
 The harness runs the C ``NativeIpcRegistry`` request table in parallel
 while Python stays authoritative; these tests cover flag parsing,

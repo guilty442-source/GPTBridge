@@ -1,4 +1,4 @@
-﻿"""§10.65 act-1 shadow wiring tests for maintenance_controller.
+"""§10.65 act-1 shadow wiring tests for maintenance_controller.
 
 The harness runs the C ``NativeMaintenance`` admission/queue model in
 parallel while Python stays authoritative; these tests cover flag

@@ -1,4 +1,4 @@
-﻿"""section 10.65 act-1 shadow wiring tests for model_service_activation.
+"""section 10.65 act-1 shadow wiring tests for model_service_activation.
 
 The harness runs the C NativeActivationBroker decision ladder in
 parallel while Python stays authoritative; covers flag parsing,

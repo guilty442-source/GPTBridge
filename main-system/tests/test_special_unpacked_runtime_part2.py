@@ -1,4 +1,4 @@
-﻿"""Split from consolidated test_main_system.py (main-system/tests/test_special_unpacked_runtime.py)."""
+"""Split from consolidated test_main_system.py (main-system/tests/test_special_unpacked_runtime.py)."""
 from __future__ import annotations
 
 import _main_system_test_support as _support  # noqa: F401

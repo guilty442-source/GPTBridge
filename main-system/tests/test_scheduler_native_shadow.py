@@ -1,4 +1,4 @@
-﻿"""Blueprint 10.65 act-1 shadow wiring tests for periodic_scheduler.
+"""Blueprint 10.65 act-1 shadow wiring tests for periodic_scheduler.
 
 The harness runs the C ``NativeScheduler`` job table in parallel while
 Python stays authoritative; these tests cover flag parsing, parity

@@ -1,4 +1,4 @@
-﻿"""§10.65 act-1 shadow wiring tests for connection_watchdog.
+"""§10.65 act-1 shadow wiring tests for connection_watchdog.
 
 The harness runs the C ``NativeWatchdog`` in parallel while Python stays
 authoritative; these tests cover flag parsing, parity silence, divergence
