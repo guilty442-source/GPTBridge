@@ -380,8 +380,11 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
                 if callable(compact):
                     # The backend owns the refresh: every cycle evaluates and
                     # pushes a compact health report; clients only render it.
+                    # Bounded: a hung projection must not freeze the push loop.
                     try:
-                        status_payload = await asyncio.to_thread(compact, snapshot)
+                        status_payload = await asyncio.wait_for(
+                            asyncio.to_thread(compact, snapshot), timeout=10.0
+                        )
                     except Exception:
                         status_payload = {}
                 elif snapshot is not None:
@@ -403,7 +406,14 @@ async def _runtime_status_push_loop(app_instance, shutdown_event: asyncio.Event)
                     dead: list[UIShell] = []
                     for ui in list(shells):
                         try:
-                            await ui.send_event("runtime_status_push", status_payload)
+                            # Bounded send: one wedged client must not
+                            # stall pushes to every other shell.
+                            await asyncio.wait_for(
+                                ui.send_event(
+                                    "runtime_status_push", status_payload
+                                ),
+                                timeout=5.0,
+                            )
                         except Exception:
                             dead.append(ui)
                     for ui in dead:

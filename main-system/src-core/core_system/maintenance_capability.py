@@ -9,10 +9,13 @@ detects whether maintenance-relevant functions/components are present.
 from __future__ import annotations
 
 import asyncio
+import logging
 import shutil
 import sys
 from pathlib import Path
 from typing import Any
+
+_logger = logging.getLogger("gptbridge.maintenance_capability")
 
 from shared_layer.service_probe import probe_registered_local_service
 
@@ -147,8 +150,25 @@ class MaintenanceCapabilityMixin:
             }
 
     async def _capability_check_loop(self) -> None:
+        # Fallback loop (no automation core): bound each tick — a hung
+        # capability probe must not freeze the loop silently.
+        tick_deadline = max(
+            30.0, min(600.0, float(self._capability_interval_seconds) * 5)
+        )
         while not self._stop_requested():
-            await self._capability_check_tick()
+            try:
+                await asyncio.wait_for(
+                    self._capability_check_tick(), timeout=tick_deadline
+                )
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "capability check tick exceeded %.0fs deadline",
+                    tick_deadline,
+                )
+            except Exception:
+                pass  # tick already reports; never kill the loop
             try:
                 await asyncio.sleep(self._capability_interval_seconds)
             except asyncio.CancelledError:

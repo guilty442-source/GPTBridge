@@ -131,7 +131,11 @@ class HybridRetriever:
             from services.xingcheng.infrastructure.local_sqlite_pool import LocalSqlitePool
             from pathlib import Path
 
-            pool = LocalSqlitePool(Path.cwd())
+            # Anchor to the governed tool root, never cwd — under pytest
+            # or foreign launchers cwd is the repo root and the pool would
+            # create stray runtime/state files outside governed roots.
+            _tool_root = Path(__file__).resolve().parents[6]
+            pool = LocalSqlitePool(_tool_root)
             conn = pool.rag_dsn()
             import sqlite3
             conn = sqlite3.connect(conn)

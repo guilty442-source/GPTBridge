@@ -31,7 +31,10 @@ under 500 lines.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
+
+_logger = logging.getLogger("gptbridge.maintenance_repair_chain")
 
 
 
@@ -137,11 +140,24 @@ class MaintenanceRepairChainMixin:
         signals (health-only scope, A154) and delegates the repair
         DECISION to the decision-sovereign.
         """
+        # Fallback loop (no automation core): bound each tick — a hung
+        # classification pass must not freeze the loop silently.
+        tick_deadline = max(
+            30.0, min(600.0, self._REPAIR_POLL_INTERVAL_SECONDS * 5)
+        )
         while not self._stop_requested():
             try:
-                await asyncio.to_thread(self._process_pending_repair_requests)
+                await asyncio.wait_for(
+                    asyncio.to_thread(self._process_pending_repair_requests),
+                    timeout=tick_deadline,
+                )
             except asyncio.CancelledError:
                 raise
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "repair classification tick exceeded %.0fs deadline",
+                    tick_deadline,
+                )
             except Exception:
                 pass  # Best-effort; never crash the sovereign.
             try:
