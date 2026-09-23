@@ -21,6 +21,7 @@ SHARED_SRC = ROOT / "shared-layer" / "src"
 if str(SHARED_SRC) not in sys.path:
     sys.path.insert(0, str(SHARED_SRC))
 
+from governance_rule.execution.codex_postgresql import authority_state  # noqa: E402
 from governance_rule.execution.integrity.python_release_dependencies import (  # noqa: E402
     validate_forbidden_release_content,
     validate_governance_references,
@@ -31,7 +32,6 @@ from governance_rule.execution.integrity.python_release_dependencies import (  #
 from shared_layer.database import release_manifest  # noqa: E402
 
 VENV_ROOT = Path(sys.executable).resolve().parents[1]
-REAL_CODEX = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 
 
 def _write_package(root: Path, name: str) -> Path:
@@ -435,7 +435,7 @@ def test_ipc_contract_compatibility(tmp_path: Path) -> None:
 def test_original_backend_unaffected(tmp_path: Path) -> None:
     pyvenv = VENV_ROOT / "pyvenv.cfg"
     before_pyvenv = hashlib.sha256(pyvenv.read_bytes()).hexdigest()
-    before_codex = hashlib.sha256(REAL_CODEX.read_bytes()).hexdigest()
+    before_codex = str(authority_state().get("source_sha256") or "")
     release = tmp_path / "releaseA"
     _write_package(release, "pkg_release")
     contract = _contract(
@@ -451,6 +451,6 @@ def test_original_backend_unaffected(tmp_path: Path) -> None:
     result = _validate(contract, release_root=release, extra_paths=[release])
     assert result["ok"] is True
     shipped = release_manifest.load_dependency_contract()
-    assert validate_governance_references(shipped, codex_path=REAL_CODEX) == []
+    assert validate_governance_references(shipped) == []
     assert hashlib.sha256(pyvenv.read_bytes()).hexdigest() == before_pyvenv
-    assert hashlib.sha256(REAL_CODEX.read_bytes()).hexdigest() == before_codex
+    assert str(authority_state().get("source_sha256") or "") == before_codex

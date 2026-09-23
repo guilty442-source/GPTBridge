@@ -1,10 +1,10 @@
 {
   "amendment_id": "codex-amendment-request-g36-external-collab-20260923",
   "requested_by": "muse-spark",
-  "change_class": "external-collaboration-sync",
+  "change_class": "architecture-authority",
   "flow": "A382/A488-non-disruptive-amendment-flow",
   "required_gate": "five-sovereign-audit-unanimous-pass",
-  "source_path": "governance_rule/codex/data/governance_codex.sqlite3",
+  "source_path": "postgresql://local/gptbridge_codex",
   "blueprint_anchor": "G36: A528/A538 staged amendment for external collaboration (ai-collaboration)",
   "status": "staged-awaiting-governor",
   "problem": {
@@ -21,7 +21,10 @@
         "population": "import staged left-control spec as codex rows; per-row review is governor-side"
       }
     ],
-    "provisions": ["A528", "A538"]
+    "provisions": [
+      "A528",
+      "A538"
+    ]
   },
   "unblocks": [
     "G36 P1 (external collaboration codex sync)",

@@ -36,7 +36,6 @@ from governance_rule.execution.integrity.python_release_dependencies import (  #
 from shared_layer.database import release_manifest  # noqa: E402
 
 VENV_ROOT = Path(sys.executable).resolve().parents[1]
-CODEX = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 
 
 def _write_package(root: Path, name: str, version: str | None = None) -> Path:
@@ -406,12 +405,12 @@ def test_original_backend_and_codex_flow_unchanged(tmp_path: Path) -> None:
 
     shipped = release_manifest.load_dependency_contract()
     assert release_manifest.validate_dependency_contract(shipped) == []
-    assert validate_governance_references(shipped, codex_path=CODEX) == []
+    assert validate_governance_references(shipped) == []
     tampered = dict(shipped)
     tampered["governance_references"] = dict(shipped["governance_references"])
     tampered["governance_references"]["codex_sha256"] = "0" * 64
     assert "CODEX_HASH_MISMATCH" in validate_governance_references(
-        tampered, codex_path=CODEX
+        tampered
     )
 
     audit = subprocess.run(

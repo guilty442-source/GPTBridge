@@ -9,6 +9,7 @@ status surfaces the commanded learning state.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sqlite3
 import sys
 from pathlib import Path
@@ -62,6 +63,7 @@ def test_child_does_not_self_arm_on_start(tmp_path: Path) -> None:
 
 def test_fault_manuals_are_ingested_by_learning_while_fault_owner_stays_permission(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     database = tmp_path / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
     database.parent.mkdir(parents=True)
@@ -74,6 +76,29 @@ def test_fault_manuals_are_ingested_by_learning_while_fault_owner_stays_permissi
             "INSERT INTO maintenance_manual_directory VALUES (?,?,NULL)",
             ("MANUAL_ONE", "learning-evidence-sync-sub-sovereign"),
         )
+
+    class _FixtureConnection:
+        def __init__(self) -> None:
+            self._conn = sqlite3.connect(str(database))
+
+        def execute(self, statement: str, parameters=()):
+            return self._conn.execute(statement, parameters)
+
+        def close(self) -> None:
+            self._conn.close()
+
+    @contextlib.contextmanager
+    def _fixture_codex_connection(*args, **kwargs):
+        connection = _FixtureConnection()
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    monkeypatch.setattr(
+        "governance_rule.execution.codex_repository.codex_readonly_connection",
+        _fixture_codex_connection,
+    )
     child = LearningEvidenceSyncSubSovereign(_App(tmp_path), parent=None)
     child._ingest_fault_manual_catalog()
     projection = child.status()["fault_manual_catalog"]

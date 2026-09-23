@@ -654,26 +654,85 @@ def validate_shared_layer_classification(
     return errors
 
 
+def _codex_reference_errors(
+    connection: Any, references: Mapping[str, Any]
+) -> list[str]:
+    """Shared version/contract/sovereign identity checks for both backends."""
+    import hashlib
+
+    errors: list[str] = []
+    metadata = dict(connection.execute("select key, value from metadata"))
+    version = metadata.get("codex_version")
+    if references.get("codex_version") and version != references["codex_version"]:
+        errors.append(f"CODEX_VERSION_MISMATCH:{version}")
+    for table, key, code in (
+        (
+            "identity_authentication_contract",
+            "governance_runtime_contract_version",
+            "GOVERNANCE_CONTRACT_INCOMPATIBLE",
+        ),
+        (
+            "sql_session_binding_contract",
+            "permission_contract_version",
+            "PERMISSION_CONTRACT_INCOMPATIBLE",
+        ),
+    ):
+        row = connection.execute(  # sql-ok: version check over 2 fixed contract tables
+            f"select version_identity from {table} limit 1"
+        ).fetchone()
+        actual = row[0] if row else None
+        if references.get(key) and actual != references[key]:
+            errors.append(f"{code}:{key}:{actual}")
+    sovereigns = sorted(
+        str(row[0]) for row in connection.execute("select sovereign_id from sovereigns")
+    )
+    identity = hashlib.sha256("\n".join(sovereigns).encode("utf-8")).hexdigest()
+    if references.get("sovereign_registry_identity") and identity != references[
+        "sovereign_registry_identity"
+    ]:
+        errors.append("SOVEREIGN_REGISTRY_MISMATCH")
+    return errors
+
+
 def validate_governance_references(
     contract: Mapping[str, Any],
     *,
-    codex_path: str | os.PathLike[str],
+    codex_path: str | os.PathLike[str] | None = None,
 ) -> list[str]:
     """Codex identity/version/hash and contract identities must match.
 
-    Reads the official codex read-only; it never seals, mutates or replaces
-    it, and it is not a substitute for the governed codex validation
-    (``python -m governance_rule.execution.audit``).
+    With ``codex_path=None`` (the default) the check reads the official
+    codex through the governed read-only repository connection
+    (PostgreSQL authority); file-level integrity primitives are owned by
+    the governed audit.  An explicit ``codex_path`` validates that staged
+    SQLite file directly (fixtures and legacy snapshots).  It never seals,
+    mutates or replaces the codex, and it is not a substitute for the
+    governed codex validation (``python -m governance_rule.execution.audit``).
     """
-    import hashlib
     import sqlite3
 
     references = contract.get("governance_references") or {}
     errors: list[str] = []
+    expected_hash = references.get("codex_sha256")
+    if codex_path is None:
+        from governance_rule.execution.codex_postgresql import authority_state
+        from governance_rule.execution.codex_repository import (
+            codex_readonly_connection,
+        )
+
+        if expected_hash and str(authority_state().get("source_sha256") or "") != str(
+            expected_hash
+        ):
+            errors.append("CODEX_HASH_MISMATCH")
+        try:
+            with codex_readonly_connection() as connection:
+                errors.extend(_codex_reference_errors(connection, references))
+        except Exception as error:
+            errors.append(f"CODEX_READ_FAILED:{error}")
+        return errors
     path = Path(os.fspath(codex_path))
     if not path.is_file():
         return ["CODEX_FILE_MISSING"]
-    expected_hash = references.get("codex_sha256")
     if expected_hash and _sha256_file(path) != str(expected_hash):
         errors.append("CODEX_HASH_MISMATCH")
     connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro&immutable=1", uri=True)
@@ -688,36 +747,7 @@ def validate_governance_references(
             connection, baseline_violations=baseline
         ):
             errors.append(f"CODEX_INTEGRITY_FAILED:{finding}")
-        metadata = dict(connection.execute("select key, value from metadata"))
-        version = metadata.get("codex_version")
-        if references.get("codex_version") and version != references["codex_version"]:
-            errors.append(f"CODEX_VERSION_MISMATCH:{version}")
-        for table, key, code in (
-            (
-                "identity_authentication_contract",
-                "governance_runtime_contract_version",
-                "GOVERNANCE_CONTRACT_INCOMPATIBLE",
-            ),
-            (
-                "sql_session_binding_contract",
-                "permission_contract_version",
-                "PERMISSION_CONTRACT_INCOMPATIBLE",
-            ),
-        ):
-            row = connection.execute(  # sql-ok: version check over 2 fixed contract tables
-                f"select version_identity from {table} limit 1"
-            ).fetchone()
-            actual = row[0] if row else None
-            if references.get(key) and actual != references[key]:
-                errors.append(f"{code}:{key}:{actual}")
-        sovereigns = sorted(
-            str(row[0]) for row in connection.execute("select sovereign_id from sovereigns")
-        )
-        identity = hashlib.sha256("\n".join(sovereigns).encode("utf-8")).hexdigest()
-        if references.get("sovereign_registry_identity") and identity != references[
-            "sovereign_registry_identity"
-        ]:
-            errors.append("SOVEREIGN_REGISTRY_MISMATCH")
+        errors.extend(_codex_reference_errors(connection, references))
     except sqlite3.Error as error:
         errors.append(f"CODEX_READ_FAILED:{error}")
     finally:

@@ -271,29 +271,41 @@ def test_evidence_change_invalidates_confirmation(
     assert actions[0]["status"] == "invalidated"
 
 
-def test_command_resolver_refreshes_on_codex_change(tmp_path: Path) -> None:
+def test_command_resolver_refreshes_on_codex_change(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import contextlib
+
+    import shared_layer.contract_resolver as contract_resolver
     from shared_layer.runtime_gateway import CommandContractResolver
 
-    db_dir = tmp_path / "governance_rule" / "codex" / "data"
-    db_dir.mkdir(parents=True)
-    db_path = db_dir / "governance_codex.sqlite3"
-    connection = sqlite3.connect(str(db_path))
-    connection.execute(
-        "CREATE TABLE command_code_directory (command_code TEXT PRIMARY KEY)"
+    rows = {"ALPHA_ONE"}
+    generation = {"codex_version": "v1", "source_sha256": "a"}
+
+    class _Cursor:
+        def fetchall(self):
+            return [(code,) for code in sorted(rows)]
+
+    class _Connection:
+        def execute(self, statement: str, parameters=()):
+            return _Cursor()
+
+    @contextlib.contextmanager
+    def _fake_connection(*args, **kwargs):
+        yield _Connection()
+
+    monkeypatch.setattr(
+        contract_resolver, "codex_readonly_connection", _fake_connection
     )
-    connection.execute(
-        "INSERT INTO command_code_directory VALUES ('ALPHA_ONE')"
+    monkeypatch.setattr(
+        contract_resolver, "authority_state", lambda: dict(generation)
     )
-    connection.commit()
-    connection.close()
 
     resolver = CommandContractResolver(tmp_path)
     assert resolver.is_registered("alpha-one") is True
     assert resolver.is_registered("beta-two") is False
 
-    connection = sqlite3.connect(str(db_path))
-    connection.execute("INSERT INTO command_code_directory VALUES ('BETA_TWO')")
-    connection.commit()
-    connection.close()
+    rows.add("BETA_TWO")
+    generation["codex_version"] = "v2"
 
     assert resolver.is_registered("beta-two") is True
