@@ -11,6 +11,7 @@
 #include <cstring>
 #include <exception>
 #include <string>
+#include <vector>
 
 using xingcheng::inference::NativeInferenceEngine;
 using xingcheng::inference::SamplingConfig;
@@ -95,6 +96,45 @@ int xc_engine_generate_text(xc_engine_t* engine, const char* prompt_utf8,
         const std::string text = engine->impl.generate_text(
             prompt_utf8, max_new_tokens, sampling);
         return copy_out(text, out, out_len);
+    } catch (const std::exception& e) {
+        copy_err(err, err_cap, e.what());
+        return 1;
+    } catch (...) {
+        copy_err(err, err_cap, "unknown generate failure");
+        return 1;
+    }
+}
+
+int xc_engine_generate_ex(xc_engine_t* engine, const char* prompt_utf8,
+                          int64_t max_new_tokens, double temperature,
+                          int do_sample, char* out, size_t* out_len,
+                          int64_t* ids, size_t* ids_len,
+                          char* err, size_t err_cap) {
+    if (!engine || !engine->impl.loaded() || !prompt_utf8) {
+        copy_err(err, err_cap, "engine not loaded or null prompt");
+        return 1;
+    }
+    try {
+        SamplingConfig sampling;
+        sampling.do_sample = (do_sample != 0);
+        sampling.temperature = temperature;
+        const std::vector<int64_t> gen = engine->impl.generate(
+            engine->impl.encode(prompt_utf8), max_new_tokens, sampling);
+        const std::string text = engine->impl.decode(gen);
+        int rc = copy_out(text, out, out_len);
+        if (ids_len != nullptr) {
+            const size_t need = gen.size();
+            const size_t cap = ids != nullptr ? *ids_len : 0;
+            if (cap < need) {
+                *ids_len = need;
+                rc = 2;
+            } else {
+                if (need > 0)
+                    std::memcpy(ids, gen.data(), need * sizeof(int64_t));
+                *ids_len = need;
+            }
+        }
+        return rc;
     } catch (const std::exception& e) {
         copy_err(err, err_cap, e.what());
         return 1;

@@ -52,6 +52,21 @@ XC_API int xc_engine_generate_text(xc_engine_t* engine,
                                    char* out, size_t* out_len,
                                    char* err, size_t err_cap);
 
+/* Extended generate: one generation fills both the text buffer and the
+ * generated-token-id buffer (ids EXCLUDE the prompt; decode(ids) == out).
+ * ids==NULL with ids_len!=NULL reports the required count without writing;
+ * ids==NULL with ids_len==NULL skips id capture entirely (text-only).
+ * rc=2 sets whichever of *out_len/*ids_len was insufficient to the
+ * required value (text may still be written — re-run with sized buffers). */
+XC_API int xc_engine_generate_ex(xc_engine_t* engine,
+                                 const char* prompt_utf8,
+                                 int64_t max_new_tokens,
+                                 double temperature,
+                                 int do_sample,
+                                 char* out, size_t* out_len,
+                                 int64_t* ids, size_t* ids_len,
+                                 char* err, size_t err_cap);
+
 /* Human/diagnostic description of the loaded engine (UTF-8). Same
  * buffer contract as generate_text. */
 XC_API int xc_engine_describe(xc_engine_t* engine, char* out,

@@ -215,3 +215,77 @@ def test_watchdog_treats_missing_ipc_state_as_disconnected(tmp_path: Path) -> No
 
 
 ########################################################################
+
+# ---------------------------------------------------------------------------
+# P7 tick deadline — the sync loop must stay bounded even when a tick wedges
+# ---------------------------------------------------------------------------
+
+
+def test_wedged_tick_is_bounded_and_stall_counted(tmp_path: Path) -> None:
+    import threading
+
+    wd = ConnectionWatchdog(
+        tmp_path,
+        health_port=99999,
+        probe_interval=0.02,
+        probe_timeout=0.05,
+        enable_resource_monitoring=False,
+    )
+    wd.tick_deadline_s = 0.05
+    wedged = threading.Event()
+    release = threading.Event()
+
+    def stuck_alive() -> bool:
+        wedged.set()
+        release.wait(timeout=30)
+        return True
+
+    t = threading.Thread(target=wd.run, args=(stuck_alive,), daemon=True)
+    t.start()
+    try:
+        assert wedged.wait(timeout=5)
+        deadline = time.time() + 5
+        while wd._tick_stalls < 2 and time.time() < deadline:
+            time.sleep(0.02)
+        # The loop kept ticking past the wedged worker instead of blocking.
+        assert wd._tick_stalls >= 1
+        status = wd.get_status()
+        assert status["tick_stalls"] >= 1
+        assert status["tick_in_flight"] is True
+    finally:
+        release.set()
+        wd.stop()
+        t.join(timeout=5)
+
+
+def test_healthy_ticks_complete_without_stalls(tmp_path: Path) -> None:
+    import threading
+
+    wd = ConnectionWatchdog(
+        tmp_path,
+        health_port=99999,
+        probe_interval=0.02,
+        probe_timeout=0.05,
+        enable_resource_monitoring=False,
+    )
+    wd.tick_deadline_s = 5.0
+    calls: list[int] = []
+
+    def alive() -> bool:
+        calls.append(1)
+        return True
+
+    t = threading.Thread(target=wd.run, args=(alive,), daemon=True)
+    t.start()
+    try:
+        deadline = time.time() + 5
+        while len(calls) < 2 and time.time() < deadline:
+            time.sleep(0.02)
+        assert len(calls) >= 2
+        assert wd._tick_stalls == 0
+        status = wd.get_status()
+        assert status["tick_deadline_s"] == 5.0
+        assert "tick_in_flight" in status
+    finally:
+        wd.stop()
+        t.join(timeout=5)
