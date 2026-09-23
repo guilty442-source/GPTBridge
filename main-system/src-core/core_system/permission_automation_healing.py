@@ -61,8 +61,18 @@ class SelfHealingManager:
 
     async def _run_loop(self) -> None:
         while self._running:
+            # Fallback private loop only runs with no automation core;
+            # bound the tick so a hung check cannot freeze it silently
+            # (same contract the core's wait_for wrapper gives).
+            tick_deadline = max(30.0, min(600.0, float(self.check_interval) * 5))
             try:
-                await self._health_check()
+                await asyncio.wait_for(self._health_check(), timeout=tick_deadline)
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "SelfHealingManager tick exceeded %.0fs deadline", tick_deadline
+                )
             except Exception as e:
                 _logger.error(f"Self-healing check failed: {e}")
             try:

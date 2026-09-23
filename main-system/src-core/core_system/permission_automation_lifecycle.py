@@ -120,8 +120,18 @@ class PermissionLifecycleManager:
     async def _run_loop(self) -> None:
         """主循環。"""
         while self._running:
+            # Fallback private loop only runs with no automation core;
+            # bound the tick so a hung check cannot freeze it silently
+            # (same contract the core's wait_for wrapper gives).
+            tick_deadline = max(30.0, min(600.0, float(self.check_interval) * 5))
             try:
-                await self._check_grants()
+                await asyncio.wait_for(self._check_grants(), timeout=tick_deadline)
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "PermissionLifecycleManager tick exceeded %.0fs deadline", tick_deadline
+                )
             except Exception as e:
                 _logger.error(f"PermissionLifecycleManager check failed: {e}")
             try:

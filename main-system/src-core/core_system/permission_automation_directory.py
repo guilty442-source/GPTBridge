@@ -74,8 +74,18 @@ class DirectorySyncManager:
 
     async def _run_loop(self) -> None:
         while self._running:
+            # Fallback private loop only runs with no automation core;
+            # bound the tick so a hung check cannot freeze it silently
+            # (same contract the core's wait_for wrapper gives).
+            tick_deadline = max(30.0, min(600.0, float(self.sync_interval) * 5))
             try:
-                await self._sync_directories()
+                await asyncio.wait_for(self._sync_directories(), timeout=tick_deadline)
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "DirectorySyncManager tick exceeded %.0fs deadline", tick_deadline
+                )
             except Exception as e:
                 _logger.error(f"Directory sync failed: {e}")
             try:
