@@ -33,6 +33,7 @@ from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline
 from .pipeline_documents import PipelineDocumentsMixin
 from .pipeline_domain import PythonDomainModel
+from .pipeline_maintenance import PipelineMaintenanceMixin
 from .pipeline_outbox import PipelineOutboxMixin
 from .pipeline_recovery import PipelineRecoveryMixin
 from .pipeline_retrieval import PipelineRetrievalMixin
@@ -49,6 +50,7 @@ class CanonicalRagPipeline(
     PipelineRetrievalMixin,
     PipelineRecoveryMixin,
     PipelineOutboxMixin,
+    PipelineMaintenanceMixin,
     PipelineDocumentsMixin,
 ):
     """A371-A374: canonical path — Qdrant dense retrieval > PostgreSQL

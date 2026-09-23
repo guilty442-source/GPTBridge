@@ -484,10 +484,22 @@ def _batched_collection_results(
     and ``ERROR`` lines and merged.  Returns ``None`` when any chunk cannot
     be attributed (timeout or aborted run) so the caller can fall back to
     per-file probes.
+
+    A fingerprint-keyed cache short-circuits the whole collection when
+    nothing importable changed since the last verified run; only a
+    complete, attributable result set is ever written to the cache.
     """
+    cached = _collection_cache_read(root, python_executable, declared_files)
+    if cached is not None:
+        return cached
     chunk_count = max(1, min(_SELF_HEALTH_BATCH_CHUNKS, len(declared_files)))
     if chunk_count == 1 or len(declared_files) < _SELF_HEALTH_BATCH_CHUNKS * 2:
-        return _collect_one_batch(root, python_executable, declared_files)
+        single = _collect_one_batch(root, python_executable, declared_files)
+        if single is not None:
+            _collection_cache_write(
+                root, python_executable, declared_files, single
+            )
+        return single
 
     chunks = _balance_chunks(declared_files, chunk_count)
     with ThreadPoolExecutor(
@@ -508,6 +520,7 @@ def _batched_collection_results(
     for outcome in outcomes:
         if outcome is not None:
             merged.update(outcome)
+    _collection_cache_write(root, python_executable, declared_files, merged)
     return merged
 
 

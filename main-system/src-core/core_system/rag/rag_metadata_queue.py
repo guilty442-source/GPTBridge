@@ -864,6 +864,148 @@ class RagMetadataReconciliationMixin:
             )
             return result
 
+    async def reset_stale_outbox_leases(
+        self,
+        *,
+        stale_after_seconds: int,
+        max_attempts: int,
+        limit: int = 500,
+    ) -> dict[str, int]:
+        """Reclaim events left PROCESSING by a crashed worker (RAG-08 resume).
+
+        A worker that dies mid-apply never marks its leased rows, so they
+        would stay PROCESSING forever.  Rows past the lease horizon are
+        returned to RETRY (immediately due) — replays are safe because
+        every apply is idempotent — and rows that exhaust max_attempts
+        dead-letter so a crash-loop cannot spin unboundedly.  Bounded by
+        ``limit`` and SKIP LOCKED so a live worker's fresh leases are
+        never disturbed.
+        """
+        result = {"reset": 0, "retried": 0, "dead_lettered": 0}
+        if not self._healthy or not self._conn:
+            return result
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """UPDATE gptbridge_rag.outbox_event
+                       SET state = CASE
+                               WHEN attempt_count + 1 >= %s
+                                   THEN 'DEAD_LETTER'
+                               ELSE 'RETRY' END,
+                           attempt_count = attempt_count + 1,
+                           last_error = COALESCE(last_error, 'lease_expired'),
+                           next_retry_at = now(),
+                           updated_at = now(),
+                           completed_at = CASE
+                               WHEN attempt_count + 1 >= %s
+                                   THEN now() ELSE completed_at END
+                       WHERE event_id IN (
+                           SELECT event_id FROM gptbridge_rag.outbox_event
+                           WHERE state = 'PROCESSING'
+                             AND updated_at < now() - make_interval(secs => %s)
+                           ORDER BY updated_at
+                           LIMIT %s
+                           FOR UPDATE SKIP LOCKED
+                       )
+                       RETURNING state""",
+                    (max_attempts, max_attempts,
+                     stale_after_seconds, limit),
+                )
+                for row in await cur.fetchall():
+                    state = str(row[0]).lower()
+                    result["reset"] += 1
+                    if state == "dead_letter":
+                        result["dead_lettered"] += 1
+                    else:
+                        result["retried"] += 1
+            return result
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: reset_stale_outbox_leases "
+                "failed: %s", exc,
+            )
+            return result
+
+    async def list_unpurged_tombstones(
+        self, *, older_than_seconds: int, limit: int = 100
+    ) -> Optional[list[dict[str, Any]]]:
+        """Aged tombstones eligible for physical-purge verification.
+
+        Ordered oldest-first and bounded — never an unbounded scan.  The
+        caller must verify the physical vector state is gone before
+        marking a row purged; this listing is only a candidate set.
+        """
+        if not self._healthy or not self._conn:
+            return None
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT resource_id, module_id, tombstone_generation,
+                          source_revision, content_hash, reason
+                       FROM gptbridge_rag.tombstone
+                       WHERE purged IS NOT TRUE
+                         AND created_at < now() - make_interval(secs => %s)
+                       ORDER BY created_at
+                       LIMIT %s""",
+                    (older_than_seconds, limit),
+                )
+                rows = await cur.fetchall()
+            return [
+                {
+                    "resource_id": r[0], "module_id": r[1],
+                    "tombstone_generation": int(r[2]),
+                    "source_revision": int(r[3]),
+                    "content_hash": r[4], "reason": r[5],
+                }
+                for r in rows
+            ]
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: list_unpurged_tombstones "
+                "failed: %s", exc,
+            )
+            return None
+
+    async def purge_tombstone_metadata(
+        self, module_id: str, resource_id: str
+    ) -> bool:
+        """Physical purge of canonical metadata for one tombstoned resource.
+
+        Deletes chunk + index_state rows and flips the tombstone to
+        ``purged=TRUE`` in one statement sequence.  Callers must have
+        already verified zero Qdrant points — purging lifts the read
+        barrier, so any surviving physical residue would resurrect the
+        resource.
+        """
+        if not self._healthy or not self._conn:
+            return False
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """DELETE FROM gptbridge_rag.chunk
+                       WHERE module_id = %s AND resource_id = %s""",
+                    (module_id, resource_id),
+                )
+                await cur.execute(
+                    """DELETE FROM gptbridge_rag.index_state
+                       WHERE module_id = %s AND resource_id = %s""",
+                    (module_id, resource_id),
+                )
+                await cur.execute(
+                    """UPDATE gptbridge_rag.tombstone
+                       SET purged = TRUE
+                       WHERE module_id = %s AND resource_id = %s
+                         AND purged IS NOT TRUE""",
+                    (module_id, resource_id),
+                )
+            return True
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: purge_tombstone_metadata "
+                "failed: %s", exc,
+            )
+            return False
+
     # -- RAG-09: reconciliation status surface --------------------------------
 
     async def reconciliation_status(self) -> dict[str, Any]:

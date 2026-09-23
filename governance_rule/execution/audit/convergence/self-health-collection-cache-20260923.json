@@ -1,0 +1,25 @@
+{
+  "report": "self-health-collection-cache/v1",
+  "generated_at": "2026-09-23T08:12:45Z",
+  "problem": "audit_runtime_governance(include_self_health=True) measured 36-41s vs AUDIT_FLOW_BUDGET_SECONDS=30; root cause was pytest --collect-only re-importing all 55 declared test modules (~19s) on every audit run",
+  "fix": "fingerprint-keyed verdict cache in audit_self_health.py; cache key = sha256(declared file list + per-file content hashes + source-tree stat fingerprint + python exe stamp + site-packages stamp)",
+  "fingerprint_soundness": {
+    "covers": "add/delete/rename/edit of any .py under importable roots (P27 misdeleted-module regression class); declared-file content edits; interpreter and package changes",
+    "measured": "add-module invalidates: True; mtime +2s invalidates: True; restore returns key",
+    "stat_only_walk": "0.09s for full source-tree fingerprint; no file contents read outside declared tests"
+  },
+  "results": {
+    "cold_audit_s": 24.3,
+    "warm_audit_s": 5.2,
+    "collection_cold_s": 20.5,
+    "collection_warm_s": 0.07,
+    "budget_s": 30.0,
+    "errors": 0
+  },
+  "safety": [
+    "cache stores only complete attributable result sets; a None chunk is never cached",
+    "corrupt/mismatched cache -> recompute (fail-open to work, never to skip the check)",
+    "GPTBRIDGE_SELF_HEALTH_NO_CACHE=1 bypasses the cache entirely",
+    "cache file lives under main-system/runtime/cache/ (gitignored runtime/)"
+  ]
+}
