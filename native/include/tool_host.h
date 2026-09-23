@@ -61,6 +61,10 @@ struct ToolHostConfig {
     /* health_snapshot parity 區段（對齊 GovernedToolRuntime）。 */
     bool local_cleanup_enabled = true;
     bool self_repair_enabled = false;
+    /* §10.65 dual-track 標記：shadow/parity 觀察期間與 Python 正典
+       並行時置 true；primary 切換後應為 false。僅觀測語意，稽核
+       可據此拒絕「假 primary」申報。 */
+    bool dual_track = false;
 };
 
 /* proxy 呼叫抽象：`op`+args_json → ProxyResponse；回 false＝傳輸層失敗。 */

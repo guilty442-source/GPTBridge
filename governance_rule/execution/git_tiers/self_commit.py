@@ -333,6 +333,20 @@ def _run_once_unlocked(
             locked = True
         gate = _governed(repo, ["add", "-A"], actor=actor)
         add_result = gate.execution_result
+        # Transient index.lock contention: concurrent workers/agents hold
+        # the shared index for seconds at a time (all worktrees share one
+        # .git).  Retry the add within a short bounded window instead of
+        # failing the whole sweep; any other failure mode returns at once.
+        for _ in range(3):
+            if (
+                add_result is None
+                or add_result.returncode == 0
+                or "index.lock" not in str(add_result.stderr)
+            ):
+                break
+            time.sleep(3.0)
+            gate = _governed(repo, ["add", "-A"], actor=actor)
+            add_result = gate.execution_result
         if gate.allowed is False or add_result is None or add_result.returncode != 0:
             detail = (
                 gate.detail if gate.allowed is False

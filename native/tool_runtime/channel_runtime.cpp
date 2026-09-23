@@ -586,6 +586,9 @@ bool A263ChannelRuntime::heartbeat_dead() const {
 bool A263ChannelRuntime::running() const {
     return impl_->threads_running.load();
 }
+bool A263ChannelRuntime::dual_track() const {
+    return impl_->cfg.dual_track;
+}
 
 } // namespace chan
 } // namespace gptbridge

@@ -61,6 +61,10 @@ struct ChannelRuntimeConfig {
     bool enable_backpressure = true;
     uint32_t max_outbound_batch = 100;
     double send_idle_sleep_seconds = 0.001;
+    /* §10.65 dual-track 標記：此 runtime 在 shadow/parity 觀察期間
+       與 Python 正典並行時置 true；primary 切換後應為 false。
+       僅觀測語意——不影響行為，稽核可據此拒絕「假 primary」。 */
+    bool dual_track = false;
 };
 
 struct ChannelHooks {
@@ -151,6 +155,8 @@ public:
     int64_t reconnects() const;
     bool heartbeat_dead() const;
     bool running() const;
+    /* §10.65 dual-track 標記（config 直通）。 */
+    bool dual_track() const;
 
 private:
     void send_loop();

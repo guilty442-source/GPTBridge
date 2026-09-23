@@ -608,6 +608,7 @@ jsonlite::JsonValue ToolHost::health_snapshot() const {
         {"channels", channels},
         {"channel_routes", routes},
         {"channel_health", ch},
+        {"dual_track", jbool(impl_->cfg.dual_track)},
     });
     if (impl_->cfg.self_repair_enabled &&
         impl_->hooks.self_repair_health) {
