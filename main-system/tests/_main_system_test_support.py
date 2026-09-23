@@ -19,6 +19,10 @@ def _get_main_project_root() -> Path:
             capture_output=True, text=True, check=True, timeout=5
         )
         git_common_dir = Path(result.stdout.strip())
+        # git may return a cwd-relative path (../.git) — resolve before
+        # taking the parent or every globbed path carries '..' parts.
+        if not git_common_dir.is_absolute():
+            git_common_dir = git_common_dir.resolve()
         # Main project root is parent of .git
         return git_common_dir.parent
     except Exception:
