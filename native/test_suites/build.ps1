@@ -178,11 +178,26 @@ while (-not (New-Item -ItemType Directory -Path $lockDir -ErrorAction SilentlyCo
 
 try {
 
-$bat = Join-Path $out "_build.bat"
-$lines = @("@echo off", "call `"$vcvars`" >nul || exit /b 1")
+# Per-suite build batches + bounded-parallel compile: each suite gets a
+# private obj dir (/Fo:obj\<stem>\) so parallel cl invocations cannot
+# collide on shared sources (transformer.c, engine.cpp etc. each produce
+# identically-named .obj outputs).  Every batch calls vcvars once then its
+# own cl line; the whole fleet is scheduled under $MaxParallel with a
+# 600s per-batch cap.
+$buildJobs = @()
+function Add-BuildJob($name, $clLine) {
+    $objDir = Join-Path $out ("obj\" + $name)
+    New-Item -ItemType Directory -Force -Path $objDir | Out-Null
+    $batPath = Join-Path $out ("_build_" + $name + ".bat")
+    $lines = @("@echo off", "call `"$vcvars`" >nul || exit /b 1", $clLine)
+    Set-Content -Path $batPath -Value $lines -Encoding ASCII
+    $script:buildJobs += @{ name = $name; bat = $batPath }
+}
 foreach ($suite in $suites) {
     $srcPath = Join-Path $PSScriptRoot $suite.src
     $exePath = Join-Path $out $suite.exe
+    $suiteName = [System.IO.Path]::GetFileNameWithoutExtension($suite.exe)
+    $objDir = Join-Path $out ("obj\" + $suiteName)
     $extraSrcs = ""
     if ($suite.ContainsKey("extra")) {
         foreach ($e in $suite.extra) { $extraSrcs += " `"$e`"" }
@@ -191,21 +206,54 @@ foreach ($suite in $suites) {
     if ($suite.ContainsKey("inc")) {
         foreach ($i in $suite.inc) { $extraInc += " /I`"$i`"" }
     }
-    $lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`"$extraInc /Fe:$exePath /Fo:$out\ `"$srcPath`"$extraSrcs >nul || exit /b 1"
+    Add-BuildJob $suiteName ("cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`"$extraInc /Fe:$exePath /Fo:$objDir\ `"$srcPath`"$extraSrcs >nul || exit /b 1")
 }
 # 獨立審計引擎 CLI（pre-commit 閘門嵌入式）
 $auditExe = Join-Path $out "audit-engine.exe"
 $auditSrc = Join-Path $auditDir "audit_engine.cpp"
-$lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe:$auditExe /Fo:$out\ `"$auditSrc`" >nul || exit /b 1"
+$auditObj = Join-Path $out "obj\audit-engine"
+Add-BuildJob "audit-engine" ("cl /nologo /std:c++17 /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe:$auditExe /Fo:$auditObj\ `"$auditSrc`" >nul || exit /b 1")
 # M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
 $tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
 $sidecarSrc = Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"
-$lines += "cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$driverExe /Fo:$out\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" >nul || exit /b 1"
-Set-Content -Path $bat -Value $lines -Encoding ASCII
-cmd /c $bat
-if ($LASTEXITCODE -ne 0) { Write-Output "BUILD FAILED"; exit 1 }
+$driverObj = Join-Path $out "obj\proxy_client_driver"
+Add-BuildJob "proxy_client_driver" ("cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$driverExe /Fo:$driverObj\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" >nul || exit /b 1")
+
+$bq = [System.Collections.Generic.Queue[object]]::new()
+foreach ($j in $buildJobs) { $bq.Enqueue($j) }
+$brunning = @{}
+$buildFailed = $false
+while ($bq.Count -gt 0 -or $brunning.Count -gt 0) {
+    while ($bq.Count -gt 0 -and $brunning.Count -lt $MaxParallel) {
+        $j = $bq.Dequeue()
+        $p = Start-Process -FilePath "cmd.exe" -ArgumentList ("/c `"$($j.bat)`"") `
+             -WorkingDirectory $out -NoNewWindow -PassThru
+        $brunning[$j.name] = @{ proc = $p; deadline = (Get-Date).AddSeconds(600) }
+    }
+    $bdone = @()
+    foreach ($name in @($brunning.Keys)) {
+        $h = $brunning[$name]
+        if ($h.proc.HasExited) {
+            if ($h.proc.ExitCode -ne 0) {
+                Write-Output ("BUILD FAILED: {0} (rc={1})" -f $name, $h.proc.ExitCode)
+                $buildFailed = $true
+            }
+            $bdone += $name
+        } elseif ((Get-Date) -gt $h.deadline) {
+            $h.proc.Kill()
+            Write-Output ("BUILD TIMEOUT: {0}" -f $name)
+            $buildFailed = $true
+            $bdone += $name
+        }
+    }
+    foreach ($name in $bdone) { $brunning.Remove($name) }
+    if ($bdone.Count -eq 0 -and $brunning.Count -gt 0) {
+        Start-Sleep -Milliseconds 250
+    }
+}
+if ($buildFailed) { Write-Output "BUILD FAILED"; exit 1 }
 
 # Bounded-parallel suite execution: each suite writes a uniquely-named
 # <stem>.json report and binds only ephemeral ports, so concurrent runs
