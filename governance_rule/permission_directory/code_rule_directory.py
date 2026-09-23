@@ -350,5 +350,3 @@ def _snapshot() -> CodeRuleDirectorySnapshot:
 
 code_rule_directory_snapshot: Final = _snapshot
 del _sealed_reader
-del _snapshot
-del _load_from_sql

@@ -1,0 +1,21 @@
+{
+  "report": "p27-misdeleted-modules-restore/v1",
+  "generated_at": "2026-09-23T07:46:49Z",
+  "root_cause": "G100 inc-5 (000f915e) deleted 6 core_system modules based on a zero-import scan that missed lazy imports inside functions/methods and importlib-free references. decision_sovereign.py:58 hard-imported governance_rule_coordination; decision/startup_dispatch.py lazily imports SovereignStackExecutor inside start_sovereign_stack() — a LIVE boot path called by startup_executor_phases.py:319; xingcheng/codex_drift.py uses sovereign_stack_executor_constants; health_maintenance_test_sub_sovereign.py subclasses MaintenanceCapabilityMixin.",
+  "action": "restored all 6 modules from 000f915e^ (no rewrite, no shim — the modules are the canonical implementation; the deletion was the error)",
+  "restored": [
+    "core_system/governance_rule_coordination.py (181 LOC)",
+    "core_system/maintenance_capability.py (151 LOC)",
+    "core_system/sovereign_stack_executor.py (256 LOC)",
+    "core_system/sovereign_stack_executor_activation.py",
+    "core_system/sovereign_stack_executor_children.py",
+    "core_system/sovereign_stack_executor_constants.py"
+  ],
+  "verification": {
+    "import_chain": "decision_sovereign ok; SovereignStackExecutor ok (18 children resolve); MaintenanceCapabilityMixin ok",
+    "pytest_collect": "test_special_unpacked_runtime_part1.py -> 19 tests collected (was ModuleNotFoundError)",
+    "stale_reference_sweep": "89 hits scanned across main tree; all remaining references are retirement tombstones (architecture_registry/policy fields/retirement tests) or historical evidence records — no live stale imports"
+  },
+  "followup": "audit self-health re-check pending (36-41s delegated flow; import-level red flag cleared)",
+  "supersedes_finding": "g100-five-core-convergence-20260923.json entry listing these modules as dead — the finding itself was the regression"
+}
