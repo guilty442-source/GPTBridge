@@ -29,9 +29,11 @@ class _StubBrowserCore:
         owner_module: str,
         url: str,
         bounds: dict[str, int] | None = None,
+        *,
+        session_id: str | None = None,
     ) -> dict[str, object]:
         self.create_calls += 1
-        session_id = f"{owner_module}-stub{self.create_calls}"
+        session_id = session_id or f"{owner_module}-stub{self.create_calls}"
         self.sessions[session_id] = url
         return {"ok": True, "id": session_id, "url": url}
 
