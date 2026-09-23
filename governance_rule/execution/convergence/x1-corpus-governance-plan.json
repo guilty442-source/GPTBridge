@@ -1,0 +1,25 @@
+{
+  "schema": "x1-corpus-governance-plan/v1",
+  "generated_at_utc": "2026-09-23T10:50Z",
+  "current": {
+    "corpus": "star-corpus-0e0930d21862 (1949 docs, 16.3M chars, first-party only, mf=2 ceiling 49k)",
+    "vocab": "8k BPE (eb4a3ddb), 32k/49k/64k analysis done (x1-vocab-ratio-20260923.json), 32k 4.03 chars/token, 64k 4.13 chars/token",
+    "license": "ALLOWED_LICENSES fail-closed only first-party-internal, staged proposal phase2r-corpus-source-proposal-20260922.json pending governor",
+    "pretrain": "reproducibility 39 tensor sha256 identical, seed fixed, but formal scale 32k/64k not yet trained"
+  },
+  "target": {
+    "corpus": "licensed first-party + approved external (governor allowlist), 32k/64k vocab retrained, 1949 docs -> 10k+ docs",
+    "vocab": "32k and 64k BPE artifacts (actual 32k, 64k) with corpus-v3 manifest, 64k mf=1 for 64k",
+    "pretrain": "reproducible pretrain report with 32k/64k, loss trajectory, 39 tensors, corpus manifest"
+  },
+  "steps": [
+    "1. Governor approves phase2r-corpus-source-proposal allowlist (license tiers)",
+    "2. Register new corpus sources in corpus registry, run language classification, dedup, token count, integrity hash",
+    "3. Retrain BPE 32k and 64k on new corpus (vocab-ratio-20260923 already shows 32k 4.03, 64k 4.13)",
+    "4. Run pretrain reproducibility with 32k/64k and generate report (as done for 8k)",
+    "5. Update tokenizer.json + manifest + lifecycle, audit PASS"
+  ],
+  "acceptance": "32k/64k vocab artifacts with corpus manifest, pretrain report reproducible, audit PASS, license allowlist active",
+  "blocked_by": "Governor license allowlist (phase2r) + X2/X3 corpus expansion",
+  "note": "Per X1 P1, WP-E; plan is derived"
+}
