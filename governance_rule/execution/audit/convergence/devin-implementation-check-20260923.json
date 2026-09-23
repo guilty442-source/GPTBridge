@@ -98,5 +98,23 @@
   "sweeps_clean": "no rogue psycopg.connect to gptbridge_codex outside governed entry; no LIKE%% in PG-facing queries; mirror 5/5 parts in sync at 03:13:43Z with bootstrap list; TS/CS codex references are display-only; live config files clean",
   "result": "FULL suite 5085 passed / 6 skipped / 7 xfailed under managed venv (main-system/.venv 3.11.9) — includes worker in-flight changes; audit PASS; parity 64/64; contract registry 18/18",
   "residual": "none worker-side; codex-side amendment items unchanged"
+ },
+ "round_6": {
+  "scope": "deep residue sweep (dead imports, stale docstrings/constants, RC dependency bug) + A609 gap closure prep",
+  "fixes": [
+   "audit_formal_rules.py: dead import sqlite3 removed",
+   "scripts/*: dead CODEX_DB constants/sqlite3 imports/stale docstrings removed; classify report field -> codex_authority URI",
+   "integration-04b-acceptance.py: governance_dependencies required the DELETED dev-tree sqlite file (would fail every RC validation) -> now declares RC_CODEX snapshot",
+   "business_rule_delegation.csv rebuilt: now covers A604-A609"
+  ],
+  "findings": [
+   "A502 invariant gap CONFIRMED: metadata declares current_postgresql_schema_hash_status=UNVERIFIED_FAIL_CLOSED; sql_migration_registry 49 ordered-source-verified (final target hash == declared result hash) but sql_migration_receipt_registry=0 and no producer computes the live gptbridge_codex schema hash (sql_governance/migration.py _compute_schema_hash is hardcoded to gptbridge_rag) -- needs canonical recipe + receipt production, governor/migration-owner path",
+   "data/ tracked leftovers .bak/.staging-tmp + orphan -shm/-wal sidecars: forensic, cleanup is migration-owner decision",
+   "TODO(inventory) x10 all registered in manifest hardcoded_inventory (22 entries) - governed debt",
+   "codex-amendment-request-five-core-language now governor-authorized-awaiting-successor-normalization - worker executing"
+  ],
+  "produced": "codex-amendment-request-a609-convergence-completion-20260924.json (draft-awaiting-governor): proposes CONVERGENCE_014 (E2 controls A5) + CONVERGENCE_015 (E16 controls A29) registry insertions; verified all 11 other flagged cross-layer pairs already registered",
+  "result": "audit PASS; formal/audit tests 87/87; full suite 5085 green; amendment request committed a5ac41a0",
+  "residual": "implementation-side exhausted; all open items are governor-path (parity 74, obligations 62, capability-dispatch, A609 registry completion pending authorization, xingcheng learning route, A502 schema-hash verification program)"
  }
 }
