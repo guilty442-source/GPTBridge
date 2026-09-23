@@ -120,6 +120,7 @@ class RequestRegistryNativeShadow:
         """Mirror a newly created record; native dup refusal is evidence."""
         if self._disabled:
             return
+        maybe_emit_resource(self)
         try:
             ok = bool(
                 self._reg.create(
