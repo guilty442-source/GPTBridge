@@ -49,7 +49,20 @@ typedef struct {
 
 int gptbridge_ipc_registry_init(gptbridge_ipc_registry_t* r);
 int gptbridge_ipc_registry_create(gptbridge_ipc_registry_t* r, const char* request_id, int32_t generation, int64_t now_ms);
+/* 對齊 Python _VALID_REQUEST_TRANSITIONS（嚴格有向圖）＋終止鎖。
+   回 1 合法、0 非法轉移、-1 終止態鎖定。同態回 1（Python 跳過驗證）。 */
+int gptbridge_ipc_registry_transition_ok(gptbridge_req_status_t from,
+                                         gptbridge_req_status_t to);
+/* set_status：嚴格轉移語義（Python update()）。
+   回 1 成功；0 找不到；-1 終止態鎖定；-2 非法轉移；-3 未知狀態值。 */
 int gptbridge_ipc_registry_set_status(gptbridge_ipc_registry_t* r, const char* request_id, gptbridge_req_status_t s, int64_t now_ms);
+/* merge_status：Python upsert legacy 語義——無條件覆寫 status＋時間戳
+   bookkeeping，不驗轉移表（持久化回放也用此路徑）。回 1/0。 */
+int gptbridge_ipc_registry_merge_status(gptbridge_ipc_registry_t* r, const char* request_id, gptbridge_req_status_t s, int64_t now_ms);
+/* request_cancel：Python request_cancel——僅立 cancelled 旗標，
+   status 不變（實際 CANCELLED 由後續 set_status 走嚴格表）。回 1/0。 */
+int gptbridge_ipc_registry_request_cancel(gptbridge_ipc_registry_t* r, const char* request_id);
+int gptbridge_ipc_registry_set_backend(gptbridge_ipc_registry_t* r, const char* request_id, const char* backend_id);
 int gptbridge_ipc_registry_cancel(gptbridge_ipc_registry_t* r, const char* request_id, int64_t now_ms); /* 冪等 */
 int gptbridge_ipc_registry_set_timeout(gptbridge_ipc_registry_t* r, const char* request_id, int64_t timeout_ms);
 /* deadline = created_at_ms + timeout_ms; 0 when no timeout was declared */

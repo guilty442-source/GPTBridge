@@ -45,6 +45,60 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def load_primary(
+    project_root: Path,
+    *,
+    min_interval_ms: int,
+    max_interval_ms: int,
+    dead_threshold: int,
+    retry_grace: int,
+) -> Any:
+    """Return the authoritative ``NativeWatchdog`` when policy mode is
+    ``primary``; ``None`` otherwise or when the native extension is
+    unavailable (caller falls back to the Python path and emits a
+    ``primary-unavailable`` audit record so the substitution failure is
+    observable, never silent)."""
+    root = Path(project_root)
+    try:
+        policy = json.loads(
+            (root / _POLICY_REL).read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return None
+    components = policy.get("components")
+    entry = (components or {}).get(_COMPONENT) if isinstance(components, dict) else None
+    mode = str((entry or {}).get("mode") or "off").strip().lower()
+    if mode != "primary":
+        return None
+    try:
+        from core_system.native import _sovereign_native as native
+
+        return native.NativeWatchdog(
+            min_interval_ms, max_interval_ms, dead_threshold, retry_grace
+        )
+    except Exception as exc:
+        _emit_primary_unavailable(root, exc)
+        return None
+
+
+def _emit_primary_unavailable(root: Path, exc: Exception) -> None:
+    record = {
+        "schema": "native-shadow-divergence/v1",
+        "component": _COMPONENT,
+        "at": _utc_now(),
+        "monotonic_s": round(time.monotonic(), 3),
+        "kind": "primary-unavailable",
+        "detail": f"{type(exc).__name__}: {exc}"[:200],
+    }
+    log_path = root / _LOG_REL
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
 class WatchdogNativeShadow:
     """Parallel C-state-machine observer for ``ConnectionWatchdog``."""
 

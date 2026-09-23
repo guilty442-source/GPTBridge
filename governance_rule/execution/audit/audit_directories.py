@@ -59,8 +59,8 @@ _KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 def _codex_connection(root: Path):
     """A279 governed read-only repository connection (certified tooling)."""
-    database = root / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
-    return codex_readonly_connection(database)
+    del root
+    return codex_readonly_connection()
 
 
 def _table_rows(connection: sqlite3.Connection, table: str) -> tuple[list[str], list[dict]]:

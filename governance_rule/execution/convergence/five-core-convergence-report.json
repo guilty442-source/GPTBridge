@@ -568,6 +568,78 @@
       "disposition": "unclaimed",
       "target": "c11-runtime-core resident主体",
       "blocked_by": "P4/P5 — this IS the bootstrap of the C11 resident主体"
+    },
+    {
+      "surface": "boot_core.py supervise loop + boot_core_health.py probes",
+      "disposition": "unclaimed",
+      "target": "c11-runtime-core",
+      "blocked_by": "unclaimed; codex-check 2026-09-23T07:15Z"
+    },
+    {
+      "surface": "toolbox reconcile 30s timer",
+      "disposition": "unclaimed",
+      "target": "csharp-or-c11",
+      "blocked_by": "unclaimed; codex-check"
+    },
+    {
+      "surface": "tasks/sleep_policy.py idle scan",
+      "disposition": "unclaimed",
+      "target": "csharp-or-c11",
+      "blocked_by": "unclaimed; codex-check; P11 wired wake fallback + automation-core cadence (bf4992ff)"
+    },
+    {
+      "surface": "core_system/maintenance_lifecycle.py + toolbox_repair loops",
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5 partial; codex-check"
+    },
+    {
+      "surface": "core_system/tool_isolation_health.py monitor",
+      "disposition": "unclaimed",
+      "target": "c11-runtime-core",
+      "blocked_by": "unclaimed; codex-check"
+    },
+    {
+      "surface": "tasks/runtime_status_service.py status push",
+      "disposition": "unclaimed",
+      "target": "csharp",
+      "blocked_by": "unclaimed; codex-check"
+    },
+    {
+      "surface": "shared_layer/transport_notify.py LISTEN/NOTIFY listener",
+      "disposition": "unclaimed",
+      "target": "csharp-channel",
+      "blocked_by": "unclaimed; codex-check"
+    },
+    {
+      "surface": "core_system/diagnostics.py loop-stall watchdog",
+      "disposition": "unclaimed",
+      "target": "c11",
+      "blocked_by": "unclaimed; codex-check"
+    },
+    {
+      "surface": "tasks/toolbox_execution.py claim/result poll",
+      "disposition": "unclaimed",
+      "target": "csharp-or-c11",
+      "blocked_by": "unclaimed; codex-check"
+    },
+    {
+      "surface": "permission_automation fallback loops (non-core private-loop paths)",
+      "disposition": "unclaimed",
+      "target": "cpp-audit+csharp",
+      "blocked_by": "unclaimed; codex-check — fallback loops only legitimate with no automation core"
+    },
+    {
+      "surface": "core_system/daily_global_cleaner_service*.py production start",
+      "disposition": "unclaimed",
+      "target": "csharp-automation-core",
+      "blocked_by": "CORRECTED inc-2: NOT a ghost — production start exists at sovereign_stack_executor_activation.py:70-84 (_start_cleaner) via decision_sovereign.start_sovereign_stack (startup_executor_phases.py:319)"
+    },
+    {
+      "surface": "core_system/main_system_self_maintenance.py production start",
+      "disposition": "unclaimed",
+      "target": "c11",
+      "blocked_by": "CORRECTED inc-2: NOT a ghost — constructed+started at sovereign_stack_executor_activation.py:144-165 via the same activate() path"
     }
   ]
 }

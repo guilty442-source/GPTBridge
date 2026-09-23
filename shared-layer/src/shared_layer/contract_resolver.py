@@ -13,18 +13,14 @@ visible without rebuilding the resolver (fail closed when unreadable).
 from __future__ import annotations
 
 import json
-import sqlite3
 from pathlib import Path
 from typing import Any, Final
 
+from governance_rule.execution.codex_postgresql import authority_state
+from governance_rule.execution.codex_repository import codex_readonly_connection
+
 # A224 contract gate — fail closed when the directory is unreadable
 _CONTRACT_DIR_NAME: Final[str] = "command_code_directory"
-_CODEX_DB_RELATIVE: Final[tuple[str, ...]] = (
-    "governance_rule",
-    "codex",
-    "data",
-    "governance_codex.sqlite3",
-)
 
 
 def _normalize_command_code(value: str) -> str:
@@ -57,10 +53,9 @@ class CommandContractResolver:
         if not self._project_root:
             return ()
         parts: list[Any] = []
-        for path in (
-            self._project_root.joinpath(*_CODEX_DB_RELATIVE),
-            self._project_root / _CONTRACT_DIR_NAME,
-        ):
+        state = authority_state()
+        parts.append(("postgresql-codex", state.get("codex_version"), state.get("source_sha256")))
+        for path in (self._project_root / _CONTRACT_DIR_NAME,):
             try:
                 if path.is_file():
                     stat = path.stat()
@@ -89,21 +84,17 @@ class CommandContractResolver:
         contracts: dict[str, Any] = {}
         errors: list[str] = []
 
-        codex_db = self._project_root.joinpath(*_CODEX_DB_RELATIVE)
-        if codex_db.is_file():
-            try:
-                with sqlite3.connect(
-                    f"file:{codex_db.as_posix()}?mode=ro", uri=True
-                ) as connection:
-                    rows = connection.execute(
-                        "SELECT command_code FROM command_code_directory"
-                    ).fetchall()
-                for (raw_code,) in rows:
-                    code = _normalize_command_code(str(raw_code or ""))
-                    if code:
-                        contracts[code] = {"command_code": code}
-            except sqlite3.Error as error:
-                errors.append(f"codex contract directory unreadable: {error}")
+        try:
+            with codex_readonly_connection() as connection:
+                rows = connection.execute(
+                    "SELECT command_code FROM command_code_directory"
+                ).fetchall()
+            for (raw_code,) in rows:
+                code = _normalize_command_code(str(raw_code or ""))
+                if code:
+                    contracts[code] = {"command_code": code}
+        except Exception as error:
+            errors.append(f"codex contract directory unreadable: {error}")
 
         contract_dir = self._project_root / _CONTRACT_DIR_NAME
         if contract_dir.is_dir():

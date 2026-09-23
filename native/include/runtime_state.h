@@ -115,6 +115,11 @@ int gptbridge_rs_record_error(gptbridge_rs_registry_t* reg,
 const gptbridge_rs_record_t* gptbridge_rs_find(
     const gptbridge_rs_registry_t* reg, const char* module_id);
 
+/* primary 模式：持久化回放——逐欄位寫入，不經轉移語意（Python _load
+   用，與 live 更新路徑分離）。已有 module_id 覆寫；滿表 fail-closed。 */
+int gptbridge_rs_restore(gptbridge_rs_registry_t* reg,
+                         const gptbridge_rs_record_t* rec);
+
 /* aggregate：雙軸計數＋排序 failed 清單（局部故障不擴散）。
    by_runtime 長度 >=8（索引=枚舉值），by_capability >=5。
    failed_ids/failed_cap/failed_count 可為 NULL（僅計數）。回傳模組數。 */

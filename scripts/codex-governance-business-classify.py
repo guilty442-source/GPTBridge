@@ -11,8 +11,8 @@ SQL lanes, RAG/model parameters, tool-specific policy) vs ``hybrid``
 Inputs (read-only):
 - ``main-system/runtime/state/runtime-rule-index.json`` (classifier output:
   per-provision dimensions, subject, tier, section, tokens)
-- ``governance_rule/codex/data/governance_codex.sqlite3`` (provision text +
-  law classification, opened read-only)
+- PostgreSQL codex authority ``postgresql://local/gptbridge_codex``
+  (provision text + law classification, governed read-only)
 
 Output: ``governance_rule/execution/audit/convergence/``
 ``governance-vs-business-rules-<utc>.json``
@@ -20,14 +20,13 @@ Output: ``governance_rule/execution/audit/convergence/``
 from __future__ import annotations
 
 import json
-import sqlite3
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 INDEX_FILE = ROOT / "main-system" / "runtime" / "state" / "runtime-rule-index.json"
-CODEX_DB = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 OUT_DIR = ROOT / "governance_rule" / "execution" / "audit" / "convergence"
 
 # The classifier's ``治理/權責`` dimension co-occurs on ~90% of provisions
@@ -68,17 +67,21 @@ def main() -> int:
     index = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
     provisions = index.get("provisions") or {}
 
-    db = sqlite3.connect(
-        f"file:{CODEX_DB}?mode=ro", uri=True
+    # A173: the sqlite predecessor is retired — read the PostgreSQL
+    # authority through the governed repository interface.
+    from governance_rule.execution.codex_repository import (
+        codex_readonly_connection,
     )
-    rules = dict(
-        db.execute("SELECT provision_id, rule FROM articles").fetchall()
-    )
-    law_tier = dict(
-        db.execute(
-            "SELECT provision_id, tier FROM provision_law_classification"
-        ).fetchall()
-    )
+
+    with codex_readonly_connection() as db:
+        rules = dict(
+            db.execute("SELECT provision_id, rule FROM articles").fetchall()
+        )
+        law_tier = dict(
+            db.execute(
+                "SELECT provision_id, tier FROM provision_law_classification"
+            ).fetchall()
+        )
 
     rows: list[dict] = []
     counts = {"governance": 0, "business": 0, "hybrid": 0}
@@ -105,7 +108,7 @@ def main() -> int:
         "sources": {
             "rule_index": str(INDEX_FILE.relative_to(ROOT)),
             "rule_index_generated": index.get("generated_at_utc"),
-            "codex_db": str(CODEX_DB.relative_to(ROOT)),
+            "codex_authority": "postgresql://local/gptbridge_codex",
         },
         "counts": counts,
         "total": len(rows),

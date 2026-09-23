@@ -248,23 +248,14 @@ _CODEX_GOVERNED_KEYS: Final[dict[str, str]] = {
 
 @lru_cache(maxsize=8)
 def _codex_metadata_value(codex_key: str) -> str | None:
-    import sqlite3
+    from governance_rule.execution.codex_repository import codex_readonly_connection
 
-    codex_db = (
-        Path(__file__).resolve().parents[3]
-        / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
-    )
     try:
-        connection = sqlite3.connect(
-            f"file:{codex_db.as_posix()}?mode=ro&immutable=1", uri=True
-        )
-        try:
+        with codex_readonly_connection() as connection:
             row = connection.execute(
                 "SELECT value FROM metadata WHERE key = ?", (codex_key,)
             ).fetchone()
-        finally:
-            connection.close()
-    except sqlite3.Error:
+    except Exception:
         return None
     return None if row is None else str(row[0])
 

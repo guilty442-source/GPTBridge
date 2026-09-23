@@ -121,10 +121,12 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "version": "1",
         "payload": _RECEIPT_PAYLOAD,
     },
-    # A449: technical pass + complete external signatures + valid anchor.
+    # A449: technical pass + governed certification closure.
     "RULE_RELEASE_VERIFICATION": {
         "technical_status": "TECHNICAL_PASS",
-        "signature_status": "COMPLETE",
+        "authorization_status": "VALID",
+        "integrity_status": "VALID",
+        "lineage_status": "VALID",
         "trust_anchor": "VALID",
     },
     # A77: convergence with parity evidence and a resolved classification.

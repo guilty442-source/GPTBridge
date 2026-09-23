@@ -21,14 +21,13 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 import sys
 import time
 from itertools import combinations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CODEX_DB = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
+sys.path.insert(0, str(ROOT))
 OUT = (
     ROOT / "governance_rule" / "execution" / "audit" / "convergence"
     / "codex-semantic-duplication-scan.json"
@@ -56,7 +55,7 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     return len(a & b) / len(a | b)
 
 
-def _load_provisions(db: sqlite3.Connection) -> list[dict]:
+def _load_provisions(db) -> list[dict]:
     """Unified provision view across the three layers (A/P/E)."""
     tiers = dict(db.execute(
         "SELECT provision_id, tier FROM provision_law_classification"
@@ -105,11 +104,12 @@ def _load_provisions(db: sqlite3.Connection) -> list[dict]:
 
 
 def main() -> int:
-    db = sqlite3.connect(f"file:{CODEX_DB.as_posix()}?mode=ro", uri=True)
-    try:
+    from governance_rule.execution.codex_repository import (
+        codex_readonly_connection,
+    )
+
+    with codex_readonly_connection() as db:
         provisions = _load_provisions(db)
-    finally:
-        db.close()
 
     findings: list[dict] = []
     for a, b in combinations(provisions, 2):

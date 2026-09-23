@@ -48,16 +48,12 @@ def check_activation_states(root: Path, errors: list[str]) -> None:
     are visible without blocking the commit pipeline.  Hard failures
     (table missing, query error) are added to ``errors``.
     """
-    codex_path = root / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
-    if not codex_path.is_file():
-        return
-
     retired = _retired_sovereign_ids()
     warnings: list[str] = []
     try:
         # A279 certified tooling: the audit reads the official codex
         # through the governed read-only repository interface only.
-        with codex_readonly_connection(codex_path) as conn:
+        with codex_readonly_connection() as conn:
             cursor = conn.cursor()
             architecture_roots = {
                 str(code): str(physical_root)

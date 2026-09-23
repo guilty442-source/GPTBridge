@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,12 +26,15 @@ from governance_rule.execution.formal_rules import (
 from governance_rule.execution.formal_rules.fact_fixtures import (
     parity_fact_fixtures,
 )
+from governance_rule.execution.codex_postgresql import authority_state
+from governance_rule.execution.codex_repository import codex_readonly_connection
 
 REPORT_VERSION = "formal-rule-parity-run/v1"
 
 
 def _database_fingerprint(database: Path) -> str:
-    return hashlib.sha256(database.read_bytes()).hexdigest()
+    del database
+    return str(authority_state()["source_sha256"])
 
 
 def run_parity_evaluation(database: Path) -> dict[str, Any]:
@@ -45,13 +47,12 @@ def run_parity_evaluation(database: Path) -> dict[str, Any]:
     )
     codex_version = ""
     try:
-        connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
-        row = connection.execute(
-            "SELECT value FROM metadata WHERE key='codex_version'"
-        ).fetchone()
+        with codex_readonly_connection() as connection:
+            row = connection.execute(
+                "SELECT value FROM metadata WHERE key='codex_version'"
+            ).fetchone()
         codex_version = str(row[0]) if row else ""
-        connection.close()
-    except sqlite3.Error:
+    except Exception:
         codex_version = ""
     entries = [
         {
@@ -68,7 +69,7 @@ def run_parity_evaluation(database: Path) -> dict[str, Any]:
         "generated_at": datetime.now(timezone.utc)
         .isoformat(timespec="seconds")
         .replace("+00:00", "Z"),
-        "database": str(database),
+        "database": "postgresql://local/gptbridge_codex",
         "database_sha256": _database_fingerprint(database),
         "codex_version": codex_version,
         "evaluated": len(entries),
@@ -88,9 +89,7 @@ def write_report(report: dict[str, Any], report_path: Path) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    database = Path(args[0]) if args else Path(
-        "governance_rule/codex/data/governance_codex.sqlite3"
-    )
+    database = Path(args[0]) if args else Path("postgresql-codex")
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
     report_path = Path(
         args[1]

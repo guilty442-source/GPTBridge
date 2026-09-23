@@ -59,6 +59,29 @@ def _default_project_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+def load_primary(
+    project_root: Optional[Path] = None,
+    *,
+    cooldown_s: float = 20.0,
+    min_backoff_s: float = 15.0,
+    max_backoff_s: float = 180.0,
+) -> Any:
+    """Return the authoritative ``NativeActivationBroker`` when policy
+    mode is ``primary``; ``None`` otherwise."""
+    from core_system.native_shadow_resource import load_native_primary
+
+    def _make() -> Any:
+        from core_system.native import _sovereign_native as native
+
+        return native.NativeActivationBroker(
+            float(cooldown_s), float(min_backoff_s), float(max_backoff_s)
+        )
+
+    return load_native_primary(
+        _COMPONENT, project_root, _make, log_rel=_LOG_REL
+    )
+
+
 class ActivationBrokerNativeShadow:
     """Parallel C activation-broker observer."""
 
@@ -222,6 +245,20 @@ class ActivationBrokerNativeShadow:
                         "native": {f: native.get(f) for f in _STATUS_FIELDS},
                     }
                 )
+                # Resync the mirror to the authoritative Python state after
+                # recording — a missed bookkeeping mirror (e.g. binary
+                # rebuilt mid-session, 2026-09-22 divergence root cause)
+                # must not amplify into a permanent per-tick desync.  The C
+                # side carries no side effects; Python stays authoritative.
+                restore = getattr(self._broker, "restore", None)
+                if restore is not None and bool(restore(dict(py_state))):
+                    self._emit(
+                        {
+                            "kind": "resync",
+                            "op": "status",
+                            "fields": mismatches,
+                        }
+                    )
         except Exception as exc:
             self._disable("native-status-error", exc)
 

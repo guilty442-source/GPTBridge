@@ -50,6 +50,21 @@ def _now_ms() -> int:
     return int(time.monotonic() * 1000)
 
 
+def load_primary(project_root: Optional[Path] = None) -> Any:
+    """Return the authoritative ``NativeOutbox`` when policy mode is
+    ``primary``; ``None`` otherwise."""
+    from core_system.native_shadow_resource import load_native_primary
+
+    def _make() -> Any:
+        from core_system.native import _sovereign_native as native
+
+        return native.NativeOutbox()
+
+    return load_native_primary(
+        _COMPONENT, project_root, _make, log_rel=_LOG_REL
+    )
+
+
 class OutboxNativeShadow:
     """Parallel C-registry observer for ``OutboxPublisher``."""
 

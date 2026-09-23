@@ -153,17 +153,31 @@ class ConnectionWatchdog(
         self._last_error: Optional[str] = None
         self._error_counts: dict[str, int] = {}
         self._last_error_time = 0.0
+        self._native_primary = None
+        self._native_shadow = None
         try:
-            from .connection_watchdog_native_shadow import WatchdogNativeShadow
+            from .connection_watchdog_native_shadow import (
+                WatchdogNativeShadow,
+                load_primary,
+            )
 
-            self._native_shadow = WatchdogNativeShadow.from_policy(
+            self._native_primary = load_primary(
                 self.project_root,
                 min_interval_ms=int(self._min_probe_interval * 1000),
                 max_interval_ms=int(self._max_probe_interval * 1000),
                 dead_threshold=dead_threshold,
                 retry_grace=CONNECTION_PROBE_RETRY_GRACE,
             )
+            if self._native_primary is None:
+                self._native_shadow = WatchdogNativeShadow.from_policy(
+                    self.project_root,
+                    min_interval_ms=int(self._min_probe_interval * 1000),
+                    max_interval_ms=int(self._max_probe_interval * 1000),
+                    dead_threshold=dead_threshold,
+                    retry_grace=CONNECTION_PROBE_RETRY_GRACE,
+                )
         except Exception:
+            self._native_primary = None
             self._native_shadow = None
 
     def set_repair_callback(self, callback: Any) -> None:
@@ -201,14 +215,42 @@ class ConnectionWatchdog(
             backend_process_alive = True
         backend_http = self._probe_backend_http()
         frontend_connected = self._check_frontend_connected()
-        new_state = self._compute_state(
-            backend_process_alive, backend_http, frontend_connected
-        )
-        with self._lock:
-            old_state = self._snapshot.overall_state
-            new_dead = self._compute_dead_count(
-                new_state, old_state, self._snapshot.consecutive_dead
+        now_ms = int(time.time() * 1000)
+        native = self._native_primary
+        if native is not None:
+            # Native primary: the C state machine owns state transitions,
+            # the dead counter, the one-shot repair latch and the adaptive
+            # interval.  Python keeps I/O probes, event/audit recording and
+            # the repair callback dispatch.
+            event = native.probe(
+                backend_process_alive,
+                backend_http,
+                frontend_connected,
+                now_ms,
             )
+            new_state = native.state()
+            new_dead = native.consecutive_dead()
+            trigger = bool(event is not None and event.get("repair_fired"))
+            old_state = self._snapshot.overall_state
+        else:
+            new_state = self._compute_state(
+                backend_process_alive, backend_http, frontend_connected
+            )
+            with self._lock:
+                old_state = self._snapshot.overall_state
+                new_dead = self._compute_dead_count(
+                    new_state, old_state, self._snapshot.consecutive_dead
+                )
+            trigger = (
+                new_state != "connected"
+                and new_dead >= self.dead_threshold
+                and not self._repair_triggered
+            )
+            if new_state == "connected":
+                self._repair_triggered = False
+            elif trigger:
+                self._repair_triggered = True
+        with self._lock:
             self._snapshot = ConnectionSnapshot(
                 backend_process_alive=backend_process_alive,
                 backend_http_healthy=backend_http,
@@ -219,15 +261,6 @@ class ConnectionWatchdog(
                 probe_count=self._snapshot.probe_count + 1,
             )
             snapshot = self._snapshot
-        trigger = (
-            new_state != "connected"
-            and new_dead >= self.dead_threshold
-            and not self._repair_triggered
-        )
-        if new_state == "connected":
-            self._repair_triggered = False
-        elif trigger:
-            self._repair_triggered = True
         if new_state != old_state:
             self._record_event(old_state, new_state, snapshot, trigger_repair=trigger)
         elif trigger:
@@ -254,7 +287,12 @@ class ConnectionWatchdog(
         """One probe iteration — runs on the bounded tick worker."""
         alive = bool(backend_alive_fn())
         snapshot = self.probe_once(backend_process_alive=alive)
-        if snapshot.overall_state == "connected":
+        if self._native_primary is not None:
+            # The C FSM already advanced the adaptive interval inside probe().
+            self._adaptive_probe_interval = (
+                self._native_primary.next_interval_ms() / 1000.0
+            )
+        elif snapshot.overall_state == "connected":
             self._consecutive_stable += 1
             if self._consecutive_stable >= 3:
                 self._adaptive_probe_interval = min(

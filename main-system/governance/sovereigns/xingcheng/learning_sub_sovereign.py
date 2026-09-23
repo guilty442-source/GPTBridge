@@ -106,24 +106,17 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
         transfers only maintenance-manual learning and management into the
         星澄 learning module and never mutates the canonical Codex database.
         """
-        root = Path(getattr(self.app, "project_root", ".")).resolve()
-        database = root / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
-        if not database.is_file():
-            self._fault_manual_catalog = ()
-            self._fault_manual_catalog_hash = ""
-            return
-        connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True)
-        connection.row_factory = sqlite3.Row
-        try:
+        from governance_rule.execution.codex_repository import codex_readonly_connection
+
+        with codex_readonly_connection() as connection:
+            columns = [row[1] for row in connection.execute("PRAGMA table_info(maintenance_manual_directory)")]
             records = tuple(
-                dict(row)
+                dict(zip(columns, row))
                 for row in connection.execute(  # sql-ok: catalog hash covers the full row
                     "SELECT * FROM maintenance_manual_directory "
                     "WHERE retired_version IS NULL ORDER BY manual_code"
                 )
             )
-        finally:
-            connection.close()
         payload = json.dumps(records, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         self._fault_manual_catalog = records
         self._fault_manual_catalog_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()

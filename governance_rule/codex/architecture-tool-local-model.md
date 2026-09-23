@@ -45,3 +45,5 @@ Triton 自研 kernel（RMSNorm／SwiGLU／RoPE）預設關閉（品質優先）�
 人格以對話為唯一使用者入口：對話中輸入「設定人格：…」「把人格設為：…」即寫入受治理的 identity 儲存（版本歷程與稽核），「你的人格是什麼？」顯示現值，「清除人格」重設；人格由伺服器端於每次推論前以「星澄人格設定：／使用者最新訊息：」標記套用，用戶端不保存、不傳送人格，範圍閘門僅判定標記後的使用者訊息。對話視窗不提供人格編輯器。
 
 自我學習與自動升級：從各角色資料庫收集已驗證且品質合格的訓練範例，累積達門檻即匯出 `star-transformer-sft/v1` 快照、註冊資料集、排入受治理 SFT 工作，並以現行權重為基線跑評估套件；全數通過才註冊、`stage` 並（在 `auto_activate` 時）`activate`，同時更新生命週期與原生引擎指向並修剪前一代。任一失敗一律 fail-closed：現行權重、執行期 checkpoint 與 adapter registry 不被觸碰。政策：`runtime/settings/self-learning.json`（`enabled=false` 為 kill switch）。成熟度階梯 `star-model-maturity/v1` 僅由已執行測試認證（L0 structure／L1 forward-backward／L2 overfit／L3 effective pretrain／L4 generation／L5 dialogue／L6 reasoning-tools／L7 controlled evolution），參數量只列證據、不得作為判準；首個 fail／skipped 即封頂。資料保留政策 `star-retention-policy/v1` 依數量與年齡修剪舊工作目錄、日誌與報告，任何被 `lifecycle.json` 或 `native-engine.json` 指涉的路徑永不刪除（無法解析者 fail-closed 保留）。對外只存在一個 `central-automatic-repair` 能力，名稱固定「自我學習與自動編程」；自動修復與自動學習僅為其內部實作。
+
+本工具規範只存於本工具邊界；中央僅保存定位與權限索引，不複製規範內容。

@@ -56,6 +56,22 @@ def _ms(seconds: float) -> int:
     return int(round(seconds * 1000))
 
 
+def load_primary(project_root: Optional[Path] = None) -> Any:
+    """Return the authoritative ``NativeScheduler`` when policy mode is
+    ``primary``; ``None`` otherwise (caller falls back to the Python
+    table — a refusal is audited via ``primary-unavailable``)."""
+    from core_system.native_shadow_resource import load_native_primary
+
+    def _make() -> Any:
+        from core_system.native import _sovereign_native as native
+
+        return native.NativeScheduler()
+
+    return load_native_primary(
+        _COMPONENT, project_root, _make, log_rel=_LOG_REL
+    )
+
+
 class SchedulerNativeShadow:
     """Parallel C-state-machine observer for ``PeriodicScheduler``."""
 

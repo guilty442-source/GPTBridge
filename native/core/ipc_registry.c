@@ -26,20 +26,72 @@ int gptbridge_ipc_registry_create(gptbridge_ipc_registry_t* r, const char* reque
     return 1;
 }
 
+static int _is_terminal(gptbridge_req_status_t s) {
+    return s == GPTBRIDGE_REQ_COMPLETED || s == GPTBRIDGE_REQ_FAILED ||
+           s == GPTBRIDGE_REQ_CANCELLED || s == GPTBRIDGE_REQ_TIMED_OUT;
+}
+
+int gptbridge_ipc_registry_transition_ok(gptbridge_req_status_t from,
+                                         gptbridge_req_status_t to) {
+    if (from == to) return 1;              /* Python: 同態跳過驗證 */
+    if (_is_terminal(from)) return -1;     /* "request-terminal" */
+    switch (from) {
+        case GPTBRIDGE_REQ_CREATED:
+            return to == GPTBRIDGE_REQ_RUNNING || to == GPTBRIDGE_REQ_QUEUED ||
+                   to == GPTBRIDGE_REQ_CANCELLED || to == GPTBRIDGE_REQ_TIMED_OUT ||
+                   to == GPTBRIDGE_REQ_FAILED || to == GPTBRIDGE_REQ_INTERRUPTED;
+        case GPTBRIDGE_REQ_QUEUED:
+            return to == GPTBRIDGE_REQ_RUNNING || to == GPTBRIDGE_REQ_CANCELLED ||
+                   to == GPTBRIDGE_REQ_TIMED_OUT || to == GPTBRIDGE_REQ_FAILED ||
+                   to == GPTBRIDGE_REQ_INTERRUPTED;
+        case GPTBRIDGE_REQ_RUNNING:
+            return to == GPTBRIDGE_REQ_COMPLETED || to == GPTBRIDGE_REQ_FAILED ||
+                   to == GPTBRIDGE_REQ_CANCELLED || to == GPTBRIDGE_REQ_TIMED_OUT ||
+                   to == GPTBRIDGE_REQ_INTERRUPTED;
+        case GPTBRIDGE_REQ_INTERRUPTED:
+            return to == GPTBRIDGE_REQ_RUNNING || to == GPTBRIDGE_REQ_FAILED ||
+                   to == GPTBRIDGE_REQ_CANCELLED;
+        default:
+            return 0; /* 未知 from 態 → 非法（Python get(..., set()) 空集） */
+    }
+}
+
 int gptbridge_ipc_registry_set_status(gptbridge_ipc_registry_t* r, const char* request_id, gptbridge_req_status_t s, int64_t now_ms) {
     gptbridge_ipc_request_t* req = (gptbridge_ipc_request_t*)gptbridge_ipc_registry_find(r, request_id);
     if (!req) return 0;
-    /* 終止態不可再轉出（COMPLETED/FAILED/CANCELLED/TIMED_OUT 為終止） */
-    if (req->status == GPTBRIDGE_REQ_COMPLETED || req->status == GPTBRIDGE_REQ_FAILED ||
-        req->status == GPTBRIDGE_REQ_CANCELLED || req->status == GPTBRIDGE_REQ_TIMED_OUT) {
-        if (s != req->status) return 0;
+    if (s < GPTBRIDGE_REQ_CREATED || s > GPTBRIDGE_REQ_INTERRUPTED) return -3;
+    {
+        int t = gptbridge_ipc_registry_transition_ok(req->status, s);
+        if (t != 1) return t;              /* -1 終止鎖 / 0 非法 */
     }
     req->status = s;
     if (s == GPTBRIDGE_REQ_RUNNING && req->started_at_ms == 0) req->started_at_ms = now_ms;
-    if (s == GPTBRIDGE_REQ_COMPLETED || s == GPTBRIDGE_REQ_FAILED ||
-        s == GPTBRIDGE_REQ_CANCELLED || s == GPTBRIDGE_REQ_TIMED_OUT) {
-        if (req->completed_at_ms == 0) req->completed_at_ms = now_ms;
-    }
+    if (_is_terminal(s) && req->completed_at_ms == 0) req->completed_at_ms = now_ms;
+    return 1;
+}
+
+int gptbridge_ipc_registry_merge_status(gptbridge_ipc_registry_t* r, const char* request_id, gptbridge_req_status_t s, int64_t now_ms) {
+    gptbridge_ipc_request_t* req = (gptbridge_ipc_request_t*)gptbridge_ipc_registry_find(r, request_id);
+    if (!req) return 0;
+    if (s < GPTBRIDGE_REQ_CREATED || s > GPTBRIDGE_REQ_INTERRUPTED) return 0;
+    req->status = s;
+    if (s == GPTBRIDGE_REQ_RUNNING && req->started_at_ms == 0) req->started_at_ms = now_ms;
+    if (_is_terminal(s) && req->completed_at_ms == 0) req->completed_at_ms = now_ms;
+    return 1;
+}
+
+int gptbridge_ipc_registry_request_cancel(gptbridge_ipc_registry_t* r, const char* request_id) {
+    gptbridge_ipc_request_t* req = (gptbridge_ipc_request_t*)gptbridge_ipc_registry_find(r, request_id);
+    if (!req) return 0;
+    req->cancelled = 1;
+    return 1;
+}
+
+int gptbridge_ipc_registry_set_backend(gptbridge_ipc_registry_t* r, const char* request_id, const char* backend_id) {
+    gptbridge_ipc_request_t* req = (gptbridge_ipc_request_t*)gptbridge_ipc_registry_find(r, request_id);
+    if (!req || !backend_id) return 0;
+    strncpy(req->backend_id, backend_id, GPTBRIDGE_IPC_ID_MAX - 1);
+    req->backend_id[GPTBRIDGE_IPC_ID_MAX - 1] = '\0';
     return 1;
 }
 

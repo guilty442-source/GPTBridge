@@ -38,6 +38,10 @@ int gptbridge_sched_register(gptbridge_sched_t* s, const char* name, int64_t int
     j->last_duration_ms = 0;
     j->enabled = 1;
     j->pausable = pausable ? 1 : 0;
+    j->paused_since_ms = 0;
+    /* 對齊 Python：starve_after_s = max(300.0, interval_s * 10.0) */
+    j->starve_after_ms = interval_ms * 10 > 300000 ? interval_ms * 10 : 300000;
+    j->starved_count = 0;
     s->count++;
     return 1;
 }
@@ -84,6 +88,61 @@ int gptbridge_sched_tick(gptbridge_sched_t* s, int64_t now_ms, int32_t paused) {
         if (j->last_duration_ms > j->timeout_ms) j->error_count++;
     }
     return executed;
+}
+
+int gptbridge_sched_collect_due(gptbridge_sched_t* s, int64_t now_ms,
+                                int32_t paused,
+                                char out_names[][GPTBRIDGE_SCHED_NAME_MAX],
+                                int32_t max_names) {
+    int32_t n = 0;
+    if (!s || !out_names || max_names <= 0) return 0;
+    s->now_ms = now_ms;
+    for (int32_t i = 0; i < s->count; ++i) {
+        gptbridge_sched_job_t* j = &s->jobs[i];
+        if (!j->enabled) continue;
+        if (now_ms < j->next_due_ms) continue;
+        if (paused && j->pausable) {
+            if (j->paused_since_ms == 0) j->paused_since_ms = now_ms;
+            if (now_ms - j->paused_since_ms <= j->starve_after_ms) {
+                /* 管制中延後而非執行（不追趕） */
+                j->next_due_ms = now_ms + j->interval_ms;
+                j->paused_count++;
+                continue;
+            }
+            j->starved_count++; /* starvation 上界：延後是節流非終止 */
+        }
+        j->paused_since_ms = 0;
+        j->next_due_ms = now_ms + j->interval_ms;
+        strncpy(out_names[n], j->name, GPTBRIDGE_SCHED_NAME_MAX - 1);
+        out_names[n][GPTBRIDGE_SCHED_NAME_MAX - 1] = '\0';
+        if (++n >= max_names) break;
+    }
+    return n;
+}
+
+int gptbridge_sched_record(gptbridge_sched_t* s, const char* name,
+                           int64_t started_ms, int64_t duration_ms,
+                           int32_t error) {
+    gptbridge_sched_job_t* j;
+    if (!s || !name) return 0;
+    j = (gptbridge_sched_job_t*)gptbridge_sched_find(s, name);
+    if (!j) return 0;
+    j->last_run_ms = started_ms;
+    j->last_duration_ms = duration_ms;
+    j->run_count++;
+    if (error) j->error_count++;
+    return 1;
+}
+
+int64_t gptbridge_sched_min_due_ms(const gptbridge_sched_t* s) {
+    int64_t best = 0;
+    if (!s) return 0;
+    for (int32_t i = 0; i < s->count; ++i) {
+        const gptbridge_sched_job_t* j = &s->jobs[i];
+        if (!j->enabled) continue;
+        if (best == 0 || j->next_due_ms < best) best = j->next_due_ms;
+    }
+    return best;
 }
 
 int gptbridge_sched_job_count(const gptbridge_sched_t* s) { return s ? s->count : 0; }

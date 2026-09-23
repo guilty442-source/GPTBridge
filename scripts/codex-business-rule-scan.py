@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -28,7 +27,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-CODEX_DB = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 OUT = (
     ROOT / "governance_rule" / "execution" / "audit" / "convergence"
     / "codex-business-rule-conflicts.json"
@@ -70,17 +68,18 @@ def _is_retired(manifest: dict) -> bool:
 
 
 def _codex_module_assignments() -> dict[str, dict]:
-    if not CODEX_DB.is_file():
-        return {}
-    db = sqlite3.connect(f"file:{CODEX_DB.as_posix()}?mode=ro", uri=True)
-    try:
+    # A173: the sqlite predecessor is retired — read the PostgreSQL
+    # authority through the governed repository interface.
+    from governance_rule.execution.codex_repository import (
+        codex_readonly_connection,
+    )
+
+    with codex_readonly_connection() as db:
         rows = db.execute(
             "SELECT module_architecture_code, managing_sub_sovereign, "
             "decision_authority, permission_authority, review_authority, "
             "execution_identity, status FROM module_assignment_registry"
         ).fetchall()
-    finally:
-        db.close()
     return {
         r[5]: {
             "module": r[0],
@@ -280,18 +279,15 @@ def main() -> int:
 
     # --- axis 6: deadline/budget numeric rules vs codex metadata -----
     def _codex_metadata() -> dict[str, str]:
-        if not CODEX_DB.is_file():
-            return {}
-        db = sqlite3.connect(
-            f"file:{CODEX_DB.as_posix()}?mode=ro", uri=True
+        from governance_rule.execution.codex_repository import (
+            codex_readonly_connection,
         )
-        try:
+
+        with codex_readonly_connection() as db:
             return {
                 str(k): str(v)
                 for k, v in db.execute("SELECT key, value FROM metadata")
             }
-        finally:
-            db.close()
 
     codex_meta = _codex_metadata()
     budget_key_re = re.compile(

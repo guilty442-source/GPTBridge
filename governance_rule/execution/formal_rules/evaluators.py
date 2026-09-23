@@ -598,22 +598,23 @@ def _machine_schema(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 @register_rule("RULE_RELEASE_VERIFICATION")
 def _release_verification(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate: VERIFIED only with technical pass AND valid external
-    threshold signatures AND trust anchor validation."""
+    """Predicate: VERIFIED only with governed certification closure."""
     technical = str(facts.get("technical_status", "")).upper().strip()
-    signature_status = str(facts.get("signature_status", "")).upper().strip()
+    authorization = str(facts.get("authorization_status", "")).upper().strip()
+    integrity = str(facts.get("integrity_status", "")).upper().strip()
+    lineage = str(facts.get("lineage_status", "")).upper().strip()
     trust_anchor = str(facts.get("trust_anchor", "")).upper().strip()
     if technical != "TECHNICAL_PASS":
         return False, "INCOMPLETE_EVIDENCE", f"technical status is {technical!r}, not TECHNICAL_PASS"
-    if signature_status not in ("COMPLETE", "VALID"):
-        return (
-            False,
-            "INCOMPLETE_EVIDENCE",
-            f"missing external threshold signatures ({signature_status!r})",
-        )
+    if authorization != "VALID":
+        return False, "INCOMPLETE_EVIDENCE", f"authorization not valid ({authorization!r})"
+    if integrity != "VALID":
+        return False, "INCOMPLETE_EVIDENCE", f"integrity seal not valid ({integrity!r})"
+    if lineage != "VALID":
+        return False, "INCOMPLETE_EVIDENCE", f"lineage not closed ({lineage!r})"
     if trust_anchor != "VALID":
         return False, "INCOMPLETE_EVIDENCE", f"trust anchor not validated ({trust_anchor!r})"
-    return True, "VERIFIED_RELEASE", "technical pass + external signatures + trust anchor"
+    return True, "VERIFIED_RELEASE", "technical pass + authorization + integrity + lineage + trust anchor"
 
 
 # ---------------------------------------------------------------------------

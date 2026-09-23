@@ -104,6 +104,18 @@ double gptbridge_act_poll_interval(int32_t pending,
                                    double idle_interval_s,
                                    double pending_interval_s);
 
+/* primary 模式狀態回放／shadow resync——對齊 runtime_state 的
+   rs_restore 先例：逐欄位寫入運行態（不經決策路徑），供重啟恢復與
+   shadow 在記錄分歧後把鏡像同步回權威 Python 狀態。backoff_s 仍依
+   init 契約夾取 [min,max]；broker NULL 或 backoff<=0 → 0 fail-closed。 */
+int gptbridge_act_restore(gptbridge_act_broker_t* broker,
+                          double next_attempt_at,
+                          double next_release_at,
+                          double backoff_s,
+                          int32_t attempts,
+                          int32_t broker_started_owner,
+                          double explicit_stop_at);
+
 /* §10.63 R2 狀態寫盤節流：fingerprint 變更或 >=heartbeat_s → 1 該寫 */
 int gptbridge_act_state_write_due(int32_t fingerprint_changed,
                                   double now_monotonic,

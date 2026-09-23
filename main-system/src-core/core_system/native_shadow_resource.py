@@ -14,10 +14,81 @@ window stayed inside budget; it never affects the authoritative path.
 
 from __future__ import annotations
 
+import json
 import time
-from typing import Any
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Optional
 
 RESOURCE_INTERVAL_S = 300.0
+
+_POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
+
+
+def read_policy_mode(component: str, project_root: Path | None) -> str:
+    """Return the governed mode for ``component`` ("off"/"shadow"/"primary");
+    "off" for absent/invalid policy or a missing component entry."""
+    root = Path(project_root) if project_root else Path(
+        __file__
+    ).resolve().parents[3]
+    try:
+        policy = json.loads((root / _POLICY_REL).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "off"
+    components = policy.get("components")
+    entry = (
+        (components or {}).get(component) if isinstance(components, dict)
+        else None
+    )
+    return str((entry or {}).get("mode") or "off").strip().lower()
+
+
+def emit_primary_unavailable(
+    component: str, log_path: Path, detail: str
+) -> None:
+    """Append one ``primary-unavailable`` audit record — a substitution
+    failure is observable, never silent."""
+    record = {
+        "schema": "native-shadow-divergence/v1",
+        "component": component,
+        "at": datetime.now(timezone.utc).isoformat(),
+        "monotonic_s": round(time.monotonic(), 3),
+        "kind": "primary-unavailable",
+        "detail": detail[:200],
+    }
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def load_native_primary(
+    component: str,
+    project_root: Path | None,
+    factory: Callable[[], Any],
+    *,
+    log_rel: Path | str,
+) -> Optional[Any]:
+    """Return the authoritative native object when policy mode is
+    ``primary``; ``None`` otherwise or when ``factory`` raises (caller
+    falls back to the Python path; the failure is audited via
+    ``emit_primary_unavailable`` so it is never silent)."""
+    if read_policy_mode(component, project_root) != "primary":
+        return None
+    root = Path(project_root) if project_root else Path(
+        __file__
+    ).resolve().parents[3]
+    try:
+        return factory()
+    except Exception as exc:
+        emit_primary_unavailable(
+            component,
+            root / log_rel,
+            f"{type(exc).__name__}: {exc}",
+        )
+        return None
 
 
 def _resource_snapshot() -> dict[str, Any]:
@@ -72,4 +143,10 @@ def maybe_emit_resource(shadow: Any) -> None:
         pass
 
 
-__all__ = ["maybe_emit_resource", "RESOURCE_INTERVAL_S"]
+__all__ = [
+    "maybe_emit_resource",
+    "RESOURCE_INTERVAL_S",
+    "read_policy_mode",
+    "emit_primary_unavailable",
+    "load_native_primary",
+]

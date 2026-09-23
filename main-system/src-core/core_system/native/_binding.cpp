@@ -464,6 +464,15 @@ static py::object transformer_matmul_grouped(
 // Thin holders over the pure-C state machines in native/core/. Python owns
 // the structs by value; the C layer performs no I/O and no authority calls.
 
+// Caller-supplied ms timestamps keep the C core deterministic; a 0 means
+// "stamp now" so bindings stay ergonomic for callers without a clock.
+static int64_t now_or_host(int64_t now_ms) {
+    if (now_ms > 0) return now_ms;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+
 static const char* WD_STATES[] = {
     "unknown", "connected", "degraded", "disconnected", "starting"};
 
@@ -701,6 +710,10 @@ public:
     bool cancel(const std::string& job_id) {
         return gptbridge_mt_cancel(&mt_, job_id.c_str()) != 0;
     }
+    bool requeue(const std::string& job_id, int64_t now_ms) {
+        return gptbridge_mt_requeue(&mt_, job_id.c_str(),
+                                    now_or_host(now_ms)) != 0;
+    }
     int job_count() const { return mt_.count; }
     /* Non-terminal slots (QUEUED/DEFERRED/RUNNING) — mirrors the Python
        scheduler's len(_queue)+len(_running).  job_count() is the raw table
@@ -746,15 +759,6 @@ private:
 static const char* REQ_STATES[] = {
     "CREATED", "QUEUED", "RUNNING", "COMPLETED",
     "FAILED", "CANCELLED", "TIMED_OUT", "INTERRUPTED"};
-
-// Caller-supplied ms timestamps keep the C core deterministic; a 0 means
-// "stamp now" so bindings stay ergonomic for callers without a clock.
-static int64_t now_or_host(int64_t now_ms) {
-    if (now_ms > 0) return now_ms;
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
 
 class NativeIpcRegistry {
 public:
@@ -1042,6 +1046,18 @@ public:
     void note_explicit_stop(double now_monotonic, double wall_time) {
         gptbridge_act_note_explicit_stop(&broker_, now_monotonic, wall_time);
     }
+    /* 狀態回放／shadow resync：權威 Python 狀態逐欄位寫入（rs_restore
+       先例）。回傳 bool——無效輸入 fail-closed 不寫入。 */
+    bool restore(const py::dict& state) {
+        return gptbridge_act_restore(
+                   &broker_,
+                   _num(state, "next_attempt_at"),
+                   _num(state, "next_release_at"),
+                   _num(state, "backoff_seconds"),
+                   static_cast<int32_t>(_num(state, "attempts")),
+                   _flag(state, "broker_started_owner"),
+                   _num(state, "explicit_stop_at")) != 0;
+    }
     py::dict status() const {
         py::dict out;
         out["attempts"] = broker_.attempts;
@@ -1068,6 +1084,10 @@ public:
 private:
     static int32_t _flag(const py::dict& d, const char* key) {
         return d.contains(key) && py::cast<bool>(d[key]) ? 1 : 0;
+    }
+    static double _num(const py::dict& d, const char* key) {
+        if (!d.contains(key) || d[key].is_none()) return 0.0;
+        return py::cast<double>(d[key]);
     }
     gptbridge_act_broker_t broker_{};
 };
@@ -1522,6 +1542,7 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("on_start_result", &NativeActivationBroker::on_start_result)
         .def("on_release_result", &NativeActivationBroker::on_release_result)
         .def("note_explicit_stop", &NativeActivationBroker::note_explicit_stop)
+        .def("restore", &NativeActivationBroker::restore)
         .def("status", &NativeActivationBroker::status)
         .def_static("poll_interval", &NativeActivationBroker::poll_interval)
         .def_static("state_write_due",

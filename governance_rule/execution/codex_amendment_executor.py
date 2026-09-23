@@ -56,7 +56,7 @@ class AmendmentExecutionResult:
     version: str
     reason: str = ""
     phases: tuple[Mapping[str, Any], ...] = ()
-    seal_state: str = "sealed-pending-external-signatures"
+    seal_state: str = "sealed-governed-certification"
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -69,21 +69,43 @@ class RuntimeStateRegistry:
     ) -> None:
         self._path = Path(state_path)
         self._records: dict[str, ModuleRuntimeRecord] = {}
-        # §10.65 act-1: native shadow attaches only when project_root is
-        # given; policy mode != "shadow" or a missing extension yields None.
+        # §10.65 act-2: policy mode "primary" -> the C registry owns the
+        # state machine (transitions, recovery counting, error clearing,
+        # staleness); Python keeps persistence, ``metadata`` and reads.
+        # mode "shadow" -> parallel comparison (Python authoritative);
+        # anything else -> Python-only.  Primary and shadow are mutually
+        # exclusive — never both.
+        self._native_primary = None
         self._native_shadow = None
         if project_root is not None:
             try:
                 from .runtime_state_native_shadow import (
                     RuntimeStateNativeShadow,
+                    load_primary,
                 )
 
-                self._native_shadow = RuntimeStateNativeShadow.from_policy(
-                    Path(project_root)
-                )
+                self._native_primary = load_primary(Path(project_root))
+                if self._native_primary is None:
+                    self._native_shadow = (
+                        RuntimeStateNativeShadow.from_policy(
+                            Path(project_root)
+                        )
+                    )
             except Exception:
+                self._native_primary = None
                 self._native_shadow = None
         self._load()
+        if self._native_primary is not None:
+            for record in self._records.values():
+                try:
+                    restored = self._native_primary.restore(asdict(record))
+                except Exception:
+                    restored = False
+                if not restored:
+                    _logger.warning(
+                        "runtime-state native restore refused %s",
+                        record.module_id,
+                    )
 
     # ---- persistence ----------------------------------------------------
 
@@ -131,6 +153,30 @@ class RuntimeStateRegistry:
             self._records[module_id] = record
         return record
 
+    def _sync_from_native(self, module_id: str) -> ModuleRuntimeRecord:
+        """Mirror the authoritative C record back into the Python mirror
+        (metadata stays Python-owned)."""
+        record = self._record(module_id)
+        native = self._native_primary
+        if native is None:
+            return record
+        state = native.get(module_id)
+        if state is None:
+            return record
+        for field_name in (
+            "runtime_state",
+            "capability_state",
+            "health",
+            "release_id",
+            "last_heartbeat",
+            "last_error",
+            "recovery_attempts",
+            "updated_at",
+        ):
+            if field_name in state:
+                setattr(record, field_name, state[field_name])
+        return record
+
     def set_runtime_state(
         self,
         module_id: str,
@@ -142,6 +188,20 @@ class RuntimeStateRegistry:
     ) -> ModuleRuntimeRecord:
         if state not in RUNTIME_STATES:
             raise ValueError(f"unknown runtime state: {state}")
+        native = self._native_primary
+        if native is not None:
+            now_str = _now()
+            if native.set_runtime_state(
+                module_id, state, health, release_id, error, now_str
+            ):
+                record = self._sync_from_native(module_id)
+                self._persist()
+                return record
+            _logger.warning(
+                "native runtime-state refused %s -> %s; Python fallback",
+                module_id,
+                state,
+            )
         record = self._record(module_id)
         record.runtime_state = state
         if state == "RECOVERING":
@@ -176,6 +236,17 @@ class RuntimeStateRegistry:
     ) -> ModuleRuntimeRecord:
         if state not in CAPABILITY_STATES:
             raise ValueError(f"unknown capability state: {state}")
+        native = self._native_primary
+        if native is not None:
+            if native.set_capability_state(module_id, state, _now()):
+                record = self._sync_from_native(module_id)
+                self._persist()
+                return record
+            _logger.warning(
+                "native capability-state refused %s -> %s; Python fallback",
+                module_id,
+                state,
+            )
         record = self._record(module_id)
         record.capability_state = state
         record.updated_at = _now()
@@ -191,6 +262,15 @@ class RuntimeStateRegistry:
         return record
 
     def heartbeat(self, module_id: str) -> ModuleRuntimeRecord:
+        native = self._native_primary
+        if native is not None:
+            if native.heartbeat(module_id, _now(), _now_ms()):
+                record = self._sync_from_native(module_id)
+                self._persist()
+                return record
+            _logger.warning(
+                "native heartbeat refused %s; Python fallback", module_id
+            )
         record = self._record(module_id)
         record.last_heartbeat = _now()
         record.updated_at = record.last_heartbeat
@@ -216,6 +296,12 @@ class RuntimeStateRegistry:
         never read as healthy.  The verdict is mirrored into the native
         shadow for divergence detection.
         """
+        native = self._native_primary
+        if native is not None:
+            # C verdict: 1 stale / 0 fresh / -1 unknown -> fail-closed stale
+            return native.is_stale(
+                module_id, _now_ms(), int(stale_after_s * 1000.0)
+            ) != 0
         record = self._records.get(module_id)
         if record is None or not record.last_heartbeat:
             stale = True
@@ -240,6 +326,15 @@ class RuntimeStateRegistry:
         return stale
 
     def record_error(self, module_id: str, error: str) -> ModuleRuntimeRecord:
+        native = self._native_primary
+        if native is not None:
+            if native.record_error(module_id, error, _now()):
+                record = self._sync_from_native(module_id)
+                self._persist()
+                return record
+            _logger.warning(
+                "native record-error refused %s; Python fallback", module_id
+            )
         record = self._record(module_id)
         record.last_error = error[:500]
         record.updated_at = _now()
@@ -269,6 +364,11 @@ class RuntimeStateRegistry:
 
     def aggregate(self) -> dict[str, Any]:
         """Local-failure-isolation view: counts per axis, never a global FAILED."""
+        native = self._native_primary
+        if native is not None:
+            aggregate = dict(native.aggregate())
+            aggregate["generated_at"] = _now()
+            return aggregate
         by_runtime: dict[str, int] = {}
         by_capability: dict[str, int] = {}
         failed: list[str] = []

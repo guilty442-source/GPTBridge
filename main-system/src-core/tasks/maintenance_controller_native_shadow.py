@@ -83,6 +83,39 @@ def _risk_ord(risk_class: Any) -> int:
     return _RISK_ORD.get(str(value), -1)
 
 
+def load_primary(
+    project_root: Path,
+    *,
+    scheduler_config: Any = None,
+    current_generation: int = 0,
+) -> Any:
+    """Return the authoritative ``NativeMaintenance`` when policy mode is
+    ``primary``; ``None`` otherwise."""
+    from core_system.native_shadow_resource import load_native_primary
+
+    tick_s = float(getattr(scheduler_config, "tick_interval_seconds", 30.0))
+    age_s = float(getattr(scheduler_config, "max_job_age_seconds", 3600.0))
+    retries = int(getattr(scheduler_config, "max_retry_attempts", 3))
+    backoff_s = float(
+        getattr(scheduler_config, "retry_backoff_base_seconds", 60.0)
+    )
+
+    def _make() -> Any:
+        from core_system.native import _sovereign_native as native
+
+        return native.NativeMaintenance(
+            int(tick_s * 1000),
+            int(age_s * 1000),
+            retries,
+            int(backoff_s * 1000),
+            int(current_generation),
+        )
+
+    return load_native_primary(
+        _COMPONENT, project_root, _make, log_rel=_LOG_REL
+    )
+
+
 def _system_blocked(policy_context: Optional[dict[str, Any]]) -> bool:
     """Fold ``evaluate_policy``'s global early returns into one flag.
 

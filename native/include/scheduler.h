@@ -43,6 +43,11 @@ typedef struct {
     int64_t last_duration_ms;
     int32_t enabled;
     int32_t pausable;
+    /* primary 模式的 starvation 欄位（對齊 Python paused_since/
+       starve_after_s/starved_count）；shadow tick 路徑不使用 */
+    int64_t paused_since_ms;
+    int64_t starve_after_ms;
+    int32_t starved_count;
 } gptbridge_sched_job_t;
 
 typedef struct {
@@ -59,6 +64,23 @@ int gptbridge_sched_unregister(gptbridge_sched_t* s, const char* name);
 int gptbridge_sched_tick(gptbridge_sched_t* s, int64_t now_ms, int32_t paused);
 int gptbridge_sched_job_count(const gptbridge_sched_t* s);
 const gptbridge_sched_job_t* gptbridge_sched_find(const gptbridge_sched_t* s, const char* name);
+
+/* --- primary 模式 API（Python coroutine 由呼叫方執行） ------------------
+   collect_due：回傳到期 job 名單並就地推進 next_due（對齊 Python _loop：
+   due 判定 → paused&&pausable 延後（paused_since 起算、paused_count++；
+   逾 starve_after_ms 強制執行 starved_count++）→ 執行前 next_due =
+   now + interval）。fn 不執行。回傳寫入名單數（<= max_names）。 */
+int gptbridge_sched_collect_due(gptbridge_sched_t* s, int64_t now_ms,
+                                int32_t paused,
+                                char out_names[][GPTBRIDGE_SCHED_NAME_MAX],
+                                int32_t max_names);
+/* 執行後回填：last_run_ms=started_ms、last_duration_ms、run_count++；
+   error 非零 → error_count++（Python asyncio.wait_for 逾時走 error 路）。 */
+int gptbridge_sched_record(gptbridge_sched_t* s, const char* name,
+                           int64_t started_ms, int64_t duration_ms,
+                           int32_t error);
+/* 最早 next_due_ms（deadline-driven wait）；無 job 回 0。 */
+int64_t gptbridge_sched_min_due_ms(const gptbridge_sched_t* s);
 
 #ifdef __cplusplus
 }

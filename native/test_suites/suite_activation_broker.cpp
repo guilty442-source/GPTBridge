@@ -189,5 +189,40 @@ int main() {
     }
     NT_END_TEST(SUITE, "poll_interval_and_write_due");
 
+    NT_TEST(SUITE, "restore_replays_authoritative_state") {
+        gptbridge_act_broker_t b;
+        gptbridge_act_init(&b, 20.0, 15.0, 180.0);
+        /* fail-closed: null + invalid backoff rejected */
+        NT_CHECK(gptbridge_act_restore(nullptr, 0, 0, 15.0, 0, 0, 0) == 0,
+                 "null broker rejected");
+        NT_CHECK(gptbridge_act_restore(&b, 0, 0, 0.0, 0, 0, 0) == 0,
+                 "non-positive backoff rejected");
+        /* replay: fields written verbatim, backoff clamped to bounds */
+        NT_CHECK(gptbridge_act_restore(&b, 500.0, 700.0, 45.0, 3, 1, 9999.0)
+                     == 1,
+                 "restore ok");
+        NT_CHECK(std::fabs(b.next_attempt_at - 500.0) < 1e-9, "attempt_at");
+        NT_CHECK(std::fabs(b.next_release_at - 700.0) < 1e-9, "release_at");
+        NT_CHECK(std::fabs(b.backoff_s - 45.0) < 1e-9, "backoff");
+        NT_CHECK(b.attempts == 3, "attempts");
+        NT_CHECK(b.broker_started_owner == 1, "owner flag replayed");
+        NT_CHECK(std::fabs(b.explicit_stop_at - 9999.0) < 1e-9, "stop_at");
+        /* clamp: below min -> min, above max -> max */
+        gptbridge_act_restore(&b, 0, 0, 1.0, 0, 0, 0);
+        NT_CHECK(std::fabs(b.backoff_s - 15.0) < 1e-9, "backoff clamps min");
+        gptbridge_act_restore(&b, 0, 0, 9999.0, 0, 0, 0);
+        NT_CHECK(std::fabs(b.backoff_s - 180.0) < 1e-9, "backoff clamps max");
+        /* replayed flag drives the release ladder like a live start */
+        gptbridge_act_restore(&b, 0, 0, 15.0, 0, 1, 0);
+        gptbridge_act_inputs_t in{};
+        in.liveness_known = 1;
+        in.owner_active = 1;
+        in.regulation_active = 1;
+        in.now_monotonic = 1000.0;
+        NT_CHECK(gptbridge_act_ensure(&b, &in) == GPTBRIDGE_ACT_SHOULD_RELEASE,
+                 "restored owner flag -> should-release");
+    }
+    NT_END_TEST(SUITE, "restore_replays_authoritative_state");
+
     return native_tests::report("activation_broker_suite.json");
 }

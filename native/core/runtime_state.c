@@ -233,6 +233,43 @@ const gptbridge_rs_record_t* gptbridge_rs_find(
     return NULL;
 }
 
+int gptbridge_rs_restore(gptbridge_rs_registry_t* reg,
+                         const gptbridge_rs_record_t* rec) {
+    int i;
+    gptbridge_rs_record_t* dst = NULL;
+    if (reg == NULL || rec == NULL || rec->module_id[0] == '\0') {
+        return 0;
+    }
+    for (i = 0; i < GPTBRIDGE_RS_MAX_MODULES; ++i) {
+        gptbridge_rs_record_t* r = &reg->records[i];
+        if (r->in_use && strcmp(r->module_id, rec->module_id) == 0) {
+            dst = r;
+            break;
+        }
+        if (dst == NULL && !r->in_use) {
+            dst = r;
+        }
+    }
+    if (dst == NULL) {
+        return 0; /* 滿表 fail-closed */
+    }
+    {
+        int was_in_use = dst->in_use;
+        *dst = *rec;
+        if (!was_in_use) {
+            reg->count += 1;
+        }
+    }
+    dst->module_id[GPTBRIDGE_RS_ID_MAX - 1] = '\0';
+    dst->health[GPTBRIDGE_RS_HEALTH_MAX - 1] = '\0';
+    dst->release_id[GPTBRIDGE_RS_RELEASE_MAX - 1] = '\0';
+    dst->last_heartbeat[GPTBRIDGE_RS_TIME_MAX - 1] = '\0';
+    dst->last_error[GPTBRIDGE_RS_ERR_MAX - 1] = '\0';
+    dst->updated_at[GPTBRIDGE_RS_TIME_MAX - 1] = '\0';
+    dst->in_use = 1;
+    return 1;
+}
+
 int32_t gptbridge_rs_aggregate(const gptbridge_rs_registry_t* reg,
                                int32_t by_runtime[8],
                                int32_t by_capability[5],

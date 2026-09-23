@@ -40,7 +40,6 @@ RC = RELEASES / RC_ID
 RC_CODEX = RC / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 FIXTURES = Path(tempfile.mkdtemp(prefix=f"04b-fixtures-{RC_ID}-"))
 VENV_PY = ROOT / "main-system" / ".venv" / "Scripts" / "python.exe"
-CODEX = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 GOV_ROOT = ROOT / "governance_rule"
 SHARED_SRC = ROOT / "shared-layer" / "src"
 
@@ -326,13 +325,13 @@ def build_rc() -> None:
     # validation runs.  Ship an atomic snapshot (SQLite backup API) so
     # manifest hash/version and the shipped file are the same bytes.
     RC_CODEX.parent.mkdir(parents=True, exist_ok=True)
-    src_con = sqlite3.connect(f"file:{CODEX.as_posix()}?mode=ro", uri=True)
-    dst_con = sqlite3.connect(str(RC_CODEX))
-    try:
-        src_con.backup(dst_con)
-    finally:
-        dst_con.close()
-        src_con.close()
+    # A173: the live authority is PostgreSQL — ship a governed export as
+    # the snapshot (same byte-stable semantics as the old sqlite backup).
+    from governance_rule.execution.codex_postgresql import (
+        export_postgresql_codex,
+    )
+
+    export_postgresql_codex(RC_CODEX)
     # Parity with the dev tree: empty top-level placeholder file.
     (RC / "governance_rule" / "codex" / "governance_codex.sqlite3").touch()
     # Flat-layout seed: main.py exposes <release>/main-system so
@@ -494,7 +493,7 @@ def overlay_contract() -> dict:
     }
     contract["config_contract"]["required_files"][str(RC / "release-manifest.json")] = sha_file(RC / "release-manifest.json")
     contract["governance_dependencies"] = [
-        {"dependency": str(CODEX), "kind": "file", "required": True},
+        {"dependency": str(RC_CODEX), "kind": "file", "required": True},
         {"dependency": str(GOV_ROOT / "permission_directory"), "kind": "path", "required": True},
     ]
     return contract

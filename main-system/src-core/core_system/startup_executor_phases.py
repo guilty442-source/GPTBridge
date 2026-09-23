@@ -72,7 +72,6 @@ class StartupExecutorPhasesMixin:
         root = Path(getattr(app, "project_root", "")).resolve()
         required = (
             root / "governance_rule",
-            root / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3",
             root / "main-system" / "src-core" / "main.py",
             root / "shared-layer" / "src",
         )

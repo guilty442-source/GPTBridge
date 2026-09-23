@@ -21,6 +21,8 @@ from __future__ import annotations
 import re
 import sqlite3
 from contextlib import contextmanager
+
+import psycopg
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Mapping
@@ -231,7 +233,7 @@ def validate_classification(db: sqlite3.Connection) -> list[str]:
             errors.append(
                 f"unclassified provisions: {sorted(missing)[:8]}{'…' if len(missing) > 8 else ''}"
             )
-    except sqlite3.Error:
+    except (sqlite3.Error, psycopg.Error):
         pass
 
     # Structural parity: category must agree with provision_type.  (A

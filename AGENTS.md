@@ -508,32 +508,20 @@ canonical / dependencies / information_channels`.
 
 Tests: `governance_rule/tests/test_architecture_registry.py`.
 
-## Single Shared Blueprint（唯一共用藍圖）
+## Planning documents
 
-All workers share exactly one planning document:
-
-`Standalone tools/local-model/全專案建置藍圖.md`
-
-- **Do not create any other blueprint / roadmap / phased-plan / flow document** —
-  no new `*blueprint*`, `*BLUEPRINT*`, `*藍圖*`, `*流程*` or equivalent planning
-  file in any directory, worktree or tool folder.
-- All planning output (phases, acceptance criteria, gaps, dependency orders,
-  optimization batches, end-to-end flows — chapter 9) goes into that single file.
-- `shared-layer/SQL_LAYER_GOVERNANCE_BLUEPRINT.md` was deleted on 2026-09-20;
-  its planning content is consolidated into the shared blueprint (chapter 6);
-  the deleted content remains available in Git history.
-- Domain authority/evidence documents (codex mirrors, contracts, rules docs,
-  READMEs) stay in their own locations but must not grow into parallel
-  blueprints or roadmaps.
+Blueprint planning files are retired. Do not create or restore blueprint,
+roadmap, phased-plan, flow-plan, or equivalent planning documents. Current
+work is governed directly by the Codex, registered contracts, and explicit
+user instructions.
 
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.
 - Governance audit must pass before commits: `python -m governance_rule.execution.audit`
-- **Implementation precedence (mandatory, blueprint invariant 18)**: a verified
-  implementation that is better than the blueprint is kept and written back into
-  the blueprint with evidence (commit/tests); never roll back a superior, tested
-  implementation merely to match the blueprint.
+- **Implementation precedence**: preserve a verified superior implementation
+  and converge the Codex or registered contract through its governed process;
+  never roll back superior tested behavior to match retired planning text.
 - Model core must remain separate from network functionality.
 - All external network access must go through governed tool paths.
 

@@ -141,7 +141,7 @@ def build() -> dict:
         "schema": SCHEMA,
         "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "generator": "scripts/build-business-rule-delegation.py",
-        "authority": "derived-rebuildable-non-authoritative; source is runtime-rule-index.json, which itself is derived from governance_codex.sqlite3",
+        "authority": "derived-rebuildable-non-authoritative; source is runtime-rule-index.json, which itself is derived from the PostgreSQL codex authority",
         "source": {
             "index": str(INDEX_PATH.relative_to(PROJECT_ROOT)),
             "codex_version": idx.get("source", {}).get("codex_version"),

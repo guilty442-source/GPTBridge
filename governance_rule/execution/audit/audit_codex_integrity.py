@@ -15,7 +15,6 @@ U+003F while the audit stayed green) is the concrete defect these checks close.
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 
 from governance_rule.execution.chinese_codex_mirror import load_chinese_codex_parts
@@ -23,29 +22,39 @@ from governance_rule.execution.codex_update_validation import (
     find_replacement_damage,
     mirror_quality_metrics,
 )
+from governance_rule.execution.codex_repository import codex_readonly_connection
 
 CODEX_DATABASE_RELATIVE = Path("governance_rule") / "codex" / "data" / "governance_codex.sqlite3"
 CODEX_ROOT_RELATIVE = Path("governance_rule") / "codex"
 
 
+def _codex_connection_for(root: Path):
+    """Codex read for one root: a root carrying the legacy sqlite file is a
+    fixture/staging tree and is read directly (non-authoritative); every
+    other root reads the live PostgreSQL authority (A279)."""
+    import sqlite3
+    from contextlib import closing
+
+    candidate = root / CODEX_DATABASE_RELATIVE
+    if candidate.is_file():
+        return closing(
+            sqlite3.connect(
+                f"file:{candidate.as_posix()}?mode=ro&immutable=1", uri=True
+            )
+        )
+    return codex_readonly_connection()
+
+
 def check_codex_text_integrity(root: Path, errors: list[str]) -> None:
     """Fail when an active provision carries replacement-character damage."""
-    database = root / CODEX_DATABASE_RELATIVE
-    if not database.is_file():
-        errors.append(f"codex database is missing: {database}")
-        return
-    connection = sqlite3.connect(
-        f"file:{database.as_posix()}?mode=ro&immutable=1", uri=True
-    )
     try:
-        for finding in find_replacement_damage(connection):
-            errors.append(
-                f"codex text replacement damage (replacement-character loss): {finding}"
-            )
-    except sqlite3.Error as error:
+        with _codex_connection_for(root) as connection:
+            for finding in find_replacement_damage(connection):
+                errors.append(
+                    f"codex text replacement damage (replacement-character loss): {finding}"
+                )
+    except Exception as error:
         errors.append(f"codex text integrity check failed: {error}")
-    finally:
-        connection.close()
 
 
 def check_codex_mirror_quality(root: Path, errors: list[str]) -> None:
@@ -63,18 +72,15 @@ def check_codex_mirror_quality(root: Path, errors: list[str]) -> None:
             "chinese mirror replacement damage: "
             f"{metrics['question_loss_field_count']} fields lost"
         )
-    database = root / CODEX_DATABASE_RELATIVE
-    connection = sqlite3.connect(
-        f"file:{database.as_posix()}?mode=ro&immutable=1", uri=True
-    )
     try:
-        errors.extend(_evidence_errors(connection, version, metrics))
-    finally:
-        connection.close()
+        with _codex_connection_for(root) as connection:
+            errors.extend(_evidence_errors(connection, version, metrics))
+    except Exception as error:
+        errors.append(f"codex mirror quality check failed: {error}")
 
 
 def _evidence_errors(
-    connection: sqlite3.Connection,
+    connection,
     version: str,
     metrics: dict[str, int],
 ) -> tuple[str, ...]:
@@ -86,7 +92,7 @@ def _evidence_errors(
             "FROM chinese_mirror_quality_evidence WHERE version_identity=?",
             (version,),
         ).fetchone()
-    except sqlite3.Error as error:
+    except Exception as error:
         return (f"mirror quality evidence is missing or unreadable: {error}",)
     if row is None:
         return (

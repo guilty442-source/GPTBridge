@@ -123,6 +123,26 @@ void gptbridge_act_note_explicit_stop(gptbridge_act_broker_t* broker,
     broker->next_attempt_at = now_monotonic + broker->cooldown_s;
 }
 
+int gptbridge_act_restore(gptbridge_act_broker_t* broker,
+                          double next_attempt_at,
+                          double next_release_at,
+                          double backoff_s,
+                          int32_t attempts,
+                          int32_t broker_started_owner,
+                          double explicit_stop_at) {
+    if (broker == NULL || backoff_s <= 0.0) {
+        return 0; /* fail-closed：無效回放輸入不寫入 */
+    }
+    broker->next_attempt_at = next_attempt_at;
+    broker->next_release_at = next_release_at;
+    broker->backoff_s = _maxd(broker->min_backoff_s,
+                             _mind(broker->max_backoff_s, backoff_s));
+    broker->attempts = attempts;
+    broker->broker_started_owner = broker_started_owner ? 1 : 0;
+    broker->explicit_stop_at = explicit_stop_at;
+    return 1;
+}
+
 double gptbridge_act_poll_interval(int32_t pending,
                                    double idle_interval_s,
                                    double pending_interval_s) {

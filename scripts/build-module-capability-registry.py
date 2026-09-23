@@ -32,7 +32,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 REGISTRY_PATH = ROOT / "governance_rule" / "execution" / "audit" / "architecture_registry.json"
-CODEX_DB = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 OUT_DIR = ROOT / "governance_rule" / "execution" / "audit" / "convergence"
 
 RESPONSIBILITY = {
@@ -86,15 +85,18 @@ def main() -> int:
     components = registry["components"]
     grant_owners = _load_capability_owners()
 
-    codex = sqlite3.connect(f"file:{CODEX_DB}?mode=ro", uri=True)
-    assignments = {
-        row[0]: row[1]
-        for row in codex.execute(
-            "SELECT module_architecture_code, managing_sub_sovereign "
-            "FROM module_assignment_registry"
-        )
-    }
-    codex.close()
+    from governance_rule.execution.codex_repository import (
+        codex_readonly_connection,
+    )
+
+    with codex_readonly_connection() as codex:
+        assignments = {
+            row[0]: row[1]
+            for row in codex.execute(
+                "SELECT module_architecture_code, managing_sub_sovereign "
+                "FROM module_assignment_registry"
+            )
+        }
 
     rows = []
     code_index: dict[str, list[str]] = {}
