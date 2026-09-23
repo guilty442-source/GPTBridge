@@ -44,6 +44,7 @@ main-system/shared-layer/data/
 shared-layer/data/ai-channel.sqlite3*
 shared-layer/data/system-channel.sqlite3*
 governance_rule/codex/data/governance_codex.sqlite3-*
+governance_rule/codex/data/governance_codex.sqlite3.*
 _tmp_*.py
 backups/
 .backups/
