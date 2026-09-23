@@ -242,6 +242,7 @@ def supervisor_constant(name: str) -> Any:
 # database is unreachable.
 _CODEX_GOVERNED_KEYS: Final[dict[str, str]] = {
     "startup_deadline_ms": "startup_complete_deadline_ms",
+    "startup_complete_deadline_ms": "startup_complete_deadline_ms",
 }
 
 
