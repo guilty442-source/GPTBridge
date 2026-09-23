@@ -1,0 +1,35 @@
+{
+  "evidence_id": "g90-runtime-rule-index-v2-20260923",
+  "item": "G90 Runtime rule index V2 (A605 contract RUNTIME_RULE_INDEX_V2)",
+  "date_utc": "2026-09-23",
+  "module": "governance_rule/execution/convergence/runtime_rule_index_v2.py",
+  "output": "main-system/runtime/state/runtime-rule-index-v2.json",
+  "contract_parity": {
+    "lifecycle_filter": "current-effective-only -> provisions set = controlling_provisions() (673 current - 13 subordinate restatements = 660 indexed); zero superseded/retired identities",
+    "successor_policy": "resolve-before-index; unresolved=deny — resolution chain: provision_reference_resolution_v2 -> supersession_edges -> successor_identity (normalized ARTICLE_/CLOSURE_DEFINITION_/FORMAL_RULE_ spellings); unresolved raises IndexBuildError (fail-closed)",
+    "exact_keys": "by_provision_identity + by_rule_code",
+    "postings": "owner|capability|trigger|phase|severity|effect|deadline|resource_class|data_class|dependency|successor — sorted unique ordinals, deduplicated dictionary",
+    "generation_policy": "compact-ordinal|deduplicated-dictionary|sorted-postings|immutable-region|validate-then-atomic-swap|reader-generation-fence",
+    "stale_policy": "load_published verifies content hash; RuntimeRuleIndex.check_fresh raises INDEX_NOT_READY on codex version drift"
+  },
+  "successor_resolution_evidence": {
+    "article:A591": "-> article:A604",
+    "article:A592": "-> article:A604",
+    "article:A554": "-> article:A598",
+    "article:A440": "-> article:A481",
+    "article:A498": "-> formal-rule:RULE_DELEGATED_A498_V1",
+    "article:A516": "-> closure-definition:CLOSURE_DELEGATED_A516_V1"
+  },
+  "slo": {
+    "exact_warm_p95_ms": 0.0005,
+    "multifilter_warm_p95_ms": 0.0044,
+    "build_seconds": 0.062
+  },
+  "counts": {
+    "provisions": 660,
+    "rules": 67,
+    "dictionary": 747
+  },
+  "tests": "governance_rule/tests/test_runtime_rule_index_v2.py 8/8 PASS (incl. negative unresolved-successor deny + corrupt-generation INDEX_NOT_READY)",
+  "user_flag_resolved": "v1 index carried A591/A592 + sub-sovereign data; V2 generation contains none"
+}
