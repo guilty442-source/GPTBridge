@@ -1,12 +1,12 @@
 {
   "schema": "business-rule-delegation/v2",
-  "generated_at_utc": "2026-09-22T10:27:16Z",
+  "generated_at_utc": "2026-09-23T17:35:21Z",
   "generator": "scripts/build-business-rule-delegation.py",
-  "authority": "derived-rebuildable-non-authoritative; source is runtime-rule-index.json, which itself is derived from governance_codex.sqlite3",
+  "authority": "derived-rebuildable-non-authoritative; source is runtime-rule-index.json, which itself is derived from the PostgreSQL codex authority",
   "source": {
     "index": "main-system\\runtime\\state\\runtime-rule-index.json",
-    "codex_version": "2026-09-22T10:23:53Z",
-    "index_content_sha256": "87082455f61aa90b56fb6ca68751fb1f5b71184a46adb1b8cf4bdf028249cab2"
+    "codex_version": "2026-09-23T03:13:43Z",
+    "index_content_sha256": "ee42d431cb5ef80016edd91a2770e472caac3ef68e746c5e3194a74f475f9048"
   },
   "rule": "Codex retains governance/authority/boundary only; business rules delegated to owning sovereign/module (blueprint §3.5 E). Fail-closed/governance provisions never delegated.",
   "governance_dimensions": [
@@ -15,10 +15,10 @@
     "治理/權責"
   ],
   "counts": {
-    "provisions_total": 548,
+    "provisions_total": 554,
     "governance": 44,
     "business": 24,
-    "mixed": 480,
+    "mixed": 486,
     "owning_unit_unassigned": 0
   },
   "rows": [
@@ -10632,7 +10632,7 @@
         "system-runtime"
       ],
       "tier": "main-codex",
-      "lifecycle": "active",
+      "lifecycle": "superseded",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -10657,7 +10657,7 @@
         "sub-sovereign"
       ],
       "tier": "main-codex",
-      "lifecycle": "active",
+      "lifecycle": "superseded",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -10677,7 +10677,7 @@
         "permission"
       ],
       "tier": "main-codex",
-      "lifecycle": "",
+      "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -10693,7 +10693,7 @@
       "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
-      "lifecycle": "",
+      "lifecycle": "active",
       "delegation_note": "delegate to owning unit domain (successor, retain reference only)"
     },
     {
@@ -10714,7 +10714,7 @@
         "permission"
       ],
       "tier": "main-codex",
-      "lifecycle": "",
+      "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -10734,7 +10734,7 @@
         "decision"
       ],
       "tier": "main-codex",
-      "lifecycle": "",
+      "lifecycle": "active",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -10875,7 +10875,7 @@
       "owning_unit": "codex-retained",
       "owners": [],
       "tier": "main-codex",
-      "lifecycle": "active",
+      "lifecycle": "superseded",
       "delegation_note": "delegate business content, retain governance shell"
     },
     {
@@ -10886,6 +10886,132 @@
       "dimensions": [
         "安全與稽核",
         "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A604",
+      "subject": "治理核心、星澄身分與模組權責收斂條例",
+      "section": "星澄模型與主系統整合條例",
+      "primary_dimension": "模型/推論",
+      "dimensions": [
+        "模型/推論",
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "UNIT_ENGINE",
+      "owners": [
+        "active-sub-sovereign",
+        "automation",
+        "automation-sovereign",
+        "decision",
+        "permission",
+        "sub-sovereign",
+        "synchronization-sovereign"
+      ],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A605",
+      "subject": "高效率 Runtime 規則索引條例",
+      "section": "amendment-and-protection",
+      "primary_dimension": "時限/預算",
+      "dimensions": [
+        "時限/預算",
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [
+        "permission"
+      ],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A606",
+      "subject": "法典規範面收斂與模組規則下放條例",
+      "section": "separation-and-accountability",
+      "primary_dimension": "資料/SQL",
+      "dimensions": [
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A607",
+      "subject": "模組規則集中索引與權限核心管理條例",
+      "section": "amendment-and-protection",
+      "primary_dimension": "資料/SQL",
+      "dimensions": [
+        "資料/SQL",
+        "安全與稽核",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [
+        "permission",
+        "permission-sovereign"
+      ],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A608",
+      "subject": "法典五類規範分類條例",
+      "section": "amendment-and-protection",
+      "primary_dimension": "資料/SQL",
+      "dimensions": [
+        "資料/SQL",
+        "工程實作要求",
+        "流程/程序",
+        "治理/權責"
+      ],
+      "kind": "mixed",
+      "owning_unit": "codex-retained",
+      "owners": [],
+      "tier": "main-codex",
+      "lifecycle": "active",
+      "delegation_note": "delegate business content, retain governance shell"
+    },
+    {
+      "provision_id": "A609",
+      "subject": "法典唯一控制命題與跨層重述收斂條例",
+      "section": "amendment-and-protection",
+      "primary_dimension": "資料/SQL",
+      "dimensions": [
+        "資料/SQL",
         "流程/程序",
         "治理/權責"
       ],

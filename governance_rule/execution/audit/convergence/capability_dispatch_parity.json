@@ -1,21 +1,23 @@
 {
  "evidence": "CAPABILITY_DISPATCH_PARITY/v2",
- "generated_at": "2026-09-22T13:17:49Z",
- "modules_total": 43,
- "schema_ok": 43,
+ "generated_at": "2026-09-23T17:33:39Z",
+ "modules_total": 45,
+ "schema_ok": 45,
  "schema_errors": {},
  "semantic_codes": true,
  "capability_conflicts": {},
  "role_code_sharing_informational": {
   "role:governance": [
    "governance_rule",
-   "codex-authority"
+   "codex-authority",
+   "system-runtime-sovereign"
   ],
   "role:decision": [
    "main-system",
    "decision-sovereign",
    "xingcheng-sovereign",
-   "xingcheng-assistant"
+   "xingcheng-assistant",
+   "permission-sovereign"
   ],
   "role:startup": [
    "boot-core",
@@ -23,7 +25,7 @@
    "launcher-ui"
   ],
   "role:development-maintenance": [
-   "synchronization-sovereign",
+   "automation-sovereign",
    "sub-sovereign-orchestration",
    "investment-mobile",
    "global-cleaner",
@@ -72,7 +74,7 @@
  "results": [
   {
    "module_identity": "AI_ASSISTANT",
-   "fixed_assignment_owner_sub_sovereign": "priority-capability-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "ai-assistant",
    "parity": true,
@@ -81,7 +83,7 @@
   },
   {
    "module_identity": "AI_COLLABORATION",
-   "fixed_assignment_owner_sub_sovereign": "dependency-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "ai-collaboration",
    "parity": true,
@@ -90,7 +92,7 @@
   },
   {
    "module_identity": "EVENT_SERVICE",
-   "fixed_assignment_owner_sub_sovereign": "channel-contract-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": "main-system",
    "capability_dispatch_selected": "main-system",
    "parity": true,
@@ -99,7 +101,7 @@
   },
   {
    "module_identity": "FILE_SORTER",
-   "fixed_assignment_owner_sub_sovereign": "cleanup-retention-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "file-sorter",
    "parity": true,
@@ -108,7 +110,7 @@
   },
   {
    "module_identity": "GLOBAL_CLEANER",
-   "fixed_assignment_owner_sub_sovereign": "cleanup-retention-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": null,
    "parity": true,
@@ -117,7 +119,7 @@
   },
   {
    "module_identity": "INVESTMENT_MOBILE",
-   "fixed_assignment_owner_sub_sovereign": "priority-capability-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "investment-mobile",
    "parity": true,
@@ -126,7 +128,7 @@
   },
   {
    "module_identity": "IPC_SERVICE",
-   "fixed_assignment_owner_sub_sovereign": "channel-contract-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": "main-system",
    "capability_dispatch_selected": "main-system",
    "parity": true,
@@ -135,7 +137,7 @@
   },
   {
    "module_identity": "LAUNCHER",
-   "fixed_assignment_owner_sub_sovereign": "startup-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": "launcher-ui",
    "capability_dispatch_selected": "launcher-ui",
    "parity": true,
@@ -144,7 +146,7 @@
   },
   {
    "module_identity": "LOCAL_MODEL",
-   "fixed_assignment_owner_sub_sovereign": "resource-dependency-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "local-model",
    "parity": true,
@@ -153,7 +155,7 @@
   },
   {
    "module_identity": "MAIN_SYSTEM",
-   "fixed_assignment_owner_sub_sovereign": "system-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "main-system",
    "parity": true,
@@ -162,7 +164,7 @@
   },
   {
    "module_identity": "MODEL_DIALOGUE",
-   "fixed_assignment_owner_sub_sovereign": "priority-capability-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "model-dialogue",
    "parity": true,
@@ -171,7 +173,7 @@
   },
   {
    "module_identity": "POSTGRESQL_AUTHORITY",
-   "fixed_assignment_owner_sub_sovereign": "data-governance-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": "postgresql",
    "capability_dispatch_selected": "postgresql",
    "parity": true,
@@ -180,7 +182,7 @@
   },
   {
    "module_identity": "QDRANT_AUTHORITY",
-   "fixed_assignment_owner_sub_sovereign": "data-governance-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": "qdrant",
    "capability_dispatch_selected": "qdrant",
    "parity": true,
@@ -189,7 +191,7 @@
   },
   {
    "module_identity": "SHARED_LAYER",
-   "fixed_assignment_owner_sub_sovereign": "channel-contract-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "shared-layer",
    "parity": true,
@@ -198,7 +200,7 @@
   },
   {
    "module_identity": "STATE_SERVICE",
-   "fixed_assignment_owner_sub_sovereign": "runtime-state-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": "main-system",
    "capability_dispatch_selected": "main-system",
    "parity": true,
@@ -207,7 +209,7 @@
   },
   {
    "module_identity": "SYSTEM_RESCUE",
-   "fixed_assignment_owner_sub_sovereign": "health-maintenance-test-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "system-rescue",
    "parity": true,
@@ -216,7 +218,7 @@
   },
   {
    "module_identity": "VAULTLY",
-   "fixed_assignment_owner_sub_sovereign": "dependency-sync-sub-sovereign",
+   "fixed_assignment_owner_sub_sovereign": "none-single-purpose-module-dispatch",
    "hosted_in": null,
    "capability_dispatch_selected": "vaultly",
    "parity": true,
