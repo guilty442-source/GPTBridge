@@ -351,6 +351,35 @@ def process_cmdline(pid: int) -> Optional[str]:
     return None
 
 
+def process_ppid(pid: int) -> int:
+    """Parent pid, or -1 (native PROCESSENTRY32 ppid; psutil fallback)."""
+    n = _native()
+    if n is not None and hasattr(n, "process_ppid"):
+        return int(n.process_ppid(int(pid)))
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return int(p.Process(int(pid)).ppid())
+        except p.Error:
+            return -1
+    return -1
+
+
+def process_ancestors(pid: int, max_depth: int = 32) -> list[int]:
+    """Ancestor pids walking the ppid chain (bounded depth, cycle-safe)."""
+    out: list[int] = []
+    seen = {int(pid)}
+    cur = int(pid)
+    for _ in range(max(1, int(max_depth))):
+        ppid = process_ppid(cur)
+        if ppid <= 0 or ppid in seen:
+            break
+        out.append(ppid)
+        seen.add(ppid)
+        cur = ppid
+    return out
+
+
 def process_num_threads(pid: int) -> int:
     """Thread count — -1 when unavailable."""
     n = _native()

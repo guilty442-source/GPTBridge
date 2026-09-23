@@ -68,15 +68,8 @@ class _PsutilProcessTable:
     def excluded_pids(self) -> set[int]:
         excluded = {os.getpid()}
         excluded.update(self._metrics.process_children(os.getpid()))
-        # Native primitives have no parent query — ancestors stay on the
-        # bounded psutil fallback until the C layer grows ppid (P24).
-        p = self._metrics._psutil()
-        if p is not None:  # _psutil_fallback
-            try:
-                current = p.Process(os.getpid())
-                excluded.update(proc.pid for proc in current.parents())
-            except p.Error:
-                pass
+        # P24: ancestor chain via native ppid walk (bounded depth).
+        excluded.update(self._metrics.process_ancestors(os.getpid()))
         return excluded
 
     def kill(self, pid: int) -> bool:

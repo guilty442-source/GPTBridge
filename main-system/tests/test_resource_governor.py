@@ -291,7 +291,7 @@ def _patch_lasso_actions(monkeypatch) -> list[tuple]:
         calls.append(("eco", pid, enable))
         return True
 
-    def limit(key, pid, percent):
+    def limit(key, pid, percent, **_kwargs):
         calls.append(("limit", pid, percent))
         return True
 
@@ -544,9 +544,11 @@ def test_worker_job_cap_assigns_shared_aggregate_job(monkeypatch) -> None:
 
 
 def test_worker_job_cap_defaults_off(monkeypatch) -> None:
+    # P7: worker_job_cap is now a governed default (rules JSON defaults on);
+    # this test asserts the explicit opt-out still wins over the default.
     calls = _patch_lasso_actions(monkeypatch)
     procs = [_worker(820, 95.0)]
-    _run(procs, monkeypatch, dry_run=False)
+    _run(procs, monkeypatch, worker_job_cap=False, dry_run=False)
     assert [c for c in calls if c[0] == "limit"] == []
 
 

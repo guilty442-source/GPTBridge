@@ -400,6 +400,10 @@ int main() {
         NT_CHECK(gptbridge_native_process_num_threads(-1) == -1 &&
                  gptbridge_native_process_num_handles(0) == -1,
                  "invalid pid counts fail closed");
+        const int64_t parent = gptbridge_native_process_ppid(self);
+        NT_CHECK(parent > 0, "self ppid resolved");
+        NT_CHECK(gptbridge_native_process_ppid(-1) == -1,
+                 "invalid pid ppid fails closed");
 #else
         NT_CHECK(gptbridge_native_cpu_count() >= 0, "cpu_count non-negative");
 #endif
