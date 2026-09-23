@@ -61,8 +61,13 @@ class MaintenanceRepairChainMixin:
     def _repair_decision_chain_status(self) -> dict[str, Any]:
         """Report the health-classification chain status for observability."""
         task = getattr(self, "_repair_decision_task", None)
+        core_driven = bool(getattr(self, "_repair_decision_core", None))
         return {
-            "enabled": task is not None and not task.done(),
+            "enabled": core_driven or (task is not None and not task.done()),
+            "loop": (
+                "automation-core" if core_driven
+                else ("private" if task is not None else "disabled")
+            ),
             "authority": self.ROLE,
             "scope": "health-classification",
             "decision_authority": "decision-sovereign",
