@@ -58,6 +58,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
 
+from . import branch_policy
 from .git_repository import GitRepository
 from .process_lock import LockBusyError, ProcessFileLock
 
@@ -85,7 +86,11 @@ _DEP_ROOTS = (
     Path("native") / "include",
     Path("native") / "tool_runtime",
     Path("native") / "audit",
-    Path("Standalone tools") / "local-model" / "src" / "backend" / "cpp",
+    Path("Standalone tools")
+    / branch_policy.LOCAL_MODEL_BRANCH
+    / "src"
+    / "backend"
+    / "cpp",
 )
 _CODE_SUFFIXES = frozenset({".c", ".cpp", ".h", ".hpp"})
 
@@ -617,10 +622,11 @@ def record_push_evidence(
 
     repo = GitRepository(root)
     local_sha = (
-        repo.run(["rev-parse", "main"]).stdout or ""
+        repo.run(["rev-parse", branch_policy.MAIN_BRANCH]).stdout or ""
     ).strip()
     origin_sha = (
-        repo.run(["rev-parse", "origin/main"]).stdout or ""
+        repo.run(["rev-parse", f"origin/{branch_policy.MAIN_BRANCH}"]).stdout
+        or ""
     ).strip()
     gate_summary = "none"
     if test_gate is not None:

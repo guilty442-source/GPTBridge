@@ -29,8 +29,9 @@ COORDINATOR_ACTORS: Final[frozenset[str]] = frozenset(
     }
 )
 
+LOCAL_MODEL_BRANCH: Final[str] = "local-model"
 PROTECTED_BRANCHES: Final[frozenset[str]] = frozenset(
-    {"main", "git", "local-model", "rag", "ui"}
+    {MAIN_BRANCH, "git", LOCAL_MODEL_BRANCH, "rag", "ui"}
 )
 
 EPHEMERAL_PREFIXES: Final[tuple[str, ...]] = (
