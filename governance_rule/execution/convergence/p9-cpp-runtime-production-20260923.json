@@ -1,0 +1,15 @@
+{
+  "schema": "star-convergence-evidence/v1",
+  "item": "P9 — C++ 推論生產啟用（INT-10 窗口後 flip）",
+  "recorded_at": "2026-09-23T10:30:16.375643+00:00",
+  "worker": "devin-cli",
+  "change": "runtime/settings/native-engine.json: cpp_runtime=fallback（env→settings→off 選擇器；C++ 優先、失敗記帳後回落 Python）",
+  "verification": {
+    "extension": "_xingcheng_inference .pyd 載入成功（cp311+cp313）",
+    "bundle": "final-2611ce99f5f73f79 manifest source_checkpoint 與 pinned checkpoint 一致（982061901 bytes）",
+    "smoke": "generate_via_cpp_engine ok=True, 8 tokens, 203ms",
+    "routed": "generate_via_native_engine → cpp_runtime=true（fallback 模式端到端）",
+    "fallback_ledger": "record_cpp_fallback 記帳保留；required 模式未啟用"
+  },
+  "residual": "批次>1 生產呼叫者已於先前提交接線；GPU CUDA opt-in 仍預設關閉（XINGCHENG_CPP_CUDA）"
+}
