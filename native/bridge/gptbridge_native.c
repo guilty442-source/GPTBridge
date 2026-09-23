@@ -298,6 +298,7 @@ int gptbridge_native_process_terminate(int64_t pid) {
 
 #ifdef _WIN32
 #pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 typedef NTSTATUS(NTAPI* _NtQueryInformationProcess_t)(
     HANDLE ProcessHandle,

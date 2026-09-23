@@ -368,6 +368,31 @@ int main() {
         NT_CHECK(self_listed, "self pid in enumeration");
         NT_CHECK(gptbridge_native_process_list(nullptr, 4) == -1,
                  "null buffer refuses");
+        /* P24 extended primitives */
+        char path_buf[1024];
+        NT_CHECK(
+            gptbridge_native_process_exe(self, path_buf, sizeof(path_buf)) > 0,
+            "self exe path resolved");
+        char cmd_buf[4096];
+        const int64_t cmd_len =
+            gptbridge_native_process_cmdline(self, cmd_buf, sizeof(cmd_buf));
+        NT_CHECK(cmd_len > 0, "self cmdline readable");
+        int64_t kids[64];
+        const int nkids = gptbridge_native_process_children(self, kids, 64);
+        NT_CHECK(nkids >= 0, "children enumeration valid");
+        NT_CHECK(gptbridge_native_process_children(-1, kids, 64) == -1,
+                 "invalid root pid fails closed");
+        /* current process listens on nothing deterministic — a reserved
+           port must map to -1, and the suite owns no listener. */
+        NT_CHECK(gptbridge_native_tcp_listen_pid(0) == -1,
+                 "port 0 fails closed");
+        NT_CHECK(gptbridge_native_tcp_listen_pid(99999) == -1,
+                 "out-of-range port fails closed");
+        int64_t idle_t = 0, kern_t = 0, usr_t = 0;
+        NT_CHECK(gptbridge_native_system_cpu_times_100ns(
+                     &idle_t, &kern_t, &usr_t) == 1,
+                 "system cpu times readable");
+        NT_CHECK(kern_t >= idle_t, "kernel includes idle");
 #else
         NT_CHECK(gptbridge_native_cpu_count() >= 0, "cpu_count non-negative");
 #endif
