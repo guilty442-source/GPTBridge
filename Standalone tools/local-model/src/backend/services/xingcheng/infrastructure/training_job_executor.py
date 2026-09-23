@@ -66,46 +66,37 @@ class TrainingJobExecutorError(RuntimeError):
 
 
 def _process_tree_rss_mb(pid: int) -> float | None:
-    """RSS of ``pid`` plus all descendants in MB.
+    """Working set of ``pid`` plus all descendants in MB (P24: native
+    metrics facade; the value is the Windows working set — the same
+    quantity psutil reports as ``rss`` on Windows).
 
-    Returns ``None`` when psutil is unavailable or the process tree can
-    no longer be sampled (e.g. the leader already exited); callers
-    decide the fail policy for each case.
+    Returns ``None`` when no metrics backend is available or the process
+    tree can no longer be sampled (e.g. the leader already exited);
+    callers decide the fail policy for each case.
     """
-    try:
-        import psutil
-    except ImportError:
+    from shared_layer.performance import process_metrics
+
+    if not process_metrics.metrics_available():
         return None
-    try:
-        root = psutil.Process(pid)
-        total = root.memory_info().rss
-        for child in root.children(recursive=True):
-            try:
-                total += child.memory_info().rss
-            except psutil.Error:
-                continue
-        return total / (1024 * 1024)
-    except psutil.Error:
+    root = process_metrics.process_working_set_bytes(pid)
+    if root < 0:
         return None
+    total = root
+    for child in process_metrics.process_children(pid):
+        child_ws = process_metrics.process_working_set_bytes(child)
+        if child_ws >= 0:
+            total += child_ws
+    return total / (1024 * 1024)
 
 
 def _kill_process_tree(proc: subprocess.Popen) -> None:
-    """Kill the training subprocess and any children it spawned."""
-    try:
-        import psutil
+    """Kill the training subprocess and any children it spawned
+    (P24: native process_children + terminate via the metrics facade)."""
+    from shared_layer.performance import process_metrics
 
-        try:
-            root = psutil.Process(proc.pid)
-            descendants = root.children(recursive=True)
-        except psutil.Error:
-            descendants = []
-        for child in descendants:
-            try:
-                child.kill()
-            except psutil.Error:
-                pass
-    except ImportError:
-        pass
+    if process_metrics.metrics_available():
+        for child in process_metrics.process_children(proc.pid):
+            process_metrics.process_terminate(child)
     proc.kill()
     try:
         proc.wait(timeout=10)
@@ -773,20 +764,20 @@ class TrainingJobExecutor:
         timeout_s = float(configuration.get("train_process_timeout_s") or 14_400)
         # §2.7-8 防爆走：訓練中資源超支即停。程序樹 RSS 超過
         # ``train_max_rss_mb`` 立即終止（含子孫程序）；預算已設定但
-        # 無法取樣（psutil 缺失）時 fail-closed 不啟動訓練。
+        # 無法取樣（量測後端缺失）時 fail-closed 不啟動訓練。
         budget_mb = float(configuration.get("train_max_rss_mb") or 0)
         interval_s = max(
             0.5, float(configuration.get("resource_sample_interval_s") or 5)
         )
         if budget_mb > 0:
-            try:
-                import psutil as _psutil_probe  # noqa: F401
-            except ImportError as exc:
+            from shared_layer.performance import process_metrics
+
+            if not process_metrics.metrics_available():
                 raise TrainingJobExecutorError(
                     "EXECUTOR_RESOURCE_MONITOR_UNAVAILABLE",
-                    "train_max_rss_mb configured but psutil is unavailable; "
-                    "budget cannot be enforced",
-                ) from exc
+                    "train_max_rss_mb configured but no process metrics "
+                    "backend is available; budget cannot be enforced",
+                )
         stderr_log = output_dir / "train-stderr.log"
         started = time.monotonic()
         deadline = (started + timeout_s) if timeout_s > 0 else None
