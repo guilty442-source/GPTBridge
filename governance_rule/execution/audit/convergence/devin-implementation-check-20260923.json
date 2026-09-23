@@ -128,5 +128,22 @@
   ],
   "result": "no new implementation drift; authority still 03:13:43Z seq-74 (successor normalization for authorized five-core-language amendment pending)",
   "residual": "unchanged — all open items on governor/migration-owner path"
+ },
+ "rounds": {
+  "round_8": {
+   "date": "2026-09-24",
+   "checks": [
+    "release-dependencies.json: config_contract + frontend_release hashes all match current files (NONE stale); governance_dependencies correctly references codex_postgresql module + permission_directory (no sqlite file dep); sqlite_inventory correctly non-canonical",
+    "sovereigns registry (42 rows) vs metadata rosters: active_sovereign_roster and active_top_institution_roster consistent (5 active, xingcheng alias normalized by SOVEREIGN_ALIASES)",
+    "NEW FINDING: metadata.active_sub_sovereign_roster lists 18 sub-sovereigns that the sovereigns table marks retired (retired-sub-sovereign-layer-eliminated-A592/A604) — codex-internal inconsistency, no code consumes the key, draft amendment request submitted (clarification class)",
+    "architecture_registry.py already fail-flags retired sub-sovereign as execution_identity — implementation treats layer as eliminated correctly",
+    "ACTIVE_SOVEREIGN_REQUESTERS (5) consistent with metadata roster after alias normalization",
+    "authority unchanged: 2026-09-23T03:13:43Z seq-74"
+   ],
+   "fixes": [
+    "drafted codex-amendment-request-sub-sovereign-roster-20260924.json (draft-awaiting-governor)"
+   ],
+   "codex_changed": false
+  }
  }
 }
