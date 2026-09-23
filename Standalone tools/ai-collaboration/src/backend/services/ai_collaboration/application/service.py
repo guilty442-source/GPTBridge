@@ -36,12 +36,25 @@ def _service_version() -> str:
 
 
 def _resolve_tool_root(project_root: Path) -> Path:
-    if project_root.name == "ai-collaboration" and (project_root / "manifest.json").is_file():
-        return project_root.resolve()
-    candidate = project_root / "ai-collaboration"
-    if candidate.exists():
-        return candidate.resolve()
-    return project_root.resolve()
+    root = Path(project_root).resolve()
+    # Candidates in precedence order: the tool root itself, a direct child
+    # (callers that pass "Standalone tools"), then the governed repo
+    # layout ("Standalone tools/ai-collaboration").  The manifest check
+    # prevents a stray same-named directory from being mistaken for the
+    # tool root.
+    for candidate in (
+        root,
+        root / "ai-collaboration",
+        root / "Standalone tools" / "ai-collaboration",
+    ):
+        if (
+            candidate.name == "ai-collaboration"
+            and (candidate / "manifest.json").is_file()
+        ):
+            return candidate.resolve()
+    # Tests and embedded callers may pass a bare sandbox root — keep the
+    # legacy fallthrough so runtime/state still lands under it.
+    return root
 
 
 class AiCollaborationService(
