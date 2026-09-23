@@ -1262,6 +1262,27 @@ PYBIND11_MODULE(_sovereign_native, m) {
           },
           "System idle/kernel/user 100ns times, or None.");
 
+    // Directory change notification (P14 event-driven invalidation).
+    // Handles cross the boundary as opaque integers (0 = open failed).
+    m.def("dirwatch_open",
+          [](const std::wstring& path) -> uintptr_t {
+              return reinterpret_cast<uintptr_t>(
+                  gptbridge_native_dirwatch_open(path.c_str()));
+          },
+          "Open a recursive dir-change watch on path; handle or 0.");
+    m.def("dirwatch_wait",
+          [](uintptr_t handle, int64_t timeout_ms) -> int {
+              return gptbridge_native_dirwatch_wait(
+                  reinterpret_cast<void*>(handle), timeout_ms);
+          },
+          "Wait for a change: 1 changed (re-armed), 0 timeout, -1 err.");
+    m.def("dirwatch_close",
+          [](uintptr_t handle) {
+              gptbridge_native_dirwatch_close(
+                  reinterpret_cast<void*>(handle));
+          },
+          "Close a dirwatch handle; safe on 0.");
+
     // Parser compute (A221)
     m.def("parser_token_estimate", &parser_token_estimate,
           "Estimate token count (words + punctuation) in a string.");

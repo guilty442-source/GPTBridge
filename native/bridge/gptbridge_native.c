@@ -831,3 +831,47 @@ int gptbridge_native_process_wait(int64_t pid, int64_t timeout_ms) {
     return 0;
 #endif
 }
+
+void* gptbridge_native_dirwatch_open(const wchar_t* path) {
+#ifdef _WIN32
+    HANDLE handle;
+    if (path == NULL || path[0] == L'\0') return NULL;
+    handle = FindFirstChangeNotificationW(
+        path, TRUE,
+        FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME |
+        FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE);
+    if (handle == INVALID_HANDLE_VALUE) return NULL;
+    return (void*)handle;
+#else
+    (void)path;
+    return NULL;
+#endif
+}
+
+int gptbridge_native_dirwatch_wait(void* handle, int64_t timeout_ms) {
+#ifdef _WIN32
+    DWORD rc;
+    if (handle == NULL || timeout_ms < 0) return -1;
+    rc = WaitForSingleObject(
+        (HANDLE)handle,
+        timeout_ms > 0xFFFFFFFFLL ? INFINITE : (DWORD)timeout_ms);
+    if (rc == WAIT_OBJECT_0) {
+        /* A signaled change handle stays signaled until re-armed. */
+        if (FindNextChangeNotification((HANDLE)handle) == 0) return -1;
+        return 1;
+    }
+    if (rc == WAIT_TIMEOUT) return 0;
+    return -1;
+#else
+    (void)handle; (void)timeout_ms;
+    return -1;
+#endif
+}
+
+void gptbridge_native_dirwatch_close(void* handle) {
+#ifdef _WIN32
+    if (handle != NULL) FindCloseChangeNotification((HANDLE)handle);
+#else
+    (void)handle;
+#endif
+}
