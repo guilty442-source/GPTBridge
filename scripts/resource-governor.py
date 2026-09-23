@@ -1186,6 +1186,14 @@ def govern_once(
     # §10.64 aggregate worker budget + hysteresis control law (strict
     # INT-10 semantics): first over-budget sample -> regulate; 5 consecutive
     # samples under 80% of budget -> release (no flapping).
+    # P8 unit fix: proc.cpu_percent() is per-core scale (100 = one busy
+    # core, ceiling = logical*100) while worker_cpu_budget / CpuRate /
+    # the affinity cap are whole-machine percents.  Normalize the
+    # aggregate once so the comparison, ledger field and verifiers all
+    # share machine-% units (INT-10 samples before this change read 16x
+    # high on a 16-logical host — see convergence evidence
+    # int-10-budget-unit-mismatch-20260922.json).
+    worker_cpu_pct = worker_cpu_pct / max(1, logical)
     total_mem = psutil.virtual_memory()
     total_ram_mb = total_mem.total / (1024 * 1024)
     worker_ram_pct = (worker_rss_mb / total_ram_mb * 100.0) if total_ram_mb else 0.0
