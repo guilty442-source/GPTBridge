@@ -39,7 +39,12 @@ def check_authority_policy(root: Path, errors: list[str]) -> None:
     code_rules = code_rule_directory_snapshot()
     directory = directory_authority_snapshot()
 
-    if load_governance_codex().codex_version < CODEX_VERSION_UNIT:
+    try:
+        codex_version = load_governance_codex().codex_version
+    except Exception as error:
+        codex_version = None
+        errors.append(f"governance codex authority is unreadable: {error}")
+    if codex_version is not None and codex_version < CODEX_VERSION_UNIT:
         errors.append("governance codex version must include the unified architecture policy")
     if policy.authority != "governance-codex-v1.32010-derived-enforcement-policy":
         errors.append("governance policy must remain the codex-v1.32010-derived enforcement projection")

@@ -33,6 +33,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
+import psycopg
+
 from governance_rule.execution.codex_reconcile import bounded_lookup
 from governance_rule.execution.codex_repository import (  # noqa: F401
     load_governance_codex,  # test patch seam; runtime reads use bounded_lookup
@@ -56,6 +58,7 @@ _AUTHORIZATION_ERRORS = (
     PermissionError,
     json.JSONDecodeError,
     subprocess.TimeoutExpired,
+    psycopg.Error,
 )
 
 AUTHORITY_REANCHOR_VERSION: Final[str] = "1.0.0"

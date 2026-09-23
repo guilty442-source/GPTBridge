@@ -38,7 +38,11 @@ def _contains_text_pollution(value: object) -> bool:
 def check_codex_consistency(root: Path, errors: list[str]) -> None:
     """Verify the Chinese codex reference is synchronized with the authoritative codex."""
     # A279 certified tooling: governed repository load, read-only.
-    codex = load_governance_codex()
+    try:
+        codex = load_governance_codex()
+    except Exception as error:
+        errors.append(f"governance codex is unreadable: {error}")
+        return
     try:
         chinese = load_chinese_codex_parts(root / "governance_rule" / "codex")
         tables = chinese["tables"]
