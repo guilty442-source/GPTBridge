@@ -66,10 +66,11 @@ def _prefetch_boot_modules() -> None:
 
 import threading
 
+# Deferred start: a concurrent import of an overlapping module subgraph
+# fails with "partially initialized module" ImportError (see below).
 _prefetch_thread = threading.Thread(
     target=_prefetch_boot_modules, name="boot-module-prefetch", daemon=True
 )
-_prefetch_thread.start()
 
 from governance_rule.governance_policy import GOVERNANCE_RULE_CATALOG
 from core_system.runtime_bootstrap import RuntimeBootstrap
@@ -107,6 +108,8 @@ from core_system.sovereign_registry import SubSovereignRegistry
 from core_system.governance_rules import GovernanceRulesManager
 from core_system.diagnostics import start_loop_stall_watchdog, log_structured, record_failure
 from core_system.entry_point import main as run_main
+
+_prefetch_thread.start()
 
 
 class GPTBridgeApp(
