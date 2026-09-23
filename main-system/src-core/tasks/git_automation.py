@@ -23,7 +23,6 @@ State is written to ``main-system/runtime/state/git-automation.json``.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -194,34 +193,38 @@ class GitAutomationService:
             paths.insert(0, main)
         return paths
 
-    def _dirty_fingerprint(self, worktree: str) -> str:
-        """Fingerprint of the dirty state; empty string when clean."""
-        from governance_rule.execution.git_tiers.git_repository import (
-            GitRepository,
+    def _worktree_snapshot(self, worktree: str):
+        """Shared per-generation snapshot (G101): one porcelain capture
+        per sweep tick, reused by the debounce check and ``run_once``;
+        the TTL equals the sweep cadence so the sweep stays the
+        low-frequency insurance of §3.3."""
+        from governance_rule.execution.git_tiers.generation_snapshot import (
+            generation_snapshot,
         )
 
         try:
-            status = GitRepository(worktree).status()
+            return generation_snapshot(
+                worktree, max_age_s=self.sweep_interval
+            )
         except Exception:
-            return ""
-        text = status if isinstance(status, str) else str(status or "")
-        if not text.strip():
-            return ""
-        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+            return None
 
     async def run_sweep(self) -> dict[str, Any]:
         """One self-commit sweep across all worktrees (debounced)."""
         from governance_rule.execution.git_tiers.self_commit import run_once
 
         results: dict[str, str] = {}
+        scopes: dict[str, list[str]] = {}
         now = time.monotonic()
         for worktree in await asyncio.to_thread(self._list_worktrees):
-            fingerprint = await asyncio.to_thread(
-                self._dirty_fingerprint, worktree
+            snapshot = await asyncio.to_thread(
+                self._worktree_snapshot, worktree
             )
+            fingerprint = snapshot.fingerprint if snapshot else ""
             if not fingerprint:
                 self._dirty_since.pop(worktree, None)
                 continue
+            scopes[worktree] = list(snapshot.affected_scope)
             marker = self._dirty_since.get(worktree)
             if marker is None or marker[0] != fingerprint:
                 self._dirty_since[worktree] = (fingerprint, now)
@@ -230,12 +233,18 @@ class GitAutomationService:
             if now - marker[1] < self.debounce_seconds:
                 results[worktree] = "debounce"
                 continue
-            status = await asyncio.to_thread(run_once, worktree)
+            status = await asyncio.to_thread(
+                run_once, worktree, snapshot=snapshot
+            )
             results[worktree] = status
             if status in ("committed", "clean"):
                 self._dirty_since.pop(worktree, None)
         self._sweeps += 1
-        self._last_sweep = {"at": time.time(), "results": results}
+        self._last_sweep = {
+            "at": time.time(),
+            "results": results,
+            "affected_scope": scopes,
+        }
         self._write_state()
         return self._last_sweep
 

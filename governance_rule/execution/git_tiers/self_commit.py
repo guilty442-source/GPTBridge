@@ -39,6 +39,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 from . import audit_log
 from .audit_chain import chained_audit_log
@@ -215,9 +216,16 @@ def staged_index_present(repo: GitRepository) -> bool:
 
 
 def build_commit_message(branch: str, entries: dict[str, str]) -> str:
-    """Compose an auto-commit message from porcelain entries."""
+    """Compose an auto-commit message from porcelain entries.
+
+    G101/§3.4: the subject names the affected scopes so the semantic
+    batch is identifiable without expanding the body."""
+    from .generation_snapshot import scope_of
+
     count = len(entries)
-    subject = f"auto-commit({branch}): {count} file(s) updated"
+    scopes = sorted({scope_of(p) for p in entries})
+    scope_tag = f" [{', '.join(scopes[:4])}]" if scopes else ""
+    subject = f"auto-commit({branch}): {count} file(s) updated{scope_tag}"
     body: list[str] = ["", "Automated self-commit by GPTBridge governance."]
     for status, path in sorted(entries.items()):
         body.append(f"- [{status}] {path}")
@@ -241,7 +249,12 @@ def _governed(
     return execute_system_safe(args, actor=actor, repo_path=repo.path)
 
 
-def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
+def _run_once_unlocked(
+    worktree: str | Path,
+    *,
+    actor: str = SELF_COMMIT_ACTOR,
+    snapshot: Any | None = None,
+) -> str:
     """Perform one self-commit pass; returns a short status string.
 
     Statuses: ``clean``, ``in-progress``, ``staged-index-present``,
@@ -261,7 +274,13 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
     if lease is not None and lease.get("owner") != actor:
         return f"commit-lease-held:{lease.get('owner')}"
 
-    entries = _porcelain(repo)
+    # G101: reuse the caller's shared generation snapshot when provided —
+    # one capture per cycle instead of a second status subprocess.
+    entries = (
+        dict(snapshot.status_map)
+        if snapshot is not None
+        else _porcelain(repo)
+    )
     if not entries:
         return "clean"
 
@@ -356,6 +375,11 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
         release_commit_lease(repo.path, owner=actor)
 
     commit_hash = repo.head()
+    # G101 event invalidation: the commit changed this worktree's
+    # generation — cached snapshots must recapture on next read.
+    from .generation_snapshot import notify_changed
+
+    notify_changed(repo.path)
     chained_audit_log(
         2,
         "auto-commit",
@@ -371,8 +395,17 @@ def _run_once_unlocked(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) 
     return "committed"
 
 
-def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
-    """Serialize commits and yield while the workspace coordinator is active."""
+def run_once(
+    worktree: str | Path,
+    *,
+    actor: str = SELF_COMMIT_ACTOR,
+    snapshot: Any | None = None,
+) -> str:
+    """Serialize commits and yield while the workspace coordinator is active.
+
+    ``snapshot`` (G101): a shared ``GenerationSnapshot`` captured by the
+    caller — its ``status_map`` replaces the initial porcelain read; the
+    mid-commit freshness recheck still runs its own status."""
     try:
         assert_write_allowed("self-commit.run_once")
     except GovernanceWriteBlocked as exc:
@@ -390,7 +423,9 @@ def run_once(worktree: str | Path, *, actor: str = SELF_COMMIT_ACTOR) -> str:
     key = hashlib.sha256(str(repo.path).casefold().encode("utf-8")).hexdigest()[:16]
     try:
         with ProcessFileLock(common / f"gptbridge-self-commit-{key}.lock"):
-            return _run_once_unlocked(worktree, actor=actor)
+            return _run_once_unlocked(
+                worktree, actor=actor, snapshot=snapshot
+            )
     except LockBusyError:
         return "in-progress"
 
