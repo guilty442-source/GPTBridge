@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-22T16:52:45Z",
+  "generated_at": "2026-09-23T03:11:42Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
     "native_checks": 363,
-    "delegated_checks": 26,
+    "delegated_checks": 27,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -3055,6 +3055,11 @@
       "markers": [
         "if tool_id == \"governance_rule\""
       ]
+    },
+    {
+      "id": "python-check:check_bounded_worker_pools",
+      "kind": "delegated",
+      "reason": "python oracle (transition)"
     },
     {
       "id": "python-check:check_codex_text_integrity",

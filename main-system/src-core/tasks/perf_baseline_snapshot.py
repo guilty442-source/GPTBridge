@@ -45,14 +45,21 @@ def _process_metrics() -> dict[str, Any]:
     except ImportError:
         return {"psutil": None}
     proc = psutil.Process()
+    # open_files() enumerates handles and can hard-crash (access violation)
+    # on Windows under handle churn; num_handles() gives the same signal
+    # without enumeration. POSIX falls back to open_files.
+    if hasattr(proc, "num_handles"):
+        open_handles = proc.num_handles()
+    elif hasattr(proc, "open_files"):
+        open_handles = len(proc.open_files())
+    else:
+        open_handles = None
     with proc.oneshot():
         return {
             "rss_mb": round(proc.memory_info().rss / 1_048_576, 1),
             "cpu_percent": proc.cpu_percent(interval=0.1),
             "threads": proc.num_threads(),
-            "open_handles": len(proc.open_files())
-            if hasattr(proc, "open_files")
-            else None,
+            "open_handles": open_handles,
         }
 
 

@@ -1,8 +1,8 @@
 {
   "schema": "codex-semantic-duplication-scan/v1",
-  "generated_at": "2026-09-22T16:15:59Z",
-  "provisions_scanned": 807,
-  "pairs_examined": 325221,
+  "generated_at": "2026-09-23T03:08:28Z",
+  "provisions_scanned": 812,
+  "pairs_examined": 329266,
   "summary": {
     "cross-layer-restatement": 15,
     "prohibition-shared": 128,
