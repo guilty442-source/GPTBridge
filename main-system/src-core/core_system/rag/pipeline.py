@@ -401,12 +401,20 @@ class CanonicalRagPipeline(
         )
         pg_metadata: dict[str, Any] = {}
         index_states: dict[str, Any] = {}
+        get_states = getattr(self.postgresql, "get_index_states", None)
         for mid in module_ids:
             pg_metadata.update(await self.postgresql.fetch_metadata(mid, resource_ids))
-            for rid in resource_ids:
-                state = await self.postgresql.get_index_state(mid, rid)
-                if state:
+            if get_states is not None:
+                # P15: one round trip per module instead of one per resource.
+                for rid, state in (
+                    await get_states(mid, resource_ids)
+                ).items():
                     index_states[f"{mid}:{rid}"] = state
+            else:
+                for rid in resource_ids:
+                    state = await self.postgresql.get_index_state(mid, rid)
+                    if state:
+                        index_states[f"{mid}:{rid}"] = state
         return pg_metadata, index_states
 
     async def get_index_state(self, module_id: str, resource_id: str) -> Optional[IndexState]:

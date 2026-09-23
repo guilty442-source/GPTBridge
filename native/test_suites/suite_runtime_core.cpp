@@ -323,8 +323,7 @@ int main() {
     }
     NT_END_TEST(SUITE, "maintenance_admission_retry_and_ttl_cache");
 
-    NT_BEGIN_TEST(SUITE, "platform_process_system_primitives");
-    {
+    NT_TEST(SUITE, "platform_process_system_primitives") {
 #ifdef _WIN32
         NT_CHECK(gptbridge_native_cpu_count() > 0, "cpu_count positive");
         NT_CHECK(gptbridge_native_system_memory_total_bytes() > 0,

@@ -350,6 +350,22 @@ class PostgreSQLMetadataAuthority(
             for statement in (*_SAGA_DDL, *_GENERATION_DDL):
                 await cur.execute(statement)  # sql-ok: DDL statements must run individually
 
+    @staticmethod
+    def _index_state_from_row(row: Any) -> "IndexState":
+        return IndexState(
+            resource_id=row[0],
+            module_id=row[1],
+            embedding_model=row[2],
+            embedding_dimension=row[3],
+            chunk_size=row[4],
+            chunk_overlap=row[5],
+            indexed_at_utc=row[6],
+            content_hash=row[7],
+            qdrant_point_id=row[8],
+            postgresql_record_id=row[9],
+            status=str(row[10] or "indexed"),
+        )
+
     async def get_index_state(self, module_id: str, resource_id: str) -> Optional[IndexState]:
         """Fetch authoritative index state (A374)."""
         if not self._healthy or not self._conn:
@@ -366,22 +382,37 @@ class PostgreSQLMetadataAuthority(
                 )
                 row = await cur.fetchone()
                 if row:
-                    return IndexState(
-                        resource_id=row[0],
-                        module_id=row[1],
-                        embedding_model=row[2],
-                        embedding_dimension=row[3],
-                        chunk_size=row[4],
-                        chunk_overlap=row[5],
-                        indexed_at_utc=row[6],
-                        content_hash=row[7],
-                        qdrant_point_id=row[8],
-                        postgresql_record_id=row[9],
-                        status=str(row[10] or "indexed"),
-                    )
+                    return self._index_state_from_row(row)
         except Exception as exc:
             _logger.error("PostgreSQLMetadataAuthority: get_index_state failed: %s", exc)
         return None
+
+    async def get_index_states(
+        self, module_id: str, resource_ids: list[str]
+    ) -> dict[str, IndexState]:
+        """Batch variant of :meth:`get_index_state` — one round trip per
+        module instead of one per resource (P15 N+1 remediation)."""
+        if not self._healthy or not self._conn or not resource_ids:
+            return {}
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT resource_id, module_id, embedding_model, embedding_dimension,
+                          chunk_size, chunk_overlap, indexed_at, content_hash,
+                          qdrant_point_id, postgresql_record_id, status
+                       FROM gptbridge_rag.index_state
+                       WHERE module_id = %s AND resource_id = ANY(%s)""",
+                    (module_id, [str(r) for r in resource_ids]),
+                )
+                rows = await cur.fetchall()
+            return {
+                str(row[0]): self._index_state_from_row(row) for row in rows
+            }
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: get_index_states failed: %s", exc
+            )
+            return {}
 
     async def upsert_index_state(
         self,
