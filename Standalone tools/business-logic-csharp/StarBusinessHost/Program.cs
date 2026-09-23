@@ -12,14 +12,20 @@ if (string.IsNullOrWhiteSpace(toolRoot))
     return 2;
 }
 
+// 模型服務的 descriptor／settings／engine image 屬於 local-model 的工具根
+// （ModelServiceLocator/LifecycleOrchestrator 的 toolRoot 參數即此義），
+// 而非本 host 自身的 toolRoot。
+var sharedProjectRoot = GovernedIpcDiscovery.ResolveProjectRoot(null, toolRoot);
+var modelToolRoot = Path.Combine(
+    sharedProjectRoot, "Standalone tools", "local-model");
+
 // P13 migration rehearsal: `rehearse-lifecycle` runs the lifecycle decision
 // drill without requiring the model service to be up (discovery is part of
 // the drill).  Flags: --activate (exercise governed start), --infer (real
 // model round trip).
 if (args.Any(a => a == "rehearse-lifecycle"))
 {
-    var projectRoot = GovernedIpcDiscovery.ResolveProjectRoot(null, toolRoot);
-    var orchestrator = new LifecycleOrchestrator(projectRoot, toolRoot);
+    var orchestrator = new LifecycleOrchestrator(sharedProjectRoot, modelToolRoot);
     var report = await orchestrator.RehearseAsync(
         activateIfDown: args.Contains("--activate"),
         runInfer: args.Contains("--infer"));
@@ -27,7 +33,7 @@ if (args.Any(a => a == "rehearse-lifecycle"))
     string? evidencePath = null;
     try
     {
-        var logsDir = Path.Combine(toolRoot, "xingcheng", "runtime", "logs");
+        var logsDir = Path.Combine(modelToolRoot, "xingcheng", "runtime", "logs");
         Directory.CreateDirectory(logsDir);
         evidencePath = Path.Combine(logsDir,
             $"lifecycle-rehearsal-{DateTime.UtcNow:yyyyMMddTHHmmssZ}.json");
@@ -46,8 +52,7 @@ if (args.Any(a => a == "rehearse-lifecycle"))
 // model owner through the authenticated IPC surface (rollback/ops path).
 if (args.Any(a => a == "lifecycle-stop"))
 {
-    var projectRoot = GovernedIpcDiscovery.ResolveProjectRoot(null, toolRoot);
-    var orchestrator = new LifecycleOrchestrator(projectRoot, toolRoot);
+    var orchestrator = new LifecycleOrchestrator(sharedProjectRoot, modelToolRoot);
     var step = await orchestrator.StopModelServiceAsync();
     await WriteAsync(step);
     return step.Ok ? 0 : 3;
@@ -56,7 +61,7 @@ if (args.Any(a => a == "lifecycle-stop"))
 IModelClient? client = null;
 try
 {
-    client = ModelServiceLocator.CreateModelClient(toolRoot);
+    client = ModelServiceLocator.CreateModelClient(modelToolRoot);
     await WriteAsync(new { ok = true, event_name = "ready", owner = "local-model/channel_runtime.py" });
 
     string? line;
