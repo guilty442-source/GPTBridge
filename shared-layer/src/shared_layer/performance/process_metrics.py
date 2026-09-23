@@ -436,6 +436,57 @@ def process_num_handles(pid: int) -> int:
     return -1
 
 
+# Windows priority-class DWORDs (same values psutil exposes); the native
+# set_priority takes these verbatim.
+PRIORITY_CLASS = {
+    "idle": 0x00000040,
+    "below_normal": 0x00004000,
+    "normal": 0x00000020,
+    "above_normal": 0x00008000,
+    "high": 0x00000080,
+    "realtime": 0x00000100,
+}
+
+
+def process_set_priority(pid: int, priority_class: int | str) -> bool:
+    """Set the Win32 priority class (native; psutil fallback)."""
+    cls = (
+        PRIORITY_CLASS.get(str(priority_class).lower(), -1)
+        if isinstance(priority_class, str)
+        else int(priority_class)
+    )
+    if cls < 0:
+        return False
+    n = _native()
+    if n is not None and hasattr(n, "process_set_priority"):
+        return bool(n.process_set_priority(int(pid), cls))
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            proc = p.Process(int(pid))
+            proc.nice(cls)
+            return True
+        except p.Error:
+            return False
+    return False
+
+
+def process_username(pid: int) -> Optional[str]:
+    """Owning account (DOMAIN\\user) of pid, or None."""
+    n = _native()
+    if n is not None and hasattr(n, "process_username"):
+        buf_ok = n.process_username(int(pid))
+        # binding returns str or None
+        return str(buf_ok) if buf_ok else None
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return str(p.Process(int(pid)).username())
+        except p.Error:
+            return None
+    return None
+
+
 def tcp_listen_pid(port: int) -> int:
     n = _native()
     if n is not None:

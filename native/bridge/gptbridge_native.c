@@ -9,7 +9,9 @@
  */
 #include "gptbridge_native.h"
 
+#include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -22,6 +24,7 @@
 #include <tlhelp32.h>
 #include <iphlpapi.h>
 #include <winternl.h>
+#pragma comment(lib, "advapi32.lib")
 #else
 #include <signal.h>
 #include <time.h>
@@ -709,7 +712,7 @@ int64_t gptbridge_native_process_create_time_ms(int64_t pid) {
     ticks =
         ((int64_t)create_t.dwHighDateTime << 32) | create_t.dwLowDateTime;
     /* FILETIME epoch 1601-01-01 → Unix epoch delta = 11644473600 s. */
-    return ticks / 10000 - 11644473600LL;
+    return ticks / 10000 - 11644473600000LL;
 #else
     (void)pid;
     return -1;
@@ -769,7 +772,12 @@ int64_t gptbridge_native_process_username(
     {
         wchar_t joined[512];
         int written;
-        _snwprintf_s(joined, 512, _TRUNCATE, L"%s\\%s", domain, name);
+        size_t dlen = wcsnlen(domain, 255);
+        size_t nlen = wcsnlen(name, 255);
+        memcpy(joined, domain, dlen * sizeof(wchar_t));
+        joined[dlen] = L'\\';
+        memcpy(joined + dlen + 1, name, nlen * sizeof(wchar_t));
+        joined[dlen + 1 + nlen] = L'\0';
         written = WideCharToMultiByte(
             CP_UTF8, 0, joined, -1, buf, (int)buf_len, NULL, NULL);
         if (written > 0) result = (int64_t)(written - 1);
