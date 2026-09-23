@@ -35,7 +35,11 @@ from .auto_action_policy import (
     update_pending_action_status,
 )
 from .sovereign_utils import _iso_now
-from .confirmation_service_execution import _execute_repair, _execute_update
+from .confirmation_service_execution import (
+    _execute_repair,
+    _execute_system_modification,
+    _execute_update,
+)
 from .confirmation_service_helpers import (
     CONFIRMATION_AUDIT_RELATIVE,
     _audit,
@@ -332,6 +336,10 @@ async def execute_approved(
 
     if kind == "repair":
         outcome = await _execute_repair(app, project_root, action)
+    elif kind == "system-modification":
+        outcome = await _execute_system_modification(
+            app, project_root, action
+        )
     else:
         outcome = await _execute_update(app, project_root, action)
 
@@ -456,6 +464,9 @@ def _finalize_execution(
             "error_code": outcome.get("error_code", ""),
             "decision": outcome.get("decision", ""),
             "handover": outcome.get("handover", ""),
+            # Bounded executor payloads (e.g. config_value before_value)
+            # must persist — rollback_of reads them from this record.
+            **(outcome.get("result") or {}),
         },
     )
     _refresh_remaining_evidence(project_root, action_id)

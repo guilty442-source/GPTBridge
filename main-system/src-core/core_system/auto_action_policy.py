@@ -250,11 +250,22 @@ def automatic_update_execution_allowed() -> bool:
     return bool(read_automation_switches().get(AUTOMATIC_UPDATE_SWITCH))
 
 
+SYSTEM_MODIFICATION_KIND = "system-modification"
+# Standing-switch name for the system-modification kind.  It is never
+# present in the automation switches map, so ``switch_enabled_for_kind``
+# is always False and the kind is reachable only through the A366
+# single-item permission path — model-dialogue-issued system changes
+# have no standing authorization, by design.
+SYSTEM_MODIFICATION_SWITCH = "system_modification"
+
+
 def switch_for_kind(kind: str) -> str:
     if kind == "repair":
         return AUTOMATIC_REPAIR_SWITCH
     if kind == "update":
         return AUTOMATIC_UPDATE_SWITCH
+    if kind == SYSTEM_MODIFICATION_KIND:
+        return SYSTEM_MODIFICATION_SWITCH
     return ""
 
 
