@@ -104,7 +104,6 @@
       "sentence-transformers",
       "numpy",
       "Pillow",
-      "beautifulsoup4",
       "imageio-ffmpeg",
       "triton"
     ],

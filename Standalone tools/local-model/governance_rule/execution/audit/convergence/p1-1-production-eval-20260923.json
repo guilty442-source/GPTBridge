@@ -1,0 +1,63 @@
+{
+  "schema": "p1-1-production-eval/v1",
+  "bundle": "final-2611ce99f5f73f79",
+  "gen_tokens": 16,
+  "bench_tokens": 32,
+  "fail_closed": {
+    "bf16_fp8_mutex": "ok",
+    "kv_without_cuda": "ok"
+  },
+  "configs": [
+    {
+      "config": "cpu",
+      "status": "ok",
+      "logits_finite": true,
+      "bench_tps": 40.634,
+      "rss_mb": 1887.9,
+      "parity_scaled_vs_cpu": 0.0,
+      "greedy_tokens_equal_cpu": true,
+      "tps_ratio_vs_cpu": 1.0
+    },
+    {
+      "config": "cuda",
+      "status": "ok",
+      "logits_finite": true,
+      "bench_tps": 116.081,
+      "rss_mb": 2026.8,
+      "parity_scaled_vs_cpu": 8.908355000236995e-15,
+      "greedy_tokens_equal_cpu": true,
+      "tps_ratio_vs_cpu": 2.857
+    },
+    {
+      "config": "cuda-kv",
+      "status": "ok",
+      "logits_finite": true,
+      "bench_tps": 94.561,
+      "rss_mb": 2035.0,
+      "parity_scaled_vs_cpu": 1.130578764902599e-14,
+      "greedy_tokens_equal_cpu": true,
+      "tps_ratio_vs_cpu": 2.327
+    },
+    {
+      "config": "cuda-bf16",
+      "status": "ok",
+      "logits_finite": true,
+      "bench_tps": 105.329,
+      "rss_mb": 2036.1,
+      "parity_scaled_vs_cpu": 0.028842395894275067,
+      "greedy_tokens_equal_cpu": true,
+      "tps_ratio_vs_cpu": 2.592
+    },
+    {
+      "config": "cuda-fp8",
+      "status": "ok",
+      "logits_finite": true,
+      "bench_tps": 30.313,
+      "rss_mb": 2036.6,
+      "parity_scaled_vs_cpu": 0.4406646667564163,
+      "greedy_tokens_equal_cpu": false,
+      "tps_ratio_vs_cpu": 0.746
+    }
+  ],
+  "all_ok": true
+}
