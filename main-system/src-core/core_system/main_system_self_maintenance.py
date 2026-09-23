@@ -74,7 +74,7 @@ class MainSystemSelfMaintenance:
             else DEFAULT_INTERVAL_SECONDS
         )
         self.interval_seconds = max(float(chosen), MIN_INTERVAL_SECONDS)
-        self._loop_task: asyncio.Task[Any] | None = None
+        self._loop_mode: str = "not-started"
         self._startup_task: asyncio.Task[Any] | None = None
         self._last_report: dict[str, Any] | None = None
         self._running = False
@@ -98,7 +98,7 @@ class MainSystemSelfMaintenance:
         if self._running:
             return self.status()
 
-        loop_mode = "private-loop"
+        loop_mode = "no_scheduler"
         if self._automation_core is not None:
             # §1.1 自動化集中：automation core 為唯一註冊點；kill-switch
             # 拒絕時不回落私有迴圈。啟動 duty pass 屬一次性啟動工作，
@@ -111,6 +111,7 @@ class MainSystemSelfMaintenance:
             )
             self._running = registered
             loop_mode = "automation-core" if registered else "disabled"
+            self._loop_mode = loop_mode
             if not registered:
                 return {
                     "ok": True,
@@ -133,22 +134,20 @@ class MainSystemSelfMaintenance:
                 "loop": loop_mode,
             }
 
-        self._running = True
-        self._loop_task = asyncio.create_task(
-            self._periodic_loop(),
-            name="main-system-self-maintenance",
+        # 單一排程者語意：無自動化核心時不回落私有迴圈——回報可觀測的
+        # 未啟動狀態（_running=False → maintenance_ready 跟隨 fail-closed）。
+        _logger.warning(
+            "MainSystemSelfMaintenance not started: no automation core"
         )
-        self._startup_task = asyncio.create_task(
-            self._startup_pass(),
-            name="main-system-self-maintenance-startup",
-        )
+        self._running = False
+        self._loop_mode = loop_mode
         return {
             "ok": True,
             "role": "main-system-self-maintenance",
             "started_at": _iso_now(),
             "interval_seconds": self.interval_seconds,
-            "startup_pass": "deferred-post-activation",
-            "loop": "private-loop",
+            "startup_pass": "skipped-no-scheduler",
+            "loop": "no_scheduler",
         }
 
     async def _startup_pass(self) -> None:
@@ -169,11 +168,7 @@ class MainSystemSelfMaintenance:
             with _suppress(asyncio.CancelledError):
                 await self._startup_task
             self._startup_task = None
-        if self._loop_task is not None:
-            self._loop_task.cancel()
-            with _suppress(asyncio.CancelledError):
-                await self._loop_task
-            self._loop_task = None
+
 
     async def run_once(self) -> dict[str, Any]:
         """Manual trigger — runs all duties once and returns the report."""
@@ -192,9 +187,7 @@ class MainSystemSelfMaintenance:
             "version": self.VERSION,
             "enabled": self._running,
             "interval_seconds": self.interval_seconds,
-            "loop_running": (
-                self._loop_task is not None and not self._loop_task.done()
-            ),
+            "loop_mode": self._loop_mode,
             "last_report": self._last_report,
         }
 
@@ -388,26 +381,6 @@ class MainSystemSelfMaintenance:
                 "error": f"{type(error).__name__}: {error}",
             }
         return {"ok": True, "duty": "integrity-verify", "verified": True}
-
-    async def _periodic_loop(self) -> None:
-        while self._running:
-            try:
-                await asyncio.sleep(self.interval_seconds)
-            except asyncio.CancelledError:
-                raise
-            if not self._running:
-                return
-            try:
-                self._last_report = await self._run_all_duties(startup=False)
-            except asyncio.CancelledError:
-                raise
-            except Exception as error:
-                self._last_report = {
-                    "ok": False,
-                    "operation": "main-system-self-maintenance",
-                    "error": f"{type(error).__name__}: {error}",
-                    "completed_at": _iso_now(),
-                }
 
 
 __all__ = [
