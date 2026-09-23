@@ -1,6 +1,6 @@
 {
  "registry": "MODULE_CAPABILITY_REGISTRY/v1",
- "generated_at": "2026-09-22T13:17:49Z",
+ "generated_at": "2026-09-23T17:33:39Z",
  "authority": "derived-evidence; code taxonomy pending CUTOVER gate ratification",
  "modules": [
   {
@@ -160,24 +160,24 @@
    "execution_identity": "decision-sovereign"
   },
   {
-   "module_identity": "synchronization-sovereign",
-   "single_responsibility": "development-maintenance duty module: synchronization-sovereign",
+   "module_identity": "automation-sovereign",
+   "single_responsibility": "development-maintenance duty module: automation-sovereign",
    "capability_codes": [
-    "duty:synchronization-sovereign",
+    "duty:automation-sovereign",
     "role:development-maintenance"
    ],
    "resource_requirements": {
     "runtime_form": "python-process"
    },
    "permission_requirements": [
-    "identity:synchronization-sovereign"
+    "identity:automation-sovereign"
    ],
    "contract_version": "module-capability/v1",
    "runtime_state": "active",
    "availability": "active",
    "version": "v1",
    "owner_engine_domain": "automation",
-   "execution_identity": "synchronization-sovereign"
+   "execution_identity": "automation-sovereign"
   },
   {
    "module_identity": "xingcheng-sovereign",
@@ -210,14 +210,14 @@
     "runtime_form": "python-process"
    },
    "permission_requirements": [
-    "identity:sub-sovereign"
+    "identity:sub-sovereign-orchestration"
    ],
    "contract_version": "module-capability/v1",
    "runtime_state": "active",
    "availability": "active",
    "version": "v1",
    "owner_engine_domain": "system-runtime",
-   "execution_identity": "sub-sovereign"
+   "execution_identity": "sub-sovereign-orchestration"
   },
   {
    "module_identity": "shared-layer",
@@ -250,14 +250,14 @@
     "runtime_form": "python-process"
    },
    "permission_requirements": [
-    "identity:tokenizer"
+    "identity:retired-tokenizer"
    ],
    "contract_version": "module-capability/v1",
-   "runtime_state": "active",
-   "availability": "active",
+   "runtime_state": "retired",
+   "availability": "retired",
    "version": "v1",
    "owner_engine_domain": "system-runtime",
-   "execution_identity": "tokenizer"
+   "execution_identity": "retired-tokenizer"
   },
   {
    "module_identity": "information-channel-gateway",
@@ -894,6 +894,46 @@
    "version": "v1",
    "owner_engine_domain": "xingcheng-domain",
    "execution_identity": "model-training"
+  },
+  {
+   "module_identity": "permission-sovereign",
+   "single_responsibility": "decision duty module: permission-sovereign",
+   "capability_codes": [
+    "duty:permission-sovereign",
+    "role:decision"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:permission-sovereign"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "permission",
+   "execution_identity": "permission-sovereign"
+  },
+  {
+   "module_identity": "system-runtime-sovereign",
+   "single_responsibility": "governance duty module: system-runtime-sovereign",
+   "capability_codes": [
+    "duty:system-runtime-sovereign",
+    "role:governance"
+   ],
+   "resource_requirements": {
+    "runtime_form": "python-process"
+   },
+   "permission_requirements": [
+    "identity:system-runtime-sovereign"
+   ],
+   "contract_version": "module-capability/v1",
+   "runtime_state": "active",
+   "availability": "active",
+   "version": "v1",
+   "owner_engine_domain": "system-runtime",
+   "execution_identity": "system-runtime-sovereign"
   }
  ]
 }

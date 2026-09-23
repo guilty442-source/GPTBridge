@@ -1,13 +1,13 @@
 {
   "schema": "codex-business-rule-conflict-scan/v1",
-  "generated_at": "2026-09-23T03:08:28Z",
+  "generated_at": "2026-09-23T17:33:50Z",
   "sources": {
     "manifests": 10,
     "boundary_capabilities": 26,
     "registered_tool_identities": 15,
     "routes": 5,
     "module_assignments": 17,
-    "config_files": 19,
+    "config_files": 21,
     "codex_budget_keys": 23
   },
   "summary": {
@@ -31,8 +31,8 @@
     {
       "axis": "deadline-budget",
       "class": "overlap",
-      "subject": "main-system\\config\\startup_manifest.json:governed_startup.startup_deadline_ms",
-      "detail": "'startup_deadline_ms' duplicates codex 'startup_complete_deadline_ms' (same value 10000)"
+      "subject": "main-system\\config\\startup_manifest.json:governed_startup.startup_complete_deadline_ms",
+      "detail": "'startup_complete_deadline_ms' duplicates codex 'startup_complete_deadline_ms' (same value 10000)"
     }
   ],
   "note": "evidence-only scan; business rules are subordinate to the codex (sole authority); conflicts must converge via amendment or implementation fix, never dual-track"
