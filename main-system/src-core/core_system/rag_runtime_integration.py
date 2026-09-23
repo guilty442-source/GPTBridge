@@ -628,9 +628,7 @@ class RagRuntimeIntegration:
         # PostgreSQL is the content authority (chunk.metadata.content);
         # owning modules may still override by registering their own
         # resolver on app.rag_content_resolvers.
-        self._content_resolvers.register(
-            _PostgresContentResolver(lambda: self._pipeline)
-        )
+        self._content_resolvers.register(_PostgresContentResolver(self))
 
         self._service = RagApplicationService(
             self._orchestrator,
@@ -675,7 +673,15 @@ class RagRuntimeIntegration:
     def _dag_generate(self, context_text: str) -> Mapping[str, Any]:
         """MODEL_INFERENCE binding: run the governed native model on the
         RAG worker loop (the coroutine is the real inference path; the
-        DAG executor thread simply waits on it)."""
+        DAG executor thread simply waits on it).
+
+        Boundary ruling: this stays in-process.  The governed AI channel
+        (``ai -> xingcheng``) requires ``ai-channel-request-submit``,
+        which ``governance/main-system`` does not hold — only
+        ai-assistant / ai-collaboration do.  A cross-process switch is a
+        permission-directory decision, not an incidental rewire; swap
+        the injection target here when that grant is authorized.
+        """
         from .xingcheng_native_model_runtime import native_model_infer
 
         try:
@@ -814,6 +820,142 @@ class RagRuntimeIntegration:
             "independent_verifier": "postgresql-index-state",
             "publish_state": "published" if visible else "not-visible",
             "authority_marker": getattr(state, "content_hash", "") or "",
+        }
+
+    # ------------------------------------------------------------------
+    # REPAIR / reconcile path (REPAIR kind: repair -> verify -> publish)
+    # ------------------------------------------------------------------
+
+    def _repair_executor_factory(self, command: Any) -> Any:
+        from .rag.dag import RagDagExecutor
+        from .rag.dag.handlers import write_path_handlers
+
+        module_id = str(getattr(command, "module_id", "") or "")
+        return RagDagExecutor(
+            write_path_handlers(
+                repair_fn=lambda target, plan: self._dag_repair(
+                    module_id, target, plan
+                ),
+                verify_fn=lambda target: self._dag_repair_verify(module_id),
+                publish_fn=lambda target, verification: (
+                    self._dag_repair_publish(module_id, verification)
+                ),
+            ),
+            node_timeout_seconds=180.0,
+        )
+
+    def _dag_repair(
+        self, module_id: str, target: Any, plan: Any
+    ) -> dict[str, Any]:
+        """Bound REPAIR node: real canonical reconciliation — parity
+        sweep (detect drift -> enqueue) with a bounded reconciliation
+        drain (lease -> replay -> verify -> dead-letter).  No scope
+        drains the durable queue only — still a real repair."""
+        pipeline, worker = self._pipeline, self._loop_worker
+        if pipeline is None or worker is None:
+            return {
+                "ok": False,
+                "error": "repair:pipeline-unavailable",
+            }
+        try:
+            report = worker.run(
+                pipeline.run_parity_sweep(
+                    module_id=module_id or None, drain=True
+                ),
+                timeout=120,
+            )
+        except Exception as exc:
+            return {
+                "ok": False,
+                "error": f"repair:sweep-failed:{type(exc).__name__}",
+            }
+        if not isinstance(report, Mapping):
+            return {"ok": False, "error": "repair:no-report"}
+        if report.get("error"):
+            return {
+                "ok": False,
+                "error": f"repair:{report['error']}",
+            }
+        drain = report.get("drain") or {}
+        return {
+            "ok": True,
+            "repair_result": {
+                "target": str(target or module_id or "*"),
+                "plan": str(plan or "parity-sweep"),
+                "checked": int(report.get("checked") or 0),
+                "drifted": int(report.get("drifted") or 0),
+                "enqueued": int(report.get("enqueued") or 0),
+                "unverifiable": int(report.get("unverifiable") or 0),
+                "reconciled": int(drain.get("reconciled") or 0),
+                "retried": int(drain.get("retried") or 0),
+                "dead_lettered": int(drain.get("dead_lettered") or 0),
+            },
+            "rollback_reference": f"reconcile-queue:{module_id or '*'}",
+        }
+
+    def _dag_repair_verify(self, module_id: str) -> dict[str, Any]:
+        """VERIFICATION after repair: independent re-sweep (no drain) —
+        verified only when the authority reports zero residual drift."""
+        pipeline, worker = self._pipeline, self._loop_worker
+        if pipeline is None or worker is None:
+            return {
+                "ok": False,
+                "error": "verification:pipeline-unavailable",
+            }
+        try:
+            report = worker.run(
+                pipeline.run_parity_sweep(
+                    module_id=module_id or None, drain=False
+                ),
+                timeout=120,
+            )
+        except Exception as exc:
+            return {
+                "ok": False,
+                "error": f"verification:sweep-failed:{type(exc).__name__}",
+            }
+        if not isinstance(report, Mapping) or report.get("error"):
+            return {
+                "ok": False,
+                "error": f"verification:{(report or {}).get('error', 'no-report')}",
+            }
+        drifted = int(report.get("drifted") or 0)
+        unverifiable = int(report.get("unverifiable") or 0)
+        ok = drifted == 0 and unverifiable == 0
+        return {
+            "ok": ok,
+            "verification_result": "verified" if ok else "residual-drift",
+            "independent_verifier": "parity-sweep-recheck",
+            "drifted": drifted,
+            "unverifiable": unverifiable,
+        }
+
+    def _dag_repair_publish(
+        self, module_id: str, verification: Any
+    ) -> dict[str, Any]:
+        """PUBLISH_BARRIER after repair: the durable queue must be
+        complete (no pending/leased/failed mutations) before the
+        repaired state is considered published."""
+        pipeline, worker = self._pipeline, self._loop_worker
+        if pipeline is None or worker is None:
+            return {
+                "ok": False,
+                "error": "publish-barrier:pipeline-unavailable",
+            }
+        try:
+            health = worker.run(pipeline.health_check(), timeout=30)
+        except Exception as exc:
+            return {
+                "ok": False,
+                "error": f"publish-barrier:health:{type(exc).__name__}",
+            }
+        complete = bool(health.get("queue_complete"))
+        pending = int(health.get("queue_pending") or 0)
+        return {
+            "ok": complete,
+            "publish_state": "published" if complete else "pending-mutations",
+            "queue_pending": pending,
+            "authority_marker": f"queue-pending:{pending}",
         }
 
     # ------------------------------------------------------------------
