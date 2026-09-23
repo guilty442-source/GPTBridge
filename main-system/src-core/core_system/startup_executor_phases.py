@@ -88,7 +88,7 @@ class StartupExecutorPhasesMixin:
         """PHASE-1: minimal information bootstrap (last-valid-sealed state)."""
         app = self.app  # type: ignore[attr-defined]
         if app.task_queue is None:
-            from tasks.queue import TaskQueue
+            from tasks.task_queue import TaskQueue
 
             app.task_queue = TaskQueue(app.project_root, app.core_logger)
         # A67: repair coordinator prevents duplicate repair owners.

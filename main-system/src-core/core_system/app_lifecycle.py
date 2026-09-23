@@ -33,7 +33,7 @@ from core_system.governance_runtime import MainSystemGovernance
 from core_system.hot_update_service import HotUpdateService
 from core_system.daily_global_cleaner_service import DailyGlobalCleanerService
 from core_system.versioning import application_version
-from tasks.queue import TaskQueue
+from tasks.task_queue import TaskQueue
 from tasks.toolbox_service import ToolboxService
 from tasks.runtime_status_service import RuntimeStatusService
 

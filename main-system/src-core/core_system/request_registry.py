@@ -3,7 +3,7 @@
 擴充既有 Electron Main ↔ Python Backend 連線的請求追蹤，為 Backend
 Gateway Handover 建立基礎。**優先擴充，不建立第二套**：既有結構對映——
 
-* 後端：`tasks/queue.py::TaskRecord`（command／created_at／status）
+* 後端：`tasks/task_queue.py::TaskRecord`（command／created_at／status）
 * IPC：`server_commands.py`（request_id／cancelled）
 * UI：`useBackendSocketOutbox`／`backendRecovery`（backend_generation）
 
