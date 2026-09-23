@@ -19,11 +19,12 @@
 from __future__ import annotations
 
 import re
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Any, Iterable, Mapping
+
+import psycopg
 
 from governance_rule.execution.codex_repository import (
     CODEX_DATABASE_PATH,
@@ -139,7 +140,7 @@ def parse_utc(value: str) -> datetime | None:
 
 
 def _obligation_rows(
-    connection: sqlite3.Connection,
+    connection: Any,
 ) -> tuple[dict[str, str], ...]:
     columns = [
         column[1] for column in connection.execute("PRAGMA table_info(implementation_obligations)")
@@ -153,7 +154,7 @@ def _obligation_rows(
 def load_obligations(
     database: Path = CODEX_DATABASE_PATH,
 ) -> tuple[ImplementationObligation, ...]:
-    """Read every implementation obligation from the official codex SQLite.
+    """Read every implementation obligation from the official codex.
 
     Reads through the governed read-only repository connection (A279/A435);
     degrades to an empty tuple when the codex is unreadable (callers treat
@@ -163,7 +164,7 @@ def load_obligations(
         with codex_readonly_connection(database) as connection:
             rows = _obligation_rows(connection)
         return tuple(ImplementationObligation.from_row(row) for row in rows)
-    except (OSError, sqlite3.Error, ValueError, KeyError, RuntimeError):
+    except (OSError, psycopg.Error, ValueError, KeyError, RuntimeError):
         return ()
 
 

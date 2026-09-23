@@ -12,8 +12,8 @@
 - A445 DEDUPLICATION: one formal rule owns each repeated boundary; other
   provisions reference its code.
 - A435 BOUNDED_MACHINE_LOOKUP: rule definitions are read from the official
-  codex SQLite through the governed read-only repository connection;
-  registry content is non-content identity/status/binding data.
+  codex (PostgreSQL authority) through the governed read-only repository
+  connection; registry content is non-content identity/status/binding data.
 
 This module is the single machine consumer of ``formal_rule_registry`` and
 ``formal_rule_mapping``.  Each active MACHINE_ENFORCED formal rule resolves
@@ -26,11 +26,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping
+
+import psycopg
 
 from governance_rule.execution.codex_repository import (
     CODEX_DATABASE_PATH,
@@ -155,7 +156,7 @@ _TERMINAL_RULE_STATUSES = frozenset(
 
 
 def _registry_rows(
-    connection: sqlite3.Connection, table: str
+    connection: Any, table: str
 ) -> tuple[dict[str, str], ...]:
     columns = [
         column[1] for column in connection.execute(f"PRAGMA table_info({table})")
@@ -211,7 +212,7 @@ def _ensure_evaluators_loaded() -> None:
 def load_formal_rules(
     database: Path = CODEX_DATABASE_PATH,
 ) -> FormalRuleSet:
-    """Read formal rule registry + mapping from the official codex SQLite.
+    """Read formal rule registry + mapping from the official codex.
 
     Uses the governed read-only repository connection (A279/A435).  On any
     unreadable state the set degrades to empty (fail-closed callers treat
@@ -226,7 +227,7 @@ def load_formal_rules(
             )
             mappings = _registry_rows(connection, FORMAL_RULE_MAPPING)
         return FormalRuleSet(rules=rules, mappings=mappings)
-    except (OSError, sqlite3.Error, ValueError, KeyError, RuntimeError):
+    except (OSError, psycopg.Error, ValueError, KeyError, RuntimeError):
         return FormalRuleSet()
 
 

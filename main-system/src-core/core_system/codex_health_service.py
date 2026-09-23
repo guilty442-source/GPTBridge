@@ -4,7 +4,8 @@
 - A435: official entry controls (identity, purpose, scope, nonce, expiry, audit) + access-class session engine; revocation generation; dual-key grants.
 - A46: ledger-per-action — every action carries an audit ledger entry.
 - A121: boundary enforcement + audit ledger + deny-on-violation.
-- A173: single local read-only SQLite authority; Chinese mirror is 星澄-only.
+- A173: single read-only codex authority (PostgreSQL ``gptbridge_codex``);
+  Chinese mirror is 星澄-only.
 
 This module is an **executor**, not a status recorder: each link checks a
 governance component and, when the check fails, takes a corrective action

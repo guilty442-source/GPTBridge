@@ -76,7 +76,7 @@ folder placement.
 
 | Folder | Role | Codex Basis |
 |---|---|---|
-| `governance_rule/` | Codex storage (immutable SQLite) | A76/E56 |
+| `governance_rule/` | Codex governance (PostgreSQL authority) | A76/E56 |
 | `shared-layer/` | Information layer (channel owner) | A153/E50 |
 | `main-system/` | Platform orchestrator | A59/A151 |
 | `launcher/` | Startup state storage | A129 |

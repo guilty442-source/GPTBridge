@@ -24,6 +24,8 @@ import json
 import sqlite3
 from typing import Final, Iterable, Mapping, Sequence
 
+import psycopg
+
 # A run of five or more U+003F characters is treated as replacement damage.
 # Legitimate prose question marks are single, so the threshold keeps the
 # detector free of false positives on ASCII text.
@@ -94,7 +96,7 @@ def _table_columns(connection: sqlite3.Connection, table: str) -> tuple[str, ...
         return tuple(
             str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")
         )
-    except sqlite3.Error:
+    except (sqlite3.Error, psycopg.Error):
         return ()
 
 

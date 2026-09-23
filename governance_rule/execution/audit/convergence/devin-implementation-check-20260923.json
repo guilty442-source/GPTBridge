@@ -1,0 +1,40 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "全專案實作比對複查（2026-09-23 晚班；依 07:40Z 收斂報告逐項複核）",
+  "executed_at": "2026-09-23T16:15:00Z",
+  "worker": "devin-cli",
+  "method": "re-ran governed comparators read-only: runtime governance audit (self-health on), formal-rule parity, contract-registry validation; verified startup manifest codex-first resolution; inspected codex authority state and on-disk predecessor candidates",
+  "comparator_results": {
+    "runtime_governance_audit": "PASS (full audit incl. self-health; earlier P27/self-health reds resolved)",
+    "formal_rule_parity": "64/64 PASS (was 61/64; A554->A598, A591/A592->A604 re-anchor committed d101a554)",
+    "contract_registry": "18/18 PASS (was 17/18; mojibake bound_to path fixed 3128966b; CONTRACT_REGISTRY_CLOSURE unblocked)",
+    "amendment_request_change_class": "resolved — architecture-authority (b60f32c4)",
+    "startup_deadline_overlap": "already converged — governed_startup_constant resolves startup_complete_deadline_ms codex-first via codex_readonly_connection with manifest fallback (verified live: PG unreachable/degraded -> fallback 10000)"
+  },
+  "remaining_items_all_codex_side": [
+    "MACHINE_SCHEMA_PARITY_CLOSURE: 74/74 PENDING — needs parity producer + codex amendment (A605/A607)",
+    "OBLIGATION_CLOSURE: 62 mandated / 0 complete — evidence production program (P2)",
+    "CAPABILITY_DISPATCH_CLOSURE: staged amendment codex-amendment-request-capability-dispatch-20260922 awaiting governor (P15)",
+    "semantic duplication A5/E2, A29/E16 — superseded-provision scan artifact; resolution via A609 convergence registry amendment",
+    "dependency replacement program (9 replace targets) — staged long-term program",
+    "test_xingcheng_learning_command.py 5 failures — blocked on capability-dispatch amendment ratification"
+  ],
+  "anomaly": {
+    "severity": "high",
+    "subject": "live PostgreSQL codex authority degraded to test fixture",
+    "detail": "gptbridge_codex schema currently holds only 4 tables (articles/chinese_mirror_quality_evidence/metadata/codex_authority_state), 5 rows, codex_version=2026-09-17T01:00:00Z. Cause: governance_rule/tests/test_codex_update_pipeline.py::test_apply_wires_releases_and_refreshes_frontend runs run_auto_update(apply=True) -> wire_generation -> import_sqlite_predecessor with the production admin DSN, DROP+CREATE the live authority schema with a 3-table synthetic fixture. Observed twice at 2026-09-23T15:57:28Z and 15:58:42Z, coincident with pytest runs of governance_rule/tests.",
+    "last_good_authority": "2026-09-23T15:48:20Z (554 articles) — existed in PostgreSQL only; not present on any on-disk sqlite; overwritten by fixture",
+    "authority_restored_at": "2026-09-23T16:12:15Z to sealed on-disk codex 2026-09-23T03:13:43Z (214 live tables, 25324 rows) — the 15:48:20Z generation delta is not on disk anywhere; rebuild via amendment pipeline is migration-owner scope",
+    "last_sealed_on_disk": "2026-09-23T03:13:43Z (554 articles) — HEAD blob of governance_rule/codex/data/governance_codex.sqlite3 plus all four worktree copies and .kilo worktree",
+    "local_leftovers": "data/governance_codex.sqlite3.staging-tmp=2026-09-22T16:21:08Z (549), .bak=2026-09-21T12:02:51Z (537)",
+    "post_restore_state": "authority=03:13:43Z but zh-TW mirror parts remain at 15:48:20Z -> audit red on 3 mirror checks (version sync, mirror-quality evidence for 15:48:20Z, seal_manifest parity); commit gate correctly fail-closed until migration worker re-renders mirrors or rebuilds the 15:48 generation",
+    "owner": "parallel migration worker session actively investigating (observed authority_state polling + git fsck --lost-found at ~16:04Z)",
+    "defect": "test-isolation violation — a test exercises the real authority DSN; recommend wire_generation accept an injectable import hook or the test monkeypatch import_sqlite_predecessor/verify_sqlite_parity",
+    "action_taken": "none — codex authority writes belong to the governed amendment/migration path (A74/A435); fail-closed, reported only"
+  },
+  "residual_watch": [
+    "governance_rule/execution/convergence/successor_framework.py LIVE_CODEX still targets governance_rule/codex/data/governance_codex.sqlite3 (deleted in working tree); stage_copy/compute_closures raise CODEX_MISSING until the sealed predecessor is republished or the framework is migrated to the PostgreSQL authority — migration owner decision"
+  ],
+  "codex_mutation": "none",
+  "verdict": "implementation-side diffs from the 07:40Z report are all resolved; every remaining open item routes through the governed codex amendment path — no worker-implementable diff outstanding"
+}
