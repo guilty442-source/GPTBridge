@@ -408,6 +408,41 @@ int main() {
                  "self create_time positive");
         NT_CHECK(gptbridge_native_process_create_time_ms(-1) == -1,
                  "invalid pid create_time fails closed");
+        /* P14 dirwatch: open on a temp dir, a write signals wait=1,
+           timeout returns 0, bad paths/handles fail closed. */
+        {
+            wchar_t temp_dir[MAX_PATH];
+            DWORD tlen = GetTempPathW(MAX_PATH, temp_dir);
+            NT_CHECK(tlen > 0, "temp path resolved");
+            void* watch = gptbridge_native_dirwatch_open(temp_dir);
+            NT_CHECK(watch != nullptr, "dirwatch opens on temp dir");
+            NT_CHECK(gptbridge_native_dirwatch_open(L"") == nullptr,
+                     "empty path fails closed");
+            NT_CHECK(gptbridge_native_dirwatch_wait(nullptr, 10) == -1,
+                     "null handle fails closed");
+            NT_CHECK(gptbridge_native_dirwatch_wait(watch, -5) == -1,
+                     "negative timeout fails closed");
+            if (watch != nullptr) {
+                wchar_t probe_path[MAX_PATH * 2];
+                _snwprintf_s(probe_path, MAX_PATH * 2, _TRUNCATE,
+                             L"%s\\nt_dirwatch_probe.tmp", temp_dir);
+                std::thread writer([&probe_path]() {
+                    Sleep(60);
+                    FILE* fp = nullptr;
+                    if (_wfopen_s(&fp, probe_path, L"w") == 0 && fp) {
+                        fputc('x', fp);
+                        fclose(fp);
+                    }
+                });
+                const int rc =
+                    gptbridge_native_dirwatch_wait(watch, 10000);
+                writer.join();
+                _wremove(probe_path);
+                NT_CHECK(rc == 1, "write under tree signals wait");
+                gptbridge_native_dirwatch_close(watch);
+                gptbridge_native_dirwatch_close(nullptr);
+            }
+        }
 #else
         NT_CHECK(gptbridge_native_cpu_count() >= 0, "cpu_count non-negative");
 #endif
