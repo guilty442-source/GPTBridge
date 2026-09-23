@@ -183,7 +183,7 @@ class BrowserAutomationSession:
         """
 
         result = await self._execute_script(session_id, fill_script)
-        if not result.get("ok") or not result.get("result", {}).get("found"):
+        if not result.get("ok") or not (result.get("result") or {}).get("found"):
             error_code = "BROWSER_LOGIN_OR_INPUT_REQUIRED"
             return self._waiting_result(provider, error_code, submitted=False)
 
@@ -196,7 +196,7 @@ class BrowserAutomationSession:
             }})()
         """
         submit_result = await self._execute_script(session_id, submit_script)
-        sent = submit_result.get("ok") and submit_result.get("result", {}).get("sent")
+        sent = submit_result.get("ok") and (submit_result.get("result") or {}).get("sent")
 
         if not sent:
             return self._waiting_result(
@@ -260,7 +260,7 @@ class BrowserAutomationSession:
 
     async def shutdown(self) -> None:
         for agent_id, session_id in list(self._sessions.items()):
-            self._fallback.close(session_id)
+            self._client.close(session_id)
         self._sessions.clear()
 
     async def _ensure_agent_session(self, agent: dict[str, Any]) -> str:
@@ -274,22 +274,23 @@ class BrowserAutomationSession:
             if existing:
                 return existing
 
-            result = self._fallback.create_session(
+            result = self._client.create_session(
                 owner_module="ai-collaboration",
                 url=target_url,
             )
             if not result.get("ok"):
-                raise RuntimeError("EMBEDDED_BROWSER_SESSION_FAILED")
+                raise RuntimeError(
+                    str(result.get("message") or "EMBEDDED_BROWSER_SESSION_FAILED")
+                )
             session_id = str(result["id"])
             self._sessions[agent_id] = session_id
             return session_id
 
     async def _execute_script(self, session_id: str, script: str) -> dict[str, Any]:
-        # Use in-process fallback for now; in production this goes through IPC
-        return self._fallback.execute_script(session_id, script)
+        return self._client.execute_script(session_id, script)
 
     def _get_url(self, session_id: str) -> str | None:
-        return self._fallback.get_url(session_id)
+        return self._client.get_url(session_id)
 
     async def _wait_for_response(
         self, session_id: str, extract_script: str
@@ -297,7 +298,7 @@ class BrowserAutomationSession:
         for _ in range(self.RESPONSE_TIMEOUT_SECONDS):
             result = await self._execute_script(session_id, extract_script)
             if result.get("ok"):
-                content = str(result.get("result", {}).get("content") or "").strip()
+                content = str((result.get("result") or {}).get("content") or "").strip()
                 if content and len(content) > 10:
                     return content, None
             marker = await self._detect_verification(session_id)

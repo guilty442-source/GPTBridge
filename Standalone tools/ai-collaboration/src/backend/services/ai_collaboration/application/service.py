@@ -141,11 +141,29 @@ class AiCollaborationService(
         }
         handler = handlers.get(command)
         if handler is None:
-            return f"{command}_result", {"ok": False, "message": "不支援的 AI 協作指令"}
+            return f"{command}_result", {
+                "ok": False,
+                "error_code": "UNSUPPORTED_COMMAND",
+                "message": "不支援的 AI 協作指令",
+            }
         try:
-            return f"{command}_result", await handler(payload)
+            result = await handler(payload)
+        except PermissionError:
+            result = {"ok": False, "message": "PERMISSION_DENIED"}
         except Exception as exc:
-            return f"{command}_result", {"ok": False, "message": str(exc)}
+            result = {"ok": False, "message": str(exc)}
+        if (
+            isinstance(result, dict)
+            and result.get("ok") is False
+            and not str(result.get("error_code") or "").strip()
+        ):
+            result = dict(result)
+            result["error_code"] = (
+                "PERMISSION_DENIED"
+                if result.get("message") == "PERMISSION_DENIED"
+                else "REQUEST_REJECTED"
+            )
+        return f"{command}_result", result
 
     @staticmethod
     def _requester_tool_id(payload: dict[str, Any]) -> str:

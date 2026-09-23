@@ -1,7 +1,6 @@
 # 星澄原生模型 + RAG 執行期依賴。
 # torch 為原生 Transformer 計算後端；triton 為可選 GPU 加速核心，
 # 不可用時自動回退至 PyTorch 純實作。
-beautifulsoup4>=4.12,<5
 numpy>=1.26,<3
 psycopg[binary]>=3.2,<4
 qdrant-client>=1.12,<2

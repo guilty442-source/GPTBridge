@@ -19,7 +19,6 @@ build = [
     "setuptools>=75,<80",
 ]
 local-model = [
-    "beautifulsoup4>=4.12,<5",
     "imageio-ffmpeg==0.6.0",
     "numpy>=1.26,<3",
     "pillow>=10.0,<14",
