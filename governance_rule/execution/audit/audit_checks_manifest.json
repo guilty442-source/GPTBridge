@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-23T14:46:35Z",
+  "generated_at": "2026-09-23T16:55:21Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 361,
+    "native_checks": 367,
     "delegated_checks": 28,
     "native_kinds": [
       "file-exists",
@@ -95,6 +95,26 @@
       "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
     },
     {
+      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+      "kind": "file-exists",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-4.txt"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+      "kind": "file-readonly",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-4.txt"
+    },
+    {
+      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-5.txt",
+      "kind": "file-exists",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-5.txt"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-5.txt",
+      "kind": "file-readonly",
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-5.txt"
+    },
+    {
       "id": "protected-source:governance_rule/execution/chinese_codex_mirror.py",
       "kind": "file-exists",
       "path": "governance_rule/execution/chinese_codex_mirror.py"
@@ -103,6 +123,16 @@
       "id": "protected-source-readonly:governance_rule/execution/chinese_codex_mirror.py",
       "kind": "file-readonly",
       "path": "governance_rule/execution/chinese_codex_mirror.py"
+    },
+    {
+      "id": "protected-source:governance_rule/execution/codex_postgresql.py",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/codex_postgresql.py"
+    },
+    {
+      "id": "protected-source-readonly:governance_rule/execution/codex_postgresql.py",
+      "kind": "file-readonly",
+      "path": "governance_rule/execution/codex_postgresql.py"
     },
     {
       "id": "protected-source:governance_rule/execution/codex_repository.py",

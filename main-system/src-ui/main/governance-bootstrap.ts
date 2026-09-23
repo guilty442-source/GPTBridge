@@ -9,6 +9,8 @@ const PROTECTED_GOVERNANCE_SOURCES = [
   'governance_rule/codex/governance_codex.zh-TW.part-1.txt',
   'governance_rule/codex/governance_codex.zh-TW.part-2.txt',
   'governance_rule/codex/governance_codex.zh-TW.part-3.txt',
+  'governance_rule/codex/governance_codex.zh-TW.part-4.txt',
+  'governance_rule/codex/governance_codex.zh-TW.part-5.txt',
   'governance_rule/execution/chinese_codex_mirror.py',
   'governance_rule/execution/codex_repository.py',
   'governance_rule/code_rule_directory.py',

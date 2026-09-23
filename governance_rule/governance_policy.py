@@ -26,11 +26,13 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
     authority_files=(
         "governance_rule/governance_policy.py",
         "governance_rule/codex/__init__.py",
-        "governance_rule/codex/data/governance_codex.sqlite3",
         "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
         "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
         "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-5.txt",
         "governance_rule/execution/chinese_codex_mirror.py",
+        "governance_rule/execution/codex_postgresql.py",
         "governance_rule/execution/codex_repository.py",
         "governance_rule/code_rule_directory.py",
         "governance_rule/permission_directory/directory_authority.py",
@@ -47,16 +49,18 @@ GOVERNANCE_POLICY: Final[GovernancePolicy] = GovernancePolicy(
         "governance_rule/execution/tool_runtime/sub_sovereign.py",
         "governance_rule/execution/git_tiers/__init__.py",
     ),
-    # A382 non-disruptive amendment: the live codex database and its mirror
-    # publish new generations atomically while the system keeps running, so
+    # A382 non-disruptive amendment: the Chinese mirror parts publish new
+    # generations atomically while the system keeps running (the live codex
+    # authority itself is the PostgreSQL schema, not a pinned file), so
     # they stay protected by audit/seal but are excluded from launch-time
     # integrity pinning (pinning their bytes would fail-close every running
     # instance on each amendment).
     runtime_mutable_authority_files=(
-        "governance_rule/codex/data/governance_codex.sqlite3",
         "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
         "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
         "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-5.txt",
     ),
     top_level_rule="governance_codex",
     governance_rule_sources=(
