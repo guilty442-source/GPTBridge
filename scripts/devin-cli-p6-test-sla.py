@@ -80,6 +80,7 @@ def _measure(args: argparse.Namespace) -> dict:
                     capture_output=True,
                     text=True,
                     timeout=args.timeout,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
                 elapsed = time.monotonic() - started
                 tail = (completed.stdout or "").strip().splitlines()[-2:]

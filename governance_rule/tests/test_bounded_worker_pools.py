@@ -1,4 +1,4 @@
-﻿"""Regression tests for the bounded worker-pool audit check (§10.30 / A590).
+"""Regression tests for the bounded worker-pool audit check (§10.30 / A590).
 
 Every ``ThreadPoolExecutor``/``ProcessPoolExecutor`` in production code must
 carry an explicit ``max_workers`` provably inside the fixed five-core budget -

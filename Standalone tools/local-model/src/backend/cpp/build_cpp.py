@@ -138,6 +138,7 @@ def _compile_cuda_kernels(
                 encoding="utf-8",
                 errors="replace",
                 timeout=600,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             if proc.returncode != 0 or not obj.is_file():
                 # Surface the failure: silently omitting the kernels TU
