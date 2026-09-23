@@ -261,6 +261,9 @@ def build_failover_store(
         pg_commit_identity_provider=pg_commit_identity_provider,
         permission_revalidator=permission_revalidator,
         sqlite_scope=sqlite_scope,
+        reconcile_service_factory=(
+            lambda local, pg: ReconcileService(local, pg)
+        ),
     )
 
 

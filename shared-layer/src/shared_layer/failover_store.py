@@ -85,6 +85,24 @@ from .security.sqlite_scope import (
 
 _logger = logging.getLogger("gptbridge.failover_store")
 
+# Decision-owner injection (P8 unit boundary): the reconcile decision surface
+# lives in the runtime unit (core_system.data_reconciliation). The shared
+# layer must not import upward, so the owner registers a factory here; the
+# composition root (integration.data_platform) is the production registrar.
+_RECONCILE_SERVICE_FACTORY = None
+
+
+def register_reconcile_service_factory(factory) -> None:
+    """Register the decision-owner reconcile service factory.
+
+    ``factory(local_conn, pg_connection) -> service`` must yield an object
+    exposing ``reconcile_module(module_id, batch_size=...)``. Called once by
+    the runtime composition root; reconciliation stays fail-closed when no
+    factory is registered.
+    """
+    global _RECONCILE_SERVICE_FACTORY
+    _RECONCILE_SERVICE_FACTORY = factory
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -431,6 +449,7 @@ class FailoverSharedLayerStore:
             Callable[[str, str, dict[str, Any]], bool]
         ] = None,
         sqlite_scope: Optional[SqliteScopeBinding] = None,
+        reconcile_service_factory: Optional[Callable[[Any, Any], Any]] = None,
     ) -> None:
         self._primary = primary_store
         self._fallback = fallback_store
@@ -443,6 +462,7 @@ class FailoverSharedLayerStore:
         self._degraded_since: Optional[float] = None  # monotonic timestamp
         self._reconcile_started_at: Optional[float] = None
         self._operation_count = 0
+        self._reconcile_service_factory = reconcile_service_factory
         self._generation = 0
         self._generation_error: Optional[str] = None
         self._generation_provider = generation_provider
@@ -1577,9 +1597,15 @@ class FailoverSharedLayerStore:
                     continue
                 permission_hashes[(module_id, resource_id)] = decision_hash
 
-            from core_system.data_reconciliation import ReconcileService
-
-            service = ReconcileService(self._reconcile_conn, pg_connection)
+            factory = (
+                self._reconcile_service_factory or _RECONCILE_SERVICE_FACTORY
+            )
+            if factory is None:
+                raise ReconciliationContractError(
+                    "RECONCILE_SERVICE_UNREGISTERED:"
+                    "decision-owner factory not registered"
+                )
+            service = factory(self._reconcile_conn, pg_connection)
             # Group pending by module_id
             modules = self._reconcile_conn.execute(
                 "SELECT DISTINCT module_id FROM reconcile_state WHERE reconcile_status = 'pending'"
@@ -1656,4 +1682,5 @@ __all__ = [
     "ReconciliationReceipt",
     "SqliteReconciliationContract",
     "SqliteScopeBinding",
+    "register_reconcile_service_factory",
 ]

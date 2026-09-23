@@ -49,13 +49,15 @@ def build_report(root=ROOT):
          for c in components if c.get("physical_path")),
         key=lambda t: -len(t[0]))
 
-    pkg_owner = {}
+    pkg_owner: dict[str, list[str]] = {}
     for c in sorted(components, key=lambda x: len(x.get("physical_path") or "")):
         pp = c.get("physical_path")
         if not pp or c.get("runtime_form") not in ("python-process", "package"):
             continue
         for pkg in _top_packages(root / pp):
-            pkg_owner[pkg] = c["component_id"]
+            pkg_owner.setdefault(pkg, [])
+            if c["component_id"] not in pkg_owner[pkg]:
+                pkg_owner[pkg].append(c["component_id"])
 
     def owner_of(path: Path):
         p = str(path).lower()
@@ -90,8 +92,24 @@ def build_report(root=ROOT):
                     elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                         names = [node.module.split(".")[0]]
                     for top in names:
-                        tgt_id = pkg_owner.get(top)
-                        if not tgt_id or tgt_id == src_id:
+                        candidates = pkg_owner.get(top) or []
+                        if src_id in candidates:
+                            continue  # same-component module (e.g. `import main`)
+                        if len(candidates) > 1:
+                            # Same-named module across units: prefer a
+                            # same-unit candidate; skip when truly ambiguous.
+                            same_unit = [
+                                c for c in candidates
+                                if comp_by_id[c].get("unit") == src_unit
+                            ]
+                            if len(same_unit) == 1:
+                                candidates = same_unit
+                            elif not same_unit:
+                                continue
+                        if not candidates:
+                            continue
+                        tgt_id = candidates[0]
+                        if tgt_id == src_id:
                             continue
                         edge = f"{src_id}->{tgt_id}"
                         edges[edge] = edges.get(edge, 0) + 1
