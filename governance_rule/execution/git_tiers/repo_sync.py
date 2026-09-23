@@ -132,15 +132,13 @@ def evaluate_push_gates(root: str | Path) -> dict[str, Any]:
     # §10.69-E③); the Python oracle only runs when the engine delegates
     # or ``GPTBRIDGE_AUDIT_GATE_ORACLE=1`` requests it explicitly.
     from governance_rule.execution.audit.native_audit_gate import (
-        run_native_audit_gate,
+        run_audit_request,
     )
 
-    native = run_native_audit_gate(Path(root))
+    native = run_audit_request(Path(root))
     if native.status in ("fail", "timeout"):
         audit_passed, audit_detail = False, native.summary()
-    elif native.status == "delegated" or os.environ.get(
-        "GPTBRIDGE_AUDIT_GATE_ORACLE"
-    ) == "1":
+    elif os.environ.get("GPTBRIDGE_AUDIT_GATE_ORACLE") == "1":
         audit = subprocess.run(
             [sys.executable, "-m", "governance_rule.execution.audit"],
             cwd=Path(root),

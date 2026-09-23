@@ -512,7 +512,7 @@ Tests: `governance_rule/tests/test_architecture_registry.py`.
 
 All workers share exactly one planning document:
 
-`Standalone tools/local-model/星澄模型四層建置藍圖.md`
+`Standalone tools/local-model/全專案建置藍圖.md`
 
 - **Do not create any other blueprint / roadmap / phased-plan / flow document** —
   no new `*blueprint*`, `*BLUEPRINT*`, `*藍圖*`, `*流程*` or equivalent planning

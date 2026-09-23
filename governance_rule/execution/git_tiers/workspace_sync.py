@@ -86,18 +86,19 @@ def _audit_passes(path: str | Path) -> bool:
     (``delegated``) or when explicitly re-added for manual verification
     via ``GPTBRIDGE_AUDIT_GATE_ORACLE=1``."""
     from governance_rule.execution.audit.native_audit_gate import (
-        run_native_audit_gate,
+        run_audit_request,
     )
 
-    native = run_native_audit_gate(Path(path))
+    native = run_audit_request(Path(path))
     if native.status in ("fail", "timeout"):
         _logger.warning(
             "integrated-main audit failed: %s", native.summary()
         )
         return False
-    if native.status == "delegated" or os.environ.get(
-        "GPTBRIDGE_AUDIT_GATE_ORACLE"
-    ) == "1":
+    # run_audit_request already executes the delegated Python checks (or
+    # the full oracle when the engine is unavailable); the subprocess
+    # oracle only reruns for explicit manual verification.
+    if os.environ.get("GPTBRIDGE_AUDIT_GATE_ORACLE") == "1":
         result = subprocess.run(
             [sys.executable, "-m", "governance_rule.execution.audit"],
             cwd=Path(path),

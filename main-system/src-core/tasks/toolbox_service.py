@@ -41,7 +41,7 @@ from .toolbox_repair import RepairMixin
 from .toolbox_start import StartMixin
 from .toolbox_shutdown import ShutdownMixin
 from .toolbox_constants import ToolEventCallback  # re-export for compatibility
-from core_system.process_registry import ProcessRegistry
+from core_system.process_registry import get_process_registry
 from governance import PermissionSovereign
 
 __all__ = ["ToolboxService", "ToolEventCallback"]
@@ -106,7 +106,7 @@ class ToolboxService(
         self._tool_start_lock_guard = asyncio.Lock()
         self._registry_reconcile_task: asyncio.Task[Any] | None = None
         self._registry_reconcile_stop = asyncio.Event()
-        self._process_registry = ProcessRegistry(
+        self._process_registry = get_process_registry(
             self.project_root / "main-system" / "runtime" / "state"
             / "process-registry.json"
         )

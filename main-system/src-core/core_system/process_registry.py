@@ -213,3 +213,39 @@ class ProcessRegistry:
         if changed:
             self._persist()
         return stats
+
+
+_DEFAULT_STATE_PATH = (
+    Path(__file__).resolve().parents[2] / "runtime" / "state" / "process-registry.json"
+)
+
+_CANONICAL: Optional[ProcessRegistry] = None
+_CANONICAL_PATH: Optional[Path] = None
+
+
+def default_state_path() -> Path:
+    """Canonical registry state path (``main-system/runtime/state/process-registry.json``)."""
+    return _DEFAULT_STATE_PATH
+
+
+def get_process_registry(state_path: str | Path | None = None) -> ProcessRegistry:
+    """Process-wide canonical registry: one writer instance per state path.
+
+    ``_persist`` rewrites the whole file from in-memory state, so two live
+    instances over the same path would clobber each other's registrations.
+    Every in-process caller (toolbox, startup phases, demand-start paths)
+    must therefore share this instance instead of constructing its own.
+    """
+    global _CANONICAL, _CANONICAL_PATH
+    path = Path(state_path) if state_path else default_state_path()
+    if _CANONICAL is None or _CANONICAL_PATH != path:
+        _CANONICAL = ProcessRegistry(path)
+        _CANONICAL_PATH = path
+    return _CANONICAL
+
+
+def reset_process_registry() -> None:
+    """Drop the cached canonical instance (tests / explicit re-initialization)."""
+    global _CANONICAL, _CANONICAL_PATH
+    _CANONICAL = None
+    _CANONICAL_PATH = None
