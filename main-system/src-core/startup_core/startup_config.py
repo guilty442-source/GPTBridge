@@ -103,7 +103,7 @@ _FALLBACK: Final[dict[str, Any]] = {
         "startup_dead_grace_seconds": 45.0,
     },
     "governed_startup": {
-        "startup_deadline_ms": 10000,
+        "startup_complete_deadline_ms": 10000,
         "phase_budget_ms": {
             "phase-0-local-preflight": 400,
             "phase-1-minimal-information-bootstrap": 400,
@@ -236,5 +236,45 @@ def supervisor_constant(name: str) -> Any:
     return load_manifest()["supervisor"][name]
 
 
+# Codex-authoritative keys: manifest keys that duplicate a codex metadata
+# entry resolve through the codex first (codex-first rule); the manifest
+# value is kept only as a boot-availability fallback when the codex
+# database is unreachable.
+_CODEX_GOVERNED_KEYS: Final[dict[str, str]] = {
+    "startup_deadline_ms": "startup_complete_deadline_ms",
+}
+
+
+@lru_cache(maxsize=8)
+def _codex_metadata_value(codex_key: str) -> str | None:
+    import sqlite3
+
+    codex_db = (
+        Path(__file__).resolve().parents[3]
+        / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
+    )
+    try:
+        connection = sqlite3.connect(
+            f"file:{codex_db.as_posix()}?mode=ro&immutable=1", uri=True
+        )
+        try:
+            row = connection.execute(
+                "SELECT value FROM metadata WHERE key = ?", (codex_key,)
+            ).fetchone()
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return None
+    return None if row is None else str(row[0])
+
+
 def governed_startup_constant(name: str) -> Any:
+    codex_key = _CODEX_GOVERNED_KEYS.get(name)
+    if codex_key is not None:
+        value = _codex_metadata_value(codex_key)
+        if value is not None:
+            try:
+                return int(value)
+            except ValueError:
+                pass
     return load_manifest()["governed_startup"][name]

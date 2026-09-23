@@ -18,7 +18,7 @@ Implements the startup provisions of the Governance Codex:
     to the system-runtime sovereign; after handoff the startup sovereign
     holds no runtime control.
   * P110/E173 — the complete startup has a single monotonic deadline
-    (``startup_deadline_ms``, codex: 10000 ms) with per-phase budgets
+    (``startup_complete_deadline_ms``, codex: 10000 ms) with per-phase budgets
     (``phase_budget_ms``); exceeding the deadline fails the generation
     closed, reports the exact bottleneck, and never reports false-ready.
 
@@ -124,7 +124,7 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
     async def _run_generation(self, generation_id: str | None = None) -> StartupResult:
         phases = tuple(str(p) for p in _cfg_gs("startup_phases"))
         budgets = dict(_cfg_gs("phase_budget_ms") or {})
-        deadline_ms = int(_cfg_gs("startup_deadline_ms") or 10000)
+        deadline_ms = int(_cfg_gs("startup_complete_deadline_ms") or 10000)
         # Use generation_id from boot_core if provided, otherwise generate new
         if not generation_id:
             generation_id = uuid.uuid4().hex
