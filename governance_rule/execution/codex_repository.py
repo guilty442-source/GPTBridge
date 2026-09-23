@@ -305,7 +305,7 @@ _resolved_codex_paths: dict[str, str] = {}
 
 
 def _resolved_path_key(path: Path) -> str:
-    """Memoize ``Path.resolve()`` ??it is realpath-syscall heavy on Windows.
+    """Memoize ``Path.resolve()`` - it is realpath-syscall heavy on Windows.
 
     Status surfaces rebuild the sovereign tree per request and each
     ``decision_basis`` call reaches this function; resolving the same
@@ -324,9 +324,10 @@ def load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
     """Load the authoritative codex, cached by PostgreSQL authority generation.
 
     Status surfaces rebuild the sovereign tree per request and each
-    ``decision_basis`` call re-reads all codex tables; caching keyed on
-    ``st_mtime_ns`` keeps dynamic amendments visible (a codex write changes
-    the mtime) while collapsing repeated full loads within one report.
+    ``decision_basis`` call re-reads all codex tables; caching keyed on the
+    PostgreSQL authority generation (version + source hash) keeps amendments
+    visible (a governed import changes the authority state) while collapsing
+    repeated full loads within one report.
     """
     del path
     state = authority_state()
