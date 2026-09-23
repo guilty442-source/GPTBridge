@@ -22,6 +22,7 @@ from core_system.audit_integration import (
     AuditIntegrationError,
     build_audit_adapter,
 )
+from shared_layer.audit_sink import AuditPublicationError
 from shared_layer.runtime_gateway import InformationChannelGateway
 
 
@@ -48,16 +49,19 @@ def _write_core_log_safely(
     category: str,
     message: str,
     payload: Any,
-) -> None:
+) -> bool:
+    """Best-effort core-log write; returns True only when the record landed."""
     logger = getattr(app, "core_logger", None)
     if logger is None:
-        return
+        return False
     try:
         logger.write(category, message, payload)
+        return True
     except Exception as exc:
         # Logging is auxiliary. A failed sink must never replace an already
         # completed command result with a synthetic command failure.
         print(f"[IPC] Core log write failed for '{message}': {exc}")
+        return False
 
 
 def _toolbox_result_log_payload(payload: Any) -> dict[str, Any]:
@@ -96,12 +100,14 @@ def _toolbox_result_log_payload(payload: Any) -> dict[str, Any]:
 def _build_gateway_audit_sink(app: "GPTBridgeApp"):
     """Gateway audit sink: central audit first, bounded core log fallback.
 
-    Fail-open (existing semantics): routing a command must never be replaced
-    by a synthetic failure only because the audit sink is unavailable, so an
-    unavailable or failed central append falls back to the bounded core log.
-    A secret-policy violation still propagates and the gateway converts it to
-    an ``AUDIT_PUBLICATION_FAILED`` denial — a record that would leak content
-    is never written to any sink (A435/A448).
+    Degraded-but-recorded semantics: when the central append is unavailable
+    the event falls back to the bounded core log so routing is not denied by
+    a single sink failure.  If *neither* sink can record the event the sink
+    raises ``AuditPublicationError`` and the gateway converts it to an
+    ``AUDIT_PUBLICATION_FAILED`` denial — an unrecordable command is never
+    routed (A121/A46, aligned with shared-layer fail-closed publication).
+    A secret-policy violation still propagates the same way: a record that
+    would leak content is never written to any sink (A435/A448).
     """
     adapter = build_audit_adapter(app, fail_open=True)
 
@@ -111,9 +117,19 @@ def _build_gateway_audit_sink(app: "GPTBridgeApp"):
         except AuditIntegrationError:
             status = AUDIT_FAILED
         if status != AUDIT_RECORDED:
-            _write_core_log_safely(
+            recorded = _write_core_log_safely(
                 app, "information-channel", "command routed", record
             )
+            if not recorded:
+                # A121/A46 mandatory publication: when neither the central
+                # audit store nor the bounded core-log fallback can record the
+                # event, fail closed — the gateway converts this into an
+                # AUDIT_PUBLICATION_FAILED denial instead of routing an
+                # unrecorded command.
+                raise AuditPublicationError(
+                    "audit unavailable: central store failed and core-log "
+                    "fallback unrecorded"
+                )
 
     return _sink
 
