@@ -197,6 +197,11 @@ def record_pytest_run(
         "-q",
         "-p",
         "no:cacheprovider",
+        # The suite-wide addopts fan out with xdist; a bounded evidence
+        # probe must stay single-process so nested gateway spawns can
+        # never flake the recorded verdict under parallel load.
+        "-n",
+        "0",
         f"--junitxml={xml_path}",
         *testpaths,
     ]

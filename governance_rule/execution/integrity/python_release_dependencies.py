@@ -1219,7 +1219,23 @@ def validate_config_contract(
                 errors.append(f"SECRET_REFERENCE_MISSING:{name}")
 
     manifest_text = _json.dumps(contract, ensure_ascii=False, default=str)
-    for marker in ("postgresql://", "postgres://", "secret_value", "token_value"):
+    # A credential-free authority URI (e.g. ``postgresql://local/<schema>``)
+    # is reference metadata, not a secret — flag only DSNs that carry
+    # userinfo or a password parameter.
+    for scheme in ("postgresql://", "postgres://"):
+        index = 0
+        while True:
+            index = manifest_text.find(scheme, index)
+            if index < 0:
+                break
+            end = index + len(scheme)
+            while end < len(manifest_text) and manifest_text[end] not in " \t\"'":
+                end += 1
+            uri = manifest_text[index:end]
+            if "@" in uri or "password=" in uri:
+                errors.append(f"SECRET_VALUE_IN_MANIFEST:{scheme}")
+            index = end
+    for marker in ("secret_value", "token_value"):
         if marker in manifest_text:
             errors.append(f"SECRET_VALUE_IN_MANIFEST:{marker}")
     return errors

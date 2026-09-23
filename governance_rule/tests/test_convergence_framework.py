@@ -31,6 +31,9 @@ from governance_rule.execution.convergence import (  # noqa: E402
 )
 
 LIVE = ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
+# A173: the canonical codex root no longer carries a sqlite file — the
+# PostgreSQL authority is the live codex; None selects it.
+LIVE_DB = LIVE if LIVE.is_file() else None
 
 
 def _module(**overrides):
@@ -112,11 +115,11 @@ def test_stage_copy_applies_plan_and_validates(tmp_path: Path) -> None:
 
 
 def test_version_axis_and_projection_reports() -> None:
-    axes = version_axis_report(LIVE)
+    axes = version_axis_report(LIVE_DB)
     assert axes["codex_version"] and axes["current_version"]
-    projections = projection_status(LIVE)
+    projections = projection_status(LIVE_DB)
     assert projections["codex_version"] == axes["codex_version"]
-    closures = compute_closures(LIVE)
+    closures = compute_closures(LIVE_DB)
     assert closures["VERSION_CURRENTNESS_CLOSURE"] in {"PASS", "INCOMPLETE_EVIDENCE", "FAIL"}
     assert closures["MIRROR_QUALITY_CLOSURE"] == "PASS"
     assert closures["MACHINE_SCHEMA_PARITY_CLOSURE"] == "INCOMPLETE_EVIDENCE"
@@ -130,7 +133,16 @@ def test_version_axis_and_projection_reports() -> None:
 def test_live_codex_untouched_by_framework() -> None:
     import hashlib
 
-    before = hashlib.sha256(LIVE.read_bytes()).hexdigest()
+    if LIVE.is_file():
+        before = hashlib.sha256(LIVE.read_bytes()).hexdigest()
+        plan = load_re_tiering_plan()
+        assert plan["entries"]
+        assert hashlib.sha256(LIVE.read_bytes()).hexdigest() == before
+        return
+    # A173: the live codex is the PostgreSQL authority — fingerprint it.
+    from governance_rule.execution.codex_postgresql import authority_state
+
+    before = json.dumps(authority_state(), sort_keys=True, default=str)
     plan = load_re_tiering_plan()
     assert plan["entries"]
-    assert hashlib.sha256(LIVE.read_bytes()).hexdigest() == before
+    assert json.dumps(authority_state(), sort_keys=True, default=str) == before

@@ -38,6 +38,7 @@ import sqlite3
 from governance_rule.execution.codex_repository import (
     CODEX_DATABASE,
     GOVERNANCE_CODEX,
+    codex_readonly_connection,
     format_codex_version,
 )
 from governance_rule.execution.audit.audit_directories import (
@@ -49,9 +50,25 @@ from governance_rule.execution.git_tiers import classify
 from governance_rule.governance_policy import GOVERNANCE_POLICY
 
 
+
+
+def _live_codex_connection():
+    """Open the live codex read-only: the sqlite predecessor file when it
+    exists, otherwise the PostgreSQL authority (A173 post-cutover)."""
+    if CODEX_DATABASE.is_file():
+        return sqlite3.connect(
+            f"file:{CODEX_DATABASE.as_posix()}?mode=ro&immutable=1", uri=True
+        )
+    return codex_readonly_connection()
+
 def test_governance_codex_is_one_layered_declarative_database() -> None:
-    assert CODEX_DATABASE.is_file()
-    with sqlite3.connect(f"file:{CODEX_DATABASE.as_posix()}?mode=ro&immutable=1", uri=True) as connection:
+    if CODEX_DATABASE.is_file():
+        assert CODEX_DATABASE.is_file()
+    else:
+        from governance_rule.execution.codex_postgresql import authority_state
+
+        assert authority_state()["codex_version"]
+    with _live_codex_connection() as connection:
         tables = {
             row[0]
             for row in connection.execute(
@@ -131,9 +148,7 @@ def test_master_catalog_covers_every_active_directory() -> None:
     errors: list[str] = []
     check_directory_catalog_coverage(_ROOT, errors)
     assert errors == []
-    with sqlite3.connect(
-        f"file:{CODEX_DATABASE.as_posix()}?mode=ro&immutable=1", uri=True
-    ) as connection:
+    with _live_codex_connection() as connection:
         master_codes = {
             row[0] for row in connection.execute("SELECT directory_code FROM directory_master_catalog")
         }
@@ -148,9 +163,7 @@ def test_provision_classification_is_exactly_once() -> None:
     errors: list[str] = []
     check_provision_classification(_ROOT, errors)
     assert errors == []
-    with sqlite3.connect(
-        f"file:{CODEX_DATABASE.as_posix()}?mode=ro&immutable=1", uri=True
-    ) as connection:
+    with _live_codex_connection() as connection:
         classification_count = connection.execute(
             "SELECT COUNT(*) FROM provision_law_classification"
         ).fetchone()[0]

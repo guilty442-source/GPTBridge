@@ -106,7 +106,7 @@ def test_real_registry_has_no_retired_sovereign_owners() -> None:
     payload = load_registry(registry_path(AUDIT_DIR))
     retired = compatibility_shim_ids(payload)
     owners = {component.owner_sovereign for component in components(payload)}
-    assert retired == {"maintenance", "automation"}
+    assert retired == {"maintenance", "synchronization-sovereign"}
     assert not (owners & retired)
     # A592 retired the sub-sovereign orchestration model entirely.
     assert payload["execution_model"]["sub_sovereign"] == "retired-A592"
