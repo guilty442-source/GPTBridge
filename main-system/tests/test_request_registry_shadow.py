@@ -70,35 +70,55 @@ class _StubRegistry:
         self.rows = {}
         self.create_ok = True
 
-    def create(self, request_id, generation):
+    _NAMES = [
+        "CREATED", "QUEUED", "RUNNING", "COMPLETED",
+        "FAILED", "CANCELLED", "TIMED_OUT", "INTERRUPTED",
+    ]
+
+    def create(self, request_id, generation, now_ms=1000):
         if not self.create_ok or request_id in self.rows:
             return False
-        self.rows[request_id] = {"status": "CREATED", "cancelled": False}
+        self.rows[request_id] = {
+            "status": "CREATED",
+            "cancelled": False,
+            "created_at_ms": now_ms,
+            "started_at_ms": 0,
+            "completed_at_ms": 0,
+            "timeout_ms": 0,
+        }
         return True
 
-    def set_status(self, request_id, status):
+    def set_status(self, request_id, status, now_ms=2000):
         row = self.rows.get(request_id)
         if row is None:
             return False
         if row["status"] in ("COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"):
-            names = [
-                "CREATED", "QUEUED", "RUNNING", "COMPLETED",
-                "FAILED", "CANCELLED", "TIMED_OUT", "INTERRUPTED",
-            ]
-            if names[status] != row["status"]:
+            if self._NAMES[status] != row["status"]:
                 return False
-        row["status"] = [
-            "CREATED", "QUEUED", "RUNNING", "COMPLETED",
-            "FAILED", "CANCELLED", "TIMED_OUT", "INTERRUPTED",
-        ][status]
+        row["status"] = self._NAMES[status]
+        if row["status"] == "RUNNING" and not row["started_at_ms"]:
+            row["started_at_ms"] = now_ms
+        if row["status"] in ("COMPLETED", "FAILED", "TIMED_OUT") and not row[
+            "completed_at_ms"
+        ]:
+            row["completed_at_ms"] = now_ms
         return True
 
-    def cancel(self, request_id):
+    def cancel(self, request_id, now_ms=2000):
         row = self.rows.get(request_id)
         if row is None:
             return False
         row["status"] = "CANCELLED"
         row["cancelled"] = True
+        if not row["completed_at_ms"]:
+            row["completed_at_ms"] = now_ms
+        return True
+
+    def set_timeout(self, request_id, timeout_ms=0):
+        row = self.rows.get(request_id)
+        if row is None or timeout_ms < 0:
+            return False
+        row["timeout_ms"] = timeout_ms
         return True
 
     def find(self, request_id):
@@ -109,6 +129,15 @@ class _StubRegistry:
             "request_id": request_id,
             "status": row["status"],
             "cancelled": row["cancelled"],
+            "created_at_ms": row["created_at_ms"],
+            "started_at_ms": row["started_at_ms"],
+            "completed_at_ms": row["completed_at_ms"],
+            "timeout_ms": row["timeout_ms"],
+            "deadline_ms": (
+                row["created_at_ms"] + row["timeout_ms"]
+                if row["timeout_ms"] > 0
+                else 0
+            ),
         }
 
     def count(self):
@@ -259,6 +288,9 @@ class _RecordingShadow:
 
     def observe_refused(self, request_id, status, *, reason):
         self.calls.append(("refused", request_id, status, reason))
+
+    def observe_timeout(self, request_id, timeout_s):
+        self.calls.append(("timeout", request_id, timeout_s))
 
 
 def test_registry_no_shadow_without_project_root(tmp_path: Path) -> None:

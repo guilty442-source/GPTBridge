@@ -1,0 +1,52 @@
+{
+  "schema": "p4-shadow-gap-closure/v1",
+  "at": "2026-09-23T09:40Z",
+  "scope": "P4 residual gaps identified by codex-worker parity audit (2026-09-23T07:15Z)",
+  "gaps_closed": [
+    {
+      "gap": "request_registry: C 時間戳為 0 / deadline 無意義",
+      "fix": "ipc_registry.c/h: create/set_status/cancel accept now_ms; created_at_ms, started_at_ms, completed_at_ms, timeout_ms populated; deadline_ms = created + timeout. Binding exposes all fields + set_timeout. Shadow observe_status compares timestamp ordering (created>0, started>=created, completed>=created); new observe_timeout mirrors RequestRegistry.update and compares deadline.",
+      "evidence": "native suite 150/0/0 incl. extended lifecycle case; shadow end-to-end zero divergences"
+    },
+    {
+      "gap": "scheduler timeout dead code (last_duration_ms stub = 0)",
+      "fix": "scheduler.c: real duration via timespec_get(TIME_UTC) around fn; timeout_ms check now reachable -> error_count increments. suite_scheduler_parity.cpp: live-timeout case (fn sleeps past timeout_ms) asserts error_count.",
+      "evidence": "native suite green; parity suite 4 cases pass"
+    },
+    {
+      "gap": "maintenance cancel 為 Python no-op（無持久化）",
+      "fix": "models.with_status stamps completed_at for CANCELLED; scheduler.cancel_job withdraws queued/releases budget for running (cooperative, non-preemptive matching C); controller.cancel_job persists via _persist_job; shadow.observe_cancelled mirrors into native queue.",
+      "evidence": "smoke: queued->CANCELLED persisted; terminal + unknown-id refuse fail-closed"
+    },
+    {
+      "gap": "runtime_state heartbeat staleness 語義缺失",
+      "fix": "C: last_heartbeat_ms field + gptbridge_rs_is_stale(now_ms, stale_after_ms) -> 0 fresh / 1 stale / -1 unknown; never-beat = stale (fail-closed). Python: is_stale with explicit UTC parse (replaced local-time mktime) + _now_ms; shadow.observe_staleness compares verdicts, -1 read as stale.",
+      "evidence": "C verdicts fresh=0/stale=1/unknown=-1/never-beat=1; stub lockstep + divergence tests green"
+    }
+  ],
+  "gaps_confirmed_already_covered": [
+    {
+      "gap": "state_outbox cancellation parity",
+      "finding": "session cancellation == unregister; observe_unregister mirrors both paths; C gptbridge_ob_unregister present"
+    },
+    {
+      "gap": "model_service_activation cancellation",
+      "finding": "task/pending cancellation is asyncio lifecycle, not state; deadline-expired request rows filtered at SQL input (deadline_at > now); decision ladder mirrored via observe_ensure"
+    },
+    {
+      "gap": "ipc request-lifecycle table",
+      "finding": "ipc_registry IS the lifecycle table; transport shadow + request_registry shadow now cover state/cancel/deadline/timestamps"
+    }
+  ],
+  "verification": {
+    "native_suite": "native-report.json PASS=150 FAIL=0 BLOCKED=0",
+    "python_shadow_tests": "70/70 pass (runtime_state registry+shadow, request_registry shadow, maintenance wiring, scheduler shadow)",
+    "stub_api_drift_fixed": "test stubs updated to new signatures (create+now_ms, heartbeat+now_ms, set_timeout, deadline_ms fields)"
+  },
+  "residual": [
+    "codex-worker: *.resources.jsonl 零記錄（throttled 300s interval — 觀察窗內未達 emit 門檻，非缺陷）",
+    "codex-worker: model-service-activation 2 筆未解 divergence（需逐一調查）",
+    "codex-worker: 索引未對 canonical permission directory 身分做建置期交叉驗證",
+    "P5 升級證據仍 PENDING：8 元件×7 故障模式、release 觀察窗 0/2"
+  ]
+}

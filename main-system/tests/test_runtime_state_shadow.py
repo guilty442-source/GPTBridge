@@ -81,6 +81,7 @@ class _StubRegistry:
                 "health": "unknown",
                 "release_id": "",
                 "last_heartbeat": "",
+                "last_heartbeat_ms": 0,
                 "last_error": "",
                 "recovery_attempts": 0,
                 "updated_at": "",
@@ -115,13 +116,23 @@ class _StubRegistry:
         row["updated_at"] = now_str
         return True
 
-    def heartbeat(self, module_id, now_str):
+    def heartbeat(self, module_id, now_str, now_ms):
         if not self.ok:
             return False
         row = self._row(module_id)
         row["last_heartbeat"] = now_str
+        row["last_heartbeat_ms"] = now_ms
         row["updated_at"] = now_str
         return True
+
+    def is_stale(self, module_id, now_ms, stale_after_ms):
+        row = self.rows.get(module_id)
+        if row is None:
+            return -1
+        beat = row.get("last_heartbeat_ms") or 0
+        if beat <= 0:
+            return 1
+        return 1 if (now_ms - beat) > stale_after_ms else 0
 
     def record_error(self, module_id, error, now_str):
         if not self.ok:
