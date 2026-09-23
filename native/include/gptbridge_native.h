@@ -11,6 +11,7 @@
 #define GPTBRIDGE_NATIVE_H
 
 #include <stdint.h>
+#include <wchar.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -206,6 +207,17 @@ int gptbridge_native_transformer_attention_online(
     int64_t block_k,
     double* output,
     double* block_scores);
+
+/* Directory change notification (P14 event-driven invalidation).
+ * Mechanical watcher only: reports "something under path changed";
+ * changed paths are deliberately NOT reported — callers recapture
+ * through git. One OS handle per open watch; caller closes.
+ * open: opaque handle or NULL (unsupported platform / bad path).
+ * wait: 1 = changed (handle re-armed), 0 = timeout, -1 = error.
+ * close: releases the handle; safe on NULL. */
+void* gptbridge_native_dirwatch_open(const wchar_t* path);
+int gptbridge_native_dirwatch_wait(void* handle, int64_t timeout_ms);
+void gptbridge_native_dirwatch_close(void* handle);
 
 #ifdef __cplusplus
 } /* extern "C" */

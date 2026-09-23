@@ -110,6 +110,20 @@ class BrowserAutomationSession:
         self._sessions: dict[str, str] = {}  # agent_id → session_id
         self._init_lock = asyncio.Lock()
 
+    def _browser(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        """Dispatch to the Electron IPC client, falling back to the
+        in-process browser when the embedded-browser bridge is
+        unavailable (headless / test environments)."""
+        result = getattr(self._client, method)(*args, **kwargs)
+        bridge_down = result is None or (
+            isinstance(result, dict)
+            and result.get("ok") is False
+            and result.get("message") == "EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE"
+        )
+        if bridge_down:
+            return getattr(self._fallback, method)(*args, **kwargs)
+        return result
+
     async def open_agent(self, agent: dict[str, Any]) -> dict[str, Any]:
         try:
             session_id = await self._ensure_agent_session(agent)
@@ -272,7 +286,7 @@ class BrowserAutomationSession:
 
     async def shutdown(self) -> None:
         for agent_id, session_id in list(self._sessions.items()):
-            self._client.close(session_id)
+            self._browser("close", session_id)
         self._sessions.clear()
 
     async def _ensure_agent_session(self, agent: dict[str, Any]) -> str:
@@ -286,7 +300,8 @@ class BrowserAutomationSession:
             if existing:
                 return existing
 
-            result = self._client.create_session(
+            result = self._browser(
+                "create_session",
                 owner_module="ai-collaboration",
                 url=target_url,
             )
@@ -299,10 +314,10 @@ class BrowserAutomationSession:
             return session_id
 
     async def _execute_script(self, session_id: str, script: str) -> dict[str, Any]:
-        return self._client.execute_script(session_id, script)
+        return self._browser("execute_script", session_id, script)
 
     def _get_url(self, session_id: str) -> str | None:
-        return self._client.get_url(session_id)
+        return self._browser("get_url", session_id)
 
     async def _wait_for_response(
         self, session_id: str, extract_script: str
