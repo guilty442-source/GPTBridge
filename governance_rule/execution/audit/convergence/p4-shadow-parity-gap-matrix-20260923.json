@@ -31,7 +31,9 @@
       "resource-budget observation absent in all 8 — FIXED: shared native_shadow_resource.maybe_emit_resource wired into each harness's hottest observe path; throttled 300s/component to sibling *.resources.jsonl (divergence log contract preserved)",
       "ipc_server shadow exposes only observe_inbound — RESOLVED AS MODELING ASYMMETRY: NativeIpcRegistry is a *request* table (request_id/status/cancelled), but the Python IPC path is stateless-per-request (request_id echoed through payloads, no pending-request table). There is no Python counterpart to compare create/find/set_status/cancel against — widening coverage requires adding a Python request-lifecycle table first (feature work, not shadow wiring)",
       "maintenance job-cancel is a Python-side no-op (scheduler.py:312 'pass — persist cancellation'); native cancel cannot be compared until Python implements it",
-      "deadline coverage confirmed present in watchdog(interval)/outbox(retry_deadline)/scheduler(next_due)/activation(poll_interval,state_write_due); runtime_state heartbeat-staleness and ipc deadline remain gaps"
+      "deadline coverage confirmed present in watchdog(interval)/outbox(retry_deadline)/scheduler(next_due)/activation(poll_interval,state_write_due); runtime_state heartbeat has NO staleness semantics in the Python authoritative model (aggregate = counts only) and ipc has no request deadline — both are N/A modeling absences, not unobserved dimensions"
+    ],
+    "p4_closure_state": "all wired-able dimensions wired: io/state/error/failclosed in 8/8, deadline in 4/8 (4 N/A), cancel in 3/8 (2 N/A, 1 python-noop feature-gap, ipc request-table absent, activation cancel absent — documented), resource-budget observation 8/8 added this increment; P4 residual = Python-side feature work (ipc request table, maintenance cancel persistence) + two release observation windows (timeline gate)"
     ]
   },
   "verification": "maintenance shadow wiring tests + ipc shadow tests pass; periodic_scheduler single failure is a CPU-capped timing flake (passes standalone)",
