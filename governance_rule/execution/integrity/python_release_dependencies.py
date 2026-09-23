@@ -1299,7 +1299,9 @@ def validate_release_bundle(
     """Full release-bundle validation: environment, lock, origins, natives.
 
     Governance references are validated when ``codex_path`` is supplied;
-    shared-layer classification is always checked.  Forbidden-content
+    pass ``governance-codex://official`` to validate against the official
+    PostgreSQL authority, or a filesystem path for a staged SQLite copy.
+    Shared-layer classification is always checked.  Forbidden-content
     scanning applies to real release payloads (``check_forbidden_content``)
     so a development workspace root is never misjudged as a package.
     """
@@ -1438,7 +1440,14 @@ def validate_release_bundle(
         )
     if codex_path is not None:
         errors.extend(
-            validate_governance_references(contract, codex_path=codex_path)
+            validate_governance_references(
+                contract,
+                codex_path=(
+                    None
+                    if str(codex_path) == "governance-codex://official"
+                    else codex_path
+                ),
+            )
         )
     return {
         "ok": not errors,
