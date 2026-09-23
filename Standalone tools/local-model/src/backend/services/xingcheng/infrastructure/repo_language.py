@@ -327,6 +327,7 @@ class LanguageTrainingMixin:
         """Audit local training data and compact it without touching other scopes."""
 
         deactivated: list[int] = []
+        invalid_revisions: list[tuple[int, ...]] = []
         with self._connect() as connection:
             rows = connection.execute(
                 """
@@ -362,11 +363,13 @@ class LanguageTrainingMixin:
                     >= MIN_TRAINING_GROUNDING_COVERAGE
                 )
                 if not valid:
-                    connection.execute(
-                        "UPDATE language_training_example SET active = 0 WHERE revision = ?",
-                        (int(row[0]),),
-                    )
+                    invalid_revisions.append((int(row[0]),))
                     deactivated.append(int(row[0]))
+            if invalid_revisions:
+                connection.executemany(
+                    "UPDATE language_training_example SET active = 0 WHERE revision = ?",
+                    invalid_revisions,
+                )
             connection.execute(
                 """
                 UPDATE language_training_example SET active = 0

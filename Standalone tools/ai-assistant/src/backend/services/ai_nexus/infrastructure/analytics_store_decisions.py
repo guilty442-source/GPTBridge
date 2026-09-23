@@ -184,32 +184,34 @@ class AnalyticsStoreDecisionsMixin:
         # G102: one durable transaction for the whole action plan instead of
         # a commit + durable persist per action.
         with self.batch_updates():
-            for action in command.get("action_plan", []):
-                if not isinstance(action, dict):
-                    continue
-                row = self._decision_row(action, assessments, reports, command, created)
-                with self.connect() as connection:
-                    cursor = connection.execute(
-                        """
-                        INSERT OR IGNORE INTO decisions(
-                            decision_id, dedupe_key, created_at, symbol, action,
-                            confidence, score, risk_level, reference_price,
-                            evidence_encrypted, snapshot_encrypted, user_status,
-                            outcome_due_at, outcome_encrypted, prediction_direction,
-                            horizon_days, return_threshold_percent,
-                            eligible_for_calibration
-                        ) VALUES(
-                            :decision_id, :dedupe_key, :created_at, :symbol, :action,
-                            :confidence, :score, :risk_level, :reference_price,
-                            :evidence_encrypted, :snapshot_encrypted, :user_status,
-                            :outcome_due_at, :outcome_encrypted, :prediction_direction,
-                            :horizon_days, :return_threshold_percent,
-                            :eligible_for_calibration
-                        )
-                        """,
-                        row,
+            rows = [
+                self._decision_row(action, assessments, reports, command, created)
+                for action in command.get("action_plan", [])
+                if isinstance(action, dict)
+            ]
+            with self.connect() as connection:
+                cursor = connection.executemany(
+                    """
+                    INSERT OR IGNORE INTO decisions(
+                        decision_id, dedupe_key, created_at, symbol, action,
+                        confidence, score, risk_level, reference_price,
+                        evidence_encrypted, snapshot_encrypted, user_status,
+                        outcome_due_at, outcome_encrypted, prediction_direction,
+                        horizon_days, return_threshold_percent,
+                        eligible_for_calibration
+                    ) VALUES(
+                        :decision_id, :dedupe_key, :created_at, :symbol, :action,
+                        :confidence, :score, :risk_level, :reference_price,
+                        :evidence_encrypted, :snapshot_encrypted, :user_status,
+                        :outcome_due_at, :outcome_encrypted, :prediction_direction,
+                        :horizon_days, :return_threshold_percent,
+                        :eligible_for_calibration
                     )
-                count += int(bool(cursor.rowcount))
+                    """,
+                    rows,
+                )
+            # executemany rowcount counts inserted rows (INSERT OR IGNORE skips dupes)
+            count = max(int(cursor.rowcount), 0)
         return count
 
     def _decision_row(
@@ -266,32 +268,55 @@ class AnalyticsStoreDecisionsMixin:
         updated = 0
         # G102: one durable transaction for the whole due-outcomes batch —
         # previously each row paid a commit + durable persist.
+        evaluation_bars = self._evaluation_bars([str(r["decision_id"]) for r in rows])
+        updates: list[tuple[str, str]] = []
+        for row in rows:
+            evaluation_bar = evaluation_bars.get(str(row["decision_id"]))
+            outcome = self._decision_outcome(row, evaluation_bar, now)
+            if outcome is None:
+                continue
+            updates.append((protect_text(_json(outcome)), row["decision_id"]))
         with self.batch_updates():
-            for row in rows:
-                evaluation_bar = self._evaluation_bar(row)
-                outcome = self._decision_outcome(row, evaluation_bar, now)
-                if outcome is None:
-                    continue
+            if updates:
                 with self.connect() as connection:
-                    connection.execute(
+                    connection.executemany(
                         "UPDATE decisions SET outcome_encrypted = ? WHERE decision_id = ?",
-                        (protect_text(_json(outcome)), row["decision_id"]),
+                        updates,
                     )
-                updated += 1
-        return updated
+        return len(updates)
 
-    def _evaluation_bar(self, row: sqlite3.Row) -> sqlite3.Row | None:
+    def _evaluation_bars(
+        self, decision_ids: list[str]
+    ) -> dict[str, sqlite3.Row]:
+        """One query for every due decision's evaluation bar (G102: replaces
+        the per-row prices lookup — window function picks the same first bar
+        the old ORDER BY/LIMIT 1 did)."""
+        if not decision_ids:
+            return {}
+        placeholders = ",".join("?" for _ in decision_ids)
         with self.connect() as connection:
-            return connection.execute(
-                """
-                SELECT close, observed_at, provider, verified
-                FROM prices
-                WHERE symbol = ? AND observed_at >= ?
-                ORDER BY observed_at ASC, verified DESC, provider
-                LIMIT 1
+            rows = connection.execute(
+                f"""
+                SELECT decision_id, close, observed_at, provider, verified
+                FROM (
+                    SELECT d.decision_id AS decision_id, p.close AS close,
+                           p.observed_at AS observed_at, p.provider AS provider,
+                           p.verified AS verified,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY d.decision_id
+                               ORDER BY p.observed_at ASC, p.verified DESC, p.provider
+                           ) AS rn
+                    FROM decisions d
+                    JOIN prices p
+                      ON p.symbol = d.symbol
+                     AND p.observed_at >= d.outcome_due_at
+                    WHERE d.decision_id IN ({placeholders})
+                )
+                WHERE rn = 1
                 """,
-                (str(row["symbol"]), str(row["outcome_due_at"])),
-            ).fetchone()
+                tuple(decision_ids),
+            ).fetchall()
+        return {str(row["decision_id"]): row for row in rows}
 
     def _decision_outcome(
         self,

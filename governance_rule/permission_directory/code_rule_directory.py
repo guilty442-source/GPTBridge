@@ -285,5 +285,70 @@ def _sealed_reader(snapshot: CodeRuleDirectorySnapshot):
     return read_snapshot
 
 
-code_rule_directory_snapshot: Final = _sealed_reader(CODE_RULE_DIRECTORY)
+def _load_from_sql() -> CodeRuleDirectorySnapshot | None:
+    """SQL authority (migrated per user: Python 目錄改用SQL).
+
+    Reads the single row from ``code_rule_directory`` in the owner-private
+    SQLite store.  Returns None when the table is absent or unreadable so
+    callers can fall back to the sealed Python tuple (fail-safe, not
+    fail-closed for reads).
+    """
+    try:
+        import json
+        import sqlite3
+        from pathlib import Path
+
+        db = Path(__file__).resolve().parent / "data" / "identity_directory.db"
+        if not db.is_file():
+            return None
+        conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+        try:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("select * from code_rule_directory where id=1").fetchone()
+            if row is None:
+                return None
+            return CodeRuleDirectorySnapshot(
+                authority_version=int(row["authority_version"]),
+                managing_authority=str(row["managing_authority"]),
+                governing_source=str(row["governing_source"]),
+                independent_authority=bool(row["independent_authority"]),
+                runtime_write_allowed=bool(row["runtime_write_allowed"]),
+                canonical_project_root=str(row["canonical_project_root"]),
+                main_system_root=str(row["main_system_root"]),
+                shared_layer_root=str(row["shared_layer_root"]),
+                governance_root=str(row["governance_root"]),
+                permission_directory_root=str(row["permission_directory_root"]),
+                independent_tool_root_template=str(row["independent_tool_root_template"]),
+                governance_execution_root=str(row["governance_execution_root"]),
+                permission_execution_root=str(row["permission_execution_root"]),
+                path_resolution=str(row["path_resolution"]),
+                source_language=str(row["source_language"]),
+                localization_source=str(row["localization_source"]),
+                initial_code_version=str(row["initial_code_version"]),
+                implicit_version_change=bool(row["implicit_version_change"]),
+                identifier_label_schema=str(row["identifier_label_schema"]),
+                approved_tool_ids=tuple(json.loads(row["approved_tool_ids"])),
+                approved_actor_names=tuple(json.loads(row["approved_actor_names"])),
+                approved_capability_names=tuple(json.loads(row["approved_capability_names"])),
+                approved_action_names=tuple(json.loads(row["approved_action_names"])),
+                approved_target_names=tuple(json.loads(row["approved_target_names"])),
+                approved_data_scope_names=tuple(json.loads(row["approved_data_scope_names"])),
+                required_locale_keys=tuple(json.loads(row["required_locale_keys"])),
+                category_labels=bool(row["category_labels"]),
+                requirements=tuple(json.loads(row["requirements"])),
+            )
+        finally:
+            conn.close()
+    except Exception:
+        return None
+
+
+def _snapshot() -> CodeRuleDirectorySnapshot:
+    sql_snapshot = _load_from_sql()
+    return sql_snapshot if sql_snapshot is not None else CODE_RULE_DIRECTORY
+
+
+code_rule_directory_snapshot: Final = _snapshot
 del _sealed_reader
+del _snapshot
+del _load_from_sql
