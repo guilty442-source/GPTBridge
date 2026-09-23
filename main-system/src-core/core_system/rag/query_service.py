@@ -11,7 +11,7 @@ the answer back into the cache.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from .cag import CacheGateDecision, CacheRequest, CagCacheStore
 from .dag import (
@@ -58,11 +58,19 @@ class RagQueryService:
         self,
         *,
         planner: RagDagPlanner,
-        executor: RagDagExecutor,
+        executor: RagDagExecutor | None = None,
         store: CagCacheStore,
+        executor_factory: Callable[
+            [CacheRequest, RagDagPlanRequest, RagDagExecutionContext],
+            RagDagExecutor,
+        ]
+        | None = None,
     ) -> None:
+        if executor is None and executor_factory is None:
+            raise ValueError("RagQueryService requires executor or executor_factory")
         self._planner = planner
         self._executor = executor
+        self._executor_factory = executor_factory
         self._store = store
 
     def query(
@@ -87,7 +95,12 @@ class RagQueryService:
                 )
 
         plan = self._planner.plan(plan_request, context)
-        result = self._executor.execute(plan, cancel_event=cancel_event)
+        executor = (
+            self._executor_factory(cache_request, plan_request, context)
+            if self._executor_factory is not None
+            else self._executor
+        )
+        result = executor.execute(plan, cancel_event=cancel_event)
         if result.state is not RagDagState.SUCCEEDED:
             return RagQueryOutcome(
                 ok=False,

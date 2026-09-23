@@ -23,6 +23,11 @@ from .executor import (
     RagDagExecutionError,
     RagDagExecutor,
 )
+from .handlers import (
+    query_chain_handlers,
+    retrieval_chain_handlers,
+    write_path_handlers,
+)
 from .planner import (
     HARD_MAX_COST,
     HARD_MAX_ROUNDS,
@@ -66,4 +71,7 @@ __all__ = [
     "default_budgets",
     "execution_context",
     "node_spec",
+    "query_chain_handlers",
+    "retrieval_chain_handlers",
+    "write_path_handlers",
 ]

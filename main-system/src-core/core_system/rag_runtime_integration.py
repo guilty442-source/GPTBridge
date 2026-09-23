@@ -33,7 +33,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from .rag.embeddings import create_embedding_provider_from_env
 from .rag.orchestration.evidence import (
@@ -426,6 +426,10 @@ class RagRuntimeIntegration:
     _loop_worker: Optional[_RagLoop] = None
     _init_future: "concurrent.futures.Future[Any] | None" = None
     _started: bool = False
+    _dag_planner: Any = None
+    _cag_store: Any = None
+    _content_resolvers: Any = None
+    _query_service: Any = None
 
     async def start(self) -> dict[str, Any]:
         """Create and initialize the canonical RAG runtime."""
@@ -518,6 +522,18 @@ class RagRuntimeIntegration:
             except Exception:
                 pass
 
+        # A549 DAG production surfaces: the planner is shared (stateless);
+        # executors are built per-request because node handlers bind the
+        # per-request query/scope/command.
+        from .rag.cag import CagCacheStore
+        from .rag.dag import RagDagPlanner
+        from .rag.query_service import RagQueryService
+        from .rag.service.content_resolver import ContentResolverRegistry
+
+        self._dag_planner = RagDagPlanner()
+        self._cag_store = CagCacheStore()
+        self._content_resolvers = ContentResolverRegistry()
+
         self._service = RagApplicationService(
             self._orchestrator,
             StaticPolicySovereign(
@@ -526,11 +542,21 @@ class RagRuntimeIntegration:
             ),
             actor_role_of=lambda actor: _ACTOR_ROLES.get(actor, "agent"),
             audit_sink=_audit_sink,
+            dag_planner=self._dag_planner,
+            index_executor_factory=self._index_executor_factory,
+        )
+
+        self._query_service = RagQueryService(
+            planner=self._dag_planner,
+            store=self._cag_store,
+            executor_factory=self._query_executor_factory,
         )
 
         self.app.rag_pipeline = self._pipeline
         self.app.rag_orchestrator = self._orchestrator
         self.app.rag_service = self._service
+        self.app.rag_query_service = self._query_service
+        self.app.rag_content_resolvers = self._content_resolvers
         self._started = True
 
         return {
@@ -541,6 +567,154 @@ class RagRuntimeIntegration:
             "background_init": True,
             "state": state,
             "blocked_reason": "",
+        }
+
+    # ------------------------------------------------------------------
+    # A549 DAG facades — per-request executor factories
+    # ------------------------------------------------------------------
+
+    def _dag_generate(self, context_text: str) -> Mapping[str, Any]:
+        """MODEL_INFERENCE binding: run the governed native model on the
+        RAG worker loop (the coroutine is the real inference path; the
+        DAG executor thread simply waits on it)."""
+        from .xingcheng_native_model_runtime import native_model_infer
+
+        try:
+            return self._loop_worker.run(
+                native_model_infer(
+                    context_text,
+                    intent="rag-answer",
+                    grounding=context_text,
+                    max_tokens=256,
+                ),
+                timeout=110,
+            )
+        except Exception as exc:
+            return {
+                "ok": False,
+                "error_code": "GENERATE_FAILED",
+                "message": str(exc),
+            }
+
+    def _query_executor_factory(
+        self,
+        cache_request: Any,
+        plan_request: Any,
+        dag_context: Any,
+    ) -> Any:
+        from .rag.dag import RagDagExecutor
+        from .rag.dag.handlers import query_chain_handlers
+
+        return RagDagExecutor(
+            query_chain_handlers(
+                self._orchestrator,
+                query=cache_request.query,
+                scope={"module_ids": dag_context.module_ids},
+                cache_store=self._cag_store,
+                cache_request=cache_request,
+                generate=self._dag_generate,
+                policy_version="a549-query",
+            ),
+            node_timeout_seconds=120.0,
+        )
+
+    def _index_executor_factory(self, command: Any) -> Any:
+        from .rag.dag import RagDagExecutor
+        from .rag.dag.handlers import write_path_handlers
+
+        return RagDagExecutor(
+            write_path_handlers(
+                index_fn=lambda **kw: self._dag_index(command),
+                verify_fn=lambda target: self._dag_verify(command),
+                publish_fn=lambda target, verification: self._dag_verify(command),
+            ),
+            node_timeout_seconds=90.0,
+        )
+
+    def _dag_index(self, command: Any) -> dict[str, Any]:
+        """INDEX node body: resolve -> chunk -> embed -> pipeline write."""
+        try:
+            resolved = self._content_resolvers.resolve(
+                command.actor_id,
+                command.module_id,
+                command.resource_type,
+                command.locator_id,
+                version=0,
+            )
+        except PermissionError as exc:
+            return {"ok": False, "error": f"index:content-resolver:{exc}"}
+        if not resolved.authorized:
+            return {"ok": False, "error": "index:content-not-authorized"}
+        if not str(resolved.content or "").strip():
+            return {"ok": False, "error": "index:empty-content"}
+
+        from .rag.chunking import Document, create_chunking_service_from_env
+
+        document = Document(
+            resource_id=command.resource_id,
+            module_id=command.module_id,
+            content=resolved.content,
+            metadata={
+                "locator_id": command.locator_id,
+                "data_category": command.data_category,
+            },
+        )
+        chunks = create_chunking_service_from_env().chunk_document(document)
+        if not chunks:
+            return {"ok": False, "error": "index:no-chunks"}
+
+        indexed = 0
+        last_hash = ""
+        for chunk in chunks:
+            vectors = self._loop_worker.run(
+                self._embedder.embed([chunk.content]), timeout=60
+            )
+            embedding = list(vectors[0]) if vectors else []
+            if not embedding:
+                return {"ok": False, "error": "index:empty-embedding"}
+            state = self._loop_worker.run(
+                self._pipeline.index_resource(
+                    command.module_id,
+                    command.resource_id,
+                    chunk.content,
+                    metadata={
+                        **chunk.metadata,
+                        "chunk_index": chunk.index,
+                        "locator_id": command.locator_id,
+                        "data_category": command.data_category,
+                    },
+                    embedding=embedding,
+                ),
+                timeout=60,
+            )
+            last_hash = getattr(state, "content_hash", "") or last_hash
+            indexed += 1
+        return {
+            "ok": True,
+            "indexed_points": indexed,
+            "source_revision": str(resolved.version or ""),
+            "content_hash": last_hash,
+        }
+
+    def _dag_verify(self, command: Any) -> dict[str, Any]:
+        """VERIFICATION / PUBLISH_BARRIER body: independent read-back of
+        the authoritative index_state (PostgreSQL is the authority)."""
+        try:
+            state = self._loop_worker.run(
+                self._pipeline.get_index_state(
+                    command.module_id, command.resource_id
+                ),
+                timeout=30,
+            )
+        except Exception as exc:
+            return {"ok": False, "error": f"verify:index-state:{exc}"}
+        visible = state is not None
+        return {
+            "ok": visible,
+            "verification_result": "verified" if visible else "missing",
+            "independent_verifier": "postgresql-index-state",
+            "publish_state": "published" if visible else "not-visible",
+            "authority_marker": getattr(state, "content_hash", "") or "",
         }
 
     def _on_pipeline_init_done(
@@ -595,7 +769,13 @@ class RagRuntimeIntegration:
         future = self._init_future
         if future is not None and not future.done():
             future.cancel()
-        for attr in ("rag_service", "rag_orchestrator", "rag_pipeline"):
+        for attr in (
+            "rag_service",
+            "rag_orchestrator",
+            "rag_pipeline",
+            "rag_query_service",
+            "rag_content_resolvers",
+        ):
             if getattr(self.app, attr, None) is not None:
                 setattr(self.app, attr, None)
         worker = self._loop_worker
@@ -613,9 +793,13 @@ class RagRuntimeIntegration:
                 pass
             worker.stop()
         self._service = None
+        self._query_service = None
         self._orchestrator = None
         self._pipeline = None
         self._embedder = None
+        self._dag_planner = None
+        self._cag_store = None
+        self._content_resolvers = None
         self._loop_worker = None
         self._init_future = None
         self._started = False
