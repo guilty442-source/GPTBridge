@@ -3,8 +3,9 @@
 Records wall time, CPU time, p50/p95/p99, call count, peak memory,
 allocation count, and hottest callables for a Python execution path.
 
-Uses only stdlib (cProfile, time, tracemalloc) + psutil so the baseline
-is reproducible without extra dependencies (A37/E23: stdlib-only self-host).
+Uses only stdlib (cProfile, time, tracemalloc) + the native process-metrics
+facade (P24) so the baseline is reproducible without extra dependencies
+(A37/E23: stdlib-only self-host).
 """
 from __future__ import annotations
 

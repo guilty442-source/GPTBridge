@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -39,28 +40,24 @@ def _git_timing(repo_root: Path, args: list[str]) -> Optional[float]:
 
 
 def _process_metrics() -> dict[str, Any]:
-    """本 process 的資源量測。"""
+    """本 process 的資源量測（P24：native 優先，psutil 為殘留 fallback）。"""
     try:
-        import psutil
+        from shared_layer.performance import process_metrics
     except ImportError:
-        return {"psutil": None}
-    proc = psutil.Process()
+        return {"metrics": None}
+    pid = os.getpid()
+    rss = process_metrics.process_working_set_bytes(pid)
+    threads = process_metrics.process_num_threads(pid)
     # open_files() enumerates handles and can hard-crash (access violation)
     # on Windows under handle churn; num_handles() gives the same signal
     # without enumeration. POSIX falls back to open_files.
-    if hasattr(proc, "num_handles"):
-        open_handles = proc.num_handles()
-    elif hasattr(proc, "open_files"):
-        open_handles = len(proc.open_files())
-    else:
-        open_handles = None
-    with proc.oneshot():
-        return {
-            "rss_mb": round(proc.memory_info().rss / 1_048_576, 1),
-            "cpu_percent": proc.cpu_percent(interval=0.1),
-            "threads": proc.num_threads(),
-            "open_handles": open_handles,
-        }
+    open_handles = process_metrics.process_num_handles(pid)
+    return {
+        "rss_mb": round(rss / 1_048_576, 1) if rss >= 0 else None,
+        "cpu_percent": process_metrics.process_cpu_percent(pid, interval=0.1),
+        "threads": threads if threads >= 0 else None,
+        "open_handles": open_handles if open_handles >= 0 else None,
+    }
 
 
 def _gpu_metrics() -> Optional[dict[str, Any]]:
