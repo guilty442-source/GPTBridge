@@ -24,6 +24,8 @@ import secrets
 import time
 from typing import Any, Iterable
 
+import psycopg
+
 from governance_rule.execution import codex_entry_state as _state
 from governance_rule.execution.codex_repository import load_governance_codex
 
@@ -44,7 +46,7 @@ def _sovereign_ids() -> frozenset[str]:
         return frozenset(
             str(s.id) for s in load_governance_codex().sovereigns
         )
-    except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError):
+    except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError, psycopg.Error):
         return frozenset()
 
 
@@ -135,6 +137,14 @@ def mint_dual_key_grant(
         raise PermissionError(denial)
 
     nonce = secrets.token_hex(16)
+    try:
+        codex_version = int(load_governance_codex().codex_version)
+    except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError, psycopg.Error) as error:
+        _audit(
+            "CODEX_UNAVAILABLE", primary=primary, secondary=secondary,
+            purpose=purpose, scope=parsed_scope, correlation="",
+        )
+        raise PermissionError("CODEX_UNAVAILABLE") from error
     record = {
         "operation": operation,
         "primary": primary,
@@ -142,7 +152,7 @@ def mint_dual_key_grant(
         "purpose": purpose,
         "access_class": access_class,
         "scope_hash": _state.scope_hash(parsed_scope),
-        "codex_version": int(load_governance_codex().codex_version),
+        "codex_version": codex_version,
         "generation": int(_state.current_revocation()),
         "expires_at": time.time() + max(1.0, float(ttl_seconds)),
         "consumed": False,
@@ -216,7 +226,7 @@ def verify_dual_key_grant(
         else:
             try:
                 current_version = load_governance_codex().codex_version
-            except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError):
+            except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError, psycopg.Error):
                 current_version = None
             if record.get("codex_version") != current_version:
                 denial = "CODEX_VERSION_CHANGED"
