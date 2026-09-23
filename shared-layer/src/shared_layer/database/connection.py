@@ -181,8 +181,6 @@ class ConnectionManager:
                 with self._lock:
                     connection = self._new_connection()
                     self._connection_count += 1
-                    connection = self._new_connection()
-                    self._connection_count += 1
         try:
             yield connection
         finally:
