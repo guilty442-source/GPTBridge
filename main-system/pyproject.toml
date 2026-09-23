@@ -3,10 +3,9 @@ name = "gptbridge-runtime"
 version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "psutil>=6.0,<8",
+    # Python ONLY for 治相關、決策與模型訓練 (per user)
+    # All mechanical work (timer/polling/watcher/queue/scheduler/IPC/SQL/transport/test/audit/cleanup) → C/C++/C# or DB native
     "psycopg[binary,pool]>=3.2,<4",
-    "qdrant-client>=1.12,<2",
-    "websockets==16.1",
 ]
 
 [project.optional-dependencies]
