@@ -9,6 +9,22 @@ from typing import Any
 from .investment_analysis import analyze_investments
 
 
+def _tool_loop_system_prompt() -> str:
+    """P21 工具迴圈的預設 system prompt：宣告 star-tool-call/v1 白名單。"""
+    import json
+
+    from .native_tool_orchestrator import GovernedToolExecutor
+
+    specs = json.dumps(
+        GovernedToolExecutor.available_tool_specs(), ensure_ascii=False
+    )
+    return (
+        "你是星澄，一個本地模型。當需要查詢系統狀態或提出系統修改時，"
+        '只輸出 <tool_call>{"name": "<工具名>", "arguments": {...}}</tool_call>'
+        f"，不要輸出其他內容。可用工具（star-tool-call/v1）：{specs}"
+    )
+
+
 class InferPlanningMixin:
 
     async def _infer_prepare_intents(
@@ -487,6 +503,86 @@ class InferPlanningMixin:
             )
         return None, automatic_runtime_model, planned_profile, business_scope, assigned_model
 
+    async def _infer_converse_tools(
+        self,
+        inference_payload: dict[str, Any],
+        prompt: str,
+        planned_intent: str,
+    ) -> dict[str, Any] | None:
+        """P21：``tools_enabled`` 時改走 ChatSession + GovernedToolExecutor 迴圈。
+
+        工具迴圈只在 Python 原生引擎上運行（C++ runtime 無 session 支援）；
+        ``XINGCHENG_CPP_RUNTIME=required`` 或引擎不可用時回 ``None``，
+        讓呼叫端退回一般生成路徑（提案仍由 finalize 文本掃描浮上）。
+        模型本身不執行工具——全部呼叫經 ``GovernedToolExecutor`` 走
+        ``self.handle`` 受管分派，``system_modification_proposals`` 僅
+        浮上結果、由 model-dialogue 側轉交 ``app:propose-system-modification``。
+        """
+        try:
+            from ..infrastructure.native_transformer.cpp_runtime import (
+                cpp_runtime_mode,
+            )
+
+            if cpp_runtime_mode() == "required":
+                return None
+            from ..infrastructure.native_engine import (
+                cpu_generation_cap,
+                generation_defaults,
+                native_engine_for,
+            )
+            from .native_tool_orchestrator import GovernedToolExecutor
+        except Exception:
+            return None
+        try:
+            engine = native_engine_for()
+            session = engine.new_chat_session(
+                system_prompt=str(inference_payload.get("system_prompt") or "")
+                or _tool_loop_system_prompt(),
+            )
+        except Exception:
+            return None
+        defaults = generation_defaults()
+        max_new = int(defaults["max_new_tokens"])
+        if getattr(getattr(engine, "device", None), "type", "") == "cpu":
+            max_new = min(max_new, cpu_generation_cap())
+        executor = GovernedToolExecutor(self)
+        outcome = await executor.converse(
+            session, str(prompt or ""), max_new_tokens=max_new
+        )
+        return {
+            "ok": True,
+            "model": "xingcheng-native-transformer",
+            "model_family": "xingcheng-native",
+            "architecture": "xingcheng-native-decoder-transformer",
+            "mode": "governed-native-transformer-toolloop",
+            "response": outcome["text"],
+            "text": outcome["text"],
+            "intent": planned_intent,
+            "semantic_understanding": {"comprehension": {"command": {}}},
+            "generation": {
+                "text": outcome["text"],
+                "model": "xingcheng-native-transformer",
+                "model_type": "native-transformer-autoregressive-decoder",
+                "token_count": int(outcome.get("generated_tokens") or 0),
+            },
+            "tool_trace": outcome.get("tool_trace") or [],
+            "tool_rounds": int(outcome.get("tool_rounds") or 0),
+            "rounds_exhausted": bool(outcome.get("rounds_exhausted")),
+            "tool_calls_pending": outcome.get("tool_calls_pending") or [],
+            "system_modification_proposals": list(
+                outcome.get("system_modification_proposals") or []
+            ),
+            "tools_enabled": True,
+            "native_engine": True,
+            "star_native_model_used": True,
+            "checkpoint_path": str(getattr(engine, "checkpoint_path", "") or ""),
+            "state_sha256": str(getattr(engine, "state_sha256", "") or ""),
+            "context_window": int(
+                getattr(getattr(engine, "config", None),
+                        "max_position_embeddings", 0) or 0
+            ),
+        }
+
     async def _infer_generate_model_output(
         self,
         inference_payload: dict[str, Any],
@@ -496,6 +592,17 @@ class InferPlanningMixin:
         native_model_requested: bool,
     ) -> tuple[tuple[str, dict[str, Any]] | None, dict[str, Any]]:
         inference_started = time.perf_counter()
+        # P21：tools_enabled 且本輪本就會走原生引擎（明確請求原生模型，
+        # 或 transformer runtime 停用時的原生路徑）→ converse 工具迴圈。
+        if bool(inference_payload.get("tools_enabled")) and (
+            native_model_requested or not self.transformer_runtime.enabled
+        ):
+            tool_output = await self._infer_converse_tools(
+                inference_payload, prompt, planned_intent
+            )
+            if tool_output is not None:
+                self._record_latency("inference", inference_started)
+                return None, tool_output
         output = (
             await asyncio.to_thread(
                 self.model_engines.for_profile(planned_profile).infer,

@@ -683,6 +683,20 @@ public:
         return gptbridge_mt_cancel(&mt_, job_id.c_str()) != 0;
     }
     int job_count() const { return mt_.count; }
+    /* Non-terminal slots (QUEUED/DEFERRED/RUNNING) — mirrors the Python
+       scheduler's len(_queue)+len(_running).  job_count() is the raw table
+       size: terminal slots linger until recycled, so it overstates live
+       work (P4 shadow desynced-queue metric was counting terminal slots). */
+    int live_count() const {
+        int n = 0;
+        for (int32_t i = 0; i < mt_.count; ++i) {
+            const gptbridge_mt_status_t st = mt_.jobs[i].status;
+            if (st == GPTBRIDGE_MT_QUEUED || st == GPTBRIDGE_MT_DEFERRED ||
+                st == GPTBRIDGE_MT_RUNNING)
+                ++n;
+        }
+        return n;
+    }
     void set_generation(int64_t generation) {
         mt_.current_generation = generation;
     }
@@ -1325,6 +1339,7 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("fail", &NativeMaintenance::fail)
         .def("cancel", &NativeMaintenance::cancel)
         .def("job_count", &NativeMaintenance::job_count)
+        .def("live_count", &NativeMaintenance::live_count)
         .def("set_generation", &NativeMaintenance::set_generation)
         .def("cache_get", &NativeMaintenance::cache_get)
         .def("cache_set", &NativeMaintenance::cache_set);

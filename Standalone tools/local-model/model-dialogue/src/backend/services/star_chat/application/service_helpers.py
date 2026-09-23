@@ -262,6 +262,10 @@ class StarChatHelpersMixin:
                 "model_selection_strategy"
             ],
             "autonomous_agent": True,
+            # P21：model-dialogue 是工具迴圈（converse）的指定生產面——
+            # 預設啟用讓模型可發唯讀工具呼叫與系統修改提案；
+            # 呼叫端可顯式傳 tools_enabled=False 退回扁平生成。
+            "tools_enabled": payload.get("tools_enabled") is not False,
             "automatic_workflow": True,
             "workflow_sequence": list(self.AUTOMATIC_WORKFLOW_SEQUENCE),
             "primary_language": self.PRIMARY_LANGUAGE,

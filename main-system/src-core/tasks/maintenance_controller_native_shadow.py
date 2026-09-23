@@ -287,14 +287,18 @@ class MaintenanceNativeShadow:
             if py_job_id is None:
                 # The desynced-queue divergence is recorded once per
                 # episode — repeating it every tick adds no evidence.
-                if self._mt.job_count() > 0 and not self._empty_pop_emitted:
+                # live_count() counts non-terminal slots only; job_count()
+                # includes terminal slots lingering until slot recycling
+                # and would report phantom backlog (P4 parity fix).
+                live = getattr(self._mt, "live_count", self._mt.job_count)()
+                if live > 0 and not self._empty_pop_emitted:
                     self._empty_pop_emitted = True
                     self._emit(
                         {
                             "kind": "divergence",
                             "op": "dispatch",
                             "python": {"job_id": None},
-                            "native": {"queued_jobs": self._mt.job_count()},
+                            "native": {"queued_jobs": live},
                         }
                     )
                 return

@@ -47,18 +47,44 @@ class XingchengCodexDriftMixin:
             module_assignment_registry,
             parent_of,
             resolve_sovereign,
+            sovereign_hierarchy_registry,
             supersession_registry,
         )
 
         findings: list[dict[str, Any]] = []
         declared = all_children()
+        hierarchy = sovereign_hierarchy_registry()
+        retired_children = {
+            str(row.get("child_identity") or "")
+            for row in hierarchy
+            if row.get("status") != "active"
+        }
+        # A604: the hierarchy layer is retired, so ``declared`` is normally
+        # empty — inspect every parent named by the registry plus this
+        # sovereign itself so a materialized retired/phantom child can no
+        # longer hide behind "no active declaration".
+        parent_ids = set(declared)
+        parent_ids.update(
+            str(row.get("parent_identity") or "") for row in hierarchy
+        )
+        parent_ids.discard("")
+        parent_ids.add(self.sovereign_id)
         materialized = 0
-        for parent_id, child_ids in declared.items():
-            parent = resolve_sovereign(self.app, parent_id)
+        for parent_id in sorted(parent_ids):
+            parent = (
+                self
+                if parent_id == self.sovereign_id
+                else resolve_sovereign(self.app, parent_id)
+            )
             registry = getattr(parent, "_sub_sovereigns", {}) if parent else {}
             materialized += len(registry)
             findings.extend(
-                self._child_drift(parent_id, child_ids, registry)
+                self._child_drift(
+                    parent_id,
+                    declared.get(parent_id, ()),
+                    registry,
+                    retired_children,
+                )
             )
         findings.extend(self._module_drift())
         findings.extend(
@@ -82,6 +108,7 @@ class XingchengCodexDriftMixin:
         parent_id: str,
         declared_ids: tuple[str, ...],
         registry: dict[str, Any],
+        retired_children: frozenset[str] | set[str] = frozenset(),
     ) -> list[dict[str, Any]]:
         """Hierarchy drift for one codex parent."""
         from ...registries import parent_of
@@ -100,15 +127,31 @@ class XingchengCodexDriftMixin:
             )
         for child_id, child in registry.items():
             if child_id not in declared:
-                findings.append(
-                    {
-                        "type": "unregistered-child",
-                        "severity": "critical",
-                        "parent": parent_id,
-                        "child": child_id,
-                        "detail": "materialized child has no active codex row",
-                    }
-                )
+                if child_id in retired_children:
+                    findings.append(
+                        {
+                            "type": "retired-identity-active",
+                            "severity": "critical",
+                            "parent": parent_id,
+                            "child": child_id,
+                            "detail": (
+                                "codex row is retired but the identity is "
+                                "still materialized"
+                            ),
+                        }
+                    )
+                else:
+                    findings.append(
+                        {
+                            "type": "unregistered-child",
+                            "severity": "critical",
+                            "parent": parent_id,
+                            "child": child_id,
+                            "detail": (
+                                "materialized child has no active codex row"
+                            ),
+                        }
+                    )
                 continue
             actual = getattr(child, "parent_sovereign_id", "")
             if actual and actual != parent_of(child_id):

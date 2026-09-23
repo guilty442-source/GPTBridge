@@ -132,6 +132,9 @@ class _StubNative:
     def job_count(self):
         return len(self.jobs)
 
+    def live_count(self):
+        return len(self.jobs)
+
     def cache_get(self, now_ms, ttl_ms):
         return self._cache_ok if getattr(self, "_cache_fresh", False) else None
 
@@ -157,6 +160,9 @@ class _RaisingNative:
         return False
 
     def job_count(self):
+        return 0
+
+    def live_count(self):
         return 0
 
     def cancel(self, *args, **kwargs):

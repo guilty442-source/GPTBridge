@@ -346,6 +346,27 @@ class NativeTransformerEngine:
         )
         self._lock = threading.Lock()
 
+    def new_chat_session(
+        self,
+        *,
+        system_prompt: str | None = None,
+        max_context: int | None = None,
+    ) -> Any:
+        """建立掛在本引擎上的 ``ChatSession``（P21 受管工具迴圈使用）。
+
+        Session 直接持有本引擎的 ``_generator``／``tokenizer``——與
+        ``generate()`` 同一份權重、device 與 KV 前綴存儲；呼叫端經
+        ``session.step`` 驅動多輪工具迴圈。
+        """
+        from .native_transformer.inference.chat_session import ChatSession
+
+        return ChatSession(
+            generator=self._generator,
+            tokenizer=self.tokenizer,
+            system_prompt=system_prompt,
+            max_context=max_context,
+        )
+
     def _gate_cuda_device(self, device: torch.device) -> tuple[torch.device, bool]:
         """MS3 GPU 協調：估計所需 VRAM，經 GpuCoordinator 取得預算後才上卡。
 
