@@ -214,6 +214,37 @@ def _binaries_stale(root: Path, exes: list[Path]) -> bool:
     return _newest_source_mtime(root) > oldest
 
 
+def _suite_artifacts_stale(
+    bin_dir: Path, manifest: Mapping[str, Any]
+) -> list[str]:
+    """Content-binding check (G99): every manifest suite row records the
+    exe SHA-256 captured at build time.  A binary whose content differs —
+    partial rebuild, swapped exe, drifted manifest — is stale regardless
+    of timestamps; a row with no recorded hash is unverifiable and counts
+    as stale too."""
+    suites = manifest.get("suites")
+    if not isinstance(suites, list) or not suites:
+        return []
+    stale: list[str] = []
+    for row in suites:
+        if not isinstance(row, Mapping):
+            continue
+        exe = str(row.get("exe") or "")
+        expected = str(row.get("sha256") or "").lower()
+        if not exe:
+            continue
+        path = bin_dir / exe
+        try:
+            import hashlib
+
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            actual = ""
+        if not expected or actual != expected:
+            stale.append(str(row.get("name") or exe))
+    return stale
+
+
 def _powershell() -> str:
     return os.environ.get("GPTBRIDGE_POWERSHELL", "powershell.exe")
 
@@ -395,6 +426,7 @@ def mandatory_test_gate(
         "head_revision": None,
         "revision_match": None,
         "artifact_hash": None,
+        "stale_artifacts": [],
         "timing": {},
         "duration_ms": 0,
         "detail": "",
@@ -449,9 +481,15 @@ def mandatory_test_gate(
             manifest = _suite_manifest(bin_dir)
             # G99: a missing/empty-revision suite manifest means the binaries
             # carry no bound source revision — same treatment as stale code
-            # artifacts (rebuild when auto_build, deny otherwise).
-            if _binaries_stale(root_path, exes) or not manifest.get(
-                "revision"
+            # artifacts (rebuild when auto_build, deny otherwise).  Exe
+            # content hashes are checked against the manifest too — a
+            # swapped or partially rebuilt binary is stale regardless of
+            # timestamps.
+            hash_stale = _suite_artifacts_stale(bin_dir, manifest)
+            if (
+                _binaries_stale(root_path, exes)
+                or not manifest.get("revision")
+                or hash_stale
             ):
                 if not cfg.get("auto_build", True):
                     return _done(
@@ -473,7 +511,11 @@ def mandatory_test_gate(
                     return _done(f"build-error:{type(exc).__name__}")
                 exes = _suite_exes(bin_dir)
                 manifest = _suite_manifest(bin_dir)
-                if not exes or _binaries_stale(root_path, exes):
+                if (
+                    not exes
+                    or _binaries_stale(root_path, exes)
+                    or _suite_artifacts_stale(bin_dir, manifest)
+                ):
                     rc = getattr(proc, "returncode", "?")
                     return _done(f"build-failed:rc={rc}")
                 if not manifest.get("revision"):
@@ -533,6 +575,9 @@ def mandatory_test_gate(
                 if isinstance(c, Mapping)
             ]
             gate["artifact_hash"] = report.get("artifact_hash")
+            gate["stale_artifacts"] = [
+                str(a) for a in report.get("stale_artifacts") or []
+            ]
             gate["timing"] = (
                 dict(report["timing"])
                 if isinstance(report.get("timing"), Mapping)

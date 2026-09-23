@@ -24,6 +24,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 ENGINE_EXE_RELATIVE = Path("native") / "test_suites" / "bin" / "audit-engine.exe"
 MANIFEST_RELATIVE = (
@@ -52,6 +53,7 @@ class NativeAuditResult:
     delegated_executed: int = 0
     errors: list[str] = field(default_factory=list)
     note: str = ""
+    provenance: dict = field(default_factory=dict)
 
     def summary(self) -> str:
         if self.status == "delegated":
@@ -278,10 +280,133 @@ def run_native_audit_gate(root: Path) -> NativeAuditResult:
         result.status = "fail"
         result.errors.append(
             f"manifest error: {report.get('manifest_error', 'unknown')}")
-    for check in report.get("checks", []):
-        if check.get("status") == "FAIL":
+    # Evidence reconciliation: the report must account for every manifest
+    # check id exactly once — a truncated/duplicated/foreign report row
+    # means a required check was never executed and must not silent-pass.
+    # A DELEGATED verdict is a handoff, not a pass — every engine-delegated
+    # id must name a manifest ``delegated`` row so the Python lane actually
+    # executes it; an unknown/typo'd kind otherwise delegates to nobody.
+    try:
+        manifest_doc = json.loads(manifest.read_text(encoding="utf-8-sig"))
+        manifest_checks = manifest_doc.get("checks", [])
+        manifest_ids = {str(c.get("id", "")) for c in manifest_checks}
+        manifest_delegated = {
+            str(c.get("id", ""))
+            for c in manifest_checks
+            if c.get("kind") == "delegated"
+        }
+        if len(manifest_ids) != len(manifest_checks):
+            result.errors.append("manifest contains duplicate check ids")
+    except (OSError, json.JSONDecodeError):
+        manifest_ids = set()
+        manifest_delegated = set()
+        result.errors.append("manifest unreadable during report reconciliation")
+    report_checks = report.get("checks", [])
+    report_ids = [str(c.get("id", "")) for c in report_checks]
+    report_id_set = set(report_ids)
+    if len(report_id_set) != len(report_ids):
+        seen: set[str] = set()
+        dupes = {i for i in report_ids if i in seen or seen.add(i)}
+        result.errors.append(
+            f"report contains duplicate result rows: {sorted(dupes)[:5]}")
+    missing = manifest_ids - report_id_set
+    if missing:
+        result.errors.append(
+            f"report missing results for {len(missing)} manifest checks: "
+            f"{sorted(missing)[:5]}")
+    foreign = report_id_set - manifest_ids
+    if foreign:
+        result.errors.append(
+            f"report contains {len(foreign)} ids absent from manifest: "
+            f"{sorted(foreign)[:5]}")
+    for check in report_checks:
+        status = check.get("status")
+        if status == "FAIL":
             result.errors.append(
                 f"{check.get('id', '?')}: {check.get('detail', '')}")
+        elif status == "DELEGATED":
+            if str(check.get("id", "")) not in manifest_delegated:
+                result.errors.append(
+                    f"{check.get('id', '?')}: engine-delegated without "
+                    "manifest delegated row — check would never execute"
+                )
+        elif status != "PASS":
+            # Engine vocabulary is PASS/FAIL/DELEGATED only; BLOCKED,
+            # TIMEOUT, STALE or any other row means corrupted evidence.
+            result.errors.append(
+                f"{check.get('id', '?')}: unknown report status "
+                f"{status!r} — evidence not trustworthy")
+    if result.errors:
+        result.status = "fail"
+    # Artifact freshness provenance (G96/G99): bind this verdict to the
+    # exact binary, manifest content, source revision and suite evidence
+    # that produced it — content hashes, never file timestamps alone.
+    provenance: dict[str, Any] = {}
+    try:
+        import hashlib as _hashlib
+
+        provenance["engine_sha256"] = _hashlib.sha256(
+            exe.read_bytes()
+        ).hexdigest()
+        provenance["manifest_sha256"] = _hashlib.sha256(
+            manifest.read_bytes()
+        ).hexdigest()
+        try:
+            git = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            provenance["source_revision"] = (
+                git.stdout.strip() if git.returncode == 0 else None
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            provenance["source_revision"] = None
+        bin_dir = root / "native" / "test_suites" / "bin"
+        suite_manifest = bin_dir / "suite-manifest.json"
+        if suite_manifest.is_file():
+            provenance["suite_manifest_sha256"] = _hashlib.sha256(
+                suite_manifest.read_bytes()
+            ).hexdigest()
+            try:
+                suite_doc = json.loads(
+                    suite_manifest.read_text(encoding="utf-8-sig"))
+                provenance["suite_manifest_revision"] = suite_doc.get(
+                    "revision")
+            except (OSError, json.JSONDecodeError):
+                provenance["suite_manifest_revision"] = None
+        orch_report = bin_dir / "native-orchestration-report.json"
+        if orch_report.is_file():
+            try:
+                orch_doc = json.loads(
+                    orch_report.read_text(encoding="utf-8-sig"))
+                provenance["suite_artifact_hash"] = orch_doc.get(
+                    "artifact_hash")
+                provenance["suite_verdict"] = orch_doc.get("verdict")
+            except (OSError, json.JSONDecodeError):
+                provenance["suite_artifact_hash"] = None
+        result.provenance = provenance
+        # Persist provenance into the on-disk report so the evidence file
+        # itself carries the binding (stdout copy stays engine-pure).
+        try:
+            report_doc = json.loads(
+                report_path.read_text(encoding="utf-8-sig"))
+            report_doc["provenance"] = provenance
+            report_path.write_text(
+                json.dumps(report_doc, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except (OSError, json.JSONDecodeError) as error:
+            result.errors.append(
+                f"audit report provenance write failed: {error}")
+            result.status = "fail"
+    except OSError as error:
+        result.errors.append(f"provenance hashing failed: {error}")
+        result.status = "fail"
     if proc.returncode != 0 and not result.errors:
         result.errors.append(
             f"audit engine exited {proc.returncode}: "

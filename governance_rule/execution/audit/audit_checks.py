@@ -540,27 +540,39 @@ def run_delegated_checks(
         if target:
             record_targets[cid] = target
 
-    # Manifest-generation parity (G96): recompute the delegated set from
-    # live code — the file manifest can lag check-module changes when the
-    # codex was untouched.  Drift is fail-visible; the union still runs
-    # so coverage never silently narrows.
+    # Manifest-generation parity (G96): recompute the manifest from live
+    # code — the file can lag check-module changes when mtimes lie (the
+    # codex db trigger is a hint, not proof).  Content parity across every
+    # check id AND payload is the formal compatibility check; drift is
+    # fail-visible and the delegated union still runs so coverage never
+    # silently narrows.
     from .export_audit_manifest import build_manifest
 
-    fresh_ids = {
-        str(c.get("id", ""))
-        for c in build_manifest(root).get("checks", [])
-        if c.get("kind") == "delegated"
+    fresh_checks = build_manifest(root).get("checks", [])
+    fresh_map = {str(c.get("id", "")): c for c in fresh_checks}
+    committed_map = {
+        str(c.get("id", "")): c for c in manifest_checks
     }
-    drift = set(delegated_ids).symmetric_difference(fresh_ids)
-    if drift:
+    id_drift = sorted(set(committed_map) ^ set(fresh_map))
+    payload_drift = sorted(
+        cid
+        for cid in set(committed_map) & set(fresh_map)
+        if committed_map[cid] != fresh_map[cid]
+    )
+    if id_drift or payload_drift:
         errors.append(
-            "delegated manifest drift (regenerate manifest): "
-            + ", ".join(sorted(drift))
+            "manifest drift (regenerate manifest): "
+            f"ids={id_drift[:8]} changed={payload_drift[:8]}"
         )
+    fresh_ids = {
+        cid for cid, c in fresh_map.items() if c.get("kind") == "delegated"
+    }
 
     for cid in sorted(set(delegated_ids) | fresh_ids):
-        name = record_targets.get(cid) or (
-            cid.split(":", 1)[1] if cid.startswith("python-check:") else ""
+        name = (
+            record_targets.get(cid)
+            or str(fresh_map.get(cid, {}).get("python", ""))
+            or (cid.split(":", 1)[1] if cid.startswith("python-check:") else "")
         )
         fn = _DELEGATED_CHECK_ALIASES.get(name)
         if fn is None and name.startswith("check_"):

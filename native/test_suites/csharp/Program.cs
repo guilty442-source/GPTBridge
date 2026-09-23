@@ -166,6 +166,8 @@ static async Task<int> RunSuites(string[] args)
     var manifestSource = "manifest";
     string? builtRevision = null;
     var suites = new List<(string Name, string Exe)>();
+    var expectedHashes = new Dictionary<string, string>(
+        StringComparer.OrdinalIgnoreCase);
     JsonNode? manifest = null;
     try
     {
@@ -175,11 +177,44 @@ static async Task<int> RunSuites(string[] args)
         {
             var name = s?["name"]?.GetValue<string>();
             var exe = s?["exe"]?.GetValue<string>();
+            var sha = s?["sha256"]?.GetValue<string>();
             if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(exe))
                 suites.Add((name, exe));
+            if (!string.IsNullOrEmpty(exe) && !string.IsNullOrEmpty(sha))
+                expectedHashes[exe!] = sha!;
         }
     }
     catch (Exception) { manifest = null; }
+
+    // G99 artifact freshness: bind each suite binary to the SHA-256 the
+    // build recorded — content, not timestamps.  A stale/wrong-version
+    // exe (rebuilt partially, swapped binary, drifted manifest) is never
+    // executed for evidence; it is recorded as a stale artifact and the
+    // run denies.
+    var staleArtifacts = new List<string>();
+    var exeHashes = new Dictionary<string, string?>(
+        StringComparer.OrdinalIgnoreCase);
+    if (manifestSource == "manifest")
+    {
+        foreach (var (name, exe) in suites)
+        {
+            var exePath = Path.Combine(binDir, exe);
+            string? actual = null;
+            try
+            {
+                actual = Convert.ToHexString(
+                    SHA256.HashData(await File.ReadAllBytesAsync(exePath)))
+                    .ToLowerInvariant();
+            }
+            catch (Exception) { actual = null; }
+            exeHashes[exe] = actual;
+            if (!expectedHashes.TryGetValue(exe, out var expected)
+                || actual == null
+                || !string.Equals(actual, expected,
+                    StringComparison.OrdinalIgnoreCase))
+                staleArtifacts.Add($"{name}:{exe}");
+        }
+    }
     if (suites.Count == 0)
     {
         if (requireManifest)
@@ -197,8 +232,12 @@ static async Task<int> RunSuites(string[] args)
     }
 
     // ---- bounded-parallel execution ----
+    var staleNames = new HashSet<string>(
+        staleArtifacts.Select(a => a.Split(':', 2)[0]));
     var semaphore = new SemaphoreSlim(maxParallel);
-    var tasks = suites.Select(async suite =>
+    var tasks = suites
+        .Where(s => !staleNames.Contains(s.Name))
+        .Select(async suite =>
     {
         await semaphore.WaitAsync();
         try
@@ -311,7 +350,35 @@ static async Task<int> RunSuites(string[] args)
             semaphore.Release();
         }
     }).ToList();
-    var results = (await Task.WhenAll(tasks)).OrderBy(r => r.suite).ToList();
+    var results = (await Task.WhenAll(tasks)).ToList();
+    // Stale artifacts never ran: emit a counted FAIL row so a skipped
+    // binary can never read as absent evidence.
+    foreach (var (name, exe) in suites.Where(s => staleNames.Contains(s.Name)))
+    {
+        results.Add(new
+        {
+            suite = name,
+            exe,
+            pass = 0,
+            fail = 1,
+            blocked = 0,
+            returncode = (int?)null,
+            timed_out = false,
+            duration_ms = 0L,
+            process_startup_ms = 0.0,
+            actual_test_ms = 0.0,
+            result_collection_ms = 0.0,
+            cases = (JsonArray?)new JsonArray(new JsonObject
+            {
+                ["suite"] = name,
+                ["name"] = "stale_artifact",
+                ["status"] = "FAIL",
+                ["detail"] =
+                    "exe sha256 differs from suite-manifest.json record",
+            }),
+        });
+    }
+    results = results.OrderBy(r => r.suite).ToList();
     File.AppendAllText(Path.Combine(binDir, "_orch_progress.log"),
         $"{DateTime.UtcNow:HH:mm:ss.fff} all-suites-done\n");
 
@@ -394,7 +461,8 @@ static async Task<int> RunSuites(string[] args)
     var suiteExitFailures = results.Count(
         r => r.returncode is int c && c != 0 && c != 1);
     var deny = failed > 0 || suiteExitFailures > 0
-        || blockedUnclassified || criticalBlocked > 0;
+        || blockedUnclassified || criticalBlocked > 0
+        || staleArtifacts.Count > 0;
 
     // G97: surface the first failed cases so the consuming gate can deny
     // with an actionable detail without re-reading every suite report.
@@ -446,6 +514,11 @@ static async Task<int> RunSuites(string[] args)
         ["revision_match"] = builtRevision == null ? (JsonNode?)null
             : JsonValue.Create(builtRevision == currentRevision),
         ["artifact_hash"] = artifactHash,
+        ["stale_artifacts"] = JsonSerializer.SerializeToNode(staleArtifacts),
+        ["suite_manifest_sha256"] = manifestSource == "manifest"
+            ? Convert.ToHexString(SHA256.HashData(
+                File.ReadAllBytes(manifestPath))).ToLowerInvariant()
+            : null,
         ["timing"] = timing,
         ["suites"] = JsonSerializer.SerializeToNode(results.Select(r => new
         {
@@ -453,6 +526,7 @@ static async Task<int> RunSuites(string[] args)
             r.returncode, r.timed_out, r.duration_ms,
             r.process_startup_ms, r.actual_test_ms,
             r.result_collection_ms,
+            exe_sha256 = exeHashes.TryGetValue(r.exe, out var h) ? h : null,
         }).ToList()),
         ["passed"] = passed,
         ["failed"] = failed + suiteExitFailures,

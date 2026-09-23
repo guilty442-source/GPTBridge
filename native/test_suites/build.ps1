@@ -290,8 +290,13 @@ try {
     if ($revision) { $revision = $revision.Trim() }
 } catch { $revision = "" }
 $manifestSuites = @($suites | ForEach-Object {
+    $exePath = Join-Path $out $_.exe
+    $exeHash = ""
+    if (Test-Path $exePath) {
+        $exeHash = (Get-FileHash -Algorithm SHA256 -Path $exePath).Hash.ToLowerInvariant()
+    }
     @{ name = [System.IO.Path]::GetFileNameWithoutExtension($_.exe)
-       exe = $_.exe; src = $_.src }
+       exe = $_.exe; src = $_.src; sha256 = $exeHash }
 })
 @{
     schema = "native-suite-manifest/v1"

@@ -368,8 +368,14 @@ class MaintenanceNativeShadow:
         """
         if self._disabled:
             return
+        requeue = getattr(self._mt, "requeue", None)
+        if requeue is None:
+            # Stale artifact (pre-requeue .pyd): skip the mirror rather
+            # than trip _disable on AttributeError — the shadow keeps
+            # observing the other lifecycle edges until the rebuild lands.
+            return
         try:
-            if not self._mt.requeue(str(job_id), _now_ms()):
+            if not requeue(str(job_id), _now_ms()):
                 self._emit(
                     {
                         "kind": "divergence",
