@@ -369,10 +369,19 @@ class RagMetadataReconciliationMixin:
             return []
 
     async def list_index_state_details(
-        self, module_id: Optional[str] = None
+        self,
+        module_id: Optional[str] = None,
+        after_key: Optional[tuple[str, str]] = None,
+        limit: Optional[int] = None,
     ) -> Optional[list[dict[str, Any]]]:
         """§10.6 parity sweep: per-resource index_state detail for every
-        non-tombstoned row (any status — status drift is itself a signal)."""
+        non-tombstoned row (any status — status drift is itself a signal).
+
+        P15 keyset windowing: with ``limit`` the result is bounded and the
+        caller resumes via ``after_key`` (the last ``(module_id,
+        resource_id)`` of the previous window) instead of materializing the
+        whole table in one query.
+        """
         if not self._healthy or not self._conn:
             return None
         try:
@@ -389,12 +398,18 @@ class RagMetadataReconciliationMixin:
                              AND t.resource_id = s.resource_id
                              AND t.purged IS NOT TRUE)"""
                 )
+                params: list[Any] = []
                 if module_id:
-                    await cur.execute(
-                        base + " AND s.module_id = %s", (module_id,)
-                    )
-                else:
-                    await cur.execute(base)
+                    base += " AND s.module_id = %s"
+                    params.append(module_id)
+                if after_key is not None:
+                    base += " AND (s.module_id, s.resource_id) > (%s, %s)"
+                    params.extend([str(after_key[0]), str(after_key[1])])
+                base += " ORDER BY s.module_id, s.resource_id"
+                if limit is not None:
+                    base += " LIMIT %s"
+                    params.append(int(limit))
+                await cur.execute(base, tuple(params))
                 rows = await cur.fetchall()
             return [
                 {
@@ -446,6 +461,35 @@ class RagMetadataReconciliationMixin:
         except Exception as exc:
             _logger.error(
                 "PostgreSQLMetadataAuthority: chunk_count_by_resource failed: %s",
+                exc,
+            )
+            return None
+
+    async def chunk_counts_for_resources(
+        self, module_id: str, resource_ids: list[str]
+    ) -> Optional[dict[tuple[str, str], int]]:
+        """Bounded variant of ``chunk_count_by_resource`` for a parity-sweep
+        window: counts only the listed resources of one module (``ANY``
+        parameter list keeps the round trip single and parameterized)."""
+        if not self._healthy or not self._conn:
+            return None
+        rids = [str(r) for r in resource_ids]
+        if not rids:
+            return {}
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT module_id, resource_id, COUNT(*)
+                       FROM gptbridge_rag.chunk
+                       WHERE module_id = %s AND resource_id = ANY(%s)
+                       GROUP BY module_id, resource_id""",
+                    (module_id, rids),
+                )
+                rows = await cur.fetchall()
+            return {(str(r[0]), str(r[1])): int(r[2]) for r in rows}
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: chunk_counts_for_resources failed: %s",
                 exc,
             )
             return None
