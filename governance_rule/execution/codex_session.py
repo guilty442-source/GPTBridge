@@ -112,7 +112,10 @@ class CodexReadSession:
         self._nonce = secrets.token_hex(16)
         self._expires = time.monotonic() + max(1.0, float(ttl_seconds))
         self._generation = _state.current_revocation()
-        self._codex_version = load_governance_codex().codex_version
+        try:
+            self._codex_version = load_governance_codex().codex_version
+        except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError, psycopg.Error) as error:
+            raise PermissionError("CODEX_UNAVAILABLE") from error
         # Persist the minted session (nonce uniqueness + lifecycle evidence);
         # a corrupt or unavailable state store fails the open closed.
         _state.register_session_nonce(
