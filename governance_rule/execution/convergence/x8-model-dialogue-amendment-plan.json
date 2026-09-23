@@ -1,0 +1,25 @@
+{
+  "schema": "x8-model-dialogue-amendment-plan/v1",
+  "generated_at_utc": "2026-09-23T09:30Z",
+  "current": {
+    "model_dialogue": "chat-only, no system modification via dialogue",
+    "authorization": "manual, not via model",
+    "amendment": "only via governance_rule/codex amendment flow, not via dialogue"
+  },
+  "target": {
+    "model_dialogue": "user can instruct system modification via model-dialogue (governed)",
+    "authorization": "single-permission + user confirmation + xingcheng-assistant review",
+    "amendment": "model-dialogue -> xingcheng -> governed amendment -> seal -> publish",
+    "rollback": "via governance_closure_state + seal_manifest"
+  },
+  "steps": [
+    "1. Define model-dialogue system-modification intent classification (query vs system-mod vs codex-mod)",
+    "2. Wire model-dialogue -> xingcheng -> permission-sovereign -> governed executor (as per blueprint 2.8)",
+    "3. Implement xingcheng-assistant review + permission core audit + decision core裁决 + runtime execution",
+    "4. For codex-mod: reuse codex-amendment staged flow (build_successor -> 5-audit -> publish)",
+    "5. Add model-dialogue progress reporting and rollback via lease/snapshot"
+  ],
+  "acceptance": "dialogue system modification end-to-end with audit PASS, codex amendment with governor seal, unauthorized denied, rollback verified",
+  "blocked_by": "G100 5-core + P0-1 window (no heavy dialogue E2E during window) + codex amendment window",
+  "note": "Per X8 P1, WP-E; plan is derived"
+}
