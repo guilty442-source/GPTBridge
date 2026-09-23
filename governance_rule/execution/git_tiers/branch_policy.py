@@ -141,6 +141,7 @@ def policy_digest() -> str:
 __all__ = [
     "COORDINATOR_ACTORS",
     "EPHEMERAL_PREFIXES",
+    "LOCAL_MODEL_BRANCH",
     "MAIN_BRANCH",
     "PROTECTED_BRANCHES",
     "PROTECTED_TAG_PREFIXES",
