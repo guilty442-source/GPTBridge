@@ -1,24 +1,23 @@
 # SQL Architecture Rules v1（定版）
 
-本檔是 GPTBridge 本地資料層的**正式定版規則**。規劃與分期整合於唯一共用藍圖
-`Standalone tools/local-model/星澄模型四層建置藍圖.md`（第 6 章）；資料所有權見 `docs/DATA_OWNERSHIP_CONTRACT.md`；
+本檔是 GPTBridge 本地資料層的**正式定版規則**。資料所有權見 `docs/DATA_OWNERSHIP_CONTRACT.md`；
 本檔只寫「從此不再變動」的定位、authority、寫入、跨引擎、降級與禁止事項。
 
 ## 1. 引擎最終角色
 
 | 引擎 | 最終角色 |
 |------|----------|
-| PostgreSQL | 中央結構化官方資料、共享傳輸、中央 Audit、Identity、RAG metadata |
-| SQLite | 法典 authority（`governance_codex.sqlite3`，唯讀正式 authority）+ 模組私有狀態 + checkpoint + bounded fallback |
+| PostgreSQL | 中央結構化官方資料、共享傳輸、中央 Audit、Identity、RAG metadata、法典 authority（schema `gptbridge_codex`，A107/A173 verified cutover 後唯一權威） |
+| SQLite | 模組私有狀態 + checkpoint + bounded fallback；法典 SQLite 僅為 predecessor/staging/import artifact（非權威） |
 | Qdrant | canonical semantic/vector index |
 | LOCAL-VECTOR | 若保留，只能 bounded non-canonical fallback |
 
-`governance_codex.sqlite3` 是 SQLite 的特殊正式 authority，**不可被 PostgreSQL 取代**。
+法典唯一權威為本地 PostgreSQL schema `gptbridge_codex`，所有讀取經 `governance-codex://official` 受管入口（A74/A107/A174）。verified cutover 後 SQLite 法典檔為非權威前身/暫存產物，不得作為 live authority。
 
 ## 2. Authority 規則
 
 - Structured shared truth → PostgreSQL
-- Governance codex truth → `governance_codex.sqlite3`
+- Governance codex truth → PostgreSQL `gptbridge_codex`（唯讀入口 `governance-codex://official`）
 - Semantic/vector truth → Qdrant
 - Module-private operational truth → module-owned SQLite
 - Cache / projection → **never authority**
@@ -97,7 +96,7 @@ Source Resource → PG resource metadata → PG chunk metadata → Embedding
 
 1. SQLite 作為共享中央官方 DB
 2. SQLite 作為中央 shared audit
-3. PostgreSQL 取代官方 `governance_codex.sqlite3`
+3. 以退役 SQLite 法典前身/暫存檔作為 live authority（verified cutover 後一律禁止）
 4. PostgreSQL 取代 Qdrant canonical vector role
 5. Qdrant 取代 PostgreSQL structured authority
 6. LOCAL-VECTOR 升格成 canonical index
@@ -125,7 +124,7 @@ Source Resource → PG resource metadata → PG chunk metadata → Embedding
 
 - [x] PostgreSQL central authority
 - [x] SQLite role boundaries（分類 A–D + ACL/path/scope）
-- [x] governance codex read-only authority
+- [x] governance codex read-only authority（PostgreSQL `gptbridge_codex`，`governance-codex://official`）
 - [x] Qdrant canonical semantic role（強制 module scope）
 - [x] RLS deny-by-default + role layering（`security/roles.py` 認證）
 - [x] central append-only audit（credential audit 只追加）

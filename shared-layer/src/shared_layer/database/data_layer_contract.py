@@ -27,14 +27,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Final
 
-# Governance codex location (read-only authority for declared contracts).
+# Governance codex authority (A107/A173): PostgreSQL ``gptbridge_codex``
+# reached only through the governed repository interface.
 _DEFAULT_PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[4]
-_CODEX_DB_RELATIVE: Final[tuple[str, ...]] = (
-    "governance_rule",
-    "codex",
-    "data",
-    "governance_codex.sqlite3",
-)
 
 
 def register_data_layer_contract(
@@ -415,17 +410,22 @@ def get_capability_degradation_matrix(
     instead of declaring a second copy.  An absent or unreadable codex
     returns an empty mapping — callers fail closed on missing rows.
     """
-    database = (
-        Path(codex_db_path)
-        if codex_db_path is not None
-        else _DEFAULT_PROJECT_ROOT.joinpath(*_CODEX_DB_RELATIVE)
-    )
-    if not database.is_file():
-        return {}
     try:
-        with sqlite3.connect(
-            f"file:{database.as_posix()}?mode=ro", uri=True
-        ) as connection:
+        if codex_db_path is not None:
+            # Explicit path = predecessor/staging fixture, never authority.
+            database = Path(codex_db_path)
+            if not database.is_file():
+                return {}
+            connection_ctx = sqlite3.connect(
+                f"file:{database.as_posix()}?mode=ro", uri=True
+            )
+        else:
+            from governance_rule.execution.codex_repository import (
+                codex_readonly_connection,
+            )
+
+            connection_ctx = codex_readonly_connection()
+        with connection_ctx as connection:
             columns = [
                 row[1]
                 for row in connection.execute(
@@ -439,7 +439,7 @@ def get_capability_degradation_matrix(
                 + ", ".join(columns)
                 + " FROM sql_capability_degradation_matrix"
             ).fetchall()
-    except sqlite3.Error:
+    except Exception:
         return {}
     matrix: dict[str, dict[str, Any]] = {}
     for row in rows:

@@ -1,8 +1,8 @@
 """A508/A509 SQLite reconciliation contract (codex-bound).
 
 Binds the failover/degraded SQLite buffer to the machine-readable codex
-contract ``sql_reconciliation_contract`` in ``governance_codex.sqlite3``
-(read-only):
+contract ``sql_reconciliation_contract`` in the PostgreSQL codex
+authority (read-only, ``governance-codex://official`` repository read):
 
   * A508 — SQLite is never central official data, cross-module authority or
     shared audit authority.  Every state scope declares numeric maximum
@@ -302,15 +302,27 @@ def _canonical_row_hash(row: Mapping[str, Any]) -> str:
 
 
 def _read_row(
-    connection: sqlite3.Connection, table: str, key_column: str, key_value: str
-) -> Optional[sqlite3.Row]:
+    connection: Any, table: str, key_column: str, key_value: str
+) -> Optional[dict[str, Any]]:
+    """One active row as a plain dict (sqlite and governed-Postgres cursors)."""
     try:
-        return connection.execute(
+        columns = [
+            row[1]
+            for row in connection.execute(f"PRAGMA table_info({table})")
+        ]
+        if not columns:
+            return None
+        row = connection.execute(
             f"SELECT * FROM {table} WHERE {key_column} = ? AND status = 'active'",
             (key_value,),
         ).fetchone()
     except sqlite3.Error:
         return None
+    if row is None:
+        return None
+    if isinstance(row, Mapping) or hasattr(row, "keys"):
+        return {key: row[key] for key in row.keys()}
+    return dict(zip(columns, row))
 
 
 def load_reconciliation_contract(
@@ -323,37 +335,70 @@ def load_reconciliation_contract(
     Fails closed when the codex database / table / row is unavailable or when
     any declared bound is null, non-finite or unbounded.
     """
-    path = Path(codex_db_path) if codex_db_path is not None else default_codex_db_path()
-    if not path.is_file():
-        raise ReconciliationContractError(
-            f"SQL_RECONCILIATION_CODEX_MISSING:{path}"
-        )
-    try:
-        connection = sqlite3.connect(
-            f"file:{path.as_posix()}?mode=ro", uri=True
-        )
-    except sqlite3.Error as error:
-        raise ReconciliationContractError(
-            f"SQL_RECONCILIATION_CODEX_UNREADABLE:{path}:{error}"
-        ) from error
-    connection.row_factory = sqlite3.Row
-    try:
-        row = _read_row(connection, "sql_reconciliation_contract", "contract_code", contract_code)
-        if row is None:
+    override = str(os.environ.get(_CODEX_DB_ENV, "")).strip()
+    path = (
+        Path(codex_db_path)
+        if codex_db_path is not None
+        else (Path(override) if override else None)
+    )
+    if path is not None:
+        # Explicit path = predecessor/staging fixture read, never authority.
+        if not path.is_file():
             raise ReconciliationContractError(
-                f"SQL_RECONCILIATION_CONTRACT_MISSING:{contract_code}"
+                f"SQL_RECONCILIATION_CODEX_MISSING:{path}"
             )
-        v2 = _read_row(
-            connection, "sql_reconciliation_contract_v2", "contract_id", contract_code
-        )
-    except sqlite3.Error as error:
-        raise ReconciliationContractError(
-            f"SQL_RECONCILIATION_CODEX_UNREADABLE:{path}:{error}"
-        ) from error
-    finally:
-        connection.close()
+        try:
+            connection = sqlite3.connect(
+                f"file:{path.as_posix()}?mode=ro", uri=True
+            )
+        except sqlite3.Error as error:
+            raise ReconciliationContractError(
+                f"SQL_RECONCILIATION_CODEX_UNREADABLE:{path}:{error}"
+            ) from error
+        connection.row_factory = sqlite3.Row
+        try:
+            row = _read_row(connection, "sql_reconciliation_contract", "contract_code", contract_code)
+            if row is None:
+                raise ReconciliationContractError(
+                    f"SQL_RECONCILIATION_CONTRACT_MISSING:{contract_code}"
+                )
+            v2 = _read_row(
+                connection, "sql_reconciliation_contract_v2", "contract_id", contract_code
+            )
+        except sqlite3.Error as error:
+            raise ReconciliationContractError(
+                f"SQL_RECONCILIATION_CODEX_UNREADABLE:{path}:{error}"
+            ) from error
+        finally:
+            connection.close()
+    else:
+        # Default path: the governed PostgreSQL codex authority (A107/A173).
+        try:
+            from governance_rule.execution.codex_repository import (
+                codex_readonly_connection,
+            )
 
-    values = {key: row[key] for key in row.keys()}
+            with codex_readonly_connection() as connection:
+                row = _read_row(
+                    connection, "sql_reconciliation_contract",
+                    "contract_code", contract_code,
+                )
+                if row is None:
+                    raise ReconciliationContractError(
+                        f"SQL_RECONCILIATION_CONTRACT_MISSING:{contract_code}"
+                    )
+                v2 = _read_row(
+                    connection, "sql_reconciliation_contract_v2",
+                    "contract_id", contract_code,
+                )
+        except ReconciliationContractError:
+            raise
+        except Exception as error:
+            raise ReconciliationContractError(
+                f"SQL_RECONCILIATION_CODEX_UNREADABLE:{error}"
+            ) from error
+
+    values = dict(row)
     state_class = _required_text(
         "state_class",
         (v2["allowed_state_classes"] if v2 is not None else None)

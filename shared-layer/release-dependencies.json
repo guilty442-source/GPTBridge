@@ -281,8 +281,9 @@
   ],
   "governance_references": {
     "codex_identity": "governance-codex://official",
-    "codex_version": "2026-09-22T10:23:53Z",
-    "codex_sha256": "f56b4fc4dcb54ad11e4c76fbb1ba8d67ec94b67428ac67804acacbf75ca930a5",
+    "codex_authority": "postgresql://local/gptbridge_codex",
+    "codex_version": "2026-09-23T03:13:43Z",
+    "codex_sha256": "fbf591681a1f6e0f3953899f39159965295407112e86bdfd2a8bcc37d7d3f743",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -326,8 +327,8 @@
       "required": true
     },
     {
-      "dependency": "governance_rule/codex/data/governance_codex.sqlite3",
-      "kind": "file",
+      "dependency": "governance_rule.execution.codex_postgresql",
+      "kind": "module",
       "required": true
     },
     {
@@ -337,7 +338,7 @@
     }
   ],
   "official_state_paths": [
-    "governance_rule/codex/data/governance_codex.sqlite3",
+    "governance_rule/codex",
     "governance_rule/execution/audit",
     "governance_rule/permission_directory",
     "main-system/data/governance_codex.sqlite3"
@@ -535,7 +536,7 @@
     "note": "packaged mode overrides RELEASE_ROOT via GPTBRIDGE_RELEASE_ROOT; roots never rely on the process working directory"
   },
   "sqlite_inventory": {
-    "registry": "governance_rule/codex/data/governance_codex.sqlite3 (governed_sqlite_database_registry)",
+    "registry": "postgresql://local/gptbridge_codex (governed_sqlite_database_registry)",
     "registered_rows": 44,
     "canonical": false,
     "rule": "module-private operational state only; reconcile to PostgreSQL; never packaged into a release",
