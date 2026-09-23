@@ -1,0 +1,20 @@
+{
+  "schema": "star-convergence-evidence/v1",
+  "item": "P10 — C# 業務編排生命週期移轉演練",
+  "recorded_at": "2026-09-23T10:47:23.742858+00:00",
+  "worker": "devin-cli",
+  "defect_fixed": "StarBusinessHost 將自身 GPTBRIDGE_TOOL_ROOT 傳給 LifecycleOrchestrator/ModelServiceLocator，但 model-service descriptor/settings/engine image 皆屬 local-model 工具根——discovery 恆報 descriptor absent，activation leg 必逾時。修正為由 projectRoot 推導 modelToolRoot（commit 6ddf268a）。",
+  "rehearsal": {
+    "command": "StarBusinessHost.exe rehearse-lifecycle --activate --infer",
+    "report": "local-model/xingcheng/runtime/logs/lifecycle-rehearsal-20260923T104555Z.json",
+    "legs": {
+      "governed-channel-list": "PASS — 受管 IPC 認證 + toolbox_list_tools（11 tools）",
+      "model-service-probe": "PASS — descriptor + port 活性探測",
+      "model-service-status": "PASS — /v1/status（含 cpp_runtime=fallback）",
+      "infer": "PASS — 真實推論往返（C++ 引擎，P9 flip 已生效）",
+      "release-model": "PASS — /v1/release 卸載引擎"
+    },
+    "overall_ok": true
+  },
+  "note": "冷啟動 activation leg 未單獨驗證（第一次演練因 tool-root 缺陷逾時，非冷啟動慢）；後續窗口可再演練。"
+}
