@@ -1,0 +1,24 @@
+{
+  "schema": "g66-epoch-seal-plan/v1",
+  "generated_at_utc": "2026-09-23T10:40Z",
+  "current": {
+    "seal_manifest": "2026-09-23T03:13:43Z (143 rows, codex_version == current_version)",
+    "epoch_seal_manifest": "2026-09-16T00:00:00Z (stale, 7 days behind)",
+    "external_signatures": "0/2 (governor)",
+    "certification": "INCOMPLETE_EVIDENCE"
+  },
+  "target": {
+    "epoch_seal_manifest": "2026-09-23T10:40Z (fresh, matches seal_manifest)",
+    "external_signatures": "2/2 (governor + codex-worker)",
+    "certification": "PASS"
+  },
+  "steps": [
+    "1. Regenerate epoch_seal_manifest from current seal_manifest (as done for seal_manifest 2026-09-23)",
+    "2. Collect 2 external signatures (governor + codex-worker) via HSM",
+    "3. Run governance_closure_state certification (all closures PASS)",
+    "4. Publish via successor_framework.publish(approve=True) + seal"
+  ],
+  "acceptance": "epoch_seal_manifest == seal_manifest timestamp, 2 sigs, certification PASS, audit PASS",
+  "blocked_by": "governor HSM + external sig collection window (not worker)",
+  "note": "Per G66 P0, plan is derived; execution requires governor approve + seal per A104"
+}
