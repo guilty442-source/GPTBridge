@@ -1,0 +1,43 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "P6",
+  "increment": "Python mechanical-work inventory (resident surfaces only)",
+  "executed_at": "2026-09-23T06:10:00Z",
+  "worker": "devin-cli",
+  "method": "signal scan over src-core + shared-layer (timer/polling, queue, scheduler, transport, git-automation, sql-orchestration, test-orchestration); curated to resident mechanical surfaces — incidental .execute()/comment matches excluded; dead modules already removed in G100 inc-5",
+  "surfaces": [
+    {"surface": "tasks/periodic_scheduler.py", "category": "scheduler", "resident": true, "shadow": "periodic_scheduler_native_shadow.py in-flight", "target": "c11-runtime-core", "blocking": "P4/P5 parity closure + 2 release windows"},
+    {"surface": "tasks/connection_watchdog.py(+_mixins)", "category": "timer/polling", "resident": true, "shadow": "shadow in-flight", "target": "c11-runtime-core", "blocking": "P4/P5"},
+    {"surface": "tasks/state_outbox.py(+_native_shadow)", "category": "queue", "resident": true, "shadow": "shadow in-flight", "target": "c11-runtime-core", "blocking": "P4/P5"},
+    {"surface": "tasks/model_service_activation.py(+_native_shadow)", "category": "timer/polling", "resident": true, "shadow": "shadow in-flight", "target": "c11-runtime-core", "blocking": "P4/P5"},
+    {"surface": "core_system/request_registry.py(+_native_shadow)", "category": "queue/lifecycle", "resident": true, "shadow": "shadow in-flight", "target": "c11-runtime-core", "blocking": "P4/P5"},
+    {"surface": "core_system/runtime_state_registry.py(+runtime_state_native_shadow)", "category": "state", "resident": true, "shadow": "shadow in-flight", "target": "c11-runtime-core", "blocking": "P4/P5"},
+    {"surface": "ipc/ipc_transport_native_shadow + server_*", "category": "transport", "resident": true, "shadow": "shadow in-flight", "target": "c11-runtime-core", "blocking": "P4/P5"},
+    {"surface": "tasks/maintenance_controller_native_shadow + maintenance_controller_integration", "category": "timer/lifecycle", "resident": true, "shadow": "shadow in-flight", "target": "c11-runtime-core", "blocking": "P4/P5"},
+    {"surface": "tasks/git_automation.py + governance_rule/execution/git_tiers/*", "category": "git-automation", "resident": true, "shadow": "none — peer-claimed P18 rework in-flight (generation snapshots, event-driven sync)", "target": "csharp-automation-core", "blocking": "P18 (claimed @devin-cli 04:53Z)"},
+    {"surface": "tasks/hot_reload_watcher.py(+_health)", "category": "timer/polling+watcher", "resident": true, "shadow": "none", "target": "csharp-or-c11", "blocking": "unclaimed; candidate for native-shadow wave 2"},
+    {"surface": "tasks/perf_baseline_job.py", "category": "scheduler-job", "resident": true, "shadow": "none", "target": "csharp", "blocking": "unclaimed"},
+    {"surface": "core_system/diagnostics.py", "category": "timer/polling probe", "resident": true, "shadow": "none", "target": "c11", "blocking": "unclaimed"},
+    {"surface": "core_system/update_manager*.py + third_party_manager_updates.py", "category": "scheduler", "resident": true, "shadow": "none", "target": "csharp-automation-core", "blocking": "unclaimed"},
+    {"surface": "core_system/permission_automation_{audit,compliance,directory,healing,lifecycle}.py", "category": "scheduler+audit-loop", "resident": true, "shadow": "none", "target": "cpp-audit-engine + csharp-orchestration", "blocking": "unclaimed; permission-core wave"},
+    {"surface": "core_system/resource_maintenance.py + main_system_self_maintenance.py", "category": "timer/polling maintenance", "resident": true, "shadow": "none", "target": "c11", "blocking": "unclaimed"},
+    {"surface": "core_system/daily_global_cleaner_service*.py", "category": "scheduler cleanup", "resident": true, "shadow": "none", "target": "csharp-automation-core", "blocking": "unclaimed"},
+    {"surface": "core_system/system_automation_coordinator.py", "category": "scheduler", "resident": true, "shadow": "none", "target": "csharp-automation-core", "blocking": "unclaimed — sole-scheduler rule: must migrate INTO the single automation scheduler, not create a second"},
+    {"surface": "ipc/server_handler*.py + server_lifecycle/tokens", "category": "transport", "resident": true, "shadow": "ipc_server shadow in-flight", "target": "c11", "blocking": "P4/P5"},
+    {"surface": "backend_gateway.py", "category": "transport", "resident": true, "shadow": "none", "target": "c11-or-csharp", "blocking": "unclaimed"},
+    {"surface": "shared_layer/channel*.py + connection_mixin + heartbeat_mixin", "category": "transport", "resident": true, "shadow": "none", "target": "csharp-channel", "blocking": "unclaimed"},
+    {"surface": "shared_layer/database/connection.py + reconcile_stress.py", "category": "sql-orchestration", "resident": true, "shadow": "none", "target": "db-engine + csharp", "blocking": "P19 (SQL remediation, claimed)"},
+    {"surface": "shared_layer/workflow/saga.py", "category": "orchestration", "resident": true, "shadow": "none", "target": "csharp", "blocking": "P13 (C# orchestration lifecycle)"},
+    {"surface": "shared_layer/adaptive/gpu_coordinator.py", "category": "polling resource-gate", "resident": true, "shadow": "none", "target": "c11 (resource governor native)", "blocking": "unclaimed"},
+    {"surface": "startup_core/resident_core.py", "category": "lifecycle loop", "resident": true, "shadow": "none", "target": "c11-runtime-core resident主体", "blocking": "P4/P5 — this IS the bootstrap of the C11 resident主体"},
+    {"surface": "python test orchestration (push_gate suite runner, scripts/*acceptance)", "category": "test-orchestration", "resident": false, "shadow": "C# TestSuiteOrchestrator already sole orchestrator (commit 3de42a1c)", "target": "csharp-done", "blocking": "none — residual python runners are dev tooling"}
+  ],
+  "summary": {
+    "resident_surfaces": 23,
+    "shadow_in_flight": 8,
+    "blocked_by_peer_claims": ["git-automation→P18", "sql→P19", "saga→P13"],
+    "unclaimed_migratable": ["hot_reload_watcher", "perf_baseline_job", "diagnostics", "update_manager fleet", "permission_automation fleet", "resource/self-maintenance", "daily_global_cleaner", "system_automation_coordinator", "backend_gateway", "channel/heartbeat transport", "gpu_coordinator", "resident_core"],
+    "csharp_test_orchestration": "already sole-orchestrator (3de42a1c) — no python resident remains"
+  },
+  "codex_mutation": "none"
+}
