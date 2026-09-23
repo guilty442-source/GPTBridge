@@ -57,6 +57,22 @@ class _StubBrowserCore:
         return {"ok": True}
 
 
+class _BridgeDownClient:
+    """EmbeddedBrowserClient stand-in: bridge always unavailable."""
+
+    def create_session(self, *args: object, **kwargs: object) -> dict[str, object]:
+        return {"ok": False, "message": "EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE"}
+
+    def execute_script(self, *args: object, **kwargs: object) -> dict[str, object]:
+        return {"ok": False, "message": "EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE"}
+
+    def get_url(self, *args: object, **kwargs: object) -> None:
+        return None
+
+    def close(self, *args: object, **kwargs: object) -> dict[str, object]:
+        return {"ok": False, "message": "EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE"}
+
+
 _AGENT = {
     "agent_id": "gemini",
     "provider": "gemini",
@@ -68,6 +84,7 @@ def test_browser_detects_verification_challenge_on_page(tmp_path: Path) -> None:
     session = BrowserAutomationSession()
     core = _StubBrowserCore(flagged=True, marker="cloudflare")
     session._fallback = core  # type: ignore[assignment]
+    session._client = _BridgeDownClient()  # type: ignore[assignment]
 
     result = asyncio.run(session.send_prompt(_AGENT, "整理資料"))
 
@@ -82,6 +99,7 @@ def test_browser_marks_verification_detected_mid_response(tmp_path: Path) -> Non
     session = BrowserAutomationSession()
     core = _StubBrowserCore(content="")
     session._fallback = core  # type: ignore[assignment]
+    session._client = _BridgeDownClient()  # type: ignore[assignment]
     session.RESPONSE_TIMEOUT_SECONDS = 3
 
     async def scenario() -> dict[str, object]:
@@ -109,6 +127,7 @@ def test_browser_response_timeout_falls_back_to_awaiting_user(
 ) -> None:
     session = BrowserAutomationSession()
     session._fallback = _StubBrowserCore(content="")  # type: ignore[assignment]
+    session._client = _BridgeDownClient()  # type: ignore[assignment]
     session.RESPONSE_TIMEOUT_SECONDS = 1
 
     result = asyncio.run(session.send_prompt(_AGENT, "整理資料"))
@@ -122,6 +141,7 @@ def test_agent_sessions_are_reused_per_provider(tmp_path: Path) -> None:
     session = BrowserAutomationSession()
     core = _StubBrowserCore()
     session._fallback = core  # type: ignore[assignment]
+    session._client = _BridgeDownClient()  # type: ignore[assignment]
 
     async def scenario() -> None:
         await session.open_agent(_AGENT)
