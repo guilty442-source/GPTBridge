@@ -174,9 +174,13 @@ def test_classify_plane() -> None:
 
 
 def test_worker_ledger_and_hysteresis(monkeypatch) -> None:
+    # P8 unit fix: proc.cpu_percent is per-core scale, the budget is
+    # machine-%; pin an 8-logical host so per-core sums map deterministically
+    # (sum 90 -> 11.25% machine, over the 10% budget).
+    monkeypatch.setattr(gov.os, "cpu_count", lambda: 8)
     regulation = {"over": 0, "under": 0, "active": False}
     records: dict = {}
-    procs = [_worker(101, 20.0), _worker(102, 15.0)]
+    procs = [_worker(101, 50.0), _worker(102, 40.0)]
 
     # Strict INT-10 semantics (2026-09-22 ruling): the first over-budget
     # sample engages regulation, and the pre-throttle tier engages in the
@@ -205,8 +209,9 @@ def test_prethrottle_middle_band(monkeypatch) -> None:
     regulation = {"over": 0, "under": 0, "active": False}
     records: dict = {}
     # Worker aggregate 9%: above the 80% band (8%) but below the 10% budget.
-    band = [_worker(501, 5.0), _worker(502, 4.0)]
+    band = [_worker(501, 40.0), _worker(502, 32.0)]
 
+    monkeypatch.setattr(gov.os, "cpu_count", lambda: 8)
     snap = _run(band, monkeypatch, regulation=regulation, records=records)
     assert regulation["pre"] is True
     assert regulation["active"] is False, "middle band must not fully regulate"
@@ -415,7 +420,7 @@ def test_dynamic_lasso_tiers_feature_gated(monkeypatch) -> None:
     regulation = {"over": 0, "under": 0, "active": False, "pre": False}
     for _ in range(6):
         _run(procs, monkeypatch, regulation=regulation, records=records,
-             resp_latency=50.0, dry_run=False)
+             resp_latency=50.0, dry_run=False, worker_job_cap=False)
     assert calls == [], "new tiers must stay off until enabled"
 
     records = {}

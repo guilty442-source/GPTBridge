@@ -79,11 +79,45 @@ int64_t gptbridge_native_process_cmdline(
 /* Parent pid of pid, or -1 (also -1 for pid 0/system roots). */
 int64_t gptbridge_native_process_ppid(int64_t pid);
 
+/* Process creation time as Windows FILETIME 100ns ticks, or -1. */
+int64_t gptbridge_native_process_create_time_100ns(int64_t pid);
+
 /* Thread count of pid, or -1. */
 int gptbridge_native_process_num_threads(int64_t pid);
 
 /* Open handle count of pid (Windows), or -1. */
 int gptbridge_native_process_num_handles(int64_t pid);
+
+/* Parent pid of pid, or -1. */
+int64_t gptbridge_native_process_parent(int64_t pid);
+
+/* Process creation time as Unix-epoch milliseconds (FILETIME → epoch),
+   or -1.  Identity anchor for pid-reuse detection. */
+int64_t gptbridge_native_process_create_time_ms(int64_t pid);
+
+/* I/O counters of pid: read_bytes/write_bytes out; 1 on success, 0 else. */
+int gptbridge_native_process_io_counters(
+    int64_t pid, int64_t* read_bytes, int64_t* write_bytes);
+
+/* DOMAIN\user of pid's token into buf (UTF-8); bytes written or -1. */
+int64_t gptbridge_native_process_username(
+    int64_t pid, char* buf, int64_t buf_len);
+
+/* Set priority class (nice): NORMAL=0x20, IDLE=0x40, BELOW_NORMAL=0x4000,
+   ABOVE_NORMAL=0x8000, HIGH=0x80, REALTIME=0x100.  1 on success, 0 else. */
+int gptbridge_native_process_set_priority(int64_t pid, int32_t win_class);
+
+/* Get priority class value, or -1. */
+int64_t gptbridge_native_process_get_priority(int64_t pid);
+
+/* Set CPU affinity mask (bit i = logical core i); 1 on success, 0 else. */
+int gptbridge_native_process_set_affinity(int64_t pid, uint64_t mask);
+
+/* Get CPU affinity mask, or -1. */
+int64_t gptbridge_native_process_get_affinity(int64_t pid);
+
+/* Wait for pid exit up to timeout_ms; returns 1 exited, 0 timeout/error. */
+int gptbridge_native_process_wait(int64_t pid, int64_t timeout_ms);
 
 /* Pid of the process listening on a TCP port, or -1. */
 int64_t gptbridge_native_tcp_listen_pid(int64_t port);
