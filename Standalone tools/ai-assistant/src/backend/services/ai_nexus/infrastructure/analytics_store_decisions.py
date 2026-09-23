@@ -181,32 +181,35 @@ class AnalyticsStoreDecisionsMixin:
         }
         created = parse_datetime(analysis.get("generated_at")) or utc_now()
         count = 0
-        for action in command.get("action_plan", []):
-            if not isinstance(action, dict):
-                continue
-            row = self._decision_row(action, assessments, reports, command, created)
-            with self.connect() as connection:
-                cursor = connection.execute(
-                    """
-                    INSERT OR IGNORE INTO decisions(
-                        decision_id, dedupe_key, created_at, symbol, action,
-                        confidence, score, risk_level, reference_price,
-                        evidence_encrypted, snapshot_encrypted, user_status,
-                        outcome_due_at, outcome_encrypted, prediction_direction,
-                        horizon_days, return_threshold_percent,
-                        eligible_for_calibration
-                    ) VALUES(
-                        :decision_id, :dedupe_key, :created_at, :symbol, :action,
-                        :confidence, :score, :risk_level, :reference_price,
-                        :evidence_encrypted, :snapshot_encrypted, :user_status,
-                        :outcome_due_at, :outcome_encrypted, :prediction_direction,
-                        :horizon_days, :return_threshold_percent,
-                        :eligible_for_calibration
+        # G102: one durable transaction for the whole action plan instead of
+        # a commit + durable persist per action.
+        with self.batch_updates():
+            for action in command.get("action_plan", []):
+                if not isinstance(action, dict):
+                    continue
+                row = self._decision_row(action, assessments, reports, command, created)
+                with self.connect() as connection:
+                    cursor = connection.execute(
+                        """
+                        INSERT OR IGNORE INTO decisions(
+                            decision_id, dedupe_key, created_at, symbol, action,
+                            confidence, score, risk_level, reference_price,
+                            evidence_encrypted, snapshot_encrypted, user_status,
+                            outcome_due_at, outcome_encrypted, prediction_direction,
+                            horizon_days, return_threshold_percent,
+                            eligible_for_calibration
+                        ) VALUES(
+                            :decision_id, :dedupe_key, :created_at, :symbol, :action,
+                            :confidence, :score, :risk_level, :reference_price,
+                            :evidence_encrypted, :snapshot_encrypted, :user_status,
+                            :outcome_due_at, :outcome_encrypted, :prediction_direction,
+                            :horizon_days, :return_threshold_percent,
+                            :eligible_for_calibration
+                        )
+                        """,
+                        row,
                     )
-                    """,
-                    row,
-                )
-            count += int(bool(cursor.rowcount))
+                count += int(bool(cursor.rowcount))
         return count
 
     def _decision_row(
@@ -257,21 +260,24 @@ class AnalyticsStoreDecisionsMixin:
         now = utc_now()
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT decision_id, dedupe_key, created_at, symbol, action, confidence, score, risk_level, reference_price, evidence_encrypted, snapshot_encrypted, user_status, outcome_due_at, outcome_encrypted FROM decisions WHERE outcome_encrypted = '' AND outcome_due_at <= ? LIMIT 500",
+                "SELECT decision_id, dedupe_key, created_at, symbol, action, confidence, score, risk_level, reference_price, evidence_encrypted, snapshot_encrypted, user_status, outcome_due_at, outcome_encrypted, prediction_direction, horizon_days, return_threshold_percent, eligible_for_calibration FROM decisions WHERE outcome_encrypted = '' AND outcome_due_at <= ? LIMIT 500",
                 (utc_text(now),),
             ).fetchall()
         updated = 0
-        for row in rows:
-            evaluation_bar = self._evaluation_bar(row)
-            outcome = self._decision_outcome(row, evaluation_bar, now)
-            if outcome is None:
-                continue
-            with self.connect() as connection:
-                connection.execute(
-                    "UPDATE decisions SET outcome_encrypted = ? WHERE decision_id = ?",
-                    (protect_text(_json(outcome)), row["decision_id"]),
-                )
-            updated += 1
+        # G102: one durable transaction for the whole due-outcomes batch —
+        # previously each row paid a commit + durable persist.
+        with self.batch_updates():
+            for row in rows:
+                evaluation_bar = self._evaluation_bar(row)
+                outcome = self._decision_outcome(row, evaluation_bar, now)
+                if outcome is None:
+                    continue
+                with self.connect() as connection:
+                    connection.execute(
+                        "UPDATE decisions SET outcome_encrypted = ? WHERE decision_id = ?",
+                        (protect_text(_json(outcome)), row["decision_id"]),
+                    )
+                updated += 1
         return updated
 
     def _evaluation_bar(self, row: sqlite3.Row) -> sqlite3.Row | None:
