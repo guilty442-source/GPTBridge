@@ -144,6 +144,31 @@
     "drafted codex-amendment-request-sub-sovereign-roster-20260924.json (draft-awaiting-governor)"
    ],
    "codex_changed": false
+  },
+  "round_9_git_convergence": {
+   "date": "2026-09-24",
+   "request": "converge git + design as automatic maintenance",
+   "actions": [
+    "governed synchronize(commit_dirty, push) run end-to-end: self-commits on all worktrees, 4 worker branches merged into main (e5e140da/a3c3e63d/dc8e4071/1ad9d0de), ff, integrated audit, push gate 22 suites 153/0, pushed -> IN_SYNC ahead=0 (6762c7a0)",
+    "FIXED structural blocker: protected_attrs.protected_source_paths() now derives the shared-layer readonly trio from governance_policy.shared_layer.source_root — same source the audit manifest uses; covers all 32 file-readonly manifest paths (was 28). Self-heal verified live on .worktrees/git (cleared RO -> restore_protected_readonly re-applies). commit e7b4ba68",
+    "merge conflicts on audit_checks_manifest.json resolved manually (ours) per codex E105 ON-ERROR:stop+preserve+notify — generated-at regen churn from stale worktree trees",
+    "push-test-gate flake (tool_host_suite/notify_stamp_wake under concurrent writes) verified non-regression via isolated re-run PASS; periodic loop retries automatically",
+    "dirty-worktree races during worker write-bursts resolve via debounce + next cycle; synchronized once writes paused"
+   ],
+   "auto_maintenance_design": {
+    "already_automatic": [
+     "GitAutomationService in-process task: 60s commit sweep (debounced, staged-index-present skip) + 300s sync cycle, started by startup executor (automation-flows.json git-automation, push=true with mandatory gates)",
+     "self_commit.run_once -> restore_protected_readonly before every commit audit; workspace_sync -> restore after every ff: attribute loss now fully covered (32/32 paths)",
+     "push gate fail-closed: non-force, ancestor check, audit PASS + mandatory native tests PASS; denied pushes retry next cycle automatically",
+     "merge queue: durable entries, recovery refs, blocked/conflicted states, stale detection; contract_check + pre_merge_check before every merge",
+     "dirty-race bounded retry (5 passes + probe) then next-cycle retry"
+    ],
+    "codex_bounded_manual": [
+     "content conflicts: E105 ON-ERROR=stop+preserve+notify — auto-resolution is codex-forbidden; human resolves (manifest conflicts resolved ours)",
+     "PROPOSAL for automation-sovereign (A301 conflict-disposition domain): declare generated-artifact merge policy (e.g. audit_checks_manifest.json merge=ours via .gitattributes + merge.ours.driver) so regeneration-only churn never reaches the human queue. Not enacted — sovereign decision."
+    ]
+   },
+   "codex_changed": false
   }
  }
 }
