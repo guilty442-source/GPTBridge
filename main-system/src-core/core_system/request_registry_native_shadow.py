@@ -67,6 +67,10 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _now_ms() -> int:
+    return int(time.time() * 1000.0)
+
+
 def _gen_int(backend_generation: Any) -> int:
     try:
         return int(str(backend_generation or "0"))
@@ -124,7 +128,9 @@ class RequestRegistryNativeShadow:
         try:
             ok = bool(
                 self._reg.create(
-                    str(request_id), _gen_int(backend_generation)
+                    str(request_id),
+                    _gen_int(backend_generation),
+                    _now_ms(),
                 )
             )
             if not ok:
@@ -140,6 +146,33 @@ class RequestRegistryNativeShadow:
         except Exception as exc:
             self._disable("native-create-error", exc)
 
+    def observe_timeout(self, request_id: str, timeout_s: Any) -> None:
+        """Mirror a timeout update; the C deadline becomes comparable."""
+        if self._disabled:
+            return
+        maybe_emit_resource(self)
+        try:
+            timeout_ms = int(float(timeout_s or 0.0) * 1000.0)
+            ok = bool(self._reg.set_timeout(str(request_id), timeout_ms))
+            found = self._reg.find(str(request_id))
+            native_deadline = int((found or {}).get("deadline_ms") or 0)
+            if (not ok) or (timeout_ms > 0 and native_deadline <= 0):
+                self._emit(
+                    {
+                        "kind": "divergence",
+                        "op": "set_timeout",
+                        "request_id": str(request_id),
+                        "python": {"timeout_s": float(timeout_s or 0.0)},
+                        "native": {
+                            "accepted": ok,
+                            "timeout_ms": timeout_ms,
+                            "deadline_ms": native_deadline,
+                        },
+                    }
+                )
+        except Exception as exc:
+            self._disable("native-timeout-error", exc)
+
     def observe_status(
         self, request_id: str, status: str, *, py_ok: bool
     ) -> None:
@@ -148,11 +181,13 @@ class RequestRegistryNativeShadow:
             return
         try:
             if status == "CANCELLED":
-                ok = bool(self._reg.cancel(str(request_id)))
+                ok = bool(self._reg.cancel(str(request_id), _now_ms()))
             else:
                 ok = bool(
                     self._reg.set_status(
-                        str(request_id), _STATUS_ORD.get(str(status), -1)
+                        str(request_id),
+                        _STATUS_ORD.get(str(status), -1),
+                        _now_ms(),
                     )
                 )
             if not ok:
@@ -165,6 +200,33 @@ class RequestRegistryNativeShadow:
                         "native": {"accepted": False},
                     }
                 )
+            else:
+                # Timestamp dimension (P4 gap): the C record must carry a
+                # populated created_at_ms and monotonic started/completed
+                # stamps — a zero or inverted ordering is a divergence.
+                found = self._reg.find(str(request_id)) or {}
+                created = int(found.get("created_at_ms") or 0)
+                started = int(found.get("started_at_ms") or 0)
+                completed = int(found.get("completed_at_ms") or 0)
+                ordering_ok = (
+                    created > 0
+                    and (not started or started >= created)
+                    and (not completed or completed >= created)
+                )
+                if not ordering_ok:
+                    self._emit(
+                        {
+                            "kind": "divergence",
+                            "op": "timestamps",
+                            "request_id": str(request_id),
+                            "python": {"status": str(status)},
+                            "native": {
+                                "created_at_ms": created,
+                                "started_at_ms": started,
+                                "completed_at_ms": completed,
+                            },
+                        }
+                    )
         except Exception as exc:
             self._disable("native-status-error", exc)
 

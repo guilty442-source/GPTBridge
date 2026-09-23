@@ -2,6 +2,15 @@
 #include "scheduler.h"
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
+
+static int64_t _wall_ms(void) {
+    /* Wall-clock stamp for duration measurement only — schedule decisions
+       stay on the caller-supplied logical now_ms (parity-comparable). */
+    struct timespec ts;
+    if (timespec_get(&ts, TIME_UTC) == 0) return 0;
+    return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
 
 int gptbridge_sched_init(gptbridge_sched_t* s) {
     if (!s) return 0;
@@ -63,13 +72,15 @@ int gptbridge_sched_tick(gptbridge_sched_t* s, int64_t now_ms, int32_t paused) {
         }
         int64_t start = now_ms;
         /* 錯誤隔離：fn 內部錯誤不影響其他 job（此處 fn 為純 C，無異常） */
+        int64_t wall_start = _wall_ms();
         j->fn(j->ctx);
+        int64_t wall_end = _wall_ms();
         j->last_run_ms = start;
-        j->last_duration_ms = 0; /* 存根：實際可量測 */
+        j->last_duration_ms = wall_end > wall_start ? wall_end - wall_start : 0;
         j->run_count++;
         j->next_due_ms = now_ms + j->interval_ms;
         executed++;
-        /* 超時檢查：若 fn 執行超過 timeout_ms，標記（此原型不中斷，僅記錄） */
+        /* 超時檢查：fn 執行超過 timeout_ms 標記（同步原型不中斷，僅記錄） */
         if (j->last_duration_ms > j->timeout_ms) j->error_count++;
     }
     return executed;

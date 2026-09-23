@@ -49,6 +49,14 @@
       "enabled": true,
       "description": "PG/SQLite/reconcile/backup 維護信號 tick；控制器 start(spawn_loop=False)，核心以 to_thread 驅動 run_once"
     },
+    "sleep-policy": {
+      "owner": "sleep_policy / SleepPolicyManager",
+      "kind": "periodic",
+      "interval_s": 60,
+      "pausable": true,
+      "enabled": true,
+      "description": "sleepable 單元 idle 分層掃描（hot→warm→cold＋需求喚醒回退）；kill switch 在 sleep-policy.json enabled，flow 停用即不再巡掃"
+    },
     "rag-maintenance": {
       "owner": "rag-runtime-integration / CanonicalRagPipeline",
       "kind": "periodic",

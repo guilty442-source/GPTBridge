@@ -210,3 +210,40 @@ def test_drain_state_sync_dict_rows(monkeypatch):
     )
     drained, _ = mgr._drain_state_sync("file-sorter")
     assert drained is False
+
+
+class _FakeCore:
+    def __init__(self, allow=True):
+        self.allow = allow
+        self.registered = {}
+        self.unregistered = []
+
+    def register_flow(self, flow_id, tick, **kwargs):
+        if not self.allow:
+            return False
+        self.registered[flow_id] = tick
+        return True
+
+    def unregister(self, name):
+        self.unregistered.append(name)
+
+
+def test_automation_core_drives_scan():
+    app = _App()
+    app.automation_core = _FakeCore()
+    mgr = SleepPolicyManager(app, _FakeToolbox([]))
+    result = asyncio.run(mgr.start())
+    assert result["loop"] == "automation-core"
+    assert "sleep-policy" in app.automation_core.registered
+    assert mgr._task is None
+    asyncio.run(mgr.stop())
+    assert app.automation_core.unregistered == ["sleep-policy"]
+
+
+def test_denied_flow_no_private_fallback():
+    app = _App()
+    app.automation_core = _FakeCore(allow=False)
+    mgr = SleepPolicyManager(app, _FakeToolbox([]))
+    result = asyncio.run(mgr.start())
+    assert result["status"] == "denied"
+    assert mgr._task is None

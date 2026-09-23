@@ -23,6 +23,18 @@ int g_ran = 0;
 void counting_task(gptbridge_rc_task_t*, void*) { ++g_ran; }
 void counting_job(void*) { ++g_ran; }
 
+// Busy-wait ~25ms so a timeout_ms below that is guaranteed to trip the
+// live duration check (real wall clock, not the logical now_ms).
+void slow_job(void* ctx) {
+    ++g_ran;
+    const auto until =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(25);
+    volatile int64_t sink = 0;
+    while (std::chrono::steady_clock::now() < until) sink++;
+    (void)sink;
+    (void)ctx;
+}
+
 }  // namespace
 
 int main() {
@@ -135,21 +147,60 @@ int main() {
     }
     NT_END_TEST(SUITE, "scheduler_now_anchored_register_and_pause_deferral");
 
+    NT_TEST(SUITE, "scheduler_timeout_marks_overrun_job") {
+        g_ran = 0;
+        gptbridge_sched_t s;
+        NT_CHECK(gptbridge_sched_init(&s) == 1, "init");
+        /* timeout_ms=1 < real ~25ms duration -> error_count must increment */
+        NT_CHECK(gptbridge_sched_register(&s, "slow", 100, 1, 0, 1, 0,
+                                          slow_job, nullptr) == 1,
+                 "register slow job");
+        NT_CHECK(gptbridge_sched_tick(&s, 10, 0) == 1, "tick executes slow job");
+        const gptbridge_sched_job_t* slow = gptbridge_sched_find(&s, "slow");
+        NT_CHECK(slow != nullptr && slow->run_count == 1, "ran once");
+        NT_CHECK(slow->last_duration_ms >= 1, "duration measured");
+        NT_CHECK(slow->error_count == 1, "timeout overrun recorded");
+        /* a fast job under the same timeout stays clean */
+        NT_CHECK(gptbridge_sched_register(&s, "fast", 100, 100000, 0, 1, 0,
+                                          counting_job, nullptr) == 1,
+                 "register fast job");
+        NT_CHECK(gptbridge_sched_tick(&s, 20, 0) == 1, "tick executes fast job");
+        const gptbridge_sched_job_t* fast = gptbridge_sched_find(&s, "fast");
+        NT_CHECK(fast != nullptr && fast->error_count == 0,
+                 "fast job not marked");
+    }
+    NT_END_TEST(SUITE, "scheduler_timeout_marks_overrun_job");
+
     NT_TEST(SUITE, "ipc_registry_request_lifecycle") {
         gptbridge_ipc_registry_t r;
         NT_CHECK(gptbridge_ipc_registry_init(&r) == 1, "init");
-        NT_CHECK(gptbridge_ipc_registry_create(&r, "req-1", 41) == 1, "create");
-        NT_CHECK(gptbridge_ipc_registry_set_status(&r, "req-1", GPTBRIDGE_REQ_QUEUED) == 1,
+        NT_CHECK(gptbridge_ipc_registry_create(&r, "req-1", 41, 1000) == 1,
+                 "create");
+        NT_CHECK(gptbridge_ipc_registry_set_timeout(&r, "req-1", 5000) == 1,
+                 "timeout");
+        NT_CHECK(gptbridge_ipc_registry_deadline_ms(&r, "req-1") == 6000,
+                 "deadline=created+timeout");
+        NT_CHECK(gptbridge_ipc_registry_set_status(&r, "req-1", GPTBRIDGE_REQ_QUEUED, 1100) == 1,
                  "queued");
-        NT_CHECK(gptbridge_ipc_registry_set_status(&r, "req-1", GPTBRIDGE_REQ_RUNNING) == 1,
+        NT_CHECK(gptbridge_ipc_registry_set_status(&r, "req-1", GPTBRIDGE_REQ_RUNNING, 1200) == 1,
                  "running");
-        NT_CHECK(gptbridge_ipc_registry_set_status(&r, "req-1", GPTBRIDGE_REQ_COMPLETED) == 1,
+        NT_CHECK(gptbridge_ipc_registry_set_status(&r, "req-1", GPTBRIDGE_REQ_COMPLETED, 1300) == 1,
                  "completed");
         const gptbridge_ipc_request_t* found =
             gptbridge_ipc_registry_find(&r, "req-1");
         NT_CHECK(found != nullptr && found->status == GPTBRIDGE_REQ_COMPLETED &&
                  found->backend_generation == 41, "recorded");
-        NT_CHECK(gptbridge_ipc_registry_cancel(&r, "req-2") == 0, "cancel unknown");
+        NT_CHECK(found->created_at_ms == 1000 && found->started_at_ms == 1200 &&
+                 found->completed_at_ms == 1300, "timestamps populated");
+        NT_CHECK(gptbridge_ipc_registry_cancel(&r, "req-2", 1400) == 0,
+                 "cancel unknown");
+        /* deadline dimension: TIMED_OUT when now > deadline */
+        NT_CHECK(gptbridge_ipc_registry_create(&r, "req-3", 41, 2000) == 1,
+                 "create-3");
+        NT_CHECK(gptbridge_ipc_registry_set_timeout(&r, "req-3", 100) == 1,
+                 "timeout-3");
+        NT_CHECK(gptbridge_ipc_registry_deadline_ms(&r, "req-3") == 2100,
+                 "deadline-3");
     }
     NT_END_TEST(SUITE, "ipc_registry_request_lifecycle");
 

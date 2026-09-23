@@ -33,6 +33,7 @@
 #include "system_rescue.h"
 #include "governed_tool.h"
 
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -713,6 +714,15 @@ static const char* REQ_STATES[] = {
     "CREATED", "QUEUED", "RUNNING", "COMPLETED",
     "FAILED", "CANCELLED", "TIMED_OUT", "INTERRUPTED"};
 
+// Caller-supplied ms timestamps keep the C core deterministic; a 0 means
+// "stamp now" so bindings stay ergonomic for callers without a clock.
+static int64_t now_or_host(int64_t now_ms) {
+    if (now_ms > 0) return now_ms;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+
 class NativeIpcRegistry {
 public:
     NativeIpcRegistry() {
@@ -720,17 +730,26 @@ public:
             throw std::runtime_error("ipc_registry init failed");
         }
     }
-    bool create(const std::string& request_id, int32_t generation) {
+    bool create(const std::string& request_id, int32_t generation,
+                int64_t now_ms) {
         return gptbridge_ipc_registry_create(
-                   &reg_, request_id.c_str(), generation) != 0;
+                   &reg_, request_id.c_str(), generation,
+                   now_or_host(now_ms)) != 0;
     }
-    bool set_status(const std::string& request_id, int status) {
+    bool set_status(const std::string& request_id, int status,
+                    int64_t now_ms) {
         return gptbridge_ipc_registry_set_status(
                    &reg_, request_id.c_str(),
-                   static_cast<gptbridge_req_status_t>(status)) != 0;
+                   static_cast<gptbridge_req_status_t>(status),
+                   now_or_host(now_ms)) != 0;
     }
-    bool cancel(const std::string& request_id) {
-        return gptbridge_ipc_registry_cancel(&reg_, request_id.c_str()) != 0;
+    bool cancel(const std::string& request_id, int64_t now_ms) {
+        return gptbridge_ipc_registry_cancel(
+                   &reg_, request_id.c_str(), now_or_host(now_ms)) != 0;
+    }
+    bool set_timeout(const std::string& request_id, int64_t timeout_ms) {
+        return gptbridge_ipc_registry_set_timeout(
+                   &reg_, request_id.c_str(), timeout_ms) != 0;
     }
     py::object find(const std::string& request_id) const {
         const gptbridge_ipc_request_t* r =
@@ -742,6 +761,12 @@ public:
         out["backend_generation"] = r->backend_generation;
         out["status"] = REQ_STATES[r->status];
         out["cancelled"] = static_cast<bool>(r->cancelled);
+        out["created_at_ms"] = r->created_at_ms;
+        out["started_at_ms"] = r->started_at_ms;
+        out["completed_at_ms"] = r->completed_at_ms;
+        out["timeout_ms"] = r->timeout_ms;
+        out["deadline_ms"] =
+            gptbridge_ipc_registry_deadline_ms(&reg_, request_id.c_str());
         return out;
     }
     int count() const { return gptbridge_ipc_registry_count(&reg_); }
@@ -1170,9 +1195,15 @@ PYBIND11_MODULE(_sovereign_native, m) {
     // E2 transport/registration-surface prototype (§10.65 shadow mode).
     py::class_<NativeIpcRegistry>(m, "NativeIpcRegistry")
         .def(py::init<>())
-        .def("create", &NativeIpcRegistry::create)
-        .def("set_status", &NativeIpcRegistry::set_status)
-        .def("cancel", &NativeIpcRegistry::cancel)
+        .def("create", &NativeIpcRegistry::create,
+             py::arg("request_id"), py::arg("generation"),
+             py::arg("now_ms") = 0)
+        .def("set_status", &NativeIpcRegistry::set_status,
+             py::arg("request_id"), py::arg("status"), py::arg("now_ms") = 0)
+        .def("cancel", &NativeIpcRegistry::cancel,
+             py::arg("request_id"), py::arg("now_ms") = 0)
+        .def("set_timeout", &NativeIpcRegistry::set_timeout,
+             py::arg("request_id"), py::arg("timeout_ms"))
         .def("find", &NativeIpcRegistry::find)
         .def("count", &NativeIpcRegistry::count)
         .def("transport_send", &NativeIpcRegistry::transport_send)

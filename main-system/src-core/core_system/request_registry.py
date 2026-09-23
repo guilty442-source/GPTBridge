@@ -376,6 +376,13 @@ class RequestRegistry:
                 record.completed_at = completed_at
             if timeout is not None:
                 record.timeout = float(timeout)
+                if self._native_shadow is not None:
+                    try:
+                        self._native_shadow.observe_timeout(
+                            request_id, timeout
+                        )
+                    except Exception:
+                        pass
             if cancellation_state is not None:
                 record.cancellation_state = cancellation_state
             if error_code is not None:

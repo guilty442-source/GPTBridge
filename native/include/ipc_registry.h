@@ -37,6 +37,8 @@ typedef struct {
     gptbridge_req_status_t status;
     int64_t created_at_ms;
     int64_t started_at_ms;
+    int64_t completed_at_ms;
+    int64_t timeout_ms;
     int32_t cancelled; /* 0/1 */
 } gptbridge_ipc_request_t;
 
@@ -46,9 +48,12 @@ typedef struct {
 } gptbridge_ipc_registry_t;
 
 int gptbridge_ipc_registry_init(gptbridge_ipc_registry_t* r);
-int gptbridge_ipc_registry_create(gptbridge_ipc_registry_t* r, const char* request_id, int32_t generation);
-int gptbridge_ipc_registry_set_status(gptbridge_ipc_registry_t* r, const char* request_id, gptbridge_req_status_t s);
-int gptbridge_ipc_registry_cancel(gptbridge_ipc_registry_t* r, const char* request_id); /* 冪等 */
+int gptbridge_ipc_registry_create(gptbridge_ipc_registry_t* r, const char* request_id, int32_t generation, int64_t now_ms);
+int gptbridge_ipc_registry_set_status(gptbridge_ipc_registry_t* r, const char* request_id, gptbridge_req_status_t s, int64_t now_ms);
+int gptbridge_ipc_registry_cancel(gptbridge_ipc_registry_t* r, const char* request_id, int64_t now_ms); /* 冪等 */
+int gptbridge_ipc_registry_set_timeout(gptbridge_ipc_registry_t* r, const char* request_id, int64_t timeout_ms);
+/* deadline = created_at_ms + timeout_ms; 0 when no timeout was declared */
+int64_t gptbridge_ipc_registry_deadline_ms(const gptbridge_ipc_registry_t* r, const char* request_id);
 const gptbridge_ipc_request_t* gptbridge_ipc_registry_find(const gptbridge_ipc_registry_t* r, const char* request_id);
 int gptbridge_ipc_registry_count(const gptbridge_ipc_registry_t* r);
 
