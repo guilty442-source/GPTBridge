@@ -1,0 +1,137 @@
+{
+ "schema": "C11RuntimePrimaryCutoverReport/v1",
+ "generated_at_utc": "2026-09-23T15:40Z",
+ "worker": "devin-cli",
+ "decision": "NO-GO — no component qualifies for primary cutover",
+ "decision_basis": "Directive constraint honored: 不得強制切換. All 8 shadow components are mode=shadow (python_authoritative). Required gates not met on any component: (a) 0/2 release observation windows completed; (b) failure-mode evidence PENDING for all 7 modes on all 8 components; (c) model_service_activation carries 2 unresolved shadow divergences. Phase 3/4 implementation therefore NOT executed; phases 5-6 partially blocked pending live window.",
+ "phase1_resident_inventory": {
+  "artifact": "governance_rule/execution/audit/convergence/c11-phase1-resident-inventory-20260923.json",
+  "surfaces": 40,
+  "findings": [
+   "33 governed flows in automation-flows.json under automation core single-scheduler authority",
+   "zero unlisted private periodic loops (cag-context-refresh was the last; migrated to governed flow with bounded tier-3 fallback)",
+   "8 shadow components all python_authoritative",
+   "resident threads enumerated: boot_core health/watchdog/relay, backend_gateway accept+relay, transport_notify LISTEN thread + dispatch pool, tool_isolation_health monitor, dirwatch pump, rag_runtime worker, authority_reanchor",
+   "transient/non-resident excluded from cutover scope: ollama_demand, environment_doctor probes, e2e harness thread"
+  ]
+ },
+ "phase2_candidate_evaluation": {
+  "priority_candidates": [
+   "runtime_state_registry",
+   "model_service_activation"
+  ],
+  "per_component": {
+   "connection_watchdog": {
+    "parity": "closed (all dims)",
+    "error_semantics": "verified",
+    "deadline": "verified",
+    "cancellation": "verified",
+    "lifecycle": "verified",
+    "fail_closed": "verified",
+    "release_windows": "0/2",
+    "failure_modes": "0/7",
+    "promotion_state": "OBSERVATION_PENDING",
+    "verdict": "closest to eligible; blocked on windows + failure-mode evidence"
+   },
+   "runtime_state_registry": {
+    "parity": "closed (staleness dim added by gap-closure)",
+    "error_semantics": "verified",
+    "deadline": "verified",
+    "cancellation": "n/a (state registry)",
+    "lifecycle": "verified",
+    "fail_closed": "verified (unknown=1 stale)",
+    "release_windows": "0/2",
+    "failure_modes": "0/7",
+    "promotion_state": "BLOCKED (windows + failure-mode evidence)",
+    "verdict": "parity-cleanest after watchdog; blocked on windows + failure-mode evidence"
+   },
+   "model_service_activation": {
+    "parity": "closed except 2 unresolved divergences (should-release vs idle, 2026-09-22T15:12/15:16Z)",
+    "release_windows": "0/2",
+    "failure_modes": "0/7",
+    "promotion_state": "BLOCKED (divergences + windows + failure modes)",
+    "verdict": "excluded until divergences resolved"
+   },
+   "periodic_scheduler": {
+    "parity": "closed (timeout live-duration fix)",
+    "release_windows": "0/2",
+    "failure_modes": "0/7",
+    "promotion_state": "BLOCKED"
+   },
+   "state_outbox": {
+    "parity": "closed (cancel=unregister)",
+    "release_windows": "0/2",
+    "failure_modes": "0/7",
+    "promotion_state": "BLOCKED"
+   },
+   "maintenance_controller": {
+    "parity": "closed (cancel persistence chain)",
+    "release_windows": "0/2",
+    "failure_modes": "0/7",
+    "promotion_state": "BLOCKED"
+   },
+   "request_registry": {
+    "parity": "closed (timestamps + deadline)",
+    "release_windows": "0/2",
+    "failure_modes": "0/7",
+    "promotion_state": "BLOCKED"
+   },
+   "ipc_server": {
+    "parity": "covered via transport shadow + request_registry",
+    "release_windows": "0/2",
+    "failure_modes": "0/7",
+    "promotion_state": "BLOCKED"
+   }
+  },
+  "first_primary_candidate_when_unblocked": "connection_watchdog (OBSERVATION_PENDING, zero open parity dims, zero divergences) — selected on evidence, not by default; runtime_state_registry is second"
+ },
+ "phase3_4_5_status": {
+  "phase3_primary_dispatch": "NOT IMPLEMENTED — gated on phase-2 eligibility",
+  "phase4_python_shutdown": "NOT EXECUTED — no superseded executor exists",
+  "phase5_failure_rollback": {
+   "status": "partially covered by native suites",
+   "native_suite_coverage": "suite_runtime_core.cpp: scheduler timeout overrun, watchdog dead-process disconnect, invalid-pid fail-closed family; suite_scheduler_parity + suite_runtime_state cover parity/staleness. NOT covered as component-level promotion evidence: denied-authorization, invalid-contract, missing-data, corruption, restart, queue saturation, IPC disconnect, mid-switch interruption — the 7-mode promotion harness has never been executed",
+   "rollback_contract": "not yet exercised under primary mode; fail-closed policy remains: unproven safe rollback must not auto-switch to unverified Python legacy executor"
+  }
+ },
+ "phase6_resource_verification": {
+  "status": "BASELINE DEFERRED — no live GPTBridge process tree at measurement time (all services on-demand/lazy; backend pid 40088 exited)",
+  "methodology_ready": "process_metrics facade now provides native measurement: process_ws/private_bytes/cpu_times/threads/handles/create_time/ancestors + system_memory/cpu — per-process-tree diff measurable without psutil",
+  "budget_contract": "CORE_BUDGET_CAP=5 and worker-plane aggregate cap must be preserved; no unbounded worker/sidecar may be added for cutover",
+  "known_data_point": "INT-10 window resource samples: 39 over-budget samples recorded under regulation (from promotion-evidence-status) — baseline comparison pending a completed window"
+ },
+ "phase7_test_audit": {
+  "native_suites": "runtime_core suite 150/0/0 (per gap-closure evidence)",
+  "csharp_orchestrator": "TestSuiteOrchestrator unchanged",
+  "python_pytest": "2635 passed / 6 skipped / 7 xfailed main-system; 1734 passed local-model — dev-time governance semantics only, not release gate per §10.69",
+  "push_gate": "unchanged §10.69 semantics; no timeout/rule relaxation"
+ },
+ "missing_evidence_and_minimal_fixes": [
+  {
+   "gap": "release observation windows 0/2 for all components",
+   "minimal_fix": "complete INTEGRATION-10 24h window cleanly (currently ACCUMULATING with uptime_24h + resource_budget failed checks), then one more release cycle; requires release-retention/active-release-pointer bookkeeping that does not yet exist in canonical schema",
+   "blocker_type": "observation-window + missing release bookkeeping"
+  },
+  {
+   "gap": "failure-mode evidence 0/7 per component",
+   "minimal_fix": "build/run the 7-mode promotion harness per component: denied-authorization, invalid-contract, missing-data, timeout, corruption, restart, failure-recovery; native suites cover a subset but the promotion-gate harness has never executed",
+   "blocker_type": "implementation (harness) + execution window"
+  },
+  {
+   "gap": "model_service_activation 2 unresolved divergences",
+   "minimal_fix": "investigate should-release vs idle decision-ladder mismatch (regulation_active/liveness/owner_active interaction); either fix native verdict or document accepted divergence",
+   "blocker_type": "investigation"
+  },
+  {
+   "gap": "window-count discrepancy: migration-order doc says ≥1 release cycle vs blueprint P5 says 2 windows",
+   "minimal_fix": "governor ruling required before any promotion",
+   "blocker_type": "governor ruling"
+  },
+  {
+   "gap": "live process-tree baseline for phase-6 resource diff",
+   "minimal_fix": "run measurement during next INT window via process_metrics facade: per-pid WS/private/threads/handles/create_time + tree aggregation; capture pre-switch baseline now, post-switch after first primary cutover",
+   "blocker_type": "observation-window dependent"
+  }
+ ],
+ "remaining_7_components_after_first": "when connection_watchdog promotes, remaining eligibility order by current evidence: runtime_state_registry > periodic_scheduler > state_outbox > request_registry > maintenance_controller > ipc_server > model_service_activation (blocked on divergences)"
+}
