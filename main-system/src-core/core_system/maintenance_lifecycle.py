@@ -85,7 +85,17 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
             except Exception:
                 self._learning_analysis = None
 
-        if self._capability_task is None:
+        # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落私有迴圈。
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            self._capability_core = bool(
+                core.register_flow(
+                    "maintenance-capability-monitor",
+                    self._capability_check_tick,
+                    interval_s=self._capability_interval_seconds,
+                )
+            )
+        elif self._capability_task is None:
             self._capability_task = asyncio.create_task(
                 self._capability_check_loop(),
                 name="health-maintenance-test-sub-sovereign-capability",
@@ -105,6 +115,13 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
         }
 
     async def stop(self) -> None:
+        core = getattr(self.app, "automation_core", None)
+        if core is not None and getattr(self, "_capability_core", None):
+            try:
+                core.unregister("maintenance-capability-monitor")
+            except Exception:
+                pass
+        self._capability_core = None
         if self._capability_task is not None:
             self._capability_task.cancel()
             with _suppress(asyncio.CancelledError):

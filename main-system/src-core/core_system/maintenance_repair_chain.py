@@ -76,14 +76,41 @@ class MaintenanceRepairChainMixin:
 
     def _start_repair_decision_loop(self) -> None:
         """Start the health-signal classification loop.  Called from ``start()``."""
+        # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落私有迴圈。
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            self._repair_decision_core = bool(
+                core.register_flow(
+                    "maintenance-repair-chain",
+                    self._repair_decision_tick,
+                    interval_s=self._REPAIR_POLL_INTERVAL_SECONDS,
+                )
+            )
+            return
         if getattr(self, "_repair_decision_task", None) is None:
             self._repair_decision_task = asyncio.create_task(
                 self._repair_decision_loop(),
                 name="health-maintenance-test-sub-sovereign-health-classification",
             )
 
+    async def _repair_decision_tick(self) -> None:
+        """Single classification pass — automation-core flow entry point."""
+        try:
+            await asyncio.to_thread(self._process_pending_repair_requests)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass  # Best-effort; never propagate into the scheduler.
+
     async def _stop_repair_decision_loop(self) -> None:
         """Stop the health-signal classification loop.  Called from ``stop()``."""
+        core = getattr(self.app, "automation_core", None)
+        if core is not None and getattr(self, "_repair_decision_core", None):
+            try:
+                core.unregister("maintenance-repair-chain")
+            except Exception:
+                pass
+        self._repair_decision_core = None
         task = getattr(self, "_repair_decision_task", None)
         if task is not None:
             task.cancel()

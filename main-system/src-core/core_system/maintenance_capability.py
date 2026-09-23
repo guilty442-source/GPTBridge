@@ -129,22 +129,26 @@ class MaintenanceCapabilityMixin:
             "interval_seconds": self._capability_interval_seconds,
         }
 
+    async def _capability_check_tick(self) -> None:
+        """Single capability check — automation-core flow entry point."""
+        try:
+            self._capability_report = await asyncio.to_thread(
+                self._run_capability_checks
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self._capability_report = {
+                "ok": False,
+                "status": "check-failed",
+                "checked_at": _iso_now(),
+                "mode": "read-only-detection-no-auto-install",
+                "error": f"{type(error).__name__}: {error}",
+            }
+
     async def _capability_check_loop(self) -> None:
         while not self._stop_requested():
-            try:
-                self._capability_report = await asyncio.to_thread(
-                    self._run_capability_checks
-                )
-            except asyncio.CancelledError:
-                raise
-            except Exception as error:
-                self._capability_report = {
-                    "ok": False,
-                    "status": "check-failed",
-                    "checked_at": _iso_now(),
-                    "mode": "read-only-detection-no-auto-install",
-                    "error": f"{type(error).__name__}: {error}",
-                }
+            await self._capability_check_tick()
             try:
                 await asyncio.sleep(self._capability_interval_seconds)
             except asyncio.CancelledError:
