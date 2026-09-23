@@ -148,4 +148,4 @@ def test_ai_assistant_actor_is_denied_direct_access(tmp_path: Path) -> None:
         )
     )
 
-    assert result == {"ok": False, "message": "PERMISSION_DENIED"}
+    assert result == {"ok": False, "message": "PERMISSION_DENIED", "error_code": "PERMISSION_DENIED"}

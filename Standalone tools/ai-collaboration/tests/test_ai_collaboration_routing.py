@@ -371,7 +371,7 @@ def test_tool_general_mode_cannot_start_star_fixed_workflow(tmp_path: Path) -> N
         )
     )
 
-    assert result == {"ok": False, "message": "PERMISSION_DENIED"}
+    assert result == {"ok": False, "message": "PERMISSION_DENIED", "error_code": "PERMISSION_DENIED"}
 
 
 class _BrowserAwaitingSession:

@@ -163,7 +163,7 @@ def test_complete_browser_response_rejects_unauthorized_actor(
         )
     )
 
-    assert result == {"ok": False, "message": "PERMISSION_DENIED"}
+    assert result == {"ok": False, "message": "PERMISSION_DENIED", "error_code": "PERMISSION_DENIED"}
 
 
 def test_complete_browser_response_without_waiting_task_fails_closed(
@@ -202,4 +202,4 @@ def test_complete_browser_response_rejects_blank_content(tmp_path: Path) -> None
         )
     )
 
-    assert result == {"ok": False, "message": "瀏覽器結果不可空白"}
+    assert result == {"ok": False, "message": "瀏覽器結果不可空白", "error_code": "REQUEST_REJECTED"}
