@@ -183,6 +183,42 @@ class RagMetadataDocumentsMixin:
             )
             return None
 
+    async def fetch_resource_by_locator(
+        self, module_id: str, locator_id: str
+    ) -> Optional[dict[str, Any]]:
+        """Resolve an opaque ``locator_id`` to the canonical resource
+        row.  Used by module-agnostic content resolvers — the owning
+        module hands RAG a locator, never a physical path."""
+        if not self._healthy or not self._conn:
+            return None
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT resource_id, resource_type, content_hash,
+                              version, metadata
+                       FROM gptbridge_index.resource
+                       WHERE module_id = %s AND locator_id = %s""",
+                    (module_id, locator_id),
+                )
+                row = await cur.fetchone()
+            if row is None:
+                return None
+            metadata = row[4] if isinstance(row[4], dict) else {}
+            return {
+                "resource_id": str(row[0]),
+                "resource_type": str(row[1] or ""),
+                "content_hash": str(row[2] or ""),
+                "version": int(row[3] or 1),
+                "metadata": metadata,
+            }
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: fetch_resource_by_locator "
+                "failed: %s",
+                exc,
+            )
+            return None
+
     async def fetch_resource_chunks(
         self, module_id: str, resource_id: str
     ) -> list[dict[str, Any]]:

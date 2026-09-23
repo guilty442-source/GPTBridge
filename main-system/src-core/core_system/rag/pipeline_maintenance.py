@@ -73,7 +73,7 @@ class PipelineMaintenanceMixin:
             if budget_seconds is not None
             else self._MAINTENANCE_BUDGET_S
         )
-        deadline = started + max(budget, 0.0)
+        deadline = started + budget
         report: dict[str, Any] = {
             "budget_seconds": budget,
             "duration_ms": 0,

@@ -414,6 +414,87 @@ def _build_retrievers(
     }
 
 
+class _PostgresContentResolver:
+    """ContentResolver for ``document`` resources whose content
+    authority is the canonical store itself.
+
+    PostgreSQL holds the resource row (``locator_id``) and chunk bodies
+    (``chunk.metadata->>'content'``).  This resolver covers re-index /
+    rebuild / repair of already-ingested documents; a module that owns
+    content elsewhere registers its own resolver for the same or other
+    resource types on ``app.rag_content_resolvers``.  Anything
+    unresolvable fails closed with ``PermissionError``.
+    """
+
+    resource_type = "document"
+
+    def __init__(self, integration: "RagRuntimeIntegration") -> None:
+        self._integration = integration
+
+    def resolve(
+        self,
+        actor_id: str,
+        module_id: str,
+        locator_id: str,
+        version: int,
+    ) -> Any:
+        from .rag.service.content_resolver import ResolvedContent
+
+        pipeline = self._integration._pipeline
+        worker = self._integration._loop_worker
+        if pipeline is None or worker is None:
+            raise PermissionError("content authority unavailable")
+        try:
+            row = worker.run(
+                pipeline.postgresql.fetch_resource_by_locator(
+                    module_id, locator_id
+                ),
+                timeout=30,
+            )
+        except Exception as exc:
+            raise PermissionError(
+                f"content resolution denied: {type(exc).__name__}"
+            ) from exc
+        if row is None:
+            raise PermissionError(
+                f"content not found for {module_id}:{locator_id}"
+            )
+        resource_id = str(row["resource_id"])
+        try:
+            chunks = worker.run(
+                pipeline.postgresql.fetch_resource_chunks(
+                    module_id, resource_id
+                ),
+                timeout=30,
+            )
+        except Exception as exc:
+            raise PermissionError(
+                f"content fetch denied: {type(exc).__name__}"
+            ) from exc
+        content = "\n\n".join(
+            str(c.get("content") or "") for c in chunks
+        ).strip()
+        if not content:
+            raise PermissionError(
+                f"no stored content for {module_id}:{locator_id}"
+            )
+        metadata = row.get("metadata") or {}
+        return ResolvedContent(
+            locator_id=locator_id,
+            content=content,
+            content_hash=str(row.get("content_hash") or ""),
+            version=int(row.get("version") or version or 1),
+            resolver="postgresql-content-authority",
+            authorized=True,
+            provenance={
+                "authority": "postgresql",
+                "resource_id": resource_id,
+                "module_id": module_id,
+                "title": str(metadata.get("title") or ""),
+            },
+        )
+
+
 @dataclass
 class RagRuntimeIntegration:
     """Owns pipeline + orchestrator + governed service lifecycle."""
