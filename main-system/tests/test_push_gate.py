@@ -324,3 +324,153 @@ def test_push_evidence_denial_and_grant(
     assert data["last_push"]["result"] == "denied"
     assert records and records[0]["operation"] == "push"
     assert records[0]["result"] == "denied"
+
+
+def _tracking_runner(in_flight, peak, report_fn=None, delay=0.05):
+    import threading
+    import time
+    lock = threading.Lock()
+
+    def run(exe: Path, cwd: Path, timeout: float):
+        with lock:
+            in_flight[0] += 1
+            peak[0] = max(peak[0], in_flight[0])
+        try:
+            time.sleep(delay)
+            report = report_fn(exe) if report_fn else _report()
+            (cwd / f"{exe.stem}.json").write_text(
+                json.dumps(report), encoding="utf-8")
+            return _completed(0)
+        finally:
+            with lock:
+                in_flight[0] -= 1
+    return run
+
+
+def test_gate_bounded_parallel_caps_in_flight(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    for i in range(6):
+        _exe(d, f"s{i}_suite.exe")
+    in_flight, peak = [0], [0]
+    gate = _gate(
+        tmp_path,
+        runner=_tracking_runner(in_flight, peak),
+        config=_cfg(max_parallel_suites=3),
+    )
+    assert gate["passed"] is True
+    assert gate["max_parallel_suites"] == 3
+    assert 1 < peak[0] <= 3
+    assert len(gate["suites"]) == 6
+
+
+def test_gate_parallel_one_is_sequential(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    for i in range(4):
+        _exe(d, f"s{i}_suite.exe")
+    in_flight, peak = [0], [0]
+    gate = _gate(
+        tmp_path,
+        runner=_tracking_runner(in_flight, peak),
+        config=_cfg(max_parallel_suites=1),
+    )
+    assert gate["passed"] is True
+    assert peak[0] == 1
+
+
+def test_gate_parallel_sorted_deterministic_output(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    for name in ("zeta_suite.exe", "alpha_suite.exe", "mid_suite.exe"):
+        _exe(d, name)
+
+    def report_fn(exe: Path):
+        return {"passed": 1, "failed": 0, "blocked": 0,
+                "cases": [{"suite": exe.stem, "name": "c",
+                           "status": "PASS", "detail": ""}]}
+
+    in_flight, peak = [0], [0]
+    gate = _gate(
+        tmp_path,
+        runner=_tracking_runner(in_flight, peak, report_fn, delay=0.02),
+        config=_cfg(max_parallel_suites=3),
+    )
+    assert gate["passed"] is True
+    assert [s["suite"] for s in gate["suites"]] == [
+        "alpha_suite", "mid_suite", "zeta_suite"]
+    assert gate["totals"]["pass"] == 3
+
+
+def test_gate_parallel_aggregates_failures(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    for i in range(5):
+        _exe(d, f"s{i}_suite.exe")
+
+    def report_fn(exe: Path):
+        status = "FAIL" if exe.stem == "s3_suite" else "PASS"
+        return {"passed": 0 if status == "FAIL" else 1,
+                "failed": 1 if status == "FAIL" else 0, "blocked": 0,
+                "cases": [{"suite": exe.stem, "name": "c",
+                           "status": status, "detail": "boom"}]}
+
+    in_flight, peak = [0], [0]
+    gate = _gate(
+        tmp_path,
+        runner=_tracking_runner(in_flight, peak, report_fn),
+        config=_cfg(max_parallel_suites=4),
+    )
+    assert gate["passed"] is False
+    assert gate["totals"]["fail"] == 1
+    assert gate["totals"]["pass"] == 4
+    assert "s3_suite" in gate["detail"]
+
+
+def test_gate_parallel_timeout_fail_closed(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d, "slow_suite.exe")
+    _exe(d, "ok_suite.exe")
+
+    def run(exe: Path, cwd: Path, timeout: float):
+        if exe.stem == "slow_suite":
+            raise subprocess.TimeoutExpired(cmd="suite", timeout=timeout)
+        (cwd / f"{exe.stem}.json").write_text(
+            json.dumps(_report()), encoding="utf-8")
+        return _completed(0)
+
+    gate = _gate(tmp_path, runner=run, config=_cfg(max_parallel_suites=2))
+    assert gate["passed"] is False
+    assert "timeout" in gate["detail"]
+    assert gate["totals"]["pass"] == 1
+
+
+def test_gate_parallel_run_budget_denies(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    for i in range(4):
+        _exe(d, f"s{i}_suite.exe")
+    in_flight, peak = [0], [0]
+    gate = _gate(
+        tmp_path,
+        runner=_tracking_runner(in_flight, peak, delay=0.3),
+        config=_cfg(max_parallel_suites=4, run_budget_s=0.01),
+    )
+    assert gate["passed"] is False
+    assert "run-budget-exceeded" in gate["detail"]
+
+
+def test_config_max_parallel_suites_bounds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = tmp_path / "automation-flows.json"
+    monkeypatch.setattr(push_gate, "_FLOWS_CONFIG", manifest)
+
+    def cfg_for(value):
+        manifest.write_text(json.dumps({
+            "flows": {"git-automation": {"push_gate": {
+                "max_parallel_suites": value}}}}
+        ), encoding="utf-8")
+        return push_gate.push_gate_config()["max_parallel_suites"]
+
+    assert cfg_for(2) == 2
+    assert cfg_for(100) == push_gate.MAX_PARALLEL_SUITES_CAP
+    assert cfg_for(0) == push_gate.DEFAULT_MAX_PARALLEL_SUITES
+    assert cfg_for(-3) == push_gate.DEFAULT_MAX_PARALLEL_SUITES
+    assert cfg_for("x") == push_gate.DEFAULT_MAX_PARALLEL_SUITES
+    assert cfg_for(True) == push_gate.DEFAULT_MAX_PARALLEL_SUITES
