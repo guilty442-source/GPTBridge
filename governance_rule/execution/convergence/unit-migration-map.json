@@ -1,0 +1,381 @@
+{
+ "schema": "unit-migration-map/v1",
+ "note": "derived plan; physical moves are coordinator-sequenced, not worker action",
+ "units": {
+  "UNIT_DECISION": "E:\\GPTBridge\\blocks\\core\\decision",
+  "UNIT_PERMISSION": "E:\\GPTBridge\\blocks\\core\\permission",
+  "UNIT_RUNTIME": "E:\\GPTBridge\\blocks\\core\\runtime",
+  "UNIT_BOOTSTRAP": "E:\\GPTBridge\\blocks\\core\\bootstrap",
+  "UNIT_AUTOMATION": "E:\\GPTBridge\\blocks\\core\\automation",
+  "UNIT_PLATFORM": "E:\\GPTBridge\\blocks\\shared\\platform",
+  "UNIT_DATA": "E:\\GPTBridge\\blocks\\shared\\data",
+  "UNIT_ENGINE": "E:\\GPTBridge\\blocks\\model\\engine",
+  "UNIT_DIALOGUE": "E:\\GPTBridge\\blocks\\model\\dialogue",
+  "UNIT_ASSISTANT": "E:\\GPTBridge\\blocks\\xingcheng\\assistant"
+ },
+ "component_count": 40,
+ "already_at_target": 0,
+ "missing_source_path": [],
+ "entries": [
+  {
+   "component_id": "governance_rule",
+   "unit": "UNIT_DECISION",
+   "current_path": "governance_rule",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "codex-authority",
+   "unit": "UNIT_DECISION",
+   "current_path": "governance_rule/codex",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "database"
+  },
+  {
+   "component_id": "main-system",
+   "unit": "UNIT_RUNTIME",
+   "current_path": "main-system",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\runtime",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "boot-core",
+   "unit": "UNIT_RUNTIME",
+   "current_path": "main-system/src-core",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\runtime",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "bootstrap-entry",
+   "unit": "UNIT_BOOTSTRAP",
+   "current_path": "main-system/launcher",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\bootstrap",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "launcher-ui",
+   "unit": "UNIT_BOOTSTRAP",
+   "current_path": "main-system/launcher",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\bootstrap",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "electron-app"
+  },
+  {
+   "component_id": "decision-sovereign",
+   "unit": "UNIT_DECISION",
+   "current_path": "main-system/governance/sovereigns",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "automation-sovereign",
+   "unit": "UNIT_DECISION",
+   "current_path": "main-system/governance/sovereigns/automation_sovereign.py",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "xingcheng-sovereign",
+   "unit": "UNIT_DECISION",
+   "current_path": "main-system/governance/sovereigns",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "shared-layer",
+   "unit": "UNIT_PLATFORM",
+   "current_path": "shared-layer",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\shared\\platform",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "information-channel-gateway",
+   "unit": "UNIT_PLATFORM",
+   "current_path": "shared-layer/src/channel_runtime.py",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\shared\\platform",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "postgresql",
+   "unit": "UNIT_PLATFORM",
+   "current_path": "shared-layer/sql",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\shared\\platform",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "external-service"
+  },
+  {
+   "component_id": "qdrant",
+   "unit": "UNIT_PLATFORM",
+   "current_path": "shared-layer/sql",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\shared\\platform",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "external-service"
+  },
+  {
+   "component_id": "module-sqlite",
+   "unit": "UNIT_PLATFORM",
+   "current_path": "shared-layer/sql",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\shared\\platform",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "database"
+  },
+  {
+   "component_id": "local-vector",
+   "unit": "UNIT_PLATFORM",
+   "current_path": "shared-layer/sql",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\shared\\platform",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "database"
+  },
+  {
+   "component_id": "ollama",
+   "unit": "UNIT_PLATFORM",
+   "current_path": "shared-layer/sql",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\shared\\platform",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "external-service"
+  },
+  {
+   "component_id": "local-model",
+   "unit": "UNIT_ENGINE",
+   "current_path": "Standalone tools/local-model",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\model\\engine",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "xingcheng",
+   "unit": "UNIT_ASSISTANT",
+   "current_path": "Standalone tools/local-model/xingcheng",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\xingcheng\\assistant",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "xingcheng-assistant",
+   "unit": "UNIT_RUNTIME",
+   "current_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\runtime",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "electron-app"
+  },
+  {
+   "component_id": "xingcheng-assistant-store",
+   "unit": "UNIT_RUNTIME",
+   "current_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\runtime",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "database"
+  },
+  {
+   "component_id": "xingcheng-personality-store",
+   "unit": "UNIT_RUNTIME",
+   "current_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\runtime",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "database"
+  },
+  {
+   "component_id": "xingcheng-auto-learning-module",
+   "unit": "UNIT_DECISION",
+   "current_path": "main-system/governance/sovereigns/xingcheng/learning_sub_sovereign.py",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "xingcheng-auto-repair-module",
+   "unit": "UNIT_RUNTIME",
+   "current_path": "main-system/src-core/tasks/central_repair.py",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\runtime",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "model-dialogue",
+   "unit": "UNIT_DIALOGUE",
+   "current_path": "Standalone tools/local-model/model-dialogue",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\model\\dialogue",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "ai-assistant",
+   "unit": "",
+   "current_path": "Standalone tools/ai-assistant",
+   "target_unit_root": null,
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "ai-collaboration",
+   "unit": "",
+   "current_path": "Standalone tools/ai-collaboration",
+   "target_unit_root": null,
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "file-sorter",
+   "unit": "",
+   "current_path": "Standalone tools/file-sorter",
+   "target_unit_root": null,
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "investment-mobile",
+   "unit": "",
+   "current_path": "Standalone tools/investment-mobile",
+   "target_unit_root": null,
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "system-rescue",
+   "unit": "",
+   "current_path": "Standalone tools/system-rescue",
+   "target_unit_root": null,
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "vaultly",
+   "unit": "",
+   "current_path": "Standalone tools/vaultly",
+   "target_unit_root": null,
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "git-tier-plane",
+   "unit": "UNIT_DECISION",
+   "current_path": "governance_rule/execution/git_tiers",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "build-tooling"
+  },
+  {
+   "component_id": "worker-plane",
+   "unit": "",
+   "current_path": "E:/GPTBridge/.worktrees",
+   "target_unit_root": null,
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "standalone-service"
+  },
+  {
+   "component_id": "self-commit-service",
+   "unit": "UNIT_DECISION",
+   "current_path": "governance_rule/execution/git_tiers",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "integration-plane",
+   "unit": "UNIT_DECISION",
+   "current_path": "governance_rule/execution/git_tiers",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "recovery-plane",
+   "unit": "UNIT_DECISION",
+   "current_path": "governance_rule/execution/git_tiers",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "business-logic-csharp",
+   "unit": "",
+   "current_path": "Standalone tools/business-logic-csharp",
+   "target_unit_root": null,
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "internal-service"
+  },
+  {
+   "component_id": "native-compute-core",
+   "unit": "UNIT_RUNTIME",
+   "current_path": "native/core",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\runtime",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "native-library"
+  },
+  {
+   "component_id": "model-training",
+   "unit": "UNIT_ENGINE",
+   "current_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\model\\engine",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "permission-sovereign",
+   "unit": "UNIT_DECISION",
+   "current_path": "main-system/governance/sovereigns/permission_sovereign.py",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  },
+  {
+   "component_id": "system-runtime-sovereign",
+   "unit": "UNIT_DECISION",
+   "current_path": "main-system/governance/sovereigns/system_runtime_sovereign.py",
+   "target_unit_root": "E:\\GPTBridge\\blocks\\core\\decision",
+   "already_at_target": false,
+   "exists": true,
+   "runtime_form": "python-process"
+  }
+ ]
+}
