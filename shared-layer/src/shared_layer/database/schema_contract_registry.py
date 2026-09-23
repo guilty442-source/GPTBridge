@@ -1398,7 +1398,7 @@ def verify_contract(connection: Any) -> ContractVerificationResult:
     for table_contract in contract.tables:
         full_name = f"{table_contract.schema}.{table_contract.table}"
         try:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: per-table contract verification, bounded by declared contract
                 """
                 SELECT column_name
                 FROM information_schema.columns
@@ -1423,7 +1423,7 @@ def verify_contract(connection: Any) -> ContractVerificationResult:
             continue
         full_name = f"{table_contract.schema}.{table_contract.table}"
         try:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: per-table RLS verification, bounded by declared contract
                 """
                 SELECT relrowsecurity, relforcerowsecurity
                 FROM pg_class

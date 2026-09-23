@@ -41,7 +41,7 @@ class RetainedAccountsMixin:
                     "superseded",
                     existing,
                 )
-                connection.execute(
+                connection.execute(  # sql-ok: bounded config list with interleaved row-history audit per account
                     """
                     INSERT INTO vaultly_retained_accounts (
                         account_id, created_at, is_active, deactivated_at

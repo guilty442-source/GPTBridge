@@ -195,7 +195,10 @@ class TransformerAdapterRegistryMixin(TransformerTrainingSchemaMixin):
                 },
             )
             row = connection.execute(
-                "SELECT * FROM transformer_adapter_evaluation "
+                "SELECT evaluation_id, adapter_id, suite_id, suite_sha256, "
+                "baseline_metrics_json, adapter_metrics_json, comparison_json, "
+                "quality_gates_json, passed, evaluated_by, created_at "
+                "FROM transformer_adapter_evaluation "
                 "WHERE evaluation_id = ?",
                 (evaluation_id,),
             ).fetchone()
@@ -383,7 +386,10 @@ class TransformerAdapterRegistryMixin(TransformerTrainingSchemaMixin):
     def _runtime_model_state(self) -> dict[str, Any]:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM transformer_runtime_model_state "
+                "SELECT singleton_id, base_model_id, runtime_model_id, "
+                "active_adapter_id, previous_adapter_id, "
+                "automatic_weight_replacement, updated_at "
+                "FROM transformer_runtime_model_state "
                 "WHERE singleton_id = 1"
             ).fetchone()
         return dict(row) if row is not None else {}

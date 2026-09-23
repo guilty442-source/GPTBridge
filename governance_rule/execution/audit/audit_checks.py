@@ -172,6 +172,7 @@ from .audit_authority import (
 from .audit_activation import check_activation_states
 from .audit_architecture import check_architecture_registry
 from .audit_directories import check_directory_audit
+from .audit_sql_patterns import check_sql_anti_patterns
 from .audit_formal_rules import (
     check_formal_rules,
     check_implementation_obligations,

@@ -52,7 +52,7 @@ class FilterTermsMixin:
                     "superseded",
                     existing,
                 )
-                connection.execute(
+                connection.execute(  # sql-ok: bounded config list with interleaved row-history audit per term
                     """
                     INSERT INTO vaultly_filter_terms (
                         term, created_at, is_active, deactivated_at

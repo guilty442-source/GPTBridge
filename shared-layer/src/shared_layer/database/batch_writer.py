@@ -74,7 +74,7 @@ class BatchWriter:
         count = len(self._pending)
         with self._conn.cursor() as cur:
             for sql, params in self._pending:
-                cur.execute(sql, params)
+                cur.execute(sql, params)  # sql-ok: flush executes queued heterogeneous SQL in order — grouping by statement would reorder across-statement deps
         self._total_flushed += count
         self._flush_count += 1
         self._pending.clear()

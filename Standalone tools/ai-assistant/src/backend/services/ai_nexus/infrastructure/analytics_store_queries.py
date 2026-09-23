@@ -48,7 +48,7 @@ class InvestmentAnalyticsStoreQueries(
         with self.connect() as connection:
             connection.execute("PRAGMA defer_foreign_keys = ON")
             for table in self._table_deletion_order(connection):
-                connection.execute(f"DELETE FROM {table}")
+                connection.execute(f"DELETE FROM {table}")  # sql-ok: per-table delete in FK-safe order, bounded by table count
             if connection.execute(
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' "
                 "AND name = 'sqlite_sequence'"
@@ -75,7 +75,7 @@ class InvestmentAnalyticsStoreQueries(
                 raise RuntimeError("invalid analytics table name")
             parents = {
                 str(row[2])
-                for row in connection.execute(
+                for row in connection.execute(  # sql-ok: PRAGMA introspection per table
                     f"PRAGMA foreign_key_list({table})"
                 ).fetchall()
                 if str(row[2]) in table_names and str(row[2]) != table

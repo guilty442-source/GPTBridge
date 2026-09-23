@@ -704,7 +704,7 @@ def validate_governance_references(
                 "PERMISSION_CONTRACT_INCOMPATIBLE",
             ),
         ):
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: version check over 2 fixed contract tables
                 f"select version_identity from {table} limit 1"
             ).fetchone()
             actual = row[0] if row else None

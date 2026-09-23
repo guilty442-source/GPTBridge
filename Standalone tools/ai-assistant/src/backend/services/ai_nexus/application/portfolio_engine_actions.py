@@ -97,10 +97,15 @@ class PortfolioEngineActionsMixin:
                 """,
                 row,
             )
-            for issue in issues if not existing else []:
-                connection.execute(
+            if issues and not existing:
+                connection.executemany(
                     "INSERT INTO data_quality_issues VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (uuid.uuid4().hex, utc_text(), "corporate_action_validation", row["symbol"], "critical", "企業行動資料異常", protect_text(issue), "open", ""),
+                    [
+                        (uuid.uuid4().hex, utc_text(), "corporate_action_validation",
+                         row["symbol"], "critical", "企業行動資料異常",
+                         protect_text(issue), "open", "")
+                        for issue in issues
+                    ],
                 )
             stored = connection.execute(
                 "SELECT action_id, dedupe_key, symbol, action_type, effective_at, ratio, cash_amount, currency, old_symbol, new_symbol, source, confidence, status, details_encrypted, created_at, reviewed_at FROM corporate_actions WHERE dedupe_key=?",

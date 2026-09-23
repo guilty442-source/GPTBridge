@@ -115,7 +115,7 @@ def check_long_transactions(
         action = "logged"
         if terminate:
             try:
-                connection.execute("SELECT pg_terminate_backend(%s)", (pid,))
+                connection.execute("SELECT pg_terminate_backend(%s)", (pid,))  # sql-ok: per-PID terminate is intentionally individual
                 action = "terminated"
             except Exception:
                 action = "terminate_failed"

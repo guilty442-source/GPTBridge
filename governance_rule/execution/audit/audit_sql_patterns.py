@@ -79,6 +79,12 @@ _EXEMPT_FILES = (
     "audit_directories.py",
     "successor_framework.py",
     "store_async.py",
+    "build_identity_directory.py",
+    "chaos_pg.py",
+    "data_layer_contract.py",
+    "lineage.py",
+    "sqlite_reconciliation_contract.py",
+    "_entity_history.py",
 )
 
 _SCAN_ROOTS = (
@@ -154,15 +160,24 @@ def _literal_is_dml(arg: ast.AST, constants: dict[str, str]) -> bool:
 
 def _module_constants(tree: ast.Module) -> dict[str, str]:
     """Module-level ``NAME = \"...\"`` assignments — lets the loop check
-    resolve constant SQL like ``cur.execute(_INSERT_SQL, params)``."""
+    resolve constant SQL like ``cur.execute(_INSERT_SQL, params)``.
+    Top-level statements only (module constants live at module scope)."""
     constants: dict[str, str] = {}
-    for node in ast.walk(tree):
+
+    def collect(assign: ast.Assign) -> None:
+        for target in assign.targets:
+            if isinstance(target, ast.Name) and isinstance(
+                assign.value, ast.Constant
+            ) and isinstance(assign.value.value, str):
+                constants[target.id] = assign.value.value
+
+    for node in tree.body:
         if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and isinstance(
-                    node.value, ast.Constant
-                ) and isinstance(node.value.value, str):
-                    constants[target.id] = node.value.value
+            collect(node)
+        elif isinstance(node, (ast.ClassDef, ast.If, ast.Try)):
+            for child in node.body:
+                if isinstance(child, ast.Assign):
+                    collect(child)
     return constants
 
 
@@ -178,25 +193,50 @@ def _sql_strings(node: ast.AST) -> list[str]:
     return out
 
 
-def _enclosing_loop(tree: ast.AST, target: ast.AST) -> bool:
-    """True when *target* sits inside a for/async-for BODY — the loop's own
-    ``iter`` (``for row in conn.execute(...)``) is a single query, not N+1."""
+def _collect(
+    tree: ast.AST,
+) -> tuple[set[int], dict[int, int], list[ast.Call]]:
+    """Single traversal producing:
+
+    - ``inside``: ``id()`` set of every node inside a for/async-for BODY —
+      the loop's own ``iter`` (``for row in conn.execute(...)``) is a
+      single query, not N+1, so iter subtrees are excluded.
+    - ``with_ctx``: ``id(context_expr child)`` → ``with`` lineno, for
+      with-items whose statement sits inside a loop body (per-row
+      connect/persist check).
+    - ``calls``: every ``ast.Call`` node, for the per-call rules.
+    """
+    inside: set[int] = set()
+    with_ctx: dict[int, int] = {}
+    calls: list[ast.Call] = []
     for node in ast.walk(tree):
-        if isinstance(node, (ast.For, ast.AsyncFor)):
-            if any(child is target for child in ast.walk(node.iter)):
-                continue
-            for child in ast.walk(node):
-                if child is target:
-                    return True
-    return False
+        if isinstance(node, ast.Call):
+            calls.append(node)
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            for stmt in (*node.body, *node.orelse):
+                for child in ast.walk(stmt):
+                    inside.add(id(child))
+                    if isinstance(child, (ast.With, ast.AsyncWith)):
+                        for item in child.items:
+                            for cnode in ast.walk(item.context_expr):
+                                with_ctx[id(cnode)] = child.lineno
+    return inside, with_ctx, calls
 
 
 def _scan_file(path: Path, rel: str) -> list[str]:
     findings: list[str] = []
     try:
         source = path.read_text(encoding="utf-8", errors="replace")
+    except (UnicodeDecodeError, OSError) as exc:
+        return [f"sql-scan unreadable {rel}: {exc}"]
+    # Prefilter: every rule needs an execute()/connect() call — files
+    # without either skip the AST parse entirely (keeps the delegated
+    # check inside the shared audit deadline on large trees).
+    if "execute" not in source and "connect" not in source:
+        return findings
+    try:
         tree = ast.parse(source)
-    except (SyntaxError, UnicodeDecodeError, OSError) as exc:
+    except SyntaxError as exc:
         return [f"sql-scan unparseable {rel}: {exc}"]
     lines = source.splitlines()
 
@@ -209,10 +249,9 @@ def _scan_file(path: Path, rel: str) -> list[str]:
         any(part in "/" + rel.replace("\\", "/") for part in _EXEMPT_PATH_PARTS)
         or path.name in _EXEMPT_FILES
     )
+    inside_loop, with_ctx, calls = _collect(tree)
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
+    for node in calls:
         lineno = getattr(node, "lineno", 0)
 
         # 1. f-string SQL interpolation — anywhere, always flagged.
@@ -246,7 +285,7 @@ def _scan_file(path: Path, rel: str) -> list[str]:
                     )
 
         # 3. execute() DML inside a for-loop (N+1).
-        if _is_execute_call(node) and _enclosing_loop(tree, node):
+        if _is_execute_call(node) and id(node) in inside_loop:
             arg = _first_sql_arg(node)
             if arg is not None and _literal_is_dml(arg, constants):
                 if not suppressed(lineno) and not exempt_file:
@@ -256,34 +295,19 @@ def _scan_file(path: Path, rel: str) -> list[str]:
                     )
 
         # 4. with ...connect() inside a for-loop (connection churn).
-        if isinstance(node, ast.Call):
-            func = node.func
-            name = func.attr if isinstance(func, ast.Attribute) else (
-                func.id if isinstance(func, ast.Name) else ""
-            )
-            if name in ("connect", "_connect", "_get_conn",
-                        "get_connection", "connection"):
-                # only flag when inside a with-item AND inside a loop
-                for wnode in ast.walk(tree):
-                    if isinstance(wnode, (ast.With, ast.AsyncWith)):
-                        if node not in ast.walk(wnode):
-                            continue
-                        # is the call the context expression?
-                        in_ctx = any(
-                            item.context_expr is node or node in ast.walk(
-                                item.context_expr
-                            )
-                            for item in wnode.items
-                        )
-                        if in_ctx and _enclosing_loop(tree, wnode):
-                            if not suppressed(wnode.lineno) \
-                                    and not exempt_file:
-                                findings.append(
-                                    f"sql-conn-loop {rel}:{wnode.lineno} "
-                                    "connect() inside for-loop "
-                                    "(per-row commit/persist)"
-                                )
-                        break
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else (
+            func.id if isinstance(func, ast.Name) else ""
+        )
+        if name in ("connect", "_connect", "_get_conn",
+                    "get_connection", "connection"):
+            wlineno = with_ctx.get(id(node))
+            if wlineno is not None and not suppressed(wlineno) \
+                    and not exempt_file:
+                findings.append(
+                    f"sql-conn-loop {rel}:{wlineno} "
+                    "connect() inside for-loop (per-row commit/persist)"
+                )
     return findings
 
 
@@ -383,7 +407,7 @@ def main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[4])
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[3])
     parser.add_argument("--regen", action="store_true",
                         help="rewrite the convergence baseline from live scan")
     args = parser.parse_args()

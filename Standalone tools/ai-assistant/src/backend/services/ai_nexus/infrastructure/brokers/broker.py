@@ -321,6 +321,7 @@ class BrokerReconciliationService:
         selected = {str(value) for value in row_ids if str(value).strip()}
         current = self.get_import(import_id)
         approved = 0
+        approved_rows: list[tuple[str, str]] = []
         for row in current["rows"]:
             if row["row_id"] not in selected or row["match_status"] != "unmatched":
                 continue
@@ -339,12 +340,14 @@ class BrokerReconciliationService:
                     "note": f"券商對帳匯入 {import_id}",
                 }
             )
-            with self.store.connect() as connection:
-                connection.execute(
-                    "UPDATE broker_import_rows SET match_status='approved', matched_transaction_id=? WHERE row_id=?",
-                    (f"broker-{row['row_id']}", row["row_id"]),
-                )
+            approved_rows.append((f"broker-{row['row_id']}", row["row_id"]))
             approved += 1
+        if approved_rows:
+            with self.store.connect() as connection:
+                connection.executemany(
+                    "UPDATE broker_import_rows SET match_status='approved', matched_transaction_id=? WHERE row_id=?",
+                    approved_rows,
+                )
         with self.store.connect() as connection:
             remaining = connection.execute(
                 "SELECT COUNT(*) FROM broker_import_rows WHERE import_id=? AND match_status='unmatched'", (import_id,)

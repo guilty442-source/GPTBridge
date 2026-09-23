@@ -44,6 +44,7 @@ class InvestmentAutomation:
             rows = connection.execute(
                 "SELECT run_id, started_at FROM scheduler_runs WHERE status='running'"
             ).fetchall()
+            updates = []
             for row in rows:
                 detail = {
                     "error": "scheduler process stopped before the run completed",
@@ -51,15 +52,19 @@ class InvestmentAutomation:
                     "previous_started_at": str(row["started_at"]),
                     "retry_policy": "retry_on_next_scheduler_cycle",
                 }
-                connection.execute(
+                updates.append(
+                    (utc_text(), protect_text(_json(detail)), row["run_id"])
+                )
+            if updates:
+                connection.executemany(
                     """
                     UPDATE scheduler_runs
                     SET finished_at=?, status='interrupted', detail_encrypted=?
                     WHERE run_id=?
                     """,
-                    (utc_text(), protect_text(_json(detail)), row["run_id"]),
+                    updates,
                 )
-                recovered += 1
+                recovered += len(updates)
         return recovered
 
     @property

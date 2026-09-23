@@ -117,7 +117,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
         try:
             records = tuple(
                 dict(row)
-                for row in connection.execute(
+                for row in connection.execute(  # sql-ok: catalog hash covers the full row
                     "SELECT * FROM maintenance_manual_directory "
                     "WHERE retired_version IS NULL ORDER BY manual_code"
                 )

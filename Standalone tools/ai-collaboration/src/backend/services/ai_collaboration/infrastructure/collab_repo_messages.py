@@ -33,15 +33,17 @@ class CollabRepoMessagesMixin:
                     now,
                 ),
             )
-            for agent_id in selected_agents:
-                connection.execute(
-                    """
-                    INSERT INTO ai_nexus_agent_responses
-                    (response_id, message_id, agent_id, status, created_at, updated_at)
-                    VALUES (?, ?, ?, 'pending', ?, ?)
-                    """,
-                    (uuid.uuid4().hex[:16], message_id, agent_id, now, now),
-                )
+            connection.executemany(
+                """
+                INSERT INTO ai_nexus_agent_responses
+                (response_id, message_id, agent_id, status, created_at, updated_at)
+                VALUES (?, ?, ?, 'pending', ?, ?)
+                """,
+                [
+                    (uuid.uuid4().hex[:16], message_id, agent_id, now, now)
+                    for agent_id in selected_agents
+                ],
+            )
         return self.get_message(message_id) or {}
 
     def update_response(

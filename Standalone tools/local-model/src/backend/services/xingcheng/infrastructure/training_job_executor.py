@@ -345,10 +345,29 @@ class TrainingJobExecutor:
 
     # ------------------------------------------------------------- queries
 
+    _JOB_COLUMNS = (
+        "job_id, dataset_id, base_model_id, training_method, "
+        "configuration_json, configuration_sha256, status, output_path, "
+        "error_code, error_message, requested_by, retry_of_job_id, "
+        "created_at, started_at, completed_at"
+    )
+    _DATASET_COLUMNS = (
+        "dataset_id, content_sha256, format_version, base_model_id, "
+        "runtime_model_id, example_count, training_example_count, "
+        "validation_example_count, minimum_quality_score, "
+        "source_manifest_json, snapshot_path, snapshot_sha256, state, "
+        "created_by, created_at"
+    )
+    _RUNTIME_STATE_COLUMNS = (
+        "singleton_id, base_model_id, runtime_model_id, active_adapter_id, "
+        "previous_adapter_id, automatic_weight_replacement, updated_at"
+    )
+
     def _job_row(self, job_id: str) -> dict[str, Any]:
         with self.repository._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM transformer_training_job WHERE job_id = ?",
+                f"SELECT {self._JOB_COLUMNS} "  # sql-ok: fixed column list constant
+                "FROM transformer_training_job WHERE job_id = ?",
                 (str(job_id),),
             ).fetchone()
         if row is None:
@@ -357,9 +376,10 @@ class TrainingJobExecutor:
 
     def queued_jobs(self, *, limit: int = 16) -> list[dict[str, Any]]:
         with self.repository._connect() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM transformer_training_job
+            rows = connection.execute(  # sql-ok: fixed column list constant
+                f"""
+                SELECT {self._JOB_COLUMNS}
+                FROM transformer_training_job
                 WHERE status = 'queued'
                 ORDER BY created_at ASC LIMIT ?
                 """,
@@ -372,7 +392,8 @@ class TrainingJobExecutor:
     ) -> tuple[dict[str, Any], dict[str, str]]:
         with self.repository._connect() as connection:
             dataset = connection.execute(
-                "SELECT * FROM transformer_training_dataset WHERE dataset_id = ?",
+                f"SELECT {self._DATASET_COLUMNS} "  # sql-ok: fixed column list constant
+                "FROM transformer_training_dataset WHERE dataset_id = ?",
                 (str(dataset_id),),
             ).fetchone()
             examples = connection.execute(
@@ -866,7 +887,8 @@ class TrainingJobExecutor:
     def _runtime_state(self) -> dict[str, Any]:
         with self.repository._connect() as connection:
             row = connection.execute(
-                "SELECT * FROM transformer_runtime_model_state WHERE singleton_id = 1"
+                f"SELECT {self._RUNTIME_STATE_COLUMNS} "  # sql-ok: fixed column list constant
+                "FROM transformer_runtime_model_state WHERE singleton_id = 1"
             ).fetchone()
         return dict(row) if row is not None else {}
 

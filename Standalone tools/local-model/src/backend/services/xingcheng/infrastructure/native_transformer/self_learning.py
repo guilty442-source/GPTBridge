@@ -293,7 +293,7 @@ def collect_verified_examples(
         except sqlite3.Error:
             continue
         try:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: one read-only query per scope database file
                 "SELECT revision, example_id, intent, input_text, target_text, "
                 "source_type, quality_score FROM language_training_example "
                 "WHERE active = 1 AND quality_score >= ? ORDER BY revision",
@@ -346,7 +346,7 @@ def collect_preference_pairs(tool_root: str | Path) -> list[dict[str, Any]]:
         except sqlite3.Error:
             continue
         try:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: one read-only query per scope database file
                 "SELECT revision, pair_id, intent, prompt_text, chosen_text,"
                 " rejected_text FROM language_preference_pair"
                 " WHERE paired = 1 ORDER BY revision",

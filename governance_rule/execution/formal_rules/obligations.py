@@ -146,7 +146,7 @@ def _obligation_rows(
     ]
     return tuple(
         dict(zip(columns, row))
-        for row in connection.execute("SELECT * FROM implementation_obligations")
+        for row in connection.execute("SELECT * FROM implementation_obligations")  # sql-ok: PRAGMA-driven all-columns contract snapshot
     )
 
 

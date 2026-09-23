@@ -66,7 +66,7 @@ def check_protected_sources(root: Path, errors: list[str]) -> None:
                 if not content.strip() or "\x00" in content:
                     raise ValueError("empty or invalid TypeScript source")
             elif source.suffix == ".sqlite3":
-                with sqlite3.connect(f"file:{source.as_posix()}?mode=ro&immutable=1", uri=True) as db:
+                with sqlite3.connect(f"file:{source.as_posix()}?mode=ro&immutable=1", uri=True) as db:  # sql-ok: one read-only connect per protected file
                     if db.execute("PRAGMA quick_check").fetchone()[0] != "ok":
                         raise ValueError("invalid SQLite codex")
             elif source.suffix == ".txt":

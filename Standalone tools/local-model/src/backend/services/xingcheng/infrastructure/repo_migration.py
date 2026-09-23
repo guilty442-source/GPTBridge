@@ -44,7 +44,7 @@ class MigrationMixin:
         }
         for column, declaration in memory_migrations.items():
             if column not in memory_columns:
-                connection.execute(
+                connection.execute(  # sql-ok: idempotent DDL per column
                     f"ALTER TABLE model_memory ADD COLUMN {column} {declaration}"
                 )
 
@@ -63,6 +63,7 @@ class MigrationMixin:
             FROM distribution_event
             """
         ).fetchall()
+        fingerprint_updates: list[tuple[Any, int]] = []
         for row in rows:
             event = {
                 "ex_date": row[2],
@@ -75,10 +76,13 @@ class MigrationMixin:
                 "source_url": row[9],
                 "observed_at": row[10],
             }
-            connection.execute(
-                "UPDATE distribution_event SET event_fingerprint = ? WHERE id = ?",
-                (self._event_fingerprint(str(row[1]), event), int(row[0])),
+            fingerprint_updates.append(
+                (self._event_fingerprint(str(row[1]), event), int(row[0]))
             )
+        connection.executemany(
+            "UPDATE distribution_event SET event_fingerprint = ? WHERE id = ?",
+            fingerprint_updates,
+        )
         connection.execute(
             """
             DELETE FROM distribution_event
@@ -104,6 +108,8 @@ class MigrationMixin:
         for row in search_rows:
             request_hash = self._request_hash(str(row[2]))
             grouped.setdefault((str(row[1]), request_hash), []).append(row)
+        keeper_updates: list[tuple] = []
+        duplicate_ids: list[tuple[int]] = []
         for (_query_type, request_hash), duplicates in grouped.items():
             keeper = duplicates[-1]
             try:
@@ -117,13 +123,7 @@ class MigrationMixin:
             created_at = min(str(row[4] or "") for row in duplicates)
             last_seen_at = max(str(row[6] or row[4] or "") for row in duplicates)
             keeper_id = int(keeper[0])
-            connection.execute(
-                """
-                UPDATE web_search_log
-                SET response_json = ?, request_hash = ?, occurrence_count = ?,
-                    created_at = ?, last_seen_at = ?
-                WHERE id = ?
-                """,
+            keeper_updates.append(
                 (
                     json.dumps(summary, ensure_ascii=False, separators=(",", ":")),
                     request_hash,
@@ -131,13 +131,26 @@ class MigrationMixin:
                     created_at,
                     last_seen_at,
                     keeper_id,
-                ),
+                )
             )
             if len(duplicates) > 1:
-                connection.executemany(
-                    "DELETE FROM web_search_log WHERE id = ?",
-                    [(int(row[0]),) for row in duplicates[:-1]],
+                duplicate_ids.extend(
+                    (int(row[0]),) for row in duplicates[:-1]
                 )
+        if duplicate_ids:
+            connection.executemany(
+                "DELETE FROM web_search_log WHERE id = ?",
+                duplicate_ids,
+            )
+        connection.executemany(
+            """
+            UPDATE web_search_log
+            SET response_json = ?, request_hash = ?, occurrence_count = ?,
+                created_at = ?, last_seen_at = ?
+            WHERE id = ?
+            """,
+            keeper_updates,
+        )
         connection.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_web_search_request_hash ON web_search_log(query_type, request_hash) WHERE request_hash <> ''"
         )

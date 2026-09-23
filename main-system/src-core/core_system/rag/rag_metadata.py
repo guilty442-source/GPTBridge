@@ -342,13 +342,13 @@ class PostgreSQLMetadataAuthority(
         """index_state shape: migration-managed columns + A374 provenance."""
         async with self._conn.cursor() as cur:
             for statement in _INDEX_STATE_DDL:
-                await cur.execute(statement)
+                await cur.execute(statement)  # sql-ok: DDL statements must run individually
 
     async def _ensure_saga_tables(self) -> None:
         """A374 durable saga stores + RAG-11 generation registry."""
         async with self._conn.cursor() as cur:
             for statement in (*_SAGA_DDL, *_GENERATION_DDL):
-                await cur.execute(statement)
+                await cur.execute(statement)  # sql-ok: DDL statements must run individually
 
     async def get_index_state(self, module_id: str, resource_id: str) -> Optional[IndexState]:
         """Fetch authoritative index state (A374)."""

@@ -66,7 +66,7 @@ def apply_session_identity(connection: Any, identity: SessionIdentity) -> list[t
     identity.validate()
     applied: list[tuple[str, str]] = []
     for name, value in identity.variables().items():
-        connection.execute(_SET_LOCAL_SQL, (name, value))
+        connection.execute(_SET_LOCAL_SQL, (name, value))  # sql-ok: set_config per session variable (5 fixed vars)
         applied.append((name, value))
     return applied
 

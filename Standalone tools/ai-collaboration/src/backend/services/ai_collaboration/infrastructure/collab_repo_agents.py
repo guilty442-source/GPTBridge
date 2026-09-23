@@ -54,11 +54,10 @@ class CollabRepoAgentsMixin:
         now = utc_now()
         with self._connect() as connection:
             connection.execute("UPDATE ai_nexus_agents SET selected = 0, updated_at = ?", (now,))
-            for agent_id in selected:
-                connection.execute(
-                    "UPDATE ai_nexus_agents SET selected = 1, updated_at = ? WHERE agent_id = ?",
-                    (now, agent_id),
-                )
+            connection.executemany(
+                "UPDATE ai_nexus_agents SET selected = 1, updated_at = ? WHERE agent_id = ?",
+                [(now, agent_id) for agent_id in selected],
+            )
 
     @staticmethod
     def _validated_external_url(value: str) -> str:

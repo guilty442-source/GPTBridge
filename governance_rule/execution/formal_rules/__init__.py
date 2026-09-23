@@ -162,7 +162,7 @@ def _registry_rows(
     ]
     return tuple(
         dict(zip(columns, row))
-        for row in connection.execute(f"SELECT * FROM {table}")
+        for row in connection.execute(f"SELECT * FROM {table}")  # sql-ok: PRAGMA-driven all-columns contract snapshot
     )
 
 

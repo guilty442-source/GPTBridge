@@ -28,16 +28,20 @@ class NotificationManager:
     def _ensure_defaults(self) -> None:
         now = utc_text()
         with self.store.connect() as connection:
-            for channel_id, channel_type, name, enabled in self.DEFAULT_CHANNELS:
-                connection.execute(
-                    """
-                    INSERT INTO notification_channels(
-                        channel_id, channel_type, name, enabled, config_encrypted, created_at, updated_at
-                    ) VALUES(?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(channel_id) DO NOTHING
-                    """,
-                    (channel_id, channel_type, name, int(enabled), protect_text("{}"), now, now),
-                )
+            connection.executemany(
+                """
+                INSERT INTO notification_channels(
+                    channel_id, channel_type, name, enabled, config_encrypted, created_at, updated_at
+                ) VALUES(?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(channel_id) DO NOTHING
+                """,
+                [
+                    (channel_id, channel_type, name, int(enabled),
+                     protect_text("{}"), now, now)
+                    for channel_id, channel_type, name, enabled
+                    in self.DEFAULT_CHANNELS
+                ],
+            )
 
     def list_channels(self) -> list[dict[str, Any]]:
         with self.store.connect() as connection:
@@ -73,15 +77,16 @@ class NotificationManager:
     def queue(self, title: str, body: str, *, severity: str = "info", channel_id: str = "") -> list[str]:
         channels = self.list_channels()
         selected = [item for item in channels if item["enabled"] and (not channel_id or item["channel_id"] == channel_id)]
-        identifiers = []
+        identifiers = [uuid.uuid4().hex for _ in selected]
         with self.store.connect() as connection:
-            for channel in selected:
-                notification_id = uuid.uuid4().hex
-                connection.execute(
-                    "INSERT INTO notification_outbox VALUES(?, ?, ?, ?, ?, ?, 'pending', '', '')",
-                    (notification_id, utc_text(), channel["channel_id"], severity, title[:240], protect_text(body)),
-                )
-                identifiers.append(notification_id)
+            connection.executemany(
+                "INSERT INTO notification_outbox VALUES(?, ?, ?, ?, ?, ?, 'pending', '', '')",
+                [
+                    (notification_id, utc_text(), channel["channel_id"],
+                     severity, title[:240], protect_text(body))
+                    for notification_id, channel in zip(identifiers, selected)
+                ],
+            )
         return identifiers
 
     def outbox(self, limit: int = 100) -> list[dict[str, Any]]:
@@ -154,6 +159,7 @@ class NotificationManager:
             item["error"] = unprotect_text(item.pop("error_encrypted"))
             pending.append(item)
         sent = failed = 0
+        outcomes: list[tuple[str, str, str, str]] = []
         for item in pending:
             try:
                 channel, config = self._channel(item["channel_id"])
@@ -165,9 +171,13 @@ class NotificationManager:
             except Exception as exc:
                 status, error = "failed", str(exc)
                 failed += 1
+            outcomes.append(
+                (status, utc_text(), protect_text(error), item["notification_id"])
+            )
+        if outcomes:
             with self.store.connect() as connection:
-                connection.execute(
+                connection.executemany(
                     "UPDATE notification_outbox SET status=?, sent_at=?, error_encrypted=? WHERE notification_id=?",
-                    (status, utc_text(), protect_text(error), item["notification_id"]),
+                    outcomes,
                 )
         return {"processed": len(pending), "sent": sent, "failed": failed}

@@ -112,7 +112,7 @@ class LocalSharedLayerStore:
                 ("next_retry_at", "TEXT"),
             ):
                 try:
-                    connection.execute(f"ALTER TABLE tool_request ADD COLUMN {col} {decl}")
+                    connection.execute(f"ALTER TABLE tool_request ADD COLUMN {col} {decl}")  # sql-ok: idempotent DDL per column
                 except sqlite3.OperationalError:
                     pass
             connection.execute(
