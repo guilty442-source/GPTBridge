@@ -12,6 +12,32 @@ if (string.IsNullOrWhiteSpace(toolRoot))
     return 2;
 }
 
+// P13 migration rehearsal: `rehearse-lifecycle` runs the lifecycle decision
+// drill without requiring the model service to be up (discovery is part of
+// the drill).  Flags: --activate (exercise governed start), --infer (real
+// model round trip).
+if (args.Any(a => a == "rehearse-lifecycle"))
+{
+    var projectRoot = GovernedIpcDiscovery.ResolveProjectRoot(null, toolRoot);
+    var orchestrator = new LifecycleOrchestrator(projectRoot, toolRoot);
+    var report = await orchestrator.RehearseAsync(
+        activateIfDown: args.Contains("--activate"),
+        runInfer: args.Contains("--infer"));
+    await WriteAsync(report);
+    return report.OverallOk ? 0 : 3;
+}
+
+// Governed lifecycle stop: `lifecycle-stop` issues toolbox_stop_tool for the
+// model owner through the authenticated IPC surface (rollback/ops path).
+if (args.Any(a => a == "lifecycle-stop"))
+{
+    var projectRoot = GovernedIpcDiscovery.ResolveProjectRoot(null, toolRoot);
+    var orchestrator = new LifecycleOrchestrator(projectRoot, toolRoot);
+    var step = await orchestrator.StopModelServiceAsync();
+    await WriteAsync(step);
+    return step.Ok ? 0 : 3;
+}
+
 HttpModelClient? client = null;
 try
 {
