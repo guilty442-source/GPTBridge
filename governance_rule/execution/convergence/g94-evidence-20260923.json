@@ -1,0 +1,49 @@
+{
+  "schema": "g94-evidence/v1",
+  "generated_at_utc": "2026-09-23T05:21:32Z",
+  "machine_schema": {
+    "total": 74,
+    "pending": 74,
+    "sample_pending": [
+      "RECEIPT_V1",
+      "TOKEN_V1",
+      "HEALTH_CONTRACT_V1",
+      "TEST_SUITE_V1",
+      "FINAL_DECISION_V1"
+    ]
+  },
+  "obligations": {
+    "total": 63,
+    "mandated": 62,
+    "sample_mandated": [
+      "OBL_ARCHITECTURE_CATALOG",
+      "OBL_TEST_SUITE_DIRECTORY",
+      "OBL_TOP_LEVEL_PATHS",
+      "OBL_LAYERED_ARCHITECTURE",
+      "OBL_ANTI_JAILBREAK"
+    ]
+  },
+  "directories": {
+    "total": 0,
+    "pending": 0,
+    "sample_pending": [
+      "no such column: status"
+    ]
+  },
+  "closures": {
+    "FINAL_PROJECT_CONVERGENCE_CLOSURE": {
+      "governance_state": "INCOMPLETE_EVIDENCE",
+      "structural_state": "registered"
+    },
+    "MACHINE_SCHEMA_PARITY_CLOSURE": {
+      "governance_state": "INCOMPLETE_EVIDENCE",
+      "structural_state": "registered"
+    },
+    "OBLIGATION_CLOSURE": {
+      "governance_state": "INCOMPLETE_EVIDENCE",
+      "structural_state": "registered"
+    }
+  },
+  "verdict": "INCOMPLETE_EVIDENCE",
+  "note": "Derived from live codex; closing requires codex amendment (governor) per A605/A607"
+}

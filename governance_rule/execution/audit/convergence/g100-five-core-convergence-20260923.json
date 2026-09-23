@@ -1,0 +1,42 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "G100",
+  "increment": "five-core capability/owner/process/dependency convergence (registry layer)",
+  "executed_at": "2026-09-23T05:30:00Z",
+  "worker": "devin-cli",
+  "changes": {
+    "architecture_registry.json": [
+      "added missing five-core process rows: permission-sovereign, system-runtime-sovereign (files exist, previously unregistered)",
+      "every component now carries architecture_code + block + unit lineage bound to codex project_architecture_directory (longest physical_root prefix containment)",
+      "new top-level five_cores section: per-core sovereign_id, owner_sovereign, target unit, capability list (from sovereign_duties), live process surface (non-retired owned components), unioned dependency set"
+    ],
+    "architecture_registry.py": [
+      "validate() enforces: non-retired physical components must bind a codex architecture row (architecture_code) and carry block/unit lineage keys",
+      "validate() enforces: five_cores must cover exactly the active sovereign set; each core requires owner_sovereign in active set, non-empty unit, and >=1 registered process component"
+    ]
+  },
+  "convergence_result": {
+    "components_total": 45,
+    "components_bound_to_codex_directory": 43,
+    "components_unbound": 0,
+    "components_virtual_or_root_bound": [
+      "origin-mirror (external_locator, no physical_path)",
+      "worker-plane (bound to PROJECT_GPTBRIDGE project root; no block/unit ancestor by codex design)"
+    ],
+    "five_cores": {
+      "decision": {"unit": "UNIT_DECISION", "processes": 3, "capabilities": 6},
+      "permission": {"unit": "UNIT_PERMISSION", "processes": 1, "capabilities": 1},
+      "runtime": {"unit": "UNIT_RUNTIME", "processes": 18, "capabilities": 6},
+      "automation": {"unit": "UNIT_AUTOMATION", "processes": 7, "capabilities": 1},
+      "xingcheng-assistant": {"unit": "UNIT_ASSISTANT", "processes": 13, "capabilities": 3}
+    },
+    "validator_positive": "PASS (0 errors)",
+    "validator_negative": "PASS (architecture_code removal and retired-sovereign owner both detected)"
+  },
+  "remaining_scope_not_in_this_increment": [
+    "mechanical-work migration C/C++/C# and Python residency removal (largest G100 sub-clause; requires per-component parity work, blueprint ordered)",
+    "third-party dependency keep/replace/remove disposition list",
+    "runtime_form native migration for xingcheng assistant core (X-package / WP-E work)"
+  ],
+  "codex_mutation": "none (read-only consumer; registry JSON is a governed projection)"
+}

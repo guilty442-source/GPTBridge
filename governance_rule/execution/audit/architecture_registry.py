@@ -308,6 +308,68 @@ def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
         if expected not in canonical_ids:
             errors.append(f"canonical authority is not marked canonical: {expected}")
 
+    # G100 five-core convergence: every non-retired component with a
+    # physical path must bind to a codex architecture row
+    # (architecture_code) and its block/unit lineage; virtual components
+    # (external_locator only) are exempt.
+    raw_components = payload.get("components") or []
+    for entry in raw_components:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("lifecycle") or "") == "retired":
+            continue
+        if not str(entry.get("physical_path") or "").strip():
+            continue
+        cid = str(entry.get("component_id") or "?")
+        if not str(entry.get("architecture_code") or "").strip():
+            errors.append(
+                f"component lacks architecture_code (codex directory binding): {cid}"
+            )
+        elif "block" not in entry or "unit" not in entry:
+            # Keys must exist even when the codex lineage legitimately
+            # has no block/unit ancestor (BLOCK_TOOLS members,
+            # project-root-bound components).
+            errors.append(f"component lacks block/unit lineage fields: {cid}")
+
+    # The five_cores section must cover exactly the active sovereign set —
+    # every core declares its sovereign owner, target unit and live
+    # process surface; no active sovereign may lack a core entry.
+    cores = payload.get("five_cores")
+    if payload.get("registry_id") == "gptbridge-architecture":
+        if not isinstance(cores, dict) or not cores:
+            errors.append("architecture registry must declare five_cores")
+            cores = {}
+    if isinstance(cores, dict):
+        covered = set()
+        for core_id, entry in cores.items():
+            if not isinstance(entry, dict):
+                errors.append(f"five_cores entry must be an object: {core_id}")
+                continue
+            owner = str(entry.get("owner_sovereign") or "")
+            if owner in active:
+                covered.add(owner)
+            else:
+                errors.append(
+                    f"five_cores owner is not an active sovereign: {core_id}:{owner}"
+                )
+            if not str(entry.get("unit") or "").strip():
+                errors.append(f"five_cores entry lacks unit: {core_id}")
+            processes = entry.get("processes")
+            if not isinstance(processes, list) or not processes:
+                errors.append(f"five_cores entry lacks processes: {core_id}")
+            else:
+                for proc in processes:
+                    if str(proc) not in seen:
+                        errors.append(
+                            f"five_cores process is not a component: {core_id}:{proc}"
+                        )
+        missing = active - covered
+        if missing:
+            errors.append(
+                "active sovereigns lack five_cores coverage: "
+                + ",".join(sorted(missing))
+            )
+
     errors.extend(validate_dependency_graph(payload))
 
     return errors

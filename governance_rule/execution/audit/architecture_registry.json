@@ -1,808 +1,1099 @@
 {
-  "schema_version": 1,
-  "registry_id": "gptbridge-architecture",
-  "authority": "governance_rule",
-  "updated_at": "2026-09-23",
-  "architectural_roles": [
-    "governance",
-    "startup",
-    "decision",
-    "information",
-    "data",
-    "execution",
-    "model",
-    "development-maintenance"
-  ],
-  "runtime_forms": [
-    "python-process",
-    "electron-app",
-    "standalone-service",
-    "node-runtime",
-    "database",
-    "external-service",
-    "build-tooling",
-    "git-repository",
-    "native-library",
-    "internal-service"
-  ],
-  "lifecycles": [
-    "resident",
-    "per-boot",
-    "per-launch",
-    "on-demand",
-    "degraded-only",
-    "retired"
-  ],
-  "module_labels": {
-    "trash": [
-      "global-cleaner",
-      "language-review",
-      "sub-sovereign-orchestration"
-    ]
-  },
-  "retired_module_cleanup_contract": {
-    "classification_auditor": "xingcheng-assistant",
-    "execution_owner": "automatic-cleanup-scheduler",
-    "required_state": "retired",
-    "required_authority_state": "non-authoritative",
-    "required_dependency_state": "zero-current-dependency",
-    "retention_required": true,
-    "audit_required": true
-  },
-  "execution_deadlines_seconds": {
-    "startup_to_main_ui_ready": 10,
-    "independent_tool_start": 5,
-    "independent_tool_stop": 5,
-    "mandatory_test_suite": 20,
-    "independent_audit_flow": 30
-  },
-  "local_model_startup_policy": {
-    "default_started": false,
-    "startup_mode": "explicit-user-switch-or-single-item-permission",
-    "shutdown_switch_required": true,
-    "automatic_restart_after_shutdown_forbidden": true
-  },
-  "model_dialogue_auto_routing_policy": {
-    "default_first_candidate": "xingcheng",
-    "fallback_conditions": [
-      "xingcheng-not-started",
-      "xingcheng-unavailable",
-      "capability-mismatch",
-      "governance-boundary-denied"
-    ],
-    "may_bypass_local_model_default_off": false
-  },
-  "sovereigns": {
-    "active": [
-      "decision",
-      "permission",
-      "system-runtime",
-      "automation",
-      "xingcheng-domain"
-    ],
-    "compatibility_shims": [
-      {
-        "sovereign_id": "maintenance",
-        "status": "retired",
-        "replacement": "health-maintenance-test-sub-sovereign",
-        "deprecated_since": "A302",
-        "removal_after": "zero-active-references",
-        "new_reference_forbidden": true
-      },
-      {
-        "sovereign_id": "synchronization-sovereign",
-        "status": "deprecated",
-        "replacement": "automation-sovereign",
-        "deprecated_since": "A486",
-        "removal_after": "zero-active-references",
-        "new_reference_forbidden": true
-      }
-    ]
-  },
-  "canonical_authorities": {
-    "structured-authority": "postgresql",
-    "governance-codex": "codex-authority",
-    "semantic-index": "qdrant"
-  },
-  "git_plane_flow": [
-    {
-      "from": "worker-plane",
-      "to": "self-commit-service"
-    },
-    {
-      "from": "self-commit-service",
-      "to": "integration-plane"
-    },
-    {
-      "from": "integration-plane",
-      "to": "git-tier-plane"
-    },
-    {
-      "from": "integration-plane",
-      "to": "recovery-plane"
-    },
-    {
-      "from": "git-tier-plane",
-      "to": "origin-mirror"
-    }
-  ],
-  "execution_model": {
-    "sovereign": "decision",
-    "sub_sovereign": "retired-A592",
-    "governed_executor": "execute",
-    "module": "feature-implementation"
-  },
-  "components": [
-    {
-      "component_id": "governance_rule",
-      "architectural_role": "governance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "decision",
-      "execution_identity": "governance-rule",
-      "physical_path": "governance_rule",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [],
-      "information_channels": []
-    },
-    {
-      "component_id": "codex-authority",
-      "architectural_role": "governance",
-      "runtime_form": "database",
-      "owner_sovereign": "decision",
-      "execution_identity": "governance-codex",
-      "physical_path": "governance_rule/codex",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "governance_rule"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "main-system",
-      "architectural_role": "decision",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "main-system",
-      "physical_path": "main-system",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "governance_rule",
-        "shared-layer",
-        "postgresql"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "boot-core",
-      "architectural_role": "startup",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "boot-core",
-      "physical_path": "main-system/src-core",
-      "lifecycle": "per-boot",
-      "canonical": true,
-      "dependencies": [
-        "main-system"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "bootstrap-entry",
-      "architectural_role": "startup",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "bootstrap-entry",
-      "physical_path": "main-system/launcher",
-      "lifecycle": "per-launch",
-      "canonical": true,
-      "dependencies": [
-        "boot-core"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "launcher-ui",
-      "architectural_role": "startup",
-      "runtime_form": "electron-app",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "launcher-ui",
-      "physical_path": "main-system/launcher",
-      "lifecycle": "per-launch",
-      "canonical": true,
-      "dependencies": [
-        "bootstrap-entry"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "decision-sovereign",
-      "architectural_role": "decision",
-      "runtime_form": "python-process",
-      "owner_sovereign": "decision",
-      "execution_identity": "decision-sovereign",
-      "physical_path": "main-system/governance/sovereigns",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "governance_rule"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "automation-sovereign",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "automation",
-      "execution_identity": "automation-sovereign",
-      "physical_path": "main-system/governance/sovereigns/automation_sovereign.py",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "governance_rule"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "xingcheng-sovereign",
-      "architectural_role": "decision",
-      "runtime_form": "python-process",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "xingcheng-sovereign",
-      "physical_path": "main-system/governance/sovereigns",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "governance_rule",
-        "postgresql"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "sub-sovereign-orchestration",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "sub-sovereign-orchestration",
-      "physical_path": "main-system/governance/sub-sovereigns",
-      "lifecycle": "retired",
-      "canonical": false,
-      "dependencies": [
-        "decision-sovereign"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "shared-layer",
-      "architectural_role": "information",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "shared-layer",
-      "physical_path": "shared-layer",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "postgresql",
-        "qdrant",
-        "codex-authority"
-      ],
-      "information_channels": [
-        "information-channel",
-        "transport",
-        "outbox",
-        "state-events"
-      ]
-    },
-    {
-      "component_id": "tokenizer",
-      "architectural_role": "information",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "tokenizer",
-      "physical_path": "shared-layer/src/shared_layer/tokenizer.py",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "information-channel-gateway",
-      "architectural_role": "information",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "information-channel-gateway",
-      "physical_path": "shared-layer/src/channel_runtime.py",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "postgresql",
-      "architectural_role": "data",
-      "runtime_form": "external-service",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "gptbridge-postgresql",
-      "physical_path": "shared-layer/sql",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [],
-      "information_channels": [
-        "transport",
-        "audit",
-        "index"
-      ]
-    },
-    {
-      "component_id": "qdrant",
-      "architectural_role": "data",
-      "runtime_form": "external-service",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "gptbridge-qdrant",
-      "physical_path": "shared-layer/sql",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [],
-      "information_channels": [
-        "semantic-index"
-      ]
-    },
-    {
-      "component_id": "module-sqlite",
-      "architectural_role": "data",
-      "runtime_form": "database",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "module-private-sqlite",
-      "physical_path": "shared-layer/sql",
-      "lifecycle": "resident",
-      "canonical": false,
-      "dependencies": [],
-      "information_channels": [
-        "local-fallback"
-      ]
-    },
-    {
-      "component_id": "local-vector",
-      "architectural_role": "data",
-      "runtime_form": "database",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "local-vector-fallback",
-      "physical_path": "shared-layer/sql",
-      "lifecycle": "degraded-only",
-      "canonical": false,
-      "dependencies": [],
-      "information_channels": [
-        "local-fallback"
-      ]
-    },
-    {
-      "component_id": "ollama",
-      "architectural_role": "model",
-      "runtime_form": "external-service",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "gptbridge-ollama",
-      "physical_path": "shared-layer/sql",
-      "lifecycle": "resident",
-      "canonical": false,
-      "dependencies": [],
-      "information_channels": []
-    },
-    {
-      "component_id": "local-model",
-      "architectural_role": "model",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "local-model",
-      "physical_path": "Standalone tools/local-model",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer",
-        "ollama",
-        "qdrant"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "xingcheng",
-      "architectural_role": "model",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "xingcheng-native-model",
-      "physical_path": "Standalone tools/local-model/xingcheng",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "xingcheng-assistant",
-        "local-model",
-        "postgresql"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "xingcheng-assistant",
-      "architectural_role": "decision",
-      "runtime_form": "electron-app",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "xingcheng-assistant-identity-group",
-      "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "xingcheng-assistant-store",
-        "information-channel-gateway"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "xingcheng-assistant-store",
-      "architectural_role": "data",
-      "runtime_form": "database",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "xingcheng-assistant-identity-database",
-      "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [],
-      "information_channels": []
-    },
-    {
-      "component_id": "xingcheng-personality-store",
-      "architectural_role": "data",
-      "runtime_form": "database",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "xingcheng-identity-database",
-      "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "xingcheng"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "xingcheng-auto-learning-module",
-      "architectural_role": "model",
-      "runtime_form": "python-process",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "xingcheng-native-model",
-      "physical_path": "main-system/governance/sovereigns/xingcheng/learning_sub_sovereign.py",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "xingcheng",
-        "xingcheng-personality-store"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "xingcheng-auto-repair-module",
-      "architectural_role": "model",
-      "runtime_form": "python-process",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "xingcheng-native-model",
-      "physical_path": "main-system/src-core/tasks/central_repair.py",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "xingcheng",
-        "xingcheng-auto-learning-module"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "model-dialogue",
-      "architectural_role": "execution",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "model-dialogue-ui",
-      "physical_path": "Standalone tools/local-model/model-dialogue",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "local-model"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "ai-assistant",
-      "architectural_role": "execution",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "ai-assistant",
-      "physical_path": "Standalone tools/ai-assistant",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "ai-collaboration",
-      "architectural_role": "execution",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "ai-collaboration",
-      "physical_path": "Standalone tools/ai-collaboration",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "file-sorter",
-      "architectural_role": "execution",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "file-sorter",
-      "physical_path": "Standalone tools/file-sorter",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "investment-mobile",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "investment-mobile",
-      "physical_path": "Standalone tools/investment-mobile",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer",
-        "ai-assistant"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "global-cleaner",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "retired-global-cleaner",
-      "physical_path": "",
-      "external_locator": "git-history:Standalone tools/global-cleaner (deleted E14 2026-09-22)",
-      "lifecycle": "retired",
-      "canonical": false,
-      "dependencies": [],
-      "information_channels": []
-    },
-    {
-      "component_id": "system-rescue",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "main-system:system-rescue",
-      "physical_path": "Standalone tools/system-rescue",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "vaultly",
-      "architectural_role": "execution",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "vaultly",
-      "physical_path": "Standalone tools/vaultly",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "git-tier-plane",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "build-tooling",
-      "owner_sovereign": "automation",
-      "execution_identity": "git-tier",
-      "physical_path": "governance_rule/execution/git_tiers",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "governance_rule",
-        "integration-plane"
-      ],
-      "information_channels": [
-        "tier",
-        "hooks",
-        "audit"
-      ]
-    },
-    {
-      "component_id": "worker-plane",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "standalone-service",
-      "owner_sovereign": "automation",
-      "execution_identity": "ai-worker-plane",
-      "physical_path": "E:/GPTBridge/.worktrees",
-      "lifecycle": "resident",
-      "canonical": false,
-      "dependencies": [],
-      "information_channels": [
-        "worktree",
-        "self-commit-queue"
-      ]
-    },
-    {
-      "component_id": "self-commit-service",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "automation",
-      "execution_identity": "self-commit-service",
-      "physical_path": "governance_rule/execution/git_tiers",
-      "lifecycle": "resident",
-      "canonical": false,
-      "dependencies": [
-        "worker-plane"
-      ],
-      "information_channels": [
-        "self-commit"
-      ]
-    },
-    {
-      "component_id": "integration-plane",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "automation",
-      "execution_identity": "integration-coordinator",
-      "physical_path": "governance_rule/execution/git_tiers",
-      "lifecycle": "resident",
-      "canonical": false,
-      "dependencies": [
-        "self-commit-service"
-      ],
-      "information_channels": [
-        "merge-queue",
-        "main-ref"
-      ]
-    },
-    {
-      "component_id": "recovery-plane",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "automation",
-      "execution_identity": "git-disaster-recovery",
-      "physical_path": "governance_rule/execution/git_tiers",
-      "lifecycle": "resident",
-      "canonical": false,
-      "dependencies": [
-        "integration-plane"
-      ],
-      "information_channels": [
-        "recovery-points",
-        "recovery-refs",
-        "verified-bundles",
-        "dr-manifests"
-      ]
-    },
-    {
-      "component_id": "origin-mirror",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "external-service",
-      "owner_sovereign": "automation",
-      "execution_identity": "origin-mirror",
-      "physical_path": "",
-      "external_locator": "https://github.com/guilty442-source/GPTBridge.git",
-      "lifecycle": "resident",
-      "canonical": false,
-      "dependencies": [
-        "git-tier-plane"
-      ],
-      "information_channels": [
-        "remote-mirror"
-      ]
-    },
-    {
-      "component_id": "language-review",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "automation",
-      "execution_identity": "language-review",
-      "physical_path": "main-system/governance/sub-sovereigns",
-      "lifecycle": "retired",
-      "canonical": false,
-      "dependencies": [
-        "governance_rule"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "business-logic-csharp",
-      "architectural_role": "execution",
-      "runtime_form": "internal-service",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "business-logic-csharp",
-      "physical_path": "Standalone tools/business-logic-csharp",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "local-model",
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    },
-    {
-      "component_id": "native-compute-core",
-      "architectural_role": "execution",
-      "runtime_form": "native-library",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "native-compute-core",
-      "physical_path": "native/core",
-      "lifecycle": "resident",
-      "canonical": true,
-      "dependencies": [
-        "governance_rule"
-      ],
-      "information_channels": []
-    },
-    {
-      "component_id": "model-training",
-      "architectural_role": "model",
-      "runtime_form": "python-process",
-      "owner_sovereign": "xingcheng-domain",
-      "execution_identity": "model-training",
-      "physical_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "local-model",
-        "shared-layer",
-        "native-compute-core"
-      ],
-      "information_channels": [
-        "information-channel"
-      ]
-    }
+ "schema_version": 1,
+ "registry_id": "gptbridge-architecture",
+ "authority": "governance_rule",
+ "updated_at": "2026-09-23T05:30:00Z",
+ "architectural_roles": [
+  "governance",
+  "startup",
+  "decision",
+  "information",
+  "data",
+  "execution",
+  "model",
+  "development-maintenance"
+ ],
+ "runtime_forms": [
+  "python-process",
+  "electron-app",
+  "standalone-service",
+  "node-runtime",
+  "database",
+  "external-service",
+  "build-tooling",
+  "git-repository",
+  "native-library",
+  "internal-service"
+ ],
+ "lifecycles": [
+  "resident",
+  "per-boot",
+  "per-launch",
+  "on-demand",
+  "degraded-only",
+  "retired"
+ ],
+ "module_labels": {
+  "trash": [
+   "global-cleaner",
+   "language-review",
+   "sub-sovereign-orchestration"
   ]
+ },
+ "retired_module_cleanup_contract": {
+  "classification_auditor": "xingcheng-assistant",
+  "execution_owner": "automatic-cleanup-scheduler",
+  "required_state": "retired",
+  "required_authority_state": "non-authoritative",
+  "required_dependency_state": "zero-current-dependency",
+  "retention_required": true,
+  "audit_required": true
+ },
+ "execution_deadlines_seconds": {
+  "startup_to_main_ui_ready": 10,
+  "independent_tool_start": 5,
+  "independent_tool_stop": 5,
+  "mandatory_test_suite": 20,
+  "independent_audit_flow": 30
+ },
+ "local_model_startup_policy": {
+  "default_started": false,
+  "startup_mode": "explicit-user-switch-or-single-item-permission",
+  "shutdown_switch_required": true,
+  "automatic_restart_after_shutdown_forbidden": true
+ },
+ "model_dialogue_auto_routing_policy": {
+  "default_first_candidate": "xingcheng",
+  "fallback_conditions": [
+   "xingcheng-not-started",
+   "xingcheng-unavailable",
+   "capability-mismatch",
+   "governance-boundary-denied"
+  ],
+  "may_bypass_local_model_default_off": false
+ },
+ "sovereigns": {
+  "active": [
+   "decision",
+   "permission",
+   "system-runtime",
+   "automation",
+   "xingcheng-domain"
+  ],
+  "compatibility_shims": [
+   {
+    "sovereign_id": "maintenance",
+    "status": "retired",
+    "replacement": "health-maintenance-test-sub-sovereign",
+    "deprecated_since": "A302",
+    "removal_after": "zero-active-references",
+    "new_reference_forbidden": true
+   },
+   {
+    "sovereign_id": "synchronization-sovereign",
+    "status": "deprecated",
+    "replacement": "automation-sovereign",
+    "deprecated_since": "A486",
+    "removal_after": "zero-active-references",
+    "new_reference_forbidden": true
+   }
+  ]
+ },
+ "canonical_authorities": {
+  "structured-authority": "postgresql",
+  "governance-codex": "codex-authority",
+  "semantic-index": "qdrant"
+ },
+ "git_plane_flow": [
+  {
+   "from": "worker-plane",
+   "to": "self-commit-service"
+  },
+  {
+   "from": "self-commit-service",
+   "to": "integration-plane"
+  },
+  {
+   "from": "integration-plane",
+   "to": "git-tier-plane"
+  },
+  {
+   "from": "integration-plane",
+   "to": "recovery-plane"
+  },
+  {
+   "from": "git-tier-plane",
+   "to": "origin-mirror"
+  }
+ ],
+ "execution_model": {
+  "sovereign": "decision",
+  "sub_sovereign": "retired-A592",
+  "governed_executor": "execute",
+  "module": "feature-implementation"
+ },
+ "components": [
+  {
+   "component_id": "governance_rule",
+   "architectural_role": "governance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "decision",
+   "execution_identity": "governance-rule",
+   "physical_path": "governance_rule",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [],
+   "information_channels": [],
+   "architecture_code": "CODEX_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "codex-authority",
+   "architectural_role": "governance",
+   "runtime_form": "database",
+   "owner_sovereign": "decision",
+   "execution_identity": "governance-codex",
+   "physical_path": "governance_rule/codex",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule"
+   ],
+   "information_channels": [],
+   "architecture_code": "GOVERNANCE_CODEX",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "main-system",
+   "architectural_role": "decision",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "main-system",
+   "physical_path": "main-system",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule",
+    "shared-layer",
+    "postgresql"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "MAIN_SYSTEM",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "boot-core",
+   "architectural_role": "startup",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "boot-core",
+   "physical_path": "main-system/src-core",
+   "lifecycle": "per-boot",
+   "canonical": true,
+   "dependencies": [
+    "main-system"
+   ],
+   "information_channels": [],
+   "architecture_code": "MAIN_SYSTEM",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "bootstrap-entry",
+   "architectural_role": "startup",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "bootstrap-entry",
+   "physical_path": "main-system/launcher",
+   "lifecycle": "per-launch",
+   "canonical": true,
+   "dependencies": [
+    "boot-core"
+   ],
+   "information_channels": [],
+   "architecture_code": "LAUNCHER",
+   "unit": "UNIT_BOOTSTRAP",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "launcher-ui",
+   "architectural_role": "startup",
+   "runtime_form": "electron-app",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "launcher-ui",
+   "physical_path": "main-system/launcher",
+   "lifecycle": "per-launch",
+   "canonical": true,
+   "dependencies": [
+    "bootstrap-entry"
+   ],
+   "information_channels": [],
+   "architecture_code": "LAUNCHER",
+   "unit": "UNIT_BOOTSTRAP",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "decision-sovereign",
+   "architectural_role": "decision",
+   "runtime_form": "python-process",
+   "owner_sovereign": "decision",
+   "execution_identity": "decision-sovereign",
+   "physical_path": "main-system/governance/sovereigns",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule"
+   ],
+   "information_channels": [],
+   "architecture_code": "SOVEREIGN_DECISION_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "automation-sovereign",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "automation",
+   "execution_identity": "automation-sovereign",
+   "physical_path": "main-system/governance/sovereigns/automation_sovereign.py",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule"
+   ],
+   "information_channels": [],
+   "architecture_code": "SOVEREIGN_DECISION_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "xingcheng-sovereign",
+   "architectural_role": "decision",
+   "runtime_form": "python-process",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "xingcheng-sovereign",
+   "physical_path": "main-system/governance/sovereigns",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule",
+    "postgresql"
+   ],
+   "information_channels": [],
+   "architecture_code": "SOVEREIGN_DECISION_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "sub-sovereign-orchestration",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "sub-sovereign-orchestration",
+   "physical_path": "main-system/governance/sub-sovereigns",
+   "lifecycle": "retired",
+   "canonical": false,
+   "dependencies": [
+    "decision-sovereign"
+   ],
+   "information_channels": [],
+   "architecture_code": "SUB_SOVEREIGN_LAYER",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "shared-layer",
+   "architectural_role": "information",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "shared-layer",
+   "physical_path": "shared-layer",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "postgresql",
+    "qdrant",
+    "codex-authority"
+   ],
+   "information_channels": [
+    "information-channel",
+    "transport",
+    "outbox",
+    "state-events"
+   ],
+   "architecture_code": "SHARED_LAYER",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED"
+  },
+  {
+   "component_id": "tokenizer",
+   "architectural_role": "information",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "tokenizer",
+   "physical_path": "shared-layer/src/shared_layer/tokenizer.py",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "SHARED_LAYER",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED"
+  },
+  {
+   "component_id": "information-channel-gateway",
+   "architectural_role": "information",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "information-channel-gateway",
+   "physical_path": "shared-layer/src/channel_runtime.py",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "SHARED_LAYER",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED"
+  },
+  {
+   "component_id": "postgresql",
+   "architectural_role": "data",
+   "runtime_form": "external-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "gptbridge-postgresql",
+   "physical_path": "shared-layer/sql",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [],
+   "information_channels": [
+    "transport",
+    "audit",
+    "index"
+   ],
+   "architecture_code": "SHARED_LAYER",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED"
+  },
+  {
+   "component_id": "qdrant",
+   "architectural_role": "data",
+   "runtime_form": "external-service",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "gptbridge-qdrant",
+   "physical_path": "shared-layer/sql",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [],
+   "information_channels": [
+    "semantic-index"
+   ],
+   "architecture_code": "SHARED_LAYER",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED"
+  },
+  {
+   "component_id": "module-sqlite",
+   "architectural_role": "data",
+   "runtime_form": "database",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "module-private-sqlite",
+   "physical_path": "shared-layer/sql",
+   "lifecycle": "resident",
+   "canonical": false,
+   "dependencies": [],
+   "information_channels": [
+    "local-fallback"
+   ],
+   "architecture_code": "SHARED_LAYER",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED"
+  },
+  {
+   "component_id": "local-vector",
+   "architectural_role": "data",
+   "runtime_form": "database",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "local-vector-fallback",
+   "physical_path": "shared-layer/sql",
+   "lifecycle": "degraded-only",
+   "canonical": false,
+   "dependencies": [],
+   "information_channels": [
+    "local-fallback"
+   ],
+   "architecture_code": "SHARED_LAYER",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED"
+  },
+  {
+   "component_id": "ollama",
+   "architectural_role": "model",
+   "runtime_form": "external-service",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "gptbridge-ollama",
+   "physical_path": "shared-layer/sql",
+   "lifecycle": "resident",
+   "canonical": false,
+   "dependencies": [],
+   "information_channels": [],
+   "architecture_code": "SHARED_LAYER",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED"
+  },
+  {
+   "component_id": "local-model",
+   "architectural_role": "model",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "local-model",
+   "physical_path": "Standalone tools/local-model",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer",
+    "ollama",
+    "qdrant"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "LOCAL_MODEL",
+   "unit": "UNIT_ENGINE",
+   "block": "BLOCK_MODEL"
+  },
+  {
+   "component_id": "xingcheng",
+   "architectural_role": "model",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "xingcheng-native-model",
+   "physical_path": "Standalone tools/local-model/xingcheng",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "xingcheng-assistant",
+    "local-model",
+    "postgresql"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "XINGCHENG_INSTITUTION_ROOT",
+   "unit": "UNIT_ASSISTANT",
+   "block": "BLOCK_XINGCHENG"
+  },
+  {
+   "component_id": "xingcheng-assistant",
+   "architectural_role": "decision",
+   "runtime_form": "electron-app",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "xingcheng-assistant-identity-group",
+   "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "xingcheng-assistant-store",
+    "information-channel-gateway"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "MAIN_SYSTEM",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "xingcheng-assistant-store",
+   "architectural_role": "data",
+   "runtime_form": "database",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "xingcheng-assistant-identity-database",
+   "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [],
+   "information_channels": [],
+   "architecture_code": "MAIN_SYSTEM",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "xingcheng-personality-store",
+   "architectural_role": "data",
+   "runtime_form": "database",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "xingcheng-identity-database",
+   "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "xingcheng"
+   ],
+   "information_channels": [],
+   "architecture_code": "MAIN_SYSTEM",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "xingcheng-auto-learning-module",
+   "architectural_role": "model",
+   "runtime_form": "python-process",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "xingcheng-native-model",
+   "physical_path": "main-system/governance/sovereigns/xingcheng/learning_sub_sovereign.py",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "xingcheng",
+    "xingcheng-personality-store"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "SOVEREIGN_DECISION_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "xingcheng-auto-repair-module",
+   "architectural_role": "model",
+   "runtime_form": "python-process",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "xingcheng-native-model",
+   "physical_path": "main-system/src-core/tasks/central_repair.py",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "xingcheng",
+    "xingcheng-auto-learning-module"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "MAIN_SYSTEM",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "model-dialogue",
+   "architectural_role": "execution",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "model-dialogue-ui",
+   "physical_path": "Standalone tools/local-model/model-dialogue",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "local-model"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "MODEL_DIALOGUE",
+   "unit": "UNIT_DIALOGUE",
+   "block": "BLOCK_MODEL"
+  },
+  {
+   "component_id": "ai-assistant",
+   "architectural_role": "execution",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "ai-assistant",
+   "physical_path": "Standalone tools/ai-assistant",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "AI_ASSISTANT",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
+   "component_id": "ai-collaboration",
+   "architectural_role": "execution",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "ai-collaboration",
+   "physical_path": "Standalone tools/ai-collaboration",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "AI_COLLABORATION",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
+   "component_id": "file-sorter",
+   "architectural_role": "execution",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "file-sorter",
+   "physical_path": "Standalone tools/file-sorter",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "FILE_SORTER",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
+   "component_id": "investment-mobile",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "investment-mobile",
+   "physical_path": "Standalone tools/investment-mobile",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer",
+    "ai-assistant"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "INVESTMENT_MOBILE",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
+   "component_id": "global-cleaner",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "retired-global-cleaner",
+   "physical_path": "",
+   "external_locator": "git-history:Standalone tools/global-cleaner (deleted E14 2026-09-22)",
+   "lifecycle": "retired",
+   "canonical": false,
+   "dependencies": [],
+   "information_channels": [],
+   "architecture_code": "",
+   "unit": "",
+   "block": ""
+  },
+  {
+   "component_id": "system-rescue",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "main-system:system-rescue",
+   "physical_path": "Standalone tools/system-rescue",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "SYSTEM_RESCUE",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
+   "component_id": "vaultly",
+   "architectural_role": "execution",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "vaultly",
+   "physical_path": "Standalone tools/vaultly",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "VAULTLY",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
+   "component_id": "git-tier-plane",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "build-tooling",
+   "owner_sovereign": "automation",
+   "execution_identity": "git-tier",
+   "physical_path": "governance_rule/execution/git_tiers",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule",
+    "integration-plane"
+   ],
+   "information_channels": [
+    "tier",
+    "hooks",
+    "audit"
+   ],
+   "architecture_code": "CODEX_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "worker-plane",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "automation",
+   "execution_identity": "ai-worker-plane",
+   "physical_path": "E:/GPTBridge/.worktrees",
+   "lifecycle": "resident",
+   "canonical": false,
+   "dependencies": [],
+   "information_channels": [
+    "worktree",
+    "self-commit-queue"
+   ],
+   "architecture_code": "PROJECT_GPTBRIDGE",
+   "unit": "",
+   "block": ""
+  },
+  {
+   "component_id": "self-commit-service",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "automation",
+   "execution_identity": "self-commit-service",
+   "physical_path": "governance_rule/execution/git_tiers",
+   "lifecycle": "resident",
+   "canonical": false,
+   "dependencies": [
+    "worker-plane"
+   ],
+   "information_channels": [
+    "self-commit"
+   ],
+   "architecture_code": "CODEX_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "integration-plane",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "automation",
+   "execution_identity": "integration-coordinator",
+   "physical_path": "governance_rule/execution/git_tiers",
+   "lifecycle": "resident",
+   "canonical": false,
+   "dependencies": [
+    "self-commit-service"
+   ],
+   "information_channels": [
+    "merge-queue",
+    "main-ref"
+   ],
+   "architecture_code": "CODEX_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "recovery-plane",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "automation",
+   "execution_identity": "git-disaster-recovery",
+   "physical_path": "governance_rule/execution/git_tiers",
+   "lifecycle": "resident",
+   "canonical": false,
+   "dependencies": [
+    "integration-plane"
+   ],
+   "information_channels": [
+    "recovery-points",
+    "recovery-refs",
+    "verified-bundles",
+    "dr-manifests"
+   ],
+   "architecture_code": "CODEX_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "origin-mirror",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "external-service",
+   "owner_sovereign": "automation",
+   "execution_identity": "origin-mirror",
+   "physical_path": "",
+   "external_locator": "https://github.com/guilty442-source/GPTBridge.git",
+   "lifecycle": "resident",
+   "canonical": false,
+   "dependencies": [
+    "git-tier-plane"
+   ],
+   "information_channels": [
+    "remote-mirror"
+   ],
+   "architecture_code": "",
+   "unit": "",
+   "block": ""
+  },
+  {
+   "component_id": "language-review",
+   "architectural_role": "development-maintenance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "automation",
+   "execution_identity": "language-review",
+   "physical_path": "main-system/governance/sub-sovereigns",
+   "lifecycle": "retired",
+   "canonical": false,
+   "dependencies": [
+    "governance_rule"
+   ],
+   "information_channels": [],
+   "architecture_code": "SUB_SOVEREIGN_LAYER",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "business-logic-csharp",
+   "architectural_role": "execution",
+   "runtime_form": "internal-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "business-logic-csharp",
+   "physical_path": "Standalone tools/business-logic-csharp",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "local-model",
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "BUSINESS_LOGIC_CSHARP",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
+   "component_id": "native-compute-core",
+   "architectural_role": "execution",
+   "runtime_form": "native-library",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "native-compute-core",
+   "physical_path": "native/core",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule"
+   ],
+   "information_channels": [],
+   "architecture_code": "NATIVE_COMPUTE_CORE",
+   "unit": "UNIT_RUNTIME",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "model-training",
+   "architectural_role": "model",
+   "runtime_form": "python-process",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "model-training",
+   "physical_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "local-model",
+    "shared-layer",
+    "native-compute-core"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "MODEL_TRAINING",
+   "unit": "UNIT_ENGINE",
+   "block": "BLOCK_MODEL"
+  },
+  {
+   "component_id": "permission-sovereign",
+   "architectural_role": "decision",
+   "runtime_form": "python-process",
+   "owner_sovereign": "permission",
+   "owner_sub_sovereign": "",
+   "execution_identity": "permission-sovereign",
+   "physical_path": "main-system/governance/sovereigns/permission_sovereign.py",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule"
+   ],
+   "information_channels": [],
+   "architecture_code": "SOVEREIGN_DECISION_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  },
+  {
+   "component_id": "system-runtime-sovereign",
+   "architectural_role": "governance",
+   "runtime_form": "python-process",
+   "owner_sovereign": "system-runtime",
+   "owner_sub_sovereign": "",
+   "execution_identity": "system-runtime-sovereign",
+   "physical_path": "main-system/governance/sovereigns/system_runtime_sovereign.py",
+   "lifecycle": "resident",
+   "canonical": true,
+   "dependencies": [
+    "governance_rule"
+   ],
+   "information_channels": [],
+   "architecture_code": "SOVEREIGN_DECISION_LAYER",
+   "unit": "UNIT_DECISION",
+   "block": "BLOCK_CORE"
+  }
+ ],
+ "five_cores": {
+  "decision": {
+   "sovereign_id": "decision-sovereign",
+   "owner_sovereign": "decision",
+   "unit": "UNIT_DECISION",
+   "capabilities": [
+    "system-wide-decision",
+    "system-policy-and-priority-decision",
+    "dependency-and-state-decision",
+    "sovereign-delegation-decision",
+    "system-change-acceptance-decision",
+    "task-assignment-validation"
+   ],
+   "processes": [
+    "codex-authority",
+    "decision-sovereign",
+    "governance_rule"
+   ],
+   "dependencies": []
+  },
+  "permission": {
+   "sovereign_id": "permission-sovereign",
+   "owner_sovereign": "permission",
+   "unit": "UNIT_PERMISSION",
+   "capabilities": [
+    "preserve-independent-two-key-permission-authorization-boundary"
+   ],
+   "processes": [
+    "permission-sovereign"
+   ],
+   "dependencies": [
+    "governance_rule"
+   ]
+  },
+  "runtime": {
+   "sovereign_id": "system-runtime-sovereign",
+   "owner_sovereign": "system-runtime",
+   "unit": "UNIT_RUNTIME",
+   "capabilities": [
+    "system-runtime-management",
+    "startup-and-shutdown-coordination",
+    "service-continuity-management",
+    "runtime-state-synchronization",
+    "runtime-dispatch-decision",
+    "execution-validation"
+   ],
+   "processes": [
+    "ai-assistant",
+    "ai-collaboration",
+    "boot-core",
+    "bootstrap-entry",
+    "business-logic-csharp",
+    "file-sorter",
+    "information-channel-gateway",
+    "investment-mobile",
+    "launcher-ui",
+    "main-system",
+    "module-sqlite",
+    "native-compute-core",
+    "postgresql",
+    "shared-layer",
+    "system-rescue",
+    "system-runtime-sovereign",
+    "tokenizer",
+    "vaultly"
+   ],
+   "dependencies": [
+    "codex-authority",
+    "governance_rule",
+    "local-model",
+    "qdrant"
+   ]
+  },
+  "automation": {
+   "sovereign_id": "automation-sovereign",
+   "owner_sovereign": "automation",
+   "unit": "UNIT_AUTOMATION",
+   "capabilities": [
+    "decide-synchronization-policy-priority-conflict-and-acceptance"
+   ],
+   "processes": [
+    "automation-sovereign",
+    "git-tier-plane",
+    "integration-plane",
+    "origin-mirror",
+    "recovery-plane",
+    "self-commit-service",
+    "worker-plane"
+   ],
+   "dependencies": [
+    "governance_rule"
+   ]
+  },
+  "xingcheng-assistant": {
+   "sovereign_id": "星澄",
+   "owner_sovereign": "xingcheng-domain",
+   "unit": "UNIT_ASSISTANT",
+   "capabilities": [
+    "native programming analysis code authoring editing debugging refactoring testing and independent verification",
+    "programming-language conformance acceptance migration and generated-code review",
+    "whole-system automatic classification decomposition scheduling dispatch coordination convergence evidence and fault isolation through the 星澄 auxiliary system and native model"
+   ],
+   "processes": [
+    "local-model",
+    "local-vector",
+    "model-dialogue",
+    "model-training",
+    "ollama",
+    "qdrant",
+    "xingcheng",
+    "xingcheng-assistant",
+    "xingcheng-assistant-store",
+    "xingcheng-auto-learning-module",
+    "xingcheng-auto-repair-module",
+    "xingcheng-personality-store",
+    "xingcheng-sovereign"
+   ],
+   "dependencies": [
+    "governance_rule",
+    "information-channel-gateway",
+    "native-compute-core",
+    "postgresql",
+    "shared-layer"
+   ]
+  }
+ }
 }
