@@ -34,7 +34,6 @@
       "deadline coverage confirmed present in watchdog(interval)/outbox(retry_deadline)/scheduler(next_due)/activation(poll_interval,state_write_due); runtime_state heartbeat has NO staleness semantics in the Python authoritative model (aggregate = counts only) and ipc has no request deadline — both are N/A modeling absences, not unobserved dimensions"
     ],
     "p4_closure_state": "all wired-able dimensions wired: io/state/error/failclosed in 8/8, deadline in 4/8 (4 N/A), cancel in 3/8 (2 N/A, 1 python-noop feature-gap, ipc request-table absent, activation cancel absent — documented), resource-budget observation 8/8 added this increment; P4 residual = Python-side feature work (ipc request table, maintenance cancel persistence) + two release observation windows (timeline gate)"
-    ]
   },
   "verification": "maintenance shadow wiring tests + ipc shadow tests pass; periodic_scheduler single failure is a CPU-capped timing flake (passes standalone)",
   "note": "per-module closure requires filling remaining dimension gaps; resource-observation now systematic across all 8 harnesses",

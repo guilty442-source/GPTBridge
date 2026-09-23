@@ -1,0 +1,507 @@
+{
+  "schema": "five-core-convergence-report/v1",
+  "derived_from": [
+    "governance_rule\\execution\\convergence\\five-core-mapping.json",
+    "governance_rule\\execution\\audit\\architecture_registry.json",
+    "governance_rule\\execution\\audit\\convergence\\p4-shadow-parity-gap-matrix-20260923.json",
+    "governance_rule\\execution\\audit\\convergence\\p6-python-mechanical-inventory-20260923.json"
+  ],
+  "status_counts": {
+    "PRIMARY": 41
+  },
+  "components": [
+    {
+      "component_id": "codex-authority",
+      "core": "decision",
+      "runtime_form": "database",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "decision-sovereign",
+      "core": "decision",
+      "runtime_form": "python-process",
+      "migration_state": "retain-governance",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "governance_rule",
+      "core": "decision",
+      "runtime_form": "python-process",
+      "migration_state": "retain-governance",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "permission-sovereign",
+      "core": "permission",
+      "runtime_form": "python-process",
+      "migration_state": "retain-governance",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "ai-assistant",
+      "core": "runtime",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "ai-collaboration",
+      "core": "runtime",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "boot-core",
+      "core": "runtime",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "bootstrap-entry",
+      "core": "runtime",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "business-logic-csharp",
+      "core": "runtime",
+      "runtime_form": "internal-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "file-sorter",
+      "core": "runtime",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "information-channel-gateway",
+      "core": "runtime",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "investment-mobile",
+      "core": "runtime",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "launcher-ui",
+      "core": "runtime",
+      "runtime_form": "electron-app",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "main-system",
+      "core": "runtime",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "module-sqlite",
+      "core": "runtime",
+      "runtime_form": "database",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "native-compute-core",
+      "core": "runtime",
+      "runtime_form": "native-library",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "postgresql",
+      "core": "runtime",
+      "runtime_form": "external-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "shared-layer",
+      "core": "runtime",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "system-rescue",
+      "core": "runtime",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "system-runtime-sovereign",
+      "core": "runtime",
+      "runtime_form": "python-process",
+      "migration_state": "retain-governance",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "vaultly",
+      "core": "runtime",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "automation-sovereign",
+      "core": "automation",
+      "runtime_form": "python-process",
+      "migration_state": "retain-governance",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "git-tier-plane",
+      "core": "automation",
+      "runtime_form": "build-tooling",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "integration-plane",
+      "core": "automation",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "origin-mirror",
+      "core": "automation",
+      "runtime_form": "external-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "recovery-plane",
+      "core": "automation",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "self-commit-service",
+      "core": "automation",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "worker-plane",
+      "core": "automation",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "local-model",
+      "core": "xingcheng-assistant",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "local-vector",
+      "core": "xingcheng-assistant",
+      "runtime_form": "database",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "model-dialogue",
+      "core": "xingcheng-assistant",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "model-training",
+      "core": "xingcheng-assistant",
+      "runtime_form": "python-process",
+      "migration_state": "retain-bounded",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "ollama",
+      "core": "xingcheng-assistant",
+      "runtime_form": "external-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "qdrant",
+      "core": "xingcheng-assistant",
+      "runtime_form": "external-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "xingcheng",
+      "core": "xingcheng-assistant",
+      "runtime_form": "standalone-service",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "xingcheng-assistant",
+      "core": "xingcheng-assistant",
+      "runtime_form": "electron-app",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "xingcheng-assistant-store",
+      "core": "xingcheng-assistant",
+      "runtime_form": "database",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "xingcheng-auto-learning-module",
+      "core": "xingcheng-assistant",
+      "runtime_form": "python-process",
+      "migration_state": "retain-bounded",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "xingcheng-auto-repair-module",
+      "core": "xingcheng-assistant",
+      "runtime_form": "python-process",
+      "migration_state": "migrate-csharp",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "xingcheng-personality-store",
+      "core": "xingcheng-assistant",
+      "runtime_form": "database",
+      "migration_state": "native",
+      "status": "PRIMARY"
+    },
+    {
+      "component_id": "xingcheng-sovereign",
+      "core": "xingcheng-assistant",
+      "runtime_form": "python-process",
+      "migration_state": "retain-governance",
+      "status": "PRIMARY"
+    }
+  ],
+  "shadow_surfaces": [
+    {
+      "module": "connection_watchdog",
+      "owning_component": "boot-core",
+      "core": "runtime",
+      "mode": "shadow",
+      "status": "OBSERVATION_PENDING",
+      "open_dimensions": [],
+      "note": "wireable parity closed; release observation windows pending (P5)"
+    },
+    {
+      "module": "ipc_server",
+      "owning_component": "boot-core",
+      "core": "runtime",
+      "mode": "shadow",
+      "status": "OBSERVATION_PENDING",
+      "open_dimensions": [],
+      "note": "wireable parity closed; release observation windows pending (P5)"
+    },
+    {
+      "module": "maintenance_controller",
+      "owning_component": "boot-core",
+      "core": "runtime",
+      "mode": "shadow",
+      "status": "OBSERVATION_PENDING",
+      "open_dimensions": [],
+      "note": "wireable parity closed; release observation windows pending (P5)"
+    },
+    {
+      "module": "model_service_activation",
+      "owning_component": "boot-core",
+      "core": "runtime",
+      "mode": "shadow",
+      "status": "OBSERVATION_PENDING",
+      "open_dimensions": [],
+      "note": "wireable parity closed; release observation windows pending (P5)"
+    },
+    {
+      "module": "periodic_scheduler",
+      "owning_component": "boot-core",
+      "core": "runtime",
+      "mode": "shadow",
+      "status": "OBSERVATION_PENDING",
+      "open_dimensions": [],
+      "note": "wireable parity closed; release observation windows pending (P5)"
+    },
+    {
+      "module": "request_registry",
+      "owning_component": "boot-core",
+      "core": "runtime",
+      "mode": "shadow",
+      "status": "OBSERVATION_PENDING",
+      "open_dimensions": [],
+      "note": "wireable parity closed; release observation windows pending (P5)"
+    },
+    {
+      "module": "runtime_state_registry",
+      "owning_component": "boot-core",
+      "core": "runtime",
+      "mode": "shadow",
+      "status": "OBSERVATION_PENDING",
+      "open_dimensions": [],
+      "note": "wireable parity closed; release observation windows pending (P5)"
+    },
+    {
+      "module": "state_outbox",
+      "owning_component": "boot-core",
+      "core": "runtime",
+      "mode": "shadow",
+      "status": "OBSERVATION_PENDING",
+      "open_dimensions": [],
+      "note": "wireable parity closed; release observation windows pending (P5)"
+    }
+  ],
+  "release_observation_windows": {
+    "required": 2,
+    "completed": 0,
+    "note": "P5 promotion gate: two release observation windows on wired parity; window accumulation pending INT-10 close"
+  },
+  "python_residency_not_migrated": [
+    {
+      "surface": "tasks/periodic_scheduler.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "tasks/connection_watchdog.py(+_mixins)",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "tasks/state_outbox.py(+_native_shadow)",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "tasks/model_service_activation.py(+_native_shadow)",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "core_system/request_registry.py(+_native_shadow)",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "core_system/runtime_state_registry.py(+runtime_state_native_shadow)",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "ipc/ipc_transport_native_shadow + server_*",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "tasks/maintenance_controller_native_shadow + maintenance_controller_integration",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "tasks/git_automation.py + governance_rule/execution/git_tiers/*",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "tasks/hot_reload_watcher.py(+_health)",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "tasks/perf_baseline_job.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "core_system/diagnostics.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "core_system/update_manager*.py + third_party_manager_updates.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "core_system/permission_automation_{audit,compliance,directory,healing,lifecycle}.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "core_system/resource_maintenance.py + main_system_self_maintenance.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "core_system/daily_global_cleaner_service*.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "core_system/system_automation_coordinator.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "ipc/server_handler*.py + server_lifecycle/tokens",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "backend_gateway.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "shared_layer/channel*.py + connection_mixin + heartbeat_mixin",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "shared_layer/database/connection.py + reconcile_stress.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "shared_layer/workflow/saga.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "shared_layer/adaptive/gpu_coordinator.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "startup_core/resident_core.py",
+      "disposition": null,
+      "blocked_by": null
+    },
+    {
+      "surface": "python test orchestration (push_gate suite runner, scripts/*acceptance)",
+      "disposition": null,
+      "blocked_by": null
+    }
+  ]
+}
