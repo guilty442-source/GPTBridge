@@ -151,21 +151,18 @@ def _spawn_backend() -> subprocess.Popen:
     )
 
 
-def _gptbridge_python_procs() -> list:
-    import psutil
+def _gptbridge_python_procs() -> list[int]:
+    """P24: enumerate via the native metrics facade — returns pids."""
+    from shared_layer.performance import process_metrics
 
-    found = []
+    found: list[int] = []
     me = os.getpid()
-    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
-        try:
-            name = (proc.info["name"] or "").lower()
-            if "python" not in name or proc.info["pid"] == me:
-                continue
-            cmdline = " ".join(proc.info["cmdline"] or [])
-            if str(ROOT).lower() in cmdline.lower():
-                found.append(proc)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+    for pid, name in process_metrics.process_iter_names():
+        if pid == me or "python" not in (name or "").lower():
             continue
+        cmdline = process_metrics.process_cmdline(pid) or ""
+        if str(ROOT).lower() in cmdline.lower():
+            found.append(pid)
     return found
 
 
@@ -195,7 +192,7 @@ def main() -> int:
     parser.add_argument("--ready-timeout", type=float, default=180.0)
     args = parser.parse_args()
 
-    import psutil
+    from shared_layer.performance import process_metrics
 
     spawned_at = time.time()
     child = _spawn_backend()
@@ -228,12 +225,9 @@ def main() -> int:
 
     # Prime per-process cpu_percent counters, then sample.
     samples: dict[int, dict[str, list]] = {}
-    procs = {p.pid: p for p in _gptbridge_python_procs()}
-    for proc in procs.values():
-        try:
-            proc.cpu_percent(None)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
+    procs = set(_gptbridge_python_procs())
+    for pid in procs:
+        process_metrics.process_cpu_percent(pid, interval=None)  # prime
 
     proc_counts: list[int] = []
     end = time.monotonic() + args.duration
@@ -242,31 +236,28 @@ def main() -> int:
         time.sleep(args.interval)
         tick += 1
         proc_count = 0
-        for proc in _gptbridge_python_procs():
+        for pid in _gptbridge_python_procs():
             try:
-                with proc.oneshot():
-                    cpu = proc.cpu_percent(None)
-                    rss = proc.memory_info().rss / 1_048_576
-                    threads = proc.num_threads()
-                    # P8: private bytes + unique set (working-set tail) —
-                    # pagefile ≈ private committed bytes on Windows.
-                    try:
-                        fmi = proc.memory_full_info()
-                        priv = getattr(fmi, "pagefile", 0) / 1_048_576
-                        uss = getattr(fmi, "uss", 0) / 1_048_576
-                    except (psutil.NoSuchProcess, psutil.AccessDenied,
-                            AttributeError):
-                        priv = uss = 0.0
+                cpu = process_metrics.process_cpu_percent(pid, interval=None)
+                ws = process_metrics.process_working_set_bytes(pid)
+                if ws < 0:
+                    continue  # exited between probes
+                rss = ws / 1_048_576
+                threads = max(0, process_metrics.process_num_threads(pid))
+                # P8: private bytes ≈ committed private memory (pagefile)
+                priv_b = process_metrics.process_private_bytes(pid)
+                priv = priv_b / 1_048_576 if priv_b >= 0 else 0.0
+                uss = priv  # Windows: private bytes is the USS analogue
                 bucket = samples.setdefault(
-                    proc.pid, {"rss_mb": [], "cpu_pct": [], "threads": [],
-                               "priv_mb": [], "uss_mb": []})
+                    pid, {"rss_mb": [], "cpu_pct": [], "threads": [],
+                          "priv_mb": [], "uss_mb": []})
                 bucket["rss_mb"].append(round(rss, 1))
                 bucket["cpu_pct"].append(round(cpu, 2))
                 bucket["threads"].append(threads)
                 bucket["priv_mb"].append(round(priv, 1))
                 bucket["uss_mb"].append(round(uss, 1))
                 proc_count += 1
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
+            except Exception:
                 continue
         proc_counts.append(proc_count)
         if tick % 6 == 0:
@@ -276,10 +267,7 @@ def main() -> int:
     # Per-process aggregates keyed by pid + cmdline tag.
     per_proc = {}
     for pid, series in samples.items():
-        try:
-            tag = " ".join(psutil.Process(pid).cmdline() or [])[:160]
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            tag = "<exited>"
+        tag = (process_metrics.process_cmdline(pid) or "<exited>")[:160]
         lowered = tag.lower()
         if "main.py" in lowered and "--serve" in lowered:
             role = "backend"
