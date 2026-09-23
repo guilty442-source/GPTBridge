@@ -228,8 +228,14 @@ $buildFailed = $false
 while ($bq.Count -gt 0 -or $brunning.Count -gt 0) {
     while ($bq.Count -gt 0 -and $brunning.Count -lt $MaxParallel) {
         $j = $bq.Dequeue()
-        $p = Start-Process -FilePath "cmd.exe" -ArgumentList ("/c `"$($j.bat)`"") `
-             -WorkingDirectory $out -NoNewWindow -PassThru
+        # .NET Process (not Start-Process): ExitCode is reliably readable
+        # after exit; Start-Process -PassThru returns empty ExitCode here.
+        $psi = [System.Diagnostics.ProcessStartInfo]::new(
+            "cmd.exe", "/c `"$($j.bat)`"")
+        $psi.WorkingDirectory = $out
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $p = [System.Diagnostics.Process]::Start($psi)
         $brunning[$j.name] = @{ proc = $p; deadline = (Get-Date).AddSeconds(600) }
     }
     $bdone = @()
