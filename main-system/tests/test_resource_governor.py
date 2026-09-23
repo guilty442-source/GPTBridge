@@ -29,7 +29,7 @@ class _MemInfo:
 
 
 class _FakeProc:
-    """Minimal psutil.Process stand-in for govern_once."""
+    """Minimal _Proc stand-in for govern_once."""
 
     def __init__(
         self,
@@ -127,13 +127,9 @@ def _run(
     resp_latency=None,
     **cfg,
 ):
-    monkeypatch.setattr(
-        gov.psutil, "process_iter", lambda attrs: iter(procs)
-    )
-    monkeypatch.setattr(
-        gov.psutil, "virtual_memory", lambda: _FakeMem()
-    )
-    monkeypatch.setattr(gov.psutil, "cpu_percent", lambda _i: 5.0)
+    monkeypatch.setattr(gov, "_iter_procs", lambda: iter(procs))
+    monkeypatch.setattr(gov, "_VirtualMemory", lambda: _FakeMem())
+    monkeypatch.setattr(gov._pm, "cpu_percent", lambda *a, **k: 5.0)
     monkeypatch.setattr(gov, "_self_tree", lambda: set())
     monkeypatch.setattr(gov, "_log_action", lambda payload: None)
     monkeypatch.setattr(gov, "_write_state", lambda payload: None)
@@ -334,7 +330,7 @@ def test_rules_loading_and_validation(tmp_path: Path) -> None:
     defaults, programs, error = gov.load_rules(rules_path)
     assert error is None
     assert defaults["probalance"] is True
-    assert programs["train.exe"].priority == gov.psutil.BELOW_NORMAL_PRIORITY_CLASS
+    assert programs["train.exe"].priority == gov._pm.PRIORITY_BELOW_NORMAL
     assert programs["train.exe"].affinity == [0, 1]
     assert programs["train.exe"].cpu_limit_percent == 30.0
     assert programs["train.exe"].background is True
@@ -403,7 +399,7 @@ def test_rule_actions_applied_once_and_held(
     assert [c for c in calls if c[0] == "limit"] == [("limit", 601, 30.0)]
     assert procs[0].affinity_calls[-1] == [0]
     # background rule suppresses the explicit rule priority (idle CPU wins)
-    assert gov.psutil.BELOW_NORMAL_PRIORITY_CLASS not in procs[0].nice_calls
+    assert gov._pm.PRIORITY_BELOW_NORMAL not in procs[0].nice_calls
 
     _run(procs, monkeypatch, records=records, resp_latency=50.0, **cfg)
     assert len([c for c in calls if c[0] == "bg"]) == 1, "rule applies once"
@@ -466,7 +462,7 @@ def test_probalance_demotes_and_restores(monkeypatch) -> None:
     record = next(iter(records.values()))
     assert regulation["strained"] is True
     assert record.pb_set is True
-    assert gov.psutil.BELOW_NORMAL_PRIORITY_CLASS in procs[0].nice_calls
+    assert gov._pm.PRIORITY_BELOW_NORMAL in procs[0].nice_calls
 
     monkeypatch.setattr(gov, "measure_responsiveness", lambda runs=3: 100.0)
     calm = [_FakeProc(801, "app.exe", cpu=1.0, exe=r"c:\apps\app.exe")]

@@ -39,6 +39,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ctypes
 import json
 import os
@@ -48,9 +49,15 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Iterator
 
-import psutil
+sys.path.insert(
+    0,
+    str(
+        Path(__file__).resolve().parents[1] / "shared-layer" / "src"
+    ),
+)
+from shared_layer.performance import process_metrics as _pm  # noqa: E402
 
 PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 STATE_DIR: Final[Path] = PROJECT_ROOT / "main-system" / "runtime" / "state"
@@ -122,10 +129,177 @@ DEFAULT_LIMITER_PERCENT: Final[float] = 10.0
 LIMITER_MIN_PERCENT: Final[float] = 1.0
 LIMITER_MAX_PERCENT: Final[float] = 100.0
 RULE_PRIORITIES: Final[dict[str, int]] = {
-    "normal": psutil.NORMAL_PRIORITY_CLASS,
-    "below_normal": psutil.BELOW_NORMAL_PRIORITY_CLASS,
-    "idle": psutil.IDLE_PRIORITY_CLASS,
+    "normal": _pm.PRIORITY_NORMAL,
+    "below_normal": _pm.PRIORITY_BELOW_NORMAL,
+    "idle": _pm.PRIORITY_IDLE,
 }
+
+# ---------------------------------------------------------------------------
+# P24 — process metrics via the native-metrics facade.  ``_Proc`` keeps the
+# psutil-shaped surface (info dict / exception taxonomy / priority classes)
+# so the regulation logic below retains its fail-closed control flow.
+# ---------------------------------------------------------------------------
+
+
+class _MetricsError(Exception):
+    """Base for metrics failures (``_MetricsError`` analogue)."""
+
+
+class _NoSuchProcess(_MetricsError):
+    pass
+
+
+class _AccessDenied(_MetricsError):
+    pass
+
+
+class _ZombieProcess(_NoSuchProcess):
+    pass
+
+
+class _TimeoutExpired(_MetricsError):
+    pass
+
+
+class _MemInfo:
+    __slots__ = ("rss", "vms")
+
+    def __init__(self, rss: int, vms: int) -> None:
+        self.rss = rss
+        self.vms = vms
+
+
+class _IoInfo:
+    __slots__ = ("read_bytes", "write_bytes")
+
+    def __init__(self, read_bytes: int, write_bytes: int) -> None:
+        self.read_bytes = read_bytes
+        self.write_bytes = write_bytes
+
+
+class _Proc:
+    """``_Proc`` adapter over ``process_metrics`` primitives."""
+
+    def __init__(self, pid: int | None = None) -> None:
+        self._pid = os.getpid() if pid is None else int(pid)
+        if not _pm.process_alive(self._pid):
+            raise _NoSuchProcess(self._pid)
+
+    @property
+    def pid(self) -> int:
+        return self._pid
+
+    @property
+    def info(self) -> dict[str, Any]:
+        data = _pm.process_info(self._pid)
+        if data is None:
+            raise _NoSuchProcess(self._pid)
+        info: dict[str, Any] = {
+            "pid": data["pid"],
+            "name": data.get("name"),
+            "exe": data.get("exe"),
+            "username": data.get("username"),
+        }
+        rss = data.get("rss_bytes")
+        info["memory_info"] = (
+            _MemInfo(int(rss), -1)
+            if rss is not None and int(rss) >= 0
+            else None
+        )
+        read_b = data.get("io_read_bytes")
+        info["io_counters"] = (
+            _IoInfo(int(read_b), int(data.get("io_write_bytes") or 0))
+            if read_b is not None
+            else None
+        )
+        return info
+
+    def oneshot(self):
+        # Facade primitives already snapshot per call; no batching needed.
+        return contextlib.nullcontext()
+
+    def create_time(self) -> float:
+        ms = _pm.process_create_time_ms(self._pid)
+        if ms < 0:
+            raise _NoSuchProcess(self._pid)
+        return ms / 1000.0
+
+    def cpu_percent(self, _interval: Any = None) -> float:
+        value = _pm.process_cpu_percent(self._pid)
+        if value < 0:
+            raise _NoSuchProcess(self._pid)
+        return value
+
+    def cmdline(self) -> list[str]:
+        raw = _pm.process_cmdline(self._pid)
+        if raw is None:
+            raise _AccessDenied(self._pid)
+        return raw.split()
+
+    def username(self) -> str:
+        value = _pm.process_username(self._pid)
+        if value is None:
+            raise _AccessDenied(self._pid)
+        return value
+
+    def parents(self) -> list["_Proc"]:
+        out: list[_Proc] = []
+        for parent_pid in _pm.process_parents(self._pid):
+            try:
+                out.append(_Proc(parent_pid))
+            except _MetricsError:
+                break
+        return out
+
+    def nice(self, value: int | None = None) -> int:
+        if value is None:
+            current = _pm.process_get_priority(self._pid)
+            if current < 0:
+                raise _NoSuchProcess(self._pid)
+            return current
+        if not _pm.process_set_priority(self._pid, int(value)):
+            raise _AccessDenied(self._pid)
+        return int(value)
+
+    def cpu_affinity(self, cores: list[int] | None = None) -> list[int]:
+        if cores is None:
+            current = _pm.process_get_affinity(self._pid)
+            if current is None:
+                raise _NoSuchProcess(self._pid)
+            return list(current)
+        if not _pm.process_set_affinity(self._pid, cores):
+            raise _AccessDenied(self._pid)
+        return list(cores)
+
+    def terminate(self) -> None:
+        if not _pm.process_terminate(self._pid):
+            raise _NoSuchProcess(self._pid)
+
+    def kill(self) -> None:
+        self.terminate()
+
+    def wait(self, timeout: float | None = None) -> int:
+        if not _pm.process_wait(self._pid, float(timeout or 0)):
+            raise _TimeoutExpired(self._pid)
+        return 0
+
+
+def _iter_procs() -> Iterator[_Proc]:
+    for pid in _pm.process_list():
+        try:
+            yield _Proc(pid)
+        except _MetricsError:
+            continue
+
+
+class _VirtualMemory:
+    __slots__ = ("total", "available", "percent")
+
+    def __init__(self) -> None:
+        self.total = _pm.system_memory_total_bytes()
+        self.available = _pm.system_memory_available_bytes()
+        self.percent = _pm.virtual_memory_percent() or 0.0
+
 
 PROCESS_ATTRS: Final[list[str]] = [
     "pid", "name", "exe", "username", "memory_info", "io_counters",
@@ -643,7 +817,7 @@ def _set_background_mode(pid: int, enable: bool) -> bool:
     very-low memory priority and very-low I/O priority; fully reversible.
     """
     priority_class = (
-        psutil.IDLE_PRIORITY_CLASS if enable else psutil.NORMAL_PRIORITY_CLASS
+        _pm.PRIORITY_IDLE if enable else _pm.PRIORITY_NORMAL
     )
     memory = MEMORY_PRIORITY_VERY_LOW if enable else MEMORY_PRIORITY_NORMAL
     io_priority = IO_PRIORITY_VERY_LOW if enable else IO_PRIORITY_NORMAL
@@ -862,7 +1036,7 @@ class ProcessRecord:
         self.job_member = False
 
 
-def _protected(proc: psutil.Process, name: str, exe: str | None) -> bool:
+def _protected(proc: _Proc, name: str, exe: str | None) -> bool:
     if name.lower() in PROTECTED_NAMES:
         return True
     if exe:
@@ -876,22 +1050,22 @@ def _protected(proc: psutil.Process, name: str, exe: str | None) -> bool:
 def _self_tree() -> set[int]:
     tree = {os.getpid()}
     try:
-        for parent in psutil.Process(os.getpid()).parents():
+        for parent in _Proc(os.getpid()).parents():
             tree.add(parent.pid)
-    except psutil.Error:
+    except _MetricsError:
         pass
     return tree
 
 
-def _is_governor_process(proc: psutil.Process) -> bool:
+def _is_governor_process(proc: _Proc) -> bool:
     try:
         cmdline = proc.cmdline()
-    except (psutil.AccessDenied, psutil.NoSuchProcess):
+    except (_AccessDenied, _NoSuchProcess):
         return False
     return any("resource-governor" in part for part in cmdline)
 
 
-def _classify_plane(proc: psutil.Process, name: str, exe: str | None) -> str:
+def _classify_plane(proc: _Proc, name: str, exe: str | None) -> str:
     """§10.64 worker-plane attribution for the aggregate budget ledger.
 
     Planes: ``governance`` (backend + governance processes — never
@@ -903,7 +1077,7 @@ def _classify_plane(proc: psutil.Process, name: str, exe: str | None) -> str:
     root = str(PROJECT_ROOT).lower()
     try:
         cmdline = " ".join(proc.cmdline()).lower()
-    except (psutil.AccessDenied, psutil.NoSuchProcess):
+    except (_AccessDenied, _NoSuchProcess):
         cmdline = ""
     if root not in lowered_exe and root not in cmdline and "gptbridge" not in cmdline:
         return "external"
@@ -920,11 +1094,11 @@ def _classify_plane(proc: psutil.Process, name: str, exe: str | None) -> str:
 def govern_once(
     config: GovernorConfig,
     records: dict[tuple[int, float], ProcessRecord],
-    machine: psutil.Process | None = None,
+    machine: _Proc | None = None,
     regulation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     now = time.monotonic()
-    me = psutil.Process() if machine is None else machine
+    me = _Proc() if machine is None else machine
     username = me.username()
     self_tree = _self_tree()
     logical = os.cpu_count() or 1
@@ -974,7 +1148,7 @@ def govern_once(
     seen: set[tuple[int, float]] = set()
     pb_candidates: list[tuple[float, Any, int, str, str, ProcessRecord]] = []
 
-    for proc in psutil.process_iter(PROCESS_ATTRS):
+    for proc in _iter_procs():
         try:
             # W3：oneshot 讓同行程的 info/create_time/cpu_percent 共用一次快照
             # （原先每個屬性各自一次 syscall）。
@@ -1099,7 +1273,7 @@ def govern_once(
                     if not dry_run:
                         try:
                             proc.nice(rule.priority)
-                        except psutil.Error:
+                        except _MetricsError:
                             pass
                     record.rule_priority = rule.priority
                     actions.append({"action": "rule-priority", "pid": pid,
@@ -1108,7 +1282,7 @@ def govern_once(
                     if not dry_run:
                         try:
                             proc.cpu_affinity(rule.affinity)
-                        except (AttributeError, psutil.Error):
+                        except (AttributeError, _MetricsError):
                             pass
                     record.rule_aff_set = True
                     record.rule_hold.add("affinity")
@@ -1140,7 +1314,7 @@ def govern_once(
                             {"action": "worker-affinity-capped", "pid": pid,
                              "name": name, "cpus": len(worker_affinity)}
                         )
-                    except (AttributeError, psutil.Error):
+                    except (AttributeError, _MetricsError):
                         pass
                 elif not regulation["active"] and record.reg_aff_set:
                     try:
@@ -1151,7 +1325,7 @@ def govern_once(
                             {"action": "worker-affinity-restored", "pid": pid,
                              "name": name}
                         )
-                    except (AttributeError, psutil.Error):
+                    except (AttributeError, _MetricsError):
                         pass
 
             record.busy = record.busy + 1 if busy_now else 0
@@ -1159,7 +1333,7 @@ def govern_once(
 
             if busy_now and record.busy >= sustain_need and not record.prio_set:
                 if not dry_run:
-                    proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+                    proc.nice(_pm.PRIORITY_BELOW_NORMAL)
                 record.prio_set = True
                 actions.append(
                     {"action": "priority-below-normal", "pid": pid, "name": name,
@@ -1180,7 +1354,7 @@ def govern_once(
                             {"action": "affinity-capped", "pid": pid, "name": name,
                              "cpu": round(cpu, 1), "cpus": len(cap_affinity)}
                         )
-                except (AttributeError, psutil.Error):
+                except (AttributeError, _MetricsError):
                     pass
             # Process Lasso-inspired dynamic tiers (all default OFF; worker
             # planes only for the intrusive ones, unlike the priority path).
@@ -1227,10 +1401,10 @@ def govern_once(
                         target = (
                             record.rule_priority
                             if record.rule_priority is not None
-                            else psutil.NORMAL_PRIORITY_CLASS
+                            else _pm.PRIORITY_NORMAL
                         )
                         proc.nice(target)
-                    except psutil.Error:
+                    except _MetricsError:
                         pass
                 record.pb_set = False
                 actions.append(
@@ -1243,10 +1417,10 @@ def govern_once(
                             target = (
                                 record.rule_priority
                                 if record.rule_priority is not None
-                                else psutil.NORMAL_PRIORITY_CLASS
+                                else _pm.PRIORITY_NORMAL
                             )
                             proc.nice(target)
-                        except psutil.Error:
+                        except _MetricsError:
                             pass
                     record.prio_set = False
                     actions.append(
@@ -1257,7 +1431,7 @@ def govern_once(
                     if not dry_run and not record.rule_aff_set:
                         try:
                             proc.cpu_affinity(list(range(logical)))
-                        except (AttributeError, psutil.Error):
+                        except (AttributeError, _MetricsError):
                             pass
                     record.aff_set = False
                     actions.append(
@@ -1269,7 +1443,7 @@ def govern_once(
                     if record.rule_priority is not None and not dry_run:
                         try:
                             proc.nice(record.rule_priority)
-                        except psutil.Error:
+                        except _MetricsError:
                             pass
                     actions.append(
                         {"action": "background-mode-released", "pid": pid,
@@ -1289,7 +1463,7 @@ def govern_once(
                         {"action": "cpu-limit-released", "pid": pid, "name": name,
                          "ok": ok}
                     )
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, OSError):
+        except (_NoSuchProcess, _AccessDenied, _ZombieProcess, OSError):
             continue
 
     for key in list(records):
@@ -1315,8 +1489,8 @@ def govern_once(
                 continue
             if not dry_run:
                 try:
-                    proc.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
-                except psutil.Error:
+                    proc.nice(_pm.PRIORITY_BELOW_NORMAL)
+                except _MetricsError:
                     continue
             record.pb_set = True
             pb_demoted += 1
@@ -1336,7 +1510,7 @@ def govern_once(
     # high on a 16-logical host — see convergence evidence
     # int-10-budget-unit-mismatch-20260922.json).
     worker_cpu_pct = worker_cpu_pct / max(1, logical)
-    total_mem = psutil.virtual_memory()
+    total_mem = _VirtualMemory()
     total_ram_mb = total_mem.total / (1024 * 1024)
     worker_ram_pct = (worker_rss_mb / total_ram_mb * 100.0) if total_ram_mb else 0.0
     over_budget = (
@@ -1398,13 +1572,13 @@ def govern_once(
         "interval": config.interval,
         "processes": len(rows),
         "tracked": len(records),
-        "cpu_load_pct": psutil.cpu_percent(None),
+        "cpu_load_pct": max(0.0, _pm.cpu_percent()),
         "mem_used_pct": total_mem.percent,
         "mem_available_mb": round(total_mem.available / (1024 * 1024), 1),
         "resource_limits": {
             "cpu_pct": GLOBAL_CPU_LIMIT_PCT,
             "ram_pct": GLOBAL_RAM_LIMIT_PCT,
-            "cpu_over_limit": psutil.cpu_percent(None) > GLOBAL_CPU_LIMIT_PCT,
+            "cpu_over_limit": max(0.0, _pm.cpu_percent()) > GLOBAL_CPU_LIMIT_PCT,
             "ram_over_limit": total_mem.percent > GLOBAL_RAM_LIMIT_PCT,
         },
         # §10.64 worker ledger — the backend reads worker_admission_hold
@@ -1509,7 +1683,7 @@ def run_watch(config: GovernorConfig) -> int:
             print(f"resource-governor watching (interval={config.interval}s); Ctrl+C to stop")
             records: dict[tuple[int, float], ProcessRecord] = {}
             regulation: dict[str, Any] = {"over": 0, "under": 0, "active": False, "pre": False}
-            psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)
+            _Proc().nice(_pm.PRIORITY_IDLE)
             running = True
 
             def _stop(*_: object) -> None:
@@ -1521,7 +1695,7 @@ def run_watch(config: GovernorConfig) -> int:
                     signal.signal(sig, _stop)
                 except (ValueError, OSError):
                     pass
-            psutil.cpu_percent(None)
+            max(0.0, _pm.cpu_percent())
             while running:
                 try:
                     govern_once(config, records, regulation=regulation)
@@ -1603,15 +1777,15 @@ def run_stop() -> int:
         print("lock file unreadable; remove it manually if no governor is running")
         return 1
     try:
-        proc = psutil.Process(pid)
+        proc = _Proc(pid)
         proc.terminate()
         try:
             proc.wait(timeout=10)
-        except psutil.TimeoutExpired:
+        except _TimeoutExpired:
             proc.kill()
         print(f"resource-governor stopped (pid {pid})")
         return 0
-    except psutil.NoSuchProcess:
+    except _NoSuchProcess:
         LOCK_FILE.unlink(missing_ok=True)
         print("stale lock removed (process already gone)")
         return 0
@@ -1872,11 +2046,11 @@ def cli_main(argv: list[str] | None = None) -> int:
         return run_watch(config)
     if args.once:
         records: dict[tuple[int, float], ProcessRecord] = {}
-        psutil.cpu_percent(None)
-        for proc in psutil.process_iter(PROCESS_ATTRS):
+        max(0.0, _pm.cpu_percent())
+        for proc in _iter_procs():
             try:
                 proc.cpu_percent(None)
-            except psutil.Error:
+            except _MetricsError:
                 continue
         time.sleep(max(1.0, min(config.interval, 5.0)))
         snapshot = govern_once(config, records)
