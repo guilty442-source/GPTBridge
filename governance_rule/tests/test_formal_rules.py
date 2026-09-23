@@ -495,9 +495,7 @@ def test_parity_run_records_evidence_for_every_rule(tmp_path: Path) -> None:
         REPORT_VERSION,
     )
 
-    report = run_parity_evaluation(
-        Path("governance_rule/codex/data/governance_codex.sqlite3")
-    )
+    report = run_parity_evaluation(Path("postgresql-codex"))
     assert report["report"] == REPORT_VERSION
     assert len(report["database_sha256"]) == 64
     ruleset = load_formal_rules()
