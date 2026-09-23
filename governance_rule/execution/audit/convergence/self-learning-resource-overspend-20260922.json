@@ -19,7 +19,6 @@
     "versus_process_timeout": "既有 train_process_timeout_s 為子程序硬逾時（kill → EXECUTOR_TRAINING_FAILED 無 checkpoint）；新預算為訓練迴圈內優雅即停——checkpoint 保留可稽核，fail-closed 由循環層決策",
     "parallel_work_note": "並行工作者於同批 auto-commit 落地互補的子程序層實作：process-tree RSS 監控（train_max_rss_mb / resource_sample_interval_s，超限 EXECUTOR_RESOURCE_OVERBUDGET 終止＋summary.resource 峰值入帳，測試 tests/test_training_job_executor.py）。兩層機制並存無衝突：迴圈層優雅即停保 checkpoint，子程序層 RSS 硬上限防 OOM；py_compile 合併後檔案通過"
   },
-  },
   "defaults": "全部預算欄位預設 0=不設限，既有行為不變；生效值屬受管 runtime/settings/self-learning.json 或 job configuration",
   "verification": {
     "new_gate_tests": "tests/test_self_learning_gates.py 新增 3/3 PASS：test_resource_overspend_fail_closed（stopped_reason→resource-overspend、不評估不啟用、consecutive_failures=1、resource_account 入帳）、test_budget_config_passed_to_job（政策預算透傳 job configuration）、test_check_train_budget_time（時間預算單元判定：逾限回原因/未逾 None/0 停用）",
