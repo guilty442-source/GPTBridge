@@ -146,7 +146,8 @@
    "information_channels": [],
    "architecture_code": "CODEX_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "retain-governance"
   },
   {
    "component_id": "codex-authority",
@@ -184,7 +185,8 @@
    ],
    "architecture_code": "MAIN_SYSTEM",
    "unit": "UNIT_RUNTIME",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "boot-core",
@@ -201,7 +203,8 @@
    "information_channels": [],
    "architecture_code": "MAIN_SYSTEM",
    "unit": "UNIT_RUNTIME",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "bootstrap-entry",
@@ -218,7 +221,8 @@
    "information_channels": [],
    "architecture_code": "LAUNCHER",
    "unit": "UNIT_BOOTSTRAP",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "launcher-ui",
@@ -252,7 +256,8 @@
    "information_channels": [],
    "architecture_code": "SOVEREIGN_DECISION_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "retain-governance"
   },
   {
    "component_id": "automation-sovereign",
@@ -269,7 +274,8 @@
    "information_channels": [],
    "architecture_code": "SOVEREIGN_DECISION_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "retain-governance"
   },
   {
    "component_id": "xingcheng-sovereign",
@@ -287,7 +293,8 @@
    "information_channels": [],
    "architecture_code": "SOVEREIGN_DECISION_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "retain-governance"
   },
   {
    "component_id": "sub-sovereign-orchestration",
@@ -347,7 +354,8 @@
    ],
    "architecture_code": "SHARED_LAYER",
    "unit": "UNIT_PLATFORM",
-   "block": "BLOCK_SHARED"
+   "block": "BLOCK_SHARED",
+   "python_residency": "migrate-cpp"
   },
   {
    "component_id": "information-channel-gateway",
@@ -366,7 +374,8 @@
    ],
    "architecture_code": "SHARED_LAYER",
    "unit": "UNIT_PLATFORM",
-   "block": "BLOCK_SHARED"
+   "block": "BLOCK_SHARED",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "postgresql",
@@ -565,7 +574,8 @@
    ],
    "architecture_code": "SOVEREIGN_DECISION_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "retain-bounded"
   },
   {
    "component_id": "xingcheng-auto-repair-module",
@@ -585,7 +595,8 @@
    ],
    "architecture_code": "MAIN_SYSTEM",
    "unit": "UNIT_RUNTIME",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "model-dialogue",
@@ -681,7 +692,8 @@
    ],
    "architecture_code": "INVESTMENT_MOBILE",
    "unit": "",
-   "block": "BLOCK_TOOLS"
+   "block": "BLOCK_TOOLS",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "global-cleaner",
@@ -716,7 +728,8 @@
    ],
    "architecture_code": "SYSTEM_RESCUE",
    "unit": "",
-   "block": "BLOCK_TOOLS"
+   "block": "BLOCK_TOOLS",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "vaultly",
@@ -794,7 +807,8 @@
    ],
    "architecture_code": "CODEX_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "integration-plane",
@@ -814,7 +828,8 @@
    ],
    "architecture_code": "CODEX_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "recovery-plane",
@@ -836,7 +851,8 @@
    ],
    "architecture_code": "CODEX_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "migrate-csharp"
   },
   {
    "component_id": "origin-mirror",
@@ -931,7 +947,8 @@
    ],
    "architecture_code": "MODEL_TRAINING",
    "unit": "UNIT_ENGINE",
-   "block": "BLOCK_MODEL"
+   "block": "BLOCK_MODEL",
+   "python_residency": "retain-bounded"
   },
   {
    "component_id": "permission-sovereign",
@@ -949,7 +966,8 @@
    "information_channels": [],
    "architecture_code": "SOVEREIGN_DECISION_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "retain-governance"
   },
   {
    "component_id": "system-runtime-sovereign",
@@ -967,7 +985,8 @@
    "information_channels": [],
    "architecture_code": "SOVEREIGN_DECISION_LAYER",
    "unit": "UNIT_DECISION",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "python_residency": "retain-governance"
   }
  ],
  "five_cores": {
@@ -1095,5 +1114,13 @@
     "shared-layer"
    ]
   }
- }
+ },
+ "python_residency_kinds": [
+  "retain-governance",
+  "retain-bounded",
+  "migrate-c",
+  "migrate-cpp",
+  "migrate-csharp",
+  "retire"
+ ]
 }

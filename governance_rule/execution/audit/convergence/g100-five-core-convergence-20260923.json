@@ -33,6 +33,16 @@
     "validator_positive": "PASS (0 errors)",
     "validator_negative": "PASS (architecture_code removal and retired-sovereign owner both detected)"
   },
+  "increment_2_python_residency": {
+    "python_process_components": 19,
+    "dispositions": {
+      "retain-governance": ["governance_rule", "decision-sovereign", "permission-sovereign", "system-runtime-sovereign", "automation-sovereign", "xingcheng-sovereign"],
+      "retain-bounded": ["xingcheng-auto-learning-module", "model-training"],
+      "migrate-csharp": ["main-system", "boot-core", "bootstrap-entry", "information-channel-gateway", "xingcheng-auto-repair-module", "investment-mobile", "system-rescue", "self-commit-service", "integration-plane", "recovery-plane"],
+      "migrate-cpp": ["tokenizer"]
+    },
+    "validator": "every non-retired python-process component must carry python_residency in python_residency_kinds; positive PASS, negative PASS"
+  },
   "remaining_scope_not_in_this_increment": [
     "mechanical-work migration C/C++/C# and Python residency removal (largest G100 sub-clause; requires per-component parity work, blueprint ordered)",
     "third-party dependency keep/replace/remove disposition list",

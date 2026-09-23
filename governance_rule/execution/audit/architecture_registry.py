@@ -331,6 +331,27 @@ def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
             # project-root-bound components).
             errors.append(f"component lacks block/unit lineage fields: {cid}")
 
+    # G100 Python-residency convergence: every non-retired python-process
+    # component must carry a declared disposition — governance/bounded
+    # retention or a concrete native migration target.
+    residency_kinds = set(payload.get("python_residency_kinds") or [])
+    for entry in raw_components:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("lifecycle") or "") == "retired":
+            continue
+        if str(entry.get("runtime_form") or "") != "python-process":
+            continue
+        cid = str(entry.get("component_id") or "?")
+        disposition = str(entry.get("python_residency") or "")
+        if not residency_kinds:
+            errors.append("python_residency_kinds registry list is missing")
+            break
+        if disposition not in residency_kinds:
+            errors.append(
+                f"python-process component lacks a declared residency disposition: {cid}"
+            )
+
     # The five_cores section must cover exactly the active sovereign set —
     # every core declares its sovereign owner, target unit and live
     # process surface; no active sovereign may lack a core entry.
