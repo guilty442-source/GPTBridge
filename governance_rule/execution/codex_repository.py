@@ -223,11 +223,12 @@ def _translate_query(statement: str) -> str:
     if "sqlite_master" in translated:
         translated = translated.replace("SELECT name FROM sqlite_master", "SELECT table_name FROM information_schema.tables")
         translated = translated.replace("type='table'", f"table_type='BASE TABLE' AND table_schema='{CODEX_SCHEMA}'")
+        translated = translated.replace("name NOT LIKE", "table_name NOT LIKE")
         translated = translated.replace("name LIKE", "table_name LIKE")
         translated = translated.replace("ORDER BY name", "ORDER BY table_name")
     # psycopg placeholders: escape literal '%' (e.g. sqlite-style LIKE
     # patterns) before turning '?' into '%s'; existing %s/%b/%t stay intact.
-    return re.sub(r"%(?![sbt%])", "%%", translated).replace("?", "%s")
+    return re.sub(r"%(?![sbt])", "%%", translated).replace("?", "%s")
 
 
 @contextmanager
