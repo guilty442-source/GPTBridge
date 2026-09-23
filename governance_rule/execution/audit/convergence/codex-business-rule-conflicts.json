@@ -1,6 +1,6 @@
 {
   "schema": "codex-business-rule-conflict-scan/v1",
-  "generated_at": "2026-09-23T17:33:50Z",
+  "generated_at": "2026-09-23T17:49:17Z",
   "sources": {
     "manifests": 10,
     "boundary_capabilities": 26,
