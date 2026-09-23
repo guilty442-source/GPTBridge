@@ -57,8 +57,7 @@ class UpdateManager(UpdateExecutionMixin):
 
         self._current_manifest: Optional[UpdateManifest] = None
         self._lock = threading.RLock()
-        self._auto_update_task: Optional[asyncio.Task] = None
-        self._stop_auto = asyncio.Event()
+        self._auto_core_driven = False
         self._update_callbacks: list[Callable[[UpdateManifest], None]] = []
         # Source hash tracking for auto-update change detection.
         self._source_hashes: dict[str, str] = {}
@@ -172,7 +171,7 @@ class UpdateManager(UpdateExecutionMixin):
                 "Auto-update workflow disabled by the Xingcheng Assistant switch"
             )
             return
-        if self._auto_update_task is not None and not self._auto_update_task.done():
+        if self._auto_core_driven:
             return
 
         # §1.1 自動化集中：automation core 為唯一註冊點；kill-switch
@@ -187,10 +186,9 @@ class UpdateManager(UpdateExecutionMixin):
             )
             return
 
-        self._stop_auto.clear()
-        self._auto_update_task = asyncio.create_task(
-            self._auto_update_loop(),
-            name="update-manager-auto-loop"
+        # 單一排程者語意：無自動化核心時不回落私有迴圈。
+        _logger.warning(
+            "UpdateManager auto-update not started: no automation core"
         )
 
     async def stop_auto_update(self) -> None:
@@ -200,14 +198,6 @@ class UpdateManager(UpdateExecutionMixin):
             if core is not None:
                 core.unregister("update-manager-auto")
             self._auto_core_driven = False
-        self._stop_auto.set()
-        if self._auto_update_task is not None:
-            self._auto_update_task.cancel()
-            try:
-                await self._auto_update_task
-            except asyncio.CancelledError:
-                pass
-        self._auto_update_task = None
 
     def get_status(self) -> dict:
         """Get current update manager status."""
