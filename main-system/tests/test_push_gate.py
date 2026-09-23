@@ -1,4 +1,9 @@
-"""Push gate tests (§10.69 C/F): native-suite gate + evidence records."""
+"""Push gate tests (§10.69 C/F): native-suite gate + evidence records.
+
+G97: the gate consumes the C# ``TestSuiteOrchestrator`` (sole native
+orchestrator) — tests inject an orchestrator-level seam that writes the
+typed ``native-orchestration-report.json`` the gate consumes.
+"""
 from __future__ import annotations
 
 import json
@@ -18,7 +23,7 @@ def _null_lock():
 
 
 def _completed(returncode: int, out: str = "") -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(args=["suite"], returncode=returncode,
+    return subprocess.CompletedProcess(args=["orch"], returncode=returncode,
                                        stdout=out, stderr="")
 
 
@@ -40,43 +45,51 @@ def _manifest(bin_dir: Path, revision: str = "testrev") -> Path:
     return p
 
 
-def _criticality(root: Path, suites=None) -> Path:
-    if suites is None:
-        suites = {
-            "alpha_suite": {
-                "criticality": "release-critical",
-                "affected_capability": "alpha capability",
-                "release_impact": "alpha unverified",
-                "required_evidence": "alpha_suite PASS report",
-            }
-        }
-    p = root / "native" / "test_suites" / "suite_criticality.json"
-    p.write_text(json.dumps({
-        "schema": "native-suite-criticality/v1",
-        "defaults": {"criticality": "release-critical",
-                     "required_evidence": "suite PASS report"},
-        "suites": suites,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
-    return p
-
-
 def _exe(bin_dir: Path, name: str = "alpha_suite.exe") -> Path:
     p = bin_dir / name
     p.write_bytes(b"MZ")
     return p
 
 
-def _report(passed=1, failed=0, blocked=0, cases=None):
-    if cases is None:
-        cases = [{"suite": "alpha_suite", "name": "case1",
-                  "status": "PASS", "detail": ""}]
-    return {"passed": passed, "failed": failed, "blocked": blocked,
-            "cases": cases}
+def _orch_report(passed=1, failed=0, blocked=0, cases=1, verdict="PASS",
+                 suites=None, failures=None, blocked_classifications=None,
+                 blocked_unclassified=False):
+    if suites is None:
+        suites = [{"suite": "alpha_suite", "exe": "alpha_suite.exe",
+                   "pass": passed, "fail": failed, "blocked": blocked,
+                   "returncode": 0, "timed_out": False, "duration_ms": 10,
+                   "process_startup_ms": 5.0, "actual_test_ms": 4.0,
+                   "result_collection_ms": 1.0}]
+    return {
+        "orchestrator": "native-test-orchestrator/v2",
+        "language": "csharp",
+        "mode": "run",
+        "verdict": verdict,
+        "passed": passed,
+        "failed": failed,
+        "blocked": blocked,
+        "cases": cases,
+        "suites": suites,
+        "failures": list(failures or []),
+        "blocked_classifications": list(blocked_classifications or []),
+        "blocked_unclassified": blocked_unclassified,
+        "artifact_hash": "ab" * 32,
+        "timing": {
+            "total_gate_time_ms": 10.0,
+            "process_startup_time_ms": 5.0,
+            "actual_test_time_ms": 4.0,
+            "result_collection_time_ms": 1.0,
+        },
+        "manifest_source": "manifest",
+        "manifest_built_revision": "testrev",
+        "source_revision": "testrev",
+        "revision_match": True,
+    }
 
 
-def _runner_writing(report):
-    def run(exe: Path, cwd: Path, timeout: float):
-        (cwd / f"{exe.stem}.json").write_text(
+def _orchestrator_writing(report):
+    def run(argv, cwd: Path, timeout: float):
+        (cwd / "native-orchestration-report.json").write_text(
             json.dumps(report), encoding="utf-8")
         return _completed(0)
     return run
@@ -97,36 +110,88 @@ def _gate(tmp_path, **kw):
 def test_gate_passes_on_green_suite(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
-    gate = _gate(tmp_path, runner=_runner_writing(_report()), config=_cfg())
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(_orch_report()),
+        config=_cfg())
     assert gate["passed"] is True
     assert gate["totals"]["pass"] == 1
+    assert gate["orchestrator"] == "native-test-orchestrator/v2"
+
+
+def test_gate_invokes_orchestrator_with_governed_args(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)
+    seen = {}
+
+    def run(argv, cwd: Path, timeout: float):
+        seen["argv"] = list(argv)
+        seen["timeout"] = timeout
+        return _orchestrator_writing(_orch_report())(argv, cwd, timeout)
+
+    gate = _gate(tmp_path, orchestrator=run,
+                 config=_cfg(max_parallel_suites=3, suite_timeout_s=9,
+                             run_budget_s=42))
+    assert gate["passed"] is True
+    argv = seen["argv"]
+    assert "--run" in argv
+    assert "--require-manifest" in argv
+    assert argv[argv.index("--max-parallel") + 1] == "3"
+    assert argv[argv.index("--suite-timeout-s") + 1] == "9"
+    assert seen["timeout"] == 42.0
+    assert gate["max_parallel_suites"] == 3
+
+
+def test_gate_records_timing_decomposition(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(_orch_report()),
+        config=_cfg())
+    timing = gate["timing"]
+    for key in ("total_gate_time_ms", "process_startup_time_ms",
+                "actual_test_time_ms", "result_collection_time_ms"):
+        assert key in timing
+    assert gate["artifact_hash"] == "ab" * 32
 
 
 def test_gate_denies_on_failed_case(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
-    report = _report(passed=0, failed=1, cases=[
-        {"suite": "alpha_suite", "name": "bad", "status": "FAIL",
-         "detail": "boom"}])
-    gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
+    report = _orch_report(
+        passed=0, failed=1, verdict="FAIL",
+        failures=["alpha_suite/bad: boom"])
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(report), config=_cfg())
     assert gate["passed"] is False
     assert "bad" in gate["detail"]
+
+
+def test_gate_denies_on_fail_verdict(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)
+    report = _orch_report(passed=1, verdict="FAIL",
+                          failures=["alpha_suite/x: crash"])
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(report), config=_cfg())
+    assert gate["passed"] is False
 
 
 def test_gate_blocked_is_incomplete_not_denied(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
-    _criticality(tmp_path, {"alpha_suite": {
-        "criticality": "experimental",
-        "affected_capability": "exploratory path",
-        "release_impact": "none",
-        "required_evidence": "eventual suite PASS",
-    }})
-    report = _report(passed=1, blocked=1, cases=[
-        {"suite": "alpha_suite", "name": "ok", "status": "PASS"},
-        {"suite": "alpha_suite", "name": "env", "status": "BLOCKED",
-         "detail": "GPU unavailable"}])
-    gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
+    report = _orch_report(
+        passed=1, blocked=1, cases=2, verdict="INCOMPLETE_EVIDENCE",
+        blocked_classifications=[{
+            "blocked_suite": "alpha_suite",
+            "blocked_case": "env",
+            "blocked_reason": "GPU unavailable",
+            "affected_capability": "exploratory path",
+            "release_impact": "none",
+            "required_evidence": "eventual suite PASS",
+            "criticality": "experimental",
+        }])
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(report), config=_cfg())
     assert gate["passed"] is True
     assert gate["incomplete_evidence"] is True
     cls = gate["blocked_classifications"]
@@ -143,37 +208,52 @@ def test_gate_blocked_is_incomplete_not_denied(tmp_path: Path) -> None:
 def test_gate_blocked_release_critical_denies(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
-    _criticality(tmp_path)  # alpha_suite registered release-critical
-    report = _report(passed=1, blocked=1, cases=[
-        {"suite": "alpha_suite", "name": "ok", "status": "PASS"},
-        {"suite": "alpha_suite", "name": "abi", "status": "BLOCKED",
-         "detail": "toolchain absent"}])
-    gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
+    report = _orch_report(
+        passed=1, blocked=1, cases=2, verdict="FAIL",
+        blocked_classifications=[{
+            "blocked_suite": "alpha_suite",
+            "blocked_case": "abi",
+            "blocked_reason": "toolchain absent",
+            "affected_capability": "alpha capability",
+            "release_impact": "alpha unverified",
+            "required_evidence": "alpha_suite PASS report",
+            "criticality": "release-critical",
+        }])
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(report), config=_cfg())
     assert gate["passed"] is False
     assert gate["incomplete_evidence"] is True
     assert "blocked-release-critical" in gate["detail"]
-    assert gate["blocked_classifications"][0]["criticality"] == (
-        "release-critical")
 
 
 def test_gate_blocked_unregistered_denies(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
-    _criticality(tmp_path, {"other_suite": {
-        "criticality": "experimental"}})
-    report = _report(passed=1, blocked=1, cases=[
-        {"suite": "alpha_suite", "name": "env", "status": "BLOCKED"}])
-    gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
+    report = _orch_report(
+        passed=1, blocked=1, cases=2, verdict="FAIL",
+        blocked_classifications=[{
+            "blocked_suite": "alpha_suite",
+            "blocked_case": "env",
+            "blocked_reason": "",
+            "affected_capability": "unregistered-suite",
+            "release_impact": "unclassified",
+            "required_evidence": "suite PASS report",
+            "criticality": "release-critical",
+        }])
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(report), config=_cfg())
     assert gate["passed"] is False
     assert "blocked-release-critical" in gate["detail"]
 
 
 def test_gate_blocked_registry_missing_denies(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
-    _exe(d)  # no criticality registry written
-    report = _report(passed=1, blocked=1, cases=[
-        {"suite": "alpha_suite", "name": "env", "status": "BLOCKED"}])
-    gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
+    _exe(d)
+    report = _orch_report(
+        passed=1, blocked=1, cases=2, verdict="FAIL",
+        blocked_unclassified=True)
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(report), config=_cfg())
     assert gate["passed"] is False
     assert "blocked-unclassified" in gate["detail"]
 
@@ -182,7 +262,8 @@ def test_gate_denies_when_manifest_missing(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     (d / "suite-manifest.json").unlink()
     _exe(d)
-    gate = _gate(tmp_path, runner=_runner_writing(_report()),
+    gate = _gate(tmp_path,
+                 orchestrator=_orchestrator_writing(_orch_report()),
                  config=_cfg())
     assert gate["passed"] is False
     assert "stale-or-missing" in gate["detail"]
@@ -192,7 +273,8 @@ def test_gate_denies_when_manifest_revision_empty(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _manifest(d, revision="")
     _exe(d)
-    gate = _gate(tmp_path, runner=_runner_writing(_report()),
+    gate = _gate(tmp_path,
+                 orchestrator=_orchestrator_writing(_orch_report()),
                  config=_cfg())
     assert gate["passed"] is False
     assert "stale-or-missing" in gate["detail"]
@@ -201,7 +283,9 @@ def test_gate_denies_when_manifest_revision_empty(tmp_path: Path) -> None:
 def test_gate_records_source_revision(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
-    gate = _gate(tmp_path, runner=_runner_writing(_report()), config=_cfg())
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(_orch_report()),
+        config=_cfg())
     assert gate["passed"] is True
     assert gate["source_revision"] == "testrev"
 
@@ -209,7 +293,8 @@ def test_gate_records_source_revision(tmp_path: Path) -> None:
 def test_gate_denies_on_missing_report(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
-    gate = _gate(tmp_path, runner=lambda *a: _completed(0), config=_cfg())
+    gate = _gate(tmp_path, orchestrator=lambda *a: _completed(0),
+                 config=_cfg())
     assert gate["passed"] is False
     assert "report-missing" in gate["detail"]
 
@@ -217,13 +302,14 @@ def test_gate_denies_on_missing_report(tmp_path: Path) -> None:
 def test_gate_denies_on_suite_crash(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
-
-    def run(exe: Path, cwd: Path, timeout: float):
-        (cwd / f"{exe.stem}.json").write_text(
-            json.dumps(_report()), encoding="utf-8")
-        return _completed(2)
-
-    gate = _gate(tmp_path, runner=run, config=_cfg())
+    report = _orch_report(
+        passed=1, failed=1, cases=1, verdict="FAIL",
+        suites=[{"suite": "alpha_suite", "exe": "alpha_suite.exe",
+                 "pass": 1, "fail": 0, "blocked": 0, "returncode": 2,
+                 "timed_out": False, "duration_ms": 5}],
+        failures=["alpha_suite/suite_exit: rc=2"])
+    gate = _gate(
+        tmp_path, orchestrator=_orchestrator_writing(report), config=_cfg())
     assert gate["passed"] is False
     assert "suite_exit" in gate["detail"]
 
@@ -233,18 +319,44 @@ def test_gate_denies_on_timeout(tmp_path: Path) -> None:
     _exe(d)
 
     def run(*a):
-        raise subprocess.TimeoutExpired(cmd="suite", timeout=5)
+        raise subprocess.TimeoutExpired(cmd="orch", timeout=5)
 
-    gate = _gate(tmp_path, runner=run, config=_cfg())
+    gate = _gate(tmp_path, orchestrator=run, config=_cfg())
     assert gate["passed"] is False
-    assert "timeout" in gate["detail"]
+    assert "run-budget-exceeded" in gate["detail"]
+
+
+def test_gate_denies_on_orchestrator_spawn_error(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)
+
+    def run(*a):
+        raise OSError("no exe")
+
+    gate = _gate(tmp_path, orchestrator=run, config=_cfg())
+    assert gate["passed"] is False
+    assert "orchestrator-error" in gate["detail"]
+
+
+def test_gate_denies_when_orchestrator_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)
+    monkeypatch.setattr(push_gate, "_ensure_orchestrator",
+                        lambda *a, **k: None)
+    gate = _gate(tmp_path, config=_cfg())
+    assert gate["passed"] is False
+    assert "orchestrator-unavailable" in gate["detail"]
 
 
 def test_gate_denies_when_binaries_missing_no_autobuild(
     tmp_path: Path,
 ) -> None:
     _bin_dir(tmp_path)  # empty bin dir -> stale/missing
-    gate = _gate(tmp_path, config=_cfg(auto_build=False))
+    gate = _gate(
+        tmp_path, orchestrator=lambda *a: _completed(0),
+        config=_cfg(auto_build=False))
     assert gate["passed"] is False
     assert "test-binaries-stale-or-missing" in gate["detail"]
 
@@ -259,7 +371,8 @@ def test_gate_rebuilds_via_builder(tmp_path: Path) -> None:
         return _completed(0)
 
     gate = _gate(
-        tmp_path, runner=_runner_writing(_report()), builder=builder,
+        tmp_path, orchestrator=_orchestrator_writing(_orch_report()),
+        builder=builder,
         config=_cfg(auto_build=True),
     )
     assert built == [True]
@@ -274,7 +387,8 @@ def test_gate_denies_on_build_failure(tmp_path: Path) -> None:
         return _completed(1)
 
     gate = _gate(
-        tmp_path, builder=builder, config=_cfg(auto_build=True),
+        tmp_path, orchestrator=lambda *a: _completed(0), builder=builder,
+        config=_cfg(auto_build=True),
     )
     assert gate["passed"] is False
     assert "build-failed" in gate["detail"]
@@ -286,7 +400,8 @@ def test_gate_denies_on_build_timeout(tmp_path: Path) -> None:
     def builder(timeout: float):
         raise subprocess.TimeoutExpired(cmd="build", timeout=5)
 
-    gate = _gate(tmp_path, builder=builder, config=_cfg(auto_build=True))
+    gate = _gate(tmp_path, orchestrator=lambda *a: _completed(0),
+                 builder=builder, config=_cfg(auto_build=True))
     assert gate["passed"] is False
     assert gate["detail"] == "build-timeout"
 
@@ -318,12 +433,10 @@ def test_gate_denies_on_lock_busy(tmp_path: Path) -> None:
 def test_gate_denies_on_empty_cases(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
+    report = _orch_report(passed=0, failed=0, blocked=0, cases=0,
+                          verdict="PASS")
     gate = _gate(
-        tmp_path,
-        runner=_runner_writing({"passed": 0, "failed": 0, "blocked": 0,
-                                "cases": []}),
-        config=_cfg(),
-    )
+        tmp_path, orchestrator=_orchestrator_writing(report), config=_cfg())
     assert gate["passed"] is False
     assert "no-test-cases" in gate["detail"]
 
@@ -332,17 +445,14 @@ def test_gate_denies_on_run_budget(tmp_path: Path) -> None:
     import time
 
     d = _bin_dir(tmp_path)
-    _exe(d, "a_suite.exe")
-    _exe(d, "b_suite.exe")
+    _exe(d)
 
-    def slow_runner(exe: Path, cwd: Path, timeout: float):
-        (cwd / f"{exe.stem}.json").write_text(
-            json.dumps(_report()), encoding="utf-8")
+    def slow_orchestrator(argv, cwd: Path, timeout: float):
         time.sleep(0.05)
-        return _completed(0)
+        raise subprocess.TimeoutExpired(cmd="orch", timeout=timeout)
 
     gate = _gate(
-        tmp_path, runner=slow_runner,
+        tmp_path, orchestrator=slow_orchestrator,
         config=_cfg(run_budget_s=0.01),
     )
     assert gate["passed"] is False
@@ -438,135 +548,6 @@ def test_push_evidence_denial_and_grant(
     assert data["last_push"]["result"] == "denied"
     assert records and records[0]["operation"] == "push"
     assert records[0]["result"] == "denied"
-
-
-def _tracking_runner(in_flight, peak, report_fn=None, delay=0.05):
-    import threading
-    import time
-    lock = threading.Lock()
-
-    def run(exe: Path, cwd: Path, timeout: float):
-        with lock:
-            in_flight[0] += 1
-            peak[0] = max(peak[0], in_flight[0])
-        try:
-            time.sleep(delay)
-            report = report_fn(exe) if report_fn else _report()
-            (cwd / f"{exe.stem}.json").write_text(
-                json.dumps(report), encoding="utf-8")
-            return _completed(0)
-        finally:
-            with lock:
-                in_flight[0] -= 1
-    return run
-
-
-def test_gate_bounded_parallel_caps_in_flight(tmp_path: Path) -> None:
-    d = _bin_dir(tmp_path)
-    for i in range(6):
-        _exe(d, f"s{i}_suite.exe")
-    in_flight, peak = [0], [0]
-    gate = _gate(
-        tmp_path,
-        runner=_tracking_runner(in_flight, peak),
-        config=_cfg(max_parallel_suites=3),
-    )
-    assert gate["passed"] is True
-    assert gate["max_parallel_suites"] == 3
-    assert 1 < peak[0] <= 3
-    assert len(gate["suites"]) == 6
-
-
-def test_gate_parallel_one_is_sequential(tmp_path: Path) -> None:
-    d = _bin_dir(tmp_path)
-    for i in range(4):
-        _exe(d, f"s{i}_suite.exe")
-    in_flight, peak = [0], [0]
-    gate = _gate(
-        tmp_path,
-        runner=_tracking_runner(in_flight, peak),
-        config=_cfg(max_parallel_suites=1),
-    )
-    assert gate["passed"] is True
-    assert peak[0] == 1
-
-
-def test_gate_parallel_sorted_deterministic_output(tmp_path: Path) -> None:
-    d = _bin_dir(tmp_path)
-    for name in ("zeta_suite.exe", "alpha_suite.exe", "mid_suite.exe"):
-        _exe(d, name)
-
-    def report_fn(exe: Path):
-        return {"passed": 1, "failed": 0, "blocked": 0,
-                "cases": [{"suite": exe.stem, "name": "c",
-                           "status": "PASS", "detail": ""}]}
-
-    in_flight, peak = [0], [0]
-    gate = _gate(
-        tmp_path,
-        runner=_tracking_runner(in_flight, peak, report_fn, delay=0.02),
-        config=_cfg(max_parallel_suites=3),
-    )
-    assert gate["passed"] is True
-    assert [s["suite"] for s in gate["suites"]] == [
-        "alpha_suite", "mid_suite", "zeta_suite"]
-    assert gate["totals"]["pass"] == 3
-
-
-def test_gate_parallel_aggregates_failures(tmp_path: Path) -> None:
-    d = _bin_dir(tmp_path)
-    for i in range(5):
-        _exe(d, f"s{i}_suite.exe")
-
-    def report_fn(exe: Path):
-        status = "FAIL" if exe.stem == "s3_suite" else "PASS"
-        return {"passed": 0 if status == "FAIL" else 1,
-                "failed": 1 if status == "FAIL" else 0, "blocked": 0,
-                "cases": [{"suite": exe.stem, "name": "c",
-                           "status": status, "detail": "boom"}]}
-
-    in_flight, peak = [0], [0]
-    gate = _gate(
-        tmp_path,
-        runner=_tracking_runner(in_flight, peak, report_fn),
-        config=_cfg(max_parallel_suites=4),
-    )
-    assert gate["passed"] is False
-    assert gate["totals"]["fail"] == 1
-    assert gate["totals"]["pass"] == 4
-    assert "s3_suite" in gate["detail"]
-
-
-def test_gate_parallel_timeout_fail_closed(tmp_path: Path) -> None:
-    d = _bin_dir(tmp_path)
-    _exe(d, "slow_suite.exe")
-    _exe(d, "ok_suite.exe")
-
-    def run(exe: Path, cwd: Path, timeout: float):
-        if exe.stem == "slow_suite":
-            raise subprocess.TimeoutExpired(cmd="suite", timeout=timeout)
-        (cwd / f"{exe.stem}.json").write_text(
-            json.dumps(_report()), encoding="utf-8")
-        return _completed(0)
-
-    gate = _gate(tmp_path, runner=run, config=_cfg(max_parallel_suites=2))
-    assert gate["passed"] is False
-    assert "timeout" in gate["detail"]
-    assert gate["totals"]["pass"] == 1
-
-
-def test_gate_parallel_run_budget_denies(tmp_path: Path) -> None:
-    d = _bin_dir(tmp_path)
-    for i in range(4):
-        _exe(d, f"s{i}_suite.exe")
-    in_flight, peak = [0], [0]
-    gate = _gate(
-        tmp_path,
-        runner=_tracking_runner(in_flight, peak, delay=0.3),
-        config=_cfg(max_parallel_suites=4, run_budget_s=0.01),
-    )
-    assert gate["passed"] is False
-    assert "run-budget-exceeded" in gate["detail"]
 
 
 def test_config_max_parallel_suites_bounds(

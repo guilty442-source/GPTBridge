@@ -56,9 +56,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import time
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
@@ -80,9 +78,22 @@ _NATIVE_TEST_DIR = Path("native") / "test_suites"
 _BUILD_SCRIPT = _NATIVE_TEST_DIR / "build.ps1"
 _BIN_DIR = _NATIVE_TEST_DIR / "bin"
 _SUITE_GLOB = "*_suite.exe"
-_REPORT_SUFFIX = ".json"
 _SUITE_MANIFEST_NAME = "suite-manifest.json"
-_CRITICALITY_FILE = _NATIVE_TEST_DIR / "suite_criticality.json"
+
+# G97: the C# TestSuiteOrchestrator is the SOLE native suite orchestrator
+# (§10.60.1).  The gate resolves the built executable (Release first),
+# rebuilds it from source when missing/stale, and consumes its typed
+# orchestration report instead of spawning suite processes itself.
+_ORCH_DIR = _NATIVE_TEST_DIR / "csharp"
+_ORCH_PROJECT = _ORCH_DIR / "TestSuiteOrchestrator.csproj"
+_ORCH_SOURCE = _ORCH_DIR / "Program.cs"
+_ORCH_EXE_RELEASE = (
+    _ORCH_DIR / "bin" / "Release" / "net10.0" / "TestSuiteOrchestrator.exe"
+)
+_ORCH_EXE_DEBUG = (
+    _ORCH_DIR / "bin" / "Debug" / "net10.0" / "TestSuiteOrchestrator.exe"
+)
+_ORCH_REPORT_NAME = "native-orchestration-report.json"
 
 # Link inputs that invalidate cached suite binaries (build.ps1 $suites map
 # roots): a newer code file in any of these means the binaries no longer
@@ -102,6 +113,7 @@ _DEP_ROOTS = (
 _CODE_SUFFIXES = frozenset({".c", ".cpp", ".h", ".hpp"})
 
 DEFAULT_BUILD_TIMEOUT_S = 600.0
+DEFAULT_ORCH_BUILD_TIMEOUT_S = 120.0
 DEFAULT_SUITE_TIMEOUT_S = 30.0
 DEFAULT_RUN_BUDGET_S = 120.0
 DEFAULT_LOCK_WAIT_S = 30.0
@@ -227,29 +239,80 @@ def _build_suites(root: Path, timeout_s: float, builder: Builder | None) -> Any:
     return run(timeout_s)
 
 
-def _run_suite(exe: Path, bin_dir: Path, timeout_s: float, runner: Runner) -> Any:
-    """Run one suite binary; it writes ``<stem>.json`` into ``bin/``."""
-    return runner(exe, bin_dir, timeout_s)
+def _orchestrator_exe(root: Path) -> Path | None:
+    """The built C# orchestrator executable (Release preferred)."""
+    for rel in (_ORCH_EXE_RELEASE, _ORCH_EXE_DEBUG):
+        exe = root / rel
+        if exe.is_file():
+            return exe
+    return None
 
 
-def _default_runner(exe: Path, cwd: Path, timeout_s: float) -> Any:
-    return subprocess.run(
-        [str(exe), exe.stem],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=timeout_s,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
-
-
-def _suite_report(bin_dir: Path, exe: Path) -> dict[str, Any]:
-    """Parse the suite's ``<stem>.json`` report."""
-    path = bin_dir / f"{exe.stem}{_REPORT_SUFFIX}"
+def _orchestrator_stale(root: Path, exe: Path) -> bool:
+    """Rebuild when the orchestrator sources are newer than the exe."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8-sig"))
+        exe_mtime = exe.stat().st_mtime
+        for rel in (_ORCH_SOURCE, _ORCH_PROJECT):
+            src = root / rel
+            if src.is_file() and src.stat().st_mtime > exe_mtime:
+                return True
+    except OSError:
+        return True
+    return False
+
+
+def _ensure_orchestrator(
+    root: Path, timeout_s: float
+) -> Path | None:
+    """Resolve the orchestrator exe, rebuilding via ``dotnet build`` when
+    missing or stale.  Returns ``None`` when unavailable — fail closed."""
+    exe = _orchestrator_exe(root)
+    if exe is not None and not _orchestrator_stale(root, exe):
+        return exe
+    try:
+        proc = subprocess.run(
+            [
+                "dotnet", "build", str(root / _ORCH_PROJECT),
+                "-c", "Release", "--nologo", "-v", "q",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_s,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    return _orchestrator_exe(root)
+
+
+def _default_orchestrator(argv: list[str], cwd: Path, timeout_s: float) -> Any:
+    """Invoke the C# orchestrator.  Output goes to a log file, not a pipe:
+    suite processes may spawn grandchildren that inherit a pipe and keep
+    it open past the parent's exit — a captured pipe could then never
+    reach EOF and would hang the gate past its budget."""
+    log_path = Path(cwd) / "_gate_orchestrator.log"
+    with open(log_path, "w", encoding="utf-8", errors="replace") as log:
+        return subprocess.run(
+            argv,
+            cwd=cwd,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            timeout=timeout_s,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+
+
+def _orchestration_report(bin_dir: Path) -> dict[str, Any]:
+    """Parse the orchestrator's ``native-orchestration-report.json``."""
+    try:
+        data = json.loads(
+            (bin_dir / _ORCH_REPORT_NAME).read_text(encoding="utf-8-sig")
+        )
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
@@ -268,101 +331,6 @@ def _suite_manifest(bin_dir: Path) -> dict[str, Any]:
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
-
-
-def _load_criticality(root: Path) -> dict[str, Any]:
-    """G99 per-suite criticality registry.  ``{}`` when missing/malformed —
-    callers fail closed when BLOCKED cases require classification."""
-    try:
-        data = json.loads(
-            (Path(root) / _CRITICALITY_FILE).read_text(encoding="utf-8")
-        )
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def _classify_blocked(
-    suite_stem: str, case: Mapping[str, Any], registry: Mapping[str, Any]
-) -> dict[str, Any]:
-    """Project one BLOCKED case through the criticality registry (G99).
-
-    Unregistered suites default to ``release-critical`` — an unknown
-    suite's blocked evidence can never silently stay non-blocking.
-    """
-    entry = (registry.get("suites") or {}).get(suite_stem)
-    entry = entry if isinstance(entry, Mapping) else {}
-    defaults = registry.get("defaults")
-    defaults = defaults if isinstance(defaults, Mapping) else {}
-    return {
-        "blocked_suite": suite_stem,
-        "blocked_case": str(case.get("name", "?")),
-        "blocked_reason": str(case.get("detail", ""))[:200],
-        "affected_capability": entry.get(
-            "affected_capability", "unregistered-suite"
-        ),
-        "release_impact": entry.get("release_impact", "unclassified"),
-        "required_evidence": entry.get(
-            "required_evidence",
-            defaults.get("required_evidence", "suite PASS report"),
-        ),
-        "criticality": entry.get(
-            "criticality", defaults.get("criticality", "release-critical")
-        ),
-    }
-
-
-def _execute_suite(
-    exe: Path, bin_dir: Path, suite_timeout: float, runner: Runner
-) -> dict[str, Any]:
-    """Run one suite binary and return its outcome — worker-thread safe.
-
-    Touches only the suite's own ``<stem>.json`` report and returns all
-    findings in the result dict; the caller thread owns gate aggregation.
-    Never raises: every failure mode is folded into a FAIL case so the
-    orchestrator stays fail-closed.
-    """
-    suite_error = ""
-    # Remove the previous report first: existence afterwards is the
-    # freshness proof — mtime comparison is unreliable on filesystems with
-    # coarse timestamp granularity.
-    report_path = bin_dir / f"{exe.stem}{_REPORT_SUFFIX}"
-    try:
-        report_path.unlink(missing_ok=True)
-    except OSError:
-        pass
-    proc = None
-    try:
-        proc = _run_suite(exe, bin_dir, suite_timeout, runner)
-    except subprocess.TimeoutExpired:
-        suite_error = f"timeout>{suite_timeout}s"
-    except Exception as exc:  # noqa: BLE001 — fail closed
-        suite_error = f"spawn-error:{type(exc).__name__}"
-    report = _suite_report(bin_dir, exe)
-    cases = report.get("cases") if report else None
-    if not isinstance(cases, list):
-        suite_error = (
-            suite_error
-            if proc is None
-            else f"report-missing:rc={proc.returncode}"
-        )
-        cases = [
-            {
-                "suite": exe.stem,
-                "name": "suite_execution",
-                "status": "FAIL",
-                "detail": suite_error,
-            }
-        ]
-        report = {"passed": 0, "failed": 1, "blocked": 0}
-    entry = {
-        "suite": exe.stem,
-        "pass": int(report.get("passed", 0)) if report else 0,
-        "fail": int(report.get("failed", 0)) if report else 0,
-        "blocked": int(report.get("blocked", 0)) if report else 0,
-        "returncode": getattr(proc, "returncode", None) if proc else None,
-    }
-    return {"entry": entry, "cases": cases}
 
 
 @contextmanager
@@ -392,22 +360,29 @@ def _gate_lock(root: Path, wait_s: float) -> Iterator[None]:
 def mandatory_test_gate(
     root: str | Path,
     *,
-    runner: Runner | None = None,
+    orchestrator: Runner | None = None,
     builder: Builder | None = None,
     config: Mapping[str, Any] | None = None,
     lock: Any | None = None,
 ) -> dict[str, Any]:
     """Run the native test suite against ``root`` (bounded, fail-closed).
 
-    Returns a gate record: ``passed`` is False on any test failure,
-    suite crash/timeout, stale-or-missing binaries that cannot be rebuilt,
-    build failure, or config error — the push path treats every non-pass
-    as a denial.
+    G97: suite execution is delegated to the C# ``TestSuiteOrchestrator``
+    (the sole native orchestrator, §10.60.1) — the gate resolves/rebuilds
+    it, invokes it once under ``run_budget_s``, and consumes its typed
+    ``native-orchestration-report.json`` (per-suite results, blocked
+    classification, revision binding, artifact hash and the mandated
+    ``total_gate_time``/``process_startup_time``/``actual_test_time``/
+    ``result_collection_time`` decomposition).  ``passed`` is False on
+    any test failure, suite crash/timeout, missing/malformed report,
+    orchestrator failure, stale binaries that cannot be rebuilt, build
+    failure, or config error — every non-pass denies the push.
     """
     cfg = dict(config) if config is not None else push_gate_config()
     gate: dict[str, Any] = {
         "gate": "mandatory-tests",
         "harness": "native-test-suite/v1",
+        "orchestrator": "native-test-orchestrator/v2",
         "passed": False,
         "skipped": False,
         "suites": [],
@@ -419,10 +394,11 @@ def mandatory_test_gate(
         "source_revision": None,
         "head_revision": None,
         "revision_match": None,
+        "artifact_hash": None,
+        "timing": {},
         "duration_ms": 0,
         "detail": "",
     }
-    blocked_cases: list[tuple[str, Mapping[str, Any]]] = []
     manifest: dict[str, Any] = {}
     started = time.monotonic()
 
@@ -440,20 +416,41 @@ def mandatory_test_gate(
             "mandatory-test PASS precondition unmet"
         )
 
-    bin_dir = Path(root) / _BIN_DIR
-    run = runner or _default_runner
+    root_path = Path(root)
+    bin_dir = root_path / _BIN_DIR
     suite_timeout = float(cfg.get("suite_timeout_s") or DEFAULT_SUITE_TIMEOUT_S)
     run_budget = float(cfg.get("run_budget_s") or DEFAULT_RUN_BUDGET_S)
     lock_wait = float(cfg.get("lock_wait_s") or DEFAULT_LOCK_WAIT_S)
 
     try:
-        with (lock if lock is not None else _gate_lock(root, lock_wait)):
+        with (lock if lock is not None else _gate_lock(root_path, lock_wait)):
+            if orchestrator is None:
+                # Resolve (or rebuild) the sole orchestrator before any
+                # suite decision — without it no suite evidence can exist.
+                exe = _ensure_orchestrator(
+                    root_path,
+                    float(
+                        cfg.get("orch_build_timeout_s")
+                        or DEFAULT_ORCH_BUILD_TIMEOUT_S
+                    ),
+                )
+                if exe is None:
+                    return _done(
+                        "orchestrator-unavailable: TestSuiteOrchestrator "
+                        "missing and `dotnet build` failed"
+                    )
+                run = lambda argv, cwd, timeout: _default_orchestrator(  # noqa: E731
+                    [str(exe), *argv], cwd, timeout
+                )
+            else:
+                run = orchestrator
+
             exes = _suite_exes(bin_dir)
             manifest = _suite_manifest(bin_dir)
             # G99: a missing/empty-revision suite manifest means the binaries
             # carry no bound source revision — same treatment as stale code
             # artifacts (rebuild when auto_build, deny otherwise).
-            if _binaries_stale(Path(root), exes) or not manifest.get(
+            if _binaries_stale(root_path, exes) or not manifest.get(
                 "revision"
             ):
                 if not cfg.get("auto_build", True):
@@ -463,7 +460,7 @@ def mandatory_test_gate(
                     )
                 try:
                     proc = _build_suites(
-                        Path(root),
+                        root_path,
                         float(
                             cfg.get("build_timeout_s")
                             or DEFAULT_BUILD_TIMEOUT_S
@@ -476,82 +473,72 @@ def mandatory_test_gate(
                     return _done(f"build-error:{type(exc).__name__}")
                 exes = _suite_exes(bin_dir)
                 manifest = _suite_manifest(bin_dir)
-                if not exes or _binaries_stale(Path(root), exes):
+                if not exes or _binaries_stale(root_path, exes):
                     rc = getattr(proc, "returncode", "?")
                     return _done(f"build-failed:rc={rc}")
                 if not manifest.get("revision"):
                     return _done("suite-manifest-missing")
                 gate["rebuilt"] = True
 
-            run_started = time.monotonic()
             # Keep on one line: check_bounded_worker_pools proves the bound
             # statically by reading the assignment RHS for a clamp token.
             max_parallel = max(1, min(MAX_PARALLEL_SUITES_CAP, int(cfg.get("max_parallel_suites") or DEFAULT_MAX_PARALLEL_SUITES)))
             gate["max_parallel_suites"] = max_parallel
-            # Bounded-parallel orchestration: each suite writes a uniquely
-            # named <stem>.json report and binds only ephemeral ports, so
-            # worker threads cannot interleave report files or collide on
-            # ports.  Results are merged on the caller thread in sorted exe
-            # order so the gate record stays deterministic.
-            results: dict[str, dict[str, Any]] = {}
-            with ThreadPoolExecutor(
-                max_workers=max_parallel,
-                thread_name_prefix="push-gate-suite",
-            ) as pool:
-                pending = []
-                for exe in exes:
-                    if time.monotonic() - run_started > run_budget:
-                        return _done(
-                            f"run-budget-exceeded:{run_budget}s "
-                            f"(submitted {len(pending)}/{len(exes)})"
-                        )
-                    pending.append(
-                        (
-                            exe,
-                            pool.submit(
-                                _execute_suite,
-                                exe,
-                                bin_dir,
-                                suite_timeout,
-                                run,
-                            ),
-                        )
-                    )
-                for exe, future in pending:
-                    results[exe.name] = future.result()
-            if time.monotonic() - run_started > run_budget:
-                return _done(
-                    f"run-budget-exceeded:{run_budget}s "
-                    f"(ran {len(results)}/{len(exes)})"
+
+            # One orchestrated run: the C# orchestrator owns bounded
+            # concurrency, per-suite timeout, process cleanup, report
+            # consolidation, artifact hash and revision verification.
+            try:
+                proc = run(
+                    [
+                        "--run",
+                        "--bin", str(bin_dir),
+                        "--max-parallel", str(max_parallel),
+                        "--suite-timeout-s", str(int(suite_timeout)),
+                        "--require-manifest",
+                    ],
+                    bin_dir,
+                    run_budget,
                 )
-            for exe in exes:
-                outcome = results[exe.name]
-                gate["suites"].append(outcome["entry"])
-                totals = gate["totals"]
-                for case in outcome["cases"]:
-                    if not isinstance(case, dict):
-                        continue
-                    status = str(case.get("status", "")).upper()
-                    totals["cases"] += 1
-                    if status == "PASS":
-                        totals["pass"] += 1
-                    elif status == "BLOCKED":
-                        totals["blocked"] += 1
-                        blocked_cases.append((exe.stem, case))
-                    else:
-                        totals["fail"] += 1
-                        if len(gate["failures"]) < 8:
-                            gate["failures"].append(
-                                f"{case.get('suite', exe.stem)}/"
-                                f"{case.get('name', '?')}: "
-                                f"{str(case.get('detail', ''))[:120]}"
-                            )
-                rc = outcome["entry"]["returncode"]
-                if rc is not None and rc not in (0, 1):
-                    totals["fail"] += 1
-                    gate["failures"].append(
-                        f"{exe.stem}/suite_exit: rc={rc}"
-                    )
+            except subprocess.TimeoutExpired:
+                return _done(
+                    f"run-budget-exceeded:{run_budget}s (orchestrator)"
+                )
+            except Exception as exc:  # noqa: BLE001 — fail closed
+                return _done(
+                    f"orchestrator-error:{type(exc).__name__}"
+                )
+            report = _orchestration_report(bin_dir)
+            if not report:
+                rc = getattr(proc, "returncode", "?")
+                return _done(
+                    f"orchestration-report-missing:rc={rc}"
+                )
+            gate["suites"] = [
+                dict(s) for s in report.get("suites") or []
+                if isinstance(s, Mapping)
+            ]
+            gate["totals"] = {
+                "pass": int(report.get("passed", 0) or 0),
+                "fail": int(report.get("failed", 0) or 0),
+                "blocked": int(report.get("blocked", 0) or 0),
+                "cases": int(report.get("cases", 0) or 0),
+            }
+            gate["failures"] = [
+                str(f) for f in report.get("failures") or []
+            ][:8]
+            gate["blocked_classifications"] = [
+                dict(c)
+                for c in report.get("blocked_classifications") or []
+                if isinstance(c, Mapping)
+            ]
+            gate["artifact_hash"] = report.get("artifact_hash")
+            gate["timing"] = (
+                dict(report["timing"])
+                if isinstance(report.get("timing"), Mapping)
+                else {}
+            )
+            verdict = str(report.get("verdict", "FAIL")).upper()
     except LockBusyError:
         return _done(f"gate-busy:{_LOCK_FILENAME}")
     except Exception as exc:  # noqa: BLE001 — gate must total to a verdict
@@ -561,7 +548,7 @@ def mandatory_test_gate(
     # current HEAD so suite evidence can be tied to one revision/generation.
     gate["source_revision"] = manifest.get("revision")
     try:
-        head = GitRepository(Path(root)).run(["rev-parse", "HEAD"])
+        head = GitRepository(root_path).run(["rev-parse", "HEAD"])
         gate["head_revision"] = (
             (head.stdout or "").strip() if head.returncode == 0 else None
         )
@@ -581,32 +568,28 @@ def mandatory_test_gate(
         )
     if totals["cases"] == 0:
         return _done("no-test-cases-executed")
-    if blocked_cases:
-        # G99: classify every BLOCKED case; release-critical suites
-        # (default for anything not in the registry) deny the push.
-        registry = _load_criticality(Path(root))
-        if not registry.get("suites"):
-            return _done(
-                "blocked-unclassified: suite_criticality.json "
-                "missing/malformed"
-            )
-        classifications = [
-            _classify_blocked(stem, case, registry)
-            for stem, case in blocked_cases
-        ]
-        gate["blocked_classifications"] = classifications
-        critical = [
-            c for c in classifications
-            if c["criticality"] != "experimental"
-        ]
-        if critical:
-            first = critical[0]
-            return _done(
-                "blocked-release-critical: "
-                f"{first['blocked_suite']}/{first['blocked_case']} "
-                f"(+{len(critical) - 1} more) — "
-                f"{first['affected_capability']} unverified"
-            )
+    if report.get("blocked_unclassified"):
+        return _done(
+            "blocked-unclassified: suite_criticality.json "
+            "missing/malformed"
+        )
+    critical = [
+        c
+        for c in gate["blocked_classifications"]
+        if c.get("criticality") != "experimental"
+    ]
+    if critical:
+        first = critical[0]
+        return _done(
+            "blocked-release-critical: "
+            f"{first['blocked_suite']}/{first['blocked_case']} "
+            f"(+{len(critical) - 1} more) — "
+            f"{first['affected_capability']} unverified"
+        )
+    if verdict not in ("PASS", "INCOMPLETE_EVIDENCE"):
+        # Orchestrator denied for a reason the gate did not classify
+        # above — still fail closed, never promote an unknown verdict.
+        return _done(f"orchestrator-verdict-{verdict.lower()}")
     gate["passed"] = True
     suffix = (
         f" ({totals['blocked']} blocked — incomplete evidence)"

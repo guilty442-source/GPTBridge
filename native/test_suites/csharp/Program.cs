@@ -148,6 +148,7 @@ static int AggregateReport(string[] args)
 
 static async Task<int> RunSuites(string[] args)
 {
+    var gateSw = Stopwatch.StartNew();  // G97: total_gate_time
     string Opt(string flag, string fallback)
     {
         var i = Array.IndexOf(args, flag);
@@ -247,15 +248,23 @@ static async Task<int> RunSuites(string[] args)
 
         if (timedOut)
         {
+            // Keys match the suite report schema exactly (passed/failed/
+            // blocked) — a timeout must surface as a counted failure,
+            // never a zero-counted report.
             File.WriteAllText(jsonPath,
                 "{ \"suite\": \"" + suite.Name + "\", \"cases\": [ { \"name\": " +
                 "\"suite_timeout\", \"status\": \"FAIL\", \"detail\": \"exceeded " +
-                suiteTimeoutS + "s\" } ], \"pass\": 0, \"fail\": 1, \"blocked\": 0 }");
+                suiteTimeoutS + "s\" } ], \"passed\": 0, \"failed\": 1, \"blocked\": 0 }");
         }
 
+        // G97: result collection is timed separately so the gate can
+        // decompose suite wall time into process startup, actual test
+        // execution and report collection.
+        var collectSw = Stopwatch.StartNew();
         JsonNode? report = null;
         try { report = JsonNode.Parse(File.ReadAllText(jsonPath)); }
         catch (Exception) { report = null; }
+        collectSw.Stop();
         var cases = report?["cases"]?.AsArray();
         if (cases == null)
         {
@@ -275,6 +284,11 @@ static async Task<int> RunSuites(string[] args)
                 ["failed"] = 1, ["blocked"] = 0,
             };
         }
+        var testMs = cases?
+            .Sum(c => c?["ms"]?.GetValue<double>() ?? 0.0) ?? 0.0;
+        var startupMs = Math.Max(
+            0.0, sw.Elapsed.TotalMilliseconds
+                - testMs - collectSw.Elapsed.TotalMilliseconds);
         return new
         {
             suite = suite.Name,
@@ -285,6 +299,10 @@ static async Task<int> RunSuites(string[] args)
             returncode = rc,
             timed_out = timedOut,
             duration_ms = sw.ElapsedMilliseconds,
+            process_startup_ms = Math.Round(startupMs, 3),
+            actual_test_ms = Math.Round(testMs, 3),
+            result_collection_ms =
+                Math.Round(collectSw.Elapsed.TotalMilliseconds, 3),
             cases,
         };
         }
@@ -303,7 +321,7 @@ static async Task<int> RunSuites(string[] args)
     // free-form "suite" constant inside the case.
     var allCases = new JsonArray();
     foreach (var r in results)
-        foreach (var c in r.cases)
+        foreach (var c in r.cases!)
         {
             var clone = c?.DeepClone();
             if (clone is JsonObject co) co["suite_exe"] = r.suite;
@@ -362,7 +380,7 @@ static async Task<int> RunSuites(string[] args)
     var registry = LoadCriticality(binDir);
     var blockedClassifications = new JsonArray();
     foreach (var r in results)
-        foreach (var c in r.cases)
+        foreach (var c in r.cases!)
             if (c?["status"]?.GetValue<string>() == "BLOCKED")
                 blockedClassifications.Add(
                     ClassifyBlocked(r.suite, c, registry));
@@ -370,7 +388,48 @@ static async Task<int> RunSuites(string[] args)
         && (registry?["suites"] as JsonObject) == null;
     var criticalBlocked = blockedClassifications.Count(item =>
         item?["criticality"]?.GetValue<string>() != "experimental");
-    var deny = failed > 0 || blockedUnclassified || criticalBlocked > 0;
+    // A suite exiting with an unexpected code is a failure in its own
+    // right even when its case report parses clean (parity with the
+    // Python gate's ``suite_exit`` rule).
+    var suiteExitFailures = results.Count(
+        r => r.returncode is int c && c != 0 && c != 1);
+    var deny = failed > 0 || suiteExitFailures > 0
+        || blockedUnclassified || criticalBlocked > 0;
+
+    // G97: surface the first failed cases so the consuming gate can deny
+    // with an actionable detail without re-reading every suite report.
+    var failures = new JsonArray();
+    foreach (var r in results)
+    {
+        foreach (var c in r.cases!)
+        {
+            if (c?["status"]?.GetValue<string>() == "BLOCKED") continue;
+            if (c?["status"]?.GetValue<string>() == "PASS") continue;
+            if (failures.Count >= 8) break;
+            failures.Add(
+                $"{r.suite}/{c?["name"]?.GetValue<string>() ?? "?"}: " +
+                Trunc(c?["detail"]?.GetValue<string>(), 120));
+        }
+        if (r.returncode is int code && code != 0 && code != 1
+            && failures.Count < 8)
+            failures.Add($"{r.suite}/suite_exit: rc={code}");
+    }
+
+    gateSw.Stop();
+    // G97: the mandated gate-time decomposition — total gate wall time,
+    // per-suite process startup overhead, actual in-test execution time
+    // and result-collection time.  Startup share decides whether suites
+    // may be merged (evidence-gated, never assumed).
+    var timing = new JsonObject
+    {
+        ["total_gate_time_ms"] = Math.Round(gateSw.Elapsed.TotalMilliseconds, 3),
+        ["process_startup_time_ms"] =
+            Math.Round(results.Sum(r => r.process_startup_ms), 3),
+        ["actual_test_time_ms"] =
+            Math.Round(results.Sum(r => r.actual_test_ms), 3),
+        ["result_collection_time_ms"] =
+            Math.Round(results.Sum(r => r.result_collection_ms), 3),
+    };
 
     var orchReport = new JsonObject
     {
@@ -387,14 +446,19 @@ static async Task<int> RunSuites(string[] args)
         ["revision_match"] = builtRevision == null ? (JsonNode?)null
             : JsonValue.Create(builtRevision == currentRevision),
         ["artifact_hash"] = artifactHash,
+        ["timing"] = timing,
         ["suites"] = JsonSerializer.SerializeToNode(results.Select(r => new
         {
             r.suite, r.exe, r.pass, r.fail, r.blocked,
             r.returncode, r.timed_out, r.duration_ms,
+            r.process_startup_ms, r.actual_test_ms,
+            r.result_collection_ms,
         }).ToList()),
         ["passed"] = passed,
-        ["failed"] = failed,
+        ["failed"] = failed + suiteExitFailures,
         ["blocked"] = blocked,
+        ["cases"] = allCases.Count,
+        ["failures"] = failures,
         ["blocked_classifications"] = blockedClassifications,
         ["blocked_release_critical"] = criticalBlocked,
         ["blocked_unclassified"] = blockedUnclassified,
