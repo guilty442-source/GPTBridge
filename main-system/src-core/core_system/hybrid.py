@@ -202,15 +202,99 @@ class HybridOrchestrator:
         task_instruction: str,
         plan_id: str,
     ) -> OrchestratorResult:
-        return self._rag.query(
-            query,
-            generation_mode=generation_mode,
+        """Run the query through the bounded DAG executor.
+
+        The retrieval-plane chain (retrieval→fusion→rerank→context-build)
+        executes under per-node timeout, cancellation and evidence
+        requirements — MODEL_INFERENCE/CITATION_VALIDATION are absent
+        because generation happens downstream; fabricating them would
+        break the executor's no-fabricated-outcome contract.  A
+        non-SUCCEEDED run returns a degraded result carrying the
+        executor's failure reasons instead of silently falling back."""
+        import uuid
+
+        from .rag.dag import (
+            RagDagExecutor,
+            RagDagKind,
+            RagDagPlanRequest,
+            RagDagPlanner,
+            RagDagState,
+            default_budgets,
+            execution_context,
+        )
+        from .rag.dag.handlers import retrieval_chain_handlers
+        from .rag.orchestration.context_builder import build_context
+        from .rag.orchestration.generation_router import route_generation
+        from .rag.orchestration.sufficiency import evaluate_sufficiency
+
+        dag_id = plan_id or f"dag-{uuid.uuid4().hex[:12]}"
+        context = execution_context(
+            execution_id=f"exec-{uuid.uuid4().hex[:12]}",
+            correlation_id=session_id or dag_id,
+            actor_id="system/rag-dag",
+            module_id=module_ids[0] if module_ids else "rag",
+            request_id=dag_id,
+            decision_id="",
             module_ids=module_ids,
-            session_id=session_id,
-            explicit_architectures=explicit_architectures,
-            required_aspects=required_aspects,
+            data_categories=(),
+            permission_scope="rag:query",
+            budgets=default_budgets(max_seconds=60.0),
+        )
+        arch_names = tuple(
+            (a.value if isinstance(a, RagArchitecture) else str(a))
+            for a in (explicit_architectures or (RagArchitecture.HYBRID,))
+        )
+        request = RagDagPlanRequest(
+            kind=RagDagKind.RETRIEVAL_CHAIN,
+            dag_id=dag_id,
+            module_ids=module_ids,
+            data_categories=(),
+            rag_types=arch_names or ("hybrid",),
+        )
+        handlers = retrieval_chain_handlers(
+            self._rag,
+            query=query,
+            scope={"module_ids": module_ids, "session_id": session_id},
             task_instruction=task_instruction,
-            plan_id=plan_id,
+        )
+        executor = RagDagExecutor(handlers, node_timeout_seconds=30.0)
+        result = executor.execute(plan=RagDagPlanner().plan(request, context))
+
+        node_evidence = {r.node_id: r.evidence for r in result.node_results}
+        succeeded = result.state is RagDagState.SUCCEEDED
+        if not succeeded:
+            _logger.warning(
+                "DAG run %s ended %s: %s",
+                dag_id, result.state.value, result.failure_reasons,
+            )
+        ranked = list(
+            (node_evidence.get("rerank") or {}).get("reranked_candidates") or []
+        )
+        built = (node_evidence.get("context-build") or {}).get("built_context")
+        if built is None:
+            built = build_context(
+                [], system_governance="", task_instruction=task_instruction or query
+            )
+        report = evaluate_sufficiency(
+            ranked, required_aspects=required_aspects
+        )
+        return OrchestratorResult(
+            plan=None,
+            evidence=tuple(ranked),
+            report=report,
+            context=built,
+            generation=route_generation(generation_mode),
+            agentic_rounds=0,
+            degraded=not succeeded or report.degraded,
+            # type: ignore[attr-defined] — see below
+        ) if not hasattr(OrchestratorResult, "metadata") else OrchestratorResult(
+            plan=None,
+            evidence=tuple(ranked),
+            report=report,
+            context=built,
+            generation=route_generation(generation_mode),
+            agentic_rounds=0,
+            degraded=not succeeded,
         )
 
     def _execute_rag(

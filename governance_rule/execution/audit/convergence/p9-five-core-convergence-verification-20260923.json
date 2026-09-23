@@ -1,0 +1,129 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "P3/P4/P6/P7/P9",
+  "increment": "codex-worker verification of worker-delivered convergence artifacts — drift corrections, evidence cross-checks and residual scope",
+  "executed_at": "2026-09-23T07:15:00Z",
+  "worker": "codex-worker",
+  "method": "independent re-derivation from live code/registry/config/logs; every claim below is cross-checked against the working tree, not against the delivered artifact alone",
+  "p3_mapping_verification": {
+    "artifact": "governance_rule/execution/convergence/five-core-mapping.json (generator five_core_mapping.py)",
+    "delivered_by": "devin-cli 17e5f35f",
+    "drift_found": "shadow_modules paths were synthesised as main-system/src-core/core_system/<module>.py — wrong for 6/8 modules (actual: tasks/ for connection_watchdog, periodic_scheduler, state_outbox, model_service_activation; ipc/ for ipc_server; core_system/maintenance_controller_integration.py for maintenance_controller); no shadow_harness reference",
+    "fix_applied": "five_core_mapping.py now carries the canonical _SHADOW_FILES table with an existence guard (fail-closed on unregistered/missing paths) and emits shadow_harness; mapping regenerated — 8/8 primary paths and harness paths verified on disk",
+    "verified_ok": "five_cores covers the active sovereign set (A604: decision/permission/runtime/automation/xingcheng-assistant); 14 contracts bound; unbound_contracts empty; core/unit/sovereign_id fields sourced from registry",
+    "residual": "component unit (current physical lineage, e.g. UNIT_DECISION for permission-sovereign) differs from five_cores target unit (UNIT_PERMISSION/UNIT_RUNTIME) — this is the un-executed unit relocation (P10); must not be reported as migrated"
+  },
+  "p4_parity_verification": {
+    "artifact": "p4-shadow-parity-gap-matrix-20260923.json + f551a6d5/81ce7b0b",
+    "verified_ok": [
+      "all 8 harnesses wired at their Python call sites (verified independently)",
+      "7 Native* classes exposed via _binding.cpp covering all 8 components (ipc_server + request_registry share NativeIpcRegistry)",
+      "fail-closed to Python on every path (mode != shadow refused; native error disables shadow; single shadow-disabled audit record)"
+    ],
+    "corrections": [
+      "coverage_matrix cell 'connection_watchdog state: gap' is stale — observe_probe compares state/consecutive_dead/repair_trigger and observe_interval compares next_interval_ms; the wiring_audit_correction block supersedes it",
+      "resource-budget observation is code-wired 8/8 (maybe_emit_resource) but zero *.resources.jsonl records exist on disk — the increment is unexercised",
+      "only model-service-activation.jsonl exists (2 records, both unresolved ensure divergences)"
+    ],
+    "open_feature_gaps": [
+      "ipc_server: no Python request-lifecycle table → state/cancel/deadline cannot be compared (modeling asymmetry)",
+      "maintenance_controller: Python job cancel persistence is a no-op; no numeric deadline compare",
+      "request_registry: native created_at_ms zeroed / started_at_ms never set → deadline dimension absent",
+      "runtime_state_registry: heartbeat staleness semantics absent in the Python authoritative model",
+      "periodic_scheduler: native timeout check dead code; cancel only via unregister",
+      "state_outbox: no cancel dimension",
+      "model_service_activation: cancel absent; 2 unresolved divergences"
+    ]
+  },
+  "p6_inventory_verification": {
+    "artifact": "p6-python-mechanical-inventory-20260923.json (23 resident surfaces, b140c392)",
+    "verified_ok": "8 shadow-in-flight surfaces, 3 peer-claimed blockers (git→P18, SQL→P19, saga→P13), test-orchestration already C#-owned (3de42a1c) confirmed",
+    "surfaces_missing_from_inventory": [
+      "main-system/src-core/boot_core.py:130-266 supervise loop + 0.5s child poll",
+      "main-system/src-core/boot_core_health.py:18-123 health probe thread",
+      "main-system/src-core/boot_core_repair.py:20-48 watchdog thread",
+      "main-system/src-core/tasks/toolbox_service.py:159-181 registry reconcile 30s private loop",
+      "main-system/src-core/tasks/sleep_policy.py:85-128 60s private loop (manifest lists flow kind=event)",
+      "main-system/src-core/core_system/maintenance_lifecycle.py:39-90 3600s loop",
+      "main-system/src-core/core_system/maintenance_repair_chain.py:77-116 5s repair poll",
+      "main-system/src-core/core_system/diagnostics.py:20-68 loop-stall watchdog (0.1s/0.05s)",
+      "main-system/src-core/ipc/server_handler.py:125,332 connection heartbeat 20s + status push 2s/60s",
+      "main-system/src-core/core_system/tool_isolation_health.py:477 30s thread",
+      "main-system/src-core/tasks/toolbox_execution.py:19-239 transport claim poll",
+      "main-system/src-core/backend_gateway.py:19-158 accept loop + bridge threads",
+      "shared-layer/src/shared_layer/transport_notify.py:31-156 LISTEN/NOTIFY listener thread",
+      "permission_automation_* private _run_loop fallbacks (5 modules)"
+    ],
+    "ghost_items": "daily_global_cleaner_service.start() and main_system_self_maintenance have no production call site/instantiation — resolve wire-or-retire before any migration work",
+    "no_second_plane_check": "no new scheduler/orchestrator/IPC client added; legacy automation_supervisor.py remains present but non-default; C# GovernedIpcClient is pre-existing (P7-2 sidecar)"
+  },
+  "p7_boundary_verification": {
+    "artifact": "p7-native-governance-boundary-20260923.json (b30888d1)",
+    "scope_verified": "the delivered verification is a dangerous-capability API/syscall scan; within that scope the CLEAN verdicts reproduce",
+    "residuals_not_covered_by_scan": [
+      "ToolHost::start() accepts caller-supplied config/hooks and can bypass the load_env bootstrap gate (native/tool_runtime/tool_host.cpp:251-281 vs 332-345) — latent seam, currently not production-wired",
+      "ToolHost / ChannelRuntime have no native-shadow.json entry or runtime flag; no production caller (only suite_tool_host.cpp + fake proxy agent)",
+      "audit policy inconsistency: main-system IPC gateway is audit fail-open (main-system/src-core/ipc/server_commands.py:96-118) while the shared-layer runtime gateway is fail-closed (shared-layer/src/shared_layer/runtime_gateway.py:183-190,222-235)",
+      "audit-engine.exe integrity is mtime-checked only, no digest/signature (governance_rule/execution/audit/native_audit_gate.py:123-134,173-204)",
+      "26-29 audit checks remain delegated to the Python oracle (g96); C# business host production launcher not statically verifiable"
+    ]
+  },
+  "p9_report_verification": {
+    "artifact": "governance_rule/execution/convergence/five-core-convergence-report.json (generator five_core_convergence_report.py, delivered 07:10Z)",
+    "generator_defects_found": [
+      "retired detection used c['status'] but registry rows carry lifecycle → zero LEGACY_RETIRED rows",
+      "gap source read p4['modules'/'matrix'] but the artifact carries coverage_matrix → every shadow surface reported 'parity closed'",
+      "blocked surfaces keyed on p6['blocked_by'] but p6 carries 'blocking' → zero BLOCKED rows",
+      "status_counts counted only the 41 registry components → {'PRIMARY': 41}, hiding shadow/retired states",
+      "python_residency_not_migrated read a non-existent 'disposition' field → included the C#-owned test-orchestration surface and lost the shadow-in-flight/blocked classification"
+    ],
+    "fixes_applied": "retired via lifecycle + retired rows appended; open dims derived from coverage_matrix with the p4 wiring_audit_correction supersessions (state 8/8 closed, deadline closed for watchdog/outbox/scheduler/activation, resource closed 8/8); blocked key fallback; counts aggregate components + shadow surfaces; unmigrated classification (shadow-in-flight / unclaimed / csharp-owned excluded) with target+blocking preserved",
+    "regenerated_result": {
+      "components": 45,
+      "status_counts": {"PRIMARY": 41, "SHADOW": 7, "OBSERVATION_PENDING": 1, "LEGACY_RETIRED": 4},
+      "legacy_retired": ["global-cleaner", "language-review", "sub-sovereign-orchestration", "tokenizer"],
+      "shadow_open_dimensions": {
+        "connection_watchdog": [],
+        "periodic_scheduler": ["cancel"],
+        "state_outbox": ["cancel"],
+        "maintenance_controller": ["cancel", "deadline"],
+        "request_registry": ["deadline"],
+        "ipc_server": ["cancel", "deadline"],
+        "runtime_state_registry": ["deadline"],
+        "model_service_activation": ["cancel"]
+      },
+      "release_observation_windows": {"required": 2, "completed": 0},
+      "unmigrated_python_surfaces": 24
+    },
+    "label_semantics": "PARITY_VERIFIED has zero rows (no shadow module has all wired dimensions closed); BLOCKED has zero component rows (component-level blocked_by is not carried by any source; true blocked items are listed in this artifact)"
+  },
+  "g90_g91_permission_directory_consistency": {
+    "g90": "RUNTIME_RULE_INDEX_V2 (A605) — governance_rule/execution/convergence/runtime_rule_index_v2.py → main-system/runtime/state/runtime-rule-index-v2.json; schema RUNTIME_RULE_INDEX_V2, 660 provisions / 67 rules, derived-rebuildable-non-authoritative, successor-resolved before indexing",
+    "g91": "MODULE_RULE_INDEX_V1 (A607) — governance_rule/permission_directory/module_rule_index.py → main-system/runtime/state/module-rule-index.json; gptbridge-module-rule-index/v1, 43 modules, permission-core-owned",
+    "zero_mixing": "PASS — G91 validates that no module id collides with an A<digits> provision and that module keys never overlap the runtime index; no A-id collisions found in the live index",
+    "no_second_permission_authority": "PASS — no native/C rule or permission index exists (native tree contains no rule-index producer; the only permission-directory reference on the C side is the test-bound authorizer string in suite_tool_host.cpp:322 pointing at the Python route); permission authority remains governance_rule/permission_directory",
+    "residual": "neither index cross-validates its owner/module identity set against the canonical permission-directory registries at build time (G91 validates schema + zero-mixing only); proposed fix: add a validation step resolving module owners/module codes through the permission-directory registries and failing closed on unresolved identity"
+  },
+  "blocked_items": [
+    "shadow→primary promotion: all 8 — timeline gate (0/2 windows) + per-component failure-mode evidence (P5)",
+    "git automation → C#: P18 (peer-claimed)",
+    "SQL orchestration → DB: P19 (peer-claimed)",
+    "saga → C#: P13",
+    "C11 ToolHost/ChannelRuntime production wiring: needs dual-track flag + real-store parity + bootstrap-gate fix",
+    "full-tree resource measurement: INT-10 window closes 2026-09-23T14:50Z; failure-recovery scenario absent"
+  ],
+  "residuals_and_fix_proposals": [
+    "P4: add Python request-lifecycle table (ipc_server), persist maintenance job cancellation, fix native request timestamps, add heartbeat staleness semantics, remove scheduler timeout dead code — feature work, no new shadow wiring",
+    "P7: close the ToolHost bootstrap seam, add ToolHost/ChannelRuntime to the dual-track policy, unify audit fail-closed semantics, add audit-engine digest verification",
+    "P8: execute the extended full-tree measurement after INT-10, add failure-recovery timing, governor ruling on budget scopes, fix Job-cap assignment retry",
+    "P6: resolve ghost items (daily cleaner, self-maintenance) and extend the inventory with the 14 missing surfaces",
+    "P9: keep the report generator as the single source; rerun after each P4/P5 increment",
+    "codex: five-core language responsibility amendment draft prepared (codex-amendment-request-five-core-language-20260923.json) — governor + five-sovereign audit required, not executed"
+  ],
+  "non_claims": [
+    "no migration is reported as complete; every shadow surface remains Python-authoritative",
+    "verified release state remains DENIED (external signatures pending)",
+    "no new architecture layer, scheduler, orchestrator or governance mechanism was introduced by this verification"
+  ],
+  "codex_mutation": "none"
+}

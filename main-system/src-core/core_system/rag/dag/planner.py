@@ -386,6 +386,7 @@ class RagDagPlanner:
                     "query": "$query",
                     "module_ids": list(request.module_ids),
                     "scope": context.permission_scope,
+                    "rag_types": list(request.rag_types or ("hybrid",)),
                 },
             ),
             self._node(

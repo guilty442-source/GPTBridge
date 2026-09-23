@@ -16,16 +16,23 @@ class InvestmentMixin:
             for key, definition in self.ADJUSTABLE_INVESTMENT_PARAMETERS.items()
         }
         with self._connect() as connection:
-            for key in values:
-                row = connection.execute(
-                    """
-                    SELECT applied_value FROM investment_parameter_adjustment
-                    WHERE parameter_key = ? ORDER BY id DESC LIMIT 1
+            # G102: one bounded query for the latest adjustment per key —
+            # MAX(id) picks the newest row without a per-key round trip.
+            placeholders = ",".join("?" for _ in values)
+            if placeholders:
+                for row in connection.execute(
+                    f"""
+                    SELECT parameter_key, applied_value
+                    FROM investment_parameter_adjustment
+                    WHERE id IN (
+                        SELECT MAX(id) FROM investment_parameter_adjustment
+                        WHERE parameter_key IN ({placeholders})
+                        GROUP BY parameter_key
+                    )
                     """,
-                    (key,),
-                ).fetchone()
-                if row is not None:
-                    values[key] = float(row[0])
+                    tuple(values),
+                ).fetchall():
+                    values[str(row[0])] = float(row[1])
         return values
 
     def apply_chatgpt_parameter_recommendations(
@@ -35,6 +42,7 @@ class InvestmentMixin:
             raise PermissionError("MODEL_DATABASE_ISOLATION_DENIED")
         current = self.investment_parameter_values()
         applied: list[dict[str, Any]] = []
+        pending_inserts: list[tuple] = []
         with self._connect() as connection:
             for recommendation in recommendations[:10]:
                 key = str(recommendation.get("parameter_key") or "").strip()
@@ -50,15 +58,9 @@ class InvestmentMixin:
                     continue
                 previous = float(current[key])
                 rationale = str(recommendation.get("rationale") or "").strip()[:1000]
-                connection.execute(
-                    """
-                    INSERT INTO investment_parameter_adjustment(
-                        parameter_key, previous_value, applied_value,
-                        minimum_value, maximum_value, recommendation_source,
-                        rationale, applied_by, applied_at
-                    ) VALUES (?, ?, ?, ?, ?, 'chatgpt', ?, 'star-main-native-model', ?)
-                    """,
-                    (key, previous, value, minimum, maximum, rationale, self._utc_now()),
+                pending_inserts.append(
+                    (key, previous, value, minimum, maximum, rationale,
+                     self._utc_now())
                 )
                 current[key] = value
                 applied.append(
@@ -71,6 +73,17 @@ class InvestmentMixin:
                         "recommendation_source": "chatgpt",
                         "applied_by": "star-main-native-model",
                     }
+                )
+            if pending_inserts:
+                connection.executemany(
+                    """
+                    INSERT INTO investment_parameter_adjustment(
+                        parameter_key, previous_value, applied_value,
+                        minimum_value, maximum_value, recommendation_source,
+                        rationale, applied_by, applied_at
+                    ) VALUES (?, ?, ?, ?, ?, 'chatgpt', ?, 'star-main-native-model', ?)
+                    """,
+                    pending_inserts,
                 )
         return applied
 

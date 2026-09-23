@@ -132,6 +132,9 @@ def check_long_transactions(
             "lock_holder": lock_holder,
             "action_taken": action,
         })
+    if inserts:
+        with connection.cursor() as cur:
+            cur.executemany(_INSERT_WATCHDOG, inserts)
     return results
 
 
@@ -169,6 +172,7 @@ def collect_bloat_report(
 
     rows = connection.execute(_BLOAT_QUERY_TEMPLATE, (schema_list,)).fetchall()
     results: list[dict[str, Any]] = []
+    inserts: list[tuple[Any, ...]] = []
     for r in rows:
         schema = str(r[0])
         table = str(r[1])
@@ -179,10 +183,9 @@ def collect_bloat_report(
         last_an = r[6]
         table_size = int(r[7])
         index_size = int(r[8])
-        connection.execute(
-            _INSERT_BLOAT,
+        inserts.append(
             (schema, table, dead, live, last_av, av_count, last_an,
-             table_size, index_size),
+             table_size, index_size)
         )
         results.append({
             "schema": schema,
@@ -192,6 +195,9 @@ def collect_bloat_report(
             "table_size_bytes": table_size,
             "index_size_bytes": index_size,
         })
+    if inserts:
+        with connection.cursor() as cur:
+            cur.executemany(_INSERT_BLOAT, inserts)
     return results
 
 

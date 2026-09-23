@@ -76,6 +76,17 @@ class RagOrchestrator:
         self._reformulator = reformulator
         self._system = system_governance
 
+    @property
+    def reranker(self) -> Optional[RerankFn]:
+        """The configured reranker (read-only) — consumed by the DAG
+        retrieval-chain RERANK node so it applies the same governed
+        reranker instead of owning a second one."""
+        return self._reranker
+
+    @property
+    def policy(self) -> SufficiencyPolicy:
+        return self._policy
+
     def dispatch(
         self, archs: tuple[RagArchitecture, ...], query: str, scope: dict[str, Any]
     ) -> dict[RagArchitecture, list[RagEvidence]]:
