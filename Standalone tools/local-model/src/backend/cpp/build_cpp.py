@@ -25,6 +25,9 @@ DIST_NATIVE = LOCAL_MODEL_ROOT / "dist-native"
 CPP_SOURCES = (
     HERE / "src" / "binding.cpp",
     HERE / "src" / "engine.cpp",
+    # Flat C ABI (P11/MS6): lets C#/ToolHost host the engine in-process —
+    # exported from the same .pyd/DLL image; no Python hop on infer path.
+    HERE / "src" / "engine_c_abi.cpp",
     # Host-API-only CUDA bridge (cuBLAS/cudart, no device kernels) — plain
     # C++ compilation works everywhere; guarded internally by XINGCHENG_CUDA.
     HERE / "src" / "cuda_bridge.cpp",
