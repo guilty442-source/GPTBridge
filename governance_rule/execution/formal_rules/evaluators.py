@@ -1072,6 +1072,8 @@ def _declared_provision_evaluator(
     def evaluator(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
         import sqlite3
 
+        import psycopg
+
         from governance_rule.execution.codex_repository import (
             CODEX_DATABASE_PATH,
             codex_readonly_connection,
@@ -1084,7 +1086,7 @@ def _declared_provision_evaluator(
                     "WHERE provision_type='article' AND provision_id=?",
                     (provision_id,),
                 ).fetchone()
-        except (OSError, sqlite3.Error) as error:
+        except (OSError, sqlite3.Error, psycopg.Error) as error:
             return False, "FAIL_CLOSED", f"codex unreadable: {error}"
         if row is None:
             return False, "FAIL_CLOSED", f"provision {provision_id} is not declared"
