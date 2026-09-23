@@ -8,10 +8,14 @@ manifest（star-audit-manifest/v1）由 Python 受管工具產生；本引擎執
 #include "jsonlite.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <future>
+#include <mutex>
 #include <sstream>
+#include <thread>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -290,8 +294,37 @@ AuditReport audit_run(const std::vector<AuditCheck>& checks,
                       const std::string& root) {
     AuditReport report;
     report.manifest_ok = true;
-    for (const auto& check : checks) {
-        AuditCheckResult r = run_check(check, root);
+    // Bounded parallel execution — 5-core budget, 4 workers max (thread_budget cap)
+    // C++ primary, Python delegated remain delegated; hot path stays C-native.
+    const size_t kMaxWorkers = 4;
+    const size_t n = checks.size();
+    if (n <= 64 || kMaxWorkers == 1) {
+        for (const auto& check : checks) {
+            AuditCheckResult r = run_check(check, root);
+            switch (r.status) {
+                case AuditStatus::PASS: ++report.passed; break;
+                case AuditStatus::FAIL: ++report.failed; break;
+                case AuditStatus::DELEGATED: ++report.delegated; break;
+            }
+            report.checks.push_back(std::move(r));
+        }
+        return report;
+    }
+    std::vector<AuditCheckResult> results(n);
+    std::vector<std::future<void>> futures;
+    futures.reserve(kMaxWorkers);
+    std::atomic<size_t> next_idx{0};
+    auto worker = [&]() {
+        size_t idx;
+        while ((idx = next_idx.fetch_add(1)) < n) {
+            results[idx] = run_check(checks[idx], root);
+        }
+    };
+    for (size_t i = 0; i < kMaxWorkers; ++i) {
+        futures.emplace_back(std::async(std::launch::async, worker));
+    }
+    for (auto& f : futures) f.wait();
+    for (auto& r : results) {
         switch (r.status) {
             case AuditStatus::PASS: ++report.passed; break;
             case AuditStatus::FAIL: ++report.failed; break;
