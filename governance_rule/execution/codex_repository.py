@@ -225,7 +225,9 @@ def _translate_query(statement: str) -> str:
         translated = translated.replace("type='table'", f"table_type='BASE TABLE' AND table_schema='{CODEX_SCHEMA}'")
         translated = translated.replace("name LIKE", "table_name LIKE")
         translated = translated.replace("ORDER BY name", "ORDER BY table_name")
-    return translated.replace("?", "%s")
+    # psycopg placeholders: escape literal '%' (e.g. sqlite-style LIKE
+    # patterns) before turning '?' into '%s'; existing %s/%b/%t stay intact.
+    return re.sub(r"%(?![sbt%])", "%%", translated).replace("?", "%s")
 
 
 @contextmanager

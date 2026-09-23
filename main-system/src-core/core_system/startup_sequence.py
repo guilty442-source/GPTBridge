@@ -177,8 +177,13 @@ async def run_startup_sequence(app: Any) -> bool:
         from core_system.startup_executor import StartupSovereignExecutor
 
         executor = StartupSovereignExecutor(app)
-        # Inject the generation ID from boot_core for continuity
-        result = await executor.run(generation_id=os.environ.get("GPTBRIDGE_STARTUP_GENERATION", ""))
+        # Inject the generation ID from boot_core for continuity; the
+        # startup deadline clock started at app construction so the
+        # sovereign/sequence work above shares the same 10 s budget.
+        result = await executor.run(
+            generation_id=os.environ.get("GPTBRIDGE_STARTUP_GENERATION", ""),
+            deadline_epoch=getattr(app, "_startup_epoch", None),
+        )
         startup_ok = result.ok
         if not startup_ok:
             app._record_startup_failure(
@@ -203,7 +208,9 @@ async def run_startup_sequence(app: Any) -> bool:
         from core_system.startup_executor import StartupSovereignExecutor
 
         executor = StartupSovereignExecutor(app)
-        result = await executor.run()
+        result = await executor.run(
+            deadline_epoch=getattr(app, "_startup_epoch", None),
+        )
         startup_ok = result.ok
         if not startup_ok:
             app._record_startup_failure(

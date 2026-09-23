@@ -345,8 +345,8 @@ export default function App() {
           >
             <span className="drawer-trigger__icon" aria-hidden="true">📊</span>
             <span className="drawer-trigger__text">
-              <strong>Saga 視覺化</strong>
-              <small>跨引擎操作追蹤</small>
+              <strong>{mainSystemLocale.sagaVisualizer.title}</strong>
+              <small>{mainSystemLocale.sagaVisualizer.subtitle}</small>
             </span>
             <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -420,7 +420,7 @@ export default function App() {
         />
       </ModuleBoundary>
 
-      <ModuleBoundary name="Saga 視覺化">
+      <ModuleBoundary name={mainSystemLocale.sagaVisualizer.moduleBoundaryName}>
         <SagaVisualizerPanel
           open={drawerSagaVisualizer}
           onClose={() => setDrawerSagaVisualizer(false)}

@@ -23,11 +23,12 @@ governed executor runs ``apply=True`` and it writes only inside the explicit
 codex root.  A rejected staging copy is deleted; a released one is retained
 as the rollback snapshot with its evidence record.
 
-Boundary: seal-root recomputation, revision/lineage/certification rows and
-external signatures stay owned by the amendment pipeline (A487/A537/A438);
-this module wires a prepared successor, records the mirror-quality evidence
-row (so the published generation passes the codex-integrity audit) and
-restores read-only protection.
+Boundary: seal-root recomputation and revision/lineage/certification rows
+stay owned by the amendment pipeline (A487/A537/A438); this module wires a
+prepared successor, records the mirror-quality evidence row (so the
+published generation passes the codex-integrity audit) and restores
+read-only protection.  The flow uses no external signatures — the
+unanimous five-sovereign audit certificate closes the seal.
 """
 
 from __future__ import annotations

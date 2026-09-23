@@ -4,8 +4,9 @@ The builder consumes a request artifact and produces a candidate database in
 an explicit output path.  It never mutates the source database and it is
 therefore safe to run against an isolated copy produced by the update
 pipeline.  Publication, sealing roots in the authoritative manifest,
-``revision_history``/``epoch_seal_manifest`` writes, external signatures and
-authority re-anchoring remain governor-side.
+``revision_history``/``epoch_seal_manifest`` writes and authority
+re-anchoring remain governor-side; the flow uses no external signatures —
+the unanimous five-sovereign audit certificate closes the seal.
 
 Supported worker-side request actions are deliberately narrow:
 
@@ -730,7 +731,6 @@ def build_successor(
                 "seal_manifest",
                 "epoch_seal_manifest",
                 "revision_history",
-                "external-signatures",
                 "atomic-publication",
                 "authority-reanchor",
             ],

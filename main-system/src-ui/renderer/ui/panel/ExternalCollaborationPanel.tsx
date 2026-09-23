@@ -171,7 +171,7 @@ function ExternalCollaborationPanelContent({
           disabled={busy || !connected || status !== 'running'}
           onClick={handleStop}
         >
-          {busy ? '關閉中…' : locale.stop}
+          {busy ? locale.closing : locale.stop}
         </button>
       </section>
 

@@ -21,6 +21,7 @@ const requiredFolders = [
 
 const allowedRootDirectories = new Set([
   '.git', '.devin', '.kilo', '.smallcode', '.venv', '.vs', '.vscode',
+  '.worktrees', '.backups',
   'docs', 'launcher', 'main-system', 'native', 'scripts', 'shared-layer',
   'Standalone tools',
 ])

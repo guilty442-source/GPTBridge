@@ -109,7 +109,12 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
     # Public entry — single-flight, generation-fenced
     # ------------------------------------------------------------------
 
-    async def run(self, generation_id: str | None = None) -> StartupResult:
+    async def run(
+        self,
+        generation_id: str | None = None,
+        *,
+        deadline_epoch: float | None = None,
+    ) -> StartupResult:
         if self._lock.locked():
             # E155/P95 single-flight: concurrent startup generations are
             # forbidden — the existing generation owns the sequence.
@@ -119,9 +124,14 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
                 violations=["startup-generation-in-flight"],
             )
         async with self._lock:
-            return await self._run_generation(generation_id)
+            return await self._run_generation(generation_id, deadline_epoch=deadline_epoch)
 
-    async def _run_generation(self, generation_id: str | None = None) -> StartupResult:
+    async def _run_generation(
+        self,
+        generation_id: str | None = None,
+        *,
+        deadline_epoch: float | None = None,
+    ) -> StartupResult:
         phases = tuple(str(p) for p in _cfg_gs("startup_phases"))
         budgets = dict(_cfg_gs("phase_budget_ms") or {})
         deadline_ms = int(_cfg_gs("startup_complete_deadline_ms") or 10000)
@@ -129,7 +139,11 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
         if not generation_id:
             generation_id = uuid.uuid4().hex
         release_id = str(getattr(self.app, "version", "") or "unknown")
-        started = time.monotonic()
+        # P110/E173: the deadline is a single monotonic clock for the
+        # complete startup.  When the caller supplies the generation epoch
+        # (app construction / sequence entry), pre-executor work consumes
+        # the same 10 s budget — never a second, hidden clock.
+        started = deadline_epoch if deadline_epoch is not None else time.monotonic()
 
         self._generation = StartupGeneration(
             generation_id=generation_id,

@@ -122,19 +122,19 @@ export function BasePanel({
 
   // Extract locale strings for common actions
   const locale = {
-    launch: mainSystemLocale.toolbox.start || '啟動',
-    launching: mainSystemLocale.toolbox.starting || '啟動中…',
-    stop: mainSystemLocale.toolbox.stop || '停止',
-    closing: mainSystemLocale.toolbox.stopping || '關閉中…',
-    status: mainSystemLocale.toolbox.status || '狀態',
-    statusStopped: mainSystemLocale.toolbox.statusStopped || '未啟動',
-    statusRunning: mainSystemLocale.toolbox.statusRunning || '執行中',
-    statusError: mainSystemLocale.toolbox.statusError || '異常',
-    errorFetch: mainSystemLocale.toolbox.errorFetch || '獲取狀態失敗',
-    errorTimeout: mainSystemLocale.toolbox.errorTimeout || '操作超時',
-    disconnected: mainSystemLocale.toolbox.disconnected || '後端未連線',
-    refresh: mainSystemLocale.toolbox.refresh || '重新整理',
-    loading: mainSystemLocale.toolbox.loading || '載入中…',
+    launch: mainSystemLocale.toolbox.start,
+    launching: mainSystemLocale.toolbox.starting,
+    stop: mainSystemLocale.toolbox.stop,
+    closing: mainSystemLocale.toolbox.stopping,
+    status: mainSystemLocale.toolbox.status,
+    statusStopped: mainSystemLocale.toolbox.statusStopped,
+    statusRunning: mainSystemLocale.toolbox.statusRunning,
+    statusError: mainSystemLocale.toolbox.statusError,
+    errorFetch: mainSystemLocale.toolbox.errorFetch,
+    errorTimeout: mainSystemLocale.toolbox.errorTimeout,
+    disconnected: mainSystemLocale.toolbox.disconnected,
+    refresh: mainSystemLocale.toolbox.refresh,
+    loading: mainSystemLocale.toolbox.loading,
   }
 
   return (

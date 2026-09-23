@@ -321,7 +321,6 @@ def test_successor_builder_applies_explicit_rows_without_touching_source(
         "seal_manifest",
         "epoch_seal_manifest",
         "revision_history",
-        "external-signatures",
         "atomic-publication",
         "authority-reanchor",
     ]

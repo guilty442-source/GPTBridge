@@ -57,6 +57,7 @@ sys.path.insert(
         Path(__file__).resolve().parents[1] / "shared-layer" / "src"
     ),
 )
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from shared_layer.performance import process_metrics as _pm  # noqa: E402
 
 PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
@@ -1838,7 +1839,7 @@ def _task_xml(arguments: str, target: str) -> str:
   <Principals>
     <Principal id="InteractiveUser">
       <LogonType>InteractiveToken</LogonType>
-      <RunLevel>HighestAvailable</RunLevel>
+      <RunLevel>LeastPrivilege</RunLevel>
     </Principal>
   </Principals>
   <Settings>

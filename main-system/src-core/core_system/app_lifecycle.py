@@ -171,6 +171,10 @@ class AppLifecycleMixin:
         self._authenticated_ipc_connections: int = 0
 
         self.startup_phase = "created"
+        # P110/E173: fixed monotonic epoch for the complete-startup
+        # deadline — startup_phase_active_since mutates per phase marker,
+        # so the single startup clock must be a separate immutable anchor.
+        self._startup_epoch = time.monotonic()
         self.startup_phase_active_since = time.monotonic()
         self.startup_phase_history: list[dict[str, Any]] = []
         self._shutdown_started = False

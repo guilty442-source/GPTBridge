@@ -119,7 +119,7 @@ function ThirdPartyPanelContent({
     const result = send('app:get-third-party-status', {})
     if (!result.ok && !result.queued) {
       setLoadingState('error')
-      setErrorMsg(result.message || '獲取狀態失敗')
+      setErrorMsg(result.message || tp.errorLoadStatus)
       return
     }
     try {
@@ -129,11 +129,11 @@ function ThirdPartyPanelContent({
         setLoadingState('success')
       } else {
         setLoadingState('error')
-        setErrorMsg(payload.status ? '載入狀態失敗' : '獲取狀態失敗')
+        setErrorMsg(tp.errorLoadStatus)
       }
     } catch {
       setLoadingState('error')
-      setErrorMsg('操作超時')
+      setErrorMsg(tp.timeout)
     }
   }, [send, waitForEvent])
 
@@ -142,7 +142,7 @@ function ThirdPartyPanelContent({
     const result = send('app:probe-third-party-versions', {})
     if (!result.ok && !result.queued) {
       setLoadingState('error')
-      setErrorMsg(result.message || '探測版本失敗')
+      setErrorMsg(result.message || tp.errorProbeFailed)
       return
     }
     try {
@@ -170,11 +170,11 @@ function ThirdPartyPanelContent({
         setLoadingState('success')
       } else {
         setLoadingState('error')
-        setErrorMsg('探測失敗')
+        setErrorMsg(tp.statusLabels.error)
       }
     } catch {
       setLoadingState('error')
-      setErrorMsg('操作超時')
+      setErrorMsg(tp.timeout)
     }
   }, [send, waitForEvent])
 
@@ -183,7 +183,7 @@ function ThirdPartyPanelContent({
     const result = send('app:check-third-party-updates', {})
     if (!result.ok && !result.queued) {
       setLoadingState('error')
-      setErrorMsg(result.message || '檢查更新失敗')
+      setErrorMsg(result.message || tp.errorCheckFailed)
       return
     }
     try {
@@ -211,11 +211,11 @@ function ThirdPartyPanelContent({
         setLoadingState('success')
       } else {
         setLoadingState('error')
-        setErrorMsg('檢查更新失敗')
+        setErrorMsg(tp.errorCheckFailed)
       }
     } catch {
       setLoadingState('error')
-      setErrorMsg('操作超時')
+      setErrorMsg(tp.timeout)
     }
   }, [send, waitForEvent])
 
@@ -228,14 +228,14 @@ function ThirdPartyPanelContent({
           approval_token: 'governance-auto-approve',
         })
         if (!result.ok && !result.queued) {
-          setErrorMsg(result.message || '更新失敗')
+          setErrorMsg(result.message || tp.errorUpdateFailed)
           return
         }
         const payload = (await waitForEvent('app:update-third-party-tool_result', 120000)) as UpdateExecutionResult
         setUpdateResults((prev) => ({ ...prev, [toolId]: payload }))
         void probeVersions()
       } catch {
-        setErrorMsg('操作超時')
+        setErrorMsg(tp.timeout)
       } finally {
         setUpdatingTool(null)
       }
@@ -279,7 +279,7 @@ function ThirdPartyPanelContent({
             onClick={() => void refreshStatus()}
             disabled={loadingState === 'loading' || state.loading}
           >
-            重新整理
+            {tp.refresh}
           </button>
         </div>
       </section>
@@ -287,7 +287,7 @@ function ThirdPartyPanelContent({
       {errorMsg && (
         <div className='base-panel__error' role='alert'>
           {errorMsg}
-          <button type='button' className='base-panel__error-dismiss' onClick={() => {}} aria-label='關閉'>
+          <button type='button' className='base-panel__error-dismiss' onClick={() => {}} aria-label={tp.errorDismiss}>
             <svg width='14' height='14' viewBox='0 0 14 14' fill='none'>
               <path d='M4 4L10 10M10 4L4 10' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
             </svg>
@@ -299,16 +299,16 @@ function ThirdPartyPanelContent({
         <section className='base-panel-section'>
           <div className='base-panel-meta'>
             <div className='base-panel-meta__item'>
-              <span className='base-panel-meta__label'>服務版本</span>
+              <span className='base-panel-meta__label'>{tp.serviceVersion}</span>
               <strong className='base-panel-meta__value'>{status.status.version}</strong>
             </div>
             <div className='base-panel-meta__item'>
-              <span className='base-panel-meta__label'>自動更新</span>
+              <span className='base-panel-meta__label'>{tp.autoUpdatable}</span>
               <strong className='base-panel-meta__value'>{autoUpdatable.join(', ') || '—'}</strong>
             </div>
             {status.status.last_full_probe_at && (
               <div className='base-panel-meta__item'>
-                <span className='base-panel-meta__label'>上次探測</span>
+                <span className='base-panel-meta__label'>{tp.lastProbe}</span>
                 <strong className='base-panel-meta__value base-panel-meta__time'>
                   {new Date(status.status.last_full_probe_at).toLocaleString('zh-TW', { hour12: false })}
                 </strong>
@@ -322,20 +322,20 @@ function ThirdPartyPanelContent({
         <table className='base-panel-table'>
           <thead>
             <tr>
-              <th>工具</th>
+              <th>{tp.tool}</th>
               <th>記錄版本</th>
-              <th>偵測版本</th>
-              <th>狀態</th>
-              <th>最新版本</th>
-              <th>可更新</th>
-              <th>操作</th>
+              <th>{tp.detectedVersion}</th>
+              <th>{tp.status}</th>
+              <th>{tp.latestVersion}</th>
+              <th>{tp.updatable}</th>
+              <th>{tp.action}</th>
             </tr>
           </thead>
           <tbody>
             {toolIds.length === 0 && (
               <tr>
                 <td colSpan={7} className='base-panel-empty'>
-                  {loadingState === 'loading' ? '載入中…' : '無第三方軟體'}
+                  {loadingState === 'loading' ? tp.loading : tp.empty}
                 </td>
               </tr>
             )}
@@ -361,9 +361,9 @@ function ThirdPartyPanelContent({
                   <td className='base-panel-table__version'>{update?.latest_version || '—'}</td>
                   <td>
                     {canUpdate ? (
-                      <span className='base-panel-badge base-panel-badge--yes'>自動更新</span>
+                      <span className='base-panel-badge base-panel-badge--yes'>{tp.autoUpdatableBadge}</span>
                     ) : (
-                      <span className='base-panel-badge base-panel-badge--no'>手動</span>
+                      <span className='base-panel-badge base-panel-badge--no'>{tp.manualBadge}</span>
                     )}
                   </td>
                   <td>
@@ -373,14 +373,14 @@ function ThirdPartyPanelContent({
                         onClick={() => void updateTool(toolId)}
                         disabled={isUpdating}
                       >
-                        {isUpdating ? '更新中…' : '更新'}
+                        {isUpdating ? tp.updating : tp.updateBtn}
                       </button>
                     )}
                     {result && (
                       <span className={'base-panel-update-result ' + (result.ok ? 'base-panel-update-result--ok' : 'base-panel-update-result--fail')}>
                         {result.ok
-                          ? '✓ ' + (result.after_version || '更新完成')
-                          : '✗ ' + (result.error || '更新失敗')}
+                          ? '✓ ' + (result.after_version || tp.updated)
+                          : '✗ ' + (result.error || tp.errorUpdateFailed)}
                       </span>
                     )}
                   </td>

@@ -285,6 +285,8 @@
     "errorCheckUpdates": "無法檢查更新",
     "errorCheckFailed": "更新檢查失敗",
     "errorUpdate": "無法啟動更新",
+    "errorUpdateFailed": "更新失敗",
+    "errorDismiss": "關閉",
     "timeout": "請求逾時",
     "statusLabels": {
       "ok": "版本一致",
@@ -292,6 +294,10 @@
       "missing": "未安裝",
       "error": "探測失敗"
     }
+  },
+  "backendSession": {
+    "interfaceNotReady": "主程式連線介面尚未就緒。",
+    "invalidSessionInfo": "後端驗證資訊無效，無法建立安全連線。"
   },
   "websocket": {
     "disconnected": "後端連線中斷",

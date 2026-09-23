@@ -9,10 +9,11 @@ Fail-closed contract:
 * ``apply=True`` requires a **unanimous five-sovereign audit result**
   (``AmendmentAuditResult.ok is True`` with a certificate).  This module never
   fabricates receipts, never runs the gate on behalf of a sovereign.
-* Seal roots, revision/lineage/certification rows and external signatures
-  remain human-governor authority (A104) and are explicitly out of scope; the
-  published generation stays ``sealed-pending-external-signatures`` until the
-  governor seals it.
+* Seal roots and revision/lineage/certification rows remain governed
+  amendment-pipeline authority and are explicitly out of scope here; the
+  unanimous five-sovereign audit certificate is the seal-closing condition
+  for the published generation (``sealed-governed-certification``).  The
+  flow uses no external signatures.
 * ``apply=False`` (default) rehearses the change in isolation only.
 
 CLI::

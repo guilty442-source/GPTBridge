@@ -61,6 +61,31 @@ interface Offender {
   label: string
 }
 
+function labelOccurrences(content: string, label: string): number[] {
+  const indices: number[] = []
+  let from = 0
+  for (;;) {
+    const index = content.indexOf(label, from)
+    if (index === -1) return indices
+    indices.push(index)
+    from = index + label.length
+  }
+}
+
+const IDENTIFIER_CHAR = /[A-Za-z0-9_$]/
+
+function isCodeUsage(content: string, index: number, label: string): boolean {
+  // ``JSON.parse``/``JSON.stringify``-style member access and identifier
+  // substrings are code, not rename-sensitive label usage.  A protected
+  // label only counts when it appears as literal text — inside quotes,
+  // template literals or JSX text — never as part of an identifier.
+  const before = index > 0 ? content[index - 1] : ''
+  const after = index + label.length < content.length ? content[index + label.length] : ''
+  if (IDENTIFIER_CHAR.test(before) || IDENTIFIER_CHAR.test(after)) return true
+  if (after === '.' || after === '(') return true
+  return false
+}
+
 export const localizationRenameChecker: GovernanceChecker = {
   id: 'G-I18N-001',
   name: 'Localization Rename Governance Checker',
@@ -80,8 +105,11 @@ export const localizationRenameChecker: GovernanceChecker = {
       const relative = relativeToProject(file)
 
       for (const label of protectedLabels) {
-        if (content.includes(label)) {
-          offenders.push({ file: relative, label })
+        for (const index of labelOccurrences(content, label)) {
+          if (!isCodeUsage(content, index, label)) {
+            offenders.push({ file: relative, label })
+            break
+          }
         }
       }
     }

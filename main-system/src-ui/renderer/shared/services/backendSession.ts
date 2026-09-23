@@ -1,3 +1,5 @@
+import { mainSystemLocale } from '@/locales/main-system'
+
 type BackendSessionDescriptor = {
   websocketUrl?: unknown
 }
@@ -19,14 +21,14 @@ function isValidLoopbackWebSocketUrl(value: string): boolean {
 export async function getAuthenticatedBackendWebSocketUrl(): Promise<string> {
   const api = window.electron
   if (!api?.invoke) {
-    throw new Error('主程式連線介面尚未就緒。')
+    throw new Error(mainSystemLocale.backendSession.interfaceNotReady)
   }
   const raw = (await api.invoke(
     'app:get-backend-session'
   )) as BackendSessionDescriptor | null
   const websocketUrl = String(raw?.websocketUrl || '').trim()
   if (!isValidLoopbackWebSocketUrl(websocketUrl)) {
-    throw new Error('後端驗證資訊無效，無法建立安全連線。')
+    throw new Error(mainSystemLocale.backendSession.invalidSessionInfo)
   }
   return websocketUrl
 }

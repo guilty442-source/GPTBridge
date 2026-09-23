@@ -2,8 +2,9 @@
 
 This module is the reproducible worker-side contract used by the amendment
 toolchain.  It does not change the official Codex and it does not claim that a
-computed root is an authoritative seal: seal closure, external signatures and
-version-axis publication remain governor authority.
+computed root is an authoritative seal: seal closure — the unanimous
+five-sovereign audit certificate — and version-axis publication remain
+governed authority; the flow uses no external signatures.
 
 Algorithms are deliberately explicit and deterministic:
 
