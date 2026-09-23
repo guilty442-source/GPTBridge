@@ -95,6 +95,17 @@ class SleepPolicyManager:
         # tool_id -> current tier ("hot"|"warm"|"cold")
         self._tiers: dict[str, str] = {}
         self._last_decisions: dict[str, str] = {}
+        # tool_id -> epoch this manager cold-slept it; the wake fallback
+        # only reacts to requests queued AFTER this mark (same semantics
+        # as the activation broker's explicit-stop window) and only ever
+        # fires for units this manager itself slept.
+        self._cold_since: dict[str, float] = {}
+        # tool_id -> monotonic time before which no new wake attempt
+        self._wake_not_before: dict[str, float] = {}
+        # §1.1: True when the automation core drives the scan cadence;
+        # False when the flow was denied (kill switch — no private
+        # fallback); None when no core exists and the private loop runs.
+        self._core_driven: bool | None = None
 
     # -- lifecycle ------------------------------------------------------
 
@@ -102,6 +113,19 @@ class SleepPolicyManager:
         if self._task is not None and not self._task.done():
             return {"status": "already_running"}
         self._stop_event.clear()
+        self._restore_cold_state()
+        # §1.1 自動化集中：when the automation core is present it owns the
+        # cadence — a denied registration (unlisted/kill-switched) must
+        # NOT fall back to the private loop.
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            self._core_driven = bool(
+                core.register_flow("sleep-policy", self._tick)
+            )
+            if not self._core_driven:
+                return {"status": "denied", "loop": "disabled"}
+            _logger.info("sleep policy manager started (automation-core)")
+            return {"status": "started", "loop": "automation-core"}
         try:
             self._task = asyncio.create_task(
                 self._loop(), name="sleep-policy-manager"
@@ -110,9 +134,27 @@ class SleepPolicyManager:
             self._task = None
             return {"status": "no_event_loop"}
         _logger.info("sleep policy manager started")
-        return {"status": "started"}
+        return {"status": "started", "loop": "private"}
+
+    async def _tick(self) -> None:
+        """Single scan — the automation-core flow entry point."""
+        policy = _load_policy()
+        try:
+            await self._wake_slept_units(policy)
+            await self._scan(policy)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # never propagate into the scheduler
+            _logger.warning("sleep policy cycle error: %s", error)
 
     async def stop(self) -> None:
+        core = getattr(self.app, "automation_core", None)
+        if core is not None and self._core_driven:
+            try:
+                core.unregister("sleep-policy")
+            except Exception:
+                pass
+        self._core_driven = None
         self._stop_event.set()
         task = self._task
         self._task = None
@@ -129,6 +171,7 @@ class SleepPolicyManager:
         while not self._stop_event.is_set():
             policy = _load_policy()
             try:
+                await self._wake_slept_units(policy)
                 await self._scan(policy)
             except asyncio.CancelledError:
                 raise
@@ -158,7 +201,11 @@ class SleepPolicyManager:
             if tool_id in never_sleep:
                 self._tiers[tool_id] = "hot"
                 self._last_decisions[tool_id] = "exempt"
+                self._cold_since.pop(tool_id, None)
                 continue
+            # A unit that reappeared running (manual start, wake, broker)
+            # is no longer cold — drop the wake-fallback mark.
+            self._cold_since.pop(tool_id, None)
             unit = overrides.get(tool_id) or {}
             warm_after = float(unit.get("warm_after_s", policy["warm_after_s"]))
             cold_after = float(unit.get("cold_after_s", policy["cold_after_s"]))
@@ -219,6 +266,7 @@ class SleepPolicyManager:
         })
         if ok:
             self._tiers[tool_id] = "cold"
+            self._cold_since[tool_id] = time.time()
             self._last_decisions[tool_id] = "cold-slept"
             _logger.info(
                 "unit %s cold-slept after %.0fs idle", tool_id, idle_for
@@ -230,6 +278,124 @@ class SleepPolicyManager:
                 tool_id,
                 (result or {}).get("message") or (result or {}).get("error_code"),
             )
+
+    # -- wake fallback (回退路徑) ----------------------------------------
+
+    _WAKE_COOLDOWN_S = 30.0
+
+    async def _wake_slept_units(self, policy: dict[str, Any]) -> None:
+        """Demand-driven wake for units this manager cold-slept.
+
+        Only requests queued AFTER the cold-sleep mark count — same
+        semantics as the activation broker's explicit-stop window: a
+        fresh demand restarts the unit through the governed
+        ``start_tool`` path; stale backlog predating the sleep does not.
+        Runs even when ``enabled`` is false: the kill switch stops sleep
+        transitions, not service restoration for already-slept units.
+        """
+        if not self._cold_since:
+            return
+        try:
+            from tasks.resource_governor_signal import worker_admission_hold
+        except Exception:
+            worker_admission_hold = None  # type: ignore[assignment]
+        never_sleep = set(policy["never_sleep"])
+        running = await self._running_tools()
+        now_mono = time.monotonic()
+        for tool_id in sorted(self._cold_since):
+            if tool_id in never_sleep or tool_id in running:
+                self._cold_since.pop(tool_id, None)
+                continue
+            if now_mono < self._wake_not_before.get(tool_id, 0.0):
+                continue
+            if not await self._has_fresh_demand(tool_id):
+                continue
+            if worker_admission_hold is not None and worker_admission_hold():
+                self._last_decisions[tool_id] = "wake-hold:resource-governor"
+                _audit({
+                    "event": "cold-wake-hold", "tool_id": tool_id,
+                    "reason": "resource-governor",
+                })
+                continue
+            self._wake_not_before[tool_id] = now_mono + self._WAKE_COOLDOWN_S
+            try:
+                result = await self.toolbox.start_tool(
+                    {
+                        "tool_id": tool_id,
+                        "request_id": (
+                            f"sleep-wake-{tool_id}-{time.time_ns()}"
+                        ),
+                        "background": True,
+                    }
+                )
+            except Exception as error:
+                result = {
+                    "ok": False,
+                    "message": f"{type(error).__name__}: {error}",
+                }
+            ok = isinstance(result, dict) and result.get("ok") is True
+            _audit({
+                "event": "cold-wake", "tool_id": tool_id, "ok": ok,
+                "detail": (result or {}).get("message")
+                or (result or {}).get("error_code"),
+            })
+            if ok:
+                self._tiers[tool_id] = "hot"
+                self._cold_since.pop(tool_id, None)
+                self._last_active[tool_id] = time.time()
+                self._last_decisions[tool_id] = "cold-woke"
+            else:
+                self._last_decisions[tool_id] = "cold-wake-failed"
+
+    async def _has_fresh_demand(self, tool_id: str) -> bool:
+        return await asyncio.to_thread(self._fresh_demand_sync, tool_id)
+
+    def _fresh_demand_sync(self, tool_id: str) -> bool:
+        """A queued, unexpired request created after the cold-sleep mark."""
+        since = self._cold_since.get(tool_id)
+        if since is None:
+            return False
+        try:
+            from shared_layer.database.workload_lanes import (
+                WorkloadClass,
+                get_lane_pool,
+            )
+
+            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
+                row = conn.execute(
+                    """
+                    SELECT 1 FROM gptbridge_transport.tool_request
+                    WHERE target_tool_id = %s
+                      AND status = 'queued'
+                      AND created_at > to_timestamp(%s)
+                      AND (deadline_at IS NULL OR deadline_at > now())
+                    LIMIT 1
+                    """,
+                    (tool_id, since),
+                ).fetchone()
+            return row is not None
+        except Exception as error:
+            _logger.debug("wake demand probe unavailable for %s: %s",
+                          tool_id, error)
+            # fail-closed: unknown demand = do not wake
+            return False
+
+    def _restore_cold_state(self) -> None:
+        """Resume the wake fallback across a main-system restart: units
+        this manager cold-slept before the restart must still be
+        wakeable — otherwise their queued requests would be stranded."""
+        try:
+            record = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        cold = record.get("cold_since")
+        if isinstance(cold, dict):
+            for tool_id, epoch in cold.items():
+                try:
+                    self._cold_since[str(tool_id)] = float(epoch)
+                except (TypeError, ValueError):
+                    continue
+                self._tiers.setdefault(str(tool_id), "cold")
 
     # -- data sources ---------------------------------------------------
 
@@ -293,6 +459,7 @@ class SleepPolicyManager:
             "enabled": policy["enabled"],
             "running": bool(self._task is not None and not self._task.done()),
             "tiers": dict(self._tiers),
+            "cold_since": dict(self._cold_since),
             "last_decisions": dict(self._last_decisions),
             "never_sleep": list(policy["never_sleep"]),
         }
@@ -300,6 +467,7 @@ class SleepPolicyManager:
     def _write_state(self) -> None:
         payload = {
             "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "cold_since": dict(self._cold_since),
             **self.status(),
         }
         temporary = _STATE_FILE.with_name(
