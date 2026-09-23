@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -252,6 +255,221 @@ def _balance_chunks(
         chunks[target].append(relative_path)
         loads[target] += _test_file_weight(relative_path)
     return [*isolated, *(sorted(chunk) for chunk in chunks if chunk)]
+
+
+# ----------------------------------------------------------------------
+# Collection-result cache
+# ----------------------------------------------------------------------
+# Pytest collection re-imports every declared test module (and its heavy
+# dependency closure — torch et al.) on every audit, costing ~19s of the
+# A537 30s budget even though the outcome is deterministic for a fixed
+# input set.  The cache below reuses per-file verdicts only while the
+# fingerprint proves nothing importable changed: a deleted, renamed or
+# edited ``.py`` anywhere under the source roots alters the fingerprint
+# (the P27 misdeleted-module regression class is covered by the path set
+# alone), declared test-file edits are caught by their content hashes,
+# and interpreter/package changes are caught by the venv stamp.
+
+_SELF_HEALTH_CACHE_REL = Path(
+    "main-system", "runtime", "cache", "self-health-collection.json"
+)
+
+# Directories whose Python surface the declared tests may import.  Anything
+# outside this set cannot influence collection (data, docs, runtime state).
+_SELF_HEALTH_FINGERPRINT_ROOTS: tuple[str, ...] = (
+    "main-system/src-core",
+    "main-system/governance",
+    "main-system/tests",
+    "main-system/scripts",
+    "governance_rule",
+    "shared-layer/src",
+    "shared-layer/tests",
+    "Standalone tools",
+)
+
+_SELF_HEALTH_FINGERPRINT_EXCLUDES: frozenset[str] = frozenset(
+    {
+        ".git",
+        ".venv",
+        ".worktrees",
+        ".kilo",
+        "__pycache__",
+        "node_modules",
+        "runtime",
+        "dist-native",
+        "bin",
+        "wheel-cache",
+        ".cpp-build",
+        ".cu-build",
+        "releases",
+        "data",
+        "logs",
+        "state",
+        "temp",
+        "corpus",
+        "corpus-v1",
+        "corpus-v2",
+    }
+)
+
+_SELF_HEALTH_CACHE_SCHEMA = "self-health-collection/v1"
+
+
+def _source_tree_fingerprint(root: Path) -> str:
+    """Stat-only fingerprint of every importable ``.py`` under the roots.
+
+    Hashes ``(relpath, size, mtime_ns)`` for each file — edits, deletes,
+    renames and new modules all change the digest.  File contents are not
+    read, so the walk stays in tens of milliseconds even on large trees.
+    """
+    digest = hashlib.sha256()
+    for root_name in _SELF_HEALTH_FINGERPRINT_ROOTS:
+        base = root / root_name
+        if not base.is_dir():
+            digest.update(f"MISSING:{root_name};".encode())
+            continue
+        entries: list[str] = []
+        stack = [base]
+        while stack:
+            current = stack.pop()
+            try:
+                children = sorted(os.scandir(current), key=lambda e: e.name)
+            except OSError:
+                continue
+            for entry in children:
+                if entry.name in _SELF_HEALTH_FINGERPRINT_EXCLUDES:
+                    continue
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(entry.path)
+                    elif entry.name.endswith(".py"):
+                        stat = entry.stat(follow_symlinks=False)
+                        entries.append(
+                            f"{entry.path}:{stat.st_size}:{stat.st_mtime_ns}"
+                        )
+                except OSError:
+                    continue
+        for line in entries:
+            digest.update(line.encode())
+            digest.update(b"\x00")
+    return digest.hexdigest()
+
+
+def _collection_cache_key(
+    root: Path,
+    python_executable: str,
+    declared_files: list[str],
+) -> str:
+    """Full cache key: test contents + source-tree surface + environment."""
+    digest = hashlib.sha256()
+    digest.update(_SELF_HEALTH_CACHE_SCHEMA.encode())
+    for relative_path in declared_files:
+        digest.update(relative_path.encode())
+        digest.update(b"\x00")
+        try:
+            digest.update(
+                hashlib.sha256(
+                    (root / relative_path).read_bytes()
+                ).hexdigest().encode()
+            )
+        except OSError:
+            digest.update(b"UNREADABLE")
+        digest.update(b"\x00")
+    digest.update(_source_tree_fingerprint(root).encode())
+    # Environment stamp: interpreter identity + site-packages listing stamp
+    # (installs/uninstalls change the collection outcome without touching
+    # any repo file).
+    try:
+        exe_stat = Path(python_executable).stat()
+        digest.update(
+            f"{python_executable}:{exe_stat.st_size}:{exe_stat.st_mtime_ns}".encode()
+        )
+    except OSError:
+        digest.update(python_executable.encode())
+    site_packages = (
+        Path(python_executable).resolve().parents[1] / "Lib" / "site-packages"
+    )
+    try:
+        stamp = site_packages.stat()
+        count = sum(1 for _ in os.scandir(site_packages))
+        digest.update(
+            f"site-packages:{stamp.st_mtime_ns}:{count}".encode()
+        )
+    except OSError:
+        digest.update(b"site-packages:missing")
+    return digest.hexdigest()
+
+
+def _collection_cache_path(root: Path) -> Path:
+    return root / _SELF_HEALTH_CACHE_REL
+
+
+def _collection_cache_read(
+    root: Path,
+    python_executable: str,
+    declared_files: list[str],
+) -> dict[str, tuple[bool, str]] | None:
+    """Return cached per-file verdicts when the fingerprint still matches."""
+    if str(os.environ.get("GPTBRIDGE_SELF_HEALTH_NO_CACHE", "")).strip():
+        return None
+    cache_path = _collection_cache_path(root)
+    try:
+        record = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if record.get("schema") != _SELF_HEALTH_CACHE_SCHEMA:
+        return None
+    if record.get("key") != _collection_cache_key(
+        root, python_executable, declared_files
+    ):
+        return None
+    results = record.get("results")
+    if not isinstance(results, dict):
+        return None
+    restored: dict[str, tuple[bool, str]] = {}
+    for relative_path in declared_files:
+        entry = results.get(relative_path)
+        if (
+            not isinstance(entry, list)
+            or len(entry) != 2
+            or not isinstance(entry[0], bool)
+            or not isinstance(entry[1], str)
+        ):
+            return None
+        restored[relative_path] = (entry[0], entry[1])
+    return restored
+
+
+def _collection_cache_write(
+    root: Path,
+    python_executable: str,
+    declared_files: list[str],
+    results: dict[str, tuple[bool, str]],
+) -> None:
+    """Persist verdicts atomically; cache corruption only costs a re-run."""
+    cache_path = _collection_cache_path(root)
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "schema": _SELF_HEALTH_CACHE_SCHEMA,
+            "key": _collection_cache_key(
+                root, python_executable, declared_files
+            ),
+            "written_at": time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+            ),
+            "results": {
+                path: [ok, detail] for path, (ok, detail) in results.items()
+            },
+        }
+        temporary = cache_path.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(record, ensure_ascii=False, indent=1),
+            encoding="utf-8",
+        )
+        os.replace(temporary, cache_path)
+    except OSError:
+        pass
 
 
 def _batched_collection_results(

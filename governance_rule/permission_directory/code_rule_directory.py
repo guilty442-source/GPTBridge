@@ -304,7 +304,7 @@ def _load_from_sql() -> CodeRuleDirectorySnapshot | None:
         conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
         try:
             conn.row_factory = sqlite3.Row
-            row = conn.execute("select * from code_rule_directory where id=1").fetchone()
+            row = conn.execute("select * from code_rule_directory where id=1").fetchone()  # sql-ok: single-row directory snapshot reads every contract field
             if row is None:
                 return None
             return CodeRuleDirectorySnapshot(

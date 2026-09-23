@@ -104,6 +104,22 @@
     "no_second_permission_authority": "PASS — no native/C rule or permission index exists (native tree contains no rule-index producer; the only permission-directory reference on the C side is the test-bound authorizer string in suite_tool_host.cpp:322 pointing at the Python route); permission authority remains governance_rule/permission_directory",
     "residual": "neither index cross-validates its owner/module identity set against the canonical permission-directory registries at build time (G91 validates schema + zero-mixing only); proposed fix: add a validation step resolving module owners/module codes through the permission-directory registries and failing closed on unresolved identity"
   },
+  "regressions_found": [
+    {
+      "id": "g100-inc5-dead-module-false-positive",
+      "introduced_by": "000f915e (G100 increment 5, 2026-09-23T05:58Z)",
+      "finding": "core_system/governance_rule_coordination.py was deleted as 'zero imports' but main-system/governance/sovereigns/decision_sovereign.py:58 still imports it (import only, no usage found); app_lifecycle.py:42 imports governance.sovereigns and constructs DecisionSovereign, so the working tree cannot import the sovereign layer",
+      "impact": "governance audit self-health test collection fails for main-system/tests/test_special_unpacked_runtime_part1.py and part2.py; audit flow 36.109s / 41.438s exceeds the 30s budget; release copies (rc-2026-09-21/22) still contain the module so the live backend is unaffected",
+      "fix_proposal": "remove the stale import (or restore the module) and re-run python -m governance_rule.execution.audit to green",
+      "verified": "pytest --collect-only main-system/tests/test_special_unpacked_runtime_part1.py -> ModuleNotFoundError: No module named 'core_system.governance_rule_coordination'"
+    }
+  ],
+  "governance_audit_status": {
+    "command": "python -m governance_rule.execution.audit",
+    "result": "FAIL - 2 self-health collection failures + flow budget exceeded (36.109s / 41.438s vs 30s)",
+    "cause": "g100-inc5-dead-module-false-positive (collection) + unverified audit-flow budget regression",
+    "note": "not caused by this verification's edits; five_core_mapping.py and five_core_convergence_report.py changes parse and run clean"
+  },
   "blocked_items": [
     "shadow→primary promotion: all 8 — timeline gate (0/2 windows) + per-component failure-mode evidence (P5)",
     "git automation → C#: P18 (peer-claimed)",

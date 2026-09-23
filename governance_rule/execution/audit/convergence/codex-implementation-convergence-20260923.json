@@ -1,0 +1,116 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "全專案法典↔實作收斂（擇優保留；需要修改的實作寫進藍圖）",
+  "executed_at": "2026-09-23T07:40:00Z",
+  "worker": "codex-worker",
+  "method": "run the governed comparators read-only: runtime governance audit (self-health skipped), formal-rule parity, contract-registry validation, closure computation, semantic-duplication scan, business-rule conflict scan, dependency disposition, five-core mapping/report; classify every delta as implementation-superior-kept / codex-superior-fix-needed / codex-amendment-needed; parallel workers untouched",
+  "comparator_results": {
+    "runtime_governance_audit": {
+      "command": "GPTBRIDGE_AUDIT_SKIP_SELF_HEALTH=1 python -m governance_rule.execution.audit",
+      "result": "PASS (single-authority runtime governance)",
+      "note": "full audit (self-health on) is red only because of the G100 inc-5 false dead-module deletion (P27) and the self-health budget overrun"
+    },
+    "closures": {
+      "PASS": ["VERSION_CURRENTNESS", "SEARCH_CURRENTNESS", "CURRENT_NORMATIVE_SURFACE", "MIRROR_QUALITY"],
+      "FAIL": ["CONTRACT_REGISTRY_CLOSURE"],
+      "INCOMPLETE_EVIDENCE": ["MACHINE_SCHEMA_PARITY", "OBLIGATION", "CORE_ENGINE_EQUIVALENCE", "SUB_SOVEREIGN_RETIREMENT", "CAPABILITY_DISPATCH", "FORMAL_RULE_PARITY", "CODEX_CONVERGENCE", "FINAL_PROJECT_CONVERGENCE"]
+    },
+    "formal_rule_parity": {
+      "command": "python -m governance_rule.execution.formal_rules.parity",
+      "result": "61/64 PASS",
+      "failures": [
+        "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE — provision A554 superseded (successor A598)",
+        "FR-SOVEREIGN-TO-CORE-ENGINE — provision A591 superseded (successor A604)",
+        "FR-NO-SUB-SOVEREIGN-ALL-MODULES — provision A592 superseded (successor A604)"
+      ],
+      "verdict": "codex-superior-fix-needed: re-anchor the three rules' controlling provision ids to the current successors"
+    },
+    "machine_schema_registry": {
+      "total": 74,
+      "parity_status": {"PENDING": 74},
+      "verdict": "codex-superior-fix-needed: no schema has recomputable parity evidence; closure per A605/A607 requires the parity producer + amendment"
+    },
+    "implementation_obligations": {
+      "total": 63,
+      "current_state": {"mandated": 62, "evidence-submitted": 1},
+      "complete": 0,
+      "verdict": "codex-superior-fix-needed: evidence production for the 62 mandated obligations (P2 scope)"
+    },
+    "contract_registry": {
+      "command": "python -m governance_rule.execution.convergence.contract_registry_validate",
+      "result": "17/18 PASS, 1 FAIL",
+      "failure": "INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT.json — replacement_forbidden.bound_to[0] stores a corrupted path string for the shared blueprint (validator: missing-path 'Standalone tools/local-model/<mojibake>.md'); the artifact is committed this way (last touched by auto-commit 28074744)",
+      "impact": "CONTRACT_REGISTRY_CLOSURE = FAIL (verified release gate)",
+      "verdict": "codex-superior-fix-needed: rewrite the bound_to path as the exact UTF-8 blueprint path and re-validate"
+    },
+    "semantic_duplication": {
+      "cross_layer_restatements": 15,
+      "resolved_in_convergence_registry": 13,
+      "unresolved": ["A5/E2", "A29/E16"],
+      "note": "A5 is superseded by A602, so the A5/E2 pair may be a scanner artifact (superseded provision compared); either exclude non-current provisions from the scan or record the controlling proposition",
+      "verdict": "codex-amendment-needed (A609 convergence registry)"
+    },
+    "business_rule_conflicts": {
+      "conflict": 0,
+      "overlap": 3,
+      "actionable": "main-system/config/startup_manifest.json 'startup_deadline_ms' duplicates codex 'startup_complete_deadline_ms' (same value 10000) — converge the config to reference the codex key",
+      "verdict": "codex-superior-fix-needed (small config convergence)"
+    },
+    "dependency_disposition": {
+      "total": 18,
+      "replace": 9,
+      "replace_targets": {
+        "psutil": "csharp-native-process-metrics",
+        "websockets": "csharp-channel",
+        "beautifulsoup4": "native-html-normalizer",
+        "numpy": "native-compute-core",
+        "Pillow": "native-image-decode",
+        "sentence-transformers": "native-embedding-reranker",
+        "jieba": "native-tokenizer",
+        "tokenizers": "native-tokenizer",
+        "triton": "native-cuda-kernels"
+      },
+      "verdict": "codex-superior-fix-needed: staged replacement program (no new third-party owner)"
+    }
+  },
+  "implementation_superior_kept": [
+    {
+      "subject": "five-core language reality",
+      "kept": "C11 runtime core (native/core), C++ audit engine (native/audit), governed tool runtime (native/tool_runtime)",
+      "codex_delta": "E177/E178/E179/E186 still describe the pre-five-core model",
+      "write_back": "codex amendment draft codex-amendment-request-five-core-language-20260923 (P26); cancel the Python/C# dual-host assumption"
+    },
+    {
+      "subject": "worker-plane cpu unit",
+      "kept": "afece7e4 machine-% normalization (codex has no contradicting provision)",
+      "write_back": "none (already reflected in p8 evidence)"
+    },
+    {
+      "subject": "native audit delegation",
+      "kept": "native engine + Python oracle for 26-29 delegated checks (g96)",
+      "write_back": "none; residual is engine digest verification (P7)"
+    },
+    {
+      "subject": "test orchestration",
+      "kept": "C# TestSuiteOrchestrator sole orchestrator (3de42a1c)",
+      "write_back": "none (codex-compatible)"
+    },
+    {
+      "subject": "five-core mapping / report generators",
+      "kept": "corrected projections (this worker)",
+      "write_back": "recorded in P3/P9 rows"
+    }
+  ],
+  "blueprint_actions": {
+    "P1_note": "formal rule parity 61/64; re-anchor 3 rules to A598/A604; duplication scan 15 cross-layer restatements, 2 unresolved (A5/E2, A29/E16)",
+    "P2_note": "machine schema 74/74 PENDING; obligations 62 mandated + 1 evidence-submitted, 0 complete; contract registry closure FAIL root-caused (P28)",
+    "P15_note": "capability-dispatch amendment request uses change_class 'registry-materialization' which is not in the valid class set (editorial/clarification/provision-scope/authority-duty/architecture-authority/complete-reconstitution) — re-classify before governor submission",
+    "new_items": ["P28 contract artifact path repair", "P29 convergence registry + formal rule re-anchoring", "P30 dependency replacement program"]
+  },
+  "non_claims": [
+    "no implementation was changed by this pass; all fixes above are written into the blueprint for implementation workers",
+    "no codex row or seal was mutated; codex-side changes require the governed amendment path",
+    "parallel workers' in-flight files were not touched"
+  ],
+  "codex_mutation": "none"
+}
