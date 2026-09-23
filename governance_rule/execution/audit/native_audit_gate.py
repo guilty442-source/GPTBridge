@@ -115,23 +115,57 @@ def _build_engine(root: Path) -> bool:
             check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-        return result.returncode == 0 and exe.is_file()
+        ok = result.returncode == 0 and exe.is_file()
+        if ok:
+            _write_engine_digest(root, exe)
+        return ok
     except (OSError, subprocess.TimeoutExpired):
         return False
+
+
+def _engine_deps(root: Path) -> tuple[Path, ...]:
+    return (
+        root / "native" / "audit" / "audit_engine.cpp",
+        root / "native" / "include" / "audit_engine.h",
+    )
+
+
+def _digest_path(exe: Path) -> Path:
+    return exe.parent / (exe.name + ".sha256")
+
+
+def _write_engine_digest(root: Path, exe: Path) -> None:
+    """Record sha256 of the source deps at build time so staleness checks
+    are not mtime-only (a same-mtime forged source would otherwise slip)."""
+    import hashlib
+
+    digest = hashlib.sha256()
+    for dep in _engine_deps(root):
+        digest.update(dep.name.encode())
+        digest.update(dep.read_bytes())
+    _digest_path(exe).write_text(digest.hexdigest(), encoding="ascii")
 
 
 def _engine_stale(root: Path, exe: Path) -> bool:
     """Engine binary cache invalidation: the cached exe must be rebuilt
     when the single-TU source or its public header is newer, otherwise a
-    stale binary would keep executing superseded check logic."""
+    stale binary would keep executing superseded check logic.  A recorded
+    source digest mismatch also forces rebuild (mtime alone is forgeable)."""
     exe_mtime = exe.stat().st_mtime
-    for dep in (
-        root / "native" / "audit" / "audit_engine.cpp",
-        root / "native" / "include" / "audit_engine.h",
-    ):
+    for dep in _engine_deps(root):
         if dep.is_file() and dep.stat().st_mtime > exe_mtime:
             return True
-    return False
+    import hashlib
+
+    digest = hashlib.sha256()
+    for dep in _engine_deps(root):
+        digest.update(dep.name.encode())
+        digest.update(dep.read_bytes())
+    try:
+        recorded = _digest_path(exe).read_text(encoding="ascii").strip()
+    except OSError:
+        return True
+    return recorded != digest.hexdigest()
 
 
 def _refresh_manifest_if_stale(root: Path) -> str | None:
