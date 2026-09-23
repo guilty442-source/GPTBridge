@@ -1,80 +1,91 @@
 {
-  "schema": "gptbridge-convergence-evidence/v1",
-  "item": "implementation-vs-codex convergence check 2026-09-23 (multi-round, devin-cli)",
-  "executed_at": "2026-09-23T16:15:00Z",
-  "worker": "devin-cli",
-  "method": "re-ran governed comparators read-only: runtime governance audit (self-health on), formal-rule parity, contract-registry validation; verified startup manifest codex-first resolution; inspected codex authority state and on-disk predecessor candidates",
-  "comparator_results": {
-    "runtime_governance_audit": "PASS (full audit incl. self-health; earlier P27/self-health reds resolved)",
-    "formal_rule_parity": "64/64 PASS (was 61/64; A554->A598, A591/A592->A604 re-anchor committed d101a554)",
-    "contract_registry": "18/18 PASS (was 17/18; mojibake bound_to path fixed 3128966b; CONTRACT_REGISTRY_CLOSURE unblocked)",
-    "amendment_request_change_class": "resolved -> architecture-authority (b60f32c4)",
-    "startup_deadline_overlap": "already converged -> governed_startup_constant resolves startup_complete_deadline_ms codex-first via codex_readonly_connection with manifest fallback (verified live: PG unreachable/degraded -> fallback 10000)"
-  },
-  "remaining_items_all_codex_side": [
-    "MACHINE_SCHEMA_PARITY_CLOSURE: 74/74 PENDING — needs parity producer + codex amendment (A605/A607)",
-    "OBLIGATION_CLOSURE: 62 mandated / 0 complete — evidence production program (P2)",
-    "CAPABILITY_DISPATCH_CLOSURE: staged amendment codex-amendment-request-capability-dispatch-20260922 awaiting governor (P15)",
-    "semantic duplication A5/E2, A29/E16 — superseded-provision scan artifact; resolution via A609 convergence registry amendment",
-    "dependency replacement program (9 replace targets) — staged long-term program",
-    "test_xingcheng_learning_command.py 5 failures — blocked on capability-dispatch amendment ratification"
+ "schema": "gptbridge-convergence-evidence/v1",
+ "item": "implementation-vs-codex convergence check 2026-09-23 (multi-round, devin-cli)",
+ "executed_at": "2026-09-23T16:15:00Z",
+ "worker": "devin-cli",
+ "method": "re-ran governed comparators read-only: runtime governance audit (self-health on), formal-rule parity, contract-registry validation; verified startup manifest codex-first resolution; inspected codex authority state and on-disk predecessor candidates",
+ "comparator_results": {
+  "runtime_governance_audit": "PASS (full audit incl. self-health; earlier P27/self-health reds resolved)",
+  "formal_rule_parity": "64/64 PASS (was 61/64; A554->A598, A591/A592->A604 re-anchor committed d101a554)",
+  "contract_registry": "18/18 PASS (was 17/18; mojibake bound_to path fixed 3128966b; CONTRACT_REGISTRY_CLOSURE unblocked)",
+  "amendment_request_change_class": "resolved -> architecture-authority (b60f32c4)",
+  "startup_deadline_overlap": "already converged -> governed_startup_constant resolves startup_complete_deadline_ms codex-first via codex_readonly_connection with manifest fallback (verified live: PG unreachable/degraded -> fallback 10000)"
+ },
+ "remaining_items_all_codex_side": [
+  "MACHINE_SCHEMA_PARITY_CLOSURE: 74/74 PENDING — needs parity producer + codex amendment (A605/A607)",
+  "OBLIGATION_CLOSURE: 62 mandated / 0 complete — evidence production program (P2)",
+  "CAPABILITY_DISPATCH_CLOSURE: staged amendment codex-amendment-request-capability-dispatch-20260922 awaiting governor (P15)",
+  "semantic duplication A5/E2, A29/E16 — superseded-provision scan artifact; resolution via A609 convergence registry amendment",
+  "dependency replacement program (9 replace targets) — staged long-term program",
+  "test_xingcheng_learning_command.py 5 failures — blocked on capability-dispatch amendment ratification"
+ ],
+ "anomaly": {
+  "severity": "high",
+  "subject": "live PostgreSQL codex authority degraded to test fixture",
+  "detail": "gptbridge_codex schema currently holds only 4 tables (articles/chinese_mirror_quality_evidence/metadata/codex_authority_state), 5 rows, codex_version=2026-09-17T01:00:00Z. Cause: governance_rule/tests/test_codex_update_pipeline.py::test_apply_wires_releases_and_refreshes_frontend runs run_auto_update(apply=True) -> wire_generation -> import_sqlite_predecessor with the production admin DSN, DROP+CREATE the live authority schema with a 3-table synthetic fixture. Observed twice at 2026-09-23T15:57:28Z and 15:58:42Z, coincident with pytest runs of governance_rule/tests.",
+  "last_good_authority": "2026-09-23T15:48:20Z (554 articles) — existed in PostgreSQL only; not present on any on-disk sqlite; overwritten by fixture",
+  "authority_restored_at": "2026-09-23T16:12:15Z to sealed on-disk codex 2026-09-23T03:13:43Z (214 live tables, 25324 rows) — the 15:48:20Z generation delta is not on disk anywhere; rebuild via amendment pipeline is migration-owner scope",
+  "last_sealed_on_disk": "2026-09-23T03:13:43Z (554 articles) — HEAD blob of governance_rule/codex/data/governance_codex.sqlite3 plus all four worktree copies and .kilo worktree",
+  "local_leftovers": "data/governance_codex.sqlite3.staging-tmp=2026-09-22T16:21:08Z (549), .bak=2026-09-21T12:02:51Z (537)",
+  "post_restore_state": "authority=03:13:43Z but zh-TW mirror parts remain at 15:48:20Z -> audit red on 3 mirror checks (version sync, mirror-quality evidence for 15:48:20Z, seal_manifest parity); commit gate correctly fail-closed until migration worker re-renders mirrors or rebuilds the 15:48 generation",
+  "owner": "parallel migration worker session actively investigating (observed authority_state polling + git fsck --lost-found at ~16:04Z)",
+  "defect": "test-isolation violation — a test exercises the real authority DSN; recommend wire_generation accept an injectable import hook or the test monkeypatch import_sqlite_predecessor/verify_sqlite_parity",
+  "action_taken": "none — codex authority writes belong to the governed amendment/migration path (A74/A435); fail-closed, reported only",
+  "resolution": "authority restored 2026-09-24T00:12 local by concurrent worker from worktree snapshot 2026-09-23T03:13:43Z (213 tables, 554 articles); NOTE: destroyed live version was 14:49:21Z - amendments between 03:13Z and 14:49Z may be absent; governor confirmation advised"
+ },
+ "residual_watch": [
+  "governance_rule/execution/convergence/successor_framework.py LIVE_CODEX still targets governance_rule/codex/data/governance_codex.sqlite3 (deleted in working tree); stage_copy/compute_closures raise CODEX_MISSING until the sealed predecessor is republished or the framework is migrated to the PostgreSQL authority — migration owner decision"
+ ],
+ "codex_mutation": "none",
+ "verdict": "implementation-side diffs from the 07:40Z report are all resolved; every remaining open item routes through the governed codex amendment path — no worker-implementable diff outstanding",
+ "round_2": {
+  "scope": "static architecture gate dependency_direction violations (10 new)",
+  "fixes": [
+   "git_tiers/process_lock.py: shared_layer.performance import removed; native _sovereign_native probe + ctypes/POSIX fallback (fail-safe, never steals locks)",
+   "git_tiers/automation_supervisor_state.py: shared_layer import removed; native probe + taskkill/os.kill fallback",
+   "governance_rule/execution/git_automation_facade.py: NEW sanctioned adapter — single governed entry from main-system into git tier (same pattern as execution/audit bridge)",
+   "main-system/src-core/tasks/git_automation.py: 8 git_tiers imports rerouted through the facade",
+   "convergence/successor_framework.py: LIKE % placeholder breaks psycopg — switched to substr() (portable)",
+   "tests: architecture-registry expectation aligned to governed sovereign-id rename (automation->synchronization-sovereign shim); convergence tests use PG authority when sqlite predecessor absent (A173)"
   ],
-  "anomaly": {
-    "severity": "high",
-    "subject": "live PostgreSQL codex authority degraded to test fixture",
-    "detail": "gptbridge_codex schema currently holds only 4 tables (articles/chinese_mirror_quality_evidence/metadata/codex_authority_state), 5 rows, codex_version=2026-09-17T01:00:00Z. Cause: governance_rule/tests/test_codex_update_pipeline.py::test_apply_wires_releases_and_refreshes_frontend runs run_auto_update(apply=True) -> wire_generation -> import_sqlite_predecessor with the production admin DSN, DROP+CREATE the live authority schema with a 3-table synthetic fixture. Observed twice at 2026-09-23T15:57:28Z and 15:58:42Z, coincident with pytest runs of governance_rule/tests.",
-    "last_good_authority": "2026-09-23T15:48:20Z (554 articles) — existed in PostgreSQL only; not present on any on-disk sqlite; overwritten by fixture",
-    "authority_restored_at": "2026-09-23T16:12:15Z to sealed on-disk codex 2026-09-23T03:13:43Z (214 live tables, 25324 rows) — the 15:48:20Z generation delta is not on disk anywhere; rebuild via amendment pipeline is migration-owner scope",
-    "last_sealed_on_disk": "2026-09-23T03:13:43Z (554 articles) — HEAD blob of governance_rule/codex/data/governance_codex.sqlite3 plus all four worktree copies and .kilo worktree",
-    "local_leftovers": "data/governance_codex.sqlite3.staging-tmp=2026-09-22T16:21:08Z (549), .bak=2026-09-21T12:02:51Z (537)",
-    "post_restore_state": "authority=03:13:43Z but zh-TW mirror parts remain at 15:48:20Z -> audit red on 3 mirror checks (version sync, mirror-quality evidence for 15:48:20Z, seal_manifest parity); commit gate correctly fail-closed until migration worker re-renders mirrors or rebuilds the 15:48 generation",
-    "owner": "parallel migration worker session actively investigating (observed authority_state polling + git fsck --lost-found at ~16:04Z)",
-    "defect": "test-isolation violation — a test exercises the real authority DSN; recommend wire_generation accept an injectable import hook or the test monkeypatch import_sqlite_predecessor/verify_sqlite_parity",
-    "action_taken": "none — codex authority writes belong to the governed amendment/migration path (A74/A435); fail-closed, reported only",
-    "resolution": "authority restored 2026-09-24T00:12 local by concurrent worker from worktree snapshot 2026-09-23T03:13:43Z (213 tables, 554 articles); NOTE: destroyed live version was 14:49:21Z - amendments between 03:13Z and 14:49Z may be absent; governor confirmation advised"
-  },
-  "residual_watch": [
-    "governance_rule/execution/convergence/successor_framework.py LIVE_CODEX still targets governance_rule/codex/data/governance_codex.sqlite3 (deleted in working tree); stage_copy/compute_closures raise CODEX_MISSING until the sealed predecessor is republished or the framework is migrated to the PostgreSQL authority — migration owner decision"
-  ],
-  "codex_mutation": "none",
-  "verdict": "implementation-side diffs from the 07:40Z report are all resolved; every remaining open item routes through the governed codex amendment path — no worker-implementable diff outstanding",
+  "result": "dependency_direction back to baseline=1; static gate verdict PASS; 8/8 gate tests + 21/21 registry tests + 9/9 convergence tests + 37/37 supervisor/scheduler tests pass",
+  "residual": "remaining broad-suite failures are inside the in-flight PostgreSQL migration scope (audit evidence reads moved to authority; runtime_rule_index_v2/governance_health fixtures still sqlite-path); config/frontend hash mismatches belong to other in-flight workers"
+ },
+ "followup_rounds": {
   "round_2": {
-    "scope": "static architecture gate dependency_direction violations (10 new)",
-    "fixes": [
-      "git_tiers/process_lock.py: shared_layer.performance import removed; native _sovereign_native probe + ctypes/POSIX fallback (fail-safe, never steals locks)",
-      "git_tiers/automation_supervisor_state.py: shared_layer import removed; native probe + taskkill/os.kill fallback",
-      "governance_rule/execution/git_automation_facade.py: NEW sanctioned adapter — single governed entry from main-system into git tier (same pattern as execution/audit bridge)",
-      "main-system/src-core/tasks/git_automation.py: 8 git_tiers imports rerouted through the facade",
-      "convergence/successor_framework.py: LIKE % placeholder breaks psycopg — switched to substr() (portable)",
-      "tests: architecture-registry expectation aligned to governed sovereign-id rename (automation->synchronization-sovereign shim); convergence tests use PG authority when sqlite predecessor absent (A173)"
-    ],
-    "result": "dependency_direction back to baseline=1; static gate verdict PASS; 8/8 gate tests + 21/21 registry tests + 9/9 convergence tests + 37/37 supervisor/scheduler tests pass",
-    "residual": "remaining broad-suite failures are inside the in-flight PostgreSQL migration scope (audit evidence reads moved to authority; runtime_rule_index_v2/governance_health fixtures still sqlite-path); config/frontend hash mismatches belong to other in-flight workers"
-  },
-  "followup_rounds": {
-    "round_2": {
-      "psycopg_fail_closed_gap": "load_formal_rules/load_obligations/evaluator/codex_update_validation caught only sqlite3.Error; psycopg errors (e.g. UndefinedTable) propagated instead of documented fail-closed degrade. Fixed: 9148e05e, 5ff239dd.",
-      "stale_docs": "codex_health_service.py, module-topology.md, contract_resolver.py docstrings updated to PostgreSQL authority (9148e05e, d83c9e90)",
-      "script_migration": "scripts/build-runtime-rule-index.py migrated to codex_readonly_connection + authority_state (worktree-only, scripts/ is gitignored); verified 554-article rebuild"
-    },
-    "round_3": {
-      "audit_protected_files": "audit_activation.py + audit_directories.py are OS-read-only governed sources (check_protected_sources); applied psycopg.Error via clear-edit-restore cycle, committed d83c9e90",
-      "release_gate": "validate_governance_references: codex_path=None -> governed PG authority; explicit path -> staged sqlite fixture; validate_release_bundle accepts governance-codex://official selector (a2a758e3, 6e725391)",
-      "test_fixes": "4 post-cutover test failures fixed (release gates x2, auto_action_policy, xingcheng_learning) via official-authority reads / monkeypatched governed connection; 60 passed",
-      "amendment_request_g36": "external-collaboration-sync -> architecture-authority + postgresql source_path (a2a758e3)",
-      "parity_call_site": "test_formal_rules.py stale sqlite path arg -> postgresql-codex placeholder (03bca9be); dead CODEX_PATH removed (176d683f)"
-    }
+   "psycopg_fail_closed_gap": "load_formal_rules/load_obligations/evaluator/codex_update_validation caught only sqlite3.Error; psycopg errors (e.g. UndefinedTable) propagated instead of documented fail-closed degrade. Fixed: 9148e05e, 5ff239dd.",
+   "stale_docs": "codex_health_service.py, module-topology.md, contract_resolver.py docstrings updated to PostgreSQL authority (9148e05e, d83c9e90)",
+   "script_migration": "scripts/build-runtime-rule-index.py migrated to codex_readonly_connection + authority_state (worktree-only, scripts/ is gitignored); verified 554-article rebuild"
   },
   "round_3": {
-    "scope": "post-migration suite convergence (A173 sqlite predecessor retirement)",
-    "fixes": [
-      "python_release_dependencies: SECRET_VALUE_IN_MANIFEST now flags only credential-bearing DSNs (userinfo/password=); credential-free postgresql://local/<schema> authority URI is reference metadata",
-      "release-dependencies.json: synced 3 config + 3 frontend artifact hashes to the committed/verified current state",
-      "dev_test_evidence: inner evidence-probe pytest pinned to -n 0 (nested xdist spawn flaked verdicts under parallel load)",
-      "test_governance_health: live-codex reads via codex_readonly_connection when sqlite file absent; authority existence asserted via authority_state()",
-      "test_convergence_framework: LIVE_DB=None -> PG authority; live-untouched check fingerprints authority_state"
-    ],
-    "result": "governance suite 674/674 PASS (was 371+15f+7e -> 660+2f -> all green); runtime governance audit PASS; parity 64/64; contract registry 18/18",
-    "residual": "none worker-side; codex-side amendment items unchanged"
+   "audit_protected_files": "audit_activation.py + audit_directories.py are OS-read-only governed sources (check_protected_sources); applied psycopg.Error via clear-edit-restore cycle, committed d83c9e90",
+   "release_gate": "validate_governance_references: codex_path=None -> governed PG authority; explicit path -> staged sqlite fixture; validate_release_bundle accepts governance-codex://official selector (a2a758e3, 6e725391)",
+   "test_fixes": "4 post-cutover test failures fixed (release gates x2, auto_action_policy, xingcheng_learning) via official-authority reads / monkeypatched governed connection; 60 passed",
+   "amendment_request_g36": "external-collaboration-sync -> architecture-authority + postgresql source_path (a2a758e3)",
+   "parity_call_site": "test_formal_rules.py stale sqlite path arg -> postgresql-codex placeholder (03bca9be); dead CODEX_PATH removed (176d683f)"
   }
+ },
+ "round_3": {
+  "scope": "post-migration suite convergence (A173 sqlite predecessor retirement)",
+  "fixes": [
+   "python_release_dependencies: SECRET_VALUE_IN_MANIFEST now flags only credential-bearing DSNs (userinfo/password=); credential-free postgresql://local/<schema> authority URI is reference metadata",
+   "release-dependencies.json: synced 3 config + 3 frontend artifact hashes to the committed/verified current state",
+   "dev_test_evidence: inner evidence-probe pytest pinned to -n 0 (nested xdist spawn flaked verdicts under parallel load)",
+   "test_governance_health: live-codex reads via codex_readonly_connection when sqlite file absent; authority existence asserted via authority_state()",
+   "test_convergence_framework: LIVE_DB=None -> PG authority; live-untouched check fingerprints authority_state"
+  ],
+  "result": "governance suite 674/674 PASS (was 371+15f+7e -> 660+2f -> all green); runtime governance audit PASS; parity 64/64; contract registry 18/18",
+  "residual": "none worker-side; codex-side amendment items unchanged"
+ },
+ "round_4": {
+  "scope": "sqlite-authority residue sweep + interpreter-artifact triage",
+  "fixes": [
+   "scripts/*: five consumers of retired sqlite path re-pointed to codex_readonly_connection()/authority_state(); integration-04b acceptance builds RC snapshot via PG export + sqlite backup",
+   "codex-semantic-duplication-scan.json regenerated against PostgreSQL authority (813 provisions; A5/E2 + A29/E16 remain review-required - governor path)",
+   "verified sqlite_reconciliation_contract/load_reconciliation_contract dual-path: explicit path=fixture RO, default=PG authority; data_platform FAILOVER_A509_CONTRACT_REQUIRED is intentional inject-or-fixture fail-closed design, not drift"
+  ],
+  "triage": "test_release_runtime_environment/compat failures under global Python 3.13 are interpreter-selection artifacts: contract pins runtime_environment.python 3.11.x and venv markers; suite must run under main-system/.venv (3.11.9)",
+  "result": "governance suite 674/674 PASS under managed venv; main-system+shared-layer 4411 PASS (6 skip, 7 xfail); audit PASS; parity 64/64; contract registry 18/18",
+  "residual": "none worker-side; codex-side amendment items unchanged (parity 74 pending, obligations 62, capability-dispatch, A5/E2+A29/E16, xingcheng learning route)"
+ }
 }
