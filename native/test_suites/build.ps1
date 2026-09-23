@@ -17,6 +17,18 @@ $includeDir = Join-Path $nativeRoot "include"
 $suites = @(
     @{ src = "suite_ntp_sampling.cpp"; exe = "ntp_suite.exe" },
     @{ src = "suite_kv_cache.cpp"; exe = "kv_cache_suite.exe" },
+    @{
+        src = "suite_kv_engine.cpp"; exe = "kv_engine_suite.exe"
+        # G95：engine 級 KV 覆蓋——真實 gptbridge_kv_pool＋NativeInferenceEngine
+        inc = @(
+            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\include")
+        )
+        extra = @(
+            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\src\engine.cpp"),
+            (Join-Path $coreDir "transformer.c"),
+            (Join-Path $coreDir "kv_pool.c")
+        )
+    },
     @{ src = "suite_moe_routing.cpp"; exe = "moe_qc_suite.exe" },
     @{ src = "suite_consistency.cpp"; exe = "consistency_suite.exe" },
     @{ src = "suite_maturity.cpp"; exe = "maturity_suite.exe" },

@@ -1269,6 +1269,7 @@ NativeInferenceEngine::~NativeInferenceEngine() { unload(); }
 
 void NativeInferenceEngine::load(const std::string& bundle_dir) {
     unload();
+    try {
     const std::filesystem::path root(bundle_dir);
     bundle_ = std::make_unique<WeightBundle>(WeightBundle::load((root / "manifest.json").string()));
     const ModelConfig& cfg = bundle_->config();
@@ -1449,6 +1450,13 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     if (std::filesystem::exists(tokenizer_path)) {
         tokenizer_ = std::make_unique<ByteLevelBPETokenizer>(
             ByteLevelBPETokenizer::load(tokenizer_path.string()));
+    }
+    } catch (...) {
+        // A refused load must leave zero partial state: bundle_/kv_pool_/
+        // tokenizer_ all cleared so loaded()==false and a later call never
+        // operates on a half-initialized engine.
+        unload();
+        throw;
     }
 }
 

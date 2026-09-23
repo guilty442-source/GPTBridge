@@ -1,0 +1,37 @@
+{
+  "schema": "g95-kv-engine-suite-evidence/v1",
+  "created_utc": "2026-09-23T04:59:31Z",
+  "item": "G95 real-engine KV pool suite coverage",
+  "suite": "native/test_suites/suite_kv_engine.cpp -> kv_engine_suite.exe (kv_engine_suite.json)",
+  "coverage": {
+    "pool_abi": [
+      "alloc/release/reuse-zeroed",
+      "limit accounting + fail-closed overflow (-1)",
+      "set_limit shrink-reject/raise-accept",
+      "invalid/null access denied",
+      "key/value buffer isolation"
+    ],
+    "engine": [
+      "kv pool init + GQA/RoPE config surface (describe)",
+      "full-forward vs prefill+decode argmax parity",
+      "reset_cache isolation + position tracking",
+      "prefix reuse bit-identical + hits counter",
+      "KV_MEMORY_LIMIT_EXCEEDED fail-closed at load + no partial state",
+      "SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS fail-closed",
+      "INT8 KV prefill agreement + memory saving (A567 measured-separately)",
+      "batch finished-sequence KV release + bounded footprint"
+    ]
+  },
+  "int8_measurements": {
+    "first_token_agreement": "3/3",
+    "fp64_kv_bytes": 786432,
+    "int8_kv_bytes": 110592,
+    "saving_factor": 7.1
+  },
+  "engine_fix": "NativeInferenceEngine::load wrapped try/catch -> unload() on failure: refused load no longer leaves loaded()==true partial state (found by kv_memory_limit_failclosed)",
+  "registration": [
+    "build.ps1 suites entry (engine.cpp+transformer.c+kv_pool.c link)",
+    "suite_criticality.json kv_engine_suite release-critical"
+  ],
+  "gates": "native build + push gate via suites manifest; suite report feeds native-report.json"
+}

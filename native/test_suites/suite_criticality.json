@@ -79,6 +79,12 @@
       "criticality": "release-critical",
       "surfaces": ["data-integrity"]
     },
+    "kv_engine_suite": {
+      "affected_capability": "engine-level KV pool + NativeInferenceEngine KV paths",
+      "release_impact": "real KV pool limits/reuse/INT8 parity unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity", "native-memory-safety", "fail-closed"]
+    },
     "maturity_suite": {
       "affected_capability": "model maturity L0-L2 gates",
       "release_impact": "maturity certification unverified",
