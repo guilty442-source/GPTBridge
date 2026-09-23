@@ -877,6 +877,16 @@ def test_cpp_cuda_gate_degrades_when_coordinator_unreachable(
     checkpoint = _tiny_checkpoint(tmp_path)
     monkeypatch.setenv("XINGCHENG_CPP_CUDA", "1")
     monkeypatch.delitem(sys.modules, "shared_layer", raising=False)
+    # Poison the cached submodule: delitem on the package root does not
+    # evict already-imported children, so `from shared_layer.adaptive.
+    # gpu_coordinator import GpuCoordinator` would still resolve.  A None
+    # entry makes the import fail deterministically regardless of what
+    # other tests in this worker imported first.
+    for _mod in (
+        "shared_layer.adaptive",
+        "shared_layer.adaptive.gpu_coordinator",
+    ):
+        monkeypatch.setitem(sys.modules, _mod, None)
     events: list[dict] = []
     monkeypatch.setattr(cpp_runtime, "_ledger_append", events.append)
 

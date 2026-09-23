@@ -13,6 +13,10 @@ import os
 import subprocess
 import threading
 import time
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+)
 from pathlib import Path
 from typing import Any
 
@@ -542,6 +546,12 @@ class ToolIsolationHealthMixin:
         if self._monitor_thread is not None:
             self._monitor_thread.join(timeout=5.0)
             self._monitor_thread = None
+        if self._monitor_executor is not None:
+            try:
+                self._monitor_executor.shutdown(wait=False)
+            except Exception:
+                pass
+            self._monitor_executor = None
 
     def _superseded_by_newer_generation(self) -> bool:
         """True when this backend generation has been replaced by a newer one."""
@@ -604,10 +614,41 @@ class ToolIsolationHealthMixin:
                 self.handle_crash(tid)
 
     def _monitor_loop(self, interval: float) -> None:
-        """Background health check loop — detects crashes and notifies."""
+        """Background health check loop — detects crashes and notifies.
+
+        Each sweep runs on a single-slot worker under a tick deadline:
+        a hung health check or crash handler must not freeze the loop
+        (a wedged worker is never joined — leak bounded at one thread,
+        stalls counted and logged)."""
+        tick_deadline = max(30.0, min(600.0, float(interval) * 5))
+        if self._monitor_executor is None:
+            self._monitor_executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="tool-isolation-tick"
+            )
         while not self._stop_event.is_set():
             try:
-                self._monitor_once()
+                if (
+                    self._monitor_future is not None
+                    and not self._monitor_future.done()
+                ):
+                    self._monitor_stalls += 1
+                    _logger.warning(
+                        "tool_isolation_monitor sweep still running past "
+                        "deadline; skipping"
+                    )
+                else:
+                    self._monitor_future = self._monitor_executor.submit(
+                        self._monitor_once
+                    )
+                    try:
+                        self._monitor_future.result(timeout=tick_deadline)
+                    except FuturesTimeoutError:
+                        self._monitor_stalls += 1
+                        _logger.warning(
+                            "tool_isolation_monitor sweep exceeded %.0fs "
+                            "deadline",
+                            tick_deadline,
+                        )
             except Exception as exc:
                 _logger.error("tool_isolation_monitor_error: %s", exc, exc_info=True)
             self._stop_event.wait(timeout=interval)

@@ -114,6 +114,12 @@ class ToolIsolationManager(ToolIsolationHealthMixin):
         self._policy_mtime: float = 0.0
         self._monitor_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        # P7: the sync fallback loop cannot be preempted — bound each
+        # sweep on a single-slot worker; a wedged sweep is never joined
+        # (leak bounded at one thread) and stalls are counted.
+        self._monitor_executor: Any = None
+        self._monitor_future: Any = None
+        self._monitor_stalls = 0
         # §1.1: True when the automation core drives the health cadence.
         self._core_driven: bool | None = None
         self._crash_callbacks: list = []

@@ -410,7 +410,12 @@ def test_executor_kills_subprocess_on_process_timeout(tmp_path: Path) -> None:
 def test_executor_fails_closed_when_rss_monitor_unavailable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setitem(sys.modules, "psutil", None)
+    # P24: the monitor is the native process_metrics facade, not psutil —
+    # simulate the unavailable-monitor condition at that seam.
+    monkeypatch.setattr(
+        "shared_layer.performance.process_metrics.metrics_available",
+        lambda: False,
+    )
     repository = TransformerTrainingRepository(tmp_path)
     executor = _subprocess_executor(repository)
     with pytest.raises(TrainingJobExecutorError) as exc_info:
