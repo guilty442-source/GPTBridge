@@ -325,26 +325,30 @@ def test_machine_schema_validates_required_fields() -> None:
     assert bad.passed is False
 
 
-def test_release_verification_requires_external_signatures() -> None:
+def test_release_verification_requires_governed_certification() -> None:
     ruleset = load_formal_rules()
     rule = ruleset.rule("RULE_RELEASE_VERIFICATION")
     assert rule is not None
-    verified = evaluate_rule(
-        rule,
-        {"technical_status": "TECHNICAL_PASS", "signature_status": "VALID", "trust_anchor": "VALID"},
-    )
+    closed = {
+        "technical_status": "TECHNICAL_PASS",
+        "authorization_status": "VALID",
+        "integrity_status": "VALID",
+        "lineage_status": "VALID",
+        "trust_anchor": "VALID",
+    }
+    verified = evaluate_rule(rule, dict(closed))
     assert verified.passed is True
     assert verified.decision == "VERIFIED_RELEASE"
-    pending = evaluate_rule(
-        rule,
-        {"technical_status": "TECHNICAL_PASS", "signature_status": "PENDING", "trust_anchor": "VALID"},
-    )
-    assert pending.passed is False
-    assert pending.decision == "INCOMPLETE_EVIDENCE"
-    tech_only = evaluate_rule(
-        rule,
-        {"technical_status": "TECHNICAL_PASS", "signature_status": "PENDING", "trust_anchor": "PENDING"},
-    )
+    for key in (
+        "authorization_status",
+        "integrity_status",
+        "lineage_status",
+        "trust_anchor",
+    ):
+        pending = evaluate_rule(rule, {**closed, key: "PENDING"})
+        assert pending.passed is False
+        assert pending.decision == "INCOMPLETE_EVIDENCE"
+    tech_only = evaluate_rule(rule, {"technical_status": "TECHNICAL_PASS"})
     assert tech_only.passed is False
 
 
