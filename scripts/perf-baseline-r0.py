@@ -235,24 +235,40 @@ def main() -> int:
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
 
+    proc_counts: list[int] = []
     end = time.monotonic() + args.duration
     tick = 0
     while time.monotonic() < end:
         time.sleep(args.interval)
         tick += 1
+        proc_count = 0
         for proc in _gptbridge_python_procs():
             try:
                 with proc.oneshot():
                     cpu = proc.cpu_percent(None)
                     rss = proc.memory_info().rss / 1_048_576
                     threads = proc.num_threads()
+                    # P8: private bytes + unique set (working-set tail) —
+                    # pagefile ≈ private committed bytes on Windows.
+                    try:
+                        fmi = proc.memory_full_info()
+                        priv = getattr(fmi, "pagefile", 0) / 1_048_576
+                        uss = getattr(fmi, "uss", 0) / 1_048_576
+                    except (psutil.NoSuchProcess, psutil.AccessDenied,
+                            AttributeError):
+                        priv = uss = 0.0
                 bucket = samples.setdefault(
-                    proc.pid, {"rss_mb": [], "cpu_pct": [], "threads": []})
+                    proc.pid, {"rss_mb": [], "cpu_pct": [], "threads": [],
+                               "priv_mb": [], "uss_mb": []})
                 bucket["rss_mb"].append(round(rss, 1))
                 bucket["cpu_pct"].append(round(cpu, 2))
                 bucket["threads"].append(threads)
+                bucket["priv_mb"].append(round(priv, 1))
+                bucket["uss_mb"].append(round(uss, 1))
+                proc_count += 1
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
+        proc_counts.append(proc_count)
         if tick % 6 == 0:
             print(f"[baseline] tick {tick} ({tick * args.interval:.0f}s) "
                   f"procs={len(samples)}")
@@ -287,7 +303,10 @@ def main() -> int:
                 sum(series["cpu_pct"]) / len(series["cpu_pct"]), 2)
             if series["cpu_pct"] else None,
             "cpu_p95_pct": _percentile(series["cpu_pct"], 95),
+            "cpu_p99_pct": _percentile(series["cpu_pct"], 99),
             "threads_max": max(series["threads"], default=None),
+            "private_p95_mb": _percentile(series["priv_mb"], 95),
+            "uss_p95_mb": _percentile(series["uss_mb"], 95),
             "rss_series_mb": series["rss_mb"],
             "cpu_series_pct": series["cpu_pct"],
             "idle_cpu_mean_pct": round(
@@ -317,6 +336,8 @@ def main() -> int:
         "phase5_ms": phases.get("phase-5-classify-dependency-dag"),
         "processes": per_proc,
         "backend_rss_p95_mb": max(backend_rss, default=None),
+        "process_count_max": max(proc_counts, default=None),
+        "process_count_series": proc_counts,
         "backend_cpu_mean_pct": backend_cpu[0] if backend_cpu else None,
         "fixed_period_jobs": PERIODIC_JOBS,
         "fixed_period_job_count": len(PERIODIC_JOBS),
@@ -325,12 +346,17 @@ def main() -> int:
     snapshot = collect_baseline(ROOT, extra=extra)
     path = persist_baseline(ROOT, snapshot)
 
+    # P8: shutdown latency — terminate -> fully exited wall-clock.
+    shutdown_s = None
     if child.poll() is None:
+        _t0 = time.monotonic()
         child.terminate()
         try:
             child.wait(timeout=30)
         except subprocess.TimeoutExpired:
             child.kill()
+            child.wait(timeout=10)
+        shutdown_s = round(time.monotonic() - _t0, 3)
     pump.join(timeout=10)
 
     print(json.dumps({
@@ -340,6 +366,8 @@ def main() -> int:
         "backend_rss_p95_mb": extra["backend_rss_p95_mb"],
         "backend_cpu_mean_pct": extra["backend_cpu_mean_pct"],
         "processes_sampled": len(per_proc),
+        "process_count_max": extra["process_count_max"],
+        "backend_shutdown_s": shutdown_s,
         "fixed_period_jobs": len(PERIODIC_JOBS),
     }, ensure_ascii=False, indent=2))
     return 0
