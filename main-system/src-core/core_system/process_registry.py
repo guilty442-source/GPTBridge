@@ -172,19 +172,12 @@ class ProcessRegistry:
         if pid <= 0:
             return False
         try:
-            import psutil
+            from shared_layer.performance.process_metrics import process_alive
 
-            process = psutil.Process(pid)
-            if not process.is_running():
-                return False
-            return process.status() != psutil.STATUS_ZOMBIE
+            return process_alive(pid)
         except ImportError:
             # Keep the registry usable in the minimal release environment.
             pass
-        except (psutil.NoSuchProcess, psutil.ZombieProcess):
-            return False
-        except psutil.AccessDenied:
-            return True
         except OSError:
             return False
         try:

@@ -61,14 +61,15 @@ def _observe_adaptive_plane() -> None:
     失敗靜默：量測只是提示，不得影響快照主流程。
     """
     try:
-        import psutil
-
+        from shared_layer.performance import process_metrics
         from shared_layer.adaptive import LoadSignals, get_plane
 
+        ram_pct = process_metrics.virtual_memory_percent()
+        cpu_pct = process_metrics.cpu_percent(interval=None)
         get_plane().observe_merge(
             LoadSignals(
-                cpu_pct=float(psutil.cpu_percent(interval=None)),
-                ram_pct=float(psutil.virtual_memory().percent),
+                cpu_pct=float(cpu_pct if cpu_pct >= 0 else 0.0),
+                ram_pct=float(ram_pct if ram_pct is not None else 0.0),
             ),
             fields=("cpu_pct", "ram_pct"),
         )

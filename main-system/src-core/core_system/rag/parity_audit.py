@@ -181,6 +181,15 @@ class RagParityAudit:
                 str(rows[-1]["resource_id"]),
             )
 
+        # P15 diagnostics: attach pg_stat vacuum/analyze lag + scan ratios
+        # when the authority exposes them (fail-soft — absence or failure
+        # never fails the sweep).
+        table_stats_fn = getattr(self.postgresql, "table_health_stats", None)
+        if table_stats_fn is not None:
+            stats = await table_stats_fn()
+            if stats is not None:
+                report["table_health"] = stats
+
         report["duration_ms"] = (time.monotonic() - started) * 1000.0
         _logger.info(
             "RagParityAudit: checked=%d drifted=%d enqueued=%d unverifiable=%d",

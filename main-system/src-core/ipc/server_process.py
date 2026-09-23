@@ -15,31 +15,24 @@ from pathlib import Path
 
 from .server_tokens import _background_subprocess_kwargs
 
-try:  # AA3/AA4: psutil replaces netstat/tasklist/wmic subprocess chains
-    import psutil
-except ImportError:  # pragma: no cover - psutil ships with the runtime venv
-    psutil = None  # type: ignore[assignment]
+try:
+    from shared_layer.performance import process_metrics
+except ImportError:  # pragma: no cover - shared-layer always ships
+    process_metrics = None  # type: ignore[assignment]
 
 
 def _get_port_owner(port: int) -> tuple[int | None, str | None]:
     if socket is None or sys.platform != "win32":
         return None, None
-    if psutil is not None:
-        # AA3: in-process PID→port scan instead of netstat + tasklist
-        # subprocesses (one syscall batch, no console spawn).
+    if process_metrics is not None:
+        # AA3: in-process PID→port query instead of netstat + tasklist
+        # subprocesses (single syscall, no console spawn).  P24: native
+        # GetExtendedTcpTable replaces the psutil.net_connections scan.
         try:
-            for conn in psutil.net_connections(kind="tcp"):
-                if (
-                    conn.laddr
-                    and conn.laddr.port == port
-                    and conn.status == psutil.CONN_LISTEN
-                    and conn.pid
-                ):
-                    try:
-                        proc_name = psutil.Process(conn.pid).name()
-                    except psutil.Error:
-                        proc_name = ""
-                    return conn.pid, f"PID {conn.pid} ({proc_name})"
+            pid = process_metrics.tcp_listen_pid(port)
+            if pid > 0:
+                proc_name = process_metrics.process_name(pid) or ""
+                return pid, f"PID {pid} ({proc_name})"
         except Exception:
             pass  # fall through to the subprocess path
     try:
@@ -73,18 +66,15 @@ def _get_port_owner(port: int) -> tuple[int | None, str | None]:
 def _query_process_commandline(pid: int) -> tuple[str | None, str | None]:
     if sys.platform != "win32":
         return None, None
-    if psutil is not None:
+    if process_metrics is not None:
         # AA4: single in-process query instead of wmic/PowerShell spawn.
+        # P24: native PEB read replaces psutil.Process.cmdline/exe.
         try:
-            process = psutil.Process(pid)
-            cmdline = " ".join(process.cmdline()) or None
-            try:
-                exe_path = process.exe() or None
-            except psutil.Error:
-                exe_path = None
+            cmdline = process_metrics.process_cmdline(pid)
+            exe_path = process_metrics.process_exe(pid)
             if cmdline or exe_path:
                 return cmdline, exe_path
-        except psutil.Error:
+        except Exception:
             pass  # fall through to the subprocess path
     try:
         output = subprocess.check_output(
@@ -143,10 +133,10 @@ def _query_process_commandline(pid: int) -> tuple[str | None, str | None]:
 def _tasklist_image_name(pid: int) -> str | None:
     if sys.platform != "win32":
         return None
-    if psutil is not None:
+    if process_metrics is not None:
         try:
-            return psutil.Process(pid).name()
-        except psutil.Error:
+            return process_metrics.process_name(pid)
+        except Exception:
             pass
     try:
         output = subprocess.check_output(

@@ -494,6 +494,48 @@ class RagMetadataReconciliationMixin:
             )
             return None
 
+    async def table_health_stats(self) -> Optional[list[dict[str, Any]]]:
+        """Read-only pg_stat snapshot for gptbridge_rag tables (P15).
+
+        Exposes vacuum/analyze lag (``n_dead_tup``, ``last_autovacuum``,
+        ``n_mod_since_analyze``) and index-vs-seq scan ratio so the parity
+        sweep report carries table-health diagnostics instead of leaving
+        vacuum lag invisible.  Fail-soft: ``None`` when the authority is
+        unavailable; callers must not treat it as an authority failure.
+        """
+        if not self._healthy or not self._conn:
+            return None
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT relname, n_live_tup, n_dead_tup,
+                              n_mod_since_analyze, seq_scan, idx_scan,
+                              last_autovacuum, last_autoanalyze
+                       FROM pg_stat_user_tables
+                       WHERE schemaname = 'gptbridge_rag'
+                       ORDER BY relname"""
+                )
+                rows = await cur.fetchall()
+            return [
+                {
+                    "table": str(r[0]),
+                    "live_tuples": int(r[1] or 0),
+                    "dead_tuples": int(r[2] or 0),
+                    "mods_since_analyze": int(r[3] or 0),
+                    "seq_scans": int(r[4] or 0),
+                    "idx_scans": int(r[5] or 0),
+                    "last_autovacuum": str(r[6]) if r[6] else None,
+                    "last_autoanalyze": str(r[7]) if r[7] else None,
+                }
+                for r in rows
+            ]
+        except Exception as exc:
+            _logger.warning(
+                "PostgreSQLMetadataAuthority: table_health_stats failed: %s",
+                exc,
+            )
+            return None
+
     # -- RAG-11: generation registry -------------------------------------------
 
     async def upsert_generation(self, generation: Any) -> bool:

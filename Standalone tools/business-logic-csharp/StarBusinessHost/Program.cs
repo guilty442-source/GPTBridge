@@ -58,6 +58,48 @@ if (args.Any(a => a == "lifecycle-stop"))
     return step.Ok ? 0 : 3;
 }
 
+// Generic governed ops entry: `ipc-command <command> <payload-json>
+// [--timeout seconds]` submits one command over the authenticated IPC
+// surface and prints the <command>_result payload verbatim.
+if (args.Any(a => a == "ipc-command"))
+{
+    var argv = args.ToList();
+    var at = argv.IndexOf("ipc-command");
+    var command = at + 1 < argv.Count ? argv[at + 1] : "";
+    var payloadJson = "{}";
+    var payloadFileAt = argv.IndexOf("--payload-file");
+    if (payloadFileAt >= 0 && payloadFileAt + 1 < argv.Count)
+        payloadJson = File.ReadAllText(argv[payloadFileAt + 1]);
+    else if (at + 2 < argv.Count)
+        payloadJson = argv[at + 2];
+    var timeoutSeconds = 30;
+    var timeoutAt = argv.IndexOf("--timeout");
+    if (timeoutAt >= 0 && timeoutAt + 1 < argv.Count)
+        int.TryParse(argv[timeoutAt + 1], out timeoutSeconds);
+    var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(payloadJson)
+        ?? new Dictionary<string, object?>();
+    var endpoint = GovernedIpcDiscovery.Endpoint(sharedProjectRoot);
+    var ipc = new GovernedIpcClient(endpoint);
+    try
+    {
+        var result = await ipc.ExecuteAsync(
+            command, payload, CancellationToken.None,
+            TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 1, 600)));
+        await WriteAsync(new { ok = true, result });
+        return 0;
+    }
+    catch (Exception error)
+    {
+        await WriteAsync(new
+        {
+            ok = false,
+            error_code = "IPC_COMMAND_FAILED",
+            message = error.Message,
+        });
+        return 3;
+    }
+}
+
 IModelClient? client = null;
 try
 {

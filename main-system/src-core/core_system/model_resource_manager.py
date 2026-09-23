@@ -235,11 +235,12 @@ def _gpu_free_mb() -> Optional[float]:
 
 
 def _ram_free_mb() -> Optional[float]:
-    """RAM 遙測：psutil available；psutil 不可用 → None（fail-closed）。"""
+    """RAM 遙測：native 優先（P24）；不可用 → None（fail-closed）。"""
     try:
-        import psutil
+        from shared_layer.performance.process_metrics import system_memory_available_bytes
 
-        return psutil.virtual_memory().available / (1024 * 1024)
+        available = system_memory_available_bytes()
+        return available / (1024 * 1024) if available > 0 else None
     except Exception:
         return None
 

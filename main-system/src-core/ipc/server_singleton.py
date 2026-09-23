@@ -46,30 +46,37 @@ class ProcessTable(Protocol):
 
 
 class _PsutilProcessTable:
-    """Default table: psutil for inspection, taskkill for termination."""
+    """Default table: native process queries (P24), taskkill for termination.
+
+    Kept under the original name — the public contract is ``ProcessTable``
+    and the class is still injectable for tests.
+    """
 
     def __init__(self) -> None:
-        import psutil  # noqa: F401  (validated on first use)
+        from shared_layer.performance import process_metrics
 
-        self._psutil = psutil
+        self._metrics = process_metrics
 
     def commandlines(self) -> dict[int, str]:
         result: dict[int, str] = {}
-        for proc in self._psutil.process_iter(["pid", "name"]):
-            try:
-                result[int(proc.info["pid"])] = " ".join(proc.cmdline())
-            except (self._psutil.NoSuchProcess, self._psutil.AccessDenied, self._psutil.ZombieProcess):
-                continue
+        for pid in self._metrics.process_list():
+            cmdline = self._metrics.process_cmdline(pid)
+            if cmdline:
+                result[pid] = cmdline
         return result
 
     def excluded_pids(self) -> set[int]:
         excluded = {os.getpid()}
-        try:
-            current = self._psutil.Process(os.getpid())
-            excluded.update(proc.pid for proc in current.parents())
-            excluded.update(proc.pid for proc in current.children(recursive=True))
-        except (self._psutil.NoSuchProcess, self._psutil.AccessDenied):
-            pass
+        excluded.update(self._metrics.process_children(os.getpid()))
+        # Native primitives have no parent query — ancestors stay on the
+        # bounded psutil fallback until the C layer grows ppid (P24).
+        p = self._metrics._psutil()
+        if p is not None:  # _psutil_fallback
+            try:
+                current = p.Process(os.getpid())
+                excluded.update(proc.pid for proc in current.parents())
+            except p.Error:
+                pass
         return excluded
 
     def kill(self, pid: int) -> bool:

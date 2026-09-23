@@ -338,6 +338,33 @@ def process_cmdline(pid: int) -> Optional[str]:
     return None
 
 
+def process_num_threads(pid: int) -> int:
+    """Thread count — native layer has no primitive yet; psutil-only
+    fallback (marked for P24 tracking).  -1 when unavailable."""
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return int(p.Process(int(pid)).num_threads())
+        except p.Error:
+            return -1
+    return -1
+
+
+def process_num_handles(pid: int) -> int:
+    """Open handle count (Windows) — psutil-only fallback, -1 elsewhere."""
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            proc = p.Process(int(pid))
+            if hasattr(proc, "num_handles"):
+                return int(proc.num_handles())
+            if hasattr(proc, "open_files"):
+                return len(proc.open_files())
+        except p.Error:
+            return -1
+    return -1
+
+
 def tcp_listen_pid(port: int) -> int:
     n = _native()
     if n is not None:

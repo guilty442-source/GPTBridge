@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import shutil
 import sys
@@ -173,6 +174,9 @@ def _make_extension() -> Any:
             pybind11.get_include(),
             str(NATIVE_ROOT / "include"),
         ],
+        # ws2_32/iphlpapi: tcp_listen_pid walks GetExtendedTcpTable; psapi:
+        # process working-set/private-byte queries (P24 psutil convergence).
+        libraries=["ws2_32", "iphlpapi", "psapi"] if os.name == "nt" else [],
         language="c++",
         optional=True,
     )

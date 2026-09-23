@@ -16,11 +16,15 @@ import time
 from pathlib import Path
 from typing import Any
 
-import psutil
+from shared_layer.performance import process_metrics
 
 from core_system.tool_isolation_types import ToolIsolationEntry
 
 _logger = logging.getLogger("gptbridge.tool_isolation")
+
+
+class _ProcessGone(Exception):
+    """Process exited between probes — same class as psutil.NoSuchProcess."""
 
 _QUARANTINE_DEFAULT_AGE_DAYS = 14.0
 _SECONDS_PER_DAY = 24 * 60 * 60
@@ -48,8 +52,8 @@ class ToolIsolationHealthMixin:
 
         memory_limit_mb, cpu_limit_percent, restart_count = limits
         try:
-            proc = psutil.Process(entry.pid)
-            if not proc.is_running():
+            # P24: native process queries replace the psutil.Process handle.
+            if not process_metrics.process_alive(entry.pid):
                 if entry.expected_stop:
                     return {
                         "tool_id": tool_id,
@@ -78,9 +82,15 @@ class ToolIsolationHealthMixin:
                     "pid": entry.pid,
                     "restart_count": restart_count,
                 }
-            cpu = proc.cpu_percent(interval=None)
-            mem_info = proc.memory_info()
-            mem_mb = mem_info.rss / (1024 * 1024)
+            cpu = process_metrics.process_cpu_percent(entry.pid, interval=None)
+            mem_bytes = process_metrics.process_working_set_bytes(entry.pid)
+            if cpu < 0 or mem_bytes < 0:
+                if not process_metrics.process_alive(entry.pid):
+                    # Died between the liveness probe and the metric read —
+                    # same outcome class as psutil.NoSuchProcess.
+                    raise _ProcessGone(entry.pid)
+                raise RuntimeError("process metrics unavailable")
+            mem_mb = mem_bytes / (1024 * 1024)
             over_memory = memory_limit_mb > 0 and mem_mb > memory_limit_mb
             over_cpu = cpu_limit_percent > 0 and cpu > cpu_limit_percent * 1.5
 
@@ -102,7 +112,7 @@ class ToolIsolationHealthMixin:
                 "over_cpu": over_cpu,
                 "restart_count": restart_count,
             }
-        except psutil.NoSuchProcess:
+        except _ProcessGone:
             if entry.expected_stop:
                 return {
                     "tool_id": tool_id,
