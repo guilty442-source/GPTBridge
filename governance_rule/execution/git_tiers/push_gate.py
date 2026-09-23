@@ -400,16 +400,9 @@ def mandatory_test_gate(
                 gate["rebuilt"] = True
 
             run_started = time.monotonic()
-            max_parallel = max(
-                1,
-                min(
-                    MAX_PARALLEL_SUITES_CAP,
-                    int(
-                        cfg.get("max_parallel_suites")
-                        or DEFAULT_MAX_PARALLEL_SUITES
-                    ),
-                ),
-            )
+            # Keep on one line: check_bounded_worker_pools proves the bound
+            # statically by reading the assignment RHS for a clamp token.
+            max_parallel = max(1, min(MAX_PARALLEL_SUITES_CAP, int(cfg.get("max_parallel_suites") or DEFAULT_MAX_PARALLEL_SUITES)))
             gate["max_parallel_suites"] = max_parallel
             # Bounded-parallel orchestration: each suite writes a uniquely
             # named <stem>.json report and binds only ephemeral ports, so
