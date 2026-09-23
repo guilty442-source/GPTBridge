@@ -87,5 +87,16 @@
   "triage": "test_release_runtime_environment/compat failures under global Python 3.13 are interpreter-selection artifacts: contract pins runtime_environment.python 3.11.x and venv markers; suite must run under main-system/.venv (3.11.9)",
   "result": "governance suite 674/674 PASS under managed venv; main-system+shared-layer 4411 PASS (6 skip, 7 xfail); audit PASS; parity 64/64; contract registry 18/18",
   "residual": "none worker-side; codex-side amendment items unchanged (parity 74 pending, obligations 62, capability-dispatch, A5/E2+A29/E16, xingcheng learning route)"
+ },
+ "round_5": {
+  "scope": "derived-artifact freshness + rogue-access sweep + full-suite re-verification",
+  "fixes": [
+   "module_capability_registry.json / capability_dispatch_parity.json regenerated via PG (45 modules, 0 conflicts, 17/17 parity, 45 schema-ok)",
+   "runtime-rule-index.json rebuilt (source now postgresql://local/gptbridge_codex, sha256 matches authority); business_rule_delegation.json re-derived (44 gov / 24 biz / 554)",
+   "codex-business-rule-conflicts.json + governance-vs-business classification regenerated (0 conflicts / 3 overlaps; 95 gov / 282 biz / 177 hybrid)"
+  ],
+  "sweeps_clean": "no rogue psycopg.connect to gptbridge_codex outside governed entry; no LIKE%% in PG-facing queries; mirror 5/5 parts in sync at 03:13:43Z with bootstrap list; TS/CS codex references are display-only; live config files clean",
+  "result": "FULL suite 5085 passed / 6 skipped / 7 xfailed under managed venv (main-system/.venv 3.11.9) — includes worker in-flight changes; audit PASS; parity 64/64; contract registry 18/18",
+  "residual": "none worker-side; codex-side amendment items unchanged"
  }
 }
