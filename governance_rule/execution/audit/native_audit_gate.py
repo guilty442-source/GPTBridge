@@ -38,7 +38,7 @@ REPORT_RELATIVE = (
 )
 
 # Audit budget: the whole commit gate must stay ≤30 s (A537); the native
-# engine is bounded well below that so the Python oracle still has room.
+# engine plus the same-request delegated lane share it (G96).
 ENGINE_TIMEOUT_S = float(os.environ.get("GPTBRIDGE_AUDIT_ENGINE_TIMEOUT", "25"))
 
 
@@ -49,6 +49,7 @@ class NativeAuditResult:
     passed: int = 0
     failed: int = 0
     delegated: int = 0
+    delegated_executed: int = 0
     errors: list[str] = field(default_factory=list)
     note: str = ""
 
@@ -60,9 +61,14 @@ class NativeAuditResult:
                 f"native audit engine timeout after {self.elapsed_s:.2f}s "
                 f"(fail-closed)"
             )
+        executed = (
+            f" / {self.delegated_executed} python-delegated executed"
+            if self.delegated_executed
+            else ""
+        )
         return (
             f"native audit engine: {self.passed} pass / {self.failed} fail / "
-            f"{self.delegated} delegated in {self.elapsed_s:.2f}s"
+            f"{self.delegated} delegated{executed} in {self.elapsed_s:.2f}s"
         )
 
 
@@ -129,15 +135,25 @@ def _engine_stale(root: Path, exe: Path) -> bool:
 
 
 def _refresh_manifest_if_stale(root: Path) -> str | None:
-    """Regenerate the manifest when the governed codex is newer
-    (法典變更 → cache invalidation, P0-9 ④).  Returns an error string on
-    failure, None on success/no-op."""
+    """Regenerate the manifest when the governed codex or any audit check
+    module is newer (cache invalidation, G96 manifest-generation parity).
+    Returns an error string on failure, None on success/no-op."""
     manifest = root / MANIFEST_RELATIVE
     codex = root / CODEX_DB_RELATIVE
-    if not manifest.is_file() or (
-        codex.is_file()
-        and codex.stat().st_mtime > manifest.stat().st_mtime
-    ):
+    stale = not manifest.is_file()
+    if not stale:
+        manifest_mtime = manifest.stat().st_mtime
+        if codex.is_file() and codex.stat().st_mtime > manifest_mtime:
+            stale = True
+        else:
+            # Check-module edits change the delegated set even when the
+            # codex is untouched — regenerate on source drift too.
+            audit_dir = root / "governance_rule" / "execution" / "audit"
+            for module in audit_dir.glob("audit_*.py"):
+                if module.stat().st_mtime > manifest_mtime:
+                    stale = True
+                    break
+    if stale:
         try:
             from governance_rule.execution.audit.export_audit_manifest import (
                 build_manifest,
@@ -225,8 +241,75 @@ def run_native_audit_gate(root: Path) -> NativeAuditResult:
     return result
 
 
+def run_audit_request(root: Path) -> NativeAuditResult:
+    """Canonical audit request (G96): manifest → C++ engine → delegated
+    Python checks → merged verdict inside one request and one budget.
+
+    - engine FAIL/timeout is fail-closed and ends the request;
+    - an unavailable engine falls back to the full Python oracle (the
+      documented coverage path) rather than auditing nothing;
+    - on engine pass the manifest's delegated checks execute in Python
+      under the same request — an unfinished delegated set can never
+      produce a PASS;
+    - engine + delegated together must fit the A537 30 s audit budget.
+    """
+    started = time.monotonic()
+    result = run_native_audit_gate(root)
+    if result.status in ("fail", "timeout"):
+        return result
+    if result.status == "delegated":
+        from .audit_checks import audit_runtime_governance
+
+        oracle_errors = audit_runtime_governance(
+            root, include_self_health=False
+        )
+        if oracle_errors:
+            result.status = "fail"
+            result.errors.extend(oracle_errors)
+        result.note = (result.note + "; full python oracle executed").strip(
+            "; "
+        )
+    else:
+        try:
+            manifest = json.loads(
+                (root / MANIFEST_RELATIVE).read_text(
+                    encoding="utf-8-sig"
+                )
+            )
+        except (OSError, json.JSONDecodeError) as error:
+            result.status = "fail"
+            result.errors.append(
+                f"delegated manifest unreadable: {error}"
+            )
+        else:
+            from .audit_checks import (
+                AUDIT_FLOW_BUDGET_SECONDS,
+                run_delegated_checks,
+            )
+
+            remaining = max(
+                0.0, AUDIT_FLOW_BUDGET_SECONDS - result.elapsed_s
+            )
+            delegated_errors, executed = run_delegated_checks(
+                root,
+                manifest.get("checks", []),
+                budget_seconds=remaining,
+            )
+            result.delegated_executed = len(executed)
+            if delegated_errors:
+                result.status = "fail"
+                result.errors.extend(delegated_errors)
+    from .audit_checks import audit_flow_budget_error
+
+    budget_error = audit_flow_budget_error(time.monotonic() - started)
+    if budget_error:
+        result.status = "fail"
+        result.errors.append(budget_error)
+    return result
+
+
 if __name__ == "__main__":
-    outcome = run_native_audit_gate(Path.cwd())
+    outcome = run_audit_request(Path.cwd())
     print(outcome.summary())
     for error in outcome.errors:
         print(f"[FAIL] {error}", file=sys.stderr)

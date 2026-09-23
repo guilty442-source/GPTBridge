@@ -1,6 +1,6 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-23T03:17:58Z",
+  "generated_at": "2026-09-23T04:26:17Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
     "native_checks": 363,
@@ -3059,137 +3059,164 @@
     {
       "id": "python-check:check_bounded_worker_pools",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_bounded_worker_pools"
     },
     {
       "id": "python-check:check_codex_text_integrity",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_codex_text_integrity"
     },
     {
       "id": "python-check:check_authority_policy",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_authority_policy"
     },
     {
       "id": "python-check:check_identity_permissions",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_identity_permissions"
     },
     {
       "id": "python-check:check_repair_policy",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_repair_policy"
     },
     {
       "id": "python-check:check_shared_layer_policy",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_shared_layer_policy"
     },
     {
       "id": "python-check:check_third_party_inventory",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_third_party_inventory"
     },
     {
       "id": "python-check:check_tool_isolation_hardening",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_tool_isolation_hardening"
     },
     {
       "id": "python-check:check_activation_states",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_activation_states"
     },
     {
       "id": "python-check:check_architecture_registry",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_architecture_registry"
     },
     {
       "id": "python-check:check_directory_audit",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_directory_audit"
     },
     {
       "id": "python-check:check_directory_catalog_coverage",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_directory_catalog_coverage"
     },
     {
       "id": "python-check:check_directory_identity_and_format",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_directory_identity_and_format"
     },
     {
       "id": "python-check:check_directory_mirror_parity",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_directory_mirror_parity"
     },
     {
       "id": "python-check:check_directory_relationships",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_directory_relationships"
     },
     {
       "id": "python-check:check_directory_schemas",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_directory_schemas"
     },
     {
       "id": "python-check:check_directory_seal",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_directory_seal"
     },
     {
       "id": "python-check:check_provision_classification",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_provision_classification"
     },
     {
       "id": "python-check:check_formal_rules",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_formal_rules"
     },
     {
       "id": "python-check:check_implementation_obligations",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_implementation_obligations"
     },
     {
       "id": "python-check:check_tool_identity_registration",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_tool_identity_registration"
     },
     {
       "id": "python-check:check_tool_manifests",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_tool_manifests"
     },
     {
       "id": "python-check:check_contract_axes",
       "kind": "delegated",
-      "reason": "python oracle (transition)"
+      "reason": "python oracle (transition)",
+      "python": "check_contract_axes"
     },
     {
       "id": "python-check:protected-source-semantic",
       "kind": "delegated",
-      "reason": "ast.parse / sqlite quick_check / duplicate detection"
+      "reason": "ast.parse / sqlite quick_check / duplicate detection",
+      "python": "check_protected_sources"
     },
     {
       "id": "python-check:codex-consistency-semantic",
       "kind": "delegated",
-      "reason": "codex repository + mirror identity sync"
+      "reason": "codex repository + mirror identity sync",
+      "python": "check_codex_consistency"
     },
     {
       "id": "python-check:git-tiers-classify-failclosed",
       "kind": "delegated",
-      "reason": "classify(unknown)==3 runtime semantic"
+      "reason": "classify(unknown)==3 runtime semantic",
+      "python": "check_git_tiers"
     },
     {
       "id": "python-check:embedded-browser-async-playwright",
       "kind": "delegated",
-      "reason": "async_playwright ∧ ¬InProcessEmbeddedBrowser 複合條件"
+      "reason": "async_playwright ∧ ¬InProcessEmbeddedBrowser 複合條件",
+      "python": "check_embedded_browser"
     }
   ]
 }

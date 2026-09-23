@@ -79,18 +79,16 @@ def main() -> int:
     # governance_rule on sys.path).
     os.environ.setdefault("GPTBRIDGE_AUDIT_SKIP_SELF_HEALTH", "1")
 
-    # Native C++ audit engine IS the commit gate (P0-9 §1.1): FAIL/timeout
-    # is fail-closed.  The Python oracle (audit_runtime_governance) has
-    # moved out of the gate per blueprint — delegated semantic checks
-    # (codex/sqlite/dynamic-policy, currently ~29) run on the scheduled
-    # governed audit lane (permission-automation-audit →
-    # ``python -m governance_rule.execution.audit``) and on release gates.
+    # Canonical audit request (G96): manifest → C++ engine → delegated
+    # Python checks execute under the same request; an unfinished
+    # delegated set can never produce a PASS.  Engine FAIL/timeout is
+    # fail-closed; engine unavailable falls back to the full oracle.
     # Escape hatch for manual verification, never silently on:
-    #   GPTBRIDGE_AUDIT_GATE_ORACLE=1 re-adds the python oracle inline.
+    #   GPTBRIDGE_AUDIT_GATE_ORACLE=1 re-adds the full python oracle.
     from governance_rule.execution.audit.native_audit_gate import (
-        run_native_audit_gate,
+        run_audit_request,
     )
-    native = run_native_audit_gate(WORKTREE_ROOT)
+    native = run_audit_request(WORKTREE_ROOT)
     if native.status in ("fail", "timeout"):
         _snapshot = _lightweight_snapshot(WORKTREE_ROOT)
         audit_log(2, "commit", actor, False,

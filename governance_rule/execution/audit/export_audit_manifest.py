@@ -697,6 +697,9 @@ def build_manifest(root: Path) -> dict[str, object]:
              ['if tool_id == "governance_rule"'])
 
     # --- delegated: every Python check not natively covered -----------
+    # Each delegated row carries an explicit ``python`` target so the
+    # delegated lane (same-request execution, G96) can resolve it without
+    # a second mapping table — unresolvable rows fail closed.
     covered = _NATIVE_COVERED | set(reducible) | set(filelist)
     delegated_names = [
         name for name in _iter_python_check_names(None)
@@ -707,27 +710,34 @@ def build_manifest(root: Path) -> dict[str, object]:
             "id": f"python-check:{name}",
             "kind": "delegated",
             "reason": "python oracle (transition)",
+            "python": name,
         })
     # Partial-coverage honesty: the non-reducible halves of covered checks.
+    # ``python`` points at the parent check — re-running the full oracle
+    # check covers the delegated semantic half (superset, never weaker).
     checks.append({
         "id": "python-check:protected-source-semantic",
         "kind": "delegated",
         "reason": "ast.parse / sqlite quick_check / duplicate detection",
+        "python": "check_protected_sources",
     })
     checks.append({
         "id": "python-check:codex-consistency-semantic",
         "kind": "delegated",
         "reason": "codex repository + mirror identity sync",
+        "python": "check_codex_consistency",
     })
     checks.append({
         "id": "python-check:git-tiers-classify-failclosed",
         "kind": "delegated",
         "reason": "classify(unknown)==3 runtime semantic",
+        "python": "check_git_tiers",
     })
     checks.append({
         "id": "python-check:embedded-browser-async-playwright",
         "kind": "delegated",
         "reason": "async_playwright ∧ ¬InProcessEmbeddedBrowser 複合條件",
+        "python": "check_embedded_browser",
     })
 
     return {
