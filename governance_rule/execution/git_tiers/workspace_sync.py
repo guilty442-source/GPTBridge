@@ -132,20 +132,29 @@ def synchronize(
 
     lock_path = _common_git_dir(coordinator) / "gptbridge-workspace-sync.lock"
     with ProcessFileLock(lock_path):
-        if commit_dirty:
-            for item in worktrees:
-                result = run_once(item["path"], actor=SYNC_ACTOR)
-                if result.startswith("error:") or result == "in-progress":
-                    return f"error:self-commit:{item['path']}:{result}"
+        # Writers can land new dirt between the commit pass and the dirty
+        # re-check; run a bounded number of commit+check settle passes
+        # instead of abandoning the whole cycle on the first race.
+        dirty: list[str] = []
+        for attempt in range(3):
+            if commit_dirty:
+                for item in worktrees:
+                    result = run_once(item["path"], actor=SYNC_ACTOR)
+                    if result.startswith("error:") or result == "in-progress":
+                        return f"error:self-commit:{item['path']}:{result}"
 
-        worktrees = manager.list_worktrees()
-        # G101: shared per-generation snapshot — hard freshness (TTL 0),
-        # one read path for all gates.
-        dirty = [
-            item["path"]
-            for item in worktrees
-            if generation_snapshot(item["path"], max_age_s=0.0).dirty
-        ]
+            worktrees = manager.list_worktrees()
+            # G101: shared per-generation snapshot — hard freshness
+            # (TTL 0), one read path for all gates.
+            dirty = [
+                item["path"]
+                for item in worktrees
+                if generation_snapshot(item["path"], max_age_s=0.0).dirty
+            ]
+            if not dirty:
+                break
+            if attempt < 2:
+                time.sleep(2.0)
         if dirty:
             return "error:dirty-worktree:" + "|".join(dirty)
 
