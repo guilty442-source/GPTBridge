@@ -1,0 +1,63 @@
+{
+  "schema": "five-core-inventory/v1",
+  "generated_at_utc": "2026-09-23T06:30Z",
+  "core_budget_cap": 5,
+  "cores": {
+    "decision": {
+      "language": "C + C# flow; Python only governance",
+      "process": "native/core + Python governance",
+      "components": 3
+    },
+    "permission": {
+      "language": "C hot path + C++ Audit Engine + C#",
+      "process": "C permission + native/audit",
+      "components": 4
+    },
+    "runtime": {
+      "language": "C11 resident",
+      "process": "native/core (8 shadows) + Python main-system shadow",
+      "components": 8
+    },
+    "automation": {
+      "language": "C# primary + C primitives",
+      "process": "business-logic-csharp + native/core",
+      "components": 4
+    },
+    "assistant": {
+      "language": "TypeScript UI + C# backend",
+      "process": "TS UI + C#",
+      "components": 3
+    }
+  },
+  "native_shadow": {
+    "schema": "native-shadow-policy/v1",
+    "note": "§10.65 dual-track runtime flags — one entry per migrating component. Modes: off (Python only), shadow (C parallel + item-by-item compare + divergence audit, Python authoritative), primary/retire are later acts and are refused by the act-1 harness (fail-closed to Python).",
+    "components": {
+      "connection_watchdog": {
+        "mode": "shadow"
+      },
+      "periodic_scheduler": {
+        "mode": "shadow"
+      },
+      "state_outbox": {
+        "mode": "shadow"
+      },
+      "maintenance_controller": {
+        "mode": "shadow"
+      },
+      "request_registry": {
+        "mode": "shadow"
+      },
+      "ipc_server": {
+        "mode": "shadow"
+      },
+      "runtime_state_registry": {
+        "mode": "shadow"
+      },
+      "model_service_activation": {
+        "mode": "shadow"
+      }
+    }
+  },
+  "note": "Per G100: mechanical work to C/C++/C# primary, Python retains governance/decision semantics only"
+}
