@@ -1,0 +1,114 @@
+{
+  "schema": "resident-migration-plan/v1",
+  "generated_at_utc": "2026-09-23T05:45Z",
+  "note": "Per blueprint G100 / WP-B: mechanical work migrates from resident Python to C/C++/C# primary; Python retains governance semantics only",
+  "mappings": [
+    {
+      "component": "ipc_server",
+      "current": "python",
+      "target": "C",
+      "artifact": "native/core/ipc_registry.c",
+      "mode": "shadow→primary",
+      "owner": "運行核心"
+    },
+    {
+      "component": "governance_gates",
+      "current": "python",
+      "target": "C++ Audit Engine + C#",
+      "artifact": "native/audit + csharp/TestSuiteOrchestrator",
+      "mode": "permission-core",
+      "owner": "權限核心"
+    },
+    {
+      "component": "runtime_state",
+      "current": "python",
+      "target": "C",
+      "artifact": "native/core/runtime_state.c",
+      "mode": "shadow",
+      "owner": "運行核心"
+    },
+    {
+      "component": "backend_gateway_request_registry",
+      "current": "python",
+      "target": "C",
+      "artifact": "native/core/ipc_registry.c",
+      "mode": "shadow",
+      "owner": "運行核心"
+    },
+    {
+      "component": "periodic_scheduler",
+      "current": "python",
+      "target": "C",
+      "artifact": "native/core/scheduler.c",
+      "mode": "shadow",
+      "owner": "運行核心"
+    },
+    {
+      "component": "core_sovereigns",
+      "current": "python",
+      "target": "C/C++/C#",
+      "artifact": "native/core/*.c + governance/sovereigns (Python governance semantics retained)",
+      "mode": "governor-gated",
+      "owner": "裁決核心"
+    },
+    {
+      "component": "model_service_activation",
+      "current": "python",
+      "target": "C#",
+      "artifact": "native/core/activation_broker.c + csharp",
+      "mode": "shadow",
+      "owner": "運行核心"
+    },
+    {
+      "component": "maintenance_controller",
+      "current": "python",
+      "target": "C",
+      "artifact": "native/core/maintenance.c",
+      "mode": "shadow",
+      "owner": "運行核心"
+    },
+    {
+      "component": "connection_watchdog",
+      "current": "python",
+      "target": "C",
+      "artifact": "native/core/watchdog.c",
+      "mode": "shadow",
+      "owner": "運行核心"
+    },
+    {
+      "component": "state_outbox",
+      "current": "python",
+      "target": "C",
+      "artifact": "native/core/outbox.c",
+      "mode": "shadow",
+      "owner": "運行核心"
+    },
+    {
+      "component": "authority_reanchor",
+      "current": "python",
+      "target": "C",
+      "artifact": "native/core (future)",
+      "mode": "resident-governance",
+      "owner": "裁決核心"
+    }
+  ],
+  "third_party_reduction": {
+    "keep_resident": [
+      "psutil",
+      "psycopg",
+      "qdrant-client",
+      "websockets"
+    ],
+    "on_demand_only": [
+      "torch",
+      "sentence-transformers",
+      "numpy",
+      "Pillow",
+      "beautifulsoup4",
+      "imageio-ffmpeg",
+      "triton"
+    ],
+    "install_on_demand": "pip install -e .[local-model] / uv pip install -e .[local-model]"
+  },
+  "acceptance": "No resident Python interpreter/worker/event-loop required for mechanical work; on-demand Python released after use; overall RSS/CPU p95 below baseline"
+}
