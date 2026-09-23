@@ -27,6 +27,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Iterable
 
+import logging
+
 from core_system.versioning import component_version
 from tasks.state_outbox_store import (
     DELIVERY_WINDOW,
@@ -39,6 +41,10 @@ from tasks.state_outbox_store import (
     OutboxStore,
     _EVENT_REQUIRED_FIELDS,
 )
+
+_logger = logging.getLogger("gptbridge.state_outbox")
+_DRAIN_DEADLINE_SECONDS: float = 120.0
+
 
 
 _PRUNE_MIN_INTERVAL_SECONDS: float = 5.0
@@ -240,7 +246,17 @@ class OutboxPublisher:
         while not shutdown_event.is_set():
             try:
                 self._wake.clear()
-                await self._drain()
+                # P7: drain deadline — a stalled session flush must not
+                # freeze the outbox loop (retry deadlines below assume
+                # the drain completes in bounded time).
+                await asyncio.wait_for(
+                    self._drain(), timeout=_DRAIN_DEADLINE_SECONDS
+                )
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "outbox drain exceeded %.0fs deadline",
+                    _DRAIN_DEADLINE_SECONDS,
+                )
                 # §10.63 R3: deadline-driven wait — with no pending retries
                 # the loop sleeps purely on the event wake; pending retries
                 # wake at the earliest retry deadline instead of a fixed

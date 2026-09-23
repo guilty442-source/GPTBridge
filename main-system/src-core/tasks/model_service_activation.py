@@ -222,10 +222,20 @@ class ModelServiceActivationBroker:
 
     async def _loop(self) -> None:
         while not self._stop_event.is_set():
+            # P7: per-tick deadline — a stalled _ensure() (channel request,
+            # toolbox start) must not freeze the broker loop.
+            tick_deadline = max(
+                60.0, min(600.0, max(self.idle_interval, self.pending_interval) * 5)
+            )
             try:
-                await self._ensure()
+                await asyncio.wait_for(self._ensure(), timeout=tick_deadline)
             except asyncio.CancelledError:
                 raise
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "model activation cycle exceeded %.0fs deadline",
+                    tick_deadline,
+                )
             except Exception as error:  # never kill the loop
                 _logger.warning("model activation broker cycle error: %s", error)
             interval = self.pending_interval if self._pending else self.idle_interval
