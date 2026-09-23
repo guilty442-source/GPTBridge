@@ -161,7 +161,8 @@ async def test_converse_caps_rounds():
 def test_available_tool_specs_validate():
     specs = GovernedToolExecutor.available_tool_specs()
     names = {spec["name"] for spec in specs}
-    assert names == set(TOOL_COMMAND_MAP)
+    # 白名單工具＋P21 提案工具（後者不經 TOOL_COMMAND_MAP 分派）
+    assert names == set(TOOL_COMMAND_MAP) | {"propose_system_modification"}
     assert all(spec["description"] for spec in specs)
 
 
@@ -243,3 +244,88 @@ def test_queue_distillation_sft_job(tmp_path: Path):
     config = json.loads(result["job"]["configuration_json"])
     assert config["training_kind"] == "sft"
     assert config["max_steps"] == 8
+
+
+# ── P21：propose_system_modification 提案面 ──────────────────
+
+
+@pytest.mark.asyncio
+async def test_propose_system_modification_queued_not_executed():
+    """提案工具不經 service.handle 執行——僅驗證後進入 pending 提案列。"""
+    service = _StubService()
+    executor = GovernedToolExecutor(service)
+    outcome = await executor.execute(
+        {
+            "name": "propose_system_modification",
+            "arguments": {
+                "summary": "調整自動更新開關",
+                "operation": "config_value",
+                "target": "automatic_update_enabled",
+                "risk": "低",
+            },
+        }
+    )
+    assert outcome["ok"] is True
+    assert outcome["queued"] is True
+    assert service.calls == []  # 從未分派到服務命令
+    proposal = outcome["proposal"]
+    assert proposal["detail"]["operation"] == "config_value"
+    assert proposal["binding"]["target"] == "automatic_update_enabled"
+    assert proposal["binding"]["expires_at"]  # 注入有界期限
+
+
+@pytest.mark.asyncio
+async def test_propose_system_modification_rejects_bad_operation():
+    executor = GovernedToolExecutor(_StubService())
+    outcome = await executor.execute(
+        {
+            "name": "propose_system_modification",
+            "arguments": {"summary": "x", "operation": "drop_table"},
+        }
+    )
+    assert outcome["ok"] is False
+    assert outcome["error_code"] == "PROPOSAL_INVALID"
+
+
+@pytest.mark.asyncio
+async def test_converse_surfaces_proposals():
+    """converse 結果攜帶 system_modification_proposals 供呼叫端轉交受管鏈。"""
+    executor = GovernedToolExecutor(_StubService())
+    session = _StubSession(
+        [
+            SessionReply(
+                text="",
+                raw_text="",
+                tool_calls=(
+                    {
+                        "name": "propose_system_modification",
+                        "arguments": {
+                            "summary": "改設定",
+                            "operation": "config_value",
+                        },
+                    },
+                ),
+                generated_tokens=1,
+                stopped_by_eos=False,
+            ),
+            SessionReply(
+                text="已提交提案。",
+                raw_text="已提交提案。",
+                tool_calls=(),
+                generated_tokens=1,
+                stopped_by_eos=True,
+            ),
+        ]
+    )
+    result = await executor.converse(session, "幫我改設定")
+    assert result["system_modification_proposals"]
+    assert result["system_modification_proposals"][0]["detail"]["operation"] == (
+        "config_value"
+    )
+
+
+def test_tool_specs_include_proposal_tool():
+    names = {
+        spec["name"] for spec in GovernedToolExecutor.available_tool_specs()
+    }
+    assert "propose_system_modification" in names

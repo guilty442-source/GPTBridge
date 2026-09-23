@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import inspect
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from ..infrastructure.native_transformer.chat_format import split_tool_call
@@ -104,6 +105,18 @@ TOOL_COMMAND_MAP: dict[str, dict[str, Any]] = {
 _MAX_ARG_VALUE_CHARS = 2_000
 _MAX_CALLS_PER_ROUND = 8
 
+#: P21：模型可提出的系統修改提案工具名。提案從不在本層執行——
+#: 僅驗證後以結構化 pending 提案浮上呼叫端，由 model-dialogue 側
+#: 轉交 main-system ``app:propose-system-modification`` 進入 A366
+#: 單項確認鏈（無 standing switch）。
+PROPOSE_SYSTEM_MODIFICATION_TOOL = "propose_system_modification"
+_SYSTEM_MODIFICATION_OPERATIONS = frozenset(
+    {"config_value", "codex_amendment_request", "rollback_of"}
+)
+#: 模型不得自定確認期限以外的值：缺省 15 分鐘、上限 24 小時。
+_PROPOSAL_DEFAULT_WINDOW_SECONDS = 900
+_PROPOSAL_MAX_WINDOW_SECONDS = 86_400
+
 
 class GovernedToolExecutor:
     """模型工具呼叫的受管執行器（唯讀白名單＋參數過濾＋稽核追蹤）。"""
@@ -121,6 +134,7 @@ class GovernedToolExecutor:
         self._service = service
         self._max_rounds = max(1, int(max_rounds or self.MAX_ROUNDS))
         self._max_result_chars = max(256, int(max_result_chars or self.MAX_RESULT_CHARS))
+        self._pending_proposals: list[dict[str, Any]] = []
 
     @staticmethod
     def available_tool_specs() -> list[dict[str, Any]]:
@@ -140,6 +154,28 @@ class GovernedToolExecutor:
                     }
                 )
             )
+        specs.append(
+            normalize_tool_spec(
+                {
+                    "name": PROPOSE_SYSTEM_MODIFICATION_TOOL,
+                    "description": (
+                        "提出一項系統修改提案（設定值／法典修訂請求／回滾）。"
+                        "提案僅進入受管確認佇列，需使用者逐項核准後才生效"
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "summary": {"type": "string"},
+                            "operation": {"type": "string"},
+                            "scope": {"type": "string"},
+                            "target": {"type": "string"},
+                            "risk": {"type": "string"},
+                            "rollback": {"type": "string"},
+                        },
+                    },
+                }
+            )
+        )
         return specs
 
     def _payload_for(self, entry: Mapping[str, Any], arguments: Mapping[str, Any]) -> dict[str, Any]:
@@ -165,6 +201,82 @@ class GovernedToolExecutor:
             return str(event), result if isinstance(result, dict) else {"value": result}
         return "", outcome if isinstance(outcome, dict) else {"value": outcome}
 
+    @staticmethod
+    def _proposal_expires_at(arguments: Mapping[str, Any]) -> str:
+        """模型可建議確認期限；缺省 15 分鐘、超過 24 小時截斷（UTC ISO）。"""
+        now = datetime.now(timezone.utc)
+        raw = str(arguments.get("expires_at") or "").strip()
+        expiry = now + timedelta(seconds=_PROPOSAL_DEFAULT_WINDOW_SECONDS)
+        if raw:
+            try:
+                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                expiry = parsed
+            except ValueError:
+                pass
+        ceiling = now + timedelta(seconds=_PROPOSAL_MAX_WINDOW_SECONDS)
+        if expiry > ceiling:
+            expiry = ceiling
+        return expiry.isoformat()
+
+    def _queue_system_modification(
+        self, normalized: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """驗證並佇列系統修改提案；本層永不執行修改本身。"""
+        arguments = normalized["arguments"]
+        summary = str(arguments.get("summary") or "").strip()
+        operation = str(arguments.get("operation") or "").strip()
+        if not summary:
+            return {
+                "ok": False,
+                "name": PROPOSE_SYSTEM_MODIFICATION_TOOL,
+                "error_code": "PROPOSAL_INVALID",
+                "message": "summary 為必填",
+                "result_text": "[PROPOSAL_INVALID] 系統修改提案缺少 summary",
+            }
+        if operation not in _SYSTEM_MODIFICATION_OPERATIONS:
+            return {
+                "ok": False,
+                "name": PROPOSE_SYSTEM_MODIFICATION_TOOL,
+                "error_code": "PROPOSAL_INVALID",
+                "message": f"operation 必須為 {sorted(_SYSTEM_MODIFICATION_OPERATIONS)}",
+                "result_text": f"[PROPOSAL_INVALID] 不支援的 operation: {operation}",
+            }
+        detail = {
+            "operation": operation,
+            **{
+                key: str(value)[:_MAX_ARG_VALUE_CHARS]
+                for key, value in arguments.items()
+                if key
+                not in {"summary", "operation", "scope", "target", "risk",
+                        "rollback", "expires_at"}
+            },
+        }
+        proposal = {
+            "summary": summary[:_MAX_ARG_VALUE_CHARS],
+            "detail": detail,
+            "binding": {
+                "scope": str(arguments.get("scope") or "")[:_MAX_ARG_VALUE_CHARS],
+                "target": str(arguments.get("target") or "")[:_MAX_ARG_VALUE_CHARS],
+                "proposed_method": summary[:_MAX_ARG_VALUE_CHARS],
+                "risk": str(arguments.get("risk") or "")[:_MAX_ARG_VALUE_CHARS],
+                "rollback": str(arguments.get("rollback") or "")[:_MAX_ARG_VALUE_CHARS],
+                "expires_at": self._proposal_expires_at(arguments),
+            },
+        }
+        self._pending_proposals.append(proposal)
+        return {
+            "ok": True,
+            "name": PROPOSE_SYSTEM_MODIFICATION_TOOL,
+            "queued": True,
+            "proposal": proposal,
+            "result_text": (
+                "[PROPOSAL_QUEUED] 系統修改提案已進入受管確認佇列，"
+                "需使用者逐項核准後才會生效。"
+            ),
+        }
+
     async def execute(self, call: Mapping[str, Any]) -> dict[str, Any]:
         """執行單一工具呼叫；任何失敗都以結構化錯誤回傳，不中斷迴圈。"""
         try:
@@ -177,6 +289,8 @@ class GovernedToolExecutor:
                 "result_text": f"[TOOL_CALL_INVALID] {error}",
             }
         name = normalized["name"]
+        if name == PROPOSE_SYSTEM_MODIFICATION_TOOL:
+            return self._queue_system_modification(normalized)
         entry = TOOL_COMMAND_MAP.get(name)
         if entry is None:
             return {
@@ -220,6 +334,7 @@ class GovernedToolExecutor:
         sampling: Any = None,
     ) -> dict[str, Any]:
         """完整對話迴圈：生成 → 工具執行 → 回填 → 再生成，直到無呼叫或達上限。"""
+        self._pending_proposals = []
         reply = session.step(
             user_text, max_new_tokens=max_new_tokens, sampling=sampling
         )
@@ -253,6 +368,7 @@ class GovernedToolExecutor:
             "rounds_exhausted": bool(reply.tool_calls),
             "stopped_by_eos": reply.stopped_by_eos,
             "generated_tokens": reply.generated_tokens,
+            "system_modification_proposals": list(self._pending_proposals),
         }
 
     @staticmethod
