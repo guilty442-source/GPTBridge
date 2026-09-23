@@ -1,4 +1,4 @@
-﻿"""G96 — delegated-check closure for the canonical audit chain.
+"""G96 — delegated-check closure for the canonical audit chain.
 
 The commit gate used to run only the C++ engine: the manifest's
 ``delegated`` rows were counted but never executed in the same request

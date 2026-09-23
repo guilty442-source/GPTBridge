@@ -100,7 +100,7 @@ def collect() -> list[dict]:
     for p in PROJECT_ROOT.rglob("test_*.py"):
         if p.is_file() and p not in files:
             # Skip venv, runtime, worktrees, releases
-            if any(seg in p.parts for seg in (".venv", "runtime", "releases", ".git", "__pycache__", "bin", "dist")):
+            if any(seg in p.parts for seg in (".venv", "runtime", "releases", ".git", "__pycache__", "bin", "dist", ".worktrees", ".kilo")):
                 continue
             files.append(p)
     # Deduplicate and sort
