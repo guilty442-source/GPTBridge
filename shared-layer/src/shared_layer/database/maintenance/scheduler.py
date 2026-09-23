@@ -386,6 +386,53 @@ class MaintenanceScheduler:
 
             return True
 
+    def cancel_job(
+        self, job_id: UUID, reason: str = ""
+    ) -> Optional[MaintenanceJob]:
+        """Cancel a queued or running job and persist the terminal state.
+
+        Queued jobs are withdrawn without executing; running jobs are
+        marked CANCELLED (the worker's in-flight step still finishes —
+        cooperative cancellation, matching the C shadow's non-preemptive
+        semantics) and its budget reservation is released.  Terminal jobs
+        refuse the transition (fail-closed, same as the C model).
+        """
+        with self._lock:
+            scheduled = self._running.get(job_id)
+            if scheduled is None:
+                scheduled = next(
+                    (sj for sj in self._queue if sj.job.job_id == job_id),
+                    None,
+                )
+                if scheduled is None:
+                    return None
+                if scheduled.job.is_terminal():
+                    return None
+                self._queue.remove(scheduled)
+            else:
+                if scheduled.job.is_terminal():
+                    return None
+                self._running.pop(job_id, None)
+                self.budget.release_job(scheduled.job.engine)
+
+            cancelled = scheduled.job.with_status(
+                MaintenanceJobStatus.CANCELLED
+            )
+            if reason:
+                cancelled = cancelled.__class__(
+                    **{
+                        **cancelled.__dict__,
+                        "error_code": f"CANCELLED:{reason}"[:120],
+                    }
+                )
+            shadow = self._native_shadow
+            if shadow is not None:
+                try:
+                    shadow.observe_cancelled(str(job_id))
+                except Exception:
+                    pass
+            return cancelled
+
     def requeue_job(
         self,
         job_id: UUID,

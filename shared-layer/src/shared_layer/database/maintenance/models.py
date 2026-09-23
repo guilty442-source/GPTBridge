@@ -86,7 +86,7 @@ class MaintenanceJob:
             attempt_count=self.attempt_count,
             scheduled_at=self.scheduled_at,
             started_at=self.started_at if status != MaintenanceJobStatus.RUNNING else datetime.utcnow(),
-            completed_at=self.completed_at if status not in (MaintenanceJobStatus.SUCCEEDED, MaintenanceJobStatus.FAILED, MaintenanceJobStatus.QUARANTINED) else datetime.utcnow(),
+            completed_at=self.completed_at if status not in (MaintenanceJobStatus.SUCCEEDED, MaintenanceJobStatus.FAILED, MaintenanceJobStatus.QUARANTINED, MaintenanceJobStatus.CANCELLED) else datetime.utcnow(),
             lease_until=self.lease_until,
             before_state=self.before_state,
             after_state=self.after_state,

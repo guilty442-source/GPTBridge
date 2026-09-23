@@ -411,6 +411,22 @@ class MaintenanceController:
                 "budget": self._budget.snapshot(),
             }
 
+    def cancel_job(
+        self, job_id: UUID, reason: str = ""
+    ) -> Optional[MaintenanceJob]:
+        """Cancel a queued or running job and persist the CANCELLED row.
+
+        Was a no-op surface: the C shadow cancels its mirror but the
+        Python authoritative model never persisted the transition, so a
+        recovered restart would resurrect the job.  Returns the cancelled
+        job, or ``None`` when the id is unknown/already terminal
+        (fail-closed, same rule as the C model).
+        """
+        cancelled = self._scheduler.cancel_job(job_id, reason=reason)
+        if cancelled is not None and self._persist_job:
+            self._persist_job(cancelled)
+        return cancelled
+
     def trigger_maintenance_cycle(self) -> list[MaintenanceJob]:
         """Manually trigger a maintenance cycle (for testing/debugging)."""
         signals = self._get_signals() if self._get_signals else {}

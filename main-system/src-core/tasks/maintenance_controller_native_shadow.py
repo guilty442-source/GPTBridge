@@ -324,6 +324,29 @@ class MaintenanceNativeShadow:
         except Exception as exc:
             self._disable("native-veto-error", exc)
 
+    def observe_cancelled(self, job_id: str) -> None:
+        """Mirror a Python job cancellation into the native queue.
+
+        A cancelled job is terminal-withdrawn in both models; when the
+        native side cannot cancel (missing or already terminal) the
+        asymmetry is recorded rather than silently dropped.
+        """
+        if self._disabled:
+            return
+        try:
+            if not self._mt.cancel(str(job_id)):
+                self._emit(
+                    {
+                        "kind": "divergence",
+                        "op": "cancel",
+                        "job_id": str(job_id),
+                        "python": {"cancelled": True},
+                        "native": {"cancelled": False},
+                    }
+                )
+        except Exception as exc:
+            self._disable("native-cancel-error", exc)
+
     def observe_terminal(self, job_id: str, *, ok: bool) -> None:
         """Mirror job completion/failure into the native queue state.
 

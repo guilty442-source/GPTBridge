@@ -825,9 +825,17 @@ public:
         return gptbridge_rs_set_capability(
                    &reg_, module_id.c_str(), st, now_str.c_str()) != 0;
     }
-    bool heartbeat(const std::string& module_id, const std::string& now_str) {
+    bool heartbeat(const std::string& module_id,
+                   const std::string& now_str, int64_t now_ms) {
         return gptbridge_rs_heartbeat(
-                   &reg_, module_id.c_str(), now_str.c_str()) != 0;
+                   &reg_, module_id.c_str(), now_str.c_str(),
+                   now_or_host(now_ms)) != 0;
+    }
+    int is_stale(const std::string& module_id, int64_t now_ms,
+                 int64_t stale_after_ms) {
+        return gptbridge_rs_is_stale(
+            &reg_, module_id.c_str(), now_or_host(now_ms),
+            stale_after_ms);
     }
     bool record_error(const std::string& module_id,
                       const std::string& error,

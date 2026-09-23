@@ -177,14 +177,31 @@ int gptbridge_rs_set_capability(gptbridge_rs_registry_t* reg,
 
 int gptbridge_rs_heartbeat(gptbridge_rs_registry_t* reg,
                            const char* module_id,
-                           const char* now_str) {
+                           const char* now_str,
+                           int64_t now_ms) {
     gptbridge_rs_record_t* rec = _record_for(reg, module_id);
     if (rec == NULL) {
         return 0;
     }
     _copy(rec->last_heartbeat, sizeof(rec->last_heartbeat), now_str);
+    rec->last_heartbeat_ms = now_ms;
     _copy(rec->updated_at, sizeof(rec->updated_at), now_str);
     return 1;
+}
+
+int gptbridge_rs_is_stale(const gptbridge_rs_registry_t* reg,
+                          const char* module_id,
+                          int64_t now_ms,
+                          int64_t stale_after_ms) {
+    const gptbridge_rs_record_t* rec =
+        gptbridge_rs_find(reg, module_id);
+    if (rec == NULL) {
+        return -1;
+    }
+    if (rec->last_heartbeat_ms <= 0) {
+        return 1; /* never beat -> stale */
+    }
+    return (now_ms - rec->last_heartbeat_ms) > stale_after_ms ? 1 : 0;
 }
 
 int gptbridge_rs_record_error(gptbridge_rs_registry_t* reg,

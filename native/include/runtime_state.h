@@ -56,6 +56,7 @@ typedef struct {
     char health[GPTBRIDGE_RS_HEALTH_MAX];
     char release_id[GPTBRIDGE_RS_RELEASE_MAX];
     char last_heartbeat[GPTBRIDGE_RS_TIME_MAX];
+    int64_t last_heartbeat_ms; /* ms stamp for staleness; 0 = never beat */
     char last_error[GPTBRIDGE_RS_ERR_MAX];
     char updated_at[GPTBRIDGE_RS_TIME_MAX];
     int32_t recovery_attempts;
@@ -95,7 +96,15 @@ int gptbridge_rs_set_capability(gptbridge_rs_registry_t* reg,
 
 int gptbridge_rs_heartbeat(gptbridge_rs_registry_t* reg,
                            const char* module_id,
-                           const char* now_str);
+                           const char* now_str,
+                           int64_t now_ms);
+
+/* Heartbeat staleness (P4 parity dimension): 1 = stale (no heartbeat or
+   age > stale_after_ms), 0 = fresh, -1 = unknown module. */
+int gptbridge_rs_is_stale(const gptbridge_rs_registry_t* reg,
+                          const char* module_id,
+                          int64_t now_ms,
+                          int64_t stale_after_ms);
 
 /* last_error 截斷 500 字元（Python error[:500]） */
 int gptbridge_rs_record_error(gptbridge_rs_registry_t* reg,
