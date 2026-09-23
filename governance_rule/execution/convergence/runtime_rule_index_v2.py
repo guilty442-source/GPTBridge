@@ -37,9 +37,12 @@ from .normative_classification import (
     controlling_provisions,
     load_classifications,
     load_convergence,
+    open_db,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+# Post-cutover (A173) the codex authority is PostgreSQL ``gptbridge_codex``;
+# DEFAULT_DATABASE only survives for explicit predecessor/staging fixtures.
 DEFAULT_DATABASE = (
     PROJECT_ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 )
@@ -85,17 +88,16 @@ def _rows(db: sqlite3.Connection, sql: str, params: tuple = ()) -> list[sqlite3.
 def _codex_version(db: sqlite3.Connection) -> str:
     try:
         row = db.execute(
-            "select version_identity from provision_lifecycle_status "
-            "order by current_binding_version desc limit 1"
+            "select value from metadata where key='codex_version'"
         ).fetchone()
-    except sqlite3.Error:
-        row = None
-    if row and row[0]:
-        return str(row[0])
+        if row and row[0]:
+            return str(row[0])
+    except Exception:  # noqa: BLE001 — version stamp is informational
+        pass
     try:
         row = db.execute("select max(current_binding_version) from provision_lifecycle_status").fetchone()
         return str(row[0]) if row and row[0] else "unknown"
-    except sqlite3.Error:
+    except Exception:  # noqa: BLE001 — version stamp is informational
         return "unknown"
 
 
@@ -649,15 +651,11 @@ def build_and_publish(
     database: Path | None = None, output: Path | None = None
 ) -> dict[str, Any]:
     """Build → verify → atomic swap.  Enforces the 20 s contract gate."""
-    db_path = Path(database) if database else DEFAULT_DATABASE
     out = Path(output) if output else DEFAULT_OUTPUT
     started = time.monotonic()
-    db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    try:
+    with open_db(Path(database) if database else None) as db:
         document = build_index(db)
         _validate_then_swap(document, db, out)
-    finally:
-        db.close()
     elapsed = time.monotonic() - started
     document["publish_seconds"] = round(elapsed, 3)
     if elapsed > BUILD_VERIFY_BUDGET_S:

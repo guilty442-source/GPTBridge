@@ -1,13 +1,23 @@
-"""Read-only adapter for the authoritative Governance Codex SQLite file."""
+"""Read-only adapter for the authoritative PostgreSQL Governance Codex."""
 
 from __future__ import annotations
 
 import sqlite3
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final, Iterator
+
+from psycopg.rows import dict_row
+
+from governance_rule.execution.codex_postgresql import (
+    CODEX_AUTHORITY_URI,
+    CODEX_SCHEMA,
+    authority_state,
+    readonly_connection,
+)
 
 
 CODEX_VERSION_UNIT: Final[int] = 100_000
@@ -160,10 +170,68 @@ CODEX_DATABASE_PATH = (
 CODEX_DATABASE = CODEX_DATABASE_PATH
 
 
+class _PostgresCodexCursor:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def __iter__(self):
+        return iter(self._cursor)
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+    def execute(self, statement: str, parameters=()):
+        self._cursor.execute(_translate_query(statement), parameters)
+        return self
+
+
+class _PostgresCodexConnection:
+    """Small DB-API compatibility surface for certified Codex readers."""
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    def execute(self, statement: str, parameters=()):
+        pragma = re.match(r"\s*PRAGMA\s+table_info\(([^)]+)\)\s*$", statement, re.I)
+        if pragma:
+            table = pragma.group(1).strip().strip('"')
+            cursor = self._connection.execute(
+                "SELECT ordinal_position - 1, column_name, data_type, "
+                "CASE WHEN is_nullable='NO' THEN 1 ELSE 0 END, column_default, "
+                "CASE WHEN column_name IN ("
+                "SELECT a.attname FROM pg_index i JOIN pg_attribute a "
+                "ON a.attrelid=i.indrelid AND a.attnum=ANY(i.indkey) "
+                "WHERE i.indrelid=(%s || '.' || %s)::regclass AND i.indisprimary"
+                ") THEN 1 ELSE 0 END "
+                "FROM information_schema.columns WHERE table_schema=%s AND table_name=%s "
+                "ORDER BY ordinal_position",
+                (CODEX_SCHEMA, table, CODEX_SCHEMA, table),
+            )
+            return _PostgresCodexCursor(cursor)
+        cursor = self._connection.execute(_translate_query(statement), parameters)
+        return _PostgresCodexCursor(cursor)
+
+    def cursor(self):
+        return _PostgresCodexCursor(self._connection.cursor())
+
+
+def _translate_query(statement: str) -> str:
+    translated = statement
+    if "sqlite_master" in translated:
+        translated = translated.replace("SELECT name FROM sqlite_master", "SELECT table_name FROM information_schema.tables")
+        translated = translated.replace("type='table'", f"table_type='BASE TABLE' AND table_schema='{CODEX_SCHEMA}'")
+        translated = translated.replace("name LIKE", "table_name LIKE")
+        translated = translated.replace("ORDER BY name", "ORDER BY table_name")
+    return translated.replace("?", "%s")
+
+
 @contextmanager
 def codex_readonly_connection(
     path: Path | str = CODEX_DATABASE_PATH,
-) -> Iterator[sqlite3.Connection]:
+) -> Iterator[_PostgresCodexConnection]:
     """A279 governed repository connection for certified tooling.
 
     Certified tooling (the governance audit) may read the official machine
@@ -173,18 +241,13 @@ def codex_readonly_connection(
     read-only/immutable, held only for the ``with`` block, and always
     closed on exit — it never grants file mutation authority.
     """
-    target = Path(path)
-    connection = sqlite3.connect(
-        f"file:{target.as_posix()}?mode=ro&immutable=1", uri=True
-    )
-    try:
-        yield connection
-    finally:
-        connection.close()
+    del path
+    with readonly_connection() as connection:
+        yield _PostgresCodexConnection(connection)
 
 
 def _load_codex_tables(
-    connection: sqlite3.Connection,
+    connection,
     suffix: str,
 ) -> dict[str, tuple[CodexDirectoryRow, ...]]:
     """Read every authoritative ``*{suffix}`` table read-only.
@@ -197,15 +260,21 @@ def _load_codex_tables(
     tables = [
         row[0]
         for row in connection.execute(
-            "SELECT name FROM sqlite_master"
-            f" WHERE type='table' AND name LIKE '%{suffix}' ORDER BY name"
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema=%s AND table_type='BASE TABLE' "
+            "AND table_name LIKE %s ORDER BY table_name",
+            (CODEX_SCHEMA, f"%{suffix}"),
         )
     ]
     directories: dict[str, tuple[CodexDirectoryRow, ...]] = {}
     for table in tables:
         column_names = [
-            column[1]
-            for column in connection.execute(f"PRAGMA table_info({table})")
+            column[0]
+            for column in connection.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema=%s AND table_name=%s ORDER BY ordinal_position",
+                (CODEX_SCHEMA, table),
+            )
         ]
         rows: list[CodexDirectoryRow] = []
         for row in connection.execute(
@@ -252,27 +321,25 @@ def _resolved_path_key(path: Path) -> str:
 
 
 def load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
-    """Load the authoritative codex, cached on the database file's mtime.
+    """Load the authoritative codex, cached by PostgreSQL authority generation.
 
     Status surfaces rebuild the sovereign tree per request and each
     ``decision_basis`` call re-reads all codex tables; caching keyed on
     ``st_mtime_ns`` keeps dynamic amendments visible (a codex write changes
     the mtime) while collapsing repeated full loads within one report.
     """
-    try:
-        stat_result = Path(path).stat()
-        key = (
-            _resolved_path_key(path),
-            stat_result.st_mtime_ns,
-            stat_result.st_size,
-        )
-    except OSError:
-        key = None
+    del path
+    state = authority_state()
+    key = (
+        CODEX_AUTHORITY_URI,
+        hash(str(state.get("codex_version", ""))),
+        hash(str(state.get("source_sha256", ""))),
+    )
     if key is not None:
         cached = _codex_cache.get(key)
         if cached is not None:
             return cached
-    codex = _load_governance_codex(path)
+    codex = _load_governance_codex()
     if key is not None:
         _codex_cache.clear()
         _codex_cache[key] = codex
@@ -293,17 +360,22 @@ def _normalized_codex_schema(schema: str, codex_version: int) -> str:
     return f"{base}-v{format_codex_version(codex_version)}"
 
 
+def _dict_rows(connection, statement: str):
+    with connection.cursor(row_factory=dict_row) as cursor:
+        return tuple(cursor.execute(statement).fetchall())
+
+
 def _load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
-    connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro&immutable=1", uri=True)
-    connection.row_factory = sqlite3.Row
-    try:
-        metadata = dict(connection.execute("SELECT key, value FROM metadata"))
-        preamble = connection.execute("SELECT * FROM preamble WHERE id=1").fetchone()
-        savings = connection.execute("SELECT * FROM savings WHERE id=1").fetchone()
+    del path
+    with readonly_connection() as connection:
+        metadata = dict(connection.execute("SELECT key, value FROM metadata").fetchall())
+        with connection.cursor(row_factory=dict_row) as cursor:
+            preamble = cursor.execute("SELECT * FROM preamble WHERE id=1").fetchone()
+            savings = cursor.execute("SELECT * FROM savings WHERE id=1").fetchone()
         lists = {
             table: {
                 key: tuple(row[0] for row in connection.execute(
-                    f"SELECT value FROM {table} WHERE sovereign_id=? ORDER BY position",
+                    f"SELECT value FROM {table} WHERE sovereign_id=%s ORDER BY position",
                     (key,),
                 ))
                 for key, in connection.execute("SELECT sovereign_id FROM sovereigns")
@@ -315,17 +387,15 @@ def _load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
             schema=_normalized_codex_schema(metadata["schema"], codex_version),
             codex_version=codex_version,
             preamble=CodexPreamble(*(preamble[key] for key in ("title", "authority_rank", "issuance", "binding_scope"))),
-            sections=tuple(CodexSection(row["section_index"], row["title"], row["summary"]) for row in connection.execute("SELECT * FROM sections ORDER BY position")),
-            principles=tuple(CodexPrinciple(row["provision_id"], row["statement"], bool(row["binding"])) for row in connection.execute("SELECT * FROM principles ORDER BY position")),
-            articles=tuple(CodexArticle(*(row[key] for key in ("provision_id", "section_index", "subject", "rule", "prohibition", "exception"))) for row in connection.execute("SELECT * FROM articles ORDER BY position")),
-            edicts=tuple(CodexEdict(*(row[key] for key in ("provision_id", "area", "edict", "immutability"))) for row in connection.execute("SELECT * FROM edicts ORDER BY position")),
+            sections=tuple(CodexSection(row["section_index"], row["title"], row["summary"]) for row in _dict_rows(connection, "SELECT * FROM sections ORDER BY position")),
+            principles=tuple(CodexPrinciple(row["provision_id"], row["statement"], bool(row["binding"])) for row in _dict_rows(connection, "SELECT * FROM principles ORDER BY position")),
+            articles=tuple(CodexArticle(*(row[key] for key in ("provision_id", "section_index", "subject", "rule", "prohibition", "exception"))) for row in _dict_rows(connection, "SELECT * FROM articles ORDER BY position")),
+            edicts=tuple(CodexEdict(*(row[key] for key in ("provision_id", "area", "edict", "immutability"))) for row in _dict_rows(connection, "SELECT * FROM edicts ORDER BY position")),
             savings=CodexSavings(*(savings[key] for key in ("mutability", "function", "amendment", "overriding_authority", "interpretation", "conflict_resolution"))),
-            sovereigns=tuple(CodexSovereign(row["sovereign_id"], row["name"], row["area"], row["rank"], lists["sovereign_duties"][row["sovereign_id"]], lists["sovereign_powers"][row["sovereign_id"]], lists["sovereign_prohibitions"][row["sovereign_id"]], row["basis"]) for row in connection.execute("SELECT * FROM sovereigns ORDER BY position")),
+            sovereigns=tuple(CodexSovereign(row["sovereign_id"], row["name"], row["area"], row["rank"], lists["sovereign_duties"][row["sovereign_id"]], lists["sovereign_powers"][row["sovereign_id"]], lists["sovereign_prohibitions"][row["sovereign_id"]], row["basis"]) for row in _dict_rows(connection, "SELECT * FROM sovereigns ORDER BY position")),
             directories=_load_codex_directories(connection),
             registries=_load_codex_registries(connection),
         )
-    finally:
-        connection.close()
 
 
 def __getattr__(name: str):

@@ -45,6 +45,10 @@ class StagedGeneration:
     path: Path
     source: Path
     created_by: str = "codex-convergence-framework"
+    # True when ``source`` is the PostgreSQL authority itself (the staged
+    # file is a non-authoritative export, A173) — publish then re-imports
+    # through the governed path instead of copying a file back.
+    authority_source: bool = False
 
     def connect(self) -> sqlite3.Connection:
         return sqlite3.connect(str(self.path))
@@ -61,13 +65,29 @@ class OperationResult:
 
 
 def stage_copy(live: Path = LIVE_CODEX, *, staging_root: Path | None = None) -> StagedGeneration:
-    """Copy the live codex into an isolated staging generation."""
-    if not Path(live).is_file():
+    """Copy the live codex into an isolated staging generation.
+
+    When ``live`` is a real file it is copied (staging/predecessor
+    fixtures); the PostgreSQL codex authority (A107/A173) is exported only
+    when ``live`` is the canonical predecessor path and that file is gone —
+    any other missing path stays fail-closed (``CODEX_MISSING``) so a
+    synthetic stage can never silently bind the live authority.
+    """
+    live_path = Path(live)
+    authority_source = not live_path.is_file()
+    if authority_source and live_path.resolve() != LIVE_CODEX.resolve():
         raise ConvergenceError(f"CODEX_MISSING:{live}")
     root = Path(staging_root) if staging_root else Path(tempfile.mkdtemp(prefix="codex-convergence-"))
     root.mkdir(parents=True, exist_ok=True)
     target = root / "staged-codex.sqlite3"
-    shutil.copy2(live, target)
+    if authority_source:
+        from governance_rule.execution.codex_postgresql import (
+            export_postgresql_codex,
+        )
+
+        export_postgresql_codex(target)
+    else:
+        shutil.copy2(live, target)
     try:
         import os
         import stat as stat_module
@@ -75,7 +95,9 @@ def stage_copy(live: Path = LIVE_CODEX, *, staging_root: Path | None = None) -> 
         os.chmod(target, stat_module.S_IWRITE | stat_module.S_IREAD)
     except OSError:
         pass
-    return StagedGeneration(path=target, source=Path(live))
+    return StagedGeneration(
+        path=target, source=Path(live), authority_source=authority_source
+    )
 
 
 def load_re_tiering_plan(path: Path | None = None) -> dict[str, Any]:
@@ -317,42 +339,107 @@ def validate_staged(staged: StagedGeneration) -> tuple[str, ...]:
 
 
 def publish(staged: StagedGeneration, *, approve: bool = False) -> Path:
-    """Copy a validated staged generation onto the live codex path."""
+    """Publish a validated staged generation onto the live authority.
+
+    A file-backed source gets the guarded copy back; an authority-sourced
+    stage is re-imported into PostgreSQL through the governed path and
+    cell-level parity is verified before the call returns.
+    """
     if not approve:
         raise ConvergenceError("PUBLISH_REQUIRES_APPROVE")
+    if staged.authority_source:
+        # Only a stage sourced from the canonical predecessor path may touch
+        # the shared authority — a fabricated ``authority_source`` flag on a
+        # synthetic stage must never reach the PostgreSQL import path.
+        if Path(staged.source).resolve() != LIVE_CODEX.resolve():
+            raise ConvergenceError("PUBLISH_NON_CANONICAL_AUTHORITY_SOURCE")
     errors = validate_staged(staged)
     if errors:
         raise ConvergenceError("STAGED_INVALID:" + ";".join(errors[:3]))
+    if staged.authority_source:
+        from governance_rule.execution.chinese_codex_mirror import PART_NAMES
+        from governance_rule.execution.codex_mirror_writer import (
+            mirror_errors,
+            record_mirror_quality_evidence,
+            render_mirror_parts,
+        )
+        from governance_rule.execution.codex_postgresql import (
+            import_sqlite_predecessor,
+            verify_sqlite_parity,
+        )
+        from governance_rule.execution.codex_update_pipeline import (
+            _atomic_replace,
+        )
+
+        staging_dir = staged.path.parent
+        # Same mirror chain as the governed wire phase: render, record the
+        # quality evidence row, re-render so parts carry it, then validate.
+        render_mirror_parts(staged.path, staging_dir, template_root=CODEX_ROOT)
+        record_mirror_quality_evidence(staged.path, staging_dir)
+        render_mirror_parts(staged.path, staging_dir, template_root=CODEX_ROOT)
+        mirror_problems = mirror_errors(staged.path, staging_dir)
+        if mirror_problems:
+            raise ConvergenceError(
+                "PUBLISH_MIRROR_INVALID:" + ";".join(mirror_problems[:3])
+            )
+        import_sqlite_predecessor(staged.path)
+        if verify_sqlite_parity(staged.path)["result"] != "PASS":
+            raise ConvergenceError("PUBLISH_PARITY_FAILED")
+        for name in PART_NAMES:
+            _atomic_replace(staging_dir / name, CODEX_ROOT / name)
+        return staged.source
     shutil.copy2(staged.path, staged.source)
     return staged.source
 
 
-def version_axis_report(database: Path = LIVE_CODEX) -> dict[str, Any]:
-    conn = sqlite3.connect(f"file:{Path(database).as_posix()}?mode=ro&immutable=1", uri=True)
-    try:
+def _codex_connection(database: Path | None):
+    """Read-only codex handle: governed PostgreSQL authority by default,
+    an explicit path opens a predecessor/staging sqlite fixture."""
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _open():
+        if database is None:
+            from governance_rule.execution.codex_repository import (
+                codex_readonly_connection,
+            )
+
+            with codex_readonly_connection() as conn:
+                yield conn
+            return
+        conn = sqlite3.connect(
+            f"file:{Path(database).as_posix()}?mode=ro&immutable=1", uri=True
+        )
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    return _open()
+
+
+def version_axis_report(database: Path | None = None) -> dict[str, Any]:
+    with _codex_connection(database) as conn:
         meta = dict(conn.execute("select key, value from metadata"))
         return {
             "codex_version": meta.get("codex_version"),
             "current_version": meta.get("current_version"),
             "active_provision_binding_version": meta.get("active_provision_binding_version"),
             "current_version_identity": meta.get("current_version_identity"),
-            "seal_version": conn.execute("select version from seal_manifest order by rowid desc limit 1").fetchone()[0],
+            "seal_version": conn.execute("select version from seal_manifest order by version_epoch desc limit 1").fetchone()[0],
             "revision_head": conn.execute("select entry_hash from revision_history order by sequence desc limit 1").fetchone()[0],
             "current": meta.get("codex_version") == meta.get("current_version"),
             "closure": "PASS" if meta.get("codex_version") == meta.get("current_version") else "INCOMPLETE_EVIDENCE",
         }
-    finally:
-        conn.close()
 
 
-def projection_status(database: Path = LIVE_CODEX) -> dict[str, Any]:
-    conn = sqlite3.connect(f"file:{Path(database).as_posix()}?mode=ro&immutable=1", uri=True)
-    try:
+def projection_status(database: Path | None = None) -> dict[str, Any]:
+    with _codex_connection(database) as conn:
         codex_version = dict(conn.execute("select key, value from metadata")).get("codex_version")
         search = conn.execute(
-            "select codex_version_identity from codex_search_index_manifest order by rowid desc limit 1").fetchone()
+            "select codex_version_identity from codex_search_index_manifest order by built_at_utc desc limit 1").fetchone()
         module = conn.execute(
-            "select version_identity from codex_internal_module_manifest order by rowid desc limit 1").fetchone()
+            "select version_identity from codex_internal_module_manifest order by sealed_at_utc desc limit 1").fetchone()
         surface = dict(conn.execute("select key, value from metadata")).get("governance_closure_current_version")
         return {
             "codex_version": codex_version,
@@ -363,11 +450,9 @@ def projection_status(database: Path = LIVE_CODEX) -> dict[str, Any]:
             "module_manifest_current": bool(module and module[0] == codex_version),
             "surface_current": bool(surface == codex_version),
         }
-    finally:
-        conn.close()
 
 
-def compute_closures(database: Path = LIVE_CODEX) -> dict[str, str]:
+def compute_closures(database: Path | None = None) -> dict[str, str]:
     """Evaluate the convergence closures from live evidence (framework view)."""
     axes = version_axis_report(database)
     projections = projection_status(database)
@@ -375,8 +460,7 @@ def compute_closures(database: Path = LIVE_CODEX) -> dict[str, str]:
     closures["VERSION_CURRENTNESS_CLOSURE"] = axes["closure"]
     closures["SEARCH_CURRENTNESS_CLOSURE"] = "PASS" if projections["search_current"] else "INCOMPLETE_EVIDENCE"
     closures["CURRENT_NORMATIVE_SURFACE_CLOSURE"] = "PASS" if projections["surface_current"] else "INCOMPLETE_EVIDENCE"
-    conn = sqlite3.connect(f"file:{Path(database).as_posix()}?mode=ro&immutable=1", uri=True)
-    try:
+    with _codex_connection(database) as conn:
         closures["MACHINE_SCHEMA_PARITY_CLOSURE"] = (
             "PASS"
             if conn.execute("select count(*) from machine_schema_registry where parity_status!='PENDING'").fetchone()[0]
@@ -386,7 +470,7 @@ def compute_closures(database: Path = LIVE_CODEX) -> dict[str, str]:
         closures["OBLIGATION_CLOSURE"] = (
             "PASS"
             if conn.execute(
-                "select count(*) from implementation_obligations where current_state like 'complete%'"
+                "select count(*) from implementation_obligations where substr(current_state,1,8)='complete'"
             ).fetchone()[0]
             == conn.execute("select count(*) from implementation_obligations").fetchone()[0]
             else "INCOMPLETE_EVIDENCE"
@@ -399,8 +483,6 @@ def compute_closures(database: Path = LIVE_CODEX) -> dict[str, str]:
             ).fetchone()[0] == 0
             else "FAIL"
         )
-    finally:
-        conn.close()
     closures["CONTRACT_REGISTRY_CLOSURE"] = _contract_registry_closure()
     for code in (
         "CORE_ENGINE_EQUIVALENCE_CLOSURE",

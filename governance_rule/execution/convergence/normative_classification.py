@@ -18,6 +18,7 @@ authorities.
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -25,9 +26,57 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+# Historical SQLite predecessor location — the live authority is the
+# PostgreSQL ``gptbridge_codex`` schema (``codex_postgresql.readonly_connection``).
 DEFAULT_DATABASE = (
     PROJECT_ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 )
+
+
+class _Row(dict):
+    """``sqlite3.Row``-compatible mapping: column-name access plus
+    positional indexing (insertion order follows the SELECT list)."""
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+
+class _PostgresDictCursor:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return _Row(row) if row is not None else None
+
+    def fetchall(self):
+        return [_Row(row) for row in self._cursor.fetchall()]
+
+
+class _PostgresDictConnection:
+    """Minimal DB-API surface over the PostgreSQL codex authority.
+
+    Rows are :class:`_Row` mappings to match the ``sqlite3.Row`` access
+    style used throughout this module; ``?`` placeholders are translated
+    to psycopg ``%s``."""
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    def execute(self, statement: str, parameters=()):
+        from psycopg.rows import dict_row
+
+        cursor = self._connection.cursor(row_factory=dict_row)
+        cursor.execute(
+            re.sub(r"%(?![sbt%])", "%%", statement).replace("?", "%s"),
+            parameters,
+        )
+        return _PostgresDictCursor(cursor)
 
 # A608: structural primary categories keyed by provision_type.
 STRUCTURAL_CATEGORIES: dict[str, str] = {
@@ -232,14 +281,23 @@ def validate_classification(db: sqlite3.Connection) -> list[str]:
 
 
 @contextmanager
-def open_db(database: Path | None = None) -> Iterator[sqlite3.Connection]:
-    """Yield a read-only connection to the codex database."""
-    path = Path(database) if database else DEFAULT_DATABASE
-    db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-    try:
-        yield db
-    finally:
-        db.close()
+def open_db(database: Path | None = None) -> Iterator[Any]:
+    """Yield a read-only connection to the codex authority.
+
+    ``database=None`` (the default) reads the live PostgreSQL
+    ``gptbridge_codex`` authority; an explicit path opens that SQLite file
+    read-only (staged generations and test fixtures)."""
+    if database is not None:
+        db = sqlite3.connect(f"file:{Path(database)}?mode=ro", uri=True)
+        try:
+            yield db
+        finally:
+            db.close()
+        return
+    from governance_rule.execution.codex_postgresql import readonly_connection
+
+    with readonly_connection() as connection:
+        yield _PostgresDictConnection(connection)
 
 
 def summary(database: Path | None = None) -> dict[str, Any]:

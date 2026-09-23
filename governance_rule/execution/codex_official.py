@@ -1,8 +1,8 @@
 """Official codex entry (A74/A173/A435) — the single read-only codex projection.
 
 法典依據:
-- A38/A107/A173: the official storage is the single local read-only SQLite
-  database; the Chinese language mirror is backup/星澄-only and is never
+- A38/A107/A173: the official storage is the single local read-only
+  PostgreSQL authority (``postgresql://local/gptbridge_codex``); the Chinese language mirror is backup/星澄-only and is never
   the adjudication, citation or machine-governance basis.
 - A74: ALL-CODEX-CITATION enters through ``governance-codex://official``
   with an explicit provision id; resolution is read-only.
@@ -31,9 +31,9 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from governance_rule.execution.codex_repository import (
-    CODEX_DATABASE_PATH,
     load_governance_codex,
 )
+from governance_rule.execution.codex_postgresql import CODEX_AUTHORITY_URI
 
 
 OFFICIAL_ENTRY: Final[str] = "governance-codex://official"
@@ -51,8 +51,8 @@ def official_entry() -> str:
 
 
 def official_authority_path() -> str:
-    """The official storage path — the single local SQLite (A107/A173)."""
-    return str(CODEX_DATABASE_PATH)
+    """The official authority URI — the single PostgreSQL codex authority (A107/A173)."""
+    return CODEX_AUTHORITY_URI
 
 
 def _purge_expired_sessions(now: float) -> None:
@@ -184,7 +184,7 @@ def official_sovereign(
     provision_id: str,
     session_nonce: str,
 ) -> Any | None:
-    """Read one sovereign declaration from the official SQLite authority.
+    """Read one sovereign declaration from the official PostgreSQL authority.
 
     A435 authoritative-view controls (all mandatory, fail-closed):
 

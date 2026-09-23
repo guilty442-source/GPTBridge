@@ -45,6 +45,12 @@ from pathlib import Path
 from typing import Any, Callable, Final, Mapping
 
 from governance_rule.execution.chinese_codex_mirror import PART_NAMES
+from governance_rule.execution.codex_postgresql import (
+    authority_state,
+    export_postgresql_codex,
+    import_sqlite_predecessor,
+    verify_sqlite_parity,
+)
 from governance_rule.execution.codex_mirror_writer import (
     MirrorRenderError,
     mirror_errors,
@@ -218,12 +224,18 @@ def isolate_generation(codex_root: str | Path, staging_root: str | Path) -> Isol
     if staging == root or staging.is_relative_to(root):
         raise CodexUpdateError("isolate", "staging root must be outside the codex root")
     database = root / "data" / DATABASE_NAME
-    if not database.is_file():
-        raise CodexUpdateError("isolate", f"codex database not found: {database}")
 
     staging.mkdir(parents=True, exist_ok=True)
     isolated_database = staging / DATABASE_NAME
-    shutil.copy2(database, isolated_database)
+    if database.is_file():
+        shutil.copy2(database, isolated_database)
+    elif _same_path(root, _canonical_codex_root()):
+        # Canonical root post-cutover (A173): the live authority is the
+        # PostgreSQL schema, so the staged working copy is a
+        # non-authoritative export of it.
+        export_postgresql_codex(isolated_database)
+    else:
+        raise CodexUpdateError("isolate", f"codex database not found: {database}")
     _set_read_only(isolated_database, False)
 
     parts: list[Path] = []
@@ -236,7 +248,7 @@ def isolate_generation(codex_root: str | Path, staging_root: str | Path) -> Isol
         _set_read_only(target, False)
         parts.append(target)
 
-    digests = {database.name: _digest(database)}
+    digests = {DATABASE_NAME: _digest(isolated_database)}
     digests.update({name: _digest(root / name) for name in PART_NAMES})
     fence_id = str(uuid.uuid4())
     stage = IsolatedStage(
@@ -245,9 +257,9 @@ def isolate_generation(codex_root: str | Path, staging_root: str | Path) -> Isol
         staging_root=staging,
         database=isolated_database,
         parts=tuple(parts),
-        source_version=_read_version(database),
+        source_version=_read_version(isolated_database),
         source_digests=digests,
-        source_fk_violations=_source_foreign_key_violations(database),
+        source_fk_violations=_source_foreign_key_violations(isolated_database),
     )
     _write_json(
         staging / ISOLATION_MARKER,
@@ -328,34 +340,89 @@ def execute_staged_change(
     )
 
 
+def _canonical_codex_root() -> Path:
+    return Path(__file__).resolve().parents[2] / "governance_rule" / "codex"
+
+
+def _same_path(left: Path, right: Path) -> bool:
+    return str(left).casefold() == str(right).casefold()
+
+
 def wire_generation(stage: IsolatedStage) -> PhaseRecord:
     """Phase 3: atomically publish the staged database and mirror parts."""
     published: dict[str, str] = {}
-    _atomic_replace(stage.database, stage.codex_root / "data" / DATABASE_NAME)
-    published[DATABASE_NAME] = _digest(stage.codex_root / "data" / DATABASE_NAME)
+    for name in PART_NAMES:
+        if not (stage.staging_root / name).is_file():
+            raise CodexUpdateError("wire", f"staged mirror part missing: {name}")
+    # The PostgreSQL authority is the single live codex: it may only be
+    # wired from the canonical codex root.  Synthetic roots (tests,
+    # rehearsals) must never republish the shared authority.
+    canonical = _same_path(stage.codex_root, _canonical_codex_root())
+    if canonical:
+        postgres_state: Any = import_sqlite_predecessor(stage.database)
+        postgres_parity: Any = verify_sqlite_parity(stage.database)
+        if postgres_parity["result"] != "PASS":
+            raise CodexUpdateError("wire", "PostgreSQL codex parity verification failed")
+    else:
+        postgres_state = {"skipped": "non-canonical-codex-root"}
+        postgres_parity = {"result": "SKIPPED"}
+    published_database = stage.codex_root / "data" / DATABASE_NAME
+    if canonical and not published_database.is_file():
+        # A173 residue deletion: the canonical codex root no longer carries a
+        # sqlite file — the PostgreSQL import above IS the publication.
+        pass
+    else:
+        _atomic_replace(stage.database, published_database)
+    published[DATABASE_NAME] = _digest(stage.database)
     for name in PART_NAMES:
         staged_part = stage.staging_root / name
-        if not staged_part.is_file():
-            raise CodexUpdateError("wire", f"staged mirror part missing: {name}")
         _atomic_replace(staged_part, stage.codex_root / name)
         published[name] = _digest(stage.codex_root / name)
     return PhaseRecord(
         phase="wire",
         ok=True,
         detail="published generation wired atomically",
-        evidence={"fence_id": stage.fence_id, "published": published},
+        evidence={
+            "fence_id": stage.fence_id,
+            "published": published,
+            "postgresql": postgres_state,
+            "postgresql_parity": postgres_parity,
+        },
     )
+
+
+def _published_database(stage: IsolatedStage) -> Path:
+    """The published generation to verify: the codex-root sqlite when it
+    exists, otherwise the staged copy that was imported into PostgreSQL."""
+    published = stage.codex_root / "data" / DATABASE_NAME
+    if published.is_file():
+        return published
+    return stage.database
+
+
+def _published_version(stage: IsolatedStage) -> str:
+    if _same_path(stage.codex_root, _canonical_codex_root()):
+        try:
+            return str(authority_state().get("codex_version") or "")
+        except Exception:
+            pass
+    return _read_version(stage.codex_root / "data" / DATABASE_NAME)
 
 
 def _published_generation_errors(stage: IsolatedStage) -> tuple[str, ...]:
     codex_root = stage.codex_root
-    database = codex_root / "data" / DATABASE_NAME
+    database = _published_database(stage)
     errors = list(
         staged_generation_errors(
             database.as_posix(), baseline_violations=stage.source_fk_violations
         )
     )
-    for path in (database, *(codex_root / name for name in PART_NAMES)):
+    published_paths: list[Path] = [codex_root / name for name in PART_NAMES]
+    if database != stage.database:
+        # The codex-root sqlite exists and is a published artifact; the
+        # staged scratch copy is exempt from the read-only check.
+        published_paths.insert(0, database)
+    for path in published_paths:
         if path.stat().st_mode & stat.S_IWRITE:
             errors.append(f"published artifact is writable: {path.name}")
     errors.extend(mirror_errors(database, codex_root, label="published"))
@@ -374,7 +441,7 @@ def release_isolation(stage: IsolatedStage) -> PhaseRecord:
             "fence_id": stage.fence_id,
             "flow": UPDATE_FLOW_IDENTITY,
             "state": "released",
-            "version": _read_version(stage.codex_root / "data" / DATABASE_NAME),
+            "version": _published_version(stage),
             "errors": errors,
         },
     )
@@ -391,7 +458,7 @@ def frontend_refresh(
     notify: Callable[[Mapping[str, object]], Any] | None = None,
 ) -> PhaseRecord:
     """Phase 5: emit the frontend connection refresh request."""
-    version = _read_version(stage.codex_root / "data" / DATABASE_NAME)
+    version = _published_version(stage)
     payload: dict[str, object] = {
         "contract": "codex-generation-published",
         "flow": UPDATE_FLOW_IDENTITY,
