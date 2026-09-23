@@ -201,7 +201,7 @@ def main() -> int:
     report["all_ok"] = ok
 
     out = Path(args.evidence) if args.evidence else (
-        Path.cwd().parents[6]
+        Path(__file__).resolve().parents[9]
         / "governance_rule"
         / "execution"
         / "audit"
