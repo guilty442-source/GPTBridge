@@ -79,7 +79,8 @@
       "concurrency_bound": false,
       "deadline_or_timeout": false,
       "bounded_queue_or_pending": false,
-      "rate_or_backoff": false
+      "rate_or_backoff": false,
+      "envelope": "registers via automation_core.register_flow → scheduler deadline applies (not a private loop)"
     },
     {
       "module": "sleep_policy",
@@ -129,5 +130,10 @@
       "PENDING_PATHS_CAP=8192 churn-storm bound on _pending"
     ]
   },
-  "residual": "automation_core / git_automation / toolbox_* per-tick deadlines still absent; evaluate per-module contract before wiring"
+  "residual": "private-loop modules lacking per-tick deadline: git_automation sweep/sync cycle, toolbox_service reconcile 30s (registry.reconcile sync), sleep_policy scan (toolbox stop/start internally budgeted — deadline optional), shadow harnesses (observation only). Registered-flow jobs already inherit scheduler deadline.",
+  "scheduler_envelope": {
+    "finding": "periodic_scheduler enforces per-tick deadline via wait_for(job[tick], timeout=job[timeout_s]); automation_core.register_flow routes through it",
+    "covered": "jobs registered via register_flow / scheduler.register inherit tick deadline + failure isolation",
+    "not_covered": "modules owning a private while-loop outside the scheduler envelope"
+  }
 }
