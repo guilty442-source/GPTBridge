@@ -10,7 +10,7 @@ pre-commit audit flow:
 - an unavailable engine (exe absent and not buildable in this
   environment) is recorded as ``delegated`` — the Python oracle still
   covers the same governed files, so transition coverage is not lost;
-- cache invalidation: when the governed codex database is newer than
+- cache invalidation: when the governed codex authority is newer than
   the manifest, the manifest is regenerated before the engine runs.
 
 The engine is read-only: it never modifies audited files.
@@ -30,9 +30,6 @@ ENGINE_EXE_RELATIVE = Path("native") / "test_suites" / "bin" / "audit-engine.exe
 MANIFEST_RELATIVE = (
     Path("governance_rule") / "execution" / "audit"
     / "audit_checks_manifest.json"
-)
-CODEX_DB_RELATIVE = (
-    Path("governance_rule") / "codex" / "data" / "governance_codex.sqlite3"
 )
 REPORT_RELATIVE = (
     Path("native") / "test_suites" / "bin" / "audit-report.json"
@@ -170,18 +167,38 @@ def _engine_stale(root: Path, exe: Path) -> bool:
     return recorded != digest.hexdigest()
 
 
+def _codex_authority_mtime() -> float:
+    """Epoch timestamp of the live PostgreSQL codex authority import.
+
+    Raises when the authority cannot be probed — the caller treats that
+    as stale (fail-closed regeneration), never as fresh.
+    """
+    from governance_rule.execution.codex_postgresql import authority_state
+
+    state = authority_state()
+    imported_at = state.get("imported_at")
+    if hasattr(imported_at, "timestamp"):
+        return float(imported_at.timestamp())
+    raise RuntimeError("codex authority state lacks imported_at")
+
+
 def _refresh_manifest_if_stale(root: Path) -> str | None:
     """Regenerate the manifest when the governed codex or any audit check
     module is newer (cache invalidation, G96 manifest-generation parity).
     Returns an error string on failure, None on success/no-op."""
     manifest = root / MANIFEST_RELATIVE
-    codex = root / CODEX_DB_RELATIVE
     stale = not manifest.is_file()
     if not stale:
         manifest_mtime = manifest.stat().st_mtime
-        if codex.is_file() and codex.stat().st_mtime > manifest_mtime:
+        try:
+            codex_mtime = _codex_authority_mtime()
+        except Exception:
+            # Authority unreadable: fail closed into regeneration rather
+            # than trusting a manifest built against an unknown codex.
             stale = True
         else:
+            stale = codex_mtime > manifest_mtime
+        if not stale:
             # Check-module edits change the delegated set even when the
             # codex is untouched — regenerate on source drift too.
             audit_dir = root / "governance_rule" / "execution" / "audit"
