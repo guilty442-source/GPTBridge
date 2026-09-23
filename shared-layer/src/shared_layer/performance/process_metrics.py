@@ -380,6 +380,24 @@ def process_ancestors(pid: int, max_depth: int = 32) -> list[int]:
     return out
 
 
+def process_create_time(pid: int) -> Optional[float]:
+    """Process creation time as POSIX seconds (psutil create_time contract)."""
+    n = _native()
+    if n is not None and hasattr(n, "process_create_time_100ns"):
+        ticks = int(n.process_create_time_100ns(int(pid)))
+        if ticks > 0:
+            # FILETIME epoch is 1601-01-01 — 11644473600 s before POSIX epoch.
+            return ticks / 1e7 - 11644473600.0
+        return None
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return float(p.Process(int(pid)).create_time())
+        except p.Error:
+            return None
+    return None
+
+
 def process_num_threads(pid: int) -> int:
     """Thread count — -1 when unavailable."""
     n = _native()

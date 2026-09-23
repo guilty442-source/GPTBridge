@@ -1199,10 +1199,49 @@ PYBIND11_MODULE(_sovereign_native, m) {
           "Pid listening on a TCP port, or -1.");
     m.def("process_ppid", &gptbridge_native_process_ppid,
           "Parent pid of pid, or -1.");
+    m.def("process_create_time_100ns",
+          &gptbridge_native_process_create_time_100ns,
+          "Creation FILETIME 100ns ticks of pid, or -1.");
     m.def("process_num_threads", &gptbridge_native_process_num_threads,
           "Thread count of pid, or -1.");
     m.def("process_num_handles", &gptbridge_native_process_num_handles,
           "Open handle count of pid, or -1.");
+    m.def("process_parent", &gptbridge_native_process_parent,
+          "Parent pid, or -1.");
+    m.def("process_create_time_ms",
+          &gptbridge_native_process_create_time_ms,
+          "Process creation time as Unix-epoch ms, or -1.");
+    m.def("process_io_counters",
+          [](int64_t pid) -> py::object {
+              int64_t rd = 0, wr = 0;
+              if (!gptbridge_native_process_io_counters(pid, &rd, &wr))
+                  return py::none();
+              return py::make_tuple(rd, wr);
+          },
+          "(read_bytes, write_bytes) of pid, or None.");
+    m.def("process_username",
+          [](int64_t pid) -> py::object {
+              char buf[512];
+              int64_t n = gptbridge_native_process_username(
+                  pid, buf, (int64_t)sizeof(buf));
+              if (n < 0) return py::none();
+              return py::str(buf, (size_t)n);
+          },
+          "DOMAIN\\user of pid, or None.");
+    m.def("process_set_priority",
+          &gptbridge_native_process_set_priority,
+          "Set priority class; 1 on success.");
+    m.def("process_get_priority",
+          &gptbridge_native_process_get_priority,
+          "Priority class value, or -1.");
+    m.def("process_set_affinity",
+          &gptbridge_native_process_set_affinity,
+          "Set CPU affinity mask; 1 on success.");
+    m.def("process_get_affinity",
+          &gptbridge_native_process_get_affinity,
+          "CPU affinity mask, or -1.");
+    m.def("process_wait", &gptbridge_native_process_wait,
+          "Wait for pid exit up to timeout_ms; 1 exited, 0 timeout.");
     m.def("system_cpu_times",
           []() -> py::object {
               int64_t idle = 0, kernel = 0, user = 0;

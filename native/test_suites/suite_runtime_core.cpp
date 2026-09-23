@@ -404,6 +404,10 @@ int main() {
         NT_CHECK(parent > 0, "self ppid resolved");
         NT_CHECK(gptbridge_native_process_ppid(-1) == -1,
                  "invalid pid ppid fails closed");
+        NT_CHECK(gptbridge_native_process_create_time_100ns(self) > 0,
+                 "self create_time positive");
+        NT_CHECK(gptbridge_native_process_create_time_100ns(-1) == -1,
+                 "invalid pid create_time fails closed");
 #else
         NT_CHECK(gptbridge_native_cpu_count() >= 0, "cpu_count non-negative");
 #endif
