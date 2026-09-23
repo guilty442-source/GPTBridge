@@ -6,6 +6,13 @@
 
 #include <cstring>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 extern "C" {
 #include "runtime_core.h"
 #include "scheduler.h"
@@ -13,6 +20,7 @@ extern "C" {
 #include "watchdog.h"
 #include "outbox.h"
 #include "maintenance.h"
+#include "gptbridge_native.h"
 }
 
 namespace {
@@ -314,6 +322,58 @@ int main() {
                  "TTL expiry misses");
     }
     NT_END_TEST(SUITE, "maintenance_admission_retry_and_ttl_cache");
+
+    NT_BEGIN_TEST(SUITE, "platform_process_system_primitives");
+    {
+#ifdef _WIN32
+        NT_CHECK(gptbridge_native_cpu_count() > 0, "cpu_count positive");
+        NT_CHECK(gptbridge_native_system_memory_total_bytes() > 0,
+                 "system memory total positive");
+        NT_CHECK(gptbridge_native_system_memory_available_bytes() > 0,
+                 "system memory available positive");
+        const int64_t self =
+            static_cast<int64_t>(GetCurrentProcessId());
+        NT_CHECK(gptbridge_native_process_alive(self) == 1,
+                 "self pid alive");
+        NT_CHECK(gptbridge_native_process_alive(0) == 0,
+                 "pid 0 not alive");
+        NT_CHECK(gptbridge_native_process_alive(-1) == 0,
+                 "negative pid not alive");
+        char name[512];
+        const int64_t name_len =
+            gptbridge_native_process_name(self, name, sizeof(name));
+        NT_CHECK(name_len > 0, "self process name resolved");
+        NT_CHECK(gptbridge_native_process_name(self, name, 0) == -1,
+                 "zero buffer refuses");
+        NT_CHECK(gptbridge_native_process_working_set_bytes_for(self) > 0,
+                 "self working set positive");
+        NT_CHECK(gptbridge_native_process_private_bytes_for(self) > 0,
+                 "self private bytes positive");
+        NT_CHECK(gptbridge_native_process_working_set_bytes_for(-1) == -1,
+                 "invalid pid working set fails closed");
+        int64_t kernel_100ns = 0, user_100ns = 0;
+        NT_CHECK(gptbridge_native_process_cpu_times_100ns(
+                     self, &kernel_100ns, &user_100ns) == 1,
+                 "self cpu times readable");
+        NT_CHECK(kernel_100ns + user_100ns >= 0, "cpu times non-negative");
+        NT_CHECK(gptbridge_native_process_cpu_times_100ns(
+                     self, nullptr, &user_100ns) == 0,
+                 "null out-param refuses");
+        int64_t pids[4096];
+        const int count = gptbridge_native_process_list(pids, 4096);
+        NT_CHECK(count > 0, "process enumeration non-empty");
+        bool self_listed = false;
+        for (int i = 0; i < count; ++i) {
+            if (pids[i] == self) { self_listed = true; break; }
+        }
+        NT_CHECK(self_listed, "self pid in enumeration");
+        NT_CHECK(gptbridge_native_process_list(nullptr, 4) == -1,
+                 "null buffer refuses");
+#else
+        NT_CHECK(gptbridge_native_cpu_count() >= 0, "cpu_count non-negative");
+#endif
+    }
+    NT_END_TEST(SUITE, "platform_process_system_primitives");
 
     return native_tests::report("runtime_core_suite.json");
 }

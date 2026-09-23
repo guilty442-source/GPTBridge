@@ -41,7 +41,8 @@ $suites = @(
             (Join-Path $coreDir "ipc_registry.c"),
             (Join-Path $coreDir "watchdog.c"),
             (Join-Path $coreDir "outbox.c"),
-            (Join-Path $coreDir "maintenance.c")
+            (Join-Path $coreDir "maintenance.c"),
+            (Join-Path $nativeRoot "bridge\gptbridge_native.c")
         )
     },
     @{

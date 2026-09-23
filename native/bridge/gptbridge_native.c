@@ -167,7 +167,7 @@ int64_t gptbridge_native_process_name(int64_t pid, char* buf, int64_t buf_len) {
         wchar_t* base = wide;
         wchar_t* p;
         for (p = wide; *p; ++p) {
-            if (*p == L'\' || *p == L'/') base = p + 1;
+            if (*p == L'\\' || *p == L'/') base = p + 1;
         }
         written = WideCharToMultiByte(
             CP_UTF8, 0, base, -1, buf, (int)buf_len, NULL, NULL);
