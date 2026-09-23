@@ -35,7 +35,14 @@ public sealed class HttpModelClient : IModelClient, IDisposable
         if (!string.IsNullOrEmpty(_sessionToken))
             request.Headers.Add("X-GPTBridge-Session-Token", _sessionToken);
         if (body is not null)
-            request.Content = JsonContent.Create(body);
+        {
+            // 服務端按 Content-Length 讀 body——JsonContent 串流會走 chunked
+            // 而無 Content-Length，造成伺服端讀到空 {}。預先序列化為位元組。
+            var payload = JsonSerializer.SerializeToUtf8Bytes(body);
+            var content = new ByteArrayContent(payload);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            request.Content = content;
+        }
         return request;
     }
 
