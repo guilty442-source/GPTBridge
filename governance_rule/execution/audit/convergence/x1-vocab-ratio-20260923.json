@@ -1,0 +1,130 @@
+{
+  "artifact": "x1-vocab-ratio-20260923",
+  "artifacts": {
+    "xingcheng-bpe-49k-mf2-v1": {
+      "actual_vocab": 49270,
+      "min_frequency": 2,
+      "note": "BPE exhausted mergeable pairs at freq>=2 - corpus ceiling for 64k is not reachable at mf=2",
+      "requested_vocab": 64000,
+      "tokenizer_sha256": "eb4a3ddb913ccf15e9d8f638c81d0c5bbf7af89cb768be708aea3305a45d2bda"
+    },
+    "xingcheng-bpe-64k-mf1-v1": {
+      "actual_vocab": 64000,
+      "min_frequency": 1,
+      "requested_vocab": 64000,
+      "tokenizer_sha256": "dd1d7723705f0537a41e6c95d9009d16d91f57596f35da14f679bae9fd7143f0"
+    }
+  },
+  "blueprint_item": "X1 slice: 32k/64k vocab ratio (corpus governance remains gated on license ruling)",
+  "date": "2026-09-23",
+  "findings": {
+    "allocation_shift": "32k: 3,028 cjk / 28,271 ascii tokens; 64k-mf1: 17,558 cjk / 44,828 ascii - new merges go mostly to zh multi-char tokens",
+    "code_en_saturation": "code-en bytes/token saturates ~4.2 at 32k (3.73->4.16->4.24->4.25); larger vocab adds almost nothing for code",
+    "corpus_ceiling": "first-party corpus saturates BPE merges at 49,270 (mf=2); reaching 64k requires mf=1 (freq-1 merges)",
+    "implication_for_corpus_ruling": "zh compression scales with vocab precisely because zh corpus is starved (21 docs); once licensed zh corpus lands (phase2r proposal pending), vocab should be retrained - current artifacts are interim",
+    "zh_compression_gain": "zh bytes/token 2.49(8k) -> 4.37(32k) -> 5.50(49k-mf2) -> 5.79(64k-mf1); 64k improves zh +32% over 32k"
+  },
+  "measurements": {
+    "xingcheng-bpe-32k-v1": {
+      "ascii": 28271,
+      "ascii_token_bytes_avg": 6.99,
+      "cjk": 3028,
+      "cjk_token_bytes_avg": 6.41,
+      "compression": {
+        "code-en": {
+          "bytes": 3445707,
+          "bytes_per_token": 4.159,
+          "tokens": 828514
+        },
+        "zh": {
+          "bytes": 12003,
+          "bytes_per_token": 4.373,
+          "tokens": 2745
+        }
+      },
+      "corpus_docs_sampled": 400,
+      "empty": 0,
+      "other-utf8": 691,
+      "special": 10,
+      "vocab_size": 32000
+    },
+    "xingcheng-bpe-49k-mf2-v1": {
+      "ascii": 36966,
+      "ascii_token_bytes_avg": 8.12,
+      "cjk": 11077,
+      "cjk_token_bytes_avg": 9.82,
+      "compression": {
+        "code-en": {
+          "bytes": 3445707,
+          "bytes_per_token": 4.236,
+          "tokens": 813487
+        },
+        "zh": {
+          "bytes": 12003,
+          "bytes_per_token": 5.501,
+          "tokens": 2182
+        }
+      },
+      "corpus_docs_sampled": 400,
+      "empty": 0,
+      "other-utf8": 1217,
+      "special": 10,
+      "vocab_size": 49270
+    },
+    "xingcheng-bpe-64k-mf1-v1": {
+      "ascii": 44828,
+      "ascii_token_bytes_avg": 7.93,
+      "cjk": 17558,
+      "cjk_token_bytes_avg": 10.17,
+      "compression": {
+        "code-en": {
+          "bytes": 3445707,
+          "bytes_per_token": 4.248,
+          "tokens": 811151
+        },
+        "zh": {
+          "bytes": 12003,
+          "bytes_per_token": 5.785,
+          "tokens": 2075
+        }
+      },
+      "corpus_docs_sampled": 400,
+      "empty": 0,
+      "other-utf8": 1604,
+      "special": 10,
+      "vocab_size": 64000
+    },
+    "xingcheng-bpe-8k-v1": {
+      "ascii": 7520,
+      "ascii_token_bytes_avg": 5.42,
+      "cjk": 333,
+      "cjk_token_bytes_avg": 3.77,
+      "compression": {
+        "code-en": {
+          "bytes": 3445707,
+          "bytes_per_token": 3.73,
+          "tokens": 923675
+        },
+        "zh": {
+          "bytes": 12003,
+          "bytes_per_token": 2.489,
+          "tokens": 4823
+        }
+      },
+      "corpus_docs_sampled": 400,
+      "empty": 0,
+      "other-utf8": 335,
+      "special": 4,
+      "vocab_size": 8192
+    }
+  },
+  "method": {
+    "caveat_zh_sample": "zh bucket is only ~12KB (21 zh-TW docs in corpus) - zh compression ratios are high-variance estimates",
+    "composition": "per-token decode -> utf-8 byte class (cjk / ascii / other-utf8 / special)",
+    "compression": "400 random docs (seed=42) from corpus-v1 train.jsonl; doc language = zh iff CJK char share > 25%",
+    "corpus": "xingcheng/runtime/corpus-v1 (star-corpus/v2, first-party-internal, 1769 docs, 15.2MB; language_stats code=1733 zh-TW=21 en=13)",
+    "training": "native_transformer.bpe.train_bpe, byte-level BPE, same recipe family as existing artifacts"
+  },
+  "recommendation": "keep xingcheng-bpe-64k-mf1-v1 as the 64k candidate (full vocab, best zh compression); 49k-mf2 retained as the mf=2 ceiling reference; retrain after corpus ruling lands",
+  "worker": "devin-cli"
+}
