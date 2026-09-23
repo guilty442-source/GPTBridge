@@ -1,0 +1,14 @@
+{
+  "item": "A604 drift-checker materialized-child blind spot + learning-command xfail",
+  "recorded_at": "2026-09-23T12:30Z",
+  "observed_by": "devin-cli (blueprint continue pass)",
+  "context": "A604 retired all 19 sovereign_hierarchy_registry rows; all_children() correctly returns empty.",
+  "fixes": [
+    "codex_drift.compare_codex_implementation now inspects every parent named by the registry plus self — a materialized child with no active declaration is flagged: retired row -> retired-identity-active (critical), unknown -> unregistered-child (critical). Previously such children were invisible because the loop only walked declared parents.",
+    "ChildRegistryBase._all_children now always merges this sovereign's own _sub_sovereigns — materialized children stay observable to supervision even with zero active hierarchy rows (observability, not authority).",
+    "test_xingcheng_codex_drift.py updated to A604 semantics: retired-child materialization flagged critical; phantom still unregistered-child; clean subtree when nothing materialized."
+  ],
+  "pending_convergence": "7 delegation-dependent tests marked xfail(strict=True) — learning-evidence-sync-sub-sovereign delegation fails closed (child-parent-mismatch) pending the codex-worker/governor registry switch (a594-learning-command-regression-20260922.json). strict=True makes XPASS fail loudly when the commanded-learning route is restored or replaced.",
+  "not_changed": "parent_of/children_of/all_children keep active-only semantics — retired sub-sovereigns are NOT reactivated for runtime authority.",
+  "verify": "pytest main-system/tests -k 'xingcheng or sovereign or supervision or registry or drift or learning' -> 283 passed, 7 xfailed"
+}
