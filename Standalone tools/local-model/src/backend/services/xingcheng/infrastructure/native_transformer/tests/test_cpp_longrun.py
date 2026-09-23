@@ -29,7 +29,10 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-del _ROOT
+_SHARED = Path(__file__).resolve().parents[8] / "shared-layer" / "src"
+if str(_SHARED) not in sys.path:
+    sys.path.insert(0, str(_SHARED))
+del _ROOT, _SHARED
 
 import pytest
 
@@ -61,10 +64,10 @@ def ext():
 def test_cpp_longrun(ext, tmp_path):
     if not _BUNDLE.is_dir():
         pytest.skip("bundle unavailable")
-    try:
-        import psutil
-    except ImportError:
-        pytest.skip("psutil unavailable")
+    from shared_layer.performance import process_metrics
+
+    if not process_metrics.metrics_available():
+        pytest.skip("process metrics unavailable")
 
     seconds = float(os.environ.get("XINGCHENG_LONGRUN_SECONDS", "0") or 0)
     iters = int(os.environ.get("XINGCHENG_LONGRUN_ITERS", "8") or 8)
@@ -76,7 +79,7 @@ def test_cpp_longrun(ext, tmp_path):
     eng = ext.NativeInferenceEngine()
     eng.load(str(_BUNDLE))
     cfg = ext.SamplingConfig()
-    proc = psutil.Process()
+    _pid = os.getpid()
 
     baseline = eng.logits(_IDS)
     rss_mb: list[float] = []
@@ -94,7 +97,9 @@ def test_cpp_longrun(ext, tmp_path):
             if not out:
                 failures.append(f"iter {iteration}: empty generate")
             tps.append(len(out) / dt if dt > 0 else 0.0)
-            rss_mb.append(proc.memory_info().rss / (1024 * 1024))
+            rss_mb.append(
+                process_metrics.process_working_set_bytes(_pid) / (1024 * 1024)
+            )
             if iteration % _PARITY_EVERY == 0:
                 cur = eng.logits(_IDS)
                 if any(not math.isfinite(v) for v in cur):

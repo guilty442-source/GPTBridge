@@ -35,7 +35,10 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-del _ROOT
+_SHARED = Path(__file__).resolve().parents[8] / "shared-layer" / "src"
+if str(_SHARED) not in sys.path:
+    sys.path.insert(0, str(_SHARED))
+del _ROOT, _SHARED
 
 from native_transformer import cpp_runtime  # noqa: E402
 
@@ -68,7 +71,7 @@ def _scaled_diff(a, b):
     return max(abs(x - y) / (1.0 + abs(y)) for x, y in zip(a, b))
 
 
-def _run_config(ext, name, env, gen_tokens, bench_tokens, psutil):
+def _run_config(ext, name, env, gen_tokens, bench_tokens, metrics):
     for key in _ENV_KEYS:
         os.environ.pop(key, None)
     os.environ.update(env)
@@ -86,8 +89,8 @@ def _run_config(ext, name, env, gen_tokens, bench_tokens, psutil):
         bench = eng.generate(_IDS, bench_tokens, cfg)
         dt = time.perf_counter() - t0
         rss = (
-            psutil.Process().memory_info().rss / (1024 * 1024)
-            if psutil
+            metrics.process_working_set_bytes(os.getpid()) / (1024 * 1024)
+            if metrics
             else None
         )
         return {
@@ -150,13 +153,12 @@ def main() -> int:
     if not _BUNDLE.is_dir():
         print("bundle unavailable; nothing to do")
         return 2
-    try:
-        import psutil
-    except ImportError:
-        psutil = None
+    from shared_layer.performance import process_metrics
+
+    metrics = process_metrics if process_metrics.metrics_available() else None
 
     results = [
-        _run_config(ext, n, e, args.gen_tokens, args.bench_tokens, psutil)
+        _run_config(ext, n, e, args.gen_tokens, args.bench_tokens, metrics)
         for n, e in _CONFIGS
     ]
     fail_closed = _check_fail_closed(ext)

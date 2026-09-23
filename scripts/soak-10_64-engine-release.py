@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -25,8 +26,9 @@ sys.path.insert(0, str(SERVICES))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "shared-layer/src"))  # gpu_coordinator import path
 
-import psutil  # noqa: E402
 import torch  # noqa: E402
+
+from shared_layer.performance import process_metrics  # noqa: E402
 
 from xingcheng.infrastructure.native_engine import (  # noqa: E402
     _engine_cache,
@@ -39,11 +41,13 @@ from xingcheng.infrastructure.native_transformer.execution.auto_release import (
 PROMPT = "你是誰？請簡短介紹自己。"
 
 
-def _sample(proc: psutil.Process) -> dict:
+def _sample(pid: int) -> dict:
     gc.collect()
     row = {
         "t": round(time.time(), 1),
-        "rss_mb": round(proc.memory_info().rss / 1e6, 1),
+        "rss_mb": round(
+            process_metrics.process_working_set_bytes(pid) / 1e6, 1
+        ),
         "engine_cached": bool(_engine_cache),
     }
     if torch.cuda.is_available():
@@ -64,7 +68,7 @@ def main() -> int:
         ROOT / "governance_rule/execution/audit/convergence/10_64-engine-release.json"))
     args = parser.parse_args()
 
-    proc = psutil.Process()
+    pid = os.getpid()
     deadline = time.time() + args.max_minutes * 60
     mgr = get_manager()
     mgr.idle = args.idle
@@ -73,7 +77,7 @@ def main() -> int:
     events: list[dict] = []
 
     def snap(tag: str) -> dict:
-        row = _sample(proc)
+        row = _sample(pid)
         row["phase"] = tag
         samples.append(row)
         return row
