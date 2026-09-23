@@ -64,5 +64,17 @@
       "amendment_request_g36": "external-collaboration-sync -> architecture-authority + postgresql source_path (a2a758e3)",
       "parity_call_site": "test_formal_rules.py stale sqlite path arg -> postgresql-codex placeholder (03bca9be); dead CODEX_PATH removed (176d683f)"
     }
+  },
+  "round_3": {
+    "scope": "post-migration suite convergence (A173 sqlite predecessor retirement)",
+    "fixes": [
+      "python_release_dependencies: SECRET_VALUE_IN_MANIFEST now flags only credential-bearing DSNs (userinfo/password=); credential-free postgresql://local/<schema> authority URI is reference metadata",
+      "release-dependencies.json: synced 3 config + 3 frontend artifact hashes to the committed/verified current state",
+      "dev_test_evidence: inner evidence-probe pytest pinned to -n 0 (nested xdist spawn flaked verdicts under parallel load)",
+      "test_governance_health: live-codex reads via codex_readonly_connection when sqlite file absent; authority existence asserted via authority_state()",
+      "test_convergence_framework: LIVE_DB=None -> PG authority; live-untouched check fingerprints authority_state"
+    ],
+    "result": "governance suite 674/674 PASS (was 371+15f+7e -> 660+2f -> all green); runtime governance audit PASS; parity 64/64; contract registry 18/18",
+    "residual": "none worker-side; codex-side amendment items unchanged"
   }
 }
