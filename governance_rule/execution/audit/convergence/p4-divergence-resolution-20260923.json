@@ -1,0 +1,18 @@
+{
+  "evidence_id": "p4-divergence-resolution-20260923",
+  "item": "P4 residual: 2 unresolved divergences",
+  "findings": {
+    "maintenance_controller_desynced_queue": {
+      "verdict": "false_positive_metric_fixed",
+      "root_cause": "observe_dispatch(None) used job_count() = mt.count (total slot count incl. terminal jobs; C recycles slots only when GPTBRIDGE_MT_MAX_JOBS reached). queued_jobs 25->32 was cumulative table size, not live backlog.",
+      "fix": "NativeMaintenance.live_count() added to _binding.cpp (QUEUED|DEFERRED|RUNNING, mirrors Python len(_queue)+len(_running)); observe_dispatch switched; stubs updated; verified live_count=1 vs job_count=3 after complete+cancel.",
+      "verification": "test_maintenance_shadow_wiring 22/22 pass; direct pyd probe asserts terminal slots excluded"
+    },
+    "model_service_activation_ensure": {
+      "verdict": "stale_evidence_explained",
+      "root_cause": "records at 2026-09-22T15:12/15:16Z, three minutes after commit e1a4ddde (15:09Z) introduced the shadow module — deploy-boundary artifact: Python flag already 1 from a pre-attach start, native broker bootstraps at 0.",
+      "current_state": "all flag transitions mirrored symmetrically (observe_start_result/observe_release_result/observe_explicit_stop); observe_status compares broker_started_owner every tick — zero status divergence in ~20h since; no recurrence.",
+      "residual": "bootstrap flag desync remains theoretically possible only if the shadow attaches after a Python-side start (impossible in current code — shadow constructs in __init__ before start()). No code change warranted."
+    }
+  }
+}

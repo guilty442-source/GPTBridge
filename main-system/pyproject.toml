@@ -6,6 +6,9 @@ dependencies = [
     # Python ONLY for 治相關、決策與模型訓練 (per user)
     # All mechanical work (timer/polling/watcher/queue/scheduler/IPC/SQL/transport/test/audit/cleanup) → C/C++/C# or DB native
     "psycopg[binary,pool]>=3.2,<4",
+    # websockets: IPC server（ipc/server_*、ui_shell）仍 eager import——
+    # resident-migration-plan 列 keep_resident，C channel 落地前不可移出宣告面。
+    "websockets>=12,<17",
 ]
 
 [project.optional-dependencies]
