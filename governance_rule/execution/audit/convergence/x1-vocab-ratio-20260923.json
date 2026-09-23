@@ -3,6 +3,7 @@
   "artifacts": {
     "xingcheng-bpe-49k-mf2-v1": {
       "actual_vocab": 49270,
+      "corpus": "star-corpus-0e0930d21862 (corpus-v2 manifest, dir corpus-v1)",
       "min_frequency": 2,
       "note": "BPE exhausted mergeable pairs at freq>=2 - corpus ceiling for 64k is not reachable at mf=2",
       "requested_vocab": 64000,
@@ -10,6 +11,7 @@
     },
     "xingcheng-bpe-64k-mf1-v1": {
       "actual_vocab": 64000,
+      "corpus": "star-corpus-0e0930d21862 (corpus-v2 manifest, dir corpus-v1)",
       "min_frequency": 1,
       "requested_vocab": 64000,
       "tokenizer_sha256": "dd1d7723705f0537a41e6c95d9009d16d91f57596f35da14f679bae9fd7143f0"
@@ -126,5 +128,11 @@
     "training": "native_transformer.bpe.train_bpe, byte-level BPE, same recipe family as existing artifacts"
   },
   "recommendation": "keep xingcheng-bpe-64k-mf1-v1 as the 64k candidate (full vocab, best zh compression); 49k-mf2 retained as the mf=2 ceiling reference; retrain after corpus ruling lands",
+  "reproducibility": {
+    "bpe_training_deterministic": true,
+    "fix": "train_bpe now embeds corpus manifest provenance (dataset_id, dataset_version, dataset_root_sha256, documents, characters, license); new artifacts carry it",
+    "proof": "identical corpus-v1 input retrained twice -> same tokenizer_sha256 0b7f05d8...",
+    "staleness_finding": "existing xingcheng-bpe-32k-v1 sha256 46463dc4 does NOT match a retrain on current corpus-v1 (0b7f05d8) - artifact predates the 2026-09-22 corpus-v1 rebuild; manifests previously lacked corpus provenance so drift was undetectable"
+  },
   "worker": "devin-cli"
 }

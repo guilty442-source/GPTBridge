@@ -12,7 +12,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 PAD_ID = 0
 BOS_ID = 1
@@ -82,8 +82,14 @@ def train_bpe(
     *,
     vocab_size: int = 8_192,
     min_frequency: int = 2,
+    corpus_manifest: Mapping[str, Any] | None = None,
 ) -> dict:
-    """在自有語料上訓練 byte-level BPE，凍結詞表並輸出雜湊。"""
+    """在自有語料上訓練 byte-level BPE，凍結詞表並輸出雜湊。
+
+    ``corpus_manifest`` 記入語料身分（dataset_id／root_sha256 等），使
+    artifact 可回溯源語料版本——同一 tokenizer 在不同語料代際上重訓
+    會產生不同雜湊，沒有 provenance 就無法區分語料漂移與訓練不確定。
+    """
     tokenizers = _require_tokenizers()
     from tokenizers import decoders, models, pre_tokenizers, trainers
 
@@ -116,6 +122,19 @@ def train_bpe(
         "tokenizer_sha256": digest,
         "tokenizer_file": tokenizer_path.name,
     }
+    if isinstance(corpus_manifest, Mapping):
+        manifest["corpus"] = {
+            key: corpus_manifest[key]
+            for key in (
+                "dataset_id",
+                "dataset_version",
+                "dataset_root_sha256",
+                "documents",
+                "characters",
+                "license",
+            )
+            if key in corpus_manifest
+        }
     (target / "tokenizer_manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -259,11 +278,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-frequency", type=int, default=2)
     parser.add_argument("--max-documents", type=int, default=0)
     args = parser.parse_args(argv)
+    corpus_dir = Path(args.corpus_dir)
+    corpus_manifest: dict[str, Any] | None = None
+    manifest_path = corpus_dir / "manifest.json"
+    if manifest_path.is_file():
+        try:
+            corpus_manifest = json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            corpus_manifest = None
     manifest = train_bpe(
-        _iter_corpus_texts(Path(args.corpus_dir), args.max_documents),
+        _iter_corpus_texts(corpus_dir, args.max_documents),
         args.output,
         vocab_size=args.vocab_size,
         min_frequency=args.min_frequency,
+        corpus_manifest=corpus_manifest,
     )
     print(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
