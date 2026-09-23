@@ -30,14 +30,32 @@
     {"surface": "shared_layer/workflow/saga.py", "category": "orchestration", "resident": true, "shadow": "none", "target": "csharp", "blocking": "P13 (C# orchestration lifecycle)"},
     {"surface": "shared_layer/adaptive/gpu_coordinator.py", "category": "polling resource-gate", "resident": true, "shadow": "none", "target": "c11 (resource governor native)", "blocking": "unclaimed"},
     {"surface": "startup_core/resident_core.py", "category": "lifecycle loop", "resident": true, "shadow": "none", "target": "c11-runtime-core resident主体", "blocking": "P4/P5 — this IS the bootstrap of the C11 resident主体"},
-    {"surface": "python test orchestration (push_gate suite runner, scripts/*acceptance)", "category": "test-orchestration", "resident": false, "shadow": "C# TestSuiteOrchestrator already sole orchestrator (commit 3de42a1c)", "target": "csharp-done", "blocking": "none — residual python runners are dev tooling"}
+    {"surface": "python test orchestration (push_gate suite runner, scripts/*acceptance)", "category": "test-orchestration", "resident": false, "shadow": "C# TestSuiteOrchestrator already sole orchestrator (commit 3de42a1c)", "target": "csharp-done", "blocking": "none — residual python runners are dev tooling"},
+    {"surface": "boot_core.py supervise loop + boot_core_health.py probes", "category": "lifecycle/supervise+health", "resident": true, "shadow": "none", "target": "c11-runtime-core", "blocking": "unclaimed; codex-check 2026-09-23T07:15Z", "added_inc": 2},
+    {"surface": "toolbox reconcile 30s timer", "category": "timer/reconcile", "resident": true, "shadow": "none", "target": "csharp-or-c11", "blocking": "unclaimed; codex-check", "added_inc": 2},
+    {"surface": "tasks/sleep_policy.py idle scan", "category": "timer/polling+wake", "resident": true, "shadow": "none", "target": "csharp-or-c11", "blocking": "unclaimed; codex-check; P11 wired wake fallback + automation-core cadence (bf4992ff)", "added_inc": 2},
+    {"surface": "core_system/maintenance_lifecycle.py + toolbox_repair loops", "category": "timer/lifecycle+repair", "resident": true, "shadow": "maintenance_controller shadow in-flight (partial)", "target": "c11-runtime-core", "blocking": "P4/P5 partial; codex-check", "added_inc": 2},
+    {"surface": "core_system/tool_isolation_health.py monitor", "category": "health-probe", "resident": true, "shadow": "none", "target": "c11-runtime-core", "blocking": "unclaimed; codex-check", "added_inc": 2},
+    {"surface": "tasks/runtime_status_service.py status push", "category": "timer/push", "resident": true, "shadow": "none", "target": "csharp", "blocking": "unclaimed; codex-check", "added_inc": 2},
+    {"surface": "shared_layer/transport_notify.py LISTEN/NOTIFY listener", "category": "transport listener", "resident": true, "shadow": "none", "target": "csharp-channel", "blocking": "unclaimed; codex-check", "added_inc": 2},
+    {"surface": "core_system/diagnostics.py loop-stall watchdog", "category": "watchdog", "resident": true, "shadow": "none", "target": "c11", "blocking": "unclaimed; codex-check", "added_inc": 2},
+    {"surface": "tasks/toolbox_execution.py claim/result poll", "category": "polling", "resident": true, "shadow": "none", "target": "csharp-or-c11", "blocking": "unclaimed; codex-check", "added_inc": 2},
+    {"surface": "permission_automation fallback loops (non-core private-loop paths)", "category": "timer/fallback-loop", "resident": true, "shadow": "none", "target": "cpp-audit+csharp", "blocking": "unclaimed; codex-check — fallback loops only legitimate with no automation core", "added_inc": 2},
+    {"surface": "core_system/daily_global_cleaner_service*.py production start", "category": "verification-note", "resident": true, "shadow": "n/a", "target": "csharp-automation-core", "blocking": "CORRECTED inc-2: NOT a ghost — production start exists at sovereign_stack_executor_activation.py:70-84 (_start_cleaner) via decision_sovereign.start_sovereign_stack (startup_executor_phases.py:319)", "added_inc": 2},
+    {"surface": "core_system/main_system_self_maintenance.py production start", "category": "verification-note", "resident": true, "shadow": "n/a", "target": "c11", "blocking": "CORRECTED inc-2: NOT a ghost — constructed+started at sovereign_stack_executor_activation.py:144-165 via the same activate() path", "added_inc": 2}
   ],
   "summary": {
-    "resident_surfaces": 23,
+    "resident_surfaces": 36,
     "shadow_in_flight": 8,
     "blocked_by_peer_claims": ["git-automation→P18", "sql→P19", "saga→P13"],
-    "unclaimed_migratable": ["hot_reload_watcher", "perf_baseline_job", "diagnostics", "update_manager fleet", "permission_automation fleet", "resource/self-maintenance", "daily_global_cleaner", "system_automation_coordinator", "backend_gateway", "channel/heartbeat transport", "gpu_coordinator", "resident_core"],
+    "unclaimed_migratable": ["hot_reload_watcher", "perf_baseline_job", "diagnostics+loop-stall", "update_manager fleet", "permission_automation fleet+fallback loops", "resource/self-maintenance", "daily_global_cleaner", "system_automation_coordinator", "backend_gateway", "channel/heartbeat transport", "gpu_coordinator", "resident_core", "boot_core supervise/health", "toolbox reconcile timer", "sleep_policy scan", "maintenance lifecycle/repair", "tool_isolation_health", "runtime_status push", "transport_notify listener", "toolbox_execution claim poll"],
     "csharp_test_orchestration": "already sole-orchestrator (3de42a1c) — no python resident remains"
+  },
+  "increment_2": {
+    "executed_at": "2026-09-23T09:25Z",
+    "worker": "devin-cli",
+    "change": "merged codex-check additions (14 resident surfaces incl. boot_core supervise/health/watchdog, toolbox reconcile 30s, sleep_policy scan, maintenance lifecycle/repair, tool-isolation-health, status push, transport notify listener, backend gateway [already listed], loop-stall watchdog, toolbox_execution claim poll, permission automation fallback loops)",
+    "correction": "codex-check ghost-item claim REFUTED with line-level evidence: daily_global_cleaner + main_system_self_maintenance DO have production start points via decision_sovereign.start_sovereign_stack -> SovereignStackExecutor.activate (startup_executor_phases.py:319 -> sovereign_stack_executor_activation.py:70-84 and :144-165); no wire-or-retire ruling needed"
   },
   "codex_mutation": "none"
 }
