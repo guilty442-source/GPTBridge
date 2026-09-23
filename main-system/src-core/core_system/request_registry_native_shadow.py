@@ -37,6 +37,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from .native_shadow_resource import maybe_emit_resource
 
 _COMPONENT = "request_registry"
 _POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
@@ -177,6 +178,7 @@ class RequestRegistryNativeShadow:
         """
         if self._disabled:
             return
+        maybe_emit_resource(self)
         try:
             found = self._reg.find(str(request_id))
             if found is None:

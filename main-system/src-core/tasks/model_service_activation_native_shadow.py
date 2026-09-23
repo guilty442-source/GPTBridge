@@ -28,6 +28,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from core_system.native_shadow_resource import maybe_emit_resource
 
 _COMPONENT = "model_service_activation"
 _POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
@@ -116,6 +117,7 @@ class ActivationBrokerNativeShadow:
         """
         if self._disabled:
             return
+        maybe_emit_resource(self)
         try:
             native_decision = str(self._broker.ensure(dict(inputs)))
             if native_decision != str(py_decision):

@@ -28,6 +28,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from core_system.native_shadow_resource import maybe_emit_resource
 
 _COMPONENT = "state_outbox"
 _POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
@@ -217,6 +218,7 @@ class OutboxNativeShadow:
     def observe_retry_deadline(self, py_deadline_s: Optional[float]) -> None:
         if self._disabled:
             return
+        maybe_emit_resource(self)
         try:
             native_ms = int(self._ob.next_retry_deadline(_RETRY_MS) or 0)
             py_ms = (

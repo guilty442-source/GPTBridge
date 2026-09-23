@@ -1,0 +1,40 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "P4",
+  "increment": "shadow parity coverage matrix — 8 modules x 7 dimensions",
+  "executed_at": "2026-09-23T06:30:00Z",
+  "worker": "devin-cli",
+  "method": "keyword-signal scan of each *_native_shadow.py harness cross-checked against the native extension API surface; dimensions: input/output compare, state transitions, error/refusal, cancellation, deadline, resource budget, fail-closed",
+  "native_api_surface": {
+    "NativeScheduler": ["register_job", "unregister_job", "tick", "job_count", "job_stats"],
+    "NativeOutbox": ["register_session", "unregister_session", "hello", "ack", "mark_sent", "drain_plan", "next_retry_deadline", "resync", "prune_floor", "session"],
+    "NativeWatchdog": ["probe", "state", "consecutive_dead", "next_interval_ms", "probe_count"],
+    "NativeRuntimeStateRegistry": ["set_runtime_state", "set_capability_state", "heartbeat", "record_error", "get", "count", "aggregate"],
+    "NativeIpcRegistry": ["create", "find", "set_status", "cancel", "transport_send", "transport_recv", "count"],
+    "NativeMaintenance": ["admit", "complete", "fail", "cancel", "next_due", "job_count", "cache_get", "cache_set", "set_generation"],
+    "NativeActivationBroker": ["ensure", "on_start_result", "on_release_result", "note_explicit_stop", "poll_interval", "state_write_due", "status"],
+    "helpers": ["private_bytes", "working_set_bytes", "monotonic_seconds", "release_working_set"]
+  },
+  "coverage_matrix": {
+    "periodic_scheduler":   {"io": "yes", "state": "yes", "error": "yes", "cancel": "gap (no cancel dimension; unregister partially covers)", "deadline": "yes (next_due ms-tolerance compare)", "resource": "gap", "failclosed": "yes"},
+    "state_outbox":         {"io": "yes", "state": "yes", "error": "yes", "cancel": "gap", "deadline": "yes (next_retry_deadline)", "resource": "gap", "failclosed": "yes"},
+    "request_registry":     {"io": "yes", "state": "yes", "error": "yes", "cancel": "yes (11 sites)", "deadline": "gap", "resource": "gap", "failclosed": "yes"},
+    "runtime_state_registry": {"io": "yes", "state": "gap", "error": "yes", "cancel": "n/a (registry has no cancel)", "deadline": "gap (heartbeat staleness not compared)", "resource": "gap", "failclosed": "yes"},
+    "ipc_server":           {"io": "yes", "state": "gap", "error": "yes", "cancel": "gap (NativeIpcRegistry.cancel exists but unobserved)", "deadline": "gap", "resource": "partial (9 refs)", "failclosed": "yes"},
+    "connection_watchdog":  {"io": "yes", "state": "gap (probe state transitions not compared)", "error": "yes", "cancel": "n/a", "deadline": "gap (next_interval_ms not compared)", "resource": "gap", "failclosed": "yes"},
+    "maintenance_controller": {"io": "yes", "state": "gap", "error": "yes", "cancel": "partial (3 refs)", "deadline": "partial (next_due exists)", "resource": "partial", "failclosed": "yes"},
+    "model_service_activation": {"io": "yes", "state": "gap", "error": "yes", "cancel": "gap", "deadline": "gap (poll_interval/state_write_due not compared)", "resource": "gap", "failclosed": "yes"}
+  },
+  "wiring_audit_correction": {
+    "finding": "initial caller-scope audit missed shared_layer wiring — maintenance_controller scheduler (shared_layer/database/maintenance/scheduler.py) DOES invoke observe_generation/admit/dispatch/admit_veto/terminal; all 8 harnesses are fully wired at their Python call sites",
+    "real_remaining_gaps": [
+      "resource-budget observation absent in all 8 — FIXED: shared native_shadow_resource.maybe_emit_resource wired into each harness's hottest observe path; throttled 300s/component to sibling *.resources.jsonl (divergence log contract preserved)",
+      "ipc_server shadow exposes only observe_inbound — NativeIpcRegistry cancel/find/set_status/transport surfaces unobserved (thin coverage, follow-on)",
+      "maintenance job-cancel is a Python-side no-op (scheduler.py:312 'pass — persist cancellation'); native cancel cannot be compared until Python implements it",
+      "deadline coverage confirmed present in watchdog(interval)/outbox(retry_deadline)/scheduler(next_due)/activation(poll_interval,state_write_due); runtime_state heartbeat-staleness and ipc deadline remain gaps"
+    ]
+  },
+  "verification": "maintenance shadow wiring tests + ipc shadow tests pass; periodic_scheduler single failure is a CPU-capped timing flake (passes standalone)",
+  "note": "per-module closure requires filling remaining dimension gaps; resource-observation now systematic across all 8 harnesses",
+  "codex_mutation": "none"
+}

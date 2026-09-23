@@ -31,6 +31,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from .native_shadow_resource import maybe_emit_resource
 
 _COMPONENT = "runtime_state_registry"
 _POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
@@ -170,6 +171,7 @@ class RuntimeStateNativeShadow:
         """Mirror a heartbeat; only record presence is compared."""
         if self._disabled:
             return
+        maybe_emit_resource(self)
         try:
             ok = bool(self._reg.heartbeat(str(module_id), str(now_str)))
             if not ok:

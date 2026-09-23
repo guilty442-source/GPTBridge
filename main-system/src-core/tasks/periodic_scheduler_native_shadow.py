@@ -33,6 +33,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Optional
+from core_system.native_shadow_resource import maybe_emit_resource
 
 _COMPONENT = "periodic_scheduler"
 _POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
@@ -145,6 +146,7 @@ class SchedulerNativeShadow:
         outcome (run_count / paused_count / next_due) plus membership."""
         if self._disabled:
             return
+        maybe_emit_resource(self)
         try:
             self._sched.tick(_ms(now_s), bool(paused))
             native_names = self._native_names()

@@ -29,6 +29,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from core_system.native_shadow_resource import maybe_emit_resource
 
 _COMPONENT = "ipc_server"
 _POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
@@ -111,6 +112,7 @@ class IpcTransportNativeShadow:
         """
         if self._disabled:
             return
+        maybe_emit_resource(self)
         text = _as_text(message)
         self._seq += 1
         seq = self._seq

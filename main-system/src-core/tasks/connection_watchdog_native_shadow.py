@@ -28,6 +28,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from core_system.native_shadow_resource import maybe_emit_resource
 
 _COMPONENT = "connection_watchdog"
 _POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
@@ -105,6 +106,7 @@ class WatchdogNativeShadow:
         """Step the C FSM with identical inputs and compare the outcome."""
         if self._disabled:
             return
+        maybe_emit_resource(self)
         try:
             event = self._wd.probe(
                 backend_process_alive,

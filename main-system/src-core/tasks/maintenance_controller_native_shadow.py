@@ -48,6 +48,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from core_system.native_shadow_resource import maybe_emit_resource
 
 _COMPONENT = "maintenance_controller"
 _POLICY_REL = Path("main-system") / "config" / "native-shadow.json"
@@ -281,6 +282,7 @@ class MaintenanceNativeShadow:
         """
         if self._disabled:
             return
+        maybe_emit_resource(self)
         try:
             if py_job_id is None:
                 # The desynced-queue divergence is recorded once per
