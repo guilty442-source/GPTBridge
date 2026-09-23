@@ -1,0 +1,23 @@
+{
+  "schema": "g32-ms6-plan/v1",
+  "generated_at_utc": "2026-09-23T09:10Z",
+  "current": {
+    "ms6": "C# consumer-only (lifecycle_owner=local-model), Python hot path still via ToolboxService",
+    "c_sharp": "business-logic-csharp not primary",
+    "python_hot_path": "ToolboxService.start/stop + dispatch.py"
+  },
+  "target": {
+    "ms6": "C# primary, Python hot path removed, C++ engine direct",
+    "c_sharp": "business-logic-csharp primary for lifecycle + dispatch",
+    "cpp_engine": "native/test_suites/suite_kv_engine + transformer direct"
+  },
+  "steps": [
+    "1. Verify G100 five-core inventory and G29 production switch (C++ primary)",
+    "2. Wire business-logic-csharp to own MS6 dispatch (remove Python ToolboxService hot path)",
+    "3. Benchmark hot path: p95, no Python fallback, 5-core budget, thread_budget cap5",
+    "4. After 2-release window and G100 gate, retire Python dispatch path"
+  ],
+  "acceptance": "Hot path no Python, p95 <5ms, 5-core budget, no fallback",
+  "blocked_by": "G100 2-window + P0-1 window + G29 production switch",
+  "note": "Per G32 P1, WP-B; plan is derived"
+}
