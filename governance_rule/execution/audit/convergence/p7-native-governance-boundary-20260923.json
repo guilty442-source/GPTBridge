@@ -1,0 +1,37 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "P7",
+  "increment": "native-path governance-boundary verification",
+  "executed_at": "2026-09-23T07:00:00Z",
+  "worker": "devin-cli",
+  "method": "dangerous-capability syscall/API scan over native/core (16 C/C++ sources), local-model cpp engine, and business-logic-csharp surfaces; cross-checked against declared authority boundaries (C = deterministic rules only, no authority; blueprint §2.1)",
+  "surfaces": [
+    {
+      "surface": "native/core (C11 compute core)",
+      "files": 16,
+      "findings": "no sockets, no CreateProcess in compute paths, no registry, no file writes; the only process-spawn surface is sidecar_transport.h which exists solely to launch the governed transport proxy via managed command line (it IS the governed channel plumbing, documented fail-closed)",
+      "governance_boundary": "pure deterministic compute; no authority acquired; shadow harnesses compare but never alter the Python authoritative path",
+      "verdict": "CLEAN"
+    },
+    {
+      "surface": "Standalone tools/local-model C++ engine",
+      "findings": "zero network/process/registry APIs; filesystem access is read-only (read_binary/read_text for manifest/weights/tokenizer.json); sanitize_utf8 bounded; KV pool fail-closed on limits (G95 verified)",
+      "governance_boundary": "governance enforced at the Python/native_engine caller layer; engine is a deterministic executor — consistent with 'C/C++ executes approved deterministic rules'",
+      "verdict": "CLEAN"
+    },
+    {
+      "surface": "business-logic-csharp StarBusinessLogic",
+      "findings": "HttpModelClient enforces loopback-only endpoints (MODEL_ENDPOINT_MUST_BE_LOOPBACK throw), carries the governed session-token header (X-GPTBridge-Session-Token), bounded 15s timeout, contract failure is fail-closed (no fabricated responses); GovernedIpcClient is the governed channel WebSocket client",
+      "governance_boundary": "C# orchestrates authorized flows only — inference goes through the governed /v1/infer endpoint, IPC through the governed channel",
+      "verdict": "CLEAN"
+    },
+    {
+      "surface": "native-shadow harnesses (8 modules)",
+      "findings": "C layer performs no I/O and holds no authority; divergences append to governed audit logs; any native error disables the shadow (fail-closed to Python)",
+      "verdict": "CLEAN"
+    }
+  ],
+  "python_governance_preserved": "decision/permission/system-runtime/automation/xingcheng sovereigns + governance_rule retain Python governance semantics and final adjudication (python_residency=retain-governance); C executes only approved deterministic rules, C# only orchestrates authorized flows — blueprint §2.1 boundary holds",
+  "residual": "C# orchestration lifecycle dominance (P13) and hot-path Python mediation removal (P14) remain open; this verification covers existing native surfaces only",
+  "codex_mutation": "none"
+}
