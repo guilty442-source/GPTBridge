@@ -140,12 +140,16 @@ class SleepPolicyManager:
         """Single scan — the automation-core flow entry point."""
         policy = _load_policy()
         try:
-            await self._wake_slept_units(policy)
-            await self._scan(policy)
+            await self._tick_body(policy)
         except asyncio.CancelledError:
             raise
         except Exception as error:  # never propagate into the scheduler
             _logger.warning("sleep policy cycle error: %s", error)
+
+    async def _tick_body(self, policy: dict[str, Any]) -> None:
+        """Wake + scan work shared by the private loop and the core flow."""
+        await self._wake_slept_units(policy)
+        await self._scan(policy)
 
     async def stop(self) -> None:
         core = getattr(self.app, "automation_core", None)
@@ -170,11 +174,27 @@ class SleepPolicyManager:
     async def _loop(self) -> None:
         while not self._stop_event.is_set():
             policy = _load_policy()
+            # Per-tick deadline (P7): a hung drain-state await or governed
+            # stop_tool call must not freeze the private loop forever.
+            # The automation-core path gets the same bound via the
+            # scheduler's wait_for tick wrapper.
+            tick_deadline = max(
+                30.0, min(600.0, float(policy["scan_interval_s"]) * 5)
+            )
             try:
-                await self._wake_slept_units(policy)
-                await self._scan(policy)
+                await asyncio.wait_for(
+                    self._tick_body(policy), timeout=tick_deadline
+                )
             except asyncio.CancelledError:
                 raise
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "sleep policy tick exceeded %.0fs deadline", tick_deadline
+                )
+                _audit({
+                    "event": "tick-deadline-exceeded",
+                    "deadline_s": round(tick_deadline, 1),
+                })
             except Exception as error:  # never kill the loop
                 _logger.warning("sleep policy cycle error: %s", error)
             interval = max(5.0, float(policy["scan_interval_s"]))

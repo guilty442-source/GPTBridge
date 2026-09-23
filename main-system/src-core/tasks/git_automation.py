@@ -146,10 +146,20 @@ class GitAutomationService:
 
     async def _loop(self) -> None:
         while not self._stop_event.is_set():
+            # P7: per-tick deadline — sweep/sync run git subprocesses and
+            # index I/O; a stalled command must not freeze the loop.
+            tick_deadline = max(60.0, min(900.0, self.sweep_interval * 5))
             try:
-                await self._cycle_tick()
+                await asyncio.wait_for(
+                    self._cycle_tick(), timeout=tick_deadline
+                )
             except asyncio.CancelledError:
                 raise
+            except asyncio.TimeoutError:
+                _logger.warning(
+                    "git automation cycle exceeded %.0fs deadline",
+                    tick_deadline,
+                )
             except Exception as error:  # never kill the loop
                 _logger.warning("git automation cycle error: %s", error)
             try:

@@ -23,6 +23,7 @@ classes, each responsible for a distinct area of responsibility:
 from __future__ import annotations
 
 import asyncio
+import logging
 import json
 import os
 import re
@@ -32,6 +33,9 @@ from typing import Any, Callable, Dict
 
 from .central_repair import CentralRepairService
 from .tool_path_resolver import ToolPathResolver
+
+
+_logger = logging.getLogger("gptbridge.toolbox_service")
 from .toolbox_environment import EnvironmentMixin
 from .toolbox_execution import ExecutionMixin
 from .toolbox_launch import LaunchMixin
@@ -197,8 +201,20 @@ class ToolboxService(
             return
 
         async def loop() -> None:
+            # P7: per-tick deadline — a hung reconcile probe must not
+            # freeze the private loop (the automation-core path is
+            # bounded by the scheduler's wait_for tick wrapper).
+            tick_deadline = max(30.0, min(600.0, interval * 5))
             while not self._registry_reconcile_stop.is_set():
-                await self._registry_reconcile_once()
+                try:
+                    await asyncio.wait_for(
+                        self._registry_reconcile_once(), timeout=tick_deadline
+                    )
+                except asyncio.TimeoutError:
+                    _logger.warning(
+                        "registry reconcile exceeded %.0fs deadline",
+                        tick_deadline,
+                    )
                 try:
                     await asyncio.wait_for(
                         self._registry_reconcile_stop.wait(), timeout=interval
