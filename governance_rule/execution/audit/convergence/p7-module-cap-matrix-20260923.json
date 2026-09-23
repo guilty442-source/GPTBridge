@@ -135,5 +135,11 @@
     "finding": "periodic_scheduler enforces per-tick deadline via wait_for(job[tick], timeout=job[timeout_s]); automation_core.register_flow routes through it",
     "covered": "jobs registered via register_flow / scheduler.register inherit tick deadline + failure isolation",
     "not_covered": "modules owning a private while-loop outside the scheduler envelope"
+  },
+  "increment_3": {
+    "executed_at": "2026-09-23T11:50Z",
+    "worker": "devin-cli",
+    "change": "per-tick deadlines added to all remaining unbounded private async loops: sleep_policy (5x interval clamped 30-600s, audit-logged), toolbox registry reconcile (same bounds), git_automation (60-900s), model_service_activation (60-600s), state_outbox drain (120s). connection_watchdog sync-thread loop needs a different bound mechanism (documented residual); hot_reload_watcher_health private loop is dead code — _check_channel_health already deadline-wrapped in main loop. tests: 67/67 (outbox/activation/sleep/toolbox/git_automation).",
+    "residual": "connection_watchdog sync-thread loop unbounded"
   }
 }
