@@ -106,6 +106,7 @@ class ToolboxService(
         self._tool_start_lock_guard = asyncio.Lock()
         self._registry_reconcile_task: asyncio.Task[Any] | None = None
         self._registry_reconcile_stop = asyncio.Event()
+        self._registry_reconcile_core = False
         self._process_registry = get_process_registry(
             self.project_root / "main-system" / "runtime" / "state"
             / "process-registry.json"
@@ -156,21 +157,48 @@ class ToolboxService(
         """Reconcile owned tool PIDs through the canonical registry."""
         return self._process_registry.reconcile()
 
+    async def _registry_reconcile_once(self) -> None:
+        """One reconcile pass — governed-flow tick and private-loop body."""
+        if self._registry_reconcile_stop.is_set():
+            return
+        try:
+            await asyncio.to_thread(self.reconcile_process_registry)
+        except Exception:
+            pass
+
     async def start_process_registry_monitor(
-        self, interval_seconds: float = 30.0
+        self,
+        interval_seconds: float = 30.0,
+        automation_core: Any | None = None,
     ) -> None:
-        """Periodically reconcile owned PIDs while the main system is alive."""
-        if self._registry_reconcile_task is not None:
+        """Periodically reconcile owned PIDs while the main system is alive.
+
+        §1.1 自動化集中：automation core 為唯一註冊點；kill-switch 拒絕
+        時不回落私有迴圈（否則 kill switch 可繞過）。無核心時才保留
+        私有 fallback。
+        """
+        if (
+            self._registry_reconcile_task is not None
+            or self._registry_reconcile_core
+        ):
             return
         interval = max(1.0, float(interval_seconds))
         self._registry_reconcile_stop.clear()
 
+        if automation_core is not None:
+            self._registry_reconcile_core = bool(
+                automation_core.register_flow(
+                    "toolbox-registry-reconcile",
+                    self._registry_reconcile_once,
+                    interval_s=interval,
+                    pausable=True,
+                )
+            )
+            return
+
         async def loop() -> None:
             while not self._registry_reconcile_stop.is_set():
-                try:
-                    await asyncio.to_thread(self.reconcile_process_registry)
-                except Exception:
-                    pass
+                await self._registry_reconcile_once()
                 try:
                     await asyncio.wait_for(
                         self._registry_reconcile_stop.wait(), timeout=interval
@@ -182,9 +210,14 @@ class ToolboxService(
             loop(), name="toolbox-process-registry-reconcile"
         )
 
-    async def stop_process_registry_monitor(self) -> None:
+    async def stop_process_registry_monitor(
+        self, automation_core: Any | None = None
+    ) -> None:
         """Stop the registry reconciler before managed tool shutdown."""
         self._registry_reconcile_stop.set()
+        if self._registry_reconcile_core and automation_core is not None:
+            automation_core.unregister("toolbox-registry-reconcile")
+        self._registry_reconcile_core = False
         task = self._registry_reconcile_task
         self._registry_reconcile_task = None
         if task is not None:

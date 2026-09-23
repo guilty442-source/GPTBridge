@@ -21,8 +21,87 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INDEX = PROJECT_ROOT / "main-system" / "runtime" / "state" / "module-rule-index.json"
 RUNTIME_INDEX = PROJECT_ROOT / "main-system" / "runtime" / "state" / "runtime-rule-index.json"
+IDENTITY_DIRECTORY = (
+    PROJECT_ROOT
+    / "governance_rule"
+    / "permission_directory"
+    / "data"
+    / "identity_directory.db"
+)
 
 _SCHEMA = "gptbridge-module-rule-index/v1"
+
+
+def _norm_path(value: str) -> str:
+    return str(value or "").replace("\\", "/").rstrip("/")
+
+
+def _path_under(path: str, root: str) -> bool:
+    p, r = _norm_path(path), _norm_path(root)
+    return bool(p) and bool(r) and (p == r or p.startswith(r + "/"))
+
+
+def _directory_contradictions(data: dict[str, Any]) -> list[str]:
+    """Mirror of the build-time identity cross-validation (contradictions only).
+
+    A component that presents a module-type directory identity while its
+    ``physical_path`` escapes that identity's ``bound_roots`` is a forged or
+    stale claim — hard error.  Unregistered components and unresolvable owner
+    domains are recorded by the builder in ``identity_validation`` and are
+    not re-failed here; an unreachable directory fails closed.
+    """
+    if not IDENTITY_DIRECTORY.is_file():
+        return ["identity directory unavailable — identity claims unverifiable"]
+    import sqlite3
+
+    try:
+        db = sqlite3.connect(f"file:{IDENTITY_DIRECTORY}?mode=ro", uri=True)
+        try:
+            rows = list(
+                db.execute(
+                    "SELECT identity_id, identity_type, bound_tool_id, bound_roots"
+                    " FROM identity"
+                )
+            )
+        finally:
+            db.close()
+    except Exception as exc:
+        return [f"identity directory unreadable: {exc}"]
+
+    identities: dict[str, tuple[str, str]] = {}
+    roots_by_id: dict[str, list[str]] = {}
+    by_tool: dict[str, str] = {}
+    for iid, itype, tool_id, roots in rows:
+        identities[iid] = (itype, tool_id)
+        if tool_id:
+            by_tool[tool_id] = iid
+        try:
+            parsed = json.loads(roots) if roots else []
+        except (TypeError, ValueError):
+            parsed = []
+        roots_by_id[iid] = [str(r) for r in parsed if isinstance(r, str)]
+
+    errors: list[str] = []
+    for mid, entry in (data.get("modules") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        exec_id = str(entry.get("execution_identity") or "")
+        iid = next(
+            (c for c in (mid, exec_id) if c in identities), None
+        ) or next((by_tool[c] for c in (mid, exec_id) if c in by_tool), None)
+        if iid is None or exec_id.startswith("retired-"):
+            continue
+        if identities[iid][0] != "module":
+            continue
+        path = str(entry.get("physical_path") or "")
+        if not path or not any(
+            _path_under(path, r) for r in roots_by_id.get(iid, [])
+        ):
+            errors.append(
+                f"{mid}: physical_path escapes bound_roots of directory "
+                f"identity {iid!r}"
+            )
+    return errors
 
 
 def _load() -> dict[str, Any]:
@@ -54,6 +133,7 @@ def _validate(data: dict[str, Any]) -> list[str]:
                 errors.append(f"zero-mixing violated: {sorted(overlap)[:3]}")
         except (OSError, ValueError):
             pass
+    errors.extend(_directory_contradictions(data))
     return errors
 
 

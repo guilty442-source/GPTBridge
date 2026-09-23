@@ -54,7 +54,9 @@ class GPTBridgeAppShutdownMixin:
         try:
             toolbox = getattr(self, "toolbox_service", None)
             if toolbox is not None:
-                await toolbox.stop_process_registry_monitor()
+                await toolbox.stop_process_registry_monitor(
+                    automation_core=getattr(self, "automation_core", None)
+                )
                 await toolbox.shutdown_managed_tools()
         except Exception:
             pass

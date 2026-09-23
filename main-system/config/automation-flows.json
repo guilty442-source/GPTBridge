@@ -129,14 +129,6 @@
       "enabled": true,
       "description": "偵測佇列 ai→xingcheng 請求並按需啟動 local-model（A540）"
     },
-    "sleep-policy": {
-      "owner": "sleep-policy manager",
-      "kind": "event",
-      "interval_s": null,
-      "pausable": false,
-      "enabled": true,
-      "description": "按需休眠／喚醒決策執行（§10.66；休眠自動化 kill switch 另由 sleep-policy.json 治理）"
-    },
     "resource-governor": {
       "owner": "resource governor",
       "kind": "supervision-plane",
@@ -272,6 +264,14 @@
       "pausable": false,
       "enabled": true,
       "description": "P2/G50 schema-drift 受管入口：僅 operator／受管流程顯式呼叫，絕不於維護 tick 或 init 自動觸發；向量軸漂移走 rebuild_canonical 新世代建置；metadata 軸無 apply_metadata executor 即 fail-closed 阻斷（依設計）"
+    },
+    "toolbox-registry-reconcile": {
+      "owner": "toolbox service (start_process_registry_monitor)",
+      "kind": "supervision-plane",
+      "interval_s": 30,
+      "pausable": true,
+      "enabled": true,
+      "description": "定期 reconcile 受管工具 PID registry；kill switch 拒絕時不回落私有迴圈。"
     }
   }
 }

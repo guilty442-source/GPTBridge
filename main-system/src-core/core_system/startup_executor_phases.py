@@ -189,7 +189,9 @@ class StartupExecutorPhasesMixin:
         _lap("toolbox_construct_ms")
         await asyncio.to_thread(app.toolbox_service.reconcile_process_registry)
         _lap("registry_reconcile_ms")
-        await app.toolbox_service.start_process_registry_monitor()
+        await app.toolbox_service.start_process_registry_monitor(
+            automation_core=getattr(app, "automation_core", None)
+        )
         _lap("registry_monitor_ms")
         await _start_backup_scheduler_if_enabled(app)
         _lap("backup_scheduler_ms")
