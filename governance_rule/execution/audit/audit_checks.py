@@ -182,7 +182,6 @@ from .audit_protected import (
 )
 from .audit_contract_axes import check_contract_axes
 from .audit_runtime_contracts import check_runtime_contracts
-from .audit_self_health import _verify_self_health_test_files
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -433,6 +432,11 @@ def audit_runtime_governance(
         lambda r: _collect(check_embedded_browser, r),
     ]
     if include_self_health:
+        # Deferred: the self-health barrier pulls in subprocess-based test
+        # collection; skip that import entirely on call paths that run
+        # without it (startup/commit-gate probes pass False).
+        from .audit_self_health import _verify_self_health_test_files
+
         checks.append(
             lambda r: _collect(_verify_self_health_test_files, r)
         )

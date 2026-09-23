@@ -141,9 +141,13 @@ def push_gate_config() -> dict[str, Any]:
         if isinstance(value, (int, float)) and value > 0:
             merged[key] = float(value)
     parallel = entry.get("max_parallel_suites")
-    if isinstance(parallel, (int, float)) and not isinstance(parallel, bool):
-        merged["max_parallel_suites"] = max(
-            1, min(MAX_PARALLEL_SUITES_CAP, int(parallel))
+    if (
+        isinstance(parallel, (int, float))
+        and not isinstance(parallel, bool)
+        and parallel >= 1
+    ):
+        merged["max_parallel_suites"] = min(
+            MAX_PARALLEL_SUITES_CAP, int(parallel)
         )
     return merged
 
