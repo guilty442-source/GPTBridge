@@ -5,7 +5,7 @@ import path from 'node:path'
 const PROTECTED_GOVERNANCE_SOURCES = [
   'governance_rule/governance_policy.py',
   'governance_rule/codex/__init__.py',
-  'governance_rule/codex/data/governance_codex.sqlite3',
+  'governance_rule/execution/codex_postgresql.py',
   'governance_rule/codex/governance_codex.zh-TW.part-1.txt',
   'governance_rule/codex/governance_codex.zh-TW.part-2.txt',
   'governance_rule/codex/governance_codex.zh-TW.part-3.txt',
