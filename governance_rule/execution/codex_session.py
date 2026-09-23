@@ -30,6 +30,8 @@ import secrets
 import time
 from typing import Any, Iterable
 
+import psycopg
+
 from governance_rule.execution import codex_dual_key as _dual_key
 from governance_rule.execution import codex_entry_state as _state
 from governance_rule.execution.codex_repository import (
@@ -66,7 +68,7 @@ def _review_request(actor: str, purpose: str, access_class: str) -> str | None:
         sovereign_ids = frozenset(
             str(s.id) for s in load_governance_codex().sovereigns
         )
-    except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError):
+    except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError, psycopg.Error):
         return "CODEX_UNAVAILABLE"
     if access_class == ACCESS_REVIEW:
         if actor in sovereign_ids or actor in _state.REVIEW_COMPONENT_ACTORS:
