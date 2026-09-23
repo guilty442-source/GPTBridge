@@ -24,7 +24,6 @@ from governance_rule.execution.codex_repository import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-CODEX_PATH = PROJECT_ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
 
 
 def _retired_sovereign_ids() -> set[str]:
