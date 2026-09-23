@@ -127,6 +127,13 @@ def execute_amendment(
         _load_audit_result(audit_result, amendment_id=amendment_id)
 
     root = Path(codex_root).resolve() if codex_root else PROJECT_ROOT / "governance_rule" / "codex"
+    if apply and str(root).casefold() != str(
+        (PROJECT_ROOT / "governance_rule" / "codex").resolve()
+    ).casefold():
+        # An applied amendment that skips the canonical root never reaches
+        # the PostgreSQL authority — reporting applied=True would fabricate
+        # a publication that did not happen.  Rehearsals stay apply=False.
+        raise CodexAmendmentDenied("AMENDMENT_APPLY_REQUIRES_CANONICAL_ROOT")
     staging = Path(staging_root).resolve() if staging_root else DEFAULT_STAGING
     result: AutoUpdateResult = run_auto_update(
         root,
