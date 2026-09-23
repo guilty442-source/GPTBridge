@@ -35,7 +35,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-_SHARED = Path(__file__).resolve().parents[8] / "shared-layer" / "src"
+_SHARED = Path(__file__).resolve().parents[9] / "shared-layer" / "src"
 if str(_SHARED) not in sys.path:
     sys.path.insert(0, str(_SHARED))
 del _ROOT, _SHARED

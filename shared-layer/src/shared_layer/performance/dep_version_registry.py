@@ -274,7 +274,6 @@ def seed_default_registry(registry: DependencyVersionRegistry) -> None:
         ("torch", ">=2.2,<3", "pypi", "optional", DependencyClass.OPTIONAL.value),
         ("sentence-transformers", ">=4.1.0", "pypi", "optional", DependencyClass.OPTIONAL.value),
         ("Pillow", ">=10.0,<14", "pypi", "optional", DependencyClass.OPTIONAL.value),
-        ("beautifulsoup4", ">=4.12,<5", "pypi", "optional", DependencyClass.OPTIONAL.value),
         ("imageio-ffmpeg", "==0.6.0", "pypi", "optional", DependencyClass.OPTIONAL.value),
         ("tiktoken", "", "pypi", "optional", DependencyClass.OPTIONAL.value),
         ("openai", "", "pypi", "optional", DependencyClass.OPTIONAL.value),

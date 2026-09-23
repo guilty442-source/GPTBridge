@@ -179,7 +179,7 @@ def find_lazy_load_candidates(
     # Known heavy packages
     heavy_packages = frozenset({
         "torch", "numpy", "tiktoken", "openai", "httpx",
-        "sentence_transformers", "Pillow", "beautifulsoup4",
+        "sentence_transformers", "Pillow",
         "imageio_ffmpeg", "triton",
     })
 

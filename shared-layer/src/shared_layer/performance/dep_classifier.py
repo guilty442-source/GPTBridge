@@ -64,7 +64,7 @@ _PYTHON_TEST_ONLY = frozenset({
 # Known optional Python packages (heavy, lazy-loaded)
 _PYTHON_OPTIONAL = frozenset({
     "tiktoken", "openai", "httpx", "numpy", "torch",
-    "sentence_transformers", "Pillow", "beautifulsoup4",
+    "sentence_transformers", "Pillow",
     "imageio_ffmpeg", "triton",
     # P24: psutil is the optional non-native fallback for process metrics;
     # the canonical path is the C ABI (process_metrics facade).

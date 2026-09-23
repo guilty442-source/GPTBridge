@@ -57,7 +57,6 @@ OPTIONAL_PYTHON_MODULE_GROUPS: dict[str, dict[str, str]] = {
         "setuptools": "setuptools",
     },
     "local-model": {
-        "beautifulsoup4": "bs4",
         "imageio-ffmpeg": "imageio_ffmpeg",
         "numpy": "numpy",
         "pillow": "PIL",
