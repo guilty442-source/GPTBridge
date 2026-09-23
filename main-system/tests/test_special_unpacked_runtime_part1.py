@@ -387,8 +387,12 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
         / "hmrService.ts"
     ).read_text("utf-8")
 
-    assert "if await self._maybe_reload(changed):" in watcher
+    # P7: reload is wrapped in a hard deadline — the loop can never stall.
+    assert "asyncio.wait_for(" in watcher
+    assert "self._maybe_reload(changed)" in watcher
+    assert "RELOAD_DEADLINE_SECONDS" in watcher
     assert "self._pending = {}" in watcher
+    assert "PENDING_PATHS_CAP" in watcher
     assert 'compile(source, str(file_path), "exec")' in update
     assert "module.__dict__.update(state)" in update
     assert "probeExistingBackend" in backend

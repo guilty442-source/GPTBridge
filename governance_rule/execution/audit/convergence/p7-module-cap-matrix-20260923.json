@@ -1,0 +1,133 @@
+{
+  "schema": "p7-module-cap-matrix/v1",
+  "recorded_at": "2026-09-23T10:55Z",
+  "scope": "main-system resident task loops — hard-cap dimension audit",
+  "aggregate_job_caps": {
+    "worker_job_cap": "default-on (rules JSON)",
+    "cpu": "CpuRate 10% whole-machine",
+    "memory": "JOB_OBJECT_LIMIT_JOB_MEMORY 30% (~20.4GB)",
+    "processes": "JOB_OBJECT_LIMIT_ACTIVE_PROCESS 96"
+  },
+  "modules": [
+    {
+      "module": "connection_watchdog",
+      "loop_lines": 297,
+      "concurrency_bound": false,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": true,
+      "rate_or_backoff": true
+    },
+    {
+      "module": "automation_core",
+      "loop_lines": 381,
+      "concurrency_bound": false,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": false
+    },
+    {
+      "module": "git_automation",
+      "loop_lines": 381,
+      "concurrency_bound": false,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": false
+    },
+    {
+      "module": "model_service_activation",
+      "loop_lines": 703,
+      "concurrency_bound": true,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": true
+    },
+    {
+      "module": "periodic_scheduler",
+      "loop_lines": 236,
+      "concurrency_bound": false,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": true
+    },
+    {
+      "module": "hot_reload_watcher",
+      "loop_lines": 340,
+      "concurrency_bound": true,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": true,
+      "rate_or_backoff": true
+    },
+    {
+      "module": "toolbox_service",
+      "loop_lines": 359,
+      "concurrency_bound": false,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": false
+    },
+    {
+      "module": "toolbox_execution",
+      "loop_lines": 329,
+      "concurrency_bound": false,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": false
+    },
+    {
+      "module": "perf_baseline_job",
+      "loop_lines": 142,
+      "concurrency_bound": false,
+      "deadline_or_timeout": false,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": false
+    },
+    {
+      "module": "sleep_policy",
+      "loop_lines": 490,
+      "concurrency_bound": false,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": false
+    },
+    {
+      "module": "maintenance_controller_native_shadow",
+      "loop_lines": 443,
+      "concurrency_bound": false,
+      "deadline_or_timeout": false,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": true
+    },
+    {
+      "module": "connection_watchdog_native_shadow",
+      "loop_lines": 192,
+      "concurrency_bound": false,
+      "deadline_or_timeout": false,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": false
+    },
+    {
+      "module": "periodic_scheduler_native_shadow",
+      "loop_lines": 262,
+      "concurrency_bound": false,
+      "deadline_or_timeout": true,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": false
+    },
+    {
+      "module": "model_service_activation_native_shadow",
+      "loop_lines": 329,
+      "concurrency_bound": false,
+      "deadline_or_timeout": false,
+      "bounded_queue_or_pending": false,
+      "rate_or_backoff": true
+    }
+  ],
+  "changes_this_increment": {
+    "hot_reload_watcher": [
+      "RELOAD_DEADLINE_SECONDS=180 wait_for on _maybe_reload (hung prepare thread froze loop)",
+      "HEALTH_CHECK_DEADLINE_SECONDS=30 wait_for on _check_channel_health",
+      "PENDING_PATHS_CAP=8192 churn-storm bound on _pending"
+    ]
+  },
+  "residual": "automation_core / git_automation / toolbox_* per-tick deadlines still absent; evaluate per-module contract before wiring"
+}

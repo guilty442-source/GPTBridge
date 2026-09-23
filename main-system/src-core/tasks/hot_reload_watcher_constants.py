@@ -27,6 +27,12 @@ RETRY_BASE_DELAY_SECONDS: Final[float] = 5.0
 RETRY_MAX_DELAY_SECONDS: Final[float] = 120.0
 RETRY_JITTER_FACTOR: Final[float] = 0.3
 IPC_RECONNECT_DELAY_SECONDS: Final[float] = 10.0
+# P7 hard caps: the loop tick must never stall indefinitely — a hung
+# prepare_generation thread or channel probe previously froze the
+# watcher forever (_in_flight stuck, no further scans).
+RELOAD_DEADLINE_SECONDS: Final[float] = 180.0
+HEALTH_CHECK_DEADLINE_SECONDS: Final[float] = 30.0
+PENDING_PATHS_CAP: Final[int] = 8192
 
 # Only main-system code is reloaded.
 WATCH_ROOTS: Final[tuple[str, ...]] = ("main-system/src-core",)

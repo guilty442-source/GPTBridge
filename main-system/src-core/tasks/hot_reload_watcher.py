@@ -26,9 +26,13 @@ from pathlib import Path
 from typing import Any
 
 from .hot_reload_watcher_constants import (
+    FAILURE_BACKOFF_SECONDS,
+    HEALTH_CHECK_DEADLINE_SECONDS,
     HEALTH_CHECK_INTERVAL_SECONDS,
+    PENDING_PATHS_CAP,
     POLL_INTERVAL_SECONDS,
     QUIET_WINDOW_SECONDS,
+    RELOAD_DEADLINE_SECONDS,
     WATCH_ROOTS,
     ChannelHealth,
     _is_protected,
@@ -187,6 +191,17 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
             if key not in previous or abs(previous[key] - mtime) > 0.001:
                 self._pending[key] = now
         self._snapshot = current
+        # P7 cap: a churn storm must not grow _pending without bound —
+        # keep the newest entries (their timestamps drive the quiet
+        # window) and log the drop once per tick.
+        if len(self._pending) > PENDING_PATHS_CAP:
+            newest = sorted(
+                self._pending.items(), key=lambda item: item[1], reverse=True
+            )[:PENDING_PATHS_CAP]
+            dropped = len(self._pending) - len(newest)
+            self._pending = dict(newest)
+            self._log({"type": "hot_reload_watcher_pending_capped",
+                       "cap": PENDING_PATHS_CAP, "dropped": dropped})
 
     def _active_generation_hint(self) -> str:
         """Best-effort current generation label for update evidence."""
@@ -241,7 +256,21 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
                     if now - max(self._pending.values()) >= QUIET_WINDOW_SECONDS:
                         if self._enabled:
                             changed = list(self._pending.keys())
-                            if await self._maybe_reload(changed):
+                            # P7 deadline: a stalled reload (e.g. a hung
+                            # prepare thread) must not freeze the loop.
+                            try:
+                                reloaded = await asyncio.wait_for(
+                                    self._maybe_reload(changed),
+                                    timeout=RELOAD_DEADLINE_SECONDS,
+                                )
+                            except TimeoutError:
+                                self._log({"type": "hot_reload_watcher_deadline",
+                                           "deadline_s": RELOAD_DEADLINE_SECONDS})
+                                self._backoff_until = (
+                                    time.monotonic() + FAILURE_BACKOFF_SECONDS
+                                )
+                                reloaded = False
+                            if reloaded:
                                 self._pending = {}
                                 # Reset adaptive interval on reload
                                 self._adaptive_poll_interval = self._min_poll_interval
@@ -264,7 +293,13 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
                     time.monotonic() + HEALTH_CHECK_INTERVAL_SECONDS
                 )
                 try:
-                    await self._check_channel_health()
+                    await asyncio.wait_for(
+                        self._check_channel_health(),
+                        timeout=HEALTH_CHECK_DEADLINE_SECONDS,
+                    )
+                except TimeoutError:
+                    self._log({"type": "hot_reload_watcher_health_deadline",
+                               "deadline_s": HEALTH_CHECK_DEADLINE_SECONDS})
                 except Exception as error:
                     self._log({"type": "hot_reload_watcher_health_error",
                                "error": f"{type(error).__name__}: {error}"})
