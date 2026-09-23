@@ -261,6 +261,25 @@ while ($bq.Count -gt 0 -or $brunning.Count -gt 0) {
 }
 if ($buildFailed) { Write-Output "BUILD FAILED"; exit 1 }
 
+# Suite manifest for the C# TestSuiteOrchestrator (§10.60.1): the suite
+# list is discovered from THIS build manifest, never hardcoded.  Records
+# the source revision the binaries were built from for revision checks.
+$revision = ""
+try {
+    $revision = (git -C (Join-Path $nativeRoot "..") rev-parse HEAD 2>$null)
+    if ($revision) { $revision = $revision.Trim() }
+} catch { $revision = "" }
+$manifestSuites = @($suites | ForEach-Object {
+    @{ name = [System.IO.Path]::GetFileNameWithoutExtension($_.exe)
+       exe = $_.exe; src = $_.src }
+})
+@{
+    schema = "native-suite-manifest/v1"
+    built_at_utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    revision = $revision
+    suites = $manifestSuites
+} | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $out "suite-manifest.json") -Encoding UTF8
+
 # Bounded-parallel suite execution: each suite writes a uniquely-named
 # <stem>.json report and binds only ephemeral ports, so concurrent runs
 # cannot interleave reports or collide on ports.  Per-suite 300s hard cap

@@ -26,6 +26,7 @@ from .contracts import (
     RagDagPlan,
     RagDagState,
 )
+from ..observability import RAG_METRICS
 
 NodeHandler = Callable[[RagDagNode, RagDagExecutionContext, Mapping[str, Any]], Any]
 CompensationHandler = Callable[[RagDagNode, Mapping[str, Any]], Any]
@@ -116,7 +117,6 @@ class RagDagExecutor:
             latency_ms = int((time.monotonic() - node_started) * 1000)
             # §10.11: feed per-stage latency into the RAG metrics surface
             # consumed by the perf-baseline snapshot.
-            from ..observability import RAG_METRICS
             RAG_METRICS.observe_stage(node.node_type.value, latency_ms)
 
             if error == "node-timeout":

@@ -1,0 +1,30 @@
+{
+  "item": "§10.60.1 step-1 baseline: native test/audit resource & timing",
+  "timestamp_utc": "2026-09-23",
+  "host": {
+    "python": "3.13.13",
+    "cpu_count": 16
+  },
+  "suite_fleet": {
+    "suite_exes": 20,
+    "helper_exes": 1
+  },
+  "measurements_ms": {
+    "cpp_suite_process_spawn_warm": 65.9,
+    "csharp_orchestrator_aggregate": 552.4,
+    "python_process_spawn_warm": 75.4,
+    "python_audit_checks_import_cold": 200.3
+  },
+  "pytest_collection": {
+    "wall_s": 13.3,
+    "collected_items": 2621,
+    "rc": 0
+  },
+  "push_gate_known": {
+    "suite_run_parallel4_s": 40.9,
+    "suite_run_sequential_s": 54.1,
+    "build_ps1_parallel4_full_s": 224.8,
+    "gate_total_with_rebuild_s": 332.0
+  },
+  "orchestrator_stdout_tail": "ITE: PASS=5 FAIL=0 BLOCKED=0 (0.017 ms)\n  SYSTEM_RESCUE_SUITE: PASS=6 FAIL=0 BLOCKED=0 (0.004 ms)\n  TOOL_HOST_SUITE: PASS=6 FAIL=0 BLOCKED=0 (31036.716 ms)\n  TRANSPORT_PROXY_CLIENT_SUITE: PASS=4 FAIL=0 BLOCKED=0 (0.109 ms)\nreport: E:\\GPTBridge\\native\\test_suites\\bin\\native-orchestration-report.json\n"
+}

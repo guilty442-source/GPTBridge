@@ -2,7 +2,7 @@
   "schema_version": 1,
   "registry_id": "gptbridge-architecture",
   "authority": "governance_rule",
-  "updated_at": "2026-09-21",
+  "updated_at": "2026-09-23",
   "architectural_roles": [
     "governance",
     "startup",
@@ -36,7 +36,8 @@
   "module_labels": {
     "trash": [
       "global-cleaner",
-      "language-review"
+      "language-review",
+      "sub-sovereign-orchestration"
     ]
   },
   "retired_module_cleanup_contract": {
@@ -233,11 +234,11 @@
       "information_channels": []
     },
     {
-      "component_id": "synchronization-sovereign",
+      "component_id": "automation-sovereign",
       "architectural_role": "development-maintenance",
       "runtime_form": "python-process",
       "owner_sovereign": "automation",
-      "execution_identity": "synchronization-sovereign",
+      "execution_identity": "automation-sovereign",
       "physical_path": "main-system/governance/sovereigns/automation_sovereign.py",
       "lifecycle": "resident",
       "canonical": true,
@@ -266,10 +267,10 @@
       "architectural_role": "development-maintenance",
       "runtime_form": "python-process",
       "owner_sovereign": "system-runtime",
-      "execution_identity": "sub-sovereign",
+      "execution_identity": "sub-sovereign-orchestration",
       "physical_path": "main-system/governance/sub-sovereigns",
-      "lifecycle": "resident",
-      "canonical": true,
+      "lifecycle": "retired",
+      "canonical": false,
       "dependencies": [
         "decision-sovereign"
       ],
