@@ -191,9 +191,12 @@ def _spawn(
 
 def _children(pid: int) -> list[int]:
     try:
-        import psutil
+        shared_src = REPO_ROOT / "shared-layer" / "src"
+        if str(shared_src) not in sys.path:
+            sys.path.insert(0, str(shared_src))
+        from shared_layer.performance import process_metrics
 
-        return [p.pid for p in psutil.Process(pid).children(recursive=True)]
+        return process_metrics.process_children(pid)
     except Exception:
         return []
 

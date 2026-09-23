@@ -830,14 +830,19 @@ def payload_boundary_check() -> None:
 
 
 def process_cleanup_check() -> None:
-    before = set(p.pid for p in __import__("psutil").process_iter()) if _has_psutil() else set()
+    if _has_psutil():
+        from shared_layer.performance import process_metrics
+
+        before = set(process_metrics.process_list())
+    else:
+        before = set()
     record("04B-12", "no orphan python process / test port / lock created", "no resources created by harness",
            f"processes_before={len(before)} (harness starts none)", "PASS", "harness never starts the backend; ports probed then closed", "")
 
 
 def _has_psutil() -> bool:
     try:
-        import psutil  # noqa: F401
+        from shared_layer.performance import process_metrics  # noqa: F401
         return True
     except ImportError:
         return False

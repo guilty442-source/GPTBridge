@@ -211,16 +211,20 @@ def _check_log_hygiene(start: datetime, end: datetime) -> dict:
 
 
 def _check_orphans() -> dict:
-    try:
-        import psutil
-    except ImportError:
-        return {"passed": False, "blocked": True, "detail": "psutil unavailable"}
+    shared_src = ROOT / "shared-layer" / "src"
+    if str(shared_src) not in sys.path:
+        sys.path.insert(0, str(shared_src))
+    from shared_layer.performance import process_metrics
+
+    if not process_metrics.metrics_available():
+        return {"passed": False, "blocked": True,
+                "detail": "process metrics unavailable"}
     reg_path = STATE / "process-registry.json"
     try:
         reg = json.loads(reg_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return {"passed": False, "blocked": True, "detail": f"registry unreadable: {exc}"}
-    live = {p.pid for p in psutil.process_iter()}
+    live = set(process_metrics.process_list())
     zombies = []
     for rec in reg.get("processes", []):
         if not rec.get("owned"):
