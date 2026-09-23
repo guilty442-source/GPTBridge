@@ -46,6 +46,7 @@ def source_revision() -> str | None:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             cwd=PROJECT_ROOT, capture_output=True, text=True, timeout=10,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except (OSError, subprocess.TimeoutExpired):
         return None

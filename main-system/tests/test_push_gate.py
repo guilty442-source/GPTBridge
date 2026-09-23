@@ -6,6 +6,7 @@ typed ``native-orchestration-report.json`` the gate consumes.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from contextlib import contextmanager
@@ -40,14 +41,19 @@ def _manifest(bin_dir: Path, revision: str = "testrev") -> Path:
         "schema": "native-suite-manifest/v1",
         "revision": revision,
         "built_at": "2026-01-01T00:00:00Z",
-        "suites": [{"name": "alpha_suite", "exe": "alpha_suite.exe"}],
+        "suites": [{"name": "alpha_suite", "exe": "alpha_suite.exe",
+                    "sha256": _EXE_SHA256}],
     }), encoding="utf-8")
     return p
 
 
+_EXE_BYTES = b"MZ"
+_EXE_SHA256 = hashlib.sha256(_EXE_BYTES).hexdigest()
+
+
 def _exe(bin_dir: Path, name: str = "alpha_suite.exe") -> Path:
     p = bin_dir / name
-    p.write_bytes(b"MZ")
+    p.write_bytes(_EXE_BYTES)
     return p
 
 

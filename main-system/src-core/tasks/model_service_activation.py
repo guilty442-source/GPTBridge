@@ -258,14 +258,21 @@ class ModelServiceActivationBroker:
     async def _wait_stop_or_wake(self, interval: float) -> None:
         """等到 stop、notify 喚醒或輪詢逾時（先到者為準）。"""
         self._wake_event.clear()
+        deadline = time.monotonic() + interval
         stopper = asyncio.ensure_future(self._stop_event.wait())
         waker = asyncio.ensure_future(self._wake_event.wait())
         try:
-            await asyncio.wait(
-                {stopper, waker},
-                timeout=interval,
-                return_when=asyncio.FIRST_COMPLETED,
-            )
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return
+                done, _pending = await asyncio.wait(
+                    {stopper, waker},
+                    timeout=remaining,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if done:
+                    return
         finally:
             for pending in (stopper, waker):
                 if not pending.done():
