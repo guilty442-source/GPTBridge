@@ -45,7 +45,8 @@ int main() {
         gptbridge_rs_registry_t reg;
         gptbridge_rs_init(&reg);
         // Python default record: STOPPED / AVAILABLE / health=unknown.
-        NT_CHECK(gptbridge_rs_heartbeat(&reg, "mod-b", "t1") == 1, "heartbeat creates");
+        NT_CHECK(gptbridge_rs_heartbeat(&reg, "mod-b", "t1", 1000) == 1,
+                 "heartbeat creates");
         const gptbridge_rs_record_t* r = gptbridge_rs_find(&reg, "mod-b");
         NT_CHECK(r != nullptr, "find");
         NT_CHECK(r->runtime_state == GPTBRIDGE_RT_STOPPED, "default STOPPED");
@@ -53,6 +54,25 @@ int main() {
         NT_CHECK(std::strcmp(r->health, "unknown") == 0, "default health");
         NT_CHECK(std::strcmp(r->last_heartbeat, "t1") == 0, "heartbeat stamp");
         NT_CHECK(std::strcmp(r->updated_at, "t1") == 0, "updated_at==heartbeat");
+        /* staleness dimension: beat at 1000ms is fresh inside 60s horizon,
+           stale past it; never-beaten and unknown modules are stale /
+           missing respectively. */
+        NT_CHECK(r->last_heartbeat_ms == 1000, "heartbeat ms stamp");
+        NT_CHECK(gptbridge_rs_is_stale(&reg, "mod-b", 1500, 60000) == 0,
+                 "fresh inside horizon");
+        NT_CHECK(gptbridge_rs_is_stale(&reg, "mod-b", 999999, 60000) == 1,
+                 "stale past horizon");
+        NT_CHECK(gptbridge_rs_is_stale(&reg, "mod-b", 61001, 60000) == 1,
+                 "boundary > horizon is stale");
+        NT_CHECK(gptbridge_rs_is_stale(&reg, "mod-b", 61000, 60000) == 0,
+                 "boundary == horizon is fresh");
+        NT_CHECK(gptbridge_rs_set_runtime(&reg, "mod-c", GPTBRIDGE_RT_STOPPED,
+                                          nullptr, nullptr, nullptr, "t0") == 1,
+                 "mod-c without heartbeat");
+        NT_CHECK(gptbridge_rs_is_stale(&reg, "mod-c", 2000, 60000) == 1,
+                 "never-beat is stale");
+        NT_CHECK(gptbridge_rs_is_stale(&reg, "ghost", 2000, 60000) == -1,
+                 "unknown module");
     }
     NT_END_TEST(SUITE, "defaults_and_side_effects");
 
@@ -129,9 +149,9 @@ int main() {
         char id[16];
         for (int i = 0; i < GPTBRIDGE_RS_MAX_MODULES; ++i) {
             std::snprintf(id, sizeof(id), "m-%03d", i);
-            NT_CHECK(gptbridge_rs_heartbeat(&reg, id, "t") == 1, "fill");
+            NT_CHECK(gptbridge_rs_heartbeat(&reg, id, "t", 1000) == 1, "fill");
         }
-        NT_CHECK(gptbridge_rs_heartbeat(&reg, "overflow", "t") == 0,
+        NT_CHECK(gptbridge_rs_heartbeat(&reg, "overflow", "t", 1000) == 0,
                  "full table rejects new module");
         NT_CHECK(reg.count == GPTBRIDGE_RS_MAX_MODULES, "count bounded");
     }
