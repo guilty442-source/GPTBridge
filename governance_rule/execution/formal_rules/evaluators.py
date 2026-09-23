@@ -1019,7 +1019,9 @@ _DECLARED_PROVISION_RULES: dict[str, str] = {
     "FR-LANG-LAYERING": "A551",
     "FR-GPU-ACCEL-TRACK": "A552",
     "FR-MODEL-MOE": "A553",
-    "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE": "A554",
+    # A554 superseded by A598 (autonomous-training authority); anchor follows
+    # the active successor — rule code and predicate are unchanged.
+    "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE": "A598",
     "FR-GIT-SQL-RAG-CAG-DAG-DIVISION": "A555",
     "FR-MODEL-MATURITY": "A556",
     "FR-MODEL-TRAINING-TIERS": "A557",
@@ -1055,8 +1057,10 @@ _DECLARED_PROVISION_RULES: dict[str, str] = {
     "FR-ONDEMAND-MODULES": "A587",
     "FR-SINGLE-PURPOSE-MODULE": "A588",
     "FR-MODULE-HASH-CHAIN": "A589",
-    "FR-SOVEREIGN-TO-CORE-ENGINE": "A591",
-    "FR-NO-SUB-SOVEREIGN-ALL-MODULES": "A592",
+    # A591/A592 superseded by A604 (authority convergence); anchors follow the
+    # active successor — rule codes and predicates are unchanged.
+    "FR-SOVEREIGN-TO-CORE-ENGINE": "A604",
+    "FR-NO-SUB-SOVEREIGN-ALL-MODULES": "A604",
 }
 
 
