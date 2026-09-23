@@ -46,6 +46,9 @@ class CAGIntegration:
     _refresh_task: "asyncio.Task[None] | None" = None
     _preload_done: bool = False
     _started: bool = False
+    # §1.1: True when the automation core drives the refresh cadence
+    # (None = private fallback loop, False = registration denied).
+    _refresh_core_driven: bool | None = None
 
     # Module groups to preload on startup
     PRELOAD_MODULE_GROUPS = [
@@ -107,9 +110,28 @@ class CAGIntegration:
         # back to RAG until restart.  The loop re-loads contexts that are
         # missing or within one interval of expiry — real retrieval off
         # the event loop, bounded cadence, fail-soft per group.
-        self._refresh_task = asyncio.get_running_loop().create_task(
-            self._refresh_loop()
+        refresh_interval = max(
+            30.0,
+            float(os.environ.get("GPTBRIDGE_CAG_REFRESH_INTERVAL_S", "600")),
         )
+        # §1.1 自動化集中：automation core owns the cadence when present;
+        # a denied registration (unlisted/kill-switched) must NOT fall
+        # back to the private loop — queries then degrade to RAG, which
+        # is already the fail-soft contract.
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            self._refresh_core_driven = bool(
+                core.register_flow(
+                    "cag-context-refresh",
+                    self._refresh_tick,
+                    interval_s=refresh_interval,
+                    pausable=True,
+                )
+            )
+        else:
+            self._refresh_task = asyncio.get_running_loop().create_task(
+                self._refresh_loop(refresh_interval)
+            )
 
         self._started = True
 
@@ -128,6 +150,15 @@ class CAGIntegration:
             return {"ok": True, "already_stopped": True}
 
         stop_start = time.monotonic()
+
+        if self._refresh_core_driven:
+            core = getattr(self.app, "automation_core", None)
+            if core is not None:
+                try:
+                    core.unregister("cag-context-refresh")
+                except Exception:
+                    pass
+            self._refresh_core_driven = None
 
         for task in (self._preload_task, self._refresh_task):
             if task is not None and not task.done():
@@ -209,41 +240,45 @@ class CAGIntegration:
             except Exception:
                 pass
 
-    async def _refresh_loop(self) -> None:
-        """Periodically refresh preloaded contexts before their TTL lapses."""
+    async def _refresh_tick(self) -> None:
+        """Single refresh pass — the automation-core flow entry point."""
         interval = max(
             30.0,
             float(os.environ.get("GPTBRIDGE_CAG_REFRESH_INTERVAL_S", "600")),
         )
+        try:
+            refreshed = await asyncio.to_thread(
+                self._refresh_expiring_sync, interval
+            )
+            if refreshed:
+                self.app._log(
+                    {
+                        "type": "status",
+                        "message": "CAG contexts refreshed",
+                        "ok": True,
+                        "refreshed_contexts": refreshed,
+                    }
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — bounded channel
+            try:
+                self.app._log(
+                    {
+                        "type": "status",
+                        "message": "CAG refresh failed",
+                        "ok": False,
+                        "reason": str(exc),
+                    }
+                )
+            except Exception:
+                pass
+
+    async def _refresh_loop(self, interval: float) -> None:
+        """Private fallback loop — used only when no automation core exists."""
         while True:
             await asyncio.sleep(interval)
-            try:
-                refreshed = await asyncio.to_thread(
-                    self._refresh_expiring_sync, interval
-                )
-                if refreshed:
-                    self.app._log(
-                        {
-                            "type": "status",
-                            "message": "CAG contexts refreshed",
-                            "ok": True,
-                            "refreshed_contexts": refreshed,
-                        }
-                    )
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:  # noqa: BLE001 — bounded channel
-                try:
-                    self.app._log(
-                        {
-                            "type": "status",
-                            "message": "CAG refresh failed",
-                            "ok": False,
-                            "reason": str(exc),
-                        }
-                    )
-                except Exception:
-                    pass
+            await self._refresh_tick()
 
     def _refresh_expiring_sync(self, interval: float) -> int:
         """Reload module groups whose context is absent or expires within
