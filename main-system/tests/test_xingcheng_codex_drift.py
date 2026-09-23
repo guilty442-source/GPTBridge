@@ -49,25 +49,29 @@ def _xingcheng_findings(report: dict) -> list[dict]:
     return [f for f in report["drift"] if f.get("parent") == "星澄"]
 
 
-def test_missing_declared_child_flagged(tmp_path: Path) -> None:
-    """A codex-declared child absent from the parent registry is drift."""
+def test_no_materialized_children_is_clean(tmp_path: Path) -> None:
+    """A604 retired the sub-sovereign layer: with nothing materialized the
+    星澄 subtree reports no drift (the learning child's codex row is
+    retired, not an active declaration)."""
     _, sovereign = _sovereign(tmp_path)
     report = sovereign.compare_codex_implementation()
-    xingcheng = _xingcheng_findings(report)
-    assert any(
-        f["type"] == "missing-child" and f["child"] == _CHILD_ID
-        for f in xingcheng
-    )
-    assert report["clean"] is False
+    assert _xingcheng_findings(report) == []
 
 
-def test_materialized_child_clears_subtree(tmp_path: Path) -> None:
-    """With the declared child materialized, 星澄's subtree has no drift."""
+def test_retired_child_materialized_flagged_critical(tmp_path: Path) -> None:
+    """A604: materializing an identity whose codex row is retired is
+    critical drift (retired-identity-active)."""
     app, sovereign = _sovereign(tmp_path)
     child = LearningEvidenceSyncSubSovereign(app, parent=sovereign)
     sovereign._sub_sovereigns[_CHILD_ID] = child
     report = sovereign.compare_codex_implementation()
-    assert _xingcheng_findings(report) == []
+    assert any(
+        f["type"] == "retired-identity-active"
+        and f["child"] == _CHILD_ID
+        and f["severity"] == "critical"
+        for f in _xingcheng_findings(report)
+    )
+    assert report["clean"] is False
 
 
 def test_unregistered_child_flagged_critical(tmp_path: Path) -> None:
@@ -83,15 +87,16 @@ def test_unregistered_child_flagged_critical(tmp_path: Path) -> None:
     )
 
 
-def test_parent_mismatch_flagged(tmp_path: Path) -> None:
-    """An instance whose declared parent differs from codex is drift."""
+def test_retired_child_flagged_regardless_of_claimed_parent(tmp_path: Path) -> None:
+    """A604: a retired identity stays drift even when the instance claims
+    a different parent — no active declaration exists to mismatch."""
     app, sovereign = _sovereign(tmp_path)
     child = LearningEvidenceSyncSubSovereign(app, parent=sovereign)
     child.parent_sovereign_id = "decision-sovereign"
     sovereign._sub_sovereigns[_CHILD_ID] = child
     report = sovereign.compare_codex_implementation()
     assert any(
-        f["type"] == "parent-mismatch" and f["child"] == _CHILD_ID
+        f["type"] == "retired-identity-active" and f["child"] == _CHILD_ID
         for f in _xingcheng_findings(report)
     )
 
@@ -99,6 +104,7 @@ def test_parent_mismatch_flagged(tmp_path: Path) -> None:
 def test_drift_notice_displayed_on_auxiliary_surface(tmp_path: Path) -> None:
     """The drift finding lands on the user-facing pending surface."""
     _, sovereign = _sovereign(tmp_path)
+    sovereign._sub_sovereigns["phantom-sub-sovereign"] = object()
     report = sovereign.run_codex_drift_check()
     assert report["drift_count"] > 0
     actions = read_pending_actions(tmp_path)
@@ -160,6 +166,7 @@ def test_review_intent_routes_and_records(tmp_path: Path) -> None:
 def test_drift_status_surface(tmp_path: Path) -> None:
     _, sovereign = _sovereign(tmp_path)
     assert sovereign.drift_status()["checked"] is False
+    sovereign._sub_sovereigns["phantom-sub-sovereign"] = object()
     sovereign.run_codex_drift_check()
     status = sovereign.drift_status()
     assert status["checked"] is True

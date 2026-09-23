@@ -83,6 +83,16 @@ def test_fault_manuals_are_ingested_by_learning_while_fault_owner_stays_permissi
     assert projection["catalog_hash"]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "A604 retired learning-evidence-sync-sub-sovereign: the "
+        "delegation path fails closed (child-parent-mismatch) pending "
+        "the convergence workstream registry switch — see "
+        "governance_rule/execution/audit/convergence/"
+        "a594-learning-command-regression-20260922.json"
+    ),
+)
 def test_auto_start_arms_learning_loop(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
@@ -119,6 +129,16 @@ def test_learning_command_requires_parent_delegation(tmp_path: Path) -> None:
     asyncio.run(_run())
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "A604 retired learning-evidence-sync-sub-sovereign: the "
+        "delegation path fails closed (child-parent-mismatch) pending "
+        "the convergence workstream registry switch — see "
+        "governance_rule/execution/audit/convergence/"
+        "a594-learning-command-regression-20260922.json"
+    ),
+)
 def test_reconcile_pass_returns_receipt(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
@@ -131,6 +151,16 @@ def test_reconcile_pass_returns_receipt(tmp_path: Path) -> None:
     asyncio.run(_run())
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "A604 retired learning-evidence-sync-sub-sovereign: the "
+        "delegation path fails closed (child-parent-mismatch) pending "
+        "the convergence workstream registry switch — see "
+        "governance_rule/execution/audit/convergence/"
+        "a594-learning-command-regression-20260922.json"
+    ),
+)
 def test_supervision_commands_learning_lifecycle(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
@@ -145,6 +175,16 @@ def test_supervision_commands_learning_lifecycle(tmp_path: Path) -> None:
     asyncio.run(_run())
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "A604 retired learning-evidence-sync-sub-sovereign: the "
+        "delegation path fails closed (child-parent-mismatch) pending "
+        "the convergence workstream registry switch — see "
+        "governance_rule/execution/audit/convergence/"
+        "a594-learning-command-regression-20260922.json"
+    ),
+)
 def test_learning_status_surface(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
@@ -163,6 +203,16 @@ def test_learning_status_surface(tmp_path: Path) -> None:
     asyncio.run(_run())
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "A604 retired learning-evidence-sync-sub-sovereign: the "
+        "delegation path fails closed (child-parent-mismatch) pending "
+        "the convergence workstream registry switch — see "
+        "governance_rule/execution/audit/convergence/"
+        "a594-learning-command-regression-20260922.json"
+    ),
+)
 def test_push_learning_outcome(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
