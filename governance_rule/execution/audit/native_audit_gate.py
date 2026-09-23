@@ -192,13 +192,28 @@ def _refresh_manifest_if_stale(root: Path) -> str | None:
             from governance_rule.execution.audit.export_audit_manifest import (
                 build_manifest,
             )
-            manifest.parent.mkdir(parents=True, exist_ok=True)
-            manifest.write_text(
-                json.dumps(
-                    build_manifest(root), ensure_ascii=False, indent=2)
-                + "\n",
-                encoding="utf-8",
+            from governance_rule.execution.codex_update_pipeline import (
+                _set_read_only,
             )
+            manifest.parent.mkdir(parents=True, exist_ok=True)
+            # The manifest is itself a protected readonly source: lift the
+            # attribute for the governed regeneration, restore afterwards.
+            from governance_rule.execution.git_tiers.protected_attrs import (
+                _is_read_only,
+            )
+            was_readonly = manifest.is_file() and _is_read_only(manifest)
+            if was_readonly:
+                _set_read_only(manifest, False)
+            try:
+                manifest.write_text(
+                    json.dumps(
+                        build_manifest(root), ensure_ascii=False, indent=2)
+                    + "\n",
+                    encoding="utf-8",
+                )
+            finally:
+                if was_readonly:
+                    _set_read_only(manifest, True)
         except Exception as error:  # noqa: BLE001 — fail-visible, not silent
             return f"manifest refresh failed: {error}"
     return None

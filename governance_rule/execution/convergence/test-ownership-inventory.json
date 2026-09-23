@@ -1,23 +1,23 @@
 {
  "authority": "derived-rebuildable; language ownership per A56/A210/A440; no test moved or deleted",
  "classifier_version": "ownership-classifier/v1",
- "content_sha256": "e79178c419533ee65c6e9b757271886bf9aebc525c60f974bfd219b8fcefccc2",
+ "content_sha256": "07f26dc3bc656f2fcc6d64d24e83d750aa1b84e535064c4792a9703904a0d3ee",
  "counts": {
   "by_category": {
    "abi-boundary": 6,
-   "cross-language-integration": 7,
+   "cross-language-integration": 8,
    "csharp-xunit": 12,
    "native-unit": 22,
-   "parity": 4,
-   "python-unit": 316
+   "parity": 5,
+   "python-unit": 318
   },
   "by_language": {
-   "cpp": 37,
-   "python": 330
+   "cpp": 38,
+   "python": 333
   },
-  "total": 367
+  "total": 371
  },
- "generated_at_utc": "2026-09-23T08:10:22Z",
+ "generated_at_utc": "2026-09-23T14:23:26Z",
  "generator": "scripts/build-test-ownership-inventory.py",
  "indexes": {
   "by_category": {
@@ -34,6 +34,7 @@
     "governance_rule/tests/test_ipc_surface_pairing.py",
     "main-system/information-layer/ipc/tests/test_ipc_service.py",
     "main-system/tests/test_ipc_transport_native_shadow.py",
+    "main-system/tests/test_toolbox_registry_monitor.py",
     "main-system/tests/test_update_ownership.py",
     "scripts/build-test-ownership-inventory.py",
     "shared-layer/tests/test_workflow_runtime.py"
@@ -80,6 +81,7 @@
     "main-system/tests/test_native_m2_a263_parity.py",
     "main-system/tests/test_rag_parity_audit.py",
     "native/test_suites/suite_consistency.cpp",
+    "native/test_suites/suite_scheduler_parity.cpp",
     "shared-layer/tests/test_workflow_consistency.py"
    ],
    "python-unit": [
@@ -128,6 +130,7 @@
     "Standalone tools/local-model/tests/test_google_search.py",
     "Standalone tools/local-model/tests/test_governed_rollback_gate.py",
     "Standalone tools/local-model/tests/test_gpt_training.py",
+    "Standalone tools/local-model/tests/test_infer_tool_loop.py",
     "Standalone tools/local-model/tests/test_int4_packing.py",
     "Standalone tools/local-model/tests/test_lifecycle_precision_teachers.py",
     "Standalone tools/local-model/tests/test_lifecycle_resource_actions.py",
@@ -231,7 +234,6 @@
     "main-system/information-layer/qdrant/tests/test_qdrant_service.py",
     "main-system/information-layer/state/tests/test_state_service.py",
     "main-system/launcher/tests/test_launcher.py",
-    "main-system/node_modules/node-gyp/gyp/test_gyp.py",
     "main-system/tests/_main_system_test_support.py",
     "main-system/tests/_test_project_contract_matrix_helpers.py",
     "main-system/tests/_test_special_unpacked_runtime_helpers.py",
@@ -250,6 +252,7 @@
     "main-system/tests/test_backend_log_rotation.py",
     "main-system/tests/test_blue_green_orchestrator.py",
     "main-system/tests/test_cag_gate.py",
+    "main-system/tests/test_cag_refresh_flow.py",
     "main-system/tests/test_child_supervision_autonomy.py",
     "main-system/tests/test_citation_validation.py",
     "main-system/tests/test_codex_official_entry.py",
@@ -307,6 +310,7 @@
     "main-system/tests/test_rag_final_acceptance.py",
     "main-system/tests/test_rag_generation_qdrant_lifecycle.py",
     "main-system/tests/test_rag_lifecycle.py",
+    "main-system/tests/test_rag_maintenance.py",
     "main-system/tests/test_rag_orchestration.py",
     "main-system/tests/test_rag_query_service.py",
     "main-system/tests/test_rag_reconciliation.py",
@@ -642,6 +646,11 @@
    "category": "python-unit",
    "language": "python",
    "path": "Standalone tools/local-model/tests/test_gpt_training.py"
+  },
+  {
+   "category": "python-unit",
+   "language": "python",
+   "path": "Standalone tools/local-model/tests/test_infer_tool_loop.py"
   },
   {
    "category": "python-unit",
@@ -1176,11 +1185,6 @@
   {
    "category": "python-unit",
    "language": "python",
-   "path": "main-system/node_modules/node-gyp/gyp/test_gyp.py"
-  },
-  {
-   "category": "python-unit",
-   "language": "python",
    "path": "main-system/tests/_main_system_test_support.py"
   },
   {
@@ -1267,6 +1271,11 @@
    "category": "python-unit",
    "language": "python",
    "path": "main-system/tests/test_cag_gate.py"
+  },
+  {
+   "category": "python-unit",
+   "language": "python",
+   "path": "main-system/tests/test_cag_refresh_flow.py"
   },
   {
    "category": "python-unit",
@@ -1571,6 +1580,11 @@
   {
    "category": "python-unit",
    "language": "python",
+   "path": "main-system/tests/test_rag_maintenance.py"
+  },
+  {
+   "category": "python-unit",
+   "language": "python",
    "path": "main-system/tests/test_rag_orchestration.py"
   },
   {
@@ -1784,6 +1798,11 @@
    "path": "main-system/tests/test_tool_start_lease_fencing.py"
   },
   {
+   "category": "cross-language-integration",
+   "language": "python",
+   "path": "main-system/tests/test_toolbox_registry_monitor.py"
+  },
+  {
    "category": "python-unit",
    "language": "python",
    "path": "main-system/tests/test_transport_notify.py"
@@ -1982,6 +2001,11 @@
    "category": "native-unit",
    "language": "cpp",
    "path": "native/test_suites/suite_runtime_state.cpp"
+  },
+  {
+   "category": "parity",
+   "language": "cpp",
+   "path": "native/test_suites/suite_scheduler_parity.cpp"
   },
   {
    "category": "native-unit",
@@ -2239,5 +2263,6 @@
    "path": "shared-layer/tests/test_workload_lanes.py"
   }
  ],
- "schema": "test-ownership-inventory/v1"
+ "schema": "test-ownership-inventory/v1",
+ "source_revision": "1063a6b5205a18fa9cecc2b9ad98efdbcee0c641"
 }

@@ -14,6 +14,7 @@ import argparse
 import json
 import hashlib
 import re
+import subprocess
 import time
 from pathlib import Path
 
@@ -37,6 +38,18 @@ CATEGORIES = (
 
 def utc_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def source_revision() -> str | None:
+    """Git HEAD of the scanned tree; None when git is unavailable."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_ROOT, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return out.stdout.strip() or None
 
 
 def content_hash(payload: object) -> str:
@@ -100,7 +113,7 @@ def collect() -> list[dict]:
     for p in PROJECT_ROOT.rglob("test_*.py"):
         if p.is_file() and p not in files:
             # Skip venv, runtime, worktrees, releases
-            if any(seg in p.parts for seg in (".venv", "runtime", "releases", ".git", "__pycache__", "bin", "dist", ".worktrees", ".kilo")):
+            if any(seg in p.parts for seg in (".venv", "runtime", "releases", ".git", "__pycache__", "bin", "dist", ".worktrees", ".kilo", "node_modules", "obj")):
                 continue
             files.append(p)
     # Deduplicate and sort
@@ -121,6 +134,7 @@ def build(output: Path) -> dict:
     payload = {
         "schema": SCHEMA,
         "generated_at_utc": utc_now(),
+        "source_revision": source_revision(),
         "generator": "scripts/build-test-ownership-inventory.py",
         "classifier_version": CLASSIFIER_VERSION,
         "authority": "derived-rebuildable; language ownership per A56/A210/A440; no test moved or deleted",

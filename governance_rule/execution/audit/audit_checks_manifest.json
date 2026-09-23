@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-23T08:11:50Z",
+  "generated_at": "2026-09-23T14:26:54Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 363,
+    "native_checks": 361,
     "delegated_checks": 28,
     "native_kinds": [
       "file-exists",
@@ -63,16 +63,6 @@
       "id": "protected-source-readonly:governance_rule/codex/__init__.py",
       "kind": "file-readonly",
       "path": "governance_rule/codex/__init__.py"
-    },
-    {
-      "id": "protected-source:governance_rule/codex/data/governance_codex.sqlite3",
-      "kind": "file-exists",
-      "path": "governance_rule/codex/data/governance_codex.sqlite3"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/codex/data/governance_codex.sqlite3",
-      "kind": "file-readonly",
-      "path": "governance_rule/codex/data/governance_codex.sqlite3"
     },
     {
       "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-1.txt",

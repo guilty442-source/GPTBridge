@@ -75,6 +75,7 @@ _EXEMPT_FILES = (
     "failover_store.py",
     "domain.py",
     "codex_repository.py",
+    "codex_postgresql.py",
     "codex_update_validation.py",
     "audit_directories.py",
     "successor_framework.py",
