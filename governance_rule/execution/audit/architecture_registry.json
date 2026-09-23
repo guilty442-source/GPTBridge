@@ -37,7 +37,8 @@
   "trash": [
    "global-cleaner",
    "language-review",
-   "sub-sovereign-orchestration"
+   "sub-sovereign-orchestration",
+   "tokenizer"
   ]
  },
  "retired_module_cleanup_contract": {
@@ -342,10 +343,10 @@
    "architectural_role": "information",
    "runtime_form": "python-process",
    "owner_sovereign": "system-runtime",
-   "execution_identity": "tokenizer",
-   "physical_path": "shared-layer/src/shared_layer/tokenizer.py",
-   "lifecycle": "resident",
-   "canonical": true,
+   "execution_identity": "retired-tokenizer",
+   "physical_path": "",
+   "lifecycle": "retired",
+   "canonical": false,
    "dependencies": [
     "shared-layer"
    ],
@@ -355,7 +356,8 @@
    "architecture_code": "SHARED_LAYER",
    "unit": "UNIT_PLATFORM",
    "block": "BLOCK_SHARED",
-   "python_residency": "migrate-cpp"
+   "python_residency": "retire",
+   "external_locator": "git-history:shared-layer/src/shared_layer/tokenizer.py (retired G100 2026-09-23 — zero live consumers; native tokenizer supersedes)"
   },
   {
    "component_id": "information-channel-gateway",
@@ -1052,7 +1054,6 @@
     "shared-layer",
     "system-rescue",
     "system-runtime-sovereign",
-    "tokenizer",
     "vaultly"
    ],
    "dependencies": [

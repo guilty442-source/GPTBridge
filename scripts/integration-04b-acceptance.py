@@ -770,8 +770,8 @@ def fault_scenarios() -> None:
 def source_change_isolation() -> None:
     fixture = FIXTURES / "dev-source"
     fixture.mkdir(parents=True, exist_ok=True)
-    target = fixture / "shared_layer_tokenizer_copy.py"
-    shutil.copy2(ROOT / "shared-layer" / "src" / "shared_layer" / "tokenizer.py", target)
+    target = fixture / "shared_layer_health_states_copy.py"
+    shutil.copy2(ROOT / "shared-layer" / "src" / "shared_layer" / "health_states.py", target)
     before = tree_hash(RC / "shared_runtime")
     target.write_text(target.read_text(encoding="utf-8") + "\n# isolated dev-source mutation\n", encoding="utf-8")
     after = tree_hash(RC / "shared_runtime")

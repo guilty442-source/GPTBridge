@@ -43,6 +43,18 @@
     },
     "validator": "every non-retired python-process component must carry python_residency in python_residency_kinds; positive PASS, negative PASS"
   },
+  "increment_4_tokenizer_retirement": {
+    "finding": "shared-layer tokenizer (jieba-backed TokenizerWrapper) had zero live consumers — only its own module, the lazy __init__ export, and an integration fixture copy reference. Dead Python surface carrying the jieba dependency.",
+    "actions": [
+      "component retired in registry (precedent: global-cleaner) + trash label",
+      "five_cores.runtime.processes pruned",
+      "shared_layer/tokenizer.py deleted; __init__ lazy export removed",
+      "jieba dropped from shared-layer/requirements.txt (sole consumer)",
+      "integration-04b fixture repointed to health_states.py (copy-source only)",
+      "source_ownership.SHARED_LAYER_ALLOWED_SOURCES entry removed"
+    ],
+    "verification": "shared_layer imports clean (16 exports); TokenizerWrapper gone; registry validate() 0 errors"
+  },
   "remaining_scope_not_in_this_increment": [
     "mechanical-work migration C/C++/C# and Python residency removal (largest G100 sub-clause; requires per-component parity work, blueprint ordered)",
     "third-party dependency keep/replace/remove disposition list",
