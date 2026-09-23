@@ -1,0 +1,21 @@
+{
+  "evidence_id": "p5-ghost-services-wiring-20260923",
+  "item": "P5 residual: daily_global_cleaner / main_system_self_maintenance alleged no production entry point",
+  "verdict": "finding_stale_both_wired",
+  "context": "codex-worker scan predates P27 executor-cluster restore (58cb7a2b); both services start via the live boot path",
+  "wiring": {
+    "daily_global_cleaner": [
+      "main-system/src-core/main.py:82 import",
+      "core_system/app_lifecycle.py:80 construct DailyGlobalCleanerService(app)",
+      "core_system/sovereign_stack_executor_activation.py:72 await app.daily_global_cleaner_service.start()",
+      "core_system/module_automation_registry.py:19 registers daily-cleaner",
+      "main_shutdown.py:134 shutdown"
+    ],
+    "main_system_self_maintenance": [
+      "sovereign_stack_executor_activation.py:144-165 lazy construct + await start()",
+      "ipc/command_router/repair_handler.py:20 command app:run-main-system-self-maintenance"
+    ],
+    "activation_chain": "startup_executor_phases.py:321 start_sovereign_stack() -> SovereignStackActivationMixin"
+  },
+  "action": "no retire needed; P5 ghost designation corrected to wired"
+}
