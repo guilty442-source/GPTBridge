@@ -75,13 +75,18 @@ class PeriodicScheduler:
         their own internal gating inside ``tick``.
 
         ``pausable`` marks non-essential work that may defer while the
-        scheduler's ``pause_check`` reports active regulation."""
+        scheduler's ``pause_check`` reports active regulation.  Deferral
+        is starvation-bounded: a job paused continuously for
+        ``starve_after_s`` runs anyway — sustained regulation must not
+        silently kill a flow for hours."""
         now = time.monotonic()
         resolved_timeout_s = timeout_s or self._job_timeout_s
         self._jobs[name] = {
             "interval_s": float(interval_s),
             "tick": tick,
             "pausable": bool(pausable),
+            "starve_after_s": max(300.0, float(interval_s) * 10.0),
+            "paused_since": None,
             "timeout_s": resolved_timeout_s,
             "next_due": (
                 now
@@ -150,6 +155,7 @@ class PeriodicScheduler:
                     "run_count": job["run_count"],
                     "pausable": job["pausable"],
                     "paused_count": job.get("paused_count", 0),
+                    "starved_count": job.get("starved_count", 0),
                 }
             )
         return out
@@ -171,13 +177,33 @@ class PeriodicScheduler:
                     next_due = min(next_due, job["next_due"])
                     continue
                 if paused and job["pausable"]:
-                    # §10.64 ④: defer non-essential work while the
-                    # governor regulates — reschedule normally so jobs
-                    # do not burst-fire on release.
-                    job["next_due"] = now + job["interval_s"]
-                    job["paused_count"] = job.get("paused_count", 0) + 1
-                    next_due = min(next_due, job["next_due"])
-                    continue
+                    if job["paused_since"] is None:
+                        job["paused_since"] = now
+                    starved = (now - job["paused_since"]) > job[
+                        "starve_after_s"
+                    ]
+                    if not starved:
+                        # §10.64 ④: defer non-essential work while the
+                        # governor regulates — reschedule normally so jobs
+                        # do not burst-fire on release.
+                        job["next_due"] = now + job["interval_s"]
+                        job["paused_count"] = (
+                            job.get("paused_count", 0) + 1
+                        )
+                        next_due = min(next_due, job["next_due"])
+                        continue
+                    # Starvation bound: deferral is a throttle, not a
+                    # kill switch — run the job once now and let normal
+                    # scheduling resume.
+                    _logger.warning(
+                        "periodic job %s starved %.0fs under regulation; "
+                        "running anyway (bound %.0fs)",
+                        name,
+                        now - job["paused_since"],
+                        job["starve_after_s"],
+                    )
+                    job["starved_count"] = job.get("starved_count", 0) + 1
+                job["paused_since"] = None
                 job["next_due"] = now + job["interval_s"]
                 job["last_started"] = time.time()
                 mark = time.monotonic()
