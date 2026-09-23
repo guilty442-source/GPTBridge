@@ -76,6 +76,7 @@ class RagApplicationService:
         policy_version: str = "",
         dag_planner: Any = None,
         index_executor_factory: Optional[Callable[[RagIngestCommand], Any]] = None,
+        repair_executor_factory: Optional[Callable[[RagReconcileCommand], Any]] = None,
     ) -> None:
         self._orchestrator = orchestrator
         self._sovereign = sovereign
@@ -84,6 +85,7 @@ class RagApplicationService:
         self._policy_version = policy_version
         self._dag_planner = dag_planner
         self._index_executor_factory = index_executor_factory
+        self._repair_executor_factory = repair_executor_factory
 
     # ------------------------------------------------------------------
     # query()
@@ -312,12 +314,63 @@ class RagApplicationService:
     def reconcile(self, command: RagReconcileCommand) -> RagAuditRecord:
         role = self._role_of(command.actor_id)
         require_capability(role, RagCapability.RECONCILE)
+
+        result = "accepted"
+        generation_id = ""
+        module_scope = (command.module_id,) if command.module_id else ()
+        if (
+            self._repair_executor_factory is not None
+            and self._dag_planner is not None
+        ):
+            # A549 REPAIR kind: repair -> verification -> publish-barrier,
+            # bounded by the DAG executor (timeouts, compensation).
+            from ..dag import (
+                RagDagKind,
+                RagDagPlanRequest,
+                RagDagState,
+                default_budgets,
+                execution_context,
+            )
+            dag_context = execution_context(
+                execution_id=f"exec-{command.request_id}",
+                correlation_id=command.request_id,
+                actor_id=command.actor_id,
+                module_id=command.module_id or "*",
+                request_id=command.request_id,
+                decision_id="",
+                module_ids=module_scope,
+                data_categories=("internal",),
+                permission_scope="rag:reconcile",
+                budgets=default_budgets(max_steps=16, max_seconds=180.0),
+            )
+            plan_request = RagDagPlanRequest(
+                kind=RagDagKind.REPAIR,
+                dag_id=f"reconcile-{command.request_id}",
+                module_ids=module_scope or ("*",),
+                data_categories=("internal",),
+                repair_target=command.module_id or "",
+            )
+            try:
+                plan = self._dag_planner.plan(plan_request, dag_context)
+                executor = self._repair_executor_factory(command)
+                dag_result = executor.execute(plan)
+            except Exception as exc:
+                result = f"failed:{type(exc).__name__}"
+            else:
+                generation_id = dag_result.correlation_id
+                if dag_result.state is RagDagState.SUCCEEDED:
+                    result = "reconciled"
+                else:
+                    reasons = ";".join(dag_result.failure_reasons) or dag_result.state.value
+                    result = f"failed:{reasons[:200]}"
+
         rec = make_audit_record(
             request_id=command.request_id,
             actor_id=command.actor_id,
             operation="rag.reconcile",
-            module_scope=(command.module_id,) if command.module_id else (),
-            result="accepted",
+            module_scope=module_scope,
+            result=result,
+            generation_id=generation_id,
         )
         self._audit_sink(rec)
         return rec

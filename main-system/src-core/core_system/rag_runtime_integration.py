@@ -425,6 +425,15 @@ class RagRuntimeIntegration:
     _embedder: Any = None
     _loop_worker: Optional[_RagLoop] = None
     _init_future: "concurrent.futures.Future[Any] | None" = None
+    _maintenance_registered: bool = False
+    _maintenance_task: "concurrent.futures.Future[Any] | None" = None
+    _last_parity_at: float = 0.0
+    # P0 canonical maintenance cadence — the automation-flows manifest
+    # owns the interval when the core drives; this only seeds the
+    # no-core fallback loop.
+    _MAINTENANCE_INTERVAL_S = float(
+        os.environ.get("RAG_MAINTENANCE_INTERVAL_S", "300")
+    )
     _started: bool = False
     _dag_planner: Any = None
     _cag_store: Any = None
@@ -483,6 +492,7 @@ class RagRuntimeIntegration:
         # on it.  The terminal state is logged by the done-callback.
         self._init_future = self._loop_worker.submit(self._pipeline.initialize())
         self._init_future.add_done_callback(self._on_pipeline_init_done)
+        self._start_maintenance_driver()
         state = self._pipeline.state.value
 
         surface = _SyncRetrievalSurface(
@@ -717,6 +727,71 @@ class RagRuntimeIntegration:
             "authority_marker": getattr(state, "content_hash", "") or "",
         }
 
+    # ------------------------------------------------------------------
+    # P0: governed canonical maintenance driver
+    # ------------------------------------------------------------------
+
+    def _parity_due(self) -> bool:
+        pipeline = self._pipeline
+        interval = getattr(
+            pipeline, "_PARITY_SWEEP_INTERVAL_S", 300.0
+        ) if pipeline is not None else 300.0
+        now = time.monotonic()
+        if now - self._last_parity_at < interval:
+            return False
+        self._last_parity_at = now
+        return True
+
+    async def _maintenance_tick(self) -> None:
+        """One cycle on the RAG worker loop — called by the automation
+        core or the private fallback loop."""
+        pipeline, worker = self._pipeline, self._loop_worker
+        if pipeline is None or worker is None or not self._started:
+            return
+        await asyncio.to_thread(
+            worker.run,
+            pipeline.run_maintenance_cycle(
+                include_parity=self._parity_due()
+            ),
+            pipeline._MAINTENANCE_BUDGET_S + 30,
+        )
+
+    def _start_maintenance_driver(self) -> None:
+        """Register the canonical maintenance cycle.
+
+        Automation core owns the cadence when present (kill-switchable
+        through automation-flows.json; a denied registration must NOT
+        fall back to a private loop).  Without a core the worker loop
+        runs its own recurring task — private-loop fallback is only
+        legitimate with no core at all.
+        """
+        core = getattr(self.app, "automation_core", None)
+        if core is not None:
+            self._maintenance_registered = bool(
+                core.register_flow("rag-maintenance", self._maintenance_tick)
+            )
+            return
+        if self._loop_worker is not None:
+            self._maintenance_task = self._loop_worker.submit(
+                self._private_maintenance_loop()
+            )
+
+    async def _private_maintenance_loop(self) -> None:
+        while self._started:
+            try:
+                await asyncio.sleep(self._MAINTENANCE_INTERVAL_S)
+                if not self._started:
+                    break
+                pipeline = self._pipeline
+                if pipeline is not None:
+                    await pipeline.run_maintenance_cycle(
+                        include_parity=self._parity_due()
+                    )
+            except asyncio.CancelledError:
+                break
+            except Exception:  # noqa: BLE001 — maintenance never kills the loop
+                continue
+
     def _on_pipeline_init_done(
         self, future: "concurrent.futures.Future[Any]"
     ) -> None:
@@ -727,6 +802,16 @@ class RagRuntimeIntegration:
             initialized = bool(future.result())
         except Exception as exc:  # init coroutine itself raised
             error = f"{type(exc).__name__}: {exc}"
+        # P0 resume: one immediate maintenance pass after init so outbox
+        # work orphaned by the previous process lifetime is reclaimed
+        # and drained before the first periodic tick.
+        if initialized and not error:
+            pipeline, worker = self._pipeline, self._loop_worker
+            if pipeline is not None and worker is not None:
+                try:
+                    worker.submit(pipeline.run_maintenance_cycle())
+                except Exception:
+                    pass
         state = self._pipeline.state.value if self._pipeline else "absent"
         blocked = (
             self._pipeline.blocked_reason if self._pipeline else None
