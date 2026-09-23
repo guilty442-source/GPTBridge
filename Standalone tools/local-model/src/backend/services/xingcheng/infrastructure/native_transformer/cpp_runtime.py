@@ -242,7 +242,7 @@ def _ledger_append(entry: dict[str, Any]) -> None:
 
 
 class CppInferenceEngine:
-    """Governed C++ runtime engine; CPU-only, batch=1, dense FP64.
+    """Governed C++ runtime engine; dense FP64 (CUDA opt-in gated at load).
 
     The wrapper keeps the same generate() result contract as
     ``NativeTransformerEngine`` so governed callers do not need to know
@@ -363,23 +363,19 @@ class CppInferenceEngine:
 
     # -- generation ------------------------------------------------------
 
-    def generate(
+    def _sampling_params(
         self,
         *,
-        prompt: str,
-        intent: str = "",
         max_tokens: Any = None,
         temperature: Any = None,
         top_k: Any = None,
         top_p: Any = None,
         repetition_penalty: Any = None,
         seed: Any = None,
-        cancel_event: Any = None,
-        progress_callback: Any = None,
-    ) -> dict[str, Any]:
+    ) -> tuple[int, bool, float, int, float, float, int]:
+        """Normalize governed sampling parameters once per request/batch."""
         from ..native_engine import generation_defaults
 
-        started = time.perf_counter()
         defaults = generation_defaults()
         configured_cap = int(defaults["max_new_tokens"])
         try:
@@ -425,6 +421,47 @@ class CppInferenceEngine:
             seed_value = int(seed) if seed is not None else int(defaults["seed"] or 0)
         except (TypeError, ValueError):
             seed_value = 0
+        return (
+            max_new,
+            do_sample,
+            temperature_value,
+            top_k_value,
+            top_p_value,
+            rep_value,
+            seed_value,
+        )
+
+    def generate(
+        self,
+        *,
+        prompt: str,
+        intent: str = "",
+        max_tokens: Any = None,
+        temperature: Any = None,
+        top_k: Any = None,
+        top_p: Any = None,
+        repetition_penalty: Any = None,
+        seed: Any = None,
+        cancel_event: Any = None,
+        progress_callback: Any = None,
+    ) -> dict[str, Any]:
+        started = time.perf_counter()
+        (
+            max_new,
+            do_sample,
+            temperature_value,
+            top_k_value,
+            top_p_value,
+            rep_value,
+            seed_value,
+        ) = self._sampling_params(
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            seed=seed,
+        )
 
         if cancel_event is not None and cancel_event.is_set():
             return {
@@ -533,6 +570,136 @@ class CppInferenceEngine:
             "intent": str(intent or ""),
         }
 
+    def generate_batch(
+        self,
+        *,
+        prompts: list[str],
+        intent: str = "",
+        max_tokens: Any = None,
+        temperature: Any = None,
+        top_k: Any = None,
+        top_p: Any = None,
+        repetition_penalty: Any = None,
+        seed: Any = None,
+        cancel_event: Any = None,
+    ) -> dict[str, Any]:
+        """G29: governed batch>1 entry — one lock + one packed engine call.
+
+        Returns ``{"ok": True, "results": [...]}`` where each element keeps
+        the same contract as ``generate()`` so callers do not know which
+        layer served the request.
+        """
+        started = time.perf_counter()
+        items = [str(p or "") for p in (prompts or [])]
+        if not items:
+            return {
+                "ok": False,
+                "error_code": "CPP_RUNTIME_BATCH_EMPTY",
+                "message": "prompts 為空",
+                "fallback_required": False,
+            }
+        if len(items) > 16:
+            return {
+                "ok": False,
+                "error_code": "CPP_RUNTIME_BATCH_TOO_LARGE",
+                "message": "batch prompts 超過上限 16",
+                "fallback_required": False,
+            }
+        (
+            max_new,
+            do_sample,
+            temperature_value,
+            top_k_value,
+            top_p_value,
+            rep_value,
+            seed_value,
+        ) = self._sampling_params(
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            seed=seed,
+        )
+        if cancel_event is not None and cancel_event.is_set():
+            return {
+                "ok": False,
+                "error_code": "TRANSFORMER_REQUEST_CANCELLED",
+                "message": "Model generation was cancelled",
+                "fallback_required": False,
+            }
+        with self._lock:
+            try:
+                prompt_ids = [
+                    self._engine.encode(p, True, False, 0) for p in items
+                ]
+                if any(not ids for ids in prompt_ids):
+                    return {
+                        "ok": False,
+                        "error_code": "NATIVE_ENGINE_EMPTY_PROMPT",
+                        "message": "prompt 編碼後為空",
+                        "fallback_required": False,
+                    }
+                config = sampling_config(
+                    do_sample=do_sample,
+                    temperature=temperature_value,
+                    top_k=top_k_value,
+                    top_p=top_p_value,
+                    repetition_penalty=rep_value,
+                    seed=seed_value,
+                )
+                batch_out = self._engine.generate_batch(
+                    prompt_ids, max_new, config
+                )
+            except Exception as error:
+                return {
+                    "ok": False,
+                    "error_code": "CPP_RUNTIME_GENERATION_FAILED",
+                    "message": str(error),
+                    "fallback_required": False,
+                }
+            texts = [self._engine.decode(list(ids), True) for ids in batch_out]
+
+        latency_ms = round((time.perf_counter() - started) * 1_000, 3)
+
+        def _digest(value: str) -> str:
+            return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+        _ledger_append(
+            {
+                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "engine": "cpp",
+                "event": "cpp-runtime-execution",
+                "batch_size": len(items),
+                "checkpoint_path": str(self.checkpoint_path),
+                "bundle_dir": str(self.bundle_dir),
+                "weights_sha256": self.weights_sha256,
+                "prompt_sha256": [_digest(p) for p in items],
+                "output_sha256": [_digest(t) for t in texts],
+                "eval_count": sum(len(ids) for ids in batch_out),
+                "latency_ms": latency_ms,
+                "device": "cpu",
+                "third_party_foundation_weights": False,
+                "loopback_runtime_used": False,
+            }
+        )
+        results = [
+            {
+                "ok": True,
+                "text": text,
+                "decoder": "xingcheng-cpp-inference-engine",
+                "model": "xingcheng-native-transformer",
+                "model_family": "xingcheng-native",
+                "cpp_runtime": True,
+                "eval_count": len(ids),
+                "prompt_eval_count": len(prompt_ids[i]),
+                "latency_ms": latency_ms,
+                "intent": str(intent or ""),
+            }
+            for i, (text, ids) in enumerate(zip(texts, batch_out))
+        ]
+        return {"ok": True, "results": results, "batch_size": len(items)}
+
     def _engine_config_value(self, name: str) -> int:
         try:
             manifest = json.loads(
@@ -608,6 +775,19 @@ def generate_via_cpp_engine(request: dict[str, Any]) -> dict[str, Any]:
             "message": str(error),
             "fallback_required": False,
         }
+    prompts = request.get("prompts")
+    if isinstance(prompts, list):
+        return engine.generate_batch(
+            prompts=[str(p or "") for p in prompts],
+            intent=str(request.get("intent") or ""),
+            max_tokens=request.get("max_tokens"),
+            temperature=request.get("temperature"),
+            top_k=request.get("top_k"),
+            top_p=request.get("top_p"),
+            repetition_penalty=request.get("repetition_penalty"),
+            seed=request.get("seed"),
+            cancel_event=request.get("cancel_event"),
+        )
     return engine.generate(
         prompt=str(request.get("prompt") or ""),
         intent=str(request.get("intent") or ""),

@@ -1,0 +1,22 @@
+{
+ "schema": "convergence-evidence/v1",
+ "evidence_id": "g29-batch-runtime-switch-20260923",
+ "recorded_at_utc": "2026-09-23T05:50:55Z",
+ "item": "G29 increment: batch>1 production caller path + runtime switch + .pyd wiring audit",
+ "changes": [
+  "cpp_runtime.py: _sampling_params extracted (shared by generate/generate_batch); CppInferenceEngine.generate_batch — one lock + one packed generate_batch call, per-item results keep generate() contract, batch ledger entry with per-item digests, fail-closed CPP_RUNTIME_BATCH_EMPTY/BATCH_TOO_LARGE(>16)",
+  "cpp_runtime.py generate_via_cpp_engine + native_engine.generate_via_native_engine: request[\"prompts\"] list routes to batch path (empty list fail-closed; Python fallback loops engine.generate with same contract)",
+  "model_service_http.py: POST /v1/infer accepts prompts[] array → governed batch path, response carries results[] with per-item contract",
+  "engine.cpp: sanitize_utf8 — decode() can no longer emit invalid UTF-8; truncated token-cap tails become U+FFFD (errors=replace semantics). Fixes a latent crash reachable from single generate() too; found via batch smoke"
+ ],
+ "verified": [
+  "test_cpp_batch_generate.py 4/4 (contract, fixed-seed determinism, fail-closed empty/oversize, single-path unchanged)",
+  "live smoke: prompts x3 -> one packed call, cpp_runtime=True, eval_count=4 each; oversize -> CPP_RUNTIME_BATCH_TOO_LARGE",
+  "regression: kv_device 3/3 + bf16 3/3 after decode sanitizer",
+  "runtime switch: cpp_runtime_mode() env->settings->off, off/required/fallback, invalid fail-closed (pre-existing P3f)",
+  ".pyd wiring: build_cpp.py installs into main-system/.venv site-packages (cp311+cp313, 553KB CUDA build); packager_runtime clones site-packages into each release — production propagation automatic on next release"
+ ],
+ "deferred": [
+  "cpp_runtime production enablement flip (settings \"cpp_runtime\": \"fallback\"/\"required\") — deferred: INT-10 acceptance window is live; switching the served inference path mid-window would perturb the measured baseline. Mechanism + batch path ready; flip is a one-line settings change post-window"
+ ]
+}

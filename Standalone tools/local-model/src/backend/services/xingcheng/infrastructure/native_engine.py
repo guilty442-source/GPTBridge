@@ -876,6 +876,45 @@ def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
             "message": str(error),
             "fallback_required": False,
         }
+    prompts = request.get("prompts")
+    if isinstance(prompts, list):
+        # G29 batch>1 生產呼叫者：Python fallback 路徑逐筆生成，
+        # 合約與 C++ generate_batch 相同（ok + results[]）。
+        if not prompts:
+            return {
+                "ok": False,
+                "error_code": "NATIVE_ENGINE_BATCH_EMPTY",
+                "message": "prompts 為空",
+                "fallback_required": False,
+            }
+        if len(prompts) > 16:
+            return {
+                "ok": False,
+                "error_code": "NATIVE_ENGINE_BATCH_TOO_LARGE",
+                "message": "batch prompts 超過上限 16",
+                "fallback_required": False,
+            }
+        results = [
+            engine.generate(
+                prompt=str(p or ""),
+                intent=str(request.get("intent") or ""),
+                max_tokens=request.get("max_tokens"),
+                temperature=request.get("temperature"),
+                top_k=request.get("top_k"),
+                top_p=request.get("top_p"),
+                repetition_penalty=request.get("repetition_penalty"),
+                seed=request.get("seed"),
+                sliding_window=bool(request.get("sliding_window")),
+                cancel_event=request.get("cancel_event"),
+                progress_callback=request.get("progress_callback"),
+            )
+            for p in prompts
+        ]
+        return {
+            "ok": all(bool(r.get("ok")) for r in results),
+            "results": results,
+            "batch_size": len(results),
+        }
     return engine.generate(
         prompt=str(request.get("prompt") or ""),
         intent=str(request.get("intent") or ""),

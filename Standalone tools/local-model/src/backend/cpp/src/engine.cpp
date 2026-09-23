@@ -92,6 +92,54 @@ void append_utf8(std::string& out, uint32_t cp) {
     }
 }
 
+// Byte-level BPE decode can end mid-codepoint when generation stops on a
+// token cap — sanitize so decode() always yields valid UTF-8 (U+FFFD for
+// invalid bytes / truncated tails, matching errors='replace' semantics).
+std::string sanitize_utf8(const std::string& in) {
+    std::string out;
+    out.reserve(in.size());
+    size_t i = 0;
+    while (i < in.size()) {
+        const unsigned char c = static_cast<unsigned char>(in[i]);
+        if (c < 0x80) {
+            out.push_back(in[i]);
+            ++i;
+            continue;
+        }
+        size_t width = 0;
+        if ((c & 0xE0) == 0xC0) width = 2;
+        else if ((c & 0xF0) == 0xE0) width = 3;
+        else if ((c & 0xF8) == 0xF0) width = 4;
+        bool valid = width > 0 && i + width <= in.size();
+        if (valid) {
+            for (size_t k = 1; k < width; ++k) {
+                if ((static_cast<unsigned char>(in[i + k]) & 0xC0) != 0x80) {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+        if (valid) {
+            out.append(in, i, width);
+            i += width;
+        } else {
+            out += "\xEF\xBF\xBD";
+            // Truncated tail: consume the whole partial sequence so it
+            // becomes one replacement char like Python's errors='replace'.
+            if (width > 0) {
+                i += 1;
+                while (i < in.size() &&
+                       (static_cast<unsigned char>(in[i]) & 0xC0) == 0x80) {
+                    ++i;
+                }
+            } else {
+                ++i;
+            }
+        }
+    }
+    return out;
+}
+
 class JsonParser {
 public:
     explicit JsonParser(std::string_view input) : input_(input) {
@@ -1260,7 +1308,7 @@ std::string ByteLevelBPETokenizer::decode(
             i += width;
         }
     }
-    return bytes;
+    return sanitize_utf8(bytes);
 }
 
 // ── Engine (P3d–P3f) ──────────────────────────────────────────────────

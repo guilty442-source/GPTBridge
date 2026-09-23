@@ -175,7 +175,13 @@ class _Handler(BaseHTTPRequestHandler):
         if payload is None:
             return
         prompt = str(payload.get("prompt") or "")
-        if not prompt.strip():
+        prompts = payload.get("prompts")
+        batch_prompts = (
+            [str(p or "") for p in prompts]
+            if isinstance(prompts, list) and prompts
+            else []
+        )
+        if not prompt.strip() and not batch_prompts:
             self._deny(400, "PROMPT_REQUIRED", "prompt must not be empty")
             return
         extra = payload.get("extra")
@@ -190,13 +196,41 @@ class _Handler(BaseHTTPRequestHandler):
             "top_p": payload.get("top_p"),
             "seed": seed,
         }
+        if batch_prompts:
+            request["prompts"] = batch_prompts
         started = time.perf_counter()
         from .native_engine import generate_via_native_engine
 
         result = generate_via_native_engine(request)
         latency_ms = round((time.perf_counter() - started) * 1_000, 3)
         ok = bool(result.get("ok"))
-        response: dict[str, Any] = {
+        if batch_prompts and "results" in result:
+            results = result.get("results") or []
+            response: dict[str, Any] = {
+                "schema": SCHEMA,
+                "ok": ok,
+                "batch_size": int(result.get("batch_size") or len(results)),
+                "results": [
+                    {
+                        "ok": bool(r.get("ok")),
+                        "text": str(r.get("text") or ""),
+                        "token_ids": list(r.get("token_ids") or []),
+                        "model_id": str(r.get("model") or ""),
+                        "decoder": str(r.get("decoder") or ""),
+                        "cpp_runtime": bool(r.get("cpp_runtime")),
+                    }
+                    for r in results
+                ],
+                "latency_ms": float(result.get("latency_ms") or latency_ms),
+            }
+            if not ok:
+                response["error_code"] = str(
+                    result.get("error_code") or "INFERENCE_FAILED"
+                )
+                response["message"] = str(result.get("message") or "")
+            self._send_json(200 if ok else 502, response)
+            return
+        response = {
             "schema": SCHEMA,
             "ok": ok,
             "text": str(result.get("text") or ""),
