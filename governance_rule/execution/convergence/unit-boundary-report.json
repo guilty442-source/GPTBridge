@@ -1,0 +1,64 @@
+{
+  "schema": "unit-boundary-report/v1",
+  "note": "derived check; dynamic imports unresolvable; violations are convergence candidates, not verdicts",
+  "edge_count": 9,
+  "cross_unit_edges": 8,
+  "violations": [
+    {
+      "edge": "boot-core->system-rescue",
+      "src_unit": "UNIT_RUNTIME",
+      "tgt_unit": null,
+      "via_module": "main",
+      "example_file": "main-system\\src-core\\startup.py"
+    },
+    {
+      "edge": "shared-layer->boot-core",
+      "src_unit": "UNIT_PLATFORM",
+      "tgt_unit": "UNIT_RUNTIME",
+      "via_module": "core_system",
+      "example_file": "shared-layer\\src\\shared_layer\\channel_runtime.py"
+    },
+    {
+      "edge": "ai-assistant->boot-core",
+      "src_unit": null,
+      "tgt_unit": "UNIT_RUNTIME",
+      "via_module": "core_system",
+      "example_file": "Standalone tools\\ai-assistant\\src\\backend\\services\\ai_nexus\\domain\\contract.py"
+    },
+    {
+      "edge": "ai-collaboration->boot-core",
+      "src_unit": null,
+      "tgt_unit": "UNIT_RUNTIME",
+      "via_module": "core_system",
+      "example_file": "Standalone tools\\ai-collaboration\\src\\backend\\services\\ai_collaboration\\application\\service.py"
+    },
+    {
+      "edge": "file-sorter->boot-core",
+      "src_unit": null,
+      "tgt_unit": "UNIT_RUNTIME",
+      "via_module": "core_system",
+      "example_file": "Standalone tools\\file-sorter\\src\\backend\\services\\file_sorter\\domain\\contracts.py"
+    },
+    {
+      "edge": "model-dialogue->boot-core",
+      "src_unit": "UNIT_DIALOGUE",
+      "tgt_unit": "UNIT_RUNTIME",
+      "via_module": "core_system",
+      "example_file": "Standalone tools\\local-model\\model-dialogue\\src\\backend\\services\\star_chat\\application\\service.py"
+    },
+    {
+      "edge": "local-model->boot-core",
+      "src_unit": "UNIT_ENGINE",
+      "tgt_unit": "UNIT_RUNTIME",
+      "via_module": "core_system",
+      "example_file": "Standalone tools\\local-model\\src\\backend\\services\\xingcheng\\application\\service.py"
+    },
+    {
+      "edge": "vaultly->boot-core",
+      "src_unit": null,
+      "tgt_unit": "UNIT_RUNTIME",
+      "via_module": "core_system",
+      "example_file": "Standalone tools\\vaultly\\src\\backend\\services\\vaultly\\application\\service.py"
+    }
+  ]
+}
