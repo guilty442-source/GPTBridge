@@ -38,10 +38,10 @@ if (args.Any(a => a == "lifecycle-stop"))
     return step.Ok ? 0 : 3;
 }
 
-HttpModelClient? client = null;
+IModelClient? client = null;
 try
 {
-    client = ModelServiceLocator.CreateClient(toolRoot);
+    client = ModelServiceLocator.CreateModelClient(toolRoot);
     await WriteAsync(new { ok = true, event_name = "ready", owner = "local-model/channel_runtime.py" });
 
     string? line;
@@ -62,7 +62,12 @@ try
             }
             if (command == "status")
             {
-                var status = await client.StatusAsync();
+                object? status = client switch
+                {
+                    HttpModelClient http => await http.StatusAsync(),
+                    NativeModelClient native => new { transport = "native-abi", describe = native.Describe() },
+                    _ => new { transport = client.GetType().Name },
+                };
                 await WriteAsync(new { ok = true, command, status });
                 continue;
             }
@@ -108,7 +113,7 @@ catch (Exception error)
 }
 finally
 {
-    client?.Dispose();
+    (client as IDisposable)?.Dispose();
 }
 
 return 0;

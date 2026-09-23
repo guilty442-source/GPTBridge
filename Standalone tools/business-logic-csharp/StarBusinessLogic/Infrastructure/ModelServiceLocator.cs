@@ -84,4 +84,120 @@ public static class ModelServiceLocator
         var endpoint = Discover(toolRoot);
         return new Application.HttpModelClient(endpoint.Endpoint, sessionToken: endpoint.SessionToken, timeout: timeout);
     }
+
+    // P11/MS6 受管傳輸選擇：runtime/settings/native-engine.json 的
+    // `csharp_transport` 決定編排層走哪條路——
+    //   "http"（缺省，現行行為）：loopback HTTP + session token（Python 中介）
+    //   "native-abi"：同行程 C ABI（NativeModelClient），Python 僅留治理語意
+    // 未知值 / 映像或 bundle 缺失一律 fail-closed。傳輸切換不碰裁決／權限／
+    // 稽核鏈（皆在上游 GovernedIpcClient），也不改變 shadow→parity→primary
+    // 順序——native-abi 僅在設定顯式 pin 時啟用。
+    public static Application.IModelClient CreateModelClient(string toolRoot, TimeSpan? timeout = null)
+    {
+        if (string.IsNullOrWhiteSpace(toolRoot)) throw new ArgumentException("TOOL_ROOT_REQUIRED", nameof(toolRoot));
+        var transport = ReadTransport(toolRoot);
+        switch (transport)
+        {
+            case "http":
+                return CreateClient(toolRoot, timeout);
+            case "native-abi":
+                return new Application.NativeModelClient(
+                    ResolveEngineImage(toolRoot), ResolveBundleDir(toolRoot));
+            default:
+                throw new InvalidOperationException($"MODEL_TRANSPORT_UNKNOWN:{transport}");
+        }
+    }
+
+    private static string ReadTransport(string toolRoot)
+    {
+        var settingsPath = Path.Combine(toolRoot, "runtime", "settings", "native-engine.json");
+        if (!File.Exists(settingsPath)) return "http";
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(settingsPath));
+            return doc.RootElement.TryGetProperty("csharp_transport", out var t)
+                ? t.GetString() ?? "http"
+                : "http";
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException("MODEL_TRANSPORT_SETTINGS_INVALID", ex);
+        }
+    }
+
+    // dist-native 下最新的版本化引擎映像（.pyd 即 DLL；xc_engine_* 與
+    // pybind11 模組共用同一映像）。無映像 → fail-closed。
+    private static string ResolveEngineImage(string toolRoot)
+    {
+        var distDir = Path.Combine(toolRoot, "dist-native");
+        if (!Directory.Exists(distDir))
+            throw new InvalidOperationException("XC_ENGINE_IMAGE_MISSING");
+        var candidates = Directory.GetFiles(distDir, "_xingcheng_inference*.pyd");
+        var image = candidates.OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+        if (image is null) throw new InvalidOperationException("XC_ENGINE_IMAGE_MISSING");
+        return image;
+    }
+
+    // bundle 有效性契約與 Python cpp_runtime._bundle_matches_source 相同：
+    // schema、source_checkpoint 解析後路徑一致、size/mtime 吻合、weights 檔存在。
+    // bundle 只由受管 export 管線產生——此處純消費，缺合法 bundle 即 fail-closed。
+    private static string ResolveBundleDir(string toolRoot)
+    {
+        var settingsPath = Path.Combine(toolRoot, "runtime", "settings", "native-engine.json");
+        string? checkpoint = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(settingsPath));
+            checkpoint = doc.RootElement.TryGetProperty("checkpoint", out var c) ? c.GetString() : null;
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException("MODEL_TRANSPORT_SETTINGS_INVALID", ex);
+        }
+        if (string.IsNullOrWhiteSpace(checkpoint))
+            throw new InvalidOperationException("XC_BUNDLE_CHECKPOINT_UNPINNED");
+        var checkpointPath = Path.GetFullPath(Path.IsPathRooted(checkpoint)
+            ? checkpoint
+            : Path.Combine(toolRoot, checkpoint));
+        FileInfo checkpointInfo;
+        try
+        {
+            checkpointInfo = new FileInfo(checkpointPath);
+            if (!checkpointInfo.Exists) throw new InvalidOperationException("XC_BUNDLE_CHECKPOINT_MISSING");
+        }
+        catch (IOException ex)
+        {
+            throw new InvalidOperationException("XC_BUNDLE_CHECKPOINT_MISSING", ex);
+        }
+        // Windows FileInfo 無 st_mtime_ns——bundle 由本機 export 產生，
+        // 以 size ＋ resolved path 比對，mtime 由 manifest 供應端自證。
+        var bundlesDir = Path.Combine(toolRoot, "xingcheng", "runtime", "models", "cpp-bundles");
+        if (!Directory.Exists(bundlesDir))
+            throw new InvalidOperationException("XC_BUNDLE_MISSING");
+        foreach (var dir in Directory.GetDirectories(bundlesDir))
+        {
+            var manifestPath = Path.Combine(dir, "manifest.json");
+            if (!File.Exists(manifestPath)) continue;
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(manifestPath));
+                var root = doc.RootElement;
+                if (root.TryGetProperty("schema_version", out var sv) is false
+                    || sv.GetString() != "star-native-inference-bundle/v1") continue;
+                var source = root.TryGetProperty("source_checkpoint", out var sc) ? sc.GetString() : null;
+                if (string.IsNullOrWhiteSpace(source)
+                    || !string.Equals(Path.GetFullPath(source), checkpointPath, StringComparison.OrdinalIgnoreCase)) continue;
+                var size = root.TryGetProperty("source_size", out var sz) ? sz.GetInt64() : -1;
+                if (size != checkpointInfo.Length) continue;
+                var weights = root.TryGetProperty("weights_file", out var wf) ? wf.GetString() : null;
+                if (string.IsNullOrWhiteSpace(weights) || !File.Exists(Path.Combine(dir, weights))) continue;
+                return dir;
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+        }
+        throw new InvalidOperationException("XC_BUNDLE_MISSING");
+    }
 }
