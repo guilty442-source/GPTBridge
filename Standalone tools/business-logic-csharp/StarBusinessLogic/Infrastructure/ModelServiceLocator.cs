@@ -102,7 +102,8 @@ public static class ModelServiceLocator
                 return CreateClient(toolRoot, timeout);
             case "native-abi":
                 return new Application.NativeModelClient(
-                    ResolveEngineImage(toolRoot), ResolveBundleDir(toolRoot));
+                    ResolveEngineImage(toolRoot), ResolveBundleDir(toolRoot),
+                    toolRoot: toolRoot);
             default:
                 throw new InvalidOperationException($"MODEL_TRANSPORT_UNKNOWN:{transport}");
         }

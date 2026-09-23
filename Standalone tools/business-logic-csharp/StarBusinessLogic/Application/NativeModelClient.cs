@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace StarBusinessLogic.Application;
 
@@ -30,6 +32,8 @@ public sealed class NativeModelClient : IModelClient, IDisposable
     private readonly UnloadDelegate _unload;
     private readonly DestroyDelegate _destroy;
     private readonly string _modelId;
+    private readonly string? _toolRoot;
+    private readonly string _bundleDir;
     private readonly SemaphoreSlim _gate = new(1, 1); // 引擎非執行緒安全——序列化呼叫
     private bool _disposed;
 
@@ -73,7 +77,7 @@ public sealed class NativeModelClient : IModelClient, IDisposable
         }
     }
 
-    public NativeModelClient(string engineImagePath, string bundleDir, string modelId = "xingcheng-native")
+    public NativeModelClient(string engineImagePath, string bundleDir, string modelId = "xingcheng-native", string? toolRoot = null)
     {
         if (!File.Exists(engineImagePath)) throw new InvalidOperationException($"XC_ENGINE_IMAGE_MISSING:{engineImagePath}");
         PreloadCudaRuntime();
@@ -87,6 +91,8 @@ public sealed class NativeModelClient : IModelClient, IDisposable
         _generateEx = Bind<GenerateExDelegate>(_lib, "xc_engine_generate_ex");
         _describe = Bind<DescribeDelegate>(_lib, "xc_engine_describe");
         _modelId = modelId;
+        _toolRoot = toolRoot;
+        _bundleDir = bundleDir;
 
         _engine = create();
         if (_engine == IntPtr.Zero) throw new InvalidOperationException("XC_ENGINE_CREATE_FAILED");
@@ -125,9 +131,11 @@ public sealed class NativeModelClient : IModelClient, IDisposable
                 var text = Encoding.UTF8.GetString(buf, 0, (int)len);
                 var tokenIds = new int[(int)idLen];
                 for (var i = 0; i < tokenIds.Length; ++i) tokenIds[i] = (int)idsBuf[i];
+                var latencyMs = Environment.TickCount64 - started;
+                AppendExecutionLedger(request.Prompt, text, tokenIds.Length, latencyMs);
                 return new ModelInferenceResponse(
                     text, tokenIds, _modelId,
-                    Environment.TickCount64 - started,
+                    latencyMs,
                     new Dictionary<string, object> { ["transport"] = "native-abi", ["dual_track"] = true });
             }, cancellationToken).ConfigureAwait(false);
         }
@@ -135,6 +143,71 @@ public sealed class NativeModelClient : IModelClient, IDisposable
         {
             _gate.Release();
         }
+    }
+
+    // 審計鏈等價：HTTP 路徑的 Python 層每次生成都會寫
+    // native-engine-executions.jsonl；native-abi 移除此中介後，稽核責任
+    // 落到本 client——同一 ledger、同一 schema（transport=native-abi
+    // 標記來源），與 Python 端一致採 fail-soft（ledger I/O 失敗不使
+    // 推論失敗）。_toolRoot 為 null 時無法定位 ledger → 不寫（與
+    // 未接線的舊行為相同，不偽造稽核）。
+    private void AppendExecutionLedger(string prompt, string text, int evalCount, long latencyMs)
+    {
+        if (_toolRoot is null) return;
+        try
+        {
+            var ledger = Path.Combine(
+                _toolRoot, "xingcheng", "runtime", "logs",
+                "native-engine-executions.jsonl");
+            var (checkpoint, weightsSha) = ReadBundleIdentity();
+            var entry = new Dictionary<string, object?>
+            {
+                ["at"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+                ["engine"] = "cpp",
+                ["event"] = "cpp-runtime-execution",
+                ["transport"] = "native-abi",
+                ["host"] = "csharp-business-logic",
+                ["checkpoint_path"] = checkpoint,
+                ["bundle_dir"] = _bundleDir,
+                ["weights_sha256"] = weightsSha,
+                ["prompt_sha256"] = Sha256Hex(prompt),
+                ["output_sha256"] = Sha256Hex(text),
+                ["eval_count"] = evalCount,
+                ["latency_ms"] = latencyMs,
+                ["device"] = "cpu",
+                ["third_party_foundation_weights"] = false,
+                ["loopback_runtime_used"] = false,
+            };
+            Directory.CreateDirectory(Path.GetDirectoryName(ledger)!);
+            File.AppendAllText(
+                ledger,
+                JsonSerializer.Serialize(entry) + "\n",
+                new UTF8Encoding(false));
+        }
+        catch (IOException) { /* fail-soft — 與 Python _ledger_append 相同 */ }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    private (string? Checkpoint, string? WeightsSha) ReadBundleIdentity()
+    {
+        try
+        {
+            var manifestPath = Path.Combine(_bundleDir, "manifest.json");
+            if (!File.Exists(manifestPath)) return (null, null);
+            using var doc = JsonDocument.Parse(File.ReadAllText(manifestPath));
+            var root = doc.RootElement;
+            return (
+                root.TryGetProperty("source_checkpoint", out var sc) ? sc.GetString() : null,
+                root.TryGetProperty("weights_sha256", out var ws) ? ws.GetString() : null);
+        }
+        catch (JsonException) { return (null, null); }
+        catch (IOException) { return (null, null); }
+    }
+
+    private static string Sha256Hex(string value)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     public string Describe()
