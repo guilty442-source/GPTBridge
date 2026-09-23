@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .branch_policy import MAIN_BRANCH, is_main, normalize_branch
 from .contract_check import contract_check
+from .generation_snapshot import generation_snapshot
 from .git_repository import GitRepository
 from .governance_manifest import (
     GovernanceWriteBlocked,
@@ -137,7 +138,13 @@ def synchronize(
                     return f"error:self-commit:{item['path']}:{result}"
 
         worktrees = manager.list_worktrees()
-        dirty = [item["path"] for item in worktrees if GitRepository(item["path"]).status()]
+        # G101: shared per-generation snapshot — hard freshness (TTL 0),
+        # one read path for all gates.
+        dirty = [
+            item["path"]
+            for item in worktrees
+            if generation_snapshot(item["path"], max_age_s=0.0).dirty
+        ]
         if dirty:
             return "error:dirty-worktree:" + "|".join(dirty)
 
