@@ -305,10 +305,18 @@ def test_module_assignment_gate_four_way_identity_consistency() -> None:
     # Registered host tools pass all four checks.
     assert service._verify_module_assignment("file-sorter") is None
     assert service._verify_module_assignment("local-model") is None
-    # A companion without a registered module fails closed.
-    denied = service._verify_module_assignment("star-chat")
-    assert denied is not None and denied["ok"] is False
-    assert denied["error_code"] == "MODULE_NOT_IN_REGISTRY"
+    # A tool whose resolved module code is unregistered fails closed.
+    # (star-chat is now a sealed bound companion of local-model and
+    # legitimately resolves to LOCAL_MODEL, so the negative leg forces an
+    # unregistered code on an otherwise valid tool.)
+    original_resolver = service._module_code_for_identity
+    service._module_code_for_identity = lambda _id: "UNREGISTERED_MODULE"
+    try:
+        denied = service._verify_module_assignment("file-sorter")
+        assert denied is not None and denied["ok"] is False
+        assert denied["error_code"] == "MODULE_NOT_IN_REGISTRY"
+    finally:
+        service._module_code_for_identity = original_resolver
     # A manifest that declares a different id is rejected.
     import json as _json
 

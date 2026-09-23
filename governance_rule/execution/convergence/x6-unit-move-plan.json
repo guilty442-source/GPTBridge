@@ -1,0 +1,23 @@
+{
+  "schema": "x6-unit-move-plan/v1",
+  "generated_at_utc": "2026-09-23T09:35Z",
+  "current": {
+    "layout": "E:/GPTBridge/<tool-id>/  (flat, 7 tools + 3 model + 2 shared + 5 core)",
+    "registry": "architecture_registry.json lists 45 components with physical_path still flat",
+    "isolation": "per-tool start lock, but not per-unit isolation"
+  },
+  "target": {
+    "layout": "E:/GPTBridge/blocks/<block>/<unit>/<module>/  (e.g., blocks/tools/ai-assistant/*, blocks/model/engine/*)",
+    "registry": "architecture_registry.json with block_id/unit_id, physical_path updated to blocks/...",
+    "isolation": "per-unit and per-module isolation via runtime core (Job Object), decision core裁决"
+  },
+  "steps": [
+    "1. Finalize block/unit table (total 5 blocks, 12 units) per blueprint 2.1 + governance approval",
+    "2. For each tool (7) + model (3) + shared (2) + core (5): git mv to blocks/... + update manifest entry + permission routes + architecture_registry physical_path (one tool per commit, path-scoped)",
+    "3. After each move: verify tool start/stop 5s, ProcessRegistry claimed==alive, no orphan, audit PASS",
+    "4. After all moves: verify cross-unit calls 100% via governed IPC (no direct import), unit isolation drill (fault not spread)"
+  ],
+  "acceptance": "Every component exactly one unit one block, no cross-layer mixed files, cross-unit via governed IPC, isolation drill PASS, audit PASS, zero shim",
+  "blocked_by": "P0-1 window (heavy git mv + tool restart would pollute window) + G100 2-window + governance approval for block table",
+  "note": "Per X6 P0, WP-B/C; plan is derived, physical move deferred until P0-1 window release"
+}

@@ -295,9 +295,17 @@ def test_public_abi_has_no_memory_primitives():
     header = (_ROOT / "native" / "include" / "gptbridge_native.h").read_text(
         encoding="utf-8")
     # Memory ownership stays private to native/core; the public C ABI exposes
-    # platform and compute entry points but no allocator or buffer primitive.
+    # platform and compute entry points but no allocator or buffer-owning
+    # primitive.  Check declared symbols (not prose — "caller buffer" in a
+    # comment is not a buffer primitive).
+    import re
+
+    symbols = re.findall(r"gptbridge_native_(\w+)\s*\(", header)
+    forbidden = [
+        s for s in symbols if "alloc" in s or "buffer" in s or "free" in s
+    ]
+    assert not forbidden, f"memory-owning ABI primitives: {forbidden}"
     assert "gptbridge_native_alloc" not in header
-    assert "buffer" not in header.lower()
     assert "gptbridge_native_transformer_matmul" in header
 
 

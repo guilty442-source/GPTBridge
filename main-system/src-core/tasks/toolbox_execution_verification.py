@@ -209,7 +209,13 @@ class ExecutionVerificationMixin:
                 "message": "A334: execution identity does not match registry",
             }
         managing = str(row.get("managing_sub_sovereign") or "")
-        if not managing or parent_of(managing) is None:
+        # A604: the sub-sovereign hierarchy is retired; single-purpose
+        # module dispatch declares the ``none-single-purpose-module-
+        # dispatch`` sentinel instead of a managing sub-sovereign.  Any
+        # other value still must resolve as an active hierarchy child.
+        if managing != "none-single-purpose-module-dispatch" and (
+            not managing or parent_of(managing) is None
+        ):
             return {
                 "ok": False,
                 "tool_id": tool_id,
