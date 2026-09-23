@@ -13,10 +13,11 @@ from governance_rule.execution.convergence import runtime_rule_index_v2 as v2
 
 @pytest.fixture(scope="module")
 def live_db():
-    conn = sqlite3.connect(f"file:{v2.DEFAULT_DATABASE}?mode=ro", uri=True)
-    conn.row_factory = sqlite3.Row
-    yield conn
-    conn.close()
+    # Post-cutover (A173): the live authority is PostgreSQL; open_db(None)
+    # yields the governed dict-row shim. An explicit path still opens a
+    # staged SQLite fixture.
+    with v2.open_db(None) as conn:
+        yield conn
 
 
 @pytest.fixture(scope="module")
