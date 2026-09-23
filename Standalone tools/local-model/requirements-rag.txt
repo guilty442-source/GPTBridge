@@ -5,7 +5,8 @@ beautifulsoup4>=4.12,<5
 numpy>=1.26,<3
 psycopg[binary]>=3.2,<4
 qdrant-client>=1.12,<2
-psutil>=6.0,<8
+# P24: psutil removed — process/system metrics go through the native
+# primitives via shared_layer.performance.process_metrics (fail-closed).
 sentence-transformers>=4.1.0
 tokenizers>=0.20,<1
 torch>=2.2,<3
