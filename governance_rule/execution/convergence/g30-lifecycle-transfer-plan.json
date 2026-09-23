@@ -1,0 +1,25 @@
+{
+  "schema": "g30-lifecycle-transfer-plan/v1",
+  "generated_at_utc": "2026-09-23T08:00Z",
+  "current": {
+    "lifecycle_owner": "Python (main-system/src-core/tasks/toolbox_service.py + business-logic-csharp consumer-only)",
+    "csharp_role": "consumer-only (lifecycle_owner=local-model/channel_runtime.py)",
+    "python_hot_path": "ToolboxService.start/stop + ProcessRegistry"
+  },
+  "target": {
+    "lifecycle_owner": "C# business-logic-csharp (primary)",
+    "csharp_role": "primary (lifecycle_owner=business-logic-csharp)",
+    "python_fallback": "Python retained as fallback until 2-release window, then retire"
+  },
+  "steps": [
+    "1. Verify G100 five-core inventory and scheduler parity (G100) — ensures C# primary has stable scheduler",
+    "2. Wire business-logic-csharp to own lifecycle: ToolboxService lifecycle_owner -> business-logic-csharp (governed, not hardcode)",
+    "3. Add C# lifecycle hooks: start/stop/register/release with ProcessRegistry parity (is_owned check)",
+    "4. Drill: start tool via C# -> verify 5s start/stop contract, ProcessRegistry claimed==alive, no orphan",
+    "5. Measure: IPC p95, lifecycle latency, no Python hot path in drill, 5-core budget respected",
+    "6. After 2-release window and G100 gate, retire Python lifecycle path (shadow->primary->retire)"
+  ],
+  "acceptance": "C# lifecycle primary, Python fallback until window, 5s contract, claimed==alive, no orphan, p95 budget",
+  "blocked_by": "G100 shadow->primary gate (2-release) + P0-1 window (no heavy drill during window)",
+  "note": "Per G30 P1, P7-3 drill; plan is derived, not authoritative"
+}
