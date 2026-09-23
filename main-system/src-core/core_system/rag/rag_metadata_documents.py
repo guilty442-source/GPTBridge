@@ -220,15 +220,21 @@ class RagMetadataDocumentsMixin:
             return None
 
     async def fetch_resource_chunks(
-        self, module_id: str, resource_id: str
+        self, module_id: str, resource_id: str, *, max_chunks: int = 16384
     ) -> list[dict[str, Any]]:
         """Fetch a resource's chunk rows with content for outbox replay.
 
         Content lives in ``chunk.metadata->>'content'`` (PostgreSQL is the
         content authority; Qdrant payloads never carry it).
+
+        Bounded read (P15): fetches at most ``max_chunks + 1`` rows and
+        raises ``RuntimeError`` when the resource exceeds the cap — callers
+        rebuild/replay/resolve *complete* content, so a silently truncated
+        chunk set must never reach them.
         """
         if not self._healthy or not self._conn:
             return []
+        cap = max(1, int(max_chunks))
         try:
             async with self._conn.cursor() as cur:
                 await cur.execute(
@@ -236,31 +242,38 @@ class RagMetadataDocumentsMixin:
                               character_start, character_end, metadata
                        FROM gptbridge_rag.chunk
                        WHERE module_id = %s AND resource_id = %s
-                       ORDER BY sequence""",
-                    (module_id, resource_id),
+                       ORDER BY sequence
+                       LIMIT %s""",
+                    (module_id, resource_id, cap + 1),
                 )
                 rows = await cur.fetchall()
-            out: list[dict[str, Any]] = []
-            for row in rows:
-                meta = row[5] if isinstance(row[5], dict) else {}
-                out.append({
-                    "chunk_id": str(row[0]),
-                    "qdrant_point_id": str(row[1]) if row[1] else None,
-                    "sequence": int(row[2]),
-                    "character_start": int(row[3]),
-                    "character_end": int(row[4]),
-                    "content": str(meta.get("content") or ""),
-                    "payload": {
-                        "content_hash": str(meta.get("content_hash") or ""),
-                    },
-                })
-            return out
         except Exception as exc:
             _logger.error(
                 "PostgreSQLMetadataAuthority: fetch_resource_chunks failed: %s",
                 exc,
             )
             return []
+        if len(rows) > cap:
+            raise RuntimeError(
+                f"RESOURCE_CHUNK_CAP_EXCEEDED: {module_id}:{resource_id} "
+                f"exceeds {cap} chunks — refusing to hand callers a "
+                f"silently truncated content set"
+            )
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            meta = row[5] if isinstance(row[5], dict) else {}
+            out.append({
+                "chunk_id": str(row[0]),
+                "qdrant_point_id": str(row[1]) if row[1] else None,
+                "sequence": int(row[2]),
+                "character_start": int(row[3]),
+                "character_end": int(row[4]),
+                "content": str(meta.get("content") or ""),
+                "payload": {
+                    "content_hash": str(meta.get("content_hash") or ""),
+                },
+            })
+        return out
 
     async def fetch_chunks_for_points(
         self,
