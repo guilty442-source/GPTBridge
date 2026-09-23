@@ -1,0 +1,22 @@
+{
+  "schema": "g89-dsn-plan/v1",
+  "generated_at_utc": "2026-09-23T09:20Z",
+  "current": {
+    "user_env": "GPTBRIDGE_POSTGRES_DSN / GPTBRIDGE_POSTGRES_ADMIN_DSN present (dev fallback, priority higher than store)",
+    "store": "reader DSN already established via provision-reader-dsn.py",
+    "fallback": "env still takes precedence via _read_user_environment"
+  },
+  "target": {
+    "user_env": "cleared (operator decision)",
+    "store": "DSN via credential store (HMAC fingerprint, metadata only)",
+    "fallback": "store is sole source, env no longer overrides"
+  },
+  "steps": [
+    "1. Operator clears User env GPTBRIDGE_POSTGRES_*_DSN ( env var, not code )",
+    "2. Verify store DSN via provision-reader-dsn.py --verify",
+    "3. Run app with GPTBRIDGE_POSTGRES_DSN unset, confirm DB connects via store"
+  ],
+  "acceptance": "User env cleared, store DSN works, no fallback to env, audit no plaintext DSN",
+  "blocked_by": "Operator decision (env var, not code) — worker cannot clear User env directly, only document",
+  "note": "Per G89 P1, operator decision; plan is derived"
+}
