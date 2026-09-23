@@ -313,6 +313,7 @@ int main() {
         cfg.tool_id = "test-tool";
         cfg.port = port;
         cfg.session_token = TOKEN;
+        cfg.env_gate_passed = true;  /* 測試直構 config：顯式標記已過 env 閘 */
         cfg.shutdown_token = "sh-token";
         char wsid[GPTBRIDGE_GT_INSTANCE_ID_LEN + 1] = {0};
         gptbridge_gt_workspace_instance_id("test-tool", port, wsid);
@@ -519,6 +520,7 @@ int main() {
         cfg.tool_id = "test-tool";
         cfg.port = port;
         cfg.session_token = TOKEN;
+        cfg.env_gate_passed = true;  /* 測試直構 config：顯式標記已過 env 閘 */
         cfg.shutdown_token = "";
         char wsid[GPTBRIDGE_GT_INSTANCE_ID_LEN + 1] = {0};
         gptbridge_gt_workspace_instance_id("test-tool", port, wsid);
@@ -587,6 +589,7 @@ int main() {
         cfg.tool_id = "test-tool";
         cfg.port = port;
         cfg.session_token = TOKEN;
+        cfg.env_gate_passed = true;  /* 測試直構 config：顯式標記已過 env 閘 */
         cfg.shutdown_token = "";
         char wsid[GPTBRIDGE_GT_INSTANCE_ID_LEN + 1] = {0};
         gptbridge_gt_workspace_instance_id("test-tool", port, wsid);
@@ -851,6 +854,7 @@ int main() {
             cfg.tool_id = "test-tool";
             cfg.port = port;
             cfg.session_token = TOKEN;
+            cfg.env_gate_passed = true;  /* 測試直構 config：顯式標記已過 env 閘 */
             cfg.shutdown_token = "sh-token";
             char wsid[GPTBRIDGE_GT_INSTANCE_ID_LEN + 1] = {0};
             gptbridge_gt_workspace_instance_id("test-tool", port, wsid);

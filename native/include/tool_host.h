@@ -54,6 +54,10 @@ struct ToolHostConfig {
     std::string submit_actor;      /* 例 "governance/tool/<id>" */
     std::string submit_authorizer; /* 例 "module:function" */
     bool claim_loop = true;        /* false → 僅 HTTP/WS 閘門（閘門單體測試） */
+    /* 閘門證明：僅 load_env() 跑完 bootstrap/env-gate/tool-root/manifest
+       全序列才置位；start() 拒絕未經 load_env 的注入 config（P7 修復——
+       此前 start 僅驗 id/port/token，可繞過 bootstrap env 閘）。 */
+    bool env_gate_passed = false;
     /* health_snapshot parity 區段（對齊 GovernedToolRuntime）。 */
     bool local_cleanup_enabled = true;
     bool self_repair_enabled = false;

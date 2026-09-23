@@ -323,6 +323,7 @@ bool ToolHost::load_env(ToolHostConfig* out, std::string* error) {
     gptbridge_gt_workspace_instance_id(c.tool_id.c_str(), c.port, wsid);
     c.workspace_instance_id = wsid;
     c.process_channels = {"system"};
+    c.env_gate_passed = true;   /* 全閘序列通過 —— start() 只接受此證明 */
     *out = std::move(c);
     return true;
 }
@@ -341,6 +342,8 @@ bool ToolHost::start(const ToolHostConfig& config, ToolHostHooks hooks,
         return fail("PERMISSION_DENIED:port");
     if (!gptbridge_gt_session_token_valid(config.session_token.c_str()))
         return fail("PERMISSION_DENIED:session-token");
+    if (!config.env_gate_passed)
+        return fail("PERMISSION_DENIED:env-gate-bypass");
     if (!hooks.executor)
         return fail("executor-required");
 
