@@ -48,7 +48,7 @@ class ClassificationEvidence:
 
 # Known runtime-required Python packages
 _PYTHON_RUNTIME_REQUIRED = frozenset({
-    "psutil", "psycopg", "qdrant_client", "websockets",
+    "psycopg", "qdrant_client", "websockets",
 })
 
 # Known build-only Python packages
@@ -66,6 +66,9 @@ _PYTHON_OPTIONAL = frozenset({
     "tiktoken", "openai", "httpx", "numpy", "torch",
     "sentence_transformers", "Pillow", "beautifulsoup4",
     "imageio_ffmpeg", "triton",
+    # P24: psutil is the optional non-native fallback for process metrics;
+    # the canonical path is the C ABI (process_metrics facade).
+    "psutil",
 })
 
 # Known native toolchain packages

@@ -41,7 +41,6 @@ REQUIRED_WORKSPACE_PATHS: tuple[str, ...] = (
 # dependency tree was slimmed; the doctor reports their presence without
 # failing the environment on their absence.
 REQUIRED_PYTHON_MODULES: dict[str, str] = {
-    "psutil": "psutil",
     "psycopg": "psycopg",
     "websockets": "websockets",
 }

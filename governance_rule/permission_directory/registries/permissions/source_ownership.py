@@ -104,7 +104,6 @@ SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
         "architecture_boundary.py",
         "process_control.py",
         "process_metrics.py",
-        "process_metrics.py",
         "health_states.py",
         "startup_gate.py",
         "lifecycle_consolidation.py",
