@@ -19,6 +19,10 @@ import logging
 import re
 import threading
 import time
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+)
 from typing import Any, Callable
 
 _logger = logging.getLogger("gptbridge.transport_notify")
@@ -49,6 +53,16 @@ class TransportNotifyListener:
         self._resubscribe = threading.Event()
         self._thread: threading.Thread | None = None
         self._last_error = ""
+        # P7: subscriber callbacks are contractually cheap re-dispatchers
+        # (call_soon_threadsafe), but the contract was unenforced — one
+        # wedged callback stalled every channel.  Dispatch through a
+        # bounded 2-worker executor with a per-callback deadline; wedged
+        # workers are never joined (leak bounded at 2 threads total) and
+        # stalls are counted.  Lazily created so stop()/start() cycles
+        # always get a live pool.
+        self._dispatch_executor: ThreadPoolExecutor | None = None
+        self._dispatch_stalls = 0
+        self._dispatch_inflight = 0
 
     # -- subscription ---------------------------------------------------
 
@@ -113,12 +127,19 @@ class TransportNotifyListener:
         self._thread = None
         if thread is not None and thread.is_alive():
             thread.join(timeout=5.0)
+        if self._dispatch_executor is not None:
+            try:
+                self._dispatch_executor.shutdown(wait=False)
+            except Exception:
+                pass
+            self._dispatch_executor = None
 
     def status(self) -> dict[str, Any]:
         return {
             "running": bool(self._thread and self._thread.is_alive()),
             "channels": self.subscribed_channels(),
             "last_error": self._last_error,
+            "dispatch_stalls": self._dispatch_stalls,
         }
 
     # -- listener loop --------------------------------------------------
@@ -171,13 +192,47 @@ class TransportNotifyListener:
                 except TimeoutError:
                     pass  # 無通知——迴圈檢查 stop/resubscribe
 
+    _CALLBACK_DEADLINE_S = 5.0
+    _DISPATCH_INFLIGHT_CAP = 8
+
     def _dispatch(self, pg_channel: str, payload: str) -> None:
         channel = pg_channel.removeprefix(_NOTIFY_CHANNEL_PREFIX)
         with self._lock:
             callbacks = list(self._subscribers.get(channel, ()))
+        if self._dispatch_executor is None:
+            self._dispatch_executor = ThreadPoolExecutor(
+                max_workers=2, thread_name_prefix="transport-notify-cb"
+            )
         for callback in callbacks:
+            if self._dispatch_inflight >= self._DISPATCH_INFLIGHT_CAP:
+                # Workers are wedged — drop the wake-hint rather than
+                # grow an unbounded queue (polling fallback covers loss).
+                self._dispatch_stalls += 1
+                _logger.warning(
+                    "notify dispatch queue saturated; dropping "
+                    "(channel=%s)", channel,
+                )
+                continue
+            self._dispatch_inflight += 1
+
+            def _run(cb=callback, ch=channel, pl=payload) -> None:
+                try:
+                    cb(ch, pl)
+                finally:
+                    self._dispatch_inflight -= 1
+
             try:
-                callback(channel, payload)
+                self._dispatch_executor.submit(_run).result(
+                    timeout=self._CALLBACK_DEADLINE_S
+                )
+            except FuturesTimeoutError:
+                self._dispatch_stalls += 1
+                _logger.warning(
+                    "notify subscriber callback exceeded %.0fs deadline "
+                    "(channel=%s)",
+                    self._CALLBACK_DEADLINE_S,
+                    channel,
+                )
             except Exception as error:
                 _logger.warning("notify subscriber error: %s", error)
 
