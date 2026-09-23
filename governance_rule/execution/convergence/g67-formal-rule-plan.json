@@ -1,0 +1,24 @@
+{
+  "schema": "g67-formal-rule-plan/v1",
+  "generated_at_utc": "2026-09-23T10:45Z",
+  "current": {
+    "formal_rule_registry": "67 total, 64 VERIFIED, 3 pending (FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE, FR-SOVEREIGN-TO-CORE-ENGINE, FR-NO-SUB-SOVEREIGN-ALL-MODULES)",
+    "pending_reason": "3 rules still anchored to superseded A554/A591/A592, need re-anchor to A598/A604",
+    "semantic_hash": "evaluator_hash / test_contract_hash empty for 45 mappings",
+    "evidence": "codex-implementation-convergence-20260923.json"
+  },
+  "target": {
+    "formal_rule_registry": "67/67 VERIFIED",
+    "semantic_hash": "canonical spec: evaluator_hash = sha256(canonical test file), test_contract_hash = sha256(contract file)",
+    "active_transition": "all 67 rules status=active, parity_status=VERIFIED"
+  },
+  "steps": [
+    "1. Re-anchor 3 pending rules: FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE→A598, FR-SOVEREIGN-TO-CORE-ENGINE→A604, FR-NO-SUB-SOVEREIGN-ALL-MODULES→A604 (via provision_supersession_edges)",
+    "2. Define semantic_hash canonical spec: evaluator_hash = sha256(governance_rule/execution/formal_rules/evaluators.py), test_contract_hash = sha256(native/test_suites/harness.hpp)",
+    "3. Update formal_rule_registry rows with new controlling_provision_id and semantic_hash, set parity_status=VERIFIED",
+    "4. Run formal-rule-parity 61/64→64/64 and mirror/derived rebuild, audit PASS"
+  ],
+  "acceptance": "67/67 VERIFIED, semantic_hash non-empty, active transition PASS, audit PASS",
+  "blocked_by": "codex amendment (re-anchor + semantic hash spec) — requires governor publish+seal",
+  "note": "Per G67 P0, plan is derived"
+}
