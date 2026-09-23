@@ -9,12 +9,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 import time
 from pathlib import Path
 from typing import Final
 
 from .git_repository import GitRepository
-from .process_lock import pid_alive
+from .process_lock import native_process_api, pid_alive
 
 SUPERVISOR_ACTOR: Final[str] = "governance/automation-supervisor"
 SUPERVISOR_STATE_SUBDIR: Final[str] = "gptbridge-automation"
@@ -77,20 +78,29 @@ def _write_registry(directory: Path, payload: dict[str, object]) -> None:
 
 
 def _terminate_tree(pid: int) -> None:
-    """Terminate ``pid`` and all its descendants (native process metrics)."""
-    try:
-        from shared_layer.performance import process_metrics
-    except ImportError:
+    """Terminate ``pid`` and all its descendants (native probe first)."""
+    native = native_process_api()
+    if native is not None:
+        try:
+            if not native.process_alive(pid):
+                return
+            for child_pid in native.process_children(pid, 4096):
+                native.process_terminate(child_pid)
+            native.process_terminate(pid)
+            return
+        except (OSError, ValueError, RuntimeError):
+            pass
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            check=False,
+        )
+    else:
         try:
             os.kill(pid, 9)
         except OSError:
             pass
-        return
-    if not process_metrics.process_alive(pid):
-        return
-    for child_pid in process_metrics.process_children(pid):
-        process_metrics.process_terminate(child_pid)
-    process_metrics.process_terminate(pid)
 
 
 def _lock_is_active_here(path: Path) -> bool:

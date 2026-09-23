@@ -224,7 +224,7 @@ class GitAutomationService:
         """Round-robin wait over the watch handles; a signaled handle
         invalidates that worktree's snapshot and (throttled) wakes the
         sweep so the debounce clock starts early."""
-        from governance_rule.execution.git_tiers.generation_snapshot import (
+        from governance_rule.execution.git_automation_facade import (
             notify_changed,
         )
 
@@ -317,7 +317,7 @@ class GitAutomationService:
         layout never changes for a service instance)."""
         if self._queue_file_path is not None:
             return self._queue_file_path
-        from governance_rule.execution.git_tiers.git_repository import (
+        from governance_rule.execution.git_automation_facade import (
             GitRepository,
         )
 
@@ -359,10 +359,8 @@ class GitAutomationService:
     # -- operations -----------------------------------------------------
 
     def _list_worktrees(self) -> list[str]:
-        from governance_rule.execution.git_tiers.git_repository import (
+        from governance_rule.execution.git_automation_facade import (
             GitRepository,
-        )
-        from governance_rule.execution.git_tiers.worktree_manager import (
             WorktreeManager,
         )
 
@@ -383,7 +381,7 @@ class GitAutomationService:
         per sweep tick, reused by the debounce check and ``run_once``;
         the TTL equals the sweep cadence so the sweep stays the
         low-frequency insurance of §3.3."""
-        from governance_rule.execution.git_tiers.generation_snapshot import (
+        from governance_rule.execution.git_automation_facade import (
             generation_snapshot,
         )
 
@@ -396,7 +394,7 @@ class GitAutomationService:
 
     async def run_sweep(self) -> dict[str, Any]:
         """One self-commit sweep across all worktrees (debounced)."""
-        from governance_rule.execution.git_tiers.self_commit import run_once
+        from governance_rule.execution.git_automation_facade import run_once
 
         results: dict[str, str] = {}
         scopes: dict[str, list[str]] = {}
@@ -435,7 +433,7 @@ class GitAutomationService:
 
     async def run_sync(self) -> dict[str, Any]:
         """One workspace synchronization cycle (commit→merge→ff)."""
-        from governance_rule.execution.git_tiers.workspace_sync import (
+        from governance_rule.execution.git_automation_facade import (
             synchronize,
         )
 
@@ -458,7 +456,7 @@ class GitAutomationService:
             # sync holds gptbridge-workspace-sync.lock): skip this cycle
             # as a normal status instead of failing the flow — an error
             # log per collision poisons log-hygiene budgets (INT-10).
-            from governance_rule.execution.git_tiers.process_lock import (
+            from governance_rule.execution.git_automation_facade import (
                 LockBusyError,
             )
 

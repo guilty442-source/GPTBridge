@@ -36,5 +36,18 @@
     "governance_rule/execution/convergence/successor_framework.py LIVE_CODEX still targets governance_rule/codex/data/governance_codex.sqlite3 (deleted in working tree); stage_copy/compute_closures raise CODEX_MISSING until the sealed predecessor is republished or the framework is migrated to the PostgreSQL authority — migration owner decision"
   ],
   "codex_mutation": "none",
-  "verdict": "implementation-side diffs from the 07:40Z report are all resolved; every remaining open item routes through the governed codex amendment path — no worker-implementable diff outstanding"
+  "verdict": "implementation-side diffs from the 07:40Z report are all resolved; every remaining open item routes through the governed codex amendment path — no worker-implementable diff outstanding",
+  "round_2": {
+    "scope": "static architecture gate dependency_direction violations (10 new)",
+    "fixes": [
+      "git_tiers/process_lock.py: shared_layer.performance import removed; native _sovereign_native probe + ctypes/POSIX fallback (fail-safe, never steals locks)",
+      "git_tiers/automation_supervisor_state.py: shared_layer import removed; native probe + taskkill/os.kill fallback",
+      "governance_rule/execution/git_automation_facade.py: NEW sanctioned adapter — single governed entry from main-system into git tier (same pattern as execution/audit bridge)",
+      "main-system/src-core/tasks/git_automation.py: 8 git_tiers imports rerouted through the facade",
+      "convergence/successor_framework.py: LIKE % placeholder breaks psycopg — switched to substr() (portable)",
+      "tests: architecture-registry expectation aligned to governed sovereign-id rename (automation->synchronization-sovereign shim); convergence tests use PG authority when sqlite predecessor absent (A173)"
+    ],
+    "result": "dependency_direction back to baseline=1; static gate verdict PASS; 8/8 gate tests + 21/21 registry tests + 9/9 convergence tests + 37/37 supervisor/scheduler tests pass",
+    "residual": "remaining broad-suite failures are inside the in-flight PostgreSQL migration scope (audit evidence reads moved to authority; runtime_rule_index_v2/governance_health fixtures still sqlite-path); config/frontend hash mismatches belong to other in-flight workers"
+  }
 }
