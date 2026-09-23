@@ -1,0 +1,15 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "P11",
+  "executed_at": "2026-09-23T07:50:00Z",
+  "worker": "devin-cli",
+  "finding": "sleep policy implementation and boot dialogue route are COMPLETE; the only remaining action is the governor opt-in flip",
+  "verified": {
+    "sleep_policy_manager": "tasks/sleep_policy.py — hot/warm/cold tiering, drain-first (never sleeps units with queued/claimed/pushed in-flight requests), never_sleep exemption list, governed cold-sleep via ToolboxService.stop_tool (expected-stop marking + audit), transitions appended to runtime/logs/sleep-transitions.jsonl",
+    "rollback_path": "kill switch built in — sleep-policy.json enabled=false disables all transitions; warm tier delegates to component release machinery (AutoReleaseManager), cold sleep is reversible through the governed start path",
+    "boot_dialogue_route": "startup_executor_phases.py:196-211 — ModelServiceActivationBroker constructed+started before SleepPolicyManager in the normal-information phase; demand-driven wake routes queued ai->unit transport requests through governed ToolboxService.start_tool (no pre-warming, A540)",
+    "policy_state": "main-system/config/sleep-policy.json enabled=false — documented as 'activation is opt-in per governor'"
+  },
+  "residual": "flipping sleep-policy.json enabled:true is a governor opt-in decision affecting live tool lifecycle — not a worker action; recommend INT-10 window close as the flip point so the first sleep/wake cycle accumulates inside a clean observation window",
+  "codex_mutation": "none"
+}
