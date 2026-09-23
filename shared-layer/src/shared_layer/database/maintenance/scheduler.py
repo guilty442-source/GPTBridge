@@ -304,13 +304,19 @@ class MaintenanceScheduler:
         """Remove jobs that have been queued too long."""
         now = datetime.utcnow()
         cutoff = now.timestamp() - self.config.max_job_age_seconds
+        shadow = self._native_shadow
 
         # Clean queue
         new_queue = deque()
         for sj in self._queue:
             if sj.admitted_at.timestamp() < cutoff:
-                # Job too old, mark cancelled
-                pass  # In production, persist cancellation
+                # Job too old, mark cancelled — mirror the withdrawal so
+                # the native table does not retain phantom live slots.
+                if shadow is not None:
+                    try:
+                        shadow.observe_cancelled(str(sj.job.job_id))
+                    except Exception:
+                        pass
             else:
                 new_queue.append(sj)
         self._queue = new_queue

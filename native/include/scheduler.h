@@ -17,8 +17,15 @@
 extern "C" {
 #endif
 
-#define GPTBRIDGE_SCHED_MAX_JOBS 16
-#define GPTBRIDGE_SCHED_NAME_MAX 32
+/* Bounded capacity sized for the governed automation flow count
+ * (17 resident jobs as of 2026-09-23) with ~4x headroom; the cap
+ * itself is a P7 hard limit — registration beyond it is refused
+ * fail-closed, never grown dynamically. */
+#define GPTBRIDGE_SCHED_MAX_JOBS 64
+/* 32 was exactly the longest flow name (permission-automation-*),
+ * leaving no room for NUL — registrations were silently refused.
+ * 64 covers current names with headroom. */
+#define GPTBRIDGE_SCHED_NAME_MAX 64
 
 typedef void (*gptbridge_sched_fn)(void* ctx);
 

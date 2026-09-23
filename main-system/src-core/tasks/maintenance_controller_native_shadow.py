@@ -314,6 +314,13 @@ class MaintenanceNativeShadow:
                         "native": {"job_id": native_id},
                     }
                 )
+                # Resync: Python dispatched a job the native pick skipped —
+                # withdraw that job from the native table or it stays
+                # QUEUED forever (phantom backlog, observed 2026-09-23).
+                try:
+                    self._mt.cancel(str(py_job_id))
+                except Exception:
+                    pass
         except Exception as exc:
             self._disable("native-dispatch-error", exc)
 

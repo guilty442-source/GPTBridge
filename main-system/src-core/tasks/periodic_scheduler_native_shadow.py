@@ -64,6 +64,10 @@ class SchedulerNativeShadow:
         self._sched = native_sched
         self._disabled = False
         self._error_emitted = False
+        # Membership divergence is emitted once per episode — the same
+        # diff every tick adds no evidence (observed 1227 identical
+        # records on 2026-09-23 when the C table cap was exceeded).
+        self._membership_emitted = False
 
     @classmethod
     def from_policy(cls, project_root: Path) -> Optional["SchedulerNativeShadow"]:
@@ -152,14 +156,17 @@ class SchedulerNativeShadow:
             native_names = self._native_names()
             python_names = set(py_jobs)
             if native_names != python_names:
-                self._emit(
-                    {
-                        "kind": "membership-divergence",
-                        "python": sorted(python_names),
-                        "native": sorted(native_names),
-                    }
-                )
+                if not self._membership_emitted:
+                    self._membership_emitted = True
+                    self._emit(
+                        {
+                            "kind": "membership-divergence",
+                            "python": sorted(python_names),
+                            "native": sorted(native_names),
+                        }
+                    )
                 return
+            self._membership_emitted = False
             for name in sorted(python_names):
                 py_job = py_jobs[name]
                 native_stats = self._sched.job_stats(name)

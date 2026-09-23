@@ -1,0 +1,155 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "P3/P4/P5 — C11 shadow dependency DAG",
+  "phase": "2 — remaining shadow dependency inventory (actual native-shadow.json registry, not presumed)",
+  "executed_at": "2026-09-23T22:35:00Z",
+  "worker": "devin-cli",
+  "policy_source": "main-system/config/native-shadow.json (native-shadow-policy/v1; modes: off|shadow; primary/retire refused by act-1 harness)",
+  "registered_components": 8,
+  "components": {
+    "periodic_scheduler": {
+      "canonical_owner": "tasks/periodic_scheduler.py (PeriodicScheduler)",
+      "current_primary": "python",
+      "shadow_implementation": "tasks/periodic_scheduler_native_shadow.py -> native/core/scheduler.c via NativeScheduler binding",
+      "versioned_contract": "native-shadow-divergence/v1 ledger; register/tick/unregister mirror calls",
+      "dependencies": [],
+      "resource_budget": "periodic-scheduler.resources.jsonl emitting",
+      "parity_evidence": "membership-divergence x1227 (all same diff) — root cause: GPTBRIDGE_SCHED_MAX_JOBS=16 < 17 resident flows AND NAME_MAX=32 truncated 32-char names; FIXED scheduler.h->64/64 pending native rebuild (.pyd locked by live backend); once-per-episode emit dedup added",
+      "release_observation": "0/2 windows",
+      "rollback_capability": "mode->off instant fail-closed to Python; shadow never affects Python decisions",
+      "status": "BLOCKED(capacity-fixed-pending-rebuild)"
+    },
+    "runtime_state_registry": {
+      "canonical_owner": "core_system/runtime_state_registry.py",
+      "current_primary": "python",
+      "shadow_implementation": "core_system/runtime_state_native_shadow.py -> native/core/runtime_state.c",
+      "versioned_contract": "native-shadow-divergence/v1; set_runtime/set_capability/heartbeat/staleness/record_error/aggregate mirrors",
+      "dependencies": [],
+      "resource_budget": "runtime-state.resources.jsonl (thin — 1 record)",
+      "parity_evidence": "1 divergence (staleness mod-b, test-context boundary); otherwise clean",
+      "release_observation": "0/2 windows",
+      "rollback_capability": "mode->off fail-closed",
+      "status": "OBSERVATION_PENDING"
+    },
+    "ipc_server": {
+      "canonical_owner": "ipc/server_*.py (websocket transport + command routing)",
+      "current_primary": "python",
+      "shadow_implementation": "ipc/ipc_transport_native_shadow.py -> native/core/ipc_registry.c (NativeIpcRegistry)",
+      "versioned_contract": "native-shadow-divergence/v1; observe_inbound per request",
+      "dependencies": [],
+      "resource_budget": "ipc-transport.resources.jsonl emitting",
+      "parity_evidence": "no divergences observed",
+      "release_observation": "0/2 windows",
+      "rollback_capability": "mode->off fail-closed",
+      "status": "OBSERVATION_PENDING"
+    },
+    "request_registry": {
+      "canonical_owner": "core_system/request_registry.py",
+      "current_primary": "python",
+      "shadow_implementation": "core_system/request_registry_native_shadow.py -> NativeIpcRegistry (shared C table)",
+      "versioned_contract": "observe_create/status/timeout/refused; timestamp validation added P4",
+      "dependencies": [
+        "ipc_server — observes the IPC request lifecycle it registers"
+      ],
+      "resource_budget": "request-registry.resources.jsonl (thin — 1 record; emit moved to observe_create hot path 5a9eb556)",
+      "parity_evidence": "no divergences",
+      "release_observation": "0/2",
+      "rollback_capability": "mode->off fail-closed",
+      "status": "OBSERVATION_PENDING"
+    },
+    "state_outbox": {
+      "canonical_owner": "tasks/state_outbox.py",
+      "current_primary": "python",
+      "shadow_implementation": "tasks/state_outbox_native_shadow.py -> native/core/outbox.c (NativeOutbox)",
+      "versioned_contract": "observe_register/unregister/hello/ack/resync/mark_sent/drain_plan/retry_deadline/prune_floor",
+      "dependencies": [
+        "ipc_server — drains pending state over the IPC channel"
+      ],
+      "resource_budget": "state-outbox.resources.jsonl emitting",
+      "parity_evidence": "no divergences",
+      "release_observation": "0/2",
+      "rollback_capability": "mode->off fail-closed",
+      "status": "OBSERVATION_PENDING"
+    },
+    "connection_watchdog": {
+      "canonical_owner": "tasks/connection_watchdog.py(+_mixins)",
+      "current_primary": "python",
+      "shadow_implementation": "tasks/connection_watchdog_native_shadow.py -> native/core/watchdog.c (NativeWatchdog)",
+      "versioned_contract": "observe_probe/observe_interval",
+      "dependencies": [
+        "ipc_server — probes backend /health + IPC connection state"
+      ],
+      "resource_budget": "connection-watchdog.resources.jsonl emitting",
+      "parity_evidence": "no divergences",
+      "release_observation": "0/2",
+      "rollback_capability": "mode->off fail-closed",
+      "status": "OBSERVATION_PENDING"
+    },
+    "maintenance_controller": {
+      "canonical_owner": "shared_layer.database.maintenance.scheduler (MaintenanceScheduler) + core_system/maintenance_controller_integration.py",
+      "current_primary": "python",
+      "shadow_implementation": "tasks/maintenance_controller_native_shadow.py -> native/core/maintenance.c (NativeMaintenance mt table)",
+      "versioned_contract": "observe_admit/admit_veto/dispatch/cancelled/terminal/generation/probe_*",
+      "dependencies": [
+        "periodic_scheduler — cadence rides the registered maintenance-controller flow"
+      ],
+      "resource_budget": "maintenance-controller.resources.jsonl emitting",
+      "parity_evidence": "109 desynced-queue divergences — root cause: _cleanup_stale_jobs silently dropped aged jobs with no shadow mirror (native retained them -> cap 100); FIXED by mirroring observe_cancelled per stale drop + dispatch-mismatch resync (cancel py-side-dispatched job left queued); residual: requeue_job has no native primitive (RUNNING->QUEUED transition unmirrored — recorded as DAG residual)",
+      "release_observation": "0/2",
+      "rollback_capability": "mode->off fail-closed",
+      "status": "BLOCKED(mirror-leak-fixed-pending-observation)"
+    },
+    "model_service_activation": {
+      "canonical_owner": "tasks/model_service_activation.py (ModelServiceActivationBroker)",
+      "current_primary": "python",
+      "shadow_implementation": "tasks/model_service_activation_native_shadow.py -> native/core/activation_broker.c",
+      "versioned_contract": "observe_status/ensure/explicit_stop/start_result/release_result/state_write_due/poll_interval",
+      "dependencies": [
+        "ipc_server — consumes queued ai-channel transport requests",
+        "toolbox_service (external to shadow set) — governed start path"
+      ],
+      "resource_budget": "model-service-activation.resources.jsonl emitting",
+      "parity_evidence": "2 divergences resolved as first-deploy boundary traces (p4-divergence-resolution-20260923); zero mismatches over ~20h since",
+      "release_observation": "0/2",
+      "rollback_capability": "mode->off fail-closed",
+      "status": "OBSERVATION_PENDING"
+    }
+  },
+  "dependency_edges": [
+    "request_registry->ipc_server",
+    "state_outbox->ipc_server",
+    "connection_watchdog->ipc_server",
+    "maintenance_controller->periodic_scheduler",
+    "model_service_activation->ipc_server"
+  ],
+  "takeover_batches": {
+    "batch_1_foundation": [
+      "periodic_scheduler",
+      "runtime_state_registry",
+      "ipc_server"
+    ],
+    "batch_2_transport_dependents": [
+      "request_registry",
+      "state_outbox",
+      "connection_watchdog",
+      "maintenance_controller"
+    ],
+    "batch_3_consumer": [
+      "model_service_activation"
+    ],
+    "ordering_rule": "no component enters primary evaluation before its dependencies complete their own observation windows; each batch independently verifiable and rollback-safe (mode flip)"
+  },
+  "phase2_fixes_landed_this_increment": [
+    "scheduler.h: GPTBRIDGE_SCHED_MAX_JOBS 16->64 + NAME_MAX 32->64 (real capacity parity gap — 17 resident flows, 32-char names)",
+    "periodic_scheduler_native_shadow: membership-divergence once-per-episode dedup",
+    "maintenance scheduler._cleanup_stale_jobs: mirror observe_cancelled per stale drop (native table leak plugged)",
+    "maintenance_controller_native_shadow.observe_dispatch: mismatch resync — withdraw py-dispatched job from native table"
+  ],
+  "residuals": [
+    "native .pyd rebuild pending — live backend holds the artifact lock; capacity fix lands on next governed rebuild/restart",
+    "maintenance requeue_job (RUNNING->QUEUED) has no native mt primitive — needs gptbridge_mt_requeue or cancel+admit mirror design",
+    "resource ledgers thin for request_registry(1)/runtime-state(1) — accumulate under normal operation",
+    "release observation windows 0/2 for all 8 — gated on INT-10 window + release cadence (not worker-actionable)"
+  ],
+  "codex_mutation": "none"
+}
