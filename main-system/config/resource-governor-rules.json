@@ -7,7 +7,11 @@
     "background_mode": false,
     "ecoqos": false,
     "limiter_percent": 10.0,
-    "resp_strain_ratio": 1.8
+    "resp_strain_ratio": 1.8,
+    "worker_job_cap": true,
+    "worker_job_percent": 10.0,
+    "worker_job_memory_percent": 30.0,
+    "worker_job_process_limit": 96
   },
   "programs": {}
 }

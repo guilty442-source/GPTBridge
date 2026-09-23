@@ -298,6 +298,38 @@ def _feature_enabled(flag: bool | None, defaults: dict[str, Any], key: str) -> b
     return bool(value) if isinstance(value, bool) else False
 
 
+def _resolve_job_memory_limit(defaults: dict[str, Any]) -> int:
+    """Worker-plane aggregate RAM ceiling in bytes.
+
+    ``worker_job_memory_mb`` wins when present; otherwise
+    ``worker_job_memory_percent`` (share of total physical RAM, default 30 —
+    the same bound as the worker-plane soft ledger).  ``0``/absent total
+    memory disables the cap explicitly only when both keys are set to 0.
+    """
+    mb = defaults.get("worker_job_memory_mb")
+    if isinstance(mb, (int, float)) and not isinstance(mb, bool):
+        return max(0, int(mb)) * 1024 * 1024
+    pct = defaults.get("worker_job_memory_percent", 30.0)
+    try:
+        pct_value = float(pct)
+    except (TypeError, ValueError):
+        pct_value = 30.0
+    if pct_value <= 0:
+        return 0
+    total = _total_memory_bytes()
+    return int(total * min(pct_value, 100.0) / 100.0) if total > 0 else 0
+
+
+def _resolve_job_process_limit(defaults: dict[str, Any]) -> int:
+    """Worker-plane aggregate process-count hard cap (default 96)."""
+    raw = defaults.get("worker_job_process_limit", 96)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = 96
+    return max(0, value)
+
+
 def _resolve_features(config: "GovernorConfig", defaults: dict[str, Any]) -> dict[str, Any]:
     limiter = (
         config.limiter_percent_arg
@@ -340,6 +372,8 @@ def _resolve_features(config: "GovernorConfig", defaults: dict[str, Any]) -> dic
             config.worker_job_cap_flag, defaults, "worker_job_cap"
         ),
         "worker_job_percent": max(1.0, min(100.0, job_percent_value)),
+        "worker_job_memory_bytes": _resolve_job_memory_limit(defaults),
+        "worker_job_process_limit": _resolve_job_process_limit(defaults),
         "resp_ratio": max(1.05, ratio_value),
     }
 
@@ -455,6 +489,76 @@ class _MemoryPriority(ctypes.Structure):
 
 class _CpuRateControl(ctypes.Structure):
     _fields_ = [("ControlFlags", ctypes.c_uint32), ("CpuRate", ctypes.c_uint32)]
+
+
+# Extended Job Object limits — aggregate RAM ceiling and process-count hard
+# cap on the shared worker-plane job (P7: no dimension may stay unlimited).
+JOB_OBJECT_EXTENDED_LIMIT_INFORMATION_CLASS: Final[int] = 9
+JOB_OBJECT_LIMIT_ACTIVE_PROCESS: Final[int] = 0x0008
+JOB_OBJECT_LIMIT_JOB_MEMORY: Final[int] = 0x0200
+
+
+class _IoCounters(ctypes.Structure):
+    _fields_ = [
+        ("ReadOperationCount", ctypes.c_ulonglong),
+        ("WriteOperationCount", ctypes.c_ulonglong),
+        ("OtherOperationCount", ctypes.c_ulonglong),
+        ("ReadTransferCount", ctypes.c_ulonglong),
+        ("WriteTransferCount", ctypes.c_ulonglong),
+        ("OtherTransferCount", ctypes.c_ulonglong),
+    ]
+
+
+class _BasicLimitInformation(ctypes.Structure):
+    _fields_ = [
+        ("PerProcessUserTimeLimit", ctypes.c_int64),
+        ("PerJobUserTimeLimit", ctypes.c_int64),
+        ("LimitFlags", ctypes.c_uint32),
+        ("MinimumWorkingSetSize", ctypes.c_size_t),
+        ("MaximumWorkingSetSize", ctypes.c_size_t),
+        ("ActiveProcessLimit", ctypes.c_uint32),
+        ("Affinity", ctypes.c_void_p),
+        ("PriorityClass", ctypes.c_uint32),
+        ("SchedulingClass", ctypes.c_uint32),
+    ]
+
+
+class _ExtendedLimitInformation(ctypes.Structure):
+    _fields_ = [
+        ("BasicLimitInformation", _BasicLimitInformation),
+        ("IoInfo", _IoCounters),
+        ("ProcessMemoryLimit", ctypes.c_size_t),
+        ("JobMemoryLimit", ctypes.c_size_t),
+        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+        ("PeakJobMemoryUsed", ctypes.c_size_t),
+    ]
+
+
+class _MemoryStatusEx(ctypes.Structure):
+    _fields_ = [
+        ("dwLength", ctypes.c_ulong),
+        ("dwMemoryLoad", ctypes.c_ulong),
+        ("ullTotalPhys", ctypes.c_ulonglong),
+        ("ullAvailPhys", ctypes.c_ulonglong),
+        ("ullTotalPageFile", ctypes.c_ulonglong),
+        ("ullAvailPageFile", ctypes.c_ulonglong),
+        ("ullTotalVirtual", ctypes.c_ulonglong),
+        ("ullAvailVirtual", ctypes.c_ulonglong),
+        ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+    ]
+
+
+def _total_memory_bytes() -> int:
+    status = _MemoryStatusEx()
+    status.dwLength = ctypes.sizeof(status)
+    try:
+        if not ctypes.WinDLL("kernel32", use_last_error=True).GlobalMemoryStatusEx(
+            ctypes.byref(status)
+        ):
+            return 0
+    except OSError:
+        return 0
+    return int(status.ullTotalPhys)
 
 
 _ACTIVE_LIMITS: dict[tuple[object, float], int] = {}
@@ -579,12 +683,23 @@ def _cpu_rate_value(percent: float) -> int:
     return max(1, min(10000, int(round(percent * 100))))
 
 
-def _set_cpu_limit(key: tuple[int, float], pid: int, percent: float) -> bool:
+def _set_cpu_limit(
+    key: tuple[int, float],
+    pid: int,
+    percent: float,
+    job_memory_limit: int = 0,
+    job_process_limit: int = 0,
+) -> bool:
     """Hard-cap a process's CPU share with a Job Object rate control.
 
     ``percent`` is a share of total machine CPU (100 = one full core);
     enforcement is kernel-side, no thread suspension.  A process already
     inside a restrictive job may refuse nesting — fail-soft.
+
+    When the job is created here, ``job_memory_limit`` (bytes) and
+    ``job_process_limit`` additionally hard-cap the aggregate: members that
+    push the job over the RAM ceiling fail their allocations, and no more
+    than ``job_process_limit`` processes may live in the job.
     """
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     info = _CpuRateControl(
@@ -598,6 +713,29 @@ def _set_cpu_limit(key: tuple[int, float], pid: int, percent: float) -> bool:
         if not job:
             return False
         created = True
+        if job_memory_limit > 0 or job_process_limit > 0:
+            limits = _ExtendedLimitInformation()
+            if job_memory_limit > 0:
+                limits.BasicLimitInformation.LimitFlags |= (
+                    JOB_OBJECT_LIMIT_JOB_MEMORY
+                )
+                limits.JobMemoryLimit = job_memory_limit
+            if job_process_limit > 0:
+                limits.BasicLimitInformation.LimitFlags |= (
+                    JOB_OBJECT_LIMIT_ACTIVE_PROCESS
+                )
+                limits.BasicLimitInformation.ActiveProcessLimit = (
+                    job_process_limit
+                )
+            try:
+                kernel32.SetInformationJobObject(
+                    job,
+                    JOB_OBJECT_EXTENDED_LIMIT_INFORMATION_CLASS,
+                    ctypes.byref(limits),
+                    ctypes.sizeof(limits),
+                )
+            except OSError:
+                pass
     try:
         ok = bool(
             kernel32.SetInformationJobObject(
@@ -914,7 +1052,11 @@ def govern_once(
                 and not record.job_member
             ):
                 ok = True if dry_run else _set_cpu_limit(
-                    _WORKER_JOB_KEY, pid, features["worker_job_percent"]
+                    _WORKER_JOB_KEY,
+                    pid,
+                    features["worker_job_percent"],
+                    job_memory_limit=features["worker_job_memory_bytes"],
+                    job_process_limit=features["worker_job_process_limit"],
                 )
                 record.job_member = True
                 actions.append(
