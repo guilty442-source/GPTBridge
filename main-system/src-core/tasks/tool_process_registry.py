@@ -75,41 +75,29 @@ _BATCH_PROCESS_COMMAND = (
 
 
 def _snapshot_processes_native() -> list[dict[str, Any]] | None:
-    """Fast process snapshot via psutil; ``None`` when psutil is unavailable.
+    """Fast process snapshot via the native metrics facade (P24);
+    ``None`` when no metrics backend is available.
 
     PowerShell/CIM enumeration costs 1-3 seconds per call and dominated every
-    toolbox status refresh; psutil inspects the same process table natively in
-    a few milliseconds.  The PowerShell path stays as a fallback.
+    toolbox status refresh; the native primitives inspect the same process
+    table in a few milliseconds.  The PowerShell path stays as a fallback.
     """
-    try:
-        import psutil
-    except ImportError:
+    from shared_layer.performance import process_metrics
+
+    if not process_metrics.metrics_available():
         return None
     snapshot: list[dict[str, Any]] = []
-    for proc in psutil.process_iter(["pid", "name"]):
-        try:
-            info = proc.info
-            name = str(info.get("name") or "")
-            if name.lower() not in _SNAPSHOT_PROCESS_NAMES:
-                continue
-            try:
-                command_line = " ".join(proc.cmdline())
-            except (psutil.AccessDenied, psutil.ZombieProcess):
-                command_line = ""
-            try:
-                executable_path = str(proc.exe() or "")
-            except (psutil.AccessDenied, psutil.ZombieProcess):
-                executable_path = ""
-            snapshot.append(
-                {
-                    "pid": int(info.get("pid") or 0),
-                    "name": name,
-                    "command_line": command_line,
-                    "executable_path": executable_path,
-                }
-            )
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+    for pid, name in process_metrics.process_iter_names():
+        if name.lower() not in _SNAPSHOT_PROCESS_NAMES:
             continue
+        snapshot.append(
+            {
+                "pid": pid,
+                "name": name,
+                "command_line": process_metrics.process_cmdline(pid) or "",
+                "executable_path": process_metrics.process_exe(pid) or "",
+            }
+        )
     return snapshot
 
 
@@ -173,8 +161,8 @@ def _native_process_ids(
 ) -> list[int] | None:
     """Resolve one process class from the native snapshot.
 
-    Returns ``None`` when psutil is unavailable so callers fall back to the
-    PowerShell/CIM query.  The native pass costs milliseconds, where every CIM
+    Returns ``None`` when no metrics backend is available so callers fall
+    back to the PowerShell/CIM query.  The native pass costs milliseconds, where every CIM
     call costs 1-3 seconds and dominated tool open/close latency.
     """
     snapshot = _snapshot_processes_native()
@@ -313,8 +301,8 @@ def running_source_runtime_process_ids(entry_file: Path) -> list[int]:
 def _native_packaged_backend_ids(tool_dir: Path) -> list[int] | None:
     """Resolve packaged-backend PIDs from the native snapshot.
 
-    Returns ``None`` when psutil is unavailable so the caller falls back to
-    the PowerShell/CIM query.  Matches the CIM predicate exactly: python
+    Returns ``None`` when no metrics backend is available so the caller
+    falls back to the PowerShell/CIM query.  Matches the CIM predicate exactly: python
     process whose ``ExecutablePath`` is under ``tool_dir`` and whose command
     line contains ``channel_runtime.py``.
     """
@@ -378,20 +366,18 @@ def running_source_ui_process_ids(tool_id: str) -> list[int]:
 
 
 def _force_stop_process_ids_native(process_ids: list[int]) -> list[int] | None:
-    """psutil kill pass; ``None`` when psutil is unavailable.
+    """Native kill pass via the metrics facade (P24); ``None`` when no
+    metrics backend is available.
 
     Same contract as the PowerShell path: best-effort per-PID kill, returns
     the attempted id list.
     """
-    try:
-        import psutil
-    except ImportError:
+    from shared_layer.performance import process_metrics
+
+    if not process_metrics.metrics_available():
         return None
     for process_id in process_ids:
-        try:
-            psutil.Process(process_id).kill()
-        except psutil.Error:
-            continue
+        process_metrics.process_terminate(process_id)
     return list(process_ids)
 
 

@@ -30,6 +30,11 @@ def native_metrics_available() -> bool:
     return _native() is not None
 
 
+def metrics_available() -> bool:
+    """Any backend can answer (native preferred, bounded psutil fallback)."""
+    return _native() is not None or _psutil() is not None
+
+
 def _psutil() -> Any:
     try:
         import psutil  # type: ignore[import-not-found]
