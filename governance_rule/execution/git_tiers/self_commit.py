@@ -305,6 +305,16 @@ def _run_once_unlocked(
         ) is None:
             lease = commit_lease_active(repo) or {}
             return f"commit-lease-held:{lease.get('owner')}"
+        # Git checkouts drop FILE_ATTRIBUTE_READONLY on protected
+        # governance sources; restore the invariant before the commit
+        # audit so attribute loss alone never blocks the sweep.  The
+        # audit remains the authority if a restore genuinely fails.
+        try:
+            from .protected_attrs import restore_protected_readonly
+
+            restore_protected_readonly(repo.path)
+        except Exception:
+            pass
         if not _is_main_worktree(repo):
             gate = _governed(
                 repo, ["worktree", "lock", str(repo.path)], actor=actor

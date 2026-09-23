@@ -226,6 +226,13 @@ def synchronize(
                 entry["queue_id"], f"merged {source_sha} into main; recovery={recovery_ref}"
             )
 
+        if merged_any:
+            # The merge checkout rewrote files in main's working tree,
+            # dropping FILE_ATTRIBUTE_READONLY on protected governance
+            # sources; restore the invariant before the integrated audit.
+            from .protected_attrs import restore_protected_readonly
+
+            restore_protected_readonly(main["path"])
         if not _audit_passes(main["path"]):
             return "error:integrated-main-governance-audit"
 
@@ -244,6 +251,14 @@ def synchronize(
                 return (
                     f"error:fast-forward:{branch}:{_gate_error(advanced)}"
                 )
+            # The ff checkout rewrote files without FILE_ATTRIBUTE_READONLY;
+            # restore it so this worktree's next self-commit audit passes.
+            try:
+                from .protected_attrs import restore_protected_readonly
+
+                restore_protected_readonly(repo.path)
+            except Exception:
+                pass
         if push:
             from .push_gate import (
                 mandatory_test_gate,
