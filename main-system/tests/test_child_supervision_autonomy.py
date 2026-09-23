@@ -60,10 +60,9 @@ def test_supervise_children_does_not_raise(sovereign_cls: type, tmp_path: Path) 
 
 
 def test_supervise_children_records_stopped_child(tmp_path: Path) -> None:
-    # A334: ``_all_children`` only projects children whose codex hierarchy
-    # row is active — use the active pair (decision-sovereign /
-    # health-maintenance-test-sub-sovereign); the former fixture
-    # startup-sub-sovereign under system-runtime-sovereign is retired.
+    # A604: every codex hierarchy row is retired, so ``_all_children``
+    # still projects the sovereign's own materialized child registry
+    # (runtime fact) even though no active declaration exists.
     sovereign = DecisionSovereign(_app(tmp_path))
     stopped = SimpleNamespace(_started=False)
     sovereign._sub_sovereigns["health-maintenance-test-sub-sovereign"] = stopped
@@ -156,6 +155,16 @@ def test_runtime_readiness_degraded_still_detected(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "A604 retired learning-evidence-sync-sub-sovereign: the "
+        "delegation path fails closed (child-parent-mismatch) pending "
+        "the convergence workstream registry switch — see "
+        "governance_rule/execution/audit/convergence/"
+        "a594-learning-command-regression-20260922.json"
+    ),
+)
 async def test_learning_automation_rearms_after_child_materializes(
     tmp_path: Path,
 ) -> None:

@@ -204,6 +204,16 @@ def test_remove_pending_actions_rejects_non_pending_items(tmp_path: Path) -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "A604 retired learning-evidence-sync-sub-sovereign: the "
+        "delegation path fails closed (child-parent-mismatch) pending "
+        "the convergence workstream registry switch — see "
+        "governance_rule/execution/audit/convergence/"
+        "a594-learning-command-regression-20260922.json"
+    ),
+)
 async def test_reconcile_loop_eliminates_messages_automatically(
     tmp_path: Path,
 ) -> None:

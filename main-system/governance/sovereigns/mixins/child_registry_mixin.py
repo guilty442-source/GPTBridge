@@ -40,7 +40,12 @@ class ChildRegistryBase:
         from ...registries import hierarchy_status, resolve_sovereign
 
         merged: dict[str, Any] = {}
-        for parent_id in hierarchy_status()["parents"]:
+        parents = set(hierarchy_status()["parents"])
+        # A604: the hierarchy layer is retired, so the registry may name no
+        # parents — this sovereign's own materialized children are a runtime
+        # fact and stay observable regardless of declaration state.
+        parents.add(self.sovereign_id)
+        for parent_id in sorted(parents):
             parent = (
                 self
                 if parent_id == self.sovereign_id
