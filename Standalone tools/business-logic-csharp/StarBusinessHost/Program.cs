@@ -23,7 +23,22 @@ if (args.Any(a => a == "rehearse-lifecycle"))
     var report = await orchestrator.RehearseAsync(
         activateIfDown: args.Contains("--activate"),
         runInfer: args.Contains("--infer"));
-    await WriteAsync(report);
+    // 持久化演練證據（寫入失敗不影響演練判定，但會附註於輸出）。
+    string? evidencePath = null;
+    try
+    {
+        var logsDir = Path.Combine(toolRoot, "xingcheng", "runtime", "logs");
+        Directory.CreateDirectory(logsDir);
+        evidencePath = Path.Combine(logsDir,
+            $"lifecycle-rehearsal-{DateTime.UtcNow:yyyyMMddTHHmmssZ}.json");
+        await File.WriteAllTextAsync(evidencePath,
+            JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+    }
+    catch (Exception persistError)
+    {
+        evidencePath = $"PERSIST_FAILED:{persistError.GetType().Name}";
+    }
+    await WriteAsync(new { report, evidence_path = evidencePath });
     return report.OverallOk ? 0 : 3;
 }
 
