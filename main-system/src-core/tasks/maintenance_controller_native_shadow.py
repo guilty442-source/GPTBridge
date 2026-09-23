@@ -37,8 +37,9 @@ equal timestamps are evidence, not noise; Python expires queued jobs by
 ``admitted_at`` age inside ``tick`` where the C side expires inside
 ``next_due``; post-policy vetoes (budget / lease / cooldown) are mirrored
 via ``observe_admit_veto`` so the C table tracks the actually-enqueued
-set; ``requeue_job`` is only reached by startup recovery and is not
-mirrored.
+set; ``requeue_job`` (startup recovery / explicit retry) is mirrored via
+``observe_requeue`` → ``gptbridge_mt_requeue`` (RUNNING→QUEUED, no
+backoff — distinct from the C ``fail`` deferral semantics).
 """
 
 from __future__ import annotations
@@ -357,6 +358,29 @@ class MaintenanceNativeShadow:
                 )
         except Exception as exc:
             self._disable("native-cancel-error", exc)
+
+    def observe_requeue(self, job_id: str) -> None:
+        """Mirror ``requeue_job`` — RUNNING→QUEUED, immediately due.
+
+        The C table has no requeue entry point by design; ``fail`` would
+        add backoff and ``cancel`` would terminate.  A native refusal
+        (job missing or not RUNNING) is divergence evidence.
+        """
+        if self._disabled:
+            return
+        try:
+            if not self._mt.requeue(str(job_id), _now_ms()):
+                self._emit(
+                    {
+                        "kind": "divergence",
+                        "op": "requeue",
+                        "job_id": str(job_id),
+                        "python": {"requeued": True},
+                        "native": {"requeued": False},
+                    }
+                )
+        except Exception as exc:
+            self._disable("native-requeue-error", exc)
 
     def observe_terminal(self, job_id: str, *, ok: bool) -> None:
         """Mirror job completion/failure into the native queue state.

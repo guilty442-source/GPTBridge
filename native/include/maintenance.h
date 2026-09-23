@@ -100,6 +100,13 @@ int gptbridge_mt_fail(gptbridge_mt_t* mt, const char* job_id, int64_t now_ms);
    標 CANCELLED 退出佇列，槽位可被回收（對齊 Python 端未入隊狀態） */
 int gptbridge_mt_cancel(gptbridge_mt_t* mt, const char* job_id);
 
+/* requeue：RUNNING → QUEUED 立即到期（Python requeue_job 鏡像——
+   startup recovery／明確重試回置佇列頭，不經 fail 的 backoff 語意）。
+   attempt_count 由 dispatch 時累計，此處不動。job 非 RUNNING 或
+   不存在回 0（fail-closed）。 */
+int gptbridge_mt_requeue(gptbridge_mt_t* mt, const char* job_id,
+                         int64_t now_ms);
+
 /* TTL 快取：有效內回傳快取；失效回 0（呼叫方重新探測後 set） */
 int gptbridge_mt_cache_get(gptbridge_mt_cache_t* c, int64_t now_ms,
                            int64_t ttl_ms, void** out_payload,

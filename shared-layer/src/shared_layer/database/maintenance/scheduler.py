@@ -467,6 +467,12 @@ class MaintenanceScheduler:
 
             # Requeue
             self._queue.appendleft(ScheduledJob(job=new_job, action=scheduled.action))
+            shadow = self._native_shadow
+            if shadow is not None:
+                try:
+                    shadow.observe_requeue(str(job_id))
+                except Exception:
+                    pass
             return True
 
     def get_queue_snapshot(self) -> dict[str, Any]:

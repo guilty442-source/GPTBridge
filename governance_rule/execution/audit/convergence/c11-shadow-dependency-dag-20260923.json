@@ -143,13 +143,14 @@
     "scheduler.h: GPTBRIDGE_SCHED_MAX_JOBS 16->64 + NAME_MAX 32->64 (real capacity parity gap — 17 resident flows, 32-char names)",
     "periodic_scheduler_native_shadow: membership-divergence once-per-episode dedup",
     "maintenance scheduler._cleanup_stale_jobs: mirror observe_cancelled per stale drop (native table leak plugged)",
-    "maintenance_controller_native_shadow.observe_dispatch: mismatch resync — withdraw py-dispatched job from native table"
+    "maintenance_controller_native_shadow.observe_dispatch: mismatch resync — withdraw py-dispatched job from native table",
+    "gptbridge_mt_requeue primitive + observe_requeue mirror — the last unmirrored maintenance lifecycle edge closed (RUNNING->QUEUED, no backoff)"
   ],
   "residuals": [
     "native .pyd rebuild pending — live backend holds the artifact lock; capacity fix lands on next governed rebuild/restart",
-    "maintenance requeue_job (RUNNING->QUEUED) has no native mt primitive — needs gptbridge_mt_requeue or cancel+admit mirror design",
     "resource ledgers thin for request_registry(1)/runtime-state(1) — accumulate under normal operation",
-    "release observation windows 0/2 for all 8 — gated on INT-10 window + release cadence (not worker-actionable)"
+    "release observation windows 0/2 for all 8 — gated on INT-10 window + release cadence (not worker-actionable)",
+    "maintenance requeue mirror lands with next native rebuild (.pyd lock) — Python-side wiring is inert until then (shadow getattr-fallback safe)"
   ],
   "codex_mutation": "none"
 }

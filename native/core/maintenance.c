@@ -126,6 +126,17 @@ int gptbridge_mt_cancel(gptbridge_mt_t* mt, const char* job_id) {
     return 1;
 }
 
+int gptbridge_mt_requeue(gptbridge_mt_t* mt, const char* job_id,
+                         int64_t now_ms) {
+    gptbridge_mt_job_t* j = _find(mt, job_id);
+    if (!j) return 0;
+    if (j->status != GPTBRIDGE_MT_RUNNING)
+        return 0; /* 只有 RUNNING 可回置——其他狀態 fail-closed */
+    j->status = GPTBRIDGE_MT_QUEUED;
+    j->next_attempt_ms = now_ms;
+    return 1;
+}
+
 int gptbridge_mt_cache_get(gptbridge_mt_cache_t* c, int64_t now_ms,
                            int64_t ttl_ms, void** out_payload,
                            int32_t* out_ok) {

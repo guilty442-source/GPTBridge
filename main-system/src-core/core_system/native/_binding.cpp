@@ -545,6 +545,25 @@ public:
     int tick(int64_t now_ms, bool paused) {
         return gptbridge_sched_tick(&sched_, now_ms, paused ? 1 : 0);
     }
+    /* primary 模式：回傳到期 job 名單（不執行 fn——Python 跑 coroutine
+       後以 record() 回填）。starvation 界內建於 C 層。 */
+    py::list collect_due(int64_t now_ms, bool paused) {
+        char names[GPTBRIDGE_SCHED_MAX_JOBS][GPTBRIDGE_SCHED_NAME_MAX];
+        const int n = gptbridge_sched_collect_due(
+            &sched_, now_ms, paused ? 1 : 0, names,
+            GPTBRIDGE_SCHED_MAX_JOBS);
+        py::list out;
+        for (int32_t i = 0; i < n; ++i) out.append(names[i]);
+        return out;
+    }
+    bool record(const std::string& name, int64_t started_ms,
+                int64_t duration_ms, bool error) {
+        return gptbridge_sched_record(&sched_, name.c_str(), started_ms,
+                                      duration_ms, error ? 1 : 0) != 0;
+    }
+    int64_t min_due_ms() const {
+        return gptbridge_sched_min_due_ms(&sched_);
+    }
     int job_count() const { return gptbridge_sched_job_count(&sched_); }
     py::object job_stats(const std::string& name) const {
         const gptbridge_sched_job_t* j =
@@ -755,7 +774,33 @@ public:
         return gptbridge_ipc_registry_set_status(
                    &reg_, request_id.c_str(),
                    static_cast<gptbridge_req_status_t>(status),
+                   now_or_host(now_ms)) == 1;
+    }
+    /* primary 模式：回傳區分碼（1 ok / 0 not-found / -1 terminal /
+       -2 invalid-transition / -3 unknown-status），供 Python 映射
+       既有 reason 字串。 */
+    int set_status_rc(const std::string& request_id, int status,
+                      int64_t now_ms) {
+        return gptbridge_ipc_registry_set_status(
+            &reg_, request_id.c_str(),
+            static_cast<gptbridge_req_status_t>(status),
+            now_or_host(now_ms));
+    }
+    bool merge_status(const std::string& request_id, int status,
+                      int64_t now_ms) {
+        return gptbridge_ipc_registry_merge_status(
+                   &reg_, request_id.c_str(),
+                   static_cast<gptbridge_req_status_t>(status),
                    now_or_host(now_ms)) != 0;
+    }
+    bool request_cancel(const std::string& request_id) {
+        return gptbridge_ipc_registry_request_cancel(
+                   &reg_, request_id.c_str()) != 0;
+    }
+    bool set_backend(const std::string& request_id,
+                     const std::string& backend_id) {
+        return gptbridge_ipc_registry_set_backend(
+                   &reg_, request_id.c_str(), backend_id.c_str()) != 0;
     }
     bool cancel(const std::string& request_id, int64_t now_ms) {
         return gptbridge_ipc_registry_cancel(
@@ -903,8 +948,62 @@ public:
         return out;
     }
     int count() const { return reg_.count; }
+    /* primary 模式：持久化回放——逐欄位寫入不經轉移語意（對齊 Python
+       _load）。dict 缺欄位以安全預設填充。 */
+    bool restore(const py::dict& rec) {
+        gptbridge_rs_record_t r{};
+        _copy_str(r.module_id, sizeof(r.module_id), rec, "module_id");
+        if (r.module_id[0] == '\0') return false;
+        _copy_str(r.health, sizeof(r.health), rec, "health");
+        _copy_str(r.release_id, sizeof(r.release_id), rec, "release_id");
+        _copy_str(r.last_heartbeat, sizeof(r.last_heartbeat), rec,
+                  "last_heartbeat");
+        _copy_str(r.last_error, sizeof(r.last_error), rec, "last_error");
+        _copy_str(r.updated_at, sizeof(r.updated_at), rec, "updated_at");
+        r.runtime_state = gptbridge_rs_runtime_from_name(
+            _get_str(rec, "runtime_state").c_str());
+        r.capability_state = gptbridge_rs_capability_from_name(
+            _get_str(rec, "capability_state").c_str());
+        r.recovery_attempts = rec.contains("recovery_attempts")
+                                  ? py::cast<int32_t>(rec["recovery_attempts"])
+                                  : 0;
+        r.last_heartbeat_ms = rec.contains("last_heartbeat_ms")
+                                  ? py::cast<int64_t>(rec["last_heartbeat_ms"])
+                                  : 0;
+        return gptbridge_rs_restore(&reg_, &r) != 0;
+    }
+    py::list modules() const {
+        py::list out;
+        for (int32_t i = 0; i < GPTBRIDGE_RS_MAX_MODULES; ++i) {
+            const gptbridge_rs_record_t* r = &reg_.records[i];
+            if (!r->in_use) continue;
+            py::dict d;
+            d["module_id"] = r->module_id;
+            d["runtime_state"] = gptbridge_rs_runtime_name(r->runtime_state);
+            d["capability_state"] =
+                gptbridge_rs_capability_name(r->capability_state);
+            d["health"] = r->health;
+            d["release_id"] = r->release_id;
+            d["last_heartbeat"] = r->last_heartbeat;
+            d["last_heartbeat_ms"] = r->last_heartbeat_ms;
+            d["last_error"] = r->last_error;
+            d["recovery_attempts"] = r->recovery_attempts;
+            d["updated_at"] = r->updated_at;
+            out.append(d);
+        }
+        return out;
+    }
 
 private:
+    static std::string _get_str(const py::dict& d, const char* key) {
+        if (!d.contains(key) || d[key].is_none()) return "";
+        return py::cast<std::string>(d[key]);
+    }
+    static void _copy_str(char* dst, size_t cap, const py::dict& d,
+                          const char* key) {
+        const std::string v = _get_str(d, key);
+        std::snprintf(dst, cap, "%s", v.c_str());
+    }
     gptbridge_rs_registry_t reg_{};
 };
 
@@ -1333,6 +1432,12 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("unregister_job", &NativeScheduler::unregister_job)
         .def("tick", &NativeScheduler::tick,
              py::arg("now_ms"), py::arg("paused") = false)
+        .def("collect_due", &NativeScheduler::collect_due,
+             py::arg("now_ms"), py::arg("paused") = false)
+        .def("record", &NativeScheduler::record,
+             py::arg("name"), py::arg("started_ms"),
+             py::arg("duration_ms"), py::arg("error") = false)
+        .def("min_due_ms", &NativeScheduler::min_due_ms)
         .def("job_count", &NativeScheduler::job_count)
         .def("job_stats", &NativeScheduler::job_stats);
 
@@ -1360,6 +1465,7 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("complete", &NativeMaintenance::complete)
         .def("fail", &NativeMaintenance::fail)
         .def("cancel", &NativeMaintenance::cancel)
+        .def("requeue", &NativeMaintenance::requeue)
         .def("job_count", &NativeMaintenance::job_count)
         .def("live_count", &NativeMaintenance::live_count)
         .def("set_generation", &NativeMaintenance::set_generation)
@@ -1374,6 +1480,14 @@ PYBIND11_MODULE(_sovereign_native, m) {
              py::arg("now_ms") = 0)
         .def("set_status", &NativeIpcRegistry::set_status,
              py::arg("request_id"), py::arg("status"), py::arg("now_ms") = 0)
+        .def("set_status_rc", &NativeIpcRegistry::set_status_rc,
+             py::arg("request_id"), py::arg("status"), py::arg("now_ms") = 0)
+        .def("merge_status", &NativeIpcRegistry::merge_status,
+             py::arg("request_id"), py::arg("status"), py::arg("now_ms") = 0)
+        .def("request_cancel", &NativeIpcRegistry::request_cancel,
+             py::arg("request_id"))
+        .def("set_backend", &NativeIpcRegistry::set_backend,
+             py::arg("request_id"), py::arg("backend_id"))
         .def("cancel", &NativeIpcRegistry::cancel,
              py::arg("request_id"), py::arg("now_ms") = 0)
         .def("set_timeout", &NativeIpcRegistry::set_timeout,
@@ -1398,6 +1512,8 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("record_error", &NativeRuntimeStateRegistry::record_error)
         .def("get", &NativeRuntimeStateRegistry::get)
         .def("aggregate", &NativeRuntimeStateRegistry::aggregate)
+        .def("restore", &NativeRuntimeStateRegistry::restore)
+        .def("modules", &NativeRuntimeStateRegistry::modules)
         .def("count", &NativeRuntimeStateRegistry::count);
 
     py::class_<NativeActivationBroker>(m, "NativeActivationBroker")
