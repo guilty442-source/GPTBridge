@@ -233,13 +233,19 @@ class RagDagExecutor:
         context: RagDagExecutionContext,
         upstream: Mapping[str, Mapping[str, Any]],
     ) -> Mapping[str, Any]:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
             future = pool.submit(handler, node, context, dict(upstream))
             try:
                 return future.result(timeout=self._node_timeout)
             except concurrent.futures.TimeoutError as error:
                 future.cancel()
                 raise TimeoutError("node-timeout") from error
+        finally:
+            # wait=True 會阻塞到 runaway handler 結束，使 node timeout
+            # 完全失去 wall-clock 約束；逾時路徑以 wait=False 放手，
+            # 讓執行緒自行終結（Python 無法強殺執行中 thread）。
+            pool.shutdown(wait=False, cancel_futures=True)
 
     def _compensate(
         self,

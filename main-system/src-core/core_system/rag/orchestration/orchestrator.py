@@ -15,6 +15,7 @@ All retriever outputs are normalised to ``RagEvidence`` upstream
 """
 from __future__ import annotations
 
+import concurrent.futures
 import itertools
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
@@ -75,16 +76,38 @@ class RagOrchestrator:
         self._reformulator = reformulator
         self._system = system_governance
 
-    def _dispatch(
+    def dispatch(
         self, archs: tuple[RagArchitecture, ...], query: str, scope: dict[str, Any]
     ) -> dict[RagArchitecture, list[RagEvidence]]:
-        pools: dict[RagArchitecture, list[RagEvidence]] = {}
+        """Per-architecture retrieval fan-out — the public boundary other
+        subsystems (CAG preload) consume instead of reaching into
+        orchestrator internals.
+
+        Multi-architecture plans run their lanes concurrently under the
+        shared core thread budget (retrievers are independent blocking
+        IO); a single-architecture plan stays on the caller thread.
+        Exceptions propagate exactly as the serial path did."""
+        lanes: list[tuple[RagArchitecture, RetrieverFn]] = []
         for arch in archs:
             tool = _ARCH_TOOL.get(arch)
             fn = self._retrievers.get(tool) if tool else None
-            if fn is None:
-                continue
-            pools[arch] = fn(query, scope)
+            if fn is not None:
+                lanes.append((arch, fn))
+        if len(lanes) <= 1:
+            return {arch: fn(query, scope) for arch, fn in lanes}
+
+        from shared_layer.performance.thread_budget import bounded_workers
+
+        pools: dict[RagArchitecture, list[RagEvidence]] = {}
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=bounded_workers(len(lanes)),
+            thread_name_prefix="rag-dispatch",
+        ) as pool:
+            futures = {
+                arch: pool.submit(fn, query, scope) for arch, fn in lanes
+            }
+            for arch, future in futures.items():
+                pools[arch] = future.result()
         return pools
 
     def query(
@@ -110,7 +133,7 @@ class RagOrchestrator:
             max_rounds=self._policy.max_rounds,
         )
 
-        pools = self._dispatch(plan.rag_architectures, query, scope)
+        pools = self.dispatch(plan.rag_architectures, query, scope)
         fused = mark_conflicts(architecture_fusion(pools))
         if self._reranker and fused:
             from ..observability import timed_stage

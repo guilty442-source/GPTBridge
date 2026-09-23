@@ -114,6 +114,20 @@ class HybridOrchestrator:
         )
         self._selector = ArchitectureSelector(self._config)
 
+    # CAG pipeline handles are owned here; lifecycle code (CAGIntegration)
+    # reads them through these properties instead of private attributes.
+    @property
+    def cag_loader(self) -> ContextLoader:
+        return self._cag_loader
+
+    @property
+    def cag_manager(self) -> ContextManager:
+        return self._cag_manager
+
+    @property
+    def cag_router(self) -> ContextRouter:
+        return self._cag_router
+
     def query(
         self,
         query: str,

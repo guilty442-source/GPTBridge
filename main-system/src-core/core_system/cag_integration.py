@@ -87,9 +87,9 @@ class CAGIntegration:
             cag_preload_on_startup=True,
         )
         self._hybrid = create_hybrid_orchestrator(retrievers, rag, hybrid_config)
-        self._cag_loader = self._hybrid._cag_loader
-        self._cag_manager = self._hybrid._cag_manager
-        self._cag_router = self._hybrid._cag_router
+        self._cag_loader = self._hybrid.cag_loader
+        self._cag_manager = self._hybrid.cag_manager
+        self._cag_router = self._hybrid.cag_router
 
         # Context preloading runs in the background — each load performs
         # real retrieval (blocking sync calls on the RAG worker loop), so
@@ -145,18 +145,18 @@ class CAGIntegration:
 
     def _build_retrievers(self) -> dict[str, Any]:
         """Build retriever function map from RAG orchestrator."""
-        # RAG orchestrator has retrievers internally; _dispatch keys on
-        # RagArchitecture enum members, not plain strings.
+        # RAG orchestrator owns retrieval; CAG consumes the public
+        # dispatch boundary (keys on RagArchitecture enum members).
         from .rag.orchestration.evidence import RagArchitecture
 
         return {
-            "retrieve_hybrid": lambda q, s: self._rag_orchestrator._dispatch(
+            "retrieve_hybrid": lambda q, s: self._rag_orchestrator.dispatch(
                 (RagArchitecture.HYBRID,), q, s
             ).get(RagArchitecture.HYBRID, []),
-            "retrieve_code": lambda q, s: self._rag_orchestrator._dispatch(
+            "retrieve_code": lambda q, s: self._rag_orchestrator.dispatch(
                 (RagArchitecture.CODE,), q, s
             ).get(RagArchitecture.CODE, []),
-            "retrieve_memory": lambda q, s: self._rag_orchestrator._dispatch(
+            "retrieve_memory": lambda q, s: self._rag_orchestrator.dispatch(
                 (RagArchitecture.MEMORY,), q, s
             ).get(RagArchitecture.MEMORY, []),
         }
