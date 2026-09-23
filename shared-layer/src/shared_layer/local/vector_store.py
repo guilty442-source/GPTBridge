@@ -391,7 +391,7 @@ class LocalVectorStore:
         with self._connect() as connection:
             if module_ids:
                 placeholders = ", ".join("?" for _ in module_ids)
-                return connection.execute(
+                return connection.execute(  # sql-ok: generated ? placeholder list
                     f"""
                     SELECT point_id, document_id, module_id, vector, payload
                     FROM collection_point

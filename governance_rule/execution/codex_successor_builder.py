@@ -261,7 +261,7 @@ def _existing_count(
     where = " AND ".join(
         f"{_quote_identifier(str(name))} IS ?" for name in sorted(key)
     )
-    count = connection.execute(
+    count = connection.execute(  # sql-ok: identifiers composed via _quote_identifier
         f"SELECT COUNT(*) FROM {_quote_identifier(table)} WHERE {where}",
         tuple(key[name] for name in sorted(key)),
     ).fetchone()[0]
@@ -278,7 +278,7 @@ def _existing_row(
     where = " AND ".join(
         f"{_quote_identifier(str(name))} IS ?" for name in sorted(key)
     )
-    row = connection.execute(
+    row = connection.execute(  # sql-ok: identifiers composed via _quote_identifier
         f"SELECT {', '.join(_quote_identifier(name) for name in names)} "
         f"FROM {_quote_identifier(table)} WHERE {where}",
         tuple(key[name] for name in sorted(key)),
@@ -357,7 +357,7 @@ def _insert_row(
             "CANDIDATE_DUPLICATE_ROW", f"{table}:{content_hash(identity)}"
         )
     names = sorted(normalized)
-    connection.execute(
+    connection.execute(  # sql-ok: identifiers composed via _quote_identifier
         f"INSERT INTO {_quote_identifier(table)} "
         f"({', '.join(_quote_identifier(name) for name in names)}) "
         f"VALUES ({', '.join('?' for _ in names)})",
@@ -395,7 +395,7 @@ def _update_rows(
     where = " AND ".join(
         f"{_quote_identifier(str(name))} IS ?" for name in sorted(key)
     )
-    connection.execute(
+    connection.execute(  # sql-ok: identifiers composed via _quote_identifier
         f"UPDATE {_quote_identifier(table)} SET {assignments} WHERE {where}",
         tuple(normalized[name] for name in sorted(normalized))
         + tuple(key[name] for name in sorted(key)),
@@ -609,7 +609,7 @@ def _formal_rule_errors(connection: sqlite3.Connection) -> tuple[str, ...]:
         + [_quote_identifier(name) for name in parity_columns]
     )
     errors: list[str] = []
-    rows = connection.execute(
+    rows = connection.execute(  # sql-ok: identifiers composed via _quote_identifier
         f"SELECT {selected} FROM {_quote_identifier(FORMAL_RULE_REGISTRY)}"
     )
     for row in rows:

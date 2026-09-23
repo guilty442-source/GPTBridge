@@ -51,7 +51,7 @@ class SelectionMixin:
             )
             if selected:
                 placeholders = ",".join("?" for _ in selected)
-                connection.execute(
+                connection.execute(  # sql-ok: generated ? placeholder list
                     f"""
                     UPDATE vaultly_accounts
                     SET selected = 1
@@ -111,7 +111,7 @@ class SelectionMixin:
         placeholders = ",".join("?" for _ in ids)
         now = _utc_now()
         with self._connect() as connection:
-            accounts = connection.execute(
+            accounts = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 SELECT account_id, platform, selected
                 FROM vaultly_accounts
@@ -126,7 +126,7 @@ class SelectionMixin:
                     str(account["platform"]),
                     bool(account["selected"]),
                 )
-            cursor = connection.execute(
+            cursor = connection.execute(  # sql-ok: code-controlled SQL composition
                 f"""
                 UPDATE vaultly_account_scan_schedule
                 SET status = 'queued',

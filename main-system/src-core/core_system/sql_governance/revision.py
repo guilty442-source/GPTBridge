@@ -8,14 +8,33 @@ UPDATE ... WHERE id = ? AND revision = expected_revision
 from __future__ import annotations
 
 import logging
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Optional
 
 import psycopg
+from psycopg import sql
 from psycopg.rows import dict_row
 
 _logger = logging.getLogger("gptbridge.sql.revision")
+
+# SQL identifiers must be plain names (optionally schema-qualified) — never
+# raw caller strings. Fail-closed: anything else raises RevisionError.
+_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?\Z")
+_COLUMN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+
+
+def _sql_identifier(name: str, *, what: str) -> "sql.Identifier":
+    if not _IDENTIFIER_RE.fullmatch(str(name or "")):
+        raise RevisionError(f"unsafe SQL identifier ({what}): {name!r}")
+    return sql.Identifier(*str(name).split("."))
+
+
+def _sql_column(name: str) -> "sql.Identifier":
+    if not _COLUMN_RE.fullmatch(str(name or "")):
+        raise RevisionError(f"unsafe SQL column name: {name!r}")
+    return sql.Identifier(str(name))
 
 
 class RevisionError(Exception):
@@ -54,7 +73,10 @@ class RevisionController:
         conn = self._get_conn()
         with conn.cursor() as cur:
             cur.execute(
-                f"SELECT revision FROM {table} WHERE {id_column} = %s",
+                sql.SQL("SELECT revision FROM {} WHERE {} = %s").format(
+                    _sql_identifier(table, what="table"),
+                    _sql_column(id_column),
+                ),
                 (record_id,),
             )
             row = cur.fetchone()
@@ -78,23 +100,29 @@ class RevisionController:
         """
         conn = self._get_conn()
 
-        # Build SET clause
+        # Build SET clause — column names are quoted identifiers, values stay
+        # parameterized.
         set_parts = []
         params = []
         for col, val in updates.items():
-            set_parts.append(f"{col} = %s")
+            set_parts.append(sql.SQL("{} = %s").format(_sql_column(col)))
             params.append(val)
 
-        # Always increment revision
-        set_parts.append(f"{revision_column} = {revision_column} + 1")
+        revision_ident = _sql_column(revision_column)
+        set_parts.append(
+            sql.SQL("{} = {} + 1").format(revision_ident, revision_ident)
+        )
         params.extend([record_id, expected_revision])
 
-        query = f"""
-            UPDATE {table}
-            SET {', '.join(set_parts)}
-            WHERE {id_column} = %s AND {revision_column} = %s
-            RETURNING {revision_column}
-        """
+        query = sql.SQL(
+            "UPDATE {table} SET {sets} WHERE {id_col} = %s AND {rev_col} = %s"
+            " RETURNING {rev_col}"
+        ).format(
+            table=_sql_identifier(table, what="table"),
+            sets=sql.SQL(", ").join(set_parts),
+            id_col=_sql_column(id_column),
+            rev_col=revision_ident,
+        )
 
         with conn.cursor() as cur:
             cur.execute(query, params)

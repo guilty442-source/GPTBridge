@@ -356,7 +356,7 @@ class TrainingJobExecutor:
 
     def _job_row(self, job_id: str) -> dict[str, Any]:
         with self.repository._connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {self._JOB_COLUMNS} "  # sql-ok: fixed column list constant
                 "FROM transformer_training_job WHERE job_id = ?",
                 (str(job_id),),
@@ -382,7 +382,7 @@ class TrainingJobExecutor:
         self, dataset_id: str
     ) -> tuple[dict[str, Any], dict[str, str]]:
         with self.repository._connect() as connection:
-            dataset = connection.execute(
+            dataset = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {self._DATASET_COLUMNS} "  # sql-ok: fixed column list constant
                 "FROM transformer_training_dataset WHERE dataset_id = ?",
                 (str(dataset_id),),
@@ -877,7 +877,7 @@ class TrainingJobExecutor:
 
     def _runtime_state(self) -> dict[str, Any]:
         with self.repository._connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {self._RUNTIME_STATE_COLUMNS} "  # sql-ok: fixed column list constant
                 "FROM transformer_runtime_model_state WHERE singleton_id = 1"
             ).fetchone()

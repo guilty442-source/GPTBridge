@@ -103,7 +103,7 @@ class CollabRepoMessagesMixin:
             params.append(message_id)
         params.append(max(1, min(200, limit)))
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: code-built fragment, values parameterized
                 f"""
                 SELECT message_id, role, content, selected_agents_json, business_scope, created_at FROM ai_nexus_group_messages
                 {where}
@@ -116,7 +116,7 @@ class CollabRepoMessagesMixin:
             responses: dict[str, list[dict[str, Any]]] = {key: [] for key in message_ids}
             if message_ids:
                 placeholders = ",".join("?" for _ in message_ids)
-                response_rows = connection.execute(
+                response_rows = connection.execute(  # sql-ok: generated ? placeholder list
                     f"""
                     SELECT response_id, message_id, agent_id, status, content, error, error_code, execution_provider, transport, fallback_json, memory_candidates_json, created_at, updated_at FROM ai_nexus_agent_responses
                     WHERE message_id IN ({placeholders})

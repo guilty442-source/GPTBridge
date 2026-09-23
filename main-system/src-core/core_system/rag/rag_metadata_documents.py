@@ -361,7 +361,7 @@ class RagMetadataDocumentsMixin:
         try:
             placeholders = ",".join(["%s"] * len(module_ids))
             async with self._conn.cursor() as cur:
-                await cur.execute(
+                await cur.execute(  # sql-ok: code-controlled SQL composition
                     f"""SELECT chunk.chunk_id, chunk.resource_id, chunk.module_id,
                                chunk.sequence, chunk.character_start,
                                chunk.character_end,

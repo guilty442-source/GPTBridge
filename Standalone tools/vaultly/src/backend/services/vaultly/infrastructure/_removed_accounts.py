@@ -125,7 +125,7 @@ class RemovedAccountsMixin:
             return []
         placeholders = ",".join("?" for _ in ids)
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 SELECT account_id, platform, handle, display_name, profile_url,
                        avatar_url, verified
@@ -152,7 +152,7 @@ class RemovedAccountsMixin:
         placeholders = ",".join("?" for _ in ids)
         now = _utc_now()
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 SELECT account_id, platform, handle, display_name, profile_url, avatar_url, verified, reason, source, removed_at, is_active, deactivated_at, restored_at FROM vaultly_removed_accounts
                 WHERE account_id IN ({placeholders}) AND is_active = 1
@@ -167,7 +167,7 @@ class RemovedAccountsMixin:
                     "superseded",
                     row,
                 )
-            cursor = connection.execute(
+            cursor = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 UPDATE vaultly_removed_accounts
                 SET is_active = 0,

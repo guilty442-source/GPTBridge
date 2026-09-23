@@ -352,7 +352,7 @@ class PostMixin:
     ) -> int:
         where_sql, params = self._post_query_filters(platform, status, query)
         with self._connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: code-built fragment, values parameterized
                 f"SELECT COUNT(*) AS total FROM vaultly_posts {where_sql}",
                 params,
             ).fetchone()
@@ -368,7 +368,7 @@ class PostMixin:
     ) -> list[dict[str, Any]]:
         where_sql, params = self._post_query_filters(platform, status, query)
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: code-controlled SQL composition
                 f"""
                 SELECT post_id, platform, account_id, account_handle,
                        account_display_name, post_url, text, published_at,
@@ -405,7 +405,7 @@ class PostMixin:
         if not post_ids:
             return media_by_post
         placeholders = ",".join("?" for _ in post_ids)
-        media_rows = connection.execute(
+        media_rows = connection.execute(  # sql-ok: generated ? placeholder list
             f"""
             SELECT post_id, media_id, media_index, media_type, source_url,
                    thumbnail_url, fallback_urls_json, delivery

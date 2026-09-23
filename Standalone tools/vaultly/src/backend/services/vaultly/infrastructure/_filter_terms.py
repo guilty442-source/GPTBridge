@@ -86,7 +86,7 @@ class FilterTermsMixin:
         placeholders = ",".join("?" for _ in normalized)
         now = _utc_now()
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 SELECT term, created_at, is_active, deactivated_at FROM vaultly_filter_terms
                 WHERE term IN ({placeholders}) AND is_active = 1
@@ -101,7 +101,7 @@ class FilterTermsMixin:
                     "superseded",
                     row,
                 )
-            cursor = connection.execute(
+            cursor = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 UPDATE vaultly_filter_terms
                 SET is_active = 0, deactivated_at = ?

@@ -74,7 +74,7 @@ def _mirror_table_rows(
     order = f"ORDER BY {', '.join(primary)}" if primary else "ORDER BY rowid"
     rows = [
         {name: _json_safe(value, table, name) for name, value in zip(names, row)}
-        for row in connection.execute(
+        for row in connection.execute(  # sql-ok: schema-introspected or fixed table identifiers
             f"SELECT {', '.join(names)} FROM {table} {order}"
         )
     ]
@@ -246,7 +246,7 @@ def record_mirror_quality_evidence(
         replacement = int(metrics["replacement_character_count"])
         loss = int(metrics["question_loss_field_count"])
         result = "PASS" if replacement == 0 and loss == 0 else "FAIL"
-        connection.execute(
+        connection.execute(  # sql-ok: schema-introspected or fixed table identifiers
             f"INSERT OR REPLACE INTO {EVIDENCE_TABLE} VALUES (?, 5, ?, ?, 1, 1, ?, ?, 'current')",
             (
                 f"MIRROR@{version}",

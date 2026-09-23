@@ -9,7 +9,7 @@ class StatusMixin:
     def database_status(self) -> dict[str, Any]:
         with self._connect() as connection:
             counts = {
-                table: int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                table: int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])  # sql-ok: fixed/introspected identifiers
                 for table in (
                     "inference_log",
                     "instrument_identity",

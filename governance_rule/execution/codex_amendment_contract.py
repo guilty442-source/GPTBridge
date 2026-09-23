@@ -153,7 +153,7 @@ def _table_rows(
     order = ", ".join(primary) if primary else "rowid"
     rows = [
         {name: _json_safe(value) for name, value in zip(names, row)}
-        for row in connection.execute(
+        for row in connection.execute(  # sql-ok: schema-introspected or fixed table identifiers
             f"SELECT {', '.join(names)} FROM {table} ORDER BY {order}"
         )
     ]

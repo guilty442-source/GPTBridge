@@ -54,7 +54,7 @@ class PostScanJobMixin:
             return
         assignments = ", ".join(f"{key} = ?" for key in normalized)
         with self._connect() as connection:
-            connection.execute(
+            connection.execute(  # sql-ok: code-built fragment, values parameterized
                 f"UPDATE vaultly_post_scan_jobs SET {assignments} WHERE scan_job_id = ?",
                 (*normalized.values(), scan_job_id),
             )

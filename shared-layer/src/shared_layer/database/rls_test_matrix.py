@@ -136,18 +136,18 @@ def _test_cell(connection: Any, cell: RlsTestCell) -> RlsTestResult:
         connection.execute(f"SET ROLE {cell.role}")
         try:
             if cell.operation == "SELECT":
-                connection.execute(f"SELECT 1 FROM {full_name} LIMIT 1")
+                connection.execute(f"SELECT 1 FROM {full_name} LIMIT 1")  # sql-ok: test-matrix role/table identifiers from declared matrix
             elif cell.operation == "INSERT":
                 # Try a minimal insert; expect it to fail due to constraints
                 # even if RLS allows it — we only care about RLS here
                 try:
-                    connection.execute(f"INSERT INTO {full_name} DEFAULT VALUES")
+                    connection.execute(f"INSERT INTO {full_name} DEFAULT VALUES")  # sql-ok: test-matrix role/table identifiers from declared matrix
                 except Exception:
                     pass  # Constraint failure is fine — RLS allowed it
             elif cell.operation == "UPDATE":
-                connection.execute(f"UPDATE {full_name} SET updated_at = now() WHERE false")
+                connection.execute(f"UPDATE {full_name} SET updated_at = now() WHERE false")  # sql-ok: test-matrix role/table identifiers from declared matrix
             elif cell.operation == "DELETE":
-                connection.execute(f"DELETE FROM {full_name} WHERE false")
+                connection.execute(f"DELETE FROM {full_name} WHERE false")  # sql-ok: test-matrix role/table identifiers from declared matrix
             actual = "allow"
         except Exception:
             actual = "deny"

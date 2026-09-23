@@ -455,7 +455,7 @@ class PostgreSQLMetadataAuthority(
         try:
             async with self._conn.cursor() as cur:
                 placeholders = ",".join(["%s"] * len(resource_ids))
-                await cur.execute(
+                await cur.execute(  # sql-ok: generated ? placeholder list
                     f"""SELECT resource_id, version, content_hash, updated_at, index_status, metadata
                        FROM gptbridge_index.resource
                        WHERE module_id = %s AND resource_id IN ({','.join(['%s'] * len(resource_ids))})""",

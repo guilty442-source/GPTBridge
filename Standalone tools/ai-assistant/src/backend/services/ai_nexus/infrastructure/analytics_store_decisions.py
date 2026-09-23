@@ -295,7 +295,7 @@ class AnalyticsStoreDecisionsMixin:
             return {}
         placeholders = ",".join("?" for _ in decision_ids)
         with self.connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: code-controlled SQL composition
                 f"""
                 SELECT decision_id, close, observed_at, provider, verified
                 FROM (

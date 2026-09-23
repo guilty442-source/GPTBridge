@@ -48,7 +48,7 @@ class AnalyticsStoreImportsMixin:
         if not normalized:
             return None
         with self.connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {_IMPORT_OPERATION_COLUMNS} FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
@@ -64,7 +64,7 @@ class AnalyticsStoreImportsMixin:
             raise ValueError("invalid import request fingerprint")
         now = utc_text()
         with self.connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {_IMPORT_OPERATION_COLUMNS} FROM import_operations WHERE request_fingerprint = ?",
                 (fingerprint,),
             ).fetchone()
@@ -77,7 +77,7 @@ class AnalyticsStoreImportsMixin:
                 )
             elif str(row["status"] or "") == "failed":
                 self._requeue_import_operation(connection, row, payload, now)
-            operation_row = connection.execute(
+            operation_row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {_IMPORT_OPERATION_COLUMNS} FROM import_operations WHERE request_fingerprint = ?",
                 (fingerprint,),
             ).fetchone()
@@ -172,7 +172,7 @@ class AnalyticsStoreImportsMixin:
         )
         now = utc_text()
         with self.connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {_IMPORT_OPERATION_COLUMNS} FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
@@ -198,7 +198,7 @@ class AnalyticsStoreImportsMixin:
                 increment_attempt=increment_attempt,
                 now=now,
             )
-            updated = connection.execute(
+            updated = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {_IMPORT_OPERATION_COLUMNS} FROM import_operations WHERE operation_id = ?",
                 (normalized,),
             ).fetchone()
@@ -344,7 +344,7 @@ class AnalyticsStoreImportsMixin:
 
     def resumable_import_operations(self, limit: int = 100) -> list[dict[str, Any]]:
         with self.connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: fixed column list constant
                 f"""
                 SELECT {_IMPORT_OPERATION_COLUMNS} FROM import_operations
                 WHERE status IN ('queued', 'processing', 'resume_pending')

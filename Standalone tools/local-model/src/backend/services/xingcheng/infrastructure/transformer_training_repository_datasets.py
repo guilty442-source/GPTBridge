@@ -197,7 +197,7 @@ class TransformerTrainingDatasetsMixin(TransformerTrainingSchemaMixin):
                 "created_by": str(insert["created_by"]),
             },
         )
-        row = connection.execute(
+        row = connection.execute(  # sql-ok: fixed column list constant
             f"SELECT {_DATASET_COLUMNS} FROM transformer_training_dataset WHERE dataset_id = ?",
             (insert["dataset_id"],),
         ).fetchone()

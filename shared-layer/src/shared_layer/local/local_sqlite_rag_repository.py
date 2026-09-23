@@ -321,7 +321,7 @@ class LocalSqliteRagRepository:
         bounded_limit = max(int(limit) * 4, min(int(limit) * 4, 500))
         arguments: list[Any] = [*module_ids, query.casefold(), bounded_limit]
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: code-controlled SQL composition
                 f"""
                 SELECT chunk.chunk_id,
                        resource.metadata AS resource_metadata,

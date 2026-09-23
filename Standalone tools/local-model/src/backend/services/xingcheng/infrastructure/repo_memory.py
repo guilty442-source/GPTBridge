@@ -175,7 +175,7 @@ class MemoryMixin:
         now = self._utc_now()
         with self._connect() as connection:
             status_filter = "review_status IN ('approved', 'pending-review')" if include_pending else "review_status = 'approved'"
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: code-controlled SQL composition
                 f"""
                 SELECT memory_id, kind, title, content, business_scope,
                        source_model_id, confidence, updated_at, review_status,
@@ -261,7 +261,7 @@ class MemoryMixin:
     ) -> list[dict[str, Any]]:
         where = "" if include_inactive else "WHERE review_status IN ('pending-review', 'approved') AND revoked_at = ''"
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: code-built fragment, values parameterized
                 f"""
                 SELECT memory_id, kind, title, content, business_scope,
                        source_type, source_id, source_model_id, broker_model_id,

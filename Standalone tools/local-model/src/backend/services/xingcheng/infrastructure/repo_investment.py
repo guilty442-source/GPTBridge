@@ -20,7 +20,7 @@ class InvestmentMixin:
             # MAX(id) picks the newest row without a per-key round trip.
             placeholders = ",".join("?" for _ in values)
             if placeholders:
-                for row in connection.execute(
+                for row in connection.execute(  # sql-ok: generated ? placeholder list
                     f"""
                     SELECT parameter_key, applied_value
                     FROM investment_parameter_adjustment

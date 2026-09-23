@@ -259,7 +259,7 @@ class RagMetadataReconciliationMixin:
             return False
         try:
             async with self._conn.cursor() as cur:
-                await cur.execute(
+                await cur.execute(  # sql-ok: code-built fragment, values parameterized
                     f"""UPDATE gptbridge_rag.reconciliation_queue
                         SET {set_clause} WHERE operation_id=%s""",
                     (*params, operation_id),
@@ -888,7 +888,7 @@ class RagMetadataReconciliationMixin:
         completed = ", completed_at = now()" if terminal else ""
         try:
             async with self._conn.cursor() as cur:
-                await cur.execute(
+                await cur.execute(  # sql-ok: code-built fragment, values parameterized
                     f"""UPDATE gptbridge_rag.outbox_event
                         SET state = %s, attempt_count = attempt_count + 1,
                             last_error = %s, next_retry_at = %s,

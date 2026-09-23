@@ -164,7 +164,7 @@ class AccountMixin:
             return []
         placeholders = ",".join("?" for _ in ids)
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 SELECT account_id, platform, handle, display_name, profile_url,
                        avatar_url, verified, selected, discovered_at, updated_at
@@ -190,7 +190,7 @@ class AccountMixin:
         placeholders = ",".join("?" for _ in ids)
         now = _utc_now()
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 SELECT account_id, platform, handle, display_name, profile_url, avatar_url, verified, selected, discovered_at, updated_at, is_active, deactivated_at FROM vaultly_accounts
                 WHERE account_id IN ({placeholders}) AND is_active = 1
@@ -205,7 +205,7 @@ class AccountMixin:
                     "superseded",
                     row,
                 )
-            cursor = connection.execute(
+            cursor = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 UPDATE vaultly_accounts
                 SET is_active = 0, selected = 0, deactivated_at = ?, updated_at = ?

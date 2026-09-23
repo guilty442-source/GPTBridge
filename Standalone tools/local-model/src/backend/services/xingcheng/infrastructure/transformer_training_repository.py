@@ -62,7 +62,7 @@ class TransformerTrainingRepository(
             )
             tables = {
                 table: int(
-                    connection.execute(
+                    connection.execute(  # sql-ok: fixed/introspected identifiers
                         f"SELECT COUNT(*) FROM {table}"
                     ).fetchone()[0]
                 )

@@ -42,7 +42,7 @@ class CollabRepoAgentsMixin:
             return []
         placeholders = ",".join("?" for _ in agent_ids)
         with self._connect() as connection:
-            rows = connection.execute(
+            rows = connection.execute(  # sql-ok: generated ? placeholder list
                 f"SELECT agent_id, name, provider, home_url, general_url, investment_url, star_training_url, general_enabled, investment_enabled, business_capabilities_json, enabled, selected, status, last_error, updated_at FROM ai_nexus_agents WHERE agent_id IN ({placeholders}) ORDER BY rowid",
                 agent_ids,
             ).fetchall()

@@ -151,11 +151,11 @@ class LocalSqliteCognitionRepository:
             "model_store_path", "location_type", "endpoint", "status", "metadata",
         )
         with self._connect() as connection:
-            connection.execute(
+            connection.execute(  # sql-ok: fixed column list constant
                 f"""
                 INSERT INTO cognition_model_data (
                     model_data_id, {", ".join(columns)}
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (model_data_id) DO UPDATE SET
                     platform_id = excluded.platform_id,
                     owner_id = excluded.owner_id,
@@ -190,7 +190,7 @@ class LocalSqliteCognitionRepository:
 
     def load_model_data(self, *, model_data_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {_COLS_MODEL_DATA} FROM cognition_model_data WHERE model_data_id = ?",
                 (model_data_id,),
             ).fetchone()
@@ -201,12 +201,12 @@ class LocalSqliteCognitionRepository:
     def list_model_data(self, *, owner_id: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as connection:
             if owner_id:
-                rows = connection.execute(
+                rows = connection.execute(  # sql-ok: fixed column list constant
                     f"SELECT {_COLS_MODEL_DATA} FROM cognition_model_data WHERE owner_id = ? ORDER BY model_data_name ASC",
                     (owner_id,),
                 ).fetchall()
             else:
-                rows = connection.execute(
+                rows = connection.execute(  # sql-ok: fixed column list constant
                     f"SELECT {_COLS_MODEL_DATA} FROM cognition_model_data ORDER BY model_data_name ASC"
                 ).fetchall()
         return [self._row_model_data(row) for row in rows]
@@ -236,7 +236,7 @@ class LocalSqliteCognitionRepository:
             "data_classification", "source_path", "status", "metadata",
         )
         with self._connect() as connection:
-            connection.execute(
+            connection.execute(  # sql-ok: fixed column list constant
                 f"""
                 INSERT INTO cognition_knowledge (
                     knowledge_id, {", ".join(columns)}
@@ -267,7 +267,7 @@ class LocalSqliteCognitionRepository:
 
     def load_knowledge(self, *, knowledge_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {_COLS_KNOWLEDGE} FROM cognition_knowledge WHERE knowledge_id = ?",
                 (knowledge_id,),
             ).fetchone()
@@ -278,12 +278,12 @@ class LocalSqliteCognitionRepository:
     def list_knowledge(self, *, owner_id: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as connection:
             if owner_id:
-                rows = connection.execute(
+                rows = connection.execute(  # sql-ok: fixed column list constant
                     f"SELECT {_COLS_KNOWLEDGE} FROM cognition_knowledge WHERE owner_id = ? ORDER BY knowledge_name ASC",
                     (owner_id,),
                 ).fetchall()
             else:
-                rows = connection.execute(
+                rows = connection.execute(  # sql-ok: fixed column list constant
                     f"SELECT {_COLS_KNOWLEDGE} FROM cognition_knowledge ORDER BY knowledge_name ASC"
                 ).fetchall()
         return [self._row_knowledge(row) for row in rows]
@@ -309,7 +309,7 @@ class LocalSqliteCognitionRepository:
             "modality", "capability_engine", "model_data_id", "status", "metadata",
         )
         with self._connect() as connection:
-            connection.execute(
+            connection.execute(  # sql-ok: fixed column list constant
                 f"""
                 INSERT INTO cognition_model_capability (
                     capability_id, {", ".join(columns)}
@@ -342,7 +342,7 @@ class LocalSqliteCognitionRepository:
 
     def load_model_capability(self, *, capability_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
-            row = connection.execute(
+            row = connection.execute(  # sql-ok: fixed column list constant
                 f"SELECT {_COLS_CAPABILITY} FROM cognition_model_capability WHERE capability_id = ?",
                 (capability_id,),
             ).fetchone()
@@ -355,12 +355,12 @@ class LocalSqliteCognitionRepository:
     ) -> list[dict[str, Any]]:
         with self._connect() as connection:
             if owner_id:
-                rows = connection.execute(
+                rows = connection.execute(  # sql-ok: fixed column list constant
                     f"SELECT {_COLS_CAPABILITY} FROM cognition_model_capability WHERE owner_id = ? ORDER BY capability_name ASC",
                     (owner_id,),
                 ).fetchall()
             else:
-                rows = connection.execute(
+                rows = connection.execute(  # sql-ok: fixed column list constant
                     f"SELECT {_COLS_CAPABILITY} FROM cognition_model_capability ORDER BY capability_name ASC"
                 ).fetchall()
         return [self._row_capability(row) for row in rows]
@@ -432,13 +432,13 @@ class LocalSqliteCognitionRepository:
     ) -> list[dict[str, Any]]:
         with self._connect() as connection:
             if module_id:
-                rows = connection.execute(
+                rows = connection.execute(  # sql-ok: fixed column list constant
                     f"SELECT {_COLS_RAG_REFERENCE} FROM cognition_rag_reference "
                     "WHERE module_id = ? ORDER BY created_at DESC LIMIT ?",
                     (module_id, max(1, int(limit))),
                 ).fetchall()
             else:
-                rows = connection.execute(
+                rows = connection.execute(  # sql-ok: fixed column list constant
                     f"SELECT {_COLS_RAG_REFERENCE} FROM cognition_rag_reference "
                     "ORDER BY created_at DESC LIMIT ?",
                     (max(1, int(limit)),),
