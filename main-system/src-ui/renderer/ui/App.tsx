@@ -343,7 +343,7 @@ export default function App() {
             className="drawer-trigger"
             onClick={() => setDrawerSagaVisualizer(true)}
           >
-            <span className="drawer-trigger__icon" aria-hidden="true">📊</span>
+            <span className="drawer-trigger__icon" aria-hidden="true">{mainSystemLocale.sagaVisualizer.icon}</span>
             <span className="drawer-trigger__text">
               <strong>{mainSystemLocale.sagaVisualizer.title}</strong>
               <small>{mainSystemLocale.sagaVisualizer.subtitle}</small>

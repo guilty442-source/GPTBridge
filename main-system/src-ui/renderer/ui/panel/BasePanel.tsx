@@ -151,7 +151,7 @@ export function BasePanel({
         {state.error && (
           <div className="base-panel__error" role="alert">
             {state.error}
-            <button type="button" className="base-panel__error-dismiss" onClick={clearError} aria-label="關閉">
+            <button type="button" className="base-panel__error-dismiss" onClick={clearError} aria-label={mainSystemLocale.common.close}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M4 4L10 10M10 4L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>

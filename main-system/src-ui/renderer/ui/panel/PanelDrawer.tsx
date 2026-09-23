@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { mainSystemLocale } from '@/locales/main-system'
 import './PanelDrawer.css'
 
 export interface PanelDrawerProps {
@@ -71,7 +72,7 @@ export function PanelDrawer({
               type="button"
               className="panel-drawer-close"
               onClick={onClose}
-              aria-label="關閉"
+              aria-label={mainSystemLocale.common.close}
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path d="M4 4L14 14M14 4L4 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
