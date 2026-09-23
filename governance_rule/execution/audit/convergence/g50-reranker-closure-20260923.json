@@ -1,0 +1,22 @@
+{
+  "item": "G50",
+  "recorded_at": "2026-09-23T13:45:00Z",
+  "worker": "devin-cli",
+  "commits": ["20f649c5", "101b4e75"],
+  "delivered": {
+    "reranker_wiring": "LocalCrossEncoderReranker instantiated in RagRuntimeIntegration composition root; injected ONLY at RagOrchestrator post-fusion evidence surface (rerank_evidence). HybridRetriever deliberately left unparametrized to prevent double-rerank of the same candidates.",
+    "cuda_load_point": "CrossEncoder device chosen via GpuCoordinator.acquire(1536MB, priority=inference, timeout=GPTBRIDGE_RAG_RERANKER_GPU_TIMEOUT_S/15s); torch.cuda.is_available() checked first; any failure degrades to CPU (fail-soft, mirrors NativeTransformerEngine pattern).",
+    "resource_admission": "ModelResourceManager.request_load(ModelRole.RERANKER, ram_mb=2560); Retention.ON_DEMAND; release() on load failure.",
+    "local_only": "sentence_transformers.CrossEncoder(local_files_only=True, trust_remote_code=False); no network fetch on retrieval hot path.",
+    "fallback": "Any denial/load/predict failure returns input order unchanged with meta.reranker_applied=False and reason; callers fall back to RRF/fused order."
+  },
+  "rulings": {
+    "process_registry": "NOT APPLICABLE — ProcessRegistry (star-process-registry/v1) tracks OS processes by PID/executable/ppid with liveness reconciliation. The reranker is an in-process model object; registering it would fabricate a process record and violate is_owned semantics. Resource ownership is already recorded via ModelResourceManager ledger (model-resource-ledger.jsonl).",
+    "boot_autostart": "NO AUTOSTART — per Codex A586/A587 RAG is capability-critical not boot-critical; composition root is lazy (ensure_rag_cag_started). Reranker model additionally lazy-loads on first predict call. Ruling: on-demand only, consistent with ModelRole.RERANKER=ON_DEMAND."
+  },
+  "verification": {
+    "live_inference": "Qwen3-Reranker-0.6B loaded local-files-only on CPU (torch CPU build; GPU present but torch lacks CUDA); reranker_applied=True; correct ordering verified on zh-TW probe (貓 -6.09 > 狗 -7.5 > 天氣 -11.6).",
+    "tests": "test_rag_runtime_integration.py 9/9 pass standalone; orchestration/retrievers/service_boundary suites green (xdist worker crashes under -n2 were load flakes, all pass serially).",
+    "audit": "native audit gate: 363 pass / 0 fail / 27 delegated / 28 executed, 0.16s."
+  }
+}
