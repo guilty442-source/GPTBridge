@@ -152,13 +152,18 @@ def cpu_percent(interval: Optional[float] = None) -> float:
 
 
 def process_cpu_percent(pid: int, interval: Optional[float] = None) -> float:
-    """Per-process CPU percent (same two-sample contract as psutil)."""
+    """Per-process CPU percent (same two-sample contract as psutil).
+
+    ``sample()`` normalises to **seconds of CPU time** on both backends
+    (native returns 100ns ticks, psutil returns seconds), so the cached
+    previous sample stays unit-consistent even if the backend flips.
+    """
     def sample() -> Optional[float]:
         n = _native()
         if n is not None:
             t = n.process_cpu_times(int(pid))
             if t:
-                return float(t[0] + t[1])
+                return float(t[0] + t[1]) / 1e7
             return None
         p = _psutil()
         if p is not None:  # _psutil_fallback
@@ -169,13 +174,6 @@ def process_cpu_percent(pid: int, interval: Optional[float] = None) -> float:
                 return None
         return None
 
-    def elapsed_wall(prev_ts: Optional[float]) -> float:
-        # cpu_times are in 100ns ticks natively, seconds under psutil —
-        # normalise through wall-clock delta instead (percent is a ratio of
-        # busy ticks to wall ticks × cpu_count); simpler: use wall delta and
-        # assume native units are 100ns per tick → seconds = ticks / 1e7.
-        return 0.0  # placeholder — replaced below
-
     first = sample()
     if first is None:
         return -1.0
@@ -183,6 +181,8 @@ def process_cpu_percent(pid: int, interval: Optional[float] = None) -> float:
     if interval is not None and interval > 0:
         time.sleep(interval)
         second = sample()
+        if second is None:
+            return -1.0
         wall1 = time.monotonic()
         prev = first
     else:
@@ -198,8 +198,7 @@ def process_cpu_percent(pid: int, interval: Optional[float] = None) -> float:
     wall_dt = wall1 - wall0
     if wall_dt <= 0:
         return 0.0
-    ticks_per_sec = 1e7 if _native() is not None else 1.0
-    busy_s = (second - prev) / ticks_per_sec
+    busy_s = second - prev
     ncpu = max(1, cpu_count())
     return round(max(0.0, min(100.0 * ncpu, 100.0 * busy_s / wall_dt)), 1)
 
@@ -255,10 +254,19 @@ def process_working_set_bytes(pid: int) -> int:
 def process_private_bytes(pid: int) -> int:
     n = _native()
     if n is not None:
-        v = int(n.process_private_bytes(int(pid)))
+        v = n.process_private_bytes(int(pid))
         if v >= 0:
             return v
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return int(
+                getattr(p.Process(int(pid)).memory_info(), "private", -1)
+            )
+        except p.Error:
+            return -1
     return -1
+
 
 
 def process_list(max_count: int = 65536) -> list[int]:
@@ -344,8 +352,13 @@ def process_cmdline(pid: int) -> Optional[str]:
 
 
 def process_num_threads(pid: int) -> int:
-    """Thread count — native layer has no primitive yet; psutil-only
-    fallback (marked for P24 tracking).  -1 when unavailable."""
+    """Thread count — -1 when unavailable."""
+    n = _native()
+    if n is not None and hasattr(n, "process_num_threads"):
+        v = int(n.process_num_threads(int(pid)))
+        if v >= 0:
+            return v
+        return -1
     p = _psutil()
     if p is not None:  # _psutil_fallback
         try:
@@ -356,7 +369,13 @@ def process_num_threads(pid: int) -> int:
 
 
 def process_num_handles(pid: int) -> int:
-    """Open handle count (Windows) — psutil-only fallback, -1 elsewhere."""
+    """Open handle count (Windows) — -1 when unavailable."""
+    n = _native()
+    if n is not None and hasattr(n, "process_num_handles"):
+        v = int(n.process_num_handles(int(pid)))
+        if v >= 0:
+            return v
+        return -1
     p = _psutil()
     if p is not None:  # _psutil_fallback
         try:
