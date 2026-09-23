@@ -40,9 +40,16 @@ class EmbeddedBrowserClient:
         owner_module: str,
         url: str,
         bounds: dict[str, int] | None = None,
+        *,
+        session_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create or reuse an embedded browser session."""
-        session_id = f"{owner_module}-{uuid.uuid4().hex[:8]}"
+        """Create or reuse an embedded browser session.
+
+        ``session_id`` lets a caller reuse the same BrowserView across
+        calls (the Electron side re-navigates the existing view when the
+        id already exists) instead of accumulating one view per send.
+        """
+        session_id = session_id or f"{owner_module}-{uuid.uuid4().hex[:8]}"
         return self._call_ipc("embedded-browser:create", {
             "id": session_id,
             "ownerModule": owner_module,
@@ -216,8 +223,10 @@ class InProcessEmbeddedBrowser:
         owner_module: str,
         url: str,
         bounds: dict[str, int] | None = None,
+        *,
+        session_id: str | None = None,
     ) -> dict[str, Any]:
-        session_id = f"{owner_module}-{uuid.uuid4().hex[:8]}"
+        session_id = session_id or f"{owner_module}-{uuid.uuid4().hex[:8]}"
         self._sessions[session_id] = {
             "id": session_id,
             "ownerModule": owner_module,

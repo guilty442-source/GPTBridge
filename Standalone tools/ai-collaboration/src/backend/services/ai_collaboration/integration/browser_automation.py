@@ -41,7 +41,9 @@ INPUT_SELECTORS: dict[str, tuple[str, ...]] = {
 SEND_SELECTORS: dict[str, tuple[str, ...]] = {
     "chatgpt": (
         'button[data-testid="send-button"]',
+        'button[data-testid*="send" i]',
         'button[aria-label*="Send" i]',
+        'button[aria-label*="傳送" i]',
     ),
     "claude": (
         'button[aria-label*="Send" i]',
@@ -174,16 +176,21 @@ class BrowserAutomationSession:
 
         Returns an early failure/awaiting result, or None when submitted.
         """
-        input_selector = INPUT_SELECTORS.get(
+        input_selectors = INPUT_SELECTORS.get(
             provider, ("textarea", '[contenteditable="true"]')
-        )[0]
-        send_selector = SEND_SELECTORS.get(
+        )
+        send_selectors = SEND_SELECTORS.get(
             provider, ('button[type="submit"]',)
-        )[0]
+        )
 
         fill_script = f"""
             (() => {{
-                const input = document.querySelector({input_selector!r});
+                const selectors = {json.dumps(list(input_selectors))};
+                let input = null;
+                for (const sel of selectors) {{
+                    input = document.querySelector(sel);
+                    if (input) break;
+                }}
                 if (!input) return {{ found: false }};
                 input.focus();
                 if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT') {{
@@ -215,10 +222,26 @@ class BrowserAutomationSession:
 
         submit_script = f"""
             (() => {{
-                const btn = document.querySelector({send_selector!r});
-                if (!btn) return {{ sent: false }};
-                btn.click();
-                return {{ sent: true }};
+                const selectors = {json.dumps(list(send_selectors))};
+                for (const sel of selectors) {{
+                    const btn = document.querySelector(sel);
+                    if (btn && !btn.disabled) {{ btn.click(); return {{ sent: true }}; }}
+                }}
+                // Last resort: composer inputs submit on Enter.
+                const inputSelectors = {json.dumps(list(input_selectors))};
+                for (const sel of inputSelectors) {{
+                    const input = document.querySelector(sel);
+                    if (!input) continue;
+                    input.focus();
+                    for (const type of ['keydown', 'keypress', 'keyup']) {{
+                        input.dispatchEvent(new KeyboardEvent(type, {{
+                            key: 'Enter', code: 'Enter', keyCode: 13,
+                            which: 13, bubbles: true, cancelable: true,
+                        }}));
+                    }}
+                    return {{ sent: true, via: 'enter-key' }};
+                }}
+                return {{ sent: false }};
             }})()
         """
         submit_result = await self._execute_script(session_id, submit_script)
@@ -304,6 +327,7 @@ class BrowserAutomationSession:
                 "create_session",
                 owner_module="ai-collaboration",
                 url=target_url,
+                session_id=f"ai-collaboration-{agent_id}",
             )
             if not result.get("ok"):
                 raise RuntimeError(
