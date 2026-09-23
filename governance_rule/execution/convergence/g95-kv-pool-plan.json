@@ -1,0 +1,24 @@
+{
+  "schema": "g95-kv-pool-plan/v1",
+  "generated_at_utc": "2026-09-23T09:00Z",
+  "current": {
+    "suite_kv_cache_cpp": "tests internal reference model only (5 cases, not real engine)",
+    "suite_baseline_cpp": "only kv_memory_bytes()",
+    "host_kv": "pytest only",
+    "missing": "engine-level coverage of gptbridge_kv_pool + NativeInferenceEngine"
+  },
+  "target": {
+    "suite_kv_engine_cpp": "11/11 cases: config/release/reuse/position/length/update/GQA/RoPE/overflow/reset/prefix-reuse/INT8-parity/Full-vs-PrefillDecode/memory bounds",
+    "artifacts": "native/test_suites/suite_kv_engine.cpp + native/core/kv_pool.c + engine.cpp",
+    "gate": "native/test_suites/build.ps1 -> suite_kv_engine_suite.exe, 20s mandatory suite budget, delegated 0"
+  },
+  "steps": [
+    "1. Implement suite_kv_engine.cpp with 11 cases against real gptbridge_kv_pool API",
+    "2. Link with kv_pool.c + transformer.c + engine.cpp (as in build.ps1 suite_kv_engine)",
+    "3. Run via build.ps1 MaxParallel 4, verify 11/11 PASS, p95 <5ms, no Python fallback",
+    "4. Register in suite-manifest.json and push gate, evidence g95-kv-engine-suite-20260923.json"
+  ],
+  "acceptance": "11/11 PASS, real engine KV pool, 20s budget, no delegated, revision parity",
+  "blocked_by": "P0-1 window (native build spawns cl, 5-core) + G100 2-window for engine primary",
+  "note": "Per G95 P1, de-duplication scope, not blocking P0-1; plan is derived"
+}
