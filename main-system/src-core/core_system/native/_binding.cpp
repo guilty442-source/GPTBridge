@@ -1275,6 +1275,7 @@ PYBIND11_MODULE(_sovereign_native, m) {
               return gptbridge_native_dirwatch_wait(
                   reinterpret_cast<void*>(handle), timeout_ms);
           },
+          py::call_guard<py::gil_scoped_release>(),
           "Wait for a change: 1 changed (re-armed), 0 timeout, -1 err.");
     m.def("dirwatch_close",
           [](uintptr_t handle) {

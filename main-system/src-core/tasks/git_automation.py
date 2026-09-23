@@ -26,6 +26,7 @@ import asyncio
 import json
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,15 @@ class GitAutomationService:
 
         self._task: asyncio.Task[Any] | None = None
         self._stop_event = asyncio.Event()
+        # P14/G101 §3.3: OS-level dir-change watches per worktree feed
+        # ``notify_changed`` (eager invalidation for writes that never
+        # touch .git) and wake the private loop early.  Bounded: one
+        # pump thread total, one OS handle per worktree, wakes throttled.
+        self._wake_event = asyncio.Event()
+        self._dirwatch_handles: dict[str, int] = {}
+        self._dirwatch_stop = threading.Event()
+        self._dirwatch_thread: threading.Thread | None = None
+        self._last_event_wake_at = 0.0
         self._dirty_since: dict[str, tuple[str, float]] = {}
         self._next_sync_at = 0.0
         self._queue_file_path: Path | None = None
@@ -87,6 +97,8 @@ class GitAutomationService:
         if not (self.project_root / ".git").exists():
             return {"status": "skipped", "reason": "not-a-git-worktree"}
         self._stop_event.clear()
+        self._wake_event.clear()
+        self._start_dirwatch(asyncio.get_running_loop())
         if self._automation_core is not None:
             if self._automation_core.register_flow(
                 "git-automation",
@@ -129,6 +141,7 @@ class GitAutomationService:
 
     async def stop(self) -> None:
         self._stop_event.set()
+        self._stop_dirwatch()
         if self._automation_core is not None:
             self._automation_core.unregister("git-automation")
         elif self._scheduler is not None:
@@ -141,6 +154,123 @@ class GitAutomationService:
                 await task
             except (asyncio.CancelledError, Exception):
                 pass
+
+    # -- fs change watcher (P14 §3.3 event-driven invalidation) ---------
+
+    _DIRWATCH_MAX_HANDLES = 16
+    _DIRWATCH_WAIT_MS = 200
+    _MIN_EVENT_WAKE_S = 15.0
+
+    def _dirwatch_native(self) -> Any:
+        try:
+            from core_system.native import _sovereign_native as native
+        except Exception:
+            return None
+        if not hasattr(native, "dirwatch_open"):
+            return None
+        return native
+
+    def _start_dirwatch(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Open one recursive change-notification handle per worktree and
+        start the pump thread.  Fail-soft: no native binding → the TTL
+        sweep alone keeps snapshots fresh (unchanged behaviour)."""
+        native = self._dirwatch_native()
+        if native is None or self._dirwatch_thread is not None:
+            return
+        try:
+            worktrees = self._list_worktrees()[: self._DIRWATCH_MAX_HANDLES]
+        except Exception:
+            return
+        for worktree in worktrees:
+            try:
+                handle = int(native.dirwatch_open(worktree))
+            except Exception:
+                continue
+            if handle:
+                self._dirwatch_handles[worktree] = handle
+        if not self._dirwatch_handles:
+            return
+        self._dirwatch_stop.clear()
+        self._dirwatch_thread = threading.Thread(
+            target=self._dirwatch_pump,
+            args=(native, loop),
+            daemon=True,
+            name="git-automation-dirwatch",
+        )
+        self._dirwatch_thread.start()
+        _logger.info(
+            "git automation dirwatch on %d worktree(s)",
+            len(self._dirwatch_handles),
+        )
+
+    def _stop_dirwatch(self) -> None:
+        self._dirwatch_stop.set()
+        thread = self._dirwatch_thread
+        self._dirwatch_thread = None
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=2.0)
+        native = self._dirwatch_native()
+        for handle in self._dirwatch_handles.values():
+            try:
+                if native is not None:
+                    native.dirwatch_close(handle)
+            except Exception:
+                pass
+        self._dirwatch_handles.clear()
+
+    def _dirwatch_pump(
+        self, native: Any, loop: asyncio.AbstractEventLoop
+    ) -> None:
+        """Round-robin wait over the watch handles; a signaled handle
+        invalidates that worktree's snapshot and (throttled) wakes the
+        sweep so the debounce clock starts early."""
+        from governance_rule.execution.git_tiers.generation_snapshot import (
+            notify_changed,
+        )
+
+        while not self._dirwatch_stop.is_set():
+            for worktree, handle in list(self._dirwatch_handles.items()):
+                if self._dirwatch_stop.is_set():
+                    return
+                try:
+                    rc = int(native.dirwatch_wait(handle, self._DIRWATCH_WAIT_MS))
+                except Exception:
+                    rc = -1
+                if rc == -1:
+                    # Broken handle — drop it; the sweep TTL still covers.
+                    self._dirwatch_handles.pop(worktree, None)
+                    try:
+                        native.dirwatch_close(handle)
+                    except Exception:
+                        pass
+                    continue
+                if rc != 1:
+                    continue
+                notify_changed(worktree)
+                now = time.monotonic()
+                if now - self._last_event_wake_at >= self._MIN_EVENT_WAKE_S:
+                    self._last_event_wake_at = now
+                    try:
+                        loop.call_soon_threadsafe(self._wake_event.set)
+                    except Exception:
+                        pass
+
+    async def _wait_next_tick(self) -> bool:
+        """True = stop requested; False = interval elapsed or a file
+        change event requested an early cycle."""
+        stop_wait = asyncio.ensure_future(self._stop_event.wait())
+        wake_wait = asyncio.ensure_future(self._wake_event.wait())
+        try:
+            done, _pending = await asyncio.wait(
+                (stop_wait, wake_wait),
+                timeout=self.sweep_interval,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            self._wake_event.clear()
+            return stop_wait in done
+        finally:
+            stop_wait.cancel()
+            wake_wait.cancel()
 
     # -- loop -----------------------------------------------------------
 
@@ -163,11 +293,8 @@ class GitAutomationService:
             except Exception as error:  # never kill the loop
                 _logger.warning("git automation cycle error: %s", error)
             try:
-                await asyncio.wait_for(
-                    self._stop_event.wait(), timeout=self.sweep_interval
-                )
-            except asyncio.TimeoutError:
-                continue
+                if await self._wait_next_tick():
+                    break
             except asyncio.CancelledError:
                 raise
 
@@ -362,6 +489,7 @@ class GitAutomationService:
             "sweeps": self._sweeps,
             "syncs": self._syncs,
             "pending_debounce": sorted(self._dirty_since),
+            "dirwatch_worktrees": len(self._dirwatch_handles),
             "last_sweep": self._last_sweep,
             "last_sync": self._last_sync,
         }
