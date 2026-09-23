@@ -1,0 +1,38 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "G100",
+  "increment": "third-party dependency keep/replace/remove disposition",
+  "executed_at": "2026-09-23T05:45:00Z",
+  "worker": "devin-cli",
+  "method": "inventory of requirements.txt/pyproject.toml surfaces (worktrees excluded); disposition assigned per blueprint native-first intent and codex Python-bounded roles (governance semantics, adjudication, codex tooling, training, bounded adapters)",
+  "dispositions": [
+    {"dependency": "psutil", "surfaces": ["main-system", "local-model-rag"], "disposition": "replace", "target": "csharp-native-process-metrics", "note": "mechanical process/resource sampling; worker-plane governor already proves the metric set is narrow (cpu/rss/child enumeration)"},
+    {"dependency": "psycopg", "surfaces": ["main-system", "shared-layer", "local-model-rag"], "disposition": "keep-bounded", "target": null, "note": "governed information-layer Postgres adapter; codex permits bounded adapters until native parity"},
+    {"dependency": "qdrant-client", "surfaces": ["main-system", "local-model-rag"], "disposition": "keep-bounded", "target": "native-http-adapter", "note": "external semantic-candidate adapter; replaceable by a thin native HTTP client when G50/RAG migration lands"},
+    {"dependency": "websockets", "surfaces": ["main-system", "shared-layer"], "disposition": "replace", "target": "csharp-channel", "note": "channel transport is mechanical I/O; migrates with information-channel-gateway -> migrate-csharp"},
+    {"dependency": "pytest", "surfaces": ["main-system"], "disposition": "keep-dev", "target": null, "note": "dev/test tooling only; never resident"},
+    {"dependency": "pytest-asyncio", "surfaces": ["main-system"], "disposition": "keep-dev", "target": null, "note": "dev/test tooling only"},
+    {"dependency": "pybind11", "surfaces": ["main-system", "src-core"], "disposition": "keep-build", "target": null, "note": "bridge needed only while bounded Python adapters coexist with native libs; removable at full native cutover"},
+    {"dependency": "pyinstaller", "surfaces": ["main-system", "src-core"], "disposition": "keep-build", "target": null, "note": "packaging tooling"},
+    {"dependency": "setuptools", "surfaces": ["main-system", "src-core"], "disposition": "keep-build", "target": null, "note": "build tooling"},
+    {"dependency": "beautifulsoup4", "surfaces": ["main-system", "local-model-rag"], "disposition": "replace", "target": "native-html-normalizer", "note": "HTML normalization is mechanical; G50/RAG migration path"},
+    {"dependency": "imageio-ffmpeg", "surfaces": ["main-system"], "disposition": "keep-bounded", "target": null, "note": "external ffmpeg binary adapter; bounded media tooling"},
+    {"dependency": "numpy", "surfaces": ["main-system", "local-model-rag"], "disposition": "replace", "target": "native-compute-core", "note": "resident numerics migrate to native core; Python numpy only survives inside the training window"},
+    {"dependency": "Pillow", "surfaces": ["main-system"], "disposition": "replace", "target": "native-image-decode", "note": "mechanical image decode; candidate C++/C#"},
+    {"dependency": "sentence-transformers", "surfaces": ["main-system", "local-model-rag"], "disposition": "replace", "target": "native-embedding-reranker", "note": "Python reranker path; G50 covers the native reranker/CUDA load point"},
+    {"dependency": "torch", "surfaces": ["main-system", "local-model-rag"], "disposition": "retain-bounded", "target": "native-trainer", "note": "codex permits Python for training; inference paths must not consume torch — enforced by production .pyd route (G29)"},
+    {"dependency": "jieba", "surfaces": ["shared-layer"], "disposition": "replace", "target": "native-tokenizer", "note": "segmentation is mechanical; native tokenizer supersedes"},
+    {"dependency": "tokenizers", "surfaces": ["local-model-rag"], "disposition": "replace", "target": "native-tokenizer", "note": "HF tokenizers only needed until native tokenizer parity (X-package)"},
+    {"dependency": "triton", "surfaces": ["main-system gpu extra"], "disposition": "replace", "target": "native-cuda-kernels", "note": "GPU kernels already exist natively (matmul_fp8/bf16); triton extra only relevant during parity window"}
+  ],
+  "summary": {
+    "total_dependencies": 18,
+    "keep_bounded": 3,
+    "keep_build": 3,
+    "keep_dev": 2,
+    "retain_bounded": 1,
+    "replace": 9,
+    "remove": 0
+  },
+  "codex_mutation": "none"
+}
