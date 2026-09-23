@@ -32,9 +32,17 @@ def protected_source_paths() -> tuple[str, ...]:
 
     policy = governance_policy_snapshot()
     directory = directory_authority_snapshot()
+    shared_root = policy.shared_layer.source_root
     return (
         *policy.authority_files,
         *directory.managed_read_only_registry_paths,
+        # The audit manifest also requires read-only on the shared-layer
+        # entry modules (``shared-layer-source-readonly:*``); they are not
+        # part of the protected-source registry, so restore them here the
+        # same way the manifest derives them.
+        *(f"{shared_root}/shared_layer/{name}" for name in (
+            "__init__.py", "channel.py", "store.py",
+        )),
     )
 
 
