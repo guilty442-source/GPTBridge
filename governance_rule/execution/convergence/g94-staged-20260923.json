@@ -1,0 +1,8 @@
+{
+  "schema": "g94-staged-evidence/v1",
+  "staged_path": "C:\\Users\\guilt\\AppData\\Local\\Temp\\codex-convergence-dynejx3z\\staged-codex.sqlite3",
+  "staged_pending_after": 0,
+  "total": 74,
+  "validate_errors": [],
+  "note": "Staged-only; live codex unchanged; publishing requires governor approve + seal per A104"
+}
