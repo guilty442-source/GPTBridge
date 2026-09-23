@@ -1,0 +1,22 @@
+{
+  "schema": "g50-sql-rag-plan/v1",
+  "generated_at_utc": "2026-09-23T09:15Z",
+  "current": {
+    "sql": "workload lanes cleared, pool.execute migrated, but reranker/CUDA/ProcessRegistry still direct",
+    "rag": "parity audit landed, but transport LISTEN/NOTIFY consumer only, reranker still direct",
+    "model": "broker+local-embedding+ollama-embedding wired, reranker/CUDA still direct"
+  },
+  "target": {
+    "sql": "reranker/CUDA via pool.execute, ProcessRegistry via request_load, 5-core budget",
+    "rag": "transport event-driven, CAG hit rate, batch upsert, p95 <5ms",
+    "model": "all model loads via request_load, no direct spawn, 5-core budget"
+  },
+  "steps": [
+    "1. Wire reranker/CUDA ProcessRegistry via request_load (as done for broker/ollama)",
+    "2. Measure sql lanes p95, rag stages, model load, 5-core budget",
+    "3. After P0-1 window, run SQL N+1 and RAG batch benchmarks"
+  ],
+  "acceptance": "p95 <5ms, no direct spawn, 5-core budget, no Python hot path",
+  "blocked_by": "P0-1 window (no heavy benchmark during window) + G100 2-window",
+  "note": "Per G50 P1, WP-C; plan is derived"
+}
