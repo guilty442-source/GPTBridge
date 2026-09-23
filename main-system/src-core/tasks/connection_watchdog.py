@@ -45,6 +45,7 @@ from __future__ import annotations
 import random
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import urllib.request
 from collections import deque
 from dataclasses import asdict
@@ -129,6 +130,17 @@ class ConnectionWatchdog(
         self._adaptive_probe_interval = probe_interval
         self._min_probe_interval = probe_interval
         self._max_probe_interval = 60.0
+        # P7: the sync-thread loop cannot be preempted like an asyncio
+        # wait_for tick — bound it instead: the whole tick body runs on a
+        # single-slot worker and the loop stops waiting past the deadline.
+        # A wedged tick is never joined: the loop keeps ticking, the leak
+        # is bounded at one worker, and every stall is counted + reported.
+        self.tick_deadline_s = max(30.0, min(600.0, probe_timeout * 10))
+        self._tick_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="connwd-tick"
+        )
+        self._tick_future: Any = None
+        self._tick_stalls = 0
         self._consecutive_stable = 0
         self._consecutive_failures = 0
         self._health_cache = HealthCheckCache(ttl_seconds=5.0)
@@ -238,26 +250,48 @@ class ConnectionWatchdog(
         self._write_state()
         return snapshot
 
+    def _tick_once(self, backend_alive_fn: Any) -> None:
+        """One probe iteration — runs on the bounded tick worker."""
+        alive = bool(backend_alive_fn())
+        snapshot = self.probe_once(backend_process_alive=alive)
+        if snapshot.overall_state == "connected":
+            self._consecutive_stable += 1
+            if self._consecutive_stable >= 3:
+                self._adaptive_probe_interval = min(
+                    self._adaptive_probe_interval * 1.5,
+                    self._max_probe_interval,
+                )
+        else:
+            self._consecutive_stable = 0
+            self._adaptive_probe_interval = self._min_probe_interval
+        if self._native_shadow is not None:
+            self._native_shadow.observe_interval(
+                int(round(self._adaptive_probe_interval * 1000))
+            )
+
     def run(self, backend_alive_fn: Any) -> None:
         """Background loop: probe connection health periodically with adaptive interval."""
         while not self._stop.is_set():
             try:
-                alive = bool(backend_alive_fn())
-                snapshot = self.probe_once(backend_process_alive=alive)
-                if snapshot.overall_state == "connected":
-                    self._consecutive_stable += 1
-                    if self._consecutive_stable >= 3:
-                        self._adaptive_probe_interval = min(
-                            self._adaptive_probe_interval * 1.5,
-                            self._max_probe_interval,
-                        )
-                else:
-                    self._consecutive_stable = 0
-                    self._adaptive_probe_interval = self._min_probe_interval
-                if self._native_shadow is not None:
-                    self._native_shadow.observe_interval(
-                        int(round(self._adaptive_probe_interval * 1000))
+                if self._tick_future is not None and not self._tick_future.done():
+                    # Previous tick never returned — its worker stays wedged
+                    # (bounded leak: one thread).  Do not queue another.
+                    self._tick_stalls += 1
+                    _logger.warning(
+                        "watchdog tick still running past deadline; skipping"
                     )
+                else:
+                    self._tick_future = self._tick_executor.submit(
+                        self._tick_once, backend_alive_fn
+                    )
+                    try:
+                        self._tick_future.result(timeout=self.tick_deadline_s)
+                    except FuturesTimeoutError:
+                        self._tick_stalls += 1
+                        _logger.warning(
+                            "watchdog tick exceeded %.0fs deadline",
+                            self.tick_deadline_s,
+                        )
             except Exception:
                 pass
             jittered_interval = self._adaptive_probe_interval * random.uniform(0.9, 1.1)
@@ -270,6 +304,10 @@ class ConnectionWatchdog(
 
     def stop(self) -> None:
         self._stop.set()
+        try:
+            self._tick_executor.shutdown(wait=False)
+        except Exception:
+            pass
 
     def get_status(self) -> dict[str, Any]:
         """Return full connection watchdog status for observability."""
@@ -282,6 +320,11 @@ class ConnectionWatchdog(
             "recent_events": [e.as_dict() for e in events],
             "probe_interval_seconds": self.probe_interval,
             "dead_threshold": self.dead_threshold,
+            "tick_deadline_s": self.tick_deadline_s,
+            "tick_stalls": self._tick_stalls,
+            "tick_in_flight": bool(
+                self._tick_future is not None and not self._tick_future.done()
+            ),
         }
 
 

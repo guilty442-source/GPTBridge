@@ -99,6 +99,7 @@ class BrowserAutomationSession:
     """
 
     RESPONSE_TIMEOUT_SECONDS = 120
+    PAGE_LOAD_WAIT_SECONDS = 30
 
     def __init__(self, profile_root: Any = None, chrome_executable: Any = None) -> None:
         # profile_root and chrome_executable are accepted for backward
@@ -182,8 +183,19 @@ class BrowserAutomationSession:
             }})()
         """
 
-        result = await self._execute_script(session_id, fill_script)
-        if not result.get("ok") or not (result.get("result") or {}).get("found"):
+        # The embedded view returns from create_session before the page has
+        # finished loading; retry the fill until the input appears or the
+        # bounded wait is exhausted (login walls keep reporting not-found).
+        found = False
+        for _ in range(self.PAGE_LOAD_WAIT_SECONDS):
+            result = await self._execute_script(session_id, fill_script)
+            found = bool(result.get("ok")) and bool(
+                (result.get("result") or {}).get("found")
+            )
+            if found:
+                break
+            await asyncio.sleep(1)
+        if not found:
             error_code = "BROWSER_LOGIN_OR_INPUT_REQUIRED"
             return self._waiting_result(provider, error_code, submitted=False)
 
