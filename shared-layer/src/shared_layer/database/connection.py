@@ -77,6 +77,11 @@ class ConnectionManager:
             except Exception:
                 connection.close()
                 raise
+            # The role probe runs under psycopg's default autocommit=False,
+            # leaving an open transaction (INTRANS).  Close it so dedicated
+            # subscribers can flip autocommit and pooled users never
+            # inherit the probe's transaction.
+            connection.rollback()
         return connection
 
     def open(self) -> None:
