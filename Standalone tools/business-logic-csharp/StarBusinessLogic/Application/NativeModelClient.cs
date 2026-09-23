@@ -46,9 +46,37 @@ public sealed class NativeModelClient : IModelClient, IDisposable
         return Encoding.UTF8.GetString(err, 0, end < 0 ? err.Length : end);
     }
 
+    // CUDA 建置的引擎映像依賴 toolkit 的 cudart64_*/cublas64_* 等 DLL，
+    // 這些不在 .NET 預設搜尋路徑（NativeLibrary.Load 不含 USER_DIRS）。
+    // 先以絕對路徑載入 toolkit bin 下的 CUDA 執行期 DLL——已載入模組
+    // 會直接滿足引擎映像的同名 import。找不到 toolkit 時靜默略過：
+    // CPU 映像本來就不需要；CUDA 映像仍由 NativeLibrary.Load
+    // fail-closed 拋出，語義不變。
+    private static void PreloadCudaRuntime()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var roots = new List<string>();
+        var cudaPath = Environment.GetEnvironmentVariable("CUDA_PATH");
+        if (!string.IsNullOrEmpty(cudaPath)) roots.Add(cudaPath);
+        var toolkitRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "NVIDIA GPU Computing Toolkit", "CUDA");
+        if (Directory.Exists(toolkitRoot))
+            roots.AddRange(Directory.GetDirectories(toolkitRoot, "v*"));
+        foreach (var bin in roots.Distinct().Select(r => Path.Combine(r, "bin")))
+        {
+            if (!Directory.Exists(bin)) continue;
+            foreach (var pattern in new[] { "cudart64_*.dll", "cublas64_*.dll", "cublasLt64_*.dll" })
+                foreach (var dll in Directory.GetFiles(bin, pattern))
+                    try { NativeLibrary.Load(dll); }
+                    catch { /* best-effort preload — 引擎載入才是裁決點 */ }
+        }
+    }
+
     public NativeModelClient(string engineImagePath, string bundleDir, string modelId = "xingcheng-native")
     {
         if (!File.Exists(engineImagePath)) throw new InvalidOperationException($"XC_ENGINE_IMAGE_MISSING:{engineImagePath}");
+        PreloadCudaRuntime();
         _lib = NativeLibrary.Load(engineImagePath); // 找不到相依 → 拋出，fail-closed
         var create = Bind<CreateDelegate>(_lib, "xc_engine_create");
         var load = Bind<LoadDelegate>(_lib, "xc_engine_load");
