@@ -1,11 +1,11 @@
 {
   "amendment_id": "codex-amendment-request-capability-dispatch-20260922",
   "requested_by": "devin-cli",
-  "change_class": "registry-materialization",
+  "change_class": "architecture-authority",
   "flow": "A382/A488-non-disruptive-amendment-flow",
   "required_gate": "five-sovereign-audit-unanimous-pass",
-  "source_path": "governance_rule/codex/data/governance_codex.sqlite3",
-  "blueprint_anchor": "local-model blueprint §10.53 item 3 (capability dispatch runtime wiring + activation gate)",
+  "source_path": "postgresql://local/gptbridge_codex",
+  "blueprint_anchor": "capability dispatch runtime wiring + activation gate (retired-blueprint §10.53 item 3; tracked via convergence P15)",
   "status": "staged-awaiting-governor",
   "problem": {
     "summary": "A594 retired learning-evidence-sync-sub-sovereign; sovereign-commanded learning (auto-loop/teach/reconcile/push/status) now fails closed with child-parent-mismatch at learning_command.py:52; test_xingcheng_learning_command.py 5 tests failing. Codex closure CAPABILITY_DISPATCH_CLOSURE = INCOMPLETE_EVIDENCE (P0): 'MODULE_CAPABILITY_REGISTRY + RULE_CAPABILITY_DISPATCH_V1 planned'.",
