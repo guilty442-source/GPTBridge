@@ -1165,6 +1165,47 @@ PYBIND11_MODULE(_sovereign_native, m) {
           "Enumerate live pids (bounded), or None.");
     m.def("process_terminate", &gptbridge_native_process_terminate,
           "Terminate pid; 1 on success, 0 otherwise.");
+    m.def("process_children",
+          [](int64_t root_pid, int64_t max_count) -> py::object {
+              if (root_pid <= 0 || max_count <= 0 || max_count > 65536)
+                  return py::none();
+              std::vector<int64_t> buf((size_t)max_count);
+              int n = gptbridge_native_process_children(
+                  root_pid, buf.data(), max_count);
+              if (n < 0) return py::none();
+              buf.resize((size_t)n);
+              return py::cast(std::move(buf));
+          },
+          "All descendant pids of root_pid (recursive), or None.");
+    m.def("process_exe",
+          [](int64_t pid) -> py::object {
+              char buf[1024];
+              int64_t n =
+                  gptbridge_native_process_exe(pid, buf, (int64_t)sizeof(buf));
+              if (n < 0) return py::none();
+              return py::str(buf, (size_t)n);
+          },
+          "Full image path of pid, or None.");
+    m.def("process_cmdline",
+          [](int64_t pid) -> py::object {
+              char buf[8192];
+              int64_t n = gptbridge_native_process_cmdline(
+                  pid, buf, (int64_t)sizeof(buf));
+              if (n < 0) return py::none();
+              return py::str(buf, (size_t)n);
+          },
+          "Command line of pid, or None.");
+    m.def("tcp_listen_pid", &gptbridge_native_tcp_listen_pid,
+          "Pid listening on a TCP port, or -1.");
+    m.def("system_cpu_times",
+          []() -> py::object {
+              int64_t idle = 0, kernel = 0, user = 0;
+              if (!gptbridge_native_system_cpu_times_100ns(
+                      &idle, &kernel, &user))
+                  return py::none();
+              return py::make_tuple(idle, kernel, user);
+          },
+          "System idle/kernel/user 100ns times, or None.");
 
     // Parser compute (A221)
     m.def("parser_token_estimate", &parser_token_estimate,

@@ -19,7 +19,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, AsyncIterator, Iterable, Optional
 
 from urllib.parse import urlparse
 
@@ -518,6 +519,40 @@ class QdrantCanonicalRuntime:
                 exc,
             )
             return None
+
+    def count_resource_points_batch(
+        self,
+        module_id: str,
+        resource_ids: Iterable[str],
+        generation_id: Optional[str] = None,
+        max_workers: int = 4,
+    ) -> dict[str, Optional[int]]:
+        """Per-resource counts for many resources with bounded concurrency.
+
+        P15: the parity sweep used to issue one blocking ``count`` round
+        trip per resource serially on the event loop.  Each count keeps the
+        exact ``resource_id OR document_resource_id`` selector semantics of
+        ``count_resource_points`` — results are identical, only wall time
+        collapses.  ``max_workers`` is bounded so a large sweep cannot fan
+        out unbounded connections.
+        """
+        rids = [str(r) for r in resource_ids]
+        results: dict[str, Optional[int]] = {rid: None for rid in rids}
+        if not rids or not self._healthy or self.client is None:
+            return results
+        workers = max(1, min(int(max_workers or 4), len(rids)))
+        with ThreadPoolExecutor(
+            max_workers=workers, thread_name_prefix="rag-parity-count"
+        ) as pool:
+            future_map = {
+                pool.submit(
+                    self.count_resource_points, module_id, rid, generation_id
+                ): rid
+                for rid in rids
+            }
+            for future in as_completed(future_map):
+                results[future_map[future]] = future.result()
+        return results
 
     def points_count(self, generation_id: Optional[str] = None) -> Optional[int]:
         """Current point count in the target collection (None when unavailable)."""

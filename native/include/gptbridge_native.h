@@ -63,6 +63,28 @@ int gptbridge_native_process_cpu_times_100ns(
 /* Enumerate live pids into caller buffer; returns count or -1. */
 int gptbridge_native_process_list(int64_t* pids_out, int64_t max_count);
 
+/* Enumerate all descendants of root_pid (recursive, BFS over a single
+   snapshot); returns count written or -1. */
+int gptbridge_native_process_children(
+    int64_t root_pid, int64_t* pids_out, int64_t max_count);
+
+/* Full image path of pid into buf (UTF-8); bytes written or -1. */
+int64_t gptbridge_native_process_exe(int64_t pid, char* buf, int64_t buf_len);
+
+/* Command line of pid into buf (UTF-8); bytes written or -1.  Reads the
+   target PEB on Windows; fails closed on any access error. */
+int64_t gptbridge_native_process_cmdline(
+    int64_t pid, char* buf, int64_t buf_len);
+
+/* Pid of the process listening on a TCP port, or -1. */
+int64_t gptbridge_native_tcp_listen_pid(int64_t port);
+
+/* System-wide CPU times in 100ns units (idle/kernel/user split out);
+   returns 1 on success, 0 otherwise.  kernel includes idle — same
+   contract as GetSystemTimes. */
+int gptbridge_native_system_cpu_times_100ns(
+    int64_t* idle_100ns, int64_t* kernel_100ns, int64_t* user_100ns);
+
 /* Terminate pid (SIGKILL equivalent); 1 on success, 0 otherwise. */
 int gptbridge_native_process_terminate(int64_t pid);
 

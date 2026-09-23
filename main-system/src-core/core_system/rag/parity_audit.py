@@ -58,6 +58,21 @@ class RagParityAudit:
             report["duration_ms"] = (time.monotonic() - started) * 1000.0
             return report
 
+        # P15: collapse the per-resource Qdrant count N+1 into one bounded
+        # concurrent batch; fall back to the serial path for runtimes/test
+        # doubles without the batch API.
+        count_batch = getattr(self.qdrant, "count_resource_points_batch", None)
+        qdrant_counts: dict[tuple[str, str], Optional[int]] = {}
+        if count_batch is not None:
+            by_module: dict[str, list[str]] = {}
+            for row in rows:
+                by_module.setdefault(str(row["module_id"]), []).append(
+                    str(row["resource_id"])
+                )
+            for mid_key, rid_list in by_module.items():
+                for rid_key, cnt in count_batch(mid_key, rid_list).items():
+                    qdrant_counts[(mid_key, rid_key)] = cnt
+
         for row in rows:
             report["checked"] += 1
             rid = str(row["resource_id"])
@@ -69,7 +84,10 @@ class RagParityAudit:
             if declared != pg_chunks:
                 reasons.append("pg-chunk-count-mismatch")
 
-            qdrant_points = self.qdrant.count_resource_points(mid, rid)
+            if count_batch is not None:
+                qdrant_points = qdrant_counts.get((mid, rid))
+            else:
+                qdrant_points = self.qdrant.count_resource_points(mid, rid)
             if qdrant_points is None:
                 reasons.append("qdrant-unverifiable")
                 report["unverifiable"] += 1
