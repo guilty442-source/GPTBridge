@@ -3,6 +3,7 @@ revision, contract hash and an append-only ledger."""
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from governance_rule.execution.audit.dev_test_evidence import (
@@ -21,9 +22,19 @@ _PROBE_SRC = (
 )
 
 
-def _probe(name: str) -> tuple[str, Path]:
-    rel = f"governance_rule/tests/{name}"
-    return rel, ROOT / "governance_rule" / "tests" / name
+def _probe(outcome: str) -> tuple[str, Path]:
+    # Probes must live outside the collected test tree: a transient
+    # test_*.py inside governance_rule/tests races with concurrent
+    # suite runs (collection ImportError) and with the audit sql-scan.
+    # runtime/ is skipped by both. The pid keeps the module name valid
+    # and unique across parallel workers.
+    rel = (
+        "main-system/runtime/temp/devtest-probes/"
+        f"test_devtest_probe_{outcome}_{os.getpid()}_tmp.py"
+    )
+    path = ROOT / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return rel, path
 
 
 def test_record_test_run_binds_revision_and_contract(tmp_path: Path) -> None:
@@ -49,7 +60,7 @@ def test_pytest_run_records_and_status_tracks_freshness(
     tmp_path: Path,
 ) -> None:
     ledger = tmp_path / "evidence.jsonl"
-    rel, probe = _probe("test_devtest_probe_pass_tmp.py")
+    rel, probe = _probe("pass")
     probe.write_text(_PROBE_SRC, encoding="utf-8")
     try:
         entry = record_pytest_run(
@@ -93,7 +104,7 @@ def test_failed_pytest_run_still_records_fail_visible(
     tmp_path: Path,
 ) -> None:
     ledger = tmp_path / "evidence.jsonl"
-    rel, probe = _probe("test_devtest_probe_fail_tmp.py")
+    rel, probe = _probe("fail")
     probe.write_text(
         "def test_probe() -> None:\n    assert False\n",
         encoding="utf-8",
