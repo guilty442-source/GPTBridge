@@ -497,3 +497,191 @@ def tcp_listen_pid(port: int) -> int:
             if conn.laddr and conn.laddr.port == int(port) and conn.status == p.CONN_LISTEN:
                 return int(conn.pid or -1)
     return -1
+
+
+# ---------------------------------------------------------------------------
+# governor-facing primitives (P24: resource-governor migration)
+# ---------------------------------------------------------------------------
+
+# Windows priority classes — identical values to psutil.*_PRIORITY_CLASS.
+PRIORITY_IDLE = 0x00000040
+PRIORITY_BELOW_NORMAL = 0x00004000
+PRIORITY_NORMAL = 0x00000020
+PRIORITY_ABOVE_NORMAL = 0x00008000
+PRIORITY_HIGH = 0x00000080
+
+
+def process_parent(pid: int) -> int:
+    n = _native()
+    if n is not None and hasattr(n, "process_parent"):
+        return int(n.process_parent(int(pid)))
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            par = p.Process(int(pid)).ppid()
+            return int(par or -1)
+        except p.Error:
+            return -1
+    return -1
+
+
+def process_parents(pid: int) -> list[int]:
+    """Ancestor pid chain (nearest first); cycle-safe, bounded."""
+    out: list[int] = []
+    seen = {int(pid)}
+    cur = int(pid)
+    for _ in range(64):
+        par = process_parent(cur)
+        if par <= 0 or par in seen:
+            break
+        out.append(par)
+        seen.add(par)
+        cur = par
+    return out
+
+
+def process_create_time_ms(pid: int) -> int:
+    """Creation time as Unix-epoch ms (pid-reuse identity anchor), or -1."""
+    n = _native()
+    if n is not None and hasattr(n, "process_create_time_ms"):
+        return int(n.process_create_time_ms(int(pid)))
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return int(p.Process(int(pid)).create_time() * 1000)
+        except p.Error:
+            return -1
+    return -1
+
+
+def process_io_counters(pid: int) -> Optional[tuple[int, int]]:
+    """(read_bytes, write_bytes) or None."""
+    n = _native()
+    if n is not None and hasattr(n, "process_io_counters"):
+        v = n.process_io_counters(int(pid))
+        if v is not None:
+            return (int(v[0]), int(v[1]))
+        return None
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            io = p.Process(int(pid)).io_counters()
+            return (int(io.read_bytes), int(io.write_bytes))
+        except p.Error:
+            return None
+    return None
+
+
+def process_set_priority(pid: int, win_class: int) -> bool:
+    n = _native()
+    if n is not None and hasattr(n, "process_set_priority"):
+        return bool(n.process_set_priority(int(pid), int(win_class)))
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            p.Process(int(pid)).nice(int(win_class))
+            return True
+        except p.Error:
+            return False
+    return False
+
+
+def process_get_priority(pid: int) -> int:
+    n = _native()
+    if n is not None and hasattr(n, "process_get_priority"):
+        return int(n.process_get_priority(int(pid)))
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return int(p.Process(int(pid)).nice())
+        except p.Error:
+            return -1
+    return -1
+
+
+def _mask_to_cores(mask: int) -> list[int]:
+    return [i for i in range(64) if mask & (1 << i)]
+
+
+def _cores_to_mask(cores: Iterable[int]) -> int:
+    mask = 0
+    for c in cores:
+        c = int(c)
+        if 0 <= c < 64:
+            mask |= 1 << c
+    return mask
+
+
+def process_set_affinity(pid: int, cores: Iterable[int]) -> bool:
+    mask = _cores_to_mask(cores)
+    if mask == 0:
+        return False
+    n = _native()
+    if n is not None and hasattr(n, "process_set_affinity"):
+        return bool(n.process_set_affinity(int(pid), mask))
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            p.Process(int(pid)).cpu_affinity(sorted(int(c) for c in cores))
+            return True
+        except p.Error:
+            return False
+    return False
+
+
+def process_get_affinity(pid: int) -> Optional[list[int]]:
+    n = _native()
+    if n is not None and hasattr(n, "process_get_affinity"):
+        v = int(n.process_get_affinity(int(pid)))
+        if v >= 0:
+            return _mask_to_cores(v)
+        return None
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return [int(c) for c in p.Process(int(pid)).cpu_affinity()]
+        except p.Error:
+            return None
+    return None
+
+
+def process_wait(pid: int, timeout_s: float) -> bool:
+    """True when pid exited within timeout_s."""
+    n = _native()
+    if n is not None and hasattr(n, "process_wait"):
+        return bool(n.process_wait(int(pid), int(timeout_s * 1000)))
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            p.Process(int(pid)).wait(timeout=timeout_s)
+            return True
+        except p.Error:
+            return False
+    return False
+
+
+def process_info(pid: int) -> Optional[dict[str, Any]]:
+    """Aggregated per-process snapshot — the ``proc.info`` replacement.
+
+    Keys: pid, name, exe, username, create_time_ms, ppid, rss_bytes,
+    io_read_bytes, io_write_bytes, num_threads, num_handles.  Returns
+    ``None`` when the process is gone (fail-closed; callers treat as the
+    old ``psutil.NoSuchProcess`` boundary).
+    """
+    pid = int(pid)
+    if not process_alive(pid):
+        return None
+    io = process_io_counters(pid)
+    return {
+        "pid": pid,
+        "name": process_name(pid),
+        "exe": process_exe(pid),
+        "username": process_username(pid),
+        "create_time_ms": process_create_time_ms(pid),
+        "ppid": process_parent(pid),
+        "rss_bytes": process_working_set_bytes(pid),
+        "io_read_bytes": io[0] if io else None,
+        "io_write_bytes": io[1] if io else None,
+        "num_threads": process_num_threads(pid),
+        "num_handles": process_num_handles(pid),
+    }

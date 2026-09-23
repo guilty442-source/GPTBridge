@@ -135,12 +135,21 @@ def all_parents() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
+# Dispatchable assignment statuses (A604): the codex registry replaced the
+# plain ``active`` marker with per-mechanism dispatch states — both mean the
+# module is enrolled and dispatchable (legacy = legacy dispatcher, active =
+# A604 dispatcher); retired identities live in ``supersession_registry``.
+_DISPATCHABLE_STATUSES = frozenset(
+    {"active", "active-modular-dispatch-A604", "legacy-modular-dispatch-A604"}
+)
+
+
 def module_assignment(module_architecture_code: str) -> dict[str, str] | None:
     """Resolve an executable module's registered assignment entry."""
     for row in module_assignment_registry():
         if (
             row.get("module_architecture_code") == module_architecture_code
-            and row.get("status") == "active"
+            and row.get("status") in _DISPATCHABLE_STATUSES
         ):
             return row
     return None
