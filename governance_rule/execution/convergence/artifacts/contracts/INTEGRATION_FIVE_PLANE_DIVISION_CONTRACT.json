@@ -24,19 +24,19 @@
     "role": {
       "semantics": "per-plane role binding via module_assignment_registry",
       "bound_to": [
-        "governance_rule/codex/data/governance_codex.sqlite3#module_assignment_registry"
+        "governance_rule/execution/codex_reconcile.py#module_assignment_registry"
       ]
     },
     "authority": {
       "semantics": "decision/permission/review authority per module",
       "bound_to": [
-        "governance_rule/codex/data/governance_codex.sqlite3#module_assignment_registry"
+        "governance_rule/execution/codex_reconcile.py#module_assignment_registry"
       ]
     },
     "replacement_forbidden": {
       "semantics": "codex-first rule; no rename/retire/reroute before amendment",
       "bound_to": [
-        "Standalone tools/local-model/全專案建置藍圖.md"
+        "governance_rule/execution/codex_amendment_executor.py#execute_amendment"
       ]
     },
     "audit_reference": {
@@ -48,7 +48,8 @@
   },
   "implementation": {
     "enforcing_modules": [
-      "governance_rule/codex/data/governance_codex.sqlite3",
+      "governance_rule/execution/codex_repository.py",
+      "governance_rule/execution/codex_postgresql.py",
       "AGENTS.md"
     ]
   },
