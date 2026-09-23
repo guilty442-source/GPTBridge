@@ -19,11 +19,13 @@ public sealed class NativeModelClient : IModelClient, IDisposable
     private delegate int LoadedDelegate(IntPtr engine);
     private delegate void UnloadDelegate(IntPtr engine);
     private delegate int GenerateTextDelegate(IntPtr engine, [MarshalAs(UnmanagedType.LPUTF8Str)] string prompt, long maxNewTokens, double temperature, int doSample, byte[]? outBuf, ref nuint outLen, byte[] err, nuint errCap);
+    private delegate int GenerateExDelegate(IntPtr engine, [MarshalAs(UnmanagedType.LPUTF8Str)] string prompt, long maxNewTokens, double temperature, int doSample, byte[]? outBuf, ref nuint outLen, long[]? idsBuf, ref nuint idsLen, byte[] err, nuint errCap);
     private delegate int DescribeDelegate(IntPtr engine, byte[]? outBuf, ref nuint outLen, byte[] err, nuint errCap);
 
     private readonly IntPtr _lib;
     private readonly IntPtr _engine;
     private readonly GenerateTextDelegate _generateText;
+    private readonly GenerateExDelegate _generateEx;
     private readonly DescribeDelegate _describe;
     private readonly UnloadDelegate _unload;
     private readonly DestroyDelegate _destroy;
@@ -54,6 +56,7 @@ public sealed class NativeModelClient : IModelClient, IDisposable
         _unload = Bind<UnloadDelegate>(_lib, "xc_engine_unload");
         _destroy = Bind<DestroyDelegate>(_lib, "xc_engine_destroy");
         _generateText = Bind<GenerateTextDelegate>(_lib, "xc_engine_generate_text");
+        _generateEx = Bind<GenerateExDelegate>(_lib, "xc_engine_generate_ex");
         _describe = Bind<DescribeDelegate>(_lib, "xc_engine_describe");
         _modelId = modelId;
 
@@ -77,20 +80,25 @@ public sealed class NativeModelClient : IModelClient, IDisposable
             {
                 var err = new byte[1024];
                 nuint len = 0;
-                // 兩段式緩衝：先取所需大小，再實際產生。
-                int rc = _generateText(_engine, request.Prompt, request.MaxNewTokens,
+                nuint idLen = 0;
+                // 兩段式緩衝：先取 text＋ids 所需大小，再一次取回。
+                // generate_ex 一次生成同時回傳 text 與生成 token ids（不含 prompt）。
+                int rc = _generateEx(_engine, request.Prompt, request.MaxNewTokens,
                     request.Temperature, request.Temperature > 0 ? 1 : 0,
-                    null, ref len, err, (nuint)err.Length);
+                    null, ref len, null, ref idLen, err, (nuint)err.Length);
                 if (rc == 1) throw new InvalidOperationException($"XC_GENERATE_FAILED:{ReadErr(err)}");
                 var buf = new byte[len + 1];
+                var idsBuf = new long[idLen];
                 len = (nuint)buf.Length; // *out_len 輸入即容量（ABI 契約）
-                rc = _generateText(_engine, request.Prompt, request.MaxNewTokens,
+                rc = _generateEx(_engine, request.Prompt, request.MaxNewTokens,
                     request.Temperature, request.Temperature > 0 ? 1 : 0,
-                    buf, ref len, err, (nuint)err.Length);
+                    buf, ref len, idsBuf, ref idLen, err, (nuint)err.Length);
                 if (rc != 0) throw new InvalidOperationException($"XC_GENERATE_FAILED:{ReadErr(err)}");
                 var text = Encoding.UTF8.GetString(buf, 0, (int)len);
+                var tokenIds = new int[(int)idLen];
+                for (var i = 0; i < tokenIds.Length; ++i) tokenIds[i] = (int)idsBuf[i];
                 return new ModelInferenceResponse(
-                    text, Array.Empty<int>(), _modelId,
+                    text, tokenIds, _modelId,
                     Environment.TickCount64 - started,
                     new Dictionary<string, object> { ["transport"] = "native-abi", ["dual_track"] = true });
             }, cancellationToken).ConfigureAwait(false);
