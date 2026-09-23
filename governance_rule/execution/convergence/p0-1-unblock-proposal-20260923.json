@@ -1,0 +1,39 @@
+{
+  "schema": "p0-1-unblock-proposal/v1",
+  "generated_at_utc": "2026-09-23T08:40Z",
+  "current_window": {
+    "start": "2026-09-22T14:50:00Z",
+    "end": "2026-09-23T14:50:00Z",
+    "uptime_hours": 15.1,
+    "failed_checks": ["uptime_24h", "resource_budget"],
+    "resource_budget": {
+      "samples": 7289,
+      "over_budget": 39,
+      "all_under_regulation": true,
+      "recent_samples": {
+        "last_5": "all over_budget:false, cpu 0.0%, ram 5.3MB, under_samples 66-70",
+        "current_status": "stable, no over-budget for 70+ samples"
+      },
+      "strict_verdict": "FAIL (per 2026-09-22 governor: strict reading, any over sample = FAIL)",
+      "note": "39 over samples are historical, all under regulation, but strict reading still FAILs the window"
+    }
+  },
+  "blocking_analysis": {
+    "P0-1": "39 historical over-budget samples will cause FAIL at 14:50Z even though recent 70+ samples are clean; Job Object cap (14:42Z) is now stable",
+    "G66/G67": "governor side (epoch seal, external sig, 45 mappings) — worker cannot close, needs staged amendment + seal",
+    "G94": "74 Machine Schema + 62 obligations PENDING — staged 74->0 verified in g94-staged-20260923.json, live requires governor publish",
+    "G100": "8 shadows need 2-release window before primary — not yet elapsed",
+    "X6/X7": "unit move / sleep enabled — explicitly gated by P0-1 per blueprint 6"
+  },
+  "unblock_proposal": {
+    "P0-1": "Restart window now (e.g., 2026-09-23T08:40Z → 2026-09-24T08:40Z) with current stable cap; 39 historical samples will age out, recent clean samples suggest new window will PASS. Requires governor approve to abandon current 15.1h window (cost: 15h).",
+    "G66/G67/G94": "Worker prepares staged codex (already done for G94 staged 74->0) and re_tiering_plan, governor does publish+seal in next coordination window",
+    "G100": "No action until 2-release window elapsed; keep shadow, no primary switch",
+    "immediate_worker_action": "Keep P0-1 window holding (no heavy builds), continue lightweight docs (G29/G30 plans done), await governor decision on window restart"
+  },
+  "evidence": {
+    "resource_governor_recent": "2026-09-23T08:37:31Z-08:37:52Z 5 samples all over_budget:false, cpu 0.0%",
+    "g94_staged": "governance_rule/execution/convergence/g94-staged-20260923.json (74->0, validate 0 errors)",
+    "g94_live": "74 pending, 62 mandated per g94-evidence-20260923.json"
+  }
+}
