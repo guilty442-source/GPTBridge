@@ -19,9 +19,14 @@ canonical ``native/test_suites/build.ps1`` harness:
   suites bind ephemeral ports, never fixed ones);
 - any ``FAIL`` case, crash, stale report, build failure or unavailable
   toolchain denies the push (fail-closed); ``BLOCKED`` cases are the
-  suite's own environmental-abstain verdict — they are recorded as
-  ``incomplete_evidence`` but do not deny (matching the native
-  orchestrator's INCOMPLETE_EVIDENCE ≠ FAIL semantics).
+  suite's own environmental-abstain verdict — every BLOCKED case is
+  classified through ``native/test_suites/suite_criticality.json`` (G99)
+  into ``blocked_suite`` / ``blocked_reason`` / ``required_evidence`` /
+  ``affected_capability`` / ``release_impact`` / ``criticality``; a
+  BLOCKED case on a ``release-critical`` suite (the default for
+  unregistered suites) denies the push, only suites explicitly
+  registered ``experimental`` keep the non-blocking
+  ``incomplete_evidence`` semantics (INCOMPLETE_EVIDENCE ≠ FAIL).
 
 §10.69-C④/F④: every push attempt (granted or denied) records a consolidated
 decision record — gate outcomes, revisions, result — into the governed audit
@@ -76,6 +81,8 @@ _BUILD_SCRIPT = _NATIVE_TEST_DIR / "build.ps1"
 _BIN_DIR = _NATIVE_TEST_DIR / "bin"
 _SUITE_GLOB = "*_suite.exe"
 _REPORT_SUFFIX = ".json"
+_SUITE_MANIFEST_NAME = "suite-manifest.json"
+_CRITICALITY_FILE = _NATIVE_TEST_DIR / "suite_criticality.json"
 
 # Link inputs that invalidate cached suite binaries (build.ps1 $suites map
 # roots): a newer code file in any of these means the binaries no longer
@@ -248,6 +255,63 @@ def _suite_report(bin_dir: Path, exe: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def _suite_manifest(bin_dir: Path) -> dict[str, Any]:
+    """Parse ``bin/suite-manifest.json`` (emitted by build.ps1 with the
+    built source revision).  Missing/malformed → ``{}``; callers treat an
+    absent manifest as stale build output (G99 revision binding)."""
+    try:
+        data = json.loads(
+            (bin_dir / _SUITE_MANIFEST_NAME).read_text(
+                encoding="utf-8-sig"
+            )
+        )
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _load_criticality(root: Path) -> dict[str, Any]:
+    """G99 per-suite criticality registry.  ``{}`` when missing/malformed —
+    callers fail closed when BLOCKED cases require classification."""
+    try:
+        data = json.loads(
+            (Path(root) / _CRITICALITY_FILE).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _classify_blocked(
+    suite_stem: str, case: Mapping[str, Any], registry: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Project one BLOCKED case through the criticality registry (G99).
+
+    Unregistered suites default to ``release-critical`` — an unknown
+    suite's blocked evidence can never silently stay non-blocking.
+    """
+    entry = (registry.get("suites") or {}).get(suite_stem)
+    entry = entry if isinstance(entry, Mapping) else {}
+    defaults = registry.get("defaults")
+    defaults = defaults if isinstance(defaults, Mapping) else {}
+    return {
+        "blocked_suite": suite_stem,
+        "blocked_case": str(case.get("name", "?")),
+        "blocked_reason": str(case.get("detail", ""))[:200],
+        "affected_capability": entry.get(
+            "affected_capability", "unregistered-suite"
+        ),
+        "release_impact": entry.get("release_impact", "unclassified"),
+        "required_evidence": entry.get(
+            "required_evidence",
+            defaults.get("required_evidence", "suite PASS report"),
+        ),
+        "criticality": entry.get(
+            "criticality", defaults.get("criticality", "release-critical")
+        ),
+    }
+
+
 def _execute_suite(
     exe: Path, bin_dir: Path, suite_timeout: float, runner: Runner
 ) -> dict[str, Any]:
@@ -351,9 +415,15 @@ def mandatory_test_gate(
         "failures": [],
         "rebuilt": False,
         "incomplete_evidence": False,
+        "blocked_classifications": [],
+        "source_revision": None,
+        "head_revision": None,
+        "revision_match": None,
         "duration_ms": 0,
         "detail": "",
     }
+    blocked_cases: list[tuple[str, Mapping[str, Any]]] = []
+    manifest: dict[str, Any] = {}
     started = time.monotonic()
 
     def _done(detail: str) -> dict[str, Any]:
@@ -379,7 +449,13 @@ def mandatory_test_gate(
     try:
         with (lock if lock is not None else _gate_lock(root, lock_wait)):
             exes = _suite_exes(bin_dir)
-            if _binaries_stale(Path(root), exes):
+            manifest = _suite_manifest(bin_dir)
+            # G99: a missing/empty-revision suite manifest means the binaries
+            # carry no bound source revision — same treatment as stale code
+            # artifacts (rebuild when auto_build, deny otherwise).
+            if _binaries_stale(Path(root), exes) or not manifest.get(
+                "revision"
+            ):
                 if not cfg.get("auto_build", True):
                     return _done(
                         "test-binaries-stale-or-missing "
@@ -399,9 +475,12 @@ def mandatory_test_gate(
                 except Exception as exc:  # noqa: BLE001 — fail closed
                     return _done(f"build-error:{type(exc).__name__}")
                 exes = _suite_exes(bin_dir)
+                manifest = _suite_manifest(bin_dir)
                 if not exes or _binaries_stale(Path(root), exes):
                     rc = getattr(proc, "returncode", "?")
                     return _done(f"build-failed:rc={rc}")
+                if not manifest.get("revision"):
+                    return _done("suite-manifest-missing")
                 gate["rebuilt"] = True
 
             run_started = time.monotonic()
@@ -458,6 +537,7 @@ def mandatory_test_gate(
                         totals["pass"] += 1
                     elif status == "BLOCKED":
                         totals["blocked"] += 1
+                        blocked_cases.append((exe.stem, case))
                     else:
                         totals["fail"] += 1
                         if len(gate["failures"]) < 8:
@@ -477,6 +557,21 @@ def mandatory_test_gate(
     except Exception as exc:  # noqa: BLE001 — gate must total to a verdict
         return _done(f"gate-error:{type(exc).__name__}")
 
+    # G99: bind the gate record to the manifest's source revision and the
+    # current HEAD so suite evidence can be tied to one revision/generation.
+    gate["source_revision"] = manifest.get("revision")
+    try:
+        head = GitRepository(Path(root)).run(["rev-parse", "HEAD"])
+        gate["head_revision"] = (
+            (head.stdout or "").strip() if head.returncode == 0 else None
+        )
+    except Exception:  # noqa: BLE001 — evidence only, never raises
+        gate["head_revision"] = None
+    if gate["source_revision"] and gate["head_revision"]:
+        gate["revision_match"] = (
+            gate["source_revision"] == gate["head_revision"]
+        )
+
     totals = gate["totals"]
     gate["incomplete_evidence"] = totals["blocked"] > 0
     if totals["fail"] > 0:
@@ -486,6 +581,32 @@ def mandatory_test_gate(
         )
     if totals["cases"] == 0:
         return _done("no-test-cases-executed")
+    if blocked_cases:
+        # G99: classify every BLOCKED case; release-critical suites
+        # (default for anything not in the registry) deny the push.
+        registry = _load_criticality(Path(root))
+        if not registry.get("suites"):
+            return _done(
+                "blocked-unclassified: suite_criticality.json "
+                "missing/malformed"
+            )
+        classifications = [
+            _classify_blocked(stem, case, registry)
+            for stem, case in blocked_cases
+        ]
+        gate["blocked_classifications"] = classifications
+        critical = [
+            c for c in classifications
+            if c["criticality"] != "experimental"
+        ]
+        if critical:
+            first = critical[0]
+            return _done(
+                "blocked-release-critical: "
+                f"{first['blocked_suite']}/{first['blocked_case']} "
+                f"(+{len(critical) - 1} more) — "
+                f"{first['affected_capability']} unverified"
+            )
     gate["passed"] = True
     suffix = (
         f" ({totals['blocked']} blocked — incomplete evidence)"

@@ -25,7 +25,39 @@ def _completed(returncode: int, out: str = "") -> subprocess.CompletedProcess:
 def _bin_dir(root: Path) -> Path:
     d = root / "native" / "test_suites" / "bin"
     d.mkdir(parents=True, exist_ok=True)
+    _manifest(d)
     return d
+
+
+def _manifest(bin_dir: Path, revision: str = "testrev") -> Path:
+    p = bin_dir / "suite-manifest.json"
+    p.write_text(json.dumps({
+        "schema": "native-suite-manifest/v1",
+        "revision": revision,
+        "built_at": "2026-01-01T00:00:00Z",
+        "suites": [{"name": "alpha_suite", "exe": "alpha_suite.exe"}],
+    }), encoding="utf-8")
+    return p
+
+
+def _criticality(root: Path, suites=None) -> Path:
+    if suites is None:
+        suites = {
+            "alpha_suite": {
+                "criticality": "release-critical",
+                "affected_capability": "alpha capability",
+                "release_impact": "alpha unverified",
+                "required_evidence": "alpha_suite PASS report",
+            }
+        }
+    p = root / "native" / "test_suites" / "suite_criticality.json"
+    p.write_text(json.dumps({
+        "schema": "native-suite-criticality/v1",
+        "defaults": {"criticality": "release-critical",
+                     "required_evidence": "suite PASS report"},
+        "suites": suites,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    return p
 
 
 def _exe(bin_dir: Path, name: str = "alpha_suite.exe") -> Path:
@@ -84,12 +116,94 @@ def test_gate_denies_on_failed_case(tmp_path: Path) -> None:
 def test_gate_blocked_is_incomplete_not_denied(tmp_path: Path) -> None:
     d = _bin_dir(tmp_path)
     _exe(d)
+    _criticality(tmp_path, {"alpha_suite": {
+        "criticality": "experimental",
+        "affected_capability": "exploratory path",
+        "release_impact": "none",
+        "required_evidence": "eventual suite PASS",
+    }})
     report = _report(passed=1, blocked=1, cases=[
         {"suite": "alpha_suite", "name": "ok", "status": "PASS"},
-        {"suite": "alpha_suite", "name": "env", "status": "BLOCKED"}])
+        {"suite": "alpha_suite", "name": "env", "status": "BLOCKED",
+         "detail": "GPU unavailable"}])
     gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
     assert gate["passed"] is True
     assert gate["incomplete_evidence"] is True
+    cls = gate["blocked_classifications"]
+    assert len(cls) == 1
+    assert cls[0]["criticality"] == "experimental"
+    assert cls[0]["blocked_suite"] == "alpha_suite"
+    assert cls[0]["blocked_case"] == "env"
+    assert cls[0]["blocked_reason"] == "GPU unavailable"
+    for field in ("required_evidence", "affected_capability",
+                  "release_impact"):
+        assert cls[0][field]
+
+
+def test_gate_blocked_release_critical_denies(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)
+    _criticality(tmp_path)  # alpha_suite registered release-critical
+    report = _report(passed=1, blocked=1, cases=[
+        {"suite": "alpha_suite", "name": "ok", "status": "PASS"},
+        {"suite": "alpha_suite", "name": "abi", "status": "BLOCKED",
+         "detail": "toolchain absent"}])
+    gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
+    assert gate["passed"] is False
+    assert gate["incomplete_evidence"] is True
+    assert "blocked-release-critical" in gate["detail"]
+    assert gate["blocked_classifications"][0]["criticality"] == (
+        "release-critical")
+
+
+def test_gate_blocked_unregistered_denies(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)
+    _criticality(tmp_path, {"other_suite": {
+        "criticality": "experimental"}})
+    report = _report(passed=1, blocked=1, cases=[
+        {"suite": "alpha_suite", "name": "env", "status": "BLOCKED"}])
+    gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
+    assert gate["passed"] is False
+    assert "blocked-release-critical" in gate["detail"]
+
+
+def test_gate_blocked_registry_missing_denies(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)  # no criticality registry written
+    report = _report(passed=1, blocked=1, cases=[
+        {"suite": "alpha_suite", "name": "env", "status": "BLOCKED"}])
+    gate = _gate(tmp_path, runner=_runner_writing(report), config=_cfg())
+    assert gate["passed"] is False
+    assert "blocked-unclassified" in gate["detail"]
+
+
+def test_gate_denies_when_manifest_missing(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    (d / "suite-manifest.json").unlink()
+    _exe(d)
+    gate = _gate(tmp_path, runner=_runner_writing(_report()),
+                 config=_cfg())
+    assert gate["passed"] is False
+    assert "stale-or-missing" in gate["detail"]
+
+
+def test_gate_denies_when_manifest_revision_empty(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _manifest(d, revision="")
+    _exe(d)
+    gate = _gate(tmp_path, runner=_runner_writing(_report()),
+                 config=_cfg())
+    assert gate["passed"] is False
+    assert "stale-or-missing" in gate["detail"]
+
+
+def test_gate_records_source_revision(tmp_path: Path) -> None:
+    d = _bin_dir(tmp_path)
+    _exe(d)
+    gate = _gate(tmp_path, runner=_runner_writing(_report()), config=_cfg())
+    assert gate["passed"] is True
+    assert gate["source_revision"] == "testrev"
 
 
 def test_gate_denies_on_missing_report(tmp_path: Path) -> None:

@@ -1,0 +1,137 @@
+{
+  "schema": "star-suite-criticality/v1",
+  "description": "G99: per-suite criticality projection for BLOCKED cases. A BLOCKED case on a release-critical suite denies push/release (INCOMPLETE_EVIDENCE can never be read as full acceptance). Only suites explicitly marked experimental may stay non-blocking, and only while policy allows. Suites absent from this registry default to release-critical (fail-closed).",
+  "defaults": {
+    "criticality": "release-critical",
+    "required_evidence": "suite report with all cases PASS for the same source revision"
+  },
+  "critical_surfaces": [
+    "formal-abi",
+    "permission",
+    "fail-closed",
+    "data-integrity",
+    "native-memory-safety"
+  ],
+  "suites": {
+    "a263_channel_core_suite": {
+      "affected_capability": "A263 channel core ABI",
+      "release_impact": "channel contract unverified",
+      "criticality": "release-critical",
+      "surfaces": ["formal-abi", "data-integrity"]
+    },
+    "activation_broker_suite": {
+      "affected_capability": "tool activation broker",
+      "release_impact": "on-demand tool activation unverified",
+      "criticality": "release-critical",
+      "surfaces": ["fail-closed"]
+    },
+    "audit_engine_suite": {
+      "affected_capability": "C++ audit engine checks",
+      "release_impact": "native audit path unverified",
+      "criticality": "release-critical",
+      "surfaces": ["fail-closed", "data-integrity"]
+    },
+    "baseline_suite": {
+      "affected_capability": "engine load/tokenizer/greedy determinism on real bundle",
+      "release_impact": "inference correctness unverified",
+      "criticality": "release-critical",
+      "surfaces": ["formal-abi", "fail-closed"]
+    },
+    "channel_runtime_suite": {
+      "affected_capability": "channel runtime transport",
+      "release_impact": "runtime channel unverified",
+      "criticality": "release-critical",
+      "surfaces": ["formal-abi"]
+    },
+    "consistency_suite": {
+      "affected_capability": "C kernel vs C++ kernel parity",
+      "release_impact": "cross-language numeric parity unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    },
+    "dialogue_suite": {
+      "affected_capability": "dialogue eval on real bundle",
+      "release_impact": "dialogue quality gate unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    },
+    "eval_suite": {
+      "affected_capability": "heldout eval on real bundle",
+      "release_impact": "model quality gate unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    },
+    "governed_tool_suite": {
+      "affected_capability": "governed tool execution",
+      "release_impact": "tool governance unverified",
+      "criticality": "release-critical",
+      "surfaces": ["permission", "fail-closed"]
+    },
+    "governed_tool_ws_suite": {
+      "affected_capability": "governed tool websocket path",
+      "release_impact": "tool governance transport unverified",
+      "criticality": "release-critical",
+      "surfaces": ["permission", "fail-closed"]
+    },
+    "kv_cache_suite": {
+      "affected_capability": "KV cache semantics (reference model)",
+      "release_impact": "KV semantics unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    },
+    "maturity_suite": {
+      "affected_capability": "model maturity L0-L2 gates",
+      "release_impact": "maturity certification unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    },
+    "moe_qc_suite": {
+      "affected_capability": "MoE routing quality control",
+      "release_impact": "expert routing unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    },
+    "ntp_suite": {
+      "affected_capability": "sampling numerics (softmax/temperature/top-k/top-p)",
+      "release_impact": "sampling correctness unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    },
+    "runtime_core_suite": {
+      "affected_capability": "C11 resident runtime core",
+      "release_impact": "resident core lifecycle unverified",
+      "criticality": "release-critical",
+      "surfaces": ["formal-abi", "fail-closed"]
+    },
+    "runtime_state_suite": {
+      "affected_capability": "runtime state machine",
+      "release_impact": "state transitions unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    },
+    "simd_kernels_suite": {
+      "affected_capability": "SIMD kernel implementations",
+      "release_impact": "numeric kernels unverified",
+      "criticality": "release-critical",
+      "surfaces": ["formal-abi", "native-memory-safety"]
+    },
+    "system_rescue_suite": {
+      "affected_capability": "system rescue flows",
+      "release_impact": "recovery path unverified",
+      "criticality": "release-critical",
+      "surfaces": ["fail-closed"]
+    },
+    "tool_host_suite": {
+      "affected_capability": "tool host isolation/lifecycle",
+      "release_impact": "tool isolation unverified",
+      "criticality": "release-critical",
+      "surfaces": ["fail-closed", "permission"]
+    },
+    "transport_proxy_client_suite": {
+      "affected_capability": "transport proxy client",
+      "release_impact": "transport path unverified",
+      "criticality": "release-critical",
+      "surfaces": ["data-integrity"]
+    }
+  }
+}

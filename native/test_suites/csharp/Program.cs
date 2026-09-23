@@ -11,10 +11,58 @@
 // The suite list comes from the current build manifest
 // (<bin>/suite-manifest.json, emitted by build.ps1); with --require-manifest
 // a missing/malformed manifest fails closed instead of globbing.
+//
+// G99: every BLOCKED case is classified through
+// <test_suites>/suite_criticality.json — a BLOCKED case on a
+// release-critical suite (the default for unregistered suites) makes the
+// verdict FAIL, matching push_gate.py; only suites registered
+// "experimental" keep INCOMPLETE_EVIDENCE.  A missing/malformed registry
+// with blocked cases is itself FAIL (fail-closed).
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+
+// G99: load the per-suite criticality registry that lives next to bin/.
+static JsonObject? LoadCriticality(string binDir)
+{
+    var path = Path.GetFullPath(
+        Path.Combine(binDir, "..", "suite_criticality.json"));
+    try { return JsonNode.Parse(File.ReadAllText(path)) as JsonObject; }
+    catch (Exception) { return null; }
+}
+
+// G99: project one BLOCKED case through the registry.  Unknown suites
+// default to release-critical so unclassified evidence never stays
+// non-blocking.
+static string Trunc(string? s, int max = 200) =>
+    s == null ? "" : (s.Length > max ? s[..max] : s);
+
+static JsonObject ClassifyBlocked(string suiteStem, JsonNode? caseNode,
+                                  JsonObject? registry)
+{
+    var suites = registry?["suites"] as JsonObject;
+    var entry = suites?[suiteStem] as JsonObject;
+    var defaults = registry?["defaults"] as JsonObject;
+    string Field(JsonObject? e, string key, string fallback) =>
+        e?[key]?.GetValue<string>() ?? fallback;
+    return new JsonObject
+    {
+        ["blocked_suite"] = suiteStem,
+        ["blocked_case"] = caseNode?["name"]?.GetValue<string>() ?? "?",
+        ["blocked_reason"] = Trunc(
+            caseNode?["detail"]?.GetValue<string>()),
+        ["affected_capability"] = Field(entry, "affected_capability",
+                                        "unregistered-suite"),
+        ["release_impact"] = Field(entry, "release_impact", "unclassified"),
+        ["required_evidence"] = Field(
+            entry, "required_evidence",
+            Field(defaults, "required_evidence", "suite PASS report")),
+        ["criticality"] = Field(
+            entry, "criticality",
+            Field(defaults, "criticality", "release-critical")),
+    };
+}
 
 if (args.Contains("--run"))
 {
@@ -53,6 +101,22 @@ static int AggregateReport(string[] args)
     var blocked = bySuite.Sum(item => item.blocked);
     var passed = bySuite.Sum(item => item.pass);
 
+    // G99: classify blocked cases; release-critical blocked → FAIL.
+    var registry = LoadCriticality(Path.GetDirectoryName(reportPath)!);
+    var blockedClassifications = new JsonArray();
+    foreach (var c in cases)
+    {
+        if (c?["status"]?.GetValue<string>() != "BLOCKED") continue;
+        var stem = c?["suite_exe"]?.GetValue<string>()
+            ?? c?["suite"]?.GetValue<string>() ?? "UNKNOWN";
+        blockedClassifications.Add(ClassifyBlocked(stem, c, registry));
+    }
+    var blockedUnclassified = blocked > 0
+        && (registry?["suites"] as JsonObject) == null;
+    var criticalBlocked = blockedClassifications.Count(item =>
+        item?["criticality"]?.GetValue<string>() != "experimental");
+    var deny = failed > 0 || blockedUnclassified || criticalBlocked > 0;
+
     var output = new JsonObject
     {
         ["orchestrator"] = "native-test-orchestrator/v1",
@@ -63,7 +127,11 @@ static int AggregateReport(string[] args)
         ["passed"] = passed,
         ["failed"] = failed,
         ["blocked"] = blocked,
-        ["verdict"] = failed > 0 ? "FAIL" : (blocked > 0 ? "INCOMPLETE_EVIDENCE" : "PASS"),
+        ["blocked_classifications"] = blockedClassifications,
+        ["blocked_release_critical"] = criticalBlocked,
+        ["blocked_unclassified"] = blockedUnclassified,
+        ["verdict"] = deny ? "FAIL"
+            : (blocked > 0 ? "INCOMPLETE_EVIDENCE" : "PASS"),
     };
 
     var outPath = Path.Combine(Path.GetDirectoryName(reportPath)!, "native-orchestration-report.json");
@@ -75,7 +143,7 @@ static int AggregateReport(string[] args)
         Console.WriteLine($"  {suite.suite}: PASS={suite.pass} FAIL={suite.fail} BLOCKED={suite.blocked} ({suite.total_ms} ms)");
     }
     Console.WriteLine($"report: {outPath}");
-    return failed > 0 ? 1 : 0;
+    return deny ? 1 : 0;
 }
 
 static async Task<int> RunSuites(string[] args)
@@ -132,6 +200,8 @@ static async Task<int> RunSuites(string[] args)
     var tasks = suites.Select(async suite =>
     {
         await semaphore.WaitAsync();
+        try
+        {
         var exePath = Path.Combine(binDir, suite.Exe);
         var jsonPath = Path.Combine(binDir, suite.Name + ".json");
         var sw = Stopwatch.StartNew();
@@ -140,19 +210,22 @@ static async Task<int> RunSuites(string[] args)
         try
         {
             try { File.Delete(jsonPath); } catch (IOException) { }
+            // Streams are NOT redirected: a suite may spawn grandchildren
+            // that inherit the pipe and keep it open forever — draining
+            // would hang the orchestrator.  Inheriting console output is
+            // also what build.ps1 does.
             var psi = new ProcessStartInfo(exePath, suite.Name)
             {
                 WorkingDirectory = binDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
+                RedirectStandardInput = true,
             };
             using var proc = Process.Start(psi)!;
-            // Drain pipes so a chatty suite cannot deadlock on a full buffer.
-            var drain = Task.WhenAll(
-                proc.StandardOutput.ReadToEndAsync(),
-                proc.StandardError.ReadToEndAsync());
+            // Close stdin immediately: a suite that reads the console would
+            // otherwise block on the orchestrator's inherited pipe until the
+            // suite timeout.  EOF is the correct non-interactive contract.
+            proc.StandardInput.Dispose();
             try
             {
                 await proc.WaitForExitAsync().WaitAsync(
@@ -163,7 +236,6 @@ static async Task<int> RunSuites(string[] args)
                 timedOut = true;
                 try { proc.Kill(entireProcessTree: true); } catch (Exception) { }
             }
-            await drain;
             if (!timedOut) rc = proc.ExitCode;
         }
         catch (Exception)
@@ -215,14 +287,28 @@ static async Task<int> RunSuites(string[] args)
             duration_ms = sw.ElapsedMilliseconds,
             cases,
         };
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }).ToList();
     var results = (await Task.WhenAll(tasks)).OrderBy(r => r.suite).ToList();
+    File.AppendAllText(Path.Combine(binDir, "_orch_progress.log"),
+        $"{DateTime.UtcNow:HH:mm:ss.fff} all-suites-done\n");
 
     // ---- consolidated report (same schema the Python gate consumes) ----
+    // G99: tag each case with its owning suite stem so downstream
+    // classification can key on the manifest/exe name rather than the
+    // free-form "suite" constant inside the case.
     var allCases = new JsonArray();
     foreach (var r in results)
         foreach (var c in r.cases)
-            allCases.Add(c?.DeepClone());
+        {
+            var clone = c?.DeepClone();
+            if (clone is JsonObject co) co["suite_exe"] = r.suite;
+            allCases.Add(clone);
+        }
     var reportOut = new JsonObject
     {
         ["harness"] = "native-test-suite/v1",
@@ -231,6 +317,8 @@ static async Task<int> RunSuites(string[] args)
     var nativeReportPath = Path.Combine(binDir, "native-report.json");
     var nativeJson = reportOut.ToJsonString();
     File.WriteAllText(nativeReportPath, nativeJson);
+    File.AppendAllText(Path.Combine(binDir, "_orch_progress.log"),
+        $"{DateTime.UtcNow:HH:mm:ss.fff} native-report-written\n");
     var artifactHash = Convert.ToHexString(
         SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(nativeJson)))
         .ToLowerInvariant();
@@ -244,18 +332,46 @@ static async Task<int> RunSuites(string[] args)
             WorkingDirectory = Path.GetFullPath(
                 Path.Combine(binDir, "..", "..", "..")),
             RedirectStandardOutput = true,
+            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
         using var git = Process.Start(gitPsi)!;
-        currentRevision = (await git.StandardOutput.ReadToEndAsync()).Trim();
-        await git.WaitForExitAsync();
+        git.StandardInput.Dispose();
+        var gitOut = git.StandardOutput.ReadToEndAsync();
+        var exited = await git.WaitForExitAsync()
+            .WaitAsync(TimeSpan.FromSeconds(10))
+            .ContinueWith(t => t.Status == TaskStatus.RanToCompletion);
+        if (exited)
+            currentRevision = (await gitOut).Trim();
+        else
+        {
+            try { git.Kill(entireProcessTree: true); } catch (Exception) { }
+            currentRevision = null;
+        }
     }
     catch (Exception) { currentRevision = null; }
 
     var failed = results.Sum(r => r.fail);
     var blocked = results.Sum(r => r.blocked);
     var passed = results.Sum(r => r.pass);
+
+    // G99: classify every BLOCKED case through suite_criticality.json;
+    // release-critical blocked (or a missing registry) flips the verdict
+    // to FAIL, identical to push_gate.py.
+    var registry = LoadCriticality(binDir);
+    var blockedClassifications = new JsonArray();
+    foreach (var r in results)
+        foreach (var c in r.cases)
+            if (c?["status"]?.GetValue<string>() == "BLOCKED")
+                blockedClassifications.Add(
+                    ClassifyBlocked(r.suite, c, registry));
+    var blockedUnclassified = blocked > 0
+        && (registry?["suites"] as JsonObject) == null;
+    var criticalBlocked = blockedClassifications.Count(item =>
+        item?["criticality"]?.GetValue<string>() != "experimental");
+    var deny = failed > 0 || blockedUnclassified || criticalBlocked > 0;
+
     var orchReport = new JsonObject
     {
         ["orchestrator"] = "native-test-orchestrator/v2",
@@ -279,7 +395,11 @@ static async Task<int> RunSuites(string[] args)
         ["passed"] = passed,
         ["failed"] = failed,
         ["blocked"] = blocked,
-        ["verdict"] = failed > 0 ? "FAIL" : (blocked > 0 ? "INCOMPLETE_EVIDENCE" : "PASS"),
+        ["blocked_classifications"] = blockedClassifications,
+        ["blocked_release_critical"] = criticalBlocked,
+        ["blocked_unclassified"] = blockedUnclassified,
+        ["verdict"] = deny ? "FAIL"
+            : (blocked > 0 ? "INCOMPLETE_EVIDENCE" : "PASS"),
     };
     var orchPath = Path.Combine(binDir, "native-orchestration-report.json");
     File.WriteAllText(orchPath,
@@ -296,5 +416,5 @@ static async Task<int> RunSuites(string[] args)
             (r.timed_out ? " TIMEOUT" : ""));
     Console.WriteLine($"report: {nativeReportPath}");
     Console.WriteLine($"orchestration: {orchPath}");
-    return failed > 0 ? 1 : 0;
+    return deny ? 1 : 0;
 }
