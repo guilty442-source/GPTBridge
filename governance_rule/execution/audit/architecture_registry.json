@@ -476,7 +476,8 @@
    "dependencies": [
     "shared-layer",
     "ollama",
-    "qdrant"
+    "qdrant",
+    "boot-core"
    ],
    "information_channels": [
     "information-channel"

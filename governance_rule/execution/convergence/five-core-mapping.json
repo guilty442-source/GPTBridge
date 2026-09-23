@@ -166,7 +166,8 @@
       "TASK_LIFECYCLE_CONTRACT"
      ],
      "consumers": [
-      "bootstrap-entry"
+      "bootstrap-entry",
+      "local-model"
      ],
      "migration_state": "migrate-csharp"
     },

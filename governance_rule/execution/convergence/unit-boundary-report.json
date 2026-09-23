@@ -2,14 +2,6 @@
   "schema": "unit-boundary-report/v1",
   "note": "derived check; dynamic imports unresolvable; violations are convergence candidates, not verdicts",
   "edge_count": 2,
-  "cross_unit_edges": 1,
-  "violations": [
-    {
-      "edge": "local-model->boot-core",
-      "src_unit": "UNIT_ENGINE",
-      "tgt_unit": "UNIT_RUNTIME",
-      "via_module": "core_system",
-      "example_file": "Standalone tools\\local-model\\src\\backend\\services\\xingcheng\\infrastructure\\local_rag_canonical.py"
-    }
-  ]
+  "cross_unit_edges": 0,
+  "violations": []
 }
