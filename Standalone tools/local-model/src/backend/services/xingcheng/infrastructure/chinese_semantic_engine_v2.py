@@ -436,8 +436,13 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
             self._adaptive_plane = get_plane()
 
             if self._config.enable_fusion_retrieval:
+                # Anchor the vector store inside the tool's governed
+                # runtime/state dir — never cwd (pytest/tools may run with
+                # the repo root as cwd and would leak a stray DB file
+                # outside governed roots).
+                _tool_root = Path(__file__).resolve().parents[5]
                 self._qdrant_client = LocalVectorStore(
-                    root=Path.cwd(),
+                    root=_tool_root / "runtime" / "state",
                     dimension=256,
                 )
                 self._qdrant_client.ensure_collection(256)
