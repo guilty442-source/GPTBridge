@@ -1,6 +1,9 @@
 ﻿# Build + run the native test suites (MSVC, no Python).
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File native/test_suites/build.ps1
+#        [-MaxParallel N]   bounded-parallel suite execution (default 4, cap 8)
+param([int]$MaxParallel = 4)
 $ErrorActionPreference = "Stop"
+$MaxParallel = [Math]::Max(1, [Math]::Min(8, $MaxParallel))
 $vs = "E:\Program Files\Microsoft Visual Studio\18\Community"
 $vcvars = Join-Path $vs "VC\Auxiliary\Build\vcvars64.bat"
 $out = Join-Path $PSScriptRoot "bin"
@@ -204,23 +207,57 @@ Set-Content -Path $bat -Value $lines -Encoding ASCII
 cmd /c $bat
 if ($LASTEXITCODE -ne 0) { Write-Output "BUILD FAILED"; exit 1 }
 
+# Bounded-parallel suite execution: each suite writes a uniquely-named
+# <stem>.json report and binds only ephemeral ports, so concurrent runs
+# cannot interleave reports or collide on ports.  Per-suite 300s hard cap
+# stays: a hung suite must never stall the gate.
 $allCases = @()
-foreach ($suite in $suites) {
-    $exePath = Join-Path $out $suite.exe
-    $suiteName = [System.IO.Path]::GetFileNameWithoutExtension($suite.exe)
-    $jsonPath = Join-Path $out ("$suiteName.json")
-    # 300s 硬上限：任一套件卡死不得讓整個閘門無限等待
-    $p = Start-Process -FilePath $exePath -ArgumentList $suiteName `
-         -WorkingDirectory $out -NoNewWindow -PassThru
-    if (-not $p.WaitForExit(300000)) {
-        $p.Kill()
-        '{ "suite": "' + $suiteName + '", "cases": [ { "name": "suite_timeout", "status": "FAIL", "detail": "exceeded 300s" } ], "pass": 0, "fail": 1, "blocked": 0 }' |
-            Set-Content -Path $jsonPath -Encoding UTF8
-        Write-Output ("{0}: TIMEOUT -> FAIL" -f $suite.exe)
+$pending = [System.Collections.Generic.Queue[object]]::new()
+foreach ($suite in $suites) { $pending.Enqueue($suite) }
+$running = @{}
+$results = @{}
+while ($pending.Count -gt 0 -or $running.Count -gt 0) {
+    while ($pending.Count -gt 0 -and $running.Count -lt $MaxParallel) {
+        $suite = $pending.Dequeue()
+        $suiteName = [System.IO.Path]::GetFileNameWithoutExtension($suite.exe)
+        $exePath = Join-Path $out $suite.exe
+        $jsonPath = Join-Path $out ("$suiteName.json")
+        Remove-Item $jsonPath -Force -ErrorAction SilentlyContinue
+        $p = Start-Process -FilePath $exePath -ArgumentList $suiteName `
+             -WorkingDirectory $out -NoNewWindow -PassThru
+        $running[$suiteName] = @{
+            proc = $p; deadline = (Get-Date).AddSeconds(300)
+            json = $jsonPath; exe = $suite.exe
+        }
     }
-    $parsed = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
-    $allCases += $parsed.cases
-    Write-Output ("{0}: {1} cases" -f $suite.exe, $parsed.cases.Count)
+    $completed = @()
+    foreach ($name in @($running.Keys)) {
+        $h = $running[$name]
+        $timedOut = $false
+        if (-not $h.proc.HasExited) {
+            if ((Get-Date) -gt $h.deadline) {
+                $h.proc.Kill()
+                $timedOut = $true
+                '{ "suite": "' + $name + '", "cases": [ { "name": "suite_timeout", "status": "FAIL", "detail": "exceeded 300s" } ], "pass": 0, "fail": 1, "blocked": 0 }' |
+                    Set-Content -Path $h.json -Encoding UTF8
+                Write-Output ("{0}: TIMEOUT -> FAIL" -f $h.exe)
+            } else { continue }
+        }
+        $parsed = Get-Content -Path $h.json -Raw | ConvertFrom-Json
+        $results[$name] = $parsed.cases
+        if (-not $timedOut) {
+            Write-Output ("{0}: {1} cases" -f $h.exe, $parsed.cases.Count)
+        }
+        $completed += $name
+    }
+    foreach ($name in $completed) { $running.Remove($name) }
+    if ($completed.Count -eq 0 -and $running.Count -gt 0) {
+        Start-Sleep -Milliseconds 200
+    }
+}
+foreach ($suite in $suites) {
+    $suiteName = [System.IO.Path]::GetFileNameWithoutExtension($suite.exe)
+    $allCases += $results[$suiteName]
 }
 $report = Join-Path $out "native-report.json"
 @{ harness = "native-test-suite/v1"; cases = $allCases } | ConvertTo-Json -Depth 5 | Set-Content -Path $report -Encoding UTF8

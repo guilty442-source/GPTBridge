@@ -13,7 +13,10 @@ canonical ``native/test_suites/build.ps1`` harness:
   second build recipe is duplicated here);
 - every suite then executes in the shared ``bin/`` directory with a
   per-suite bound and a whole-run budget (§3.1: suite time over ~30 s is a
-  defect, not a timeout to raise);
+  defect, not a timeout to raise); suites run with bounded parallelism
+  (``max_parallel_suites``, default 4, hard cap 8 — each suite writes a
+  uniquely-named ``<stem>.json`` report so parallel runs cannot interleave;
+  suites bind ephemeral ports, never fixed ones);
 - any ``FAIL`` case, crash, stale report, build failure or unavailable
   toolchain denies the push (fail-closed); ``BLOCKED`` cases are the
   suite's own environmental-abstain verdict — they are recorded as
@@ -35,7 +38,8 @@ Config: ``main-system/config/automation-flows.json`` →
      "build_timeout_s": 600,
      "suite_timeout_s": 30,
      "run_budget_s": 120,
-     "lock_wait_s": 30}
+     "lock_wait_s": 30,
+     "max_parallel_suites": 4}
 
 ``enabled=false`` records the governed decision but still denies the push:
 the mandatory-test PASS precondition (C①) cannot be configured away, only
@@ -49,6 +53,7 @@ import os
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
@@ -88,6 +93,11 @@ DEFAULT_BUILD_TIMEOUT_S = 600.0
 DEFAULT_SUITE_TIMEOUT_S = 30.0
 DEFAULT_RUN_BUDGET_S = 120.0
 DEFAULT_LOCK_WAIT_S = 30.0
+DEFAULT_MAX_PARALLEL_SUITES = 4
+# Hard ceiling on suite parallelism regardless of config: suites share the
+# bin/ directory and the host's CPU/IO, so an absurd configured bound would
+# only trade flake for speed.
+MAX_PARALLEL_SUITES_CAP = 8
 
 Runner = Callable[..., Any]
 Builder = Callable[..., Any]
@@ -108,6 +118,7 @@ def push_gate_config() -> dict[str, Any]:
         "suite_timeout_s": DEFAULT_SUITE_TIMEOUT_S,
         "run_budget_s": DEFAULT_RUN_BUDGET_S,
         "lock_wait_s": DEFAULT_LOCK_WAIT_S,
+        "max_parallel_suites": DEFAULT_MAX_PARALLEL_SUITES,
     }
     try:
         raw = json.loads(_FLOWS_CONFIG.read_text(encoding="utf-8"))
@@ -129,6 +140,11 @@ def push_gate_config() -> dict[str, Any]:
         value = entry.get(key)
         if isinstance(value, (int, float)) and value > 0:
             merged[key] = float(value)
+    parallel = entry.get("max_parallel_suites")
+    if isinstance(parallel, (int, float)) and not isinstance(parallel, bool):
+        merged["max_parallel_suites"] = max(
+            1, min(MAX_PARALLEL_SUITES_CAP, int(parallel))
+        )
     return merged
 
 
@@ -221,6 +237,59 @@ def _suite_report(bin_dir: Path, exe: Path) -> dict[str, Any]:
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def _execute_suite(
+    exe: Path, bin_dir: Path, suite_timeout: float, runner: Runner
+) -> dict[str, Any]:
+    """Run one suite binary and return its outcome — worker-thread safe.
+
+    Touches only the suite's own ``<stem>.json`` report and returns all
+    findings in the result dict; the caller thread owns gate aggregation.
+    Never raises: every failure mode is folded into a FAIL case so the
+    orchestrator stays fail-closed.
+    """
+    suite_error = ""
+    # Remove the previous report first: existence afterwards is the
+    # freshness proof — mtime comparison is unreliable on filesystems with
+    # coarse timestamp granularity.
+    report_path = bin_dir / f"{exe.stem}{_REPORT_SUFFIX}"
+    try:
+        report_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+    proc = None
+    try:
+        proc = _run_suite(exe, bin_dir, suite_timeout, runner)
+    except subprocess.TimeoutExpired:
+        suite_error = f"timeout>{suite_timeout}s"
+    except Exception as exc:  # noqa: BLE001 — fail closed
+        suite_error = f"spawn-error:{type(exc).__name__}"
+    report = _suite_report(bin_dir, exe)
+    cases = report.get("cases") if report else None
+    if not isinstance(cases, list):
+        suite_error = (
+            suite_error
+            if proc is None
+            else f"report-missing:rc={proc.returncode}"
+        )
+        cases = [
+            {
+                "suite": exe.stem,
+                "name": "suite_execution",
+                "status": "FAIL",
+                "detail": suite_error,
+            }
+        ]
+        report = {"passed": 0, "failed": 1, "blocked": 0}
+    entry = {
+        "suite": exe.stem,
+        "pass": int(report.get("passed", 0)) if report else 0,
+        "fail": int(report.get("failed", 0)) if report else 0,
+        "blocked": int(report.get("blocked", 0)) if report else 0,
+        "returncode": getattr(proc, "returncode", None) if proc else None,
+    }
+    return {"entry": entry, "cases": cases}
 
 
 @contextmanager
@@ -327,57 +396,58 @@ def mandatory_test_gate(
                 gate["rebuilt"] = True
 
             run_started = time.monotonic()
-            for exe in exes:
-                if time.monotonic() - run_started > run_budget:
-                    return _done(
-                        f"run-budget-exceeded:{run_budget}s "
-                        f"(ran {len(gate['suites'])}/{len(exes)})"
-                    )
-                # Remove the previous report first: existence afterwards is
-                # the freshness proof — mtime comparison is unreliable on
-                # filesystems with coarse timestamp granularity.
-                report_path = bin_dir / f"{exe.stem}{_REPORT_SUFFIX}"
-                try:
-                    report_path.unlink(missing_ok=True)
-                except OSError:
-                    pass
-                try:
-                    proc = _run_suite(exe, bin_dir, suite_timeout, run)
-                except subprocess.TimeoutExpired:
-                    proc = None
-                    suite_error = f"timeout>{suite_timeout}s"
-                except Exception as exc:  # noqa: BLE001 — fail closed
-                    proc = None
-                    suite_error = f"spawn-error:{type(exc).__name__}"
-                report = _suite_report(bin_dir, exe)
-                cases = report.get("cases") if report else None
-                if not isinstance(cases, list):
-                    suite_error = (
-                        suite_error
-                        if proc is None
-                        else f"report-missing:rc={proc.returncode}"
-                    )
-                    cases = [
-                        {
-                            "suite": exe.stem,
-                            "name": "suite_execution",
-                            "status": "FAIL",
-                            "detail": suite_error,
-                        }
-                    ]
-                    report = {"passed": 0, "failed": 1, "blocked": 0}
-                entry = {
-                    "suite": exe.stem,
-                    "pass": int(report.get("passed", 0)) if report else 0,
-                    "fail": int(report.get("failed", 0)) if report else 0,
-                    "blocked": int(report.get("blocked", 0)) if report else 0,
-                    "returncode": (
-                        getattr(proc, "returncode", None) if proc else None
+            max_parallel = max(
+                1,
+                min(
+                    MAX_PARALLEL_SUITES_CAP,
+                    int(
+                        cfg.get("max_parallel_suites")
+                        or DEFAULT_MAX_PARALLEL_SUITES
                     ),
-                }
-                gate["suites"].append(entry)
+                ),
+            )
+            gate["max_parallel_suites"] = max_parallel
+            # Bounded-parallel orchestration: each suite writes a uniquely
+            # named <stem>.json report and binds only ephemeral ports, so
+            # worker threads cannot interleave report files or collide on
+            # ports.  Results are merged on the caller thread in sorted exe
+            # order so the gate record stays deterministic.
+            results: dict[str, dict[str, Any]] = {}
+            with ThreadPoolExecutor(
+                max_workers=max_parallel,
+                thread_name_prefix="push-gate-suite",
+            ) as pool:
+                pending = []
+                for exe in exes:
+                    if time.monotonic() - run_started > run_budget:
+                        return _done(
+                            f"run-budget-exceeded:{run_budget}s "
+                            f"(submitted {len(pending)}/{len(exes)})"
+                        )
+                    pending.append(
+                        (
+                            exe,
+                            pool.submit(
+                                _execute_suite,
+                                exe,
+                                bin_dir,
+                                suite_timeout,
+                                run,
+                            ),
+                        )
+                    )
+                for exe, future in pending:
+                    results[exe.name] = future.result()
+            if time.monotonic() - run_started > run_budget:
+                return _done(
+                    f"run-budget-exceeded:{run_budget}s "
+                    f"(ran {len(results)}/{len(exes)})"
+                )
+            for exe in exes:
+                outcome = results[exe.name]
+                gate["suites"].append(outcome["entry"])
                 totals = gate["totals"]
-                for case in cases:
+                for case in outcome["cases"]:
                     if not isinstance(case, dict):
                         continue
                     status = str(case.get("status", "")).upper()
@@ -394,10 +464,11 @@ def mandatory_test_gate(
                                 f"{case.get('name', '?')}: "
                                 f"{str(case.get('detail', ''))[:120]}"
                             )
-                if proc is not None and proc.returncode not in (0, 1):
+                rc = outcome["entry"]["returncode"]
+                if rc is not None and rc not in (0, 1):
                     totals["fail"] += 1
                     gate["failures"].append(
-                        f"{exe.stem}/suite_exit: rc={proc.returncode}"
+                        f"{exe.stem}/suite_exit: rc={rc}"
                     )
     except LockBusyError:
         return _done(f"gate-busy:{_LOCK_FILENAME}")
@@ -609,8 +680,10 @@ def record_push_evidence(
 __all__ = [
     "DEFAULT_BUILD_TIMEOUT_S",
     "DEFAULT_LOCK_WAIT_S",
+    "DEFAULT_MAX_PARALLEL_SUITES",
     "DEFAULT_RUN_BUDGET_S",
     "DEFAULT_SUITE_TIMEOUT_S",
+    "MAX_PARALLEL_SUITES_CAP",
     "mandatory_test_gate",
     "push_gate_config",
     "record_convergence_evidence",

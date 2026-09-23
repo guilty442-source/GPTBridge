@@ -20,7 +20,8 @@
         "build_timeout_s": 600,
         "suite_timeout_s": 30,
         "run_budget_s": 120,
-        "lock_wait_s": 30
+        "lock_wait_s": 30,
+        "max_parallel_suites": 4
       },
       "description": "worktree self-commit sweep（debounce）＋workspace sync cycle；push=協調者推送 main→origin（§10.69-E①：非 force、ancestor 檢查、稽核 PASS＋強制測試 PASS 才推；推送與 ahead==0 收斂證據入帳）"
     },
