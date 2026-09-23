@@ -435,9 +435,18 @@ def test_obligations_registry_declares_a491_blocking_set() -> None:
 
 
 def test_all_obligations_declared_mandated_with_due_date() -> None:
+    from governance_rule.execution.formal_rules.obligations import (
+        LIFECYCLE_MAIN,
+        LIFECYCLE_TERMINAL,
+    )
+
     obligations = load_obligations()
+    valid_states = set(LIFECYCLE_MAIN) | set(LIFECYCLE_TERMINAL)
     for item in obligations:
-        assert item.current_state == "mandated"
+        # A292: obligations advance through the lifecycle; the invariant is
+        # that every declared obligation holds a valid lifecycle state and
+        # carries its governing fields — not that it remains `mandated`.
+        assert item.current_state in valid_states
         assert item.implementation_owner
         assert item.target_state
         assert item.acceptance_evidence
@@ -450,7 +459,8 @@ def test_all_obligations_declared_mandated_with_due_date() -> None:
 
 def test_obligation_lifecycle_projection() -> None:
     obligations = load_obligations()
-    assert lifecycle_status(obligations) == {"mandated": len(obligations)}
+    status = lifecycle_status(obligations)
+    assert sum(status.values()) == len(obligations)
     assert overdue_obligations(obligations) == ()
 
 
