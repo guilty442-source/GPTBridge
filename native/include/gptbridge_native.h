@@ -76,6 +76,12 @@ int64_t gptbridge_native_process_exe(int64_t pid, char* buf, int64_t buf_len);
 int64_t gptbridge_native_process_cmdline(
     int64_t pid, char* buf, int64_t buf_len);
 
+/* Thread count of pid, or -1. */
+int gptbridge_native_process_num_threads(int64_t pid);
+
+/* Open handle count of pid (Windows), or -1. */
+int gptbridge_native_process_num_handles(int64_t pid);
+
 /* Pid of the process listening on a TCP port, or -1. */
 int64_t gptbridge_native_tcp_listen_pid(int64_t port);
 

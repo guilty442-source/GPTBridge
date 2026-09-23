@@ -393,6 +393,13 @@ int main() {
                      &idle_t, &kern_t, &usr_t) == 1,
                  "system cpu times readable");
         NT_CHECK(kern_t >= idle_t, "kernel includes idle");
+        NT_CHECK(gptbridge_native_process_num_threads(self) > 0,
+                 "self thread count positive");
+        NT_CHECK(gptbridge_native_process_num_handles(self) > 0,
+                 "self handle count positive");
+        NT_CHECK(gptbridge_native_process_num_threads(-1) == -1 &&
+                 gptbridge_native_process_num_handles(0) == -1,
+                 "invalid pid counts fail closed");
 #else
         NT_CHECK(gptbridge_native_cpu_count() >= 0, "cpu_count non-negative");
 #endif

@@ -60,11 +60,13 @@ def device_memory_info(device: str | torch.device | None = None) -> dict[str, fl
             pass
     elif dev.type == "cpu":
         try:
-            import psutil  # type: ignore
-            vm = psutil.virtual_memory()
-            info["total_gb"] = vm.total / (1024 ** 3)
-            info["used_gb"] = vm.used / (1024 ** 3)
-            info["free_gb"] = vm.available / (1024 ** 3)
+            from shared_layer.performance import process_metrics
+            total = process_metrics.system_memory_total_bytes()
+            avail = process_metrics.system_memory_available_bytes()
+            if total > 0 and avail >= 0:
+                info["total_gb"] = total / (1024 ** 3)
+                info["used_gb"] = (total - avail) / (1024 ** 3)
+                info["free_gb"] = avail / (1024 ** 3)
         except Exception:
             pass
     return info

@@ -13,13 +13,13 @@ class LockBusyError(RuntimeError):
 
 
 def pid_alive(pid: int) -> bool:
-    """Return whether ``pid`` refers to a live process (OS-portable)."""
+    """Return whether ``pid`` refers to a live process (native first)."""
     try:
-        import psutil
+        from shared_layer.performance import process_metrics
     except ImportError as exc:  # pragma: no cover - unusual environment
         raise LockBusyError(f"pid probe unavailable ({exc})") from exc
     try:
-        return psutil.pid_exists(pid)
+        return bool(process_metrics.process_alive(int(pid)))
     except (OSError, ValueError, RuntimeError):
         return False
 

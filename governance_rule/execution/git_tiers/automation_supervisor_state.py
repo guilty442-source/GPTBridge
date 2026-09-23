@@ -77,28 +77,20 @@ def _write_registry(directory: Path, payload: dict[str, object]) -> None:
 
 
 def _terminate_tree(pid: int) -> None:
-    """Terminate ``pid`` and all its descendants (OS-portable, psutil)."""
+    """Terminate ``pid`` and all its descendants (native process metrics)."""
     try:
-        import psutil
+        from shared_layer.performance import process_metrics
     except ImportError:
         try:
             os.kill(pid, 9)
         except OSError:
             pass
         return
-    try:
-        parent = psutil.Process(pid)
-    except psutil.NoSuchProcess:
+    if not process_metrics.process_alive(pid):
         return
-    for child in parent.children(recursive=True):
-        try:
-            child.kill()
-        except psutil.Error:
-            pass
-    try:
-        parent.kill()
-    except psutil.Error:
-        pass
+    for child_pid in process_metrics.process_children(pid):
+        process_metrics.process_terminate(child_pid)
+    process_metrics.process_terminate(pid)
 
 
 def _lock_is_active_here(path: Path) -> bool:

@@ -493,6 +493,52 @@ done:
 #endif
 }
 
+int gptbridge_native_process_num_threads(int64_t pid) {
+#ifdef _WIN32
+    HANDLE snapshot;
+    PROCESSENTRY32W entry;
+    int result = -1;
+    if (pid <= 0) return -1;
+    snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) return -1;
+    ZeroMemory(&entry, sizeof(entry));
+    entry.dwSize = sizeof(entry);
+    if (Process32FirstW(snapshot, &entry)) {
+        do {
+            if (entry.th32ProcessID == (DWORD)pid) {
+                result = (int)entry.cntThreads;
+                break;
+            }
+        } while (Process32NextW(snapshot, &entry));
+    }
+    CloseHandle(snapshot);
+    return result;
+#else
+    (void)pid;
+    return -1;
+#endif
+}
+
+int gptbridge_native_process_num_handles(int64_t pid) {
+#ifdef _WIN32
+    HANDLE proc;
+    DWORD count = 0;
+    if (pid <= 0) return -1;
+    proc = OpenProcess(
+        PROCESS_QUERY_LIMITED_INFORMATION, FALSE, (DWORD)pid);
+    if (!proc) return -1;
+    if (GetProcessHandleCount(proc, &count) == 0) {
+        CloseHandle(proc);
+        return -1;
+    }
+    CloseHandle(proc);
+    return (int)count;
+#else
+    (void)pid;
+    return -1;
+#endif
+}
+
 int64_t gptbridge_native_tcp_listen_pid(int64_t port) {
 #ifdef _WIN32
     PMIB_TCPTABLE_OWNER_PID table = NULL;

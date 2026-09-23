@@ -157,8 +157,12 @@ class ResourceManager:
 
     def get_cpu_usage(self) -> dict[str, Any]:
         try:
-            import psutil  # type: ignore[import-not-found]
-            return {"percent": float(psutil.cpu_percent(interval=0.1)), "cpu_count": psutil.cpu_count() or 1}
+            from shared_layer.performance import process_metrics
+            pct = process_metrics.cpu_percent(interval=0.1)
+            return {
+                "percent": float(pct if pct >= 0 else 0.0),
+                "cpu_count": process_metrics.cpu_count() or 1,
+            }
         except ImportError:
             load = os.getloadavg()[0] if hasattr(os, "getloadavg") else 0.0
             count = os.cpu_count() or 1
@@ -166,9 +170,13 @@ class ResourceManager:
 
     def get_ram_usage(self) -> dict[str, Any]:
         try:
-            import psutil  # type: ignore[import-not-found]
-            memory = psutil.virtual_memory()
-            total, available, percent = int(memory.total), int(memory.available), float(memory.percent)
+            from shared_layer.performance import process_metrics
+            total = int(process_metrics.system_memory_total_bytes())
+            available = int(process_metrics.system_memory_available_bytes())
+            pct = process_metrics.virtual_memory_percent()
+            if total <= 0 or available < 0 or pct is None:
+                raise ImportError("native metrics unavailable")
+            percent = float(pct)
         except ImportError:
             total = available = 0
             percent = 0.0

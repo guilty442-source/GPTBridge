@@ -1197,6 +1197,10 @@ PYBIND11_MODULE(_sovereign_native, m) {
           "Command line of pid, or None.");
     m.def("tcp_listen_pid", &gptbridge_native_tcp_listen_pid,
           "Pid listening on a TCP port, or -1.");
+    m.def("process_num_threads", &gptbridge_native_process_num_threads,
+          "Thread count of pid, or -1.");
+    m.def("process_num_handles", &gptbridge_native_process_num_handles,
+          "Open handle count of pid, or -1.");
     m.def("system_cpu_times",
           []() -> py::object {
               int64_t idle = 0, kernel = 0, user = 0;
