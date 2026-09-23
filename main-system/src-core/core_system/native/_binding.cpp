@@ -1223,7 +1223,12 @@ PYBIND11_MODULE(_sovereign_native, m) {
         .def("set_runtime_state", &NativeRuntimeStateRegistry::set_runtime_state)
         .def("set_capability_state",
              &NativeRuntimeStateRegistry::set_capability_state)
-        .def("heartbeat", &NativeRuntimeStateRegistry::heartbeat)
+        .def("heartbeat", &NativeRuntimeStateRegistry::heartbeat,
+             py::arg("module_id"), py::arg("now_str"),
+             py::arg("now_ms") = 0)
+        .def("is_stale", &NativeRuntimeStateRegistry::is_stale,
+             py::arg("module_id"), py::arg("now_ms"),
+             py::arg("stale_after_ms"))
         .def("record_error", &NativeRuntimeStateRegistry::record_error)
         .def("get", &NativeRuntimeStateRegistry::get)
         .def("aggregate", &NativeRuntimeStateRegistry::aggregate)

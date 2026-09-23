@@ -22,6 +22,7 @@ import logging
 import os
 import tempfile
 import time
+from datetime import datetime, timezone
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -197,11 +198,46 @@ class RuntimeStateRegistry:
         if self._native_shadow is not None:
             try:
                 self._native_shadow.observe_heartbeat(
-                    module_id, now_str=record.last_heartbeat
+                    module_id,
+                    now_str=record.last_heartbeat,
+                    now_ms=_now_ms(),
                 )
             except Exception:
                 pass
         return record
+
+    def is_stale(
+        self, module_id: str, stale_after_s: float
+    ) -> bool:
+        """Heartbeat staleness predicate (P4 parity dimension).
+
+        A module with no heartbeat or a heartbeat older than
+        ``stale_after_s`` is stale — fail-closed so an absent record can
+        never read as healthy.  The verdict is mirrored into the native
+        shadow for divergence detection.
+        """
+        record = self._records.get(module_id)
+        if record is None or not record.last_heartbeat:
+            stale = True
+        else:
+            try:
+                beat = datetime.strptime(
+                    record.last_heartbeat, "%Y-%m-%dT%H:%M:%SZ"
+                ).replace(tzinfo=timezone.utc).timestamp()
+                stale = (time.time() - beat) > stale_after_s
+            except (ValueError, OverflowError):
+                stale = True
+        if self._native_shadow is not None:
+            try:
+                self._native_shadow.observe_staleness(
+                    module_id,
+                    py_stale=stale,
+                    now_ms=_now_ms(),
+                    stale_after_ms=int(stale_after_s * 1000.0),
+                )
+            except Exception:
+                pass
+        return stale
 
     def record_error(self, module_id: str, error: str) -> ModuleRuntimeRecord:
         record = self._record(module_id)
@@ -263,3 +299,7 @@ class RuntimeStateRegistry:
 
 def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000.0)
