@@ -167,13 +167,19 @@ class RuntimeStateNativeShadow:
         except Exception as exc:
             self._disable("native-capability-error", exc)
 
-    def observe_heartbeat(self, module_id: str, *, now_str: str) -> None:
-        """Mirror a heartbeat; only record presence is compared."""
+    def observe_heartbeat(
+        self, module_id: str, *, now_str: str, now_ms: int = 0
+    ) -> None:
+        """Mirror a heartbeat; record presence is compared."""
         if self._disabled:
             return
         maybe_emit_resource(self)
         try:
-            ok = bool(self._reg.heartbeat(str(module_id), str(now_str)))
+            ok = bool(
+                self._reg.heartbeat(
+                    str(module_id), str(now_str), int(now_ms)
+                )
+            )
             if not ok:
                 self._emit(
                     {
@@ -186,6 +192,45 @@ class RuntimeStateNativeShadow:
                 )
         except Exception as exc:
             self._disable("native-heartbeat-error", exc)
+
+    def observe_staleness(
+        self,
+        module_id: str,
+        *,
+        py_stale: bool,
+        now_ms: int,
+        stale_after_ms: int,
+    ) -> None:
+        """Compare the heartbeat-staleness verdict against the C model.
+
+        ``-1`` (unknown module) is compared as ``stale=True`` — the same
+        fail-closed reading the Python authoritative model applies.
+        """
+        if self._disabled:
+            return
+        try:
+            native_verdict = int(
+                self._reg.is_stale(
+                    str(module_id), int(now_ms), int(stale_after_ms)
+                )
+            )
+            native_stale = native_verdict != 0
+            if native_stale != bool(py_stale):
+                self._emit(
+                    {
+                        "kind": "divergence",
+                        "op": "staleness",
+                        "module_id": str(module_id),
+                        "python": {"stale": bool(py_stale)},
+                        "native": {
+                            "stale": native_stale,
+                            "verdict": native_verdict,
+                            "stale_after_ms": int(stale_after_ms),
+                        },
+                    }
+                )
+        except Exception as exc:
+            self._disable("native-staleness-error", exc)
 
     def observe_record_error(
         self, module_id: str, error: str, *, now_str: str, py_record: Any
