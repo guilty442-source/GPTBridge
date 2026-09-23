@@ -1,0 +1,23 @@
+{
+  "schema": "g97-suite-cost-plan/v1",
+  "generated_at_utc": "2026-09-23T10:30Z",
+  "current": {
+    "orchestrator": "C# TestSuiteOrchestrator runs suites, outputs typed result + artifact hash + revision parity",
+    "gate": "Python push_gate runs suites via Python ThreadPoolExecutor, not via C# orchestrator",
+    "cost_breakdown": "not measured: total_gate_time / process_startup_time / actual_test_time / result_collection_time all missing"
+  },
+  "target": {
+    "orchestrator": "C# TestSuiteOrchestrator is sole orchestrator, Python push_gate consumes its result",
+    "gate": "push_gate delegates to C# orchestrator, no second orchestrator",
+    "cost_breakdown": "total_gate_time, process_startup_time, actual_test_time, result_collection_time measured per suite and per gate"
+  },
+  "steps": [
+    "1. Extend C# TestSuiteOrchestrator to measure 4 timings per suite and per gate (Stopwatch)",
+    "2. Make push_gate call orchestrator via CLI (dotnet run) and parse its JSON report, instead of Python ThreadPoolExecutor",
+    "3. Verify 20s mandatory suite budget still enforced, and that merging short tests only after measurement proves startup overhead is significant",
+    "4. Update push_gate to consume orchestrator's typed result + artifact hash + revision parity"
+  ],
+  "acceptance": "C# sole orchestrator, 4 timings measured, 20s gate, no second orchestrator, revision parity",
+  "blocked_by": "P0-1 window (no heavy gate run during window) + G100 2-window",
+  "note": "Per G97 P1, WP-D; plan is derived"
+}
