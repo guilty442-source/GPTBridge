@@ -58,6 +58,10 @@ struct ToolHostConfig {
        全序列才置位；start() 拒絕未經 load_env 的注入 config（P7 修復——
        此前 start 僅驗 id/port/token，可繞過 bootstrap env 閘）。 */
     bool env_gate_passed = false;
+    /* 閘門證明本體（P6）：load_env() 於行程內證明登錄區鑄造一次性隨機
+       nonce 並填入此欄；start() 要求欄位值存在於登錄區——呼叫者自構
+       config 無法偽造（env_gate_passed 只是自我聲明，proof 才是證據）。 */
+    std::string env_gate_proof;
     /* health_snapshot parity 區段（對齊 GovernedToolRuntime）。 */
     bool local_cleanup_enabled = true;
     bool self_repair_enabled = false;
@@ -110,6 +114,10 @@ public:
     /* §1：從環境變數載入啟動契約（含 wsid 計算；bootstrap env 讀後
        自行程環境移除）。任一必要件缺失/不合法 → false + error。 */
     static bool load_env(ToolHostConfig* out, std::string* error);
+
+    /* 測試接縫：鑄造一枚已登錄的 env-gate proof 供直構 config 的測試
+       使用。生產路徑不得呼叫——真正的 proof 只能由 load_env() 發出。 */
+    static std::string issue_test_gate_proof();
 
     /* 啟動：hello 綁定（若有 proxy）→ winsock 監聽 127.0.0.1:port →
        accept/claim 執行緒。失敗回 false + err（fail-closed）。 */

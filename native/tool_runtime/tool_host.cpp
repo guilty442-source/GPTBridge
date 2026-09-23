@@ -2,6 +2,7 @@
  * 見 tool_host.h 的職責邊界：線上機械語義在此，token/路由/傳輸留 Python
  * 代理（模式 B）。非 Windows → 全部入口 fail-closed。 */
 
+#define _CRT_RAND_S  /* rand_s：行程內閘門證明 nonce 的 CRT 安全隨機源 */
 #include "tool_host.h"
 
 #ifndef _WIN32
@@ -13,6 +14,7 @@ bool ToolHost::load_env(ToolHostConfig*, std::string* error) {
     if (error) *error = "platform-unsupported";
     return false;
 }
+std::string ToolHost::issue_test_gate_proof() { return std::string(); }
 bool ToolHost::start(const ToolHostConfig&, ToolHostHooks, std::string* err) {
     if (err) *err = "platform-unsupported";
     return false;
@@ -57,6 +59,36 @@ namespace jl = jsonlite;
 
 namespace gtw = gptbridge::gtw;
 namespace tpx = gptbridge::tpx;
+
+/* ---- env-gate 證明登錄區（P6） ----
+   load_env() 通過全閘序列後在此鑄造隨機 nonce；start() 只接受登錄區
+   記載的 proof。自我聲明的 env_gate_passed 旗標可偽造，登錄區 nonce
+   不行——注入 config 想繞過 bootstrap env 閘必須先跑完 load_env 本身。 */
+std::mutex g_gate_proof_mu;
+std::set<std::string> g_gate_proofs;
+
+std::string mint_gate_proof() {
+    unsigned int v[8] = {0};
+    for (auto& x : v) {
+        if (rand_s(&x) != 0) return std::string();
+    }
+    static const char hex[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(64);
+    for (unsigned int x : v) {
+        for (int s = 28; s >= 0; s -= 4)
+            out.push_back(hex[(x >> s) & 0xF]);
+    }
+    std::lock_guard<std::mutex> lk(g_gate_proof_mu);
+    g_gate_proofs.insert(out);
+    return out;
+}
+
+bool gate_proof_registered(const std::string& proof) {
+    if (proof.empty()) return false;
+    std::lock_guard<std::mutex> lk(g_gate_proof_mu);
+    return g_gate_proofs.find(proof) != g_gate_proofs.end();
+}
 
 jl::JsonValue jstr(const std::string& s) {
     jl::JsonValue v; v.type = jl::JsonValue::Type::String; v.string = s;
@@ -324,8 +356,16 @@ bool ToolHost::load_env(ToolHostConfig* out, std::string* error) {
     c.workspace_instance_id = wsid;
     c.process_channels = {"system"};
     c.env_gate_passed = true;   /* 全閘序列通過 —— start() 只接受此證明 */
+    c.env_gate_proof = mint_gate_proof();  /* 登錄區 nonce：不可自構 */
+    if (c.env_gate_proof.empty())
+        return fail("PERMISSION_DENIED:gate-proof-mint");
     *out = std::move(c);
     return true;
+}
+
+std::string ToolHost::issue_test_gate_proof() {
+    /* 測試接縫：直構 config 的套件測試用；生產路徑一律走 load_env()。 */
+    return mint_gate_proof();
 }
 
 /* ---- 啟動 ---- */
@@ -342,7 +382,8 @@ bool ToolHost::start(const ToolHostConfig& config, ToolHostHooks hooks,
         return fail("PERMISSION_DENIED:port");
     if (!gptbridge_gt_session_token_valid(config.session_token.c_str()))
         return fail("PERMISSION_DENIED:session-token");
-    if (!config.env_gate_passed)
+    if (!config.env_gate_passed ||
+        !gate_proof_registered(config.env_gate_proof))
         return fail("PERMISSION_DENIED:env-gate-bypass");
     if (!hooks.executor)
         return fail("executor-required");

@@ -1118,6 +1118,53 @@ PYBIND11_MODULE(_sovereign_native, m) {
           "Process private memory usage in bytes, or -1 on error.");
     m.def("release_working_set", &gptbridge_native_release_working_set,
           "Empty the process working set; returns success flag.");
+    m.def("system_memory_total_bytes",
+          &gptbridge_native_system_memory_total_bytes,
+          "Total physical RAM in bytes, or -1.");
+    m.def("system_memory_available_bytes",
+          &gptbridge_native_system_memory_available_bytes,
+          "Available physical RAM in bytes, or -1.");
+    m.def("cpu_count", &gptbridge_native_cpu_count,
+          "Logical CPU count, or 0.");
+    m.def("process_alive", &gptbridge_native_process_alive,
+          "1 when pid exists and is running, else 0.");
+    m.def("process_name",
+          [](int64_t pid) -> py::object {
+              char buf[512];
+              int64_t n =
+                  gptbridge_native_process_name(pid, buf, (int64_t)sizeof(buf));
+              if (n < 0) return py::none();
+              return py::str(buf, (size_t)n);
+          },
+          "Process image base name for pid, or None.");
+    m.def("process_working_set_bytes",
+          &gptbridge_native_process_working_set_bytes_for,
+          "Working-set bytes of pid, or -1.");
+    m.def("process_private_bytes",
+          &gptbridge_native_process_private_bytes_for,
+          "Private bytes of pid, or -1.");
+    m.def("process_cpu_times",
+          [](int64_t pid) -> py::object {
+              int64_t kernel = 0, user = 0;
+              if (!gptbridge_native_process_cpu_times_100ns(
+                      pid, &kernel, &user))
+                  return py::none();
+              return py::make_tuple(kernel, user);
+          },
+          "Kernel+user 100ns times for pid, or None.");
+    m.def("process_list",
+          [](int64_t max_count) -> py::object {
+              if (max_count <= 0 || max_count > 65536) return py::none();
+              std::vector<int64_t> buf((size_t)max_count);
+              int n = gptbridge_native_process_list(
+                  buf.data(), max_count);
+              if (n < 0) return py::none();
+              buf.resize((size_t)n);
+              return py::cast(std::move(buf));
+          },
+          "Enumerate live pids (bounded), or None.");
+    m.def("process_terminate", &gptbridge_native_process_terminate,
+          "Terminate pid; 1 on success, 0 otherwise.");
 
     // Parser compute (A221)
     m.def("parser_token_estimate", &parser_token_estimate,

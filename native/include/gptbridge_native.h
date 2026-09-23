@@ -31,6 +31,41 @@ int64_t gptbridge_native_private_bytes(void);
 /* Empty the process working set; returns 1 on success, 0 otherwise. */
 int gptbridge_native_release_working_set(void);
 
+/* P24 psutil-convergence primitives — process/system queries for the
+   resident Python surfaces that today call psutil.  All fail closed:
+   -1/0 on error or unsupported platform. */
+
+/* Total physical RAM in bytes, or -1. */
+int64_t gptbridge_native_system_memory_total_bytes(void);
+
+/* Available physical RAM in bytes, or -1. */
+int64_t gptbridge_native_system_memory_available_bytes(void);
+
+/* Logical CPU count, or 0. */
+int gptbridge_native_cpu_count(void);
+
+/* 1 when pid exists and is not a zombie/exited stub, else 0. */
+int gptbridge_native_process_alive(int64_t pid);
+
+/* Process image base name into buf; returns bytes written (no NUL) or -1. */
+int64_t gptbridge_native_process_name(int64_t pid, char* buf, int64_t buf_len);
+
+/* Working-set / private bytes of an arbitrary pid, or -1. */
+int64_t gptbridge_native_process_working_set_bytes_for(int64_t pid);
+int64_t gptbridge_native_process_private_bytes_for(int64_t pid);
+
+/* Kernel+user times of pid in 100ns units; returns 1 on success, 0 else.
+   Callers compute cpu_percent from two samples — same contract as
+   psutil.Process.cpu_percent(interval=None). */
+int gptbridge_native_process_cpu_times_100ns(
+    int64_t pid, int64_t* kernel_100ns, int64_t* user_100ns);
+
+/* Enumerate live pids into caller buffer; returns count or -1. */
+int gptbridge_native_process_list(int64_t* pids_out, int64_t max_count);
+
+/* Terminate pid (SIGKILL equivalent); 1 on success, 0 otherwise. */
+int gptbridge_native_process_terminate(int64_t pid);
+
 /* Count tokens (words + punctuation) in UTF-8 text. */
 int64_t gptbridge_native_parser_token_estimate(
     const char* text, int64_t text_len);
