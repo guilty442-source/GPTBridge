@@ -422,27 +422,6 @@ int64_t gptbridge_native_process_exe(
 #endif
 }
 
-int64_t gptbridge_native_process_create_time_100ns(int64_t pid) {
-#ifdef _WIN32
-    HANDLE handle;
-    FILETIME create_t, exit_t, kernel_t, user_t;
-    if (pid <= 0) return -1;
-    handle = OpenProcess(
-        PROCESS_QUERY_LIMITED_INFORMATION, FALSE, (DWORD)pid);
-    if (handle == NULL) return -1;
-    if (GetProcessTimes(
-            handle, &create_t, &exit_t, &kernel_t, &user_t) == 0) {
-        CloseHandle(handle);
-        return -1;
-    }
-    CloseHandle(handle);
-    return ((int64_t)create_t.dwHighDateTime << 32) | create_t.dwLowDateTime;
-#else
-    (void)pid;
-    return -1;
-#endif
-}
-
 int gptbridge_native_process_children(
     int64_t root_pid, int64_t* pids_out, int64_t max_count) {
 #ifdef _WIN32
@@ -513,32 +492,6 @@ done:
     return (int)(out_count - 1);
 #else
     (void)root_pid; (void)pids_out; (void)max_count;
-    return -1;
-#endif
-}
-
-int64_t gptbridge_native_process_ppid(int64_t pid) {
-#ifdef _WIN32
-    HANDLE snapshot;
-    PROCESSENTRY32W entry;
-    int64_t result = -1;
-    if (pid <= 0) return -1;
-    snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snapshot == INVALID_HANDLE_VALUE) return -1;
-    ZeroMemory(&entry, sizeof(entry));
-    entry.dwSize = sizeof(entry);
-    if (Process32FirstW(snapshot, &entry)) {
-        do {
-            if (entry.th32ProcessID == (DWORD)pid) {
-                result = (int64_t)entry.th32ParentProcessID;
-                break;
-            }
-        } while (Process32NextW(snapshot, &entry));
-    }
-    CloseHandle(snapshot);
-    return result;
-#else
-    (void)pid;
     return -1;
 #endif
 }

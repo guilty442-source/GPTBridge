@@ -351,53 +351,6 @@ def process_cmdline(pid: int) -> Optional[str]:
     return None
 
 
-def process_ppid(pid: int) -> int:
-    """Parent pid, or -1 (native PROCESSENTRY32 ppid; psutil fallback)."""
-    n = _native()
-    if n is not None and hasattr(n, "process_ppid"):
-        return int(n.process_ppid(int(pid)))
-    p = _psutil()
-    if p is not None:  # _psutil_fallback
-        try:
-            return int(p.Process(int(pid)).ppid())
-        except p.Error:
-            return -1
-    return -1
-
-
-def process_ancestors(pid: int, max_depth: int = 32) -> list[int]:
-    """Ancestor pids walking the ppid chain (bounded depth, cycle-safe)."""
-    out: list[int] = []
-    seen = {int(pid)}
-    cur = int(pid)
-    for _ in range(max(1, int(max_depth))):
-        ppid = process_ppid(cur)
-        if ppid <= 0 or ppid in seen:
-            break
-        out.append(ppid)
-        seen.add(ppid)
-        cur = ppid
-    return out
-
-
-def process_create_time(pid: int) -> Optional[float]:
-    """Process creation time as POSIX seconds (psutil create_time contract)."""
-    n = _native()
-    if n is not None and hasattr(n, "process_create_time_100ns"):
-        ticks = int(n.process_create_time_100ns(int(pid)))
-        if ticks > 0:
-            # FILETIME epoch is 1601-01-01 — 11644473600 s before POSIX epoch.
-            return ticks / 1e7 - 11644473600.0
-        return None
-    p = _psutil()
-    if p is not None:  # _psutil_fallback
-        try:
-            return float(p.Process(int(pid)).create_time())
-        except p.Error:
-            return None
-    return None
-
-
 def process_num_threads(pid: int) -> int:
     """Thread count — -1 when unavailable."""
     n = _native()
@@ -434,57 +387,6 @@ def process_num_handles(pid: int) -> int:
         except p.Error:
             return -1
     return -1
-
-
-# Windows priority-class DWORDs (same values psutil exposes); the native
-# set_priority takes these verbatim.
-PRIORITY_CLASS = {
-    "idle": 0x00000040,
-    "below_normal": 0x00004000,
-    "normal": 0x00000020,
-    "above_normal": 0x00008000,
-    "high": 0x00000080,
-    "realtime": 0x00000100,
-}
-
-
-def process_set_priority(pid: int, priority_class: int | str) -> bool:
-    """Set the Win32 priority class (native; psutil fallback)."""
-    cls = (
-        PRIORITY_CLASS.get(str(priority_class).lower(), -1)
-        if isinstance(priority_class, str)
-        else int(priority_class)
-    )
-    if cls < 0:
-        return False
-    n = _native()
-    if n is not None and hasattr(n, "process_set_priority"):
-        return bool(n.process_set_priority(int(pid), cls))
-    p = _psutil()
-    if p is not None:  # _psutil_fallback
-        try:
-            proc = p.Process(int(pid))
-            proc.nice(cls)
-            return True
-        except p.Error:
-            return False
-    return False
-
-
-def process_username(pid: int) -> Optional[str]:
-    """Owning account (DOMAIN\\user) of pid, or None."""
-    n = _native()
-    if n is not None and hasattr(n, "process_username"):
-        buf_ok = n.process_username(int(pid))
-        # binding returns str or None
-        return str(buf_ok) if buf_ok else None
-    p = _psutil()
-    if p is not None:  # _psutil_fallback
-        try:
-            return str(p.Process(int(pid)).username())
-        except p.Error:
-            return None
-    return None
 
 
 def tcp_listen_pid(port: int) -> int:
@@ -567,6 +469,21 @@ def process_io_counters(pid: int) -> Optional[tuple[int, int]]:
         try:
             io = p.Process(int(pid)).io_counters()
             return (int(io.read_bytes), int(io.write_bytes))
+        except p.Error:
+            return None
+    return None
+
+
+def process_username(pid: int) -> Optional[str]:
+    """Owning account (DOMAIN\\user) of pid, or None."""
+    n = _native()
+    if n is not None and hasattr(n, "process_username"):
+        v = n.process_username(int(pid))
+        return str(v) if v else None
+    p = _psutil()
+    if p is not None:  # _psutil_fallback
+        try:
+            return str(p.Process(int(pid)).username())
         except p.Error:
             return None
     return None

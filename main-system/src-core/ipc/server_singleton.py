@@ -69,7 +69,7 @@ class _PsutilProcessTable:
         excluded = {os.getpid()}
         excluded.update(self._metrics.process_children(os.getpid()))
         # P24: ancestor chain via native ppid walk (bounded depth).
-        excluded.update(self._metrics.process_ancestors(os.getpid()))
+        excluded.update(self._metrics.process_parents(os.getpid()))
         return excluded
 
     def kill(self, pid: int) -> bool:

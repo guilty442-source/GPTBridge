@@ -400,13 +400,13 @@ int main() {
         NT_CHECK(gptbridge_native_process_num_threads(-1) == -1 &&
                  gptbridge_native_process_num_handles(0) == -1,
                  "invalid pid counts fail closed");
-        const int64_t parent = gptbridge_native_process_ppid(self);
+        const int64_t parent = gptbridge_native_process_parent(self);
         NT_CHECK(parent > 0, "self ppid resolved");
-        NT_CHECK(gptbridge_native_process_ppid(-1) == -1,
+        NT_CHECK(gptbridge_native_process_parent(-1) == -1,
                  "invalid pid ppid fails closed");
-        NT_CHECK(gptbridge_native_process_create_time_100ns(self) > 0,
+        NT_CHECK(gptbridge_native_process_create_time_ms(self) > 0,
                  "self create_time positive");
-        NT_CHECK(gptbridge_native_process_create_time_100ns(-1) == -1,
+        NT_CHECK(gptbridge_native_process_create_time_ms(-1) == -1,
                  "invalid pid create_time fails closed");
 #else
         NT_CHECK(gptbridge_native_cpu_count() >= 0, "cpu_count non-negative");

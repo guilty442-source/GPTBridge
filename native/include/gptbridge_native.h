@@ -76,12 +76,6 @@ int64_t gptbridge_native_process_exe(int64_t pid, char* buf, int64_t buf_len);
 int64_t gptbridge_native_process_cmdline(
     int64_t pid, char* buf, int64_t buf_len);
 
-/* Parent pid of pid, or -1 (also -1 for pid 0/system roots). */
-int64_t gptbridge_native_process_ppid(int64_t pid);
-
-/* Process creation time as Windows FILETIME 100ns ticks, or -1. */
-int64_t gptbridge_native_process_create_time_100ns(int64_t pid);
-
 /* Thread count of pid, or -1. */
 int gptbridge_native_process_num_threads(int64_t pid);
 
