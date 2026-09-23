@@ -36,7 +36,7 @@
     "replacement_forbidden": {
       "semantics": "codex-first rule; no rename/retire/reroute before amendment",
       "bound_to": [
-        "Standalone tools/local-model/星澄模型四層建置藍圖.md"
+        "Standalone tools/local-model/全專案建置藍圖.md"
       ]
     },
     "audit_reference": {
