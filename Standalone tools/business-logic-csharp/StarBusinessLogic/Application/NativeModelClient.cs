@@ -83,6 +83,7 @@ public sealed class NativeModelClient : IModelClient, IDisposable
                     null, ref len, err, (nuint)err.Length);
                 if (rc == 1) throw new InvalidOperationException($"XC_GENERATE_FAILED:{ReadErr(err)}");
                 var buf = new byte[len + 1];
+                len = (nuint)buf.Length; // *out_len 輸入即容量（ABI 契約）
                 rc = _generateText(_engine, request.Prompt, request.MaxNewTokens,
                     request.Temperature, request.Temperature > 0 ? 1 : 0,
                     buf, ref len, err, (nuint)err.Length);
@@ -107,6 +108,7 @@ public sealed class NativeModelClient : IModelClient, IDisposable
         if (_describe(_engine, null, ref len, err, (nuint)err.Length) == 1)
             throw new InvalidOperationException($"XC_DESCRIBE_FAILED:{ReadErr(err)}");
         var buf = new byte[len + 1];
+        len = (nuint)buf.Length; // *out_len 輸入即容量（ABI 契約）
         if (_describe(_engine, buf, ref len, err, (nuint)err.Length) != 0)
             throw new InvalidOperationException($"XC_DESCRIBE_FAILED:{ReadErr(err)}");
         return Encoding.UTF8.GetString(buf, 0, (int)len);
