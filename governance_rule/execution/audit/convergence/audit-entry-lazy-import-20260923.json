@@ -1,0 +1,28 @@
+﻿{
+  "schema": "star-convergence-evidence/v1",
+  "item": "audit-entry-lazy-import",
+  "date": "2026-09-23",
+  "actor": "devin-cli",
+  "request": "減少審計入口載入整套 Python 系統",
+  "problem": "governance_rule.execution.audit.__init__ eagerly imported the full check suite (audit_checks -> audit_artifacts 108KB + audit_authority + audit_protected + audit_self_health) plus git_tiers, and touched git_tier_audit.jsonl at import time. Because every submodule import executes the package __init__, the commit gate's *native* phase (from ...audit.native_audit_gate import run_native_audit_gate) paid for the whole Python oracle before spawning audit-engine.exe. The root governance_rule/__init__ also eagerly built the policy + permission-directory chains for any submodule import.",
+  "change": {
+    "governance_rule/__init__.py": "governance_policy_snapshot / directory_authority_snapshot / GOVERNANCE_CODEX now resolve via PEP 562 __getattr__; submodule attribute fallback kept for governance_policy / permission_directory",
+    "governance_rule/execution/audit/__init__.py": "lazy exports via __getattr__; git_tiers import dropped (ledger path derived locally); ledger mkdir/touch moved from import time to audit invocation (main() and audit_runtime_governance resolution)",
+    "governance_rule/execution/audit/audit_checks.py": "audit_self_health (subprocess + ThreadPoolExecutor test collection) import deferred into the include_self_health branch; include_self_health=False paths never load it",
+    "governance_rule/execution/git_tiers/branch_policy.py": "LOCAL_MODEL_BRANCH constant added (single source); PROTECTED_BRANCHES uses it + MAIN_BRANCH",
+    "governance_rule/execution/git_tiers/push_gate.py": "max_parallel assignment collapsed to one line so check_bounded_worker_pools can statically prove the min() clamp; local-model path segment + rev-parse branch names routed through branch_policy (fixes test_branch_policy_single_source)"
+  },
+  "measurements_best_of_3": {
+    "import_governance_rule.execution.audit": {"before": "0.325s / 124 modules", "after": "0.044s / 70 modules"},
+    "import_native_audit_gate_submodule": {"before": "~0.16s / 110 modules incl. full check suite", "after": "0.087s / 101 modules, audit_checks NOT loaded"},
+    "resolve_audit_runtime_governance": {"after": "0.196s / 158 modules (suite loads on demand, as required to actually run)"}
+  },
+  "verification": {
+    "new_tests": "governance_rule/tests/test_audit_lazy_entry.py 5/5 (fresh-interpreter module-set assertions)",
+    "regression": "test_git_runtime_architecture 16/16; test_audit_self_health_batching + test_governance_health + test_git_final_gates + test_git_api_contract_v1 38/38",
+    "audit": "python -m governance_rule.execution.audit -> [PASS] exit 0 (GPTBRIDGE_AUDIT_SKIP_SELF_HEALTH=1)",
+    "compat": "from governance_rule.execution.audit import audit_runtime_governance / REQUIRED_GOVERNANCE_ENFORCEMENT_SOURCES / main all resolve; governance_rule root exports resolve lazily"
+  },
+  "notes": "Native-gate shadow integration unchanged: engine verdict stays authoritative for supported kinds, delegated rows still covered by the Python oracle. Deeper reduction (skipping Python checks fully covered by a passing native run) requires a manifest->check-function authority mapping; deferred as a separate design step.",
+  "unrelated_failures_fixed_en_route": "push_gate.py (11:34Z rewrite, foreign) failed check_bounded_worker_pools (multi-line assignment hid the min() clamp) and test_branch_policy_single_source (literal local-model / rev-parse main); repaired minimally, audit+tests green"
+}
