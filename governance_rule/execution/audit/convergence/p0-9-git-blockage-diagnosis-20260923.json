@@ -1,0 +1,40 @@
+{
+  "item": "P0-9 Git integration blockage — diagnostic evidence for human disposition",
+  "worker": "devin-cli",
+  "timestamp_utc": "2026-09-22T19:15Z",
+  "finding": "all 7 conflicted merge-queue entries are administratively stale — their source commits are already ancestors of origin/main; mq-000018 additionally explains the main/origin divergence",
+  "queue_analysis": {
+    "queue_file": ".git/gptbridge-automation/merge-queue/queue.json",
+    "conflicted_entries": [
+      {"queue_id": "mq-000001-f6cc57", "source_branch": "chinese-semantic-engine-core", "source_commit": "10249a25", "in_origin_main": true, "in_main": true},
+      {"queue_id": "mq-000002-8f2e08", "source_branch": "chinese-semantic-engine-core", "source_commit": "e69c0d40", "in_origin_main": true, "in_main": true},
+      {"queue_id": "mq-000008-000e49", "source_branch": "rustic-calcium", "source_commit": "f82b710e", "in_origin_main": true, "in_main": true},
+      {"queue_id": "mq-000009-4fbbd3", "source_branch": "rustic-calcium", "source_commit": "8bd3ebe3", "in_origin_main": true, "in_main": true},
+      {"queue_id": "mq-000010-b596f5", "source_branch": "rustic-calcium", "source_commit": "15848955", "in_origin_main": true, "in_main": true},
+      {"queue_id": "mq-000013-92bc3f", "source_branch": "local-model", "source_commit": "81b6a7cd", "in_origin_main": true, "in_main": true},
+      {"queue_id": "mq-000016-977c90", "source_branch": "local-model", "source_commit": "e485130b", "in_origin_main": true, "in_main": true},
+      {"queue_id": "mq-000018-c67598", "source_branch": "git", "source_commit": "d4bb42d7", "in_origin_main": true, "in_main": false}
+    ]
+  },
+  "divergence": {
+    "main_ahead_of_origin": 124,
+    "main_behind_origin": 1,
+    "missing_commit": "d4bb42d7 auto-commit(main): 5 file(s) updated @ 2026-09-23T01:43:50+0800",
+    "content_check": {
+      "w2-1-grouped-gemm-online-attention-20260922.json": "identical",
+      "model_service_activation.py": "identical",
+      "connection.py": "main is newer superset (pool_wait_timeouts etc. added later)",
+      "transport_notify.py": "main is newer (evolved past d4bb42d7)",
+      "anomalies.jsonl": "append-only runtime log; main has more entries"
+    },
+    "conclusion": "d4bb42d7 logical content fully subsumed by local main — divergence is SHA-topology only (auto-commit pushed at 01:44 then locally discarded by a reset; watcher recommitted content under new SHAs). No data loss."
+  },
+  "push_blocker_after_queue_clear": "workspace_sync push gate requires origin/main ancestor of main; with d4bb42d7 missing from main the gate returns error:remote-main-diverged — clearing the queue alone does NOT restore push",
+  "recommended_human_sequence": [
+    "1. mark all 7 conflicted entries resolved/cancelled as stale (content verified upstream)",
+    "2. merge origin/main into local main (d4bb42d7) — content auto-resolves to main's newer versions; anomalies.jsonl may need trivial keep-local resolution",
+    "3. coordinator sync resumes; push gate passes (origin/main becomes ancestor); first gated-push evidence lands in ledger + .git/gptbridge-push-gate.json",
+    "4. coordinator reload to pick up push_gate.py"
+  ],
+  "guardrails_respected": "no merge/queue mutation performed — conflict disposition is human per §10.69-D②; worker provided verification only"
+}
