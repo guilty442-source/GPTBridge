@@ -1,0 +1,37 @@
+{
+  "amendment_id": "codex-amendment-request-g36-external-collab-20260923",
+  "requested_by": "muse-spark",
+  "change_class": "external-collaboration-sync",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "required_gate": "five-sovereign-audit-unanimous-pass",
+  "source_path": "governance_rule/codex/data/governance_codex.sqlite3",
+  "blueprint_anchor": "G36: A528/A538 staged amendment for external collaboration (ai-collaboration)",
+  "status": "staged-awaiting-governor",
+  "problem": {
+    "summary": "External collaboration (ai-collaboration) has staged left-control integration and browser verification, but codex A528/A538 for ai-collaboration left-control and result handling remain staged, not yet active; G36 gap is MISSING staged amendment file, not yet ready for 5-sovereign audit.",
+    "current_state": "ai-collaboration has 36/36 tests PASS, 8 EC evidence files, but codex A528/A538 still staged, not active; G36 is P1 per blueprint, blocked by coordination window",
+    "evidence": "ec1-ec8 evidence files (20260922), ai-collaboration manifest, staged request ai-collaboration-left-control-integration-2026-09-18"
+  },
+  "proposed_delta": {
+    "tables": [
+      {
+        "name": "external_collaboration_registry",
+        "purpose": "Materialize ai-collaboration left-control and result handling (A528/A538) as codex rows",
+        "columns": "collaboration_id, left_control_spec, result_handling_spec, browser_verification_spec, status, version_identity",
+        "population": "import staged left-control spec as codex rows; per-row review is governor-side"
+      }
+    ],
+    "provisions": ["A528", "A538"]
+  },
+  "unblocks": [
+    "G36 P1 (external collaboration codex sync)",
+    "blueprint WP-E external collaboration",
+    "P0-1 window does not block this staged file (lightweight, no heavy build)"
+  ],
+  "evidence": [
+    "convergence/ec1-channel-wiring-20260922.json",
+    "convergence/ec2-session-verification-20260922.json",
+    "governance_rule/execution/audit/convergence/codex-amendment-request-ai-collaboration-left-control-integration-2026-09-18.json"
+  ],
+  "worker_note": "Staged amendment file only; actual codex DB amendment requires governor publish+seal; no heavy build, keeps P0-1 window clean"
+}
