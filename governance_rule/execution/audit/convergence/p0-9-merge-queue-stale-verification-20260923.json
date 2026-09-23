@@ -1,0 +1,26 @@
+{
+  "id": "p0-9-merge-queue-stale-verification",
+  "date": "2026-09-23",
+  "worker": "devin-cli",
+  "summary": "P0-9 Git 整合阻斷之唯讀查證：8 筆 conflicted merge-queue 條目逐一以 merge-base 驗證 source commit 歸屬。7 筆 source 已在 local main（stale，內容已整合，可標 resolved）；mq-000018（git@d4bb42d7）之 source 即 origin/main tip——已在遠端但不在 local main，即 main ahead-128/behind-1 之根源。",
+  "verification": {
+    "method": "git merge-base --is-ancestor <source_commit> <ref>；ref ∈ {main, origin/main}",
+    "entries": {
+      "mq-000001": {"source": "10249a25", "branch": "chinese-semantic-engine-core", "in_main": true, "verdict": "stale-resolvable"},
+      "mq-000002": {"source": "e69c0d40", "branch": "chinese-semantic-engine-core", "in_main": true, "verdict": "stale-resolvable"},
+      "mq-000008": {"source": "f82b710e", "branch": "rustic-calcium", "in_main": true, "verdict": "stale-resolvable"},
+      "mq-000009": {"source": "8bd3ebe3", "branch": "rustic-calcium", "in_main": true, "verdict": "stale-resolvable"},
+      "mq-000010": {"source": "15848955", "branch": "rustic-calcium", "in_main": true, "verdict": "stale-resolvable"},
+      "mq-000013": {"source": "81b6a7cd", "branch": "local-model", "in_main": true, "verdict": "stale-resolvable"},
+      "mq-000016": {"source": "e485130b", "branch": "local-model", "in_main": true, "verdict": "stale-resolvable"},
+      "mq-000018": {"source": "d4bb42d7", "branch": "git", "in_main": false, "in_origin_main": true, "verdict": "source-is-origin-tip"}
+    },
+    "divergence": {
+      "main": "b0006abf", "origin_main": "d4bb42d7",
+      "ahead": 128, "behind": 1,
+      "blocking_commit": "d4bb42d7 auto-commit(main): anomalies.jsonl + w2-1 evidence + model_service_activation.py + connection.py + transport_notify.py（5 files）",
+      "note": "推送閘規則 origin/main must be ancestor of main——behind-1 使推送非法；mq-000018 正是把該筆併回 main 的嘗試，衝突檔需人工判定"
+    }
+  },
+  "action_required": "人工（§10.69-D②）：①7 筆 stale 條目可標 resolved；②mq-000018 需人工 merge origin/main→main 解衝突（或裁定該筆內容已由後續等價提交涵蓋而標 resolved）；③解完後推送即恢復 fast-forward"
+}
