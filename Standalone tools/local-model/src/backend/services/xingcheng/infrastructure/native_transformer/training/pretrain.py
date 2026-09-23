@@ -526,6 +526,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     model_config = build_model_config(args.preset, tokenizer, args.block_size)
+    # 可重現：模型初始權重取自全域 RNG——只 seed 批次 generator 會讓
+    # 同一 --seed 兩次執行的初始權重不同（批次序相同、loss 軌跡仍分歧）。
+    torch.manual_seed(args.seed)
     model = XingChengForCausalLM(model_config)
     pretrain_config = PretrainConfig(
         block_size=args.block_size,

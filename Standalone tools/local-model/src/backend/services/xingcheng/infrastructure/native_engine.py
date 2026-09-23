@@ -358,6 +358,19 @@ class NativeTransformerEngine:
         required_mb = max(
             256.0, (self._parameter_count * bytes_per_param * 1.5) / (1024**2)
         )
+        # P23 資源邊界：預設檔宣告的 VRAM 硬上限先於協調器詢價——超出
+        # 邊界的檔位不配得 GPU 額度，直接降級 CPU 並記帳。
+        budget_mb = int(getattr(self.config, "vram_budget_mb", 0) or 0)
+        if budget_mb > 0 and required_mb > budget_mb:
+            self._record_gpu_downgrade(
+                device,
+                required_mb,
+                RuntimeError(
+                    f"profile-vram-budget: {required_mb:.0f}MB > "
+                    f"{budget_mb}MB boundary"
+                ),
+            )
+            return _torch.device("cpu"), True
         timeout = float(os.environ.get("XINGCHENG_GPU_ACQUIRE_TIMEOUT_S", "15"))
         try:
             from shared_layer.adaptive.gpu_coordinator import GpuCoordinator

@@ -71,6 +71,11 @@ class XingChengConfig:
     use_activation_checkpoint: bool = False  # 訓練時重計算 activation，省 30-50% VRAM
     use_8bit_optimizer: bool = False        # 8-bit AdamW（需 bitsandbytes），省 optimizer VRAM
 
+    # ── 資源邊界 ────────────────────────────────────────────────
+    # 預設檔宣告的 VRAM 硬邊界（MB）；0 = 未宣告（僅參數量估計閘門）。
+    # 推論屬互動路徑：估計需求超過邊界時降級 CPU 並記帳，不硬塞 VRAM。
+    vram_budget_mb: int = 0
+
     # ── 執行後端 ────────────────────────────────────────────────
     # 由 runtime/backend.py 解析；此處僅記錄偏好。
     backend_preference: tuple[str, ...] = (
@@ -171,6 +176,8 @@ class XingChengConfig:
             num_key_value_heads=4,
             max_position_embeddings=4_096,
             rope_theta=100_000.0,
+            # P23: RTX 3050 6 GB 資源邊界 — xlarge 檔的 VRAM 硬上限。
+            vram_budget_mb=6_144,
         )
 
     @classmethod
