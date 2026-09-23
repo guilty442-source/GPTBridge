@@ -1,6 +1,6 @@
 {
   "schema": "gptbridge-convergence-evidence/v1",
-  "item": "全專案實作比對複查（2026-09-23 晚班；依 07:40Z 收斂報告逐項複核）",
+  "item": "implementation-vs-codex convergence check 2026-09-23 (multi-round, devin-cli)",
   "executed_at": "2026-09-23T16:15:00Z",
   "worker": "devin-cli",
   "method": "re-ran governed comparators read-only: runtime governance audit (self-health on), formal-rule parity, contract-registry validation; verified startup manifest codex-first resolution; inspected codex authority state and on-disk predecessor candidates",
@@ -8,8 +8,8 @@
     "runtime_governance_audit": "PASS (full audit incl. self-health; earlier P27/self-health reds resolved)",
     "formal_rule_parity": "64/64 PASS (was 61/64; A554->A598, A591/A592->A604 re-anchor committed d101a554)",
     "contract_registry": "18/18 PASS (was 17/18; mojibake bound_to path fixed 3128966b; CONTRACT_REGISTRY_CLOSURE unblocked)",
-    "amendment_request_change_class": "resolved — architecture-authority (b60f32c4)",
-    "startup_deadline_overlap": "already converged — governed_startup_constant resolves startup_complete_deadline_ms codex-first via codex_readonly_connection with manifest fallback (verified live: PG unreachable/degraded -> fallback 10000)"
+    "amendment_request_change_class": "resolved -> architecture-authority (b60f32c4)",
+    "startup_deadline_overlap": "already converged -> governed_startup_constant resolves startup_complete_deadline_ms codex-first via codex_readonly_connection with manifest fallback (verified live: PG unreachable/degraded -> fallback 10000)"
   },
   "remaining_items_all_codex_side": [
     "MACHINE_SCHEMA_PARITY_CLOSURE: 74/74 PENDING — needs parity producer + codex amendment (A605/A607)",
@@ -30,7 +30,8 @@
     "post_restore_state": "authority=03:13:43Z but zh-TW mirror parts remain at 15:48:20Z -> audit red on 3 mirror checks (version sync, mirror-quality evidence for 15:48:20Z, seal_manifest parity); commit gate correctly fail-closed until migration worker re-renders mirrors or rebuilds the 15:48 generation",
     "owner": "parallel migration worker session actively investigating (observed authority_state polling + git fsck --lost-found at ~16:04Z)",
     "defect": "test-isolation violation — a test exercises the real authority DSN; recommend wire_generation accept an injectable import hook or the test monkeypatch import_sqlite_predecessor/verify_sqlite_parity",
-    "action_taken": "none — codex authority writes belong to the governed amendment/migration path (A74/A435); fail-closed, reported only"
+    "action_taken": "none — codex authority writes belong to the governed amendment/migration path (A74/A435); fail-closed, reported only",
+    "resolution": "authority restored 2026-09-24T00:12 local by concurrent worker from worktree snapshot 2026-09-23T03:13:43Z (213 tables, 554 articles); NOTE: destroyed live version was 14:49:21Z - amendments between 03:13Z and 14:49Z may be absent; governor confirmation advised"
   },
   "residual_watch": [
     "governance_rule/execution/convergence/successor_framework.py LIVE_CODEX still targets governance_rule/codex/data/governance_codex.sqlite3 (deleted in working tree); stage_copy/compute_closures raise CODEX_MISSING until the sealed predecessor is republished or the framework is migrated to the PostgreSQL authority — migration owner decision"
@@ -49,5 +50,19 @@
     ],
     "result": "dependency_direction back to baseline=1; static gate verdict PASS; 8/8 gate tests + 21/21 registry tests + 9/9 convergence tests + 37/37 supervisor/scheduler tests pass",
     "residual": "remaining broad-suite failures are inside the in-flight PostgreSQL migration scope (audit evidence reads moved to authority; runtime_rule_index_v2/governance_health fixtures still sqlite-path); config/frontend hash mismatches belong to other in-flight workers"
+  },
+  "followup_rounds": {
+    "round_2": {
+      "psycopg_fail_closed_gap": "load_formal_rules/load_obligations/evaluator/codex_update_validation caught only sqlite3.Error; psycopg errors (e.g. UndefinedTable) propagated instead of documented fail-closed degrade. Fixed: 9148e05e, 5ff239dd.",
+      "stale_docs": "codex_health_service.py, module-topology.md, contract_resolver.py docstrings updated to PostgreSQL authority (9148e05e, d83c9e90)",
+      "script_migration": "scripts/build-runtime-rule-index.py migrated to codex_readonly_connection + authority_state (worktree-only, scripts/ is gitignored); verified 554-article rebuild"
+    },
+    "round_3": {
+      "audit_protected_files": "audit_activation.py + audit_directories.py are OS-read-only governed sources (check_protected_sources); applied psycopg.Error via clear-edit-restore cycle, committed d83c9e90",
+      "release_gate": "validate_governance_references: codex_path=None -> governed PG authority; explicit path -> staged sqlite fixture; validate_release_bundle accepts governance-codex://official selector (a2a758e3, 6e725391)",
+      "test_fixes": "4 post-cutover test failures fixed (release gates x2, auto_action_policy, xingcheng_learning) via official-authority reads / monkeypatched governed connection; 60 passed",
+      "amendment_request_g36": "external-collaboration-sync -> architecture-authority + postgresql source_path (a2a758e3)",
+      "parity_call_site": "test_formal_rules.py stale sqlite path arg -> postgresql-codex placeholder (03bca9be); dead CODEX_PATH removed (176d683f)"
+    }
   }
 }
