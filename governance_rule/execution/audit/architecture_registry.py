@@ -278,6 +278,17 @@ def validate(payload: dict[str, Any], project_root: Path) -> list[str]:
             )
         if not component.execution_identity:
             errors.append(f"component lacks execution_identity: {component.component_id}")
+        elif component.execution_identity in shims:
+            errors.append(
+                f"retired sovereign used as execution_identity (compatibility shim only): {component.component_id}"
+            )
+        elif component.lifecycle != "retired" and (
+            component.execution_identity == "sub-sovereign"
+            or component.execution_identity.endswith("-sub-sovereign")
+        ):
+            errors.append(
+                f"retired sub-sovereign used as execution_identity: {component.component_id}"
+            )
         if component.canonical:
             kind = str(component.architectural_role)
             canonical_kinds.setdefault(kind, []).append(component.component_id)
