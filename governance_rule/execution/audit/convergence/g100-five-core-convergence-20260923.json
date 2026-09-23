@@ -55,6 +55,22 @@
     ],
     "verification": "shared_layer imports clean (16 exports); TokenizerWrapper gone; registry validate() 0 errors"
   },
+  "increment_5_dead_module_removal": {
+    "method": "zero-import scan over 410 src-core modules (tests/configs/dynamic-load checked), cluster analysis for sibling-only consumers",
+    "deleted": [
+      "core_system/sovereign_stack_executor.py + activation/children/constants (retired sub-sovereign stack facade cluster, A594-consistent)",
+      "core_system/governance_rule_coordination.py (superseded by authority re-anchor)",
+      "core_system/maintenance_capability.py (maintenance sovereign retired A302/A323; repair_chain consumes only lifecycle+status mixins)"
+    ],
+    "loc_removed": 1021,
+    "notes": "registry retired_module_cleanup_contract only governs residue (deletion_authorized=false); these were dead files inside the live main-system component, not registered components"
+  },
+  "increment_6_p3_mapping": {
+    "deliverable": "convergence/five_core_mapping.py + five-core-mapping.json — rebuildable read-only projection",
+    "content": "per-core: sovereign/unit/capabilities + per-process canonical owner, implementation status, versioned contract bindings (via enforcing_modules path containment), consumers (reverse dependency graph), runtime_form/lifecycle, migration_state; plus 8 native-shadow.json shadow modules attached to owning core",
+    "result": "42 live processes classified; all 14 contract artifacts bound to >=1 component; 8 shadow modules all under runtime core (main-system); zero unbound contracts",
+    "note": "blueprint renumbering: G100 is now P3, rescoped to this mapping; P4-P9 cover the follow-on parity/report work"
+  },
   "remaining_scope_not_in_this_increment": [
     "mechanical-work migration C/C++/C# and Python residency removal (largest G100 sub-clause; requires per-component parity work, blueprint ordered)",
     "third-party dependency keep/replace/remove disposition list",

@@ -1,0 +1,782 @@
+{
+ "schema": "gptbridge-five-core-mapping/v1",
+ "generated_from": [
+  "architecture_registry.json",
+  "native-shadow.json",
+  "convergence/artifacts/contracts"
+ ],
+ "cores": {
+  "decision": {
+   "sovereign_id": "decision-sovereign",
+   "unit": "UNIT_DECISION",
+   "capabilities": [
+    "system-wide-decision",
+    "system-policy-and-priority-decision",
+    "dependency-and-state-decision",
+    "sovereign-delegation-decision",
+    "system-change-acceptance-decision",
+    "task-assignment-validation"
+   ],
+   "processes": [
+    {
+     "component_id": "codex-authority",
+     "canonical_owner": "decision",
+     "implementation": "primary",
+     "runtime_form": "database",
+     "resident_lifecycle": "resident",
+     "physical_path": "governance_rule/codex",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [
+      "INTEGRATION_FIVE_PLANE_DIVISION_CONTRACT"
+     ],
+     "consumers": [
+      "shared-layer"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "decision-sovereign",
+     "canonical_owner": "decision",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system/governance/sovereigns",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [
+      "sub-sovereign-orchestration"
+     ],
+     "migration_state": "retain-governance"
+    },
+    {
+     "component_id": "governance_rule",
+     "canonical_owner": "decision",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "governance_rule",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [
+      "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT",
+      "SYSTEM_CONVERGENCE_CONTRACT"
+     ],
+     "consumers": [
+      "automation-sovereign",
+      "codex-authority",
+      "decision-sovereign",
+      "git-tier-plane",
+      "language-review",
+      "main-system",
+      "native-compute-core",
+      "permission-sovereign",
+      "system-runtime-sovereign",
+      "xingcheng-sovereign"
+     ],
+     "migration_state": "retain-governance"
+    }
+   ],
+   "dependencies": []
+  },
+  "permission": {
+   "sovereign_id": "permission-sovereign",
+   "unit": "UNIT_PERMISSION",
+   "capabilities": [
+    "preserve-independent-two-key-permission-authorization-boundary"
+   ],
+   "processes": [
+    {
+     "component_id": "permission-sovereign",
+     "canonical_owner": "permission",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system/governance/sovereigns/permission_sovereign.py",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "retain-governance"
+    }
+   ],
+   "dependencies": [
+    "governance_rule"
+   ]
+  },
+  "runtime": {
+   "sovereign_id": "system-runtime-sovereign",
+   "unit": "UNIT_RUNTIME",
+   "capabilities": [
+    "system-runtime-management",
+    "startup-and-shutdown-coordination",
+    "service-continuity-management",
+    "runtime-state-synchronization",
+    "runtime-dispatch-decision",
+    "execution-validation"
+   ],
+   "processes": [
+    {
+     "component_id": "ai-assistant",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/ai-assistant",
+     "external_locator": null,
+     "unit": null,
+     "contracts": [],
+     "consumers": [
+      "investment-mobile"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "ai-collaboration",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/ai-collaboration",
+     "external_locator": null,
+     "unit": null,
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "boot-core",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "per-boot",
+     "physical_path": "main-system/src-core",
+     "external_locator": null,
+     "unit": "UNIT_RUNTIME",
+     "contracts": [
+      "BACKEND_LIFECYCLE_CONTRACT",
+      "CONNECTION_RECOVERY_CONTRACT",
+      "CONNECTION_STATE_CONTRACT",
+      "EXECUTION_LEASE_CONTRACT",
+      "RELEASE_MANIFEST_CONTRACT",
+      "REQUEST_LIFECYCLE_CONTRACT",
+      "REQUEST_REGISTRY_CONTRACT",
+      "SYSTEM_CONVERGENCE_CONTRACT",
+      "TASK_LIFECYCLE_CONTRACT"
+     ],
+     "consumers": [
+      "bootstrap-entry"
+     ],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "bootstrap-entry",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "per-launch",
+     "physical_path": "main-system/launcher",
+     "external_locator": null,
+     "unit": "UNIT_BOOTSTRAP",
+     "contracts": [],
+     "consumers": [
+      "launcher-ui"
+     ],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "business-logic-csharp",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "internal-service",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/business-logic-csharp",
+     "external_locator": null,
+     "unit": null,
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "file-sorter",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/file-sorter",
+     "external_locator": null,
+     "unit": null,
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "information-channel-gateway",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "shared-layer/src/channel_runtime.py",
+     "external_locator": null,
+     "unit": "UNIT_PLATFORM",
+     "contracts": [],
+     "consumers": [
+      "xingcheng-assistant"
+     ],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "investment-mobile",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/investment-mobile",
+     "external_locator": null,
+     "unit": null,
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "launcher-ui",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "electron-app",
+     "resident_lifecycle": "per-launch",
+     "physical_path": "main-system/launcher",
+     "external_locator": null,
+     "unit": "UNIT_BOOTSTRAP",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "main-system",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system",
+     "external_locator": null,
+     "unit": "UNIT_RUNTIME",
+     "contracts": [
+      "BACKEND_LIFECYCLE_CONTRACT",
+      "RELEASE_MANIFEST_CONTRACT"
+     ],
+     "consumers": [
+      "boot-core"
+     ],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "module-sqlite",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "database",
+     "resident_lifecycle": "resident",
+     "physical_path": "shared-layer/sql",
+     "external_locator": null,
+     "unit": "UNIT_PLATFORM",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "native-compute-core",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "native-library",
+     "resident_lifecycle": "resident",
+     "physical_path": "native/core",
+     "external_locator": null,
+     "unit": "UNIT_RUNTIME",
+     "contracts": [],
+     "consumers": [
+      "model-training"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "postgresql",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "external-service",
+     "resident_lifecycle": "resident",
+     "physical_path": "shared-layer/sql",
+     "external_locator": null,
+     "unit": "UNIT_PLATFORM",
+     "contracts": [],
+     "consumers": [
+      "main-system",
+      "shared-layer",
+      "xingcheng",
+      "xingcheng-sovereign"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "shared-layer",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "resident",
+     "physical_path": "shared-layer",
+     "external_locator": null,
+     "unit": "UNIT_PLATFORM",
+     "contracts": [
+      "RUNTIME_RESOURCE_CONTRACT"
+     ],
+     "consumers": [
+      "ai-assistant",
+      "ai-collaboration",
+      "business-logic-csharp",
+      "file-sorter",
+      "information-channel-gateway",
+      "investment-mobile",
+      "local-model",
+      "main-system",
+      "model-training",
+      "system-rescue",
+      "tokenizer",
+      "vaultly"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "system-rescue",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/system-rescue",
+     "external_locator": null,
+     "unit": null,
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "system-runtime-sovereign",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system/governance/sovereigns/system_runtime_sovereign.py",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "retain-governance"
+    },
+    {
+     "component_id": "vaultly",
+     "canonical_owner": "system-runtime",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/vaultly",
+     "external_locator": null,
+     "unit": null,
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    }
+   ],
+   "dependencies": [
+    "codex-authority",
+    "governance_rule",
+    "local-model",
+    "qdrant"
+   ]
+  },
+  "automation": {
+   "sovereign_id": "automation-sovereign",
+   "unit": "UNIT_AUTOMATION",
+   "capabilities": [
+    "decide-synchronization-policy-priority-conflict-and-acceptance"
+   ],
+   "processes": [
+    {
+     "component_id": "automation-sovereign",
+     "canonical_owner": "automation",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system/governance/sovereigns/automation_sovereign.py",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "retain-governance"
+    },
+    {
+     "component_id": "git-tier-plane",
+     "canonical_owner": "automation",
+     "implementation": "primary",
+     "runtime_form": "build-tooling",
+     "resident_lifecycle": "resident",
+     "physical_path": "governance_rule/execution/git_tiers",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [
+      "origin-mirror"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "integration-plane",
+     "canonical_owner": "automation",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "governance_rule/execution/git_tiers",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [
+      "git-tier-plane",
+      "recovery-plane"
+     ],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "origin-mirror",
+     "canonical_owner": "automation",
+     "implementation": "primary",
+     "runtime_form": "external-service",
+     "resident_lifecycle": "resident",
+     "physical_path": null,
+     "external_locator": "https://github.com/guilty442-source/GPTBridge.git",
+     "unit": null,
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "recovery-plane",
+     "canonical_owner": "automation",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "governance_rule/execution/git_tiers",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [
+      "MODULE_HASH_CHAIN_EVIDENCE_CONTRACT"
+     ],
+     "consumers": [],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "self-commit-service",
+     "canonical_owner": "automation",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "governance_rule/execution/git_tiers",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [
+      "integration-plane"
+     ],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "worker-plane",
+     "canonical_owner": "automation",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "resident",
+     "physical_path": "E:/GPTBridge/.worktrees",
+     "external_locator": null,
+     "unit": null,
+     "contracts": [],
+     "consumers": [
+      "self-commit-service"
+     ],
+     "migration_state": "native"
+    }
+   ],
+   "dependencies": [
+    "governance_rule"
+   ]
+  },
+  "xingcheng-assistant": {
+   "sovereign_id": "星澄",
+   "unit": "UNIT_ASSISTANT",
+   "capabilities": [
+    "native programming analysis code authoring editing debugging refactoring testing and independent verification",
+    "programming-language conformance acceptance migration and generated-code review",
+    "whole-system automatic classification decomposition scheduling dispatch coordination convergence evidence and fault isolation through the 星澄 auxiliary system and native model"
+   ],
+   "processes": [
+    {
+     "component_id": "local-model",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/local-model",
+     "external_locator": null,
+     "unit": "UNIT_ENGINE",
+     "contracts": [
+      "CAPABILITY_EVALUATION_CONTRACT",
+      "PRETRAIN_DATA_PIPELINE_CONTRACT"
+     ],
+     "consumers": [
+      "business-logic-csharp",
+      "model-dialogue",
+      "model-training",
+      "xingcheng"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "local-vector",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "database",
+     "resident_lifecycle": "degraded-only",
+     "physical_path": "shared-layer/sql",
+     "external_locator": null,
+     "unit": "UNIT_PLATFORM",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "model-dialogue",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/local-model/model-dialogue",
+     "external_locator": null,
+     "unit": "UNIT_DIALOGUE",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "model-training",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
+     "external_locator": null,
+     "unit": "UNIT_ENGINE",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "retain-bounded"
+    },
+    {
+     "component_id": "ollama",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "external-service",
+     "resident_lifecycle": "resident",
+     "physical_path": "shared-layer/sql",
+     "external_locator": null,
+     "unit": "UNIT_PLATFORM",
+     "contracts": [],
+     "consumers": [
+      "local-model"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "qdrant",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "external-service",
+     "resident_lifecycle": "resident",
+     "physical_path": "shared-layer/sql",
+     "external_locator": null,
+     "unit": "UNIT_PLATFORM",
+     "contracts": [],
+     "consumers": [
+      "local-model",
+      "shared-layer"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "xingcheng",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "standalone-service",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "Standalone tools/local-model/xingcheng",
+     "external_locator": null,
+     "unit": "UNIT_ASSISTANT",
+     "contracts": [
+      "CAPABILITY_EVALUATION_CONTRACT"
+     ],
+     "consumers": [
+      "xingcheng-auto-learning-module",
+      "xingcheng-auto-repair-module",
+      "xingcheng-personality-store"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "xingcheng-assistant",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "electron-app",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
+     "external_locator": null,
+     "unit": "UNIT_RUNTIME",
+     "contracts": [],
+     "consumers": [
+      "xingcheng"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "xingcheng-assistant-store",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "database",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+     "external_locator": null,
+     "unit": "UNIT_RUNTIME",
+     "contracts": [],
+     "consumers": [
+      "xingcheng-assistant"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "xingcheng-auto-learning-module",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "main-system/governance/sovereigns/xingcheng/learning_sub_sovereign.py",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [
+      "xingcheng-auto-repair-module"
+     ],
+     "migration_state": "retain-bounded"
+    },
+    {
+     "component_id": "xingcheng-auto-repair-module",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "on-demand",
+     "physical_path": "main-system/src-core/tasks/central_repair.py",
+     "external_locator": null,
+     "unit": "UNIT_RUNTIME",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "migrate-csharp"
+    },
+    {
+     "component_id": "xingcheng-personality-store",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "database",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+     "external_locator": null,
+     "unit": "UNIT_RUNTIME",
+     "contracts": [],
+     "consumers": [
+      "xingcheng-auto-learning-module"
+     ],
+     "migration_state": "native"
+    },
+    {
+     "component_id": "xingcheng-sovereign",
+     "canonical_owner": "xingcheng-domain",
+     "implementation": "primary",
+     "runtime_form": "python-process",
+     "resident_lifecycle": "resident",
+     "physical_path": "main-system/governance/sovereigns",
+     "external_locator": null,
+     "unit": "UNIT_DECISION",
+     "contracts": [],
+     "consumers": [],
+     "migration_state": "retain-governance"
+    }
+   ],
+   "dependencies": [
+    "governance_rule",
+    "information-channel-gateway",
+    "native-compute-core",
+    "postgresql",
+    "shared-layer"
+   ]
+  }
+ },
+ "shadow_modules": [
+  {
+   "module": "connection_watchdog",
+   "mode": "shadow",
+   "owning_component": "boot-core",
+   "path": "main-system/src-core/core_system/connection_watchdog.py",
+   "core": "runtime"
+  },
+  {
+   "module": "ipc_server",
+   "mode": "shadow",
+   "owning_component": "boot-core",
+   "path": "main-system/src-core/core_system/ipc_server.py",
+   "core": "runtime"
+  },
+  {
+   "module": "maintenance_controller",
+   "mode": "shadow",
+   "owning_component": "boot-core",
+   "path": "main-system/src-core/core_system/maintenance_controller.py",
+   "core": "runtime"
+  },
+  {
+   "module": "model_service_activation",
+   "mode": "shadow",
+   "owning_component": "boot-core",
+   "path": "main-system/src-core/core_system/model_service_activation.py",
+   "core": "runtime"
+  },
+  {
+   "module": "periodic_scheduler",
+   "mode": "shadow",
+   "owning_component": "boot-core",
+   "path": "main-system/src-core/core_system/periodic_scheduler.py",
+   "core": "runtime"
+  },
+  {
+   "module": "request_registry",
+   "mode": "shadow",
+   "owning_component": "boot-core",
+   "path": "main-system/src-core/core_system/request_registry.py",
+   "core": "runtime"
+  },
+  {
+   "module": "runtime_state_registry",
+   "mode": "shadow",
+   "owning_component": "boot-core",
+   "path": "main-system/src-core/core_system/runtime_state_registry.py",
+   "core": "runtime"
+  },
+  {
+   "module": "state_outbox",
+   "mode": "shadow",
+   "owning_component": "boot-core",
+   "path": "main-system/src-core/core_system/state_outbox.py",
+   "core": "runtime"
+  }
+ ],
+ "unbound_contracts": []
+}
