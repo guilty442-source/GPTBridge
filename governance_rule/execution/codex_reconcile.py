@@ -26,6 +26,28 @@ from governance_rule.execution.codex_session import (
 
 _reconciled_declarations: dict[tuple[str, str], bool] = {}
 
+# A604 codex-first switch (2026-09-23): the assignment registry ``status``
+# column now carries the A604 dispatch-binding class instead of the legacy
+# lifecycle word.  ``active`` (pre-switch rows) and the two bound dispatch
+# classes denote registered assignments; any other status fails closed.
+BOUND_MODULE_ASSIGNMENT_STATUSES = frozenset(
+    {
+        "active",
+        "active-modular-dispatch-A604",
+        "legacy-modular-dispatch-A604",
+    }
+)
+
+# A604 managing-authority sentinel: the sub-sovereign layer is retired, so
+# bound rows point ``managing_sub_sovereign`` at this value and carry the
+# real binding in the decision/permission/review authority fields.
+MODULAR_DISPATCH_MANAGING = "none-single-purpose-module-dispatch"
+
+
+def is_bound_module_assignment(row: Mapping[str, Any]) -> bool:
+    """True when a ``module_assignment_registry`` row is a bound assignment."""
+    return str(row.get("status") or "") in BOUND_MODULE_ASSIGNMENT_STATUSES
+
 
 def bounded_lookup(
     actor: str,
@@ -75,7 +97,7 @@ def reconcile_self_declarations(
         ) as context:
             result = any(
                 row.get("module_architecture_code") == module
-                and row.get("status") == "active"
+                and is_bound_module_assignment(row)
                 for row in context.registry("module_assignment_registry")
             )
     except PermissionError:
@@ -94,4 +116,10 @@ def reconcile_self_declarations(
     return result
 
 
-__all__ = ["bounded_lookup", "reconcile_self_declarations"]
+__all__ = [
+    "BOUND_MODULE_ASSIGNMENT_STATUSES",
+    "MODULAR_DISPATCH_MANAGING",
+    "bounded_lookup",
+    "is_bound_module_assignment",
+    "reconcile_self_declarations",
+]

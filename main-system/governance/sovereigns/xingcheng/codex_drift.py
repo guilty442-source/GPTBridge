@@ -148,13 +148,21 @@ class XingchengCodexDriftMixin:
                         "detail": f"{class_ref}: {error}",
                     }
                 )
+        from governance_rule.execution.codex_reconcile import (
+            MODULAR_DISPATCH_MANAGING,
+            is_bound_module_assignment,
+        )
         from ...registries import module_assignment_registry, resolve_sovereign
 
         for row in module_assignment_registry():
-            if row.get("status") != "active":
+            if not is_bound_module_assignment(row):
                 continue
             manager = row.get("managing_sub_sovereign") or ""
-            if manager and resolve_sovereign(self.app, manager) is None:
+            if (
+                manager
+                and manager != MODULAR_DISPATCH_MANAGING
+                and resolve_sovereign(self.app, manager) is None
+            ):
                 findings.append(
                     {
                         "type": "assignment-unmaterialized",
