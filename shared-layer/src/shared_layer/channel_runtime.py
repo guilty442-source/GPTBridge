@@ -31,7 +31,7 @@ import uuid
 from collections import deque
 from typing import Any, Awaitable, Callable, Deque, Dict, Optional, Set, Protocol
 
-from core_system.versioning import component_version
+from .registry.versioning import component_version
 
 from .channel_types import (
     ChannelConfig,

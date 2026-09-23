@@ -16,7 +16,7 @@
       "src_unit": "UNIT_PLATFORM",
       "tgt_unit": "UNIT_RUNTIME",
       "via_module": "core_system",
-      "example_file": "shared-layer\\src\\shared_layer\\channel_runtime.py"
+      "example_file": "shared-layer\\src\\shared_layer\\failover_store.py"
     },
     {
       "edge": "ai-assistant->boot-core",
