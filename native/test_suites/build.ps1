@@ -166,6 +166,13 @@ $suites = @(
             (Join-Path $coreDir "transformer.c"),
             (Join-Path $coreDir "kv_pool.c")
         )
+    },
+    @{
+        src = "suite_scheduler_parity.cpp"; exe = "scheduler_parity_suite.exe"
+        # G100: scheduler parity — C vs Python PeriodicScheduler (5-core budget, shadow→primary gate)
+        extra = @(
+            (Join-Path $coreDir "scheduler.c")
+        )
     }
 )
 
