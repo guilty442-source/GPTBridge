@@ -1,6 +1,6 @@
 {
   "schema": "sql-patterns-baseline/v1",
-  "generated_at": "2026-09-23T12:38:26.702642+00:00",
+  "generated_at": "2026-09-23T12:38:52.953882+00:00",
   "finding_count": 57,
   "findings": [
     "sql-fstring|Standalone tools/ai-assistant/src/backend/services/ai_nexus/infrastructure/analytics_store_decisions.py",

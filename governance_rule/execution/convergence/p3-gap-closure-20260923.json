@@ -1,0 +1,32 @@
+{
+  "schema": "p3-gap-closure/v1",
+  "generated_at_utc": "2026-09-23T10:00Z",
+  "gaps": [
+    {
+      "component": "ipc_server",
+      "gap": "Python request lifecycle table (ipc) — C ipc_registry has no created/started/completed timestamps",
+      "fix": "Add C fields created_ms/started_ms/completed_ms/timeout_ms to gptbridge_ipc_registry_t and mirror to Python shadow comparison (binding + shadow compare)",
+      "evidence": "p4-shadow-gap-closure-20260923b: request_registry timestamps + deadline"
+    },
+    {
+      "component": "maintenance_controller",
+      "gap": "cancel is Python no-op (with_status→scheduler→controller→observe_cancelled not persisted)",
+      "fix": "Persist cancel via with_status→scheduler→controller→observe_cancelled chain (C maintenance.c with_status + scheduler cancel)",
+      "evidence": "p4-shadow-gap-closure-20260923b: maintenance cancel persistence"
+    },
+    {
+      "component": "runtime_state_registry",
+      "gap": "staleness check missing (C is_stale + UTC safe parse + observe_staleness)",
+      "fix": "Add C is_stale with UTC safe parse and observe_staleness to shadow compare",
+      "evidence": "p4-shadow-gap-closure-20260923b: runtime_state staleness"
+    },
+    {
+      "component": "periodic_scheduler",
+      "gap": "timeout dead code (error_count not effective, timespec_get not used)",
+      "fix": "Replace dead code with timespec_get and make error_count effective via timeout handling",
+      "evidence": "scheduler timeout dead code → timespec_get"
+    }
+  ],
+  "acceptance": "8 shadow harness 150/0/0, py shadow 70/70, G90/G91 zero mixing PASS, C has no permission index (no second authority), 4 gaps closed",
+  "note": "Per P3 high, WP-A; staged, not yet primary (needs 2-release window)"
+}
