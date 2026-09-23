@@ -220,29 +220,15 @@ class GovernedToolExecutor:
             expiry = ceiling
         return expiry.isoformat()
 
-    def _queue_system_modification(
-        self, normalized: Mapping[str, Any]
-    ) -> dict[str, Any]:
-        """驗證並佇列系統修改提案；本層永不執行修改本身。"""
-        arguments = normalized["arguments"]
+    @classmethod
+    def _build_system_modification(
+        cls, arguments: Mapping[str, Any]
+    ) -> dict[str, Any] | None:
+        """驗證並組裝提案結構；不合法回 ``None``（純函式，無副作用）。"""
         summary = str(arguments.get("summary") or "").strip()
         operation = str(arguments.get("operation") or "").strip()
-        if not summary:
-            return {
-                "ok": False,
-                "name": PROPOSE_SYSTEM_MODIFICATION_TOOL,
-                "error_code": "PROPOSAL_INVALID",
-                "message": "summary 為必填",
-                "result_text": "[PROPOSAL_INVALID] 系統修改提案缺少 summary",
-            }
-        if operation not in _SYSTEM_MODIFICATION_OPERATIONS:
-            return {
-                "ok": False,
-                "name": PROPOSE_SYSTEM_MODIFICATION_TOOL,
-                "error_code": "PROPOSAL_INVALID",
-                "message": f"operation 必須為 {sorted(_SYSTEM_MODIFICATION_OPERATIONS)}",
-                "result_text": f"[PROPOSAL_INVALID] 不支援的 operation: {operation}",
-            }
+        if not summary or operation not in _SYSTEM_MODIFICATION_OPERATIONS:
+            return None
         detail = {
             "operation": operation,
             **{
@@ -253,7 +239,7 @@ class GovernedToolExecutor:
                         "rollback", "expires_at"}
             },
         }
-        proposal = {
+        return {
             "summary": summary[:_MAX_ARG_VALUE_CHARS],
             "detail": detail,
             "binding": {
@@ -262,9 +248,26 @@ class GovernedToolExecutor:
                 "proposed_method": summary[:_MAX_ARG_VALUE_CHARS],
                 "risk": str(arguments.get("risk") or "")[:_MAX_ARG_VALUE_CHARS],
                 "rollback": str(arguments.get("rollback") or "")[:_MAX_ARG_VALUE_CHARS],
-                "expires_at": self._proposal_expires_at(arguments),
+                "expires_at": cls._proposal_expires_at(arguments),
             },
         }
+
+    def _queue_system_modification(
+        self, normalized: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """驗證並佇列系統修改提案；本層永不執行修改本身。"""
+        proposal = self._build_system_modification(normalized["arguments"])
+        if proposal is None:
+            return {
+                "ok": False,
+                "name": PROPOSE_SYSTEM_MODIFICATION_TOOL,
+                "error_code": "PROPOSAL_INVALID",
+                "message": (
+                    "summary 為必填且 operation 必須為 "
+                    f"{sorted(_SYSTEM_MODIFICATION_OPERATIONS)}"
+                ),
+                "result_text": "[PROPOSAL_INVALID] 系統修改提案欄位不合法",
+            }
         self._pending_proposals.append(proposal)
         return {
             "ok": True,
@@ -378,9 +381,33 @@ class GovernedToolExecutor:
         return calls
 
 
+def system_modification_proposals_from_text(text: str) -> list[dict[str, Any]]:
+    """掃描生成文本中的 ``propose_system_modification`` 呼叫並驗證組裝。
+
+    生產 infer 路徑的提案面：不經 ``converse`` 迴圈也能把模型輸出裡的
+    提案浮上結果——純掃描，不執行任何操作。
+    """
+    _clean, calls = split_tool_call(text)
+    proposals: list[dict[str, Any]] = []
+    for call in calls:
+        if str(call.get("name") or "") != PROPOSE_SYSTEM_MODIFICATION_TOOL:
+            continue
+        try:
+            normalized = normalize_tool_call(call)
+        except ValueError:
+            continue
+        proposal = GovernedToolExecutor._build_system_modification(
+            normalized["arguments"]
+        )
+        if proposal is not None:
+            proposals.append(proposal)
+    return proposals
+
+
 __all__ = [
     "TOOL_BRIDGE_VERSION",
     "TOOL_COMMAND_MAP",
+    "system_modification_proposals_from_text",
     "GovernedToolExecutor",
     "TOOL_CALL_FORMAT_VERSION",
 ]

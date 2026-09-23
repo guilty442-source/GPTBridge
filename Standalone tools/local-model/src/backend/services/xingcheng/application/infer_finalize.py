@@ -73,6 +73,17 @@ class InferFinalizeMixin:
             "platform_validated": persistence_requested and bool(remembered),
             "external_direct_write": False,
         }
+        # P21：掃描生成文本中的系統修改提案——純觀測浮上結果，
+        # 執行仍走 app:propose-system-modification → A366 單項確認鏈。
+        response_text = str(output.get("response") or "")
+        if "propose_system_modification" in response_text:
+            from .native_tool_orchestrator import (
+                system_modification_proposals_from_text,
+            )
+
+            proposals = system_modification_proposals_from_text(response_text)
+            if proposals:
+                output["system_modification_proposals"] = proposals
         return "xingcheng_infer_result", output
 
     def _infer_reconcile_model_selection(

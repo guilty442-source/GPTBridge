@@ -422,6 +422,26 @@ export function StarChatWindowApp() {
         : instruction?.status === 'input-required'
           ? '命令已理解・需要補充輸入'
           : ''
+      // P21：模型提出的系統修改提案 → 轉交 main-system 受管 IPC
+      // （app:propose-system-modification → A366 單項確認佇列）。
+      // 轉交失敗不中斷對話；提案內容仍保留於回覆文本中。
+      const proposals = Array.isArray(result.system_modification_proposals)
+        ? result.system_modification_proposals as Record<string, unknown>[]
+        : []
+      for (const proposal of proposals) {
+        try {
+          const binding = (proposal.binding && typeof proposal.binding === 'object'
+            ? proposal.binding
+            : {}) as Record<string, unknown>
+          await (window as any).electron?.invoke?.('app:propose-system-modification', {
+            summary: proposal.summary,
+            detail: proposal.detail,
+            ...binding,
+          })
+        } catch {
+          // 提案轉交為盡力而為；不回填假成功狀態。
+        }
+      }
       setActiveGenerationModel(models.find((item) => item.name === model)?.label || model)
       setGenerationPhase('responding')
       setMessages((current) => {
