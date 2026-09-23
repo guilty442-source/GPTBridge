@@ -82,6 +82,8 @@ class PermissionAutomationOrchestrator:
         ]
         self._core: Any = None
         self._core_flows: list[str] = []
+        self._scheduler: Any = None
+        self._scheduler_flows: list[str] = []
 
     def _flow_specs(self) -> list[tuple[str, Any, float]]:
         """(flow_id, component, interval) — automation-flows.json 同名清單。"""
@@ -129,6 +131,26 @@ class PermissionAutomationOrchestrator:
             )
             return
 
+        # 單一排程者語意：無自動化核心但共享排程器在時，run_once 掛到
+        # PeriodicScheduler 而非為每個元件各開一條私有迴圈。
+        app = getattr(self.permission_sovereign, "app", None)
+        scheduler = getattr(app, "periodic_scheduler", None)
+        if scheduler is not None:
+            self._scheduler = scheduler
+            self._scheduler_flows = []
+            for flow_id, component, interval in self._flow_specs():
+                scheduler.register(
+                    flow_id, interval, component.run_once, pausable=True,
+                )
+                self._scheduler_flows.append(flow_id)
+            self._running = True
+            _logger.info(
+                "PermissionAutomationOrchestrator started via periodic "
+                "scheduler (%d/%d flows registered)",
+                len(self._scheduler_flows), len(self._flow_specs()),
+            )
+            return
+
         for component in self._components:
             await component.start()
 
@@ -142,6 +164,11 @@ class PermissionAutomationOrchestrator:
                 self._core.unregister(flow_id)
             self._core_flows = []
             self._core = None
+        if self._scheduler is not None:
+            for flow_id in self._scheduler_flows:
+                self._scheduler.unregister(flow_id)
+            self._scheduler_flows = []
+            self._scheduler = None
         for component in reversed(self._components):
             await component.stop()
 

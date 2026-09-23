@@ -125,15 +125,14 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
                 run_immediately=True,
             )
         else:
-            try:
-                self._task = asyncio.create_task(
-                    self._coordination_loop(),
-                    name="system-automation-coordinator",
-                )
-            except RuntimeError:
-                self._task = None
-                self._running = False
-                return {"status": "no_event_loop"}
+            # 單一排程者語意：無核心亦無共享排程器時不回落私有迴圈，
+            # 回報可觀測的未啟動狀態。
+            _logger.warning(
+                "SystemAutomationCoordinator not started: no automation "
+                "core or periodic scheduler"
+            )
+            self._running = False
+            return {"status": "no_scheduler"}
         _logger.info("SystemAutomationCoordinator started")
         return {
             "status": "started",
@@ -153,14 +152,6 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
             core.unregister("system-automation-coordinator")
         elif scheduler is not None:
             scheduler.unregister("system-automation-coordinator")
-        task = self._task
-        self._task = None
-        if task is not None and not task.done():
-            task.cancel()
-            try:
-                await task
-            except (asyncio.CancelledError, Exception):
-                pass
         _logger.info("SystemAutomationCoordinator stopped")
 
     # ------------------------------------------------------------------
@@ -207,52 +198,6 @@ class SystemAutomationCoordinator(SystemAutomationHealthMixin):
             _logger.warning(
                 "system automation coordination error: %s", error
             )
-
-    async def _coordination_loop(self) -> None:
-        """Background loop: periodic cross-sovereign coordination with circuit breaker and adaptive interval."""
-        import time
-        while self._running and not self._stop_event.is_set():
-            try:
-                # Circuit breaker check
-                if self._consecutive_errors >= self._circuit_breaker_threshold:
-                    if time.time() < self._circuit_open_until:
-                        _logger.warning(
-                            "SystemAutomationCoordinator circuit breaker open, waiting %.0fs",
-                            self._circuit_open_until - time.time(),
-                        )
-                        await asyncio.sleep(60)
-                        continue
-                    else:
-                        # Reset circuit breaker after timeout
-                        self._consecutive_errors = 0
-                        self._circuit_open_until = 0.0
-                        _logger.info("SystemAutomationCoordinator circuit breaker reset")
-
-                await self._coordination_cycle()
-                # Success - reset error count
-                self._consecutive_errors = 0
-            except asyncio.CancelledError:
-                raise
-            except Exception as error:
-                self._consecutive_errors += 1
-                if self._consecutive_errors >= self._circuit_breaker_threshold:
-                    self._circuit_open_until = time.time() + 300  # 5 minutes
-                    _logger.warning(
-                        "SystemAutomationCoordinator circuit breaker opened for 5 minutes after %d errors",
-                        self._consecutive_errors,
-                    )
-                _logger.warning(
-                    "system automation coordination error: %s", error
-                )
-            try:
-                await asyncio.wait_for(
-                    self._stop_event.wait(),
-                    timeout=self._adaptive_interval,
-                )
-            except asyncio.TimeoutError:
-                continue
-            except asyncio.CancelledError:
-                raise
 
     async def _coordination_cycle(self) -> None:
         """One coordination cycle: aggregate health, detect degradation, route."""

@@ -31,7 +31,6 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
 
     INTERVAL_SECONDS = 24 * 60 * 60
     FAILURE_RETRY_SECONDS = 15 * 60
-    STARTUP_DELAY_SECONDS = 60
     MODULE_CLEANUP_COMMAND = "toolbox_run_local_cleanup"
     MODULE_CLEANUP_TIMEOUT_SECONDS = 90
     STALE_RECORD_SECONDS = 2 * 24 * 60 * 60
@@ -57,7 +56,6 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
             / "daily-global-cleaner.json"
         )
         self._stop_event = asyncio.Event()
-        self._task: asyncio.Task[Any] | None = None
         self._run_lock = asyncio.Lock()
 
     @staticmethod
@@ -273,12 +271,11 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
                 pausable=True,
             )
             return
-        if self._task is None or self._task.done():
-            self._stop_event.clear()
-            self._task = asyncio.create_task(
-                self._run_loop(),
-                name="daily-global-cleaner",
-            )
+        # 單一排程者語意：無核心亦無共享排程器時不回落私有迴圈。
+        _logger.warning(
+            "DailyGlobalCleanerService not started: no automation core "
+            "or periodic scheduler"
+        )
 
     async def stop(self) -> None:
         self._stop_event.set()
@@ -288,13 +285,9 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
             core.unregister("daily-global-cleaner")
         elif scheduler is not None:
             scheduler.unregister("daily-global-cleaner")
-        if self._task is not None:
-            self._task.cancel()
-            await asyncio.gather(self._task, return_exceptions=True)
-            self._task = None
 
     async def _scheduled_tick(self) -> None:
-        """One due-check for the shared scheduler (same body as _run_loop)."""
+        """One due-check for the shared scheduler."""
         if self._stop_event.is_set():
             return
         try:
@@ -319,53 +312,5 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
                 self._save_state(state)
             except OSError:
                 pass
-
-    async def _run_loop(self) -> None:
-        try:
-            await asyncio.wait_for(
-                self._stop_event.wait(),
-                timeout=self.STARTUP_DELAY_SECONDS,
-            )
-            return
-        except asyncio.TimeoutError:
-            pass
-        while not self._stop_event.is_set():
-            try:
-                if self.is_due():
-                    await self.run_if_due()
-            except asyncio.CancelledError:
-                raise
-            except Exception as error:
-                state = self._load_state()
-                state.update(
-                    {
-                        "last_ok": False,
-                        "last_status": "unexpected_failure",
-                        "last_completed_at": self._iso_now(),
-                        "last_error": {
-                            "error_code": "GLOBAL_CLEANER_UNEXPECTED_FAILURE",
-                            "message": f"{type(error).__name__}: {error}",
-                        },
-                    }
-                )
-                try:
-                    self._save_state(state)
-                except OSError:
-                    pass
-            wait_seconds = max(
-                1.0,
-                min(
-                    60 * 60,
-                    self._next_due_epoch(self._load_state()) - time.time(),
-                ),
-            )
-            try:
-                await asyncio.wait_for(
-                    self._stop_event.wait(),
-                    timeout=wait_seconds,
-                )
-            except asyncio.TimeoutError:
-                continue
-
 
 __all__ = ["DailyGlobalCleanerService"]
