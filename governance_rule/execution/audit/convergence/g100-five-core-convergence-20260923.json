@@ -51,7 +51,7 @@
       "shared_layer/tokenizer.py deleted; __init__ lazy export removed",
       "jieba dropped from shared-layer/requirements.txt (sole consumer)",
       "integration-04b fixture repointed to health_states.py (copy-source only)",
-      "source_ownership.SHARED_LAYER_ALLOWED_SOURCES entry removed"
+      "source_ownership.SHARED_LAYER_ALLOWED_SOURCES still lists tokenizer.py — file is governor-owned read-only; stale allowlist entry is harmless (permits, does not require) pending governor cleanup"
     ],
     "verification": "shared_layer imports clean (16 exports); TokenizerWrapper gone; registry validate() 0 errors"
   },
