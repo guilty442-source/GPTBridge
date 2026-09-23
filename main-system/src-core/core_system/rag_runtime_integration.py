@@ -543,6 +543,13 @@ class RagRuntimeIntegration:
         self._dag_planner = RagDagPlanner()
         self._cag_store = CagCacheStore()
         self._content_resolvers = ContentResolverRegistry()
+        # 'document' content resolves against the canonical store itself —
+        # PostgreSQL is the content authority (chunk.metadata.content);
+        # owning modules may still override by registering their own
+        # resolver on app.rag_content_resolvers.
+        self._content_resolvers.register(
+            _PostgresContentResolver(lambda: self._pipeline)
+        )
 
         self._service = RagApplicationService(
             self._orchestrator,
@@ -554,6 +561,7 @@ class RagRuntimeIntegration:
             audit_sink=_audit_sink,
             dag_planner=self._dag_planner,
             index_executor_factory=self._index_executor_factory,
+            repair_executor_factory=self._repair_executor_factory,
         )
 
         self._query_service = RagQueryService(
@@ -854,6 +862,19 @@ class RagRuntimeIntegration:
         future = self._init_future
         if future is not None and not future.done():
             future.cancel()
+        # Release the maintenance driver before teardown — no in-flight
+        # tick may re-enter a stopped pipeline.
+        core = getattr(self.app, "automation_core", None)
+        if core is not None and self._maintenance_registered:
+            try:
+                core.unregister("rag-maintenance")
+            except Exception:
+                pass
+        self._maintenance_registered = False
+        task = self._maintenance_task
+        if task is not None and not task.done():
+            task.cancel()
+        self._maintenance_task = None
         for attr in (
             "rag_service",
             "rag_orchestrator",

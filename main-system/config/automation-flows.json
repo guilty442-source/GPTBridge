@@ -49,6 +49,14 @@
       "enabled": true,
       "description": "PG/SQLite/reconcile/backup 維護信號 tick；控制器 start(spawn_loop=False)，核心以 to_thread 驅動 run_once"
     },
+    "rag-maintenance": {
+      "owner": "rag-runtime-integration / CanonicalRagPipeline",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": true,
+      "description": "canonical RAG 維護循環（outbox 租約回收＋未完成工作 drain＋tombstone 驗證後 purge＋慢頻 parity 修復）；在 RAG worker loop 上有界執行"
+    },
     "permission-automation-lifecycle": {
       "owner": "permission sovereign / PermissionLifecycleManager",
       "kind": "periodic",
