@@ -7,7 +7,10 @@
     "governance_rule\\execution\\audit\\convergence\\p6-python-mechanical-inventory-20260923.json"
   ],
   "status_counts": {
-    "PRIMARY": 41
+    "PRIMARY": 41,
+    "LEGACY_RETIRED": 4,
+    "OBSERVATION_PENDING": 1,
+    "SHADOW": 7
   },
   "components": [
     {
@@ -296,6 +299,34 @@
       "runtime_form": "python-process",
       "migration_state": "retain-governance",
       "status": "PRIMARY"
+    },
+    {
+      "component_id": "global-cleaner",
+      "core": null,
+      "runtime_form": "standalone-service",
+      "migration_state": "retired",
+      "status": "LEGACY_RETIRED"
+    },
+    {
+      "component_id": "language-review",
+      "core": null,
+      "runtime_form": "python-process",
+      "migration_state": "retired",
+      "status": "LEGACY_RETIRED"
+    },
+    {
+      "component_id": "sub-sovereign-orchestration",
+      "core": null,
+      "runtime_form": "python-process",
+      "migration_state": "retired",
+      "status": "LEGACY_RETIRED"
+    },
+    {
+      "component_id": "tokenizer",
+      "core": null,
+      "runtime_form": "python-process",
+      "migration_state": "retire",
+      "status": "LEGACY_RETIRED"
     }
   ],
   "shadow_surfaces": [
@@ -313,63 +344,79 @@
       "owning_component": "boot-core",
       "core": "runtime",
       "mode": "shadow",
-      "status": "OBSERVATION_PENDING",
-      "open_dimensions": [],
-      "note": "wireable parity closed; release observation windows pending (P5)"
+      "status": "SHADOW",
+      "open_dimensions": [
+        "cancel",
+        "deadline"
+      ],
+      "note": null
     },
     {
       "module": "maintenance_controller",
       "owning_component": "boot-core",
       "core": "runtime",
       "mode": "shadow",
-      "status": "OBSERVATION_PENDING",
-      "open_dimensions": [],
-      "note": "wireable parity closed; release observation windows pending (P5)"
+      "status": "SHADOW",
+      "open_dimensions": [
+        "cancel",
+        "deadline"
+      ],
+      "note": null
     },
     {
       "module": "model_service_activation",
       "owning_component": "boot-core",
       "core": "runtime",
       "mode": "shadow",
-      "status": "OBSERVATION_PENDING",
-      "open_dimensions": [],
-      "note": "wireable parity closed; release observation windows pending (P5)"
+      "status": "SHADOW",
+      "open_dimensions": [
+        "cancel"
+      ],
+      "note": null
     },
     {
       "module": "periodic_scheduler",
       "owning_component": "boot-core",
       "core": "runtime",
       "mode": "shadow",
-      "status": "OBSERVATION_PENDING",
-      "open_dimensions": [],
-      "note": "wireable parity closed; release observation windows pending (P5)"
+      "status": "SHADOW",
+      "open_dimensions": [
+        "cancel"
+      ],
+      "note": null
     },
     {
       "module": "request_registry",
       "owning_component": "boot-core",
       "core": "runtime",
       "mode": "shadow",
-      "status": "OBSERVATION_PENDING",
-      "open_dimensions": [],
-      "note": "wireable parity closed; release observation windows pending (P5)"
+      "status": "SHADOW",
+      "open_dimensions": [
+        "deadline"
+      ],
+      "note": null
     },
     {
       "module": "runtime_state_registry",
       "owning_component": "boot-core",
       "core": "runtime",
       "mode": "shadow",
-      "status": "OBSERVATION_PENDING",
-      "open_dimensions": [],
-      "note": "wireable parity closed; release observation windows pending (P5)"
+      "status": "SHADOW",
+      "open_dimensions": [
+        "deadline"
+      ],
+      "note": null
     },
     {
       "module": "state_outbox",
       "owning_component": "boot-core",
       "core": "runtime",
       "mode": "shadow",
-      "status": "OBSERVATION_PENDING",
-      "open_dimensions": [],
-      "note": "wireable parity closed; release observation windows pending (P5)"
+      "status": "SHADOW",
+      "open_dimensions": [
+        "cancel"
+      ],
+      "note": null
     }
   ],
   "release_observation_windows": {
@@ -380,128 +427,147 @@
   "python_residency_not_migrated": [
     {
       "surface": "tasks/periodic_scheduler.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5 parity closure + 2 release windows"
     },
     {
       "surface": "tasks/connection_watchdog.py(+_mixins)",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5"
     },
     {
       "surface": "tasks/state_outbox.py(+_native_shadow)",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5"
     },
     {
       "surface": "tasks/model_service_activation.py(+_native_shadow)",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5"
     },
     {
       "surface": "core_system/request_registry.py(+_native_shadow)",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5"
     },
     {
       "surface": "core_system/runtime_state_registry.py(+runtime_state_native_shadow)",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5"
     },
     {
       "surface": "ipc/ipc_transport_native_shadow + server_*",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5"
     },
     {
       "surface": "tasks/maintenance_controller_native_shadow + maintenance_controller_integration",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11-runtime-core",
+      "blocked_by": "P4/P5"
     },
     {
       "surface": "tasks/git_automation.py + governance_rule/execution/git_tiers/*",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "csharp-automation-core",
+      "blocked_by": "P18 (claimed @devin-cli 04:53Z)"
     },
     {
       "surface": "tasks/hot_reload_watcher.py(+_health)",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "csharp-or-c11",
+      "blocked_by": "unclaimed; candidate for native-shadow wave 2"
     },
     {
       "surface": "tasks/perf_baseline_job.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "csharp",
+      "blocked_by": "unclaimed"
     },
     {
       "surface": "core_system/diagnostics.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "c11",
+      "blocked_by": "unclaimed"
     },
     {
       "surface": "core_system/update_manager*.py + third_party_manager_updates.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "csharp-automation-core",
+      "blocked_by": "unclaimed"
     },
     {
       "surface": "core_system/permission_automation_{audit,compliance,directory,healing,lifecycle}.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "cpp-audit-engine + csharp-orchestration",
+      "blocked_by": "unclaimed; permission-core wave"
     },
     {
       "surface": "core_system/resource_maintenance.py + main_system_self_maintenance.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "c11",
+      "blocked_by": "unclaimed"
     },
     {
       "surface": "core_system/daily_global_cleaner_service*.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "csharp-automation-core",
+      "blocked_by": "unclaimed"
     },
     {
       "surface": "core_system/system_automation_coordinator.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "csharp-automation-core",
+      "blocked_by": "unclaimed — sole-scheduler rule: must migrate INTO the single automation scheduler, not create a second"
     },
     {
       "surface": "ipc/server_handler*.py + server_lifecycle/tokens",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "shadow-in-flight",
+      "target": "c11",
+      "blocked_by": "P4/P5"
     },
     {
       "surface": "backend_gateway.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "c11-or-csharp",
+      "blocked_by": "unclaimed"
     },
     {
       "surface": "shared_layer/channel*.py + connection_mixin + heartbeat_mixin",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "csharp-channel",
+      "blocked_by": "unclaimed"
     },
     {
       "surface": "shared_layer/database/connection.py + reconcile_stress.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "db-engine + csharp",
+      "blocked_by": "P19 (SQL remediation, claimed)"
     },
     {
       "surface": "shared_layer/workflow/saga.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "csharp",
+      "blocked_by": "P13 (C# orchestration lifecycle)"
     },
     {
       "surface": "shared_layer/adaptive/gpu_coordinator.py",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "c11 (resource governor native)",
+      "blocked_by": "unclaimed"
     },
     {
       "surface": "startup_core/resident_core.py",
-      "disposition": null,
-      "blocked_by": null
-    },
-    {
-      "surface": "python test orchestration (push_gate suite runner, scripts/*acceptance)",
-      "disposition": null,
-      "blocked_by": null
+      "disposition": "unclaimed",
+      "target": "c11-runtime-core resident主体",
+      "blocked_by": "P4/P5 — this IS the bootstrap of the C11 resident主体"
     }
   ]
 }

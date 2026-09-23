@@ -369,26 +369,26 @@ class CanonicalRagBackend:
         chunk_ids = []
         now = time.time()
 
-        for i, chunk in enumerate(request.chunks):
-            chunk_ids.append(chunk.chunk_id)
-            cur.execute(
-                """
-                INSERT INTO gptbridge_rag.chunks
-                (chunk_id, resource_id, module_id, generation_id,
-                 content, content_hash, sequence, character_start, character_end,
-                 chunk_policy_version, version, state, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, to_timestamp(%s), to_timestamp(%s))
-                ON CONFLICT (chunk_id) DO UPDATE SET
-                    content = EXCLUDED.content,
-                    content_hash = EXCLUDED.content_hash,
-                    sequence = EXCLUDED.sequence,
-                    character_start = EXCLUDED.character_start,
-                    character_end = EXCLUDED.character_end,
-                    chunk_policy_version = EXCLUDED.chunk_policy_version,
-                    version = EXCLUDED.version,
-                    state = EXCLUDED.state,
-                    updated_at = EXCLUDED.updated_at
-                """,
+        # G102: one executemany round trip for the whole chunk batch.
+        cur.executemany(
+            """
+            INSERT INTO gptbridge_rag.chunks
+            (chunk_id, resource_id, module_id, generation_id,
+             content, content_hash, sequence, character_start, character_end,
+             chunk_policy_version, version, state, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, to_timestamp(%s), to_timestamp(%s))
+            ON CONFLICT (chunk_id) DO UPDATE SET
+                content = EXCLUDED.content,
+                content_hash = EXCLUDED.content_hash,
+                sequence = EXCLUDED.sequence,
+                character_start = EXCLUDED.character_start,
+                character_end = EXCLUDED.character_end,
+                chunk_policy_version = EXCLUDED.chunk_policy_version,
+                version = EXCLUDED.version,
+                state = EXCLUDED.state,
+                updated_at = EXCLUDED.updated_at
+            """,
+            [
                 (
                     chunk.chunk_id,
                     request.resource_id,
@@ -403,8 +403,12 @@ class CanonicalRagBackend:
                     version,
                     LifecycleState.INDEX_PENDING.value,
                     now, now,
-                ),
-            )
+                )
+                for chunk in request.chunks
+            ],
+        )
+        for chunk in request.chunks:
+            chunk_ids.append(chunk.chunk_id)
         return chunk_ids
 
     def _create_outbox_event(

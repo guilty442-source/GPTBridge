@@ -48,10 +48,17 @@ class RagDagState(str, Enum):
 
 
 class RagDagKind(str, Enum):
-    """Bounded DAG kinds (A549)."""
+    """Bounded DAG kinds (A549).
+
+    ``RETRIEVAL_CHAIN`` covers the retrieval-plane chain
+    (retrieval → fusion → rerank → context-build).  It deliberately
+    ends before MODEL_INFERENCE/CITATION_VALIDATION: the retrieval
+    layer produces evidence + context, generation happens downstream —
+    a retrieval chain must never fabricate ``answer_text`` evidence."""
 
     QUERY = "query"
     MULTI_RAG = "multi-rag"
+    RETRIEVAL_CHAIN = "retrieval-chain"
     INDEX = "index"
     REBUILD = "rebuild"
     REPAIR = "repair"

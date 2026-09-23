@@ -25,6 +25,51 @@ OUTPUT = Path(__file__).with_name("five-core-mapping.json")
 
 CORES = ("decision", "permission", "runtime", "automation", "xingcheng-assistant")
 
+_SHADOW_FILES: dict[str, tuple[str, str]] = {
+    "connection_watchdog": (
+        "main-system/src-core/tasks/connection_watchdog.py",
+        "main-system/src-core/tasks/connection_watchdog_native_shadow.py",
+    ),
+    "periodic_scheduler": (
+        "main-system/src-core/tasks/periodic_scheduler.py",
+        "main-system/src-core/tasks/periodic_scheduler_native_shadow.py",
+    ),
+    "state_outbox": (
+        "main-system/src-core/tasks/state_outbox.py",
+        "main-system/src-core/tasks/state_outbox_native_shadow.py",
+    ),
+    "maintenance_controller": (
+        "main-system/src-core/core_system/maintenance_controller_integration.py",
+        "main-system/src-core/tasks/maintenance_controller_native_shadow.py",
+    ),
+    "request_registry": (
+        "main-system/src-core/core_system/request_registry.py",
+        "main-system/src-core/core_system/request_registry_native_shadow.py",
+    ),
+    "ipc_server": (
+        "main-system/src-core/ipc/server_handler.py",
+        "main-system/src-core/ipc/ipc_transport_native_shadow.py",
+    ),
+    "runtime_state_registry": (
+        "main-system/src-core/core_system/runtime_state_registry.py",
+        "main-system/src-core/core_system/runtime_state_native_shadow.py",
+    ),
+    "model_service_activation": (
+        "main-system/src-core/tasks/model_service_activation.py",
+        "main-system/src-core/tasks/model_service_activation_native_shadow.py",
+    ),
+}
+
+
+def _shadow_paths(module_name: str) -> tuple[str, str]:
+    entry = _SHADOW_FILES.get(module_name)
+    if entry is None:
+        raise SystemExit(f"unregistered dual-track module: {module_name}")
+    for rel in entry:
+        if not (ROOT / rel).is_file():
+            raise SystemExit(f"dual-track path missing: {rel}")
+    return entry
+
 
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -125,14 +170,15 @@ def build_mapping() -> dict:
     # attach them to their owning component's core.
     shadow_entries = []
     for module_name, spec in sorted(shadow.items()):
-        py_rel = f"main-system/src-core/core_system/{module_name}.py"
-        owner = owner_of_path(py_rel) or "main-system"
+        primary_rel, harness_rel = _shadow_paths(module_name)
+        owner = owner_of_path(primary_rel) or "main-system"
         shadow_entries.append(
             {
                 "module": module_name,
                 "mode": spec.get("mode"),
                 "owning_component": owner,
-                "path": py_rel,
+                "path": primary_rel,
+                "shadow_harness": harness_rel,
             }
         )
     for entry in shadow_entries:

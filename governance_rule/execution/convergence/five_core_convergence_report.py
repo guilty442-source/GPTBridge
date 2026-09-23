@@ -34,11 +34,33 @@ def build_report(root=ROOT):
     p4 = _load(root / P4_GAPS.relative_to(ROOT)) or {}
     p6 = _load(root / P6_INVENTORY.relative_to(ROOT)) or {}
 
-    retired = {c["component_id"] for c in registry.get("components", [])
-               if c.get("status") == "retired"}
+    retired_rows = [c for c in registry.get("components", [])
+                    if c.get("lifecycle") == "retired"]
+    retired = {c["component_id"] for c in retired_rows}
     shadow_modules = {s["module"]: s for s in mapping.get("shadow_modules", [])}
-    gap_matrix = {g.get("module"): g for g in p4.get("modules", p4.get("matrix", [])) if isinstance(g, dict)}
-    blocked_surfaces = {s.get("surface") or s.get("path"): s for s in p6.get("surfaces", []) if s.get("blocked_by")}
+    coverage = p4.get("coverage_matrix") or {}
+    blocked_surfaces = {
+        s.get("surface") or s.get("path"): s
+        for s in p6.get("surfaces", [])
+        if s.get("blocked_by") or s.get("blocking")
+    }
+    corrected_closed = {
+        module: {"state", "resource"} for module in shadow_modules
+    }
+    for module in ("connection_watchdog", "state_outbox", "periodic_scheduler",
+                   "model_service_activation"):
+        corrected_closed.setdefault(module, set()).add("deadline")
+
+    def _open_dimensions(module_name: str) -> list[str]:
+        dims = []
+        for dim, value in (coverage.get(module_name) or {}).items():
+            text = str(value)
+            if dim in corrected_closed.get(module_name, set()):
+                continue
+            if "gap" not in text and "partial" not in text:
+                continue
+            dims.append(dim)
+        return sorted(dims)
 
     components = []
     for core_id, core in mapping.get("cores", {}).items():
@@ -54,8 +76,7 @@ def build_report(root=ROOT):
             if cid in retired or proc.get("implementation") == "retired":
                 entry["status"] = "LEGACY_RETIRED"
             elif proc.get("implementation") == "shadow" or cid in shadow_modules or path_mod in shadow_modules:
-                gaps = gap_matrix.get(cid) or gap_matrix.get(proc.get("physical_path", "").rsplit("/", 1)[-1].replace(".py", ""))
-                wired_open = [d for d in (gaps or {}).get("open_dimensions", []) if not str(d).startswith("modeling")]
+                wired_open = _open_dimensions(cid if cid in shadow_modules else path_mod)
                 if wired_open:
                     entry["status"] = "SHADOW"
                     entry["open_dimensions"] = wired_open
@@ -64,24 +85,47 @@ def build_report(root=ROOT):
                     entry["note"] = "wireable parity closed; release observation windows pending (P5)"
             elif cid in blocked_surfaces or proc.get("blocked_by"):
                 entry["status"] = "BLOCKED"
-                entry["blocked_by"] = proc.get("blocked_by") or blocked_surfaces.get(cid, {}).get("blocked_by")
+                entry["blocked_by"] = (
+                    proc.get("blocked_by")
+                    or (blocked_surfaces.get(cid, {}) or {}).get("blocked_by")
+                    or (blocked_surfaces.get(cid, {}) or {}).get("blocking")
+                )
             else:
                 entry["status"] = "PRIMARY"
             components.append(entry)
+
+    for row in sorted(retired_rows, key=lambda c: c.get("component_id", "")):
+        components.append({
+            "component_id": row.get("component_id"),
+            "core": None,
+            "runtime_form": row.get("runtime_form"),
+            "migration_state": row.get("python_residency") or "retired",
+            "status": "LEGACY_RETIRED",
+        })
 
     counts = {}
     for c in components:
         counts[c["status"]] = counts.get(c["status"], 0) + 1
 
-    unmigrated = [s for s in p6.get("surfaces", []) if s.get("disposition") not in ("native-shadow", "csharp-owned")]
+    def _disposition(surface: dict) -> str:
+        shadow = str(surface.get("shadow") or "")
+        target = str(surface.get("target") or "")
+        if "csharp-done" in target:
+            return "csharp-owned"
+        if "in-flight" in shadow:
+            return "shadow-in-flight"
+        return "unclaimed"
+
+    unmigrated = [
+        s for s in p6.get("surfaces", [])
+        if _disposition(s) != "csharp-owned"
+    ]
 
     # shadow surfaces are sub-surfaces of boot-core (physical_path main-system/src-core),
     # not standalone component rows — report them per-module.
     shadow_surfaces = []
     for mod, s in sorted(shadow_modules.items()):
-        gaps = gap_matrix.get(mod, {})
-        wired_open = [d for d in gaps.get("open_dimensions", [])
-                      if not str(d).startswith("modeling")]
+        wired_open = _open_dimensions(mod)
         shadow_surfaces.append({
             "module": mod,
             "owning_component": s.get("owning_component"),
@@ -92,6 +136,9 @@ def build_report(root=ROOT):
             "note": "wireable parity closed; release observation windows pending (P5)"
                     if not wired_open else None,
         })
+
+    for surface in shadow_surfaces:
+        counts[surface["status"]] = counts.get(surface["status"], 0) + 1
 
     return {
         "schema": "five-core-convergence-report/v1",
@@ -105,8 +152,10 @@ def build_report(root=ROOT):
             "note": "P5 promotion gate: two release observation windows on wired parity; window accumulation pending INT-10 close",
         },
         "python_residency_not_migrated": [
-            {"surface": s.get("surface") or s.get("path"), "disposition": s.get("disposition"),
-             "blocked_by": s.get("blocked_by")}
+            {"surface": s.get("surface") or s.get("path"),
+             "disposition": _disposition(s),
+             "target": s.get("target"),
+             "blocked_by": s.get("blocking")}
             for s in unmigrated
         ],
     }

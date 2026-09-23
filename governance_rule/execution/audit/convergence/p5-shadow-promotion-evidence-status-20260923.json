@@ -1,0 +1,136 @@
+{
+  "schema": "gptbridge-convergence-evidence/v1",
+  "item": "P5",
+  "increment": "shadow→primary promotion evidence status — 8 components × 7 failure modes × 2 release observation windows",
+  "executed_at": "2026-09-23T07:10:00Z",
+  "worker": "codex-worker",
+  "method": "harness/primary call-site verification per component; window status from release-retention state, INTEGRATION-10 window reports and convergence evidence; no code or codex mutation",
+  "window_requirement": {
+    "codex_basis": "A572 (observation window concept: cleaner removes staging only after the observation window; tier demotion only after stability across the window + verified backup + confirmed rollback; the codex fixes no count/duration)",
+    "program_basis": [
+      "blueprint P5: 未完成兩個合規 release 觀察窗者維持 shadow",
+      "governed-tool-runtime-abi-v1.md:140: shadow 並行 → primary（≥2 release 觀察窗）→ retire",
+      "unit-primary-retire-20260922.json:7: 觀察窗 ≥2 release 週期（~60d），RSS p95 < 前基線、ready ≤1.72s、idle CPU ≤3%"
+    ],
+    "discrepancy": "module-language-migration-order-20260922.md:25 states the M1→M2 gate is ≥1 release cycle; blueprint P5 requires 2 windows. Must be unified by governor ruling before any promotion.",
+    "required_windows": 2,
+    "completed_windows": 0,
+    "promotion_denied_reason": "no qualifying window completed; per-component failure-mode evidence absent"
+  },
+  "current_window": {
+    "id": "INTEGRATION-10 24h acceptance window (A570)",
+    "started_at_utc": "2026-09-22T14:50:00Z",
+    "ends_at_utc": "2026-09-23T14:50:00Z",
+    "status": "ACCUMULATING",
+    "latest_evaluation_utc": "2026-09-23T04:03:51Z",
+    "progress": "15.14h / 24h",
+    "failed_checks": ["uptime_24h", "resource_budget"],
+    "note": "39 over-budget samples, all under regulation; earlier windows (3) aborted or incomplete; release-retention.json / release-retention.jsonl absent → no release ever recorded observation_passed_at; A575 release manifest not present in canonical schema; active-release-pointer.json absent"
+  },
+  "required_failure_modes": [
+    "denied-authorization",
+    "invalid-contract",
+    "missing-data",
+    "timeout",
+    "corruption",
+    "restart",
+    "failure-recovery"
+  ],
+  "components": {
+    "connection_watchdog": {
+      "mode": "shadow",
+      "python_authoritative": true,
+      "wired": true,
+      "parity_open_dimensions": [],
+      "promotion_state": "OBSERVATION_PENDING",
+      "failure_mode_evidence": "PENDING (all 7)",
+      "divergence_records": 0,
+      "evidence": "main-system/src-core/tasks/connection_watchdog_native_shadow.py; native/core/watchdog.c"
+    },
+    "periodic_scheduler": {
+      "mode": "shadow",
+      "python_authoritative": true,
+      "wired": true,
+      "parity_open_dimensions": ["cancel"],
+      "promotion_state": "BLOCKED (open parity dimension)",
+      "failure_mode_evidence": "PENDING (all 7)",
+      "divergence_records": 0,
+      "note": "native timeout check in scheduler.c is dead code (last_duration_ms stubbed 0); cancel only via unregister",
+      "evidence": "main-system/src-core/tasks/periodic_scheduler_native_shadow.py; native/core/scheduler.c"
+    },
+    "state_outbox": {
+      "mode": "shadow",
+      "python_authoritative": true,
+      "wired": true,
+      "parity_open_dimensions": ["cancel"],
+      "promotion_state": "BLOCKED (open parity dimension)",
+      "failure_mode_evidence": "PENDING (all 7)",
+      "divergence_records": 0,
+      "note": "unregister_session only; no cancel dimension modelled",
+      "evidence": "main-system/src-core/tasks/state_outbox_native_shadow.py; native/core/outbox.c"
+    },
+    "maintenance_controller": {
+      "mode": "shadow",
+      "python_authoritative": true,
+      "wired": true,
+      "parity_open_dimensions": ["cancel", "deadline"],
+      "promotion_state": "BLOCKED (open parity dimension)",
+      "failure_mode_evidence": "PENDING (all 7)",
+      "divergence_records": 0,
+      "note": "Python-side job cancel persistence is a no-op (shared_layer/database/maintenance/scheduler.py:311-313 'pass — persist cancellation'); no numeric deadline compare",
+      "evidence": "main-system/src-core/tasks/maintenance_controller_native_shadow.py; native/core/maintenance.c"
+    },
+    "request_registry": {
+      "mode": "shadow",
+      "python_authoritative": true,
+      "wired": true,
+      "parity_open_dimensions": ["deadline"],
+      "promotion_state": "BLOCKED (open parity dimension)",
+      "failure_mode_evidence": "PENDING (all 7)",
+      "divergence_records": 0,
+      "note": "C created_at_ms zeroed and started_at_ms never set (native/core/ipc_registry.c:20); non-terminal 'requested' state not mirrored",
+      "evidence": "main-system/src-core/core_system/request_registry_native_shadow.py; native/core/ipc_registry.c"
+    },
+    "ipc_server": {
+      "mode": "shadow",
+      "python_authoritative": true,
+      "wired": true,
+      "parity_open_dimensions": ["cancel", "deadline"],
+      "promotion_state": "BLOCKED (open parity dimension)",
+      "failure_mode_evidence": "PENDING (all 7)",
+      "divergence_records": 0,
+      "note": "harness exposes only observe_inbound; widening requires a Python request-lifecycle table first (feature work); NativeIpcRegistry.cancel unobserved",
+      "evidence": "main-system/src-core/ipc/ipc_transport_native_shadow.py; ipc/server_handler.py"
+    },
+    "runtime_state_registry": {
+      "mode": "shadow",
+      "python_authoritative": true,
+      "wired": true,
+      "parity_open_dimensions": ["deadline"],
+      "promotion_state": "BLOCKED (open parity dimension)",
+      "failure_mode_evidence": "PENDING (all 7)",
+      "divergence_records": 0,
+      "note": "heartbeat staleness semantics absent in the Python authoritative model (aggregate = counts only)",
+      "evidence": "main-system/src-core/core_system/runtime_state_native_shadow.py; native/core/runtime_state.c"
+    },
+    "model_service_activation": {
+      "mode": "shadow",
+      "python_authoritative": true,
+      "wired": true,
+      "parity_open_dimensions": ["cancel"],
+      "promotion_state": "BLOCKED (open parity dimension + unresolved divergence)",
+      "failure_mode_evidence": "PENDING (all 7)",
+      "divergence_records": 2,
+      "note": "2 real divergence records (2026-09-22T15:12:41Z, 15:16:30Z): Python 'should-release' vs native 'idle' with pending=false, regulation_active=true, liveness_known=true, owner_active=true — unresolved",
+      "evidence": "main-system/runtime/logs/native-shadow/model-service-activation.jsonl; native/core/activation_broker.c"
+    }
+  },
+  "promotion_rule": "insufficient failure-mode evidence or <2 qualifying windows → remain shadow; no automatic upgrade; promotion requires codex-first transition (A604 successor procedure), five-sovereign audit and governor seal",
+  "residuals": [
+    "per-component governed fault-injection evidence for the 7 failure modes does not exist (only harness unit tests)",
+    "release observation windows: 0/2 completed; release retention registry never populated",
+    "window-count discrepancy (blueprint 2 vs module-language-migration-order 1) needs governor ruling",
+    "7/8 divergence logs absent; only model-service-activation has records (2 unresolved divergences)"
+  ],
+  "codex_mutation": "none"
+}

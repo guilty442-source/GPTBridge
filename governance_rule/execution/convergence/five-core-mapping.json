@@ -725,35 +725,40 @@
    "module": "connection_watchdog",
    "mode": "shadow",
    "owning_component": "boot-core",
-   "path": "main-system/src-core/core_system/connection_watchdog.py",
+   "path": "main-system/src-core/tasks/connection_watchdog.py",
+   "shadow_harness": "main-system/src-core/tasks/connection_watchdog_native_shadow.py",
    "core": "runtime"
   },
   {
    "module": "ipc_server",
    "mode": "shadow",
    "owning_component": "boot-core",
-   "path": "main-system/src-core/core_system/ipc_server.py",
+   "path": "main-system/src-core/ipc/server_handler.py",
+   "shadow_harness": "main-system/src-core/ipc/ipc_transport_native_shadow.py",
    "core": "runtime"
   },
   {
    "module": "maintenance_controller",
    "mode": "shadow",
    "owning_component": "boot-core",
-   "path": "main-system/src-core/core_system/maintenance_controller.py",
+   "path": "main-system/src-core/core_system/maintenance_controller_integration.py",
+   "shadow_harness": "main-system/src-core/tasks/maintenance_controller_native_shadow.py",
    "core": "runtime"
   },
   {
    "module": "model_service_activation",
    "mode": "shadow",
    "owning_component": "boot-core",
-   "path": "main-system/src-core/core_system/model_service_activation.py",
+   "path": "main-system/src-core/tasks/model_service_activation.py",
+   "shadow_harness": "main-system/src-core/tasks/model_service_activation_native_shadow.py",
    "core": "runtime"
   },
   {
    "module": "periodic_scheduler",
    "mode": "shadow",
    "owning_component": "boot-core",
-   "path": "main-system/src-core/core_system/periodic_scheduler.py",
+   "path": "main-system/src-core/tasks/periodic_scheduler.py",
+   "shadow_harness": "main-system/src-core/tasks/periodic_scheduler_native_shadow.py",
    "core": "runtime"
   },
   {
@@ -761,6 +766,7 @@
    "mode": "shadow",
    "owning_component": "boot-core",
    "path": "main-system/src-core/core_system/request_registry.py",
+   "shadow_harness": "main-system/src-core/core_system/request_registry_native_shadow.py",
    "core": "runtime"
   },
   {
@@ -768,13 +774,15 @@
    "mode": "shadow",
    "owning_component": "boot-core",
    "path": "main-system/src-core/core_system/runtime_state_registry.py",
+   "shadow_harness": "main-system/src-core/core_system/runtime_state_native_shadow.py",
    "core": "runtime"
   },
   {
    "module": "state_outbox",
    "mode": "shadow",
    "owning_component": "boot-core",
-   "path": "main-system/src-core/core_system/state_outbox.py",
+   "path": "main-system/src-core/tasks/state_outbox.py",
+   "shadow_harness": "main-system/src-core/tasks/state_outbox_native_shadow.py",
    "core": "runtime"
   }
  ],

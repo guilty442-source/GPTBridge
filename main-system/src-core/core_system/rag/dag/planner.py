@@ -45,6 +45,11 @@ KIND_REQUIRED_NODE_TYPES: Mapping[RagDagKind, tuple[RagDagNodeType, ...]] = {
         RagDagNodeType.MODEL_INFERENCE,
         RagDagNodeType.CITATION_VALIDATION,
     ),
+    RagDagKind.RETRIEVAL_CHAIN: (
+        RagDagNodeType.RETRIEVAL,
+        RagDagNodeType.FUSION,
+        RagDagNodeType.CONTEXT_BUILD,
+    ),
     RagDagKind.MULTI_RAG: (
         RagDagNodeType.RETRIEVAL,
         RagDagNodeType.FUSION,
@@ -69,6 +74,11 @@ KIND_ORDERING: Mapping[RagDagKind, tuple[tuple[RagDagNodeType, RagDagNodeType], 
         (RagDagNodeType.RERANK, RagDagNodeType.CONTEXT_BUILD),
         (RagDagNodeType.CONTEXT_BUILD, RagDagNodeType.MODEL_INFERENCE),
         (RagDagNodeType.MODEL_INFERENCE, RagDagNodeType.CITATION_VALIDATION),
+    ),
+    RagDagKind.RETRIEVAL_CHAIN: (
+        (RagDagNodeType.RETRIEVAL, RagDagNodeType.FUSION),
+        (RagDagNodeType.FUSION, RagDagNodeType.RERANK),
+        (RagDagNodeType.RERANK, RagDagNodeType.CONTEXT_BUILD),
     ),
     RagDagKind.MULTI_RAG: (
         (RagDagNodeType.CACHE_LOOKUP, RagDagNodeType.CACHE_VALIDATE),
@@ -118,6 +128,7 @@ class RagDagPlanner:
         builders = {
             RagDagKind.QUERY: self._build_query,
             RagDagKind.MULTI_RAG: self._build_multi_rag,
+            RagDagKind.RETRIEVAL_CHAIN: self._build_retrieval_chain,
             RagDagKind.INDEX: self._build_index,
             RagDagKind.REBUILD: self._build_rebuild,
             RagDagKind.REPAIR: self._build_repair,
@@ -357,6 +368,46 @@ class RagDagPlanner:
                 RagDagNodeType.CITATION_VALIDATION,
                 {"answer_text": "model-inference.answer_text", "citations": "$citations"},
                 dependencies=("model-inference",),
+            ),
+        )
+        return self._plan(request, context, nodes)
+
+    def _build_retrieval_chain(
+        self, request: RagDagPlanRequest, context: RagDagExecutionContext
+    ) -> RagDagPlan:
+        """retrieval → fusion → rerank → context-build — the honest
+        retrieval-plane chain; no inference/citation nodes because the
+        retrieval layer must never fabricate answer evidence."""
+        nodes = (
+            self._node(
+                "retrieval",
+                RagDagNodeType.RETRIEVAL,
+                {
+                    "query": "$query",
+                    "module_ids": list(request.module_ids),
+                    "scope": context.permission_scope,
+                },
+            ),
+            self._node(
+                "fusion",
+                RagDagNodeType.FUSION,
+                {"candidate_sets": ["retrieval.candidates"]},
+                dependencies=("retrieval",),
+            ),
+            self._node(
+                "rerank",
+                RagDagNodeType.RERANK,
+                {"fused_candidates": "fusion.fused_candidates", "reranker_limit": 20},
+                dependencies=("fusion",),
+            ),
+            self._node(
+                "context-build",
+                RagDagNodeType.CONTEXT_BUILD,
+                {
+                    "reranked_candidates": "rerank.reranked_candidates",
+                    "max_context_tokens": 8000,
+                },
+                dependencies=("rerank",),
             ),
         )
         return self._plan(request, context, nodes)

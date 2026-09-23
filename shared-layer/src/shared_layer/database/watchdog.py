@@ -103,6 +103,7 @@ def check_long_transactions(
     """
     rows = connection.execute(_LONG_TX_QUERY, (threshold_seconds,)).fetchall()
     results: list[dict[str, Any]] = []
+    inserts: list[tuple[Any, ...]] = []
     for r in rows:
         pid = int(r[0])
         session_user = str(r[1]) if r[1] else "unknown"
@@ -118,10 +119,9 @@ def check_long_transactions(
                 action = "terminated"
             except Exception:
                 action = "terminate_failed"
-        connection.execute(
-            _INSERT_WATCHDOG,
+        inserts.append(
             (pid, session_user, state, query_text, tx_age,
-             idle_age, lock_holder, threshold_seconds, action),
+             idle_age, lock_holder, threshold_seconds, action)
         )
         results.append({
             "pid": pid,
