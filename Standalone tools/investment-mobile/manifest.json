@@ -110,7 +110,8 @@
     "tests/test_investment_mobile_reexport.py",
     "tests/test_trading_engines.py",
     "tests/test_market_acceptance.py",
-    "tests/test_fund_acceptance.py"
+    "tests/test_fund_acceptance.py",
+    "tests/test_intelligence_acceptance.py"
   ],
   "product": "星澄 AI 投資管理與自動操盤系統",
   "trading_system": {
@@ -125,6 +126,7 @@
       "broker",
       "mutual-fund",
       "ai-analysis",
+      "ai-intelligence",
       "backtest",
       "audit"
     ],
@@ -136,7 +138,8 @@
       "portfolio",
       "broker-adapter",
       "trading-audit",
-      "mutual-fund"
+      "mutual-fund",
+      "ai-intelligence"
     ],
     "business_domains_owner": "ai-assistant:tw-stock,us-stock,fund,ai-analysis,auto-trading,asset-management,market-data",
     "trading_modes": [
@@ -180,6 +183,25 @@
       "sources": "manual-import + controlled CSV/XLSX/JSON file import; TDCC/provider feeds pending verification",
       "storage": "JSON journal + PostgreSQL gptbridge_trading fund_* (migration 136)",
       "research": "Qdrant star-financial-research-v1 for prospectus semantic retrieval"
+    },
+    "ai_intelligence": {
+      "engine": "InvestmentIntelligenceEngine (trading/intelligence/) — advisory only, separated from execution",
+      "analyzers": "TaiwanEquityIntelligence / USEquityIntelligence / MutualFundIntelligence / PortfolioIntelligence",
+      "pipeline": "market-data → validation → portfolio-context → market/instrument analysis → strategy-evaluation → risk → proposal → recommendation",
+      "model_router": "shared 星澄 runtime lanes (fast/research); lazy governed-channel consult; degraded rule-only when model down; no per-task models",
+      "safety": "AI cannot order/mutate accounts/modify risk/enable LIVE; external text is untrusted input",
+      "storage": "JSON journals + PostgreSQL gptbridge_trading (migration 137)"
+    },
+    "strategy_backtest": {
+      "strategy_engine": "trading/strategy/ — StrategyRegistry + immutable StrategyVersionService + validation (IS/validation/OOS/walk-forward, OOS consumed-once) + AI research (proposals land as DRAFT only)",
+      "strategy_types": "TREND_FOLLOWING/MEAN_REVERSION/MOMENTUM/BREAKOUT/MULTI_FACTOR/ASSET_ALLOCATION/PORTFOLIO_REBALANCING/FUND_RECURRING_INVESTMENT",
+      "backtest_engines": "BacktestEngine (equity, PIT-gated next-open fills) / FundBacktestEngine (NAV-priced, publish-delay + settlement) / PortfolioBacktestEngine (multi-account, explicit FX transfers)",
+      "pit": "signals only on confirmed bars; fills next bar; adjusted/raw explicit; survivorship flagged until verified membership source",
+      "costs": "TradingCostEngine — scoped fee rules per broker/account/market/direction; unverified rates marked assumed",
+      "execution_sim": "market/limit/partial/no-fill; slippage bps; same-bar stop/target conservative ordering; broker capability profiles (Fubon sub-brokerage ≠ US-native)",
+      "live_boundary": "LIVE_ELIGIBLE = validation passed only; no execution authorization; simulated fills never reach broker/account/position ledgers",
+      "queue": "bounded concurrency + cancel + timeout; results stale-marked when source revisions land",
+      "storage": "JSON journals + PostgreSQL gptbridge_trading (migration 138); mirrors to ai-assistant strategies/backtest_results"
     }
   }
 }

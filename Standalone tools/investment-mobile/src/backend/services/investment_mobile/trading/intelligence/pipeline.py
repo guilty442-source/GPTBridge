@@ -68,7 +68,25 @@ class AnalysisPipeline:
     def finish(self, run: AnalysisRun) -> AnalysisRun:
         run.finished_at = datetime.now(timezone.utc)
         run.degraded = bool(run.missing_data)
+        self._journal(run)
         return run
+
+    def runs(self, limit: int = 200) -> list[dict[str, Any]]:
+        path = self._runs_path()
+        if not path.exists():
+            return []
+        import json as _json
+        lines = path.read_text("utf-8").splitlines()[-int(limit):]
+        return [_json.loads(l) for l in lines if l.strip()]
+
+    def _journal(self, run: AnalysisRun) -> None:
+        import json as _json
+        path = self._runs_path()
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(_json.dumps(run.to_dict(), ensure_ascii=False) + "\n")
+
+    def _runs_path(self):
+        return self._evidence._path.parent / "analysis_runs.jsonl"
 
     # ------------------------------------------------------------------
     def build_recommendation(

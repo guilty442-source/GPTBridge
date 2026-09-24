@@ -30,7 +30,7 @@ class ProposalFactory:
             return clean
         p = clean["proposal"]
         iid = str(p.get("instrument_id") or "")
-        side = str(p.get("side") or "")
+        side = str(p.get("side") or "").lower()
         qty = Decimal(str(p.get("quantity") or 0))
         price = p.get("price")
         notional = Decimal(str(p.get("notional") or 0))

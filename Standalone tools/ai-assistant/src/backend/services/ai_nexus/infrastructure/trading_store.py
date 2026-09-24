@@ -240,7 +240,32 @@ CREATE TABLE IF NOT EXISTS analysis_runs (
     payload TEXT NOT NULL,
     recorded_at REAL NOT NULL
 );
+-- Strategy/backtest mirror (simulation records — never authoritative)
+CREATE TABLE IF NOT EXISTS strategies (
+    strategy_id TEXT PRIMARY KEY,
+    strategy_name TEXT,
+    strategy_type TEXT,
+    market TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'DRAFT',
+    payload TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS backtest_results (
+    run_id TEXT PRIMARY KEY,
+    strategy_id TEXT,
+    market TEXT,
+    total_return TEXT,
+    max_drawdown TEXT,
+    sharpe TEXT,
+    trade_count INTEGER NOT NULL DEFAULT 0,
+    simulated INTEGER NOT NULL DEFAULT 1,
+    stale INTEGER NOT NULL DEFAULT 0,
+    payload TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_ai_recs ON ai_recommendations(instrument_id, status);
+CREATE INDEX IF NOT EXISTS idx_bt_strategy ON backtest_results(strategy_id, recorded_at);
 CREATE INDEX IF NOT EXISTS idx_signals_market ON signals(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_market ON orders(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_type ON audit_events(type, at);
@@ -684,6 +709,64 @@ class TradingStore:
         return self._rows(
             "SELECT * FROM ai_recommendations ORDER BY recorded_at DESC"
             " LIMIT ?", (int(limit),))
+
+    # ------------------------------------------------------------------
+    # Strategy/backtest mirror (simulated artifacts — never authoritative)
+    def record_strategy(self, row: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO strategies(strategy_id, strategy_name,"
+            " strategy_type, market, version, status, payload, recorded_at)"
+            " VALUES(?,?,?,?,?,?,?,?)",
+            (
+                str(row.get("strategy_id") or ""),
+                str(row.get("strategy_name") or ""),
+                str(row.get("strategy_type") or ""),
+                str(row.get("market") or ""),
+                int(row.get("version") or 1),
+                str(row.get("status") or "DRAFT"),
+                json.dumps(row, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def record_backtest_result(self, result: dict[str, Any]) -> None:
+        cfg = result.get("config") or {}
+        self._db().execute(
+            "INSERT OR REPLACE INTO backtest_results(run_id, strategy_id,"
+            " market, total_return, max_drawdown, sharpe, trade_count,"
+            " simulated, stale, payload, recorded_at)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(result.get("run_id") or ""),
+                str(cfg.get("strategy_id") or ""),
+                str(cfg.get("market") or ""),
+                str(result.get("total_return") or ""),
+                str(result.get("max_drawdown") or ""),
+                str(result.get("sharpe") or ""),
+                int(result.get("trade_count") or 0),
+                1,
+                1 if result.get("stale") else 0,
+                json.dumps(result, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def backtest_results(self, strategy_id: str | None = None,
+                         limit: int = 100) -> list[dict[str, Any]]:
+        if strategy_id:
+            return self._rows(
+                "SELECT * FROM backtest_results WHERE strategy_id=?"
+                " ORDER BY recorded_at DESC LIMIT ?",
+                (strategy_id, int(limit)))
+        return self._rows(
+            "SELECT * FROM backtest_results ORDER BY recorded_at DESC"
+            " LIMIT ?", (int(limit),))
+
+    def strategies(self) -> list[dict[str, Any]]:
+        return self._rows(
+            "SELECT * FROM strategies ORDER BY recorded_at DESC")
 
     def record_authorization(self, grant: dict[str, Any]) -> None:
         self._db().execute(

@@ -13,8 +13,35 @@
   "history_head": "9a0e38abd69170c0c2ca4e64d0c0d0219f2ad9b0856235907fbfea27f3a43496",
   "revision_sequence": 74
  },
- "status": "draft-awaiting-governor",
+ "status": "successor-requested-awaiting-five-sovereign-audit",
  "not_executed": true,
+ "governor_disposition": {
+  "selected_option": "deadline-relaxed-40000",
+  "authoritative_deadline_ms": 40000,
+  "reason": "The measured startup distribution requires a formally amended bounded deadline; direct PostgreSQL updates are temporary and non-authoritative amendment evidence",
+  "codex_effect": "successor must normalize A199, phase budgets, maintenance verification and metadata to 40000",
+  "implementation_effect": "startup manifest and runtime projections must converge to the sealed 40000 successor before affected release"
+ },
+ "changes": [
+  {
+   "table": "articles",
+   "field": "A199.rule",
+   "operation": "replace-deadline-and-phase-budgets",
+   "target_value": "HARD-DEADLINE:40000ms; total-never-exceeds-40000ms"
+  },
+  {
+   "table": "metadata",
+   "field": "startup_complete_deadline_ms",
+   "operation": "replace",
+   "target_value": "40000"
+  },
+  {
+   "table": "maintenance_manual_directory",
+   "field": "STARTUP_TEN_SECOND_DEADLINE",
+   "operation": "normalize-verification",
+   "target_value": "40000ms"
+  }
+ ],
  "problem": {
   "summary": "metadata.startup_complete_deadline_ms now reads 40000 (observed 20000, then amended again to 40000 within the same generation), but authoritative article A199 (per metadata.startup_authoritative_article = A484+A193+A199+A496) still fixes HARD-DEADLINE:10000ms inclusive with BUDGET-CARRY total-never-exceeds-10000ms, and maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE still verifies 10000ms. The runtime resolves startup_complete_deadline_ms codex-first via codex_readonly_connection, so the effective enforced deadline is now 40000ms while the normative article still mandates 10000ms.",
   "codex_state": "metadata.startup_complete_deadline_ms=40000 (mutated twice during 2026-09-24 in-place work: 10000->20000->40000; no governor_disposition_* key covers the deadline); articles.A199 rule text unchanged: HARD-DEADLINE:10000ms inclusive, BUDGET-CARRY total-never-exceeds-10000ms, per-phase budgets summing to 10000; maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification='every measured cold warm reconnect and injected-failure startup completes within 10000ms'; code constant STARTUP_HARD_DEADLINE_MS still 10000 and pinned by test_startup_hard_deadline_is_10s_and_phase_budgets_bounded.",
@@ -62,6 +89,6 @@
   "separate instant-crash mode observed: 17 consecutive exit_code=1 uptime=0 crashes 05:14-05:18Z with empty diagnosis (process died before logging init; coincides with heavy in-tree worker churn)",
   "instrumentation added: startup_pre_executor log record + StartupResult.pre_executor_ms now expose the pre-executor segment on every attempt; boot_core fast-fails on startup_dead latch instead of waiting the full grace"
  ],
- "worker_note": "Draft produced by devin-cli audit worker; requires governor authorization before any normalization. The worker did not modify the codex or the manifest; the manifest delta observed in the working tree follows the already-amended metadata value.",
- "codex_mutation": "none"
+ "worker_note": "A formal 40-second successor is requested. Existing direct PostgreSQL deadline edits remain temporary until the five-sovereign audit and governed amendment executor publish the successor.",
+ "codex_mutation": "pending formal successor; no claim that the temporary in-place value is a completed amendment"
 }

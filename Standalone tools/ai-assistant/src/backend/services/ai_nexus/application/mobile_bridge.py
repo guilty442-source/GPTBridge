@@ -161,6 +161,19 @@ class InvestmentMobileBridge:
                 return {"ok": False, "error_code": "INVALID_RUN"}
             self._store.record_analysis_run(run)
             return {"ok": True, "recorded": "analysis_run"}
+        if operation == "record_strategy":
+            row = payload.get("strategy")
+            if not isinstance(row, dict):
+                return {"ok": False, "error_code": "INVALID_STRATEGY"}
+            self._store.record_strategy(row)
+            return {"ok": True, "recorded": "strategy"}
+        if operation == "record_backtest_result":
+            result = payload.get("result")
+            if not isinstance(result, dict) or not result.get("simulated"):
+                return {"ok": False,
+                        "error_code": "INVALID_BACKTEST_RESULT"}
+            self._store.record_backtest_result(result)
+            return {"ok": True, "recorded": "backtest_result"}
 
         # Shared settings (companion-owned settings flow through here).
         if operation == "update_shared_settings":

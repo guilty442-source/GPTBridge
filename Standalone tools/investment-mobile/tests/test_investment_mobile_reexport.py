@@ -43,4 +43,4 @@ def test_investment_mobile_reexports() -> None:
         TradingMode,
     ):
         assert cls is not None
-    assert len(DOMAINS) == 11
+    assert len(DOMAINS) == 12

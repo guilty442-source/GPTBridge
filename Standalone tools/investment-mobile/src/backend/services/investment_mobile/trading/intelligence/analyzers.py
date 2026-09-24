@@ -24,17 +24,20 @@ class _BaseIntelligence:
     market = ""
 
     def __init__(self, market_engine: MarketDataEngine,
-                 router: ModelRouter) -> None:
+                 router: ModelRouter, candles: Any = None) -> None:
         self._market = market_engine
         self._router = router
+        self._candles = candles          # CandleStore (dataclass rows)
 
     async def analyze(
         self, instrument_id: str, *,
         benchmark_id: str | None = None,
         interpretation_prompt: str = "",
     ) -> dict[str, Any]:
-        candles = self._market.candles(
-            instrument_id, timeframe="1d", limit=300)
+        candles = (
+            self._candles.candles(instrument_id, "1d")[-300:]
+            if self._candles is not None else []
+        )
         evidence: list[AnalysisEvidence] = []
         findings: dict[str, Any] = {"instrument_id": instrument_id}
         missing: list[str] = []
@@ -48,13 +51,12 @@ class _BaseIntelligence:
                 "evidence": [], "note": "行情資料不足，分析降級",
             }
 
-        closes = [float(c["close"]) for c in candles]
-        volumes = [float(c.get("volume") or 0) for c in candles]
+        closes = [float(c.close) for c in candles]
+        volumes = [float(c.volume or 0) for c in candles]
         bench = None
-        if benchmark_id:
-            bench_candles = self._market.candles(
-                benchmark_id, timeframe="1d", limit=300)
-            bench = [float(c["close"]) for c in bench_candles]
+        if benchmark_id and self._candles is not None:
+            bench_candles = self._candles.candles(benchmark_id, "1d")[-300:]
+            bench = [float(c.close) for c in bench_candles]
             if not bench:
                 missing.append("benchmark_candles")
 
@@ -64,8 +66,8 @@ class _BaseIntelligence:
             kind=EvidenceKind.CALCULATED_RESULT,
             claim="技術指標由確定性模組計算",
             value=ind.to_dict(), computation="IndicatorSet",
-            data_timestamp=str(candles[-1].get("candle_end") or ""),
-            source_id=str(candles[-1].get("source_id") or "unknown"),
+            data_timestamp=candles[-1].candle_end.isoformat(),
+            source_id=str(candles[-1].source_id or "unknown"),
         ))
 
         quote = self._market.latest_quote(instrument_id)

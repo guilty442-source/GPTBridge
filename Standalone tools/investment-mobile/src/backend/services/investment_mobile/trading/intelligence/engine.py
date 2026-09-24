@@ -45,6 +45,7 @@ class InvestmentIntelligenceEngine:
         fx: CurrencyRateService,
         calendar: TradingCalendar,
         consult: Callable[[str, str], Awaitable[dict[str, Any]]] | None = None,
+        candle_store: Any | None = None,
     ) -> None:
         d = Path(state_dir)
         self.safety = AISafetyBoundary()
@@ -54,11 +55,13 @@ class InvestmentIntelligenceEngine:
         self.intent = InvestmentIntentParser()
         self.lifecycle = RecommendationLifecycle(d)
         self.outcomes = RecommendationOutcomeService(
-            d, market_engine, self.lifecycle)
+            d, market_engine, self.lifecycle, candle_store)
         self.scheduler = InvestmentAnalysisScheduler(d, calendar)
         self.proposals = ProposalFactory(self.safety)
-        self.tw = TaiwanEquityIntelligence(market_engine, self.router)
-        self.us = USEquityIntelligence(market_engine, self.router)
+        self.tw = TaiwanEquityIntelligence(
+            market_engine, self.router, candle_store)
+        self.us = USEquityIntelligence(
+            market_engine, self.router, candle_store)
         self.fund_intel = MutualFundIntelligence(fund_engine, self.router)
         self.portfolio_intel = PortfolioIntelligence(
             portfolio, fund_engine, fx, self.router, accounts)

@@ -21,7 +21,18 @@ def _d_today() -> "_date_t":
 from .accounts import AccountRegistry
 from .ai_boundary import SignalIntake
 from .audit import TradingAudit
-from .backtest import BacktestEngine
+from .backtest import (
+    BacktestComparisonService,
+    BacktestConfig,
+    BacktestEngine,
+    BacktestJobQueue,
+    BacktestMaintenance,
+    ExecutionSimulationEngine,
+    FundBacktestEngine,
+    HistoricalUniverseService,
+    PortfolioBacktestEngine,
+    TradingCostEngine,
+)
 from .broker.base import BrokerRegistry
 from .contracts import OrderSide, TradeProposal
 from .domains import DOMAINS
@@ -60,6 +71,15 @@ from .modes import ModeGate
 from .oms import OrderManagementSystem
 from .portfolio_engine import PortfolioEngine
 from .risk_engine import RiskEngine
+from .strategy import (
+    AIStrategyResearchService,
+    MarketKind,
+    StrategyDefinition,
+    StrategyEvaluationService,
+    StrategyRegistry,
+    StrategyValidationService,
+    StrategyVersionService,
+)
 from .strategy_engine import StrategyEngine
 
 
@@ -153,6 +173,29 @@ class TradingEngineService:
             "investment-mobile-fund-status",
             # backtest + audit domains
             "investment-mobile-backtest",
+            "investment-mobile-strategy-register",
+            "investment-mobile-strategy-list",
+            "investment-mobile-strategy-transition",
+            "investment-mobile-strategy-disable",
+            "investment-mobile-strategy-snapshot",
+            "investment-mobile-strategy-versions",
+            "investment-mobile-strategy-validate",
+            "investment-mobile-strategy-stability",
+            "investment-mobile-strategy-search-log",
+            "investment-mobile-strategy-assess",
+            "investment-mobile-strategy-research",
+            "investment-mobile-strategy-propose",
+            "investment-mobile-backtest-results",
+            "investment-mobile-backtest-compare",
+            "investment-mobile-backtest-submit",
+            "investment-mobile-backtest-job",
+            "investment-mobile-backtest-cancel",
+            "investment-mobile-backtest-maintenance",
+            "investment-mobile-fee-rules",
+            "investment-mobile-fee-rule-add",
+            "investment-mobile-universe-register",
+            "investment-mobile-universe-members",
+            "investment-mobile-broker-capability",
             "investment-mobile-audit-tail",
             "investment-mobile-domains",
             # ai-intelligence domain (星澄決策中心 — advisory only)
@@ -233,14 +276,36 @@ class TradingEngineService:
         self.intel = InvestmentIntelligenceEngine(
             state_dir, self.market_engine, self.fund_engine,
             self.portfolio, self.accounts, self.fx, self.calendar,
-            consult=self._ai_consult,
+            consult=self._ai_consult, candle_store=self.candle_store,
         )
         self.intel.router._probe = lambda: self._channel_client is not None
         self.intel_maintenance = IntelligenceMaintenance(
             self.intel.router, self.intel.lifecycle, self.intel.scheduler)
         self.brokers = BrokerRegistry(state_dir)
         self.ai_intake = SignalIntake(self.strategy)
-        self.backtest_engine = BacktestEngine(self.market_engine, self.risk)
+        # strategy lifecycle + backtest cluster — simulation only; no
+        # path from these engines reaches OMS/broker/account writers
+        self.strategy_registry = StrategyRegistry(state_dir)
+        self.strategy_versions = StrategyVersionService(state_dir)
+        self.strategy_validation = StrategyValidationService(state_dir)
+        self.strategy_evaluator = StrategyEvaluationService()
+        self.strategy_research = AIStrategyResearchService(
+            self.intel.router, self.strategy_registry)
+        self.bt_cost = TradingCostEngine(state_dir)
+        self.bt_universe = HistoricalUniverseService(state_dir)
+        self.bt_exec = ExecutionSimulationEngine()
+        self.backtest_engine = BacktestEngine(
+            state_dir, self.candle_store, cost_engine=self.bt_cost,
+            universe=self.bt_universe, exec_engine=self.bt_exec)
+        self.fund_backtest = FundBacktestEngine(self.fund_engine)
+        self.portfolio_backtest = PortfolioBacktestEngine(self.fx)
+        self.bt_compare = BacktestComparisonService()
+        self.bt_queue = BacktestJobQueue(state_dir)
+        self.bt_maintenance = BacktestMaintenance(
+            state_dir,
+            revision_feed=lambda: sorted({
+                r["instrument_id"]
+                for r in self.candle_store.revisions()}))
         self.oms = OrderManagementSystem(
             state_dir,
             mode_gate=self.mode_gate,
@@ -1109,6 +1174,18 @@ class TradingEngineService:
                 res = await self.intel.us.analyze(intent.instrument_id)
                 res["macro"] = self.intel.us.macro_block()
                 return "ai-intel", res
+            if intent.market == "fund":
+                fid = str(payload.get("fund_id") or "")
+                cls = str(payload.get("share_class_id") or "")
+                # resolve fund aliases from instrument id if present
+                if intent.instrument_id.startswith("fund:"):
+                    parts = intent.instrument_id.split(":")
+                    fid = fid or (parts[1] if len(parts) > 1 else "")
+                    cls = cls or (parts[2] if len(parts) > 2 else "")
+                if fid:
+                    return "ai-intel", await self.intel.fund_intel.analyze(
+                        fid, cls,
+                        account_id=str(payload.get("account_id") or ""))
             if intent.market == "portfolio":
                 return "ai-intel", await self.intel.portfolio_intel.analyze(
                     base_currency=str(payload.get("base_currency") or "TWD"))
@@ -1184,6 +1261,9 @@ class TradingEngineService:
                 self._mirror_outbox.append({
                     "operation": "record_ai_recommendation",
                     "recommendation": res["recommendation"]})
+                self._mirror_outbox.append({
+                    "operation": "record_analysis_run",
+                    "run": run.to_dict()})
             return "ai-intel", res
 
         if command == "investment-mobile-ai-rec-transition":
@@ -1260,9 +1340,214 @@ class TradingEngineService:
         if command == "investment-mobile-ai-maintenance":
             return "ai-intel", self.intel_maintenance.run_once()
 
+        # ---------------- strategy lifecycle ----------------
+        if command == "investment-mobile-strategy-register":
+            definition = StrategyDefinition.from_dict(payload)
+            res = self.strategy_registry.register(definition)
+            if res.get("ok"):
+                self.audit.record("strategy.registered", {
+                    "strategy_id": definition.strategy_id,
+                    "version": definition.version,
+                    "type": definition.strategy_type})
+                self._mirror_outbox.append({
+                    "operation": "record_strategy",
+                    "strategy": res["strategy"]})
+            return "strategy", res
+
+        if command == "investment-mobile-strategy-list":
+            return "strategy", {
+                "ok": True,
+                "strategies": self.strategy_registry.list(
+                    status=payload.get("status"),
+                    market=payload.get("market")),
+            }
+
+        if command == "investment-mobile-strategy-transition":
+            res = self.strategy_registry.transition(
+                str(payload.get("strategy_id") or ""),
+                str(payload.get("target") or ""),
+                reason=str(payload.get("reason") or ""))
+            if res.get("ok"):
+                self.audit.record("strategy.transition", {
+                    "strategy_id": res["strategy_id"],
+                    "status": res["status"],
+                    "actor": payload.get("actor")})
+            return "strategy", res
+
+        if command == "investment-mobile-strategy-disable":
+            return "strategy", self.strategy_registry.disable(
+                str(payload.get("strategy_id") or ""),
+                reason=str(payload.get("reason") or ""))
+
+        if command == "investment-mobile-strategy-snapshot":
+            row = self.strategy_registry.get(
+                str(payload.get("strategy_id") or ""),
+                payload.get("version"))
+            if row is None:
+                return "strategy", {"ok": False,
+                                    "error_code": "STRATEGY_NOT_FOUND"}
+            return "strategy", self.strategy_versions.snapshot(
+                StrategyDefinition.from_dict(row),
+                code_version=str(payload.get("code_version") or ""),
+                data_version=str(payload.get("data_version") or ""),
+                model_version=str(payload.get("model_version") or ""),
+                cost_assumptions=dict(
+                    payload.get("cost_assumptions") or {}))
+
+        if command == "investment-mobile-strategy-versions":
+            return "strategy", {
+                "ok": True,
+                "versions": self.strategy_versions.versions(
+                    payload.get("strategy_id")),
+            }
+
+        if command == "investment-mobile-strategy-validate":
+            res = self.strategy_validation.record_evaluation(
+                str(payload.get("strategy_id") or ""),
+                int(payload.get("version") or 1),
+                str(payload.get("split") or "in_sample"),
+                str(payload.get("window") or ""),
+                dict(payload.get("parameters") or {}),
+                dict(payload.get("metrics") or {}))
+            if res.get("ok"):
+                self.strategy_versions.attach_validation(
+                    str(payload.get("strategy_id") or ""),
+                    int(payload.get("version") or 1), res["record"])
+            return "strategy", res
+
+        if command == "investment-mobile-strategy-stability":
+            return "strategy", self.strategy_validation.stability_check(
+                str(payload.get("strategy_id") or ""))
+
+        if command == "investment-mobile-strategy-search-log":
+            return "strategy", {
+                "ok": True,
+                "records": self.strategy_validation.search_log(
+                    payload.get("strategy_id")),
+            }
+
+        if command == "investment-mobile-strategy-assess":
+            return "strategy", self.strategy_evaluator.evaluate(
+                dict(payload.get("metrics") or {}),
+                objective=str(payload.get("objective") or
+                              "long_term_growth"),
+                trades=list(payload.get("trades") or []))
+
+        if command == "investment-mobile-strategy-research":
+            return "strategy", await self.strategy_research.analyze_result(
+                dict(payload.get("run_summary") or {}),
+                question=str(payload.get("question") or
+                             "分析回測結果與失敗原因"))
+
+        if command == "investment-mobile-strategy-propose":
+            return "strategy", await self.strategy_research.propose_draft(
+                str(payload.get("strategy_id") or ""),
+                dict(payload.get("parameters") or {}),
+                reasoning=str(payload.get("reasoning") or ""))
+
         # ---------------- backtest + audit ----------------
         if command == "investment-mobile-backtest":
-            return "backtest", self.backtest_engine.run(payload)
+            res = self._run_backtest(payload)
+            if res.get("ok"):
+                self.audit.record("backtest.completed", {
+                    "run_id": res["result"]["run_id"],
+                    "strategy_id": res["result"]["config"]["strategy_id"],
+                    "total_return": res["result"]["total_return"]})
+                self._mirror_outbox.append({
+                    "operation": "record_backtest_result",
+                    "result": res["result"]})
+                if payload.get("strategy_id"):
+                    self.strategy_versions.attach_backtest(
+                        str(payload.get("strategy_id")),
+                        int(res["result"]["config"]["strategy_version"]),
+                        res["result"]["run_id"])
+            return "backtest", res
+
+        if command == "investment-mobile-backtest-results":
+            return "backtest", {
+                "ok": True,
+                "results": self.backtest_engine.results(
+                    int(payload.get("limit") or 100)),
+            }
+
+        if command == "investment-mobile-backtest-compare":
+            return "backtest", self.bt_compare.compare(
+                list(payload.get("results") or []))
+
+        if command == "investment-mobile-backtest-submit":
+            job_id = str(payload.get("job_id") or
+                         f"bt-{int(time.time() * 1000)}")
+            return "backtest", self.bt_queue.submit(
+                job_id, lambda: self._run_backtest(payload))
+
+        if command == "investment-mobile-backtest-job":
+            return "backtest", self.bt_queue.status(
+                str(payload.get("job_id") or ""))
+
+        if command == "investment-mobile-backtest-cancel":
+            return "backtest", self.bt_queue.cancel(
+                str(payload.get("job_id") or ""))
+
+        if command == "investment-mobile-backtest-maintenance":
+            return "backtest", self.bt_maintenance.run_once()
+
+        if command == "investment-mobile-fee-rules":
+            return "backtest", {"ok": True,
+                                "rules": self.bt_cost.rules()}
+
+        if command == "investment-mobile-fee-rule-add":
+            from .backtest import FeeRule
+            return "backtest", self.bt_cost.add_rule(FeeRule(
+                rule_id=str(payload.get("rule_id") or ""),
+                broker_id=str(payload.get("broker_id") or ""),
+                account_id=str(payload.get("account_id") or ""),
+                market=str(payload.get("market") or ""),
+                instrument_kind=str(
+                    payload.get("instrument_kind") or ""),
+                direction=str(payload.get("direction") or ""),
+                kind=str(payload.get("kind") or "percent"),
+                rate=Decimal(str(payload.get("rate") or 0)),
+                minimum=Decimal(str(payload.get("minimum") or 0)),
+                currency=str(payload.get("currency") or ""),
+                effective_from=str(
+                    payload.get("effective_from") or ""),
+                effective_to=str(payload.get("effective_to") or ""),
+                assumed=bool(payload.get("assumed", True)),
+                source_id=str(payload.get("source_id") or "operator")))
+
+        if command == "investment-mobile-universe-register":
+            from datetime import date as _date
+            return "backtest", self.bt_universe.register_membership(
+                str(payload.get("index_or_market") or ""),
+                str(payload.get("instrument_id") or ""),
+                _date.fromisoformat(str(payload.get("listed_from"))),
+                _date.fromisoformat(str(payload["listed_to"]))
+                if payload.get("listed_to") else None,
+                str(payload.get("source_id") or ""))
+
+        if command == "investment-mobile-universe-members":
+            from datetime import date as _date
+            return "backtest", {
+                "ok": True,
+                "members": self.bt_universe.members(
+                    str(payload.get("index_or_market") or ""),
+                    _date.fromisoformat(
+                        str(payload.get("at") or _date.today()))),
+            }
+
+        if command == "investment-mobile-broker-capability":
+            from .backtest import capability_for
+            cap = capability_for(str(payload.get("broker_id") or ""))
+            return "backtest", {
+                "ok": cap is not None,
+                "profile": (
+                    {"broker_id": cap.broker_id, "market": cap.market,
+                     "order_types": cap.order_types,
+                     "extended_hours": cap.extended_hours,
+                     "fractional_shares": cap.fractional_shares,
+                     "short_selling": cap.short_selling,
+                     "notes": cap.notes} if cap else None),
+            }
 
         if command == "investment-mobile-audit-tail":
             return "audit", {
@@ -1273,6 +1558,45 @@ class TradingEngineService:
         raise PermissionError("PERMISSION_DENIED")
 
     # ------------------------------------------------------------------
+    def _run_backtest(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Route a backtest payload to the market-appropriate engine."""
+        row = self.strategy_registry.get(
+            str(payload.get("strategy_id") or ""),
+            payload.get("strategy_version"))
+        if row is None:
+            return {"ok": False, "error_code": "STRATEGY_NOT_FOUND"}
+        strategy = StrategyDefinition.from_dict(row)
+        try:
+            from datetime import date as _date
+            start = _date.fromisoformat(str(payload.get("start_date")))
+            end = _date.fromisoformat(str(payload.get("end_date")))
+        except (TypeError, ValueError):
+            return {"ok": False, "error_code": "DATE_RANGE_INVALID"}
+        cfg = BacktestConfig(
+            strategy_id=strategy.strategy_id,
+            strategy_version=strategy.version,
+            market=str(payload.get("market") or strategy.market),
+            instrument_scope=list(payload.get("instrument_scope")
+                                  or strategy.instrument_scope),
+            start_date=start, end_date=end,
+            initial_capital=Decimal(
+                str(payload.get("initial_capital") or 0)),
+            currency=str(payload.get("currency") or "TWD"),
+            fee_model=str(payload.get("fee_model") or "broker_default"),
+            slippage_model=str(payload.get("slippage_model") or "bps"),
+            execution_model=str(payload.get("execution_model")
+                                or "next_open"),
+            data_revision=str(payload.get("data_revision") or "latest"),
+            timeframe=str(payload.get("timeframe")
+                          or strategy.timeframe),
+            assumptions=dict(payload.get("assumptions") or {}))
+        if strategy.market == MarketKind.MUTUAL_FUND:
+            return self.fund_backtest.run(cfg, strategy)
+        if payload.get("legs"):
+            return self.portfolio_backtest.replay(
+                cfg, list(payload["legs"]))
+        return self.backtest_engine.run(cfg, strategy)
+
     @staticmethod
     def _fund_txn(payload: dict[str, Any], settled_import: bool = False) -> FundTransaction:
         from datetime import date as _date

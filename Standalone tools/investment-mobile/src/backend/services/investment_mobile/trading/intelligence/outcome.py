@@ -23,10 +23,12 @@ from .lifecycle import RecommendationLifecycle
 
 class RecommendationOutcomeService:
     def __init__(self, state_dir: Path, market: MarketDataEngine,
-                 lifecycle: RecommendationLifecycle) -> None:
+                 lifecycle: RecommendationLifecycle,
+                 candles: Any | None = None) -> None:
         self._path = Path(state_dir) / "recommendation_outcomes.jsonl"
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._market = market
+        self._candles = candles
         self._lifecycle = lifecycle
 
     # ------------------------------------------------------------------
@@ -40,20 +42,22 @@ class RecommendationOutcomeService:
         iid = rec.get("instrument_id") or ""
         if rec.get("instrument_type") == "fund":
             return {"ok": False, "error_code": "FUND_USE_NAV_EVALUATION"}
-        candles = self._market.candles(iid, timeframe="1d",
-                                       limit=int(horizon_days) + 60)
+        candles = (
+            self._candles.candles(iid, "1d") if self._candles is not None
+            else [])
         if not candles:
             return {"ok": False, "error_code": "NO_MARKET_DATA"}
 
         rec_ts = str(rec.get("created_at") or "")[:10]
-        after = [c for c in candles if str(c.get("candle_start"))[:10] >= rec_ts]
+        after = [c for c in candles
+                 if c.candle_start.date().isoformat() >= rec_ts]
         if not after:
             return {"ok": False, "error_code": "NO_POST_REC_DATA"}
         p0 = Decimal(str(rec.get("reference_price")
-                         or after[0].get("close") or 0))
+                         or after[0].close or 0))
         if p0 <= 0:
             return {"ok": False, "error_code": "NO_REFERENCE_PRICE"}
-        closes = [Decimal(str(c.get("close") or 0)) for c in after]
+        closes = [Decimal(str(c.close or 0)) for c in after]
         last = closes[-1]
         favorable = max(closes) / p0 - 1
         adverse = min(closes) / p0 - 1

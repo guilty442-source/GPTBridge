@@ -15,6 +15,12 @@ AUTHORIZED_TOOL_IDS: Final[frozenset[str]] = frozenset(
 AI_CHANNEL_TOOL_IDS: Final[frozenset[str]] = (
     AUTHORIZED_TOOL_IDS | {"investment-mobile", "model-dialogue"}
 )
+# Physical nesting is not runtime hosting for these independent tools.
+# model-dialogue lives below local-model on disk but owns its own lifecycle,
+# actor and runtime; local-model therefore cannot be inferred as its host.
+SELF_HOSTED_TOOL_EXEMPTIONS: Final[Mapping[str, str]] = {
+    "model-dialogue": "model-dialogue",
+}
 XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE: Final[tuple[str, ...]] = (
     "receive-original-traditional-chinese",
     "qwen3.8-understand-command-and-normalize-taiwan-chinese",
@@ -80,6 +86,18 @@ AI_ROUTE_COMMANDS: Final[Mapping[tuple[str, str], frozenset[str]]] = {
 
 def tool_actor(tool_id: str) -> str:
     return f"{_TOOL_ACTOR_PREFIX}{tool_id}"
+
+
+def declared_host_tool_id(tool_id: str, fallback_host: str = "") -> str:
+    """Resolve the permission-directory host declaration.
+
+    A registered self-host exemption wins over physical-folder inference.
+    Unknown tools retain the caller-supplied registered host and never gain
+    an exemption implicitly.
+    """
+
+    value = str(tool_id or "").strip()
+    return SELF_HOSTED_TOOL_EXEMPTIONS.get(value, str(fallback_host or "").strip())
 
 
 def _actor_tool_id(actor: str) -> str:
@@ -159,6 +177,7 @@ def ai_channel_status() -> dict[str, Any]:
         "channel_id": AI_CHANNEL_ID,
         "transport": "governance-authenticated-shared-layer",
         "participants": sorted(AI_CHANNEL_TOOL_IDS),
+        "self_hosted_tool_exemptions": dict(SELF_HOSTED_TOOL_EXEMPTIONS),
         "mobile_participant_scope": "submit-to-xingcheng-only",
         "authority_order": [
             "governance-rule",

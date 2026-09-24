@@ -27,7 +27,7 @@ flowchart TB
 - Python：只保留按需閘門裁決、必要治理語意、模型研究訓練及不可避免的語言邊界；預設不常駐，也不得持續執行大量機械性工作。
 - TypeScript / TSX：只負責介面與型別化互動，不形成後端權威。
 
-所有執行模組以 C／C++ 為優先；遷移必須維持契約、權限、審計與失敗關閉語意。`request_registry` 原生路徑目前仍為 `SHADOW`／`STAGED`，宿主未接入 `_native_primary` 前不得標示為 primary。啟動上限十秒、強制測試套件上限二十秒、各獨立審計流程上限三十秒，逾時依正式政策失敗關閉。
+所有執行模組以 C／C++ 為優先；遷移必須維持契約、權限、審計與失敗關閉語意。`request_registry` 原生路徑目前仍為 `SHADOW`／`STAGED`，宿主未接入 `_native_primary` 前不得標示為 primary。啟動上限二十秒、強制測試套件上限二十秒、各獨立審計流程上限三十秒，逾時依正式政策失敗關閉。
 
 ```mermaid
 flowchart LR
