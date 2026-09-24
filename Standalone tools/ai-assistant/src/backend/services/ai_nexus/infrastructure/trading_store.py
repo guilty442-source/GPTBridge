@@ -266,6 +266,31 @@ CREATE TABLE IF NOT EXISTS backtest_results (
 );
 CREATE INDEX IF NOT EXISTS idx_ai_recs ON ai_recommendations(instrument_id, status);
 CREATE INDEX IF NOT EXISTS idx_bt_strategy ON backtest_results(strategy_id, recorded_at);
+-- Simulation-layer mirror (SHADOW signals + PAPER fills — never authoritative)
+CREATE TABLE IF NOT EXISTS shadow_signals (
+    signal_id TEXT PRIMARY KEY,
+    instrument_id TEXT,
+    market TEXT,
+    side TEXT,
+    model_id TEXT,
+    reference_price TEXT,
+    simulated INTEGER NOT NULL DEFAULT 1,
+    payload TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS paper_executions (
+    exec_id TEXT PRIMARY KEY,
+    order_id TEXT,
+    account_id TEXT,
+    instrument_id TEXT,
+    side TEXT,
+    quantity TEXT,
+    price TEXT,
+    simulated INTEGER NOT NULL DEFAULT 1,
+    payload TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_shadow_sig ON shadow_signals(instrument_id, recorded_at);
 CREATE INDEX IF NOT EXISTS idx_signals_market ON signals(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_market ON orders(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_type ON audit_events(type, at);
@@ -767,6 +792,57 @@ class TradingStore:
     def strategies(self) -> list[dict[str, Any]]:
         return self._rows(
             "SELECT * FROM strategies ORDER BY recorded_at DESC")
+
+    # ------------------------------------------------------------------
+    # Simulation mirror (SHADOW/PAPER records — simulated flag enforced)
+    def record_shadow_signal(self, sig: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO shadow_signals(signal_id, instrument_id,"
+            " market, side, model_id, reference_price, simulated, payload,"
+            " recorded_at) VALUES(?,?,?,?,?,?,?,?,?)",
+            (
+                str(sig.get("signal_id") or ""),
+                str(sig.get("instrument_id") or ""),
+                str(sig.get("market") or ""),
+                str(sig.get("side") or ""),
+                str(sig.get("model_id") or ""),
+                str(sig.get("reference_price") or ""),
+                1,
+                json.dumps(sig, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def record_paper_execution(self, ex: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO paper_executions(exec_id, order_id,"
+            " account_id, instrument_id, side, quantity, price, simulated,"
+            " payload, recorded_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(ex.get("exec_id") or ""),
+                str(ex.get("order_id") or ""),
+                str(ex.get("account_id") or ""),
+                str(ex.get("instrument_id") or ""),
+                str(ex.get("side") or ""),
+                str(ex.get("quantity") or ""),
+                str(ex.get("price") or ""),
+                1,
+                json.dumps(ex, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def shadow_signals(self, limit: int = 200) -> list[dict[str, Any]]:
+        return self._rows(
+            "SELECT * FROM shadow_signals ORDER BY recorded_at DESC"
+            " LIMIT ?", (int(limit),))
+
+    def paper_executions(self, limit: int = 200) -> list[dict[str, Any]]:
+        return self._rows(
+            "SELECT * FROM paper_executions ORDER BY recorded_at DESC"
+            " LIMIT ?", (int(limit),))
 
     def record_authorization(self, grant: dict[str, Any]) -> None:
         self._db().execute(

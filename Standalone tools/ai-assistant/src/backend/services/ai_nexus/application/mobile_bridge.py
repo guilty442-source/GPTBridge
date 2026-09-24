@@ -175,6 +175,23 @@ class InvestmentMobileBridge:
             self._store.record_backtest_result(result)
             return {"ok": True, "recorded": "backtest_result"}
 
+        # Simulation-layer mirror (shadow signals + paper executions —
+        # simulated flag enforced; never treated as real trading records).
+        if operation == "record_shadow_signal":
+            sig = payload.get("signal")
+            if not isinstance(sig, dict) or not sig.get("simulated"):
+                return {"ok": False,
+                        "error_code": "INVALID_SHADOW_SIGNAL"}
+            self._store.record_shadow_signal(sig)
+            return {"ok": True, "recorded": "shadow_signal"}
+        if operation == "record_paper_execution":
+            ex = payload.get("execution")
+            if not isinstance(ex, dict) or not ex.get("simulated"):
+                return {"ok": False,
+                        "error_code": "INVALID_PAPER_EXECUTION"}
+            self._store.record_paper_execution(ex)
+            return {"ok": True, "recorded": "paper_execution"}
+
         # Shared settings (companion-owned settings flow through here).
         if operation == "update_shared_settings":
             settings = payload.get("settings")

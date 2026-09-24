@@ -39,6 +39,22 @@ from .recovery import SimulationRecoveryService
 from .risk import PaperRiskEngine
 from .shadow import ShadowTradingService, SignalOutcomeTracker
 
+_CANON = {"tw": "TAIWAN_EQUITY", "us": "US_EQUITY",
+          "fund": "MUTUAL_FUND"}
+_SHORT = {"TAIWAN_EQUITY": "tw", "US_EQUITY": "us",
+          "MUTUAL_FUND": "fund"}
+_BROKER = {"TAIWAN_EQUITY": "CATHAY_SECURITIES",
+           "US_EQUITY": "FUBON_SUBBROKERAGE",
+           "MUTUAL_FUND": "MUTUAL_FUND_PROVIDER"}
+
+
+def _canon(market: str) -> str:
+    return _CANON.get(market, market)
+
+
+def _short(market: str) -> str:
+    return _SHORT.get(market, market)
+
 
 class SimulationTradingEngine:
     def __init__(
@@ -104,10 +120,16 @@ class SimulationTradingEngine:
                     "mode": self._gate.mode.value,
                     "note": "PAPER 模擬下單僅在 PAPER 模式可用"}
 
+        market = _canon(str(payload.get("market") or ""))
         account_id = str(payload.get("account_id") or "")
-        account = self.accounts.get(account_id)
+        account = self.accounts.get(account_id) if account_id else None
+        if account is None:
+            pa = self.accounts.for_market(market)
+            account = pa.to_dict() if pa is not None else None
         if account is None:
             return {"ok": False, "error_code": "PAPER_ACCOUNT_NOT_FOUND"}
+        account_id = account["account_id"]
+        market = market or account["market"]
 
         order = PaperOrder(
             account_id=account_id,
@@ -181,13 +203,13 @@ class SimulationTradingEngine:
         seq = self.recovery.record_event("paper_order", {
             "order_id": order.order_id, "account_id": account_id})
 
-        market = str(payload.get("market") or account["market"])
         market_open = self._calendar.is_open(
-            market, datetime.now(timezone.utc))
+            _short(market), datetime.now(timezone.utc))
         allow_eod = bool(payload.get("allow_eod_fill"))
         fill = self.exec_engine.try_fill(
             order, candle=latest,
-            broker_id=str(payload.get("broker_id") or ""),
+            broker_id=str(payload.get("broker_id")
+                          or _BROKER.get(market, "")),
             market=market, event_seq=seq,
             market_open=market_open or allow_eod)
         if fill.get("filled"):
@@ -264,6 +286,29 @@ class SimulationTradingEngine:
             if o:
                 self.accounts.release_all(o["account_id"], oid)
         return res
+
+    def process_market_event(self, instrument_id: str,
+                             market: str = "") -> dict[str, Any]:
+        """Retry open orders against the latest confirmed bar — queued
+        (market_closed) and partially-filled orders pick up new data."""
+        filled: list[dict[str, Any]] = []
+        for o in list(self.orders.open_orders()):
+            if o.instrument_id != instrument_id:
+                continue
+            account = self.accounts.get(o.account_id)
+            if account is None:
+                continue
+            bars = self._candles.candles(o.instrument_id, "1d")
+            fill = self.exec_engine.try_fill(
+                o, candle=bars[-1] if bars else None,
+                broker_id=_BROKER.get(_canon(account["market"]), ""),
+                market=_canon(market or account["market"]))
+            if fill.get("filled"):
+                res = self._fill(o, fill["execution"], account)
+                filled.append({"order_id": o.order_id,
+                               "ok": res.get("ok")})
+        self.expire_due()
+        return {"ok": True, "filled": filled}
 
     def apply_corporate(self, account_id: str, instrument_id: str,
                         kind: str, ratio="1",

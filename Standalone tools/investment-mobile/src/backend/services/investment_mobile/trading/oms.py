@@ -190,14 +190,8 @@ class OrderManagementSystem:
             if self._sim is not None:
                 order.status = "paper_simulated"
                 self._persist_order(order)
-                paper_account = self._sim.accounts.for_market(
-                    proposal.market)
-                if paper_account is None:
-                    return {"ok": False,
-                            "error_code": "PAPER_ACCOUNT_NOT_FOUND",
-                            "order_id": order.order_id}
                 result = self._sim.submit_order({
-                    "account_id": paper_account.account_id,
+                    "market": proposal.market,
                     "instrument_id": proposal.instrument_id,
                     "side": proposal.side,
                     "quantity": str(proposal.quantity),

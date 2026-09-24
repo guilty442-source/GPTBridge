@@ -225,6 +225,7 @@ class TradingEngineService:
             # simulation domain (SHADOW signals + PAPER virtual trading)
             "investment-mobile-sim-status",
             "investment-mobile-sim-tick",
+            "investment-mobile-sim-market-event",
             "investment-mobile-sim-recover",
             "investment-mobile-sim-events",
             "investment-mobile-sim-checkpoint",
@@ -1597,6 +1598,11 @@ class TradingEngineService:
 
         if command == "investment-mobile-sim-tick":
             return "sim", self.sim.tick(dict(payload))
+
+        if command == "investment-mobile-sim-market-event":
+            return "sim", self.sim.process_market_event(
+                str(payload.get("instrument_id") or ""),
+                str(payload.get("market") or ""))
 
         if command == "investment-mobile-sim-recover":
             return "sim", self.sim.recover()
