@@ -256,87 +256,6 @@ export default function App() {
           </button>
         </section>
 
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">{app.systemMgmt}</span>
-            <h2>{app.commonEntries}</h2>
-          </div>
-          <span>{app.settingsDesc}</span>
-        </div>
-
-        <section className="drawer-triggers">
-          <button
-            type="button"
-            className="drawer-trigger"
-            onClick={() => setDrawerSovereign(true)}
-          >
-            <span className="drawer-trigger__icon" aria-hidden="true">S</span>
-            <span className="drawer-trigger__text">
-              <strong>{mainSystemLocale.sovereign.title}</strong>
-              <small>{mainSystemLocale.sovereign.eyebrow}</small>
-            </span>
-            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="drawer-trigger"
-            onClick={() => setDrawerCapacity(true)}
-          >
-            <span className="drawer-trigger__icon" aria-hidden="true">D</span>
-            <span className="drawer-trigger__text">
-              <strong>{t.capacityDetails}</strong>
-              <small>{t.systemDisk} · {t.workspaceSize}</small>
-            </span>
-            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="drawer-trigger"
-            onClick={() => setDrawerSlo(true)}
-          >
-            <span className="drawer-trigger__icon" aria-hidden="true">P</span>
-            <span className="drawer-trigger__text">
-              <strong>{t.sloDashboard}</strong>
-              <small>{t.sloDashboardHint}</small>
-            </span>
-            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="drawer-trigger"
-            onClick={() => setDrawerThirdParty(true)}
-          >
-            <span className="drawer-trigger__icon" aria-hidden="true">T</span>
-            <span className="drawer-trigger__text">
-              <strong>{tp.title}</strong>
-              <small>{tp.subtitle}</small>
-            </span>
-            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="drawer-trigger"
-            onClick={() => setDrawerSagaVisualizer(true)}
-          >
-            <span className="drawer-trigger__icon" aria-hidden="true">{mainSystemLocale.sagaVisualizer.icon}</span>
-            <span className="drawer-trigger__text">
-              <strong>{mainSystemLocale.sagaVisualizer.title}</strong>
-              <small>{mainSystemLocale.sagaVisualizer.subtitle}</small>
-            </span>
-            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </section>
-
         <ModuleBoundary name={tb.title}>
           <ToolboxEntry
             tools={toolboxTools}
@@ -368,6 +287,11 @@ export default function App() {
           onNativeModelSwitch={setXingchengNativeModelEnabled}
           sendCommand={sendCommand}
           waitForIpcEvent={waitForIpcEvent}
+          onOpenSovereign={() => setDrawerSovereign(true)}
+          onOpenCapacity={() => setDrawerCapacity(true)}
+          onOpenSlo={() => setDrawerSlo(true)}
+          onOpenThirdParty={() => setDrawerThirdParty(true)}
+          onOpenSaga={() => setDrawerSagaVisualizer(true)}
         />
       </ModuleBoundary>
 

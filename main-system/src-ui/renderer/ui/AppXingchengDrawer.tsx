@@ -61,6 +61,11 @@ export type XingchengDrawerProps = {
   onNativeModelSwitch: (enabled: boolean) => void
   sendCommand: SendCommand
   waitForIpcEvent: WaitForIpcEvent
+  onOpenSovereign?: () => void
+  onOpenCapacity?: () => void
+  onOpenSlo?: () => void
+  onOpenThirdParty?: () => void
+  onOpenSaga?: () => void
 }
 
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'] as const
@@ -138,6 +143,11 @@ export function XingchengDrawer({
   onNativeModelSwitch,
   sendCommand,
   waitForIpcEvent,
+  onOpenSovereign,
+  onOpenCapacity,
+  onOpenSlo,
+  onOpenThirdParty,
+  onOpenSaga,
 }: XingchengDrawerProps) {
   // Modular subscriptions: this drawer re-renders only when its own fields
   // change; a failure here is contained by the module boundary upstream.
@@ -649,6 +659,55 @@ export function XingchengDrawer({
             })}
           </div>
         )}
+      </section>
+
+      <section className="xingcheng-management" data-testid="xingcheng-management-entries">
+        <div className="xingcheng-approvals__head">
+          <strong>{mainSystemLocale.app.commonEntries}</strong>
+          <span>{mainSystemLocale.app.systemMgmt}</span>
+        </div>
+        <div className="drawer-triggers" style={{ display: 'grid', gap: '8px', marginTop: '12px' }}>
+          <button type="button" className="drawer-trigger" onClick={() => onOpenSovereign?.()}>
+            <span className="drawer-trigger__icon" aria-hidden="true">S</span>
+            <span className="drawer-trigger__text">
+              <strong>{mainSystemLocale.sovereign.title}</strong>
+              <small>{mainSystemLocale.sovereign.eyebrow}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          <button type="button" className="drawer-trigger" onClick={() => onOpenCapacity?.()}>
+            <span className="drawer-trigger__icon" aria-hidden="true">D</span>
+            <span className="drawer-trigger__text">
+              <strong>{mainSystemLocale.product.capacityDetails}</strong>
+              <small>{mainSystemLocale.product.systemDisk} · {mainSystemLocale.product.workspaceSize}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          <button type="button" className="drawer-trigger" onClick={() => onOpenSlo?.()}>
+            <span className="drawer-trigger__icon" aria-hidden="true">P</span>
+            <span className="drawer-trigger__text">
+              <strong>{mainSystemLocale.product.sloDashboard}</strong>
+              <small>{mainSystemLocale.product.sloDashboardHint}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          <button type="button" className="drawer-trigger" onClick={() => onOpenThirdParty?.()}>
+            <span className="drawer-trigger__icon" aria-hidden="true">T</span>
+            <span className="drawer-trigger__text">
+              <strong>{mainSystemLocale.thirdParty.title}</strong>
+              <small>{mainSystemLocale.thirdParty.subtitle}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          <button type="button" className="drawer-trigger" onClick={() => onOpenSaga?.()}>
+            <span className="drawer-trigger__icon" aria-hidden="true">{mainSystemLocale.sagaVisualizer.icon}</span>
+            <span className="drawer-trigger__text">
+              <strong>{mainSystemLocale.sagaVisualizer.title}</strong>
+              <small>{mainSystemLocale.sagaVisualizer.subtitle}</small>
+            </span>
+            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
       </section>
 
     </Drawer>
