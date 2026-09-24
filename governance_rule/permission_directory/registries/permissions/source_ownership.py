@@ -41,7 +41,7 @@ INVESTMENT_MOBILE_PACKAGE_ROOT: Final[str] = (
     "Standalone tools/investment-mobile/src/backend/services/investment_mobile"
 )
 INVESTMENT_MOBILE_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
-    {"application", "domain", "infrastructure", "integration", "presentation"}
+    {"integration", "trading"}
 )
 FILE_SORTER_PACKAGE_ROOT: Final[str] = (
     "Standalone tools/file-sorter/src/backend/services/file_sorter"

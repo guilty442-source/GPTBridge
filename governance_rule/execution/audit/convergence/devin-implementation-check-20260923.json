@@ -232,6 +232,21 @@
    ],
    "result": "governance suite was 395/6fail -> fixed: 3 budget tests aligned, 2 contract hashes re-pinned, 1 flake confirmed pass in isolation; commit 4d234790",
    "authority": "2026-09-23T03:13:43Z (in-place normalized; same generation label)"
+  },
+  "round_14_deadline_retune": {
+   "date": "2026-09-24",
+   "scope": "governor retunes + worker feature landing (self-learning driver, UI restructure, investment-mobile gut)",
+   "checks": [
+    "startup deadline divergence CONFIRMED GROWING: metadata 10000->20000->40000 in-place; A199 + manual + STARTUP_HARD_DEADLINE_MS + architecture-languages.md all still 10000/十秒; amendment request evidence updated (committed via auto-commit 600ec15d)",
+    "manifest now matches metadata at 40000 + gate_deadline_seconds 8.0->90.0 (manifest-only key, not codified) + suite_timeout_s 30->90; hash pin verified a505ff51 still current",
+    "self-learning chain verified end-to-end: driver -> request_tool_execution(xingcheng_self_learning_cycle) -> CommandSpec registered (category self_learning) -> local_ai_lifecycle handler with in-flight lock; user fixed lock release into thread finally (cancel-safety); outstanding ledger now dict with lost-detection",
+    "UI restructure verified: tsc --noEmit clean; mgmt drawers moved into XingchengDrawer via onOpen* props; ExternalCollaborationPanel now unreferenced (dead file retained, user in-flight)",
+    "investment-mobile backend gutted (application/domain/infrastructure/presentation deleted, new trading/ dir) — worker restructure in-flight, staged by self-commit",
+    "module_rule_index.py + build-module-rule-index.py refactor (-543 lines) syntax-verified; rule-index tests 8/8 pass",
+    "A502 remediation probe: sql_governance._compute_schema_hash reproduced live for gptbridge_codex (9683967f) and all-schemas (ca30611d) — NEITHER matches declared target 026ba131; recipe is out-of-repo AND live schema diverged post-normalization (214 tables) so a new baseline migration row is required regardless — remains governor/migration-owner path"
+   ],
+   "result": "governance suite 400 passed / 1 failed: test_final_performance_gate env-bound (candidate p95 FASTER than baseline on all ops; absolute budgets exceed machine capability — baseline status p95 1402ms > 1000ms budget itself); targeted 155/155 green; SLA/budget tests aligned to 60s retune",
+   "authority": "2026-09-23T03:13:43Z (in-place normalized; deadline metadata now 40000 pending A199 reconciliation)"
   }
  }
 }
