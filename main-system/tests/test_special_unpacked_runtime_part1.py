@@ -215,22 +215,21 @@ def test_companion_tool_cache_is_owned_by_host_tool() -> None:
     )
     assert environment["TEMP"] == environment["GPTBRIDGE_TOOL_TEMP_ROOT"]
 
-    # Identity resolution: model-dialogue hosts the sealed star-chat
-    # companion runtime (model-dialogue/star-chat/manifest.json) — the
-    # dialogue surface runs on the lightweight star-chat identity so the
-    # local model is never a start prerequisite of the window;
-    # local-model's runtime claims the nested xingcheng identity.
-    assert service._governed_runtime_tool_id("model-dialogue") == "star-chat"
+    # Identity resolution follows the permission directory's explicit
+    # self-host declaration.  Nested star-chat/xingcheng identities are
+    # channel participants and cannot replace the independent tool's runtime
+    # owner merely because their manifests live below the same physical root.
+    assert service._governed_runtime_tool_id("model-dialogue") == "model-dialogue"
     assert service._governed_runtime_tool_id("local-model") == "xingcheng"
 
     owner_environment = service._tool_environment(
         "model-dialogue",
         dialogue_root,
         manifest,
-        governance_tool_id="star-chat",
+        governance_tool_id="model-dialogue",
     )
     assert owner_environment["GPTBRIDGE_STANDALONE_TOOL_ID"] == "model-dialogue"
-    assert governance.bootstrap_tool_ids[-1] == "star-chat"
+    assert governance.bootstrap_tool_ids[-1] == "model-dialogue"
 
     mobile_root = ROOT / "Standalone tools" / "investment-mobile"
     mobile_manifest = json.loads(_read_text_cached(str((mobile_root / "manifest.json"))))

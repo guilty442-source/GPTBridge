@@ -11,6 +11,9 @@ from governance_rule.permission_directory.registries.permissions.identity_groups
 from governance_rule.permission_directory.registries.permissions.tool_routes import (
     AUTHORIZED_TOOL_IDS,
 )
+from governance_rule.permission_directory.code_rule_directory import (
+    code_rule_directory_snapshot,
+)
 
 
 class ProcessMixin:
@@ -35,6 +38,14 @@ class ProcessMixin:
         foreign identity through its own manifest.  More than one nested
         channel participant is ambiguous and denied.
         """
+        declared_runtime_owners = dict(
+            code_rule_directory_snapshot().runtime_owner_tool_bindings
+        )
+        declared_owner = str(declared_runtime_owners.get(tool_id) or "").strip()
+        if declared_owner:
+            if declared_owner != tool_id:
+                raise PermissionError("PERMISSION_DENIED")
+            return declared_owner
         try:
             tool_dir = self._tool_directory_for_id(tool_id)
         except ValueError:

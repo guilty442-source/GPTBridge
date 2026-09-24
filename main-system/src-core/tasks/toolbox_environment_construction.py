@@ -6,6 +6,7 @@ helpers extracted from EnvironmentMixin.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict
@@ -20,6 +21,9 @@ from .toolbox_constants import (
     _TOOL_GOVERNANCE_BOOTSTRAP_ENV,
     _is_declarable_tool_environment_key,
 )
+
+
+_logger = logging.getLogger("gptbridge.toolbox.environment")
 
 
 class EnvironmentConstructionMixin:
@@ -117,12 +121,26 @@ class EnvironmentConstructionMixin:
             governance_tool_id is not None
             and str(governance_tool_id).strip() != channel_bound
         ):
-            raise PermissionError("PERMISSION_DENIED")
-        child_env[_TOOL_GOVERNANCE_BOOTSTRAP_ENV] = (
-            self.permission_sovereign.create_tool_governance_bootstrap(
-                channel_bound
+            _logger.error(
+                "tool environment runtime identity mismatch: tool=%s expected=%s declared=%s",
+                tool_id,
+                str(governance_tool_id).strip(),
+                channel_bound,
             )
-        )
+            raise PermissionError("PERMISSION_DENIED")
+        try:
+            child_env[_TOOL_GOVERNANCE_BOOTSTRAP_ENV] = (
+                self.permission_sovereign.create_tool_governance_bootstrap(
+                    channel_bound
+                )
+            )
+        except PermissionError:
+            _logger.exception(
+                "tool environment governance bootstrap denied: tool=%s runtime=%s",
+                tool_id,
+                channel_bound,
+            )
+            raise
         child_env["GPTBRIDGE_GOVERNANCE_PROJECT_ROOT"] = str(
             self.project_root.resolve()
         )
