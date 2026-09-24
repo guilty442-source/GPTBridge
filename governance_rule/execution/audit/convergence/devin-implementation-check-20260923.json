@@ -186,6 +186,22 @@
    "suite": "4806 passed / 6 failed -> my fixes cleared 3; remaining 3 all test_resource_governor stale-vs-in-flight-feature (load_rules 4-tuple, lasso gate, probalance default) — worker scope, test file gitignored",
    "authority": "2026-09-23T03:13:43Z unchanged",
    "codex_changed": false
+  },
+  "round_11": {
+   "date": "2026-09-24",
+   "checks": [
+    "A609 convergence registry COMPLETE: CONVERGENCE_014 (E2 controls A5) and CONVERGENCE_015 (E16 controls A29) present with status=current — the drafted amendment was ratified/applied by the governor path; all 15 cross-layer restatements now have registered dispositions",
+    "successor_framework residual_watch RESOLVED by design: LIVE_CODEX is now a canonical predecessor marker — absent file triggers export_postgresql_codex() (authority_source=True), non-canonical missing paths still fail closed CODEX_MISSING",
+    "codex_repository %%s edge case noted: literal %%%% in a source query would double-escape; no caller produces pre-escaped input — acceptable",
+    "governance_rule/tests 401/401 green under managed venv",
+    "resource-governor tests (3 stale vs in-flight feature) remain worker scope — test file tracked but under **/tests/ ignore; worker owns the feature change",
+    "authority consolidated: 14:49:21Z generation classified historical non-current; its delta consolidated into certified 03:13:43Z generation (per user-updated evidence)"
+   ],
+   "fixes": [
+    "codex-semantic-dup-scan.py now joins codex_normative_convergence_registry: findings carry convergence_registered=<id>; summary counts convergence-registered (15/15 cross-layer covered) — report self-documents pending vs registered (commit 980ceacf)"
+   ],
+   "authority": "2026-09-23T03:13:43Z (consolidated)",
+   "codex_changed": false
   }
  }
 }
