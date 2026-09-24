@@ -1,6 +1,7 @@
 # Runtime dependencies (main system) — Python ONLY for 治相關、決策與模型訓練 (all mechanical → C/C++/C#)
 # Heavy / mechanical deps (psutil/qdrant/websockets/torch etc.) are ON-DEMAND or C-native — NOT installed in resident venv
 psycopg[binary,pool]>=3.2,<4
+websockets>=12,<17
 
 # Test dependencies
 pytest==9.1.1

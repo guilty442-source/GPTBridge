@@ -68,6 +68,45 @@ def supersession_registry() -> tuple[dict[str, str], ...]:
     return _registry("supersession_registry")
 
 
+def capability_dispatch_registry() -> tuple[dict[str, str], ...]:
+    """Retired-identity capability dispatch routes (RULE_CAPABILITY_DISPATCH_V1)."""
+    return _registry("capability_dispatch_registry")
+
+
+def dispatch_route_of(
+    retired_identity: str, capability_code: str | None = None
+) -> dict[str, str] | None:
+    """Resolve a retired identity to its active dispatch route (A604).
+
+    RULE_CAPABILITY_DISPATCH_V1: delegation to a retired sub-sovereign
+    identity MUST resolve through exactly one ``active``
+    ``capability_dispatch_registry`` row carrying an explicit successor.
+    Returns that row; ``None`` when the mapping is absent, still
+    ``pending-explicit-successor-mapping``, lacks an explicit successor,
+    or is ambiguous — callers treat ``None`` as "no delegated route" and
+    fail closed.
+    """
+    rows = [
+        row
+        for row in capability_dispatch_registry()
+        if row.get("retired_identity") == retired_identity
+        and (
+            capability_code is None
+            or row.get("capability_code") == capability_code
+        )
+    ]
+    if len(rows) != 1:
+        return None
+    row = rows[0]
+    if row.get("status") != "active":
+        return None
+    if not row.get("successor_module_identity") or not row.get(
+        "execution_identity"
+    ):
+        return None
+    return row
+
+
 def _active_hierarchy_rows() -> tuple[dict[str, str], ...]:
     """Active single-parent rows only (abolished identities excluded)."""
     return tuple(
@@ -201,13 +240,19 @@ _SOVEREIGN_ATTR_ALIASES = {
 }
 
 
-def resolve_sovereign(app: Any, sovereign_id: str) -> Any | None:
+def resolve_sovereign(
+    app: Any, sovereign_id: str, _seen: frozenset[str] = frozenset()
+) -> Any | None:
     """Resolve a sovereign identity to its materialized in-process instance.
 
     Top-level sovereigns are app attributes named after the identity
     (``decision-sovereign`` -> ``app.decision_sovereign``); sub-sovereigns
     resolve through their registered single parent's child registry (A334).
-    Returns ``None`` when the sovereign is not materialized.
+    A retired identity resolves through its active
+    ``capability_dispatch_registry`` route to the successor module
+    instance (RULE_CAPABILITY_DISPATCH_V1); absent, pending or ambiguous
+    routes fail closed.  Returns ``None`` when the sovereign is not
+    materialized.
     """
     if app is None or not sovereign_id:
         return None
@@ -220,7 +265,14 @@ def resolve_sovereign(app: Any, sovereign_id: str) -> Any | None:
         return direct
     parent_id = parent_of(sovereign_id)
     if parent_id is None:
-        return None
+        route = dispatch_route_of(sovereign_id)
+        if route is None:
+            return None
+        successor_id = str(route.get("successor_module_identity") or "")
+        seen = _seen | {sovereign_id}
+        if not successor_id or successor_id in seen:
+            return None
+        return resolve_sovereign(app, successor_id, seen)
     parent = getattr(
         app,
         _SOVEREIGN_ATTR_ALIASES.get(parent_id, parent_id.replace("-", "_")),
@@ -248,8 +300,10 @@ def hierarchy_status() -> dict[str, Any]:
 
 
 __all__ = [
+    "capability_dispatch_registry",
     "children_of",
     "child_status",
+    "dispatch_route_of",
     "parent_of",
     "primary_domain_of",
     "validate_child_parent",

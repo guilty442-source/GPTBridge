@@ -46,13 +46,23 @@ class XingchengLearningCommandMixin:
     async def _command_learning(
         self, intent: str, payload: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Delegate one bounded learning command to the codex child."""
-        from ...registries import validate_child_parent
+        """Delegate one bounded learning command to the codex child.
 
-        if not validate_child_parent(_LEARNING_CHILD_ID, self.sovereign_id):
+        A604/RULE_CAPABILITY_DISPATCH_V1: the codex child is retired, so
+        the gate first checks the A334 parent edge (active identities keep
+        legacy behaviour); a retired identity must resolve through an
+        active ``capability_dispatch_registry`` route to its successor
+        module instance.  Absent/pending routes fail closed.
+        """
+        from ...registries import dispatch_route_of, validate_child_parent
+
+        if not validate_child_parent(
+            _LEARNING_CHILD_ID, self.sovereign_id
+        ) and dispatch_route_of(_LEARNING_CHILD_ID) is None:
             return {
                 "commanded": False,
                 "reason": "child-parent-mismatch",
+                "dispatch": "unresolved",
                 "intent": intent,
             }
         outcome = await self.delegate_to(
