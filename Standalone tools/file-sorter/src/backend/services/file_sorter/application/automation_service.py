@@ -307,6 +307,7 @@ class FileSorterAutomationService:
             "automation_last_error_type": self._last_error_type,
             "automation_pending_observations": self._pending_observation_count,
             "automation_startup_delay_seconds": self.startup_delay_seconds,
+            "automation_wake_poll_seconds": self.wake_poll_seconds,
         }
 
     async def _wait_for_file_change(
@@ -322,31 +323,91 @@ class FileSorterAutomationService:
             if self._pending_observation_count
             else None
         )
+        scan_due = time.monotonic() + self._adaptive_scan_interval(
+            baseline, settling=settle_deadline is not None
+        )
         while not stop_event.is_set():
             now = time.monotonic()
-            deadlines = [fallback_deadline]
+            deadlines = [fallback_deadline, scan_due, now + self.wake_poll_seconds]
             if settle_deadline is not None:
                 deadlines.append(settle_deadline)
-            remaining = max(0.0, min(deadlines) - now)
-            scan_interval = self._adaptive_scan_interval(
-                baseline,
-                settling=settle_deadline is not None,
+            timeout = max(0.0, min(deadlines) - now)
+            if timeout:
+                try:
+                    await asyncio.wait_for(stop_event.wait(), timeout=timeout)
+                    return
+                except asyncio.TimeoutError:
+                    pass
+            now = time.monotonic()
+            if self._consume_wake_signal():
+                return
+            if now >= fallback_deadline:
+                return
+            if settle_deadline is not None and now >= settle_deadline:
+                return
+            if now >= scan_due:
+                current = await asyncio.to_thread(self._snapshot_enabled_targets)
+                if current != baseline:
+                    self._unchanged_scan_count = 0
+                    return
+                self._unchanged_scan_count += 1
+                scan_due = now + self._adaptive_scan_interval(
+                    baseline,
+                    settling=settle_deadline is not None,
+                )
+
+    def _wake_signal_path(self) -> Path | None:
+        """Validated wake-signal document under the tool-owned state root."""
+
+        try:
+            from ..infrastructure.sorter_engine import (
+                _validated_state_document_path,
+                resolve_state_root,
             )
-            timeout = min(scan_interval, remaining)
-            if timeout <= 0:
-                return
-            try:
-                await asyncio.wait_for(stop_event.wait(), timeout=timeout)
-                return
-            except asyncio.TimeoutError:
-                pass
-            current = await asyncio.to_thread(self._snapshot_enabled_targets)
-            if current != baseline:
-                self._unchanged_scan_count = 0
-                return
-            self._unchanged_scan_count += 1
-            if time.monotonic() >= min(deadlines):
-                return
+
+            path = (
+                resolve_state_root(self._state_root)
+                / WAKE_SIGNAL_CATEGORY
+                / WAKE_SIGNAL_NAME
+            )
+            return _validated_state_document_path(
+                path,
+                state_root=self._state_root,
+                category=WAKE_SIGNAL_CATEGORY,
+                relative_parts=1,
+                require_exists=False,
+            )
+        except Exception:
+            return None
+
+    def _mark_wake_signal_seen(self) -> None:
+        path = self._wake_signal_path()
+        if path is None:
+            return
+        try:
+            self._wake_signal_mtime_ns = path.stat().st_mtime_ns
+        except OSError:
+            self._wake_signal_mtime_ns = None
+
+    def _consume_wake_signal(self) -> bool:
+        """True when a CLI writer left a new wake signal since last check."""
+
+        path = self._wake_signal_path()
+        if path is None:
+            return False
+        try:
+            mtime_ns = path.stat().st_mtime_ns
+        except OSError:
+            return False
+        if self._wake_signal_mtime_ns is None:
+            # First observation inside a running loop still fires — a
+            # pre-startup file was already consumed by _mark_wake_signal_seen.
+            self._wake_signal_mtime_ns = mtime_ns
+            return True
+        if mtime_ns != self._wake_signal_mtime_ns:
+            self._wake_signal_mtime_ns = mtime_ns
+            return True
+        return False
 
     def _adaptive_scan_interval(
         self,

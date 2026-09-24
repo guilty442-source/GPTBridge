@@ -115,14 +115,18 @@ class OrderManagementSystem:
 
         # -- risk evaluation (always, even in ANALYSIS — produces evidence)
         cash = self._accounts.cash(account.account_id, account.currency)
+        # Total assets = positions + cash — exposure % is measured against
+        # the whole account, not positions alone (empty book ≠ 1.0 base).
+        portfolio_value = (
+            self._portfolio.portfolio_value(account.account_id) + cash.available
+        )
         decision = self._risk.evaluate(
             proposal,
             positions=self._portfolio.position_objects(account.account_id),
             open_orders=len(self._open_orders),
             daily_pnl=self._daily_pnl(account.account_id),
             cash_available=cash.available,
-            portfolio_value=self._portfolio.portfolio_value(account.account_id)
-            or 1.0,
+            portfolio_value=portfolio_value,
         )
         self._append(self._decisions_path, {
             "proposal_id": proposal.proposal_id,

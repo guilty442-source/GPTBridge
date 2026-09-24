@@ -13,9 +13,13 @@ from typing import Any
 from ..infrastructure.sorter_engine import (
     ProfileSnapshot,
     SorterV2Error,
+    _atomic_write_json,
+    _utc_now,
+    _validated_state_document_path,
     list_profiles,
     prune_state,
     recover_transactions,
+    resolve_state_root,
     save_profile,
 )
 from .cli_models import FileSorterError
@@ -156,6 +160,42 @@ def configure_duplicate_trash_enabled(
 
 
 
+def _write_automation_wake_signal(
+    *,
+    state_root: str | Path | None,
+    kind: str,
+) -> None:
+    """Signal the channel-process automation loop to run a pass soon.
+
+    Keyword edits execute in a CLI subprocess, so the only channel to the
+    resident automation loop is this state-root document. Writing must
+    never fail the caller's save operation — the immediate scan above has
+    already run, and the worst case is waiting for the fallback poll.
+    """
+
+    try:
+        path = resolve_state_root(state_root) / "signals" / "automation-wake.json"
+        path = _validated_state_document_path(
+            path,
+            state_root=state_root,
+            category="signals",
+            relative_parts=1,
+            require_exists=False,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _atomic_write_json(
+            path,
+            {
+                "schema_version": 1,
+                "kind": kind,
+                "requested_at": _utc_now(),
+                "wake_within_s": 20,
+            },
+        )
+    except (OSError, SorterV2Error, PermissionError, ValueError):
+        return
+
+
 def scan_after_keyword_addition(
     target_dir: str | Path,
     *,
@@ -168,10 +208,18 @@ def scan_after_keyword_addition(
         "run_enabled_profiles_once",
         run_enabled_profiles_once,
     )
-    for report in runner(state_root=state_root):
-        if str(report.get("target_dir", "")) == target:
-            return report
-    return None
+    report = None
+    for item in runner(state_root=state_root):
+        if str(item.get("target_dir", "")) == target:
+            report = item
+            break
+    # The immediate scan is the first observation; the wake signal makes
+    # the resident loop run the confirming pass within its wake bound.
+    _write_automation_wake_signal(
+        state_root=state_root,
+        kind="keyword-added",
+    )
+    return report
 
 
 

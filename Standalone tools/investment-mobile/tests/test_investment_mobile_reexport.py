@@ -14,27 +14,33 @@ def test_investment_mobile_reexports() -> None:
     """The public API surface is the trading engine cluster + channel."""
     from investment_mobile import (
         ChannelClient,
+        DOMAINS,
+        Execution,
         ExternalAPIClient,
-        Fill,
-        Order,
-        OrderIntent,
+        Instrument,
+        OrderRequest,
+        PortfolioSnapshot,
         Position,
         RiskDecision,
-        Signal,
+        TradeProposal,
         TradingEngineService,
         TradingMode,
+        TradingSignal,
     )
 
     for cls in (
         ChannelClient,
         ExternalAPIClient,
-        Fill,
-        Order,
-        OrderIntent,
-        Position,
+        Instrument,
+        TradingSignal,
+        TradeProposal,
         RiskDecision,
-        Signal,
+        OrderRequest,
+        Execution,
+        Position,
+        PortfolioSnapshot,
         TradingEngineService,
         TradingMode,
     ):
         assert cls is not None
+    assert len(DOMAINS) == 11
