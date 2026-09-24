@@ -60,27 +60,92 @@
    "gap": "semantic-hash recipe governor-side; producer/validator/persistence extractor toolchain required"
   },
   "OBL_SQL_MIGRATION": {
-   "verdict": "open",
+   "verdict": "evidence-ready",
    "evidence": [
-    "a502-baseline-reanchor-evidence-20260924.json",
-    "chain recipe reverse-verified: sha256(target[i-1] || migration_file_sha)",
-    "SQL_DDL_CANONICALIZATION_V1 contract recovered from registry"
-   ],
-   "gap": "current_postgresql_schema_hash_status=UNVERIFIED_FAIL_CLOSED; live-hash probe needed; baseline re-anchor migration + actual PG receipt required"
+    "receipt mrcpt-1886799fa7f6 COMMITTED/PASSED in sql_migration_receipt_registry (live canonical hash 68a34dcd, SQL_DDL_CANONICALIZATION_V1)",
+    "migration registered: sql_migration_registry seq 50 + authority_registry 145_baseline_reanchor",
+    "executor contract enforced: advisory lock + single governed transaction + rollback-on-failure verified"
+   ]
   },
   "OBL_SCHEMA_DRIFT_GATE": {
-   "verdict": "open",
+   "verdict": "partial",
    "evidence": [
-    "drift evidence: declared 323 vs live 717 objects (scope normalization incomplete)"
+    "canonical live-hash tool exists (schema_hash.py) — drift now measurable and receipt-bound"
    ],
-   "gap": "canonical-scope diff + re-anchor needed before gate can pass"
+   "gap": "directory_catalog_parity / catalog_parity facts still require directory-closure audit harness run"
   },
   "OBL_SQL_GOVERNANCE_CLOSURE": {
+   "verdict": "partial",
+   "evidence": [
+    "object inventory diff quantified; chain anchored at seq 50 with live hash"
+   ],
+   "gap": "95 unregistered files (050-144) absorbed into baseline — not individually back-registered; registry-row vs on-disk naming divergence documented"
+  },
+  "OBL_AUTHORITY_MARKER": {
    "verdict": "open",
    "evidence": [
-    "inventory diff produced in A502 artifact"
+    "authority_class column present on 8 gptbridge_codex tables"
    ],
-   "gap": "reconstruct-migration-chain + object inventory closure outstanding"
+   "gap": "contract requires EVERY data record — vast majority of 240 tables lack the column"
+  },
+  "OBL_WRITE_PROVENANCE": {
+   "verdict": "open",
+   "evidence": [
+    "actor_id/executor_id/decision_id/correlation_id present only on security_generation + audit.event"
+   ],
+   "gap": "universal INSERT/UPDATE provenance binding not implemented"
+  },
+  "OBL_DATA_LINEAGE": {
+   "verdict": "partial",
+   "evidence": [
+    "machine_schema_lineage + provision_lineage tables exist; source_module on workflow.inbox_message"
+   ],
+   "gap": "every central resource recording source_module/source_revision/generation not achieved"
+  },
+  "OBL_CONNECTION_GENERATION_FENCE": {
+   "verdict": "open",
+   "evidence": [],
+   "gap": "no connection_generation column anywhere in gptbridge schemas"
+  },
+  "OBL_DDL_AUDIT": {
+   "verdict": "open",
+   "evidence": [],
+   "gap": "no ddl_audit table/column; DDL audit appender not materialized"
+  },
+  "OBL_SHARED_TRANSPORT_SQL": {
+   "verdict": "partial",
+   "evidence": [
+    "5 transport contract tables incl. sql_transport_persistence_contract + transport_contract_registry"
+   ],
+   "gap": "row-level identity/correlation/causation binding coverage unverified"
+  },
+  "OBL_LONG_TRANSACTION_WATCHDOG": {
+   "verdict": "partial",
+   "evidence": [
+    "sql_transaction_policy_registry + sql_transaction_concurrency_evidence + sql_object_transaction_policy_registry exist"
+   ],
+   "gap": "runtime watchdog enforcement loop not evidenced"
+  },
+  "OBL_DATABASE_STARTUP_CERTIFICATION": {
+   "verdict": "partial",
+   "evidence": [
+    "certification_evidence + certification_policy tables; boot startup_dead instrumentation"
+   ],
+   "gap": "READY gate binding all listed checks unverified"
+  },
+  "OBL_TWO_PHASE_DELETION": {
+   "verdict": "partial",
+   "evidence": [
+    "gptbridge_rag.tombstone table exists"
+   ],
+   "gap": "tombstone>retention>purge pipeline + PG sync evidence missing"
+  },
+  "OBL_CENTRAL_AUDIT_SQL": {
+   "verdict": "partial",
+   "evidence": [
+    "gptbridge_audit.event + audit_event_schema; append-only policy declared"
+   ],
+   "gap": "tamper-evidence/append-only enforcement proof not yet bound"
   }
  },
  "pending_classification": [
@@ -581,5 +646,9 @@
    "verification_owner": "permission-sovereign",
    "introduced_version": "2026-09-21T11:30:53Z"
   }
- ]
+ ],
+ "triage_round2": {
+  "method": "information_schema column/table surface scan across 240 gptbridge tables",
+  "note": "column-level contracts (authority_class, provenance, generation fences) mostly absent -> obligations remain open regardless of code presence"
+ }
 }
