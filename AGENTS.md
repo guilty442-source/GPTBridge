@@ -201,21 +201,51 @@ the adapter registry stay untouched. Policy: `runtime/settings/self-learning.jso
 (`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
 reports: `xingcheng/runtime/logs/self-learning-*.json`.
 
+### Scheduled operation (production path)
+
+Self-learning is scheduled centrally through `AutomationCore` — the
+`self-learning` flow in `main-system/config/automation-flows.json`
+(`kind=periodic`, `interval_s=900`, `pausable=true`, `enabled` = manifest
+kill switch). `SelfLearningDriver`
+(`main-system/src-core/tasks/self_learning_driver.py`), started by the
+startup executor, owns the cadence: each tick pre-checks the tool's
+policy/state JSON (only to avoid waking a stopped tool for a cycle that
+cannot run), wakes `local-model` through the governed
+`ToolboxService.start_tool` path when cold (suppressed for 1 h after a
+user-initiated stop, and while `worker_admission_hold`/`regulation_active`
+are set), then submits `xingcheng_self_learning_cycle` via
+`request_tool_execution` (queue-and-return — training is never run inside
+the scheduler tick).
+
+The cycle itself executes **inside the xingcheng tool process** through the
+governed system channel — this is required because `inference_exclusion`
+(§2.7-4) inspects the process-local engine caches (Python +
+C++), which an external watcher cannot see. A re-entrant lock in the
+service guarantees one cycle at a time; all policy gates (enabled,
+min_new_examples, min_interval, quiet hours, GPU backoff, failure breaker,
+daily budget, inference exclusion) are authoritatively enforced by
+`run_cycle` in the tool, not duplicated in the driver. Responses are
+drained on the next tick into a bounded ledger; driver state:
+`main-system/runtime/state/self-learning-driver.json`.
+
+Do NOT run `--watch` as production scheduling — it is a debugging aid only.
+A denied registration (kill switch / unlisted flow) never falls back to a
+private loop.
+
 ```powershell
 # status / one-shot / force (ignore the new-example threshold) / kill switch
 & main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --status
 & main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once
 & main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once --force
 & main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --disable
-
-# periodic watcher (spawn from any supervisor / scheduler)
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --watch --interval 900
 ```
 
 Run from `Standalone tools\local-model\src\backend\services` (the package root).
 
 Implementation: `native_transformer/self_learning.py` +
-`native_transformer/self_learning_support.py`.
+`native_transformer/self_learning_support.py` (cycle); driver:
+`main-system/src-core/tasks/self_learning_driver.py`; tool handler:
+`xingcheng/application/local_ai_lifecycle.py::_handle_self_learning`.
 
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 

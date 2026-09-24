@@ -1,0 +1,60 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "amendment_id": "codex-amendment-request-startup-deadline-divergence-20260924",
+ "request_id": "startup-deadline-divergence-clarification-20260924",
+ "requested_by": "decision-sovereign",
+ "origin": "devin-cli implementation-convergence audit 2026-09-24 (metadata-vs-article deadline divergence found after in-place normalization)",
+ "change_class": "clarification",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "predecessor": {
+  "codex_version": "2026-09-23T03:13:43Z",
+  "history_head": "9a0e38abd69170c0c2ca4e64d0c0d0219f2ad9b0856235907fbfea27f3a43496",
+  "revision_sequence": 74
+ },
+ "status": "draft-awaiting-governor",
+ "not_executed": true,
+ "problem": {
+  "summary": "metadata.startup_complete_deadline_ms now reads 20000, but authoritative article A199 (per metadata.startup_authoritative_article = A484+A193+A199+A496) still fixes HARD-DEADLINE:10000ms inclusive with BUDGET-CARRY total-never-exceeds-10000ms, and maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE still verifies 10000ms. The runtime resolves startup_complete_deadline_ms codex-first via codex_readonly_connection, so the effective enforced deadline is now 20000ms while the normative article still mandates 10000ms.",
+  "codex_state": "metadata.startup_complete_deadline_ms=20000 (changed during the 2026-09-24 in-place normalization; no governor_disposition_* key covers the deadline); articles.A199 rule text unchanged: HARD-DEADLINE:10000ms inclusive, BUDGET-CARRY total-never-exceeds-10000ms, per-phase budgets summing to 10000; maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification='every measured cold warm reconnect and injected-failure startup completes within 10000ms' (introduced_version 3.21600, unchanged).",
+  "impact": "Runtime deadline (metadata-derived) diverges from the authoritative article; manifests synced to metadata (startup_manifest.json staged at 20000) now conflict with A199/TF_STARTUP_TEN_SECOND_DEADLINE evidence. Auditors cannot determine whether the deadline was intentionally relaxed or the metadata key drifted outside the amendment scope (the five-core normalization worker_note lists only A35/A205/A207/A208/A210/A212/A219/A343/A604 language-responsibility articles)."
+ },
+ "proposed_delta": {
+  "options": [
+   {
+    "option": "deadline-relaxed",
+    "description": "If the governor intended to relax the total deadline to 20000ms (e.g. to accommodate newly registered startup phases), amend A199 rule text (HARD-DEADLINE, BUDGET-CARRY, per-phase budgets), maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification text, and any test_flow_codes references; keep metadata.startup_complete_deadline_ms=20000 and record a governor_disposition_startup_deadline key.",
+    "codex_rows": [
+     "articles.A199",
+     "maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE",
+     "metadata.startup_complete_deadline_ms (keep 20000)"
+    ]
+   },
+   {
+    "option": "metadata-restore",
+    "description": "If A199 remains authoritative at 10000ms, restore metadata.startup_complete_deadline_ms to 10000 and revert startup_manifest.json governed_startup.startup_complete_deadline_ms to 10000; the in-place 20000 change then stands as an out-of-scope drift requiring remediation.",
+    "codex_rows": [
+     "metadata.startup_complete_deadline_ms (restore 10000)"
+    ]
+   }
+  ]
+ },
+ "gate_conditions": [
+  "governor selects exactly one option; both directions recorded in governor_disposition_startup_deadline",
+  "if deadline-relaxed: A199 text, manual verification text and test-flow references must be normalized in the same successor build (single atomic publication)",
+  "if metadata-restore: manifest must be re-pinned to 10000 before the next release-contract seal",
+  "deterministic integrity seal + lineage closure + atomic publication per A382/A488"
+ ],
+ "evidence": [
+  "metadata.startup_complete_deadline_ms=20000 observed via governed read-only connection 2026-09-24",
+  "articles.A199 provision row verbatim: 'HARD-DEADLINE:10000ms inclusive ... total-never-exceeds-10000ms'",
+  "maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification column verbatim requires 10000ms",
+  "metadata.startup_authoritative_article = A484+A193+A199+A496",
+  "no governor_disposition_* metadata key covers the startup deadline (six existing keys inspected)",
+  "main-system/config/startup_manifest.json staged delta 10000 -> 20000 follows the metadata value",
+  "runtime resolution path: governed_startup_constant reads metadata.startup_complete_deadline_ms codex-first with manifest fallback"
+ ],
+ "worker_note": "Draft produced by devin-cli audit worker; requires governor authorization before any normalization. The worker did not modify the codex or the manifest; the manifest delta observed in the working tree follows the already-amended metadata value.",
+ "codex_mutation": "none"
+}

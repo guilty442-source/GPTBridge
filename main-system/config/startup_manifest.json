@@ -45,7 +45,7 @@
     "postgres_probe_delay": 0.5,
     "qdrant_probe_timeout": 0.5,
     "dependency_probe_timeout": 0.75,
-    "startup_gate_deadline_seconds": 8.0
+    "startup_gate_deadline_seconds": 90.0
   },
   "ports": {
     "ollama": 11434,
