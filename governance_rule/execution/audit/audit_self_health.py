@@ -35,23 +35,22 @@ SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
         "shared-layer/tests/test_shared_layer.py",
         "shared-layer/tests/test_shared_layer_sub_sovereign.py",
         # ── local-model / xingcheng (native model platform) ──────────
+        # A163/ef5df1a5: Ollama 耦合已切除 — transformer_runtime/model
+        # registry/resource_manager/model_parameter_policy/gpt_training
+        # 等 11 個測試檔隨其被測模組一併退役；屏障改由 native 路徑
+        # 繼任測試檔承擔（StarNativeRuntime/native_engine/native
+        # transformer/lifecycle owner/self-learning gate）。
         "Standalone tools/local-model/tests/test_xingcheng_layering.py",
-        "Standalone tools/local-model/tests/test_model_registry_part1.py",
-        "Standalone tools/local-model/tests/test_model_registry_part2.py",
-        "Standalone tools/local-model/tests/test_model_registry_part3.py",
-        "Standalone tools/local-model/tests/test_model_registry_part4.py",
-        "Standalone tools/local-model/tests/test_transformer_runtime_part1.py",
-        "Standalone tools/local-model/tests/test_transformer_runtime_part2.py",
-        "Standalone tools/local-model/tests/test_transformer_runtime_part3.py",
-        "Standalone tools/local-model/tests/test_transformer_runtime_part4.py",
+        "Standalone tools/local-model/tests/test_native_engine.py",
+        "Standalone tools/local-model/tests/test_native_transformer.py",
+        "Standalone tools/local-model/tests/test_model_service_lifecycle_owner.py",
+        "Standalone tools/local-model/tests/test_lifecycle_resource_actions.py",
+        "Standalone tools/local-model/tests/test_self_learning_gates.py",
         "Standalone tools/local-model/tests/test_transformer_training_repository.py",
         "Standalone tools/local-model/tests/test_local_rag.py",
         "Standalone tools/local-model/tests/test_local_sqlite_rag_repository.py",
-        "Standalone tools/local-model/tests/test_model_parameter_policy.py",
         "Standalone tools/local-model/tests/test_reading_expert.py",
-        "Standalone tools/local-model/tests/test_gpt_training.py",
         "Standalone tools/local-model/tests/test_google_search.py",
-        "Standalone tools/local-model/tests/test_resource_manager.py",
         "Standalone tools/local-model/tests/test_capability_composer.py",
         "Standalone tools/local-model/tests/test_capability_evaluation.py",
         "Standalone tools/local-model/tests/test_coding_expert_1000_matrix.py",
