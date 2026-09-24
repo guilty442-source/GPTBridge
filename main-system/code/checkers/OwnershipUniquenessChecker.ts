@@ -1,5 +1,5 @@
 /**
- * OwnershipUniquenessChecker.ts ?”Ownership uniqueness verification (A356/A362).
+ * OwnershipUniquenessChecker.ts â€”Ownership uniqueness verification (A356/A362).
  *
  * Verifies each module maps to exactly one primary sub-sovereign by its
  * dominant state-changing capability and declared ownership.
