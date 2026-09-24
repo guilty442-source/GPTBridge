@@ -16,7 +16,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT / "src" / "backend" / "services"))
 
 from investment_mobile.trading.engine_service import TradingEngineService
@@ -126,7 +126,7 @@ class E2EV1(unittest.TestCase):
         val = self.call("investment-mobile-asset-value",
                         {"prices": {"2330": "600", "AAPL": "200"}})
         self.assertTrue(val["ok"], val)
-        self.assertTrue(val["total"] > 0)
+        self.assertTrue(float(val["total_assets"]) > 0)
         uni = self.call("investment-mobile-portfolio-unified",
                         {"display_currency": "TWD"})
         self.assertTrue(uni["ok"], uni)
@@ -154,12 +154,15 @@ class E2EV1(unittest.TestCase):
         self.assertEqual(sh_run["state"], "RUNNING")
         self.assertEqual(self.svc.sim.orders.list(), [])
         # PAPER — simulated fill
+        self.call("investment-mobile-trading-mode-set",
+                  {"mode": "PAPER"})
         self.call("investment-mobile-paper-account-create",
                   {"account_id": "paper-tw", "market": "tw",
                    "base_currency": "TWD",
                    "initial_capital": "1000000"})
         self.call("investment-mobile-autotrade-capital-set",
-                  {"plan": {"allocations": {"e2e-paper": "0.4"},
+                  {"account_id": "paper-tw",
+                   "plan": {"allocations": {"e2e-paper": "0.4"},
                             "reserve_cash": "0.3"}})
         pp = self._auto_register("e2e-paper", "PAPER",
                                  account="paper-tw")
@@ -190,25 +193,39 @@ class E2EV1(unittest.TestCase):
                    "initial_capital": "1000000"})
         self._seed_candles()
         self.call("investment-mobile-autotrade-capital-set",
-                  {"plan": {"allocations": {"s1": "0.4"},
+                  {"account_id": "paper-tw",
+                   "plan": {"allocations": {"s1": "0.4"},
                             "reserve_cash": "0.3"}})
         r1 = self._auto_register("s1", "PAPER", account="paper-tw")
         self._auto_start(r1)
         self._auto_event("r1")
         before = self.call("investment-mobile-autotrade-performance",
                            {"run_id": r1})["snapshot"]["filled"]
+        n_orders = len(self.svc.sim.orders.list())
         # crash -> restart on the same state dir
         self.svc.close()
         svc2 = TradingEngineService(Path(self._tmp.name))
         try:
             svc2.candle_store.open()
-            svc2.autotrade.maintenance.recover()
-            runs = svc2.autotrade.strategies.list()
-            self.assertEqual(len(runs), 1)
+            rec = svc2.autotrade.maintenance.startup_recovery(
+                svc2.autotrade)
+            run2 = svc2.autotrade.manager.get(r1)
             # recovery must not blindly resume RUNNING / replay signals
-            self.assertEqual(runs[0]["state"], "PAUSED")
-            after = svc2.autotrade.performance.snapshot(r1)["filled"]
-            self.assertEqual(after, before)
+            self.assertEqual(run2["state"], "PAUSED")
+            self.assertIn(r1, rec["recovery"]["checks"][-1]
+                          ["held_for_review"])
+            # replay the same event -> dedup, no second order
+            d = _run(svc2.handle(
+                "investment-mobile-autotrade-event",
+                {"event_type": "CANDLE_CLOSED", "market": "tw",
+                 "instrument_id": "2330", "source_id": "test",
+                 "data_revision": "r1"}))[1]
+            self.assertTrue(d["duplicate"])
+            self.assertEqual(len(svc2.sim.orders.list()), n_orders)
+            snap = _run(svc2.handle(
+                "investment-mobile-autotrade-performance",
+                {"run_id": r1}))[1]["snapshot"]
+            self.assertEqual(snap["filled"], before)
         finally:
             svc2.close()
         self.svc = TradingEngineService(Path(self._tmp.name))
