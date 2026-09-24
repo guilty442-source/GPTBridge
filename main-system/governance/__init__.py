@@ -18,20 +18,20 @@ from .sovereigns import (
     SystemRuntimeSovereign,
     XingchengSovereign,
 )
-# A485: the learning module is owned by 星澄 (xingcheng package); its
-# codex identity (learning-evidence-sync-sub-sovereign) is preserved as
-# lineage while it operates as a commanded module, not a sovereign.
-from .sovereigns.xingcheng.learning_sub_sovereign import (
-    LearningEvidenceSyncSubSovereign,
+# A485/A604: learning is an internal capability of the 星澄 own-domain
+# sovereign (no module/child concept); its retired codex identity is
+# preserved as lineage only.
+from .sovereigns.xingcheng.learning_engine import (
+    XingchengLearningEngine,
 )
 
 __all__ = [
     "AutomationSovereign",
     "DecisionSovereign",
-    "LearningEvidenceSyncSubSovereign",
     "PermissionSovereign",
     "SovereignBase",
     "SovereignIdentity",
     "SystemRuntimeSovereign",
+    "XingchengLearningEngine",
     "XingchengSovereign",
 ]

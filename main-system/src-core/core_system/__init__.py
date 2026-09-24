@@ -22,7 +22,7 @@ from .system_automation_coordinator import SystemAutomationCoordinator
 _GOVERNANCE_EXPORTS = {
     "AutomationSovereign",
     "DecisionSovereign",
-    "LearningEvidenceSyncSubSovereign",
+    "XingchengLearningEngine",
     "PermissionSovereign",
     "SystemRuntimeSovereign",
     "XingchengSovereign",
@@ -33,7 +33,7 @@ _GOVERNANCE_EXPORTS = {
 _SERVICE_ALIASES = {
     "DecisionSovereignService": "DecisionSovereign",
     "SynchronizationSovereign": "AutomationSovereign",
-    "LearningSystemSovereign": "LearningEvidenceSyncSubSovereign",
+    "LearningSystemSovereign": "XingchengLearningEngine",
 }
 
 

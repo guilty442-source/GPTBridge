@@ -504,9 +504,15 @@ class DecisionSovereign(
         ]
 
     def _peer_statuses(self) -> dict[str, Any]:
+        # Learning is a 星澄-internal capability (A485/A604) — read it
+        # through the peer sovereign, not the retired child identity.
+        xingcheng = getattr(self.app, "xingcheng_sovereign", None)
+        learning = getattr(xingcheng, "learning_status", None)
         return {
-            "learning": self._child_status(
-                "learning-evidence-sync-sub-sovereign", "status"
+            "learning": (
+                learning()
+                if callable(learning)
+                else {"enabled": False, "owner": "星澄"}
             ),
             "programming": self._child_status(
                 "release-update-sync-sub-sovereign", "status"

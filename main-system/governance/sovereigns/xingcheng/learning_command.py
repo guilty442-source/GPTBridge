@@ -1,9 +1,9 @@
 """Xingcheng Sovereign — Learning Command Mixin (A485).
 
-星澄指揮學習子主宰自動學習：auto-learning is armed, driven and disarmed
-through the governed delegation path (single-use nonce + verifiable
-receipts, A334/A435).  The child never self-arms; every learning action
-is a bounded assignment issued by the codex-registered parent.
+星澄驅動其內建學習能力：auto-learning is armed, driven and disarmed
+in-process by the owning sovereign (A592/A604 — no module/child layer;
+the capability is part of 星澄 itself).  The engine never self-arms;
+every learning action is a bounded command issued by the owner.
 """
 
 from __future__ import annotations
@@ -11,11 +11,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from core_system.codex_decision import SovereignRequest
+from .learning_engine import XingchengLearningEngine
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng.learning-command")
 
-_LEARNING_CHILD_ID = "learning-evidence-sync-sub-sovereign"
 _COMMAND_LOG_LIMIT = 50
 
 # Learning pass triggers
@@ -26,11 +25,11 @@ _LEARNING_HISTORY_LIMIT = 100
 
 
 class XingchengLearningCommandMixin:
-    """Parent-command surface for the learning sub-sovereign (A485)."""
+    """Owner command surface for the internal learning engine (A485)."""
 
-    _sub_sovereigns: dict[str, Any]
     app: Any
     sovereign_id: str
+    _learning_engine: XingchengLearningEngine
     _learning_commands: list[dict[str, Any]]
     _learning_armed: bool
     _learning_history: list[dict[str, Any]]
@@ -38,6 +37,7 @@ class XingchengLearningCommandMixin:
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self._learning_engine = XingchengLearningEngine(self.app)
         self._learning_commands = []
         self._learning_armed = False
         self._learning_history = []
@@ -46,34 +46,14 @@ class XingchengLearningCommandMixin:
     async def _command_learning(
         self, intent: str, payload: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Delegate one bounded learning command to the codex child.
-
-        A604/RULE_CAPABILITY_DISPATCH_V1: the codex child is retired, so
-        the gate first checks the A334 parent edge (active identities keep
-        legacy behaviour); a retired identity must resolve through an
-        active ``capability_dispatch_registry`` route to its successor
-        module instance.  Absent/pending routes fail closed.
-        """
-        from ...registries import dispatch_route_of, validate_child_parent
-
-        if not validate_child_parent(
-            _LEARNING_CHILD_ID, self.sovereign_id
-        ) and dispatch_route_of(_LEARNING_CHILD_ID) is None:
+        """Issue one bounded learning command to the internal engine."""
+        if not self._learning_engine.started:
             return {
                 "commanded": False,
-                "reason": "child-parent-mismatch",
-                "dispatch": "unresolved",
+                "reason": "learning-engine-not-started",
                 "intent": intent,
             }
-        outcome = await self.delegate_to(
-            _LEARNING_CHILD_ID,
-            SovereignRequest(
-                intent=intent,
-                subject="learning",
-                requester=self.sovereign_id,
-                payload=dict(payload or {}),
-            ),
-        )
+        outcome = await self._learning_engine.run_command(intent, payload)
         receipt = {
             "at": self._iso_now(),
             "intent": intent,
@@ -106,21 +86,20 @@ class XingchengLearningCommandMixin:
         }
 
     async def start_learning_automation(self) -> dict[str, Any]:
-        """Arm the child's auto-learning loop (commanded, never self-armed)."""
+        """Arm the engine's auto-learning loop (commanded, never self-armed)."""
         result = await self._command_learning("learn.auto-start")
         self._learning_armed = bool(result.get("commanded"))
         return result
 
     async def ensure_learning_automation(self) -> bool:
-        """Re-command learning until the child is materialized (A485).
+        """Re-command learning until the engine accepts it (A485).
 
-        ``start_supervision`` runs before the governed executor
-        materializes the sub-sovereigns, so the first ``learn.auto-start``
-        can fail closed (``TARGET_SOVEREIGN_UNAVAILABLE`` /
-        ``TARGET_SOVEREIGN_NOT_STARTED``) and nothing retried it — leaving
+        ``start_supervision`` can run before the engine is started, so the
+        first ``learn.auto-start`` can fail closed
+        (``learning-engine-not-started``) and nothing retried it — leaving
         commanded learning (and its fault-message reconciliation) off for
-        the whole process generation.  The parent's auto-loop calls this
-        every cycle until the command is accepted.
+        the whole process generation.  The auto-loop calls this every
+        cycle until the command is accepted.
         """
         if self._learning_armed:
             return True
@@ -128,7 +107,7 @@ class XingchengLearningCommandMixin:
         return bool(result.get("commanded"))
 
     async def stop_learning_automation(self) -> dict[str, Any]:
-        """Disarm the child's auto-learning loop."""
+        """Disarm the engine's auto-learning loop."""
         result = await self._command_learning("learn.auto-stop")
         self._learning_armed = False
         return result
@@ -136,7 +115,7 @@ class XingchengLearningCommandMixin:
     async def command_learning_pass(
         self, trigger: str = "auto-loop"
     ) -> dict[str, Any]:
-        """Command one bounded reconciliation/learning pass."""
+        """Command one bounded reconciliation/learning pass on the engine."""
         if trigger not in _LEARNING_TRIGGERS:
             trigger = "auto-loop"
         return await self._command_learning(
@@ -146,14 +125,14 @@ class XingchengLearningCommandMixin:
     async def push_learning_outcome(
         self, signature: dict[str, Any], outcome: dict[str, Any]
     ) -> dict[str, Any]:
-        """Push one verified outcome for the child to learn from."""
+        """Push one verified outcome for the engine to learn from."""
         return await self._command_learning(
             "learn.outcome",
             {"signature": dict(signature), "outcome": dict(outcome)},
         )
 
     async def command_learning_analysis(self) -> dict[str, Any]:
-        """Request the child's learning-history analysis."""
+        """Request the engine's learning-history analysis."""
         return await self._command_learning("learn.analyze")
 
     async def command_learning_retry_failed(
@@ -173,7 +152,7 @@ class XingchengLearningCommandMixin:
         verification: str = "",
         automatic: bool = True,
     ) -> dict[str, Any]:
-        """Teach the child one bounded repair doctrine entry (learn.teach).
+        """Teach the engine one bounded repair doctrine entry (learn.teach).
 
         Doctrine is stored as a ``source="taught"`` recipe — distinct
         from outcome-earned (``learned``) knowledge — and forwarded to
@@ -192,24 +171,24 @@ class XingchengLearningCommandMixin:
         )
 
     def learning_status(self) -> dict[str, Any]:
-        """Read-only projection of the commanded learning surface."""
-        child = self._sub_sovereigns.get(_LEARNING_CHILD_ID)
-        if child is None:
+        """Read-only projection of the internal learning capability."""
+        engine = self._learning_engine
+        if not engine.started:
             return {
-                "materialized": False,
-                "child": _LEARNING_CHILD_ID,
+                "materialized": True,
+                "capability": "learning-evidence-sync",
+                "engine_started": False,
                 "armed": self._learning_armed,
                 "commands_issued": len(self._learning_commands),
             }
-        reporter = getattr(child, "status", None)
-        child_status = reporter() if callable(reporter) else {}
+        engine_status = engine.status()
         return {
             "materialized": True,
-            "child": _LEARNING_CHILD_ID,
+            "capability": "learning-evidence-sync",
             "armed": self._learning_armed,
-            "child_started": bool(getattr(child, "_started", False)),
-            "auto_learning": child_status.get("auto_learning", "disarmed"),
-            "reconcile_loop": child_status.get("reconcile_loop", False),
+            "engine_started": engine.started,
+            "auto_learning": engine_status.get("auto_learning", "disarmed"),
+            "reconcile_loop": engine_status.get("reconcile_loop", False),
             "commands_issued": len(self._learning_commands),
             "last_command": (
                 self._learning_commands[-1] if self._learning_commands else None

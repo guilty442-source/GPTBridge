@@ -122,7 +122,7 @@ class RepairExecution:
 
 @dataclass(frozen=True)
 class LearnedRecipe:
-    """Verified repeatable recipe per learning-evidence-sync-sub-sovereign."""
+    """Verified repeatable recipe per the 星澄 learning capability."""
     recipe_id: str
     signature_hash: str
     error_class: str
@@ -132,7 +132,7 @@ class LearnedRecipe:
     occurrence_count: int
     verification_proof: dict[str, Any]
     promoted_at: str
-    promoted_by: str = "learning-evidence-sync-sub-sovereign"
+    promoted_by: str = "星澄"
     source: str = "learned"
 
 

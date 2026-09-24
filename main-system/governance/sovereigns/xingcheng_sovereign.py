@@ -456,8 +456,15 @@ class XingchengSovereign(
         """Start the sovereign (decision-layer only, A297).
 
         The auto-loop is started separately by start_supervision().
+        The internal learning engine (A485 — a 星澄-owned capability,
+        not a module) starts with the sovereign; its failure degrades
+        learning only, never the sovereign itself.
         """
         await super().start()
+        try:
+            await self._learning_engine.start()
+        except Exception:
+            _logger.exception("xingcheng learning engine failed to start")
         return {
             "ok": True,
             "role": self.sovereign_id,
@@ -466,7 +473,7 @@ class XingchengSovereign(
         }
 
     async def start_supervision(self) -> None:
-        """Start the auto-loop and command the learning child (A297/A485)."""
+        """Start the auto-loop and command the learning engine (A297/A485)."""
         await self.start_auto_loop()
         await self.start_learning_automation()
 
@@ -476,8 +483,12 @@ class XingchengSovereign(
         await self.stop_auto_loop()
 
     async def stop(self) -> None:
-        """Stop the sovereign, commanded learning, and auto-loop."""
+        """Stop the sovereign, learning engine, and auto-loop."""
         await self.stop_learning_automation()
+        try:
+            await self._learning_engine.stop()
+        except Exception:
+            _logger.exception("xingcheng learning engine failed to stop")
         await self.stop_auto_loop()
         self._started = False
 

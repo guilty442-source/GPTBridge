@@ -1,25 +1,24 @@
-"""Learning Sub-Sovereign — 學習子主宰（星澄專屬管理，無決策、無執行）。
+"""Xingcheng Learning Engine — 星澄內建學習能力（無決策、無執行）。
 
-法典依據 (A485 — learning-sub-sovereign-transfer-to-xingcheng):
-- sovereign_id: learning-evidence-sync-sub-sovereign (identity preserved)
-- display name: learning-sub-sovereign
-- area: system-learning
-- parent: 星澄 (xingcheng_sovereign)
-- relation: privileged-institution-managed-sub-sovereign
-- rank: child-of-星澄-no-decision-no-execution
-- duties: manage learning-evidence modules, assign bounded learning work,
-  coordinate evidence normalization/evaluation/retention, collect outcome proof
-- boundary: no decision/execution power; cannot alter models, code, Codex,
-  permissions, routing or active behavior
-- information: 星澄-to-learning instructions/events/evidence/results use the
-  information layer (including the 星澄 auxiliary private channel)
+法典依據 (A485 — learning-transfer-to-xingcheng; A592/A604 — layer
+eliminated): 星澄 is the native-model own-domain sovereign and has no
+module/child concept — learning is an internal capability owned and
+driven in-process by the 星澄 sovereign itself.  The retired codex
+identity ``learning-evidence-sync-sub-sovereign`` survives only as
+lineage (its declaration still supplies the duty list below); it is
+never used as an active route, registry key or parent edge.
 
-Module home: ``governance/sovereigns/xingcheng/`` (A485 module assignment to
-the 星澄 owner).  The implementation was merged from the retired
+- owner: 星澄 (xingcheng_sovereign) — all actions stamp this identity
+- duties (lineage): manage learning-evidence, assign bounded learning
+  work, coordinate evidence normalization/evaluation/retention, collect
+  outcome proof
+- boundary: no decision/execution power; cannot alter models, code,
+  Codex, permissions, routing or active behavior
+
+The implementation was merged from the retired
 ``core_system.learning_system_sovereign.LearningSystemSovereign`` so the
 active path keeps its persistent system-error learning behavior (fault
-learning, repair outcomes, evidence feedback) while operating under the
-codex ``learning-evidence-sync-sub-sovereign`` identity.
+learning, repair outcomes, evidence feedback).
 """
 
 from __future__ import annotations
@@ -33,21 +32,23 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-from .commanded_module_base import CommandedModuleBase
+from .internal_capability_base import InternalCapabilityBase
 from governance_rule.execution.codex_official import official_self_declaration
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 from .learning_reconciliation import LearningReconciliationMixin
 
 
-_logger = logging.getLogger("gptbridge.sovereign.learning-evidence-sync")
+_logger = logging.getLogger("gptbridge.sovereign.xingcheng.learning")
 
+# Lineage read only: the retired codex row supplies the descriptive duty
+# list; it is not an active identity.
 _DECLARATION = official_self_declaration("learning-evidence-sync-sub-sovereign")
 if _DECLARATION is None:
-    raise RuntimeError("learning evidence sync sub-sovereign not found in Governance Codex")
+    raise RuntimeError("learning evidence sync declaration not found in Governance Codex")
 
-# Bounded learning commands the codex parent (星澄) may delegate (A485).
-# The child never self-arms its learning loop — arming, driving and
-# disarming are all commanded through the governed delegation path.
+# Bounded learning commands the owning 星澄 sovereign may issue (A485).
+# The engine never self-arms its learning loop — arming, driving and
+# disarming are all commanded in-process by the owner.
 _LEARNING_INTENTS: Final = frozenset(
     {
         "learn.auto-start",
@@ -69,25 +70,21 @@ from .learning_constants import (
 )
 
 
-class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliationMixin):
-    """Learns verified error/remedy outcomes without gaining execution power."""
+class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixin):
+    """星澄's internal learning capability — no decision/execution power."""
 
-    sovereign_id = "learning-evidence-sync-sub-sovereign"
-    parent_sovereign_id = "星澄"
+    # The capability acts under the owning sovereign's codex identity.
+    sovereign_id = "星澄"
 
-    ROLE = sovereign_id
-
-    # Base coordination intents plus the parent's bounded learn.* commands.
-    _INTENT_ALLOWLIST = CommandedModuleBase._INTENT_ALLOWLIST | _LEARNING_INTENTS
+    ROLE = "xingcheng-learning"
 
     def __init__(
         self,
         app: Any | None = None,
-        parent: Any | None = None,
         *,
         reconcile_interval: float | None = None,
     ) -> None:
-        super().__init__(app, parent)
+        super().__init__(app)
         self._store: Any | None = None
         self._learner: Any | None = None
         self._sync_state: dict[str, Any] = {}
@@ -130,7 +127,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
         self._started = True
         # E173: activation returns a light receipt — analyze_history()
         # runs on demand in status(), not on the startup critical path.
-        # The reconcile loop is NOT self-armed: only a parent-delegated
+        # The reconcile loop is NOT self-armed: only an owner-issued
         # ``learn.auto-start`` command may arm it (A485 commanded learning).
         return {
             "ok": True,
@@ -139,7 +136,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             "duties": list(_DECLARATION.duties),
             "execution": "governed-executor-only",
             "persistence": "repair-learning-sqlite",
-            "reconciliation": "commanded-by-parent",
+            "reconciliation": "commanded-by-owner",
             "fault_manuals": len(self._fault_manual_catalog),
         }
 
@@ -160,7 +157,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
         return {
             "role": self.ROLE,
             "started": self._started,
-            "parent": self.parent_sovereign_id,
+            "owner": "星澄",
             "duties": list(_DECLARATION.duties),
             "execution": "governed-executor-only",
             "persistence": "repair-learning-sqlite",
@@ -169,7 +166,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             "auto_learning": (
                 "armed" if self._auto_learning_armed else "disarmed"
             ),
-            "commanded_by": self.parent_sovereign_id,
+            "commanded_by": "星澄",
             "reconcile_loop": bool(
                 self._reconcile_task is not None and not self._reconcile_task.done()
             ),
@@ -189,22 +186,16 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
         return base
 
     # ------------------------------------------------------------------
-    # Parent-commanded learning adjudication (A485)
+    # Owner-commanded learning dispatch (A485)
     # ------------------------------------------------------------------
 
-    async def _adjudicate(self, request: Any) -> Any:
-        """Parent-authorized dispatch: learn.* commands + base coordination.
-
-        ``_verify_parent_authorization`` runs exactly once here — the base
-        coordination intents are dispatched to their handlers directly so
-        the single-use delegation nonce is never consumed twice.
-        """
-        if not await self._verify_parent_authorization(request):
-            return refusal_outcome(
-                "PARENT_AUTHORIZATION_REQUIRED",
-                self.verified_basis("A130", "A334"),
-            )
+    async def _run_command(self, request: Any) -> Any:
+        """In-process dispatch of the owner's bounded learn.* commands."""
         intent = request.intent
+        if intent not in _LEARNING_INTENTS:
+            return refusal_outcome(
+                "UNKNOWN_INTENT", self.verified_basis("A485")
+            )
         if intent == "learn.auto-start":
             return await self._adjudicate_learn_auto_start(request)
         if intent == "learn.auto-stop":
@@ -219,23 +210,8 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             return self._adjudicate_learn_analyze(request)
         if intent == "learn.teach":
             return self._adjudicate_learn_teach(request)
-        return await self._adjudicate_coordination(request)
-
-    async def _adjudicate_coordination(self, request: Any) -> Any:
-        """Base coordination intents (parent authorization already verified)."""
-        intent = request.intent
-        if intent == "coordinate":
-            return await self._adjudicate_coordinate(request)
-        if intent == "assign":
-            return await self._adjudicate_assign(request)
-        if intent == "manage":
-            return await self._adjudicate_manage(request)
-        if intent == "sync":
-            return await self._adjudicate_sync(request)
-        if intent == "status":
-            return await self._adjudicate_status(request)
         return refusal_outcome(
-            "UNKNOWN_INTENT", self.verified_basis("A130", "A284")
+            "UNKNOWN_INTENT", self.verified_basis("A485")
         )
 
     def _learn_basis(self) -> Any:
@@ -256,7 +232,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
                 ),
                 "interval_seconds": self._interval_seconds(),
                 "curriculum": curriculum,
-                "commanded_by": self.parent_sovereign_id,
+                "commanded_by": "星澄",
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
             },
@@ -270,7 +246,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             {
                 "command": "learn.auto-stop",
                 "auto_learning": "disarmed",
-                "commanded_by": self.parent_sovereign_id,
+                "commanded_by": "星澄",
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
             },
@@ -278,7 +254,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
         )
 
     async def _adjudicate_learn_reconcile(self, request: Any) -> Any:
-        """Run one bounded reconciliation pass under parent command."""
+        """Run one bounded reconciliation pass under owner command."""
         self._ingest_fault_manual_catalog()
         receipt = await self.reconcile_once()
         return accepted_outcome(
@@ -286,7 +262,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
                 "command": "learn.reconcile",
                 "trigger": request.payload.get("trigger"),
                 "reconciliation": receipt,
-                "commanded_by": self.parent_sovereign_id,
+                "commanded_by": "星澄",
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
             },
@@ -294,7 +270,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
         )
 
     def _adjudicate_learn_outcome(self, request: Any) -> Any:
-        """Learn from one parent-pushed verified outcome."""
+        """Learn from one owner-pushed verified outcome."""
         self._ensure_learner()
         if self._learner is None:
             return refusal_outcome("LEARNER_UNAVAILABLE", self._learn_basis())
@@ -313,7 +289,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             {
                 "command": "learn.outcome",
                 "learning": result,
-                "commanded_by": self.parent_sovereign_id,
+                "commanded_by": "星澄",
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
             },
@@ -331,7 +307,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             {
                 "command": "learn.evidence",
                 "synced": True,
-                "commanded_by": self.parent_sovereign_id,
+                "commanded_by": "星澄",
                 "decision": "none",
                 "execution": "none",
             },
@@ -346,7 +322,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             {
                 "command": "learn.analyze",
                 "analysis": self._learner.analyze_history(),
-                "commanded_by": self.parent_sovereign_id,
+                "commanded_by": "星澄",
                 "decision": "none",
                 "execution": "none",
             },
@@ -354,9 +330,9 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
         )
 
     def _adjudicate_learn_teach(self, request: Any) -> Any:
-        """Store one parent-taught repair recipe (``learn.teach``).
+        """Store one owner-taught repair recipe (``learn.teach``).
 
-        Taught knowledge is doctrine declared by the codex parent
+        Taught knowledge is doctrine declared by the owning sovereign
         (星澄) — ``source="taught"`` with zero outcome counters, bounded
         to the runtime-safe remedy vocabulary so teaching can never arm
         a source mutation.  The accepted recipe is also forwarded to
@@ -398,7 +374,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             {
                 "command": "learn.teach",
                 "recipe": recipe,
-                "commanded_by": self.parent_sovereign_id,
+                "commanded_by": "星澄",
                 "decision": "none",
                 "execution": "none",
             },
@@ -436,7 +412,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
     def _emit_repair_teaching_example(self, recipe: dict[str, Any]) -> None:
         """Forward one repair recipe to the model's teaching gate.
 
-        The governed bridge: learning-module doctrine becomes a repair
+        The governed bridge: learning-engine doctrine becomes a repair
         teaching example submitted to ``xingcheng_submit_teaching``
         through the shared request layer under
         ``governance/main-system`` — repair experience settles into
@@ -494,7 +470,7 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
     def _record_pushed_outcome(
         self, signature: dict[str, Any], outcome: dict[str, Any]
     ) -> dict[str, Any] | None:
-        """Deserialize parent-pushed payload and record the learning outcome."""
+        """Deserialize owner-pushed payload and record the learning outcome."""
         try:
             from tasks.repair_learning_types import (
                 ErrorSignature,
@@ -671,4 +647,4 @@ class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliati
             await self._wait_for_cycle()
 
 
-__all__ = ["LearningEvidenceSyncSubSovereign"]
+__all__ = ["XingchengLearningEngine"]
