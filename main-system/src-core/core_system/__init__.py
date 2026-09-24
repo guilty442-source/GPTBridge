@@ -22,18 +22,17 @@ from .system_automation_coordinator import SystemAutomationCoordinator
 _GOVERNANCE_EXPORTS = {
     "AutomationSovereign",
     "DecisionSovereign",
-    "XingchengLearningEngine",
     "PermissionSovereign",
     "SystemRuntimeSovereign",
     "XingchengSovereign",
 }
 
 # Compatibility aliases: retired service names resolve to the merged
-# governance-layer cores / 星澄-owned learning module.
+# governance-layer cores / the single-entity 星澄 sovereign.
 _SERVICE_ALIASES = {
     "DecisionSovereignService": "DecisionSovereign",
     "SynchronizationSovereign": "AutomationSovereign",
-    "LearningSystemSovereign": "XingchengLearningEngine",
+    "LearningSystemSovereign": "XingchengSovereign",
 }
 
 

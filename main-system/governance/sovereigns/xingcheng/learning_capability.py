@@ -1,12 +1,12 @@
-"""Xingcheng Learning Engine — 星澄內建學習能力（無決策、無執行）。
+"""Xingcheng Learning Capability — 星澄的學習能力（單一個體，無決策、無執行）。
 
 法典依據 (A485 — learning-transfer-to-xingcheng; A592/A604 — layer
-eliminated): 星澄 is the native-model own-domain sovereign and has no
-module/child concept — learning is an internal capability owned and
-driven in-process by the 星澄 sovereign itself.  The retired codex
-identity ``learning-evidence-sync-sub-sovereign`` survives only as
-lineage (its declaration still supplies the duty list below); it is
-never used as an active route, registry key or parent edge.
+eliminated): 星澄 is the single-entity native-model sovereign — learning
+is part of the entity itself, expressed as this mixin on
+``XingchengSovereign``.  The retired codex identity
+``learning-evidence-sync-sub-sovereign`` survives only as lineage (its
+declaration still supplies the duty list below); it is never used as an
+active route, registry key or parent edge.
 
 - owner: 星澄 (xingcheng_sovereign) — all actions stamp this identity
 - duties (lineage): manage learning-evidence, assign bounded learning
@@ -32,7 +32,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-from .internal_capability_base import InternalCapabilityBase
 from governance_rule.execution.codex_official import official_self_declaration
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 from .learning_reconciliation import LearningReconciliationMixin
@@ -70,29 +69,37 @@ from .learning_constants import (
 )
 
 
-class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixin):
-    """星澄's internal learning capability — no decision/execution power."""
+class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
+    """星澄's learning capability — part of the single native-model entity.
 
-    # The capability acts under the owning sovereign's codex identity.
-    sovereign_id = "星澄"
+    A485/A604: 星澄 is one indivisible individual (the native model's
+    own-domain sovereign).  Learning is a set of methods and state on the
+    sovereign itself — there is no separate engine/module object, no
+    second codex identity, and no external request surface.
+    """
 
-    ROLE = "xingcheng-learning"
+    _store: Any | None
+    _learner: Any | None
+    _sync_state: dict[str, Any]
+    _reconcile_task: asyncio.Task[Any] | None
+    _reconcile_interval: float | None
+    _last_reconciliation: dict[str, Any]
+    _auto_learning_armed: bool
+    _learning_active: bool
+    _fault_manual_catalog: tuple[dict[str, Any], ...]
+    _fault_manual_catalog_hash: str
 
-    def __init__(
-        self,
-        app: Any | None = None,
-        *,
-        reconcile_interval: float | None = None,
-    ) -> None:
-        super().__init__(app)
-        self._store: Any | None = None
-        self._learner: Any | None = None
-        self._sync_state: dict[str, Any] = {}
-        self._reconcile_task: asyncio.Task[Any] | None = None
-        self._reconcile_interval = reconcile_interval
-        self._last_reconciliation: dict[str, Any] = {}
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._store = None
+        self._learner = None
+        self._sync_state = {}
+        self._reconcile_task = None
+        self._reconcile_interval = None
+        self._last_reconciliation = {}
         self._auto_learning_armed = False
-        self._fault_manual_catalog: tuple[dict[str, Any], ...] = ()
+        self._learning_active = False
+        self._fault_manual_catalog = ()
         self._fault_manual_catalog_hash = ""
 
     def _ingest_fault_manual_catalog(self) -> None:
@@ -117,22 +124,24 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
         self._fault_manual_catalog = records
         self._fault_manual_catalog_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    async def start(self) -> dict[str, Any]:
+    async def learning_activate(self) -> dict[str, Any]:
+        """Activate the learning capability with the sovereign's lifecycle."""
         from tasks.repair_learning import RepairLearner, RepairLearningStore
 
         root = Path(getattr(self.app, "project_root", ".")).resolve()
         self._store = RepairLearningStore(root / "main-system" / "data" / "automatic-repair")
         self._learner = RepairLearner(self._store)
         self._ingest_fault_manual_catalog()
-        self._started = True
+        self._learning_active = True
         # E173: activation returns a light receipt — analyze_history()
-        # runs on demand in status(), not on the startup critical path.
-        # The reconcile loop is NOT self-armed: only an owner-issued
-        # ``learn.auto-start`` command may arm it (A485 commanded learning).
+        # runs on demand in learning_capability_status(), not on the
+        # startup critical path.  The reconcile loop is NOT self-armed:
+        # only an owner-issued ``learn.auto-start`` command may arm it
+        # (A485 commanded learning).
         return {
             "ok": True,
-            "role": self.ROLE,
-            "started": self._started,
+            "capability": "xingcheng-learning",
+            "active": self._learning_active,
             "duties": list(_DECLARATION.duties),
             "execution": "governed-executor-only",
             "persistence": "repair-learning-sqlite",
@@ -140,10 +149,10 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
             "fault_manuals": len(self._fault_manual_catalog),
         }
 
-    async def stop(self) -> None:
+    async def learning_deactivate(self) -> None:
         self._auto_learning_armed = False
         await self._stop_reconcile_loop()
-        self._started = False
+        self._learning_active = False
 
     def sync_learning_evidence(self, evidence: dict[str, Any]) -> None:
         """同步學習證據。"""
@@ -152,11 +161,11 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
             "synced_at": self._iso_now(),
         }
 
-    def status(self) -> dict[str, Any]:
+    def learning_capability_status(self) -> dict[str, Any]:
         analysis = self._learner.analyze_history() if self._learner is not None else {}
         return {
-            "role": self.ROLE,
-            "started": self._started,
+            "capability": "xingcheng-learning",
+            "active": self._learning_active,
             "owner": "星澄",
             "duties": list(_DECLARATION.duties),
             "execution": "governed-executor-only",
@@ -170,8 +179,9 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
             "reconcile_loop": bool(
                 self._reconcile_task is not None and not self._reconcile_task.done()
             ),
+            "sync_state": self._sync_state,
             "fault_manual_catalog": {
-                "owner": self.sovereign_id,
+                "owner": "星澄",
                 "source": "governance-codex:maintenance_manual_directory",
                 "mode": "read-only-learning-ingestion",
                 "count": len(self._fault_manual_catalog),
@@ -180,17 +190,12 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
             },
         }
 
-    def live_status(self) -> dict[str, Any]:
-        base = self.status()
-        base["sync_state"] = self._sync_state
-        return base
-
     # ------------------------------------------------------------------
     # Owner-commanded learning dispatch (A485)
     # ------------------------------------------------------------------
 
-    async def _run_command(self, request: Any) -> Any:
-        """In-process dispatch of the owner's bounded learn.* commands."""
+    async def _learn_dispatch(self, request: Any) -> Any:
+        """Dispatch one bounded learn.* command on this entity (A485)."""
         intent = request.intent
         if intent not in _LEARNING_INTENTS:
             return refusal_outcome(
@@ -509,7 +514,7 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
 
     def learn_outcome(self, signature: Any, outcome: Any) -> dict[str, Any]:
         if self._learner is None:
-            return {"recorded": False, "reason": "learning-sovereign-not-ready"}
+            return {"recorded": False, "reason": "learning-not-active"}
         result = self._learner.learn_from_outcome(signature, outcome)
         recipe = (result or {}).get("recipe")
         if (result or {}).get("promoted") and isinstance(recipe, dict):
@@ -518,7 +523,7 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
 
     def suggest_remedy(self, signature: Any) -> dict[str, Any]:
         if self._learner is None:
-            return {"suggested": False, "reason": "learning-sovereign-not-ready"}
+            return {"suggested": False, "reason": "learning-not-active"}
         return self._learner.suggest_remedy(signature)
 
     # ------------------------------------------------------------------
@@ -638,7 +643,7 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
         """Boot pass + periodic passes; fault-change events wake it early."""
         while True:
             try:
-                if self._started:
+                if self._learning_active:
                     await self.reconcile_once()
             except asyncio.CancelledError:
                 raise
@@ -647,4 +652,4 @@ class XingchengLearningEngine(InternalCapabilityBase, LearningReconciliationMixi
             await self._wait_for_cycle()
 
 
-__all__ = ["XingchengLearningEngine"]
+__all__ = ["XingchengLearningCapabilityMixin"]

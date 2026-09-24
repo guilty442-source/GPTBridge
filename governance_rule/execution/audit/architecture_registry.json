@@ -565,7 +565,7 @@
    "runtime_form": "python-process",
    "owner_sovereign": "xingcheng-domain",
    "execution_identity": "xingcheng-native-model",
-   "physical_path": "main-system/governance/sovereigns/xingcheng/learning_engine.py",
+   "physical_path": "main-system/governance/sovereigns/xingcheng/learning_capability.py",
    "lifecycle": "on-demand",
    "canonical": true,
    "dependencies": [

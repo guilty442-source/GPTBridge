@@ -130,10 +130,10 @@ export const OWNERSHIP_ASSIGNMENTS: OwnershipAssignment[] = [
     capabilities: ['native-model', 'reasoning'],
     layer: 'domain',
   },
-  // A485/A604: learning is a 星澄-internal capability (no module layer);
-  // the retired sub-sovereign codex identity survives as lineage only.
+  // A485/A604: learning is part of the single-entity 星澄 sovereign
+  // (no module layer); the retired identity survives as lineage only.
   {
-    modulePattern: 'governance/sovereigns/xingcheng/learning_engine*',
+    modulePattern: 'governance/sovereigns/xingcheng/learning_capability*',
     owner: '星澄',
     primaryDomain: 'learning-evidence',
     capabilities: ['learning-evidence'],

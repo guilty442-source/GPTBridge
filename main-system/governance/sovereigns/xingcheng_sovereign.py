@@ -53,6 +53,7 @@ from .xingcheng.review import XingchengReviewMixin
 from .xingcheng.native_capability import XingchengNativeMixin
 from .xingcheng.domain import XingchengDomainMixin
 from .xingcheng.auto import XingchengAutoMixin
+from .xingcheng.learning_capability import XingchengLearningCapabilityMixin
 from .xingcheng.learning_command import XingchengLearningCommandMixin
 from .xingcheng.codex_drift import XingchengCodexDriftMixin
 
@@ -72,6 +73,7 @@ class XingchengSovereign(
     XingchengNativeMixin,
     XingchengDomainMixin,
     XingchengAutoMixin,
+    XingchengLearningCapabilityMixin,
     XingchengLearningCommandMixin,
     XingchengCodexDriftMixin,
     SovereignBase,
@@ -456,15 +458,15 @@ class XingchengSovereign(
         """Start the sovereign (decision-layer only, A297).
 
         The auto-loop is started separately by start_supervision().
-        The internal learning engine (A485 — a 星澄-owned capability,
-        not a module) starts with the sovereign; its failure degrades
+        The learning capability (A485 — part of the single 星澄 entity,
+        not a module) activates with the sovereign; its failure degrades
         learning only, never the sovereign itself.
         """
         await super().start()
         try:
-            await self._learning_engine.start()
+            await self.learning_activate()
         except Exception:
-            _logger.exception("xingcheng learning engine failed to start")
+            _logger.exception("xingcheng learning capability failed to activate")
         return {
             "ok": True,
             "role": self.sovereign_id,
@@ -483,12 +485,12 @@ class XingchengSovereign(
         await self.stop_auto_loop()
 
     async def stop(self) -> None:
-        """Stop the sovereign, learning engine, and auto-loop."""
+        """Stop the sovereign, learning capability, and auto-loop."""
         await self.stop_learning_automation()
         try:
-            await self._learning_engine.stop()
+            await self.learning_deactivate()
         except Exception:
-            _logger.exception("xingcheng learning engine failed to stop")
+            _logger.exception("xingcheng learning capability failed to deactivate")
         await self.stop_auto_loop()
         self._started = False
 

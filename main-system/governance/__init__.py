@@ -18,12 +18,9 @@ from .sovereigns import (
     SystemRuntimeSovereign,
     XingchengSovereign,
 )
-# A485/A604: learning is an internal capability of the 星澄 own-domain
-# sovereign (no module/child concept); its retired codex identity is
-# preserved as lineage only.
-from .sovereigns.xingcheng.learning_engine import (
-    XingchengLearningEngine,
-)
+# A485/A604: learning is part of the single-entity 星澄 sovereign
+# itself (XingchengLearningCapabilityMixin) — nothing separate to
+# export; the retired codex identity survives as lineage only.
 
 __all__ = [
     "AutomationSovereign",
@@ -32,6 +29,5 @@ __all__ = [
     "SovereignBase",
     "SovereignIdentity",
     "SystemRuntimeSovereign",
-    "XingchengLearningEngine",
     "XingchengSovereign",
 ]
