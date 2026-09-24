@@ -114,12 +114,17 @@
   "trading_system": {
     "product": "星澄 AI 投資管理與自動操盤系統",
     "domains": [
-      "tw-stock",
-      "us-stock",
-      "fund",
+      "market-data",
+      "instrument",
+      "portfolio",
+      "strategy",
+      "risk",
+      "trading",
+      "broker",
+      "mutual-fund",
       "ai-analysis",
-      "auto-trading",
-      "asset-management"
+      "backtest",
+      "audit"
     ],
     "engines": [
       "strategy",
@@ -129,6 +134,7 @@
       "broker-adapter",
       "trading-audit"
     ],
+    "business_domains_owner": "ai-assistant:tw-stock,us-stock,fund,ai-analysis,auto-trading,asset-management",
     "trading_modes": [
       "ANALYSIS",
       "SHADOW",
@@ -138,9 +144,9 @@
     "default_mode": "ANALYSIS",
     "live_requires": "explicit-human-authorization+verified-broker-api",
     "broker_adapters": {
-      "tw": "cathay-tw",
-      "us": "fubon-us-sub",
-      "fund": "fund-platform-extensible"
+      "tw": "CATHAY_SECURITIES",
+      "us": "FUBON_SUBBROKERAGE",
+      "fund": "MUTUAL_FUND_PROVIDER"
     },
     "native_components": {
       "risk_core": "native/risk/risk_core.c",

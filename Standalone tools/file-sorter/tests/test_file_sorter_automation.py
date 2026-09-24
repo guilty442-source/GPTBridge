@@ -282,3 +282,128 @@ def test_snapshot_ignores_symlinked_directories(tmp_path: Path) -> None:
     )
     entries = service._snapshot_enabled_targets()[str(target)]
     assert all(entry[1] != "linked" for entry in entries)
+
+
+def test_keyword_addition_writes_wake_signal(
+    tmp_path: Path,
+    isolated_sorter_state: Path,
+    monkeypatch: Any,
+) -> None:
+    import json as _json
+
+    target = tmp_path / "inbox"
+    target.mkdir()
+    monkeypatch.setattr(cli, "run_enabled_profiles_once", lambda **_kwargs: [])
+
+    cli.scan_after_keyword_addition(target, state_root=isolated_sorter_state)
+
+    signal = isolated_sorter_state / "signals" / "automation-wake.json"
+    assert signal.is_file()
+    payload = _json.loads(signal.read_text(encoding="utf-8"))
+    assert payload["kind"] == "keyword-added"
+    assert payload["wake_within_s"] == 20
+
+
+def test_wake_signal_triggers_pass_within_bound(
+    tmp_path: Path,
+    isolated_sorter_state: Path,
+) -> None:
+    from file_sorter.application.cli_organize import _write_automation_wake_signal
+
+    calls: list[str] = []
+    service = FileSorterAutomationService(
+        tmp_path,
+        runner=_StubRunner(calls),
+        poll_interval=86_400,
+        startup_delay_seconds=0,
+        wake_poll_seconds=0.05,
+        state_root=isolated_sorter_state,
+    )
+
+    async def drive() -> None:
+        await service.start()
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 5.0
+        while "profiles" not in calls and loop.time() < deadline:
+            await asyncio.sleep(0.02)
+        assert calls.count("profiles") == 1
+        _write_automation_wake_signal(
+            state_root=isolated_sorter_state, kind="keyword-added"
+        )
+        deadline = loop.time() + 5.0
+        while calls.count("profiles") < 2 and loop.time() < deadline:
+            await asyncio.sleep(0.02)
+        assert calls.count("profiles") >= 2
+        await service.stop()
+
+    asyncio.run(drive())
+
+
+def test_stale_wake_signal_is_consumed_without_firing(
+    tmp_path: Path,
+    isolated_sorter_state: Path,
+) -> None:
+    from file_sorter.application.cli_organize import _write_automation_wake_signal
+
+    _write_automation_wake_signal(
+        state_root=isolated_sorter_state, kind="keyword-added"
+    )
+    calls: list[str] = []
+    service = FileSorterAutomationService(
+        tmp_path,
+        runner=_StubRunner(calls),
+        poll_interval=86_400,
+        startup_delay_seconds=0,
+        wake_poll_seconds=0.05,
+        state_root=isolated_sorter_state,
+    )
+
+    async def drive() -> None:
+        await service.start()
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 5.0
+        while "profiles" not in calls and loop.time() < deadline:
+            await asyncio.sleep(0.02)
+        assert calls.count("profiles") == 1
+        await asyncio.sleep(0.3)
+        assert calls.count("profiles") == 1
+        await service.stop()
+
+    asyncio.run(drive())
+
+
+def test_new_file_observation_restarts_fastest_tier(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    target = tmp_path / "inbox"
+    target.mkdir()
+    calls: list[str] = []
+    service = FileSorterAutomationService(
+        tmp_path,
+        runner=_StubRunner(calls, targets=[str(target)]),
+        poll_interval=86_400,
+        startup_delay_seconds=0,
+        wake_poll_seconds=300.0,
+    )
+    monkeypatch.setattr(
+        service, "_adaptive_scan_interval", lambda *a, **k: 0.05
+    )
+
+    async def drive() -> None:
+        await service.start()
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 5.0
+        while "profiles" not in calls and loop.time() < deadline:
+            await asyncio.sleep(0.02)
+        assert calls.count("profiles") == 1
+        service._unchanged_scan_count = 30
+        (target / "new.bin").write_bytes(b"x")
+        deadline = loop.time() + 5.0
+        while calls.count("profiles") < 2 and loop.time() < deadline:
+            await asyncio.sleep(0.02)
+        assert calls.count("profiles") >= 2
+        assert service._unchanged_scan_count < 30
+        await service.stop()
+
+    asyncio.run(drive())

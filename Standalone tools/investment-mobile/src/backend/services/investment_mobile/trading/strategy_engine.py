@@ -19,23 +19,41 @@ from typing import Any
 from .contracts import OrderSide, TradeProposal, TradingSignal
 
 _NATIVE_DLL = (
-    Path(__file__).resolve().parents[4] / "native" / "strategy" / "strategy_engine.dll"
+    Path(__file__).resolve().parents[5] / "native" / "strategy" / "strategy_engine.dll"
 )
 
 
 class _NativeStrategy:
-    """ctypes binding to the C++ strategy engine (score_signals ABI)."""
+    """ctypes binding to the C++ strategy engine (evaluate_signal ABI)."""
 
     def __init__(self) -> None:
         lib = ctypes.CDLL(str(_NATIVE_DLL))
-        lib.strategy_score.restype = ctypes.c_double
-        lib.strategy_score.argtypes = [
-            ctypes.c_double, ctypes.c_double, ctypes.c_double
+        lib.strategy_evaluate_signal.restype = ctypes.c_int
+        lib.strategy_evaluate_signal.argtypes = [
+            ctypes.c_double, ctypes.c_double, ctypes.c_double,
+            ctypes.c_double, ctypes.c_double,
+            ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double),
         ]
         self._lib = lib
 
-    def score(self, confidence: float, momentum: float, risk_penalty: float) -> float:
-        return float(self._lib.strategy_score(confidence, momentum, risk_penalty))
+    def emit(
+        self,
+        confidence: float,
+        quantity: float,
+        price: float,
+        min_confidence: float,
+        max_quantity: float,
+    ) -> tuple[float, float] | None:
+        """(quantity, notional) when the signal qualifies, else None."""
+        qty = ctypes.c_double(0.0)
+        notional = ctypes.c_double(0.0)
+        ok = self._lib.strategy_evaluate_signal(
+            confidence, quantity, price, min_confidence, max_quantity,
+            ctypes.byref(qty), ctypes.byref(notional),
+        )
+        if not ok:
+            return None
+        return float(qty.value), float(notional.value)
 
 
 class StrategyEngine:
@@ -85,20 +103,25 @@ class StrategyEngine:
             if signal_id and row.get("signal_id") != signal_id:
                 continue
             confidence = float(row.get("confidence") or 0.0)
-            momentum = float((row.get("payload") or {}).get("momentum") or 0.0)
-            risk_penalty = float((row.get("payload") or {}).get("risk_penalty") or 0.0)
-            score = (
-                self._native.score(confidence, momentum, risk_penalty)
-                if self._native
-                else confidence - risk_penalty
-            )
-            if score < self._min_confidence:
-                continue
+            quantity = float(row.get("quantity") or 0.0)
+            price = float(row.get("price") or 0.0)
+            if self._native is not None:
+                emitted = self._native.emit(
+                    confidence, quantity, price,
+                    min_confidence=self._min_confidence,
+                    max_quantity=0.0,  # the risk engine caps quantity
+                )
+                if emitted is None:
+                    continue
+                quantity = emitted[0]
+            else:
+                if confidence < self._min_confidence or quantity <= 0:
+                    continue
             proposal = TradeProposal(
                 instrument_id=row["instrument_id"],
                 market=row["market"],
                 side=row.get("side", OrderSide.BUY.value),
-                quantity=float(row.get("quantity") or 0.0),
+                quantity=quantity,
                 price=row.get("price"),
                 strategy_id="signal-follow",
                 signal_id=row.get("signal_id", ""),

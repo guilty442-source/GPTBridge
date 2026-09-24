@@ -89,4 +89,25 @@ __declspec(dllexport) void strategy_engine_destroy(void* engine) {
     delete static_cast<star_trading::StrategyEngine*>(engine);
 }
 
+// Flat evaluation ABI for the Python façade — same contract as
+// evaluate(): emit only when confidence >= min_confidence and
+// quantity > 0; quantity is capped by max_quantity when > 0.
+__declspec(dllexport) int strategy_evaluate_signal(
+    double confidence, double quantity, double price,
+    double min_confidence, double max_quantity,
+    double* out_quantity, double* out_notional)
+{
+    if (out_quantity == nullptr || out_notional == nullptr)
+        return 0;  // fail closed
+    if (confidence < min_confidence || quantity <= 0.0)
+        return 0;
+    double capped =
+        (max_quantity > 0.0 && quantity > max_quantity)
+            ? max_quantity
+            : quantity;
+    *out_quantity = capped;
+    *out_notional = capped * price;
+    return 1;
+}
+
 }  // extern "C"

@@ -7,7 +7,11 @@ modify risk conditions: no command path accepts limit overrides.
 
 When the C risk core (``native/risk/risk_core.dll``) is built, native
 evaluation is used; the Python implementation is the reference/fallback
-and parity-tested.
+and parity-tested against the identical limit contract:
+
+  market whitelist | quantity > 0 | price required | order notional |
+  orders/day | daily loss | position notional | position weight |
+  open orders | min cash buffer
 """
 
 from __future__ import annotations
@@ -20,61 +24,98 @@ from typing import Any
 from .contracts import Position, RiskDecision, TradeProposal
 
 _NATIVE_DLL = (
-    Path(__file__).resolve().parents[4] / "native" / "risk" / "risk_core.dll"
+    Path(__file__).resolve().parents[5] / "native" / "risk" / "risk_core.dll"
 )
+
+_MARKET_BITS = {"tw": 1, "us": 2, "fund": 4}
+_BUY_SIDES = {"buy", "subscribe"}
 
 
 class _NativeLimits(ctypes.Structure):
     _fields_ = [
         ("max_order_notional", ctypes.c_double),
         ("max_position_notional", ctypes.c_double),
-        ("max_market_exposure_pct", ctypes.c_double),
         ("max_daily_loss", ctypes.c_double),
+        ("max_orders_per_day", ctypes.c_int),
+        ("max_single_position_weight", ctypes.c_double),
+        ("require_price", ctypes.c_int),
+        ("allowed_market_mask", ctypes.c_uint),
         ("max_open_orders", ctypes.c_int),
-        ("max_quantity", ctypes.c_double),
         ("min_cash_buffer", ctypes.c_double),
     ]
 
 
+class _NativeOrderInput(ctypes.Structure):
+    _fields_ = [
+        ("market_bit", ctypes.c_uint),
+        ("side", ctypes.c_int),
+        ("quantity", ctypes.c_double),
+        ("notional", ctypes.c_double),
+        ("existing_position_notional", ctypes.c_double),
+        ("existing_position_value", ctypes.c_double),
+        ("total_portfolio_value", ctypes.c_double),
+        ("daily_order_count", ctypes.c_int),
+        ("daily_realized_pnl", ctypes.c_double),
+        ("open_order_count", ctypes.c_int),
+        ("cash_after", ctypes.c_double),
+    ]
+
+
 class _NativeRiskCore:
-    """ctypes binding to the C risk core — same decision semantics."""
+    """ctypes binding to the C risk core — same decision contract."""
 
     def __init__(self) -> None:
         lib = ctypes.CDLL(str(_NATIVE_DLL))
-        lib.risk_evaluate.restype = ctypes.c_int
-        lib.risk_evaluate.argtypes = [
+        lib.risk_evaluate_order.restype = ctypes.c_int
+        lib.risk_evaluate_order.argtypes = [
             ctypes.POINTER(_NativeLimits),
-            ctypes.c_double,
-            ctypes.c_double,
-            ctypes.c_double,
-            ctypes.c_double,
-            ctypes.c_double,
-            ctypes.c_int,
-            ctypes.c_char_p,
-            ctypes.c_size_t,
+            ctypes.POINTER(_NativeOrderInput),
         ]
+        lib.risk_reason_name.restype = ctypes.c_char_p
+        lib.risk_reason_name.argtypes = [ctypes.c_int]
         self._lib = lib
 
     def evaluate(
-        self, limits: dict[str, float], args: tuple[float, ...]
+        self, limits: dict[str, Any], order: dict[str, Any]
     ) -> RiskDecision:
-        native = _NativeLimits(
+        mask = 0
+        for market in limits.get("market_whitelist") or ():
+            mask |= _MARKET_BITS.get(str(market), 0)
+        native_limits = _NativeLimits(
             max_order_notional=float(limits.get("max_order_notional") or 0),
             max_position_notional=float(limits.get("max_position_notional") or 0),
-            max_market_exposure_pct=float(limits.get("max_market_exposure_pct") or 0),
             max_daily_loss=float(limits.get("max_daily_loss") or 0),
+            max_orders_per_day=int(limits.get("max_orders_per_day") or 0),
+            max_single_position_weight=float(
+                limits.get("max_single_position_weight") or 0
+            ),
+            require_price=1 if limits.get("require_price", True) else 0,
+            allowed_market_mask=mask,
             max_open_orders=int(limits.get("max_open_orders") or 0),
-            max_quantity=float(limits.get("max_quantity") or 0),
             min_cash_buffer=float(limits.get("min_cash_buffer") or 0),
         )
-        buf = ctypes.create_string_buffer(512)
-        ok = self._lib.risk_evaluate(
-            ctypes.byref(native), *args, buf, ctypes.sizeof(buf)
+        native_order = _NativeOrderInput(
+            market_bit=_MARKET_BITS.get(str(order["market"]), 0),
+            side=1 if order["side"] in _BUY_SIDES else -1,
+            quantity=float(order["quantity"]),
+            notional=float(order["notional"]),
+            existing_position_notional=float(order["existing_position_notional"]),
+            existing_position_value=float(order["existing_position_value"]),
+            total_portfolio_value=float(order["total_portfolio_value"]),
+            daily_order_count=int(order["daily_order_count"]),
+            daily_realized_pnl=float(order["daily_realized_pnl"]),
+            open_order_count=int(order["open_order_count"]),
+            cash_after=float(order["cash_after"]),
         )
-        reasons = [
-            r for r in buf.value.decode("utf-8", "replace").split(";") if r
-        ]
-        return RiskDecision(approved=bool(ok), reasons=reasons, backend="native")
+        code = self._lib.risk_evaluate_order(
+            ctypes.byref(native_limits), ctypes.byref(native_order)
+        )
+        reason = self._lib.risk_reason_name(code).decode("utf-8", "replace")
+        return RiskDecision(
+            approved=code == 0,
+            reasons=[] if code == 0 else [reason],
+            backend="native",
+        )
 
 
 class RiskEngine:
@@ -100,10 +141,11 @@ class RiskEngine:
         defaults = {
             "max_order_notional": 1_000_000.0,
             "max_position_notional": 5_000_000.0,
-            "max_market_exposure_pct": 60.0,
             "max_daily_loss": 100_000.0,
+            "max_orders_per_day": 1_000,
+            "max_single_position_weight": 0.6,
+            "require_price": True,
             "max_open_orders": 20,
-            "max_quantity": 100_000.0,
             "min_cash_buffer": 10_000.0,
             "market_whitelist": ["tw", "us", "fund"],
         }
@@ -124,55 +166,37 @@ class RiskEngine:
         daily_pnl: float,
         cash_available: float,
         portfolio_value: float,
+        daily_order_count: int = 0,
     ) -> RiskDecision:
         notional = proposal.effective_notional()
+        is_buy = proposal.side in _BUY_SIDES
         target = next(
             (p for p in positions if p.instrument_id == proposal.instrument_id),
             None,
         )
-        position_after = (target.notional if target else 0.0) + notional
-        market_notional = sum(
-            p.notional for p in positions if p.market == proposal.market
-        ) + notional
-        exposure_pct = (
-            (market_notional / portfolio_value * 100.0)
-            if portfolio_value > 0
-            else (100.0 if market_notional > 0 else 0.0)
-        )
-        cash_after = cash_available - (
-            notional if proposal.side in ("buy", "subscribe") else -notional
-        )
-        args = (
-            notional,
-            position_after,
-            exposure_pct,
-            daily_pnl,
-            cash_after,
-            open_orders,
-        )
+        existing_notional = target.notional if target else 0.0
+        existing_value = target.market_value if target else 0.0
+        cash_after = cash_available - notional if is_buy else cash_available + notional
+        order = {
+            "market": proposal.market,
+            "side": proposal.side,
+            "quantity": proposal.quantity,
+            "notional": notional,
+            "existing_position_notional": existing_notional,
+            "existing_position_value": existing_value,
+            "total_portfolio_value": portfolio_value,
+            "daily_order_count": daily_order_count,
+            "daily_realized_pnl": daily_pnl,
+            "open_order_count": open_orders,
+            "cash_after": cash_after,
+        }
 
         if self._native is not None:
-            decision = self._native.evaluate(self._limits, args)
+            decision = self._native.evaluate(self._limits, order)
             decision.limits_checked = self._checked()
             return decision
 
-        reasons: list[str] = []
-        if proposal.market not in self._limits["market_whitelist"]:
-            reasons.append("market_not_whitelisted")
-        if notional > float(self._limits["max_order_notional"]):
-            reasons.append("order_notional_exceeds_limit")
-        if position_after > float(self._limits["max_position_notional"]):
-            reasons.append("position_notional_exceeds_limit")
-        if exposure_pct > float(self._limits["max_market_exposure_pct"]):
-            reasons.append("market_exposure_exceeds_limit")
-        if daily_pnl < -float(self._limits["max_daily_loss"]):
-            reasons.append("daily_loss_limit_breached")
-        if open_orders >= int(self._limits["max_open_orders"]):
-            reasons.append("too_many_open_orders")
-        if proposal.quantity > float(self._limits["max_quantity"]):
-            reasons.append("quantity_exceeds_limit")
-        if cash_after < float(self._limits["min_cash_buffer"]):
-            reasons.append("cash_below_minimum_buffer")
+        reasons = self._reference_reasons(order)
         return RiskDecision(
             approved=not reasons,
             reasons=reasons,
@@ -180,14 +204,61 @@ class RiskEngine:
             backend="python",
         )
 
+    # ------------------------------------------------------------------
+    def _reference_reasons(self, order: dict[str, Any]) -> list[str]:
+        """Python reference — identical limit contract to the C core."""
+        limits = self._limits
+        reasons: list[str] = []
+        if order["market"] not in limits["market_whitelist"]:
+            reasons.append("market_not_whitelisted")
+        if order["quantity"] <= 0:
+            reasons.append("quantity_invalid")
+        if limits.get("require_price", True) and order["notional"] <= 0:
+            reasons.append("no_price")
+        if float(limits["max_order_notional"]) <= 0:
+            reasons.append("order_notional_exceeds_limit")
+        elif order["notional"] > float(limits["max_order_notional"]):
+            reasons.append("order_notional_exceeds_limit")
+        if int(limits["max_orders_per_day"]) <= 0 or (
+            order["daily_order_count"] >= int(limits["max_orders_per_day"])
+        ):
+            reasons.append("daily_order_limit")
+        if float(limits["max_daily_loss"]) <= 0 or (
+            order["daily_realized_pnl"] <= -float(limits["max_daily_loss"])
+        ):
+            reasons.append("daily_loss_limit_breached")
+        if float(limits["max_position_notional"]) <= 0:
+            reasons.append("position_notional_exceeds_limit")
+        else:
+            projected = order["existing_position_notional"] + (
+                order["notional"] * (1 if order["side"] in _BUY_SIDES else -1)
+            )
+            if projected > float(limits["max_position_notional"]):
+                reasons.append("position_notional_exceeds_limit")
+        weight = float(limits["max_single_position_weight"])
+        if weight > 0 and order["total_portfolio_value"] > 0:
+            projected_value = order["existing_position_value"] + (
+                order["notional"] * (1 if order["side"] in _BUY_SIDES else -1)
+            )
+            if projected_value / order["total_portfolio_value"] > weight:
+                reasons.append("position_weight_exceeds_limit")
+        max_open = int(limits["max_open_orders"])
+        if max_open > 0 and order["open_order_count"] >= max_open:
+            reasons.append("too_many_open_orders")
+        if order["cash_after"] < float(limits["min_cash_buffer"]):
+            reasons.append("cash_below_minimum_buffer")
+        return reasons
+
     def _checked(self) -> list[str]:
         return [
             "market_whitelist",
+            "quantity",
+            "require_price",
             "max_order_notional",
-            "max_position_notional",
-            "max_market_exposure_pct",
+            "max_orders_per_day",
             "max_daily_loss",
+            "max_position_notional",
+            "max_single_position_weight",
             "max_open_orders",
-            "max_quantity",
             "min_cash_buffer",
         ]

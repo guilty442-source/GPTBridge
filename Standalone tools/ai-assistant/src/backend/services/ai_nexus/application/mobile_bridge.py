@@ -53,18 +53,36 @@ class InvestmentMobileBridge:
                 return {"ok": False, "error_code": "INVALID_SIGNAL"}
             self._store.record_signal(signal)
             return {"ok": True, "recorded": "signal"}
+        if operation == "record_proposal":
+            proposal = payload.get("proposal")
+            if not isinstance(proposal, dict):
+                return {"ok": False, "error_code": "INVALID_PROPOSAL"}
+            self._store.record_proposal(proposal)
+            return {"ok": True, "recorded": "proposal"}
+        if operation == "record_decision":
+            decision = payload.get("decision")
+            if not isinstance(decision, dict):
+                return {"ok": False, "error_code": "INVALID_DECISION"}
+            self._store.record_decision(decision)
+            return {"ok": True, "recorded": "decision"}
         if operation == "record_order":
             order = payload.get("order")
             if not isinstance(order, dict):
                 return {"ok": False, "error_code": "INVALID_ORDER"}
             self._store.record_order(order)
             return {"ok": True, "recorded": "order"}
-        if operation == "record_fill":
-            fill = payload.get("fill")
-            if not isinstance(fill, dict):
-                return {"ok": False, "error_code": "INVALID_FILL"}
-            self._store.record_fill(fill)
-            return {"ok": True, "recorded": "fill"}
+        if operation == "record_receipt":
+            receipt = payload.get("receipt")
+            if not isinstance(receipt, dict):
+                return {"ok": False, "error_code": "INVALID_RECEIPT"}
+            self._store.record_receipt(receipt)
+            return {"ok": True, "recorded": "receipt"}
+        if operation == "record_execution":
+            execution = payload.get("execution")
+            if not isinstance(execution, dict):
+                return {"ok": False, "error_code": "INVALID_EXECUTION"}
+            self._store.record_execution(execution)
+            return {"ok": True, "recorded": "execution"}
         if operation == "record_audit":
             event = payload.get("event")
             if not isinstance(event, dict):

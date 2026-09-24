@@ -208,16 +208,19 @@ def scan_after_keyword_addition(
         run_enabled_profiles_once,
     )
     report = None
-    for item in runner(state_root=state_root):
-        if str(item.get("target_dir", "")) == target:
-            report = item
-            break
-    # The immediate scan is the first observation; the wake signal makes
-    # the resident loop run the confirming pass within its wake bound.
-    _write_automation_wake_signal(
-        state_root=state_root,
-        kind="keyword-added",
-    )
+    try:
+        for item in runner(state_root=state_root):
+            if str(item.get("target_dir", "")) == target:
+                report = item
+                break
+    finally:
+        # The immediate scan is the first observation; the wake signal
+        # makes the resident loop run the confirming pass within its wake
+        # bound — scheduled even if this scan itself fails.
+        _write_automation_wake_signal(
+            state_root=state_root,
+            kind="keyword-added",
+        )
     return report
 
 
