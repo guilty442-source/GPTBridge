@@ -22,6 +22,7 @@ class StatusMixin:
                     "web_search_log",
                     "model_memory",
                     "language_training_example",
+                    "language_preference_pair",
                     "language_model_maintenance",
                     "code_upgrade_proposal",
                     "capability_composition",
@@ -98,6 +99,12 @@ class StatusMixin:
                 FROM language_training_example WHERE active = 1
                 """
             ).fetchone()
+            preference_pair_counts = {
+                str(row[0]): int(row[1])
+                for row in connection.execute(
+                    "SELECT paired, COUNT(*) FROM language_preference_pair GROUP BY paired"
+                ).fetchall()
+            }
             latest_language_maintenance = connection.execute(
                 """
                 SELECT run_id, action, ok, created_at
@@ -144,6 +151,8 @@ class StatusMixin:
                     "latest_revision": int(language_training_quality[2]),
                     "latest_trained_at": str(language_training_quality[3]),
                     "maximum_examples": self.MAX_LANGUAGE_TRAINING_EXAMPLES,
+                    "preference_pairs_pending": preference_pair_counts.get("0", 0),
+                    "preference_pairs_completed": preference_pair_counts.get("1", 0),
                 },
                 "latest_language_maintenance": {
                     "run_id": str(latest_language_maintenance[0]),

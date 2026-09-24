@@ -77,6 +77,42 @@ class LocalAiTrainingMixin:
             ) + 1
         return result
 
+    def _record_rejected_preference_candidate(
+        self,
+        profile: StarModelProfile,
+        candidate: dict[str, Any],
+        reason: str,
+    ) -> bool:
+        """品質閘拒絕的候選寫入偏好對 rejected 半邊（DPO 資料源）。
+
+        同一 prompt 之後產生通過驗證的回答時，由
+        ``complete_preference_pairs`` 補齊 chosen 半邊配成對。
+        """
+        input_text = str(candidate.get("input_text") or "").strip()
+        rejected_text = str(candidate.get("target_text") or "").strip()
+        if not input_text or not rejected_text:
+            return False
+        try:
+            self._repository_for(profile).record_rejected_teaching_candidate(
+                intent=str(candidate.get("intent") or "capabilities"),
+                input_text=input_text,
+                rejected_text=rejected_text,
+                source_type=str(
+                    candidate.get("source_type") or "self-distillation-grounded"
+                ),
+                gate_verdict={
+                    "reason": reason,
+                    "quality_score": float(candidate.get("quality_score") or 0),
+                    "validation": dict(candidate.get("validation") or {}),
+                },
+            )
+        except (ValueError, PermissionError):
+            return False
+        self._runtime_metrics["self_training_pairs_recorded_count"] = int(
+            self._runtime_metrics["self_training_pairs_recorded_count"]
+        ) + 1
+        return True
+
     def _apply_self_training(
         self,
         profile: StarModelProfile,
@@ -96,6 +132,11 @@ class LocalAiTrainingMixin:
                 "reason": "quality-gate-rejected",
                 "quality_score": float(candidate.get("quality_score") or 0),
                 "model_id": profile.model_id,
+                "preference_pair_recorded": (
+                    self._record_rejected_preference_candidate(
+                        profile, candidate, "quality-gate-rejected"
+                    )
+                ),
             }
         repository = self._repository_for(profile)
         stored = repository.store_language_training_example(
@@ -108,6 +149,16 @@ class LocalAiTrainingMixin:
             quality_score=float(candidate.get("quality_score") or 0),
             validation=dict(candidate.get("validation") or {}),
         )
+        pairs_completed = repository.complete_preference_pairs(
+            intent=str(candidate.get("intent") or "capabilities"),
+            input_text=str(candidate.get("input_text") or ""),
+            chosen_text=str(candidate.get("target_text") or ""),
+            chosen_example_id=str(stored["example_id"] or ""),
+        )
+        if pairs_completed:
+            self._runtime_metrics["self_training_pairs_completed_count"] = int(
+                self._runtime_metrics["self_training_pairs_completed_count"]
+            ) + pairs_completed
         learned_now = False
         if stored["inserted"]:
             learned_now = self.model_engines.for_profile(
@@ -127,6 +178,7 @@ class LocalAiTrainingMixin:
             "model_id": profile.model_id,
             "data_scope": profile.database_scope,
             "source_type": stored["source_type"],
+            "preference_pairs_completed": pairs_completed,
         }
 
     async def _train_with_native(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -226,6 +278,38 @@ class LocalAiTrainingMixin:
             model_updates.append(
                 self._apply_self_training(self.models.MAIN, candidate)
             )
+        # 品質閘拒絕的生成候選保留為偏好對 rejected 半邊——同一 prompt
+        # 之後出現通過驗證的回答即配成 DPO 對。
+        source_by_candidate_id = {
+            str(example.get("candidate_id") or f"native-example-{index}"): example
+            for index, example in enumerate(examples, start=1)
+        }
+        rejected_pairs = 0
+        for rejection in evaluated["rejected"]:
+            source = source_by_candidate_id.get(
+                str(rejection.get("candidate_id") or "")
+            )
+            if not isinstance(source, dict):
+                continue
+            if self._record_rejected_preference_candidate(
+                self.models.MAIN,
+                {
+                    "intent": str(rejection.get("intent") or intent),
+                    "input_text": source.get("input_text"),
+                    "target_text": source.get("target_text"),
+                    "source_type": "native-self-training-candidate",
+                    "quality_score": 0.0,
+                    "validation": {
+                        "reasons": list(rejection.get("reasons") or []),
+                        "semantic_grounding": rejection.get("semantic_grounding"),
+                        "unsupported_facts": dict(
+                            rejection.get("unsupported_facts") or {}
+                        ),
+                    },
+                },
+                "training-gate-rejected",
+            ):
+                rejected_pairs += 1
         applied_count = sum(item.get("accepted") is True for item in model_updates)
         learned_count = sum(item.get("learned_now") is True for item in model_updates)
         return {
@@ -247,6 +331,7 @@ class LocalAiTrainingMixin:
             "rejected_count": int(evaluated["rejected_count"]),
             "applied_count": applied_count,
             "learned_count": learned_count,
+            "preference_pairs_pending": rejected_pairs,
             "response_digest": response_digest,
             "rejections": list(evaluated["rejected"]),
             "model_updates": model_updates,

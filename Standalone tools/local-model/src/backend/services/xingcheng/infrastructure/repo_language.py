@@ -193,6 +193,16 @@ class LanguageTrainingMixin:
                     created_at,
                 ),
             )
+            connection.execute(
+                """
+                DELETE FROM language_preference_pair
+                WHERE paired = 0 AND revision NOT IN (
+                    SELECT revision FROM language_preference_pair
+                    WHERE paired = 0 ORDER BY revision DESC LIMIT ?
+                )
+                """,
+                (self.MAX_LANGUAGE_TRAINING_EXAMPLES,),
+            )
         return {
             "pair_id": pair_id,
             "inserted": cursor.rowcount > 0,
@@ -376,6 +386,16 @@ class LanguageTrainingMixin:
                 WHERE revision NOT IN (
                     SELECT revision FROM language_training_example
                     WHERE active = 1 ORDER BY revision DESC LIMIT ?
+                )
+                """,
+                (self.MAX_LANGUAGE_TRAINING_EXAMPLES,),
+            )
+            connection.execute(
+                """
+                DELETE FROM language_preference_pair
+                WHERE paired = 1 AND revision NOT IN (
+                    SELECT revision FROM language_preference_pair
+                    WHERE paired = 1 ORDER BY revision DESC LIMIT ?
                 )
                 """,
                 (self.MAX_LANGUAGE_TRAINING_EXAMPLES,),

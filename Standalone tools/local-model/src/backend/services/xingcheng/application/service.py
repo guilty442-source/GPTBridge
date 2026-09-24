@@ -187,6 +187,38 @@ class LocalAiService(
             "reading",
             "依使用者提供內容回答，保留來源依據且不補造文件事實",
         ),
+        (
+            "analysis",
+            "資料比較與趨勢解讀：只依據提供的數據下結論並標示不確定性",
+        ),
+        (
+            "statistics",
+            "統計量的正確使用：平均、中位數、標準差、百分比與樣本限制",
+        ),
+        (
+            "calculation",
+            "逐步算術與單位換算：列出計算過程並驗算結果一致性",
+        ),
+        (
+            "data_organization",
+            "資料分類、去重、排序與表格化摘要，保留原始數值不竄改",
+        ),
+        (
+            "repair",
+            "錯誤訊息判讀、根因假設排序與最小風險修復步驟",
+        ),
+        (
+            "capabilities",
+            "星澄可協助的事項與治理邊界：唯讀工具、需確認的寫入、禁止事項",
+        ),
+        (
+            "risk",
+            "投資與操作風險辨識：情境列舉、影響評估與緩解措施",
+        ),
+        (
+            "self_upgrade",
+            "提出受治理的系統修改提案：說明動機、影響範圍與驗證方式，不直接執行",
+        ),
     )
     COMMANDS = {
         "xingcheng_status",
@@ -324,6 +356,8 @@ class LocalAiService(
             "self_training_candidate_count": 0,
             "self_training_applied_count": 0,
             "self_training_rejected_count": 0,
+            "self_training_pairs_recorded_count": 0,
+            "self_training_pairs_completed_count": 0,
             "self_maintenance_run_count": 0,
             "self_maintenance_failure_count": 0,
             "internal_training_run_count": 0,
