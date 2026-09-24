@@ -1,0 +1,19 @@
+{
+ "id": "codex-amendment-proposal-machine-schema-parity-restamp-20260924",
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "not_executed": true,
+ "do_not_execute": true,
+ "change_class": "provision-scope",
+ "requested_by": "decision-sovereign",
+ "date": "2026-09-24",
+ "worker": "devin-cli",
+ "subject": "machine-schema parity closure — canonical_semantic_hash descriptor projection resolution",
+ "evidence": "machine-schema-parity-evidence-20260924.json (toolchain governance_rule/execution/semantic_hash_toolchain.py; recipe SEAL_CANONICAL_V1)",
+ "finding": "producer/validator layers pass 40/40 deterministically; 0/40 match persisted canonical_semantic_hash — the governor-side descriptor projection is not derivable from the registry row",
+ "proposed_resolution": {
+  "option_a": "governor publishes the canonical descriptor projection; toolchain re-verifies against it (preferred if existing canonical values are normative)",
+  "option_b": "governor authorizes re-stamp: canonical_semantic_hash := producer_semantic_hash (documented DESCRIPTOR_FIELDS projection) for all 40 rows, single governed transaction, then parity rows transition PENDING->PASS with bound evidence"
+ },
+ "fail_closed": "parity rows remain PENDING until governor selects a path; no self-ratification"
+}
