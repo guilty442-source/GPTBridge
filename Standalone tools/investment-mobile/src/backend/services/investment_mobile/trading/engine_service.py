@@ -222,6 +222,35 @@ class TradingEngineService:
             "investment-mobile-ai-boundary",
             "investment-mobile-ai-inspect-text",
             "investment-mobile-ai-maintenance",
+            # simulation domain (SHADOW signals + PAPER virtual trading)
+            "investment-mobile-sim-status",
+            "investment-mobile-sim-tick",
+            "investment-mobile-sim-recover",
+            "investment-mobile-sim-events",
+            "investment-mobile-sim-checkpoint",
+            "investment-mobile-paper-account-create",
+            "investment-mobile-paper-accounts",
+            "investment-mobile-paper-cash",
+            "investment-mobile-paper-ledger",
+            "investment-mobile-paper-deposit",
+            "investment-mobile-paper-withdraw",
+            "investment-mobile-paper-order-submit",
+            "investment-mobile-paper-order-cancel",
+            "investment-mobile-paper-order-list",
+            "investment-mobile-paper-order-expire",
+            "investment-mobile-paper-executions",
+            "investment-mobile-paper-positions",
+            "investment-mobile-paper-performance",
+            "investment-mobile-paper-corporate",
+            "investment-mobile-paper-risk-decisions",
+            "investment-mobile-shadow-signal",
+            "investment-mobile-shadow-signals",
+            "investment-mobile-shadow-outcome",
+            "investment-mobile-shadow-paper-compare",
+            "investment-mobile-sim-strategy-start",
+            "investment-mobile-sim-strategy-control",
+            "investment-mobile-sim-strategy-runs",
+            "investment-mobile-sim-benchmark",
         }
     )
 
@@ -316,6 +345,13 @@ class TradingEngineService:
             audit=self.audit,
             market=self.market_engine,
         )
+        # simulation layer — dedicated paper ledgers, no broker access;
+        # OMS PAPER branch delegates to it so formal state is untouched
+        from .simulation import SimulationTradingEngine
+        self.sim = SimulationTradingEngine(
+            state_dir, self.mode_gate, self.candle_store,
+            self.calendar, self.fund_engine, self.bt_cost)
+        self.oms.attach_simulation(self.sim)
 
     # ------------------------------------------------------------------
     def owns(self, command: str) -> bool:
@@ -1554,6 +1590,190 @@ class TradingEngineService:
                 "ok": True,
                 "events": self.audit.tail(payload.get("limit", 50)),
             }
+
+        # ---------------- simulation (SHADOW + PAPER) ----------------
+        if command == "investment-mobile-sim-status":
+            return "sim", self.sim.status()
+
+        if command == "investment-mobile-sim-tick":
+            return "sim", self.sim.tick(dict(payload))
+
+        if command == "investment-mobile-sim-recover":
+            return "sim", self.sim.recover()
+
+        if command == "investment-mobile-sim-events":
+            return "sim", {
+                "ok": True,
+                "events": self.sim.recovery.events(
+                    int(payload.get("limit") or 500))}
+
+        if command == "investment-mobile-sim-checkpoint":
+            return "sim", self.sim.recovery.checkpoint(
+                dict(payload.get("state") or {}))
+
+        if command == "investment-mobile-paper-account-create":
+            res = self.sim.create_account(payload)
+            if res.get("ok"):
+                self.audit.record("sim.paper_account", {
+                    "account_id": res["account"]["account_id"]})
+            return "sim", res
+
+        if command == "investment-mobile-paper-accounts":
+            return "sim", {"ok": True,
+                           "accounts": self.sim.accounts.list()}
+
+        if command == "investment-mobile-paper-cash":
+            return "sim", self.sim.accounts.cash(
+                str(payload.get("account_id") or ""))
+
+        if command == "investment-mobile-paper-ledger":
+            return "sim", {
+                "ok": True,
+                "entries": self.sim.accounts.ledger(
+                    payload.get("account_id"),
+                    int(payload.get("limit") or 500))}
+
+        if command == "investment-mobile-paper-deposit":
+            return "sim", self.sim.deposit(
+                str(payload.get("account_id") or ""),
+                payload.get("amount") or "0")
+
+        if command == "investment-mobile-paper-withdraw":
+            return "sim", self.sim.withdraw(
+                str(payload.get("account_id") or ""),
+                payload.get("amount") or "0")
+
+        if command == "investment-mobile-paper-order-submit":
+            res = self.sim.submit_order(payload)
+            self.audit.record("sim.paper_order", {
+                "order_id": (res.get("order") or {}).get("order_id"),
+                "ok": res.get("ok"),
+                "mode": self.mode_gate.mode.value})
+            if res.get("execution"):
+                self._mirror_outbox.append({
+                    "operation": "record_paper_execution",
+                    "execution": res["execution"]})
+            return "sim", res
+
+        if command == "investment-mobile-paper-order-cancel":
+            return "sim", self.sim.cancel_order(
+                str(payload.get("order_id") or ""))
+
+        if command == "investment-mobile-paper-order-list":
+            return "sim", {
+                "ok": True,
+                "orders": self.sim.orders.list(
+                    payload.get("account_id"), payload.get("status"))}
+
+        if command == "investment-mobile-paper-order-expire":
+            return "sim", self.sim.expire_due()
+
+        if command == "investment-mobile-paper-executions":
+            return "sim", {
+                "ok": True,
+                "executions": self.sim.orders.executions(
+                    payload.get("order_id"))}
+
+        if command == "investment-mobile-paper-positions":
+            return "sim", {
+                "ok": True,
+                "positions": self.sim.positions.list(
+                    payload.get("account_id"))}
+
+        if command == "investment-mobile-paper-performance":
+            marks = {str(k): Decimal(str(v)) for k, v in
+                     dict(payload.get("marks") or {}).items()}
+            return "sim", self.sim.performance.report(
+                str(payload.get("account_id") or ""), marks)
+
+        if command == "investment-mobile-paper-corporate":
+            return "sim", self.sim.apply_corporate(
+                str(payload.get("account_id") or ""),
+                str(payload.get("instrument_id") or ""),
+                str(payload.get("kind") or ""),
+                ratio=payload.get("ratio") or "1",
+                cash_amount=payload.get("cash_amount") or "0")
+
+        if command == "investment-mobile-paper-risk-decisions":
+            return "sim", {
+                "ok": True,
+                "decisions": self.sim.risk.decisions(
+                    int(payload.get("limit") or 100))}
+
+        if command == "investment-mobile-shadow-signal":
+            res = self.sim.record_shadow_signal(payload)
+            if res.get("ok"):
+                self.audit.record("sim.shadow_signal", {
+                    "signal_id": res["signal"]["signal_id"],
+                    "side": res["signal"]["side"]})
+                self._mirror_outbox.append({
+                    "operation": "record_shadow_signal",
+                    "signal": res["signal"]})
+            return "sim", res
+
+        if command == "investment-mobile-shadow-signals":
+            return "sim", {
+                "ok": True,
+                "signals": self.sim.shadow.signals(
+                    payload.get("instrument_id"),
+                    int(payload.get("limit") or 200))}
+
+        if command == "investment-mobile-shadow-outcome":
+            return "sim", self.sim.signal_outcome(
+                str(payload.get("signal_id") or ""))
+
+        if command == "investment-mobile-shadow-paper-compare":
+            sig = next((s for s in self.sim.shadow.signals()
+                        if s["signal_id"] ==
+                        str(payload.get("signal_id") or "")), None)
+            if sig is None:
+                return "sim", {"ok": False,
+                               "error_code": "SIGNAL_NOT_FOUND"}
+            return "sim", self.sim.shadow_paper.compare(
+                sig,
+                self.sim.orders.executions(),
+                Decimal(str(payload.get("market_end_price") or
+                            sig.get("reference_price") or "1")))
+
+        if command == "investment-mobile-sim-strategy-start":
+            from .simulation import StrategyRun
+            row = self.strategy_registry.get(
+                str(payload.get("strategy_id") or ""),
+                payload.get("strategy_version"))
+            if row is None:
+                return "sim", {"ok": False,
+                               "error_code": "STRATEGY_NOT_FOUND"}
+            run = StrategyRun(
+                strategy_id=row["strategy_id"],
+                strategy_version=int(row["version"]),
+                paper_account_id=str(payload.get("paper_account_id")
+                                     or ""),
+                allocated_capital=Decimal(
+                    str(payload.get("allocated_capital") or 0)),
+                risk_budget=Decimal(str(payload.get("risk_budget")
+                                        or 0)))
+            res = self.sim.start_loop(run, row)
+            if res.get("ok"):
+                self.audit.record("sim.strategy_start", {
+                    "run_id": run.run_id,
+                    "strategy_id": run.strategy_id})
+            return "sim", res
+
+        if command == "investment-mobile-sim-strategy-control":
+            return "sim", self.sim.loop_control(
+                str(payload.get("run_id") or ""),
+                str(payload.get("action") or ""))
+
+        if command == "investment-mobile-sim-strategy-runs":
+            return "sim", {
+                "ok": True,
+                "runs": self.sim.coordinator.runs(
+                    payload.get("status"))}
+
+        if command == "investment-mobile-sim-benchmark":
+            return "sim", self.sim.benchmark.compare(
+                list(payload.get("equity_curve") or []),
+                str(payload.get("benchmark_id") or ""))
 
         raise PermissionError("PERMISSION_DENIED")
 

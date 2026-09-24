@@ -139,13 +139,14 @@ class PaperAccountService:
                   CashState.AVAILABLE, ref=ref)
 
     def release_all(self, account_id: str, ref: str) -> Decimal:
-        """Release the net remaining RESERVED balance tagged `ref`."""
+        """Release the net remaining RESERVED balance tagged `ref`
+        (reserve posts +RESERVED, release posts -RESERVED — sum legs)."""
         net = Decimal("0")
         for e in self.ledger(account_id, limit=10_000):
             if e["ref"] != ref or e["kind"] not in ("reserve", "release"):
                 continue
-            amt = Decimal(e["amount"])
-            net += amt if e["state"] == CashState.RESERVED else -amt
+            if e["state"] == CashState.RESERVED:
+                net += Decimal(e["amount"])
         if net > 0:
             self.release(account_id, net, ref)
         return net

@@ -31,11 +31,15 @@ class PaperExecutionEngine:
         candle: MarketCandle | None,
         broker_id: str = "", market: str = "",
         event_seq: int = 0, now: float | None = None,
+        market_open: bool | None = None,
     ) -> dict[str, Any]:
         now = now or time.time()
         assumptions = ["daily_bar_no_intraday_path"]
         if candle is None:
             return {"ok": False, "error_code": "NO_MARKET_DATA"}
+        if market_open is False:
+            return {"ok": True, "filled": False,
+                    "reason": "market_closed"}
         age = now - candle.candle_end.timestamp()
         if age > self._max_age:
             return {"ok": False, "error_code": "STALE_MARKET_DATA",

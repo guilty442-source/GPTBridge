@@ -60,7 +60,16 @@ class OrderManagementSystem:
         self._decisions_path = state_dir / "decisions.jsonl"
         self._open_orders: list[OrderRequest] = []
         self._executions: list[Execution] = []
+        self._sim: Any | None = None     # SimulationTradingEngine
         self._load()
+
+    def attach_simulation(self, engine: Any) -> None:
+        """Route PAPER fills to the dedicated simulation layer.
+
+        Once attached, PAPER proposals produce paper orders/ledger rows
+        only — the formal portfolio, executions journal, and account
+        cash ledgers are never touched by a simulated fill."""
+        self._sim = engine
 
     # ------------------------------------------------------------------
     def _load(self) -> None:
@@ -176,8 +185,38 @@ class OrderManagementSystem:
                 "mode": self._gate.mode.value,
             }
 
-        # -- PAPER: simulated account fill, never touches a broker
+        # -- PAPER: dedicated simulation layer — formal ledgers untouched
         if self._gate.mode is TradingMode.PAPER:
+            if self._sim is not None:
+                order.status = "paper_simulated"
+                self._persist_order(order)
+                paper_account = self._sim.accounts.for_market(
+                    proposal.market)
+                if paper_account is None:
+                    return {"ok": False,
+                            "error_code": "PAPER_ACCOUNT_NOT_FOUND",
+                            "order_id": order.order_id}
+                result = self._sim.submit_order({
+                    "account_id": paper_account.account_id,
+                    "instrument_id": proposal.instrument_id,
+                    "side": proposal.side,
+                    "quantity": str(proposal.quantity),
+                    "order_type": "market",
+                    "strategy_id": proposal.strategy_id,
+                    "client_order_id": f"oms:{order.order_id}",
+                    "allow_eod_fill": True,
+                })
+                self._audit.record("order.paper_routed", {
+                    "order_id": order.order_id,
+                    "paper_order": (result.get("order") or {}).get(
+                        "order_id"),
+                    "ok": result.get("ok")})
+                return {
+                    "ok": result.get("ok"),
+                    "order_id": order.order_id,
+                    "simulated": True,
+                    "paper": result,
+                }
             paper = self._accounts.paper_account(proposal.market)
             proposal.account_id = paper.account_id
             execution = Execution(

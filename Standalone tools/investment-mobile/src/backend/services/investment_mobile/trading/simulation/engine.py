@@ -2,18 +2,21 @@
 
 Isolation contract: this engine owns ONLY paper ledgers (paper-* ids)
 and never holds broker adapters, real account ids, or real order books.
-Order acceptance requires mode==PAPER (ModeGate stage 'fills'); in
-SHADOW only immutable signal records are produced.
+Order acceptance requires mode==PAPER (ModeGate stage 'orders'); in
+SHADOW only immutable signal records are produced. LIVE paths do not
+exist here at all.
 """
 
 from __future__ import annotations
 
+import time
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from ..backtest.cost import TradingCostEngine
-from ..backtest.rules import rules_for
+from ..backtest.rules import capability_for, rules_for
 from ..contracts import TradingMode
 from ..fund.engine import MutualFundEngine
 from ..market.calendar import TradingCalendar
@@ -21,7 +24,8 @@ from ..market.history import CandleStore
 from ..modes import ModeGate
 from .accounts import PaperAccountService
 from .contracts import (
-    PaperAccount, PaperExecution, PaperOrder, ShadowSignal, StrategyRun,
+    PaperAccount, PaperExecution, PaperOrder, PaperOrderStatus,
+    ShadowSignal, StrategyRun,
 )
 from .execution import PaperExecutionEngine
 from .loop import PaperStrategyCoordinator, StrategyExecutionLoop
@@ -67,8 +71,34 @@ class SimulationTradingEngine:
         self._loops: dict[str, StrategyExecutionLoop] = {}
 
     # ------------------------------------------------------------------
+    # paper accounts / cash
+    # ------------------------------------------------------------------
+    def create_account(self, payload: dict[str, Any]) -> dict[str, Any]:
+        account = PaperAccount(
+            account_id=str(payload.get("account_id") or ""),
+            account_name=str(payload.get("account_name") or ""),
+            market=str(payload.get("market") or ""),
+            base_currency=str(payload.get("base_currency") or ""),
+            initial_capital=Decimal(str(payload.get("initial_capital")
+                                          or 0)))
+        res = self.accounts.create(account)
+        if res.get("ok"):
+            self.recovery.record_event("paper_account",
+                                       {"account_id": account.account_id})
+        return res
+
+    def deposit(self, account_id: str, amount) -> dict[str, Any]:
+        return self.accounts.deposit(account_id, amount)
+
+    def withdraw(self, account_id: str, amount) -> dict[str, Any]:
+        return self.accounts.withdraw(account_id, amount)
+
+    # ------------------------------------------------------------------
+    # paper orders
+    # ------------------------------------------------------------------
     def submit_order(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Full paper pipeline: mode → risk → reserve → order → fill."""
+        """Full paper pipeline: mode → dedup → risk → reserve → order →
+        fill. Never reaches broker adapters or formal ledgers."""
         if self._gate.mode is not TradingMode.PAPER:
             return {"ok": False, "error_code": "MODE_BLOCKED",
                     "mode": self._gate.mode.value,
@@ -88,23 +118,29 @@ class SimulationTradingEngine:
             strategy_id=str(payload.get("strategy_id") or ""),
             strategy_version=int(payload.get("strategy_version") or 0),
             limit_price=payload.get("limit_price"),
+            reference_price=payload.get("reference_price"),
             currency=str(payload.get("currency")
                          or account["base_currency"]),
             expires_at=float(payload.get("expires_at") or 0),
-            client_order_id=str(payload.get("client_order_id") or ""),
-        )
+            client_order_id=str(payload.get("client_order_id") or ""))
+
+        # idempotency first — a repeated client_order_id returns the
+        # existing order without touching cash or the book again
+        if order.client_order_id:
+            dup = self.orders.find_by_client(order.client_order_id)
+            if dup is not None:
+                return {"ok": True, "dedup": True, "order": dup}
 
         bars = self._candles.candles(order.instrument_id, "1d")
         latest = bars[-1] if bars else None
-        quote_age = (None if latest is None else
-                     max(0.0, __import__("time").time()
-                         - latest.candle_end.timestamp()))
-        ref = (order.limit_price or
+        quote_age = (None if latest is None else max(
+            0.0, time.time() - latest.candle_end.timestamp()))
+        ref = (order.limit_price or order.reference_price or
                (Decimal(str(latest.close)) if latest else Decimal("0")))
 
         cash = self.accounts.cash(account_id)
-        equity = Decimal(cash["available"]) + Decimal(cash["reserved"]) \
-            + Decimal(cash["unsettled"])
+        equity = (Decimal(cash["available"]) + Decimal(cash["reserved"])
+                  + Decimal(cash["unsettled"]))
         decision = self.risk.evaluate(
             account_id=account_id, instrument_id=order.instrument_id,
             side=order.side, quantity=order.quantity, price=ref,
@@ -115,9 +151,10 @@ class SimulationTradingEngine:
             equity=equity, peak_equity=equity,
             daily_pnl=Decimal("0"), quote_age_s=quote_age)
         if decision["outcome"] != "ALLOW":
-            order.status = "REJECTED"
-            return {"ok": False, "error_code": "RISK_" + decision["outcome"],
-                    "decision": decision}
+            self.orders.reject(order, "risk:" + decision["outcome"])
+            return {"ok": False,
+                    "error_code": "RISK_" + decision["outcome"],
+                    "decision": decision, "order": order.to_dict()}
 
         notional = order.quantity * ref
         if order.side in ("buy", "subscribe"):
@@ -125,64 +162,71 @@ class SimulationTradingEngine:
             res = self.accounts.reserve(account_id, notional + fee_est,
                                         ref=order.order_id)
             if not res.get("ok"):
+                self.orders.reject(order, "insufficient_cash")
                 return {"ok": False, "error_code": "INSUFFICIENT_CASH",
-                        "decision": decision}
+                        "order": order.to_dict()}
         else:
             held = self.positions.get(account_id, order.instrument_id)
             if held is None or held.quantity < order.quantity:
+                self.orders.reject(order, "insufficient_position")
                 return {"ok": False,
-                        "error_code": "INSUFFICIENT_POSITION"}
+                        "error_code": "INSUFFICIENT_POSITION",
+                        "order": order.to_dict()}
 
         sub = self.orders.submit(order)
         if not sub.get("ok"):
-            if order.side in ("buy", "subscribe"):
-                self.accounts.release(account_id, notional, order.order_id)
+            self.accounts.release_all(account_id, order.order_id)
             return sub
 
         seq = self.recovery.record_event("paper_order", {
             "order_id": order.order_id, "account_id": account_id})
+
+        market = str(payload.get("market") or account["market"])
+        market_open = self._calendar.is_open(
+            market, datetime.now(timezone.utc))
+        allow_eod = bool(payload.get("allow_eod_fill"))
         fill = self.exec_engine.try_fill(
             order, candle=latest,
             broker_id=str(payload.get("broker_id") or ""),
-            market=str(payload.get("market") or account["market"]),
-            event_seq=seq)
+            market=market, event_seq=seq,
+            market_open=market_open or allow_eod)
         if fill.get("filled"):
             return self._fill(order, fill["execution"], account)
-        if fill.get("ok") is False and fill.get("error_code") not in (
-                None, "STALE_MARKET_DATA"):
-            pass
+        if fill.get("ok") is False:
+            # stale/missing data or unsupported type — release and reject
+            self.accounts.release_all(account_id, order.order_id)
+            self.orders.reject(
+                order, str(fill.get("error_code") or "fill_failed"))
+            return {"ok": False,
+                    "error_code": fill.get("error_code", "FILL_FAILED"),
+                    "order": order.to_dict()}
         self.recovery.record_event("paper_order_open",
-                                   {"order_id": order.order_id})
+                                   {"order_id": order.order_id,
+                                    "reason": fill.get("reason")})
         return {"ok": True, "order": order.to_dict(),
-                "fill": {k: v for k, v in fill.items() if k != "execution"}}
+                "fill": {k: v for k, v in fill.items()
+                         if k != "execution"}}
 
     def _fill(self, order: PaperOrder, ex: PaperExecution,
               account: dict[str, Any]) -> dict[str, Any]:
         notional = ex.quantity * ex.price
-        rules = rules_for(account["market"])
-        fee = self._fee(order, notional, account)
-        ex.fee = fee
+        ex.fee = self._fee(order, notional, account)
         applied = self.orders.apply_fill(order.order_id, ex)
         if not applied.get("ok"):
             return applied
         self.positions.apply_fill(ex)
         acct_id = account["account_id"]
         if order.side in ("buy", "subscribe"):
-            self.accounts.release(acct_id,
-                                  order.quantity * (order.limit_price
-                                                    or ex.price),
-                                  order.order_id)
-            self.accounts.post(acct_id, "buy_debit", -notional - fee,
+            self.accounts.release_all(acct_id, order.order_id)
+            self.accounts.post(acct_id, "buy_debit", -notional - ex.fee,
                                "AVAILABLE", ref=ex.exec_id)
         else:
-            settle_lag = rules.settlement_days
-            from datetime import date, timedelta
+            lag = rules_for(account["market"]).settlement_days
             self.accounts.post(
-                acct_id, "sell_credit", notional - fee, "UNSETTLED",
+                acct_id, "sell_credit", notional - ex.fee, "UNSETTLED",
                 ref=ex.exec_id,
-                settle_on=(date.today()
-                           + timedelta(days=settle_lag)).isoformat())
-            self.accounts.post(acct_id, "fee", -fee, "AVAILABLE",
+                settle_on=(date.today() + timedelta(days=lag)).isoformat())
+            self.accounts.post(acct_id, "fee", -ex.fee, "AVAILABLE",
                                ref=ex.exec_id)
         self.recovery.record_event("paper_fill", {
             "exec_id": ex.exec_id, "order_id": order.order_id})
@@ -193,7 +237,7 @@ class SimulationTradingEngine:
              account: dict[str, Any]) -> Decimal:
         res = self._cost.charge(
             notional=notional, direction=order.side,
-            on_date=__import__("datetime").date.today().isoformat(),
+            on_date=date.today().isoformat(),
             ctx={"market": account["market"],
                  "instrument_kind": "etf" if "ETF" in order.instrument_id
                  else "stock",
@@ -208,24 +252,48 @@ class SimulationTradingEngine:
         res = self.orders.cancel(order_id)
         if res.get("ok"):
             o = res["order"]
-            if o["side"] in ("buy", "subscribe"):
-                self.accounts.release(
-                    o["account_id"],
-                    o["quantity"] * Decimal(str(o["limit_price"] or
-                                              o["reference_price"] or 0)),
-                    o["order_id"])
+            self.accounts.release_all(o["account_id"], o["order_id"])
             self.recovery.record_event("paper_cancel",
                                        {"order_id": order_id})
         return res
 
     def expire_due(self) -> dict[str, Any]:
-        return self.orders.expire_due()
+        res = self.orders.expire_due()
+        for oid in res.get("expired", []):
+            o = self.orders.get(oid)
+            if o:
+                self.accounts.release_all(o["account_id"], oid)
+        return res
 
+    def apply_corporate(self, account_id: str, instrument_id: str,
+                        kind: str, ratio="1",
+                        cash_amount="0") -> dict[str, Any]:
+        """Controlled adjustment: split/stock dividend scale position;
+        cash dividend / ETF distribution posts a dividend ledger entry."""
+        res = self.positions.apply_corporate(
+            account_id, instrument_id, kind, ratio=ratio)
+        if not res.get("ok"):
+            return res
+        cash_amt = Decimal(str(cash_amount))
+        if cash_amt > 0:
+            qty = Decimal(res["position"]["quantity"])
+            self.accounts.post(account_id, "dividend",
+                               cash_amt * qty if kind != "cash_total"
+                               else cash_amt,
+                               "AVAILABLE", ref=f"corp:{instrument_id}")
+        self.recovery.record_event("paper_corporate", {
+            "account_id": account_id, "instrument_id": instrument_id,
+            "kind": kind})
+        return res
+
+    # ------------------------------------------------------------------
+    # shadow signals
     # ------------------------------------------------------------------
     def record_shadow_signal(self, payload: dict[str, Any]
                              ) -> dict[str, Any]:
-        if self._gate.mode is TradingMode.ANALYSIS:
+        if not self._gate.allows("decisions"):
             return {"ok": False, "error_code": "MODE_BLOCKED",
+                    "mode": self._gate.mode.value,
                     "note": "SHADOW 訊號需 SHADOW/PAPER 模式"}
         sig = ShadowSignal(
             instrument_id=str(payload.get("instrument_id") or ""),
@@ -254,6 +322,8 @@ class SimulationTradingEngine:
         return self.outcomes.evaluate(sig)
 
     # ------------------------------------------------------------------
+    # strategy loops
+    # ------------------------------------------------------------------
     def start_loop(self, run: StrategyRun,
                    strategy: dict[str, Any]) -> dict[str, Any]:
         res = self.coordinator.start(run)
@@ -272,9 +342,7 @@ class SimulationTradingEngine:
         if fn is None:
             return {"ok": False, "error_code": "ACTION_UNKNOWN"}
         res = fn()
-        self.coordinator.set_status(run_id,
-                                    loop.status if loop.status !=
-                                    "error" else "error")
+        self.coordinator.set_status(run_id, loop.status)
         return res
 
     def loop_status(self) -> dict[str, Any]:
@@ -284,18 +352,19 @@ class SimulationTradingEngine:
             for l in self._loops.values()]}
 
     def tick(self, market_event: dict[str, Any]) -> dict[str, Any]:
-        """Drive all running loops once — caller supplies cadence."""
-        results = {}
-        for rid, loop in self._loops.items():
-            results[rid] = loop.tick(market_event)
-        return {"ok": True, "ticks": results}
+        """Drive all running loops once — caller supplies cadence; the
+        loop never busy-polls."""
+        return {"ok": True, "ticks": {
+            rid: loop.tick(market_event)
+            for rid, loop in self._loops.items()}}
 
     def _loop_tick(self, loop: StrategyExecutionLoop,
                    event: dict[str, Any]) -> dict[str, Any]:
         """market event → signals → paper orders for the run's strategy."""
+        from ..strategy.signals import generate
         s = loop.strategy
-        iid = event.get("instrument_id") or (
-            s.get("instrument_scope") or [""])[0]
+        scope = s.get("instrument_scope") or []
+        iid = event.get("instrument_id") or (scope[0] if scope else "")
         bars = self._candles.candles(iid, "1d")
         if len(bars) < 3:
             return {"skipped": "insufficient_bars"}
@@ -308,10 +377,12 @@ class SimulationTradingEngine:
             res = self.submit_order({
                 "account_id": loop.run.paper_account_id,
                 "instrument_id": iid, "side": sig.side,
-                "quantity": (s.get("parameters") or {}).get("quantity", 1),
+                "quantity": (s.get("parameters") or {}).get(
+                    "quantity", 1),
                 "order_type": "market",
                 "strategy_id": s.get("strategy_id", ""),
                 "strategy_version": s.get("version", 0),
+                "allow_eod_fill": True,
                 "client_order_id":
                     f"{loop.run.run_id}:{iid}:{len(bars)}:{sig.side}"})
             placed.append({"side": sig.side, "ok": res.get("ok")})
@@ -320,9 +391,20 @@ class SimulationTradingEngine:
     # ------------------------------------------------------------------
     def _run_for(self, strategy_id: str) -> dict[str, Any] | None:
         for r in self.coordinator.runs():
-            if r["strategy_id"] == strategy_id and r["status"] == "running":
+            if (r["strategy_id"] == strategy_id
+                    and r["status"] == "running"):
                 return r
         return None
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "ok": True, "mode": self._gate.mode.value,
+            "accounts": self.accounts.list(),
+            "open_orders": len(self.orders.open_orders()),
+            "loops": self.loop_status()["loops"],
+            "last_seq": self.recovery._seq,
+            "simulated": True,
+        }
 
     def recover(self) -> dict[str, Any]:
         return self.recovery.recover(

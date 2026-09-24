@@ -15,9 +15,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable
 
-from ..strategy.signals import generate
 from .accounts import PaperAccountService
-from .contracts import PaperOrder, StrategyRun
+from .contracts import StrategyRun
 from .orders import PaperOrderManagementSystem
 
 
@@ -65,10 +64,13 @@ class PaperStrategyCoordinator:
         return rows
 
     def strategy_spend(self, run_id: str) -> Decimal:
-        """Committed notional by open/filled buy orders of this run."""
+        """Committed notional by filled buy orders of this run."""
+        run = self._runs.get(run_id)
+        if run is None:
+            return Decimal("0")
         total = Decimal("0")
         for o in self._orders.list():
-            if o.get("strategy_id") == self._runs[run_id].strategy_id:
+            if o.get("strategy_id") == run.strategy_id:
                 total += Decimal(o["filled_qty"]) * Decimal(
                     o["avg_fill_price"])
         return total

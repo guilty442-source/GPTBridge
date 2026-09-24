@@ -52,10 +52,6 @@ class PaperPerformanceService:
 
         execs = [x for x in self._orders.executions()
                  if x["account_id"] == account_id]
-        sells = [x for x in execs if x["side"] in ("sell", "redeem")]
-        pnl_list = [Decimal(x["price"]) * Decimal(x["quantity"])
-                    for x in sells]
-        wins = [p for p in pnl_list]  # refined via position realized
         ret = (total / initial - 1) if initial > 0 else Decimal("0")
 
         return {
