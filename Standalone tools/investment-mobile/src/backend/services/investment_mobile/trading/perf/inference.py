@@ -14,8 +14,17 @@ import time
 from collections import deque
 from typing import Any
 
+# Scheduler-level task kinds → orchestrator task kinds (the shared
+# 星澄 router only accepts its own vocabulary).
 TASK_KINDS = ("MARKET_SUMMARY", "POSITION_ANALYSIS", "FUND_RESEARCH",
               "STRATEGY_RESEARCH", "INVESTMENT_REPORT")
+_KIND_MAP = {
+    "MARKET_SUMMARY": "MARKET_SUMMARY",
+    "POSITION_ANALYSIS": "PORTFOLIO_ANALYSIS",
+    "FUND_RESEARCH": "FUND_ANALYSIS",
+    "STRATEGY_RESEARCH": "RECOMMENDATION_EXPLANATION",
+    "INVESTMENT_REPORT": "REPORT_GENERATION",
+}
 
 
 class InvestmentInferenceScheduler:
@@ -76,7 +85,8 @@ class InvestmentInferenceScheduler:
                 return {"ok": True, "degraded": True,
                         "note": "model unavailable — deterministic only"}
             res = await self._workload.analyze(
-                work["kind"], work["payload"],
+                _KIND_MAP.get(work["kind"], work["kind"]),
+                work["payload"],
                 priority=work["priority"])
             if res.get("degraded"):
                 self._stats["degraded"] += 1
