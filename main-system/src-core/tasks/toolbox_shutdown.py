@@ -115,18 +115,23 @@ class ShutdownMixin(ForceCloseMixin):
         # stop share the same snapshot.  The old two-attempt PowerShell sweep
         # cost up to sixteen 1-3s CIM calls per close.  Runs via
         # asyncio.to_thread so it never stalls the backend event loop.
-        stopped: set[int] = set()
-        stopped.update(self._stop_running_source_runtime(source_entry))
-        stopped.update(self._stop_running_executable(executable_file))
-        stopped.update(self._stop_running_packaged_backend(tool_dir))
-        stopped.update(self._stop_running_source_ui(tool_id))
-        remaining = sorted(
-            set(self._running_source_runtime_process_ids(source_entry))
-            | set(self._running_executable_process_ids(executable_file))
-            | set(self._running_packaged_backend_process_ids(tool_dir))
-            | set(self._running_source_ui_process_ids(tool_id))
-        )
-        return stopped, remaining
+        def probe() -> list[int]:
+            return sorted(
+                set(self._running_source_runtime_process_ids(source_entry))
+                | set(self._running_executable_process_ids(executable_file))
+                | set(self._running_packaged_backend_process_ids(tool_dir))
+                | set(self._running_source_ui_process_ids(tool_id))
+            )
+
+        def stop() -> set[int]:
+            out: set[int] = set()
+            out.update(self._stop_running_source_runtime(source_entry))
+            out.update(self._stop_running_executable(executable_file))
+            out.update(self._stop_running_packaged_backend(tool_dir))
+            out.update(self._stop_running_source_ui(tool_id))
+            return out
+
+        return self._settled_sweep(stop, probe)
 
     def _sweep_and_stop_tool_processes(
         self,
@@ -134,16 +139,41 @@ class ShutdownMixin(ForceCloseMixin):
         tool_dir: Path,
         executable_file: Path,
     ) -> tuple[set[int], list[int]]:
+        def probe() -> list[int]:
+            return sorted(
+                set(self._running_executable_process_ids(executable_file))
+                | set(self._running_packaged_backend_process_ids(tool_dir))
+                | set(self._running_source_ui_process_ids(tool_id))
+            )
+
+        def stop() -> set[int]:
+            out: set[int] = set()
+            out.update(self._stop_running_executable(executable_file))
+            out.update(self._stop_running_packaged_backend(tool_dir))
+            out.update(self._stop_running_source_ui(tool_id))
+            return out
+
+        return self._settled_sweep(stop, probe)
+
+    @staticmethod
+    def _settled_sweep(
+        stop: Any, probe: Any
+    ) -> tuple[set[int], list[int]]:
+        # TerminateProcess/psutil kill only signals teardown — the OS keeps
+        # a dying process enumerable for a short window, so an immediate
+        # re-probe reports "remains after forced close" for a process that
+        # is already dead.  Re-kill and re-probe until the list empties or
+        # the settle window closes; a respawned pid is killed on the next
+        # pass.  The window stays well under the A540 five-second close
+        # budget enforced by the caller's wait_for.
         stopped: set[int] = set()
-        stopped.update(self._stop_running_executable(executable_file))
-        stopped.update(self._stop_running_packaged_backend(tool_dir))
-        stopped.update(self._stop_running_source_ui(tool_id))
-        remaining = sorted(
-            set(self._running_executable_process_ids(executable_file))
-            | set(self._running_packaged_backend_process_ids(tool_dir))
-            | set(self._running_source_ui_process_ids(tool_id))
-        )
-        return stopped, remaining
+        settle_deadline = time.monotonic() + 1.0
+        while True:
+            stopped.update(stop())
+            remaining = probe()
+            if not remaining or time.monotonic() >= settle_deadline:
+                return stopped, remaining
+            time.sleep(0.1)
 
     @staticmethod
     def _require_unlinked_descriptor_paths(candidates: tuple[Path, ...]) -> None:
