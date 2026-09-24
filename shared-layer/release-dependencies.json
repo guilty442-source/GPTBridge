@@ -375,7 +375,7 @@
       "hashes": {
         "main": "0ba9f520930b1be8d985adf2e658eca594278b5c26170f1df5b08012b247b349",
         "preload": "0131242e2ff454ad92c2953efa20c09552505d2748d0936c086bfbed3cd245fe",
-        "renderer": "08b15108ae34553783b23eb311bb19bb2bdc7edde9f224b0058a4e11e680a521"
+        "renderer": "e1d232a58030b1aed260e7d2ccee0de428444ba54e1d4f64cfcda4f91b2521f4"
       },
       "renderer_asset_count": 2
     },
@@ -483,7 +483,7 @@
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
-      "Standalone tools/local-model/runtime/settings/native-engine.json": "4a7be6c475d09c92c4e89b4233c8bc365af6184f3b61de7c17383887dc01ec8e"
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "7f8eff72e849e5a043f8a6a356a79c77d73c179e53f61cbb9393b4fef3dc4de6"
     },
     "database_schema": {
       "manifest": "shared-layer/database-release.json",
