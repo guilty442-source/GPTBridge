@@ -9,7 +9,7 @@
 
 ## 1. 實際完成的功能
 
-驗收矩陣實測 **31 PASS / 0 FAIL / 3 BLOCKED / 0 INCOMPLETE_EVIDENCE**。
+驗收矩陣實測 **32 PASS / 0 FAIL / 2 BLOCKED / 0 INCOMPLETE_EVIDENCE**。
 PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸出）：
 
 - 台股持倉匯入與估值（`assets/`、`import` 管線，Decimal 計算）
@@ -23,6 +23,10 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 - 歷史回測（本地可重現資料）
 - SHADOW 訊號（只記訊號、不產生成交，測試鎖定）
 - PAPER 模擬交易（股票路徑成交、更新虛擬資產、績效計算）
+- 共同基金 PAPER 申贖結算（NAV 循環：受理→次一公告淨值計價→
+  交割；申購以金額、贖回以單位；現金走 paper ledger、單位走
+  模擬專用交易簿，與正式基金帳本實體隔離；申購費/贖回費/
+  短線費由 FundFeeEngine 計算，NAV 內含費不重複扣）
 - 風控（`risk_engine` + simulation `risk.py`，Decimal 口徑）
 - 資料匯入（離線/手動帳戶與持倉）
 - 投資報告產生
@@ -34,8 +38,9 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 | feature_id | 狀態 | 原因 |
 |---|---|---|
 | `pg.persistence` | BLOCKED | 寫入器已接線且可運作；`gptbridge_trading` schema 尚未套用（migrations 135–144 待治理遷移執行）。探針已改為自升級式：schema 落地後自動轉 PASS，不需改碼。 |
-| `fund.paper` | BLOCKED | 共同基金 PAPER 的 NAV 結算路由未實作（基金模擬交易結算缺口）。 |
 | `ui.control_route` | BLOCKED | 無已授權的入站控制路由；本工具 manifest 無自訂 UI，回 `CONTROL_CHANNEL_UNAVAILABLE`。 |
+
+（`fund.paper` 已於本輪補齊並由實跑探針驗證轉 PASS——見 §3-8。）
 
 ## 3. 本次修復的問題
 
@@ -56,6 +61,18 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
    `flush()`）。本地 JSON/JSONL 仍為 runtime 權威；PG 為輔助鏡像。
 7. `acceptance.py` `pg.persistence` 由硬編碼 BLOCKED 改為證據驅動探針
    `_pg_mirror_probe`（未接線/schema 缺席→BLOCKED；schema 在→PASS）。
+8. `fund.paper` 缺口補齊：新增 `simulation/fund_settlement.py`
+   （`PaperFundSettlementService`）——基金 PAPER 申贖走
+   FundTransaction 法定狀態機與「次一公告淨值」計價，絕不走股票
+   K 線成交路徑；模擬專用交易簿 `fund-paper/fund-transactions.jsonl`
+   與正式基金帳本實體分離（實測正式帳本 0 污染）；交割 lag 到期
+   才入帳，贖回款先入 UNSETTLED；無新 NAV 時誠實停留
+   PRICING_PENDING；淨值過期（stale）拒單；client_order_id 冪等；
+   贖回單位數含在途申贖佔用檢查。接線：`simulation/engine.py`
+   （MUTUAL_FUND/`fund:*` 路由、`expire_due` 連動結算）、
+   `engine_service.py`（3 個新命令 + NAV 公告即觸發計價）。
+   驗收探針 `_fund_paper_probe` 在隔離 tempdir 實跑
+   申購→計價→交割→贖回全循環，以單位數與現金餘額為證據。
 
 ## 4. 本次修改檔案
 
@@ -63,7 +80,10 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 - `trading/autotrade/persistence_pg.py`（新增，commit `d5cd41ff`）
 - `trading/autotrade/engine.py`、`runtime.py`、`performance.py`、
   `maintenance.py`（接線，commit `d5cd41ff`）
-- `trading/acceptance.py`（探針，commit `d5cd41ff`）
+- `trading/acceptance.py`（探針，commit `d5cd41ff`、`f90aa7a7`）
+- `trading/simulation/fund_settlement.py`（新增，commit `f90aa7a7`）
+- `trading/simulation/engine.py`、`trading/engine_service.py`
+  （基金 PAPER 路由與命令，commit `f90aa7a7`）
 - 本報告檔
 
 ## 5. 已移除的舊功能
@@ -73,13 +93,16 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 
 ## 6. 完整測試結果
 
-- pytest 全套（investment-mobile tests）：**338 passed in 8.05s**
+- pytest 全套（investment-mobile tests）：**338 passed**
 - `_stage_e2e_v1.py` 端對端：**Ran 6 tests，OK**（涵蓋啟動→離線帳戶→
   台股/美股/基金匯入→全資產→行情→分析→建議→策略實驗→回測→SHADOW→
   PAPER→模擬成交→虛擬資產→績效→報告→重啟恢復）
-- 驗收矩陣實測：31 PASS / 0 FAIL / 3 BLOCKED / 0 INCOMPLETE_EVIDENCE
+- 驗收矩陣實測：32 PASS / 0 FAIL / 2 BLOCKED / 0 INCOMPLETE_EVIDENCE
 - PG mirror 行為驗證：無 PG 環境下 run 註冊＋遷移共 3 次寫入全部 deferred、
   不產生 spool 檔、不影響主流程、status 誠實回報。
+- 基金 PAPER 實測（含探針）：申購 3000@NAV10 → SETTLED 300 單位、
+  現金 10000→7000；贖回 150 單位 → 現金→8500、持倉→150；
+  超額贖回 INSUFFICIENT_UNITS；正式基金帳本 0 筆污染。
 
 ## 7. 離線安全驗證
 
@@ -114,8 +137,7 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 
 - P0：無。
 - P1：無阻礙主要離線使用流程者。
-- P2：`fund.paper` 基金 PAPER NAV 結算路由未實作（部分功能缺失）；
-  `pg.persistence` 待治理遷移套用 schema（寫入器已備妥、安全降級）。
+- P2：`pg.persistence` 待治理遷移套用 schema（寫入器已備妥、安全降級）。
 - P3：`ui.control_route`（本工具無自訂 UI，屬設計內限制）；
   金融權威路徑已用 Decimal，殘餘 `float` 位於分析/統計/舊 OMS
   占位（`_daily_pnl` 明示回傳 0 的保守 stub）等非權威位置，
@@ -130,5 +152,6 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 
 **結論：`READY_FOR_RELEASE_REVIEW`**
 
-（此為提交審查之就緒判定，非正式治理核准；三項 BLOCKED 已如實揭露，
-其中 `fund.paper` 為最主要的後續補齊項。）
+（此為提交審查之就緒判定，非正式治理核准；兩項 BLOCKED 已如實揭露——
+`pg.persistence` 等待治理遷移套用 schema，`ui.control_route` 為設計內
+限制。）
