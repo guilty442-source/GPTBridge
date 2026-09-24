@@ -14,13 +14,6 @@ from .corpus import (
     iter_documents,
     read_corpus,
 )
-from .distill import (
-    DEFAULT_TEACHER_MODELS,
-    DistillationTopic,
-    build_distillation_snapshot,
-    build_grounded_topics,
-    generate_distillation_examples,
-)
 from .dpo import (
     DpoConfig,
     dpo_loss,
@@ -31,14 +24,6 @@ from .dpo import (
 from .optimizer import build_optimizer
 from .data import TextDataset, collate_batch
 from .precision import PrecisionPlan, resolve_precision
-from .teachers import (
-    TEACHER_ROLES,
-    TeacherRole,
-    assign_teachers,
-    assert_loopback_endpoint,
-    resolve_teacher_model,
-    teacher_role,
-)
 from .pretrain import (
     PretrainConfig,
     encode_documents,
@@ -61,27 +46,18 @@ from .trainer import Trainer, TrainingConfig, make_dataloader
 
 __all__ = [
     "CorpusDocument",
-    "DEFAULT_TEACHER_MODELS",
-    "DistillationTopic",
     "DpoConfig",
     "PrecisionPlan",
     "PretrainConfig",
     "SFTConfig",
     "SFTDataset",
-    "TEACHER_ROLES",
-    "TeacherRole",
     "TextDataset",
     "Trainer",
     "TrainingConfig",
-    "assert_loopback_endpoint",
-    "assign_teachers",
     "build_corpus",
-    "build_distillation_snapshot",
-    "build_grounded_topics",
     "build_optimizer",
     "collate_batch",
     "collate_sft",
-    "generate_distillation_examples",
     "dpo_loss",
     "dpo_train",
     "dpo_train_from_repository",
@@ -98,8 +74,6 @@ __all__ = [
     "read_corpus",
     "read_sft_jsonl",
     "resolve_precision",
-    "resolve_teacher_model",
     "sft_text",
     "sft_train",
-    "teacher_role",
 ]

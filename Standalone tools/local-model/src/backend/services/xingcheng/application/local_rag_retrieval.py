@@ -62,35 +62,18 @@ class LocalRagRetrievalMixin:
         return "general"
 
     def _route(self, question: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-        fallback = self._deterministic_route(question, payload)
-        if str(payload.get("rag_mode") or "").casefold() in self.RAG_MODELS:
-            return fallback, {"model": self.ROUTER_MODEL, "used": False, "reason": "explicit-rag-mode"}
-        installed = {
-            str(item.get("name") or "")
-            for item in self.transformer_runtime.selectable_models(refresh=False)
-        }
-        if self.ROUTER_MODEL not in installed:
-            return fallback, {"model": self.ROUTER_MODEL, "used": False, "reason": "router-not-installed"}
-        routed = self.transformer_runtime.generate(
-            prompt=(
-                "將下列 RAG 問題分類。只輸出一個標籤：general、fast、code、deep、visual。\n"
-                f"問題：{question}"
-            ),
-            intent="data_organization",
-            model_role="shared-rag-router",
-            output={"response": ""},
-            max_tokens=16,
-            temperature=0,
-            reasoning_effort="none",
-            requested_model=self.ROUTER_MODEL,
-            cancel_event=payload.get("_cancel_event"),
+        # 原生單模型架構下路由只決定檢索模式（不回應模型選擇），
+        # 採確定性規則，避免為分類付出整次生成成本。
+        route = self._deterministic_route(question, payload)
+        reason = (
+            "explicit-rag-mode"
+            if str(payload.get("rag_mode") or "").casefold() in self.RAG_MODELS
+            else "deterministic-routing"
         )
-        match = re.search(r"\b(general|fast|code|deep|visual)\b", str(routed.get("text") or ""), re.I)
-        route = match.group(1).casefold() if match else fallback
         return route, {
             "model": self.ROUTER_MODEL,
-            "used": routed.get("ok") is True and match is not None,
-            "fallback_used": match is None,
+            "used": False,
+            "reason": reason,
             "selected_route": route,
         }
 
@@ -169,7 +152,7 @@ class LocalRagRetrievalMixin:
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         installed = {
             str(item.get("name") or "")
-            for item in self.transformer_runtime.selectable_models(refresh=False)
+            for item in self.native_runtime.selectable_models(refresh=False)
         }
         candidates = list(dict.fromkeys((*self.RAG_MODELS[route], self.FALLBACK_MODEL)))
         attempts: list[dict[str, Any]] = []
@@ -182,7 +165,7 @@ class LocalRagRetrievalMixin:
             if model not in installed:
                 attempts.append({"model": model, "ok": False, "error_code": "MODEL_NOT_INSTALLED"})
                 continue
-            last = self.transformer_runtime.generate(
+            last = self.native_runtime.generate(
                 prompt=prompt,
                 intent="visual" if route == "visual" else "reading",
                 model_role=f"shared-{route}-rag-answer",
@@ -368,7 +351,7 @@ class LocalRagRetrievalMixin:
             "reranker": reranker, "generation_model": generated.get("model"),
             "reranker_fallback": reranker.get("fallback"),
             "generation_attempts": attempts, "generation": generated,
-            "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
+            "embedding_model": str(self.native_runtime.EMBEDDING_MODEL),
             "retrieval": (
                 "canonical-qdrant-dense+postgresql-fts+index-state+rrf+qwen3-reranker"
                 if canonical_ready
@@ -499,7 +482,7 @@ class LocalRagRetrievalMixin:
             "canonical_vector_database": "qdrant",
             "canonical_pipeline": canonical_status,
             **self._status_governance(canonical_ready),
-            "embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
+            "embedding_model": str(self.native_runtime.EMBEDDING_MODEL),
             "vector_database": vector_status,
             "keyword_index": self.repository.status(),
             "reranker": self.reranker.status(),

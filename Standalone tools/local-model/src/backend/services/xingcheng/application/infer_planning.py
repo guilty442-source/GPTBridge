@@ -148,7 +148,7 @@ class InferPlanningMixin:
         if requested_runtime_model and not native_model_requested:
             selectable_names = {
                 str(item.get("name") or "")
-                for item in self.transformer_runtime.selectable_models(refresh=False)
+                for item in self.native_runtime.selectable_models(refresh=False)
             }
             if requested_runtime_model not in selectable_names:
                 return ("xingcheng_infer_result", {
@@ -160,7 +160,7 @@ class InferPlanningMixin:
         if (
             requested_runtime_model
             and not native_model_requested
-            and not self.transformer_runtime.enabled
+            and not self.native_runtime.enabled
         ):
             return ("xingcheng_infer_result", {
                 "ok": False,
@@ -277,12 +277,12 @@ class InferPlanningMixin:
         if callable(progress_callback) and run_frontend_worker:
             progress_callback({
                 "phase": "workflow-frontend",
-                "model": self.transformer_runtime.FRONTEND_WORKER_MODEL,
+                "model": self.native_runtime.FRONTEND_WORKER_MODEL,
                 "message": "正在整理執行流程與模型路由",
             })
         if run_frontend_worker:
             frontend_result = await asyncio.to_thread(
-                self._run_rnj_frontend_worker,
+                self._run_native_frontend_worker,
                 raw_command,
                 command_plan,
             )
@@ -290,7 +290,7 @@ class InferPlanningMixin:
                 "ok": frontend_result.get("ok") is True,
                 "model": str(
                     frontend_result.get("model")
-                    or self.transformer_runtime.FRONTEND_WORKER_MODEL
+                    or self.native_runtime.FRONTEND_WORKER_MODEL
                 ),
                 "text": str(frontend_result.get("text") or "")[:8_000],
                 "position": "after-command-understanding-for-code-and-stem",
@@ -319,17 +319,16 @@ class InferPlanningMixin:
         if native_model_requested and any(
             token in prompt.casefold()
             for token in (
-                "用ollama訓練星澄",
-                "用 ollama 訓練星澄",
-                "ollama訓練星澄",
-                "ollama 訓練星澄",
+                "用原生模型訓練星澄",
+                "原生模型訓練星澄",
                 "本地模型訓練星澄",
                 "本機模型訓練星澄",
-                "train star with ollama",
+                "星澄自我訓練",
+                "train star natively",
             )
         ):
-            result = await self._train_with_ollama(payload)
-            result["intent"] = "ollama_native_model_training"
+            result = await self._train_with_native(payload)
+            result["intent"] = "native_model_training"
             self._identify_model(result, self.models.primary)
             return "xingcheng_infer_result", result
         if (
@@ -361,17 +360,16 @@ class InferPlanningMixin:
         automatic_runtime_model = (
             ""
             if direct_runtime_model
-            else self.transformer_runtime.select_model_for_request(
+            else self.native_runtime.select_model_for_request(
                 planned_intent,
                 reasoning_effort=str(inference_payload.get("reasoning_effort") or "medium"),
                 task_intensity=str(inference_payload.get("task_intensity") or "normal"),
                 generation_speed=str(inference_payload.get("generation_speed") or "medium"),
                 tier_cap=(
-                    # Interactive dialogue must never pay an unload+reload
-                    # cycle (Ollama holds exactly one model on this host), so
-                    # route every intent through the resident model unless the
-                    # user explicitly chose a harder intensity or a concrete
-                    # model.
+                    # Interactive dialogue must never pay a reload
+                    # cycle — route every intent through the resident
+                    # native model unless the user explicitly chose a
+                    # harder intensity or a concrete model.
                     "resident"
                     if str(inference_payload.get("interaction_mode") or "")
                     .strip()
@@ -387,40 +385,32 @@ class InferPlanningMixin:
         )
         if (
             planned_intent
-            in self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
-            and not self.transformer_runtime.enabled
+            in self.native_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
+            and not self.native_runtime.enabled
         ):
             return ("xingcheng_infer_result", {
                 "ok": False,
                 "error_code": "VISUAL_SPECIALIST_UNAVAILABLE",
                 "message": (
-                    "視覺檔案辨識固定使用 MiniCPM-V 4.6；目前本機 Transformer "
-                    "執行環境未啟用，因此未改派其他模型，也未猜測視覺內容。"
+                    "原生模型為純文字架構，不支援視覺輸入；"
+                    "未改派其他模型，也未猜測視覺內容。"
                 ),
                 "intent": planned_intent,
                 "required_model": (
-                    self.transformer_runtime.VISUAL_FILE_MANAGEMENT_MODEL
+                    self.native_runtime.VISUAL_FILE_MANAGEMENT_MODEL
                 ),
             }), "", "", "", ""
-        if planned_intent in self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS:
-            visual_model = self.transformer_runtime.VISUAL_FILE_MANAGEMENT_MODEL
-            installed_visual_models = {
-                str(item.get("name") or "")
-                for item in self.transformer_runtime.selectable_models(
-                    refresh=True
-                )
-            }
-            if visual_model not in installed_visual_models:
-                return ("xingcheng_infer_result", {
-                    "ok": False,
-                    "error_code": "VISUAL_SPECIALIST_NOT_INSTALLED",
-                    "message": (
-                        "視覺檔案辨識固定使用 MiniCPM-V 4.6，但模型 "
-                        f"{visual_model} 尚未安裝；目前未改派其他模型。"
-                    ),
-                    "intent": planned_intent,
-                    "required_model": visual_model,
-                }), "", "", "", ""
+        if planned_intent in self.native_runtime.VISUAL_FILE_MANAGEMENT_INTENTS:
+            return ("xingcheng_infer_result", {
+                "ok": False,
+                "error_code": "VISUAL_INPUT_UNSUPPORTED",
+                "message": (
+                    "原生模型為純文字架構，不支援圖片或影片輸入；"
+                    "未改派其他模型，也未猜測視覺內容。"
+                ),
+                "intent": planned_intent,
+                "required_model": self.native_runtime.VISUAL_FILE_MANAGEMENT_MODEL,
+            }), "", "", "", ""
         inference_payload["_governed_intent"] = planned_intent
         planned_profile = (
             self.models.MAIN
@@ -487,7 +477,7 @@ class InferPlanningMixin:
             if native_model_requested
             else direct_runtime_model
             or automatic_runtime_model
-            or self._ollama_model_for_intent(
+            or self._runtime_model_for_intent(
                 planned_intent,
                 str(inference_payload.get("task_intensity") or "normal"),
             )
@@ -595,7 +585,7 @@ class InferPlanningMixin:
         # P21：tools_enabled 且本輪本就會走原生引擎（明確請求原生模型，
         # 或 transformer runtime 停用時的原生路徑）→ converse 工具迴圈。
         if bool(inference_payload.get("tools_enabled")) and (
-            native_model_requested or not self.transformer_runtime.enabled
+            native_model_requested or not self.native_runtime.enabled
         ):
             tool_output = await self._infer_converse_tools(
                 inference_payload, prompt, planned_intent
@@ -611,9 +601,9 @@ class InferPlanningMixin:
                 analyze=analyze_investments,
                 search=self.market_data.search,
             )
-            if native_model_requested or not self.transformer_runtime.enabled
+            if native_model_requested or not self.native_runtime.enabled
             else await asyncio.to_thread(
-                self._prepare_ollama_output,
+                self._prepare_runtime_output,
                 inference_payload,
                 prompt,
                 planned_intent,

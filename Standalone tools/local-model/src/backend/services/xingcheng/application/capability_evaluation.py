@@ -4,7 +4,7 @@ from collections import Counter
 from typing import Any, Callable
 
 from .coding_expert import StarCodingExpert
-from .gpt_training_gate import StarOllamaTrainingGate
+from .training_gate import StarTrainingGate
 from .reading_expert import StarReadingExpert
 from ..infrastructure.generative_language_model import StarAutoregressiveLanguageModel
 from ..infrastructure.native_model import StarNativeLanguageModel
@@ -19,7 +19,7 @@ def evaluate_star_capabilities() -> dict[str, Any]:
     language_model = StarAutoregressiveLanguageModel()
     coding = StarCodingExpert()
     reading = StarReadingExpert()
-    gate = StarOllamaTrainingGate()
+    gate = StarTrainingGate()
     cases: list[tuple[str, str, Callable[[], bool]]] = [
         (
             "language",
@@ -84,8 +84,8 @@ def evaluate_star_capabilities() -> dict[str, Any]:
         ),
         (
             "training",
-            "canonical-gpt-maintenance-contract",
-            lambda: _gpt_contract_ok(gate),
+            "canonical-training-gate-contract",
+            lambda: _training_gate_contract_ok(gate),
         ),
     ]
     results: list[dict[str, Any]] = []
@@ -255,7 +255,7 @@ def _read_only_sql_ok(expert: StarCodingExpert) -> bool:
     return result["ok"] is True and result["validation"]["analysis"]["read_only"] is True
 
 
-def _gpt_contract_ok(gate: StarOllamaTrainingGate) -> bool:
+def _training_gate_contract_ok(gate: StarTrainingGate) -> bool:
     evaluated = gate.evaluate(
         [
             {

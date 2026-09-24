@@ -151,7 +151,7 @@ class InferSpecialistsMixin:
             instruction_execution["assigned_model"] = (
                 self.NATIVE_MODEL_ID
                 if native_model_requested
-                else self._ollama_model_for_intent(
+                else self._runtime_model_for_intent(
                     str(output.get("intent") or planned_intent)
                 )
             )

@@ -141,7 +141,7 @@ async def test_service_keeps_capability_composition_inside_star_native_model(
 ) -> None:
     service = LocalAiService.__new__(LocalAiService)
     runtime = _GateRuntime()
-    service.transformer_runtime = runtime
+    service.native_runtime = runtime
     service.capability_composer = StarCapabilityComposer(
         tmp_path / "xingcheng", StarModuleRegistry()
     )
@@ -173,7 +173,7 @@ async def test_service_keeps_capability_composition_inside_star_native_model(
         "star-native-internal-platform-validated"
     )
     assert result["external_ai_used"] is False
-    assert result["ollama_models_used"] == []
+    assert result["external_models_used"] == []
     assert runtime.calls == []
     assert result["database_write_performed"] is False
 

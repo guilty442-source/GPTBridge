@@ -37,22 +37,3 @@ class LocalAiUtilityMixin:
     def _repository_for(self, profile: StarModelProfile) -> LocalAiRepository:
         self.models.authorize_delegation(self.models.primary.model_id, profile)
         return self.repositories[profile.model_id]
-
-    def _record_ollama_inference(
-        self,
-        result: dict[str, Any],
-        *,
-        intent: str,
-        model_role: str,
-        request: Any,
-    ) -> None:
-        model_id = str(result.get("model") or "")
-        repository = getattr(self, "ollama_repositories", {}).get(model_id)
-        if repository is None:
-            return
-        repository.record_inference(
-            intent=intent,
-            model_role=model_role,
-            request=request,
-            response=result,
-        )

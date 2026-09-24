@@ -163,7 +163,6 @@ class InferFinalizeMixin:
                 "write": "all-project-databases-via-governed-platform",
                 "specialist_database_access": True,
                 "investment_database_access": True,
-                "ollama_model_database_access": True,
                 "project_database_scope": "all-project-databases-excluding-governance-rule",
                 "governance_rule_excluded": True,
             }

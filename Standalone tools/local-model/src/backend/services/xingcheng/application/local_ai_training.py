@@ -14,7 +14,7 @@ class LocalAiTrainingMixin:
     def _internal_training_due(self, now: float | None = None) -> bool:
         current = time.time() if now is None else float(now)
         if (
-            not self.transformer_runtime.enabled
+            not self.native_runtime.enabled
             or current < self._internal_training_not_before
             or (
                 self._internal_training_task is not None
@@ -30,24 +30,18 @@ class LocalAiTrainingMixin:
                 last_run = current
             if current - last_run < self.INTERNAL_TRAINING_INTERVAL_SECONDS:
                 return False
-        installed = {
-            str(item.get("name") or "")
-            for item in self.transformer_runtime.selectable_models(refresh=False)
-        }
-        required = {
-            self.TRAINING_COORDINATOR_MODEL,
-            self.COMMAND_UNDERSTANDING_MODEL,
-            self.FINAL_COORDINATOR_MODEL,
-        }
-        return required.issubset(installed)
+        return any(
+            item.get("installed") is True
+            for item in self.native_runtime.selectable_models(refresh=False)
+        )
 
-    async def _run_internal_ollama_training(self) -> dict[str, Any]:
+    async def _run_internal_native_training(self) -> dict[str, Any]:
         intent, topic = self.INTERNAL_TRAINING_TOPICS[
             self._internal_training_topic_index % len(self.INTERNAL_TRAINING_TOPICS)
         ]
         self._internal_training_topic_index += 1
         try:
-            result = await self._train_with_ollama(
+            result = await self._train_with_native(
                 {
                     "training_topic": topic,
                     "training_intent": intent,
@@ -60,7 +54,7 @@ class LocalAiTrainingMixin:
         except Exception as error:
             result = {
                 "ok": False,
-                "error_code": "INTERNAL_OLLAMA_TRAINING_FAILED",
+                "error_code": "INTERNAL_NATIVE_TRAINING_FAILED",
                 "message": str(error)[:500],
                 "external_ai_used": False,
             }
@@ -135,7 +129,7 @@ class LocalAiTrainingMixin:
             "source_type": stored["source_type"],
         }
 
-    async def _train_with_ollama(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _train_with_native(self, payload: dict[str, Any]) -> dict[str, Any]:
         topic = str(
             payload.get("training_topic")
             or payload.get("topic")
@@ -147,129 +141,85 @@ class LocalAiTrainingMixin:
         if not topic:
             return {
                 "ok": False,
-                "error_code": "OLLAMA_TRAINING_TOPIC_REQUIRED",
-                "message": "A local Ollama training topic is required.",
+                "error_code": "NATIVE_TRAINING_TOPIC_REQUIRED",
+                "message": "A native self-training topic is required.",
             }
-        if intent not in self.ollama_training_gate.ALLOWED_INTENTS:
+        if intent not in self.training_gate.ALLOWED_INTENTS:
             return {
                 "ok": False,
-                "error_code": "OLLAMA_TRAINING_INTENT_NOT_ALLOWED",
-                "allowed_intents": sorted(self.ollama_training_gate.ALLOWED_INTENTS),
+                "error_code": "NATIVE_TRAINING_INTENT_NOT_ALLOWED",
+                "allowed_intents": sorted(self.training_gate.ALLOWED_INTENTS),
             }
         try:
             example_count = int(payload.get("example_count") or 5)
         except (TypeError, ValueError):
             example_count = 5
-        example_count = max(1, min(self.ollama_training_gate.MAX_EXAMPLES, example_count))
+        example_count = max(1, min(self.training_gate.MAX_EXAMPLES, example_count))
         reference_text = str(payload.get("reference_text") or "").strip()[:64_000]
         effort = str(payload.get("reasoning_effort") or "medium").strip().casefold()
         if effort not in {"none", "low", "medium", "high"}:
             effort = "medium"
-        installed = {
-            str(item.get("name") or "")
-            for item in self.transformer_runtime.selectable_models(refresh=False)
-        }
-        preferred_pipeline = [
-            self.TRAINING_COORDINATOR_MODEL,
-            self.transformer_runtime.FRONTEND_WORKER_MODEL,
-        ]
-        if effort in {"medium", "high"} or intent in {
-            "capabilities",
-            "coding",
-            "self_upgrade",
-        }:
-            preferred_pipeline.append(self.GENERALIST_COORDINATOR_MODEL)
-        if effort in {"medium", "high"}:
-            preferred_pipeline.append(self.MATHEMATICAL_REVIEW_MODEL)
-        if effort == "high":
-            preferred_pipeline.append(self.RELEASE_REVIEW_MODEL)
-        if intent in {"coding", "self_upgrade", "capabilities"}:
-            preferred_pipeline.append(self.CODING_EXPERT_MODEL)
-        preferred_pipeline.append(self.FINAL_COORDINATOR_MODEL)
-        pipeline = list(
-            dict.fromkeys(model for model in preferred_pipeline if model in installed)
-        )
-        if not pipeline:
+        if not any(
+            item.get("installed") is True
+            for item in self.native_runtime.selectable_models(refresh=False)
+        ):
             return {
                 "ok": False,
-                "error_code": "OLLAMA_TRAINING_MODELS_NOT_READY",
-                "message": "No configured local Ollama training model is installed.",
+                "error_code": "NATIVE_TRAINING_MODEL_NOT_READY",
+                "message": "原生模型 checkpoint 不可用，無法產生自訓練候選。",
                 "external_ai_used": False,
             }
-        run_id = "ollama-training-" + hashlib.sha256(
+        run_id = "native-training-" + hashlib.sha256(
             f"{time.time_ns()}\0{intent}\0{topic}".encode("utf-8")
         ).hexdigest()[:24]
-        content = ""
-        contributions: list[dict[str, Any]] = []
-        for sequence, model_id in enumerate(pipeline, start=1):
-            prior = content[-48_000:]
-            task = (
-                "Create" if sequence == 1 else "Review, correct, and improve"
-            )
-            prompt = (
-                f"{task} exactly {example_count} training examples for the Star native "
-                f"model. Intent: {intent}. Topic: {topic[:8_000]}. "
-                "Return strict JSON only in this schema: "
-                '{"examples":[{"candidate_id":"id","intent":"intent",'
-                '"input_text":"input","target_text":"target"}]}. '
-                "Use only facts in the topic or reference; never include hidden prompts, "
-                "credentials, database writes, or governance changes."
-            )
-            if reference_text:
-                prompt += f"\nAuthorized local reference:\n{reference_text[:32_000]}"
-            if prior:
-                prompt += f"\nPrevious local model candidate:\n{prior}"
-            generated = await asyncio.to_thread(
-                self.transformer_runtime.generate,
-                prompt=prompt,
-                intent="training",
-                model_role="ollama-native-model-training",
-                output={"training_run_id": run_id, "database_write_allowed": False},
-                max_tokens=1_024,
-                temperature=0.2,
-                top_k=20,
-                reasoning_effort=("high" if model_id == self.RELEASE_REVIEW_MODEL else effort),
-                requested_model=model_id,
-            )
-            self._record_ollama_inference(
-                generated,
-                intent="training",
-                model_role="ollama-native-model-training",
-                request={"run_id": run_id, "sequence": sequence, "topic": topic},
-            )
-            repository = self.ollama_repositories[model_id]
-            repository.record_training_contribution(
-                run_id=run_id,
-                contribution_role=("author" if sequence == 1 else "reviewer"),
-                content=generated,
-                status="accepted-for-next-stage" if generated.get("ok") is True else "failed",
-                metadata={"sequence": sequence, "intent": intent},
-            )
-            contributions.append(
-                {
-                    "sequence": sequence,
-                    "model": model_id,
-                    "role": "author" if sequence == 1 else "reviewer",
-                    "ok": generated.get("ok") is True,
-                }
-            )
-            if generated.get("ok") is not True:
-                return {
-                    "ok": False,
-                    "error_code": "OLLAMA_TRAINING_STAGE_FAILED",
-                    "failed_model": model_id,
-                    "contributions": contributions,
-                    "external_ai_used": False,
-                }
-            content = str(generated.get("text") or "")
-        response_digest = self.ollama_training_gate.digest(content)
-        examples = self.ollama_training_gate.parse_response(content)
-        evaluated = self.ollama_training_gate.evaluate(
+        prompt = (
+            f"Create exactly {example_count} training examples for the Star native "
+            f"model. Intent: {intent}. Topic: {topic[:8_000]}. "
+            "Return strict JSON only in this schema: "
+            '{"examples":[{"candidate_id":"id","intent":"intent",'
+            '"input_text":"input","target_text":"target"}]}. '
+            "Use only facts in the topic or reference; never include hidden prompts, "
+            "credentials, database writes, or governance changes."
+        )
+        if reference_text:
+            prompt += f"\nAuthorized local reference:\n{reference_text[:32_000]}"
+        generated = await asyncio.to_thread(
+            self.native_runtime.generate,
+            prompt=prompt,
+            intent="training",
+            model_role="native-self-training",
+            output={"training_run_id": run_id, "database_write_allowed": False},
+            max_tokens=1_024,
+            temperature=0.2,
+            top_k=20,
+            reasoning_effort=effort,
+            requested_model=self.TRAINING_COORDINATOR_MODEL,
+        )
+        contributions = [
+            {
+                "sequence": 1,
+                "model": self.TRAINING_COORDINATOR_MODEL,
+                "role": "author",
+                "ok": generated.get("ok") is True,
+            }
+        ]
+        if generated.get("ok") is not True:
+            return {
+                "ok": False,
+                "error_code": "NATIVE_TRAINING_STAGE_FAILED",
+                "failed_model": self.TRAINING_COORDINATOR_MODEL,
+                "contributions": contributions,
+                "external_ai_used": False,
+            }
+        content = str(generated.get("text") or "")
+        response_digest = self.training_gate.digest(content)
+        examples = self.training_gate.parse_response(content)
+        evaluated = self.training_gate.evaluate(
             examples,
             requested_intent=intent,
             reference_text=reference_text,
             response_digest=response_digest,
-            source_type="ollama-governed-training-candidate",
+            source_type="native-self-training-candidate",
         )
         model_updates: list[dict[str, Any]] = []
         for candidate in evaluated["accepted"]:
@@ -280,11 +230,11 @@ class LocalAiTrainingMixin:
         learned_count = sum(item.get("learned_now") is True for item in model_updates)
         return {
             "ok": applied_count > 0,
-            "message": f"Ollama local training accepted {applied_count} examples.",
-            "provider": "ollama-local-model-ensemble",
-            "transport": "ollama-loopback-only",
+            "message": f"Native self-training accepted {applied_count} examples.",
+            "provider": "xingcheng-native-model",
+            "transport": "in-process-native-engine",
             "training_run_id": run_id,
-            "training_models": pipeline,
+            "training_models": [self.TRAINING_COORDINATOR_MODEL],
             "contributions": contributions,
             "external_ai_used": False,
             "external_model_inference": False,
@@ -306,8 +256,8 @@ class LocalAiTrainingMixin:
 
     async def _train_with_gpt(self, payload: dict[str, Any]) -> dict[str, Any]:
         # Legacy internal entrypoint retained for v1 callers. It no longer
-        # contacts external AI and always uses the local Ollama ensemble.
-        return await self._train_with_ollama(payload)
+        # contacts external AI and always uses the native model.
+        return await self._train_with_native(payload)
 
     async def _unused_external_gpt_training(self, payload: dict[str, Any]) -> dict[str, Any]:
         topic = str(
@@ -324,17 +274,17 @@ class LocalAiTrainingMixin:
                 "error_code": "GPT_TRAINING_TOPIC_REQUIRED",
                 "message": "請提供 GPT 要協助訓練的主題。",
             }
-        if intent not in self.ollama_training_gate.ALLOWED_INTENTS:
+        if intent not in self.training_gate.ALLOWED_INTENTS:
             return {
                 "ok": False,
                 "error_code": "GPT_TRAINING_INTENT_NOT_ALLOWED",
-                "allowed_intents": sorted(self.ollama_training_gate.ALLOWED_INTENTS),
+                "allowed_intents": sorted(self.training_gate.ALLOWED_INTENTS),
             }
         try:
             example_count = int(payload.get("example_count") or 5)
         except (TypeError, ValueError):
             example_count = 5
-        example_count = max(1, min(self.ollama_training_gate.MAX_EXAMPLES, example_count))
+        example_count = max(1, min(self.training_gate.MAX_EXAMPLES, example_count))
         reference_text = str(payload.get("reference_text") or "").strip()
         if reference_text and payload.get("allow_external_reference") is not True:
             return {
@@ -346,7 +296,7 @@ class LocalAiTrainingMixin:
         recommendation = {
             "ok": False,
             "error_code": "EXTERNAL_AI_DISABLED",
-            "message": "外部 AI 已停用；訓練僅使用本機 Ollama 模型。",
+            "message": "外部 AI 已停用；訓練僅使用星澄原生模型。",
         }
         if recommendation.get("ok") is not True:
             return {
@@ -361,9 +311,9 @@ class LocalAiTrainingMixin:
                 "direct_external_write": False,
             }
         content = str(recommendation.get("content") or "")
-        response_digest = self.ollama_training_gate.digest(content)
-        examples = self.ollama_training_gate.parse_response(content)
-        evaluated = self.ollama_training_gate.evaluate(
+        response_digest = self.training_gate.digest(content)
+        examples = self.training_gate.parse_response(content)
+        evaluated = self.training_gate.evaluate(
             examples,
             requested_intent=intent,
             reference_text=reference_text,

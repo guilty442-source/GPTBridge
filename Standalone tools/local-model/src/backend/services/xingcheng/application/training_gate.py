@@ -10,8 +10,8 @@ from ..infrastructure.generative_language_model import (
 )
 
 
-class StarOllamaTrainingGate:
-    """Validates governed local Ollama teaching candidates before Star learns them."""
+class StarTrainingGate:
+    """Validates governed local teaching candidates before Star learns them."""
 
     MAX_EXAMPLES = 20
     MIN_GROUNDING_COVERAGE = MIN_TRAINING_GROUNDING_COVERAGE
@@ -66,7 +66,7 @@ class StarOllamaTrainingGate:
         if not isinstance(parsed, list):
             return []
         return [dict(item) for item in parsed if isinstance(item, dict)][
-            : StarOllamaTrainingGate.MAX_EXAMPLES
+            : StarTrainingGate.MAX_EXAMPLES
         ]
 
     @staticmethod
@@ -95,8 +95,8 @@ class StarOllamaTrainingGate:
         requested_intent: str,
         reference_text: str = "",
         response_digest: str = "",
-        source_type: str = "ollama-governed-training-candidate",
-        received_via: str = "ollama-loopback-only",
+        source_type: str = "native-governed-training-candidate",
+        received_via: str = "in-process-native-engine",
     ) -> dict[str, Any]:
         accepted: list[dict[str, Any]] = []
         rejected: list[dict[str, Any]] = []
@@ -140,7 +140,7 @@ class StarOllamaTrainingGate:
             if unsupported_facts:
                 reasons.append("unsupported-facts")
 
-            candidate_id = str(example.get("candidate_id") or f"ollama-example-{index}")[:96]
+            candidate_id = str(example.get("candidate_id") or f"native-example-{index}")[:96]
             audit = {
                 "candidate_id": candidate_id,
                 "intent": intent,
@@ -160,7 +160,7 @@ class StarOllamaTrainingGate:
                     "intent": intent,
                     "input_text": input_text,
                     "target_text": target_text,
-                    "source_type": str(source_type or "ollama-governed-training-candidate"),
+                    "source_type": str(source_type or "native-governed-training-candidate"),
                     "quality_score": quality_score,
                     "validated": True,
                     "validation": {
@@ -192,4 +192,4 @@ class StarOllamaTrainingGate:
         return hashlib.sha256(str(content or "").encode("utf-8")).hexdigest()
 
 
-__all__ = ["StarOllamaTrainingGate"]
+__all__ = ["StarTrainingGate"]

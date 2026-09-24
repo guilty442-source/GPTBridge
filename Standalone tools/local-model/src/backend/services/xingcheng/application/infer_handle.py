@@ -220,7 +220,7 @@ class InferHandleMixin:
             )
         output["external_collaboration_plan"] = {
             "enabled": False,
-            "policy": "local-ollama-only",
+            "policy": "native-model-only",
             "external_ai_used": False,
             "tasks": external_tasks,
         }
@@ -310,15 +310,14 @@ async def process_inference(
         }
 
     elif operation == "embed":
-        # Generate embeddings via transformer runtime
-        from services.xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+        # Generate embeddings via the native hashed embedder
+        from services.xingcheng.infrastructure.native_runtime import StarNativeRuntime
 
-        runtime = StarTransformerRuntime(enabled=True)
-        result = await runtime.embed(text=text, model="qwen3-embedding:4b")
+        runtime = StarNativeRuntime(enabled=True)
         return {
             "ok": True,
-            "embeddings": result.get("embeddings", [[]]),
-            "model": "qwen3-embedding:4b",
+            "embeddings": runtime.embed(text=text),
+            "model": StarNativeRuntime.EMBEDDING_MODEL,
         }
 
     elif operation == "synthesize":

@@ -67,7 +67,7 @@ class _Svc(InferPlanningMixin):
 
     def __init__(self):
         self.dispatched = []
-        self.transformer_runtime = SimpleNamespace(enabled=True)
+        self.native_runtime = SimpleNamespace(enabled=True)
         self._latencies = []
 
     async def handle(self, command, payload):
@@ -203,10 +203,10 @@ async def test_generate_model_output_converse_skipped_for_non_native(
     """非原生路徑（transformer runtime 啟用＋未指定原生模型）不走迴圈。"""
     svc = _Svc()
 
-    def _ollama(*a, **k):
-        return {"ok": True, "text": "ollama"}
+    def _runtime(*a, **k):
+        return {"ok": True, "text": "native"}
 
-    svc._prepare_ollama_output = _ollama  # type: ignore[attr-defined]
+    svc._prepare_runtime_output = _runtime  # type: ignore[attr-defined]
     error, output = await svc._infer_generate_model_output(
         {"tools_enabled": True},
         "hello",
@@ -215,5 +215,5 @@ async def test_generate_model_output_converse_skipped_for_non_native(
         native_model_requested=False,
     )
     assert error is None
-    assert output["text"] == "ollama"
+    assert output["text"] == "native"
     assert "tools_enabled" not in output

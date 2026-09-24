@@ -23,8 +23,8 @@ SELF_HOSTED_TOOL_EXEMPTIONS: Final[Mapping[str, str]] = {
 }
 XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE: Final[tuple[str, ...]] = (
     "receive-original-traditional-chinese",
-    "qwen3.8-understand-command-and-normalize-taiwan-chinese",
-    "rnj-1-analyze-code-stem-and-tool-calling-at-workflow-front",
+    "native-understand-command-and-normalize-taiwan-chinese",
+    "native-analyze-code-stem-and-tool-calling-at-workflow-front",
     "extract-actions-objects-parameters-constraints",
     "classify-task-and-intensity",
     "apply-safety-and-permission-gates",

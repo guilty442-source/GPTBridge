@@ -30,8 +30,8 @@ class LocalAiHealthMixin:
         }
 
     def runtime_health(self) -> dict[str, Any]:
-        transformer_status = self.transformer_runtime.status()
-        llm_ready = transformer_status.get("available") is True
+        runtime_status = self.native_runtime.status()
+        llm_ready = runtime_status.get("available") is True
         rag_status = self.local_rag.status()
         return {
             "service_ready": True,
@@ -76,12 +76,12 @@ class LocalAiHealthMixin:
             ),
             "semantic_planning": "multi-intent-entity-and-document-aware",
             "generative_language_model": self.native_model.training_status(),
-            "transformer_runtime": transformer_status,
+            "native_runtime": runtime_status,
             "llm": {
-                "engine": "ollama",
+                "engine": "xingcheng-native",
                 "available": llm_ready,
                 "state": "READY" if llm_ready else "RECOVERING",
-                "available_models": transformer_status.get("selectable_models") or [],
+                "available_models": runtime_status.get("selectable_models") or [],
             },
             "rag": {
                 "engine": str(rag_status.get("engine") or "local-vector-degraded-cache"),
@@ -93,7 +93,7 @@ class LocalAiHealthMixin:
                 self.transformer_training_repository.database_status()
             ),
             "self_training": "continuous-verified-self-distillation",
-            "internal_ollama_training": {
+            "internal_native_training": {
                 "enabled": True,
                 "external_entry": False,
                 "external_ai_used": False,

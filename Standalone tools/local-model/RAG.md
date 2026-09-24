@@ -2,7 +2,7 @@
 
 所有本地模型共用同一套知識庫，不建立模型專屬索引：
 
-- Embedding：`qwen3-embedding:4b`
+- Embedding：`xingcheng-hashed-embedding-v1`（確定性 hashed n-gram，in-process）
 - Vector DB：Qdrant `gptbridge_shared_knowledge`（強制 `module_id` 篩選）
 
 中央索引採 PostgreSQL 分層 schema，保存文件身分、模組歸屬、關聯、版本、
@@ -21,14 +21,14 @@ SQL、RAG、Qdrant 與稽核共用資源標籤：
 星澄固定使用 `platform_id=local-model-platform`、`module_id=xingcheng`。
 - Keyword：PostgreSQL Full Text Search
 - Fusion：Reciprocal Rank Fusion（RRF）
-- Reranker：`Qwen/Qwen3-Reranker-0.6B`，只從本機快取載入
-- Router：`nemotron-3-nano:4b-q8_0`
-- 一般 RAG：`qwen3.8:27b-q4_K_M`
-- 快速 RAG：`gemma4:12b-it-qat`
-- 程式 RAG：`qwen3-coder:30b-a3b-q4_K_M`
-- 深度推理：`ornith-1.5:35b`，失敗時使用 `deepseek-r1:14b`
-- 視覺 RAG：`qwen3-vl:8b-thinking`
-- 全域 fallback：`mistral-small:24b`
+- Reranker：`Qwen/Qwen3-Reranker-0.6B`，只從 Hugging Face 本機快取載入
+- Router：`xingcheng-native-transformer`
+- 一般 RAG：`xingcheng-native-transformer`
+- 快速 RAG：`xingcheng-native-transformer`
+- 程式 RAG：`xingcheng-native-transformer`
+- 深度推理：`xingcheng-native-transformer`
+- 視覺 RAG：不支援（原生模型為純文字架構，fail-closed）
+- 全域 fallback：`xingcheng-native-transformer`（無第三方備援）
 
 Qdrant 僅監聽 `127.0.0.1:6333`，資料位於 `runtime/qdrant/storage`。本地模型啟動時若服務尚未執行，會自動啟動專案內的 Windows Qdrant 執行檔。
 
@@ -50,4 +50,4 @@ python xingcheng\src\rag_cli.py query "找出相關段落" --retrieve-only
 
 ## Reranker 注意事項
 
-`pdurugyan/qwen3-reranker-0.6b-q8_0` 的 Ollama 封裝只暴露 embedding API，無法回傳官方 Qwen3 reranker 所需的 yes/no relevance logits，因此不會把它冒充 CrossEncoder 使用。真正的 reranker 從 Hugging Face 本機快取載入；權重尚未完整存在時，查詢會明確降級為 RRF hybrid ranking，不影響檢索與回答。
+Reranker 從 Hugging Face 本機快取載入官方 CrossEncoder 權重；權重尚未完整存在時，查詢會明確降級為 RRF hybrid ranking，不影響檢索與回答。

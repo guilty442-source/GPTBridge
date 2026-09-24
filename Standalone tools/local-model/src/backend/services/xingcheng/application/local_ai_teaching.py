@@ -12,12 +12,12 @@ class LocalAiTeachingMixin:
         input_text = str(payload.get("input_text") or payload.get("instruction") or "").strip()
         target_text = str(payload.get("target_text") or payload.get("ideal_response") or "").strip()
         reference_text = str(payload.get("reference_text") or "").strip()
-        if intent not in self.ollama_training_gate.ALLOWED_INTENTS:
+        if intent not in self.training_gate.ALLOWED_INTENTS:
             return {
                 "ok": False,
                 "error_code": "TEACHING_INTENT_NOT_ALLOWED",
                 "message": "這個教學分類不在允許範圍內。",
-                "allowed_intents": sorted(self.ollama_training_gate.ALLOWED_INTENTS),
+                "allowed_intents": sorted(self.training_gate.ALLOWED_INTENTS),
             }
         if not input_text or not target_text:
             return {
@@ -25,10 +25,10 @@ class LocalAiTeachingMixin:
                 "error_code": "TEACHING_EXAMPLE_REQUIRED",
                 "message": "請同時提供指令與理想回答。",
             }
-        candidate_digest = self.ollama_training_gate.digest(
+        candidate_digest = self.training_gate.digest(
             f"{intent}\0{input_text}\0{target_text}\0{reference_text}"
         )
-        evaluated = self.ollama_training_gate.evaluate(
+        evaluated = self.training_gate.evaluate(
             [
                 {
                     "candidate_id": f"owner-example-{candidate_digest[:20]}",
@@ -115,7 +115,7 @@ class LocalAiTeachingMixin:
             or ""
         ).strip()
         recommendation = await asyncio.to_thread(
-            self.transformer_runtime.generate,
+            self.native_runtime.generate,
             prompt=(
                 "Review the governed investment parameters and return only a JSON array of "
                 "objects with parameter_key, proposed_value, reason, confidence, and evidence. "
@@ -160,7 +160,7 @@ class LocalAiTeachingMixin:
             "rejected_count": max(0, len(recommendations) - len(applied)),
             "accepted_memory": [],
             "external_ai_used": False,
-            "transport": "ollama-loopback-only",
+            "transport": "in-process-native-engine",
             "governance_checked": True,
         }
 

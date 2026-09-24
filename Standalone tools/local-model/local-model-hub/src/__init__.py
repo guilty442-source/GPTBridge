@@ -7,7 +7,7 @@ Per the local-model manifest, the hub provides:
   - context-aware multitask platform coordination
 
 This module is LOCAL CODE; actual model inference is delegated to the
-governed executor (Ollama loopback runtime).
+in-process Xingcheng native engine (self-trained weights).
 """
 
 from __future__ import annotations

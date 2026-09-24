@@ -616,35 +616,23 @@ def run_cycle_impl(
 
     examples = collect_verified_examples(tool)
     if not examples:
-        return _data_shortage_or_distill(
-            tool,
-            resolved_policy,
-            state,
-            {
-                "ok": True,
-                "action": "idle",
-                "reason": "no-verified-examples",
-                "total_examples": 0,
-            },
-            train_fn=train_fn,
-        )
+        return {
+            "ok": True,
+            "action": "idle",
+            "reason": "no-verified-examples",
+            "total_examples": 0,
+        }
     # §2.7-2 去重＋探針值汙染排除（先於統計，護欄量測乾淨池）
     examples, sanitize_stats = _sanitize_pool(resolved_policy, examples)
     if not examples:
-        return _data_shortage_or_distill(
-            tool,
-            resolved_policy,
-            state,
-            {
-                "ok": True,
-                "action": "idle",
-                "reason": "pool-empty-after-sanitize",
-                **sanitize_stats,
-                "policy": resolved_policy.to_dict(),
-                "checked_at": _iso_now(),
-            },
-            train_fn=train_fn,
-        )
+        return {
+            "ok": True,
+            "action": "idle",
+            "reason": "pool-empty-after-sanitize",
+            **sanitize_stats,
+            "policy": resolved_policy.to_dict(),
+            "checked_at": _iso_now(),
+        }
     # §2.7-1/2 範例池護欄（品質漂移／合成比例；資料池劣化先於門檻暴露）
     stats = _pool_stats(resolved_policy, examples)
     stats.update(sanitize_stats)
@@ -668,23 +656,17 @@ def run_cycle_impl(
         probe = _degradation_probe(resolved_policy, tool)
         if probe is not None and probe.get("degraded"):
             if new_examples < int(resolved_policy.degradation_min_examples):
-                return _data_shortage_or_distill(
-                    tool,
-                    resolved_policy,
-                    state,
-                    {
-                        "ok": True,
-                        "action": "idle",
-                        "reason": "degradation-detected-insufficient-data",
-                        "degradation_probe": probe,
-                        "total_examples": total,
-                        "new_examples": new_examples,
-                        "threshold": int(resolved_policy.min_new_examples),
-                        "policy": resolved_policy.to_dict(),
-                        "checked_at": _iso_now(),
-                    },
-                    train_fn=train_fn,
-                )
+                return {
+                    "ok": True,
+                    "action": "idle",
+                    "reason": "degradation-detected-insufficient-data",
+                    "degradation_probe": probe,
+                    "total_examples": total,
+                    "new_examples": new_examples,
+                    "threshold": int(resolved_policy.min_new_examples),
+                    "policy": resolved_policy.to_dict(),
+                    "checked_at": _iso_now(),
+                }
             degradation_trigger = probe
         else:
             result = {
@@ -697,13 +679,7 @@ def run_cycle_impl(
             }
             if probe is not None:
                 result["degradation_probe"] = probe
-            return _data_shortage_or_distill(
-                tool,
-                resolved_policy,
-                state,
-                result,
-                train_fn=train_fn,
-            )
+            return result
 
     # §2.7-3 課程選擇：決定本循環課程（單一課程；失敗即停由熔斷閘門承擔）
     curriculum, curriculum_blocked = _select_curriculum(resolved_policy, tool)
@@ -977,184 +953,6 @@ def _run_dpo_cycle(
         stats={"pairs_total": pairs_total, "new_pairs": new_pairs},
         trained_counter_field="trained_pair_total",
         metrics_phase="preference-optimization",
-        train_fn=train_fn,
-    )
-
-
-def _run_distill_cycle(
-    tool: Path,
-    resolved_policy: SelfLearningPolicy,
-    state: dict[str, Any],
-    *,
-    idle_reason: str,
-    train_fn: Callable[..., dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    """§2.7-3 蒸餾課程循環：有機範例池不足時以本地教師模型
-    （Ollama）依第一方主題產生候選 → 品質閘門 →
-    ``star-transformer-sft/v1`` 快照 → ``training_kind="sft"``
-    受管 job → 與 SFT 完全相同的評估→啟用語義。
-
-    教師端點不可達、主題為空、合格數低於
-    ``distill_min_accepted``、或快照註冊失敗皆 fail-closed
-    回 idle——外部相依不算訓練失敗、不計連續失敗熔斷。"""
-    from ..distill_dataset_bridge import register_distillation_snapshot
-    from ..transformer_training_repository import TransformerTrainingRepository
-    from .lifecycle import ModelLifecycle
-    from .training import distill as _distill
-
-    repository = TransformerTrainingRepository(tool)
-    repository_root = Path(repository.tool_root)
-    lifecycle_dir = tool / LIFECYCLE_RELATIVE
-    lifecycle = ModelLifecycle.load_or_create(lifecycle_dir, MODEL_ID)
-    active = lifecycle.active_weights()
-    if active is None or not Path(str(active["path"])).is_file():
-        return {
-            "ok": True,
-            "action": "blocked",
-            "reason": "active-weights-missing",
-            "checked_at": _iso_now(),
-        }
-    active_path = Path(str(active["path"]))
-
-    project_root = tool.parents[1] if len(tool.parents) > 1 else tool
-    mode = str(resolved_policy.distill_topic_mode or "grounded")
-    max_topics = max(1, int(resolved_policy.distill_max_topics))
-    topics = (
-        _distill.build_conversation_topics(project_root, maximum=max_topics)
-        if mode == "conversation"
-        else _distill.build_grounded_topics(project_root, maximum=max_topics)
-    )
-    if not topics:
-        return {
-            "ok": True,
-            "action": "idle",
-            "reason": f"{idle_reason};distill-no-topics",
-            "checked_at": _iso_now(),
-        }
-    models = (
-        tuple(str(m) for m in resolved_policy.distill_teacher_models)
-        or _distill.DEFAULT_TEACHER_MODELS
-    )
-    result = _distill.generate_distillation_examples(
-        topics,
-        endpoint=str(resolved_policy.distill_endpoint),
-        models=models,
-        timeout=max(1.0, float(resolved_policy.distill_timeout_s)),
-        max_examples=int(resolved_policy.distill_max_examples),
-    )
-    accepted = list(result.get("accepted") or [])
-    distill_stats = {
-        "mode": mode,
-        "topics": len(topics),
-        "accepted": len(accepted),
-        "rejected": len(result.get("rejected") or []),
-        "failures": len(result.get("failures") or []),
-        "teacher_models": list(models),
-    }
-    if len(accepted) < max(1, int(resolved_policy.distill_min_accepted)):
-        return {
-            "ok": True,
-            "action": "idle",
-            "reason": f"{idle_reason};distill-insufficient-accepted",
-            "distill": distill_stats,
-            "checked_at": _iso_now(),
-        }
-
-    snapshot_dir = tool / SNAPSHOT_RELATIVE
-    snapshot_path = snapshot_dir / (
-        f"distill-{time.strftime('%Y%m%d-%H%M%S', time.gmtime())}.jsonl"
-    )
-    try:
-        manifest = _distill.build_distillation_snapshot(
-            result, snapshot_path, val_permille=int(resolved_policy.val_permille)
-        )
-        dataset = register_distillation_snapshot(
-            repository, manifest, created_by="star-self-learning"
-        )
-    except (ValueError, FileNotFoundError, PermissionError) as error:
-        return {
-            "ok": True,
-            "action": "idle",
-            "reason": f"{idle_reason};distill-snapshot-unavailable",
-            "distill": {**distill_stats, "error": str(error)[:200]},
-            "checked_at": _iso_now(),
-        }
-
-    job = repository.create_training_job(
-        dataset_id=str(dataset["dataset_id"]),
-        configuration={
-            "training_kind": "sft",
-            "tokenizer_dir": "runtime/tokenizers/xingcheng-bpe-8k-v1",
-            "init_checkpoint": active_path.relative_to(
-                repository_root
-            ).as_posix(),
-            "preset": "base",
-            "max_length": int(resolved_policy.max_length),
-            "batch_size": int(resolved_policy.batch_size),
-            "grad_accum": int(resolved_policy.grad_accum),
-            "lr": float(resolved_policy.lr),
-            "max_steps": int(resolved_policy.max_steps),
-            "warmup_steps": int(resolved_policy.warmup_steps),
-            "checkpoint_every": max(1, int(resolved_policy.max_steps) // 2),
-            "eval_every": max(1, int(resolved_policy.max_steps) // 2),
-            "log_every": max(1, int(resolved_policy.max_steps) // 8),
-            "device": str(resolved_policy.device),
-            "gpu_required_mb": int(resolved_policy.gpu_required_mb),
-            "max_train_seconds": int(resolved_policy.train_time_budget_s),
-            "max_train_vram_mb": int(resolved_policy.train_vram_budget_mb),
-            "max_train_gpu_seconds": int(resolved_policy.train_gpu_budget_s),
-            "curriculum_course": f"distill-{mode}",
-        },
-        requested_by="star-self-learning",
-    )
-    distill_total = int(state.get("trained_distill_total") or 0) + len(accepted)
-    return _execute_governed_cycle(
-        tool,
-        resolved_policy,
-        state,
-        repository=repository,
-        repository_root=repository_root,
-        lifecycle=lifecycle,
-        lifecycle_dir=lifecycle_dir,
-        active_path=active_path,
-        job=job,
-        dataset=dataset,
-        snapshot={
-            "manifest": {**manifest, "example_count": int(manifest["examples"])}
-        },
-        curriculum={
-            "course": f"distill-{mode}",
-            "curriculum_enabled": True,
-        },
-        total=distill_total,
-        new_examples=len(accepted),
-        dataset_examples=int(manifest["examples"]),
-        dataset_cap_truncated=0,
-        degradation_trigger=None,
-        stats=distill_stats,
-        trained_counter_field="trained_distill_total",
-        metrics_phase="knowledge-distillation",
-        train_fn=train_fn,
-    )
-
-
-def _data_shortage_or_distill(
-    tool: Path,
-    resolved_policy: SelfLearningPolicy,
-    state: dict[str, Any],
-    idle_result: dict[str, Any],
-    *,
-    train_fn: Callable[..., dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    """資料不足閒置時的蒸餾接線點（§2.7-3）：``distill_enabled``
-    才改走教師蒸餾循環；未啟用原樣回傳 idle。"""
-    if not resolved_policy.distill_enabled:
-        return idle_result
-    return _run_distill_cycle(
-        tool,
-        resolved_policy,
-        state,
-        idle_reason=str(idle_result.get("reason") or "data-shortage"),
         train_fn=train_fn,
     )
 

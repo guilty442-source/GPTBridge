@@ -24,7 +24,7 @@ class InferEnvelopesMixin:
                     "assigned_model": assigned_model,
                     "selection": "user-designated-fixed-model-no-cross",
                     "project_scope": "all-project-source-excluding-governance-rule",
-                    "star_native_model_included": False,
+                    "star_native_model_included": True,
                     "external_ai_used": False,
                 }
                 for index, intent in enumerate(
@@ -38,7 +38,7 @@ class InferEnvelopesMixin:
                 )
             ]
             if manual_selection
-            else self._arrange_ollama_tasks(planned_intents)
+            else self._arrange_native_tasks(planned_intents)
         )
         output["task_arrangement"] = {
             "mode": "traditional-chinese-first-governed-workflow",
@@ -49,7 +49,7 @@ class InferEnvelopesMixin:
                 assigned_model if manual_selection else self.FINAL_COORDINATOR_MODEL
             ),
             "manual_assignment_allowed": False,
-            "star_native_model_included": False,
+            "star_native_model_included": True,
             "external_ai_used": False,
             "project_scope": "all-project-source-excluding-governance-rule",
             "tasks": tasks,
@@ -75,9 +75,9 @@ class InferEnvelopesMixin:
                 or "automatic-traditional-chinese-command-assessment"
             ),
             "policy": dict(
-                self.transformer_runtime.TASK_INTENSITY_SCHEDULING.get(
+                self.native_runtime.TASK_INTENSITY_SCHEDULING.get(
                     scheduled_intensity,
-                    self.transformer_runtime.TASK_INTENSITY_SCHEDULING["normal"],
+                    self.native_runtime.TASK_INTENSITY_SCHEDULING["normal"],
                 )
             ),
             "parallel_independent_subtasks": True,
@@ -100,7 +100,7 @@ class InferEnvelopesMixin:
         ).strip()
         return {
             "enabled": autonomous_agent,
-            "star_native_model_included": False,
+            "star_native_model_included": True,
             "mode": "bounded-plan-execute-verify-recover",
             "project_scope": "all-project-source-excluding-governance-rule",
             "command_understood": bool(command_understanding.get("recognized")),
@@ -116,7 +116,7 @@ class InferEnvelopesMixin:
                 command_understanding.get("execution_requested")
             ),
             "planned_intents": list(planned_intents),
-            "planned_steps": self._arrange_ollama_tasks(planned_intents),
+            "planned_steps": self._arrange_native_tasks(planned_intents),
             "workflow_sequence": [
                 *self.AUTOMATIC_WORKFLOW_SEQUENCE,
             ],

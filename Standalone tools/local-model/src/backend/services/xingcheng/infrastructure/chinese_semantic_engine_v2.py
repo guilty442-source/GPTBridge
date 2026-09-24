@@ -499,16 +499,16 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
                 f"Xingcheng model not available: {self._import_error}"
             )
         try:
-            from .transformer_runtime import StarTransformerRuntime
+            from .native_runtime import StarNativeRuntime
         except ImportError as e:
             raise SemanticModelUnavailable(f"Xingcheng module not available: {e}")
 
-        runtime = StarTransformerRuntime(enabled=True)
+        runtime = StarNativeRuntime(enabled=True)
         embeddings = runtime.embed(texts=[request.text])
 
         return SemanticResponse(
             result={"embeddings": embeddings},
-            metadata={"model": "qwen3-embedding:4b", "operation": "embed", "dimension": len(embeddings[0]) if embeddings else 0},
+            metadata={"model": StarNativeRuntime.EMBEDDING_MODEL, "operation": "embed", "dimension": len(embeddings[0]) if embeddings else 0},
         )
 
     async def _retrieve_impl(self, request: SemanticRequest) -> SemanticResponse:

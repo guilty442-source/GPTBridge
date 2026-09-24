@@ -29,7 +29,7 @@ class LocalKnowledgeService:
     def __init__(
         self,
         tool_root: Path,
-        transformer_runtime: Any,
+        native_runtime: Any,
         *,
         rag_service: LocalRagService | None = None,
         git_repository: LocalGitRepository | None = None,
@@ -37,7 +37,7 @@ class LocalKnowledgeService:
         self.tool_root = Path(tool_root).resolve()
         self.project_root = self.tool_root.parent.resolve()
         self.rag = rag_service or LocalRagService(
-            self.tool_root, transformer_runtime
+            self.tool_root, native_runtime
         )
         self.git = git_repository or LocalGitRepository(self.project_root)
         self._write_lock = asyncio.Lock()
@@ -253,7 +253,7 @@ class LocalKnowledgeService:
             "sql": await self.sql_status(),
             "rag": rag_status,
             "llm": {
-                "engine": "ollama",
+                "engine": "xingcheng-native",
                 "role": "local-understanding-reasoning-and-operations",
             },
             "integration": {

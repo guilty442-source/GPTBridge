@@ -63,23 +63,23 @@ class CanonicalRagAdapter:
     def __init__(
         self,
         tool_root: Path,
-        transformer_runtime: Any = None,
+        native_runtime: Any = None,
         *,
         enabled: bool = True,
         document_fetcher: Any = None,
         embed_texts: Any = None,
     ) -> None:
         self._tool_root = Path(tool_root).resolve()
-        self._transformer_runtime = transformer_runtime
+        self._native_runtime = native_runtime
         self._enabled = enabled
         # A374 reconciliation data flow: the fetcher re-reads the owning
         # module's original content from the degraded mirror; the embedder
-        # regenerates qwen3-embedding:4b/2560d vectors — degraded hashing
-        # vectors are never replayed into the canonical collection.
+        # regenerates native hashed vectors — degraded copies are never
+        # replayed into the canonical collection.
         self._document_fetcher = document_fetcher
         self._embed_texts = embed_texts or (
-            (lambda texts: transformer_runtime.embed(texts))
-            if transformer_runtime is not None
+            (lambda texts: native_runtime.embed(texts))
+            if native_runtime is not None
             else None
         )
         self._lock = threading.Lock()
@@ -127,8 +127,8 @@ class CanonicalRagAdapter:
             if not dsn:
                 self._last_error = "GPTBRIDGE_POSTGRES_DSN_REQUIRED"
                 return
-            embedding_model = "qwen3-embedding:4b"
-            runtime = self._transformer_runtime
+            embedding_model = "xingcheng-hashed-embedding-v1"
+            runtime = self._native_runtime
             if runtime is not None:
                 embedding_model = str(getattr(runtime, "EMBEDDING_MODEL", embedding_model))
             self._pipeline = CanonicalRagPipeline(
@@ -156,11 +156,12 @@ class CanonicalRagAdapter:
                 "QDRANT_COLLECTION", _DEFAULT_COLLECTION
             ),
             postgresql_dsn=dsn,
-            # qwen3-embedding:4b via the local Ollama runtime, 2560-dim —
-            # matches the canonical gptbridge_shared_knowledge collection.
+            # 原生 hashed embedding（in-process，無外部模型相依）。
             embedding_model=embedding_model,
-            embedding_dimension=2560,
-            embedding_provider="ollama",
+            embedding_dimension=int(
+                getattr(self._native_runtime, "EMBEDDING_DIMENSION", 1024)
+            ),
+            embedding_provider="native-hashed",
             chunk_size=1200,
             chunk_overlap=200,
             top_k=48,

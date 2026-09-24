@@ -203,38 +203,16 @@ class LocalAiLifecycleMixin:
             }
 
     async def start(self) -> None:
-        # Local-model bound with Ollama (§10.7 on-demand): when local-model
-        # is opened, ensure Ollama is also ready as needed (fail-closed if
-        # unavailable, but never block model startup).
-        try:
-            import sys
-            from pathlib import Path as _P
-            # local-model's TOOL_ROOT is two levels above this file's parent
-            _sys_root = _P(__file__).resolve().parents[5]  # -> Standalone tools/local-model
-            # main-system is sibling of Standalone tools
-            _main_root = _sys_root.parents[1] / "main-system" / "src-core"
-            if str(_main_root) not in sys.path:
-                sys.path.insert(0, str(_main_root))
-            from core_system.ollama_demand import ensure_ollama_ready, ollama_installed, probe_ollama
-            if ollama_installed() and not probe_ollama(timeout=0.5):
-                # Fire-and-forget with bounded wait; model startup must not hang.
-                await asyncio.to_thread(ensure_ollama_ready, timeout_s=8.0)
-        except Exception:
-            pass
         await asyncio.gather(
             asyncio.to_thread(self._run_self_maintenance),
-            asyncio.to_thread(self.transformer_runtime.probe),
+            asyncio.to_thread(self.native_runtime.probe),
         )
         if (
-            self.transformer_runtime.enabled
+            self.native_runtime.enabled
             and self._internal_maintenance_loop_task is None
         ):
             self._default_model_preload_task = asyncio.create_task(
-                asyncio.to_thread(
-                    self.transformer_runtime.resource_manager.preload_model,
-                    self.transformer_runtime.MODEL,
-                    keep_alive=-1,
-                )
+                asyncio.to_thread(self.native_runtime.preload)
             )
             self._internal_maintenance_loop_task = asyncio.create_task(
                 self._internal_maintenance_loop()
@@ -262,7 +240,7 @@ class LocalAiLifecycleMixin:
             if self._request_cancel_events or not self._internal_training_due():
                 continue
             self._internal_training_task = asyncio.create_task(
-                self._run_internal_ollama_training()
+                self._run_internal_native_training()
             )
             await asyncio.gather(
                 self._internal_training_task,

@@ -2,7 +2,8 @@
 
 Per the local-model manifest, the hub owns model-loading, model-selection,
 inference, and runtime-lifecycle.  This module provides the decision-level
-lifecycle surface; actual model loading is delegated to the Ollama loopback.
+lifecycle surface; actual model loading is delegated to the in-process
+Xingcheng native engine (self-trained weights, fail-closed).
 """
 
 from __future__ import annotations
@@ -10,8 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
-RESIDENT_MODEL: Final[str] = "qwen3.5:9b-q4_K_M"
-MAX_CONCURRENT_TRANSFORMERS: Final[int] = 4
+RESIDENT_MODEL: Final[str] = "xingcheng-native-transformer"
+MAX_CONCURRENT_TRANSFORMERS: Final[int] = 2
 KEEP_ALIVE: Final[int] = -1  # permanent
 
 

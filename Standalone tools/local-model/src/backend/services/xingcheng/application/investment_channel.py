@@ -51,7 +51,7 @@ class InvestmentChannelMixin:
                     "configured": self.external_research.configured(),
                     "enabled": False,
                     "external_ai_used": False,
-                    "policy": "local-market-sources-and-ollama-only",
+                    "policy": "local-market-sources-and-native-model-only",
                 }
             if not cache_hit:
                 search_repository = self._repository_for(
@@ -99,7 +99,7 @@ class InvestmentChannelMixin:
                     "message": "缺少星澄投資分析快照。",
                 }
             generated = await asyncio.to_thread(
-                self.transformer_runtime.generate,
+                self.native_runtime.generate,
                 prompt="統籌並核對這份投資分析，僅根據快照提出可驗證結論。",
                 intent="analysis",
                 model_role="local-investment-analysis-coordinator",
@@ -112,10 +112,10 @@ class InvestmentChannelMixin:
                 "response": str(generated.get("text") or ""),
                 "analysis_owner": "xingcheng",
                 "discussion_owner": self.FINAL_COORDINATOR_MODEL,
-                "discussion_requested_by": "local-ollama-router",
+                "discussion_requested_by": "xingcheng-native-router",
                 "direct_investment_manager_response": False,
                 "external_ai_used": False,
-                "transport": "ollama-loopback-only",
+                "transport": "in-process-native-engine",
             }
             return "xingcheng_discuss_investment_analysis_result", result
         if command == "xingcheng_manage_investment_accounting":

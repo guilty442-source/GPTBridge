@@ -29,7 +29,7 @@ class LocalAiCapabilityMixin:
             databases=database_map,
             external_research_configured=self.external_research.configured(),
             star_native_model_enabled=True,
-            local_transformer_enabled=self.transformer_runtime.enabled,
+            local_transformer_enabled=self.native_runtime.enabled,
             remote_model_enabled=False,
             registered_analysis_models=[
                 item["model_key"]
@@ -116,7 +116,7 @@ class LocalAiCapabilityMixin:
             "\"reason\":\"繁體中文理由\"}"
         )
         generated = await asyncio.to_thread(
-            self.transformer_runtime.generate,
+            self.native_runtime.generate,
             prompt=prompt,
             intent="reasoning" if is_vote else "coding",
             model_role=role,
@@ -126,23 +126,9 @@ class LocalAiCapabilityMixin:
             top_k=20,
             requested_model=model,
         )
-        self._record_ollama_inference(
-            generated,
-            intent="reasoning" if is_vote else "coding",
-            model_role=role,
-            request={"gate": gate, "request": request},
-        )
         result = self._parse_model_gate(
             generated, model=model, role=role, positive=positive
         )
-        repository = getattr(self, "ollama_repositories", {}).get(model)
-        composition_id = str(request.get("composition_id") or "")
-        if repository is not None and composition_id:
-            repository.record_capability_vote(
-                composition_id=composition_id,
-                decision=str(result.get("decision") or negative),
-                reason=str(result.get("reason") or ""),
-            )
         return result
 
     def _persist_capability_composition(
@@ -158,7 +144,7 @@ class LocalAiCapabilityMixin:
         result["native_model_database"] = stored
         result["capability_database_write_performed"] = True
         result["database_owner"] = self.models.MAIN.model_id
-        result["ollama_models_direct_database_write"] = False
+        result["external_models_direct_database_write"] = False
         return result
 
     async def _compose_capability_with_vote(
@@ -208,7 +194,7 @@ class LocalAiCapabilityMixin:
         blueprint["model_discussion"]["inspection_results"] = []
         blueprint["model_discussion"]["all_inspections_passed"] = True
         blueprint["external_ai_used"] = False
-        blueprint["ollama_models_used"] = []
+        blueprint["external_models_used"] = []
         blueprint["database_write_performed"] = False
         if request.get("apply_changes") is not True:
             return self._persist_capability_composition(blueprint)

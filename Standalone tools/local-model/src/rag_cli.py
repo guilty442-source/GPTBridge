@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from backend.services.xingcheng.application.local_rag import LocalRagService
-from backend.services.xingcheng.infrastructure.transformer_runtime import (
-    StarTransformerRuntime,
+from backend.services.xingcheng.infrastructure.native_runtime import (
+    StarNativeRuntime,
 )
 
 
@@ -28,7 +28,7 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> None:
     arguments = _parser().parse_args()
     tool_root = Path(__file__).resolve().parents[1]
-    runtime = StarTransformerRuntime(enabled=True)
+    runtime = StarNativeRuntime(enabled=True)
     rag = LocalRagService(tool_root, runtime)
     payload: dict[str, Any]
     if arguments.command == "status":

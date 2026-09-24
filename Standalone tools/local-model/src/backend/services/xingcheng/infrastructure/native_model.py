@@ -55,7 +55,7 @@ class StarNativeLanguageModel(
         return {
             **self.language_model.metrics(),
             "model_role": self.model_role,
-            "training_mode": "continuous-verified-self-distillation-and-ollama-local-model-training",
+            "training_mode": "continuous-verified-self-distillation-and-native-model-training",
             "training_data_scope": "star-owned-and-star-validated-gpt-candidates",
             "quality_gate_required": True,
             "rollback_source": "versioned-training-examples",

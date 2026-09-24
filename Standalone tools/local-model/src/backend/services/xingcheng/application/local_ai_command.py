@@ -10,7 +10,7 @@ from typing import Any, Mapping
 
 
 class LocalAiCommandMixin:
-    def _understand_command_with_qwen(
+    def _understand_command_with_native(
         self,
         command: str,
         *,
@@ -43,7 +43,7 @@ class LocalAiCommandMixin:
                 result = copy.deepcopy(cached[1])
                 result["cache_hit"] = True
                 return result
-        allowed_intents = sorted(self.transformer_runtime.INTENT_MODEL_PREFERENCES)
+        allowed_intents = sorted(self.native_runtime.INTENT_MODEL_PREFERENCES)
         understanding_prompt = (
             "你是所有任務的強制命令理解階段。分析原始繁體中文／台灣中文命令，"
             "不要執行任務。只輸出單一 JSON 物件，不要 Markdown。JSON 必須包含："
@@ -65,7 +65,7 @@ class LocalAiCommandMixin:
             "不得規劃、讀取、寫入或執行此頂層資料夾以外的目標；不得使用 ..、"
             "外部絕對路徑、捷徑或符號連結繞過範圍。"
         )
-        inference = self.transformer_runtime.generate(
+        inference = self.native_runtime.generate(
             prompt=understanding_prompt,
             intent="command_understanding",
             model_role="mandatory-command-understanding-for-all-tasks",
@@ -94,7 +94,7 @@ class LocalAiCommandMixin:
                 except json.JSONDecodeError:
                     decoded = None
         if not isinstance(decoded, dict):
-            repair = self.transformer_runtime.generate(
+            repair = self.native_runtime.generate(
                 prompt=(
                     "將下列內容修復成單一有效 JSON 物件。不得加入 Markdown、說明或程式碼圍欄；"
                     "保留可辨識資訊，缺少的欄位使用空陣列、空物件或 false。\n"
@@ -134,15 +134,15 @@ class LocalAiCommandMixin:
             str(item).strip().casefold()
             for item in decoded.get("intents") or []
             if str(item).strip().casefold()
-            in self.transformer_runtime.INTENT_MODEL_PREFERENCES
+            in self.native_runtime.INTENT_MODEL_PREFERENCES
         ]
         if not intents:
             intents = ["conversation"]
         intensity = str(decoded.get("task_intensity") or "normal").casefold()
-        if intensity not in self.transformer_runtime.TASK_LEVEL_LABELS:
+        if intensity not in self.native_runtime.TASK_LEVEL_LABELS:
             intensity = "normal"
         plan = {
-            "schema": "qwen-command-plan/v1",
+            "schema": "native-command-plan/v1",
             "original_command": command,
             "command_language": "zh-TW",
             "programming_scope": {
@@ -159,13 +159,13 @@ class LocalAiCommandMixin:
             "constraints": list(decoded.get("constraints") or []),
             "task_intensity": {
                 "level": intensity,
-                "label": self.transformer_runtime.TASK_LEVEL_LABELS[intensity],
+                "label": self.native_runtime.TASK_LEVEL_LABELS[intensity],
                 "reason": str(decoded.get("reason") or ""),
             },
             "command_understanding": {
                 "recognized": True,
                 "model": selected_understanding_model,
-                "star_native_model_used": False,
+                "star_native_model_used": True,
             },
             "safety": {
                 "confirmation_required": bool(
@@ -193,73 +193,40 @@ class LocalAiCommandMixin:
                 self._command_understanding_cache.pop(oldest, None)
         return result
 
-    def _run_rnj_frontend_worker(
+    def _run_native_frontend_worker(
         self,
         command: str,
         command_plan: Mapping[str, Any],
     ) -> dict[str, Any]:
-        return self.transformer_runtime.generate(
+        return self.native_runtime.generate(
             prompt=(
-                "命令理解已由 Qwen3.8 完成。你位於流程前端，只做 Code／STEM、"
+                "命令理解已完成。你位於流程前端，只做 Code／STEM、"
                 "數學與 Tool Calling 結構解析，不得改寫已判定的命令意圖，也不得執行工具。\n"
                 f"原始命令：{command}\n"
-                "Qwen3.8 命令理解："
+                "命令理解結果："
                 f"{json.dumps(dict(command_plan), ensure_ascii=False, separators=(',', ':'))}"
             ),
             intent="command_understanding",
-            model_role="mandatory-rnj-frontend-after-command-understanding",
+            model_role="mandatory-native-frontend-after-command-understanding",
             output={"response": ""},
             max_tokens=192,
             reasoning_effort="low",
             task_intensity=str(
                 (command_plan.get("task_intensity") or {}).get("level") or "normal"
             ),
-            requested_model=self.transformer_runtime.FRONTEND_WORKER_MODEL,
+            requested_model=self.native_runtime.FRONTEND_WORKER_MODEL,
             complex_pipeline=False,
             reasoning_pipeline=False,
             division_pipeline=False,
         )
 
-    def _ollama_model_for_intent(
+    def _runtime_model_for_intent(
         self, intent: str, task_intensity: str = ""
     ) -> str:
-        normalized_intent = str(intent or "").strip()
-        normalized_intensity = str(task_intensity or "").strip().casefold()
-        if (
-            normalized_intent in {"coding", "command_execution"}
-            and normalized_intensity in {"simple", "normal"}
-        ):
-            return "granite-code:3b"
-        role_routes = {
-            "conversation": "glm4:9b",
-            "reading": "gemma4:12b-it-qat",
-            "search": "mistral-small:24b",
-            "data": "ibm/granite4.2:30b-q4_K_M",
-            "data_organization": "ibm/granite4.2:30b-q4_K_M",
-            "capabilities": "gemma4:26b-a4b-it-qat",
-            "calculation": self.MATHEMATICAL_REVIEW_MODEL,
-            "statistics": self.MATHEMATICAL_REVIEW_MODEL,
-            "reasoning": self.MATHEMATICAL_REVIEW_MODEL,
-            "analysis": self.MATHEMATICAL_REVIEW_MODEL,
-            "risk": self.MATHEMATICAL_REVIEW_MODEL,
-            "coding": self.CODING_EXPERT_MODEL,
-            "repair": self.CODING_EXPERT_MODEL,
-            "self_upgrade": self.CODING_EXPERT_MODEL,
-            "command_understanding": self.COMMAND_UNDERSTANDING_MODEL,
-            "command_execution": self.CODING_EXPERT_MODEL,
-            "autonomous_agent": "nemotron-3.5-lightning:30b-a3b-q4_K_M",
-            "visual": self.transformer_runtime.VISUAL_FILE_MANAGEMENT_MODEL,
-            "fast_visual": "gemma4:e2b-it-qat",
-            "multimodal": "gemma4:12b-it-qat",
-            "advanced_multimodal": "gemma4:26b-a4b-it-qat",
-            "visual_reasoning": "qwen3-vl:8b-thinking",
-            "visual_rag": "qwen3-vl:8b-thinking",
-            "file_management": self.CODING_EXPERT_MODEL,
-            "training": self.TRAINING_COORDINATOR_MODEL,
-        }
-        return role_routes.get(normalized_intent, self.DATA_COORDINATOR_MODEL)
+        del intent, task_intensity
+        return self.NATIVE_RUNTIME_MODEL
 
-    def _arrange_ollama_tasks(self, intents: list[str]) -> list[dict[str, Any]]:
+    def _arrange_native_tasks(self, intents: list[str]) -> list[dict[str, Any]]:
         normalized = list(dict.fromkeys(str(item).strip() for item in intents if item))
         if not normalized:
             normalized = ["conversation"]
@@ -267,10 +234,10 @@ class LocalAiCommandMixin:
             {
                 "sequence": index,
                 "intent": intent,
-                "assigned_model": self._ollama_model_for_intent(intent),
-                "selection": "fixed-primary-owner-no-backup",
+                "assigned_model": self._runtime_model_for_intent(intent),
+                "selection": "native-model-owner",
                 "project_scope": "all-project-source-excluding-governance-rule",
-                "star_native_model_included": False,
+                "star_native_model_included": True,
                 "external_ai_used": False,
             }
             for index, intent in enumerate(normalized, start=1)

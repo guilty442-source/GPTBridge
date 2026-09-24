@@ -22,7 +22,10 @@ class LocalRagIndexMixin:
         vectors: list[list[float]] = []
         for start in range(0, len(texts), self.EMBEDDING_BATCH_SIZE):
             batch = texts[start : start + self.EMBEDDING_BATCH_SIZE]
-            embedded = self.transformer_runtime.embed(batch)
+            try:
+                embedded = self.native_runtime.embed(batch)
+            except (OSError, RuntimeError, ValueError) as exc:
+                raise RuntimeError(f"RAG_EMBEDDING:{exc}") from exc
             if len(embedded) != len(batch):
                 raise RuntimeError("RAG_EMBEDDING_COUNT_MISMATCH")
             vectors.extend([[float(value) for value in vector] for vector in embedded])
@@ -68,8 +71,8 @@ class LocalRagIndexMixin:
                 else "RAG_VECTOR_STORE_UNAVAILABLE"
             ),
             "message": f"本地檢索相依服務不可用：{message}",
-            "required_embedding_model": str(self.transformer_runtime.EMBEDDING_MODEL),
-            "embedding_setup_command": f"ollama pull {self.transformer_runtime.EMBEDDING_MODEL}",
+            "required_embedding_model": str(self.native_runtime.EMBEDDING_MODEL),
+            "embedding_setup_command": "native-hashed-embedder-requires-no-setup",
             "vector_database": self.vector_store.status(),
             "indexed": list(indexed or []),
             "network_used": False,
@@ -318,7 +321,7 @@ class LocalRagIndexMixin:
             }
         indexed: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []
-        embedding_model = str(self.transformer_runtime.EMBEDDING_MODEL)
+        embedding_model = str(self.native_runtime.EMBEDDING_MODEL)
         canonical_ready = self.canonical is not None and self.canonical.is_ready()
         try:
             for document in documents:

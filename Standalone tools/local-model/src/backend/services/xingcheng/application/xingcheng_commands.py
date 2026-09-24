@@ -951,7 +951,7 @@ def _create_infer_command() -> list:
             ),
             examples=(
                 'xingcheng_infer --prompt "解釋量子計算" --temperature 0.7',
-                'xingcheng_infer --prompt "寫一個 Python 函數" --model "qwen3.5:9b-q4_K_M" --temperature 0.3',
+                'xingcheng_infer --prompt "寫一個 Python 函數" --model "xingcheng-native-transformer" --temperature 0.3',
             ),
         ),
     ]

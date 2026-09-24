@@ -432,7 +432,7 @@ class LanguageTrainingMixin:
                 """
                 INSERT INTO language_model_maintenance(
                     run_id, action, result_json, ok, created_at
-                ) VALUES (?, 'ollama-internal-training', ?, ?, ?)
+                ) VALUES (?, 'native-internal-training', ?, ?, ?)
                 """,
                 (
                     run_id[:160],
@@ -455,7 +455,7 @@ class LanguageTrainingMixin:
                 """
                 SELECT run_id, result_json, ok, created_at
                 FROM language_model_maintenance
-                WHERE action = 'ollama-internal-training'
+                WHERE action IN ('native-internal-training', 'ollama-internal-training')
                 ORDER BY created_at DESC LIMIT 1
                 """
             ).fetchone()

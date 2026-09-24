@@ -1,10 +1,10 @@
 # 星澄本機生成式語言模型
 
-星澄是 `governance_rule` 之下的最高權限持有者；最高權限者必須承擔管理責任。星澄固定負責 SQL、RAG 與 Git 的中央管理：統一盤點狀態、檢查健康與一致性、制定變更計畫、派工給受治理 executor，並驗證執行結果。星澄不直接執行 Git 寫入、正式 SQL 寫入或 RAG 異動；其操作權限仍須由治理規則明確授權。所有 Ollama 與原生本地模型的載入、選模、推理及生命週期均由本地模型平台（`local-model-platform`）處理，星澄不得直接操作模型。
+星澄是 `governance_rule` 之下的最高權限持有者；最高權限者必須承擔管理責任。星澄固定負責 SQL、RAG 與 Git 的中央管理：統一盤點狀態、檢查健康與一致性、制定變更計畫、派工給受治理 executor，並驗證執行結果。星澄不直接執行 Git 寫入、正式 SQL 寫入或 RAG 異動；其操作權限仍須由治理規則明確授權。星澄原生本地模型的載入、選模、推理及生命週期均由本地模型平台（`local-model-platform`）處理，星澄不得直接操作模型。
 
 本地模型版本與第三方套件版本保留其實際版本，不套用全域版本 1 正規化；模型識別與設定、套件 manifest 及 lockfile 統一由 Git 記錄與追蹤。Git 遠端連線預設仍為停用。
 
-模型載入採效益優先的常駐分級：Qwen3.5 9B Q4_K_M 為唯一常駐 Transformer；Gemma、Qwen3、DeepSeek、Qwen3.8、Qwen3.6 Coding、GPT-OSS 與 Llama 均按需載入。切換到非常駐模型前會先釋放 Qwen3.5，每個階段完成後立即釋放當前模型，且同一時間最多執行一個 Transformer，以符合 64 GB RAM 與 6 GB VRAM 的本機環境。
+生成路徑只有一條：星澄自訓 Transformer（`xingcheng-native-transformer`），由 `StarNativeRuntime` 在行程內經 `native_engine` 執行；checkpoint、功能開關與 GPU 預算由 `runtime/settings/native-engine.json` 與 model lifecycle 治理。權重缺失或引擎停用時一律 fail-closed，不回退任何第三方模型。
 
 `model-dialogue/` 是純對話介面與獨立生命週期程式，只在 GPTBridge 主系統中以 `star-chat` 顯示。介面不再提供訓練、外部協作或能力編成工作區；訓練與能力編成只由星澄原生模型內部自行處理。
 
@@ -24,12 +24,12 @@
 
 ## 生成核心
 
-- `StarTransformerRuntime` 只經 `127.0.0.1` Ollama API 執行模型；端點若不是 loopback 會直接拒絕啟動。Gemma 4 E2B QAT 承接快速任務，其他模型按需載入。
-- 所有自動模型對話固定依序執行：理解命令、分配任務、依權責照順序分工、統合、執行、檢查、輸出結果。主責模型未安裝或推論失敗時，自動交給該階段唯一的備援模型；星澄原生模型不參與此自動路由。
-- 能力編成不再提供模型對話 UI，也不使用外部 AI 或 Ollama 投票；只由星澄原生模型內部建立規格，經平台驗證後寫入自己的主資料庫。
+- `StarNativeRuntime` 是唯一生成執行期：所有意圖、角色與管線階段都路由至 `xingcheng-native-transformer`（自訓 decoder-only Transformer），無 HTTP transport、無第三方基礎權重；checkpoint 不存在或功能開關關閉時 fail-closed。
+- 所有自動模型對話固定依序執行：理解命令、分配任務、依權責照順序分工、統合、執行、檢查、輸出結果；各階段皆由同一原生權重以不同任務角色提示執行。
+- 能力編成不提供模型對話 UI，也不使用外部 AI 或第三方模型投票；只由星澄原生模型內部建立規格，經平台驗證後寫入自己的主資料庫。
 - 每次 Transformer 解碼受模型 context 上限、最大輸出、`temperature`、`top_k`、`top_p`、固定種子及回覆大小限制。
 - 任務工具先產生事實基礎，再由 Transformer 組織文字；投資、搜尋、計算與程式碼任務若新增未受支持的日期、金額、百分比、網址或信箱，會拒絕該輸出並回退。
-- `StarAutoregressiveLanguageModel` 保留為第一方加權 token n-gram 安全回退；Ollama 或選定權重不可用時，星澄仍可在受限能力下工作。
+- `StarAutoregressiveLanguageModel` 保留為第一方加權 token n-gram 安全回退；原生權重不可用時，星澄仍可在受限能力下工作。
 - 長文閱讀會先完成文件正規化、重疊分段、相關段落排序及引用驗證，再把有來源的結果交給生成與品質模組。
 - 主要日常、投資、數理與程式設計四個角色共用唯讀基礎權重，但使用各自的角色提示、能力邊界及獨立 SQLite 資料庫。
 
@@ -48,15 +48,14 @@ Transformer 權重訓練另有隔離的 `runtime/state/transformer-training.sqli
 
 建立資料庫不等於授權模型改寫權重。正式基礎權重維持唯讀，資料庫的 `automatic_weight_replacement` 永久為 `false`；adapter 必須另外通過資料量、訓練環境、held-out 評估、格式相容性與治理發布閘門，才可能被啟用。星澄的定期維護只執行 SQLite 完整性、雜湊鏈驗證與索引最佳化，不會自行把候選 adapter 升為正式模型。
 
-星澄原生模型只接受本機 Ollama 模型集成產生的訓練候選，每次最多 20 筆。內部維護迴圈只在沒有使用者請求、達到每日週期且必要模型已就緒時自動訓練；候選經平台檢查意圖、長度、語意依據、數字與實體保存、敏感資訊及提示注入後，才自動更新星澄原生模型主資料庫。模型對話與外部工具沒有訓練入口，參考內容不會送出本機。每個 Ollama 模型只在自己的操作資料庫保存推論摘要與訓練貢獻。
+星澄原生模型只接受自身原生權重產生的訓練候選（自我蒸餾），每次最多 20 筆。內部維護迴圈只在沒有使用者請求、達到每日週期且原生模型已就緒時自動訓練；候選經平台檢查意圖、長度、語意依據、數字與實體保存、敏感資訊及提示注入後，才自動更新星澄原生模型主資料庫。模型對話與外部工具沒有訓練入口，參考內容不會送出本機。
 
 ## 本機顯存與終端測試
 
 - Transformer 推論會由 `8192` context 安全值起步；輸入確實需要較長上下文或模型已連續穩定完成時可逐級提高，遇到 RAM、VRAM 或 CUDA 記憶體壓力則會以同一份完整內容自動逐級降低並重試。
 - 多階段流程會把原始請求、完整階段輸出及完成進度暫存至 `runtime/state/transformer-runtime-checkpoints.sqlite3`。異常後以相同請求重跑可從最近的完整階段續接；全部完成後自動刪除該次暫存。
-- API 推論每次都使用獨立訊息，不沿用上一題的 KV Cache；非常駐模型使用 `keep_alive: 0`，完成階段後即卸載。
-- 在 `ollama run` 終端機手動測試多個模型時，換主題前輸入 `/clear` 清除該工作階段的對話與 KV Cache；測試結束輸入 `/bye` 離開並關閉工作階段。
+- API 推論每次都使用獨立訊息，不沿用上一題的 KV Cache；原生引擎閒置逾時由 auto-release 管理卸載。
 
 啟動及閒置期間，星澄會自行稽核訓練資料、停用不合格樣本、限制資料量、執行 SQLite 完整性檢查與最佳化，並在必要時重建各角色的本機語言模型權重。
 
-目前自動路由模型為 Gemma 4 E2B QAT、Nemotron 3 Nano 4B、Qwen2.5 Coder 7B、Qwen3.5 9B Q4、Qwen3 30B-A3B Q4、DeepSeek-R1 0528 Qwen3 8B Q4、Qwen3.8 27B Q4、Qwen3.6 35B-A3B Coding Q4、GPT-OSS 20B 與 Llama 3.1 8B Q4。`nomic-embed-text-v2-moe` 負責本機多語語意檢索。
+目前唯一路由模型為 `xingcheng-native-transformer`（自訓權重）；本機多語語意檢索由確定性 hashed embedding（`xingcheng-hashed-embedding-v1`）負責。

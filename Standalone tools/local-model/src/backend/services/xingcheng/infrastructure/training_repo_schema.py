@@ -232,9 +232,9 @@ class TransformerTrainingSchemaMixin:
 
     SCHEMA_VERSION = 1
     DATABASE_NAME = "transformer-training.sqlite3"
-    BASE_MODEL_ID = "google/gemma-4-e2b-it"
-    RUNTIME_MODEL_ID = "gemma4:e2b-it-qat"
-    TRAINING_METHOD = "qlora-nf4-peft"
+    BASE_MODEL_ID = "xingcheng-native-transformer"
+    RUNTIME_MODEL_ID = "xingcheng-native-transformer"
+    TRAINING_METHOD = "sft-native-full-parameter"
     DATASET_STATES = frozenset({"prepared", "invalidated", "archived"})
     JOB_STATES = frozenset(
         {

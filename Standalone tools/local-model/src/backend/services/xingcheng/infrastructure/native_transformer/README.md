@@ -250,7 +250,7 @@ python native_transformer\tests\test_model.py -v
 
 本套件為星澄的**第一版正式原生模型核心**，與既有模組並存：
 
-- `StarTransformerRuntime`：既有 Ollama 迴圈介接器（外部基礎權重）。
+- `StarNativeRuntime`：原生唯一生成執行期，所有推論皆路由至本套件權重。
 - `StarAutoregressiveLanguageModel`：既有加權 n-gram 安全回退。
 - `StarNativeLanguageModel`：既有意圖分類與治理協調層。
 - **`native_transformer/`（本套件）**：真正可訓練 / 可推理 / 可量化的

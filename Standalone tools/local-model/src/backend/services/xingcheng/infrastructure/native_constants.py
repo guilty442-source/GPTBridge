@@ -457,7 +457,7 @@ class StarNativeConstantsMixin:
         "查詢": ("查询",),
     }
     _OBJECT_ALIASES: dict[str, tuple[str, ...]] = {
-        "model": ("模型", "model", "ollama"),
+        "model": ("模型", "model"),
         "file": ("檔案", "文件", "file"),
         "folder": ("資料夾", "目錄", "folder", "directory"),
         "image": ("圖片", "照片", "影像", "image", "photo"),
@@ -627,7 +627,3 @@ class StarNativeConstantsMixin:
             "可查詢公開網路來源，但不使用第三方生成模型，也不會猜測缺少的投資事實。"
         ),
     }
-
-_RUNTIME_FEATURE_FLAGS: dict[str, bool] = {
-    "ollama_outbound": True,
-}

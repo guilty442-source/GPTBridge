@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 import pytest
 from xingcheng.application.service import LocalAiService
-from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.infrastructure.native_runtime import StarNativeRuntime
 from xingcheng.infrastructure.transformer_training_repository import (
     TransformerTrainingRepository,
 )
@@ -30,7 +30,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 from xingcheng.application.service import LocalAiService
-from xingcheng.infrastructure.transformer_runtime import StarTransformerRuntime
+from xingcheng.infrastructure.native_runtime import StarNativeRuntime
 
 
 def _sha(value: str) -> str:
@@ -275,7 +275,7 @@ def test_training_job_configuration_is_canonical_and_hashed(tmp_path: Path) -> N
     )
 
     assert job["status"] == "queued"
-    assert job["training_method"] == "qlora-nf4-peft"
+    assert job["training_method"] == "sft-native-full-parameter"
     assert json.loads(job["configuration_json"])["rank"] == 4
     assert job["configuration_sha256"] == hashlib.sha256(
         str(job["configuration_json"]).encode("utf-8")
@@ -359,7 +359,7 @@ def test_service_status_exposes_training_database_without_weight_authority(
 ) -> None:
     service = LocalAiService(
         tmp_path,
-        transformer_runtime=StarTransformerRuntime(enabled=False),
+        native_runtime=StarNativeRuntime(enabled=False),
     )
     _, status = asyncio.run(service.handle("xingcheng_status", {}))
     training_database = status["transformer_training_database"]

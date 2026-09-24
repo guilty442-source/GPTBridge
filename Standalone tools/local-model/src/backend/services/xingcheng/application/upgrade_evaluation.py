@@ -312,7 +312,7 @@ def evaluate_star_upgrade(
         "external_research_health": external_health,
         "memory_health": memory,
         "transformer_training_database": training_database,
-        "model_runtime_policy": "local-transformer-loopback-with-native-fallback",
+        "model_runtime_policy": "native-self-trained-transformer-only",
         "remote_model_policy": "forbidden-for-star-inference",
         "external_collaboration_policy": "explicit-need-only",
         "recommendations": recommendations,

@@ -33,7 +33,7 @@ class FakeRuntime:
         self.models = {
             LocalRagService.ROUTER_MODEL,
             "qwen3.8:27b-q4_K_M",
-            "gemma4:12b-it-qat",
+            "xingcheng-native-transformer",
             "qwen3-coder:30b-a3b-q4_K_M",
             "ornith-1.5:35b",
             "deepseek-r1:14b",
@@ -304,11 +304,11 @@ def test_query_uses_hybrid_reranking_and_routed_model_with_citations(tmp_path: P
 
     assert result["ok"] is True
     assert result["route"] == "fast"
-    assert result["generation_model"] == "gemma4:12b-it-qat"
+    assert result["generation_model"] == "xingcheng-native-transformer"
     assert result["citations"][0]["source"] == "policy"
     assert result["reranker"]["applied"] is True
     answer_call = runtime.generation_calls[-1]
-    assert answer_call["requested_model"] == "gemma4:12b-it-qat"
+    assert answer_call["requested_model"] == "xingcheng-native-transformer"
     assert "<retrieved_context>" in answer_call["prompt"]
     assert "不可信資料" in answer_call["prompt"]
 

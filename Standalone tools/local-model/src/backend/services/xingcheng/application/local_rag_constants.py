@@ -18,15 +18,15 @@ class LocalRagConstants:
     CHUNK_CHARACTERS = 1_200
     CHUNK_OVERLAP = 200
     EMBEDDING_BATCH_SIZE = 32
-    ROUTER_MODEL = "nemotron-3-nano:4b-q8_0"
+    ROUTER_MODEL = "xingcheng-native-transformer"
     RAG_MODELS = {
-        "general": ("qwen3.8:27b-q4_K_M",),
-        "fast": ("gemma4:12b-it-qat",),
-        "code": ("qwen3-coder:30b-a3b-q4_K_M",),
-        "deep": ("ornith-1.5:35b", "deepseek-r1:14b"),
-        "visual": ("qwen3-vl:8b-thinking",),
+        "general": ("xingcheng-native-transformer",),
+        "fast": ("xingcheng-native-transformer",),
+        "code": ("xingcheng-native-transformer",),
+        "deep": ("xingcheng-native-transformer",),
+        "visual": ("xingcheng-native-transformer",),
     }
-    FALLBACK_MODEL = "mistral-small:24b"
+    FALLBACK_MODEL = "xingcheng-native-transformer"
     SUPPORTED_SUFFIXES = frozenset(
         {
             ".txt", ".md", ".markdown", ".rst", ".csv", ".tsv", ".json",
@@ -38,7 +38,7 @@ class LocalRagConstants:
     def __init__(
         self,
         tool_root: Path,
-        transformer_runtime: Any,
+        native_runtime: Any,
         *,
         vector_store: LocalVectorStore | None = None,
         reranker: QwenReranker | None = None,
@@ -47,7 +47,7 @@ class LocalRagConstants:
     ) -> None:
         self.tool_root = Path(tool_root).resolve()
         self.project_root = self.tool_root.parent.resolve()
-        self.transformer_runtime = transformer_runtime
+        self.native_runtime = native_runtime
         self.repository = repository or LocalSqliteRagRepository(self.tool_root)
         self.vector_store = vector_store or LocalVectorStore(
             self.tool_root / "runtime" / "state" / "local-rag-vectors.sqlite3"
@@ -61,7 +61,7 @@ class LocalRagConstants:
             if canonical is not None
             else CanonicalRagAdapter(
                 self.tool_root,
-                transformer_runtime,
+                native_runtime,
                 document_fetcher=self._reconcile_source_document,
             )
         )

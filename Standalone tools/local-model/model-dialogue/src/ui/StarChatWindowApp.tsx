@@ -248,7 +248,7 @@ export function StarChatWindowApp() {
       try {
         const result = await request('star_chat_status', {}, 35_000)
         if (disposed) return
-        const runtime = result.transformer_runtime
+        const runtime = result.native_runtime
         const runtimeStatus = runtime && typeof runtime === 'object'
           ? runtime as Record<string, unknown>
           : null

@@ -13,9 +13,9 @@ class CommandChannelsMixin:
     STATUS_CACHE_TTL_SECONDS: float = 20.0
 
     def _status_llm_snapshot(self) -> dict[str, Any]:
-        available = bool(self.transformer_runtime.status().get("available"))
+        available = bool(self.native_runtime.status().get("available"))
         return {
-            "engine": "ollama",
+            "engine": "xingcheng-native",
             "available": available,
             "state": "READY" if available else "RECOVERING",
         }
@@ -77,7 +77,7 @@ class CommandChannelsMixin:
                     "reconciliation_required": True,
                 },
                 "rag": rag_status,
-                "llm": {"engine": "ollama", "role": "local-understanding-reasoning-and-operations"},
+                "llm": {"engine": "xingcheng-native", "role": "local-understanding-reasoning-and-operations"},
             }
 
     async def _handle_rag(self, command: str, payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -165,25 +165,15 @@ class CommandChannelsMixin:
         if command == "xingcheng_status":
             requested_mode = str(payload.get("prepare_mode") or "").strip().casefold()
             mode_preparation: dict[str, Any] | None = None
-            if requested_mode in {"chat", "coding"} and self.transformer_runtime.enabled:
-                preload_model = (
-                    self.transformer_runtime.FRONTEND_WORKER_MODEL
-                    if requested_mode == "coding"
-                    else self.transformer_runtime.MODEL
-                )
-                keep_alive: int | str = "5m" if requested_mode == "coding" else -1
+            if requested_mode in {"chat", "coding"} and self.native_runtime.enabled:
+                preload_model = self.native_runtime.MODEL
                 try:
-                    loaded = await asyncio.to_thread(
-                        self.transformer_runtime.resource_manager.preload_model,
-                        preload_model,
-                        keep_alive=keep_alive,
-                        device="gpu",
-                    )
+                    loaded = await asyncio.to_thread(self.native_runtime.preload)
                     mode_preparation = {
-                        "ok": True,
+                        "ok": bool(loaded),
                         "mode": requested_mode,
                         "model": preload_model,
-                        "resident": loaded.get("loaded") is True,
+                        "resident": bool(loaded),
                     }
                 except (OSError, RuntimeError, ValueError) as error:
                     mode_preparation = {
@@ -242,30 +232,30 @@ class CommandChannelsMixin:
                 "name": "星澄",
                 "model": self.model,
                 "status": (
-                    "本機 Ollama 多模型路由已就緒，快速入口為 Gemma 4 E2B QAT，並依速度、推理與能力強度分工。"
-                    if self.transformer_runtime.status().get("model_installed")
-                    else "星澄統計式安全回退模型已就緒；本機 Transformer 尚未可用。"
+                    "星澄原生自訓 Transformer 已就緒，所有任務由單一原生模型依強度與安全閘門執行。"
+                    if self.native_runtime.status().get("model_installed")
+                    else "星澄統計式安全回退模型已就緒；原生 Transformer 尚未可用。"
                 ),
                 "model_version": self.native_model.VERSION,
                 "model_architecture": (
-                    "governed-local-multi-model-transformer+deterministic-specialists+"
+                    "governed-native-self-trained-transformer+deterministic-specialists+"
                     "statistical-safety-fallback"
                 ),
-                "model_mode": "governed-local-transformer-llm",
+                "model_mode": "governed-native-transformer-llm",
                 "generative_ai": True,
                 "self_training": {
                     "mode": "continuous-verified-self-distillation",
-                    "training_coordinator_model": "gemma4:e2b-it-qat",
+                    "training_coordinator_model": self.NATIVE_RUNTIME_MODEL,
                     "quality_gate_required": True,
-                    "ollama_training": {
+                    "native_training": {
                         "enabled": True,
-                        "transport": "ollama-loopback-only",
+                        "transport": "in-process-native-engine",
                         "external_entry": False,
                         "external_ai_used": False,
                         "internal_owner": self.NATIVE_MODEL_ID,
                         "automatic": True,
                         "interval_seconds": self.INTERNAL_TRAINING_INTERVAL_SECONDS,
-                        "training_models": list(self.ollama_repositories),
+                        "training_models": [self.NATIVE_RUNTIME_MODEL],
                         "candidate_only": True,
                         "direct_model_database_write": False,
                         "star_native_database_write_after_quality_gate": True,
@@ -273,7 +263,7 @@ class CommandChannelsMixin:
                         "latest": dict(self._latest_internal_training),
                         "direct_weight_access": False,
                         "star_quality_gate_required": True,
-                        "maximum_examples_per_request": self.ollama_training_gate.MAX_EXAMPLES,
+                        "maximum_examples_per_request": self.training_gate.MAX_EXAMPLES,
                     },
                     "models": {
                         profile.model_id: self.model_engines.for_profile(
@@ -283,11 +273,7 @@ class CommandChannelsMixin:
                     },
                 },
                 "model_engines": self.model_engines.status(),
-                "transformer_runtime": self.transformer_runtime.status(),
-                "ollama_model_databases": {
-                    model_id: repository.status()
-                    for model_id, repository in self.ollama_repositories.items()
-                },
+                "native_runtime": self.native_runtime.status(),
                 "transformer_training_database": (
                     self.transformer_training_repository.database_status()
                 ),
@@ -321,7 +307,7 @@ class CommandChannelsMixin:
                 },
                 "autonomous_agent": {
                     "enabled": True,
-                    "star_native_model_included": False,
+                    "star_native_model_included": True,
                     "default_in_model_dialogue": True,
                     "mode": "bounded-plan-execute-verify-recover",
                     "project_scope": "all-project-source-excluding-governance-rule",
@@ -330,7 +316,7 @@ class CommandChannelsMixin:
                     ],
                     "understanding_authority": {
                         "primary": self.COMMAND_UNDERSTANDING_MODEL,
-                        "backup": "nemotron-3-nano:4b",
+                        "backup": self.NATIVE_RUNTIME_MODEL,
                     },
                     "allocation_authority": self.GENERALIST_COORDINATOR_MODEL,
                     "integration_authority": self.FINAL_COORDINATOR_MODEL,
@@ -398,10 +384,10 @@ class CommandChannelsMixin:
                     }
                     for model in self.models.catalog()
                 ],
-                "model_router": "ollama-speed-reasoning-capability-router",
+                "model_router": "xingcheng-native-runtime-router",
                 "model_selection": "automatic",
                 "manual_model_selection": False,
-                "star_native_model_included": False,
+                "star_native_model_included": True,
                 "external_ai_used": False,
                 "project_scope": "all-project-source-excluding-governance-rule",
                 "model_isolation": {
@@ -417,12 +403,12 @@ class CommandChannelsMixin:
                         *self.AUTOMATIC_WORKFLOW_SEQUENCE,
                     ],
                     "command_understanding_model": self.COMMAND_UNDERSTANDING_MODEL,
-                    "task_allocation_model": "qwen3:30b-a3b-instruct-2507-q4_K_M",
-                    "integration_model": "gpt-oss:20b",
-                    "integration_backup": "qwen3:30b-a3b-instruct-2507-q4_K_M",
-                    "execution_model": "qwen3.6:35b-a3b-coding",
+                    "task_allocation_model": self.GENERALIST_COORDINATOR_MODEL,
+                    "integration_model": self.FINAL_COORDINATOR_MODEL,
+                    "integration_backup": self.NATIVE_RUNTIME_MODEL,
+                    "execution_model": self.CODING_EXPERT_MODEL,
                     "inspection_model": self.RELEASE_REVIEW_MODEL,
-                    "result_model": "gemma4:e2b-it-qat",
+                    "result_model": self.FINAL_COORDINATOR_MODEL,
                     "backup_policy": "none",
                     "failure_adjudicator": self.COMMAND_UNDERSTANDING_MODEL,
                     "commander_dynamic_reassignment": True,
@@ -434,15 +420,15 @@ class CommandChannelsMixin:
                     "specialist_direct_access": False,
                     "specialist_peer_access": False,
                     "external_ai_used": False,
-                    "star_native_model_included": False,
+                    "star_native_model_included": True,
                     "capability_database_owner": self.NATIVE_MODEL_ID,
                 },
                 "memory_interoperability": self.memory_broker.status(),
-                "external_model_used": self.transformer_runtime.enabled,
+                "external_model_used": False,
                 "remote_model_used": False,
-                "third_party_foundation_weights": self.transformer_runtime.enabled,
+                "third_party_foundation_weights": False,
                 "network_access": "public-investment-sources-read-only",
-                "endpoint_scope": "loopback-local-transformer-runtime",
+                "endpoint_scope": "in-process-native-runtime",
                 "market_search": "public-web-read-only",
                 "investment_analysis_owner": "星澄",
                 "investment_model_roles": {
@@ -475,7 +461,7 @@ class CommandChannelsMixin:
                     ),
                     "models": self.investment_repository.investment_model_catalog(),
                     "adjustable_parameters": self.investment_repository.investment_parameter_values(),
-                    "parameter_advisor": "chatgpt",
+                    "parameter_advisor": "xingcheng-native",
                     "parameter_applier": "star-main-native-model",
                 },
                 "mathematical_expert": {

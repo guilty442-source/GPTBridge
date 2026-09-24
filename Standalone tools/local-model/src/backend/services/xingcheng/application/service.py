@@ -14,7 +14,7 @@ from .reading_expert import StarReadingExpert
 from .local_rag import LocalRagService
 from .local_knowledge import LocalKnowledgeService
 from ..infrastructure.git_repository import LocalGitRepository
-from .gpt_training_gate import StarOllamaTrainingGate
+from .training_gate import StarTrainingGate
 from ..integration.memory_broker import StarMemoryBroker
 from ..domain.model_registry import StarModelRegistry
 from ..domain.module_registry import StarModuleRegistry
@@ -22,8 +22,7 @@ from ..domain.capability_composer import StarCapabilityComposer
 from ..infrastructure.model_engines import StarModelEngines
 from ..infrastructure.repository import LocalAiRepository
 from ..infrastructure.fault_diagnostics import FaultDiagnostics
-from ..infrastructure.ollama_model_repository import OllamaModelRepository
-from ..infrastructure.transformer_runtime import StarTransformerRuntime
+from ..infrastructure.native_runtime import StarNativeRuntime
 from ..infrastructure.transformer_training_repository import (
     TransformerTrainingRepository,
 )
@@ -94,7 +93,7 @@ class LocalAiService(
         {"id": "context-multitask", "label": "情境多工"},
         {"id": "local-model-routing", "label": "本機模型路由"},
         {"id": "selected-model-direct", "label": "選定模型直連"},
-        {"id": "ollama-loopback", "label": "Ollama 本機迴路"},
+        {"id": "native-transformer", "label": "原生自訓模型"},
         {"id": "governance-controlled", "label": "治理受控"},
     )
     STAR_NATIVE_MODEL_PERMISSIONS = {
@@ -118,7 +117,6 @@ class LocalAiService(
             "rollback",
         ),
         "investment_database_write": True,
-        "ollama_model_database_access": True,
         "source_apply": False,
         "external_execution": False,
         "system_execution": False,
@@ -132,30 +130,31 @@ class LocalAiService(
     PLATFORM_SERVICES = {
         "model-dialogue-manual": "selected-model-direct-under-governance",
         "model-dialogue-auto": "traditional-chinese-first-governed-workflow",
-        "investment-manager": "automatic-local-ollama-only-routing",
+        "investment-manager": "automatic-local-native-routing",
         "programming": "hardware-stable-local-coding-owner",
-        "reasoning": "deepseek-r1-14b-fixed-owner-with-qwen3.8-acceptance",
+        "reasoning": "native-model-reasoning-owner",
         "complex-work": "understand-allocate-role-integrate-execute-inspect-result",
-        "data": "granite4.2-enterprise-investment-data",
-        "native-training": "local-ollama-only",
-        "capability-composition": "qwen3.8-commanded-local-models",
+        "data": "native-model-enterprise-investment-data",
+        "native-training": "native-self-training",
+        "capability-composition": "native-model-governed",
         "autonomous-agent": "traditional-chinese-first-governed-workflow",
         "star-native-model": "task-participation-denied",
     }
-    FINAL_COORDINATOR_MODEL = "qwen3.8:27b-q4_K_M"
-    TRAINING_COORDINATOR_MODEL = "gpt-oss:20b"
-    DATA_COORDINATOR_MODEL = "ibm/granite4.2:30b-q4_K_M"
-    COMMAND_UNDERSTANDING_MODEL = "qwen3.8:27b-q4_K_M"
-    FAST_COMMAND_UNDERSTANDING_MODEL = "openbmb/minicpm-v4.6:q8_0"
-    GENERALIST_COORDINATOR_MODEL = "qwen3.8:27b-q4_K_M"
-    AUTONOMOUS_AGENT_MODEL = "nemotron-3.5-lightning:30b-a3b-q4_K_M"
-    CODING_EXPERT_MODEL = "granite-code:3b"
-    MATHEMATICAL_REVIEW_MODEL = "deepseek-r1:14b"
-    RELEASE_REVIEW_MODEL = "qwen3.8:27b-q4_K_M"
+    NATIVE_RUNTIME_MODEL = "xingcheng-native-transformer"
+    FINAL_COORDINATOR_MODEL = NATIVE_RUNTIME_MODEL
+    TRAINING_COORDINATOR_MODEL = NATIVE_RUNTIME_MODEL
+    DATA_COORDINATOR_MODEL = NATIVE_RUNTIME_MODEL
+    COMMAND_UNDERSTANDING_MODEL = NATIVE_RUNTIME_MODEL
+    FAST_COMMAND_UNDERSTANDING_MODEL = NATIVE_RUNTIME_MODEL
+    GENERALIST_COORDINATOR_MODEL = NATIVE_RUNTIME_MODEL
+    AUTONOMOUS_AGENT_MODEL = NATIVE_RUNTIME_MODEL
+    CODING_EXPERT_MODEL = NATIVE_RUNTIME_MODEL
+    MATHEMATICAL_REVIEW_MODEL = NATIVE_RUNTIME_MODEL
+    RELEASE_REVIEW_MODEL = NATIVE_RUNTIME_MODEL
     AUTOMATIC_WORKFLOW_SEQUENCE = (
         "receive-original-traditional-chinese",
-        "qwen3.8-understand-command-and-normalize-taiwan-chinese",
-        "rnj-1-analyze-code-stem-and-tool-calling-at-workflow-front",
+        "native-understand-command-and-normalize-taiwan-chinese",
+        "native-analyze-code-stem-and-tool-calling-at-workflow-front",
         "extract-actions-objects-parameters-constraints",
         "classify-task-and-intensity",
         "apply-safety-and-permission-gates",
@@ -164,11 +163,7 @@ class LocalAiService(
         "cross-validate-repair-or-escalate",
         "integrate-localize-apply-verify-and-report",
     )
-    CAPABILITY_VOTER_MODELS = (
-        "qwen3.8:27b-q4_K_M",
-        "deepseek-r1:8b-0528-qwen3-q4_K_M",
-        "gpt-oss:20b",
-    )
+    CAPABILITY_VOTER_MODELS = (NATIVE_RUNTIME_MODEL,)
     MAX_SEARCH_CACHE_ENTRIES = 8
     SELF_MAINTENANCE_INTERVAL_SECONDS = 300
     INTERNAL_TRAINING_INTERVAL_SECONDS = 86_400
@@ -231,7 +226,7 @@ class LocalAiService(
         tool_root: Path,
         *,
         enable_transformer: bool = True,
-        transformer_runtime: StarTransformerRuntime | None = None,
+        native_runtime: StarNativeRuntime | None = None,
     ) -> None:
         self.tool_root = Path(tool_root).resolve()
         self.market_data = MarketDataSearch()
@@ -252,35 +247,28 @@ class LocalAiService(
             },
         )
         self.native_model = self.model_engines.main
-        self.transformer_runtime = transformer_runtime or StarTransformerRuntime(
+        self.native_runtime = native_runtime or StarNativeRuntime(
             enabled=enable_transformer
         )
-        self.transformer_runtime.configure_checkpoint_store(self.tool_root)
-        self.ollama_repositories = {
-            model_id: OllamaModelRepository(self.tool_root, model_id)
-            for model_id in (
-                *self.transformer_runtime.KNOWN_MODEL_METADATA,
-                self.transformer_runtime.EMBEDDING_MODEL,
-            )
-        }
+        self.native_runtime.configure_checkpoint_store(self.tool_root)
         self.transformer_training_repository = TransformerTrainingRepository(
             self.tool_root
         )
         self.mathematical_expert = StarMathematicalExpert()
         self.coding_expert = StarCodingExpert()
         self.reading_expert = StarReadingExpert()
-        self.local_rag = LocalRagService(self.tool_root, self.transformer_runtime)
+        self.local_rag = LocalRagService(self.tool_root, self.native_runtime)
         self.git_repository = LocalGitRepository(self.tool_root.parent)
         # Read-only fault-diagnosis evidence collector: governed codex
         # directories + main-system runtime state + outbox tail.
         self.fault_diagnostics = FaultDiagnostics(self.tool_root.parent)
         self.local_knowledge = LocalKnowledgeService(
             self.tool_root,
-            self.transformer_runtime,
+            self.native_runtime,
             rag_service=self.local_rag,
             git_repository=self.git_repository,
         )
-        self.ollama_training_gate = StarOllamaTrainingGate()
+        self.training_gate = StarTrainingGate()
         self.investment_repository = self.repositories[
             self.models.INVESTMENT.model_id
         ]

@@ -80,25 +80,13 @@ class LocalAiEmbeddingMixin:
         if not candidates:
             return []
         try:
-            vectors = self.transformer_runtime.embed(
+            vectors = self.native_runtime.embed(
                 [prompt, *(item["content"] for item in candidates)]
             )
         except (OSError, ValueError, RuntimeError):
             return []
         if len(vectors) != len(candidates) + 1:
             return []
-        self.ollama_repositories[
-            self.transformer_runtime.EMBEDDING_MODEL
-        ].record_inference(
-            intent="embedding-search",
-            model_role="multilingual-project-retrieval",
-            request={"query": prompt, "document_count": len(candidates)},
-            response={
-                "ok": True,
-                "model": self.transformer_runtime.EMBEDDING_MODEL,
-                "vector_count": len(vectors),
-            },
-        )
         query = np.array(vectors[0], dtype=np.float32)
         query_norm = np.linalg.norm(query) or 1.0
         ranked: list[tuple[float, dict[str, Any]]] = []
@@ -112,12 +100,12 @@ class LocalAiEmbeddingMixin:
                 "id": item["id"],
                 "content": item["content"][:2_000],
                 "retrieval_score": round(score, 6),
-                "model": self.transformer_runtime.EMBEDDING_MODEL,
+                "model": self.native_runtime.EMBEDDING_MODEL,
             }
             for score, item in ranked[:6]
         ]
 
-    def _prepare_ollama_output(
+    def _prepare_runtime_output(
         self,
         payload: dict[str, Any],
         prompt: str,
@@ -156,7 +144,7 @@ class LocalAiEmbeddingMixin:
             "evidence": embedding_retrieval,
             "embedding_retrieval": {
                 "enabled": bool(embedding_retrieval),
-                "model": self.transformer_runtime.EMBEDDING_MODEL,
+                "model": self.native_runtime.EMBEDDING_MODEL,
                 "result_count": len(embedding_retrieval),
             },
             "context_retrieval": {

@@ -37,11 +37,7 @@ class InferTransformerMixin:
                 "text": transformer_text,
                 "token_count": int(transformer_result.get("eval_count") or 0),
                 "decoder": transformer_result["decoder"],
-                "model_type": (
-                    "native-self-trained-decoder-transformer"
-                    if transformer_result.get("native_engine")
-                    else "quantized-local-decoder-transformer"
-                ),
+                "model_type": "native-self-trained-decoder-transformer",
                 "model": transformer_result["model"],
                 "model_family": transformer_result["model_family"],
                 "parameter_class": transformer_result["parameter_class"],
@@ -54,32 +50,23 @@ class InferTransformerMixin:
             }
         )
         output["generation"] = generation
-        output["mode"] = (
-            "governed-native-transformer-llm"
-            if native_engine_used
-            else "governed-local-transformer-llm"
-        )
+        output["mode"] = "governed-native-transformer-llm"
         output["architecture"] = (
             "governed-native-self-trained-decoder-transformer"
-            if native_engine_used
-            else (
-                "governed-selectable-local-decoder-transformer+"
-                "deterministic-specialists+statistical-safety-fallback"
-            )
         )
-        output["external_model_used"] = not native_engine_used
+        output["external_model_used"] = False
         output["remote_model_used"] = False
-        output["third_party_weights_used"] = not native_engine_used
-        output["loopback_model_runtime_used"] = not native_engine_used
+        output["third_party_weights_used"] = False
+        output["loopback_model_runtime_used"] = False
         output["foundation_model_license"] = transformer_result[
             "foundation_model_license"
         ]
-        selected_ollama_model = str(
+        selected_runtime_model = str(
             transformer_result.get("model") or direct_runtime_model
         )
-        output["model"] = selected_ollama_model
+        output["model"] = selected_runtime_model
         output["model_name"] = str(
-            transformer_result.get("model_family") or selected_ollama_model
+            transformer_result.get("model_family") or selected_runtime_model
         )
         output["model_role"] = (
             "user-selected-direct"
@@ -87,14 +74,14 @@ class InferTransformerMixin:
             else profile.role
         )
         output["coordinator_model"] = (
-            selected_ollama_model
+            selected_runtime_model
             if direct_runtime_model
             else self.FINAL_COORDINATOR_MODEL
         )
         output["coordination"] = (
             "direct-selected-model"
             if direct_runtime_model
-            else "local-ollama-priority-routing"
+            else "native-model-routing"
         )
         output["delegated"] = False
         output["star_native_model_used"] = native_engine_used
@@ -122,12 +109,12 @@ class InferTransformerMixin:
         automatic_runtime_model: str,
     ) -> tuple[str, dict[str, Any]] | None:
         if (
-            self.transformer_runtime.enabled
+            self.native_runtime.enabled
             and resolved_intent != "reading"
             and (
                 not native_model_requested
                 or resolved_intent
-                in self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
+                in self.native_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
             )
         ):
             task_intensity = str(
@@ -231,7 +218,7 @@ class InferTransformerMixin:
                         else True
                     )
                     and resolved_intent
-                    in self.transformer_runtime.DIVISION_OF_LABOR_INTENTS
+                    in self.native_runtime.DIVISION_OF_LABOR_INTENTS
                 ),
                 "cancel_event": inference_payload.get("_cancel_event"),
                 "progress_callback": inference_payload.get("_progress_callback"),
@@ -245,13 +232,13 @@ class InferTransformerMixin:
             if (
                 dialogue_interactive
                 or resolved_intent
-                in (self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS)
+                in (self.native_runtime.VISUAL_FILE_MANAGEMENT_INTENTS)
                 or resolved_intent == "conversation"
             ):
                 collaboration_limit = 1
             auxiliary_specs: list[dict[str, str]] = []
             if not direct_runtime_model and collaboration_limit > 1:
-                primary_candidates = self.transformer_runtime.model_candidates_for_intent(
+                primary_candidates = self.native_runtime.model_candidates_for_intent(
                     resolved_intent,
                     str(inference_payload.get("reasoning_effort") or "medium"),
                     task_intensity,
@@ -266,18 +253,18 @@ class InferTransformerMixin:
                     branch_intent = secondary_intents[
                         len(auxiliary_specs) % len(secondary_intents)
                     ]
-                    candidates = self.transformer_runtime.model_candidates_for_intent(
+                    candidates = self.native_runtime.model_candidates_for_intent(
                         branch_intent,
                         str(inference_payload.get("reasoning_effort") or "medium"),
                         task_intensity,
                     )
                     if task_intensity == "normal":
                         small_models = set(
-                            self.transformer_runtime.MODEL_SIZE_TIERS["small"]
+                            self.native_runtime.MODEL_SIZE_TIERS["small"]
                         )
                         installed_small_models = [
                             str(item.get("name") or "")
-                            for item in self.transformer_runtime.selectable_models(
+                            for item in self.native_runtime.selectable_models(
                                 refresh=False
                             )
                             if str(item.get("name") or "") in small_models
@@ -299,14 +286,14 @@ class InferTransformerMixin:
 
             generation_calls = [
                 asyncio.to_thread(
-                    self.transformer_runtime.generate,
+                    self.native_runtime.generate,
                     **primary_generation_request,
                 )
             ]
             for spec in auxiliary_specs:
                 generation_calls.append(
                     asyncio.to_thread(
-                        self.transformer_runtime.generate,
+                        self.native_runtime.generate,
                         prompt=prompt,
                         intent=spec["intent"],
                         model_role=f"parallel-specialist:{spec['intent']}",
@@ -320,7 +307,7 @@ class InferTransformerMixin:
                         images=(
                             visual_inputs
                             if spec["intent"]
-                            in self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
+                            in self.native_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
                             else []
                         ),
                         complex_pipeline=False,
@@ -363,7 +350,7 @@ class InferTransformerMixin:
                 )
                 installed_models = {
                     str(item.get("name") or "")
-                    for item in self.transformer_runtime.selectable_models(
+                    for item in self.native_runtime.selectable_models(
                         refresh=False
                     )
                 }
@@ -378,7 +365,7 @@ class InferTransformerMixin:
                         "specialists": successful_parallel_branches,
                     }
                     integration_result = await asyncio.to_thread(
-                        self.transformer_runtime.generate,
+                        self.native_runtime.generate,
                         prompt=prompt,
                         intent="conversation",
                         model_role="parallel-results-integrator-and-verifier",
@@ -419,20 +406,6 @@ class InferTransformerMixin:
                 "specialists": parallel_branches,
                 "integration": integration_audit,
             }
-            self._record_ollama_inference(
-                transformer_result,
-                intent=resolved_intent,
-                model_role=attempted_profile.role,
-                request={
-                    "prompt": prompt,
-                    "planned_intents": planned_intents,
-                    "reasoning_effort": inference_payload.get("reasoning_effort"),
-                    "task_intensity": task_intensity,
-                    "generation_speed": inference_payload.get("generation_speed"),
-                    "autonomous_agent": inference_payload.get("autonomous_agent")
-                    is not False,
-                },
-            )
             transformer_latency = round(
                 (time.perf_counter() - transformer_started) * 1_000, 3
             )
@@ -461,14 +434,14 @@ class InferTransformerMixin:
                 if (
                     not native_model_requested
                     or resolved_intent
-                    in self.transformer_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
+                    in self.native_runtime.VISUAL_FILE_MANAGEMENT_INTENTS
                 ):
                     self._runtime_metrics["error_count"] = int(
                         self._runtime_metrics["error_count"]
                     ) + 1
                     failed_model = (
                         direct_runtime_model
-                        or self.transformer_runtime.preferred_model_for_intent(
+                        or self.native_runtime.preferred_model_for_intent(
                             resolved_intent
                         )
                     )
@@ -479,7 +452,7 @@ class InferTransformerMixin:
                             or "TRANSFORMER_INFERENCE_FAILED"
                         ),
                         "message": (
-                            f"本機 Ollama 模型 {failed_model} 無法完成推論："
+                            f"原生模型 {failed_model} 無法完成推論："
                             f"{str(transformer_result.get('message') or '模型服務未就緒')}"
                         ),
                         "selected_runtime_model": failed_model,
@@ -498,7 +471,7 @@ class InferTransformerMixin:
                     generation["transformer_fallback_used"] = True
                     generation["transformer_fallback_reason"] = str(
                         transformer_result.get("error_code")
-                        or "TRANSFORMER_RUNTIME_UNAVAILABLE"
+                        or "NATIVE_RUNTIME_UNAVAILABLE"
                     )
                 if resolved_intent == "self_upgrade" and isinstance(
                     output.get("self_repair"), dict

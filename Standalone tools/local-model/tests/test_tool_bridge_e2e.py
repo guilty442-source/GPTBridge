@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """G3 端到端：工具呼叫 → 受治理路由（LocalAiService.handle）→ 執行 → 回執。
 
-與 stub 層測試（test_tool_orchestrator_distill_bridge.py）互補：本檔把
+與 stub 層測試（test_infer_tool_loop.py）互補：本檔把
 ``GovernedToolExecutor`` 接到真實 ``LocalAiService``，驗證工具命令真的
 走命令 registry → 參數驗證 → handler 這條受管鏈，而非只在模擬層成立。
 """
