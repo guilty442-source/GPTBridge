@@ -43,6 +43,18 @@ def _load_native_extension() -> Any:
     if existing is not None:
         return existing
 
+    # Reload-surviving sentinel: once ANY artifact exec has been attempted
+    # in this process, a second attempt can only map a second copy of the
+    # DLL (a failed exec_module still leaves the DLL mapped).  The marker
+    # lives in sys.modules so even a full package reload cannot re-enter.
+    sentinel = f"{qualified}.load-attempted"
+    if sentinel in sys.modules:
+        _logger.warning(
+            "native_extension_load_skipped reason=already-attempted"
+        )
+        return sys.modules.get(qualified)
+    sys.modules[sentinel] = sys.modules[__name__]
+
     directory = pathlib.Path(__file__).resolve().parent
     candidates = [directory.parents[2] / "dist-native", directory]
     for candidate in candidates:
@@ -58,14 +70,17 @@ def _load_native_extension() -> Any:
                 sys.modules[qualified] = module
                 spec.loader.exec_module(module)
             except Exception as error:
-                # The failed artifact stays mapped for the process lifetime;
-                # record it so double-load incidents are diagnosable.
+                # The failed artifact stays mapped for the process
+                # lifetime; trying the next candidate would map a SECOND
+                # copy (the exact 0xc0000374 precondition observed in WER
+                # 2026-09-24), so we degrade to Python instead.
                 _logger.warning(
-                    "native_extension_load_failed artifact=%s error=%s",
+                    "native_extension_load_failed artifact=%s error=%s; "
+                    "remaining candidates skipped (single-load invariant)",
                     artifact, error,
                 )
                 sys.modules.pop(qualified, None)
-                continue
+                return None
             _logger.info("native_extension_loaded artifact=%s", artifact)
             return module
     return None
