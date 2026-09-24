@@ -27,6 +27,21 @@ class PaperOrderManagementSystem:
         self._load()
 
     # ------------------------------------------------------------------
+    def find_by_client(self, client_order_id: str
+                       ) -> dict[str, Any] | None:
+        oid = self._by_client.get(client_order_id)
+        return self._orders[oid].to_dict() if oid else None
+
+    def reject(self, order: PaperOrder, reason: str) -> dict[str, Any]:
+        order.status = PaperOrderStatus.REJECTED
+        order.rejection_reason = reason
+        self._orders[order.order_id] = order
+        if order.client_order_id:
+            self._by_client[order.client_order_id] = order.order_id
+        self._record(order)
+        return {"ok": False, "error_code": "ORDER_REJECTED",
+                "order": order.to_dict()}
+
     def submit(self, order: PaperOrder) -> dict[str, Any]:
         """CREATED → VALIDATED → ACCEPTED (risk/cash gates upstream)."""
         if order.client_order_id:
@@ -151,6 +166,7 @@ class PaperOrderManagementSystem:
                 order_id=r["order_id"], status=r["status"],
                 filled_qty=r.get("filled_qty", "0"),
                 avg_fill_price=r.get("avg_fill_price", "0"),
+                rejection_reason=r.get("rejection_reason", ""),
                 created_at=float(r.get("created_at") or 0))
             self._orders[o.order_id] = o
             if o.client_order_id:
