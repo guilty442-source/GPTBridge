@@ -31,7 +31,7 @@
   "owner": "parallel migration worker session actively investigating (observed authority_state polling + git fsck --lost-found at ~16:04Z)",
   "defect": "test-isolation violation — a test exercises the real authority DSN; recommend wire_generation accept an injectable import hook or the test monkeypatch import_sqlite_predecessor/verify_sqlite_parity",
   "action_taken": "none — codex authority writes belong to the governed amendment/migration path (A74/A435); fail-closed, reported only",
-  "resolution": "authority restored 2026-09-24T00:12 local by concurrent worker from worktree snapshot 2026-09-23T03:13:43Z (213 tables, 554 articles); NOTE: destroyed live version was 14:49:21Z - amendments between 03:13Z and 14:49Z may be absent; governor confirmation advised"
+  "resolution": "RESOLVED: 2026-09-23T03:13:43Z remains the sole current version because it has matching current metadata, active bindings, epoch seal and certification evidence. The recovered 2026-09-23T14:49:21Z mirror is historical non-current evidence: it has seal-manifest rows but no matching epoch seal or certification evidence and therefore cannot displace the certified current generation. Its language-responsibility delta has been consolidated into the current PostgreSQL Codex; no governor decision remains pending."
  },
  "residual_watch": [
   "governance_rule/execution/convergence/successor_framework.py LIVE_CODEX still targets governance_rule/codex/data/governance_codex.sqlite3 (deleted in working tree); stage_copy/compute_closures raise CODEX_MISSING until the sealed predecessor is republished or the framework is migrated to the PostgreSQL authority — migration owner decision"
@@ -168,6 +168,23 @@
      "PROPOSAL for automation-sovereign (A301 conflict-disposition domain): declare generated-artifact merge policy (e.g. audit_checks_manifest.json merge=ours via .gitattributes + merge.ours.driver) so regeneration-only churn never reaches the human queue. Not enacted — sovereign decision."
     ]
    },
+   "codex_changed": false
+  },
+  "round_10": {
+   "date": "2026-09-24",
+   "checks": [
+    "codex_repository.py %-escape committed (37224687): LIKE wildcards, ?-placeholder, %s/%b/%t passthrough all verified; residual edge: literal %% in source queries would double-escape (no caller produces it)",
+    "resource-mode feature verified end-to-end: ResourceModeAdvisor (automation-core/scheduler/private-loop fallback, kill-switch honored), auto_adjust_mode control law (low immediate / high demand+headroom+streak3 / medium, 600s cooldown, auto_mode flag), IPC handlers + surface declarations + startup wiring consistent",
+    "P110/E173 boot-epoch propagation verified: wall-clock epoch exported via GPTBRIDGE_BOOT_EPOCH, consumer translates to monotonic with max(0) skew guard",
+    "A592/A604 fail-closed verified: all 19 sub-sovereigns retired in hierarchy registry; both materialization paths (app_lifecycle.get_sub_sovereign + SubSovereignRegistry.get) gate on child_status==active -> None",
+    "xingcheng dialogue: <|eot|> truncation + star-chat-format templating for dialogue_interactive requests (in-flight, sound)"
+   ],
+   "fixes": [
+    "deleted 7 stray _tmp_* worker probe files from project root (inventory contract violation, same class as user-deleted _direct_chat.py etc.)",
+    "release-dependencies.json resynced: native-engine.json 7f8eff72 + renderer e1d232a5 (drifted by lifecycle pin + UI rebuild); surgical 2-line commit bd648b3c"
+   ],
+   "suite": "4806 passed / 6 failed -> my fixes cleared 3; remaining 3 all test_resource_governor stale-vs-in-flight-feature (load_rules 4-tuple, lasso gate, probalance default) — worker scope, test file gitignored",
+   "authority": "2026-09-23T03:13:43Z unchanged",
    "codex_changed": false
   }
  }
