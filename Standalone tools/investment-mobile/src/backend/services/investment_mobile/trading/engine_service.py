@@ -56,7 +56,7 @@ class TradingEngineService:
         self._state_dir = state_dir
         self.mode_gate = ModeGate(state_dir)
         self.audit = TradingAudit(state_dir)
-        self.risk = RiskEngine(state_dir)
+        self.risk = RiskEngine(state_dir, tool_root=Path(tool_root))
         self.strategy = StrategyEngine(state_dir)
         self.portfolio = PortfolioEngine()
         self.brokers = BrokerRegistry(state_dir)
@@ -91,6 +91,7 @@ class TradingEngineService:
                 "ok": True,
                 "mode": self.mode_gate.mode.value,
                 "live_authorized": self.mode_gate.live_authorization() is not None,
+                "risk_backend": self.risk.backend,
                 "strategies": self.strategy.strategies(),
                 "brokers": self.brokers.status(),
                 "open_orders": len(self.oms.orders()),

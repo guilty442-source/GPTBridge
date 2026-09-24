@@ -11,7 +11,9 @@ error results in a rejection, never a silent approval.
 
 from __future__ import annotations
 
+import ctypes
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Iterable
@@ -39,28 +41,28 @@ class _NativeRiskCore:
 
     _MARKET_BITS = {"tw": 1, "us": 2, "fund": 4}
 
-    class _Limits(__import__("ctypes").Structure):
+    class _Limits(ctypes.Structure):
         _fields_ = [
-            ("max_order_notional", __import__("ctypes").c_double),
-            ("max_position_notional", __import__("ctypes").c_double),
-            ("max_daily_loss", __import__("ctypes").c_double),
-            ("max_orders_per_day", __import__("ctypes").c_int),
-            ("max_single_position_weight", __import__("ctypes").c_double),
-            ("require_price", __import__("ctypes").c_int),
-            ("allowed_market_mask", __import__("ctypes").c_uint),
+            ("max_order_notional", ctypes.c_double),
+            ("max_position_notional", ctypes.c_double),
+            ("max_daily_loss", ctypes.c_double),
+            ("max_orders_per_day", ctypes.c_int),
+            ("max_single_position_weight", ctypes.c_double),
+            ("require_price", ctypes.c_int),
+            ("allowed_market_mask", ctypes.c_uint),
         ]
 
-    class _Order(__import__("ctypes").Structure):
+    class _Order(ctypes.Structure):
         _fields_ = [
-            ("market_bit", __import__("ctypes").c_uint),
-            ("side", __import__("ctypes").c_int),
-            ("quantity", __import__("ctypes").c_double),
-            ("notional", __import__("ctypes").c_double),
-            ("existing_position_notional", __import__("ctypes").c_double),
-            ("existing_position_value", __import__("ctypes").c_double),
-            ("total_portfolio_value", __import__("ctypes").c_double),
-            ("daily_order_count", __import__("ctypes").c_int),
-            ("daily_realized_pnl", __import__("ctypes").c_double),
+            ("market_bit", ctypes.c_uint),
+            ("side", ctypes.c_int),
+            ("quantity", ctypes.c_double),
+            ("notional", ctypes.c_double),
+            ("existing_position_notional", ctypes.c_double),
+            ("existing_position_value", ctypes.c_double),
+            ("total_portfolio_value", ctypes.c_double),
+            ("daily_order_count", ctypes.c_int),
+            ("daily_realized_pnl", ctypes.c_double),
         ]
 
     _REASONS = {
@@ -75,8 +77,6 @@ class _NativeRiskCore:
     }
 
     def __init__(self, dll_path: Path) -> None:
-        import ctypes
-
         self._ct = ctypes
         self._lib = ctypes.CDLL(str(dll_path))
         self._lib.risk_evaluate_order.restype = ctypes.c_int
@@ -91,7 +91,7 @@ class _NativeRiskCore:
             Path(tool_root)
             / "native"
             / "risk"
-            / ("risk_core.dll" if __import__("os").name == "nt" else "risk_core.so")
+            / ("risk_core.dll" if os.name == "nt" else "risk_core.so")
         )
         if not dll.is_file():
             return None
@@ -169,6 +169,10 @@ class RiskEngine:
     @property
     def limits(self) -> dict[str, Any]:
         return dict(self._limits)
+
+    @property
+    def backend(self) -> str:
+        return "native:risk_core" if self._native is not None else "python"
 
     # ------------------------------------------------------------------
     def evaluate(
