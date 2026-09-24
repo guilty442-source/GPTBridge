@@ -111,7 +111,16 @@
   "tests/test_trading_engines.py",
   "tests/test_market_acceptance.py",
   "tests/test_fund_acceptance.py",
-  "tests/test_intelligence_acceptance.py"
+  "tests/test_intelligence_acceptance.py",
+  "tests/test_strategy_backtest.py",
+  "tests/test_simulation_acceptance.py",
+  "tests/test_live_trading_acceptance.py",
+  "tests/test_offline_broker_acceptance.py",
+  "tests/test_asset_management_acceptance.py",
+  "tests/test_monitoring_acceptance.py",
+  "tests/test_autotrade_acceptance.py",
+  "tests/test_runtime_perf_acceptance.py",
+  "tests/test_e2e_v1.py"
  ],
  "product": "星澄 AI 投資管理與自動操盤系統",
  "trading_system": {
@@ -134,7 +143,8 @@
    "asset-management",
    "monitoring",
    "autotrading",
-   "audit"
+   "audit",
+   "perf"
   ],
   "engines": [
    "market-data",
