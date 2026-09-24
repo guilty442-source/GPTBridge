@@ -182,6 +182,7 @@ class BootCoreHandoverMixin:
         self._active_backend_port = standby_port
         self._active_generation = generation
         self._backend_healthy = True
+        self._backend_startup_dead = False
         self._unhealthy_since = None
         self._status = "backend-running"
         self._write_state(
