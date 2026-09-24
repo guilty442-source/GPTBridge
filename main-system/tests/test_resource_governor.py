@@ -327,7 +327,7 @@ def test_rules_loading_and_validation(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    defaults, programs, error = gov.load_rules(rules_path)
+    defaults, programs, error, _mode = gov.load_rules(rules_path)
     assert error is None
     assert defaults["probalance"] is True
     assert programs["train.exe"].priority == gov._pm.PRIORITY_BELOW_NORMAL
@@ -338,10 +338,10 @@ def test_rules_loading_and_validation(tmp_path: Path) -> None:
 
     bad = tmp_path / "bad.json"
     bad.write_text("{not json", encoding="utf-8")
-    defaults, programs, error = gov.load_rules(bad)
+    defaults, programs, error, _mode = gov.load_rules(bad)
     assert defaults == {} and programs == {} and error
 
-    assert gov.load_rules(tmp_path / "missing.json") == ({}, {}, None)
+    assert gov.load_rules(tmp_path / "missing.json") == ({}, {}, None, None)
     assert gov._cpu_rate_value(0.1) == 10
     assert gov._cpu_rate_value(150.0) == 10000
 
@@ -416,7 +416,8 @@ def test_dynamic_lasso_tiers_feature_gated(monkeypatch) -> None:
     regulation = {"over": 0, "under": 0, "active": False, "pre": False}
     for _ in range(6):
         _run(procs, monkeypatch, regulation=regulation, records=records,
-             resp_latency=50.0, dry_run=False, worker_job_cap=False)
+             resp_latency=50.0, dry_run=False, worker_job_cap=False,
+             rules="nonexistent/resource-governor-rules.json")
     assert calls == [], "new tiers must stay off until enabled"
 
     records = {}
@@ -478,7 +479,8 @@ def test_monitoring_surface_fields(monkeypatch) -> None:
     proc.info["io_counters"] = types.SimpleNamespace(
         read_bytes=5 * 1024 ** 2, write_bytes=2 * 1024 ** 2
     )
-    snap = _run([proc], monkeypatch, resp_latency=42.0)
+    snap = _run([proc], monkeypatch, resp_latency=42.0,
+                rules="nonexistent/resource-governor-rules.json")
     row = snap["top_cpu"][0]
     assert row["io_read_mb"] == 5.0
     assert row["io_write_mb"] == 2.0
