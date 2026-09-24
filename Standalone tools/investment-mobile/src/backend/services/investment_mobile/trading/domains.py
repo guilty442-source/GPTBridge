@@ -160,6 +160,19 @@ DOMAINS: dict[str, dict[str, str]] = {
                     "halt, or issue orders; stale/unavailable evidence "
                     "blocks dependent trades",
     },
+    "perf": {
+        "module": "trading.perf.engine.PerformanceRuntime",
+        "contracts": "ResourceBudget, JobRecord, CachePolicy, "
+                     "SubscriptionHandle, LifecycleState, "
+                     "RecoveryReport, PowerEvent, RetentionReport, "
+                     "HealthView",
+        "boundary": "bounds and observes engines only — holds no "
+                    "account/holding/fill/authorization authority; AI "
+                    "cannot raise budgets, run maintenance, purge "
+                    "records, or force lifecycle transitions; purgeable "
+                    "set is a whitelist that excludes all formal "
+                    "investment and audit records",
+    },
     "audit": {
         "module": "trading.audit.TradingAudit",
         "contracts": "audit_event",

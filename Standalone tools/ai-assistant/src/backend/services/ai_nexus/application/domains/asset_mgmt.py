@@ -32,6 +32,10 @@ class AssetManagementDomain(BusinessDomain):
             "investment_autotrade_strategies",
             "investment_autotrade_performance",
             "investment_autotrade_reports",
+            # phase-13 runtime health mirrors (read-only)
+            "investment_perf_overview",
+            "investment_perf_health",
+            "investment_perf_metrics",
             # Display-only settings — trading/risk limits are never
             # settable through this surface
             "investment_settings_get",
@@ -126,17 +130,24 @@ class AssetManagementDomain(BusinessDomain):
             "investment_autotrade_strategies": "at_strategy-list",
             "investment_autotrade_performance": "at_performance",
             "investment_autotrade_reports": "at_report-list",
+            # phase-13 runtime/health mirrors (engine → this store)
+            "investment_perf_overview": "investment-mobile-perf-overview",
+            "investment_perf_health": "investment-mobile-perf-health",
+            "investment_perf_metrics": "investment-mobile-perf-metrics",
         }
         if command in autotrade_views:
+            is_perf = command.startswith("investment_perf_")
             return {
                 "ok": True,
                 "domain": self.domain_id,
                 "view": store.kv_get(
                     "autotrade", autotrade_views[command], {}),
                 "source": "investment-mobile mirror",
-                "simulated": True,
-                "note": "SHADOW/PAPER 模擬紀錄——非真實帳戶收益，"
-                        "不構成交易指令",
+                "simulated": not is_perf,
+                "note": ("引擎運行狀態鏡像——僅供檢視"
+                         if is_perf else
+                         "SHADOW/PAPER 模擬紀錄——非真實帳戶收益，"
+                         "不構成交易指令"),
             }
         # 顯示偏好設定 — only whitelisted display keys are writable;
         # trading authorizations and risk limits are NEVER settable here.

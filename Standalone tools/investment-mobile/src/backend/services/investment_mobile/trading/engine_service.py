@@ -442,6 +442,7 @@ class TradingEngineService:
             "investment-mobile-perf-retention-run",
             "investment-mobile-perf-retention-status",
             "investment-mobile-perf-pool-stats",
+            "investment-mobile-perf-acceptance",
         }
     )
 
@@ -2479,6 +2480,13 @@ class TradingEngineService:
             r = self._handle_perf(command, payload)
             if asyncio.iscoroutine(r):
                 r = await r
+            if r.get("ok") and command in (
+                    "investment-mobile-perf-overview",
+                    "investment-mobile-perf-health",
+                    "investment-mobile-perf-metrics"):
+                self._mirror_outbox.append({
+                    "operation": "record_autotrade",
+                    "command": command, "result": r})
             return "perf", r
 
         raise PermissionError("PERMISSION_DENIED")
@@ -3326,6 +3334,12 @@ class TradingEngineService:
             return p.retention.status()
         if command == "investment-mobile-perf-pool-stats":
             return p.pool.stats()
+        if command == "investment-mobile-perf-acceptance":
+            from .acceptance import build_matrix
+            result = build_matrix().evaluate(self)
+            self.audit.record("perf.acceptance", {
+                "counts": result["counts"]})
+            return result
         return {"ok": False, "error_code": "COMMAND_UNKNOWN"}
 
     @staticmethod

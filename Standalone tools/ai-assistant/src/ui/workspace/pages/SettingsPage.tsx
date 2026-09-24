@@ -34,6 +34,7 @@ const NOT_INTEGRATED = [
 export default function SettingsPage({ sendCommand }: Props) {
   const notify = useNotify()
   const get = useCommandQuery<any>(sendCommand, 'investment_settings_get')
+  const health = useCommandQuery<any>(sendCommand, 'investment_perf_health')
   const [draft, setDraft] = useState<Record<string, unknown>>({})
 
   useEffect(() => {
@@ -104,6 +105,53 @@ export default function SettingsPage({ sendCommand }: Props) {
             <li key={k}><Badge text={`${k}——整合未完成`} tone="muted" /></li>
           ))}
         </ul>
+      </Section>
+
+      <Section title="系統健康">
+        {(() => {
+          const view = health.data?.view as Record<string, any> | undefined
+          const subs = (view?.subsystems || {}) as Record<string, any>
+          if (!health.data || !view || !Object.keys(subs).length)
+            return (
+              <EmptyState kind="insufficient"
+                detail="引擎健康鏡像尚未送達——investment-mobile 推送 perf-health 後顯示。" />
+            )
+          const NAMES: Record<string, string> = {
+            lifecycle: '投資管家狀態', inference: '星澄模型狀態',
+            subscriptions: '行情資料狀態', jobs: '背景工作狀態',
+            autotrade: '模擬操盤狀態', budget: '資源預算',
+            metrics: '運行監控', power: '電源狀態',
+          }
+          return (
+            <>
+              <p className="inv-note">
+                整體：{String(view.overall || '—')}
+                {Array.isArray(view.degraded) && view.degraded.length > 0 &&
+                  `　降級：${view.degraded.join(', ')}`}
+              </p>
+              <div className="inv-cards">
+                {Object.entries(NAMES).map(([k, label]) => {
+                  const s = subs[k] || {}
+                  return (
+                    <article key={k} className="inv-card">
+                      <b>{label}</b>
+                      <Badge
+                        text={s.ok === false ? '異常' : '正常'}
+                        tone={s.ok === false ? 'danger' : 'ok'} />
+                      <p className="inv-note">
+                        {s.state ? `狀態 ${s.state}　` : ''}
+                        {s.error_code ? `錯誤 ${s.error_code}` : ''}
+                      </p>
+                    </article>
+                  )
+                })}
+              </div>
+            </>
+          )
+        })()}
+        <p className="inv-note">
+          模型可用不代表全部投資服務正常——各子系統獨立回報。
+        </p>
       </Section>
 
       <Section title="受治理保護（不可經此頁修改）">
