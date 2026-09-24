@@ -44,6 +44,12 @@
     "close_program_on_window_exit": true
   },
   "capabilities": {},
+  "automation": {
+    "entry": "src/backend/services/vaultly/application/vaultly_scan.py",
+    "class": "VaultlyScanMixin",
+    "method": "_auto_scan_loop",
+    "enabled": true
+  },
   "environment": {
     "allow": []
   },

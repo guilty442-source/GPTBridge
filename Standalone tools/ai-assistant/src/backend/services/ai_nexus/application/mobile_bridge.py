@@ -1,259 +1,102 @@
+"""Investment-mobile bridge — governed envelope commands.
+
+``xingcheng → ai-assistant`` carries only two fixed commands
+(``authorize_investment_mobile_route``); every operation rides inside the
+payload's ``operation`` field. The bridge is the write path by which the
+investment-mobile engine cluster forwards authoritative records (signals,
+orders, fills, mode changes, audit events) into this store.
+"""
+
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
 from typing import Any
 
-from ..infrastructure.watch_repository import InvestmentWatchRepository
+from ..domain.contract import DOMAIN_AUTO_TRADING, DOMAIN_IDS
+from ..infrastructure.trading_store import TradingStore
 
 
-def local_device_now() -> datetime:
-    return datetime.now(timezone.utc)
+class InvestmentMobileBridge:
+    """Submit-only bridge for the investment-mobile companion tool."""
 
+    def __init__(self, store: TradingStore, ai_connections: Any) -> None:
+        self._store = store
+        self._ai = ai_connections
 
-class InvestmentMobileBridgeMixin:
-    async def _get_mobile_sync(self, _payload: dict[str, Any]) -> dict[str, Any]:
-        response = self._state_response(self.repository.load_state())
-        response["message"] = "手機版介面經治理通道共用 投資管家的設定與投資資料。"
-        response["network_policy"] = "served-by-independent-mobile-interface"
-        return response
-
-    async def _set_mobile_sync_enabled(self, payload: dict[str, Any]) -> dict[str, Any]:
-        current = self._mobile_sync_status()
-        enabled = payload.get("enabled") is True
-        allow_lan = (
-            payload.get("allow_lan") is True
-            if "allow_lan" in payload
-            else current["allow_lan"]
-        )
-        try:
-            port = int(payload.get("port") or current["port"])
-        except (TypeError, ValueError):
-            port = int(current["port"])
-        port = max(1024, min(port, 65535))
-        self.analytics_store.set_setting("mobile_sync_enabled", enabled)
-        self.analytics_store.set_setting("mobile_sync_allow_lan", allow_lan)
-        self.analytics_store.set_setting("mobile_sync_port", port)
-        response = self._state_response(self.repository.load_state())
-        response.update(
-            {
-                "ok": True,
-                "sync": self._mobile_sync_status(),
-                "message": "手機版設定已存入 投資管家的共用設定層。",
-            }
-        )
-        return response
-
-    async def _set_mobile_sync_remote_url(self, payload: dict[str, Any]) -> dict[str, Any]:
-        del payload
-        state = self.repository.save_mobile_sync_remote_url("")
-        return {
-            "ok": False,
-            "error_code": "NETWORK_ACCESS_DISABLED",
-            "message": "投資管家禁止設定遠端橋接；服務由投資管家經 AI 通道提供。",
-            "state": state,
-            "diagnostics": self._diagnostics(state),
-            "mobile_sync": self._mobile_sync_status(),
-        }
-
-    async def _rotate_mobile_sync_pairing(self, _payload: dict[str, Any]) -> dict[str, Any]:
-        state = self.repository.load_state()
-        return {
-            "ok": False,
-            "error_code": "NETWORK_ACCESS_DISABLED",
-            "message": "投資管家禁止手機同步。",
-            "state": state,
-            "diagnostics": self._diagnostics(state),
-            "mobile_sync": self._mobile_sync_status(),
-        }
-
-    async def _revoke_mobile_sync_pairing(self, _payload: dict[str, Any]) -> dict[str, Any]:
-        response = self._state_response(self.repository.load_state())
-        response["message"] = "手機同步配對已撤銷；更新配對碼後才可再次連線。"
-        return response
-
-    def _mobile_sync_status(self, *, expose_pairing_code: bool = True) -> dict[str, Any]:
-        del expose_pairing_code
-        enabled = bool(self.analytics_store.get_setting("mobile_sync_enabled", False))
-        allow_lan = bool(self.analytics_store.get_setting("mobile_sync_allow_lan", False))
-        try:
-            port = int(self.analytics_store.get_setting("mobile_sync_port", 18765))
-        except (TypeError, ValueError):
-            port = 18765
+    # ------------------------------------------------------------------
+    async def snapshot(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Compact business snapshot for the companion tool."""
         return {
             "ok": True,
-            "running": enabled,
-            "enabled": enabled,
-            "allow_lan": allow_lan,
-            "port": port,
-            "separated_tool_id": "investment-mobile",
-            "main_system_independent_tool": True,
-            "business_layer_owner": "ai-assistant",
-            "settings_owner": "ai-assistant",
-            "permission_profile": "ai-investment-manager-v1",
-            "separate_business_layer": False,
-            "separate_settings_layer": False,
-            "network_policy": "served-by-independent-mobile-interface",
-            "shared_scope_message": "僅在主系統視為獨立工具；業務與設定由 投資管家共用。",
-            "start_error": self._mobile_sync_start_error,
-            "message": "僅在主系統視為獨立工具；設定與投資業務由 投資管家共用。",
+            "product": "星澄 AI 投資管理與自動操盤系統",
+            "domains": list(DOMAIN_IDS),
+            "trading_mode": self._store.kv_get(
+                DOMAIN_AUTO_TRADING, "trading_mode", "ANALYSIS"
+            ),
+            "positions": self._store.positions(),
+            "signal_count": len(self._store.signals(limit=10000)),
+            "open_orders": [
+                o for o in self._store.orders(limit=200)
+                if o.get("status") in ("created", "submitted")
+            ],
+            "ai_connections": self._ai.status(),
         }
 
-    def _mobile_sync_snapshot(self) -> dict[str, Any]:
-        state = self.repository.load_state()
-        analytics = self.analytics_store.analytics_snapshot(state)
-        diagnostics = self._diagnostics(state)
-        return {
-            "ok": True,
-            "tool": "投資管家",
-            "version": self.VERSION,
-            "generated_at": local_device_now().isoformat(),
-            "platform": {
-                "schema": "gptbridge-investment-mobile/v1",
-                "owner_tool": "investment-mobile",
-                "source_tool": "ai-assistant",
-            },
-            "sync": self._mobile_sync_status(expose_pairing_code=False),
-            "state": self._compact_mobile_state(state),
-            "analytics": {
-                "performance": analytics.get("performance"),
-                "risk": analytics.get("risk"),
-                "stress": analytics.get("stress"),
-                "alerts": analytics.get("alerts"),
-                "calibration": analytics.get("calibration"),
-            },
-            "diagnostics": diagnostics,
-            "local_only": True,
-        }
+    async def submit_instruction(self, payload: dict[str, Any]) -> dict[str, Any]:
+        operation = str(payload.get("operation") or "").strip()
+        if not operation:
+            return {"ok": False, "error_code": "MISSING_OPERATION"}
 
-    async def _investment_mobile_get_snapshot(
-        self, _payload: dict[str, Any]
-    ) -> dict[str, Any]:
-        snapshot = self._mobile_sync_snapshot()
-        snapshot["connection_coordinator"] = "ai-assistant"
-        snapshot["transport"] = "governance-authenticated-shared-layer"
-        return snapshot
+        # Engine → business record forwarding (authoritative mirror writes).
+        if operation == "record_signal":
+            signal = payload.get("signal")
+            if not isinstance(signal, dict):
+                return {"ok": False, "error_code": "INVALID_SIGNAL"}
+            self._store.record_signal(signal)
+            return {"ok": True, "recorded": "signal"}
+        if operation == "record_order":
+            order = payload.get("order")
+            if not isinstance(order, dict):
+                return {"ok": False, "error_code": "INVALID_ORDER"}
+            self._store.record_order(order)
+            return {"ok": True, "recorded": "order"}
+        if operation == "record_fill":
+            fill = payload.get("fill")
+            if not isinstance(fill, dict):
+                return {"ok": False, "error_code": "INVALID_FILL"}
+            self._store.record_fill(fill)
+            return {"ok": True, "recorded": "fill"}
+        if operation == "record_audit":
+            event = payload.get("event")
+            if not isinstance(event, dict):
+                return {"ok": False, "error_code": "INVALID_EVENT"}
+            self._store.record_audit(event)
+            return {"ok": True, "recorded": "audit"}
+        if operation == "record_mode":
+            mode = str(payload.get("mode") or "").upper()
+            if mode not in ("ANALYSIS", "SHADOW", "PAPER", "LIVE"):
+                return {"ok": False, "error_code": "MODE_UNKNOWN"}
+            self._store.kv_set(DOMAIN_AUTO_TRADING, "trading_mode", mode)
+            return {"ok": True, "recorded": "mode", "mode": mode}
+        if operation == "record_authorization":
+            grant = payload.get("grant")
+            if not isinstance(grant, dict) or not grant.get("granted_by"):
+                return {"ok": False, "error_code": "INVALID_GRANT"}
+            self._store.record_authorization(grant)
+            return {"ok": True, "recorded": "authorization"}
 
-    async def _investment_mobile_submit_instruction(
-        self, payload: dict[str, Any]
-    ) -> dict[str, Any]:
-        if str(payload.get("operation") or "") == "update_shared_settings":
+        # Shared settings (companion-owned settings flow through here).
+        if operation == "update_shared_settings":
             settings = payload.get("settings")
             if not isinstance(settings, dict):
-                return {"ok": False, "error_code": "SETTINGS_REQUIRED"}
-            return await self._set_mobile_sync_enabled(dict(settings))
-        return await self._queue_mobile_xingcheng_command(
-            str(payload.get("instruction") or "").strip()
-        )
+                return {"ok": False, "error_code": "INVALID_SETTINGS"}
+            for key, value in settings.items():
+                self._store.kv_set("shared-settings", str(key), value)
+            return {"ok": True, "recorded": "settings"}
 
-    def _schedule_mobile_xingcheng_command(self, instruction: str) -> dict[str, Any]:
-        if not instruction.strip():
-            return {"ok": False, "message": "請輸入投資管家命令"}
-        if self._event_loop is None or self._event_loop.is_closed():
-            return {"ok": False, "message": "手機工具尚未連到投資管家 AI 通道"}
-        future = asyncio.run_coroutine_threadsafe(
-            self._queue_mobile_xingcheng_command(instruction),
-            self._event_loop,
-        )
-        return future.result(timeout=10)
+        # Market research request → 星澄 through the AI channel.
+        if operation in ("market_search", "analysis"):
+            prompt = str(payload.get("instruction") or operation)
+            result = await self._ai.consult(prompt, "investment-mobile")
+            return {"ok": result.get("ok") is not False, "analysis": result}
 
-    async def _queue_mobile_xingcheng_command(self, instruction: str) -> dict[str, Any]:
-        state = self.repository.load_state()
-        if not state.get("holdings"):
-            return {
-                "ok": False,
-                "message": "請先在桌面端讀取持股檔案",
-                "sync": self._mobile_sync_status(expose_pairing_code=False),
-            }
-        result = self._schedule_local_risk_ai_background(
-            state,
-            {
-                "trigger": "mobile_remote_command",
-                "instruction": instruction,
-                "live_quotes": True,
-            },
-        )
-        return {
-            "ok": bool(result.get("ok")),
-            "queued": bool(result.get("queued")),
-            "message": result.get("message") or "投資管家命令已排入背景執行",
-            "run": result.get("run"),
-            "sync": self._mobile_sync_status(expose_pairing_code=False),
-        }
-
-    @staticmethod
-    def _compact_mobile_state(state: dict[str, Any]) -> dict[str, Any]:
-        portfolio = state.get("portfolio") if isinstance(state.get("portfolio"), dict) else None
-        if isinstance(portfolio, dict):
-            portfolio = {
-                "file_name": portfolio.get("file_name") or "",
-                "holding_count": portfolio.get("holding_count") or 0,
-                "imported_at": portfolio.get("imported_at") or "",
-            }
-
-        holdings: list[dict[str, Any]] = []
-        for holding in state.get("holdings", []):
-            if not isinstance(holding, dict):
-                continue
-            holdings.append(
-                {
-                    "symbol": holding.get("symbol") or "",
-                    "name": holding.get("name") or "",
-                    "market": holding.get("market") or "",
-                    "asset_type": holding.get("asset_type") or "",
-                    "quantity": holding.get("quantity") or 0,
-                    "average_cost": holding.get("average_cost"),
-                    "currency": holding.get("currency") or "",
-                }
-            )
-
-        runs: list[dict[str, Any]] = []
-        for run in state.get("ai_runs", []):
-            if not isinstance(run, dict):
-                continue
-            runs.append(
-                {
-                    "run_id": run.get("run_id") or "",
-                    "role": run.get("role") or "",
-                    "provider": run.get("provider") or "",
-                    "status": run.get("status") or "",
-                    "created_at": run.get("created_at") or "",
-                    "finished_at": run.get("finished_at") or "",
-                    "content": InvestmentWatchRepository._shorten(
-                        str(run.get("content") or ""),
-                        1200,
-                    ),
-                    "error": InvestmentWatchRepository._shorten(
-                        str(run.get("error") or ""),
-                        600,
-                    ),
-                }
-            )
-            if len(runs) >= 12:
-                break
-
-        command_result = (
-            state.get("xingcheng_command_result")
-            if isinstance(state.get("xingcheng_command_result"), dict)
-            else None
-        )
-        return {
-            "portfolio": portfolio,
-            "holdings": holdings,
-            "workbook_scan_quality": state.get("workbook_scan_quality"),
-            "xingcheng_product_status": state.get("xingcheng_product_status"),
-            "xingcheng_summary": state.get("xingcheng_summary"),
-            "xingcheng_risk_warnings": list(state.get("xingcheng_risk_warnings", []))[:20],
-            "xingcheng_command_result": command_result,
-            "xingcheng_action_plan": list(state.get("xingcheng_action_plan", []))[:8],
-            "xingcheng_watch_triggers": list(state.get("xingcheng_watch_triggers", []))[:12],
-            "xingcheng_confidence": state.get("xingcheng_confidence"),
-            "xingcheng_decision_brief": state.get("xingcheng_decision_brief") or "",
-            "xingcheng_network_context": state.get("xingcheng_network_context"),
-            "shared_memory": InvestmentWatchRepository._shorten(
-                str(state.get("shared_memory") or ""),
-                8000,
-            ),
-            "ai_runs": runs,
-            "updated_at": state.get("updated_at") or "",
-        }
+        return {"ok": False, "error_code": "OPERATION_UNKNOWN", "operation": operation}

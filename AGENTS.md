@@ -295,7 +295,15 @@ or the checkpoint pinned in `runtime/settings/native-engine.json`
 (unresolvable paths are fail-closed kept). Deletions append to
 `xingcheng/runtime/logs/retention.jsonl`. Policy:
 `runtime/settings/retention.json` (`enabled=false` disables everything).
-Runs automatically at the end of every self-learning cycle; manual:
+Scheduled operation: the `retention` flow (`kind=periodic`, `interval_s=3600`)
+is registered by `SelfLearningDriver` (`main-system/src-core/tasks/self_learning_driver.py`)
+through `AutomationCore`. Each tick submits `xingcheng_retention_sweep` via the
+governed system channel **only when the xingcheng tool is already running** —
+opportunistic execution; a cold tool is never woken just to prune files
+(deferred, not lost). It also still runs at the end of every self-learning
+cycle, so this periodic flow exists to prevent retention starvation when
+self-learning is disabled. Kill switches: manifest `enabled=false` stops the
+schedule; `retention.json` `enabled=false` stops deletion. Manual:
 
 ```powershell
 # dry-run (default) / apply / status

@@ -87,7 +87,69 @@ class LocalAiLifecycleMixin:
         finally:
             self._self_learning_cycle_lock.release()
 
+    async def _handle_retention_sweep(
+        self, command: str, payload: dict[str, Any]
+    ) -> tuple[str, dict[str, Any]]:
+        """``xingcheng_retention_sweep``：受管排程觸發的一輪保留清理。
+
+        §10.67：self-learning 停用時 retention 不能跟著死亡——main-system
+        的 ``retention`` periodic flow 經 governed channel 送達本行程
+        執行（檔案操作需在工具行程內判定 lifecycle/native-engine 受保護
+        路徑）。獨立輕鎖防止重入；retention 政策（``retention.json`` 的
+        ``enabled``）由 ``apply_retention`` 權威判定。
+        """
+        if command != "xingcheng_retention_sweep":
+            return "error", {
+                "ok": False,
+                "error_code": "UNKNOWN_COMMAND",
+                "message": f"未知命令: {command}",
+            }
+        lock = self._retention_sweep_lock
+        if not lock.acquire(blocking=False):
+            return "xingcheng_retention_sweep_result", {
+                "ok": True,
+                "action": "already-running",
+                "reason": "another retention sweep is in flight",
+            }
+        # 同 self-learning：釋放由執行緒完成時做，coroutine 取消不提早放鎖。
+        result = await asyncio.to_thread(self._run_retention_sweep)
+        return "xingcheng_retention_sweep_result", result
+
+    def _run_retention_sweep(self) -> dict[str, Any]:
+        try:
+            from ..infrastructure.native_transformer.retention import (
+                apply_retention,
+            )
+
+            return apply_retention(self.tool_root)
+        except Exception as exc:  # noqa: BLE001 — 結果必須回到請求方
+            return {
+                "ok": False,
+                "action": "error",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        finally:
+            self._retention_sweep_lock.release()
+
     async def start(self) -> None:
+        # Local-model bound with Ollama (§10.7 on-demand): when local-model
+        # is opened, ensure Ollama is also ready as needed (fail-closed if
+        # unavailable, but never block model startup).
+        try:
+            import sys
+            from pathlib import Path as _P
+            # local-model's TOOL_ROOT is two levels above this file's parent
+            _sys_root = _P(__file__).resolve().parents[5]  # -> Standalone tools/local-model
+            # main-system is sibling of Standalone tools
+            _main_root = _sys_root.parents[1] / "main-system" / "src-core"
+            if str(_main_root) not in sys.path:
+                sys.path.insert(0, str(_main_root))
+            from core_system.ollama_demand import ensure_ollama_ready, ollama_installed, probe_ollama
+            if ollama_installed() and not probe_ollama(timeout=0.5):
+                # Fire-and-forget with bounded wait; model startup must not hang.
+                await asyncio.to_thread(ensure_ollama_ready, timeout_s=8.0)
+        except Exception:
+            pass
         await asyncio.gather(
             asyncio.to_thread(self._run_self_maintenance),
             asyncio.to_thread(self.transformer_runtime.probe),

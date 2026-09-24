@@ -46,6 +46,7 @@ class VaultlyDiagnosticsMixin:
             "destination": destination_health,
             "platforms": platform_health,
             "failure_summary": failure_summary,
+            "state_prune": getattr(self, "_last_state_prune", None),
             "generated_at": self._now(),
         }
 

@@ -71,6 +71,29 @@
     "primary": "governed-source-channel",
     "background": "governed-source-channel"
   },
+  "automation": {
+    "entry": "src/backend/services/xingcheng/application/local_ai_lifecycle.py",
+    "class": "LocalAiLifecycleMixin",
+    "method": "_internal_maintenance_loop",
+    "enabled": true,
+    "surfaces": [
+      {
+        "id": "xingcheng-internal-maintenance",
+        "kind": "private-loop",
+        "method": "_internal_maintenance_loop"
+      },
+      {
+        "id": "self-learning",
+        "kind": "governed-command",
+        "command": "xingcheng_self_learning_cycle"
+      },
+      {
+        "id": "retention",
+        "kind": "governed-command",
+        "command": "xingcheng_retention_sweep"
+      }
+    ]
+  },
   "capabilities": {
     "xingcheng": {
       "star_native_model_permissions": {

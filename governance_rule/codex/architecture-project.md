@@ -105,3 +105,20 @@ Git 管來源與歷史；PostgreSQL 管已宣告的中央正式狀態；Qdrant �
 模型對話的自動路由預設以星澄為第一候選。僅當星澄未啟動、不可用、能力不符或治理邊界拒絕時，才可依已登錄備援順序轉用其他模型；不得為了啟用優先路由而繞過 A540 的本地模型預設關閉規則。同步基線：A541。
 
 七個獨立工具的操作、流程、UI、資料、修復與業務規範只存於各工具自身實體邊界，由該工具管理版本、相容性、生命週期與驗證。權限核心只保存定位與權限索引；法典只保存平台原則、權責與禁止事項；Runtime 規則索引不得收錄工具規範內容。
+
+## 自適化環境資源架構
+
+```mermaid
+flowchart TB
+  ROOT["E:\\GPTBridge 專案根"] --> SRC[已登錄原始碼與控制檔]
+  ROOT --> ADAPT[".adaptive 唯一受管資源根"]
+  ADAPT --> ENV[Python 執行環境與 venv]
+  ADAPT --> SDK[SDK 與 Toolchain]
+  ADAPT --> PKG[套件與依賴快取]
+  ADAPT --> MODEL[非 Ollama 模型與相關產物]
+  ADAPT --> STAGE[暫存與原子啟用區]
+  WIN[Windows 原生工具] -. 唯一外部例外 .-> ROOT
+  OLLAMA[Ollama 與其受管模型庫] -. 唯一外部例外 .-> ROOT
+```
+
+除 Windows 原生工具及 Ollama 外，所有 GPTBridge 受管執行環境、SDK、Toolchain、套件、依賴快取與模型資源均位於 `E:\GPTBridge\.adaptive` 的分類子目錄；不得直接散落在 `E:\GPTBridge` 頂層。自適化管理只能在該資源根內調整位置、容量與生命週期，不得改變身分、權威、雜湊、擁有者或使用範圍。

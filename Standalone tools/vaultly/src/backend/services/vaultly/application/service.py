@@ -114,6 +114,7 @@ class VaultlyService(
             }
             for platform in PLATFORMS
         }
+        self._last_state_prune: dict[str, Any] | None = None
 
     @property
     def workspace(self) -> Any:
@@ -126,6 +127,18 @@ class VaultlyService(
         return command in self.COMMANDS
 
     async def start(self) -> None:
+        # Bound history-table growth once per process start (dedupe
+        # tables and the removed-accounts restore list are never pruned;
+        # media files under the user-chosen destination stay untouched).
+        try:
+            self._last_state_prune = await asyncio.to_thread(
+                self.repository.prune_state
+            )
+        except Exception as exc:
+            self._last_state_prune = {
+                "ok": False,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
         for job_id in self.repository.requeue_interrupted_jobs():
             if self._user_opened and self._can_start_browser_work():
                 self._schedule_job(job_id)

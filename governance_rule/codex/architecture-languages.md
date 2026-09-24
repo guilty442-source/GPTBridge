@@ -29,6 +29,19 @@ flowchart TB
 
 所有執行模組以 C／C++ 為優先；遷移必須維持契約、權限、審計與失敗關閉語意。`request_registry` 原生路徑目前仍為 `SHADOW`／`STAGED`，宿主未接入 `_native_primary` 前不得標示為 primary。啟動上限十秒、強制測試套件上限二十秒、各獨立審計流程上限三十秒，逾時依正式政策失敗關閉。
 
+```mermaid
+flowchart LR
+  LANG[語言執行與建置] --> ADAPT["E:\\GPTBridge\\.adaptive"]
+  ADAPT --> PYENV[Python / venv]
+  ADAPT --> SDK[SDK / Toolchain]
+  ADAPT --> DEP[套件 / 依賴快取]
+  ADAPT --> MODEL[非 Ollama 模型]
+  WIN[Windows 原生工具] -. 外部例外 .-> LANG
+  OLLAMA[Ollama] -. 外部例外 .-> LANG
+```
+
+語言執行與建置所需的受管資源集中於 `.adaptive`，並依種類、擁有者、版本、平台及架構自適化分層；不得為任一語言在專案頂層另建環境、SDK、Toolchain、套件快取或模型目錄。唯一外部例外是 Windows 原生工具與 Ollama。
+
 ## 測試與審計套件動態權責
 
 五個核心各自決定其所屬測試套件與審計套件的新增、刪除、排序、啟停及調整，不需要五核心一致同意，也不需要其他核心、權限核准或治理通道核准。唯一限制是遵守對應的程式語言規範；套件組態屬非權威的運作設定，不得因此取得法典、裁決或權限權威。C# `TestSuiteOrchestrator` 仍是唯一測試編排介面，C／C++ 執行原生測試，C++ 執行審計套件。

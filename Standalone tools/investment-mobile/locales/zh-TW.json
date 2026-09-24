@@ -1,6 +1,6 @@
 {
-  "tool.name": "投資管家手機版",
-  "tool.window_title": "投資管家手機版",
-  "tool.description": "投資分析移動工具，連接投資管家與外部 AI，採用驗證式即時連線、獨立資料庫。",
+  "tool.name": "星澄投資操盤",
+  "tool.window_title": "星澄 AI 投資管理與自動操盤系統",
+  "tool.description": "台股、美股、基金分析與 AI 自動操盤工具；星澄產生分析與候選訊號，獨立策略與風控引擎處理交易決策。預設 ANALYSIS，LIVE 需明確人工授權與已驗證券商 API。",
   "errors.permission_denied": "權限不足"
 }

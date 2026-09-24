@@ -54,7 +54,9 @@
   "no governor_disposition_* metadata key covers the startup deadline (six existing keys inspected)",
   "main-system/config/startup_manifest.json committed at 40000 follows the metadata value; probe_constants.startup_gate_deadline_seconds moved 8.0->90.0 (manifest-only key, not codified)",
   "runtime resolution path: governed_startup_constant reads metadata.startup_complete_deadline_ms codex-first with manifest fallback",
-  "code constant STARTUP_HARD_DEADLINE_MS=10000 unchanged; SLA test pins it at 10000 and passes"
+  "code constant STARTUP_HARD_DEADLINE_MS=10000 unchanged; SLA test pins it at 10000 and passes",
+  "governance_rule/codex/architecture-languages.md normative text still legislates 啟動上限十秒/各獨立審計流程上限三十秒 — the human-language codex corpus retains the pre-retune values for both deadlines",
+  "related: AUDIT_FLOW_BUDGET_SECONDS was governor-retuned 30->60s (documented in audit_checks.py); architecture-languages.md still states 三十秒 — same divergence class"
  ],
  "worker_note": "Draft produced by devin-cli audit worker; requires governor authorization before any normalization. The worker did not modify the codex or the manifest; the manifest delta observed in the working tree follows the already-amended metadata value.",
  "codex_mutation": "none"

@@ -1,1 +1,5 @@
-"""AI Investment Manager-owned persistence, privacy, and file adapters."""
+"""Persistence adapters — canonical trading store and privacy helpers."""
+
+from .trading_store import TradingStore
+
+__all__ = ("TradingStore",)

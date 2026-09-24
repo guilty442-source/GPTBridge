@@ -854,6 +854,18 @@ def _create_self_learning_commands() -> list:
             parameters=(),
             examples=("xingcheng_self_learning_cycle",),
         ),
+        CommandSpec(
+            name="xingcheng_retention_sweep",
+            handler="_handle_retention_sweep",
+            category="self_learning",
+            description=(
+                "執行一輪資料保留清理（main-system retention flow 經 "
+                "system channel 觸發；§10.67）"
+            ),
+            aliases=(),
+            parameters=(),
+            examples=("xingcheng_retention_sweep",),
+        ),
     ]
 
 

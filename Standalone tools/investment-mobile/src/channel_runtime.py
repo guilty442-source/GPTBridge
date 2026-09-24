@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 sys.path.insert(0, str(TOOL_ROOT / "src" / "backend" / "services"))
 
 from investment_mobile.integration.clients import ChannelClient  # noqa: E402
+from investment_mobile.trading import TradingEngineService  # noqa: E402
 from governance_rule.execution.tool_runtime.governed_runtime import GovernedToolRuntime  # noqa: E402
 
 
@@ -27,8 +28,7 @@ _GOVERNANCE_MAIN_ACTOR = "governance/main-system"
 _SELF_ACTOR = f"governance/tool/{TOOL_ID}"
 _AUTHORIZED_REQUESTERS = frozenset({_GOVERNANCE_MAIN_ACTOR, _SELF_ACTOR})
 
-# Codex canonical commands (investment-mobile domain) plus the legacy
-# capability aliases declared in manifest.capabilities.
+# Business relay commands — forwarded to ai-assistant through xingcheng.
 _SNAPSHOT_COMMANDS = frozenset(
     {
         "investment-analysis",
@@ -53,12 +53,21 @@ _LOCAL_COMMANDS = frozenset(
 
 
 class InvestmentMobileService:
+    """Thin governed shell + trading engine cluster.
+
+    星澄 AI 投資管理與自動操盤系統: the engines (risk/strategy/OMS/
+    portfolio/broker-adapter/audit) live in this tool boundary; business
+    data and AI analysis stay owned by ai-assistant behind the xingcheng
+    relay.
+    """
+
     TOOL_ID = TOOL_ID
     VERSION = "1.0.0"
 
     def __init__(self, tool_root: Path) -> None:
         self.tool_root = tool_root
         self.channel = ChannelClient(TOOL_ID)
+        self.engines = TradingEngineService(tool_root)
         self._started = False
 
     def owns(self, command: str) -> bool:
@@ -66,10 +75,12 @@ class InvestmentMobileService:
             command in _SNAPSHOT_COMMANDS
             or command in _INSTRUCTION_COMMANDS
             or command in _LOCAL_COMMANDS
+            or self.engines.owns(command)
         )
 
     def bind_channel(self, channel: Any) -> None:
         self.channel.bind_channel(channel)
+        self.engines.bind_channel(channel)
 
     async def handle(
         self, command: str, payload: dict[str, Any]
@@ -82,12 +93,15 @@ class InvestmentMobileService:
         if command in _INSTRUCTION_COMMANDS:
             result = await self.channel.submit_instruction(dict(payload))
             return f"{command}_result", result
+        if self.engines.owns(command):
+            return await self.engines.handle(command, dict(payload))
         raise PermissionError("PERMISSION_DENIED")
 
     def _status(self, command: str) -> dict[str, Any]:
         return {
             "ok": True,
             "tool_id": TOOL_ID,
+            "product": "星澄 AI 投資管理與自動操盤系統",
             "command": command,
             "started": self._started,
             "channel_connected": self.channel.connected,
@@ -96,6 +110,15 @@ class InvestmentMobileService:
             "business_layer_owner": "ai-assistant",
             "permission_profile": "ai-investment-manager-v1",
             "relay_chain": "investment-mobile -> xingcheng -> ai-assistant",
+            "trading_mode": self.engines.mode_gate.mode.value,
+            "engines": [
+                "strategy",
+                "risk",
+                "oms",
+                "portfolio",
+                "broker-adapter",
+                "trading-audit",
+            ],
         }
 
     async def start(self) -> None:
@@ -132,6 +155,7 @@ async def main() -> None:
             "service_ready": True,
             "channel_connected": service.channel.connected,
             "ai_channel_mode": "submit-only",
+            "trading_mode": service.engines.mode_gate.mode.value,
         },
         channel_modes={"ai": "submit"},
     )

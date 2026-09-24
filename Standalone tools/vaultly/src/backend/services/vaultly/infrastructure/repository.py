@@ -5,6 +5,7 @@ from ._downloads import DownloadMixin
 from ._entity_history import EntityHistoryMixin
 from ._filter_terms import FilterTermsMixin
 from ._jobs import JobMixin
+from ._maintenance import MaintenanceMixin
 from ._post_scan_jobs import PostScanJobMixin
 from ._posts import PostMixin
 from ._removed_accounts import RemovedAccountsMixin
@@ -27,5 +28,6 @@ class VaultlyRepository(
     SettingsMixin,
     JobMixin,
     DownloadMixin,
+    MaintenanceMixin,
 ):
     pass

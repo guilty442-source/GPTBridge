@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>InvestmentMobile.Oms</AssemblyName>
+    <RootNamespace>InvestmentMobile.Oms</RootNamespace>
+    <Description>星澄 AI 投資管理與自動操盤系統 — order management and broker orchestration (C#).</Description>
+  </PropertyGroup>
+
+</Project>

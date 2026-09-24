@@ -2954,3 +2954,83 @@
     padding-top: 10px;
   }
 }
+
+/* ===== 星澄 AI 投資管理與自動操盤系統 console ===== */
+
+.nexus-console-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  border-bottom: 1px solid #d8dde3;
+  padding-bottom: 12px;
+}
+
+.nexus-console-header h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.nexus-console-status {
+  color: #5a6672;
+  font-size: 13px;
+}
+
+.nexus-console-nav {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.nexus-console-nav-item {
+  padding: 8px 14px;
+  border: 1px solid #c9d1d9;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.nexus-console-nav-item.active {
+  background: #1f6feb;
+  border-color: #1f6feb;
+  color: #fff;
+}
+
+.nexus-console-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.nexus-console-actions button {
+  padding: 8px 12px;
+  border: 1px solid #c9d1d9;
+  border-radius: 8px;
+  background: #f6f8fa;
+  cursor: pointer;
+}
+
+.nexus-console-actions button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.nexus-console-error {
+  color: #cf222e;
+}
+
+.nexus-console-output {
+  background: #f6f8fa;
+  border: 1px solid #d8dde3;
+  border-radius: 8px;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.nexus-console-note {
+  color: #5a6672;
+  font-size: 12px;
+  margin-top: 24px;
+}

@@ -107,6 +107,48 @@
     "title_key": "tool.window_title"
   },
   "test_targets": [
-    "tests/test_investment_mobile_reexport.py"
-  ]
+    "tests/test_investment_mobile_reexport.py",
+    "tests/test_trading_engines.py"
+  ],
+  "product": "星澄 AI 投資管理與自動操盤系統",
+  "trading_system": {
+    "product": "星澄 AI 投資管理與自動操盤系統",
+    "domains": [
+      "tw-stock",
+      "us-stock",
+      "fund",
+      "ai-analysis",
+      "auto-trading",
+      "asset-management"
+    ],
+    "engines": [
+      "strategy",
+      "risk",
+      "oms",
+      "portfolio",
+      "broker-adapter",
+      "trading-audit"
+    ],
+    "trading_modes": [
+      "ANALYSIS",
+      "SHADOW",
+      "PAPER",
+      "LIVE"
+    ],
+    "default_mode": "ANALYSIS",
+    "live_requires": "explicit-human-authorization+verified-broker-api",
+    "broker_adapters": {
+      "tw": "cathay-tw",
+      "us": "fubon-us-sub",
+      "fund": "fund-platform-extensible"
+    },
+    "native_components": {
+      "risk_core": "native/risk/risk_core.c",
+      "strategy_engine": "native/strategy/strategy_engine.cpp",
+      "oms": "native/oms/InvestmentMobile.Oms.csproj"
+    },
+    "signal_owner": "xingcheng-analysis-only",
+    "decision_owner": "independent-strategy-and-risk-engines",
+    "business_layer_owner": "ai-assistant"
+  }
 }

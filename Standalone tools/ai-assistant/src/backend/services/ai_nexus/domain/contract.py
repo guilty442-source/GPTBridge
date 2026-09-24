@@ -1,10 +1,18 @@
+"""星澄 AI 投資管理與自動操盤系統 — business-layer contract.
+
+ai-assistant owns the business layer and canonical records (signals,
+orders, fills mirror, authorizations, domain state). The trading engine
+cluster lives in the investment-mobile tool boundary; records reach this
+store through the governed ``xingcheng_mobile_*`` channel envelopes.
+"""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 
-def _investment_app_version() -> str:
+def _trading_app_version() -> str:
     try:
         from shared_layer.registry.versioning import component_version
 
@@ -23,25 +31,29 @@ def _investment_app_version() -> str:
     return "1.0.0"
 
 
-# Application releases and persisted-data schemas intentionally evolve
-# independently.  Keeping them separate prevents a UI/feature release from
-# being mistaken for a destructive data migration.
-INVESTMENT_APP_VERSION = _investment_app_version()
-INVESTMENT_STATE_SCHEMA_VERSION = 2
-INVESTMENT_STATE_MIN_SUPPORTED_SCHEMA_VERSION = 1
-INVESTMENT_ANALYTICS_SCHEMA_VERSION = 5
+TRADING_APP_VERSION = _trading_app_version()
+TRADING_SCHEMA_VERSION = 1
 
+# The six core business domains of the rebuilt system.
+DOMAIN_TW_STOCK = "tw-stock"
+DOMAIN_US_STOCK = "us-stock"
+DOMAIN_FUND = "fund"
+DOMAIN_AI_ANALYSIS = "ai-analysis"
+DOMAIN_AUTO_TRADING = "auto-trading"
+DOMAIN_ASSET_MGMT = "asset-management"
 
-def upgrade_compatibility_contract() -> dict[str, object]:
-    return {
-        "application_version": INVESTMENT_APP_VERSION,
-        "state_schema": {
-            "current": INVESTMENT_STATE_SCHEMA_VERSION,
-            "minimum_supported": INVESTMENT_STATE_MIN_SUPPORTED_SCHEMA_VERSION,
-        },
-        "analytics_schema": {
-            "current": INVESTMENT_ANALYTICS_SCHEMA_VERSION,
-        },
-        "migration_policy": "snapshot_then_atomic_migrate",
-        "future_schema_policy": "fail_closed_without_overwrite",
-    }
+DOMAIN_IDS = (
+    DOMAIN_TW_STOCK,
+    DOMAIN_US_STOCK,
+    DOMAIN_FUND,
+    DOMAIN_AI_ANALYSIS,
+    DOMAIN_AUTO_TRADING,
+    DOMAIN_ASSET_MGMT,
+)
+
+# Market → domain routing shared by domains and the store.
+MARKET_DOMAIN = {
+    "tw": DOMAIN_TW_STOCK,
+    "us": DOMAIN_US_STOCK,
+    "fund": DOMAIN_FUND,
+}

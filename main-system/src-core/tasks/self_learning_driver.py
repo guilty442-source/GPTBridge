@@ -44,15 +44,18 @@ from tasks.resource_governor_signal import (
 _logger = logging.getLogger("gptbridge.self_learning_driver")
 
 FLOW_ID = "self-learning"
+RETENTION_FLOW_ID = "retention"
 OWNER_TOOL_ID = "local-model"
 CHANNEL_TOOL_ID = "xingcheng"
 CYCLE_COMMAND = "xingcheng_self_learning_cycle"
+RETENTION_COMMAND = "xingcheng_retention_sweep"
 
 _STATE_FILE = (
     Path(__file__).resolve().parents[2]
     / "runtime" / "state" / "self-learning-driver.json"
 )
 _POLICY_RELATIVE = Path("runtime") / "settings" / "self-learning.json"
+_RETENTION_POLICY_RELATIVE = Path("runtime") / "settings" / "retention.json"
 _TOOL_STATE_RELATIVE = (
     Path("xingcheng") / "runtime" / "state" / "self-learning.json"
 )
@@ -138,6 +141,8 @@ class SelfLearningDriver:
         self._tool_root = root / "Standalone tools" / "local-model"
         self._state_path = Path(state_path) if state_path else _STATE_FILE
         self._registered = False
+        self._retention_registered = False
+        self._last_retention_decision = ""
         # request_id -> monotonic submit time；超齡未消訖視為遺失。
         self._outstanding: dict[str, float] = {}
         self._wake_streak = 0
@@ -162,19 +167,32 @@ class SelfLearningDriver:
         # Interval comes from the governed manifest (automation-flows.json);
         # a denial means kill switch / unlisted — never fall back.
         self._registered = core.register_flow(FLOW_ID, self.run_once)
+        # §10.67：retention 是獨立 periodic flow——self-learning 停用時
+        # 保留清理不得跟著死亡（它唯一的另一觸發點是 run_cycle 結尾）。
+        self._retention_registered = core.register_flow(
+            RETENTION_FLOW_ID, self.run_retention_once
+        )
         return {
             "status": "registered" if self._registered else "denied",
             "flow": FLOW_ID,
+            "retention_flow": (
+                "registered" if self._retention_registered else "denied"
+            ),
         }
 
     async def stop(self) -> None:
         core = getattr(self.app, "automation_core", None)
-        if core is not None and self._registered:
-            try:
-                core.unregister(FLOW_ID)
-            except Exception:
-                pass
-        self._registered = False
+        if core is not None:
+            for flow_id, flag in (
+                (FLOW_ID, "_registered"),
+                (RETENTION_FLOW_ID, "_retention_registered"),
+            ):
+                if getattr(self, flag):
+                    try:
+                        core.unregister(flow_id)
+                    except Exception:
+                        pass
+                setattr(self, flag, False)
 
     # ------------------------------------------------------------------
     # tick
@@ -225,7 +243,44 @@ class SelfLearningDriver:
             if wake is not True:
                 return wake
 
-        return await self._submit_cycle()
+        return await self._submit_cycle(CYCLE_COMMAND)
+
+    # ------------------------------------------------------------------
+    # retention tick — §10.67 機會式執行：只在工具已在跑時提交，
+    # 絕不為了修剪檔案喚醒冷停的工具（檔案不急迫，喚醒成本高）。
+    # ------------------------------------------------------------------
+
+    async def run_retention_once(self) -> None:
+        """Retention flow tick — never raises into the shared loop."""
+        try:
+            decision = await self._retention_tick_inner()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # noqa: BLE001 — audit then isolate
+            decision = "error"
+            self._last_error = f"{type(error).__name__}: {error}"
+            _logger.warning("retention driver tick failed: %s", error)
+        self._last_retention_decision = decision
+        self._write_state()
+
+    async def _retention_tick_inner(self) -> str:
+        await self._drain_results()
+
+        policy = _read_json(self._tool_root / _RETENTION_POLICY_RELATIVE)
+        if policy is None:
+            # fail-closed：政策不可讀時不觸發刪除。
+            return "policy-unreadable"
+        if policy.get("enabled") is not True:
+            return "policy-disabled"
+
+        if self._outstanding:
+            return "request-outstanding"
+
+        if not await self._owner_active():
+            # 不喚醒——retention 順路執行即可；工具冷停時檔案修剪可等。
+            return "owner-cold-deferred"
+
+        return await self._submit_cycle(RETENTION_COMMAND)
 
     # ------------------------------------------------------------------
     # due pre-checks (mirror of the tool-side gates; authoritative copy
@@ -329,14 +384,14 @@ class SelfLearningDriver:
     # request submission + response draining
     # ------------------------------------------------------------------
 
-    async def _submit_cycle(self) -> str:
-        request_id = f"self-learning-{time.time_ns()}"
+    async def _submit_cycle(self, command: str) -> str:
+        request_id = f"{command}-{time.time_ns()}"
         try:
             result = await self.toolbox.request_tool_execution(
                 {
                     "tool_id": OWNER_TOOL_ID,
                     "request_id": request_id,
-                    "_governed_command": CYCLE_COMMAND,
+                    "_governed_command": command,
                 }
             )
         except Exception as error:  # noqa: BLE001
@@ -417,7 +472,9 @@ class SelfLearningDriver:
     def status(self) -> dict[str, Any]:
         return {
             "registered": self._registered,
+            "retention_registered": self._retention_registered,
             "last_decision": self._last_decision,
+            "last_retention_decision": self._last_retention_decision,
             "last_error": self._last_error or None,
             "outstanding": [
                 {

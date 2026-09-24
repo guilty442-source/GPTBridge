@@ -1,1 +1,0 @@
-"""Broker adapter infrastructure."""

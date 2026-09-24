@@ -31,9 +31,9 @@ def _with_network_policy(function):
 def main() -> None:
     install_investment_manager_network_policy()
     workspace = Path(__file__).resolve().parent.parent
-    print("AI Investment Manager is registered as a standalone GPTBridge application.")
+    print("星澄 AI 投資管理與自動操盤系統 business layer is registered as a standalone GPTBridge application.")
     print(f"Project folder: {workspace}")
-    print("Open 投資管家 from the Applications screen.")
+    print("Open 星澄投資管理 from the Applications screen.")
     uninstall_investment_manager_network_policy()
 
 

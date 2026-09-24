@@ -223,6 +223,7 @@ class LocalAiService(
         "xingcheng_codex_mirror_check",
         "xingcheng_submit_teaching",
         "xingcheng_self_learning_cycle",
+        "xingcheng_retention_sweep",
     }
 
     def __init__(
@@ -317,6 +318,9 @@ class LocalAiService(
         # 排程觸發；claim lease 到期重排或連續 tick 可能造成重複請求，
         # 此鎖保證同一行程內任一時刻只有一個 run_cycle 在跑。
         self._self_learning_cycle_lock = threading.Lock()
+        # §10.67：retention sweep 重入鎖（與訓練鎖分離——保留清理不阻塞
+        # 訓練互斥語意，但同行程仍只允許一輪）。
+        self._retention_sweep_lock = threading.Lock()
         self._runtime_metrics: dict[str, int | float | str] = {
             "inference_request_count": 0,
             "analysis_request_count": 0,

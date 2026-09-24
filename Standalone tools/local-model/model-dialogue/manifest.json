@@ -8,7 +8,7 @@
   "enabled": true,
   "independent_tool": true,
   "main_system_independent_tool": true,
-  "host_tool_id": "local-model",
+  "host_tool_id": "model-dialogue",
   "canonical_source_root": "local-model/model-dialogue",
   "physical_owner_root": "local-model",
   "lifecycle": {

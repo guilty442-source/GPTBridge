@@ -251,7 +251,9 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
         return current >= self._next_due_epoch(self._load_state())
 
     async def start(self) -> None:
-        # §1.1 自動化集中：automation core 為唯一註冊點；deny 不回落私有迴圈。
+        # §1.1 自動化集中：automation core 為唯一註冊點——它承載 manifest
+        # allowlist 與 kill switch；直接註冊到 scheduler 會繞過清單閘。
+        # deny／無核心皆不回落（與 self-learning driver 同約定）。
         core = getattr(self.app, "automation_core", None)
         if core is not None:
             core.register_flow(
@@ -259,32 +261,16 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
                 self._scheduled_tick,
             )
             return
-        scheduler = getattr(self.app, "periodic_scheduler", None)
-        if scheduler is not None:
-            # §10.63 R3: shared loop; the job re-checks is_due at a coarse
-            # cadence — due semantics unchanged (run_if_due only fires at
-            # the computed deadline).
-            scheduler.register(
-                "daily-global-cleaner",
-                300.0,
-                self._scheduled_tick,
-                pausable=True,
-            )
-            return
-        # 單一排程者語意：無核心亦無共享排程器時不回落私有迴圈。
         _logger.warning(
             "DailyGlobalCleanerService not started: no automation core "
-            "or periodic scheduler"
+            "(no raw-scheduler fallback — manifest gate is the only path)"
         )
 
     async def stop(self) -> None:
         self._stop_event.set()
         core = getattr(self.app, "automation_core", None)
-        scheduler = getattr(self.app, "periodic_scheduler", None)
         if core is not None:
             core.unregister("daily-global-cleaner")
-        elif scheduler is not None:
-            scheduler.unregister("daily-global-cleaner")
 
     async def _scheduled_tick(self) -> None:
         """One due-check for the shared scheduler."""

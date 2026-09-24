@@ -97,7 +97,16 @@ class ToolPathValidationMixin:
                 and manifest.get("companion_tool") is not True
                 and manifest.get("host_tool_id") == host_tool_id
             )
-            if not (owned_companion or declared_independent_hosted):
+            # Independent self-hosted: model-dialogue can be physically inside
+            # local-model but declare host as itself, allowing it to start
+            # even when local-model is closed (design: model-dialogue opens
+            # without local-model and talks to xingcheng on demand).
+            independent_self_hosted = (
+                manifest.get("main_system_independent_tool") is True
+                and manifest.get("host_tool_id") == manifest.get("id")
+                and manifest.get("id") in ("model-dialogue", "star-chat")
+            )
+            if not (owned_companion or declared_independent_hosted or independent_self_hosted):
                 raise ValueError("Nested tool is not an authorized companion")
             return resolved
         if len(relative.parts) == 4 and relative.parts[0] == "Standalone tools":

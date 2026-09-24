@@ -1,14 +1,22 @@
-# Investment Mobile 完整架構圖
+# Investment Mobile 完整架構圖（星澄 AI 投資管理與自動操盤系統）
 
 ```mermaid
 flowchart TB
-  CLIENT[Mobile Client] --> GATE[Authenticated Gateway]
+  CONSOLE[Trading Console Client] --> GATE[Authenticated Gateway]
   GATE --> SESSION[Bounded Session and Generation]
   SESSION --> IDENT[Session Identity Binding]
   SESSION --> CHANNEL[Governed AI-channel Submission]
   CHANNEL --> INFO[Information Layer]
-  INFO --> AI[AI Assistant Domain]
-  GATE --> STATE[(Mobile Runtime State and Cache)]
+  INFO --> AI[AI Assistant Business Domain]
+  AI --> STORE[(Canonical Trading Store)]
+  GATE --> ENGINES[Trading Engine Cluster]
+  ENGINES --> STRAT[Strategy Engine - C++]
+  ENGINES --> RISK[Risk Engine - C]
+  ENGINES --> OMS[Order Management - C#]
+  ENGINES --> PORTFOLIO[Portfolio Engine]
+  ENGINES --> ADAPTERS[Broker Adapters - Cathay TW / Fubon US / Fund Platforms]
+  ENGINES --> AUDIT[(Trading Audit Journal)]
+  GATE --> STATE[(Runtime State and Cache)]
   AI --> SETTINGS[(AI Assistant-owned Business Settings)]
   GATE --> CRED[Credential Metadata Boundary]
   GATE --> PROC[Independent Process Tree]
@@ -16,7 +24,9 @@ flowchart TB
   PROC --> FAULT[Isolated Failure Boundary]
 ```
 
-Investment Mobile 是獨立 runtime；其 cache 與連線狀態不得升格為 AI Assistant 的正式業務資料。
+Investment Mobile 是獨立 runtime，承載交易引擎群；其 cache、runtime journal 與連線狀態不得升格為 AI Assistant 的正式業務資料。星澄只產生分析與候選交易訊號；正式交易決策由獨立策略引擎與風控引擎處理。
+
+交易模式：ANALYSIS（預設）→ SHADOW → PAPER → LIVE。LIVE 必須具備明確人工授權紀錄且目標券商 Adapter 的官方 API 已驗證，否則一律 fail-closed；券商 API 未驗證前僅允許分析、建議與模擬交易。
 
 同步基線：A528、A537、A538、A540；獨立工具啟動與關閉各自上限 5 秒，逾時 fail-closed。
 
