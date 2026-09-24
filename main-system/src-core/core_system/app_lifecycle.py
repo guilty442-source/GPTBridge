@@ -130,31 +130,10 @@ class AppLifecycleMixin:
         # coordination surface with cross-sovereign health monitoring.
         self.system_automation_coordinator = SystemAutomationCoordinator(self)
 
-        # Sub-sovereigns (initialized on demand, parent set via set_parent)
+        # Retired sub-sovereign registry kept empty by design (A592/A604:
+        # the layer is eliminated; FORBID:sub-sovereign-routing).  The dict
+        # stays as a compat surface for status readers.
         self._sub_sovereigns: dict[str, Any] = {}
-        self._sub_sovereign_classes: dict[str, str] = {
-            "system-sub-sovereign": "SystemSubSovereign",
-            "startup-sub-sovereign": "StartupSubSovereign",
-            "directory-sub-sovereign": "DirectorySubSovereign",
-            "identity-group-sub-sovereign": "IdentityGroupSubSovereign",
-            "resource-dependency-sync-sub-sovereign": "ResourceDependencySyncSubSovereign",
-            "channel-contract-sync-sub-sovereign": "ChannelContractSyncSubSovereign",
-            "policy-architecture-sub-sovereign": "PolicyArchitectureSubSovereign",
-            "health-maintenance-test-sub-sovereign": "HealthMaintenanceTestSubSovereign",
-            "data-governance-sub-sovereign": "DataGovernanceSubSovereign",
-            "priority-capability-sub-sovereign": "PriorityCapabilitySubSovereign",
-            "change-acceptance-sub-sovereign": "ChangeAcceptanceSubSovereign",
-            "dependency-sync-sub-sovereign": "DependencySyncSubSovereign",
-            "release-update-sync-sub-sovereign": "ReleaseUpdateSyncSubSovereign",
-            "runtime-state-sync-sub-sovereign": "RuntimeStateSyncSubSovereign",
-            "repair-backup-sync-sub-sovereign": "RepairBackupSyncSubSovereign",
-            "cleanup-retention-sync-sub-sovereign": "CleanupRetentionSyncSubSovereign",
-            "learning-evidence-sync-sub-sovereign": (
-                "governance.sovereigns.xingcheng.learning_sub_sovereign:"
-                "LearningEvidenceSyncSubSovereign"
-            ),
-            "automatic-log-sync-sub-sovereign": "AutomaticLogSyncSubSovereign",
-        }
 
         self.hot_reload_watcher: Any | None = None
         self.authority_reanchor_service: Any | None = None
@@ -276,87 +255,14 @@ class AppLifecycleMixin:
             "automation_sovereign": self.automation_sovereign.live_status(),
             "xingcheng_sovereign": self.xingcheng_sovereign.live_status(),
             "system_automation": self.system_automation_coordinator.system_status(),
-            "sub_sovereigns": self._collect_sub_sovereign_status(),
+            # A592/A604: the sub-sovereign layer is eliminated — the key
+            # stays as an empty compat surface for status consumers.
+            "sub_sovereigns": {},
         }
 
-    def _collect_sub_sovereign_status(self) -> dict[str, Any]:
-        """Aggregate live status from every materialized codex child.
-
-        The executor registers children into each codex parent's own
-        ``_sub_sovereigns`` registry (A334) — the app-level dict is a
-        legacy surface that is usually empty, so enumerate the parents'
-        registries via the hierarchy registry instead.
-        """
-        collected: dict[str, Any] = dict(
-            getattr(self, "_sub_sovereigns", {}) or {}
-        )
-        try:
-            from governance.registries import children_of, resolve_sovereign
-
-            for parent_id in (
-                "decision-sovereign",
-                "permission-sovereign",
-                "system-runtime-sovereign",
-                "automation-sovereign",
-                # A485: 星澄's learning sub-sovereign surfaces here too.
-                "星澄",
-            ):
-                parent = resolve_sovereign(self, parent_id)
-                registry = getattr(parent, "_sub_sovereigns", None)
-                if not registry:
-                    continue
-                for child_id in children_of(parent_id):
-                    child = registry.get(child_id)
-                    if child is not None:
-                        collected.setdefault(child_id, child)
-        except Exception:
-            pass
-        out: dict[str, Any] = {}
-        for name, sov in collected.items():
-            live = getattr(sov, "live_status", None)
-            try:
-                out[name] = live() if callable(live) else {"started": False}
-            except Exception:
-                out[name] = {"error": "live_status-failed"}
-        return out
-
     def get_sub_sovereign(self, name: str) -> Any | None:
-        """Lazy-load a sub-sovereign by name (e.g., 'startup-sub-sovereign').
-
-        A592/A604: only codex-active hierarchy children may materialize;
-        retired identities fail closed to ``None``
-        (FORBID:sub-sovereign-routing).
-        """
-        if name in self._sub_sovereigns:
-            return self._sub_sovereigns[name]
-        class_ref = self._sub_sovereign_classes.get(name)
-        if not class_ref:
-            return None
-        try:
-            from governance.registries import child_status
-
-            if child_status(name) != "active":
-                return None
-        except Exception:
-            return None
-        try:
-            if ":" in class_ref:
-                # Dotted ``module:Class`` reference (A485: the learning
-                # sub-sovereign lives in the 星澄 owner package).
-                module_name, class_name = class_ref.split(":", 1)
-                module = __import__(module_name, fromlist=[class_name])
-                cls = getattr(module, class_name)
-            else:
-                from governance.sub_sovereigns import __all__ as _all
-                if class_ref not in _all:
-                    return None
-                module = __import__("governance.sub_sovereigns", fromlist=[class_ref])
-                cls = getattr(module, class_ref)
-            instance = cls(self)
-            self._sub_sovereigns[name] = instance
-            return instance
-        except Exception:
-            return None
+        """A592/A604: sub-sovereign identities are retired — fail closed."""
+        return None
 
     def _load_governance_rules(self) -> list[str]:
         """Return the versioned, immutable main-system governance catalog."""

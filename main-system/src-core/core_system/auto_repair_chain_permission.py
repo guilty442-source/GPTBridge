@@ -48,7 +48,7 @@ class RepairPermissionValidator:
         Returns None if permission denied.
         """
         # Verify actor has authority to request this repair
-        if actor not in ("runtime-sovereign", "release-update-sync-sub-sovereign", "health-maintenance-test-sub-sovereign"):
+        if actor not in ("system-runtime-sovereign", "automation-sovereign", "decision-sovereign"):
             self.audit.record("permission_denied", {
                 "objective_id": objective.objective_id,
                 "actor": actor,

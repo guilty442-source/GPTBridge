@@ -57,10 +57,10 @@ class DecisionStartupDispatchMixin:
             {
                 "authorized": True,
                 "sequence": [
-                    "sync-sub-sovereigns-and-cleaner",
+                    "peer-cores-and-cleaner",
                     "permission-sovereign",
                     "maintenance-and-self-maintenance",
-                    "decision-sovereign-and-sub-sovereigns",
+                    "decision-sovereign",
                 ],
                 "dependency_state": dependency_state,
                 "parallelism": "bounded-independent-per-A155",

@@ -31,7 +31,6 @@ from .architecture_registry import (
 
 _SOVEREIGN_OWNERSHIP_MODULE = (
     "main-system/governance/sovereigns/__init__.py",
-    "main-system/governance/sub-sovereigns/__init__.py",
 )
 _PERMISSION_TOOL_ROUTES = (
     "governance_rule/permission_directory/registries/permissions/tool_routes.py"

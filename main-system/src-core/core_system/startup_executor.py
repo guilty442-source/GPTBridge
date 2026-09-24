@@ -71,7 +71,7 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
     result is published through the information layer.
     """
 
-    ROLE = "startup-sub-sovereign"
+    ROLE = "startup-executor"
 
     def __init__(self, app: Any) -> None:
         self.app = app
@@ -265,7 +265,7 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
 
         result.ok = True
         result.handoff = {
-            "flow": "startup-sub-sovereign>information-layer>runtime-sovereign",
+            "flow": "startup-executor>information-layer>runtime-sovereign",
             "proof": proof.as_dict(),
             "acknowledged": True,
             "runtime_owner": "system-runtime-sovereign",

@@ -185,26 +185,13 @@ class RepairDecisionChain:
         }
 
     def _change_acceptance(self) -> Any:
-        """Locate the change-acceptance sub-sovereign (system-audit intake).
+        """Locate the change-acceptance intake (system-audit).
 
-        Autonomous repairs register as changes before dispatch and record
-        acceptance with the verification result — the audit trail lives on
-        the sovereign, not on a user-confirmation queue.
+        A592/A604: the ``change-acceptance-sub-sovereign`` identity is
+        retired lineage only — the change-acceptance responsibility is
+        absorbed by decision-core, which has no materialized child to
+        consult, so this always returns ``None``.
         """
-        app = getattr(self, "app", None)
-        holders = (
-            getattr(app, "_sub_sovereigns", None),
-            getattr(
-                getattr(app, "decision_sovereign", None),
-                "_sub_sovereigns",
-                None,
-            ),
-        )
-        for holder in holders:
-            if isinstance(holder, dict):
-                sovereign = holder.get("change-acceptance-sub-sovereign")
-                if sovereign is not None:
-                    return sovereign
         return None
 
     # ------------------------------------------------------------------

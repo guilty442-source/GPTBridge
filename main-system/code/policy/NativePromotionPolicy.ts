@@ -50,7 +50,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'memory-release',
     capabilityName: 'Working Set Release',
-    pythonOwner: 'resource-dependency-sync-sub-sovereign',
+    pythonOwner: 'automation-sovereign',
     latencyBudgetMs: 10,
     cpuBudgetPercent: 5,
     memoryBudgetMb: 10,
@@ -68,7 +68,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'parser',
     capabilityName: 'Token Estimation / Text Analysis',
-    pythonOwner: 'xingcheng-sovereign',
+    pythonOwner: '星澄',
     latencyBudgetMs: 100,
     cpuBudgetPercent: 50,
     memoryBudgetMb: 200,
@@ -81,7 +81,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'vector',
     capabilityName: 'Vector Compute (dot product, similarity, norm)',
-    pythonOwner: 'xingcheng-sovereign',
+    pythonOwner: '星澄',
     latencyBudgetMs: 50,
     cpuBudgetPercent: 80,
     memoryBudgetMb: 500,
@@ -94,7 +94,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'transformer',
     capabilityName: 'Transformation Compute (tensor operations, model inference)',
-    pythonOwner: 'xingcheng-sovereign',
+    pythonOwner: '星澄',
     latencyBudgetMs: 500,
     cpuBudgetPercent: 90,
     memoryBudgetMb: 2000,
@@ -107,7 +107,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'token',
     capabilityName: 'Token Operations',
-    pythonOwner: 'xingcheng-sovereign',
+    pythonOwner: '星澄',
     latencyBudgetMs: 20,
     cpuBudgetPercent: 30,
     memoryBudgetMb: 100,
@@ -120,7 +120,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'binding',
     capabilityName: 'Pybind11 Binding Overhead',
-    pythonOwner: 'synchronization-sovereign',
+    pythonOwner: 'automation-sovereign',
     latencyBudgetMs: 5,
     cpuBudgetPercent: 10,
     memoryBudgetMb: 20,
@@ -133,7 +133,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'hot-reload',
     capabilityName: 'Hot Reload Execution',
-    pythonOwner: 'release-update-sync-sub-sovereign',
+    pythonOwner: 'automation-sovereign',
     latencyBudgetMs: 5000,
     cpuBudgetPercent: 20,
     memoryBudgetMb: 200,
@@ -146,7 +146,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'connection-watchdog',
     capabilityName: 'Connection Health Watchdog',
-    pythonOwner: 'health-maintenance-test-sub-sovereign',
+    pythonOwner: 'decision-sovereign',
     latencyBudgetMs: 100,
     cpuBudgetPercent: 10,
     memoryBudgetMb: 50,
@@ -159,7 +159,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'automatic-cleanup',
     capabilityName: 'Main-System Internal Automatic Cleanup',
-    pythonOwner: 'health-maintenance-test-sub-sovereign',
+    pythonOwner: 'decision-sovereign',
     latencyBudgetMs: 300000,
     cpuBudgetPercent: 50,
     memoryBudgetMb: 500,
@@ -172,7 +172,7 @@ export const NATIVE_PROMOTION_POLICIES: NativePromotionPolicy[] = [
   {
     capabilityId: 'auto-repair',
     capabilityName: 'Automatic Repair',
-    pythonOwner: 'health-maintenance-test-sub-sovereign',
+    pythonOwner: 'decision-sovereign',
     latencyBudgetMs: 60000,
     cpuBudgetPercent: 30,
     memoryBudgetMb: 200,

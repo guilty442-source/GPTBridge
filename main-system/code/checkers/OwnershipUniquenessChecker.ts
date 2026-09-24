@@ -1,7 +1,7 @@
 /**
  * OwnershipUniquenessChecker.ts —Ownership uniqueness verification (A356/A362).
  *
- * Verifies each module maps to exactly one primary sub-sovereign by its
+ * Verifies each module maps to exactly one primary core owner by its
  * dominant state-changing capability and declared ownership.
  */
 
@@ -70,7 +70,7 @@ export class OwnershipUniquenessChecker {
     // Check for duplicate owners (A356: single owner per module, but owners can have multiple modules)
     const duplicateOwners: string[] = [];
     for (const [owner, modules] of ownerModules) {
-      // Per A324: each sub-sovereign manages modules within one exclusive primary domain
+      // Per A324: each core owner manages modules within one exclusive primary domain
       // Multiple modules per owner is allowed if they share the same domain
       const domains = new Set(modules.map(m => this.moduleOwnerships.get(m)?.layer).filter(Boolean));
       if (domains.size > 1) {

@@ -1,15 +1,12 @@
-"""Sub-Sovereign Base — 子主權底座（控制/調度在父權限下，無決策權、無執行權）。
+"""Commanded Module Base — 受管模組底座（控制/調度在父權限下，無決策權、無執行權）。
 
 法典依據:
 - A64: SUB-SOVEREIGN: control/dispatch under parent authority; EXECUTION:governed-executor
-- A284/A287: system-sub-sovereign: module-management-assignment-coordination-no-decision-no-execution
-- A303/A304: startup-sub-sovereign: child-of-runtime-sovereign-no-decision-no-execution
-- A308: language-review-sub-sovereign: child-of-permission-sovereign-no-decision-no-execution
-- A316: directory-sub-sovereign: child-of-permission-sovereign-no-decision-no-review-no-execution
-- A317: identity-group-sub-sovereign: child-of-permission-sovereign-no-decision-no-review-no-execution
-- A322: all sync sub-sovereigns: child-of-synchronization-sovereign-no-decision-no-execution
-- A323: policy-architecture/health-maintenance-test/data-governance/priority-capability/change-acceptance sub-sovereigns: child-of-decision-sovereign-no-decision-no-execution
-- A327: dependency-sync-sub-sovereign: child-of-synchronization-sovereign-single-duty-no-decision-no-execution
+- A592/A604: the sub-sovereign layer is eliminated; former child identities are
+  retired lineage only.  This base is retained solely for the A485
+  星澄-owned learning module (`learning-evidence-sync-sub-sovereign`), whose
+  codex identity is preserved while it operates as a commanded module — no
+  decision power, no execution power, all work delegated by the codex parent.
 """
 
 from __future__ import annotations
@@ -18,20 +15,20 @@ from abc import ABC
 from typing import Any
 from typing import TYPE_CHECKING
 
-from ..sovereigns._base import SovereignBase, SovereignOutcome, SovereignRequest
-from ..sovereigns._delegation import consume_delegation
+from .._base import SovereignBase, SovereignOutcome, SovereignRequest
+from .._delegation import consume_delegation
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 
 if TYPE_CHECKING:
     from governance_rule.execution.authentication import GovernanceAuthenticationService
 
 
-class SubSovereignBase(SovereignBase, ABC):
-    """子主權底座：無決策權、無執行權、僅控制/調度。"""
+class CommandedModuleBase(SovereignBase, ABC):
+    """受管模組底座：無決策權、無執行權、僅在父主權命令下控制/調度。"""
 
     parent_sovereign_id: str = ""
 
-    # A10/A11 explicit intent allowlist — a sub-sovereign only accepts the
+    # A10/A11 explicit intent allowlist — a commanded module only accepts the
     # coordination intents declared by its adjudication surface; the base
     # edict-ID check would reject all of them (fail-closed).
     _INTENT_ALLOWLIST: frozenset[str] = frozenset(
@@ -57,7 +54,7 @@ class SubSovereignBase(SovereignBase, ABC):
         self._parent = parent
 
     async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:
-        """子主權裁決：僅協調/調度/管理，不決策、不執行。"""
+        """受管模組裁決：僅協調/調度/管理，不決策、不執行。"""
         intent = request.intent
 
         if not await self._verify_parent_authorization(request):
@@ -79,23 +76,23 @@ class SubSovereignBase(SovereignBase, ABC):
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
     ) -> SovereignOutcome:
-        """子主權無執行權（A64/A284/A322: no-decision-no-execution）。
+        """受管模組無執行權（A64/A604: no-decision-no-execution）。
 
-        Sub-sovereigns only coordinate/dispatch under parent authority;
+        Commanded modules only coordinate/dispatch under parent authority;
         actual work is performed by governed module executors.  The
         adjudication result is a coordination record, not an execution
         outcome, so there is no execution side-effect to delegate.  A
         verifiable delegation receipt is attached so the coordination
         step is provable, not merely declared (A446/A121).
         """
-        return self._attach_delegation_receipt(decision, request, "sub-sovereign-coordination")
+        return self._attach_delegation_receipt(decision, request, "commanded-module-coordination")
 
     def _verify_intent(self, intent: str) -> bool:
         """A10/A11 fail-closed: only declared coordination intents pass."""
         return intent in self._INTENT_ALLOWLIST
 
     async def _verify_parent_authorization(self, request: SovereignRequest) -> bool:
-        """A334: each sub-sovereign has exactly one codex-registered parent.
+        """A334: each commanded module has exactly one codex-registered parent.
 
         The request must arrive *through* that parent: ``requester`` must
         equal the codex parent AND the payload must carry the
@@ -108,7 +105,7 @@ class SubSovereignBase(SovereignBase, ABC):
         prove a delegation from the parent (strict-when-present; an
         invalid token always denies).
         """
-        from ..registries import parent_of
+        from ...registries import parent_of
 
         parent = parent_of(self.sovereign_id)
         if not parent:
@@ -192,7 +189,7 @@ class SubSovereignBase(SovereignBase, ABC):
         other kind records a failure.  Returns False when delivery failed
         so the governed executor can treat it explicitly.
         """
-        from ..registries import parent_of, resolve_sovereign
+        from ...registries import parent_of, resolve_sovereign
 
         if parent_of(self.sovereign_id) != self.parent_sovereign_id:
             return False
@@ -227,11 +224,11 @@ class SubSovereignBase(SovereignBase, ABC):
 
     async def _adjudicate_assign(self, request: SovereignRequest) -> SovereignOutcome:
         """A334: module assignments are validated against the codex
-        module_assignment_registry — a sub-sovereign may only coordinate
+        module_assignment_registry — a commanded module may only coordinate
         modules whose ``managing_sub_sovereign`` is itself."""
         module_code = request.payload.get("module") or request.payload.get("resource")
         if module_code:
-            from ..registries import module_assignment
+            from ...registries import module_assignment
 
             row = module_assignment(str(module_code))
             if row is None:
@@ -323,4 +320,4 @@ class SubSovereignBase(SovereignBase, ABC):
         return base
 
 
-__all__ = ["SubSovereignBase"]
+__all__ = ["CommandedModuleBase"]

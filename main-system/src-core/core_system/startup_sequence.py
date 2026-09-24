@@ -39,7 +39,7 @@ async def run_startup_sequence(app: Any) -> bool:
     # 1. Peer sovereigns (learning, programming, cleaner) — parallel
     # 2. Permission sovereign (read-only)
     # 3. Maintenance sovereign + self-maintenance — parallel
-    # 4. System sovereign + 6 sub-sovereigns — parallel
+    # 4. System sovereign + peer cores — parallel
 
     app._mark_startup_phase("sovereign_stack_starting")
 

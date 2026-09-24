@@ -161,7 +161,7 @@ class DirectoryCatalogPopulatorMixin:
             schema_version="1.0",
             identity_format="model-id+version+owner",
             owner_sovereign="automation-sovereign",
-            access_control="resource-dependency-sync-sub-sovereign",
+            access_control="automation-sovereign",
             lifecycle="persistent",
         ))
 
@@ -175,7 +175,7 @@ class DirectoryCatalogPopulatorMixin:
             schema_version="1.0",
             identity_format="tool-id+runtime+owner",
             owner_sovereign="automation-sovereign",
-            access_control="resource-dependency-sync-sub-sovereign",
+            access_control="automation-sovereign",
             lifecycle="persistent",
         ))
 
@@ -189,7 +189,7 @@ class DirectoryCatalogPopulatorMixin:
             schema_version="1.0",
             identity_format="dependency-id+version+license+owner",
             owner_sovereign="automation-sovereign",
-            access_control="dependency-sync-sub-sovereign",
+            access_control="automation-sovereign",
             lifecycle="persistent",
         ))
 
@@ -203,7 +203,7 @@ class DirectoryCatalogPopulatorMixin:
             schema_version="1.0",
             identity_format="audit-event+timestamp+actor+action",
             owner_sovereign="decision-sovereign",
-            access_control="health-maintenance-test-sub-sovereign",
+            access_control="decision-sovereign",
             lifecycle="persistent",
         ))
 
@@ -245,7 +245,7 @@ class DirectoryCatalogPopulatorMixin:
             schema_version="1.0",
             identity_format="release-id+application-version+artifact-root+contract",
             owner_sovereign="automation-sovereign",
-            access_control="release-update-sync-sub-sovereign",
+            access_control="automation-sovereign",
             lifecycle="persistent",
         ))
 
@@ -259,7 +259,7 @@ class DirectoryCatalogPopulatorMixin:
             schema_version="1.0",
             identity_format="health-signal+severity+component+owner",
             owner_sovereign="decision-sovereign",
-            access_control="health-maintenance-test-sub-sovereign",
+            access_control="decision-sovereign",
             lifecycle="ephemeral",
         ))
 

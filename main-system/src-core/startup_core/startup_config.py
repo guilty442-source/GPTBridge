@@ -135,7 +135,7 @@ _FALLBACK: Final[dict[str, Any]] = {
         "bootstrap_capability_properties": (
             "pre-issued",
             "read-only",
-            "startup-sub-sovereign-bound",
+            "startup-executor-bound",
             "official-codex-entry-only",
             "sealed-in-active-release",
             "verified-mechanically-without-live-permission-decision",

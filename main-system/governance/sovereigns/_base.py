@@ -35,7 +35,6 @@ from ._delegation import (
 )
 from .mixins import (
     AuthBase,
-    ChildRegistryBase,
     CodexBase,
     DelegationBase,
     ExecutionBase,
@@ -86,7 +85,6 @@ class SovereignIdentity:
 class SovereignBase(
     CodexBase,
     AuthBase,
-    ChildRegistryBase,
     DelegationBase,
     FailureTrackingBase,
     ExecutionBase,

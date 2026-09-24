@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
-from governance.sub_sovereigns._base import SubSovereignBase
+from .commanded_module_base import CommandedModuleBase
 from governance_rule.execution.codex_official import official_self_declaration
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 from .learning_reconciliation import LearningReconciliationMixin
@@ -69,7 +69,7 @@ from .learning_constants import (
 )
 
 
-class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationMixin):
+class LearningEvidenceSyncSubSovereign(CommandedModuleBase, LearningReconciliationMixin):
     """Learns verified error/remedy outcomes without gaining execution power."""
 
     sovereign_id = "learning-evidence-sync-sub-sovereign"
@@ -78,7 +78,7 @@ class LearningEvidenceSyncSubSovereign(SubSovereignBase, LearningReconciliationM
     ROLE = sovereign_id
 
     # Base coordination intents plus the parent's bounded learn.* commands.
-    _INTENT_ALLOWLIST = SubSovereignBase._INTENT_ALLOWLIST | _LEARNING_INTENTS
+    _INTENT_ALLOWLIST = CommandedModuleBase._INTENT_ALLOWLIST | _LEARNING_INTENTS
 
     def __init__(
         self,

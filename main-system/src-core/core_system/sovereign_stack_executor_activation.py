@@ -2,6 +2,10 @@
 
 Contains the activate() and deactivate() methods extracted from
 SovereignStackExecutor.
+
+A592/A604: the sub-sovereign layer is eliminated — activation covers the
+five peer cores only; retired child identities are never materialized,
+started or routed to (FORBID:sub-sovereign-routing).
 """
 from __future__ import annotations
 
@@ -15,59 +19,28 @@ class SovereignStackActivationMixin:
 
     app: Any
     _startup_failures: list[dict[str, str]]
-    _retired_children: list[str]
 
     def _materialize_top_sovereigns(self, sovereign: Any) -> None:
-        raise NotImplementedError
-
-    def _materialize_children(self, sovereign: Any) -> None:
         raise NotImplementedError
 
     async def _start_top_sovereigns(self, sovereign: Any) -> None:
         raise NotImplementedError
 
-    async def _start_child(
-        self, sovereign: Any, tag: str, child_id: str
-    ) -> dict[str, Any]:
-        raise NotImplementedError
-
-    async def _start_children(self, sovereign: Any) -> dict[str, Any]:
-        raise NotImplementedError
-
     async def activate(self, sovereign: Any) -> bool:
-        """Materialize and start the entire sovereign stack."""
+        """Materialize and start the five peer sovereign cores."""
         app = self.app
         step_timings: dict[str, int] = {}
         _step_start = time.monotonic()
 
         self._startup_failures = []
-        self._retired_children = []
         self._materialize_top_sovereigns(sovereign)
-        self._materialize_children(sovereign)
         await self._start_top_sovereigns(sovereign)
 
-        app.maintenance_sovereign = sovereign._sub_sovereigns.get(
-            "health-maintenance-test-sub-sovereign"
-        )
-        automation = getattr(app, "automation_sovereign", None)
-        sync_children = (
-            getattr(automation, "_sub_sovereigns", {})
-            if automation is not None
-            else {}
-        )
-        # A485: the learning sub-sovereign is a privileged-institution-managed
-        # child of 星澄 — never of the automation/synchronization family.
-        xingcheng = getattr(app, "xingcheng_sovereign", None)
-        app.learning_system_sovereign = (
-            getattr(xingcheng, "_sub_sovereigns", {}).get(
-                "learning-evidence-sync-sub-sovereign"
-            )
-            if xingcheng is not None
-            else None
-        )
-        app.system_programming_sovereign = sync_children.get(
-            "release-update-sync-sub-sovereign"
-        )
+        # A592/A604: former sub-sovereign surfaces are retired lineage —
+        # the compat attributes stay ``None`` by design, not by failure.
+        app.maintenance_sovereign = None
+        app.learning_system_sovereign = None
+        app.system_programming_sovereign = None
 
         async def _start_cleaner() -> None:
             try:
@@ -75,16 +48,7 @@ class SovereignStackActivationMixin:
             except Exception as error:
                 app._record_startup_failure("daily_global_cleaner", error)
 
-        early_starts = [
-            self._start_child(
-                sovereign, "learning", "learning-evidence-sync-sub-sovereign"
-            ),
-            self._start_child(
-                sovereign, "programming", "release-update-sync-sub-sovereign"
-            ),
-            _start_cleaner(),
-        ]
-        await asyncio.gather(*early_starts)
+        await asyncio.gather(_start_cleaner())
         step_timings["peer-sovereigns-and-cleaner_ms"] = int(
             (time.monotonic() - _step_start) * 1000
         )
@@ -97,43 +61,13 @@ class SovereignStackActivationMixin:
                 from core_system.resource_maintenance import release_unused_memory
 
                 app.resource_release = release_unused_memory
-                toolbox = app.toolbox_service
-                central_repair = None
-                if toolbox is not None and hasattr(toolbox, "central_repair"):
-                    try:
-                        central_repair = toolbox.central_repair
-                    except Exception:
-                        central_repair = None
-                maintenance = app.maintenance_sovereign
-                if maintenance is None:
-                    # A592/A604: the sub-sovereign layer is eliminated — a
-                    # retired health owner is absent by design, not a fault.
-                    if self._child_retired("health-maintenance-test-sub-sovereign"):
-                        app._log(
-                            {
-                                "type": "maintenance_sovereign_startup",
-                                "skipped": "retired-A592-A604",
-                            }
-                        )
-                        return
-                    raise RuntimeError("health-maintenance-test-sub-sovereign-unavailable")
-                outcome = sovereign.authorize_child_activation(
-                    "health-maintenance-test-sub-sovereign"
-                )
-                if not outcome.accepted:
-                    reason = (
-                        outcome.refusal.reason_code if outcome.refusal else "REFUSED"
-                    )
-                    raise RuntimeError(f"parent-authorization:{reason}")
-                maintenance_report = await maintenance.start(
-                    daily_cleaner=app.daily_global_cleaner_service,
-                    hot_update=app.hot_update_service,
-                    repair_service=central_repair,
-                )
+                # A592/A604: the health-maintenance sub-sovereign identity is
+                # retired — absent by design, not a fault.  Maintenance
+                # responsibilities are absorbed by decision-core modules.
                 app._log(
                     {
                         "type": "maintenance_sovereign_startup",
-                        "role": maintenance_report.get("role", ""),
+                        "skipped": "retired-A592-A604",
                     }
                 )
             except Exception as error:
@@ -191,11 +125,7 @@ class SovereignStackActivationMixin:
             step_timings["decision-sovereign-start_ms"] = int(
                 (time.monotonic() - _step_start) * 1000
             )
-            _children_start = time.monotonic()
-            report = await self._start_children(sovereign)
-            step_timings["decision-children_ms"] = int(
-                (time.monotonic() - _children_start) * 1000
-            )
+            report = self._build_startup_report(sovereign)
             app._log(
                 {
                     "type": "sovereign_startup",
@@ -204,7 +134,7 @@ class SovereignStackActivationMixin:
             )
         except Exception as error:
             app._record_startup_failure("decision_sovereign", error)
-        step_timings["decision-sovereign-and-subsovereigns_ms"] = int(
+        step_timings["decision-sovereign_ms"] = int(
             (time.monotonic() - _step_start) * 1000
         )
         app._startup_step_timings = step_timings
@@ -212,23 +142,33 @@ class SovereignStackActivationMixin:
         app._mark_startup_phase("sovereign_initialized")
         return startup_ok
 
-    async def deactivate(self, sovereign: Any) -> None:
-        """Stop every materialized registry child (reverse order)."""
+    def _build_startup_report(self, sovereign: Any) -> dict[str, Any]:
+        """Persist the five-core activation report (A592/A604 shape)."""
         from core_system.sovereign_utils import _iso_now
 
-        for parent in (
-            getattr(self.app, "automation_sovereign", None),
-            getattr(self.app, "permission_sovereign", None),
-            sovereign,
-            getattr(self.app, "system_runtime_sovereign", None),
-        ):
-            if parent is None:
-                continue
-            for child in list(getattr(parent, "_sub_sovereigns", {}).values()):
-                try:
-                    await child.stop()
-                except Exception:
-                    pass
+        report = {
+            "ok": len(self._startup_failures) == 0,
+            "sovereign": "decision-sovereign",
+            "dependency_state": sovereign._dependency_state(),
+            "started_at": _iso_now(),
+            "execution_delegation": "governed-executor-only",
+            "startup_failures": list(self._startup_failures),
+            "health_owner": "none-sub-sovereign-layer-eliminated-A592-A604",
+            "sources": [
+                {"kind": "env", "name": "GPTBRIDGE_STARTUP_STATE"},
+                {
+                    "kind": "report",
+                    "path": str(sovereign.launcher_report_path),
+                },
+            ],
+        }
+        sovereign._save_state(report)
+        return report
+
+    async def deactivate(self, sovereign: Any) -> None:
+        """Persist the stopped state (A592/A604: no children to stop)."""
+        from core_system.sovereign_utils import _iso_now
+
         sovereign._save_state({"stopped_at": _iso_now()})
 
 

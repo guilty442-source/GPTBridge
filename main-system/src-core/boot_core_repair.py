@@ -209,7 +209,7 @@ class BootCoreRepairMixin:
             self.project_root
         ).request_governed_repair(
             failure_code=failure_code,
-            owner="startup-sub-sovereign",
+            owner="startup-executor",
             decision_proof={
                 "authority": "signal-only",
                 "exit_code": exit_code,

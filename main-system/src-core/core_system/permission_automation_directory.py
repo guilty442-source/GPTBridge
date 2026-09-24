@@ -112,51 +112,11 @@ class DirectorySyncManager:
             return
 
         if current_hash != self._last_sync_hash:
+            # A592/A604: directory/identity-group child identities are
+            # retired — there is no child to notify; the hash update is
+            # the sync record itself.
             _logger.info("Directory changes detected, sync triggered")
             self._last_sync_hash = current_hash
-            await self._notify_directory_children(sync_data)
-
-    async def _notify_directory_children(self, sync_data: str) -> None:
-        """Notify the permission-sovereign's codex children of the change.
-
-        Directory and identity-group coordination belongs to
-        ``directory-sub-sovereign`` / ``identity-group-sub-sovereign``
-        (A316/A317) — delivery goes through the sovereign's
-        ``delegate_to`` so the child gate sees the real parent as
-        requester.  Undelivered notifications are logged, not raised.
-        """
-        from core_system.codex_decision import SovereignRequest
-
-        for child_id in (
-            "directory-sub-sovereign",
-            "identity-group-sub-sovereign",
-        ):
-            try:
-                outcome = await self.permission_sovereign.delegate_to(
-                    child_id,
-                    SovereignRequest(
-                        intent="sync",
-                        subject="directory-change",
-                        requester="permission-automation",
-                        payload={
-                            "target": child_id,
-                            "sync_status": "directory-changed",
-                            "hash_source": sync_data[:64],
-                        },
-                    ),
-                )
-                if not getattr(outcome, "accepted", False):
-                    _logger.warning(
-                        "Directory sync notification to %s refused: %s",
-                        child_id,
-                        getattr(outcome, "refusal", None),
-                    )
-            except Exception as e:
-                _logger.warning(
-                    "Directory sync notification to %s failed: %s",
-                    child_id,
-                    e,
-                )
 
     def get_sync_status(self) -> dict[str, Any]:
         return {

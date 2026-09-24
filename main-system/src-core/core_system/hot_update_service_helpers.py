@@ -28,7 +28,6 @@ PROTECTED_MODULE_PREFIXES: Final[tuple[str, ...]] = (
     # dist-native and package-dir artifacts were loaded together).
     "core_system.native",
     "governance.sovereigns.",
-    "governance.sub_sovereigns.",
 )
 
 RESOURCE_INDICATORS: Final[tuple[str, ...]] = (

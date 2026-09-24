@@ -333,7 +333,7 @@ class DailyGlobalCleanerRunMixin:
             cleaned_bytes = trash_bytes + module_bytes
             outcome = {
                 "operation": "automatic-cleanup",
-                "authority": "health-maintenance-test-sub-sovereign",
+                "authority": "decision-sovereign",
                 "executor": "main-system-internal-cleanup",
                 "request_id": request_id,
                 "scope": (

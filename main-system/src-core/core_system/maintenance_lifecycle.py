@@ -150,5 +150,5 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
         Provided as a method so mixins don't need to import the module-level
         constant directly (avoids circular imports).
         """
-        from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import MAINTENANCE_RESPONSIBILITIES
-        return MAINTENANCE_RESPONSIBILITIES
+        from core_system.maintenance_identity import maintenance_declaration
+        return maintenance_declaration().duties

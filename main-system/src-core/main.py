@@ -104,7 +104,6 @@ from main_shutdown import GPTBridgeAppShutdownMixin
 
 from core_system.app_lifecycle import AppLifecycleMixin
 from core_system.startup_sequence import run_startup_sequence
-from core_system.sovereign_registry import SubSovereignRegistry
 from core_system.governance_rules import GovernanceRulesManager
 from core_system.diagnostics import start_loop_stall_watchdog, log_structured, record_failure
 from core_system.entry_point import main as run_main
@@ -126,22 +125,12 @@ class GPTBridgeApp(
         # Initialize lifecycle mixin (sets up all services, sovereigns, integrations)
         AppLifecycleMixin.__init__(self)
 
-        # Initialize sub-sovereign registry
-        self._sub_sovereign_registry = SubSovereignRegistry(self)
-
     # --- Delegate to mixins ---
 
     # Startup sequence
     async def initialize(self) -> bool:
         """Execute complete startup sequence."""
         return await run_startup_sequence(self)
-
-    # Sub-sovereign registry delegation
-    def get_sub_sovereign(self, name: str) -> Any | None:
-        return self._sub_sovereign_registry.get(name)
-
-    def _collect_sub_sovereign_status(self) -> dict[str, Any]:
-        return self._sub_sovereign_registry.collect_status()
 
     # Governance rules delegation
     def _load_governance_rules(self) -> list[str]:

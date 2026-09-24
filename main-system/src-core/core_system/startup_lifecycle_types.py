@@ -60,7 +60,7 @@ LAUNCHER_FORBIDDEN: Final[tuple[str, ...]] = (
 # ---------------------------------------------------------------------------
 
 HANDOFF_FLOW: Final[tuple[str, ...]] = (
-    "startup-sub-sovereign",
+    "startup-executor",
     "information-layer",
     "runtime-sovereign",
 )

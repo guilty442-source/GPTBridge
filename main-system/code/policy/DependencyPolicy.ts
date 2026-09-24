@@ -52,30 +52,29 @@ export const LAYER_RULES: Record<Layer, { allowedDeps: Layer[]; description: str
   },
 };
 
+// A604 five-core roster: modules are owned directly by a peer core
+// (the sub-sovereign layer is eliminated).
 export const MODULE_OWNERSHIP = {
   'decision-sovereign': 'decision-sovereign',
   'permission-sovereign': 'permission-sovereign',
   'system-runtime-sovereign': 'system-runtime-sovereign',
-  'synchronization-sovereign': 'synchronization-sovereign',
-  'xingcheng-sovereign': 'xingcheng-sovereign',
-  'hot-update': 'resource-dependency-sync-sub-sovereign',
-  'tool-isolation': 'resource-dependency-sync-sub-sovereign',
-  'update-manager': 'release-update-sync-sub-sovereign',
-  'connection-watchdog': 'health-maintenance-test-sub-sovereign',
-  'hot-reload': 'health-maintenance-test-sub-sovereign',
-  'automatic-cleanup': 'health-maintenance-test-sub-sovereign',
-  'auto-repair': 'health-maintenance-test-sub-sovereign',
+  'automation-sovereign': 'automation-sovereign',
+  '星澄': '星澄',
+  'hot-update': 'automation-sovereign',
+  'tool-isolation': 'automation-sovereign',
+  'update-manager': 'automation-sovereign',
+  'connection-watchdog': 'decision-sovereign',
+  'hot-reload': 'decision-sovereign',
+  'automatic-cleanup': 'automation-sovereign',
+  'auto-repair': 'decision-sovereign',
 } as const;
 
 export const SOVEREIGN_LAYERS: Record<string, Layer> = {
   'decision-sovereign': 'application-use-case',
   'permission-sovereign': 'application-use-case',
   'system-runtime-sovereign': 'application-use-case',
-  'synchronization-sovereign': 'application-use-case',
-  'xingcheng-sovereign': 'domain',
-  'resource-dependency-sync-sub-sovereign': 'infrastructure',
-  'release-update-sync-sub-sovereign': 'infrastructure',
-  'health-maintenance-test-sub-sovereign': 'application-use-case',
+  'automation-sovereign': 'application-use-case',
+  '星澄': 'domain',
 } as const;
 
 export function validateDependency(fromLayer: Layer, toLayer: Layer): { valid: boolean; reason?: string } {

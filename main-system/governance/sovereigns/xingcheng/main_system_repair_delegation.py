@@ -11,7 +11,6 @@ import logging
 from pathlib import Path
 from typing import Any, Final
 
-from governance.sub_sovereigns._base import SubSovereignBase
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng.repair")

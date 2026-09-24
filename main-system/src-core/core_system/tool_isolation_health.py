@@ -434,7 +434,7 @@ class ToolIsolationHealthMixin:
         return {
             "ok": not failed,
             "operation": "tool-crash-quarantine-retention",
-            "authority": "health-maintenance-test-sub-sovereign",
+            "authority": "decision-sovereign",
             "quarantine_dir": str(quarantine_dir),
             "retention_days": retention_days,
             "removed_count": len(removed),

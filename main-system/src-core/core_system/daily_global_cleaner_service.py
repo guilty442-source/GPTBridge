@@ -6,7 +6,7 @@ self-cleanup sweep lives in
 
 A533/A534: the standalone global-cleaner tool is retired and
 non-executable.  Automatic cleanup is owned in-process by the
-health-maintenance-test-sub-sovereign through this main-system internal
+decision-core through this main-system internal
 service (bounded temp/cache/expired-log/orphan residue cleanup, retired
 trash residue revalidation, central audit events, fail-open execution).
 """
@@ -145,7 +145,7 @@ class DailyGlobalCleanerService(DailyGlobalCleanerSweepMixin, DailyGlobalCleaner
             pass
         return {
             "enabled": True,
-            "owner": "health-maintenance-test-sub-sovereign",
+            "owner": "decision-sovereign",
             "executor": "main-system-internal-cleanup",
             "channel": "in-process-bounded-cleanup",
             "interval_hours": 24,

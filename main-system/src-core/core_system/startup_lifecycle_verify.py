@@ -32,7 +32,7 @@ class StartupSovereignCapabilityCheck:
         return asdict(self)
 
 
-def verify_startup_sub_sovereign_capabilities(
+def verify_startup_capabilities(
     declared: tuple[str, ...],
 ) -> StartupSovereignCapabilityCheck:
     """Verify startup sovereign has at most 3 capabilities (A192/E167).

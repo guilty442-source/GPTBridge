@@ -303,7 +303,7 @@
    "runtime_form": "python-process",
    "owner_sovereign": "system-runtime",
    "execution_identity": "sub-sovereign-orchestration",
-   "physical_path": "main-system/governance/sub-sovereigns",
+   "external_locator": "git-history:main-system/governance/sub-sovereigns (deleted 2026-09-24 — sub-sovereign layer eliminated A592/A604)",
    "lifecycle": "retired",
    "canonical": false,
    "dependencies": [
@@ -883,7 +883,7 @@
    "runtime_form": "python-process",
    "owner_sovereign": "automation",
    "execution_identity": "language-review",
-   "physical_path": "main-system/governance/sub-sovereigns",
+   "external_locator": "git-history:main-system/governance/sub-sovereigns (deleted 2026-09-24 — sub-sovereign layer eliminated A592/A604)",
    "lifecycle": "retired",
    "canonical": false,
    "dependencies": [

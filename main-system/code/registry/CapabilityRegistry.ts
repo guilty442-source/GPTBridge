@@ -121,7 +121,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'sync-priority',
       name: 'Synchronization Priority',
-      owner: 'synchronization-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'application-use-case',
       status: 'active',
@@ -130,7 +130,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'dependency-order',
       name: 'Dependency Order Resolution',
-      owner: 'synchronization-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'application-use-case',
       status: 'active',
@@ -139,7 +139,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'conflict-disposition',
       name: 'Conflict Disposition',
-      owner: 'synchronization-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'application-use-case',
       status: 'active',
@@ -150,7 +150,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'global-review',
       name: 'Global System Review',
-      owner: 'xingcheng-sovereign',
+      owner: '星澄',
       language: 'Python',
       layer: 'domain',
       status: 'active',
@@ -159,7 +159,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'anomaly-classification',
       name: 'Anomaly Classification',
-      owner: 'xingcheng-sovereign',
+      owner: '星澄',
       language: 'Python',
       layer: 'domain',
       status: 'active',
@@ -168,18 +168,18 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'user-notification',
       name: 'User Notification',
-      owner: 'xingcheng-sovereign',
+      owner: '星澄',
       language: 'Python',
       layer: 'domain',
       status: 'active',
       registeredAt: '2026-01-01T00:00:00Z',
     },
 
-    // Resource Dependency Sync Sub-Sovereign
+    // Automation core — resource allocation modules
     {
       id: 'resource-monitoring',
       name: 'Resource State Monitoring',
-      owner: 'resource-dependency-sync-sub-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'infrastructure',
       latencyBudgetMs: 100,
@@ -191,7 +191,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'memory-release',
       name: 'Working Set Release',
-      owner: 'resource-dependency-sync-sub-sovereign',
+      owner: 'automation-sovereign',
       language: 'C++',
       layer: 'native-core',
       latencyBudgetMs: 10,
@@ -203,18 +203,18 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'tool-isolation',
       name: 'Tool Process Isolation',
-      owner: 'resource-dependency-sync-sub-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'infrastructure',
       status: 'active',
       registeredAt: '2026-01-01T00:00:00Z',
     },
 
-    // Release Update Sync Sub-Sovereign
+    // Automation core — release update modules
     {
       id: 'update-orchestration',
       name: 'Update Orchestration',
-      owner: 'release-update-sync-sub-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'infrastructure',
       status: 'active',
@@ -223,7 +223,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'hot-reload',
       name: 'Hot Reload Execution',
-      owner: 'release-update-sync-sub-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'infrastructure',
       latencyBudgetMs: 5000,
@@ -233,11 +233,11 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
       registeredAt: '2026-01-01T00:00:00Z',
     },
 
-    // Dependency Sync Sub-Sovereign
+    // Automation core — dependency modules
     {
       id: 'third-party-inventory',
       name: 'Third-Party Tool Inventory',
-      owner: 'dependency-sync-sub-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'infrastructure',
       status: 'active',
@@ -246,18 +246,18 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'version-probing',
       name: 'Version Probing',
-      owner: 'dependency-sync-sub-sovereign',
+      owner: 'automation-sovereign',
       language: 'Python',
       layer: 'infrastructure',
       status: 'active',
       registeredAt: '2026-01-01T00:00:00Z',
     },
 
-    // Health Maintenance Test Sub-Sovereign
+    // Decision core — health/maintenance modules
     {
       id: 'connection-watchdog',
       name: 'Connection Health Watchdog',
-      owner: 'health-maintenance-test-sub-sovereign',
+      owner: 'decision-sovereign',
       language: 'Python',
       layer: 'application-use-case',
       status: 'active',
@@ -266,7 +266,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'automatic-cleanup',
       name: 'Main-System Internal Automatic Cleanup',
-      owner: 'health-maintenance-test-sub-sovereign',
+      owner: 'decision-sovereign',
       language: 'Python',
       layer: 'infrastructure',
       status: 'active',
@@ -275,7 +275,7 @@ export const CAPABILITY_REGISTRY: CapabilityRegistryData = {
     {
       id: 'auto-repair',
       name: 'Automatic Repair',
-      owner: 'health-maintenance-test-sub-sovereign',
+      owner: 'decision-sovereign',
       language: 'Python',
       layer: 'application-use-case',
       status: 'active',

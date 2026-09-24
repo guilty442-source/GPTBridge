@@ -238,7 +238,7 @@ class DailyGlobalCleanerSweepMixin:
                     continue
         report = {
             "operation": "module-self-cleanup-sweep",
-            "authority": "health-maintenance-test-sub-sovereign",
+            "authority": "decision-sovereign",
             "execution": "devolved-per-module",
             "command": self.MODULE_CLEANUP_COMMAND,
             "started_at": started_at,

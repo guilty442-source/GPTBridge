@@ -31,20 +31,9 @@ from ._base import SovereignBase, SovereignOutcome, SovereignRequest
 from ._delegation import record_delegation_outcome
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 
-from ..registries import (
-    children_of,
-    module_assignment,
-    parent_of,
-    primary_domain_of,
-    validate_child_parent,
-)
-
 from .parallel_adjudication_mixin import ParallelAdjudicationMixin
 
 _logger = logging.getLogger("gptbridge.sovereign.system_runtime")
-
-# Bounded restart budget for child failure adjudication.
-_MAX_CHILD_RESTARTS = 3
 
 # Runtime readiness state file (information-layer, A67).
 _READINESS_STATE_RELATIVE = (
@@ -71,14 +60,7 @@ class SystemRuntimeSovereign(
     _INTENT_ALLOWLIST: frozenset[str] = frozenset({
         "runtime.status",
         "runtime.action",
-        "sub-sovereign.manage",
         "health.coordinate",
-        # Child lifecycle (A334)
-        "sub-sovereign.activate",
-        "sub-sovereign.deactivate",
-        "sub-sovereign.report-failure",
-        # Module routing (A334)
-        "module.route",
         # A322-style retry/cancel and convergence
         "runtime.retry-cancel",
         "runtime.convergence-acceptance",
@@ -110,7 +92,8 @@ class SystemRuntimeSovereign(
         # Child supervision watch: started/stopped transitions, restart
         # attempts and quarantine markers decided by this sovereign.
         self._child_supervision: dict[str, dict[str, Any]] = {}
-        # Sub-sovereign registry — populated by the governed executor at activation.
+        # Retired-child registry kept empty by design (A592/A604) — status
+        # surfaces read it to show retired markers.
         self._sub_sovereigns: dict[str, Any] = {}
 
     # ------------------------------------------------------------------
@@ -126,7 +109,7 @@ class SystemRuntimeSovereign(
     # ------------------------------------------------------------------
 
     async def _adjudicate(self, request: SovereignRequest) -> SovereignOutcome:
-        """並行裁決：運行狀態、動作、子主宰管理、健康協調、模組路由、A322決策。"""
+        """並行裁決：運行狀態、動作、健康協調、A322決策。"""
         intent = request.intent
 
         # Runtime core intents
@@ -134,22 +117,8 @@ class SystemRuntimeSovereign(
             return await self._adjudicate_runtime_status(request)
         if intent == "runtime.action":
             return await self._adjudicate_runtime_action(request)
-        if intent == "sub-sovereign.manage":
-            return await self._adjudicate_sub_sovereign_manage(request)
         if intent == "health.coordinate":
             return await self._adjudicate_health_coordinate(request)
-
-        # Child lifecycle (A334)
-        if intent == "sub-sovereign.activate":
-            return await self._adjudicate_sub_sovereign_activate(request)
-        if intent == "sub-sovereign.deactivate":
-            return await self._adjudicate_sub_sovereign_deactivate(request)
-        if intent == "sub-sovereign.report-failure":
-            return await self._adjudicate_sub_sovereign_report_failure(request)
-
-        # Module routing (A334)
-        if intent == "module.route":
-            return await self._adjudicate_module_route(request)
 
         # A322-style retry/cancel and convergence
         if intent == "runtime.retry-cancel":
@@ -204,19 +173,6 @@ class SystemRuntimeSovereign(
             self.verified_basis("A28", "A446"),
         )
 
-    async def _adjudicate_sub_sovereign_manage(self, request: SovereignRequest) -> SovereignOutcome:
-        """Sub-sovereign management adjudication."""
-        child_id = request.payload.get("child_id")
-        action = request.payload.get("action", "status")
-
-        if child_id and child_id not in children_of(self.sovereign_id):
-            return refusal_outcome("INVALID_CHILD_ID", self.verified_basis("A334"))
-
-        return accepted_outcome(
-            {"child_id": child_id, "action": action, "authority": self.sovereign_id},
-            self.verified_basis("A28", "A334"),
-        )
-
     async def _adjudicate_health_coordinate(self, request: SovereignRequest) -> SovereignOutcome:
         """Health coordination adjudication (routes to decision-sovereign repair chain)."""
         self._auto_metrics["health_coordinations"] += 1
@@ -232,74 +188,6 @@ class SystemRuntimeSovereign(
                 subject=request.subject,
                 requester=request.requester,
                 payload={"classified_signal": signal},
-            ),
-        )
-
-    async def _adjudicate_sub_sovereign_activate(self, request: SovereignRequest) -> SovereignOutcome:
-        """Activate a sub-sovereign through governed executor."""
-        child_id = request.payload.get("child_id")
-        if not child_id or child_id not in children_of(self.sovereign_id):
-            return refusal_outcome("INVALID_CHILD_ID", self.verified_basis("A334"))
-        return accepted_outcome(
-            {"child_id": child_id, "action": "activate", "execution": "governed-executor"},
-            self.verified_basis("A334", "A28"),
-        )
-
-    async def _adjudicate_sub_sovereign_deactivate(self, request: SovereignRequest) -> SovereignOutcome:
-        """Deactivate a sub-sovereign through governed executor."""
-        child_id = request.payload.get("child_id")
-        if not child_id or child_id not in children_of(self.sovereign_id):
-            return refusal_outcome("INVALID_CHILD_ID", self.verified_basis("A334"))
-        return accepted_outcome(
-            {"child_id": child_id, "action": "deactivate", "execution": "governed-executor"},
-            self.verified_basis("A334", "A28"),
-        )
-
-    async def _adjudicate_sub_sovereign_report_failure(self, request: SovereignRequest) -> SovereignOutcome:
-        """Handle child failure report."""
-        child_id = request.payload.get("child_id")
-        error = request.payload.get("error", "unknown")
-        if not child_id or child_id not in children_of(self.sovereign_id):
-            return refusal_outcome("INVALID_CHILD_ID", self.verified_basis("A334"))
-
-        self.record_child_failure(child_id)
-        return accepted_outcome(
-            {
-                "child_id": child_id,
-                "failure_recorded": True,
-                "error": error,
-                "restart_adjudication": "bounded-per-A322",
-            },
-            self.verified_basis("A322", "A334"),
-        )
-
-    async def _adjudicate_module_route(self, request: SovereignRequest) -> SovereignOutcome:
-        """Route module-level operations to assigned sub-sovereign (A334)."""
-        module = request.payload.get("module")
-        if not module:
-            return refusal_outcome("MISSING_MODULE", self.verified_basis("A334"))
-
-        assignment = module_assignment(module)
-        if not assignment:
-            return refusal_outcome("MODULE_UNASSIGNED", self.verified_basis("A334"))
-
-        child_id = str(
-            assignment.get("managing_sub_sovereign")
-            or assignment.get("sub_sovereign")
-            or ""
-        )
-        if not child_id:
-            return refusal_outcome("SUB_SOVEREIGN_UNASSIGNED", self.verified_basis("A334"))
-        if child_id not in self._sub_sovereigns:
-            return refusal_outcome("SUB_SOVEREIGN_NOT_MATERIALIZED", self.verified_basis("A334"))
-
-        return await self.delegate_to(
-            child_id,
-            SovereignRequest(
-                intent=request.intent,
-                subject=request.subject,
-                requester=request.requester,
-                payload=request.payload,
             ),
         )
 
@@ -378,9 +266,6 @@ class SystemRuntimeSovereign(
         started separately by ``start_supervision()``.
         """
         state = await super().start()
-        app_registry = getattr(self.app, "_sub_sovereigns", None)
-        if isinstance(app_registry, dict):
-            app_registry.update(self._sub_sovereigns)
         state["sub_sovereigns"] = list(self._sub_sovereigns.keys())
         return state
 
@@ -442,7 +327,6 @@ class SystemRuntimeSovereign(
     async def _autonomy_tick(self) -> None:
         await self._check_coverage()
         await self._check_runtime_readiness()
-        await self._supervise_children()
         await self._check_process_survival()
         await self._check_convergence()
         self._persist_metrics()
@@ -484,77 +368,6 @@ class SystemRuntimeSovereign(
             merged.update(snapshot)
             return merged
         return payload
-
-    async def _supervise_children(self) -> None:
-        """Detect stopped children and adjudicate bounded restarts (A322)."""
-        from governance.registries import parent_of, resolve_sovereign
-
-        now = asyncio.get_event_loop().time()
-        for child_id, child in self._all_children().items():
-            if bool(getattr(child, "_started", False)):
-                watch = self._child_supervision.get(child_id)
-                if watch is not None and watch.get("state") != "started":
-                    watch["state"] = "started"
-                    watch["recovered_at"] = _iso_now()
-                    watch.pop("quarantined", None)
-                continue
-
-            watch = self._child_supervision.setdefault(
-                child_id, {"state": "started", "restart_attempts": 0}
-            )
-            if watch.get("state") == "started":
-                parent_id = parent_of(child_id)
-                parent = (
-                    self
-                    if parent_id == self.sovereign_id
-                    else resolve_sovereign(self.app, parent_id)
-                )
-                if parent is not None:
-                    try:
-                        parent.record_child_failure(child_id)
-                    except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
-                        pass
-                watch["state"] = "stopped"
-                watch["stopped_at"] = _iso_now()
-
-            await self._attempt_child_restart(child_id, watch, now)
-
-    async def _attempt_child_restart(
-        self, child_id: str, watch: dict, now: float
-    ) -> None:
-        from governance.registries import parent_of, resolve_sovereign
-
-        if watch.get("quarantined"):
-            return
-        parent_id = parent_of(child_id)
-        parent = (
-            self
-            if parent_id == self.sovereign_id
-            else resolve_sovereign(self.app, parent_id)
-        )
-        if parent is None:
-            return
-        if parent.child_failure_count(child_id) > _MAX_CHILD_RESTARTS:
-            self._auto_metrics["child_quarantines"] += 1
-            watch["quarantined"] = True
-            watch["quarantined_at"] = _iso_now()
-            return
-        last_attempt = float(watch.get("last_attempt") or 0.0)
-        if now - last_attempt < 60.0:
-            return
-        executor = getattr(self.app, "sovereign_stack_executor", None)
-        if executor is None:
-            return
-        self._auto_metrics["child_retries_triggered"] += 1
-        watch["last_attempt"] = now
-        watch["restart_attempts"] = int(watch.get("restart_attempts") or 0) + 1
-        try:
-            watch["last_result"] = await executor.restart_child(self, child_id)
-        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError) as error:
-            watch["last_result"] = {
-                "ok": False,
-                "error": f"{type(error).__name__}: {error}",
-            }
 
     async def _check_process_survival(self) -> None:
         """Check process survival and coordinate health."""

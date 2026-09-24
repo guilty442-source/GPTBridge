@@ -204,5 +204,5 @@ class MaintenanceStatusMixin:
     # ------------------------------------------------------------------
 
     def _maintenance_area(self):
-        from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import _MAINTENANCE_SOVEREIGN
-        return _MAINTENANCE_SOVEREIGN.area
+        from core_system.maintenance_identity import maintenance_declaration
+        return maintenance_declaration().area

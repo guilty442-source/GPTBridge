@@ -94,7 +94,7 @@ class AutoRepairOrchestrator:
         user_confirmed: bool = False,
     ) -> dict[str, Any]:
         """Process a health signal through the full repair chain."""
-        # Stage 1: Health Classification (health-maintenance-test-sub-sovereign)
+        # Stage 1: Health Classification (decision-core maintenance module)
         classification = self.health_classifier.classify([signal])
 
         # If healthy, no further action

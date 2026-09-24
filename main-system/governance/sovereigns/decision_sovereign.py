@@ -45,7 +45,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import time
 from pathlib import Path
 from typing import Any
 
@@ -86,8 +85,6 @@ _COORDINATED_SUB_SOVEREIGN_IDS = (
 
 # Autonomous supervision cadence
 _AUTONOMY_INTERVAL_SECONDS = 15.0
-_CHILD_RESTART_BUDGET = 3
-_CHILD_RESTART_COOLDOWN_SECONDS = 60.0
 
 
 class DecisionSovereign(
@@ -106,7 +103,6 @@ class DecisionSovereign(
         "startup.stack.dispatch",
         "repair.decide-and-route",
         "repair.certified-update",
-        "sub-sovereign.assign",
         "governance-rule.coordinate",
     })
 
@@ -163,7 +159,6 @@ class DecisionSovereign(
             "startup.stack.dispatch": self._adjudicate_startup_dispatch,
             "repair.decide-and-route": self._adjudicate_repair_decision,
             "repair.certified-update": self._adjudicate_certified_update,
-            "sub-sovereign.assign": self._adjudicate_sub_sovereign_assign,
             "governance-rule.coordinate": self._adjudicate_governance_coordination,
         }
 
@@ -201,10 +196,10 @@ class DecisionSovereign(
             {
                 "authorized": True,
                 "sequence": [
-                    "sync-sub-sovereigns-and-cleaner",
+                    "peer-cores-and-cleaner",
                     "permission-sovereign",
                     "maintenance-and-self-maintenance",
-                    "decision-sovereign-and-sub-sovereigns",
+                    "decision-sovereign",
                 ],
                 "dependency_state": dependency_state,
                 "parallelism": "bounded-independent-per-A155",
@@ -380,33 +375,6 @@ class DecisionSovereign(
             self.verified_basis("A152", "A154", "A330", "A63", "A64"),
         )
 
-    async def _adjudicate_sub_sovereign_assign(self, request: SovereignRequest) -> SovereignOutcome:
-        """A64/A323: child sub-sovereign assignment."""
-        sub_sovereign = request.payload.get("sub_sovereign")
-        action = request.payload.get("action", "start")
-
-        from governance.registries import children_of, parent_of
-
-        if sub_sovereign not in children_of("decision-sovereign"):
-            return refusal_outcome("UNKNOWN_SUB_SOVEREIGN", self.verified_basis("A130", "A334"))
-
-        valid_actions = {"start", "stop", "coordinate", "assign", "status"}
-        if action not in valid_actions:
-            return refusal_outcome(
-                "INVALID_ACTION",
-                self.verified_basis("A10", "A130"),
-            )
-
-        return accepted_outcome(
-            {
-                "sub_sovereign": sub_sovereign,
-                "action": action,
-                "authority": f"parent-{parent_of(sub_sovereign)}",
-                "execution": "delegated-to-governed-executor",
-            },
-            self.verified_basis("A130", "A284", "A287", "A323", "A334"),
-        )
-
     async def _adjudicate_governance_coordination(self, request: SovereignRequest) -> SovereignOutcome:
         """Governance rule coordination (A63)."""
         edicts = self.edicts()
@@ -490,7 +458,7 @@ class DecisionSovereign(
         base = self.status()
         base["sub_sovereign_registry"] = {
             name: sov.live_status() if hasattr(sov, "live_status") else {"role": name}
-            for name, sov in self._all_children().items()
+            for name, sov in self._sub_sovereigns.items()
         }
         return base
 
@@ -578,9 +546,6 @@ class DecisionSovereign(
         started separately by ``start_supervision()``.
         """
         state = await super().start()
-        app_registry = getattr(self.app, "_sub_sovereigns", None)
-        if isinstance(app_registry, dict):
-            app_registry.update(self._sub_sovereigns)
         state["sub_sovereigns"] = list(self._sub_sovereigns.keys())
         return state
 
@@ -637,78 +602,8 @@ class DecisionSovereign(
                 raise
 
     async def _autonomy_tick(self) -> None:
-        await self._supervise_children()
         self._reconcile_certified_updates()
         self._persist_live_state()
-
-    async def _supervise_children(self) -> None:
-        """Detect stopped children and adjudicate bounded restarts (A322)."""
-        from governance.registries import parent_of, resolve_sovereign
-
-        now = time.monotonic()
-        for child_id, child in self._all_children().items():
-            if bool(getattr(child, "_started", False)):
-                watch = self._child_supervision.get(child_id)
-                if watch is not None and watch.get("state") != "started":
-                    watch["state"] = "started"
-                    watch["recovered_at"] = _iso_now()
-                    watch.pop("quarantined", None)
-                continue
-
-            watch = self._child_supervision.setdefault(
-                child_id, {"state": "started", "restart_attempts": 0}
-            )
-            if watch.get("state") == "started":
-                parent_id = parent_of(child_id)
-                parent = (
-                    self
-                    if parent_id == self.sovereign_id
-                    else resolve_sovereign(self.app, parent_id)
-                )
-                if parent is not None:
-                    try:
-                        parent.record_child_failure(child_id)
-                    except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError):
-                        pass
-                watch["state"] = "stopped"
-                watch["stopped_at"] = _iso_now()
-
-            await self._attempt_child_restart(child_id, watch, now)
-
-    async def _attempt_child_restart(
-        self, child_id: str, watch: dict, now: float
-    ) -> None:
-        from governance.registries import parent_of, resolve_sovereign
-
-        if watch.get("quarantined"):
-            return
-        parent_id = parent_of(child_id)
-        parent = (
-            self
-            if parent_id == self.sovereign_id
-            else resolve_sovereign(self.app, parent_id)
-        )
-        if parent is None:
-            return
-        if parent.child_failure_count(child_id) > _CHILD_RESTART_BUDGET:
-            watch["quarantined"] = True
-            watch["quarantined_at"] = _iso_now()
-            return
-        last_attempt = float(watch.get("last_attempt") or 0.0)
-        if now - last_attempt < _CHILD_RESTART_COOLDOWN_SECONDS:
-            return
-        executor = getattr(self.app, "sovereign_stack_executor", None)
-        if executor is None:
-            return
-        watch["last_attempt"] = now
-        watch["restart_attempts"] = int(watch.get("restart_attempts") or 0) + 1
-        try:
-            watch["last_result"] = await executor.restart_child(self, child_id)
-        except (OSError, ValueError, RuntimeError, ImportError, TypeError, AttributeError, KeyError, PermissionError) as error:
-            watch["last_result"] = {
-                "ok": False,
-                "error": f"{type(error).__name__}: {error}",
-            }
 
     def _reconcile_certified_updates(self) -> None:
         """Close A330 feedback loop when watcher missed a report."""

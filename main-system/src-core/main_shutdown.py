@@ -76,12 +76,8 @@ class GPTBridgeAppShutdownMixin:
         # Independent tools with has_custom_ui and main_system_independent_tool=true
         # are NOT force-closed here; they continue running in their own processes.
 
-        # Stop sub-sovereigns
-        for sov in self._sub_sovereigns.values():  # type: ignore[attr-defined]
-            try:
-                await sov.stop()
-            except Exception:
-                pass
+        # A592/A604: the sub-sovereign layer is eliminated — there are no
+        # child sovereigns to stop here.
 
         # Stop sovereigns (A63/A64: decision only, execution delegated).
         # Each stop is isolated so one failure cannot skip the rest —

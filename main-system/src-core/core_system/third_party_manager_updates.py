@@ -82,7 +82,7 @@ class ThirdPartyUpdateMixin:
 
                 result = GitRepository(Path.cwd()).run(
                     args,
-                    actor="dependency-sync-sub-sovereign/version-probe",
+                    actor="automation-sovereign/version-probe",
                 )
             else:
                 result = subprocess.run(
