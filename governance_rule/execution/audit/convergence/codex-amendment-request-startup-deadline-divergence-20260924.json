@@ -16,19 +16,19 @@
  "status": "draft-awaiting-governor",
  "not_executed": true,
  "problem": {
-  "summary": "metadata.startup_complete_deadline_ms now reads 20000, but authoritative article A199 (per metadata.startup_authoritative_article = A484+A193+A199+A496) still fixes HARD-DEADLINE:10000ms inclusive with BUDGET-CARRY total-never-exceeds-10000ms, and maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE still verifies 10000ms. The runtime resolves startup_complete_deadline_ms codex-first via codex_readonly_connection, so the effective enforced deadline is now 20000ms while the normative article still mandates 10000ms.",
-  "codex_state": "metadata.startup_complete_deadline_ms=20000 (changed during the 2026-09-24 in-place normalization; no governor_disposition_* key covers the deadline); articles.A199 rule text unchanged: HARD-DEADLINE:10000ms inclusive, BUDGET-CARRY total-never-exceeds-10000ms, per-phase budgets summing to 10000; maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification='every measured cold warm reconnect and injected-failure startup completes within 10000ms' (introduced_version 3.21600, unchanged).",
-  "impact": "Runtime deadline (metadata-derived) diverges from the authoritative article; manifests synced to metadata (startup_manifest.json staged at 20000) now conflict with A199/TF_STARTUP_TEN_SECOND_DEADLINE evidence. Auditors cannot determine whether the deadline was intentionally relaxed or the metadata key drifted outside the amendment scope (the five-core normalization worker_note lists only A35/A205/A207/A208/A210/A212/A219/A343/A604 language-responsibility articles)."
+  "summary": "metadata.startup_complete_deadline_ms now reads 40000 (observed 20000, then amended again to 40000 within the same generation), but authoritative article A199 (per metadata.startup_authoritative_article = A484+A193+A199+A496) still fixes HARD-DEADLINE:10000ms inclusive with BUDGET-CARRY total-never-exceeds-10000ms, and maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE still verifies 10000ms. The runtime resolves startup_complete_deadline_ms codex-first via codex_readonly_connection, so the effective enforced deadline is now 40000ms while the normative article still mandates 10000ms.",
+  "codex_state": "metadata.startup_complete_deadline_ms=40000 (mutated twice during 2026-09-24 in-place work: 10000->20000->40000; no governor_disposition_* key covers the deadline); articles.A199 rule text unchanged: HARD-DEADLINE:10000ms inclusive, BUDGET-CARRY total-never-exceeds-10000ms, per-phase budgets summing to 10000; maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification='every measured cold warm reconnect and injected-failure startup completes within 10000ms'; code constant STARTUP_HARD_DEADLINE_MS still 10000 and pinned by test_startup_hard_deadline_is_10s_and_phase_budgets_bounded.",
+  "impact": "Runtime deadline (metadata-derived, now 40000) diverges from the authoritative article (10000) by 4x; startup_manifest.json committed at 40000 follows metadata; manifest probe_constants.startup_gate_deadline_seconds also moved 8.0->90.0 (not codified); auditors cannot determine whether the deadline was intentionally relaxed or the metadata key drifted outside the amendment scope (the five-core normalization worker_note lists only language-responsibility articles)."
  },
  "proposed_delta": {
   "options": [
    {
     "option": "deadline-relaxed",
-    "description": "If the governor intended to relax the total deadline to 20000ms (e.g. to accommodate newly registered startup phases), amend A199 rule text (HARD-DEADLINE, BUDGET-CARRY, per-phase budgets), maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification text, and any test_flow_codes references; keep metadata.startup_complete_deadline_ms=20000 and record a governor_disposition_startup_deadline key.",
+    "description": "If the governor intended to relax the total deadline to 40000ms (e.g. to accommodate newly registered startup phases), amend A199 rule text (HARD-DEADLINE, BUDGET-CARRY, per-phase budgets), maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification text, and any test_flow_codes references; keep metadata.startup_complete_deadline_ms=40000 and record a governor_disposition_startup_deadline key.",
     "codex_rows": [
      "articles.A199",
      "maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE",
-     "metadata.startup_complete_deadline_ms (keep 20000)"
+     "metadata.startup_complete_deadline_ms (keep 40000)"
     ]
    },
    {
@@ -47,13 +47,14 @@
   "deterministic integrity seal + lineage closure + atomic publication per A382/A488"
  ],
  "evidence": [
-  "metadata.startup_complete_deadline_ms=20000 observed via governed read-only connection 2026-09-24",
+  "metadata.startup_complete_deadline_ms=40000 observed via governed read-only connection 2026-09-24 (was 10000 before normalization; observed 20000 then 40000)",
   "articles.A199 provision row verbatim: 'HARD-DEADLINE:10000ms inclusive ... total-never-exceeds-10000ms'",
   "maintenance_manual_directory.STARTUP_TEN_SECOND_DEADLINE verification column verbatim requires 10000ms",
   "metadata.startup_authoritative_article = A484+A193+A199+A496",
   "no governor_disposition_* metadata key covers the startup deadline (six existing keys inspected)",
-  "main-system/config/startup_manifest.json staged delta 10000 -> 20000 follows the metadata value",
-  "runtime resolution path: governed_startup_constant reads metadata.startup_complete_deadline_ms codex-first with manifest fallback"
+  "main-system/config/startup_manifest.json committed at 40000 follows the metadata value; probe_constants.startup_gate_deadline_seconds moved 8.0->90.0 (manifest-only key, not codified)",
+  "runtime resolution path: governed_startup_constant reads metadata.startup_complete_deadline_ms codex-first with manifest fallback",
+  "code constant STARTUP_HARD_DEADLINE_MS=10000 unchanged; SLA test pins it at 10000 and passes"
  ],
  "worker_note": "Draft produced by devin-cli audit worker; requires governor authorization before any normalization. The worker did not modify the codex or the manifest; the manifest delta observed in the working tree follows the already-amended metadata value.",
  "codex_mutation": "none"
