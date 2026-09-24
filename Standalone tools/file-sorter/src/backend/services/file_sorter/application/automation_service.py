@@ -14,9 +14,16 @@ MIN_ENV_POLL_INTERVAL_SECONDS = 1.0
 MAX_POLL_INTERVAL_SECONDS = 86_400.0
 DEFAULT_REALTIME_SCAN_INTERVAL_SECONDS = 10.0
 DEFAULT_SETTLE_RETRY_SECONDS = 0.5
-DEFAULT_STARTUP_DELAY_SECONDS = 10.0
+DEFAULT_STARTUP_DELAY_SECONDS = 20.0
 MAX_STARTUP_DELAY_SECONDS = 300.0
 MAX_ADAPTIVE_SCAN_INTERVAL_SECONDS = 86_400.0
+# Keyword edits run in a separate CLI subprocess (GovernedCliExecutor), so
+# the loop learns about them through a state-root signal file. The file is
+# polled at this bound so a keyword-added organize pass lands within 20 s
+# even when the adaptive scan tier has backed off to its 24 h ceiling.
+WAKE_SIGNAL_POLL_SECONDS = 20.0
+WAKE_SIGNAL_NAME = "automation-wake.json"
+WAKE_SIGNAL_CATEGORY = "signals"
 ADAPTIVE_SCAN_INTERVAL_TIERS_SECONDS = (
     10.0,
     30.0,
@@ -77,6 +84,8 @@ class FileSorterAutomationService:
         realtime_scan_interval: float = DEFAULT_REALTIME_SCAN_INTERVAL_SECONDS,
         settle_retry_seconds: float = DEFAULT_SETTLE_RETRY_SECONDS,
         startup_delay_seconds: float = DEFAULT_STARTUP_DELAY_SECONDS,
+        wake_poll_seconds: float = WAKE_SIGNAL_POLL_SECONDS,
+        state_root: str | Path | None = None,
         enabled: bool | None = None,
     ) -> None:
         self.project_root = Path(project_root).resolve()
@@ -106,6 +115,14 @@ class FileSorterAutomationService:
             0.0,
             min(MAX_STARTUP_DELAY_SECONDS, float(startup_delay_seconds)),
         )
+        self.wake_poll_seconds = max(
+            1.0,
+            min(300.0, float(wake_poll_seconds)),
+        )
+        self._state_root = state_root
+        # mtime_ns of the last consumed wake signal; None = not yet seen
+        # (a pre-existing file at startup is consumed without firing).
+        self._wake_signal_mtime_ns: int | None = None
         self._task: asyncio.Task[None] | None = None
         self._stop_event: asyncio.Event | None = None
         self._lifecycle_lock = asyncio.Lock()
@@ -246,6 +263,10 @@ class FileSorterAutomationService:
                 return
             except asyncio.TimeoutError:
                 pass
+        # A signal file left behind by a previous process is consumed at
+        # startup without firing — only signals written while this loop is
+        # alive trigger an early pass.
+        self._mark_wake_signal_seen()
         while not stop_event.is_set():
             try:
                 before_pass = await asyncio.to_thread(

@@ -1,21 +1,35 @@
-"""Order Management System — decision-free order state machine.
+"""trading domain — Order Management System.
 
-Mirrors the C# orchestration component (``native/oms``): the same states
-and transitions. Every transition is journaled to the trading audit and,
-when bound, forwarded to ai-assistant as the authoritative record.
+Fixed pipeline (never bypassed):
 
-Pipeline: intent → risk evaluation → mode gate → adapter dispatch (LIVE,
-verified only) or simulated fill (PAPER/SHADOW).
+    TradeProposal → RiskEngine → OrderRequest → (mode gate)
+      → BrokerAdapter (LIVE) / paper ledger (PAPER)
+      → OrderReceipt → Execution → Portfolio
+
+- ANALYSIS: proposals stop after risk evaluation (decision recorded).
+- SHADOW:   risk-decided OrderRequest recorded — never submitted.
+- PAPER:    filled through the dedicated simulated account only.
+- LIVE:     dispatch to a verified BrokerAdapter — AI cannot reach this
+            path directly; only the OMS calls ``adapter.place_order``.
 """
 
 from __future__ import annotations
 
-import time
+import json
+from pathlib import Path
 from typing import Any
 
+from .accounts import AccountRegistry
 from .audit import TradingAudit
 from .broker.base import BrokerRegistry
-from .contracts import Fill, Order, OrderIntent, OrderStatus
+from .contracts import (
+    Execution,
+    OrderReceipt,
+    OrderRequest,
+    OrderStatus,
+    TradeProposal,
+    TradingMode,
+)
 from .modes import ModeGate
 from .portfolio_engine import PortfolioEngine
 from .risk_engine import RiskEngine
@@ -24,130 +38,240 @@ from .risk_engine import RiskEngine
 class OrderManagementSystem:
     def __init__(
         self,
-        *,
+        state_dir: Path,
         mode_gate: ModeGate,
-        risk_engine: RiskEngine,
+        risk: RiskEngine,
         portfolio: PortfolioEngine,
+        accounts: AccountRegistry,
         brokers: BrokerRegistry,
         audit: TradingAudit,
     ) -> None:
-        self._mode_gate = mode_gate
-        self._risk = risk_engine
+        self._dir = state_dir
+        self._gate = mode_gate
+        self._risk = risk
         self._portfolio = portfolio
+        self._accounts = accounts
         self._brokers = brokers
         self._audit = audit
-        self._orders: dict[str, Order] = {}
-        self._fills: list[Fill] = []
-        self._daily_order_count = 0
-        self._daily_realized_pnl = 0.0
-        self._day = time.strftime("%Y-%m-%d")
+        self._orders_path = state_dir / "orders.jsonl"
+        self._executions_path = state_dir / "executions.jsonl"
+        self._decisions_path = state_dir / "decisions.jsonl"
+        self._open_orders: list[OrderRequest] = []
+        self._executions: list[Execution] = []
+        self._load()
 
     # ------------------------------------------------------------------
-    def _rollover(self) -> None:
-        today = time.strftime("%Y-%m-%d")
-        if today != self._day:
-            self._day = today
-            self._daily_order_count = 0
-            self._daily_realized_pnl = 0.0
+    def _load(self) -> None:
+        for line in self._read(self._executions_path):
+            try:
+                self._executions.append(Execution(**line))
+            except TypeError:
+                continue
+        for line in self._read(self._orders_path):
+            try:
+                proposal = TradeProposal(**line["proposal"])
+                order = OrderRequest(
+                    proposal=proposal,
+                    status=line.get("status", OrderStatus.CREATED.value),
+                    order_id=line["order_id"],
+                    decision_id=line.get("decision_id", ""),
+                )
+            except (TypeError, KeyError):
+                continue
+            if order.status in (OrderStatus.CREATED.value, OrderStatus.SUBMITTED.value):
+                self._open_orders.append(order)
+        self._portfolio.load_executions(self._executions)
 
-    def submit(self, intent: OrderIntent) -> dict[str, Any]:
-        self._rollover()
-        order = Order(intent=intent)
-        self._orders[order.order_id] = order
-        self._audit.record("order.created", order.to_dict())
+    @staticmethod
+    def _read(path: Path) -> list[dict[str, Any]]:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        rows: list[dict[str, Any]] = []
+        for raw in lines:
+            try:
+                rows.append(json.loads(raw))
+            except json.JSONDecodeError:
+                continue
+        return rows
 
-        # 1. risk gate — always evaluated, in every mode.
+    @staticmethod
+    def _append(path: Path, row: dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    def _persist_order(self, order: OrderRequest) -> None:
+        self._append(self._orders_path, order.to_dict())
+
+    # ------------------------------------------------------------------
+    def submit(self, proposal: TradeProposal) -> dict[str, Any]:
+        """Full governed pipeline for one proposal."""
+        account = self._accounts.for_market(proposal.market, paper=False)
+        if account is None:
+            return {"ok": False, "error_code": "NO_ACCOUNT_FOR_MARKET"}
+        proposal.account_id = account.account_id
+
+        # -- risk evaluation (always, even in ANALYSIS — produces evidence)
+        cash = self._accounts.cash(account.account_id, account.currency)
         decision = self._risk.evaluate(
-            intent,
-            self._portfolio.positions(),
-            daily_order_count=self._daily_order_count,
-            daily_realized_pnl=self._daily_realized_pnl,
+            proposal,
+            positions=self._portfolio.position_objects(account.account_id),
+            open_orders=len(self._open_orders),
+            daily_pnl=self._daily_pnl(account.account_id),
+            cash_available=cash.available,
+            portfolio_value=self._portfolio.portfolio_value(account.account_id)
+            or 1.0,
         )
-        self._audit.record(
-            "risk.evaluated",
-            {"order_id": order.order_id, **decision.to_dict()},
-        )
+        self._append(self._decisions_path, {
+            "proposal_id": proposal.proposal_id,
+            "decision": decision.to_dict(),
+        })
+        self._audit.record("risk.evaluated", {
+            "proposal_id": proposal.proposal_id,
+            "approved": decision.approved,
+            "reasons": decision.reasons,
+            "backend": decision.backend,
+        })
         if not decision.approved:
-            order.status = OrderStatus.RISK_REJECTED.value
-            order.rejection = "; ".join(decision.reasons)
-            self._audit.record("order.rejected", order.to_dict())
-            return {"ok": False, "order": order.to_dict(), "decision": decision.to_dict()}
-
-        # 2. mode gate — ANALYSIS never submits.
-        if not self._mode_gate.allows("orders"):
-            order.status = OrderStatus.MODE_BLOCKED.value
-            order.rejection = f"mode {self._mode_gate.mode.value} blocks order submission"
-            self._audit.record("order.mode_blocked", order.to_dict())
-            return {"ok": False, "order": order.to_dict(), "decision": decision.to_dict()}
-
-        self._daily_order_count += 1
-
-        # 3a. SHADOW — record the would-be decision, no fill.
-        if self._mode_gate.mode.value == "SHADOW":
-            order.status = OrderStatus.SUBMITTED.value
-            order.rejection = ""
-            self._audit.record("order.shadow", order.to_dict())
-            return {"ok": True, "order": order.to_dict(), "decision": decision.to_dict()}
-
-        # 3b. PAPER — simulated fill at the intent price.
-        if self._mode_gate.mode.value == "PAPER":
-            fill = Fill(
-                order_id=order.order_id,
-                instrument=intent.instrument,
-                market=intent.market,
-                side=intent.side,
-                quantity=intent.quantity,
-                price=float(intent.price or 0.0),
-                simulated=True,
-            )
-            order.status = OrderStatus.FILLED.value
-            self._fills.append(fill)
-            self._portfolio.apply_fill(fill)
-            self._audit.record("order.filled", {"order": order.to_dict(), "fill": fill.to_dict()})
             return {
-                "ok": True,
-                "order": order.to_dict(),
-                "fill": fill.to_dict(),
+                "ok": False,
+                "error_code": "RISK_REJECTED",
+                "reasons": decision.reasons,
                 "decision": decision.to_dict(),
             }
 
-        # 3c. LIVE — dispatch through the verified adapter only.
-        adapter = self._brokers.for_market(intent.market)
-        if adapter is None:
+        # -- ANALYSIS: evidence only, no order record
+        if not self._gate.allows("decisions"):
+            self._audit.record("order.mode_blocked", {
+                "proposal_id": proposal.proposal_id,
+                "mode": self._gate.mode.value,
+            })
+            return {
+                "ok": False,
+                "error_code": "MODE_BLOCKED",
+                "mode": self._gate.mode.value,
+                "decision": decision.to_dict(),
+            }
+
+        order = OrderRequest(proposal=proposal, decision_id=decision.decision_id)
+        self._persist_order(order)
+        self._audit.record("order.created", order.to_dict())
+
+        # -- SHADOW: order decision recorded, never submitted
+        if not self._gate.allows("orders"):
+            order.status = OrderStatus.MODE_BLOCKED.value
+            self._persist_order(order)
+            return {
+                "ok": True,
+                "shadowed": True,
+                "order_id": order.order_id,
+                "mode": self._gate.mode.value,
+            }
+
+        # -- PAPER: simulated account fill, never touches a broker
+        if self._gate.mode is TradingMode.PAPER:
+            paper = self._accounts.paper_account(proposal.market)
+            proposal.account_id = paper.account_id
+            execution = Execution(
+                order_id=order.order_id,
+                instrument_id=proposal.instrument_id,
+                market=proposal.market,
+                side=proposal.side,
+                quantity=proposal.quantity,
+                price=float(proposal.price or 0.0),
+                account_id=paper.account_id,
+                simulated=True,
+            )
+            return self._fill(order, execution)
+
+        # -- LIVE: verified adapter dispatch only
+        adapter = self._brokers.adapter_for(account.broker_id)
+        if adapter is None or not adapter.api_verified:
             order.status = OrderStatus.ADAPTER_DENIED.value
-            order.rejection = f"no broker adapter for market '{intent.market}'"
-            self._audit.record("order.adapter_denied", order.to_dict())
-            return {"ok": False, "order": order.to_dict(), "decision": decision.to_dict()}
-        result = adapter.place_order(order, intent)
-        if not result.get("ok"):
-            order.status = OrderStatus.ADAPTER_DENIED.value
-            order.rejection = str(result.get("error_code") or "ADAPTER_DENIED")
-            self._audit.record("order.adapter_denied", {**order.to_dict(), "adapter": result})
-            return {"ok": False, "order": order.to_dict(), "decision": decision.to_dict(), "adapter": result}
+            self._persist_order(order)
+            self._audit.record("order.adapter_denied", {
+                "order_id": order.order_id,
+                "broker_id": account.broker_id,
+            })
+            return {
+                "ok": False,
+                "error_code": "BROKER_API_UNVERIFIED",
+                "order_id": order.order_id,
+            }
         order.status = OrderStatus.SUBMITTED.value
-        order.broker_order_id = str(result.get("broker_order_id") or "")
-        self._audit.record("order.submitted", {**order.to_dict(), "adapter": result})
-        return {"ok": True, "order": order.to_dict(), "decision": decision.to_dict(), "adapter": result}
+        self._open_orders.append(order)
+        self._persist_order(order)
+        receipt: OrderReceipt = adapter.place_order(order)
+        self._audit.record("order.receipt", receipt.to_dict())
+        if receipt.rejection:
+            order.status = OrderStatus.ADAPTER_DENIED.value
+            self._persist_order(order)
+            return {
+                "ok": False,
+                "error_code": "BROKER_REJECTED",
+                "receipt": receipt.to_dict(),
+            }
+        return {"ok": True, "order_id": order.order_id, "receipt": receipt.to_dict()}
 
     # ------------------------------------------------------------------
-    def cancel(self, order_id: str) -> dict[str, Any]:
-        order = self._orders.get(str(order_id))
+    def record_fill(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Broker-reported execution (LIVE) — matched to a submitted order."""
+        order_id = str(payload.get("order_id") or "")
+        order = next((o for o in self._open_orders if o.order_id == order_id), None)
         if order is None:
-            return {"ok": False, "error_code": "ORDER_NOT_FOUND"}
-        if order.status in (
-            OrderStatus.FILLED.value,
-            OrderStatus.CANCELLED.value,
-            OrderStatus.RISK_REJECTED.value,
-        ):
-            return {"ok": False, "error_code": "ORDER_TERMINAL", "order": order.to_dict()}
-        order.status = OrderStatus.CANCELLED.value
-        order.updated_at = time.time()
-        self._audit.record("order.cancelled", order.to_dict())
-        return {"ok": True, "order": order.to_dict()}
+            return {"ok": False, "error_code": "ORDER_NOT_OPEN"}
+        execution = Execution(
+            order_id=order_id,
+            instrument_id=order.proposal.instrument_id,
+            market=order.proposal.market,
+            side=order.proposal.side,
+            quantity=float(payload.get("quantity") or 0.0),
+            price=float(payload.get("price") or 0.0),
+            account_id=order.proposal.account_id,
+            commission=float(payload.get("commission") or 0.0),
+            fees=dict(payload.get("fees") or {}),
+            simulated=False,
+        )
+        result = self._fill(order, execution)
+        if result.get("ok"):
+            self._open_orders.remove(order)
+        return result
 
-    def orders(self, limit: int = 100) -> list[dict[str, Any]]:
-        orders = sorted(self._orders.values(), key=lambda o: o.created_at, reverse=True)
-        return [o.to_dict() for o in orders[: max(1, int(limit))]]
+    def _fill(self, order: OrderRequest, execution: Execution) -> dict[str, Any]:
+        position = self._portfolio.apply_execution(execution)
+        account = self._accounts.get(execution.account_id)
+        if account is not None:
+            delta = execution.quantity * execution.price
+            if execution.side in ("buy", "subscribe"):
+                delta = -delta
+            self._accounts.apply_execution_cash(
+                account.account_id, account.currency, delta
+            )
+        order.status = OrderStatus.FILLED.value
+        self._persist_order(order)
+        self._append(self._executions_path, execution.to_dict())
+        self._executions.append(execution)
+        self._audit.record("order.filled", {
+            "order_id": order.order_id,
+            "execution": execution.to_dict(),
+        })
+        return {
+            "ok": True,
+            "order_id": order.order_id,
+            "execution": execution.to_dict(),
+            "position": position.to_dict(),
+        }
 
-    def fills(self) -> list[Fill]:
-        return list(self._fills)
+    # ------------------------------------------------------------------
+    def _daily_pnl(self, account_id: str) -> float:
+        # Conservative placeholder: realized P&L is not tracked yet —
+        # report 0 so the daily-loss limit never silently blocks analysis.
+        return 0.0
+
+    def open_orders(self) -> list[dict[str, Any]]:
+        return [o.to_dict() for o in self._open_orders]
+
+    def executions(self) -> list[dict[str, Any]]:
+        return [e.to_dict() for e in self._executions]

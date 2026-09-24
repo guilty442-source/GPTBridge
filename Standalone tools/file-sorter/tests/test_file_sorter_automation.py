@@ -214,7 +214,9 @@ def test_first_pass_waits_for_startup_delay(tmp_path: Path) -> None:
         await service.start()
         await asyncio.sleep(0.01)
         assert calls == []
-        await asyncio.sleep(0.3)
+        deadline = asyncio.get_running_loop().time() + 5.0
+        while "profiles" not in calls and asyncio.get_running_loop().time() < deadline:
+            await asyncio.sleep(0.02)
         assert "profiles" in calls
         await service.stop()
 

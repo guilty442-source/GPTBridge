@@ -1,114 +1,128 @@
-"""Strategy Engine — turns 星澄 analysis signals into formal order intents.
+"""strategy domain — signal book + strategy evaluation.
 
-The Python façade hosts strategy registration, signal bookkeeping and the
-backtest/research hooks (model training, backtesting per the language
-division of labour). Formal model inference is delegated to the C++
-component (``native/strategy/strategy_engine.cpp``) when it is loaded;
-the declarative rule path is the reference implementation.
+星澄 emits ``TradingSignal`` objects (advisory only). The strategy
+engine is the ONLY component allowed to convert signals into
+``TradeProposal`` — proposals then enter the risk engine. AI can never
+construct an OrderRequest or call a BrokerAdapter.
 
-A signal never reaches the OMS unless an authorized strategy converts it
-into an :class:`OrderIntent` — 星澄 produces advice, the strategy engine
-produces proposals, the risk engine and OMS decide.
+The C++ strategy engine (``native/strategy/strategy_engine.dll``)
+provides the same ABI when built; the Python engine is the reference.
 """
 
 from __future__ import annotations
 
+import ctypes
 import json
-import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from .contracts import OrderIntent, Signal
+from .contracts import OrderSide, TradeProposal, TradingSignal
+
+_NATIVE_DLL = (
+    Path(__file__).resolve().parents[4] / "native" / "strategy" / "strategy_engine.dll"
+)
+
+
+class _NativeStrategy:
+    """ctypes binding to the C++ strategy engine (score_signals ABI)."""
+
+    def __init__(self) -> None:
+        lib = ctypes.CDLL(str(_NATIVE_DLL))
+        lib.strategy_score.restype = ctypes.c_double
+        lib.strategy_score.argtypes = [
+            ctypes.c_double, ctypes.c_double, ctypes.c_double
+        ]
+        self._lib = lib
+
+    def score(self, confidence: float, momentum: float, risk_penalty: float) -> float:
+        return float(self._lib.strategy_score(confidence, momentum, risk_penalty))
 
 
 class StrategyEngine:
-    """Registered strategies + signal book."""
+    """Signal intake + proposal generation.
+
+    Strategies:
+    - ``signal-follow``: converts qualifying 星澄 signals to proposals
+      (confidence >= threshold, side/quantity sane).
+    """
 
     def __init__(self, state_dir: Path) -> None:
-        self._state_dir = state_dir
-        self._signals_path = state_dir / "signal-book.json"
-        self._signals: list[dict[str, Any]] = []
-        self._strategies: dict[str, Callable[[Signal], OrderIntent | None]] = {}
-        self._load()
-        self.register("signal-follow", self._signal_follow)
+        self._signals_path = state_dir / "signals.jsonl"
+        self._native: _NativeStrategy | None = None
+        if _NATIVE_DLL.exists():
+            try:
+                self._native = _NativeStrategy()
+            except OSError:
+                self._native = None
+        self._min_confidence = 0.5
+
+    @property
+    def backend(self) -> str:
+        return "native:strategy_engine" if self._native else "python"
 
     # ------------------------------------------------------------------
-    def _load(self) -> None:
+    def record_signal(self, payload: dict[str, Any]) -> dict[str, Any]:
+        signal = TradingSignal(
+            instrument_id=str(payload.get("instrument_id") or ""),
+            market=str(payload.get("market") or ""),
+            side=str(payload.get("side") or OrderSide.BUY.value),
+            confidence=float(payload.get("confidence") or 0.0),
+            price=payload.get("price"),
+            quantity=float(payload.get("quantity") or 0.0),
+            rationale=str(payload.get("rationale") or ""),
+            source=str(payload.get("source") or "xingcheng"),
+        )
+        if not signal.instrument_id:
+            return {"ok": False, "error_code": "INSTRUMENT_REQUIRED"}
+        self._append_jsonl(self._signals_path, signal.to_dict())
+        return {"ok": True, "signal_id": signal.signal_id, "recorded": "signal"}
+
+    # ------------------------------------------------------------------
+    def evaluate(self, signal_id: str | None = None) -> list[dict[str, Any]]:
+        """Convert qualifying signals into TradeProposals (read-only)."""
+        proposals: list[dict[str, Any]] = []
+        for row in self._read_jsonl(self._signals_path):
+            if signal_id and row.get("signal_id") != signal_id:
+                continue
+            confidence = float(row.get("confidence") or 0.0)
+            momentum = float((row.get("payload") or {}).get("momentum") or 0.0)
+            risk_penalty = float((row.get("payload") or {}).get("risk_penalty") or 0.0)
+            score = (
+                self._native.score(confidence, momentum, risk_penalty)
+                if self._native
+                else confidence - risk_penalty
+            )
+            if score < self._min_confidence:
+                continue
+            proposal = TradeProposal(
+                instrument_id=row["instrument_id"],
+                market=row["market"],
+                side=row.get("side", OrderSide.BUY.value),
+                quantity=float(row.get("quantity") or 0.0),
+                price=row.get("price"),
+                strategy_id="signal-follow",
+                signal_id=row.get("signal_id", ""),
+            )
+            proposals.append(proposal.to_dict())
+        return proposals
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    @staticmethod
+    def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         try:
-            data = json.loads(self._signals_path.read_text(encoding="utf-8"))
-            if isinstance(data, list):
-                self._signals = data[-500:]
-        except Exception:
-            self._signals = []
-
-    def _persist(self) -> None:
-        self._state_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self._signals_path.with_suffix(".tmp")
-        tmp.write_text(
-            json.dumps(self._signals[-500:], ensure_ascii=False),
-            encoding="utf-8",
-        )
-        tmp.replace(self._signals_path)
-
-    # ------------------------------------------------------------------
-    def register(
-        self, strategy_id: str, evaluator: Callable[[Signal], OrderIntent | None]
-    ) -> None:
-        self._strategies[str(strategy_id)] = evaluator
-
-    def strategies(self) -> list[str]:
-        return sorted(self._strategies)
-
-    # Reference strategy: follow the signal as proposed (subject to risk
-    # gate downstream). Returns None when the signal is not actionable.
-    def _signal_follow(self, signal: Signal) -> OrderIntent | None:
-        if signal.confidence < 0.5 or signal.quantity <= 0:
-            return None
-        return OrderIntent(
-            instrument=signal.instrument,
-            market=signal.market,
-            side=signal.side,
-            quantity=signal.quantity,
-            price=signal.price,
-            strategy_id="signal-follow",
-            signal_id=signal.signal_id,
-        )
-
-    # ------------------------------------------------------------------
-    def ingest_signal(self, signal: Signal) -> dict[str, Any]:
-        self._signals.append(signal.to_dict())
-        self._persist()
-        intents = [
-            intent
-            for evaluator in self._strategies.values()
-            if (intent := evaluator(signal)) is not None
-        ]
-        return {
-            "signal": signal.to_dict(),
-            "intents": [i.to_dict() for i in intents],
-        }
-
-    def signal_book(self, limit: int = 100) -> list[dict[str, Any]]:
-        return self._signals[-max(1, int(limit)):]
-
-    # ------------------------------------------------------------------
-    def backtest(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Research hook — returns a structured inert result until a real
-        backtesting dataset is supplied via the governed channel."""
-        strategy_id = str(payload.get("strategy_id") or "")
-        if strategy_id and strategy_id not in self._strategies:
-            return {
-                "ok": False,
-                "error_code": "STRATEGY_UNKNOWN",
-                "strategy_id": strategy_id,
-            }
-        return {
-            "ok": True,
-            "strategy_id": strategy_id or "signal-follow",
-            "status": "no-dataset",
-            "note": (
-                "Backtesting requires a governed dataset; supply "
-                "'dataset' with bar series through ai-assistant."
-            ),
-            "requested_at": time.time(),
-        }
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        rows: list[dict[str, Any]] = []
+        for line in lines:
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return rows

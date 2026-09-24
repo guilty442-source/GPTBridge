@@ -1,66 +1,78 @@
-"""Portfolio Engine — position aggregation and asset summary.
+"""portfolio domain — positions derived from the execution ledger.
 
-Positions are reconstructed from the tool-local fill journal; the
-authoritative holdings/transaction records live in ai-assistant. This
-engine exists so the risk engine can evaluate against live exposure
-without a cross-tool call on the hot path.
+Positions are keyed by (account_id, instrument_id) — per-account
+isolation is structural. ``snapshot()`` produces a ``PortfolioSnapshot``
+contract for reporting and downstream risk checks.
 """
 
 from __future__ import annotations
 
-from collections import defaultdict
-from typing import Any, Iterable
+from typing import Any
 
-from .contracts import Fill, Position
+from .contracts import CashBalance, Execution, PortfolioSnapshot, Position
 
 
 class PortfolioEngine:
     def __init__(self) -> None:
+        # (account_id, instrument_id) -> Position
         self._positions: dict[tuple[str, str], Position] = {}
 
     # ------------------------------------------------------------------
-    def apply_fill(self, fill: Fill) -> Position:
-        key = (str(fill.market), str(fill.instrument))
-        position = self._positions.get(key)
-        if position is None:
-            position = Position(instrument=fill.instrument, market=fill.market)
-            self._positions[key] = position
-        qty = float(fill.quantity)
-        if fill.side == "sell":
-            qty = -qty
-        new_qty = position.quantity + qty
-        if qty > 0:
-            cost = position.quantity * position.average_cost + qty * fill.price
-            position.average_cost = cost / new_qty if new_qty else 0.0
-        position.quantity = new_qty
-        position.last_price = fill.price
-        if position.quantity <= 0:
-            position.quantity = 0.0
-            position.average_cost = 0.0
-        return position
+    def apply_execution(self, execution: Execution) -> Position:
+        key = (execution.account_id, execution.instrument_id)
+        pos = self._positions.get(key)
+        if pos is None:
+            pos = Position(
+                account_id=execution.account_id,
+                instrument_id=execution.instrument_id,
+                market=execution.market,
+            )
+            self._positions[key] = pos
+        qty = float(execution.quantity)
+        price = float(execution.price)
+        if execution.side in ("buy", "subscribe"):
+            total_cost = pos.average_cost * pos.quantity + price * qty
+            pos.quantity += qty
+            pos.average_cost = total_cost / pos.quantity if pos.quantity else 0.0
+        else:
+            pos.quantity = max(0.0, pos.quantity - qty)
+        pos.last_price = price
+        if pos.quantity <= 0:
+            pos.quantity = 0.0
+            pos.average_cost = 0.0
+        return pos
 
-    def rebuild(self, fills: Iterable[Fill]) -> None:
+    # ------------------------------------------------------------------
+    def positions(self, account_id: str | None = None) -> list[dict[str, Any]]:
+        items = self._positions.values()
+        if account_id:
+            items = [p for p in items if p.account_id == account_id]
+        return [p.to_dict() for p in items if p.quantity > 0]
+
+    def position_objects(self, account_id: str | None = None) -> list[Position]:
+        items = list(self._positions.values())
+        if account_id:
+            items = [p for p in items if p.account_id == account_id]
+        return [p for p in items if p.quantity > 0]
+
+    def portfolio_value(self, account_id: str | None = None) -> float:
+        return sum(p.notional for p in self.position_objects(account_id))
+
+    def snapshot(
+        self, account_id: str, cash: list[CashBalance]
+    ) -> PortfolioSnapshot:
+        positions = self.position_objects(account_id)
+        snap = PortfolioSnapshot(
+            account_id=account_id,
+            positions=positions,
+            cash=cash,
+            total_market_value=sum(p.market_value for p in positions),
+            total_cash=sum(c.available for c in cash),
+        )
+        return snap
+
+    # ------------------------------------------------------------------
+    def load_executions(self, executions: list[Execution]) -> None:
         self._positions.clear()
-        for fill in fills:
-            self.apply_fill(fill)
-
-    # ------------------------------------------------------------------
-    def mark(self, market: str, instrument: str, price: float) -> None:
-        position = self._positions.get((str(market), str(instrument)))
-        if position is not None:
-            position.last_price = float(price)
-
-    def positions(self) -> list[Position]:
-        return [p for p in self._positions.values() if p.quantity > 0]
-
-    # ------------------------------------------------------------------
-    def summary(self) -> dict[str, Any]:
-        positions = self.positions()
-        by_market: dict[str, float] = defaultdict(float)
-        for position in positions:
-            by_market[position.market] += position.market_value
-        return {
-            "positions": [p.to_dict() for p in positions],
-            "by_market": dict(by_market),
-            "total_market_value": sum(by_market.values()),
-        }
+        for execution in executions:
+            self.apply_execution(execution)

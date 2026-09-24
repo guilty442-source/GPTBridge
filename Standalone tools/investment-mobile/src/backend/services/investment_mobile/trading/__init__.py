@@ -1,37 +1,60 @@
 """星澄 AI 投資管理與自動操盤系統 — trading engine package.
 
 Decision-free governed engines physically hosted inside the
-``investment-mobile`` tool boundary:
+``investment-mobile`` tool boundary, organised as 11 logical domains
+(see ``domains.DOMAINS``):
 
-- ``modes``            : ANALYSIS / SHADOW / PAPER / LIVE gate (default ANALYSIS)
-- ``risk_engine``      : C-core façade — fail-closed limit evaluation
-- ``strategy_engine``  : C++-backed strategy evaluation surface
-- ``oms``              : C#-backed order management state machine
-- ``portfolio_engine`` : position / asset aggregation
-- ``broker``           : independent broker adapters (analysis-only until the
-                         official trading API is verified)
-- ``audit``            : append-only trading audit journal (runtime mirror;
-                         authoritative records live in ai-assistant)
+  market-data  instrument  portfolio  strategy  risk  trading
+  broker       mutual-fund ai-analysis backtest  audit
+
+Pipeline: MarketData → Strategy → TradingSignal → TradeProposal →
+RiskEngine → OrderRequest → OrderReceipt → BrokerAdapter → Execution →
+Portfolio. 星澄 emits signals/proposals only; risk limits and broker
+adapters are unreachable from the AI path.
 """
 
 from .contracts import (
-    Fill,
-    Order,
-    OrderIntent,
+    Account,
+    Broker,
+    CashBalance,
+    Execution,
+    FundDetails,
+    Instrument,
+    InstrumentType,
+    MarketObservation,
+    OrderReceipt,
+    OrderRequest,
+    OrderSide,
+    OrderStatus,
+    PortfolioSnapshot,
     Position,
     RiskDecision,
-    Signal,
+    TradeProposal,
     TradingMode,
+    TradingSignal,
 )
+from .domains import DOMAINS
 from .engine_service import TradingEngineService
 
 __all__ = (
-    "Fill",
-    "Order",
-    "OrderIntent",
+    "Account",
+    "Broker",
+    "CashBalance",
+    "DOMAINS",
+    "Execution",
+    "FundDetails",
+    "Instrument",
+    "InstrumentType",
+    "MarketObservation",
+    "OrderReceipt",
+    "OrderRequest",
+    "OrderSide",
+    "OrderStatus",
+    "PortfolioSnapshot",
     "Position",
     "RiskDecision",
-    "Signal",
+    "TradeProposal",
     "TradingEngineService",
     "TradingMode",
+    "TradingSignal",
 )

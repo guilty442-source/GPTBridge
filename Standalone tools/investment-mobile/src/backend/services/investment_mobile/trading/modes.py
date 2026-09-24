@@ -1,11 +1,12 @@
 """Trading mode gate — ANALYSIS/SHADOW/PAPER/LIVE.
 
-LIVE is unreachable without an explicit human authorization artifact:
+LIVE startup preconditions (ALL required, fail-closed):
+- explicit human authorization artifact (non-expired, strategy-scoped)
+- target broker adapter ``api_verified`` (checked at dispatch time)
+- risk limits configured (``risk-limits.json`` loadable)
+- audit journal writable
 
-- ``runtime/state/live-authorization.json`` must exist and contain a
-  non-expired grant scoped to the active strategy set. The artifact is the
-  recorded consent — the engine never fabricates it.
-- The target broker adapter must additionally report ``api_verified``.
+Even if the user requests LIVE, missing preconditions refuse the switch.
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ class ModeGate:
         self._state_dir = state_dir
         self._mode_path = state_dir / "trading-mode.json"
         self._auth_path = state_dir / "live-authorization.json"
+        self._risk_limits_path = state_dir / "risk-limits.json"
+        self._audit_path = state_dir / "trading-audit.jsonl"
         self._mode = TradingMode.ANALYSIS
         self._load()
 
@@ -32,10 +35,6 @@ class ModeGate:
     @property
     def mode(self) -> TradingMode:
         return self._mode
-
-    @property
-    def mode_path(self) -> Path:
-        return self._mode_path
 
     def _load(self) -> None:
         try:
@@ -55,7 +54,6 @@ class ModeGate:
 
     # ------------------------------------------------------------------
     def live_authorization(self) -> dict[str, Any] | None:
-        """Return the human authorization grant, or None."""
         try:
             data = json.loads(self._auth_path.read_text(encoding="utf-8"))
         except Exception:
@@ -69,43 +67,74 @@ class ModeGate:
             return None
         return data
 
+    def live_readiness(self) -> dict[str, Any]:
+        """Enumerate LIVE preconditions — all must hold."""
+        checks: dict[str, bool] = {}
+        checks["human_authorization"] = self.live_authorization() is not None
+        try:
+            limits = json.loads(self._risk_limits_path.read_text(encoding="utf-8"))
+            checks["risk_limits_configured"] = isinstance(limits, dict) and bool(
+                limits.get("max_order_notional")
+            )
+        except Exception:
+            checks["risk_limits_configured"] = False
+        try:
+            self._state_dir.mkdir(parents=True, exist_ok=True)
+            with self._audit_path.open("a", encoding="utf-8"):
+                pass
+            checks["audit_ready"] = True
+        except OSError:
+            checks["audit_ready"] = False
+        return {
+            "ready": all(checks.values()),
+            "checks": checks,
+            # Broker API verification is per-adapter and enforced at
+            # dispatch; listed here for the operator surface.
+            "broker_api_verification": "per-adapter-at-dispatch",
+        }
+
+    # ------------------------------------------------------------------
     def set_mode(self, mode: str) -> dict[str, Any]:
         try:
             target = TradingMode(str(mode).upper())
         except ValueError:
             return {"ok": False, "error_code": "MODE_UNKNOWN", "mode": self._mode.value}
-        if target is TradingMode.LIVE and self.live_authorization() is None:
-            return {
-                "ok": False,
-                "error_code": "LIVE_AUTHORIZATION_REQUIRED",
-                "mode": self._mode.value,
-            }
+        if target is TradingMode.LIVE:
+            readiness = self.live_readiness()
+            if not readiness["ready"]:
+                return {
+                    "ok": False,
+                    "error_code": "LIVE_PRECONDITIONS_UNMET",
+                    "mode": self._mode.value,
+                    "readiness": readiness,
+                }
         self._mode = target
         self._persist()
         return {"ok": True, "mode": self._mode.value}
 
     # ------------------------------------------------------------------
     def allows(self, stage: str) -> bool:
-        """Whether ``stage`` may run in the current mode.
+        """Stage gates:
 
-        - analysis: always (signal ingestion, research, risk evaluation)
-        - intents: strategy intents emitted (all modes — they are inert
-          without OMS submission)
-        - orders: OMS accepts submissions in SHADOW/PAPER/LIVE
-        - fills: fills are simulated in SHADOW/PAPER; LIVE routes to a
-          verified broker adapter
+        - analysis/intents: always (signals, proposals, risk evaluation)
+        - decisions: SHADOW and above — a formal risk-decided order
+          record is produced
+        - orders: PAPER and LIVE — SHADOW stops before order submission
+        - fills: PAPER (simulated account) only
         - execution: broker dispatch — LIVE only
         """
         if stage in ("analysis", "intents"):
             return True
-        if stage == "orders":
+        if stage == "decisions":
             return self._mode in (
                 TradingMode.SHADOW,
                 TradingMode.PAPER,
                 TradingMode.LIVE,
             )
+        if stage == "orders":
+            return self._mode in (TradingMode.PAPER, TradingMode.LIVE)
         if stage == "fills":
-            return self._mode in (TradingMode.SHADOW, TradingMode.PAPER)
+            return self._mode is TradingMode.PAPER
         if stage == "execution":
             return self._mode is TradingMode.LIVE
         return False
