@@ -1,5 +1,5 @@
 /**
- * ContractParityChecker.ts ?”Contract Parity Gate (A355).
+ * ContractParityChecker.ts â€”Contract Parity Gate (A355).
  *
  * Verifies TypeScript<->Python, Python<->Native, C ABI<->C++ implementation,
  * and Python/C ABI<->CSharp WindowsAdapter contract parity.
