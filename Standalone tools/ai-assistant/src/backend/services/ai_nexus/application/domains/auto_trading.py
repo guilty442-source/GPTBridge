@@ -41,7 +41,7 @@ class AutoTradingDomain(BusinessDomain):
                 "ok": True,
                 "domain": self.domain_id,
                 "orders": store.orders(limit=int(payload.get("limit") or 100)),
-                "fills": store.fills(limit=int(payload.get("limit") or 100)),
+                "executions": store.executions(limit=int(payload.get("limit") or 100)),
             }
         if command == "investment_trade_mode":
             return {

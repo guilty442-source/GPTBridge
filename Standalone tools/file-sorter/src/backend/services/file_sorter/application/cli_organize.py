@@ -182,7 +182,6 @@ def _write_automation_wake_signal(
             relative_parts=1,
             require_exists=False,
         )
-        path.parent.mkdir(parents=True, exist_ok=True)
         _atomic_write_json(
             path,
             {

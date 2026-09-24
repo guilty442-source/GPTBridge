@@ -45,6 +45,6 @@ class AssetManagementDomain(BusinessDomain):
                 "ok": True,
                 "domain": self.domain_id,
                 "orders": store.orders(limit=int(payload.get("limit") or 200)),
-                "fills": store.fills(limit=int(payload.get("limit") or 200)),
+                "executions": store.executions(limit=int(payload.get("limit") or 200)),
             }
         raise PermissionError("PERMISSION_DENIED")

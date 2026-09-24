@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterable
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_meta (
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 CREATE TABLE IF NOT EXISTS signals (
     signal_id TEXT PRIMARY KEY,
     market TEXT NOT NULL,
-    instrument TEXT NOT NULL,
+    instrument_id TEXT NOT NULL,
     side TEXT NOT NULL,
     confidence REAL,
     price REAL,
@@ -36,9 +36,31 @@ CREATE TABLE IF NOT EXISTS signals (
     payload TEXT NOT NULL,
     created_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS proposals (
+    proposal_id TEXT PRIMARY KEY,
+    signal_id TEXT,
+    strategy_id TEXT,
+    instrument_id TEXT NOT NULL,
+    market TEXT NOT NULL,
+    side TEXT NOT NULL,
+    quantity REAL,
+    price REAL,
+    notional REAL,
+    payload TEXT NOT NULL,
+    created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS risk_decisions (
+    decision_id TEXT PRIMARY KEY,
+    proposal_id TEXT,
+    approved INTEGER NOT NULL,
+    reasons TEXT NOT NULL,
+    backend TEXT,
+    payload TEXT NOT NULL,
+    evaluated_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS orders (
     order_id TEXT PRIMARY KEY,
-    instrument TEXT NOT NULL,
+    instrument_id TEXT NOT NULL,
     market TEXT NOT NULL,
     side TEXT NOT NULL,
     quantity REAL,
@@ -48,10 +70,21 @@ CREATE TABLE IF NOT EXISTS orders (
     payload TEXT NOT NULL,
     created_at REAL NOT NULL
 );
-CREATE TABLE IF NOT EXISTS fills (
-    fill_id TEXT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS receipts (
+    receipt_id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
-    instrument TEXT NOT NULL,
+    broker_order_id TEXT,
+    status TEXT NOT NULL,
+    rejection TEXT,
+    simulated INTEGER NOT NULL DEFAULT 1,
+    payload TEXT NOT NULL,
+    received_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS executions (
+    execution_id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    account_id TEXT,
+    instrument_id TEXT NOT NULL,
     market TEXT NOT NULL,
     side TEXT NOT NULL,
     quantity REAL NOT NULL,
@@ -92,6 +125,18 @@ CREATE INDEX IF NOT EXISTS idx_orders_market ON orders(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_type ON audit_events(type, at);
 """
 
+# v1 → v2: align normalized columns with the unified trading contracts
+# (instrument → instrument_id; fills → executions). Data is preserved
+# via ALTER … RENAME — nothing is dropped.
+_MIGRATE_V1_TO_V2 = """
+ALTER TABLE signals RENAME COLUMN instrument TO instrument_id;
+ALTER TABLE orders RENAME COLUMN instrument TO instrument_id;
+ALTER TABLE fills RENAME TO executions;
+ALTER TABLE executions RENAME COLUMN fill_id TO execution_id;
+ALTER TABLE executions RENAME COLUMN instrument TO instrument_id;
+ALTER TABLE executions ADD COLUMN account_id TEXT;
+"""
+
 
 class TradingStore:
     """Authoritative record store for the rebuilt investment domains."""
@@ -109,6 +154,17 @@ class TradingStore:
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self._db_path))
         self._conn.row_factory = sqlite3.Row
+        existing = self._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'"
+        ).fetchone()
+        version = 0
+        if existing:
+            row = self._conn.execute(
+                "SELECT value FROM schema_meta WHERE key='schema_version'"
+            ).fetchone()
+            version = int(row["value"]) if row else 0
+        if version == 1:
+            self._conn.executescript(_MIGRATE_V1_TO_V2)
         self._conn.executescript(_SCHEMA)
         self._conn.execute(
             "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', ?)",
@@ -130,13 +186,13 @@ class TradingStore:
     # ------------------------------------------------------------------
     def record_signal(self, signal: dict[str, Any]) -> None:
         self._db().execute(
-            "INSERT OR REPLACE INTO signals(signal_id, market, instrument, side,"
+            "INSERT OR REPLACE INTO signals(signal_id, market, instrument_id, side,"
             " confidence, price, quantity, rationale, source, payload, created_at)"
             " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (
                 str(signal.get("signal_id") or f"sig-{int(time.time()*1000)}"),
                 str(signal.get("market") or ""),
-                str(signal.get("instrument") or ""),
+                str(signal.get("instrument_id") or signal.get("instrument") or ""),
                 str(signal.get("side") or ""),
                 signal.get("confidence"),
                 signal.get("price"),
@@ -149,42 +205,101 @@ class TradingStore:
         )
         self._db().commit()
 
-    def record_order(self, order: dict[str, Any]) -> None:
-        intent = order.get("intent") or order
+    def record_proposal(self, proposal: dict[str, Any]) -> None:
         self._db().execute(
-            "INSERT OR REPLACE INTO orders(order_id, instrument, market, side,"
+            "INSERT OR REPLACE INTO proposals(proposal_id, signal_id, strategy_id,"
+            " instrument_id, market, side, quantity, price, notional, payload,"
+            " created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(proposal.get("proposal_id") or f"prop-{int(time.time()*1000)}"),
+                str(proposal.get("signal_id") or ""),
+                str(proposal.get("strategy_id") or ""),
+                str(proposal.get("instrument_id") or ""),
+                str(proposal.get("market") or ""),
+                str(proposal.get("side") or ""),
+                proposal.get("quantity"),
+                proposal.get("price"),
+                proposal.get("notional"),
+                json.dumps(proposal, ensure_ascii=False),
+                float(proposal.get("created_at") or time.time()),
+            ),
+        )
+        self._db().commit()
+
+    def record_decision(self, decision: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO risk_decisions(decision_id, proposal_id,"
+            " approved, reasons, backend, payload, evaluated_at)"
+            " VALUES(?,?,?,?,?,?,?)",
+            (
+                str(decision.get("decision_id") or f"risk-{int(time.time()*1000)}"),
+                str(decision.get("proposal_id") or ""),
+                1 if decision.get("approved") else 0,
+                json.dumps(decision.get("reasons") or [], ensure_ascii=False),
+                str(decision.get("backend") or "python"),
+                json.dumps(decision, ensure_ascii=False),
+                float(decision.get("evaluated_at") or time.time()),
+            ),
+        )
+        self._db().commit()
+
+    def record_order(self, order: dict[str, Any]) -> None:
+        proposal = order.get("proposal") or order
+        self._db().execute(
+            "INSERT OR REPLACE INTO orders(order_id, instrument_id, market, side,"
             " quantity, price, status, strategy_id, payload, created_at)"
             " VALUES(?,?,?,?,?,?,?,?,?,?)",
             (
                 str(order.get("order_id") or f"ord-{int(time.time()*1000)}"),
-                str(intent.get("instrument") or ""),
-                str(intent.get("market") or ""),
-                str(intent.get("side") or ""),
-                intent.get("quantity"),
-                intent.get("price"),
+                str(proposal.get("instrument_id") or ""),
+                str(proposal.get("market") or ""),
+                str(proposal.get("side") or ""),
+                proposal.get("quantity"),
+                proposal.get("price"),
                 str(order.get("status") or "created"),
-                str(intent.get("strategy_id") or ""),
+                str(proposal.get("strategy_id") or ""),
                 json.dumps(order, ensure_ascii=False),
                 float(order.get("created_at") or time.time()),
             ),
         )
         self._db().commit()
 
-    def record_fill(self, fill: dict[str, Any]) -> None:
+    def record_receipt(self, receipt: dict[str, Any]) -> None:
         self._db().execute(
-            "INSERT OR REPLACE INTO fills(fill_id, order_id, instrument, market,"
-            " side, quantity, price, simulated, executed_at)"
-            " VALUES(?,?,?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO receipts(receipt_id, order_id, broker_order_id,"
+            " status, rejection, simulated, payload, received_at)"
+            " VALUES(?,?,?,?,?,?,?,?)",
             (
-                str(fill.get("fill_id") or f"fill-{int(time.time()*1000)}"),
-                str(fill.get("order_id") or ""),
-                str(fill.get("instrument") or ""),
-                str(fill.get("market") or ""),
-                str(fill.get("side") or ""),
-                float(fill.get("quantity") or 0.0),
-                float(fill.get("price") or 0.0),
-                1 if fill.get("simulated", True) else 0,
-                float(fill.get("executed_at") or time.time()),
+                str(receipt.get("receipt_id") or f"rcpt-{int(time.time()*1000)}"),
+                str(receipt.get("order_id") or ""),
+                str(receipt.get("broker_order_id") or ""),
+                str(receipt.get("status") or "submitted"),
+                str(receipt.get("rejection") or ""),
+                1 if receipt.get("simulated", True) else 0,
+                json.dumps(receipt, ensure_ascii=False),
+                float(receipt.get("received_at") or time.time()),
+            ),
+        )
+        self._db().commit()
+
+    def record_execution(self, execution: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO executions(execution_id, order_id, account_id,"
+            " instrument_id, market, side, quantity, price, simulated, executed_at)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(execution.get("execution_id")
+                    or execution.get("fill_id")
+                    or f"exec-{int(time.time()*1000)}"),
+                str(execution.get("order_id") or ""),
+                str(execution.get("account_id") or ""),
+                str(execution.get("instrument_id") or execution.get("instrument") or ""),
+                str(execution.get("market") or ""),
+                str(execution.get("side") or ""),
+                float(execution.get("quantity") or 0.0),
+                float(execution.get("price") or 0.0),
+                1 if execution.get("simulated", True) else 0,
+                float(execution.get("executed_at") or time.time()),
             ),
         )
         self._db().commit()
@@ -284,14 +399,14 @@ class TradingStore:
             "SELECT * FROM orders ORDER BY created_at DESC LIMIT ?", (int(limit),)
         )
 
-    def fills(self, market: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+    def executions(self, market: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
         if market:
             return self._rows(
-                "SELECT * FROM fills WHERE market=? ORDER BY executed_at DESC LIMIT ?",
+                "SELECT * FROM executions WHERE market=? ORDER BY executed_at DESC LIMIT ?",
                 (market, int(limit)),
             )
         return self._rows(
-            "SELECT * FROM fills ORDER BY executed_at DESC LIMIT ?", (int(limit),)
+            "SELECT * FROM executions ORDER BY executed_at DESC LIMIT ?", (int(limit),)
         )
 
     def authorizations(self, active_only: bool = True) -> list[dict[str, Any]]:
@@ -308,24 +423,24 @@ class TradingStore:
 
     # ------------------------------------------------------------------
     def positions(self, market: str | None = None) -> list[dict[str, Any]]:
-        """Positions derived from the fill ledger (authoritative mirror)."""
+        """Positions derived from the execution ledger (authoritative mirror)."""
         agg: dict[tuple[str, str], dict[str, Any]] = {}
-        for fill in reversed(self.fills(market, limit=10000)):
-            key = (str(fill["market"]), str(fill["instrument"]))
+        for execution in reversed(self.executions(market, limit=10000)):
+            key = (str(execution["market"]), str(execution["instrument_id"]))
             entry = agg.setdefault(
                 key,
                 {
                     "market": key[0],
-                    "instrument": key[1],
+                    "instrument_id": key[1],
                     "quantity": 0.0,
                     "cost": 0.0,
                 },
             )
-            qty = float(fill["quantity"])
-            if fill["side"] == "sell":
+            qty = float(execution["quantity"])
+            if execution["side"] in ("sell", "redeem"):
                 qty = -qty
             if qty > 0:
-                entry["cost"] += qty * float(fill["price"])
+                entry["cost"] += qty * float(execution["price"])
             entry["quantity"] += qty
         out = []
         for entry in agg.values():
