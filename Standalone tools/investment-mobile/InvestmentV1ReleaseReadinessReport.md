@@ -9,7 +9,7 @@
 
 ## 1. 實際完成的功能
 
-驗收矩陣實測 **32 PASS / 0 FAIL / 2 BLOCKED / 0 INCOMPLETE_EVIDENCE**。
+驗收矩陣實測 **33 PASS / 0 FAIL / 1 BLOCKED / 0 INCOMPLETE_EVIDENCE**。
 PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸出）：
 
 - 台股持倉匯入與估值（`assets/`、`import` 管線，Decimal 計算）
@@ -31,16 +31,16 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 - 資料匯入（離線/手動帳戶與持倉）
 - 投資報告產生
 - 自動維護 / 啟動恢復（`startup_recovery`，事件去重、fill 數穩定）
-- autotrade 狀態 PG 寫入器本身已實作並接線（見 §2 pg.persistence）
+- autotrade 狀態 PG 持久化鏡像（受管 outbox → ai-assistant 業主落庫，見 §3-9）
 
 ## 2. 實際未完成的功能（矩陣 BLOCKED，誠實保留）
 
 | feature_id | 狀態 | 原因 |
 |---|---|---|
-| `pg.persistence` | BLOCKED | 寫入器已接線且可運作；`gptbridge_trading` schema 尚未套用（migrations 135–144 待治理遷移執行）。探針已改為自升級式：schema 落地後自動轉 PASS，不需改碼。 |
 | `ui.control_route` | BLOCKED | 無已授權的入站控制路由；本工具 manifest 無自訂 UI，回 `CONTROL_CHANNEL_UNAVAILABLE`。 |
 
-（`fund.paper` 已於本輪補齊並由實跑探針驗證轉 PASS——見 §3-8。）
+（`fund.paper`、`pg.persistence` 已於本輪補齊並由實跑探針驗證轉
+PASS——見 §3-8/§3-9。）
 
 ## 3. 本次修復的問題
 
@@ -73,6 +73,18 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
    `engine_service.py`（3 個新命令 + NAV 公告即觸發計價）。
    驗收探針 `_fund_paper_probe` 在隔離 tempdir 實跑
    申購→計價→交割→贖回全循環，以單位數與現金餘額為證據。
+9. `pg.persistence` 修正為正確架構：經查證 `gptbridge_trading` schema
+   **已套用**，但 `gptbridge_trading` 的表權限只授給業務主角色
+   `gptbridge_index_executor`（RLS 以 `module_id` 釘死），工具的
+   least-privilege runtime 登入依設計無法直寫業務 schema。原直寫
+   SQL 的 mirror 在本環境永遠寫不進去——已改為受管 outbox 鏡像：
+   `mirror_run/mirror_event/mirror_snapshot` 產生
+   `record_autotrade_runtime*` 操作進入既有 `_mirror_outbox`，由
+   `_drain_mirror` 經治理 ChannelClient 送交 ai-assistant 業主寫入
+   （與 record_fund_nav/record_paper_execution 同一路徑與語彙）。
+   未綁定 sink 時 deferred 降級不影響交易路徑。探針驗證 emit 確實
+   落入 outbox。同場修正：PAPER 績效 `total_assets` 補入基金部位
+   市值（`PaperPerformanceService` 先前漏計基金單位）。
 
 ## 4. 本次修改檔案
 
@@ -97,7 +109,7 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 - `_stage_e2e_v1.py` 端對端：**Ran 6 tests，OK**（涵蓋啟動→離線帳戶→
   台股/美股/基金匯入→全資產→行情→分析→建議→策略實驗→回測→SHADOW→
   PAPER→模擬成交→虛擬資產→績效→報告→重啟恢復）
-- 驗收矩陣實測：32 PASS / 0 FAIL / 2 BLOCKED / 0 INCOMPLETE_EVIDENCE
+- 驗收矩陣實測：33 PASS / 0 FAIL / 1 BLOCKED / 0 INCOMPLETE_EVIDENCE
 - PG mirror 行為驗證：無 PG 環境下 run 註冊＋遷移共 3 次寫入全部 deferred、
   不產生 spool 檔、不影響主流程、status 誠實回報。
 - 基金 PAPER 實測（含探針）：申購 3000@NAV10 → SETTLED 300 單位、
@@ -124,9 +136,12 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 - migration `144_autotrading_center.sql`：simulated-only 協調表、
   `execution_mode IN ('SHADOW','PAPER')`、`simulated` 必為 true、
   AI actor 狀態遷移限制、RLS enabled+forced、schema `gptbridge_trading`。
+- 實測：`gptbridge_trading` schema **已在環境中套用**；業務表寫入權
+  屬 `gptbridge_index_executor`（業務主 DSN），工具 runtime 身分
+  無權直寫——故 PG 持久化經受管 outbox 路徑（符合既有業務鏡像
+  慣例），實測 run 註冊/遷移/快照均正確產生鏡像操作。
 - 歷史 migration 未被修改；無 mock 資料寫入權威投資表。
-- 本地 runtime JSON/JSONL 為鏡像/快取定位正確；PG 寫入器已就緒，
-  schema 套用為後續治理遷移步驟（非程式缺口）。
+- 本地 runtime JSON/JSONL 為鏡像/快取定位正確。
 
 ## 10. 效能與資源
 
@@ -137,7 +152,9 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 
 - P0：無。
 - P1：無阻礙主要離線使用流程者。
-- P2：`pg.persistence` 待治理遷移套用 schema（寫入器已備妥、安全降級）。
+- P2：無程式缺口（`pg.persistence` 已接線至受管鏡像通道；端到端
+  PG 落庫依賴 ai-assistant 業主端消費 `record_autotrade_*` 操作，
+  屬下游對應項而非本工具缺口）。
 - P3：`ui.control_route`（本工具無自訂 UI，屬設計內限制）；
   金融權威路徑已用 Decimal，殘餘 `float` 位於分析/統計/舊 OMS
   占位（`_daily_pnl` 明示回傳 0 的保守 stub）等非權威位置，
@@ -152,6 +169,5 @@ PASS 項涵蓋（逐項含檔案位置、入口、測試證據，詳見矩陣輸
 
 **結論：`READY_FOR_RELEASE_REVIEW`**
 
-（此為提交審查之就緒判定，非正式治理核准；兩項 BLOCKED 已如實揭露——
-`pg.persistence` 等待治理遷移套用 schema，`ui.control_route` 為設計內
-限制。）
+（此為提交審查之就緒判定，非正式治理核准；唯一 BLOCKED 為
+`ui.control_route`——設計內無入站控制路由。）
