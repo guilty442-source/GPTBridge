@@ -45,6 +45,7 @@ class OrderManagementSystem:
         accounts: AccountRegistry,
         brokers: BrokerRegistry,
         audit: TradingAudit,
+        market: Any | None = None,
     ) -> None:
         self._dir = state_dir
         self._gate = mode_gate
@@ -53,6 +54,7 @@ class OrderManagementSystem:
         self._accounts = accounts
         self._brokers = brokers
         self._audit = audit
+        self._market = market
         self._orders_path = state_dir / "orders.jsonl"
         self._executions_path = state_dir / "executions.jsonl"
         self._decisions_path = state_dir / "decisions.jsonl"
@@ -190,7 +192,7 @@ class OrderManagementSystem:
             )
             return self._fill(order, execution)
 
-        # -- LIVE: verified adapter dispatch only
+        # -- LIVE: verified adapter dispatch only + fresh market data
         adapter = self._brokers.adapter_for(account.broker_id)
         if adapter is None or not adapter.api_verified:
             order.status = OrderStatus.ADAPTER_DENIED.value
@@ -204,6 +206,23 @@ class OrderManagementSystem:
                 "error_code": "BROKER_API_UNVERIFIED",
                 "order_id": order.order_id,
             }
+        if self._market is not None:
+            fresh = self._market.fresh_price(
+                proposal.instrument_id,
+                max_age_s=float(self._risk.limit("max_quote_age_s", 30.0)),
+            )
+            if not fresh.get("ok"):
+                order.status = OrderStatus.ADAPTER_DENIED.value
+                self._persist_order(order)
+                self._audit.record("order.stale_market_data", {
+                    "order_id": order.order_id,
+                    "error": fresh.get("error_code"),
+                })
+                return {
+                    "ok": False,
+                    "error_code": fresh.get("error_code", "STALE_MARKET_DATA"),
+                    "order_id": order.order_id,
+                }
         order.status = OrderStatus.SUBMITTED.value
         self._open_orders.append(order)
         self._persist_order(order)

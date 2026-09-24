@@ -12,13 +12,12 @@ from __future__ import annotations
 from typing import Any
 
 from .contracts import OrderSide, TradeProposal
-from .market_data import MarketDataCache
 from .risk_engine import RiskEngine
 
 
 class BacktestEngine:
-    def __init__(self, market_data: MarketDataCache, risk: RiskEngine) -> None:
-        self._market = market_data
+    def __init__(self, market_engine: Any, risk: RiskEngine) -> None:
+        self._market = market_engine
         self._risk = risk
 
     def run(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -30,7 +29,8 @@ class BacktestEngine:
         rejected: list[dict[str, Any]] = []
         for row in signals:
             instrument_id = str(row.get("instrument_id") or "")
-            price = self._market.price(instrument_id)
+            quote = self._market.latest_quote(instrument_id)
+            price = float(quote["last_price"]) if quote and quote.get("last_price") else None
             if price is None:
                 price = float(row.get("price") or 0.0)
             if price <= 0:

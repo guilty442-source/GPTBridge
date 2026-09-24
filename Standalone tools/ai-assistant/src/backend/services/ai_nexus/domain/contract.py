@@ -34,13 +34,14 @@ def _trading_app_version() -> str:
 TRADING_APP_VERSION = _trading_app_version()
 TRADING_SCHEMA_VERSION = 1
 
-# The six core business domains of the rebuilt system.
+# The core business domains of the rebuilt system.
 DOMAIN_TW_STOCK = "tw-stock"
 DOMAIN_US_STOCK = "us-stock"
 DOMAIN_FUND = "fund"
 DOMAIN_AI_ANALYSIS = "ai-analysis"
 DOMAIN_AUTO_TRADING = "auto-trading"
 DOMAIN_ASSET_MGMT = "asset-management"
+DOMAIN_MARKET_DATA = "market-data"
 
 DOMAIN_IDS = (
     DOMAIN_TW_STOCK,
@@ -49,6 +50,7 @@ DOMAIN_IDS = (
     DOMAIN_AI_ANALYSIS,
     DOMAIN_AUTO_TRADING,
     DOMAIN_ASSET_MGMT,
+    DOMAIN_MARKET_DATA,
 )
 
 # Market → domain routing shared by domains and the store.

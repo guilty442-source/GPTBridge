@@ -137,6 +137,9 @@ class RiskEngine:
     def configured(self) -> bool:
         return bool(self._limits.get("max_order_notional"))
 
+    def limit(self, name: str, default: Any = None) -> Any:
+        return self._limits.get(name, default)
+
     def _load_limits(self) -> dict[str, Any]:
         defaults = {
             "max_order_notional": 1_000_000.0,
@@ -148,6 +151,7 @@ class RiskEngine:
             "max_open_orders": 20,
             "min_cash_buffer": 10_000.0,
             "market_whitelist": ["tw", "us", "fund"],
+            "max_quote_age_s": 30.0,
         }
         try:
             user = json.loads(self._limits_path.read_text(encoding="utf-8"))

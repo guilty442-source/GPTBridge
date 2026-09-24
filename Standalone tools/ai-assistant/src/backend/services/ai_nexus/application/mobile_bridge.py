@@ -102,6 +102,52 @@ class InvestmentMobileBridge:
             self._store.record_authorization(grant)
             return {"ok": True, "recorded": "authorization"}
 
+        # Market-data mirror writes from the engine (authoritative copy).
+        if operation == "record_market_quote":
+            quote = payload.get("quote")
+            if not isinstance(quote, dict):
+                return {"ok": False, "error_code": "INVALID_QUOTE"}
+            self._store.record_market_quote(quote)
+            return {"ok": True, "recorded": "market_quote"}
+        if operation == "record_market_candle":
+            candle = payload.get("candle")
+            if not isinstance(candle, dict):
+                return {"ok": False, "error_code": "INVALID_CANDLE"}
+            self._store.record_market_candle(candle)
+            return {"ok": True, "recorded": "market_candle"}
+        if operation == "record_market_status":
+            status = payload.get("status")
+            if not isinstance(status, dict):
+                return {"ok": False, "error_code": "INVALID_STATUS"}
+            self._store.record_market_status(status)
+            return {"ok": True, "recorded": "market_status"}
+
+        # Fund domain mirror writes from the fund engine (authoritative copy).
+        if operation == "record_fund_nav":
+            nav = payload.get("nav")
+            if not isinstance(nav, dict):
+                return {"ok": False, "error_code": "INVALID_NAV"}
+            self._store.record_fund_nav(nav)
+            return {"ok": True, "recorded": "fund_nav"}
+        if operation == "record_fund_transaction":
+            txn = payload.get("transaction")
+            if not isinstance(txn, dict):
+                return {"ok": False, "error_code": "INVALID_TRANSACTION"}
+            self._store.record_fund_transaction(txn)
+            return {"ok": True, "recorded": "fund_transaction"}
+        if operation == "record_fund_distribution":
+            dist = payload.get("distribution")
+            if not isinstance(dist, dict):
+                return {"ok": False, "error_code": "INVALID_DISTRIBUTION"}
+            self._store.record_fund_distribution(dist)
+            return {"ok": True, "recorded": "fund_distribution"}
+        if operation == "record_fund_recommendation":
+            rec = payload.get("recommendation")
+            if not isinstance(rec, dict):
+                return {"ok": False, "error_code": "INVALID_RECOMMENDATION"}
+            self._store.record_fund_recommendation(rec)
+            return {"ok": True, "recorded": "fund_recommendation"}
+
         # Shared settings (companion-owned settings flow through here).
         if operation == "update_shared_settings":
             settings = payload.get("settings")

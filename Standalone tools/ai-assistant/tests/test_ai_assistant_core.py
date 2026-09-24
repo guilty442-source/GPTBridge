@@ -77,7 +77,7 @@ def test_status_and_domains_bookkeeping(tmp_path: Path) -> None:
     assert result["ok"] is True
     assert result["domains"] == list(DOMAIN_IDS)
     _, result = _run(service.handle("investment_domains", {}))
-    assert len(result["domains"]) == 6
+    assert len(result["domains"]) == 7
     _run(service.shutdown())
 
 

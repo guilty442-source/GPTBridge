@@ -199,6 +199,11 @@ class BootCoreLifecycleMixin:
                 return False
             if self._probe_health(port):
                 return True
+            # startup_dead latches permanently — the standby generation
+            # can never become healthy; fail the wait immediately instead
+            # of burning the whole readiness timeout.
+            if getattr(self, "_backend_startup_dead", False):
+                return False
             self._stop.wait(self._startup_health_probe_interval)
         return False
 

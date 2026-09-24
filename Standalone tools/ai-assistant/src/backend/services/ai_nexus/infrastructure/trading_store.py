@@ -120,9 +120,105 @@ CREATE TABLE IF NOT EXISTS domain_kv (
     updated_at REAL NOT NULL,
     PRIMARY KEY (domain, key)
 );
+-- market-data mirror (authoritative business copy; engine journal is
+-- the runtime mirror in investment-mobile)
+CREATE TABLE IF NOT EXISTS market_quotes (
+    instrument_id TEXT PRIMARY KEY,
+    market TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    currency TEXT,
+    bid_price TEXT,
+    ask_price TEXT,
+    last_price TEXT,
+    volume TEXT,
+    source_timestamp TEXT,
+    received_timestamp TEXT,
+    market_session TEXT,
+    data_status TEXT NOT NULL DEFAULT 'ok',
+    payload TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS market_candles (
+    instrument_id TEXT NOT NULL,
+    timeframe TEXT NOT NULL,
+    candle_start TEXT NOT NULL,
+    adjustment_type TEXT NOT NULL DEFAULT 'raw',
+    market TEXT NOT NULL,
+    open TEXT NOT NULL,
+    high TEXT NOT NULL,
+    low TEXT NOT NULL,
+    close TEXT NOT NULL,
+    volume TEXT NOT NULL,
+    turnover TEXT NOT NULL DEFAULT '0',
+    currency TEXT,
+    source_id TEXT NOT NULL,
+    data_revision INTEGER NOT NULL DEFAULT 1,
+    payload TEXT NOT NULL,
+    PRIMARY KEY (instrument_id, timeframe, candle_start, adjustment_type)
+);
+CREATE TABLE IF NOT EXISTS market_source_status (
+    source_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
+-- fund domain mirror (engine journal mirrors → authoritative business copy)
+CREATE TABLE IF NOT EXISTS fund_nav_mirror (
+    fund_id TEXT NOT NULL,
+    share_class_id TEXT NOT NULL,
+    nav_date TEXT NOT NULL,
+    nav_type TEXT NOT NULL DEFAULT 'published',
+    nav TEXT NOT NULL,
+    currency TEXT,
+    source_id TEXT,
+    revision INTEGER NOT NULL DEFAULT 1,
+    data_status TEXT NOT NULL DEFAULT 'ok',
+    payload TEXT NOT NULL,
+    PRIMARY KEY (fund_id, share_class_id, nav_date, nav_type)
+);
+CREATE TABLE IF NOT EXISTS fund_transactions (
+    transaction_id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    fund_id TEXT NOT NULL,
+    share_class_id TEXT NOT NULL,
+    transaction_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    amount TEXT NOT NULL,
+    units TEXT,
+    confirmed_nav TEXT,
+    currency TEXT,
+    settlement_date TEXT,
+    payload TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fund_distributions (
+    distribution_id TEXT PRIMARY KEY,
+    fund_id TEXT,
+    share_class_id TEXT NOT NULL,
+    ex_distribution_date TEXT NOT NULL,
+    amount_per_unit TEXT NOT NULL,
+    currency TEXT,
+    distribution_source TEXT NOT NULL DEFAULT 'unconfirmed',
+    payload TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fund_recommendations (
+    recommendation_id TEXT PRIMARY KEY,
+    fund_id TEXT NOT NULL,
+    share_class_id TEXT NOT NULL,
+    account_id TEXT,
+    recommendation_type TEXT NOT NULL,
+    analysis_date TEXT,
+    nav_date TEXT,
+    model_id TEXT,
+    model_version TEXT,
+    payload TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_fund_txn ON fund_transactions(account_id, fund_id, status);
+CREATE INDEX IF NOT EXISTS idx_fund_nav ON fund_nav_mirror(fund_id, share_class_id, nav_date);
 CREATE INDEX IF NOT EXISTS idx_signals_market ON signals(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_market ON orders(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_type ON audit_events(type, at);
+CREATE INDEX IF NOT EXISTS idx_candles_iid ON market_candles(instrument_id, timeframe, candle_start);
 """
 
 # v1 → v2: align normalized columns with the unified trading contracts
@@ -303,6 +399,210 @@ class TradingStore:
             ),
         )
         self._db().commit()
+
+    # ------------------------------------------------------------------
+    # market-data mirror
+    def record_market_quote(self, quote: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO market_quotes(instrument_id, market,"
+            " source_id, currency, bid_price, ask_price, last_price, volume,"
+            " source_timestamp, received_timestamp, market_session,"
+            " data_status, payload) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(quote.get("instrument_id") or ""),
+                str(quote.get("market") or ""),
+                str(quote.get("source_id") or ""),
+                str(quote.get("currency") or ""),
+                quote.get("bid_price"), quote.get("ask_price"),
+                quote.get("last_price"), str(quote.get("volume") or "0"),
+                str(quote.get("source_timestamp") or ""),
+                str(quote.get("received_timestamp") or ""),
+                str(quote.get("market_session") or ""),
+                str(quote.get("data_status") or "ok"),
+                json.dumps(quote, ensure_ascii=False),
+            ),
+        )
+        self._db().commit()
+
+    def record_market_candle(self, candle: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO market_candles(instrument_id, timeframe,"
+            " candle_start, adjustment_type, market, open, high, low, close,"
+            " volume, turnover, currency, source_id, data_revision, payload)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(candle.get("instrument_id") or ""),
+                str(candle.get("timeframe") or "1d"),
+                str(candle.get("candle_start") or ""),
+                str(candle.get("adjustment_type") or "raw"),
+                str(candle.get("market") or ""),
+                str(candle.get("open") or "0"), str(candle.get("high") or "0"),
+                str(candle.get("low") or "0"), str(candle.get("close") or "0"),
+                str(candle.get("volume") or "0"),
+                str(candle.get("turnover") or "0"),
+                str(candle.get("currency") or ""),
+                str(candle.get("source_id") or ""),
+                int(candle.get("data_revision") or 1),
+                json.dumps(candle, ensure_ascii=False),
+            ),
+        )
+        self._db().commit()
+
+    def record_market_status(self, status: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO market_source_status(source_id, status,"
+            " payload, updated_at) VALUES(?,?,?,?)",
+            (
+                str(status.get("source_id") or ""),
+                str(status.get("connection_status") or ""),
+                json.dumps(status, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def market_quote(self, instrument_id: str) -> dict[str, Any] | None:
+        row = self._db().execute(
+            "SELECT * FROM market_quotes WHERE instrument_id=?",
+            (str(instrument_id),),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def market_candles(
+        self,
+        instrument_id: str,
+        timeframe: str = "1d",
+        limit: int = 500,
+        adjustment_type: str = "raw",
+    ) -> list[dict[str, Any]]:
+        return self._rows(
+            "SELECT * FROM market_candles WHERE instrument_id=? AND timeframe=?"
+            " AND adjustment_type=? ORDER BY candle_start LIMIT ?",
+            (str(instrument_id), str(timeframe), str(adjustment_type), int(limit)),
+        )
+
+    def market_source_statuses(self) -> list[dict[str, Any]]:
+        return self._rows("SELECT * FROM market_source_status")
+
+    # ------------------------------------------------------------------
+    # fund domain mirror
+    def record_fund_nav(self, nav: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO fund_nav_mirror(fund_id, share_class_id,"
+            " nav_date, nav_type, nav, currency, source_id, revision,"
+            " data_status, payload) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(nav.get("fund_id") or ""),
+                str(nav.get("share_class_id") or ""),
+                str(nav.get("nav_date") or ""),
+                str(nav.get("nav_type") or "published"),
+                str(nav.get("nav") or "0"),
+                str(nav.get("currency") or ""),
+                str(nav.get("source_id") or ""),
+                int(nav.get("revision") or 1),
+                str(nav.get("data_status") or "ok"),
+                json.dumps(nav, ensure_ascii=False),
+            ),
+        )
+        self._db().commit()
+
+    def record_fund_transaction(self, txn: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO fund_transactions(transaction_id,"
+            " account_id, fund_id, share_class_id, transaction_type, status,"
+            " amount, units, confirmed_nav, currency, settlement_date,"
+            " payload, recorded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(txn.get("transaction_id") or ""),
+                str(txn.get("account_id") or ""),
+                str(txn.get("fund_id") or ""),
+                str(txn.get("share_class_id") or ""),
+                str(txn.get("transaction_type") or ""),
+                str(txn.get("status") or ""),
+                str(txn.get("amount") or "0"),
+                str(txn.get("units") or "0"),
+                str(txn.get("confirmed_nav") or ""),
+                str(txn.get("currency") or ""),
+                str(txn.get("settlement_date") or ""),
+                json.dumps(txn, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def record_fund_distribution(self, dist: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO fund_distributions(distribution_id,"
+            " fund_id, share_class_id, ex_distribution_date, amount_per_unit,"
+            " currency, distribution_source, payload)"
+            " VALUES(?,?,?,?,?,?,?,?)",
+            (
+                str(dist.get("distribution_id") or ""),
+                str(dist.get("fund_id") or ""),
+                str(dist.get("share_class_id") or ""),
+                str(dist.get("ex_distribution_date") or ""),
+                str(dist.get("amount_per_unit") or "0"),
+                str(dist.get("currency") or ""),
+                str(dist.get("distribution_source") or "unconfirmed"),
+                json.dumps(dist, ensure_ascii=False),
+            ),
+        )
+        self._db().commit()
+
+    def record_fund_recommendation(self, rec: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO fund_recommendations(recommendation_id,"
+            " fund_id, share_class_id, account_id, recommendation_type,"
+            " analysis_date, nav_date, model_id, model_version, payload,"
+            " recorded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(rec.get("recommendation_id") or ""),
+                str(rec.get("fund_id") or ""),
+                str(rec.get("share_class_id") or ""),
+                str(rec.get("account_id") or ""),
+                str(rec.get("recommendation_type") or ""),
+                str(rec.get("analysis_date") or ""),
+                str(rec.get("nav_date") or ""),
+                str(rec.get("model_id") or ""),
+                str(rec.get("model_version") or ""),
+                json.dumps(rec, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def fund_navs(self, fund_id: str, share_class_id: str | None = None,
+                  limit: int = 500) -> list[dict[str, Any]]:
+        if share_class_id:
+            return self._rows(
+                "SELECT * FROM fund_nav_mirror WHERE fund_id=?"
+                " AND share_class_id=? ORDER BY nav_date LIMIT ?",
+                (fund_id, share_class_id, int(limit)))
+        return self._rows(
+            "SELECT * FROM fund_nav_mirror WHERE fund_id=?"
+            " ORDER BY nav_date LIMIT ?", (fund_id, int(limit)))
+
+    def fund_transactions(self, account_id: str | None = None,
+                          limit: int = 200) -> list[dict[str, Any]]:
+        if account_id:
+            return self._rows(
+                "SELECT * FROM fund_transactions WHERE account_id=?"
+                " ORDER BY recorded_at DESC LIMIT ?",
+                (account_id, int(limit)))
+        return self._rows(
+            "SELECT * FROM fund_transactions ORDER BY recorded_at DESC"
+            " LIMIT ?", (int(limit),))
+
+    def fund_recommendations(self, fund_id: str | None = None,
+                             limit: int = 100) -> list[dict[str, Any]]:
+        if fund_id:
+            return self._rows(
+                "SELECT * FROM fund_recommendations WHERE fund_id=?"
+                " ORDER BY recorded_at DESC LIMIT ?",
+                (fund_id, int(limit)))
+        return self._rows(
+            "SELECT * FROM fund_recommendations ORDER BY recorded_at DESC"
+            " LIMIT ?", (int(limit),))
 
     def record_authorization(self, grant: dict[str, Any]) -> None:
         self._db().execute(

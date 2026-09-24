@@ -10,9 +10,10 @@ from __future__ import annotations
 
 DOMAINS: dict[str, dict[str, str]] = {
     "market-data": {
-        "module": "trading.market_data.MarketDataCache",
-        "contracts": "MarketObservation",
-        "boundary": "non-authoritative quote/NAV cache; feeds strategy + PAPER fills",
+        "module": "trading.market.engine.MarketDataEngine",
+        "contracts": "MarketQuote, MarketCandle, MarketDataStatus",
+        "boundary": "centralized bounded ingestion; sources replaceable; "
+                    "independent of AI model; stale/suspect data flagged",
     },
     "instrument": {
         "module": "trading.instruments.InstrumentRegistry",
@@ -45,9 +46,12 @@ DOMAINS: dict[str, dict[str, str]] = {
         "boundary": "per-broker adapters; inert until external api_verified artifact",
     },
     "mutual-fund": {
-        "module": "trading.fund.FundLedger",
-        "contracts": "FundDetails, fund transactions",
-        "boundary": "platform undecided; manual import only until provider API verified",
+        "module": "trading.fund.engine.MutualFundEngine",
+        "contracts": "FundIdentity, FundNAV, FundDistribution, FundFee, "
+                     "FundHolding, FundTransaction, FundRecommendation, "
+                     "FundStrategy",
+        "boundary": "analysis + recommendations only; live fund trading "
+                    "disabled; NAV≠成交價; providers verified-gated",
     },
     "ai-analysis": {
         "module": "trading.ai_boundary.SignalIntake",

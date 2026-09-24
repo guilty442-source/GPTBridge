@@ -140,8 +140,11 @@ class BootCoreHandoverMixin:
         try:
             # A standby generation owns a fresh startup window: re-anchor
             # the deadline epoch to this spawn, not the supervise cycle
-            # that produced the first generation.
+            # that produced the first generation.  The startup_dead latch
+            # belongs to the previous generation — reset it so the
+            # standby's readiness wait is judged on its own health.
             self._boot_epoch_wall = time.time()
+            self._backend_startup_dead = False
             standby = self._spawn_backend(
                 args,
                 startup_state=startup_state,

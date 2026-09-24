@@ -108,7 +108,9 @@
   },
   "test_targets": [
     "tests/test_investment_mobile_reexport.py",
-    "tests/test_trading_engines.py"
+    "tests/test_trading_engines.py",
+    "tests/test_market_acceptance.py",
+    "tests/test_fund_acceptance.py"
   ],
   "product": "星澄 AI 投資管理與自動操盤系統",
   "trading_system": {
@@ -127,14 +129,16 @@
       "audit"
     ],
     "engines": [
+      "market-data",
       "strategy",
       "risk",
       "oms",
       "portfolio",
       "broker-adapter",
-      "trading-audit"
+      "trading-audit",
+      "mutual-fund"
     ],
-    "business_domains_owner": "ai-assistant:tw-stock,us-stock,fund,ai-analysis,auto-trading,asset-management",
+    "business_domains_owner": "ai-assistant:tw-stock,us-stock,fund,ai-analysis,auto-trading,asset-management,market-data",
     "trading_modes": [
       "ANALYSIS",
       "SHADOW",
@@ -155,6 +159,27 @@
     },
     "signal_owner": "xingcheng-analysis-only",
     "decision_owner": "independent-strategy-and-risk-engines",
-    "business_layer_owner": "ai-assistant"
+    "business_layer_owner": "ai-assistant",
+    "market_data": {
+      "engine": "MarketDataEngine (centralized bounded ingestion; no per-symbol processes)",
+      "markets": [
+        "TWSE",
+        "TPEx",
+        "NYSE",
+        "NASDAQ"
+      ],
+      "sources": "replaceable adapters; verified-only realtime; simulated/manual for tests",
+      "live_quotes": "pending official source verification",
+      "storage": "SQLite runtime cache + PostgreSQL gptbridge_trading market_* (migration 135)"
+    },
+    "fund_system": {
+      "engine": "MutualFundEngine (trading/fund/) — identity, NAV, distribution, fee, performance, comparison, exposure, transactions, cost basis, recurring, recommendations, strategies",
+      "identity": "fund:{fund_id}:{share_class}:{currency} — share classes never collapse",
+      "nav_policy": "published/estimated/confirmed kept distinct; NAV is not a guaranteed execution price",
+      "live_trading": "disabled — advisory and bookkeeping only this phase",
+      "sources": "manual-import + controlled CSV/XLSX/JSON file import; TDCC/provider feeds pending verification",
+      "storage": "JSON journal + PostgreSQL gptbridge_trading fund_* (migration 136)",
+      "research": "Qdrant star-financial-research-v1 for prospectus semantic retrieval"
+    }
   }
 }

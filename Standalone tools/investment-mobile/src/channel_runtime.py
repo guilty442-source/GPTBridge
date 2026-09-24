@@ -81,6 +81,7 @@ class InvestmentMobileService:
     def bind_channel(self, channel: Any) -> None:
         self.channel.bind_channel(channel)
         self.engines.bind_channel(channel)
+        self.engines.bind_client(self.channel)
 
     async def handle(
         self, command: str, payload: dict[str, Any]
