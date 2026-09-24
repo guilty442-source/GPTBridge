@@ -80,11 +80,13 @@ def _new_id(prefix: str) -> str:
 class MultiStrategyManager:
     """Isolated strategy runtimes — own params, own capital, own state."""
 
-    def __init__(self, state_dir: Path) -> None:
+    def __init__(self, state_dir: Path, *,
+                 pg_mirror: Any = None) -> None:
         self._dir = Path(state_dir) / "autotrade"
         self._dir.mkdir(parents=True, exist_ok=True)
         self._path = self._dir / "strategies.json"
         self._log = self._dir / "runtime-events.jsonl"
+        self._pg = pg_mirror
         self._runs: dict[str, dict[str, Any]] = {}
         self._load()
 
@@ -106,6 +108,25 @@ class MultiStrategyManager:
             fh.write(json.dumps(
                 {"at": time.time(), "run_id": run_id, "kind": kind,
                  **detail}, ensure_ascii=False) + "\n")
+
+    # ------------------------------------------------------------------
+    def _pg_run(self, run: dict[str, Any]) -> None:
+        """Best-effort PG mirror — failures degrade, never propagate."""
+        if self._pg is not None:
+            try:
+                self._pg.mirror_run(run)
+            except Exception:
+                pass
+
+    def _pg_event(self, run_id: str, from_state: str, to_state: str,
+                  actor: str, reason: str) -> None:
+        if self._pg is not None:
+            try:
+                self._pg.mirror_event(
+                    run_id, to_state, from_state=from_state,
+                    actor=actor, reason=reason)
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     def register(self, *, strategy_id: str, strategy_version: int,
@@ -143,6 +164,7 @@ class MultiStrategyManager:
         self._runs[run["run_id"]] = run
         self._persist()
         self._audit(run["run_id"], "registered", {})
+        self._pg_run(run)
         return {"ok": True, "run": dict(run)}
 
     # ------------------------------------------------------------------
@@ -174,6 +196,8 @@ class MultiStrategyManager:
         self._audit(run_id, "transition",
                     {"from": cur, "to": target,
                      "actor": actor, "reason": reason})
+        self._pg_run(run)
+        self._pg_event(run_id, cur, target, actor, reason)
         return {"ok": True, "run": dict(run)}
 
     # ------------------------------------------------------------------
@@ -195,6 +219,7 @@ class MultiStrategyManager:
         self._persist()
         self._audit(run_id, "config_update",
                     {"keys": sorted(patch), "actor": actor})
+        self._pg_run(run)
         return {"ok": True, "run": dict(run)}
 
     def get(self, run_id: str) -> dict[str, Any] | None:

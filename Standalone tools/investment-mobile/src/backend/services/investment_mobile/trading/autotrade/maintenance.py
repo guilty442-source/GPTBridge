@@ -100,6 +100,13 @@ class AutoTradingMaintenanceService:
                        "auto_recovered": recovered,
                        "held_for_review": held})
         run["checks"] = checks
+        # best-effort PG mirror flush — auxiliary, never gates recovery
+        try:
+            mirror = getattr(engine, "pg_mirror", None)
+            if mirror is not None:
+                run["pg_mirror"] = mirror.flush()
+        except Exception:
+            pass
         run["status"] = ("ok" if all(c["ok"] for c in checks)
                          else "error")
         run["duration_ms"] = int((time.monotonic() - t0) * 1000)

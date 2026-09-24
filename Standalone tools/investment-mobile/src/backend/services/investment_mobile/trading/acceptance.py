@@ -81,6 +81,23 @@ class InvestmentAcceptanceMatrix:
         }
 
 
+def _pg_mirror_probe(svc: Any) -> dict[str, Any]:
+    """Writer wired → PASS only when the PG schema is actually present;
+    absent schema stays BLOCKED (migrations 135-144 await governed
+    execution), and the probe self-upgrades once they land."""
+    mirror = getattr(getattr(svc, "autotrade", None), "pg_mirror", None)
+    if mirror is None:
+        return {"ok": False, "blocked": True,
+                "reason": "persistence_pg 寫入器未接線"}
+    st = mirror.status()
+    if not st.get("schema_present"):
+        return {"ok": False, "blocked": True,
+                "reason": "寫入器已接線；gptbridge_trading schema 尚未套用 "
+                          "（migrations 135-144 待治理遷移執行）",
+                "status": st}
+    return {"ok": True, "status": st}
+
+
 def build_matrix() -> InvestmentAcceptanceMatrix:
     """V1.0 feature registry — one row per verified capability."""
     m = InvestmentAcceptanceMatrix()
@@ -239,12 +256,10 @@ def build_matrix() -> InvestmentAcceptanceMatrix:
 
     # ---- honest incompletes ----
     R("pg.persistence", "autotrade 狀態 PG 持久化寫入器", "autotrading",
-      "shared-layer/migrations/144 (DDL ready)",
-      "DDL+constraints verified; runtime writer pending",
-      [], "codex:pg-authority",
-      lambda s: {"ok": False, "blocked": True,
-                 "reason": "PG 144 表已建且約束已驗證，"
-                           "但 Python 寫入器尚未接上"})
+      "trading/autotrade/persistence_pg.py + migrations/144",
+      "write-through mirror wired; dormant until schema applied",
+      ["test_autotrade_acceptance.py"], "codex:pg-authority",
+      _pg_mirror_probe)
     R("fund.paper", "基金 PAPER 申贖結算模型", "mutual-fund",
       "trading/fund/", "NAV research done; sim settlement pending",
       [], "codex:mutual-fund",

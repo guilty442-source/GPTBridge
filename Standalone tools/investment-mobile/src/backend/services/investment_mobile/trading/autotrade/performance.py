@@ -29,11 +29,13 @@ def _d(v: Any) -> Decimal:
 
 
 class StrategyPerformanceMonitor:
-    def __init__(self, sim: Any, state_dir: Path) -> None:
+    def __init__(self, sim: Any, state_dir: Path, *,
+                 pg_mirror: Any = None) -> None:
         self._sim = sim
         self._dir = Path(state_dir) / "autotrade"
         self._dir.mkdir(parents=True, exist_ok=True)
         self._path = self._dir / "perf-snapshots.jsonl"
+        self._pg = pg_mirror
 
     # ------------------------------------------------------------------
     def strategy_report(self, run: dict[str, Any]) -> dict[str, Any]:
@@ -81,6 +83,11 @@ class StrategyPerformanceMonitor:
         }
         with open(self._path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(snap, ensure_ascii=False) + "\n")
+        if self._pg is not None:
+            try:
+                self._pg.mirror_snapshot(run["run_id"], snap)
+            except Exception:
+                pass
         return {"ok": True, "snapshot": snap}
 
     def account_report(self, account_id: str) -> dict[str, Any]:

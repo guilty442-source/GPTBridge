@@ -36,6 +36,7 @@ from .research import (AIStrategyImprovementService,
                        StrategyOverfittingGuard)
 from .risk import (StrategyAutoHaltService, StrategyRecoveryService,
                    StrategyRiskMonitor)
+from .persistence_pg import AutoTradePgMirror
 from .runtime import MultiStrategyManager, RuntimeState
 from .scheduler import (StrategyScheduler,
                         TradingSessionController)
@@ -46,8 +47,10 @@ class AutoTradingEngine:
                  calendar: Any, monitoring: Any, intel: Any,
                  strategy_registry: Any, fund_engine: Any) -> None:
         state_dir = Path(state_dir)
+        self.pg_mirror = AutoTradePgMirror(state_dir / "autotrade")
         self.dispatcher = TradingEventDispatcher(state_dir)
-        self.manager = MultiStrategyManager(state_dir)
+        self.manager = MultiStrategyManager(
+            state_dir, pg_mirror=self.pg_mirror)
         self.allocator = StrategyCapitalAllocator(state_dir)
         self.resources = StrategyResourceCoordinator(state_dir)
         self.sessions = TradingSessionController(calendar)
@@ -61,7 +64,8 @@ class AutoTradingEngine:
             self.manager, monitoring.notifications)
         self.recovery = StrategyRecoveryService(
             self.manager, sim, monitoring.gate)
-        self.performance = StrategyPerformanceMonitor(sim, state_dir)
+        self.performance = StrategyPerformanceMonitor(
+            sim, state_dir, pg_mirror=self.pg_mirror)
         self.stability = StrategyStabilityAnalyzer(self.performance)
         self.improvement = AIStrategyImprovementService(
             state_dir, strategy_registry, self.workload)
