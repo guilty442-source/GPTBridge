@@ -282,8 +282,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-09-23T03:13:43Z",
-    "codex_sha256": "95e926828945464579041f822586bfc770b07f207c33a6fd718312e8e505a4cf",
+    "codex_version": "2026-09-24T16:05:05Z",
+    "codex_sha256": "93abddfd4a1b62fced92a09c9735de7681237cb184685bb5c59f40b0159d812b",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -479,11 +479,11 @@
     "required_files": {
       "main-system/config/tool-runtime-contract.json": "3bb666c43e07ac0862fe5435d113c6bf7ebb7f25a0a37aea15564bda2fd546e1",
       "main-system/config/tool-isolation-policy.json": "6c227073a14e2599901b60555aa2e432e89b81dda86c0a88c27759ba25131e6e",
-      "main-system/config/startup_manifest.json": "a505ff512e300fa94c737a9c83ea5b61b68f1fb2d26b7fea469f747de89ba23c",
+      "main-system/config/startup_manifest.json": "6d52fcae8b00cc8f59bdea3434acd43f402721ab733c711faf90fde5e40b8cb9",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
-      "Standalone tools/local-model/runtime/settings/native-engine.json": "7f8eff72e849e5a043f8a6a356a79c77d73c179e53f61cbb9393b4fef3dc4de6"
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "ac875af2b4c0b23eafa7006971beee97d39cb1db1f7f2a2bead02746db8fc257"
     },
     "database_schema": {
       "manifest": "shared-layer/database-release.json",
