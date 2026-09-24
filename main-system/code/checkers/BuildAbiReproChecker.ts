@@ -1,5 +1,5 @@
 /**
- * BuildAbiReproChecker.ts ?”Build ABI Reproducibility Gate (A359).
+ * BuildAbiReproChecker.ts â€”Build ABI Reproducibility Gate (A359).
  *
  * Answers only:
  * 1. Approved toolchain used?
