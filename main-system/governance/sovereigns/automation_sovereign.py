@@ -65,15 +65,11 @@ class AutomationSovereign(
 
     def __init__(self, app: Any | None = None) -> None:
         super().__init__(app)
-        # Retired-child registry kept empty by design (A592/A604) — status
-        # surfaces read it to show retired markers.
-        self._sub_sovereigns: dict[str, Any] = {}
         # A330 certified update operations
         self._certified_update_operations: dict[str, dict[str, Any]] = {}
         # Autonomous supervision
         self._autonomy_task: asyncio.Task[Any] | None = None
         self._autonomy_stop = asyncio.Event()
-        self._child_supervision: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Intent gate (A10/A11 explicit allowlist)
@@ -108,7 +104,7 @@ class AutomationSovereign(
 
         This sovereign is decision-only except for A330 certified update
         execution.  The delegate_to calls inside _adjudicate already
-        dispatch execution to the governed executor or sub-sovereigns.
+        dispatch execution to the governed executor or governed modules.
         This hook attests that and records the delegation outcome in the
         audit ledger.
         """
@@ -227,22 +223,9 @@ class AutomationSovereign(
             verified_basis(("A322", "A301", "A334")),
         )
 
-    def _child_status(self, child_id: str, method: str = "live_status") -> dict[str, Any]:
-        child = getattr(self, "_sub_sovereigns", {}).get(child_id)
-        if child is None:
-            return {"role": child_id, "enabled": False, "materialized": False}
-        reporter = getattr(child, method, None)
-        return reporter() if callable(reporter) else {"role": child_id}
-
     def status(self) -> dict[str, Any]:
-        from governance.registries import children_of
-
         return self._with_status_schema({
             "sovereign": self.sovereign_id,
-            "sub_sovereigns": [
-                self._child_status(child_id)
-                for child_id in children_of(self.sovereign_id)
-            ],
             "certified_updates": {
                 "active": sum(
                     1 for op in self._certified_update_operations.values()
@@ -253,16 +236,11 @@ class AutomationSovereign(
             "autonomy": {
                 "enabled": self._autonomy_task is not None
                 and not self._autonomy_task.done(),
-                "supervised_children": len(self._child_supervision),
             },
         })
 
     def live_status(self) -> dict[str, Any]:
         base = self.status()
-        base["sub_sovereign_registry"] = {
-            name: sov.live_status() if hasattr(sov, "live_status") else {"role": name}
-            for name, sov in self._sub_sovereigns.items()
-        }
         base["certified_updates"] = list(self._certified_update_operations.values())
         return base
 
@@ -273,7 +251,6 @@ class AutomationSovereign(
     async def start(self) -> dict[str, Any]:
         """Mark the Automation Sovereign active."""
         state = await super().start()
-        state["sub_sovereigns"] = list(self._sub_sovereigns.keys())
         self._start_autonomy_loop()
         return state
 
@@ -348,10 +325,6 @@ class AutomationSovereign(
                 "heartbeat_at": _iso_now(),
                 "autonomy": {
                     "enabled": True,
-                    "supervised_children": {
-                        child_id: dict(watch)
-                        for child_id, watch in self._child_supervision.items()
-                    },
                     "certified_updates_active": sum(
                         1
                         for record in self._certified_update_operations.values()

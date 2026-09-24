@@ -10,8 +10,6 @@ class StatusBase:
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._sub_sovereigns: dict[str, Any] = {}
-        self._child_failure_counts: dict[str, int] = {}
 
 
 
@@ -51,15 +49,10 @@ class StatusBase:
         return self.status()
 
     def orchestration_status(self) -> dict[str, Any]:
-        """编排层状态（含子系统健康）。"""
+        """编排层状态。"""
         return {
             "state": "active" if self._started else "stopped",
             "owner": self.role,
-            "children": {
-                child_id: bool(getattr(child, "started", False))
-                for child_id, child in self._sub_sovereigns.items()
-            },
-            "child_failure_counts": dict(self._child_failure_counts),
         }
 
 

@@ -130,11 +130,6 @@ class AppLifecycleMixin:
         # coordination surface with cross-sovereign health monitoring.
         self.system_automation_coordinator = SystemAutomationCoordinator(self)
 
-        # Retired sub-sovereign registry kept empty by design (A592/A604:
-        # the layer is eliminated; FORBID:sub-sovereign-routing).  The dict
-        # stays as a compat surface for status readers.
-        self._sub_sovereigns: dict[str, Any] = {}
-
         self.hot_reload_watcher: Any | None = None
         self.authority_reanchor_service: Any | None = None
         self._command_tasks: set[asyncio.Task[Any]] = set()
@@ -255,14 +250,7 @@ class AppLifecycleMixin:
             "automation_sovereign": self.automation_sovereign.live_status(),
             "xingcheng_sovereign": self.xingcheng_sovereign.live_status(),
             "system_automation": self.system_automation_coordinator.system_status(),
-            # A592/A604: the sub-sovereign layer is eliminated — the key
-            # stays as an empty compat surface for status consumers.
-            "sub_sovereigns": {},
         }
-
-    def get_sub_sovereign(self, name: str) -> Any | None:
-        """A592/A604: sub-sovereign identities are retired — fail closed."""
-        return None
 
     def _load_governance_rules(self) -> list[str]:
         """Return the versioned, immutable main-system governance catalog."""

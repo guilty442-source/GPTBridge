@@ -24,7 +24,6 @@ class DecisionStartupDispatchMixin:
     launcher_report_path: Any
     module_id: str
     platform_id: str
-    _sub_sovereigns: dict[str, Any]
     _autonomy_task: Any
     _autonomy_stop: Any
 

@@ -89,12 +89,7 @@ class SystemRuntimeSovereign(
             "degradation_detected": 0,
             "health_coordinations": 0,
         }
-        # Child supervision watch: started/stopped transitions, restart
-        # attempts and quarantine markers decided by this sovereign.
-        self._child_supervision: dict[str, dict[str, Any]] = {}
-        # Retired-child registry kept empty by design (A592/A604) — status
-        # surfaces read it to show retired markers.
-        self._sub_sovereigns: dict[str, Any] = {}
+
 
     # ------------------------------------------------------------------
     # Intent gate (A10/A11 explicit allowlist)
@@ -138,7 +133,7 @@ class SystemRuntimeSovereign(
         """系統運行主宰委派執行（A446/A121）。
 
         This sovereign is decision-only (A28).  Execution is delegated
-        to governed executor / sub-sovereigns via delegate_to.  This hook
+        to governed executor / governed modules via delegate_to.  This hook
         attests that and records the delegation outcome in the audit ledger.
         """
         return self._attach_delegation_receipt(decision, request, "decision-only")
@@ -153,9 +148,6 @@ class SystemRuntimeSovereign(
             {
                 "runtime_state": self._runtime_state,
                 "auto_metrics": dict(self._auto_metrics),
-                "child_supervision": {
-                    cid: dict(watch) for cid, watch in self._child_supervision.items()
-                },
                 "readiness": self._load_readiness_state(),
             },
             self.verified_basis("A28", "A33", "A65"),
@@ -223,37 +215,13 @@ class SystemRuntimeSovereign(
             self.verified_basis("A322", "A28"),
         )
 
-    def _child_status(self, child_id: str, method: str = "live_status") -> dict[str, Any]:
-        child = getattr(self, "_sub_sovereigns", {}).get(child_id)
-        if child is None:
-            return {"role": child_id, "enabled": False, "materialized": False}
-        reporter = getattr(child, method, None)
-        return reporter() if callable(reporter) else {"role": child_id}
-
     def status(self) -> dict[str, Any]:
-        from governance.registries import children_of
-
         return self._with_status_schema({
             "sovereign": self.sovereign_id,
             "runtime_state": self._runtime_state,
-            "sub_sovereigns": [
-                self._child_status(child_id)
-                for child_id in children_of(self.sovereign_id)
-            ],
             "auto_metrics": dict(self._auto_metrics),
-            "child_supervision": {
-                cid: dict(watch) for cid, watch in self._child_supervision.items()
-            },
             "readiness": self._load_readiness_state(),
         })
-
-    def live_status(self) -> dict[str, Any]:
-        base = self.status()
-        base["sub_sovereign_registry"] = {
-            name: sov.live_status() if hasattr(sov, "live_status") else {"role": name}
-            for name, sov in self._sub_sovereigns.items()
-        }
-        return base
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -265,9 +233,7 @@ class SystemRuntimeSovereign(
         Decision-layer initialization only: the supervision loop is
         started separately by ``start_supervision()``.
         """
-        state = await super().start()
-        state["sub_sovereigns"] = list(self._sub_sovereigns.keys())
-        return state
+        return await super().start()
 
     async def start_supervision(self) -> None:
         """Start the autonomous supervision loop (A297 separation)."""
@@ -398,9 +364,6 @@ class SystemRuntimeSovereign(
                 "heartbeat_at": _iso_now(),
                 "runtime_state": self._runtime_state,
                 "auto_metrics": dict(self._auto_metrics),
-                "child_supervision": {
-                    cid: dict(watch) for cid, watch in self._child_supervision.items()
-                },
             }
             temporary = state_path.with_suffix(".tmp")
             temporary.write_text(

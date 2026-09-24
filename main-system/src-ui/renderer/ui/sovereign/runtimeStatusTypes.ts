@@ -38,7 +38,6 @@ export interface SovereignSnapshot {
   executor?: unknown
   health_owner?: unknown
   started_at?: unknown
-  sub_sovereigns?: Array<Record<string, unknown>>
   peer_systems?: { xingcheng?: XingchengSnapshot }
   governance_rules?: CodexSnapshot
   permission?: Record<string, unknown>

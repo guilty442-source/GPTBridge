@@ -27,7 +27,6 @@ _SEVERITY_RANK = {"info": 0, "warning": 1, "critical": 2}
 class XingchengCodexDriftMixin:
     """Codex-declared vs implemented-structure comparison (advisory)."""
 
-    _sub_sovereigns: dict[str, Any]
     app: Any
     sovereign_id: str
     _last_drift_report: dict[str, Any]

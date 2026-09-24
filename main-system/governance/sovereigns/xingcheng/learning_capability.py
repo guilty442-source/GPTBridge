@@ -534,8 +534,8 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
         raw = getattr(self.app, "project_root", None)
         if raw:
             return Path(raw).resolve()
-        # governance/sub-sovereigns/... -> main-system -> GPTBridge
-        return Path(__file__).resolve().parents[3]
+        # governance/sovereigns/xingcheng/... -> main-system -> GPTBridge
+        return Path(__file__).resolve().parents[4]
 
     def _ensure_learner(self) -> None:
         if self._learner is not None:

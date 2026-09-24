@@ -38,7 +38,6 @@ from .mixins import (
     CodexBase,
     DelegationBase,
     ExecutionBase,
-    FailureTrackingBase,
     LifecycleBase,
     StatusBase,
     VerificationBase,
@@ -86,7 +85,6 @@ class SovereignBase(
     CodexBase,
     AuthBase,
     DelegationBase,
-    FailureTrackingBase,
     ExecutionBase,
     LifecycleBase,
     StatusBase,
@@ -102,8 +100,6 @@ class SovereignBase(
         self._identity = SovereignIdentity.from_codex(self.sovereign_id)
         # Mixin initialization is handled by cooperative __init__ via super()
         # Ensure mixin state is initialized
-        self._sub_sovereigns = getattr(self, '_sub_sovereigns', {})
-        self._child_failure_counts = getattr(self, '_child_failure_counts', {})
         self._state = getattr(self, '_state', {})
         self._started = getattr(self, '_started', False)
         self._independent_verifier = getattr(self, '_independent_verifier', IndependentVerifier())

@@ -3,7 +3,6 @@
 from .codex_mixin import CodexBase
 from .auth_mixin import AuthBase
 from .delegation_mixin import DelegationBase
-from .failure_tracking_mixin import FailureTrackingBase
 from .execution_mixin import ExecutionBase
 from .lifecycle_mixin import LifecycleBase
 from .status_mixin import StatusBase
@@ -13,7 +12,6 @@ __all__ = [
     "CodexBase",
     "AuthBase",
     "DelegationBase",
-    "FailureTrackingBase",
     "ExecutionBase",
     "LifecycleBase",
     "StatusBase",
