@@ -13,8 +13,8 @@
   "history_head": "9a0e38abd69170c0c2ca4e64d0c0d0219f2ad9b0856235907fbfea27f3a43496",
   "revision_sequence": 74
  },
- "status": "draft-awaiting-governor",
- "not_executed": true,
+ "status": "applied-current",
+ "not_executed": false,
  "problem": {
   "summary": "metadata.active_sub_sovereign_roster lists 18 sub-sovereign identities as the active roster, but the sovereigns registry marks every one of them retired (ranks retired-sub-sovereign-layer-eliminated-A592 / retired-...-eliminated-A604, area=historical). The key was not updated when the sub-sovereign layer was eliminated (A592/A604).",
   "codex_state": "sovereigns table: all 18 listed sub-sovereigns have area=historical and retired ranks. metadata.active_sub_sovereign_roster still enumerates them as active.",
@@ -41,6 +41,6 @@
   "sovereigns table: 42 rows; all sub-sovereign ids in the roster have area=historical and retired-* ranks (verified via governed read-only connection)",
   "no implementation code consumes active_sub_sovereign_roster (grep-clean) — inconsistency is descriptive but codex-visible"
  ],
- "worker_note": "Draft produced by devin-cli audit worker; requires governor authorization before successor normalization. Final value semantics are the governors call.",
- "codex_mutation": "none"
+ "worker_note": "Governor disposition completed; the formal PostgreSQL Codex metadata now records none-sub-sovereign-layer-eliminated-A592-A604.",
+ "codex_mutation": "metadata.active_sub_sovereign_roster updated and Chinese mirror synchronized"
 }

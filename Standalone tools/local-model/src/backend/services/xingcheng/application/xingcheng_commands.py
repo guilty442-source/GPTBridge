@@ -840,6 +840,23 @@ def _create_teaching_commands() -> list:
     ]
 
 
+def _create_self_learning_commands() -> list:
+    """Create self-learning command specifications."""
+    return [
+        CommandSpec(
+            name="xingcheng_self_learning_cycle",
+            handler="_handle_self_learning",
+            category="self_learning",
+            description=(
+                "執行一輪自我學習循環（main-system 排程經 system channel 觸發）"
+            ),
+            aliases=(),
+            parameters=(),
+            examples=("xingcheng_self_learning_cycle",),
+        ),
+    ]
+
+
 def _create_infer_command() -> list:
     """Create infer command specification."""
     return [
@@ -915,6 +932,7 @@ def _create_all_commands() -> list:
     all_commands.extend(_create_diagnostics_commands())
     all_commands.extend(_create_codex_commands())
     all_commands.extend(_create_teaching_commands())
+    all_commands.extend(_create_self_learning_commands())
     all_commands.extend(_create_infer_command())
     return all_commands
 

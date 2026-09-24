@@ -206,6 +206,20 @@ class StartupExecutorPhasesMixin:
             )
             await app.model_service_activation.start()
         _lap("model_activation_ms")
+        if getattr(app, "self_learning_driver", None) is None:
+            from tasks.self_learning_driver import SelfLearningDriver
+
+            # A554/§1.1：星澄 self-learning 排程——經 AutomationCore 註冊
+            # 到共享排程（deny 不回落私有迴圈）；循環本身在工具行程內
+            # 經 governed system channel 執行（inference_exclusion 需要
+            # 行程本地 engine cache 才有效）。
+            app.self_learning_driver = SelfLearningDriver(
+                app,
+                app.toolbox_service,
+                project_root=app.project_root,
+            )
+            await app.self_learning_driver.start()
+        _lap("self_learning_driver_ms")
         if getattr(app, "sleep_policy", None) is None:
             from tasks.sleep_policy import SleepPolicyManager
 

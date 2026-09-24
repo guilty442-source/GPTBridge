@@ -6,7 +6,12 @@
   "required_gate": "five-sovereign-audit-unanimous-pass",
   "source_path": "postgresql://local/gptbridge_codex",
   "blueprint_anchor": "capability dispatch runtime wiring + activation gate (retired-blueprint §10.53 item 3; tracked via convergence P15)",
-  "status": "staged-awaiting-governor",
+  "status": "governor-authorized-awaiting-registry-materialization",
+  "governor_disposition": {
+    "authorized": true,
+    "scope": "formal capability-dispatch registry and fail-closed resolution contract",
+    "effect": "authorization does not fabricate registry rows, parity, runtime wiring or closure evidence"
+  },
   "problem": {
     "summary": "A594 retired learning-evidence-sync-sub-sovereign; sovereign-commanded learning (auto-loop/teach/reconcile/push/status) now fails closed with child-parent-mismatch at learning_command.py:52; test_xingcheng_learning_command.py 5 tests failing. Codex closure CAPABILITY_DISPATCH_CLOSURE = INCOMPLETE_EVIDENCE (P0): 'MODULE_CAPABILITY_REGISTRY + RULE_CAPABILITY_DISPATCH_V1 planned'.",
     "missing_authority": "no codex table materializes module capabilities or retired-identity dispatch routes; module_capability_registry.json is derived-evidence (self-declared 'pending CUTOVER gate ratification'); supersession_registry holds only non-authoritative legacy rows; runtime must not treat convergence JSON as authority (A334 single-authority)",

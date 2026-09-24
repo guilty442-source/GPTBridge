@@ -17,6 +17,8 @@ import hashlib
 import json
 from typing import Any, Callable, Mapping
 
+import psycopg
+
 from governance_rule.execution import codex_entry_state as _state
 from governance_rule.execution.codex_session import (
     CodexReadSession,
@@ -101,6 +103,10 @@ def reconcile_self_declarations(
                 for row in context.registry("module_assignment_registry")
             )
     except PermissionError:
+        result = False
+    except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError, psycopg.Error):
+        # Codex authority unreadable — fail closed to REJECTED (audited
+        # below), never propagate a raw store error as an implicit grant.
         result = False
     _state.record_session_audit(
         event="self-declaration-reconcile",

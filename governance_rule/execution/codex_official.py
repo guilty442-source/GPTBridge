@@ -30,6 +30,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Final
 
+import psycopg
+
 from governance_rule.execution.codex_repository import (
     load_governance_codex,
 )
@@ -213,7 +215,14 @@ def official_sovereign(
             purpose=purp, result=denial,
         )
         return None
-    codex = load_governance_codex()
+    try:
+        codex = load_governance_codex()
+    except (OSError, ValueError, KeyError, RuntimeError, ImportError, AttributeError, psycopg.Error):
+        _record_read_audit(
+            requester=actor, sovereign_id=sid, provision_id=prov,
+            purpose=purp, result="CODEX_UNAVAILABLE",
+        )
+        return None
     for item in codex.sovereigns:
         if item.id == sid:
             _record_read_audit(

@@ -222,6 +222,7 @@ class LocalAiService(
         "xingcheng_codex_alignment",
         "xingcheng_codex_mirror_check",
         "xingcheng_submit_teaching",
+        "xingcheng_self_learning_cycle",
     }
 
     def __init__(
@@ -312,6 +313,10 @@ class LocalAiService(
             else self.INTERNAL_TRAINING_INITIAL_DELAY_SECONDS
         )
         self._request_cancel_events: dict[str, threading.Event] = {}
+        # §1.1/A554：self-learning 週期由 main-system 經受管 system channel
+        # 排程觸發；claim lease 到期重排或連續 tick 可能造成重複請求，
+        # 此鎖保證同一行程內任一時刻只有一個 run_cycle 在跑。
+        self._self_learning_cycle_lock = threading.Lock()
         self._runtime_metrics: dict[str, int | float | str] = {
             "inference_request_count": 0,
             "analysis_request_count": 0,

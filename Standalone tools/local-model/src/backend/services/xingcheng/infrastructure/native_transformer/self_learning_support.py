@@ -521,15 +521,19 @@ def _inference_active() -> bool | None:
     """True when a xingcheng inference engine is cached (idle or in-flight).
 
     Returns None when the state cannot be determined — callers treat that
-    as fail-closed block (§2.7-4 與推論互斥)."""
+    as fail-closed block (§2.7-4 與推論互斥).  對話路徑可用 Python
+    （``native_engine._engine_cache``）或 C++（``cpp_runtime._engine_cache``）
+    引擎——兩個 cache 都要檢查，缺一側即視為狀態不可判定。"""
     try:
         from .. import native_engine
+        from . import cpp_runtime
     except Exception:  # noqa: BLE001 — fail-closed signal, not silent pass
         return None
-    cache = getattr(native_engine, "_engine_cache", None)
-    if cache is None:
+    native_cache = getattr(native_engine, "_engine_cache", None)
+    cpp_cache = getattr(cpp_runtime, "_engine_cache", None)
+    if native_cache is None or cpp_cache is None:
         return None
-    return bool(cache)
+    return bool(native_cache) or bool(cpp_cache)
 
 
 def run_cycle_impl(

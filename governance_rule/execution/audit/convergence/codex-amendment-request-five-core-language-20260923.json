@@ -13,14 +13,14 @@
     "history_head": "9a0e38abd69170c0c2ca4e64d0c0d0219f2ad9b0856235907fbfea27f3a43496",
     "revision_sequence": 74
   },
-  "status": "governor-authorized-awaiting-successor-normalization",
+  "status": "applied-current",
   "governor_authorization": {
     "authorized": true,
     "authorized_at": "2026-09-23T16:45:00+08:00",
     "directive": "directly modify; certification must use governed authorization, deterministic integrity seal, lineage closure and atomic publication",
     "scope": "five-core language responsibility and certification validity successor"
   },
-  "not_executed": true,
+  "not_executed": false,
   "problem": {
     "summary": "The current language-boundary provisions encode the pre-five-core language model: E177 six-language boundaries (C = sole ABI/interface), E178 canonical language roles (PYTHON=CONTROL/SEMANTICS/BUSINESS, C=INTERFACE, CPP=IMPLEMENTATION/PERFORMANCE), E179/E186 native physical layout (include/gptbridge_native.h + bridge + core/vector.cpp+parser.cpp+transformer.cpp; OTHER-NATIVE-TOP-DIRECTORY none). The live native tree now carries the C11 runtime core (native/core/*.c), the C++ audit engine (native/audit/audit_engine.cpp) and the governed tool runtime (native/tool_runtime/*.cpp), and the program basis is the five-core language responsibility table (blueprint §2.1). No current provision records the five-core language forms or retires the Python/C# hybrid dual-host assumption.",
     "codex_state": "A604 (successor of A591/A592) fixes the five governance cores; A605/A607 fix the runtime/module rule indexes; the language provisions were not synchronised with either.",
@@ -65,6 +65,6 @@
     "native tree inventory: native/{include,bridge,core,audit,tool_runtime,test_suites}",
     "governance_rule/codex/data/governance_codex.sqlite3 (read-only predecessor snapshot)"
   ],
-  "worker_note": "Human governor authorization is recorded. Normalize into explicit successor rows, enforce deterministic integrity-seal certification, then build and publish through the governed successor pipeline.",
-  "codex_mutation": "none"
+  "worker_note": "Governor authorization was applied to the current PostgreSQL Codex through A35, A205, A207, A208, A210, A212, A219, A343 and A604 language-responsibility normalization.",
+  "codex_mutation": "five-core language responsibility normalized and Chinese mirror synchronized"
 }

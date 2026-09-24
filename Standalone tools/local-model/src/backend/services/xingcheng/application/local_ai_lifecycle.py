@@ -33,6 +33,58 @@ class LocalAiLifecycleMixin:
         event.set()
         return True
 
+    async def _handle_self_learning(
+        self, command: str, payload: dict[str, Any]
+    ) -> tuple[str, dict[str, Any]]:
+        """``xingcheng_self_learning_cycle``：受管排程觸發的一輪自我學習。
+
+        §1.1/A554：main-system ``self_learning_driver`` 經 AutomationCore
+        排程、由 governed system channel 送達本行程；循環必須在工具
+        行程內執行——``inference_exclusion``（§2.7-4）檢查的是行程本地
+        engine cache，外掛行程無法判定。
+        重入鎖保證 lease 重排／連續 tick 不會並行兩輪訓練；所有政策閘
+        （enabled、min_new_examples、min_interval、quiet hours、GPU
+        退避、熔斷、每日上限）由 ``run_cycle`` 權威判定，本 handler 不
+        複製任何閘門。
+        """
+        if command != "xingcheng_self_learning_cycle":
+            return "error", {
+                "ok": False,
+                "error_code": "UNKNOWN_COMMAND",
+                "message": f"未知命令: {command}",
+            }
+        lock = self._self_learning_cycle_lock
+        if not lock.acquire(blocking=False):
+            return "xingcheng_self_learning_cycle_result", {
+                "ok": True,
+                "action": "already-running",
+                "reason": "another self-learning cycle is in flight",
+            }
+        try:
+            result = await asyncio.to_thread(
+                self._run_self_learning_cycle, payload
+            )
+        finally:
+            lock.release()
+        return "xingcheng_self_learning_cycle_result", result
+
+    def _run_self_learning_cycle(self, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            from ..infrastructure.native_transformer.self_learning import (
+                run_cycle,
+            )
+
+            return run_cycle(
+                self.tool_root,
+                force=bool(payload.get("force")),
+            )
+        except Exception as exc:  # noqa: BLE001 — 循環結果必須回到請求方
+            return {
+                "ok": False,
+                "action": "error",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
     async def start(self) -> None:
         await asyncio.gather(
             asyncio.to_thread(self._run_self_maintenance),
