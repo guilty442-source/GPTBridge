@@ -350,8 +350,8 @@
     "surface_pairing": {
       "frontend_surface_file": "main-system/config/ipc-surface-frontend.json",
       "backend_surface_file": "main-system/config/ipc-surface-backend.json",
-      "frontend_surface_version": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe",
-      "backend_surface_version": "e76b1081fdf3f0cfb974413f737bddfe1f226e3fe0e57912d97a993170215818",
+      "frontend_surface_version": "c7b5af574186845ee615cae054c863e51b7471ecdd76978fab2f896f4168bd4b",
+      "backend_surface_version": "71bba81daaeb9d3383ea5f1281674830ede8408a015a599eb7b32fb2bb61ea4d",
       "rule": "frontend-sends-subset-of-backend-commands; backend-features-subset-of-frontend-support"
     }
   },
@@ -388,7 +388,7 @@
       ],
       "development_dependency_count": 10
     },
-    "ipc_contract_identity": "c522aaf5e5fc4fd586c6f01b0b7c6fe77bb20eabd93d3196320413fde355bdbe",
+    "ipc_contract_identity": "c7b5af574186845ee615cae054c863e51b7471ecdd76978fab2f896f4168bd4b",
     "compatible_backend_contract_range": {
       "min_ipc_contract_version": 1,
       "max_ipc_contract_version": 1
@@ -483,7 +483,7 @@
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
-      "Standalone tools/local-model/runtime/settings/native-engine.json": "e62d848eab5ad69024bb9c649a8707ad75f2719bbab662aa0521d75223f08fa5"
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "4a7be6c475d09c92c4e89b4233c8bc365af6184f3b61de7c17383887dc01ec8e"
     },
     "database_schema": {
       "manifest": "shared-layer/database-release.json",
