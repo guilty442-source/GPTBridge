@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import _sorter_test_boot  # noqa: F401  # sys.path bootstrap
 
+import asyncio
 import os
 from pathlib import Path
 from typing import Any
@@ -179,3 +180,103 @@ def test_new_keyword_scan_returns_only_the_selected_target(
 
     assert report is not None
     assert report["target_dir"] == str(target)
+
+class _StubRunner:
+    def __init__(self, calls: list[str], targets: list[str] | None = None) -> None:
+        self.calls = calls
+        self.targets = targets or []
+
+    def enabled_profile_targets(self) -> list[str]:
+        return self.targets
+
+    def recover_transactions(self) -> list[dict[str, Any]]:
+        self.calls.append("recover")
+        return []
+
+    def prune_state(self) -> dict[str, Any]:
+        return {}
+
+    def run_enabled_profiles_once(self) -> list[dict[str, Any]]:
+        self.calls.append("profiles")
+        return []
+
+
+def test_first_pass_waits_for_startup_delay(tmp_path: Path) -> None:
+    calls: list[str] = []
+    service = FileSorterAutomationService(
+        tmp_path,
+        runner=_StubRunner(calls),
+        poll_interval=86_400,
+        startup_delay_seconds=0.05,
+    )
+
+    async def drive() -> None:
+        await service.start()
+        await asyncio.sleep(0.01)
+        assert calls == []
+        await asyncio.sleep(0.3)
+        assert "profiles" in calls
+        await service.stop()
+
+    asyncio.run(drive())
+
+
+def test_stop_during_startup_delay_never_runs(tmp_path: Path) -> None:
+    calls: list[str] = []
+    service = FileSorterAutomationService(
+        tmp_path,
+        runner=_StubRunner(calls),
+        poll_interval=86_400,
+        startup_delay_seconds=60.0,
+    )
+
+    async def drive() -> None:
+        await service.start()
+        await asyncio.sleep(0.02)
+        await service.stop()
+
+    asyncio.run(drive())
+    assert calls == []
+
+
+def test_snapshot_watches_nested_directories(tmp_path: Path) -> None:
+    target = tmp_path / "inbox"
+    nested = target / "sub" / "deep"
+    nested.mkdir(parents=True)
+    (target / "top.txt").write_text("x")
+    service = FileSorterAutomationService(
+        tmp_path,
+        runner=_StubRunner([], targets=[str(target)]),
+    )
+
+    first = service._snapshot_enabled_targets()
+    entries = first[str(target)]
+    kinds = {entry[0] for entry in entries}
+    assert kinds == {"f", "d"}
+    assert any(
+        entry[0] == "d" and entry[1] == str(Path("sub") / "deep")
+        for entry in entries
+    )
+
+    (nested / "new.bin").write_bytes(b"payload")
+    second = service._snapshot_enabled_targets()
+    assert second != first
+
+
+def test_snapshot_ignores_symlinked_directories(tmp_path: Path) -> None:
+    target = tmp_path / "inbox"
+    outside = tmp_path / "outside"
+    target.mkdir()
+    outside.mkdir()
+    (outside / "o.txt").write_text("x")
+    link = target / "linked"
+    try:
+        os.symlink(outside, link, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        return
+    service = FileSorterAutomationService(
+        tmp_path,
+        runner=_StubRunner([], targets=[str(target)]),
+    )
+    entries = service._snapshot_enabled_targets()[str(target)]
+    assert all(entry[1] != "linked" for entry in entries)

@@ -14,6 +14,8 @@ MIN_ENV_POLL_INTERVAL_SECONDS = 1.0
 MAX_POLL_INTERVAL_SECONDS = 86_400.0
 DEFAULT_REALTIME_SCAN_INTERVAL_SECONDS = 10.0
 DEFAULT_SETTLE_RETRY_SECONDS = 0.5
+DEFAULT_STARTUP_DELAY_SECONDS = 10.0
+MAX_STARTUP_DELAY_SECONDS = 300.0
 MAX_ADAPTIVE_SCAN_INTERVAL_SECONDS = 86_400.0
 ADAPTIVE_SCAN_INTERVAL_TIERS_SECONDS = (
     10.0,
@@ -26,6 +28,14 @@ ADAPTIVE_SCAN_INTERVAL_TIERS_SECONDS = (
     43_200.0,
     86_400.0,
 )
+# Directories skipped while snapshotting targets (same exclusions as the
+# recursive duplicate scan; keeps VCS/cache noise out of the change watch).
+_SNAPSHOT_EXCLUDED_DIRECTORY_NAMES = frozenset(
+    {".git", "__pycache__", "_cleaner_backup", ".gptbridge_cleanerquarantine"}
+)
+# Snapshot cost bound: nested directories beyond this count are replaced by a
+# stable truncation marker so an oversized tree cannot force rescan storms.
+_MAX_SNAPSHOT_DIRECTORIES = 20_000
 
 
 def _automation_enabled_from_environment() -> bool:
@@ -66,6 +76,7 @@ class FileSorterAutomationService:
         poll_interval: float | None = None,
         realtime_scan_interval: float = DEFAULT_REALTIME_SCAN_INTERVAL_SECONDS,
         settle_retry_seconds: float = DEFAULT_SETTLE_RETRY_SECONDS,
+        startup_delay_seconds: float = DEFAULT_STARTUP_DELAY_SECONDS,
         enabled: bool | None = None,
     ) -> None:
         self.project_root = Path(project_root).resolve()
@@ -88,6 +99,12 @@ class FileSorterAutomationService:
         self.settle_retry_seconds = max(
             self.realtime_scan_interval,
             min(10.0, float(settle_retry_seconds)),
+        )
+        # First pass is deferred so tool startup finishes before any file
+        # moves happen (boot services, UI wiring, governed channel attach).
+        self.startup_delay_seconds = max(
+            0.0,
+            min(MAX_STARTUP_DELAY_SECONDS, float(startup_delay_seconds)),
         )
         self._task: asyncio.Task[None] | None = None
         self._stop_event: asyncio.Event | None = None
@@ -221,6 +238,14 @@ class FileSorterAutomationService:
         }
 
     async def _run_loop(self, stop_event: asyncio.Event) -> None:
+        if self.startup_delay_seconds > 0:
+            try:
+                await asyncio.wait_for(
+                    stop_event.wait(), timeout=self.startup_delay_seconds
+                )
+                return
+            except asyncio.TimeoutError:
+                pass
         while not stop_event.is_set():
             try:
                 before_pass = await asyncio.to_thread(
@@ -260,14 +285,15 @@ class FileSorterAutomationService:
             "automation_last_pass_ok": self._last_pass_ok,
             "automation_last_error_type": self._last_error_type,
             "automation_pending_observations": self._pending_observation_count,
+            "automation_startup_delay_seconds": self.startup_delay_seconds,
         }
 
     async def _wait_for_file_change(
         self,
         stop_event: asyncio.Event,
-        baseline: dict[str, tuple[tuple[str, int, int], ...]],
+        baseline: dict[str, tuple[tuple[str, str, int, int], ...]],
     ) -> None:
-        """Wake on a top-level file change, settle retry, or fallback poll."""
+        """Wake on a target change, settle retry, or fallback poll."""
 
         fallback_deadline = time.monotonic() + self.poll_interval
         settle_deadline = (
@@ -303,7 +329,7 @@ class FileSorterAutomationService:
 
     def _adaptive_scan_interval(
         self,
-        baseline: dict[str, tuple[tuple[str, int, int], ...]],
+        baseline: dict[str, tuple[tuple[str, str, int, int], ...]],
         *,
         settling: bool,
     ) -> float:
@@ -328,8 +354,20 @@ class FileSorterAutomationService:
 
     def _snapshot_enabled_targets(
         self,
-    ) -> dict[str, tuple[tuple[str, int, int], ...]]:
-        """Build a metadata-only snapshot without following directory links."""
+    ) -> dict[str, tuple[tuple[str, str, int, int], ...]]:
+        """Build a metadata-only snapshot without following directory links.
+
+        Top-level files are recorded as ``("f", name, size, mtime_ns)`` — the
+        classification scope. Directories are recorded recursively as
+        ``("d", relative_path, 0, mtime_ns)`` so adds/removes under nested
+        folders (the duplicate-recycle scope) also wake the loop instead of
+        waiting for the daily fallback poll. File content rewrites that keep
+        the same name do not change a parent directory's mtime; those still
+        surface through the fallback poll and remain protected by two-pass
+        observation before any recycle.
+        """
+
+        from ..infrastructure.cleanup_utils import _is_link_or_reparse
 
         runner = self._resolve_runner()
         target_provider = getattr(runner, "enabled_profile_targets", None)
@@ -342,28 +380,67 @@ class FileSorterAutomationService:
         if not isinstance(raw_targets, (list, tuple, set)):
             return {}
 
-        snapshots: dict[str, tuple[tuple[str, int, int], ...]] = {}
+        snapshots: dict[str, tuple[tuple[str, str, int, int], ...]] = {}
         for raw_target in raw_targets:
             try:
                 target = Path(raw_target).resolve(strict=True)
                 if not target.is_dir() or target.is_symlink():
                     continue
-                entries: list[tuple[str, int, int]] = []
-                with os.scandir(target) as scanner:
-                    for entry in scanner:
-                        try:
-                            if not entry.is_file(follow_symlinks=False):
+                entries: list[tuple[str, str, int, int]] = []
+                directories_seen = 0
+                truncated = False
+                for current_root, dir_names, file_names in os.walk(
+                    target, topdown=True, followlinks=False
+                ):
+                    current = Path(current_root)
+                    kept_dirs: list[str] = []
+                    for name in dir_names:
+                        if name in _SNAPSHOT_EXCLUDED_DIRECTORY_NAMES:
+                            continue
+                        if _is_link_or_reparse(current / name):
+                            continue
+                        kept_dirs.append(name)
+                    dir_names[:] = kept_dirs
+                    if current == target:
+                        for name in file_names:
+                            file_path = current / name
+                            try:
+                                if (
+                                    not file_path.is_file()
+                                    or file_path.is_symlink()
+                                ):
+                                    continue
+                                value = file_path.stat(follow_symlinks=False)
+                            except OSError:
                                 continue
-                            value = entry.stat(follow_symlinks=False)
+                            entries.append(
+                                (
+                                    "f",
+                                    name,
+                                    int(value.st_size),
+                                    int(value.st_mtime_ns),
+                                )
+                            )
+                    for name in dir_names:
+                        candidate = current / name
+                        try:
+                            value = candidate.stat(follow_symlinks=False)
                         except OSError:
                             continue
                         entries.append(
                             (
-                                entry.name,
-                                int(value.st_size),
+                                "d",
+                                str(candidate.relative_to(target)),
+                                0,
                                 int(value.st_mtime_ns),
                             )
                         )
+                        directories_seen += 1
+                        if directories_seen >= _MAX_SNAPSHOT_DIRECTORIES:
+                            truncated = True
+                    if truncated:
+                        entries.append(("d", ".truncated", -1, 0))
+                        break
                 snapshots[str(target)] = tuple(sorted(entries))
             except (OSError, RuntimeError, ValueError):
                 continue

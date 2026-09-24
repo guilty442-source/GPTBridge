@@ -295,7 +295,7 @@
    "interval_s": null,
    "pausable": false,
    "enabled": true,
-   "description": "清單登記（inventory-only）：standalone 工具行程內的自適應檔案整理 loop（recover_transactions→prune_state→run_enabled_profiles_once；二階觀察+transaction journal+undo）。不經 AutomationCore 註冊——工具行程邊界外；kill switch：manifest automation.enabled 或 env GPTBRIDGE_FILE_SORTER_AUTOMATION_ENABLED=0"
+   "description": "清單登記（inventory-only）：standalone 工具行程內的自適應檔案整理 loop（啟動延遲 10s 後首輪；recover_transactions→prune_state→run_enabled_profiles_once；二階觀察+transaction journal+undo）。變更偵測快照覆蓋頂層檔案（分類範圍）＋遞迴目錄 mtime（重複回收範圍），巢狀新增/移除即時觸發重掃，內容覆寫仍走 fallback poll。不經 AutomationCore 註冊——工具行程邊界外；kill switch：manifest automation.enabled 或 env GPTBRIDGE_FILE_SORTER_AUTOMATION_ENABLED=0"
   },
   "xingcheng-internal-maintenance": {
    "owner": "LocalAiLifecycleMixin._internal_maintenance_loop（xingcheng 工具行程內）",

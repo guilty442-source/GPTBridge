@@ -18,6 +18,7 @@ _ANALYSIS_KINDS = {
     "investment_ai_allocation": "asset-allocation",
     "investment_ai_risk": "market-risk",
     "investment_ai_report": "investment-report",
+    "investment_ai_research_search": "research-search",
 }
 
 _DEFAULT_PROMPTS = {
@@ -27,7 +28,12 @@ _DEFAULT_PROMPTS = {
     "asset-allocation": "分析全資產配置並提出再平衡建議",
     "market-risk": "分析目前市場風險與壓力情境",
     "investment-report": "產出本期投資報告",
+    "research-search": "檢索金融研究資料",
 }
+
+# Qdrant canonical semantic index for financial research
+# (shared-layer/migrations/134_trading_system.sql registers the collection).
+RESEARCH_COLLECTION = "star-financial-research-v1"
 
 
 class AiAnalysisDomain(BusinessDomain):
@@ -40,6 +46,20 @@ class AiAnalysisDomain(BusinessDomain):
         if kind is None:
             raise PermissionError("PERMISSION_DENIED")
         prompt = str(payload.get("prompt") or _DEFAULT_PROMPTS[kind])
+        if kind == "research-search":
+            # Semantic retrieval is mediated through 星澄/RAG — this domain
+            # never opens a direct Qdrant connection.
+            result = await ai_connections.consult(
+                f"[collection:{RESEARCH_COLLECTION}] {prompt}",
+                "financial-research",
+            )
+            return {
+                "ok": result.get("ok") is not False,
+                "domain": self.domain_id,
+                "kind": kind,
+                "collection": RESEARCH_COLLECTION,
+                "results": result,
+            }
         result = await ai_connections.consult(prompt, f"investment-{kind}")
         if kind == "investment-report" and result.get("ok") is not False:
             report_id = store.record_report(
