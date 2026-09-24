@@ -15,6 +15,8 @@ class CollabSvcAgentsMixin:
         return {
             "ok": True,
             "version": self.VERSION,
+            "runtime_generation": self._runtime_generation,
+            "request_dedupe": True,
             "provider_execution": {
                 "default_mode": "embedded-browser-view",
                 "release_after_request": True,
@@ -53,6 +55,11 @@ class CollabSvcAgentsMixin:
         result = await self.session.open_agent(agent)
         if result.get("ok") is True:
             self.repository.update_agent_status(agent_id, "opened")
+            self.repository.update_agent_runtime_state(
+                agent_id,
+                session_state="open",
+                adapter_version=str(result.get("adapter_version") or ""),
+            )
         return {"agent_id": agent_id, **result}
 
     async def _authorize_agent(self, payload: dict[str, Any]) -> dict[str, Any]:

@@ -43,6 +43,17 @@ class CollabSvcBrowserMixin:
                 status = str(result.get("status") or "failed")
             self._record_agent_result(message_id, agent_id, agent, result, status)
         except asyncio.CancelledError:
+            self.repository.update_response(
+                message_id,
+                agent_id,
+                "cancelled",
+                "",
+                "REQUEST_CANCELLED",
+                error_code="REQUEST_CANCELLED",
+                execution_provider=str(agent.get("provider") or agent_id),
+                transport="embedded-browser-view",
+            )
+            self.repository.update_agent_status(agent_id, "idle")
             raise
         except Exception as exc:
             error = str(exc)
@@ -108,8 +119,29 @@ class CollabSvcBrowserMixin:
             ]
             if isinstance(result.get("memory_candidates"), list)
             else [],
+            response_state=str(result.get("response_state") or ""),
+            result_reference=(
+                f"ai_nexus_agent_responses:{message_id}:{agent_id}"
+            ),
         )
         self.repository.update_agent_status(agent_id, status, error)
+        runtime_update: dict[str, str] = {}
+        error_code = str(result.get("error_code") or "")
+        if status == "completed":
+            runtime_update["session_state"] = "open"
+            runtime_update["login_state"] = "authenticated"
+        elif status == "awaiting-user" and error_code in {
+            "BROWSER_LOGIN_OR_INPUT_REQUIRED",
+            "BROWSER_RESPONSE_CAPTURE_REQUIRED",
+        }:
+            runtime_update["session_state"] = "open"
+            runtime_update["login_state"] = "login_required"
+        elif status == "failed" and error_code == "EMBEDDED_BROWSER_SESSION_FAILED":
+            runtime_update["session_state"] = "closed"
+        if result.get("adapter_version"):
+            runtime_update["adapter_version"] = str(result["adapter_version"])
+        if runtime_update:
+            self.repository.update_agent_runtime_state(agent_id, **runtime_update)
 
     async def _wait_for_browser_or_fallback(
         self,

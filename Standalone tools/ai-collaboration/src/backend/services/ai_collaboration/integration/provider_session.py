@@ -5,6 +5,7 @@ from typing import Any
 
 from ..domain.task_protocol import build_memory_candidate
 from .browser_automation import BrowserAutomationSession
+from .provider_adapters import adapter_for
 
 
 class AiCollaborationProviderSession:
@@ -101,21 +102,62 @@ class AiCollaborationProviderSession:
         }
 
     def provider_status(self) -> list[dict[str, Any]]:
-        return [
-            {
-                "provider": provider,
-                "mode": "embedded-browser-view",
-                "installed": True,
-                "uses_api_key": False,
-                "background_resident": False,
-                "browser_only": True,
-                "automation": True,
-                "foreground": True,
-                "shared_browser_context": True,
-                "terminal_fallback": False,
-            }
-            for provider in sorted(self.BROWSER_PRIMARY_PROVIDERS)
-        ]
+        """Registered-provider contract for the runtime inventory.
+
+        Each entry carries the fields a consumer needs to decide whether a
+        provider is usable right now — identity, registered URL, supported
+        capabilities, session/login state, send and response-capture
+        capability, adapter version and status.
+        """
+        entries: list[dict[str, Any]] = []
+        for provider in sorted(self.BROWSER_PRIMARY_PROVIDERS):
+            adapter = adapter_for(provider)
+            session_probe = self.browser.session_state(provider)
+            entries.append(
+                {
+                    "provider": provider,
+                    "provider_identity": provider,
+                    "display_name": (
+                        adapter.display_name if adapter is not None else provider
+                    ),
+                    "registered_url": "",
+                    "supported_capabilities": [
+                        "browser_chat",
+                        "manual_result_import",
+                    ],
+                    "session_state": str(
+                        session_probe.get("session_state") or "closed"
+                    ),
+                    "login_state": str(
+                        session_probe.get("login_state") or "unknown"
+                    ),
+                    "session_url": str(session_probe.get("url") or ""),
+                    "send_capability": (
+                        adapter.send_capability if adapter is not None else ""
+                    ),
+                    "response_capture_capability": (
+                        adapter.response_capture_capability
+                        if adapter is not None
+                        else ""
+                    ),
+                    "adapter_version": (
+                        adapter.adapter_version if adapter is not None else ""
+                    ),
+                    "status": (
+                        "ready" if adapter is not None else "unsupported"
+                    ),
+                    "mode": "embedded-browser-view",
+                    "installed": True,
+                    "uses_api_key": False,
+                    "background_resident": False,
+                    "browser_only": True,
+                    "automation": True,
+                    "foreground": True,
+                    "shared_browser_context": True,
+                    "terminal_fallback": False,
+                }
+            )
+        return entries
 
     def browser_status(self) -> dict[str, Any]:
         return {

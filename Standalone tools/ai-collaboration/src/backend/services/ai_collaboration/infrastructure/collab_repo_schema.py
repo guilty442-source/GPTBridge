@@ -22,6 +22,9 @@ _SCHEMA_SCRIPT = """
                     selected INTEGER NOT NULL DEFAULT 1,
                     status TEXT NOT NULL DEFAULT 'idle',
                     last_error TEXT NOT NULL DEFAULT '',
+                    session_state TEXT NOT NULL DEFAULT 'closed',
+                    login_state TEXT NOT NULL DEFAULT 'unknown',
+                    adapter_version TEXT NOT NULL DEFAULT '',
                     updated_at TEXT NOT NULL
                 );
 
@@ -31,6 +34,8 @@ _SCHEMA_SCRIPT = """
                     content TEXT NOT NULL,
                     selected_agents_json TEXT NOT NULL DEFAULT '[]',
                     business_scope TEXT NOT NULL DEFAULT 'general',
+                    request_id TEXT NOT NULL DEFAULT '',
+                    runtime_generation TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_ai_nexus_group_messages_created
@@ -48,7 +53,12 @@ _SCHEMA_SCRIPT = """
                     transport TEXT NOT NULL DEFAULT '',
                     fallback_json TEXT NOT NULL DEFAULT '{}',
                     memory_candidates_json TEXT NOT NULL DEFAULT '[]',
+                    request_id TEXT NOT NULL DEFAULT '',
+                    runtime_generation TEXT NOT NULL DEFAULT '',
+                    response_state TEXT NOT NULL DEFAULT '',
+                    result_reference TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL,
+                    completed_at TEXT NOT NULL DEFAULT '',
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY(message_id) REFERENCES ai_nexus_group_messages(message_id) ON DELETE CASCADE
                 );
@@ -136,12 +146,22 @@ class CollabRepoSchemaMixin:
         self._ensure_column(connection, "ai_nexus_agents", "general_enabled", "INTEGER NOT NULL DEFAULT 1")
         self._ensure_column(connection, "ai_nexus_agents", "investment_enabled", "INTEGER NOT NULL DEFAULT 1")
         self._ensure_column(connection, "ai_nexus_agents", "business_capabilities_json", "TEXT NOT NULL DEFAULT '[]'")
+        self._ensure_column(connection, "ai_nexus_agents", "session_state", "TEXT NOT NULL DEFAULT 'closed'")
+        self._ensure_column(connection, "ai_nexus_agents", "login_state", "TEXT NOT NULL DEFAULT 'unknown'")
+        self._ensure_column(connection, "ai_nexus_agents", "adapter_version", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_group_messages", "business_scope", "TEXT NOT NULL DEFAULT 'general'")
+        self._ensure_column(connection, "ai_nexus_group_messages", "request_id", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_group_messages", "runtime_generation", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_agent_responses", "error_code", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_agent_responses", "execution_provider", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_agent_responses", "transport", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_agent_responses", "fallback_json", "TEXT NOT NULL DEFAULT '{}'")
         self._ensure_column(connection, "ai_nexus_agent_responses", "memory_candidates_json", "TEXT NOT NULL DEFAULT '[]'")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "request_id", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "runtime_generation", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "response_state", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "result_reference", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agent_responses", "completed_at", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_memory_items", "business_scope", "TEXT NOT NULL DEFAULT 'general'")
         self._ensure_column(connection, "ai_nexus_memory_items", "source_agent_id", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_memory_items", "owner_model_id", "TEXT NOT NULL DEFAULT 'ai-collaboration'")

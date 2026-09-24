@@ -34,6 +34,7 @@ async def execute(
     requester = str(payload.pop("_governed_requester_actor", ""))
     authorize_ai_target(requester, TOOL_ID, command)
     payload["_authorized_requester_actor"] = requester
+    payload["_governed_request_id"] = str(_request_id or "")
     if not service.owns(command):
         raise PermissionError("PERMISSION_DENIED")
     return await service.handle(command, payload)
@@ -46,7 +47,11 @@ async def main() -> None:
         executor=execute,
         startup=service.start,
         shutdown=service.shutdown,
-        health=lambda: {"service_ready": True},
+        cancellation=service.cancel,
+        health=lambda: {
+            "service_ready": service.is_ready(),
+            "runtime_generation": service.runtime_generation,
+        },
         channel_modes={"ai": "process"},
     )
     await runtime.run()

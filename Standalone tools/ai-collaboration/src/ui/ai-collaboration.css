@@ -17,8 +17,97 @@ body,
   background: #0b0f17;
   color: #e5e7eb;
   font-family: "Noto Sans TC", "Segoe UI", sans-serif;
-  padding: 18px;
+  padding: 14px;
   box-sizing: border-box;
+}
+
+/* A544: the top area is exactly one compact integrated card carrying the
+   URL toolbar, AI list, selection, open/login, status and the
+   collaboration input — never multiple cards. */
+.ai-collab-topcard {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #243044;
+  background: #111827;
+  border-radius: 8px;
+}
+
+.ai-collab-topcard-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ai-collab-urlrow button {
+  padding: 6px 10px;
+}
+
+.ai-collab-urlrow .ai-collab-url-form {
+  flex: 1 1 320px;
+  min-width: 180px;
+}
+
+.ai-collab-agentrow {
+  gap: 6px;
+}
+
+.ai-collab-agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid #243044;
+  border-radius: 8px;
+  background: #0b1220;
+  font-size: 12px;
+}
+
+.ai-collab-agent-chip label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.ai-collab-agent-chip button {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.ai-collab-agentrow-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.ai-collab-composerrow textarea {
+  flex: 1 1 320px;
+  min-width: 220px;
+  height: 44px;
+  min-height: 38px;
+  resize: vertical;
+  box-sizing: border-box;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e5e7eb;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.ai-collab-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 12px;
+}
+
+.ai-collab-chip--cancelled {
+  background: #3f3f46;
+  color: #d4d4d8;
 }
 
 .ai-collab-topbar {
@@ -196,10 +285,10 @@ body,
 .ai-collab-workspace {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(300px, 1fr) minmax(0, 3fr);
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 3fr);
   gap: 12px;
   min-height: 0;
-  margin-top: 12px;
+  margin-top: 10px;
   overflow: hidden;
 }
 

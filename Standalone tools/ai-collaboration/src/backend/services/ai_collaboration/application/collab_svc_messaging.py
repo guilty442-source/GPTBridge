@@ -22,6 +22,26 @@ class CollabSvcMessagingMixin:
     }
 
     async def _send_message(self, payload: dict[str, Any]) -> dict[str, Any]:
+        key = str(payload.get("idempotency_key") or "").strip()
+        if not key:
+            return await self._send_message_inner(payload)
+        deduplicated = self._send_dedupe_hit(payload)
+        if deduplicated is not None:
+            return deduplicated
+        inflight = self._send_inflight.get(key)
+        if inflight is not None:
+            result = await inflight
+            return {**dict(result), "deduplicated": True}
+        task = asyncio.ensure_future(self._send_message_inner(payload))
+        self._send_inflight[key] = task
+        try:
+            result = await task
+        finally:
+            self._send_inflight.pop(key, None)
+        self._record_send_result(payload, result)
+        return result
+
+    async def _send_message_inner(self, payload: dict[str, Any]) -> dict[str, Any]:
         requested_by = self._requester_tool_id(payload)
         raw_tasks = payload.get("tasks")
         if requested_by == "ai-collaboration":
@@ -94,13 +114,23 @@ class CollabSvcMessagingMixin:
             requested_ids, known_agents, business_scope
         )
         requested_by = self._requester_tool_id(payload)
+        request_id = str(payload.get("request_id") or "").strip()
         async with self._send_lock:
             message = self.repository.create_group_message(
-                content, requested_ids, business_scope
+                content,
+                requested_ids,
+                business_scope,
+                request_id=request_id,
+                runtime_generation=self._runtime_generation,
             )
-        await self._run_general_agents(
-            message["message_id"], agents, content, business_scope, requested_by
-        )
+        self._track_send(request_id, str(message.get("message_id") or ""))
+        try:
+            await self._run_general_agents(
+                message["message_id"], agents, content, business_scope, requested_by
+            )
+        except asyncio.CancelledError:
+            self.repository.cancel_pending_responses(message["message_id"])
+            raise
         return self._general_message_result(
             message["message_id"], requested_ids, requested_by
         )
@@ -256,10 +286,16 @@ class CollabSvcMessagingMixin:
         )
         if coordinator_agent is None:
             return {"ok": False, "message": "ChatGPT 最終統籌未啟用"}
+        request_id = str(payload.get("request_id") or "").strip()
         async with self._send_lock:
             message = self.repository.create_group_message(
-                content, agent_ids, business_scope
+                content,
+                agent_ids,
+                business_scope,
+                request_id=request_id,
+                runtime_generation=self._runtime_generation,
             )
+        self._track_send(request_id, str(message.get("message_id") or ""))
         await self._run_fixed_workflow(
             message["message_id"],
             pipeline,
@@ -330,6 +366,9 @@ class CollabSvcMessagingMixin:
                     message_id, coordinator_agent, content, business_task,
                     business_scope, requested_by, memory_context, memory_writeback,
                 )
+        except asyncio.CancelledError:
+            self.repository.cancel_pending_responses(message_id)
+            raise
         finally:
             close_background = getattr(
                 self.session, "close_background_context", None

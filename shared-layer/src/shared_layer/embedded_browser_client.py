@@ -179,10 +179,50 @@ class EmbeddedBrowserClient:
             return {"ok": False, "message": "BRIDGE_RESPONSE_INVALID"}
         return payload
 
+    def bridge_identity(self) -> dict[str, Any]:
+        """Report which embedded-browser bridge this client will reach.
+
+        ``kind`` is ``tool-window`` when the caller's own governed tool
+        window publishes a bridge (automation is visible and shares the
+        window's session), ``main-system`` for the main-system bridge
+        (sessions cannot be shown), or ``unavailable``.
+        """
+        state_path = self._bridge_state_path()
+        if state_path is None:
+            return {"kind": "unavailable", "path": "", "pid": 0}
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {"kind": "unavailable", "path": str(state_path), "pid": 0}
+        return {
+            "kind": str(state.get("kind") or "main-system"),
+            "path": str(state_path),
+            "pid": int(state.get("pid") or 0),
+            "tool_id": str(state.get("tool_id") or ""),
+        }
+
     @staticmethod
     def _bridge_state_path() -> Path | None:
-        """Locate the published bridge state file inside the workspace."""
+        """Locate the published bridge state file inside the workspace.
 
+        A tool backend prefers the bridge published by its own tool window
+        (``tool-window-browser-bridge.json``): only that window can display
+        sessions and share the tool's authenticated browser state.  The
+        main-system bridge remains as a fallback for legacy callers.
+        """
+
+        tool_dir = os.environ.get("GPTBRIDGE_TOOL_DIR") or os.environ.get(
+            "GPTBRIDGE_PROJECT_ROOT"
+        )
+        if tool_dir:
+            tool_bridge = (
+                Path(tool_dir)
+                / "runtime"
+                / "ipc"
+                / "tool-window-browser-bridge.json"
+            )
+            if tool_bridge.is_file():
+                return tool_bridge
         candidates: list[Path] = []
         environment_root = os.environ.get(
             "GPTBRIDGE_GOVERNANCE_PROJECT_ROOT"

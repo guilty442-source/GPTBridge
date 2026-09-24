@@ -30,10 +30,17 @@ class CollabRepoAgentsMixin:
         }
     )
 
+    _AGENT_COLUMNS = (
+        "agent_id, name, provider, home_url, general_url, investment_url, "
+        "star_training_url, general_enabled, investment_enabled, "
+        "business_capabilities_json, enabled, selected, status, last_error, "
+        "session_state, login_state, adapter_version, updated_at"
+    )
+
     def list_agents(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT agent_id, name, provider, home_url, general_url, investment_url, star_training_url, general_enabled, investment_enabled, business_capabilities_json, enabled, selected, status, last_error, updated_at FROM ai_nexus_agents ORDER BY rowid"
+            rows = connection.execute(  # sql-ok: fixed column list
+                f"SELECT {self._AGENT_COLUMNS} FROM ai_nexus_agents ORDER BY rowid"
             ).fetchall()
         return [self._agent_row(row) for row in rows]
 
@@ -43,7 +50,7 @@ class CollabRepoAgentsMixin:
         placeholders = ",".join("?" for _ in agent_ids)
         with self._connect() as connection:
             rows = connection.execute(  # sql-ok: generated ? placeholder list
-                f"SELECT agent_id, name, provider, home_url, general_url, investment_url, star_training_url, general_enabled, investment_enabled, business_capabilities_json, enabled, selected, status, last_error, updated_at FROM ai_nexus_agents WHERE agent_id IN ({placeholders}) ORDER BY rowid",
+                f"SELECT {self._AGENT_COLUMNS} FROM ai_nexus_agents WHERE agent_id IN ({placeholders}) ORDER BY rowid",
                 agent_ids,
             ).fetchall()
         found = {str(row["agent_id"]): self._agent_row(row) for row in rows}
@@ -232,4 +239,35 @@ class CollabRepoAgentsMixin:
                 WHERE agent_id = ?
                 """,
                 (status, error, utc_now(), agent_id),
+            )
+
+    def update_agent_runtime_state(
+        self,
+        agent_id: str,
+        *,
+        session_state: str | None = None,
+        login_state: str | None = None,
+        adapter_version: str | None = None,
+    ) -> None:
+        """Record the provider's browser session / login / adapter state."""
+        assignments: list[str] = []
+        values: list[Any] = []
+        if session_state is not None:
+            assignments.append("session_state = ?")
+            values.append(str(session_state))
+        if login_state is not None:
+            assignments.append("login_state = ?")
+            values.append(str(login_state))
+        if adapter_version is not None:
+            assignments.append("adapter_version = ?")
+            values.append(str(adapter_version))
+        if not assignments:
+            return
+        assignments.append("updated_at = ?")
+        values.append(utc_now())
+        values.append(agent_id)
+        with self._connect() as connection:
+            connection.execute(  # sql-ok: fixed assignment list
+                f"UPDATE ai_nexus_agents SET {', '.join(assignments)} WHERE agent_id = ?",
+                values,
             )

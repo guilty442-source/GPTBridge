@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +113,75 @@ class AiCollaborationService(
         self._send_lock = asyncio.Lock()
         self._task_slots = asyncio.Semaphore(self.MAX_PARALLEL_AI)
         self._browser_completion: dict[tuple[str, str], asyncio.Future[str]] = {}
+        # Runtime generation + request correlation (one click → one send).
+        self._runtime_generation = uuid.uuid4().hex[:12]
+        self._request_messages: dict[str, str] = {}
+        self._send_inflight: dict[str, asyncio.Task] = {}
+        self._send_results: dict[str, tuple[float, dict[str, Any]]] = {}
+
+    @property
+    def runtime_generation(self) -> str:
+        return self._runtime_generation
+
+    def is_ready(self) -> bool:
+        try:
+            self.repository.list_agents()
+            return True
+        except Exception:
+            return False
+
+    async def cancel(self, request_id: str) -> bool:
+        """Cancellation callback for GovernedToolRuntime / toolbox_cancel_tool_run."""
+        request_id = str(request_id or "").strip()
+        if not request_id:
+            return False
+        message_id = self._request_messages.get(request_id)
+        if not message_id:
+            return False
+        cancelled = self.repository.cancel_pending_responses(message_id)
+        for key, future in list(self._browser_completion.items()):
+            if key[0] == message_id and not future.done():
+                future.cancel()
+        for agent in self.repository.list_agents():
+            if str(agent.get("status") or "") in {
+                "running",
+                "awaiting-user",
+                "waiting",
+            }:
+                self.repository.update_agent_status(
+                    str(agent.get("agent_id") or ""), "idle"
+                )
+        return bool(cancelled)
+
+    def _track_send(self, request_id: str, message_id: str) -> None:
+        if request_id and message_id:
+            self._request_messages[request_id] = message_id
+            if len(self._request_messages) > 256:
+                self._request_messages.clear()
+
+    def _send_dedupe_hit(self, payload: dict[str, Any]) -> dict[str, Any] | None:
+        """Return the recorded result when the same idempotency key was
+        already accepted — one user click must never send twice."""
+        key = str(payload.get("idempotency_key") or "").strip()
+        if not key:
+            return None
+        now = time.monotonic()
+        recorded = self._send_results.get(key)
+        if recorded is not None and now - recorded[0] < 120:
+            result = dict(recorded[1])
+            result["deduplicated"] = True
+            return result
+        return None
+
+    def _record_send_result(self, payload: dict[str, Any], result: dict[str, Any]) -> None:
+        key = str(payload.get("idempotency_key") or "").strip()
+        if not key:
+            return
+        self._send_results[key] = (time.monotonic(), dict(result))
+        if len(self._send_results) > 64:
+            oldest = sorted(self._send_results.items(), key=lambda item: item[1][0])[:16]
+            for old_key, _ in oldest:
+                self._send_results.pop(old_key, None)
 
     @property
     def workspace(self) -> Any:
@@ -159,6 +230,9 @@ class AiCollaborationService(
                 "error_code": "UNSUPPORTED_COMMAND",
                 "message": "不支援的 AI 協作指令",
             }
+        request_id = str(payload.get("_governed_request_id") or "").strip()
+        if request_id:
+            payload["request_id"] = request_id
         try:
             result = await handler(payload)
         except PermissionError:

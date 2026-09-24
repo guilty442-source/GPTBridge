@@ -1,5 +1,7 @@
-const { app, BrowserView, BrowserWindow, dialog, ipcMain, Menu, shell } = require('electron')
+﻿const { app, BrowserView, BrowserWindow, dialog, ipcMain, Menu, shell } = require('electron')
+const crypto = require('node:crypto')
 const fs = require('node:fs')
+const http = require('node:http')
 const path = require('node:path')
 
 const toolId = String(process.env.GPTBRIDGE_SOURCE_UI_TOOL_ID || '').trim()
@@ -236,6 +238,54 @@ function detachBrowserSession(session) {
   session.visible = false
 }
 
+function emitBrowserEvent(session, type, detail) {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  try {
+    mainWindow.webContents.send(
+      'embedded-browser:event',
+      Object.assign(
+        { id: session.id, type, url: sessionUrl(session) },
+        detail && typeof detail === 'object' ? detail : {}
+      )
+    )
+  } catch {
+    // renderer may not be ready yet
+  }
+}
+
+function wireBrowserSessionEvents(session) {
+  const contents = session.view.webContents
+  contents.on('did-start-loading', () => emitBrowserEvent(session, 'loading-start'))
+  contents.on('did-stop-loading', () => emitBrowserEvent(session, 'loading-stop'))
+  contents.on('did-navigate', (_event, url) => {
+    session.url = String(url || session.url)
+    emitBrowserEvent(session, 'navigate', { url: session.url })
+  })
+  contents.on('did-navigate-in-page', (_event, url) => {
+    session.url = String(url || session.url)
+    emitBrowserEvent(session, 'navigate-in-page', { url: session.url })
+  })
+  contents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      if (!isMainFrame) return
+      emitBrowserEvent(session, 'load-failed', {
+        url: String(validatedURL || ''),
+        errorCode: Number(errorCode),
+        error: String(errorDescription || ''),
+      })
+    }
+  )
+}
+
+function sessionUrl(session) {
+  try {
+    return String(session.view.webContents.getURL() || session.url || '')
+  } catch {
+    return String(session.url || '')
+  }
+}
+
 function createBrowserSession(id, ownerModule, url, bounds) {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return { ok: false, message: 'MAIN_WINDOW_NOT_AVAILABLE' }
@@ -251,20 +301,105 @@ function createBrowserSession(id, ownerModule, url, bounds) {
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   })
   if (url) void view.webContents.loadURL(url).catch(() => {})
-  browserSessions.set(id, {
+  const session = {
     id,
     view,
     ownerModule: String(ownerModule || ''),
     url: String(url || ''),
     bounds: bounds ? clampBrowserBounds(bounds) : null,
     visible: false,
-  })
+  }
+  browserSessions.set(id, session)
+  wireBrowserSessionEvents(session)
   return { ok: true, id, url: String(url || '') }
 }
 
 function findBrowserSession(id) {
   const session = browserSessions.get(String(id || ''))
   return session || null
+}
+
+function navigateBrowserSession(id, url) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  session.url = String(url || '')
+  void session.view.webContents.loadURL(session.url).catch(() => {})
+  return { ok: true }
+}
+
+async function executeBrowserScript(id, script) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  try {
+    const result = await session.view.webContents.executeJavaScript(String(script || ''))
+    return { ok: true, result }
+  } catch (error) {
+    return { ok: false, message: String(error) }
+  }
+}
+
+function reloadBrowserSession(id) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  try {
+    session.view.webContents.reload()
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, message: String(error) }
+  }
+}
+
+function browserHistory(session) {
+  const contents = session.view.webContents
+  const history = contents.navigationHistory
+  if (history && typeof history.canGoBack === 'function') return history
+  return {
+    canGoBack: () => contents.canGoBack(),
+    canGoForward: () => contents.canGoForward(),
+    goBack: () => contents.goBack(),
+    goForward: () => contents.goForward(),
+  }
+}
+
+function goBackBrowserSession(id) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  const history = browserHistory(session)
+  if (!history.canGoBack()) return { ok: false, message: 'NAVIGATION_NOT_AVAILABLE' }
+  history.goBack()
+  return { ok: true }
+}
+
+function goForwardBrowserSession(id) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  const history = browserHistory(session)
+  if (!history.canGoForward()) return { ok: false, message: 'NAVIGATION_NOT_AVAILABLE' }
+  history.goForward()
+  return { ok: true }
+}
+
+function browserSessionState(id) {
+  const session = findBrowserSession(id)
+  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
+  const contents = session.view.webContents
+  const history = browserHistory(session)
+  let loading = false
+  try {
+    loading = Boolean(contents.isLoading())
+  } catch {
+    loading = false
+  }
+  return {
+    ok: true,
+    id: session.id,
+    url: sessionUrl(session),
+    title: String(contents.getTitle() || ''),
+    loading,
+    canGoBack: Boolean(history.canGoBack()),
+    canGoForward: Boolean(history.canGoForward()),
+    visible: session.visible,
+  }
 }
 
 function resizeBrowserSession(id, bounds) {
@@ -340,49 +475,234 @@ function detachAllBrowserSessions() {
   for (const session of browserSessions.values()) detachBrowserSession(session)
 }
 
+function browserSessionList() {
+  return Array.from(browserSessions.values()).map((session) => ({
+    id: session.id,
+    ownerModule: session.ownerModule,
+    url: session.url,
+  }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool-window browser bridge — loopback HTTP endpoint owned by THIS window
+// process so the tool's own governed backend can drive the same embedded
+// BrowserViews the user sees (A58: browser stays inside the tool window;
+// the main-system bridge is never used for tool-window sessions because it
+// cannot display or share this window's session state).
+// Published state: <toolRoot>/runtime/ipc/tool-window-browser-bridge.json
+// ---------------------------------------------------------------------------
+const BRIDGE_HOST = '127.0.0.1'
+const BRIDGE_TOKEN_HEADER = 'x-gptbridge-bridge-token'
+const BRIDGE_MAX_BODY_BYTES = 1048576
+
+let bridgeServer = null
+let bridgeToken = ''
+let bridgePort = 0
+
+const BRIDGE_HANDLERS = {
+  'embedded-browser:create': (args) =>
+    createBrowserSession(args.id, args.ownerModule, args.url, args.bounds),
+  'embedded-browser:navigate': (args) =>
+    navigateBrowserSession(args.id, args.url),
+  'embedded-browser:execute': (args) =>
+    executeBrowserScript(args.id, args.script),
+  'embedded-browser:show': (args) => showBrowserSession(args.id),
+  'embedded-browser:hide': (args) => hideBrowserSession(args.id),
+  'embedded-browser:close': (args) => closeBrowserSession(args.id),
+  'embedded-browser:resize': (args) =>
+    resizeBrowserSession(args.id, args.bounds),
+  'embedded-browser:reload': (args) => reloadBrowserSession(args.id),
+  'embedded-browser:go-back': (args) => goBackBrowserSession(args.id),
+  'embedded-browser:go-forward': (args) => goForwardBrowserSession(args.id),
+  'embedded-browser:state': (args) => browserSessionState(args.id),
+  'embedded-browser:list': () => browserSessionList(),
+  'embedded-browser:url': (args) => {
+    const session = findBrowserSession(args.id)
+    if (!session) return { ok: false, url: null }
+    return { ok: true, url: sessionUrl(session) }
+  },
+  'embedded-browser:close-module': (args) => ({
+    ok: true,
+    closed: closeModuleBrowserSessions(args.ownerModule),
+  }),
+}
+
+function toolBridgeStatePath() {
+  return path.join(
+    toolRoot,
+    'runtime',
+    'ipc',
+    'tool-window-browser-bridge.json'
+  )
+}
+
+function publishToolBridgeState() {
+  try {
+    const target = toolBridgeStatePath()
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(
+      target,
+      JSON.stringify(
+        {
+          host: BRIDGE_HOST,
+          port: bridgePort,
+          token: bridgeToken,
+          pid: process.pid,
+          tool_id: toolId,
+          kind: 'tool-window',
+          started_at: new Date().toISOString(),
+        },
+        null,
+        2
+      ),
+      'utf8'
+    )
+  } catch {
+    // The bridge stays usable for same-process callers if publication fails.
+  }
+}
+
+function removeToolBridgeState() {
+  try {
+    fs.rmSync(toolBridgeStatePath(), { force: true })
+  } catch {
+    // best effort
+  }
+}
+
+function readBridgeBody(request) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    let size = 0
+    request.on('data', (chunk) => {
+      size += chunk.length
+      if (size > BRIDGE_MAX_BODY_BYTES) {
+        reject(new Error('BRIDGE_BODY_TOO_LARGE'))
+        request.destroy()
+        return
+      }
+      chunks.push(chunk)
+    })
+    request.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    request.on('error', reject)
+  })
+}
+
+function respondBridge(response, status, payload) {
+  const body = JSON.stringify(payload ?? {})
+  response.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+  })
+  response.end(body)
+}
+
+async function handleBridgeRequest(request, response) {
+  if (request.method !== 'POST' || request.url !== '/invoke') {
+    respondBridge(response, 404, { ok: false, message: 'NOT_FOUND' })
+    return
+  }
+  const provided = String(request.headers[BRIDGE_TOKEN_HEADER] || '')
+  const expected = bridgeToken
+  const authorized =
+    provided.length > 0 &&
+    provided.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected))
+  if (!authorized) {
+    respondBridge(response, 403, { ok: false, message: 'BRIDGE_TOKEN_INVALID' })
+    return
+  }
+  let payload
+  try {
+    payload = JSON.parse(await readBridgeBody(request))
+  } catch {
+    respondBridge(response, 400, { ok: false, message: 'BRIDGE_BODY_INVALID' })
+    return
+  }
+  const channel = String(payload && payload.channel ? payload.channel : '')
+  const handler = BRIDGE_HANDLERS[channel]
+  if (!handler) {
+    respondBridge(response, 404, { ok: false, message: 'BRIDGE_CHANNEL_UNKNOWN' })
+    return
+  }
+  const args =
+    payload.args && typeof payload.args === 'object' ? payload.args : {}
+  try {
+    const result = await handler(args)
+    respondBridge(response, 200, result)
+  } catch (error) {
+    respondBridge(response, 200, {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+function startToolWindowBridge() {
+  if (bridgeServer) return { ok: true, port: bridgePort }
+  bridgeToken = crypto.randomBytes(32).toString('hex')
+  bridgeServer = http.createServer((request, response) => {
+    void handleBridgeRequest(request, response)
+  })
+  bridgeServer.on('error', () => {
+    bridgeServer = null
+    bridgePort = 0
+  })
+  bridgeServer.listen(0, BRIDGE_HOST, () => {
+    const address = bridgeServer && bridgeServer.address()
+    bridgePort = address && typeof address === 'object' ? address.port || 0 : 0
+    publishToolBridgeState()
+  })
+  return { ok: true, port: bridgePort }
+}
+
+function stopToolWindowBridge() {
+  removeToolBridgeState()
+  const current = bridgeServer
+  bridgeServer = null
+  bridgePort = 0
+  bridgeToken = ''
+  if (current) {
+    try {
+      current.close()
+    } catch {
+      // best effort
+    }
+  }
+}
+
 ipcMain.handle('embedded-browser:create', (_event, args = {}) =>
   createBrowserSession(args.id, args.ownerModule, args.url, args.bounds)
 )
-ipcMain.handle('embedded-browser:navigate', (_event, args = {}) => {
-  const session = findBrowserSession(args.id)
-  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
-  session.url = String(args.url || '')
-  void session.view.webContents.loadURL(session.url).catch(() => {})
-  return { ok: true }
-})
-ipcMain.handle('embedded-browser:execute', async (_event, args = {}) => {
-  const session = findBrowserSession(args.id)
-  if (!session) return { ok: false, message: 'SESSION_NOT_FOUND' }
-  try {
-    const result = await session.view.webContents.executeJavaScript(String(args.script || ''))
-    return { ok: true, result }
-  } catch (error) {
-    return { ok: false, message: String(error) }
-  }
-})
+ipcMain.handle('embedded-browser:navigate', (_event, args = {}) =>
+  navigateBrowserSession(args.id, args.url)
+)
+ipcMain.handle('embedded-browser:execute', (_event, args = {}) =>
+  executeBrowserScript(args.id, args.script)
+)
 ipcMain.handle('embedded-browser:show', (_event, args = {}) => showBrowserSession(args.id))
 ipcMain.handle('embedded-browser:hide', (_event, args = {}) => hideBrowserSession(args.id))
 ipcMain.handle('embedded-browser:close', (_event, args = {}) => closeBrowserSession(args.id))
 ipcMain.handle('embedded-browser:resize', (_event, args = {}) =>
   resizeBrowserSession(args.id, args.bounds)
 )
-ipcMain.handle('embedded-browser:list', () =>
-  Array.from(browserSessions.values()).map((session) => ({
-    id: session.id,
-    ownerModule: session.ownerModule,
-    url: session.url,
-  }))
+ipcMain.handle('embedded-browser:reload', (_event, args = {}) =>
+  reloadBrowserSession(args.id)
 )
+ipcMain.handle('embedded-browser:go-back', (_event, args = {}) =>
+  goBackBrowserSession(args.id)
+)
+ipcMain.handle('embedded-browser:go-forward', (_event, args = {}) =>
+  goForwardBrowserSession(args.id)
+)
+ipcMain.handle('embedded-browser:state', (_event, args = {}) =>
+  browserSessionState(args.id)
+)
+ipcMain.handle('embedded-browser:list', () => browserSessionList())
 ipcMain.handle('embedded-browser:url', (_event, args = {}) => {
   const session = findBrowserSession(args.id)
   if (!session) return { ok: false, url: null }
-  let url = session.url
-  try {
-    url = session.view.webContents.getURL() || session.url
-  } catch {
-    // keep the stored url
-  }
-  return { ok: true, url }
+  return { ok: true, url: sessionUrl(session) }
 })
 ipcMain.handle('embedded-browser:close-module', (_event, args = {}) => ({
   ok: true,
@@ -452,15 +772,18 @@ if (hasSingleInstanceLock) {
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null)
     createWindow()
+    startToolWindowBridge()
     startRendererWatch()
   })
 }
 
 app.on('window-all-closed', () => {
+  stopToolWindowBridge()
   stopRendererWatch()
   if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('before-quit', () => {
+  stopToolWindowBridge()
   stopRendererWatch()
 })

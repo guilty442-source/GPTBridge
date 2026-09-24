@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+﻿const { contextBridge, ipcRenderer } = require('electron')
 
 const allowedInvokeChannels = new Set([
   'app:ensure-backend-started',
@@ -15,10 +15,16 @@ const allowedInvokeChannels = new Set([
   'embedded-browser:hide',
   'embedded-browser:close',
   'embedded-browser:resize',
+  'embedded-browser:reload',
+  'embedded-browser:go-back',
+  'embedded-browser:go-forward',
+  'embedded-browser:state',
   'embedded-browser:list',
   'embedded-browser:url',
   'embedded-browser:close-module',
 ])
+
+const allowedEventChannels = new Set(['embedded-browser:event'])
 
 function invoke(channel, ...args) {
   if (!allowedInvokeChannels.has(channel)) {
@@ -27,7 +33,16 @@ function invoke(channel, ...args) {
   return ipcRenderer.invoke(channel, ...args)
 }
 
-contextBridge.exposeInMainWorld('electron', { invoke })
+function onEvent(channel, callback) {
+  if (!allowedEventChannels.has(channel) || typeof callback !== 'function') {
+    return () => {}
+  }
+  const listener = (_event, payload) => callback(payload)
+  ipcRenderer.on(channel, listener)
+  return () => ipcRenderer.removeListener(channel, listener)
+}
+
+contextBridge.exposeInMainWorld('electron', { invoke, onEvent })
 contextBridge.exposeInMainWorld('gptBridge', {
   standaloneTool: false,
   selectFolder: () => invoke('dialog:select-folder'),
@@ -35,4 +50,5 @@ contextBridge.exposeInMainWorld('gptBridge', {
   createFile: (defaultPath = '') => invoke('dialog:create-file', defaultPath),
   openFile: (defaultPath = '') => invoke('dialog:open-file', defaultPath),
   openPath: (payload) => invoke('app:open-path', payload),
+  onEmbeddedBrowserEvent: (callback) => onEvent('embedded-browser:event', callback),
 })
