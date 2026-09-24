@@ -1,0 +1,206 @@
+{
+ "id": "codex-amendment-proposal-capability-dispatch-successor-mappings-20260924",
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "not_executed": true,
+ "do_not_execute": true,
+ "change_class": "architecture-authority",
+ "requested_by": "decision-sovereign",
+ "date": "2026-09-24",
+ "worker": "devin-cli",
+ "subject": "explicit successor assignments for 17 remaining retired sub-sovereign capability routes (RULE_CAPABILITY_DISPATCH_V1); learning-evidence route covered by separate staged proposal",
+ "basis": "sub_sovereign_retirement_matrix.json (A591: authority_destination = owning core engine) + module_capability_registry 45 rows (all proposed successors registered-current)",
+ "proposed_successors": [
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "automatic-log-sync-sub-sovereign",
+   "capability_code": "domain:automatic-log-audit-synchronization",
+   "successor_module_identity": "automation-sovereign",
+   "execution_identity": "automation-sovereign-runtime",
+   "decision_authority": "automation-sovereign",
+   "owner_domain": "automatic-log-audit-synchronization",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "change-acceptance-sub-sovereign",
+   "capability_code": "domain:change-acceptance",
+   "successor_module_identity": "decision-sovereign",
+   "execution_identity": "decision-sovereign-runtime",
+   "decision_authority": "decision-sovereign",
+   "owner_domain": "change-acceptance",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "channel-contract-sync-sub-sovereign",
+   "capability_code": "domain:information-channel",
+   "successor_module_identity": "automation-sovereign",
+   "execution_identity": "automation-sovereign-runtime",
+   "decision_authority": "automation-sovereign",
+   "owner_domain": "information-channel",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "cleanup-retention-sync-sub-sovereign",
+   "capability_code": "domain:cleanup-retention-synchronization",
+   "successor_module_identity": "automation-sovereign",
+   "execution_identity": "automation-sovereign-runtime",
+   "decision_authority": "automation-sovereign",
+   "owner_domain": "cleanup-retention-synchronization",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "data-governance-sub-sovereign",
+   "capability_code": "domain:data-integrity",
+   "successor_module_identity": "decision-sovereign",
+   "execution_identity": "decision-sovereign-runtime",
+   "decision_authority": "decision-sovereign",
+   "owner_domain": "data-integrity",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "dependency-sync-sub-sovereign",
+   "capability_code": "domain:dependency-governance",
+   "successor_module_identity": "automation-sovereign",
+   "execution_identity": "automation-sovereign-runtime",
+   "decision_authority": "automation-sovereign",
+   "owner_domain": "dependency-governance",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "directory-sub-sovereign",
+   "capability_code": "domain:directory-management",
+   "successor_module_identity": "permission-sovereign",
+   "execution_identity": "permission-sovereign-runtime",
+   "decision_authority": "permission-sovereign",
+   "owner_domain": "directory-management",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "health-maintenance-test-sub-sovereign",
+   "capability_code": "domain:maintenance",
+   "successor_module_identity": "decision-sovereign",
+   "execution_identity": "decision-sovereign-runtime",
+   "decision_authority": "decision-sovereign",
+   "owner_domain": "maintenance",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "identity-group-sub-sovereign",
+   "capability_code": "domain:identity-group-management",
+   "successor_module_identity": "permission-sovereign",
+   "execution_identity": "permission-sovereign-runtime",
+   "decision_authority": "permission-sovereign",
+   "owner_domain": "identity-group-management",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "policy-architecture-sub-sovereign",
+   "capability_code": "domain:policy-architecture",
+   "successor_module_identity": "decision-sovereign",
+   "execution_identity": "decision-sovereign-runtime",
+   "decision_authority": "decision-sovereign",
+   "owner_domain": "policy-architecture",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "priority-capability-sub-sovereign",
+   "capability_code": "domain:priority-capability",
+   "successor_module_identity": "decision-sovereign",
+   "execution_identity": "decision-sovereign-runtime",
+   "decision_authority": "decision-sovereign",
+   "owner_domain": "priority-capability",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "release-update-sync-sub-sovereign",
+   "capability_code": "domain:release-update-synchronization",
+   "successor_module_identity": "automation-sovereign",
+   "execution_identity": "automation-sovereign-runtime",
+   "decision_authority": "automation-sovereign",
+   "owner_domain": "release-update-synchronization",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "repair-backup-sync-sub-sovereign",
+   "capability_code": "domain:repair-backup-recovery-synchronization",
+   "successor_module_identity": "automation-sovereign",
+   "execution_identity": "automation-sovereign-runtime",
+   "decision_authority": "automation-sovereign",
+   "owner_domain": "repair-backup-recovery-synchronization",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "resource-dependency-sync-sub-sovereign",
+   "capability_code": "domain:resource-allocation",
+   "successor_module_identity": "automation-sovereign",
+   "execution_identity": "automation-sovereign-runtime",
+   "decision_authority": "automation-sovereign",
+   "owner_domain": "resource-allocation",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "runtime-state-sync-sub-sovereign",
+   "capability_code": "domain:runtime-state-checkpoint-synchronization",
+   "successor_module_identity": "automation-sovereign",
+   "execution_identity": "automation-sovereign-runtime",
+   "decision_authority": "automation-sovereign",
+   "owner_domain": "runtime-state-checkpoint-synchronization",
+   "status": "active",
+   "basis": "A591 engine-absorption: no replacement modules; capability executed by owning core engine"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "startup-sub-sovereign",
+   "capability_code": "domain:startup",
+   "successor_module_identity": "boot-core",
+   "execution_identity": "boot-core-runtime",
+   "decision_authority": "system-runtime-sovereign",
+   "owner_domain": "startup",
+   "status": "active",
+   "basis": "replacement modules listed in matrix"
+  },
+  {
+   "table": "capability_dispatch_registry",
+   "retired_identity": "system-sub-sovereign",
+   "capability_code": "domain:system-module-management-assignment-coordination",
+   "successor_module_identity": "main-system",
+   "execution_identity": "main-system-runtime",
+   "decision_authority": "system-runtime-sovereign",
+   "owner_domain": "system-module-management-assignment-coordination",
+   "status": "active",
+   "basis": "replacement modules listed in matrix"
+  }
+ ],
+ "notes": [
+  "all successor_module_identity values verified registered-current in module_capability_registry",
+  "routes remain fail-closed until governor seals; pending-explicit-successor-mapping rows updated only via governed migration"
+ ]
+}
