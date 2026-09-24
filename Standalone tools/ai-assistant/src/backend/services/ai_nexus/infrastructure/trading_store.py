@@ -215,6 +215,32 @@ CREATE TABLE IF NOT EXISTS fund_recommendations (
 );
 CREATE INDEX IF NOT EXISTS idx_fund_txn ON fund_transactions(account_id, fund_id, status);
 CREATE INDEX IF NOT EXISTS idx_fund_nav ON fund_nav_mirror(fund_id, share_class_id, nav_date);
+-- AI-intelligence mirror (advisory records — never executable)
+CREATE TABLE IF NOT EXISTS ai_recommendations (
+    recommendation_id TEXT PRIMARY KEY,
+    account_id TEXT,
+    instrument_id TEXT NOT NULL,
+    instrument_type TEXT,
+    market TEXT,
+    recommendation_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'CREATED',
+    model_id TEXT,
+    model_version TEXT,
+    data_quality TEXT,
+    payload TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS analysis_runs (
+    run_id TEXT PRIMARY KEY,
+    task_kind TEXT,
+    instrument_id TEXT,
+    market TEXT,
+    model_id TEXT,
+    degraded INTEGER NOT NULL DEFAULT 0,
+    payload TEXT NOT NULL,
+    recorded_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_recs ON ai_recommendations(instrument_id, status);
 CREATE INDEX IF NOT EXISTS idx_signals_market ON signals(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_market ON orders(market, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_type ON audit_events(type, at);
@@ -602,6 +628,61 @@ class TradingStore:
                 (fund_id, int(limit)))
         return self._rows(
             "SELECT * FROM fund_recommendations ORDER BY recorded_at DESC"
+            " LIMIT ?", (int(limit),))
+
+    # ------------------------------------------------------------------
+    # AI-intelligence mirror
+    def record_ai_recommendation(self, rec: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO ai_recommendations(recommendation_id,"
+            " account_id, instrument_id, instrument_type, market,"
+            " recommendation_type, status, model_id, model_version,"
+            " data_quality, payload, recorded_at)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                str(rec.get("recommendation_id") or ""),
+                str(rec.get("account_id") or ""),
+                str(rec.get("instrument_id") or ""),
+                str(rec.get("instrument_type") or ""),
+                str(rec.get("market") or ""),
+                str(rec.get("recommendation_type") or ""),
+                str(rec.get("status") or "CREATED"),
+                str(rec.get("model_id") or ""),
+                str(rec.get("model_version") or ""),
+                str(rec.get("data_quality") or ""),
+                json.dumps(rec, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def record_analysis_run(self, run: dict[str, Any]) -> None:
+        self._db().execute(
+            "INSERT OR REPLACE INTO analysis_runs(run_id, task_kind,"
+            " instrument_id, market, model_id, degraded, payload,"
+            " recorded_at) VALUES(?,?,?,?,?,?,?,?)",
+            (
+                str(run.get("run_id") or ""),
+                str(run.get("task_kind") or ""),
+                str(run.get("instrument_id") or ""),
+                str(run.get("market") or ""),
+                str(run.get("model_id") or ""),
+                1 if run.get("degraded") else 0,
+                json.dumps(run, ensure_ascii=False),
+                time.time(),
+            ),
+        )
+        self._db().commit()
+
+    def ai_recommendations(self, instrument_id: str | None = None,
+                           limit: int = 100) -> list[dict[str, Any]]:
+        if instrument_id:
+            return self._rows(
+                "SELECT * FROM ai_recommendations WHERE instrument_id=?"
+                " ORDER BY recorded_at DESC LIMIT ?",
+                (instrument_id, int(limit)))
+        return self._rows(
+            "SELECT * FROM ai_recommendations ORDER BY recorded_at DESC"
             " LIMIT ?", (int(limit),))
 
     def record_authorization(self, grant: dict[str, Any]) -> None:

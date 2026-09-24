@@ -36,12 +36,11 @@ from .fund import (
 )
 from .instruments import InstrumentRegistry
 from .intelligence import (
+    AnalysisEvidence,
     AnalysisTaskKind,
     EvidenceKind,
     IntelligenceMaintenance,
     InvestmentIntelligenceEngine,
-    InvestmentRecommendation,
-    RecommendationStatus,
 )
 from .market import (
     CandleStore,
@@ -1046,6 +1045,220 @@ class TradingEngineService:
                 "units": float(basis["units"]),
                 "basis": basis,
             }
+
+        # ---------------- 星澄 AI 投資決策中心 (advisory only) ----------------
+        if command == "investment-mobile-ai-status":
+            return "ai-intel", self.intel.status()
+
+        if command == "investment-mobile-ai-intent":
+            intent = self.intel.intent.parse(str(payload.get("text") or ""))
+            return "ai-intel", {"ok": True, "intent": intent.to_dict()}
+
+        if command == "investment-mobile-ai-analyze-tw":
+            res = await self.intel.tw.analyze(
+                str(payload.get("instrument_id") or ""),
+                benchmark_id=payload.get("benchmark_id"))
+            self.audit.record("ai.analyze", {
+                "instrument_id": payload.get("instrument_id"),
+                "degraded": res.get("degraded")})
+            return "ai-intel", res
+
+        if command == "investment-mobile-ai-analyze-us":
+            res = await self.intel.us.analyze(
+                str(payload.get("instrument_id") or ""),
+                benchmark_id=payload.get("benchmark_id"))
+            res["macro"] = self.intel.us.macro_block()
+            self.audit.record("ai.analyze", {
+                "instrument_id": payload.get("instrument_id"),
+                "degraded": res.get("degraded")})
+            return "ai-intel", res
+
+        if command == "investment-mobile-ai-analyze-fund":
+            res = await self.intel.fund_intel.analyze(
+                str(payload.get("fund_id") or ""),
+                str(payload.get("share_class_id") or ""),
+                account_id=str(payload.get("account_id") or ""),
+                target_weight=payload.get("target_weight"),
+            )
+            self.audit.record("ai.analyze_fund", {
+                "fund_id": payload.get("fund_id"),
+                "degraded": res.get("degraded")})
+            return "ai-intel", res
+
+        if command == "investment-mobile-ai-analyze-portfolio":
+            res = await self.intel.portfolio_intel.analyze(
+                base_currency=str(payload.get("base_currency") or "TWD"),
+                account_ids=list(payload.get("account_ids") or []) or None,
+            )
+            self.audit.record("ai.analyze_portfolio", {
+                "degraded": res.get("degraded")})
+            return "ai-intel", res
+
+        if command == "investment-mobile-ai-analyze":
+            # intent-routed generic analysis
+            intent = self.intel.intent.parse(str(payload.get("text") or ""))
+            if intent.ambiguous:
+                return "ai-intel", {
+                    "ok": False, "error_code": "AMBIGUOUS_INSTRUMENT",
+                    "intent": intent.to_dict(),
+                    "note": "模糊商品名稱需先確認識別（例：台積電 vs TSM）"}
+            if intent.market == "tw" and intent.instrument_id:
+                return "ai-intel", await self.intel.tw.analyze(
+                    intent.instrument_id)
+            if intent.market == "us" and intent.instrument_id:
+                res = await self.intel.us.analyze(intent.instrument_id)
+                res["macro"] = self.intel.us.macro_block()
+                return "ai-intel", res
+            if intent.market == "portfolio":
+                return "ai-intel", await self.intel.portfolio_intel.analyze(
+                    base_currency=str(payload.get("base_currency") or "TWD"))
+            return "ai-intel", {
+                "ok": False, "error_code": "INTENT_UNRESOLVED",
+                "intent": intent.to_dict()}
+
+        if command == "investment-mobile-ai-propose":
+            res = self.intel.proposals.build(payload)
+            if res.get("ok"):
+                self.audit.record("ai.proposal_validated", {
+                    "proposal_id": res["proposal"]["proposal_id"]})
+            return "ai-intel", res
+
+        if command == "investment-mobile-ai-proposal-status":
+            return "ai-intel", self.intel.proposals.status(
+                str(payload.get("proposal_id") or ""))
+
+        if command == "investment-mobile-ai-recommend":
+            run = self.intel.pipeline.begin(
+                str(payload.get("task_kind") or AnalysisTaskKind.QUICK_MARKET),
+                instrument_id=str(payload.get("instrument_id") or ""),
+                market=str(payload.get("market") or ""),
+                account_id=str(payload.get("account_id") or ""),
+                model_id=str(payload.get("model_id") or "xingcheng-native"),
+                strategy_id=str(payload.get("strategy_id") or ""),
+                strategy_version=str(payload.get("strategy_version") or ""))
+            evs = []
+            for item in list(payload.get("evidence") or []):
+                evs.append(AnalysisEvidence(
+                    kind=str(item.get("kind") or
+                             EvidenceKind.CALCULATED_RESULT),
+                    claim=str(item.get("claim") or ""),
+                    value=item.get("value"),
+                    source_id=str(item.get("source_id") or ""),
+                    data_timestamp=str(item.get("data_timestamp") or ""),
+                    computation=str(item.get("computation") or "")))
+            self.intel.pipeline.stage(
+                run, "recommendation",
+                evidence=evs,
+                findings=dict(payload.get("findings") or {}))
+            self.intel.pipeline.finish(run)
+            built = self.intel.pipeline.build_recommendation(
+                run,
+                account_id=str(payload.get("account_id") or ""),
+                instrument_id=str(payload.get("instrument_id") or ""),
+                instrument_type=str(payload.get("instrument_type") or "stock"),
+                market=str(payload.get("market") or ""),
+                recommendation_type=str(
+                    payload.get("recommendation_type") or "HOLD"),
+                reasoning=str(payload.get("reasoning") or ""),
+                risk_factors=list(payload.get("risk_factors") or []),
+                reference_price=payload.get("reference_price"),
+                reference_nav=payload.get("reference_nav"),
+                suggested_weight=payload.get("suggested_weight"),
+                observation_window=str(
+                    payload.get("observation_window") or ""),
+                trigger_conditions=list(
+                    payload.get("trigger_conditions") or []),
+                reevaluate_conditions=list(
+                    payload.get("reevaluate_conditions") or []),
+                market_data_timestamp=self._dt(
+                    payload.get("market_data_timestamp")),
+            )
+            if not built.get("ok"):
+                return "ai-intel", built
+            res = self.intel.lifecycle.create(built["recommendation"])
+            if res.get("ok"):
+                self.audit.record("ai.recommendation", {
+                    "recommendation_id":
+                        res["recommendation"]["recommendation_id"],
+                    "type": res["recommendation"]["recommendation_type"]})
+                self._mirror_outbox.append({
+                    "operation": "record_ai_recommendation",
+                    "recommendation": res["recommendation"]})
+            return "ai-intel", res
+
+        if command == "investment-mobile-ai-rec-transition":
+            return "ai-intel", self.intel.lifecycle.transition(
+                str(payload.get("recommendation_id") or ""),
+                str(payload.get("target") or ""),
+                reason=str(payload.get("reason") or ""),
+                actor=str(payload.get("actor") or ""))
+
+        if command == "investment-mobile-ai-rec-list":
+            return "ai-intel", {
+                "ok": True,
+                "recommendations": self.intel.lifecycle.list(
+                    status=payload.get("status"),
+                    instrument_id=payload.get("instrument_id"),
+                    limit=int(payload.get("limit") or 200)),
+            }
+
+        if command == "investment-mobile-ai-rec-versions":
+            return "ai-intel", {
+                "ok": True,
+                "versions": self.intel.lifecycle.versions(
+                    str(payload.get("recommendation_id") or "")),
+            }
+
+        if command == "investment-mobile-ai-rec-expire":
+            return "ai-intel", self.intel.lifecycle.expire_due()
+
+        if command == "investment-mobile-ai-outcome":
+            return "ai-intel", self.intel.outcomes.evaluate(
+                str(payload.get("recommendation_id") or ""),
+                horizon_days=int(payload.get("horizon_days") or 30),
+                kind=str(payload.get("kind") or "ai_analysis"))
+
+        if command == "investment-mobile-ai-outcomes":
+            return "ai-intel", {
+                "ok": True,
+                "outcomes": self.intel.outcomes.outcomes(
+                    payload.get("recommendation_id"),
+                    payload.get("kind")),
+            }
+
+        if command == "investment-mobile-ai-schedules":
+            return "ai-intel", {
+                "ok": True, "schedules": self.intel.scheduler.list()}
+
+        if command == "investment-mobile-ai-schedule-due":
+            return "ai-intel", {
+                "ok": True,
+                "due": self.intel.scheduler.due_slots(
+                    market_date_fresh=dict(
+                        payload.get("market_date_fresh") or {})),
+            }
+
+        if command == "investment-mobile-ai-schedule-run":
+            return "ai-intel", self.intel.scheduler.mark_ran(
+                str(payload.get("schedule_id") or ""),
+                str(payload.get("market_date") or ""),
+            )
+
+        if command == "investment-mobile-ai-model-health":
+            return "ai-intel", {
+                "ok": True, "router": self.intel.router.health(),
+                "records": self.intel.router.records(
+                    int(payload.get("limit") or 50))}
+
+        if command == "investment-mobile-ai-boundary":
+            return "ai-intel", self.intel.safety.boundary_manifest()
+
+        if command == "investment-mobile-ai-inspect-text":
+            return "ai-intel", self.intel.safety.inspect_external_text(
+                str(payload.get("text") or ""))
+
+        if command == "investment-mobile-ai-maintenance":
+            return "ai-intel", self.intel_maintenance.run_once()
 
         # ---------------- backtest + audit ----------------
         if command == "investment-mobile-backtest":

@@ -195,6 +195,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
         group_id=IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE,
         actor="governance/tool/model-dialogue",
         capabilities=(
+            "independent-tool-start-and-stop",
             "independent-tool-business-logic",
             "independent-tool-user-settings",
             "independent-tool-business-storage",

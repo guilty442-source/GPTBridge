@@ -31,6 +31,8 @@ class CodeRuleDirectorySnapshot:
     approved_action_names: tuple[str, ...]
     approved_target_names: tuple[str, ...]
     approved_data_scope_names: tuple[str, ...]
+    independent_tool_host_bindings: tuple[tuple[str, str], ...]
+    runtime_owner_tool_bindings: tuple[tuple[str, str], ...]
     required_locale_keys: tuple[str, ...]
     category_labels: bool
     requirements: tuple[str, ...]
@@ -230,6 +232,12 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "audit-records",
             "runtime-logs",
         ),
+        independent_tool_host_bindings=(
+            ("model-dialogue", "model-dialogue"),
+        ),
+        runtime_owner_tool_bindings=(
+            ("model-dialogue", "model-dialogue"),
+        ),
         required_locale_keys=(
             "tool.name",
             "tool.window_title",
@@ -271,6 +279,8 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "explicit-higher-version-required-for-code-update",
             "all-identifiers-and-label-keys-match-governance-schema",
             "approved-identifiers-listed-in-code-rule-directory-only",
+            "model-dialogue-is-self-hosted-independent-tool",
+            "model-dialogue-runtime-owner-tool-id-is-model-dialogue",
             "display-labels-loaded-from-owner-locale-plugin-only",
             "category-labels-and-identifier-aliases-prohibited",
         ),

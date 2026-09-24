@@ -148,6 +148,20 @@ class InvestmentMobileBridge:
             self._store.record_fund_recommendation(rec)
             return {"ok": True, "recorded": "fund_recommendation"}
 
+        # AI-intelligence mirror writes (advisory records, never orders).
+        if operation == "record_ai_recommendation":
+            rec = payload.get("recommendation")
+            if not isinstance(rec, dict):
+                return {"ok": False, "error_code": "INVALID_RECOMMENDATION"}
+            self._store.record_ai_recommendation(rec)
+            return {"ok": True, "recorded": "ai_recommendation"}
+        if operation == "record_analysis_run":
+            run = payload.get("run")
+            if not isinstance(run, dict):
+                return {"ok": False, "error_code": "INVALID_RUN"}
+            self._store.record_analysis_run(run)
+            return {"ok": True, "recorded": "analysis_run"}
+
         # Shared settings (companion-owned settings flow through here).
         if operation == "update_shared_settings":
             settings = payload.get("settings")
