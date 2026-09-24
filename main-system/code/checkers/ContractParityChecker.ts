@@ -74,10 +74,10 @@ export interface ContractParityResult {
 
 // Contract boundary pairs per A355
 export const CONTRACT_BOUNDARIES = [
-  { from: 'TypeScript', to: 'Python', description: 'TypeScript contracts ??Python implementation (A355)' },
-  { from: 'Python', to: 'C', description: 'Python ??Native C ABI (A355)' },
-  { from: 'C', to: 'C++', description: 'C ABI ??C++ implementation (A355)' },
-  { from: 'Python', to: 'CSharp', description: 'Python/C ABI ??CSharp WindowsAdapter (A355)' },
+  { from: 'TypeScript', to: 'Python', description: 'TypeScript contracts -> Python implementation (A355)' },
+  { from: 'Python', to: 'C', description: 'Python -> Native C ABI (A355)' },
+  { from: 'C', to: 'C++', description: 'C ABI -> C++ implementation (A355)' },
+  { from: 'Python', to: 'CSharp', description: 'Python/C ABI -> CSharp WindowsAdapter (A355)' },
 ] as const;
 
 export class ContractParityChecker {
@@ -122,7 +122,7 @@ export class ContractParityChecker {
     // Check for orphaned implementations (implementation without contract)
     for (const contract of this.contracts.values()) {
       if (contract.language !== 'TypeScript') {
-        const hasContract = this.contractsByLanguage('TypeScript').some(
+        const hasContract = this.getContractsByLanguage('TypeScript').some(
           c => this.contractsMatch(c, contract)
         );
         if (!hasContract) {
