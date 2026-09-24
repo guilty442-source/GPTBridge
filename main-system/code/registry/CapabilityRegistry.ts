@@ -1,5 +1,5 @@
 /**
- * CapabilityRegistry.ts ?�Single explicit capability authority (A356).
+ * CapabilityRegistry.ts — Single explicit capability authority (A356).
  *
  * Contains governance data only. All capability declarations, ownership,
  * and promotion policies live here.
