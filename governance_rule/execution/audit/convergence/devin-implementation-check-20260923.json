@@ -214,6 +214,24 @@
    ],
    "result": "test_resource_governor 18 passed / 1 skipped; project contract matrix 126 passed; commit 26e11b96",
    "authority": "2026-09-23T03:13:43Z unchanged"
+  },
+  "round_13_post_normalization": {
+   "date": "2026-09-24",
+   "scope": "post-normalization convergence after in-place governor amendments (five-core language + sub-sovereign roster applied; capability-dispatch authorized)",
+   "checks": [
+    "authority: 214 tables; canonical_language_roles now five-core (python/ts/c/pybind11/cpp/csharp/sql); active_sub_sovereign_roster=none-...-A592-A604 (drafted request applied verbatim); five-core request status=applied-current",
+    "NEW governor dispositions observed: machine_schema_parity + implementation_obligations (authorized-closure-program), capability_dispatch (authorized-awaiting-registry-materialization), a502_schema_hash (authorized-remediation)",
+    "zh-TW mirror regenerated post-normalization; part-3 carries new language roles; 202 mirrored tables subset-consistent (pg-only extras are internal fts/registry tables)",
+    "FOUND codex-internal divergence: metadata.startup_complete_deadline_ms=20000 vs articles.A199 HARD-DEADLINE:10000ms + manual STARTUP_TEN_SECOND_DEADLINE verify 10000ms; no governor_disposition covers deadline; drafted codex-amendment-request-startup-deadline-divergence-20260924.json (committed 04fb02c7 by governor)",
+    "AUDIT_FLOW_BUDGET_SECONDS governor retune 30->60s (documented: 45s observed under governor throttling); stale SLA tests + audit_checks docstrings aligned to 60s; constant still hard-coded per governor-amendment precedent",
+    "release-dependencies.json re-pinned: startup_manifest a505ff51 (manifest now follows amended metadata 20000), renderer d2c2d698",
+    "self_learning_driver.py reviewed: AutomationCore-only scheduling (no private loop fallback), governed start_tool wake + request_tool_execution queue-and-return, explicit-stop suppression 1h, outstanding-request ledger with lost-detection; correct",
+    "codex_official.py + codex_reconcile.py psycopg fail-closed verified (CODEX_UNAVAILABLE audit + None / result=False)",
+    "test_final_chaos_gate flake: git status under 5ms timeout completed in 0 -> passes in isolation; timing-sensitive, not a regression",
+    "root scratch kv_engine_suite.json removed (native suite report written to repo root)"
+   ],
+   "result": "governance suite was 395/6fail -> fixed: 3 budget tests aligned, 2 contract hashes re-pinned, 1 flake confirmed pass in isolation; commit 4d234790",
+   "authority": "2026-09-23T03:13:43Z (in-place normalized; same generation label)"
   }
  }
 }
