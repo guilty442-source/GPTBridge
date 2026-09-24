@@ -1,10 +1,10 @@
 /**
- * DependencyDagChecker.ts ?�Dependency DAG Gate (A354/A362).
+ * DependencyDagChecker.ts — Dependency DAG Gate (A354/A362).
  *
  * Verifies import/dependency graph respects:
  * - Module ownership boundaries (A356)
  * - Language boundaries (A351/A352)
- * - Layer architecture (A68): presentation ?�channel-api ?�application-use-case ?�domain ?�infrastructure
+ * - Layer architecture (A68): presentation → channel-api → application-use-case → domain → infrastructure
  * - No circular dependencies
  * - Canonical dependency direction per A211/A219
  */
@@ -97,7 +97,7 @@ export class DependencyDagChecker {
   checkDag(): DependencyDagResult {
     const violations: DagViolation[] = [];
 
-    // Check layer ordering (A68: presentation ?�channel-api ?�application ?�domain ?�infrastructure)
+    // Check layer ordering (A68: presentation → channel-api → application → domain → infrastructure)
     for (const [id, node] of this.nodes) {
       for (const imp of node.imports) {
         const target = this.nodes.get(imp);
