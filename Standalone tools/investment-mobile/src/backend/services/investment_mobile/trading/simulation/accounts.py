@@ -19,8 +19,9 @@ from typing import Any
 from .contracts import CashState, PaperAccount
 
 _ENTRY_KINDS = frozenset({
-    "initial", "buy_debit", "sell_credit", "fee", "tax", "dividend",
-    "adjustment", "settle", "reserve", "release", "transfer",
+    "initial", "deposit", "withdraw", "buy_debit", "sell_credit",
+    "fee", "tax", "dividend", "adjustment", "settle", "reserve",
+    "release", "transfer", "fx_convert",
 })
 
 _SEED_ACCOUNTS = [
@@ -136,6 +137,32 @@ class PaperAccountService:
                   CashState.RESERVED, ref=ref)
         self.post(account_id, "release", Decimal(str(amount)),
                   CashState.AVAILABLE, ref=ref)
+
+    def release_all(self, account_id: str, ref: str) -> Decimal:
+        """Release the net remaining RESERVED balance tagged `ref`."""
+        net = Decimal("0")
+        for e in self.ledger(account_id, limit=10_000):
+            if e["ref"] != ref or e["kind"] not in ("reserve", "release"):
+                continue
+            amt = Decimal(e["amount"])
+            net += amt if e["state"] == CashState.RESERVED else -amt
+        if net > 0:
+            self.release(account_id, net, ref)
+        return net
+
+    def deposit(self, account_id: str, amount, ref: str = "deposit"
+                ) -> dict[str, Any]:
+        return self.post(account_id, "deposit", Decimal(str(amount)),
+                         CashState.AVAILABLE, ref=ref)
+
+    def withdraw(self, account_id: str, amount, ref: str = "withdraw"
+                 ) -> dict[str, Any]:
+        amt = Decimal(str(amount))
+        cash = self.cash(account_id)
+        if Decimal(cash["available"]) < amt:
+            return {"ok": False, "error_code": "INSUFFICIENT_CASH"}
+        return self.post(account_id, "withdraw", -amt,
+                         CashState.AVAILABLE, ref=ref)
 
     # ------------------------------------------------------------------
     def _load(self) -> None:

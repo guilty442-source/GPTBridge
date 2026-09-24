@@ -106,6 +106,7 @@ class PaperOrder:
     status: str = PaperOrderStatus.CREATED
     filled_qty: Decimal = Decimal("0")
     avg_fill_price: Decimal = Decimal("0")
+    rejection_reason: str = ""
     created_at: float = field(default_factory=_now)
 
     def __post_init__(self):
@@ -139,6 +140,7 @@ class PaperOrder:
             "client_order_id": self.client_order_id,
             "status": self.status, "filled_qty": str(self.filled_qty),
             "avg_fill_price": str(self.avg_fill_price),
+            "rejection_reason": self.rejection_reason,
             "created_at": self.created_at, "expires_at": self.expires_at,
             "simulated": True,
         }
