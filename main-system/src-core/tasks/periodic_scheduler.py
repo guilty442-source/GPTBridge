@@ -216,7 +216,10 @@ class PeriodicScheduler:
                     raise
                 except Exception as error:
                     job["last_error"] = f"{type(error).__name__}: {error}"
-                    _logger.warning("periodic job %s failed: %s", name, error)
+                    # str(error) is empty for TimeoutError & friends —
+                    # log the typed form or failures stay undiagnosable.
+                    _logger.warning(
+                        "periodic job %s failed: %s", name, job["last_error"])
                 job["last_duration_ms"] = round(
                     (time.monotonic() - mark) * 1000, 1
                 )

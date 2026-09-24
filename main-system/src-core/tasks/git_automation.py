@@ -105,6 +105,12 @@ class GitAutomationService:
                 self._cycle_tick,
                 interval_s=self.sweep_interval,
                 run_immediately=True,
+                # A tick sweeps 6 worktrees and may run the sync cycle
+                # (merge+audit); under worker churn the shared 120 s job
+                # timeout kills it mid-sweep — every ~7 min the scheduler
+                # logged "failed: TimeoutError" (empty str).  Give the
+                # governed sweep room; interval gating still paces it.
+                timeout_s=300.0,
             ):
                 _logger.info(
                     "git automation started via automation core "
