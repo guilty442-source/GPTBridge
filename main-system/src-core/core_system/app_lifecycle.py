@@ -174,7 +174,19 @@ class AppLifecycleMixin:
         # P110/E173: fixed monotonic epoch for the complete-startup
         # deadline — startup_phase_active_since mutates per phase marker,
         # so the single startup clock must be a separate immutable anchor.
-        self._startup_epoch = time.monotonic()
+        # When boot_core exported GPTBRIDGE_BOOT_EPOCH (wall-clock cycle
+        # start), translate it into this process's monotonic timeline so
+        # pre-spawn gate + interpreter time consume the same 10 s budget.
+        try:
+            boot_epoch_wall = float(os.environ.get("GPTBRIDGE_BOOT_EPOCH", "") or 0.0)
+        except ValueError:
+            boot_epoch_wall = 0.0
+        if boot_epoch_wall > 0:
+            self._startup_epoch = time.monotonic() - max(
+                0.0, time.time() - boot_epoch_wall
+            )
+        else:
+            self._startup_epoch = time.monotonic()
         self.startup_phase_active_since = time.monotonic()
         self.startup_phase_history: list[dict[str, Any]] = []
         self._shutdown_started = False
@@ -303,11 +315,23 @@ class AppLifecycleMixin:
         return out
 
     def get_sub_sovereign(self, name: str) -> Any | None:
-        """Lazy-load a sub-sovereign by name (e.g., 'startup-sub-sovereign')."""
+        """Lazy-load a sub-sovereign by name (e.g., 'startup-sub-sovereign').
+
+        A592/A604: only codex-active hierarchy children may materialize;
+        retired identities fail closed to ``None``
+        (FORBID:sub-sovereign-routing).
+        """
         if name in self._sub_sovereigns:
             return self._sub_sovereigns[name]
         class_ref = self._sub_sovereign_classes.get(name)
         if not class_ref:
+            return None
+        try:
+            from governance.registries import child_status
+
+            if child_status(name) != "active":
+                return None
+        except Exception:
             return None
         try:
             if ":" in class_ref:

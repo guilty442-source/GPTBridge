@@ -99,6 +99,19 @@ def parent_of(child_id: str) -> str | None:
     return None
 
 
+def child_status(child_id: str) -> str | None:
+    """返回子主權在層級註冊表的狀態（``None`` = 未登錄）。
+
+    A592/A604: retired rows remain registered as historical identity
+    records; callers must distinguish ``retired`` (absent by design —
+    skip, not a failure) from ``None`` (unregistered — fail-closed).
+    """
+    for row in sovereign_hierarchy_registry():
+        if row.get("child_identity") == child_id:
+            return row.get("status")
+    return None
+
+
 def primary_domain_of(sovereign_id: str) -> str:
     """返回註冊表登錄的主要管轄域（未登錄時為 ``unknown``）。"""
     for row in _active_hierarchy_rows():
@@ -236,6 +249,7 @@ def hierarchy_status() -> dict[str, Any]:
 
 __all__ = [
     "children_of",
+    "child_status",
     "parent_of",
     "primary_domain_of",
     "validate_child_parent",

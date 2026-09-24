@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from governance.registries import children_of, resolve_sovereign
+from governance.registries import child_status, children_of, resolve_sovereign
 
 
 class SubSovereignRegistry:
@@ -42,12 +42,22 @@ class SubSovereignRegistry:
         }
 
     def get(self, name: str) -> Any | None:
-        """Get or lazy-load a sub-sovereign by name."""
+        """Get or lazy-load a sub-sovereign by name.
+
+        A592/A604: only codex-active hierarchy children may materialize —
+        retired or unregistered identities are absent by design
+        (FORBID:sub-sovereign-routing) and fail closed to ``None``.
+        """
         if name in self._instances:
             return self._instances[name]
 
         class_ref = self._class_refs.get(name)
         if not class_ref:
+            return None
+        try:
+            if child_status(name) != "active":
+                return None
+        except Exception:
             return None
 
         try:
@@ -108,10 +118,5 @@ class SubSovereignRegistry:
             pass
 
         return collected
-
-    def get(self, name: str) -> Any | None:
-        """Get or lazy-load a sub-sovereign by name (alias for get)."""
-        return self.get(name)
-
 
 __all__ = ["SubSovereignRegistry"]

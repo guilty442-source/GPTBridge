@@ -29,17 +29,15 @@ makes the repair decision, validates permissions, and routes to the
 release-update (code change) or runtime-state (runtime action)
 synchronization chain for governed execution.
 
-Owned child sub-sovereigns (codex-aligned identities, A302–A323):
-  * runtime-state-sync-sub-sovereign       -- keeps the platform running and serving
-  * resource-dependency-sync-sub-sovereign -- owns all resource-body concerns
-  * data-governance-sub-sovereign          -- owns all data-body concerns
-  * channel-contract-sync-sub-sovereign    -- owns cross-sovereign structural interfaces
-  * dependency-sync-sub-sovereign          -- third-party software management
-  * learning-evidence-sync-sub-sovereign   -- persistent error learning
-  * release-update-sync-sub-sovereign      -- governed code-change dispatch
-
-All are LOCAL CODE (same process as GPTBridgeApp) and coordinate existing
-in-process services; they never run heavy work in this mother process.
+A592/A604: the sub-sovereign layer is eliminated — every former child
+identity (runtime-state-sync, resource-dependency-sync, data-governance,
+channel-contract-sync, dependency-sync, learning-evidence-sync,
+release-update-sync, health-maintenance-test, and the remaining sync
+children) survives only as ``retired`` lineage in the hierarchy registry.
+They are never materialized, started or routed to
+(FORBID:sub-sovereign-routing); status surfaces still display them with a
+``retired`` marker per the A604 historical-query exception.  Domain work
+is dispatched to registered single-purpose modules instead.
 """
 
 from __future__ import annotations
@@ -295,7 +293,8 @@ class DecisionSovereign(
                 "OPERATION_IN_FLIGHT", self.verified_basis("A152", "A330")
             )
 
-        # Delegate A330 execution to synchronization-sovereign
+        # Delegate A330 execution to the automation core (canonical
+        # identity; synchronization-sovereign is a historical alias, A604)
         return await self._delegate_certified_update(
             request, update_type, update_set, artifact_hashes, operation_id
         )
@@ -351,7 +350,7 @@ class DecisionSovereign(
                 "TARGET_SOVEREIGN_UNAVAILABLE"
             ):
                 return refusal_outcome(
-                    "SYNCHRONIZATION_SOVEREIGN_UNAVAILABLE",
+                    "AUTOMATION_SOVEREIGN_UNAVAILABLE",
                     self.verified_basis("A152", "A330", "A301"),
                 )
             return sync_outcome
@@ -374,7 +373,7 @@ class DecisionSovereign(
                 "repair_decision": "authorized",
                 "update_type": update_type,
                 "operation_id": operation_id,
-                "route": "decision-sovereign > synchronization-sovereign(A330) > governed-executor",
+                "route": "decision-sovereign > automation-sovereign(A330) > governed-executor",
                 "sync_authorization": sync_outcome.result,
                 "forbidden": "decision-sovereign-direct-execution",
             },
@@ -430,7 +429,20 @@ class DecisionSovereign(
     def _child_status(self, child_id: str, method: str = "live_status") -> dict[str, Any]:
         child = getattr(self, "_sub_sovereigns", {}).get(child_id)
         if child is None:
-            return {"role": child_id, "enabled": False, "materialized": False}
+            status: dict[str, Any] = {
+                "role": child_id,
+                "enabled": False,
+                "materialized": False,
+            }
+            try:
+                from governance.registries import child_status
+
+                registry_status = child_status(child_id)
+                if registry_status:
+                    status["registry_status"] = registry_status
+            except Exception:
+                pass
+            return status
         reporter = getattr(child, method, None)
         return reporter() if callable(reporter) else {"role": child_id}
 
@@ -453,7 +465,7 @@ class DecisionSovereign(
             ],
             "coordinated_sub_sovereigns": self._coordinated_statuses("live_status"),
             "peer_systems": self._peer_statuses(),
-            "health_owner": "health-maintenance-test-sub-sovereign",
+            "health_owner": "none-sub-sovereign-layer-eliminated-A592-A604",
             "governance_rules": self.governance_rule_coordination.coordination_status(),
             "certified_updates": self.certified_update_status(),
             "autonomy": self._autonomy_status(),
@@ -497,7 +509,7 @@ class DecisionSovereign(
             ],
             "coordinated_sub_sovereigns": self._coordinated_statuses("orchestration_status"),
             "peer_systems": self._peer_statuses(),
-            "health_owner": "health-maintenance-test-sub-sovereign",
+            "health_owner": "none-sub-sovereign-layer-eliminated-A592-A604",
             "governance_rules": self.governance_rule_coordination.orchestration_status(),
             "runtime-state-sync": self._child_status("runtime-state-sync-sub-sovereign", "orchestration_status"),
             "maintenance": (

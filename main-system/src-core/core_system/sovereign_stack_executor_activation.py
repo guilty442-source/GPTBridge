@@ -15,6 +15,7 @@ class SovereignStackActivationMixin:
 
     app: Any
     _startup_failures: list[dict[str, str]]
+    _retired_children: list[str]
 
     def _materialize_top_sovereigns(self, sovereign: Any) -> None:
         raise NotImplementedError
@@ -40,6 +41,7 @@ class SovereignStackActivationMixin:
         _step_start = time.monotonic()
 
         self._startup_failures = []
+        self._retired_children = []
         self._materialize_top_sovereigns(sovereign)
         self._materialize_children(sovereign)
         await self._start_top_sovereigns(sovereign)
@@ -104,6 +106,16 @@ class SovereignStackActivationMixin:
                         central_repair = None
                 maintenance = app.maintenance_sovereign
                 if maintenance is None:
+                    # A592/A604: the sub-sovereign layer is eliminated — a
+                    # retired health owner is absent by design, not a fault.
+                    if self._child_retired("health-maintenance-test-sub-sovereign"):
+                        app._log(
+                            {
+                                "type": "maintenance_sovereign_startup",
+                                "skipped": "retired-A592-A604",
+                            }
+                        )
+                        return
                     raise RuntimeError("health-maintenance-test-sub-sovereign-unavailable")
                 outcome = sovereign.authorize_child_activation(
                     "health-maintenance-test-sub-sovereign"

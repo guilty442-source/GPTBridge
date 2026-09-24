@@ -29,6 +29,9 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
     def __init__(self, app: Any) -> None:
         self.app = app
         self._startup_failures: list[dict[str, str]] = []
+        # A592/A604: retired sub-sovereign identities are absent by design;
+        # they are tracked separately from failures.
+        self._retired_children: list[str] = []
 
     # ------------------------------------------------------------------
     # A334 materialization: every child under its codex-registered parent
@@ -111,9 +114,18 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
         }.get(parent_id)
 
     def _materialize_children(self, sovereign: Any) -> None:
-        """Instantiate every active registry child under its codex parent."""
+        """Instantiate every active registry child under its codex parent.
+
+        A592/A604: the sub-sovereign layer is retired — children whose
+        codex hierarchy row is ``retired`` are absent by design and are
+        recorded under ``retired_children``, never as startup failures.
+        An identity with no registry row stays fail-closed.
+        """
         app = self.app
         for child_id, class_ref in _CHILD_CLASSES.items():
+            if self._child_retired(child_id):
+                self._retired_children.append(child_id)
+                continue
             parent_id = self._codex_parent(child_id)
             parent = self._parent_object(sovereign, parent_id) if parent_id else None
             if parent is None:
@@ -157,10 +169,30 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
 
         return parent_of(child_id)
 
+    @staticmethod
+    def _child_retired(child_id: str) -> bool:
+        """A592/A604: ``retired`` hierarchy rows are absent by design.
+
+        A retired identity must never be materialized, started or routed
+        to (FORBID:sub-sovereign-routing); it is recorded under
+        ``retired_children`` rather than as a startup failure.  A
+        registry read failure stays fail-closed (not retired).
+        """
+        try:
+            from governance.registries import child_status
+
+            return child_status(child_id) == "retired"
+        except Exception:
+            return False
+
     async def _start_child(
         self, sovereign: Any, tag: str, child_id: str
     ) -> dict[str, Any]:
         """Parent-authorized child activation (A334 + governed execution)."""
+        if self._child_retired(child_id):
+            if child_id not in self._retired_children:
+                self._retired_children.append(child_id)
+            return {}
         parent_id = self._codex_parent(child_id)
         parent = self._parent_object(sovereign, parent_id) if parent_id else None
         child = None
@@ -205,6 +237,14 @@ class SovereignStackExecutor(SovereignStackChildrenMixin, SovereignStackActivati
         self, sovereign: Any, child_id: str
     ) -> dict[str, Any]:
         """Restart one materialized child under codex-parent authorization."""
+        if self._child_retired(child_id):
+            if child_id not in self._retired_children:
+                self._retired_children.append(child_id)
+            return {
+                "ok": False,
+                "child": child_id,
+                "error": "retired-identity:A592-A604",
+            }
         parent_id = self._codex_parent(child_id)
         parent = (
             self._parent_object(sovereign, parent_id) if parent_id else None

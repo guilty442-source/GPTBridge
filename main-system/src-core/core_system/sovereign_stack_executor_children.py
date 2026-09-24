@@ -20,6 +20,10 @@ class SovereignStackChildrenMixin:
         Single-fault isolation: each sub-sovereign is started independently.
         A failure in one does not prevent the rest from starting, and all
         failures are recorded in the report's ``startup_failures`` list.
+
+        A592/A604: the sub-sovereign layer is eliminated, so the start set
+        is derived solely from ``children_of`` active hierarchy rows —
+        retired identities are never dispatched (FORBID:sub-sovereign-routing).
         """
         import time as _time
 
@@ -40,27 +44,8 @@ class SovereignStackChildrenMixin:
                     (_time.monotonic() - _t0) * 1000
                 )
 
-        runtime, resource, data, integration, third_party = (
-            await asyncio.gather(
-                _timed_child(
-                    "runtime", "runtime-state-sync-sub-sovereign"
-                ),
-                _timed_child(
-                    "resource", "resource-dependency-sync-sub-sovereign"
-                ),
-                _timed_child(
-                    "data", "data-governance-sub-sovereign"
-                ),
-                _timed_child(
-                    "integration", "channel-contract-sync-sub-sovereign"
-                ),
-                _timed_child(
-                    "third_party", "dependency-sync-sub-sovereign"
-                ),
-            )
-        )
-
-        remaining: list[Any] = []
+        targets: list[str] = []
+        seen: set[str] = set()
         for parent_id in (
             "system-runtime-sovereign",
             "permission-sovereign",
@@ -73,45 +58,44 @@ class SovereignStackChildrenMixin:
             if parent is None:
                 continue
             for cid in children_of(parent_id):
+                if cid in seen:
+                    continue
+                seen.add(cid)
                 child = getattr(parent, "_sub_sovereigns", {}).get(cid)
-                if child is not None and not getattr(child, "_started", False):
-                    remaining.append(_timed_child(cid, cid))
-        if remaining:
-            await asyncio.gather(*remaining)
+                if child is None or not getattr(child, "_started", False):
+                    targets.append(cid)
+
+        results: list[dict[str, Any]] = []
+        if targets:
+            results = list(
+                await asyncio.gather(
+                    *(_timed_child(cid, cid) for cid in targets)
+                )
+            )
         if _child_timings:
             self.app._log(
                 {"type": "child_start_timings", **_child_timings}
             )
 
         sub_sovereign_roles = [
-            result.get("role", "")
-            for result in (
-                runtime,
-                resource,
-                data,
-                integration,
-                third_party,
-            )
-            if result
+            result.get("role", "") for result in results if result
         ]
 
-        automation = getattr(self.app, "automation_sovereign", None)
-        sync_children = (
-            getattr(automation, "_sub_sovereigns", {})
-            if automation is not None
-            else {}
-        )
-        # A485: the learning sub-sovereign is managed exclusively by 星澄;
-        # automation/synchronization retains no learning management authority.
-        xingcheng = getattr(self.app, "xingcheng_sovereign", None)
-        learning = (
-            getattr(xingcheng, "_sub_sovereigns", {}).get(
-                "learning-evidence-sync-sub-sovereign"
-            )
-            if xingcheng is not None
-            else None
-        )
-        programming = sync_children.get("release-update-sync-sub-sovereign")
+        # A604: the retired learning/programming identities are reported as
+        # retired lineage, never as routing targets.
+        def _peer_state(child_id: str) -> dict[str, Any]:
+            child = None
+            for parent_id in ("automation-sovereign", "星澄"):
+                parent = self._parent_object(sovereign, parent_id)
+                if parent is not None:
+                    found = getattr(parent, "_sub_sovereigns", {}).get(child_id)
+                    if found is not None:
+                        child = found
+                        break
+            if child is not None:
+                return {"enabled": bool(getattr(child, "_started", False))}
+            status = "retired" if self._child_retired(child_id) else "unavailable"
+            return {"enabled": False, "registry_status": status}
 
         report = {
             "ok": len(self._startup_failures) == 0,
@@ -126,11 +110,12 @@ class SovereignStackChildrenMixin:
             ),
             "dispatched_sub_sovereigns": sub_sovereign_roles,
             "startup_failures": list(self._startup_failures),
+            "retired_children": sorted(set(self._retired_children)),
             "peer_systems": {
-                "learning": getattr(learning, "_started", False),
-                "programming": getattr(programming, "_started", False),
+                "learning": _peer_state("learning-evidence-sync-sub-sovereign"),
+                "programming": _peer_state("release-update-sync-sub-sovereign"),
             },
-            "health_owner": "health-maintenance-test-sub-sovereign",
+            "health_owner": "none-sub-sovereign-layer-eliminated-A592-A604",
             "sources": [
                 {"kind": "env", "name": "GPTBRIDGE_STARTUP_STATE"},
                 {
