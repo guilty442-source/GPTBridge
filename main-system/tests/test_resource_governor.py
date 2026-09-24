@@ -208,16 +208,19 @@ def test_prethrottle_middle_band(monkeypatch) -> None:
     band = [_worker(501, 40.0), _worker(502, 32.0)]
 
     monkeypatch.setattr(gov.os, "cpu_count", lambda: 8)
-    snap = _run(band, monkeypatch, regulation=regulation, records=records)
+    snap = _run(band, monkeypatch, regulation=regulation, records=records,
+                rules="nonexistent/resource-governor-rules.json")
     assert regulation["pre"] is True
     assert regulation["active"] is False, "middle band must not fully regulate"
     assert snap["worker_admission_hold"] is True
 
     idle = [_worker(501, 0.5), _worker(502, 0.5)]
     for _ in range(4):
-        _run(idle, monkeypatch, regulation=regulation, records=records)
+        _run(idle, monkeypatch, regulation=regulation, records=records,
+             rules="nonexistent/resource-governor-rules.json")
         assert regulation["pre"] is True
-    snap = _run(idle, monkeypatch, regulation=regulation, records=records)
+    snap = _run(idle, monkeypatch, regulation=regulation, records=records,
+                rules="nonexistent/resource-governor-rules.json")
     assert regulation["pre"] is False
     assert snap["worker_admission_hold"] is False
 
@@ -533,7 +536,7 @@ def test_worker_job_cap_assigns_shared_aggregate_job(monkeypatch) -> None:
     procs = [_worker(810, 5.0), _worker(811, 5.0)]
     records: dict = {}
     regulation = {"over": 0, "under": 0, "active": False, "pre": False}
-    cfg = dict(worker_job_cap=True, dry_run=False)
+    cfg = dict(worker_job_cap=True, dry_run=False, rules="nonexistent/resource-governor-rules.json")
     _run(procs, monkeypatch, regulation=regulation, records=records, **cfg)
     limited = [c for c in calls if c[0] == "limit"]
     assert limited == [

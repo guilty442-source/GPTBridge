@@ -37,6 +37,15 @@ _ADVISOR_STATE_FILE = (
 )
 GOVERNOR_MODES = ("low", "medium", "high")
 
+# Night power-saving schedule — 22:00-07:00 low (省電), default auto.
+# Configured in ``resource-governor-rules.json`` via ``power_saving_schedule``
+# {enabled, start, end, mode}.  Missing file/key falls back to enabled-true
+# with the same 22-07 low defaults so the requested behaviour is on by default.
+_POWER_SAVING_DEFAULT_ENABLED = True
+_POWER_SAVING_DEFAULT_START = "22:00"
+_POWER_SAVING_DEFAULT_END = "07:00"
+_POWER_SAVING_DEFAULT_MODE = "low"
+
 # Auto-mode advisor control law (§10.64 demand-driven tier selection).
 # Evaluated by the governed ``resource-mode-advisor`` automation flow;
 # only acts while the rules file carries ``auto_mode: true`` — a manual
@@ -87,6 +96,91 @@ def _rules() -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def _parse_time_to_minutes(value: str | None, fallback: str) -> int:
+    """Parse ``HH:MM`` (or ``HH``) to minutes since midnight; fallback on error."""
+    text = str(value).strip() if isinstance(value, str) and value.strip() else fallback
+    fallback_minutes = _parse_time_to_minutes_fallback(fallback)
+    try:
+        parts = text.split(":")
+        hour = int(parts[0].strip())
+        minute = int(parts[1].strip()) if len(parts) > 1 and parts[1].strip() else 0
+        if not 0 <= hour <= 23 or not 0 <= minute <= 59:
+            raise ValueError
+        return hour * 60 + minute
+    except (ValueError, TypeError, IndexError, AttributeError):
+        return fallback_minutes
+
+
+def _parse_time_to_minutes_fallback(value: str) -> int:
+    try:
+        parts = str(value).split(":")
+        hour = int(parts[0].strip())
+        minute = int(parts[1].strip()) if len(parts) > 1 else 0
+        return max(0, min(23, hour)) * 60 + max(0, min(59, minute))
+    except Exception:
+        return 22 * 60  # 22:00 safe default
+
+
+def _resolve_power_saving_schedule(rules: dict) -> dict:
+    """Resolve ``power_saving_schedule`` from rules with defaults (enabled 22-07 low)."""
+    raw = rules.get("power_saving_schedule")
+    if not isinstance(raw, dict):
+        return {
+            "enabled": _POWER_SAVING_DEFAULT_ENABLED,
+            "start": _POWER_SAVING_DEFAULT_START,
+            "end": _POWER_SAVING_DEFAULT_END,
+            "mode": _POWER_SAVING_DEFAULT_MODE,
+        }
+    enabled = raw.get("enabled")
+    # default enabled=True per user request (夜間省電預設開啟)
+    if enabled is None:
+        enabled = _POWER_SAVING_DEFAULT_ENABLED
+    else:
+        enabled = bool(enabled)
+    start = raw.get("start") if isinstance(raw.get("start"), str) and raw.get("start").strip() else _POWER_SAVING_DEFAULT_START
+    end = raw.get("end") if isinstance(raw.get("end"), str) and raw.get("end").strip() else _POWER_SAVING_DEFAULT_END
+    mode_raw = raw.get("mode")
+    mode = str(mode_raw).strip().lower() if isinstance(mode_raw, str) and mode_raw.strip() else _POWER_SAVING_DEFAULT_MODE
+    if mode not in GOVERNOR_MODES:
+        mode = _POWER_SAVING_DEFAULT_MODE
+    return {"enabled": enabled, "start": start, "end": end, "mode": mode}
+
+
+def _is_power_saving_time(now_minutes: int, start_minutes: int, end_minutes: int) -> bool:
+    """Whether ``now`` falls inside the nightly window (wrap-around aware)."""
+    if start_minutes == end_minutes:
+        return False
+    if start_minutes < end_minutes:
+        return start_minutes <= now_minutes < end_minutes
+    # wraps midnight — e.g. 22:00-07:00
+    return now_minutes >= start_minutes or now_minutes < end_minutes
+
+
+def is_power_saving_hours(now: datetime | None = None) -> bool:
+    """Public helper: whether local time is inside the configured nightly window."""
+    rules = _rules()
+    schedule = _resolve_power_saving_schedule(rules)
+    if not schedule["enabled"]:
+        return False
+    start_min = _parse_time_to_minutes(schedule["start"], _POWER_SAVING_DEFAULT_START)
+    end_min = _parse_time_to_minutes(schedule["end"], _POWER_SAVING_DEFAULT_END)
+    local_now = now if isinstance(now, datetime) else datetime.now().astimezone()
+    now_min = local_now.hour * 60 + local_now.minute
+    return _is_power_saving_time(now_min, start_min, end_min)
+
+
+def power_saving_schedule() -> dict:
+    """Return the resolved power-saving schedule and current window state."""
+    rules = _rules()
+    schedule = _resolve_power_saving_schedule(rules)
+    start_min = _parse_time_to_minutes(schedule["start"], _POWER_SAVING_DEFAULT_START)
+    end_min = _parse_time_to_minutes(schedule["end"], _POWER_SAVING_DEFAULT_END)
+    local_now = datetime.now().astimezone()
+    now_min = local_now.hour * 60 + local_now.minute
+    active = bool(schedule["enabled"] and _is_power_saving_time(now_min, start_min, end_min))
+    return {**schedule, "active": active, "now": local_now.strftime("%H:%M")}
+
+
 def governor_mode() -> dict:
     """Report the configured mode and the mode the live governor applied.
 
@@ -102,6 +196,12 @@ def governor_mode() -> dict:
     state = _state()
     applied = state.get("mode")
     advisor = _advisor_state()
+    schedule = _resolve_power_saving_schedule(rules)
+    start_min = _parse_time_to_minutes(schedule["start"], _POWER_SAVING_DEFAULT_START)
+    end_min = _parse_time_to_minutes(schedule["end"], _POWER_SAVING_DEFAULT_END)
+    local_now = datetime.now().astimezone()
+    now_min = local_now.hour * 60 + local_now.minute
+    saving_active = bool(schedule["enabled"] and _is_power_saving_time(now_min, start_min, end_min))
     return {
         "mode": configured if isinstance(configured, str) else "medium",
         "applied": applied if isinstance(applied, str) else None,
@@ -116,6 +216,7 @@ def governor_mode() -> dict:
         "rules_error": state.get("features", {}).get("rules_error")
         if isinstance(state.get("features"), dict)
         else None,
+        "power_saving_schedule": {**schedule, "active": saving_active},
     }
 
 
@@ -206,6 +307,9 @@ def auto_adjust_mode() -> dict:
 
     Control law (all signals from the governor's own state file):
 
+    * ``low``    — night power-saving 22:00-07:00 (省電) when
+      ``power_saving_schedule.enabled`` and ``auto_mode``; applied
+      immediately so 22:00 switches promptly.  Highest priority.
     * ``low``    — responsiveness strained, or machine CPU >= 85 %, or RAM
       >= 90 %; applied immediately (interactivity wins).
     * ``high``   — worker demand (admission hold or ledger >= 80 % of
@@ -214,8 +318,9 @@ def auto_adjust_mode() -> dict:
     * ``medium`` — everything else; needs ``_AUTO_STREAK`` evaluations.
 
     A ``_AUTO_COOLDOWN_S`` cooldown bounds oscillation.  Inert unless the
-    rules file sets ``auto_mode: true``.  The evaluation record is always
-    persisted so the control surface can show *why* a mode was chosen.
+    rules file sets ``auto_mode: true`` (預設自動).  The evaluation record
+    is always persisted so the control surface can show *why* a mode was
+    chosen.
     """
     record: dict = {
         "at": datetime.now(timezone.utc).isoformat(),
@@ -258,8 +363,21 @@ def auto_adjust_mode() -> dict:
     )
     headroom = cpu_load < _HEADROOM_CPU_PCT and mem_used < _HEADROOM_MEM_PCT
 
+    # 夜間省電排程 — 22:00-07:00 預設切 low（省電），僅在 auto_mode 下生效。
+    schedule = _resolve_power_saving_schedule(rules)
+    start_min = _parse_time_to_minutes(schedule["start"], _POWER_SAVING_DEFAULT_START)
+    end_min = _parse_time_to_minutes(schedule["end"], _POWER_SAVING_DEFAULT_END)
+    local_now = datetime.now().astimezone()
+    now_min = local_now.hour * 60 + local_now.minute
+    in_power_saving = bool(schedule["enabled"] and _is_power_saving_time(now_min, start_min, end_min))
+
     urgent = False
-    if strained or cpu_load >= _STRAIN_CPU_PCT or mem_used >= _STRAIN_MEM_PCT:
+    if in_power_saving:
+        # 最高優先：夜間窗口內強制切至省電模式（預設 low），立即生效確保 22:00 準時進入
+        target = schedule["mode"]
+        reason = f"night-power-saving ({schedule['start']}-{schedule['end']})"
+        urgent = True
+    elif strained or cpu_load >= _STRAIN_CPU_PCT or mem_used >= _STRAIN_MEM_PCT:
         target, urgent = "low", True
         reason = "strained" if strained else "machine-overload"
     elif demand and headroom:
@@ -282,6 +400,14 @@ def auto_adjust_mode() -> dict:
         "current": current if isinstance(current, str) else None,
         "streak": streak,
         "reason": reason,
+        "power_saving": {
+            "enabled": schedule["enabled"],
+            "start": schedule["start"],
+            "end": schedule["end"],
+            "mode": schedule["mode"],
+            "active": in_power_saving,
+            "now": local_now.strftime("%H:%M"),
+        },
         "signals": {
             "strained": strained,
             "cpu_load_pct": cpu_load,
@@ -290,6 +416,7 @@ def auto_adjust_mode() -> dict:
             "headroom": headroom,
             "worker_cpu_pct": worker_cpu,
             "worker_ram_pct": worker_ram,
+            "power_saving_active": in_power_saving,
         },
     })
     if target == current:
@@ -325,12 +452,45 @@ def auto_adjust_mode() -> dict:
     return record
 
 
+def set_power_saving_schedule(
+    enabled: bool | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    mode: str | None = None,
+    *,
+    actor: str = "authenticated-ui",
+) -> dict:
+    """Update ``power_saving_schedule`` in the rules file and audit it."""
+    rules = _rules()
+    raw = rules.get("power_saving_schedule")
+    schedule = _resolve_power_saving_schedule(rules) if isinstance(raw, dict) else _resolve_power_saving_schedule(rules)
+    if enabled is not None:
+        schedule["enabled"] = bool(enabled)
+    if start is not None:
+        schedule["start"] = str(start).strip() or _POWER_SAVING_DEFAULT_START
+    if end is not None:
+        schedule["end"] = str(end).strip() or _POWER_SAVING_DEFAULT_END
+    if mode is not None:
+        candidate = str(mode).strip().lower()
+        if candidate in GOVERNOR_MODES:
+            schedule["mode"] = candidate
+        elif candidate:
+            raise ValueError(f"unknown power-saving mode: {candidate!r}")
+    # validate times by parsing (will fallback on bad format, but we reject badly formatted explicitly)
+    _parse_time_to_minutes(schedule["start"], _POWER_SAVING_DEFAULT_START)
+    _parse_time_to_minutes(schedule["end"], _POWER_SAVING_DEFAULT_END)
+    return _commit_rules({"power_saving_schedule": schedule}, actor=actor)
+
+
 __all__ = [
     "GOVERNOR_MODES",
     "auto_adjust_mode",
     "governor_mode",
+    "is_power_saving_hours",
+    "power_saving_schedule",
     "regulation_active",
     "set_governor_auto",
     "set_governor_mode",
+    "set_power_saving_schedule",
     "worker_admission_hold",
 ]
