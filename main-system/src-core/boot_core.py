@@ -343,6 +343,9 @@ class BootCore(
 
 
 def main() -> int:
+    import faulthandler
+
+    faulthandler.enable()
     return BootCore().run([*sys.argv[1:]])
 
 

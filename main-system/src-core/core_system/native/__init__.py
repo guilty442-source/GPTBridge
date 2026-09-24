@@ -11,10 +11,13 @@ from __future__ import annotations
 import contextlib
 import importlib.machinery
 import importlib.util
+import logging
 import pathlib
 import sys
 import time
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 _NATIVE_FILENAME = "_sovereign_native"
 
@@ -26,7 +29,19 @@ def _load_native_extension() -> Any:
     to this package; a packaged layout may keep only the latter.  Prefer the
     build output because Windows can keep an installed ``.pyd`` locked while a
     governed rebuild has already produced the next artifact.
+
+    The load is idempotent: once an artifact has been mapped into this
+    process it is returned as-is.  Re-executing ``PyInit`` on a second file
+    (or re-initing the same one after a mid-run rebuild swap) maps a second
+    copy of the extension — observed to precede 0xc0000374 heap corruption
+    (WER 2026-09-24).  A loaded native DLL can never be unloaded, so the
+    first successful artifact stays authoritative for the process lifetime.
     """
+
+    qualified = f"{__name__}.{_NATIVE_FILENAME}"
+    existing = sys.modules.get(qualified)
+    if existing is not None:
+        return existing
 
     directory = pathlib.Path(__file__).resolve().parent
     candidates = [directory.parents[2] / "dist-native", directory]
@@ -35,7 +50,6 @@ def _load_native_extension() -> Any:
             artifact = candidate / f"{_NATIVE_FILENAME}{suffix}"
             if not artifact.is_file():
                 continue
-            qualified = f"{__name__}.{_NATIVE_FILENAME}"
             try:
                 spec = importlib.util.spec_from_file_location(qualified, artifact)
                 if spec is None or spec.loader is None:
@@ -43,9 +57,16 @@ def _load_native_extension() -> Any:
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[qualified] = module
                 spec.loader.exec_module(module)
-            except Exception:
+            except Exception as error:
+                # The failed artifact stays mapped for the process lifetime;
+                # record it so double-load incidents are diagnosable.
+                _logger.warning(
+                    "native_extension_load_failed artifact=%s error=%s",
+                    artifact, error,
+                )
                 sys.modules.pop(qualified, None)
                 continue
+            _logger.info("native_extension_loaded artifact=%s", artifact)
             return module
     return None
 

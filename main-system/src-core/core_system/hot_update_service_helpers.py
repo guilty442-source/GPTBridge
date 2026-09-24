@@ -22,6 +22,11 @@ PROTECTED_MODULE_PREFIXES: Final[tuple[str, ...]] = (
     "governance_rule.codex.",
     "governance_rule.permission_directory.",
     "core_system.hot_update_service",
+    # Extension-hosting package: re-running its __init__ re-executes the
+    # native loader and can map a second _sovereign_native copy into the
+    # process (WER 2026-09-24: 0xc0000374 heap corruption after both the
+    # dist-native and package-dir artifacts were loaded together).
+    "core_system.native",
     "governance.sovereigns.",
     "governance.sub_sovereigns.",
 )
@@ -45,10 +50,11 @@ _file_hash_cache: dict[str, tuple[float, str]] = {}
 
 
 def is_protected(module_name: str) -> bool:
-    return any(
-        module_name == prefix or module_name.startswith(prefix + ".")
-        for prefix in PROTECTED_MODULE_PREFIXES
-    )
+    for prefix in PROTECTED_MODULE_PREFIXES:
+        prefix = prefix.rstrip(".")
+        if module_name == prefix or module_name.startswith(prefix + "."):
+            return True
+    return False
 
 
 def resource_cleanup_methods(module: types.ModuleType) -> list[tuple[Any, str]]:
