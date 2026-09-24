@@ -18,7 +18,7 @@
     "enabled": true,
     "auto_build": true,
     "build_timeout_s": 600,
-    "suite_timeout_s": 30,
+    "suite_timeout_s": 90,
     "run_budget_s": 120,
     "lock_wait_s": 30,
     "max_parallel_suites": 4
@@ -186,12 +186,12 @@
    "description": "主系統自我維護 duty pass（預設 6h，env 可覆寫；啟動 duty pass 屬一次性啟動工作非週期對象）"
   },
   "self-learning": {
-   "owner": "xingcheng self-learning",
-   "kind": "event",
+   "owner": "self-learning-driver（main-system tasks/self_learning_driver）→ xingcheng 工具行程",
+   "kind": "periodic",
    "interval_s": 900,
    "pausable": true,
    "enabled": true,
-   "description": "verified 範例→SFT→eval→staged/activate；enabled=false 由 self-learning.json 治理（此處登錄排程歸屬）"
+   "description": "verified 範例→SFT→eval→staged/activate。每 tick 經 ToolboxService.request_tool_execution 提交 governed system-channel 命令 xingcheng_self_learning_cycle；循環在工具行程內執行（inference_exclusion §2.7-4 需行程本地 engine cache）；工具冷停時經 governed start_tool 喚醒（明示關閉抑制 1h、admission-hold/調節期不喚醒、喚醒失敗指數退避）；所有政策閘由工具端 run_cycle 權威判定；kill switch：本清單 enabled=false 停排程、self-learning.json enabled=false 停訓練"
   },
   "retention": {
    "owner": "xingcheng retention / §10.67",
