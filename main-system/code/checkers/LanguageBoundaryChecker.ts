@@ -1,5 +1,5 @@
 /**
- * LanguageBoundaryChecker.ts ?�Language Boundary Gate (A348/A351/A352/A353).
+ * LanguageBoundaryChecker.ts — Language Boundary Gate (A348/A351/A352/A353).
  *
  * VERDICT: exactly PASS | WARN | FAIL
  * TRIGGERS: save > pre-commit > integration > release
