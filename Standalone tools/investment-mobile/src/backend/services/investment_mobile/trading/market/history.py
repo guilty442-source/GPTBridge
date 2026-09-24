@@ -197,6 +197,30 @@ class CandleStore:
             ))
         return out
 
+    def latest(self, instrument_id: str,
+               timeframe: str = "1d") -> MarketCandle | None:
+        """Most recent candle for an instrument, any adjustment type."""
+        row = self._db().execute(
+            "SELECT * FROM candle WHERE instrument_id=? AND timeframe=?"
+            " ORDER BY candle_start DESC LIMIT 1",
+            (instrument_id, timeframe)).fetchone()
+        if row is None:
+            return None
+        return MarketCandle(
+            instrument_id=row["instrument_id"], market=row["market"],
+            timeframe=row["timeframe"],
+            open=Decimal(row["open"]), high=Decimal(row["high"]),
+            low=Decimal(row["low"]), close=Decimal(row["close"]),
+            volume=Decimal(row["volume"]),
+            turnover=Decimal(row["turnover"]),
+            currency=row["currency"],
+            candle_start=datetime.fromisoformat(row["candle_start"]),
+            candle_end=datetime.fromisoformat(row["candle_end"]),
+            source_id=row["source_id"],
+            data_revision=int(row["data_revision"]),
+            adjustment_type=row["adjustment_type"],
+        )
+
     def cursor(self, source_id: str, instrument_id: str, timeframe: str) -> datetime | None:
         row = self._db().execute(
             "SELECT cursor FROM sync_state WHERE source_id=? AND"

@@ -131,6 +131,77 @@ class LocalAiLifecycleMixin:
         finally:
             self._retention_sweep_lock.release()
 
+    async def _handle_web_search(
+        self, command: str, payload: dict[str, Any]
+    ) -> tuple[str, dict[str, Any]]:
+        """``xingcheng_web_search``：受管 SearXNG loopback 搜尋。
+
+        A177：對外查詢只允許資訊層治理通道；此命令是五核心稽核
+        ``xingcheng`` 收據的外部證據來源（audit gate 的
+        ``build_xingcheng_network_check`` 以此 callable 為準）。只回傳
+        metadata（標題/URL/網域/截斷摘要），不攜帶完整頁面內容。
+        """
+        if command != "xingcheng_web_search":
+            return "error", {
+                "ok": False,
+                "error_code": "UNKNOWN_COMMAND",
+                "message": f"未知命令: {command}",
+            }
+        query = str(payload.get("query") or "").strip()
+        if not query:
+            return "xingcheng_web_search_result", {
+                "ok": False,
+                "error": "QUERY_REQUIRED",
+            }
+        result = await asyncio.to_thread(
+            self._run_web_search,
+            query,
+            int(payload.get("max_results") or 5),
+        )
+        return "xingcheng_web_search_result", result
+
+    def _run_web_search(self, query: str, max_results: int) -> dict[str, Any]:
+        try:
+            from ..infrastructure.xingcheng_tools.search.searxng import (
+                SearXNGProvider,
+            )
+            from ..infrastructure.xingcheng_tools.search.types import (
+                SearchRequest,
+            )
+
+            provider = SearXNGProvider()
+            request = SearchRequest(
+                original_question=query,
+                queries=[query],
+                max_results=max_results,
+            )
+            results = provider.search(request)
+            return {
+                "ok": True,
+                "source": "xingcheng-web-search",
+                "provider": provider.name,
+                "query": query,
+                "result_count": len(results),
+                "results": [
+                    {
+                        "title": item.title,
+                        "url": item.url,
+                        "domain": item.domain,
+                        "snippet": str(item.snippet or "")[:300],
+                        "provider": item.provider,
+                        "rank": item.rank,
+                    }
+                    for item in results
+                ],
+            }
+        except Exception as exc:  # noqa: BLE001 — fail closed, record type
+            return {
+                "ok": False,
+                "source": "xingcheng-web-search",
+                "query": query,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
     async def start(self) -> None:
         # Local-model bound with Ollama (§10.7 on-demand): when local-model
         # is opened, ensure Ollama is also ready as needed (fail-closed if

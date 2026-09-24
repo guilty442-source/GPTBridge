@@ -86,6 +86,14 @@ class SimulationTradingEngine:
         self.recovery = SimulationRecoveryService(self._dir)
         self._loops: dict[str, StrategyExecutionLoop] = {}
 
+    def close(self) -> None:
+        for svc in (self.accounts, self.positions, self.orders,
+                    self.risk, self.shadow, self.recovery):
+            try:
+                svc.close()
+            except Exception:
+                pass
+
     # ------------------------------------------------------------------
     # paper accounts / cash
     # ------------------------------------------------------------------

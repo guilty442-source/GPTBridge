@@ -24,7 +24,13 @@ class PaperOrderManagementSystem:
         self._execs_path = self._dir / "paper_executions.jsonl"
         self._orders: dict[str, PaperOrder] = {}
         self._by_client: dict[str, str] = {}
+        self._fps: dict[str, Any] = {}
         self._load()
+
+    def close(self) -> None:
+        for fp in self._fps.values():
+            fp.close()
+        self._fps.clear()
 
     # ------------------------------------------------------------------
     def find_by_client(self, client_order_id: str
@@ -135,14 +141,22 @@ class PaperOrderManagementSystem:
         return rows
 
     # ------------------------------------------------------------------
+    def _w(self, path: Path) -> Any:
+        fp = self._fps.get(str(path))
+        if fp is None:
+            fp = path.open("a", encoding="utf-8")
+            self._fps[str(path)] = fp
+        return fp
+
     def _record(self, order: PaperOrder) -> None:
-        with self._orders_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(order.to_dict(), ensure_ascii=False)
-                     + "\n")
+        fp = self._w(self._orders_path)
+        fp.write(json.dumps(order.to_dict(), ensure_ascii=False) + "\n")
+        fp.flush()
 
     def _append_exec(self, row: dict[str, Any]) -> None:
-        with self._execs_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        fp = self._w(self._execs_path)
+        fp.write(json.dumps(row, ensure_ascii=False) + "\n")
+        fp.flush()
 
     def _load(self) -> None:
         if not self._orders_path.exists():

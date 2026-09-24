@@ -20,7 +20,13 @@ class SimulationRecoveryService:
         self._dir.mkdir(parents=True, exist_ok=True)
         self._events_path = self._dir / "simulation_events.jsonl"
         self._checkpoint_path = self._dir / "simulation_checkpoint.json"
+        self._fp = None
         self._seq = self._last_seq()
+
+    def close(self) -> None:
+        if self._fp is not None:
+            self._fp.close()
+            self._fp = None
 
     # ------------------------------------------------------------------
     def next_seq(self) -> int:
@@ -29,11 +35,13 @@ class SimulationRecoveryService:
 
     def record_event(self, kind: str, detail: dict[str, Any]) -> int:
         seq = self.next_seq()
-        with self._events_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps({
-                "seq": seq, "kind": kind, "detail": detail,
-                "at": time.time(), "simulated": True},
-                ensure_ascii=False) + "\n")
+        if self._fp is None:
+            self._fp = self._events_path.open("a", encoding="utf-8")
+        self._fp.write(json.dumps({
+            "seq": seq, "kind": kind, "detail": detail,
+            "at": time.time(), "simulated": True},
+            ensure_ascii=False) + "\n")
+        self._fp.flush()
         return seq
 
     def checkpoint(self, state: dict[str, Any]) -> dict[str, Any]:

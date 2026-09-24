@@ -75,6 +75,49 @@ class BrokerAdapter:
         )
 
     # ------------------------------------------------------------------
+    # BrokerGateway capability contract (live domain)
+    # ------------------------------------------------------------------
+    # Every function is one of SUPPORTED | UNSUPPORTED | UNKNOWN.
+    # UNKNOWN is never treated as supported. Subclasses declare what the
+    # official API actually provides — until the real API is verified,
+    # order functions stay UNKNOWN.
+    _CAPABILITIES: dict[str, str] = {}
+
+    def capabilities(self) -> dict[str, str]:
+        from ..live.contracts import BROKER_FUNCTIONS, CapabilityStatus
+        caps = {fn: CapabilityStatus.UNKNOWN.value
+                for fn in BROKER_FUNCTIONS}
+        caps.update(self._CAPABILITIES)
+        return caps
+
+    def connect(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    def disconnect(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    def get_account(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    def get_balance(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    def get_positions(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    def get_orders(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    def get_executions(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    def cancel_order(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    def modify_order(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ok": False, "error_code": "CAPABILITY_UNKNOWN"}
+
+    # ------------------------------------------------------------------
     def supports(self, market: str) -> bool:
         return self.market == market
 

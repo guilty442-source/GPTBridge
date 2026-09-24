@@ -154,7 +154,8 @@
   },
   "test_targets": [
     "tests/test_ai_assistant_core.py",
-    "tests/test_trading_domains.py"
+    "tests/test_trading_domains.py",
+    "tests/test_ui_workspace_contract.py"
   ],
   "window": {
     "width": 1440,
@@ -165,5 +166,27 @@
   },
   "main_system_independent_tool": true,
   "physical_owner_root": "ai-assistant",
-  "product": "星澄 AI 投資管理與自動操盤系統（業務層）"
+  "product": "星澄 AI 投資管理與自動操盤系統（業務層）",
+  "ui": {
+    "framework": "react+typescript",
+    "root": "src/ui/workspace",
+    "shell": "shell.tsx",
+    "pages": [
+      "AssetAllocationPage",
+      "AutoTradingDashboard",
+      "BrokerManagementPage",
+      "ImportPage",
+      "MutualFundPage",
+      "OverviewPage",
+      "RecommendationPage",
+      "ReportPage",
+      "RiskCenterPage",
+      "SettingsPage",
+      "StrategyLaboratoryPage",
+      "StrategyManagementPage",
+      "TaiwanEquityPage",
+      "USEquityPage"
+    ],
+    "legacy_ui": "retired — AiAssistantWindowApp.tsx renders InvestmentWorkspace"
+  }
 }

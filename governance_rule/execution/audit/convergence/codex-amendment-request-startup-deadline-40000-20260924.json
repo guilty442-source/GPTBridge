@@ -1,0 +1,125 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v1",
+ "request_id": "startup-deadline-normalize-40000-20260924",
+ "title": "Normalize startup deadline surfaces to 40000ms (governor disposition deadline-relaxed-40000)",
+ "summary": "Canonical successor of startup-deadline-divergence-clarification-20260924: same governor disposition (deadline-relaxed-40000), restated in canonical changes form against the live predecessor. Supersedes the descriptive-format request which cannot pass the change contract.",
+ "requested_by": "decision-sovereign",
+ "origin": "devin-cli normalization of codex-amendment-request-startup-deadline-divergence-20260924 (governor_disposition preserved verbatim)",
+ "change_class": "clarification",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "do_not_execute": true,
+ "supersedes": "startup-deadline-divergence-clarification-20260924",
+ "predecessor": {
+  "codex_version": "2026-09-23T03:13:43Z",
+  "version_identity": "E2:2026-09-23T03:13:43Z",
+  "version_epoch": 2,
+  "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+  "revision_sequence": 75,
+  "seal_state": "sealed-governed-authorization",
+  "certification_state": "sealed-governed-authorization"
+ },
+ "governor_disposition": {
+  "selected_option": "deadline-relaxed-40000",
+  "authoritative_deadline_ms": 40000,
+  "reason": "The measured startup distribution requires a formally amended bounded deadline; direct PostgreSQL updates are temporary and non-authoritative amendment evidence",
+  "codex_effect": "successor must normalize A199, phase budgets, maintenance verification and metadata to 40000",
+  "implementation_effect": "startup manifest and runtime projections must converge to the sealed 40000 successor before affected release",
+  "recorded_in": "codex-amendment-request-startup-deadline-divergence-20260924"
+ },
+ "changes": [
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A199"
+   },
+   "field": "subject",
+   "proposed": "forty-second-complete-startup-deadline"
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A199"
+   },
+   "field": "rule",
+   "proposed": "SCOPE:main-system official startup generation; START-TIME:first-valid-gptbridge-start intent accepted; END-TIME:fully-ready proof acknowledged-by-runtime-sovereign and current-UI projection converged; CLOCK:monotonic-high-resolution; HARD-DEADLINE:40000ms inclusive; ALL-FLOWS:entry-single-instance-resolution+UI-host-visible+startup-runtime-attach/start+preflight+minimal-information-layer+official-codex-integrity+permission-directory+permission-sovereign+normal-information-mode+certified-dependency-DAG+all-manifest-declared-startup-dependencies+required-sovereigns+runtime-handoff+health-baseline+frontend-backend-snapshot/cursor convergence; BUDGETS:entry-and-UI<=4000ms,codex-information-permission<=8000ms,dependency-DAG-and-services<=16000ms,sovereign-activation-and-runtime-handoff<=8000ms,UI-convergence-and-final-proof<=4000ms; BUDGET-CARRY:unused-earlier-time may-transfer-forward+total-never-exceeds-40000ms; PARALLELISM:independent-nodes-concurrent within-resource-budget+critical-path-first; I/O:no-fixed-sleep+event-driven+bounded-connect-deadline; CACHE:only signed/content-addressed/release+environment+dependency-hash matched evidence and each-live-readiness signal revalidated; SERVICE-STRATEGY:resident-attach/prewarmed-pool/lazy-capability-adapter allowed only-when-current-process-generation+health+contract readiness truthfully verified; DECLARED-STARTUP-DEPENDENCY:must be-ready-before-fully-ready regardless-criticality label; NONSTARTUP-OPTIONAL:may-start-on-first-use only-if-certified-manifest explicitly-excludes-it-from-startup and UI labels-capability-not-started+must-not-be-counted-as-startup-complete work; NO-DEFER-EVASION:work required for normal initial UI/backend/governance/system operation cannot be relabeled optional/on-demand/deferred; DEADLINE-ENFORCEMENT:startup-sub-sovereign propagates remaining-budget to-every-node+node-cannot-extend-parent-deadline; AT-40000MS:not-fully-ready=>atomically-mark-generation-failed+cancel-unfinished-owned-startup-work+reverse-DAG-cleanup+preserve-running-independent-tools+keep-UI-visible+publish phase/node/elapsed/remaining/timeout/evidence/remediation; RETRY:automatic-new-generation after-bounded-backoff only-when-deadline-budget-can-reset safely+never-overlap-old-generation; METRICS:entry-to-UI+each-phase+critical-path+handoff+projection+total measured-and-audited; ACCEPTANCE:p50/p95/p99 and-every-observed-startup individually<=40000ms+no-average-masking; RELEASE-GATE:changed-startup-path requires-cold/warm/reconnect/failure-injection evidence all-within-deadline on-declared-minimum-supported-environment; USER-ACTION:none"
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A199"
+   },
+   "field": "prohibition",
+   "proposed": "FORBID:startup>40000ms+soft-deadline+deadline-reset-within-generation+wall-clock-only+hidden-wait+infinite-retry+fixed-sleep+serial-independent-work+process-existence-as-ready+stale-cache-as-live-proof+fully-ready-before-all-declared-startup-flows+background-completion-after-ready+optional/deferred/lazy renaming-to-hide-required-work+UI-blocked-or-closed-on-timeout+independent-tool-stop+manual-click/approval/refresh-to-complete+average-only-compliance+timeout-without-exact-node"
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A199"
+   },
+   "field": "exception",
+   "proposed": "Hardware or external local-service conditions below the declared minimum supported environment may fail at the same 40000ms boundary; they do not permit a longer or falsely successful startup"
+  },
+  {
+   "table": "maintenance_manual_directory",
+   "key": {
+    "manual_code": "STARTUP_TEN_SECOND_DEADLINE"
+   },
+   "field": "canonical_name",
+   "proposed": "startup-forty-second-deadline"
+  },
+  {
+   "table": "maintenance_manual_directory",
+   "key": {
+    "manual_code": "STARTUP_TEN_SECOND_DEADLINE"
+   },
+   "field": "verification",
+   "proposed": "every measured cold warm reconnect and injected-failure startup completes within 40000ms"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "startup_complete_deadline_ms"
+   },
+   "field": "value",
+   "proposed": "40000"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "governor_disposition_startup_deadline"
+   },
+   "field": "value",
+   "proposed": "deadline-relaxed-to-40000|A199-amended|phase-budgets-doubled|metadata-normalized"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "startup_deadline_conformance_state"
+   },
+   "field": "value",
+   "proposed": "CODEX_NORMALIZED_40000|implementation-projection-must-match-before-affected-release"
+  }
+ ],
+ "required_execution_steps": [
+  "five-sovereign-audit",
+  "human-governor-review",
+  "governed-successor-seal",
+  "external-signatures",
+  "authority-re-anchor",
+  "certification-complete"
+ ],
+ "out_of_scope": [
+  "maintenance_manual_directory.manual_code rename (identifier kept; display fields normalized)",
+  "main-system code constant STARTUP_HARD_DEADLINE_MS and SLA test (implementation-projection, updated after seal)",
+  "governance_rule/codex/architecture-languages.md human-language corpus (啟動上限十秒; same divergence class as AUDIT_FLOW_BUDGET_SECONDS 30s text — needs its own amendment)"
+ ],
+ "evidence": [
+  "live predecessor read 2026-09-24 via readonly_connection: A199 HARD-DEADLINE:20000ms, budgets sum 20000, metadata.startup_complete_deadline_ms=20000",
+  "metadata.governor_disposition_startup_deadline=deadline-relaxed-to-20000 (earlier disposition superseded by this request's recorded 40000 selection)",
+  "prior request rejected mechanically: CHANGE_CONTRACT_INVALID (descriptive field/target_value shape)"
+ ]
+}

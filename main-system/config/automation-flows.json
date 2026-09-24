@@ -312,6 +312,14 @@
       "pausable": false,
       "enabled": true,
       "description": "清單登記（inventory-only）：平台自動掃描＋下載 job 排程（成功間隔 30min、錯誤重試 30s、僅使用者開啟後運行）。媒體寫入使用者自選 destination——治理 retention 不適用（使用者資料面，分類≠授權）；工具內部歷史表由 repository.prune_state 於每次啟動修剪（jobs≤200/post_scan_jobs≤100/entity_history 每實體≤20 版本；dedupe 表與 removed_accounts 還原清單不動）"
+    },
+    "codex-amendment-intake": {
+      "owner": "codex-amendment-driver（governance_rule/execution/codex_amendment_driver）",
+      "kind": "periodic",
+      "pausable": true,
+      "enabled": true,
+      "description": "Codex 修訂請求管線驅動：掃描受管 intake（main-system/runtime/state 與 governance_rule/execution/audit/convergence 的 codex-amendment-request-*.json）→ ledger.begin 取得 lineage lock → build_successor 建候選（PG 權威匯出為 non-authoritative sqlite）→ run_five_sovereign_audit → ready-for-governor。停在總督核准前：發布仍由 governor 經 codex_amendment_executor --apply 觸發。xingcheng 收據需 governed web-search callable（xingcheng_web_search 經 GovernedRequestClient.request_sync → local-model）；未接線時 defer （successor-built）而非永久拒絕。CLI：python -m governance_rule.execution.codex_amendment_driver --scan|--request|--all",
+      "interval_s": 300
     }
   }
 }

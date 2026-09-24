@@ -2,8 +2,9 @@
 
 from .ai_analysis import AiAnalysisDomain
 from .asset_mgmt import AssetManagementDomain
-from .auto_trading import AutoTradingDomain
+from .auto_trading import AutoTradingDomain, SimTradingDomain
 from .base import BusinessDomain
+from .brokerage import BrokerageDomain
 from .fund import FundDomain
 from .market_data import MarketDataDomain
 from .tw_stock import TwStockDomain
@@ -14,8 +15,10 @@ __all__ = (
     "AssetManagementDomain",
     "AutoTradingDomain",
     "BusinessDomain",
+    "BrokerageDomain",
     "FundDomain",
     "MarketDataDomain",
+    "SimTradingDomain",
     "TwStockDomain",
     "UsStockDomain",
 )
@@ -29,5 +32,7 @@ def build_domains() -> list[BusinessDomain]:
         MarketDataDomain(),
         AiAnalysisDomain(),
         AutoTradingDomain(),
+        SimTradingDomain(),
         AssetManagementDomain(),
+        BrokerageDomain(),
     ]

@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_trading.paper_performance (
     perf_id          text NOT NULL,
     module_id        text NOT NULL DEFAULT 'ai-assistant',
     account_id       text NOT NULL REFERENCES gptbridge_trading.paper_account(account_id),
-    window           text NOT NULL DEFAULT 'all',   -- all|1d|mtd|…
+    perf_window      text NOT NULL DEFAULT 'all',   -- all|1d|mtd|…
     initial_capital  numeric NOT NULL,
     total_assets     numeric NOT NULL,
     realized_pnl     numeric NOT NULL DEFAULT 0,

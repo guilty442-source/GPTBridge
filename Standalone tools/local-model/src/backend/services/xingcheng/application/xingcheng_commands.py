@@ -866,6 +866,34 @@ def _create_self_learning_commands() -> list:
             parameters=(),
             examples=("xingcheng_retention_sweep",),
         ),
+        CommandSpec(
+            name="xingcheng_web_search",
+            handler="_handle_web_search",
+            category="search",
+            description=(
+                "經受管 SearXNG loopback 路徑執行一次 Web 搜尋"
+                "（A177 資訊層治理通道；五核心稽核的外部證據檢查使用）"
+            ),
+            aliases=(),
+            parameters=(
+                ParameterSpec(
+                    name="query",
+                    type="string",
+                    required=True,
+                    description="搜尋查詢",
+                ),
+                ParameterSpec(
+                    name="max_results",
+                    type="integer",
+                    required=False,
+                    default=5,
+                    min_value=1,
+                    max_value=10,
+                    description="最大結果數",
+                ),
+            ),
+            examples=('xingcheng_web_search --query "codex amendment"',),
+        ),
     ]
 
 

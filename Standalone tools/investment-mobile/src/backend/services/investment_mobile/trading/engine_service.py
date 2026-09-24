@@ -8,6 +8,7 @@ or the business database directly.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import date as _date_t
 from decimal import Decimal
@@ -252,6 +253,195 @@ class TradingEngineService:
             "investment-mobile-sim-strategy-control",
             "investment-mobile-sim-strategy-runs",
             "investment-mobile-sim-benchmark",
+            # live trading core (phase-locked — no real dispatch)
+            "investment-mobile-live-status",
+            "investment-mobile-live-gate-check",
+            "investment-mobile-live-order-submit",
+            "investment-mobile-live-order-cancel",
+            "investment-mobile-live-order-list",
+            "investment-mobile-live-order-resolve",
+            "investment-mobile-live-order-resubmit",
+            "investment-mobile-live-order-expire",
+            "investment-mobile-live-report",
+            "investment-mobile-live-auth-issue",
+            "investment-mobile-live-auth-revoke",
+            "investment-mobile-live-auth-list",
+            "investment-mobile-live-risk-evaluate",
+            "investment-mobile-live-reconcile",
+            "investment-mobile-live-recon-resume",
+            "investment-mobile-live-emergency-engage",
+            "investment-mobile-live-emergency-release",
+            "investment-mobile-live-emergency-status",
+            "investment-mobile-live-failure-report",
+            "investment-mobile-live-failure-clear",
+            "investment-mobile-live-failure-status",
+            "investment-mobile-live-broker-capabilities",
+            "investment-mobile-live-broker-connect",
+            "investment-mobile-live-credential-register",
+            "investment-mobile-live-credential-status",
+            "investment-mobile-live-snapshot-ingest",
+            "investment-mobile-live-audit-tail",
+            "investment-mobile-live-recover",
+            "investment-mobile-live-breaker-resume",
+            "investment-mobile-live-exposure-register",
+            # offline broker integration foundation (no real connection)
+            "investment-mobile-broker-state-list",
+            "investment-mobile-broker-state-set",
+            "investment-mobile-broker-profile",
+            "investment-mobile-offline-gate-status",
+            "investment-mobile-offline-account-create",
+            "investment-mobile-offline-account-list",
+            "investment-mobile-offline-account-view",
+            "investment-mobile-offline-cash-set",
+            "investment-mobile-offline-holding-set",
+            "investment-mobile-offline-holding-remove",
+            "investment-mobile-offline-transaction-add",
+            "investment-mobile-offline-dividend-add",
+            "investment-mobile-import-start",
+            "investment-mobile-import-commit",
+            "investment-mobile-import-rollback",
+            "investment-mobile-import-batches",
+            "investment-mobile-portfolio-unified",
+            "investment-mobile-broker-sim-list",
+            "investment-mobile-broker-sim-order",
+            "investment-mobile-broker-sim-fill",
+            "investment-mobile-broker-sim-cancel",
+            # unified asset-management center (offline authority)
+            "investment-mobile-asset-account-list",
+            "investment-mobile-asset-account-register",
+            "investment-mobile-asset-account-rename",
+            "investment-mobile-asset-position-list",
+            "investment-mobile-asset-position-reserve",
+            "investment-mobile-asset-position-release",
+            "investment-mobile-asset-transaction-record",
+            "investment-mobile-asset-transaction-correct",
+            "investment-mobile-asset-transaction-list",
+            "investment-mobile-asset-cash-deposit",
+            "investment-mobile-asset-cash-withdraw",
+            "investment-mobile-asset-cash-adjust",
+            "investment-mobile-asset-cash-view",
+            "investment-mobile-asset-cash-reserve",
+            "investment-mobile-asset-cash-release",
+            "investment-mobile-asset-cost-view",
+            "investment-mobile-asset-cost-method",
+            "investment-mobile-asset-currency-convert",
+            "investment-mobile-asset-currency-staleness",
+            "investment-mobile-asset-value",
+            "investment-mobile-asset-performance",
+            "investment-mobile-asset-period-pnl",
+            "investment-mobile-asset-income-record",
+            "investment-mobile-asset-income-list",
+            "investment-mobile-asset-income-cashflow",
+            "investment-mobile-asset-income-breakdown",
+            "investment-mobile-asset-allocation-analyze",
+            "investment-mobile-asset-allocation-target",
+            "investment-mobile-asset-allocation-propose",
+            "investment-mobile-asset-exposure-basket",
+            "investment-mobile-asset-exposure-related",
+            "investment-mobile-asset-exposure-analyze",
+            "investment-mobile-asset-snapshot-capture",
+            "investment-mobile-asset-snapshot-history",
+            "investment-mobile-asset-risk-report",
+            "investment-mobile-asset-ai-analyze",
+            "investment-mobile-asset-recommend",
+            "investment-mobile-asset-maintenance-run",
+            "investment-mobile-asset-maintenance-status",
+            "investment-mobile-asset-environment-view",
+            "investment-mobile-import-diff",
+            # 星澄 monitoring center — advisory/alert layer, never trades
+            "investment-mobile-monitor-overview",
+            "investment-mobile-monitor-scan-tw",
+            "investment-mobile-monitor-scan-us",
+            "investment-mobile-monitor-scan-fund",
+            "investment-mobile-monitor-session-us",
+            "investment-mobile-monitor-events",
+            "investment-mobile-monitor-event-resolve",
+            "investment-mobile-monitor-data-gate",
+            "investment-mobile-monitor-alert-rule-set",
+            "investment-mobile-monitor-alert-rules",
+            "investment-mobile-monitor-alert-evaluate",
+            "investment-mobile-monitor-notifications",
+            "investment-mobile-monitor-notification-read",
+            "investment-mobile-monitor-recommend",
+            "investment-mobile-monitor-rec-list",
+            "investment-mobile-monitor-rec-transition",
+            "investment-mobile-monitor-rec-outcome",
+            "investment-mobile-monitor-rec-expire",
+            "investment-mobile-monitor-scan-opportunities",
+            "investment-mobile-monitor-risk-check",
+            "investment-mobile-monitor-cross-market",
+            "investment-mobile-monitor-reallocation",
+            "investment-mobile-monitor-reallocation-list",
+            "investment-mobile-monitor-report",
+            "investment-mobile-monitor-report-list",
+            "investment-mobile-monitor-schedule-due",
+            "investment-mobile-monitor-schedule-ran",
+            "investment-mobile-monitor-orchestrate",
+            "investment-mobile-monitor-orchestrator-stats",
+            "investment-mobile-monitor-maintenance-run",
+            "investment-mobile-monitor-maintenance-status",
+            # autonomous simulated trading — SHADOW/PAPER only
+            "investment-mobile-autotrade-overview",
+            "investment-mobile-autotrade-strategy-register",
+            "investment-mobile-autotrade-strategy-list",
+            "investment-mobile-autotrade-strategy-transition",
+            "investment-mobile-autotrade-strategy-config",
+            "investment-mobile-autotrade-event",
+            "investment-mobile-autotrade-cycle",
+            "investment-mobile-autotrade-capital-set",
+            "investment-mobile-autotrade-capital-get",
+            "investment-mobile-autotrade-capital-check",
+            "investment-mobile-autotrade-resources",
+            "investment-mobile-autotrade-job-schedule",
+            "investment-mobile-autotrade-job-control",
+            "investment-mobile-autotrade-job-due",
+            "investment-mobile-autotrade-session",
+            "investment-mobile-autotrade-risk-check",
+            "investment-mobile-autotrade-halt",
+            "investment-mobile-autotrade-recover",
+            "investment-mobile-autotrade-performance",
+            "investment-mobile-autotrade-performance-curve",
+            "investment-mobile-autotrade-stability",
+            "investment-mobile-autotrade-research",
+            "investment-mobile-autotrade-experiment-start",
+            "investment-mobile-autotrade-experiment-advance",
+            "investment-mobile-autotrade-experiment-list",
+            "investment-mobile-autotrade-overfit-record",
+            "investment-mobile-autotrade-overfit-history",
+            "investment-mobile-autotrade-fund-analyze",
+            "investment-mobile-autotrade-report",
+            "investment-mobile-autotrade-report-list",
+            "investment-mobile-autotrade-maintenance-run",
+            "investment-mobile-autotrade-maintenance-status",
+            "investment-mobile-autotrade-workload-stats",
+            # phase-13 runtime layer — bounded resources, maintenance,
+            # recovery, power-state, lifecycle, health, retention
+            "investment-mobile-perf-overview",
+            "investment-mobile-perf-health",
+            "investment-mobile-perf-metrics",
+            "investment-mobile-perf-budget-status",
+            "investment-mobile-perf-budget-set",
+            "investment-mobile-perf-cache-stats",
+            "investment-mobile-perf-cache-invalidate",
+            "investment-mobile-perf-subscribe",
+            "investment-mobile-perf-unsubscribe",
+            "investment-mobile-perf-sub-status",
+            "investment-mobile-perf-indicator-update",
+            "investment-mobile-perf-job-submit",
+            "investment-mobile-perf-job-control",
+            "investment-mobile-perf-job-status",
+            "investment-mobile-perf-inference-submit",
+            "investment-mobile-perf-inference-status",
+            "investment-mobile-perf-maintenance-run",
+            "investment-mobile-perf-maintenance-status",
+            "investment-mobile-perf-recovery-run",
+            "investment-mobile-perf-recovery-history",
+            "investment-mobile-perf-power-event",
+            "investment-mobile-perf-lifecycle-status",
+            "investment-mobile-perf-lifecycle-transition",
+            "investment-mobile-perf-retention-run",
+            "investment-mobile-perf-retention-status",
+            "investment-mobile-perf-pool-stats",
         }
     )
 
@@ -353,6 +543,77 @@ class TradingEngineService:
             state_dir, self.mode_gate, self.candle_store,
             self.calendar, self.fund_engine, self.bt_cost)
         self.oms.attach_simulation(self.sim)
+        # formal trading core — LIVE stays phase-locked this phase:
+        # dispatch_enabled=False, adapters UNKNOWN, gate PHASE_LOCKED
+        from .live import LiveTradingCore
+        self.live = LiveTradingCore(
+            state_dir, mode_gate=self.mode_gate,
+            accounts=self.accounts, risk_engine=self.risk,
+            dispatch_enabled=False)
+        # offline broker-integration foundation — no transport, ever
+        from .broker.offline_gate import BrokerOfflineGate
+        from .broker.state import BrokerConnectionTracker
+        from .offline import (InvestmentImportService,
+                              OfflineAccountService,
+                              UnifiedInvestmentPortfolio)
+        from .broker.mock import (MockCathayTwAdapter,
+                                  MockFubonSubBrokerageAdapter)
+        self.offline_gate = BrokerOfflineGate(state_dir)
+        self.broker_connections = BrokerConnectionTracker(state_dir)
+        self.offline_accounts = OfflineAccountService(state_dir)
+        self.importer = InvestmentImportService(
+            state_dir, self.offline_accounts)
+        self.unified_portfolio = UnifiedInvestmentPortfolio(
+            self.offline_accounts, self.fx)
+        self.broker_sims = {
+            a.broker_id: a for a in (
+                MockCathayTwAdapter(state_dir),
+                MockFubonSubBrokerageAdapter(state_dir))
+        }
+        # unified asset-management center — orchestration layer over the
+        # offline journal (no second authority), currency via the
+        # existing FX service; advisory AI surface is read-only
+        from .assets import UnifiedPortfolioEngine
+        self.assets = UnifiedPortfolioEngine(
+            state_dir, self.offline_accounts, self.fx,
+            candle_store=self.candle_store, sim=self.sim,
+            live=self.live, cost_estimator=self.bt_cost)
+        # 星澄 monitoring center — deterministic monitors + alerts +
+        # advisory recommendations over the existing engines; emits
+        # events/notifications/reports, never issues orders
+        from .monitoring import InvestmentMonitoringEngine
+        self.monitoring = InvestmentMonitoringEngine(
+            state_dir, candle_store=self.candle_store,
+            calendar=self.calendar, market_engine=self.market_engine,
+            fund_engine=self.fund_engine, fx=self.fx,
+            assets=self.assets, intel=self.intel,
+            instruments=self.instruments,
+            cost_estimator=self.bt_cost)
+        # Autonomous simulated trading — orchestrates strategies over
+        # the sim stack; SHADOW records signals, PAPER fills through the
+        # mock broker contract. No path reaches a real broker.
+        from .autotrade import AutoTradingEngine
+        self.autotrade = AutoTradingEngine(
+            state_dir, sim=self.sim, calendar=self.calendar,
+            monitoring=self.monitoring, intel=self.intel,
+            strategy_registry=self.strategy_registry,
+            fund_engine=self.fund_engine)
+        # phase-13 runtime layer — bounded resources, shared market
+        # subscriptions, incremental indicators, job/maintenance/
+        # recovery/power/lifecycle/health/retention. Observes and bounds
+        # the engines; holds no account/trade authority itself.
+        from .perf import PerformanceRuntime
+        self.perf = PerformanceRuntime(autotrade=self.autotrade)
+
+    def close(self) -> None:
+        """Release held journal/db handles (Windows file locks)."""
+        for svc in (self.sim, self.audit, self.candle_store,
+                    self.live, self.offline_accounts, self.assets,
+                    self.monitoring, self.autotrade):
+            try:
+                svc.close()
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     def owns(self, command: str) -> bool:
@@ -432,7 +693,14 @@ class TradingEngineService:
             }
 
         if command == "investment-mobile-trading-mode-set":
-            result = self.mode_gate.set_mode(str(payload.get("mode") or ""))
+            target = str(payload.get("mode") or "").upper()
+            if target == "LIVE" and not self.live.gate.dispatch_allowed():
+                result = {
+                    "ok": False, "error_code": "LIVE_PHASE_LOCKED",
+                    "mode": self.mode_gate.mode.value,
+                    "readiness": self.live.gate.readiness()}
+            else:
+                result = self.mode_gate.set_mode(target)
             self.audit.record(
                 "mode.changed" if result.get("ok") else "mode.denied",
                 {**result, "actor": payload.get("actor")},
@@ -1781,7 +2049,1090 @@ class TradingEngineService:
                 list(payload.get("equity_curve") or []),
                 str(payload.get("benchmark_id") or ""))
 
+        # ---------------- live trading core (phase-locked) ----------------
+        if command == "investment-mobile-live-status":
+            return "live", {"ok": True, **self.live.status()}
+
+        if command == "investment-mobile-live-gate-check":
+            return "live", {"ok": True, **self.live.gate.readiness()}
+
+        if command == "investment-mobile-live-order-submit":
+            return "live", self.live.submit(payload)
+
+        if command == "investment-mobile-live-order-cancel":
+            return "live", self.live.orders.cancel(
+                str(payload.get("order_id") or ""),
+                by=str(payload.get("by") or "operator"))
+
+        if command == "investment-mobile-live-order-list":
+            orders = self.live.orders.list()
+            if payload.get("open_only"):
+                orders = [o for o in orders
+                          if o["state"] not in
+                          ("FILLED", "CANCELLED", "REJECTED", "EXPIRED")]
+            return "live", {"ok": True, "orders": orders}
+
+        if command == "investment-mobile-live-order-resolve":
+            return "live", self.live.orders.resolve_unknown(
+                str(payload.get("order_id") or ""))
+
+        if command == "investment-mobile-live-order-resubmit":
+            return "live", self.live.orders.resubmit(
+                str(payload.get("order_id") or ""))
+
+        if command == "investment-mobile-live-order-expire":
+            return "live", self.live.orders.expire(
+                str(payload.get("order_id") or ""))
+
+        if command == "investment-mobile-live-report":
+            return "live", self.live.orders.record_report(payload)
+
+        if command == "investment-mobile-live-auth-issue":
+            return "live", self.live.authorization.issue(payload)
+
+        if command == "investment-mobile-live-auth-revoke":
+            return "live", self.live.authorization.revoke(
+                str(payload.get("authorization_id") or ""),
+                by=str(payload.get("by") or ""))
+
+        if command == "investment-mobile-live-auth-list":
+            return "live", {"ok": True, "authorizations":
+                            self.live.authorization.list(
+                                payload.get("account_id"))}
+
+        if command == "investment-mobile-live-risk-evaluate":
+            return "live", self.live.risk.evaluate(payload).to_dict()
+
+        if command == "investment-mobile-live-reconcile":
+            return "live", self.live.reconciliation.reconcile(
+                str(payload.get("account_id") or ""),
+                local_orders=list(payload.get("local_orders") or []),
+                local_executions=list(
+                    payload.get("local_executions") or []),
+                local_positions=list(
+                    payload.get("local_positions") or []),
+                local_cash=dict(payload.get("local_cash") or {}),
+                broker_snapshot=payload.get("broker_snapshot"))
+
+        if command == "investment-mobile-live-recon-resume":
+            return "live", self.live.reconciliation.resume(
+                str(payload.get("account_id") or ""),
+                by=str(payload.get("by") or ""),
+                evidence=str(payload.get("evidence") or ""))
+
+        if command == "investment-mobile-live-emergency-engage":
+            return "live", self.live.emergency.engage(
+                str(payload.get("scope") or "ALL"),
+                scope_key=str(payload.get("scope_key") or ""),
+                by=str(payload.get("by") or "operator"),
+                reason=str(payload.get("reason") or ""))
+
+        if command == "investment-mobile-live-emergency-release":
+            return "live", self.live.emergency.release(
+                str(payload.get("scope") or "ALL"),
+                scope_key=str(payload.get("scope_key") or ""),
+                by=str(payload.get("by") or ""),
+                reason=str(payload.get("reason") or ""))
+
+        if command == "investment-mobile-live-emergency-status":
+            return "live", {"ok": True, **self.live.emergency.status()}
+
+        if command == "investment-mobile-live-failure-report":
+            return "live", self.live.failure.report(
+                str(payload.get("kind") or ""),
+                detail=str(payload.get("detail") or ""))
+
+        if command == "investment-mobile-live-failure-clear":
+            return "live", self.live.failure.clear(
+                str(payload.get("kind") or ""),
+                reconciled=bool(payload.get("reconciled")))
+
+        if command == "investment-mobile-live-failure-status":
+            return "live", {"ok": True, **self.live.failure.status()}
+
+        if command == "investment-mobile-live-broker-capabilities":
+            return "live", {"ok": True, "capabilities":
+                            self.live.gateway.capabilities(
+                                str(payload.get("broker_id") or ""))}
+
+        if command == "investment-mobile-live-broker-connect":
+            return "live", self.live.gateway.connect(
+                str(payload.get("broker_id") or ""))
+
+        if command == "investment-mobile-live-credential-register":
+            return "live", self.live.credentials.register_reference(
+                str(payload.get("account_id") or ""),
+                str(payload.get("credman_suffix") or ""))
+
+        if command == "investment-mobile-live-credential-status":
+            return "live", self.live.credentials.status(
+                str(payload.get("account_id") or ""))
+
+        if command == "investment-mobile-live-snapshot-ingest":
+            return "live", self.live.live_accounts.ingest_broker_snapshot(
+                str(payload.get("account_id") or ""),
+                dict(payload.get("snapshot") or {}))
+
+        if command == "investment-mobile-live-audit-tail":
+            return "live", {"ok": True, "events":
+                            self.live.persistence.tail(
+                                "live_audit",
+                                int(payload.get("limit") or 50))}
+
+        if command == "investment-mobile-live-recover":
+            return "live", self.live.recover()
+
+        if command == "investment-mobile-live-breaker-resume":
+            return "live", self.live.risk.loss.resume(
+                str(payload.get("scope") or ""),
+                by=str(payload.get("by") or ""),
+                evidence=str(payload.get("evidence") or ""))
+
+        if command == "investment-mobile-live-exposure-register":
+            self.live.risk.position.register_related(
+                str(payload.get("group_id") or ""),
+                list(payload.get("instrument_ids") or []))
+            if payload.get("sector") and payload.get("instrument_id"):
+                self.live.risk.position.register_sector(
+                    str(payload["instrument_id"]),
+                    str(payload["sector"]))
+            return "live", {"ok": True}
+
+        # --------- offline broker integration foundation --------------
+        if command == "investment-mobile-offline-gate-status":
+            return "offline", self.offline_gate.status()
+
+        if command == "investment-mobile-broker-state-list":
+            out = []
+            for b in self.brokers.list_brokers():
+                conn = self.broker_connections.get(b["broker_id"])
+                out.append({**b, "connection": conn,
+                            "capabilities": self.brokers.adapter_for(
+                                b["broker_id"]).capabilities()})
+            return "offline", {"ok": True, "brokers": out}
+
+        if command == "investment-mobile-broker-state-set":
+            # Only offline-reachable states accepted; CONNECTED etc.
+            # denied inside the tracker — and mutation attempts by AI
+            # land on the gate's audit trail.
+            actor = str(payload.get("actor") or "")
+            if actor.lower() in ("ai", "xingcheng", "model", "assistant"):
+                return "offline", self.offline_gate.attempt_mutation(
+                    actor, "broker_connection_state",
+                    payload.get("state"))
+            r = self.broker_connections.set(
+                str(payload.get("broker_id") or ""),
+                str(payload.get("state") or ""),
+                actor=actor or "operator",
+                reason=str(payload.get("reason") or ""))
+            if r.get("ok"):
+                self._mirror_outbox.append({
+                    "operation": "record_broker_status",
+                    "brokers": [self.broker_connections.get(
+                        b["broker_id"]) | {"capabilities":
+                            self.brokers.adapter_for(
+                                b["broker_id"]).capabilities()}
+                        for b in self.brokers.list_brokers()],
+                    "offline_gate": self.offline_gate.status()})
+            return "offline", r
+
+        if command == "investment-mobile-broker-profile":
+            adapter = self.brokers.adapter_for(
+                str(payload.get("broker_id") or ""))
+            if adapter is None:
+                return "offline", {"ok": False,
+                                   "error_code": "BROKER_UNKNOWN"}
+            return "offline", {
+                "ok": True, "broker_id": adapter.broker_id,
+                "market": adapter.market, "label": adapter.label,
+                "capabilities": adapter.capabilities(),
+                "market_traits": getattr(
+                    adapter, "declared_market_traits", {}),
+                "fee_model": getattr(adapter, "fee_model", {}),
+                "error_model": getattr(adapter, "error_model", {}),
+                "session_model": getattr(adapter, "session_model", {}),
+                "connection": self.broker_connections.get(
+                    adapter.broker_id),
+            }
+
+        if command == "investment-mobile-offline-account-create":
+            r = self.offline_accounts.create_account(
+                str(payload.get("kind") or ""),
+                str(payload.get("label") or ""),
+                source=str(payload.get("source") or "MANUAL").upper(),
+                account_id=payload.get("account_id"))
+            if r.get("ok"):
+                self._mirror_outbox.append({
+                    "operation": "record_offline_accounts",
+                    "accounts": self.offline_accounts.list_accounts()})
+            return "offline", r
+
+        if command == "investment-mobile-offline-account-list":
+            return "offline", {"ok": True,
+                "accounts": self.offline_accounts.list_accounts()}
+
+        if command == "investment-mobile-offline-account-view":
+            return "offline", self.offline_accounts.account_view(
+                str(payload.get("account_id") or ""))
+
+        if command == "investment-mobile-offline-cash-set":
+            return "offline", self.offline_accounts.set_cash(
+                str(payload.get("account_id") or ""),
+                str(payload.get("currency") or ""),
+                payload.get("amount"),
+                source=str(payload.get("source") or "MANUAL").upper())
+
+        if command == "investment-mobile-offline-holding-set":
+            return "offline", self.offline_accounts.set_holding(
+                str(payload.get("account_id") or ""),
+                str(payload.get("instrument_id") or ""),
+                payload.get("quantity"), payload.get("avg_cost", "0"),
+                source=str(payload.get("source") or "MANUAL").upper())
+
+        if command == "investment-mobile-offline-holding-remove":
+            return "offline", self.offline_accounts.remove_holding(
+                str(payload.get("account_id") or ""),
+                str(payload.get("instrument_id") or ""),
+                source=str(payload.get("source") or "MANUAL").upper())
+
+        if command == "investment-mobile-offline-transaction-add":
+            return "offline", self.offline_accounts.add_transaction(
+                str(payload.get("account_id") or ""), payload,
+                source=str(payload.get("source") or "MANUAL").upper())
+
+        if command == "investment-mobile-offline-dividend-add":
+            return "offline", self.offline_accounts.add_dividend(
+                str(payload.get("account_id") or ""), payload,
+                source=str(payload.get("source") or "MANUAL").upper())
+
+        if command == "investment-mobile-import-start":
+            return "offline", self.importer.start(
+                str(payload.get("file") or ""),
+                target=str(payload.get("target") or ""),
+                account_id=str(payload.get("account_id") or ""))
+
+        if command == "investment-mobile-import-commit":
+            r = self.importer.commit(
+                str(payload.get("batch_id") or ""),
+                mapping=dict(payload.get("mapping") or {}),
+                confirm=bool(payload.get("confirm")))
+            if r.get("ok") and r.get("status") == "COMMITTED":
+                self._mirror_outbox.append({
+                    "operation": "record_import_batches",
+                    "batches": self.importer.batches()})
+                self._mirror_outbox.append({
+                    "operation": "record_offline_accounts",
+                    "accounts": self.offline_accounts.list_accounts()})
+            return "offline", r
+
+        if command == "investment-mobile-import-rollback":
+            return "offline", self.importer.rollback(
+                str(payload.get("batch_id") or ""))
+
+        if command == "investment-mobile-import-batches":
+            return "offline", {"ok": True,
+                "batches": self.importer.batches(
+                    payload.get("account_id"))}
+
+        if command == "investment-mobile-portfolio-unified":
+            r = self.unified_portfolio.summary(
+                display_currency=str(
+                    payload.get("display_currency") or "TWD"),
+                prices=dict(payload.get("prices") or {}))
+            self._mirror_outbox.append({
+                "operation": "record_unified_portfolio",
+                "portfolio": r})
+            return "offline", r
+
+        if command == "investment-mobile-broker-sim-list":
+            return "offline", {"ok": True, "simulated": True,
+                "environments": [
+                    {"broker_id": a.broker_id, "market": a.market,
+                     "label": a.label, "simulated": True,
+                     "fee_model": a.fee_model,
+                     "capabilities": a.capabilities()}
+                    for a in self.broker_sims.values()]}
+
+        if command == "investment-mobile-broker-sim-order":
+            sim = self.broker_sims.get(str(payload.get("broker_id") or ""))
+            if sim is None:
+                return "offline", {"ok": False,
+                                   "error_code": "SIM_BROKER_UNKNOWN"}
+            r = sim.place_order(**{
+                k: v for k, v in payload.items() if k != "broker_id"})
+            self._mirror_outbox.append({
+                "operation": "record_broker_sim_event",
+                "event": {"event_type": "order", "payload": r,
+                          "simulated": True}})
+            return "offline", r
+
+        if command == "investment-mobile-broker-sim-fill":
+            sim = self.broker_sims.get(str(payload.get("broker_id") or ""))
+            if sim is None:
+                return "offline", {"ok": False,
+                                   "error_code": "SIM_BROKER_UNKNOWN"}
+            r = sim.fill(
+                str(payload.get("broker_order_id") or ""),
+                payload.get("quantity"), payload.get("price"),
+                partial=bool(payload.get("partial")))
+            self._mirror_outbox.append({
+                "operation": "record_broker_sim_event",
+                "event": {"event_type": "fill", "payload": r,
+                          "simulated": True}})
+            return "offline", r
+
+        if command == "investment-mobile-broker-sim-cancel":
+            sim = self.broker_sims.get(str(payload.get("broker_id") or ""))
+            if sim is None:
+                return "offline", {"ok": False,
+                                   "error_code": "SIM_BROKER_UNKNOWN"}
+            r = sim.cancel_order(
+                broker_order_id=payload.get("broker_order_id"))
+            self._mirror_outbox.append({
+                "operation": "record_broker_sim_event",
+                "event": {"event_type": "cancel", "payload": r,
+                          "simulated": True}})
+            return "offline", r
+
+        # --------- unified asset-management center --------------------
+        # Read/write boundary: every mutating command rejects an AI
+        # actor up-front; AI only reaches the intelligence/recommend
+        # views which never mutate authoritative records.
+        if command.startswith("investment-mobile-asset-") or \
+                command == "investment-mobile-import-diff":
+            actor = str(payload.get("actor") or "")
+            is_ai = actor.lower() in (
+                "ai", "xingcheng", "model", "assistant")
+            mutating = command in {
+                "investment-mobile-asset-account-register",
+                "investment-mobile-asset-account-rename",
+                "investment-mobile-asset-position-reserve",
+                "investment-mobile-asset-position-release",
+                "investment-mobile-asset-transaction-record",
+                "investment-mobile-asset-transaction-correct",
+                "investment-mobile-asset-cash-deposit",
+                "investment-mobile-asset-cash-withdraw",
+                "investment-mobile-asset-cash-adjust",
+                "investment-mobile-asset-cash-reserve",
+                "investment-mobile-asset-cash-release",
+                "investment-mobile-asset-cost-method",
+                "investment-mobile-asset-income-record",
+                "investment-mobile-asset-allocation-target",
+                "investment-mobile-asset-exposure-basket",
+                "investment-mobile-asset-exposure-related",
+            }
+            if is_ai and mutating:
+                return "assets", {"ok": False,
+                                  "error_code": "AI_MUTATION_DENIED"}
+            r = self._handle_asset(command, payload)
+            if r.get("ok") and command in (
+                    "investment-mobile-asset-value",
+                    "investment-mobile-asset-allocation-analyze",
+                    "investment-mobile-asset-exposure-analyze"):
+                self._mirror_outbox.append({
+                    "operation": "record_asset_analysis",
+                    "command": command, "result": r})
+            return "assets", r
+
+        # --------- 星澄 monitoring center ------------------------------
+        if command.startswith("investment-mobile-monitor-"):
+            r = self._handle_monitoring(command, payload)
+            if asyncio.iscoroutine(r):
+                r = await r
+            if r.get("ok") and command in (
+                    "investment-mobile-monitor-overview",
+                    "investment-mobile-monitor-scan-tw",
+                    "investment-mobile-monitor-scan-us",
+                    "investment-mobile-monitor-scan-fund",
+                    "investment-mobile-monitor-events",
+                    "investment-mobile-monitor-rec-list",
+                    "investment-mobile-monitor-notifications",
+                    "investment-mobile-monitor-risk-check",
+                    "investment-mobile-monitor-cross-market",
+                    "investment-mobile-monitor-scan-opportunities",
+                    "investment-mobile-monitor-reallocation-list",
+                    "investment-mobile-monitor-report",
+                    "investment-mobile-monitor-report-list"):
+                self._mirror_outbox.append({
+                    "operation": "record_monitoring",
+                    "command": command, "result": r})
+            return "monitoring", r
+
+        # --------- autonomous simulated trading -----------------------
+        if command.startswith("investment-mobile-autotrade-"):
+            r = self._handle_autotrade(command, payload)
+            if asyncio.iscoroutine(r):
+                r = await r
+            if r.get("ok") and command in (
+                    "investment-mobile-autotrade-overview",
+                    "investment-mobile-autotrade-strategy-list",
+                    "investment-mobile-autotrade-performance",
+                    "investment-mobile-autotrade-report-list",
+                    "investment-mobile-autotrade-risk-check"):
+                self._mirror_outbox.append({
+                    "operation": "record_autotrade",
+                    "command": command, "result": r})
+            return "autotrade", r
+
+        # --------- phase-13 runtime layer ------------------------------
+        if command.startswith("investment-mobile-perf-"):
+            r = self._handle_perf(command, payload)
+            if asyncio.iscoroutine(r):
+                r = await r
+            return "perf", r
+
         raise PermissionError("PERMISSION_DENIED")
+
+    # ------------------------------------------------------------------
+    def _handle_autotrade(self, command: str,
+                          payload: dict[str, Any]) -> dict[str, Any]:
+        """Autonomous simulated-trading commands. AI actors may read and
+        research but can never register/transition/fund/halt/recover a
+        strategy or advance experiments."""
+        a = self.autotrade
+        actor = str(payload.get("actor") or "")
+        is_ai = actor.lower() in ("ai", "xingcheng", "model",
+                                  "assistant")
+        mutating = command in {
+            "investment-mobile-autotrade-strategy-register",
+            "investment-mobile-autotrade-strategy-transition",
+            "investment-mobile-autotrade-strategy-config",
+            "investment-mobile-autotrade-capital-set",
+            "investment-mobile-autotrade-halt",
+            "investment-mobile-autotrade-recover",
+            "investment-mobile-autotrade-job-schedule",
+            "investment-mobile-autotrade-job-control",
+            "investment-mobile-autotrade-experiment-start",
+            "investment-mobile-autotrade-experiment-advance",
+        }
+        if is_ai and mutating:
+            return {"ok": False, "error_code": "AI_MUTATION_DENIED"}
+
+        if command == "investment-mobile-autotrade-overview":
+            return a.overview()
+
+        if command == "investment-mobile-autotrade-strategy-register":
+            return a.manager.register(
+                strategy_id=str(payload.get("strategy_id") or ""),
+                strategy_version=int(
+                    payload.get("strategy_version") or 1),
+                market=str(payload.get("market") or ""),
+                instrument_scope=list(
+                    payload.get("instrument_scope") or []),
+                strategy_type=str(
+                    payload.get("strategy_type") or "MOMENTUM"),
+                parameters=dict(payload.get("parameters") or {}),
+                execution_mode=str(
+                    payload.get("execution_mode") or "SHADOW"),
+                account_id=str(payload.get("account_id") or ""),
+                auto_recover=bool(payload.get("auto_recover")),
+                session_policy=dict(
+                    payload.get("session_policy") or {}),
+                ai_policy=str(
+                    payload.get("ai_policy") or "DETERMINISTIC"))
+        if command == "investment-mobile-autotrade-strategy-list":
+            return {"ok": True,
+                    "strategies": a.manager.list(
+                        payload.get("state"))}
+        if command == "investment-mobile-autotrade-strategy-transition":
+            return a.manager.transition(
+                str(payload.get("run_id") or ""),
+                str(payload.get("target") or ""),
+                actor=actor or "user",
+                reason=str(payload.get("reason") or ""))
+        if command == "investment-mobile-autotrade-strategy-config":
+            return a.manager.update_config(
+                str(payload.get("run_id") or ""),
+                dict(payload.get("patch") or {}),
+                actor=actor or "user")
+
+        if command == "investment-mobile-autotrade-event":
+            return a.on_market_event(
+                str(payload.get("event_type") or "QUOTE_UPDATED"),
+                market=str(payload.get("market") or ""),
+                instrument_id=str(payload.get("instrument_id") or ""),
+                source_id=str(payload.get("source_id") or "test"),
+                data_revision=str(payload.get("data_revision") or ""),
+                timestamp=payload.get("timestamp"))
+        if command == "investment-mobile-autotrade-cycle":
+            return a.coordinator.run_cycle(
+                str(payload.get("run_id") or ""),
+                dict(payload.get("event") or {}))
+
+        if command == "investment-mobile-autotrade-capital-set":
+            return a.allocator.set_plan(
+                str(payload.get("account_id") or ""),
+                dict(payload.get("plan") or payload),
+                actor=actor or "user")
+        if command == "investment-mobile-autotrade-capital-get":
+            p = a.allocator.plan(str(payload.get("account_id") or ""))
+            return {"ok": p is not None, "plan": p}
+        if command == "investment-mobile-autotrade-capital-check":
+            account_id = str(payload.get("account_id") or "")
+            return a.allocator.check_order(
+                account_id, str(payload.get("strategy_id") or ""),
+                instrument_id=str(payload.get("instrument_id") or ""),
+                notional=payload.get("notional") or 0,
+                cash=self.sim.accounts.cash(account_id),
+                strategy_exposure=payload.get("strategy_exposure") or 0,
+                instrument_exposure=payload.get(
+                    "instrument_exposure") or 0)
+        if command == "investment-mobile-autotrade-resources":
+            return {"ok": True,
+                    "reservations": a.resources.recent(
+                        payload.get("instrument_id"))}
+
+        if command == "investment-mobile-autotrade-job-schedule":
+            return a.scheduler.schedule(
+                run_id=str(payload.get("run_id") or ""),
+                kind=str(payload.get("kind") or "interval"),
+                market=str(payload.get("market") or ""),
+                interval_s=float(payload.get("interval_s") or 0),
+                at_time=str(payload.get("at_time") or ""),
+                event_types=list(payload.get("event_types") or []),
+                timeout_s=payload.get("timeout_s"))
+        if command == "investment-mobile-autotrade-job-control":
+            return a.scheduler.control(
+                str(payload.get("job_id") or ""),
+                str(payload.get("action") or ""))
+        if command == "investment-mobile-autotrade-job-due":
+            return a.scheduler.due()
+
+        if command == "investment-mobile-autotrade-session":
+            return a.sessions.session(
+                str(payload.get("market") or "tw"))
+
+        if command == "investment-mobile-autotrade-risk-check":
+            run = a.manager.get(str(payload.get("run_id") or ""))
+            if run is None:
+                return {"ok": False, "error_code": "RUN_NOT_FOUND"}
+            return a.risk_monitor.check(run)
+        if command == "investment-mobile-autotrade-halt":
+            return a.halt.halt(
+                str(payload.get("run_id") or ""),
+                str(payload.get("reason") or ""),
+                detail=dict(payload.get("detail") or {}))
+        if command == "investment-mobile-autotrade-recover":
+            return a.recovery.recover(
+                str(payload.get("run_id") or ""),
+                actor=actor or "user",
+                force=bool(payload.get("force")))
+
+        if command == "investment-mobile-autotrade-performance":
+            run = a.manager.get(str(payload.get("run_id") or ""))
+            if run is None:
+                return {"ok": False, "error_code": "RUN_NOT_FOUND"}
+            return a.performance.strategy_report(run)
+        if command == "investment-mobile-autotrade-performance-curve":
+            return {"ok": True,
+                    "curve": a.performance.curve(
+                        payload.get("run_id")),
+                    "max_drawdown": a.performance.max_drawdown(
+                        str(payload.get("run_id") or ""))}
+        if command == "investment-mobile-autotrade-stability":
+            run = a.manager.get(str(payload.get("run_id") or ""))
+            if run is None:
+                return {"ok": False, "error_code": "RUN_NOT_FOUND"}
+            return a.stability.analyze(
+                run,
+                recent_signals=int(payload.get("recent_signals") or 0),
+                baseline_signals=int(
+                    payload.get("baseline_signals") or 0),
+                data_ok=bool(payload.get("data_ok", True)),
+                model_ok=bool(payload.get("model_ok", True)),
+                execution_errors=int(
+                    payload.get("execution_errors") or 0))
+
+        if command == "investment-mobile-autotrade-research":
+            run = a.manager.get(str(payload.get("run_id") or ""))
+            if run is None:
+                return {"ok": False, "error_code": "RUN_NOT_FOUND"}
+            return a.improvement.research(
+                run, evidence=dict(payload.get("evidence") or {}))
+        if command == "investment-mobile-autotrade-experiment-start":
+            return a.experiments.start(
+                strategy_id=str(payload.get("strategy_id") or ""),
+                base_version=int(payload.get("base_version") or 1),
+                candidate_parameters=dict(
+                    payload.get("candidate_parameters") or {}),
+                proposal_id=str(payload.get("proposal_id") or ""))
+        if command == "investment-mobile-autotrade-experiment-advance":
+            return a.experiments.advance(
+                str(payload.get("experiment_id") or ""),
+                str(payload.get("target") or ""),
+                actor=actor or "user",
+                evidence=dict(payload.get("evidence") or {}))
+        if command == "investment-mobile-autotrade-experiment-list":
+            return {"ok": True,
+                    "experiments": a.experiments.list(
+                        payload.get("strategy_id"))}
+
+        if command == "investment-mobile-autotrade-overfit-record":
+            return a.overfitting.record(
+                strategy_id=str(payload.get("strategy_id") or ""),
+                version=int(payload.get("version") or 1),
+                params=dict(payload.get("params") or {}),
+                dataset=payload.get("dataset") or "",
+                kind=str(payload.get("kind") or "backtest"),
+                metrics=dict(payload.get("metrics") or {}))
+        if command == "investment-mobile-autotrade-overfit-history":
+            return {"ok": True,
+                    "evaluations": a.overfitting.history(
+                        payload.get("strategy_id"))}
+
+        if command == "investment-mobile-autotrade-fund-analyze":
+            return a.fund_coordinator.analyze(
+                str(payload.get("fund_id") or ""),
+                str(payload.get("share_class_id") or "A"),
+                position=payload.get("position"))
+
+        if command == "investment-mobile-autotrade-report":
+            return a.reports.generate(
+                str(payload.get("report_type") or "daily"),
+                runs=a.manager.list(),
+                performance=[
+                    a.performance.strategy_report(r)["snapshot"]
+                    for r in a.manager.list()],
+                shadow_signals=self.sim.shadow.signals(),
+                paper_orders=self.sim.orders.list(),
+                risk_events=self.monitoring.events.list(
+                    event_type="risk_threshold"),
+                improvements=a.improvement.list(),
+                model_notes=str(payload.get("model_notes") or ""))
+        if command == "investment-mobile-autotrade-report-list":
+            return {"ok": True,
+                    "reports": a.reports.list(
+                        payload.get("report_type"))}
+
+        if command == "investment-mobile-autotrade-maintenance-run":
+            return a.maintenance.startup_recovery(a)
+        if command == "investment-mobile-autotrade-maintenance-status":
+            return a.maintenance.status()
+        if command == "investment-mobile-autotrade-workload-stats":
+            return a.workload.stats()
+
+        return {"ok": False, "error_code": "COMMAND_UNKNOWN"}
+
+    # ------------------------------------------------------------------
+    def _handle_asset(self, command: str,
+                      payload: dict[str, Any]) -> dict[str, Any]:
+        a = self.assets
+        aid = str(payload.get("account_id") or "")
+
+        if command == "investment-mobile-asset-account-list":
+            return {"ok": True,
+                    "accounts": a.registry.list_accounts()}
+        if command == "investment-mobile-asset-account-register":
+            return a.registry.register(
+                str(payload.get("account_id") or ""),
+                str(payload.get("label") or ""),
+                str(payload.get("kind") or ""),
+                broker_id=str(payload.get("broker_id") or ""),
+                market=str(payload.get("market") or ""),
+                currency=str(payload.get("currency") or ""))
+        if command == "investment-mobile-asset-account-rename":
+            return a.registry.rename(
+                aid, str(payload.get("label") or ""))
+
+        if command == "investment-mobile-asset-position-list":
+            return {"ok": True,
+                    "positions": a.positions.list_positions(
+                        payload.get("account_id"))}
+        if command == "investment-mobile-asset-position-reserve":
+            return a.positions.reserve(
+                aid, str(payload.get("instrument_id") or ""),
+                payload.get("quantity"))
+        if command == "investment-mobile-asset-position-release":
+            return a.positions.release(
+                aid, str(payload.get("instrument_id") or ""),
+                payload.get("quantity"))
+
+        if command == "investment-mobile-asset-transaction-record":
+            return a.ledger.record(
+                aid, dict(payload.get("transaction") or payload),
+                source=str(payload.get("source") or "MANUAL").upper())
+        if command == "investment-mobile-asset-transaction-correct":
+            return a.ledger.correct(
+                str(payload.get("transaction_id") or ""),
+                dict(payload.get("fields") or {}),
+                reason=str(payload.get("reason") or ""),
+                source=str(payload.get("source") or "MANUAL").upper())
+        if command == "investment-mobile-asset-transaction-list":
+            return {"ok": True,
+                    "transactions": a.ledger.list(
+                        payload.get("account_id"),
+                        payload.get("instrument_id"))}
+
+        if command == "investment-mobile-asset-cash-deposit":
+            return a.cash.deposit(
+                aid, str(payload.get("currency") or ""),
+                payload.get("amount"),
+                source=str(payload.get("source") or "MANUAL").upper())
+        if command == "investment-mobile-asset-cash-withdraw":
+            return a.cash.withdraw(
+                aid, str(payload.get("currency") or ""),
+                payload.get("amount"),
+                source=str(payload.get("source") or "MANUAL").upper())
+        if command == "investment-mobile-asset-cash-adjust":
+            return a.cash.adjust(
+                aid, str(payload.get("currency") or ""),
+                payload.get("amount"),
+                str(payload.get("reason") or ""),
+                source=str(payload.get("source") or "MANUAL").upper())
+        if command == "investment-mobile-asset-cash-view":
+            return a.cash.balance_view(aid)
+        if command == "investment-mobile-asset-cash-reserve":
+            return a.cash.reserve(
+                aid, str(payload.get("currency") or ""),
+                payload.get("amount"),
+                str(payload.get("ref") or ""))
+        if command == "investment-mobile-asset-cash-release":
+            return a.cash.release(
+                aid, str(payload.get("currency") or ""),
+                str(payload.get("ref") or ""),
+                payload.get("amount"))
+
+        if command == "investment-mobile-asset-cost-view":
+            return a.cost.position_cost(
+                aid, str(payload.get("instrument_id") or ""))
+        if command == "investment-mobile-asset-cost-method":
+            return a.cost.set_method(
+                aid, str(payload.get("method") or ""))
+
+        if command == "investment-mobile-asset-currency-convert":
+            return a.ccy.convert(
+                payload.get("amount"),
+                str(payload.get("from_currency") or ""),
+                str(payload.get("to_currency") or ""),
+                at=payload.get("at"))
+        if command == "investment-mobile-asset-currency-staleness":
+            return a.ccy.staleness(
+                str(payload.get("base") or "USD"),
+                str(payload.get("quote") or "TWD"))
+
+        if command == "investment-mobile-asset-value":
+            return a.value(
+                display_currency=str(
+                    payload.get("display_currency") or "TWD"),
+                prices=dict(payload.get("prices") or {}))
+
+        if command == "investment-mobile-asset-performance":
+            return a.performance.pnl_summary(
+                current_value=payload.get("current_value", "0"),
+                invested_capital=payload.get("invested_capital", "0"),
+                realized_pnl=payload.get("realized_pnl", "0"),
+                unrealized_pnl=payload.get("unrealized_pnl", "0"),
+                income_total=payload.get("income_total", "0"),
+                fees_total=payload.get("fees_total", "0"),
+                fx_cost_total=payload.get("fx_cost_total", "0"))
+        if command == "investment-mobile-asset-period-pnl":
+            return a.performance.period_pnl(
+                list(payload.get("valuations") or
+                     a.snapshots.curve()),
+                str(payload.get("window") or "all"))
+
+        if command == "investment-mobile-asset-income-record":
+            return a.income.record(
+                aid, dict(payload.get("income") or payload),
+                source=str(payload.get("source") or "MANUAL").upper())
+        if command == "investment-mobile-asset-income-list":
+            return {"ok": True,
+                    "income": a.income.list(payload.get("account_id"))}
+        if command == "investment-mobile-asset-income-cashflow":
+            return a.income.cashflow(
+                window=str(payload.get("window") or "all"))
+        if command == "investment-mobile-asset-income-breakdown":
+            return a.income.fund_distribution_breakdown()
+
+        if command == "investment-mobile-asset-allocation-analyze":
+            return a.allocation.analyze(
+                a.value(display_currency=str(
+                    payload.get("display_currency") or "TWD"),
+                    prices=dict(payload.get("prices") or {})),
+                dict(payload.get("tags") or {}))
+        if command == "investment-mobile-asset-allocation-target":
+            return a.allocation.set_target(
+                str(payload.get("dimension") or ""),
+                str(payload.get("key") or ""),
+                payload.get("weight"),
+                drift_band=payload.get("drift_band", "0.05"),
+                max_weight=payload.get("max_weight"),
+                actor=str(payload.get("actor") or "user"))
+        if command == "investment-mobile-asset-allocation-propose":
+            return a.allocation.propose(
+                str(payload.get("dimension") or ""),
+                str(payload.get("key") or ""),
+                payload.get("weight"),
+                rationale=str(payload.get("rationale") or ""),
+                actor=str(payload.get("actor") or "ai"))
+
+        if command == "investment-mobile-asset-exposure-basket":
+            return a.exposure.register_basket(
+                str(payload.get("instrument_id") or ""),
+                list(payload.get("constituents") or []),
+                disclosed_at=float(payload.get("disclosed_at") or 0),
+                source=str(payload.get("source") or "MANUAL"))
+        if command == "investment-mobile-asset-exposure-related":
+            return a.exposure.register_related(
+                str(payload.get("group_id") or ""),
+                list(payload.get("instrument_ids") or []))
+        if command == "investment-mobile-asset-exposure-analyze":
+            return a.exposure.analyze(
+                a.value(display_currency=str(
+                    payload.get("display_currency") or "TWD"),
+                    prices=dict(payload.get("prices") or {})))
+
+        if command == "investment-mobile-asset-snapshot-capture":
+            return a.snapshots.capture(
+                str(payload.get("period") or "daily"), a.value())
+        if command == "investment-mobile-asset-snapshot-history":
+            return {"ok": True,
+                    "snapshots": a.snapshots.history(
+                        str(payload.get("period") or "daily")),
+                    "curve": a.snapshots.curve(
+                        str(payload.get("period") or "daily"))}
+
+        if command == "investment-mobile-asset-risk-report":
+            return a.risk_analytics.report(
+                a.value(), a.snapshots.curve())
+
+        if command == "investment-mobile-asset-ai-analyze":
+            val = a.value(
+                display_currency=str(
+                    payload.get("display_currency") or "TWD"),
+                prices=dict(payload.get("prices") or {}))
+            scope = str(payload.get("scope") or "total")
+            if scope == "account":
+                return a.intelligence.analyze_account(
+                    val, aid)
+            if scope == "risk":
+                return a.intelligence.analyze_risk(
+                    val, a.snapshots.curve())
+            if scope == "overlap":
+                return a.intelligence.analyze_overlap(val)
+            if scope == "cashflow":
+                return a.intelligence.analyze_cashflow(
+                    window=str(payload.get("window") or "month"))
+            return a.intelligence.analyze_total(val)
+
+        if command == "investment-mobile-asset-recommend":
+            return a.recommendations.recommend(
+                a.value(display_currency=str(
+                    payload.get("display_currency") or "TWD"),
+                    prices=dict(payload.get("prices") or {})),
+                dict(payload.get("tags") or {}))
+
+        if command == "investment-mobile-asset-maintenance-run":
+            return a.maintenance.run_all(a)
+        if command == "investment-mobile-asset-maintenance-status":
+            return a.maintenance.status()
+
+        if command == "investment-mobile-asset-environment-view":
+            from .assets.isolation import PortfolioEnvironment
+            name = str(payload.get("environment") or
+                       "MANUAL").upper()
+            name = name if name.endswith("_PORTFOLIO") \
+                else f"{name}_PORTFOLIO"
+            try:
+                env = PortfolioEnvironment(name)
+            except ValueError:
+                return {"ok": False,
+                        "error_code": "ENVIRONMENT_UNKNOWN"}
+            return a.isolation.environment_view(env)
+
+        if command == "investment-mobile-import-diff":
+            return self.importer.diff(
+                str(payload.get("batch_id") or ""),
+                mapping=dict(payload.get("mapping") or {}))
+
+        return {"ok": False, "error_code": "COMMAND_UNKNOWN"}
+
+    # ------------------------------------------------------------------
+    def _handle_monitoring(self, command: str,
+                           payload: dict[str, Any]) -> dict[str, Any]:
+        """Monitoring center commands — the AI actor may read, scan and
+        ask for analysis, but every mutating control (alert rules, rec
+        lifecycle promotion) rejects AI actors."""
+        m = self.monitoring
+        actor = str(payload.get("actor") or "")
+        is_ai = actor.lower() in ("ai", "xingcheng", "model",
+                                  "assistant")
+        mutating = command in {
+            "investment-mobile-monitor-alert-rule-set",
+            "investment-mobile-monitor-event-resolve",
+            "investment-mobile-monitor-notification-read",
+            "investment-mobile-monitor-rec-transition",
+            "investment-mobile-monitor-schedule-ran",
+        }
+        if is_ai and mutating:
+            return {"ok": False, "error_code": "AI_MUTATION_DENIED"}
+
+        if command == "investment-mobile-monitor-overview":
+            return m.overview()
+
+        if command == "investment-mobile-monitor-scan-tw":
+            return m.tw_monitor.scan(
+                list(payload.get("instrument_ids") or []),
+                positions=list(payload.get("positions") or []))
+        if command == "investment-mobile-monitor-scan-us":
+            return m.us_monitor.scan(
+                list(payload.get("instrument_ids") or []),
+                positions=list(payload.get("positions") or []))
+        if command == "investment-mobile-monitor-scan-fund":
+            return m.fund_monitor.scan(
+                [tuple(f) for f in payload.get("funds") or []])
+        if command == "investment-mobile-monitor-session-us":
+            return m.us_monitor.session_state()
+
+        if command == "investment-mobile-monitor-events":
+            return {"ok": True,
+                    "events": m.events.list(
+                        severity=payload.get("severity"),
+                        event_type=payload.get("event_type"),
+                        market=payload.get("market"),
+                        status=payload.get("status"))}
+        if command == "investment-mobile-monitor-event-resolve":
+            return m.events.resolve(str(payload.get("event_id") or ""))
+
+        if command == "investment-mobile-monitor-data-gate":
+            scope = str(payload.get("scope") or "instrument")
+            if scope == "fund":
+                return m.gate.check_fund(
+                    str(payload.get("fund_id") or ""),
+                    str(payload.get("share_class_id") or "A"))
+            if scope == "fx":
+                return m.gate.check_fx(
+                    str(payload.get("base") or "USD"),
+                    str(payload.get("quote") or "TWD"))
+            return m.gate.evaluate(
+                list(payload.get("instrument_ids") or []),
+                market=str(payload.get("market") or ""))
+
+        if command == "investment-mobile-monitor-alert-rule-set":
+            return m.alerts.set_rule(
+                dict(payload.get("rule") or payload),
+                actor=actor or "user")
+        if command == "investment-mobile-monitor-alert-rules":
+            return {"ok": True, "rules": m.alerts.list_rules()}
+        if command == "investment-mobile-monitor-alert-evaluate":
+            return m.alerts.evaluate(
+                market_data=dict(payload.get("market_data") or {}),
+                valuation=(self.assets.value(
+                    prices=dict(payload.get("prices") or {}))
+                    if payload.get("use_valuation") else
+                    payload.get("valuation")),
+                allocation=payload.get("allocation"),
+                indicators=dict(payload.get("indicators") or {}))
+
+        if command == "investment-mobile-monitor-notifications":
+            return {"ok": True,
+                    "notifications": m.notifications.history(
+                        channel=payload.get("channel"),
+                        severity=payload.get("severity"),
+                        unread_only=bool(
+                            payload.get("unread_only")))}
+        if command == "investment-mobile-monitor-notification-read":
+            return m.notifications.mark_read(
+                str(payload.get("notification_id") or ""))
+
+        if command == "investment-mobile-monitor-recommend":
+            return m.recommend.recommend(
+                instrument_id=str(payload.get("instrument_id") or ""),
+                account_id=str(payload.get("account_id") or ""),
+                kind=str(payload.get("kind") or "equity"),
+                indicators=dict(payload.get("indicators") or {}),
+                position=payload.get("position"),
+                strategy_id=str(payload.get("strategy_id") or ""),
+                strategy_version=str(
+                    payload.get("strategy_version") or ""),
+                data_timestamp=payload.get("data_timestamp"),
+                nav=payload.get("nav"),
+                reasoning_override=payload.get("reasoning"))
+        if command == "investment-mobile-monitor-rec-list":
+            return {"ok": True,
+                    "recommendations": m.recommend.list(
+                        payload.get("status"))}
+        if command == "investment-mobile-monitor-rec-transition":
+            return m.recommend.transition(
+                str(payload.get("recommendation_id") or ""),
+                str(payload.get("target") or ""),
+                actor=actor or "user",
+                reason=str(payload.get("reason") or ""))
+        if command == "investment-mobile-monitor-rec-outcome":
+            return m.recommend.evaluate_outcome(
+                str(payload.get("recommendation_id") or ""),
+                int(payload.get("horizon_days") or 30))
+        if command == "investment-mobile-monitor-rec-expire":
+            return m.recommend.expire_due()
+
+        if command == "investment-mobile-monitor-scan-opportunities":
+            return m.scanner.scan(
+                list(payload.get("universe") or []),
+                dict(payload.get("criteria") or {}))
+
+        if command == "investment-mobile-monitor-risk-check":
+            return m.risk_monitor.check(
+                self.assets.value(
+                    prices=dict(payload.get("prices") or {})),
+                self.assets.snapshots.curve())
+        if command == "investment-mobile-monitor-cross-market":
+            return m.cross_market.check(
+                self.assets.value(
+                    prices=dict(payload.get("prices") or {})))
+
+        if command == "investment-mobile-monitor-reallocation":
+            return m.reallocation.propose(
+                self.assets.value(
+                    prices=dict(payload.get("prices") or {})),
+                dimension=str(payload.get("dimension") or "market"),
+                tags=dict(payload.get("tags") or {}),
+                actor=actor or "user")
+        if command == "investment-mobile-monitor-reallocation-list":
+            return {"ok": True,
+                    "proposals": m.reallocation.list()}
+
+        if command == "investment-mobile-monitor-report":
+            return m.reports.generate(
+                str(payload.get("report_type") or "daily"),
+                valuation=self.assets.value(
+                    prices=dict(payload.get("prices") or {})),
+                positions=self.assets.positions.list_positions(),
+                income=self.assets.income.cashflow(),
+                events=m.events.list(),
+                recommendations=m.recommend.list(),
+                allocation=None,
+                risk=None,
+                model_notes=str(payload.get("model_notes") or ""))
+        if command == "investment-mobile-monitor-report-list":
+            return {"ok": True,
+                    "reports": m.reports.list(
+                        payload.get("report_type"))}
+
+        if command == "investment-mobile-monitor-schedule-due":
+            return m.scheduler.due(
+                dict(payload.get("market_date_fresh") or {}))
+        if command == "investment-mobile-monitor-schedule-ran":
+            return m.scheduler.mark_ran(
+                str(payload.get("schedule_id") or ""),
+                str(payload.get("market_date") or ""),
+                payload.get("run_key"))
+
+        if command == "investment-mobile-monitor-orchestrate":
+            return m.orchestrator.run(
+                str(payload.get("kind") or ""),
+                dict(payload.get("payload") or {}),
+                data_vintage=str(
+                    payload.get("data_vintage") or ""),
+                deterministic=payload.get("deterministic"))
+        if command == "investment-mobile-monitor-orchestrator-stats":
+            return m.orchestrator.stats()
+
+        if command == "investment-mobile-monitor-maintenance-run":
+            return m.maintenance.run_all(m)
+        if command == "investment-mobile-monitor-maintenance-status":
+            return m.maintenance.status()
+
+        return {"ok": False, "error_code": "COMMAND_UNKNOWN"}
 
     # ------------------------------------------------------------------
     def _run_backtest(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -1849,6 +3200,133 @@ class TradingEngineService:
             source_id=str(payload.get("source_id") or "manual-import"),
             note=str(payload.get("note") or ""),
         )
+
+    def _handle_perf(self, command: str,
+                     payload: dict[str, Any]) -> dict[str, Any]:
+        """Phase-13 runtime commands. Reads are open; AI actors can never
+        raise budgets, force transitions, run maintenance, or purge."""
+        p = self.perf
+        actor = str(payload.get("actor") or "")
+        is_ai = actor.lower() in ("ai", "xingcheng", "model", "assistant")
+        mutating = command in {
+            "investment-mobile-perf-budget-set",
+            "investment-mobile-perf-lifecycle-transition",
+            "investment-mobile-perf-maintenance-run",
+            "investment-mobile-perf-recovery-run",
+            "investment-mobile-perf-retention-run",
+            "investment-mobile-perf-cache-invalidate",
+            "investment-mobile-perf-power-event",
+        }
+        if is_ai and mutating:
+            return {"ok": False, "error_code": "AI_MUTATION_DENIED"}
+
+        if command == "investment-mobile-perf-overview":
+            return p.overview()
+        if command == "investment-mobile-perf-health":
+            return p.health()
+        if command == "investment-mobile-perf-metrics":
+            return p.metrics.snapshot()
+        if command == "investment-mobile-perf-budget-status":
+            return p.budget.status()
+        if command == "investment-mobile-perf-budget-set":
+            r = p.budget.set_limit(
+                str(payload.get("key") or ""),
+                int(payload.get("value") or 0),
+                actor=actor or "user")
+            self.audit.record("perf.budget_set", {
+                **r, "actor": actor})
+            return r
+        if command == "investment-mobile-perf-cache-stats":
+            return p.cache.stats()
+        if command == "investment-mobile-perf-cache-invalidate":
+            src = str(payload.get("source") or "")
+            if src:
+                return {"ok": True,
+                        "new_revision": p.cache.bump_revision(src)}
+            return {"ok": True,
+                    "invalidated": p.cache.invalidate(
+                        str(payload.get("key") or ""))}
+        if command == "investment-mobile-perf-subscribe":
+            # subscribers are in-process callbacks — the command surface
+            # registers a mirror-style subscriber that enqueues updates
+            sid = p.subscriptions.subscribe(
+                str(payload.get("instrument_id") or ""),
+                lambda u: self._mirror_outbox.append(
+                    {"operation": "record_market_quote",
+                     "quote": u}),
+                pinned=bool(payload.get("pinned")),
+                owner=str(payload.get("owner") or ""))
+            return {"ok": True, "subscription_id": sid}
+        if command == "investment-mobile-perf-unsubscribe":
+            return {"ok": p.subscriptions.unsubscribe(
+                str(payload.get("subscription_id") or ""))}
+        if command == "investment-mobile-perf-sub-status":
+            return p.subscriptions.status()
+        if command == "investment-mobile-perf-indicator-update":
+            iid = str(payload.get("instrument_id") or "")
+            ind = p.indicator(iid)
+            close = payload.get("close")
+            if payload.get("correct") is not None:
+                return ind.correct_bar(
+                    int(payload.get("index_from_end") or -1),
+                    float(payload.get("correct")))
+            if close is None:
+                return {"ok": False, "error_code": "CLOSE_REQUIRED"}
+            with p.metrics.timed("indicator_update"):
+                return {"ok": True, "indicator": ind.append_bar(float(close))}
+        if command == "investment-mobile-perf-job-submit":
+            return p.jobs.submit(
+                str(payload.get("job_type") or ""),
+                priority=int(payload.get("priority") or 5),
+                payload=payload.get("payload"),
+                timeout_s=payload.get("timeout_s"),
+                idem_key=str(payload.get("idem_key") or ""))
+        if command == "investment-mobile-perf-job-control":
+            return p.jobs.cancel(str(payload.get("job_id") or ""))
+        if command == "investment-mobile-perf-job-status":
+            return p.jobs.status()
+        if command == "investment-mobile-perf-inference-submit":
+            return p.inference.submit(
+                str(payload.get("kind") or ""),
+                dict(payload.get("payload") or {}),
+                priority=str(payload.get("priority") or "RESEARCH"),
+                ttl_s=float(payload.get("ttl_s") or 300.0))
+        if command == "investment-mobile-perf-inference-status":
+            return p.inference.health()
+        if command == "investment-mobile-perf-maintenance-run":
+            return p.maintenance.run_tier(
+                str(payload.get("tier") or "periodic"),
+                force=bool(payload.get("force")))
+        if command == "investment-mobile-perf-maintenance-status":
+            return p.maintenance.status()
+        if command == "investment-mobile-perf-recovery-run":
+            return p.recovery.run(trigger=str(
+                payload.get("trigger") or "manual"))
+        if command == "investment-mobile-perf-recovery-history":
+            return {"ok": True, "runs": p.recovery.history()}
+        if command == "investment-mobile-perf-power-event":
+            r = p.power.handle(str(payload.get("event") or ""))
+            if str(payload.get("event") or "").lower() == "resume":
+                r["resume_checks"] = p.power.resume_checks()
+            self.audit.record("perf.power_event", {
+                "event": payload.get("event"), "result": r.get("state")})
+            return r
+        if command == "investment-mobile-perf-lifecycle-status":
+            return p.lifecycle.status()
+        if command == "investment-mobile-perf-lifecycle-transition":
+            r = p.lifecycle.transition(
+                str(payload.get("to") or ""),
+                reason=str(payload.get("reason") or ""), actor=actor)
+            self.audit.record("perf.lifecycle", {
+                **r, "actor": actor})
+            return r
+        if command == "investment-mobile-perf-retention-run":
+            return p.retention.purge(str(payload.get("category") or ""))
+        if command == "investment-mobile-perf-retention-status":
+            return p.retention.status()
+        if command == "investment-mobile-perf-pool-stats":
+            return p.pool.stats()
+        return {"ok": False, "error_code": "COMMAND_UNKNOWN"}
 
     @staticmethod
     def _dt(value: Any) -> Any:

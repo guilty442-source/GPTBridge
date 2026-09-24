@@ -71,7 +71,13 @@ STATE_TRANSITIONS: Final[Mapping[str, frozenset[str]]] = {
     STATE_SUCCESSOR_BUILT: frozenset(
         {STATE_AUDITING, STATE_REJECTED, STATE_WITHDRAWN}
     ),
-    STATE_AUDITING: frozenset({STATE_AUDIT_PASSED, STATE_REJECTED}),
+    # An ``auditing`` record with no certificate is a crashed audit; it may
+    # be rewound to ``successor-built`` so the gate can be re-run.  The
+    # rewind is safe because a certificate only exists after a unanimous
+    # pass, at which point the state is ``audit-passed``, not ``auditing``.
+    STATE_AUDITING: frozenset(
+        {STATE_AUDIT_PASSED, STATE_SUCCESSOR_BUILT, STATE_REJECTED}
+    ),
     STATE_AUDIT_PASSED: frozenset(
         {STATE_READY_FOR_GOVERNOR, STATE_REJECTED, STATE_WITHDRAWN}
     ),

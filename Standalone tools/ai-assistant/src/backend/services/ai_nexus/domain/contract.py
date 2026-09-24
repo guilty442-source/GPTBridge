@@ -40,8 +40,10 @@ DOMAIN_US_STOCK = "us-stock"
 DOMAIN_FUND = "fund"
 DOMAIN_AI_ANALYSIS = "ai-analysis"
 DOMAIN_AUTO_TRADING = "auto-trading"
+DOMAIN_SIM_TRADING = "sim-trading"
 DOMAIN_ASSET_MGMT = "asset-management"
 DOMAIN_MARKET_DATA = "market-data"
+DOMAIN_BROKERAGE = "brokerage"
 
 DOMAIN_IDS = (
     DOMAIN_TW_STOCK,
@@ -49,8 +51,10 @@ DOMAIN_IDS = (
     DOMAIN_FUND,
     DOMAIN_AI_ANALYSIS,
     DOMAIN_AUTO_TRADING,
+    DOMAIN_SIM_TRADING,
     DOMAIN_ASSET_MGMT,
     DOMAIN_MARKET_DATA,
+    DOMAIN_BROKERAGE,
 )
 
 # Market → domain routing shared by domains and the store.

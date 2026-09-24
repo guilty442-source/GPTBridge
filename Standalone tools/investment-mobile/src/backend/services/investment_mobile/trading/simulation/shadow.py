@@ -27,14 +27,22 @@ class ShadowTradingService:
         self._dir = Path(state_dir)
         self._dir.mkdir(parents=True, exist_ok=True)
         self._path = self._dir / "shadow_signals.jsonl"
+        self._fp = None
+
+    def close(self) -> None:
+        if self._fp is not None:
+            self._fp.close()
+            self._fp = None
 
     def record(self, signal: ShadowSignal) -> dict[str, Any]:
         if signal.side not in ("BUY", "SELL", "HOLD", "ADD", "REDUCE",
                                "EXIT", "SUBSCRIBE", "REDEEM", "SWITCH"):
             return {"ok": False, "error_code": "SIDE_UNKNOWN"}
         row = signal.to_dict()
-        with self._path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        if self._fp is None:
+            self._fp = self._path.open("a", encoding="utf-8")
+        self._fp.write(json.dumps(row, ensure_ascii=False) + "\n")
+        self._fp.flush()
         return {"ok": True, "signal": row}
 
     def signals(self, instrument_id: str | None = None,

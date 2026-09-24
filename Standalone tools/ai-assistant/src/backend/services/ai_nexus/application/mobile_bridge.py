@@ -192,6 +192,94 @@ class InvestmentMobileBridge:
             self._store.record_paper_execution(ex)
             return {"ok": True, "recorded": "paper_execution"}
 
+        # Offline broker-integration mirrors (engine → business store).
+        # broker_confirmed=false data only; simulated sim events tagged.
+        if operation == "record_broker_status":
+            rows = payload.get("brokers")
+            if not isinstance(rows, list):
+                return {"ok": False, "error_code": "INVALID_BROKERS"}
+            self._store.kv_set("brokerage", "broker_status", rows)
+            gate = payload.get("offline_gate")
+            if isinstance(gate, dict):
+                self._store.kv_set("brokerage", "offline_gate", gate)
+            return {"ok": True, "recorded": "broker_status"}
+        if operation == "record_offline_accounts":
+            rows = payload.get("accounts")
+            if not isinstance(rows, list):
+                return {"ok": False, "error_code": "INVALID_ACCOUNTS"}
+            for row in rows:
+                if row.get("broker_confirmed"):
+                    return {"ok": False,
+                            "error_code": "BROKER_CONFIRMED_FORBIDDEN"}
+            self._store.kv_set("brokerage", "offline_accounts", rows)
+            return {"ok": True, "recorded": "offline_accounts"}
+        if operation == "record_import_batches":
+            rows = payload.get("batches")
+            if not isinstance(rows, list):
+                return {"ok": False, "error_code": "INVALID_BATCHES"}
+            self._store.kv_set("brokerage", "import_batches", rows)
+            return {"ok": True, "recorded": "import_batches"}
+        if operation == "record_unified_portfolio":
+            view = payload.get("portfolio")
+            if not isinstance(view, dict):
+                return {"ok": False, "error_code": "INVALID_PORTFOLIO"}
+            self._store.kv_set("brokerage", "unified_portfolio", view)
+            return {"ok": True, "recorded": "unified_portfolio"}
+        if operation == "record_broker_sim_event":
+            ev = payload.get("event")
+            if not isinstance(ev, dict) or not ev.get("simulated"):
+                return {"ok": False,
+                        "error_code": "INVALID_BROKER_SIM_EVENT"}
+            events = self._store.kv_get(
+                "brokerage", "broker_sim_events", [])
+            events.append(ev)
+            self._store.kv_set(
+                "brokerage", "broker_sim_events", events[-500:])
+            return {"ok": True, "recorded": "broker_sim_event"}
+
+        # Asset-management center mirrors — read-only projections of the
+        # offline asset engine. Never authoritative; the offline journal
+        # in investment-mobile is. AI-originated writes are impossible
+        # here by construction (store is a mirror sink only).
+        if operation == "record_asset_analysis":
+            result = payload.get("result")
+            cmd = str(payload.get("command") or "")
+            if not isinstance(result, dict):
+                return {"ok": False, "error_code": "INVALID_ANALYSIS"}
+            self._store.kv_set(
+                "asset-management",
+                cmd.replace("investment-mobile-asset-", "asset_"),
+                result)
+            return {"ok": True, "recorded": "asset_analysis"}
+
+        # Monitoring-center mirrors — read-only projections of events,
+        # alerts, notifications, recommendations and reports. Advisory
+        # data only; never authoritative, never a trade trigger.
+        if operation == "record_monitoring":
+            result = payload.get("result")
+            cmd = str(payload.get("command") or "")
+            if not isinstance(result, dict):
+                return {"ok": False, "error_code": "INVALID_MONITORING"}
+            self._store.kv_set(
+                "monitoring",
+                cmd.replace("investment-mobile-monitor-", "monitor_"),
+                result)
+            return {"ok": True, "recorded": "monitoring"}
+
+        # Autotrade-center mirrors — read-only projections of strategy
+        # runtimes, performance and reports. All simulated; never
+        # authoritative, never a trade trigger.
+        if operation == "record_autotrade":
+            result = payload.get("result")
+            cmd = str(payload.get("command") or "")
+            if not isinstance(result, dict):
+                return {"ok": False, "error_code": "INVALID_AUTOTRADE"}
+            self._store.kv_set(
+                "autotrade",
+                cmd.replace("investment-mobile-autotrade-", "at_"),
+                result)
+            return {"ok": True, "recorded": "autotrade"}
+
         # Shared settings (companion-owned settings flow through here).
         if operation == "update_shared_settings":
             settings = payload.get("settings")

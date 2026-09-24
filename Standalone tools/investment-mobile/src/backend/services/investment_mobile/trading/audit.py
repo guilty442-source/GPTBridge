@@ -19,9 +19,15 @@ class TradingAudit:
     def __init__(self, state_dir: Path) -> None:
         self._path = state_dir / "trading-audit.jsonl"
         self._channel: Any | None = None
+        self._fp: Any | None = None
 
     def bind_channel(self, channel: Any | None) -> None:
         self._channel = channel
+
+    def close(self) -> None:
+        if self._fp is not None:
+            self._fp.close()
+            self._fp = None
 
     @property
     def path(self) -> Path:
@@ -34,9 +40,11 @@ class TradingAudit:
             "at": time.time(),
             "detail": dict(detail or {}),
         }
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        with self._path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+        if self._fp is None:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            self._fp = self._path.open("a", encoding="utf-8")
+        self._fp.write(json.dumps(event, ensure_ascii=False) + "\n")
+        self._fp.flush()
         return event
 
     def tail(self, limit: int = 50) -> list[dict[str, Any]]:

@@ -24,7 +24,16 @@ class PaperPositionService:
         self._log_path = self._dir / "paper_position_events.jsonl"
         self._positions: dict[tuple[str, str], PaperPosition] = {}
         self._applied: set[str] = set()     # exec_ids — idempotent fills
+        self._log_fp = None
+        self._persist_fp = None
         self._load()
+
+    def close(self) -> None:
+        for attr in ("_log_fp", "_persist_fp"):
+            fp = getattr(self, attr)
+            if fp is not None:
+                fp.close()
+                setattr(self, attr, None)
 
     # ------------------------------------------------------------------
     def apply_fill(self, ex: PaperExecution) -> dict[str, Any]:
@@ -98,12 +107,14 @@ class PaperPositionService:
     # ------------------------------------------------------------------
     def _log(self, kind: str, account_id: str, instrument_id: str,
              detail: dict[str, Any]) -> None:
-        with self._log_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps({
-                "kind": kind, "account_id": account_id,
-                "instrument_id": instrument_id, "detail": detail,
-                "at": time.time(), "simulated": True},
-                ensure_ascii=False) + "\n")
+        if self._log_fp is None:
+            self._log_fp = self._log_path.open("a", encoding="utf-8")
+        self._log_fp.write(json.dumps({
+            "kind": kind, "account_id": account_id,
+            "instrument_id": instrument_id, "detail": detail,
+            "at": time.time(), "simulated": True},
+            ensure_ascii=False) + "\n")
+        self._log_fp.flush()
 
     def _load(self) -> None:
         if not self._path.exists():
@@ -122,7 +133,13 @@ class PaperPositionService:
         self._applied = set(data.get("applied", []))
 
     def _persist(self) -> None:
-        self._path.write_text(json.dumps({
+        payload = json.dumps({
             "positions": [p.to_dict() for p in self._positions.values()],
             "applied": sorted(self._applied)},
-            ensure_ascii=False, indent=1), "utf-8")
+            ensure_ascii=False, indent=1)
+        if self._persist_fp is None:
+            self._persist_fp = self._path.open("w", encoding="utf-8")
+        self._persist_fp.seek(0)
+        self._persist_fp.truncate()
+        self._persist_fp.write(payload)
+        self._persist_fp.flush()

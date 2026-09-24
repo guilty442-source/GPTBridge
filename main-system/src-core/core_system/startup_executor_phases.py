@@ -220,6 +220,23 @@ class StartupExecutorPhasesMixin:
             )
             await app.self_learning_driver.start()
         _lap("self_learning_driver_ms")
+        if getattr(app, "codex_amendment_intake", None) is None:
+            from tasks.codex_amendment_intake import (
+                CodexAmendmentIntakeDriver,
+            )
+
+            # A382/A488 + §1.1：修訂 intake 驅動——掃描 staged request
+            # artifact → successor build → 五核心稽核 → 停在
+            # ready-for-governor（發布仍為總督 --apply）。xingcheng
+            # 收據的 governed web-search 只在 local-model 運行時接線；
+            # 冷停時 defer 而非永久拒絕。
+            app.codex_amendment_intake = CodexAmendmentIntakeDriver(
+                app,
+                app.toolbox_service,
+                project_root=app.project_root,
+            )
+            await app.codex_amendment_intake.start()
+        _lap("codex_amendment_intake_ms")
         if getattr(app, "sleep_policy", None) is None:
             from tasks.sleep_policy import SleepPolicyManager
 

@@ -1,207 +1,306 @@
 {
-  "id": "investment-mobile",
-  "name_key": "tool.name",
-  "description_key": "tool.description",
-  "version": "1.0.0",
-  "display_version": "1.0",
-  "status": "stopped",
-  "enabled": true,
-  "independent_tool": true,
-  "main_system_independent_tool": true,
-  "canonical_source_root": "investment-mobile",
-  "physical_owner_root": "investment-mobile",
-  "lifecycle": {
-    "startup": "on-demand",
-    "directLoad": false,
-    "encapsulated": true,
-    "optional": true,
-    "stoppable": true,
-    "disableable": true,
-    "unloadable": true
-  },
-  "shared_permission_owner": "ai-assistant",
-  "shared_permission_profile": "ai-investment-manager-v1",
-  "shared_cache_owner": "ai-assistant",
-  "cache_storage": "ai-assistant/runtime/cache/companions/investment-mobile",
-  "backup_owner": "ai-assistant",
-  "backup_storage": "system-rescue/data/business/backups/investment-mobile",
-  "permissions": {
-    "profile": "ai-investment-manager-v1",
-    "business_permission_owner": "ai-assistant",
-    "settings_owner": "ai-assistant",
-    "code_scope": "tool-root-only",
-    "database_scope": "tool-database-only",
-    "canonical_database_scope": "xingcheng-shared-repository",
-    "allow_modify": [
-      "mobile-interface-via-investment-mobile-owner"
-    ],
-    "deny": [
-      "main-program",
-      "other-tools",
-      "direct-database-write",
-      "separate-business-database",
-      "separate-settings-layer"
-    ]
-  },
-  "runtime": {
-    "type": "python",
-    "entry": "src/channel_runtime.py",
-    "workingDirectory": "."
-  },
-  "distribution": {
-    "mode": "special-unpackaged",
-    "package": false
-  },
-  "request_channel": {
-    "model": "governance-authenticated-shared-layer",
-    "runtime_entry": "src/channel_runtime.py",
-    "direct_instruction": "PERMISSION_DENIED"
-  },
-  "launch": {
-    "primary": "governed-source-channel",
-    "background": "governed-source-channel"
-  },
-  "capabilities": {
-    "ai-connections": {
-      "entry_gateway": "xingcheng",
-      "direct_model_access": false,
-      "model_selection": "automatic-only",
-      "source_owner": "investment-mobile",
-      "runtime_independence": true,
-      "main_system_independent_tool": true,
-      "business_layer_owner": "investment-mobile",
-      "settings_owner": "investment-mobile",
-      "permission_profile": "ai-investment-manager-v1",
-      "separate_business_layer": false,
-      "separate_settings_layer": false
-    },
-    "investment-analysis": {
-      "entry_gateway": "investment-mobile",
-      "source_owner": "investment-mobile",
-      "runtime_independence": true
-    },
-    "investment-manager": {
-      "entry_gateway": "investment-mobile",
-      "source_owner": "investment-mobile",
-      "runtime_independence": true
-    },
-    "investment-market-search": {
-      "entry_gateway": "investment-mobile",
-      "source_owner": "investment-mobile",
-      "runtime_independence": true
-    }
-  },
-  "environment": {
-    "allow": [
-      "GPTBRIDGE_INVESTMENT_MOBILE_ENABLED",
-      "GPTBRIDGE_INVESTMENT_MOBILE_ALLOW_LAN",
-      "GPTBRIDGE_INVESTMENT_MOBILE_PORT"
-    ]
-  },
-  "has_custom_ui": false,
-  "window": {
-    "width": 900,
-    "height": 720,
-    "minWidth": 720,
-    "minHeight": 560,
-    "title_key": "tool.window_title"
-  },
-  "test_targets": [
-    "tests/test_investment_mobile_reexport.py",
-    "tests/test_trading_engines.py",
-    "tests/test_market_acceptance.py",
-    "tests/test_fund_acceptance.py",
-    "tests/test_intelligence_acceptance.py"
+ "id": "investment-mobile",
+ "name_key": "tool.name",
+ "description_key": "tool.description",
+ "version": "1.0.0",
+ "display_version": "1.0",
+ "status": "stopped",
+ "enabled": true,
+ "independent_tool": true,
+ "main_system_independent_tool": true,
+ "canonical_source_root": "investment-mobile",
+ "physical_owner_root": "investment-mobile",
+ "lifecycle": {
+  "startup": "on-demand",
+  "directLoad": false,
+  "encapsulated": true,
+  "optional": true,
+  "stoppable": true,
+  "disableable": true,
+  "unloadable": true
+ },
+ "shared_permission_owner": "ai-assistant",
+ "shared_permission_profile": "ai-investment-manager-v1",
+ "shared_cache_owner": "ai-assistant",
+ "cache_storage": "ai-assistant/runtime/cache/companions/investment-mobile",
+ "backup_owner": "ai-assistant",
+ "backup_storage": "system-rescue/data/business/backups/investment-mobile",
+ "permissions": {
+  "profile": "ai-investment-manager-v1",
+  "business_permission_owner": "ai-assistant",
+  "settings_owner": "ai-assistant",
+  "code_scope": "tool-root-only",
+  "database_scope": "tool-database-only",
+  "canonical_database_scope": "xingcheng-shared-repository",
+  "allow_modify": [
+   "mobile-interface-via-investment-mobile-owner"
   ],
-  "product": "星澄 AI 投資管理與自動操盤系統",
-  "trading_system": {
-    "product": "星澄 AI 投資管理與自動操盤系統",
-    "domains": [
-      "market-data",
-      "instrument",
-      "portfolio",
-      "strategy",
-      "risk",
-      "trading",
-      "broker",
-      "mutual-fund",
-      "ai-analysis",
-      "ai-intelligence",
-      "backtest",
-      "audit"
-    ],
-    "engines": [
-      "market-data",
-      "strategy",
-      "risk",
-      "oms",
-      "portfolio",
-      "broker-adapter",
-      "trading-audit",
-      "mutual-fund",
-      "ai-intelligence"
-    ],
-    "business_domains_owner": "ai-assistant:tw-stock,us-stock,fund,ai-analysis,auto-trading,asset-management,market-data",
-    "trading_modes": [
-      "ANALYSIS",
-      "SHADOW",
-      "PAPER",
-      "LIVE"
-    ],
-    "default_mode": "ANALYSIS",
-    "live_requires": "explicit-human-authorization+verified-broker-api",
-    "broker_adapters": {
-      "tw": "CATHAY_SECURITIES",
-      "us": "FUBON_SUBBROKERAGE",
-      "fund": "MUTUAL_FUND_PROVIDER"
-    },
-    "native_components": {
-      "risk_core": "native/risk/risk_core.c",
-      "strategy_engine": "native/strategy/strategy_engine.cpp",
-      "oms": "native/oms/InvestmentMobile.Oms.csproj"
-    },
-    "signal_owner": "xingcheng-analysis-only",
-    "decision_owner": "independent-strategy-and-risk-engines",
-    "business_layer_owner": "ai-assistant",
-    "market_data": {
-      "engine": "MarketDataEngine (centralized bounded ingestion; no per-symbol processes)",
-      "markets": [
-        "TWSE",
-        "TPEx",
-        "NYSE",
-        "NASDAQ"
-      ],
-      "sources": "replaceable adapters; verified-only realtime; simulated/manual for tests",
-      "live_quotes": "pending official source verification",
-      "storage": "SQLite runtime cache + PostgreSQL gptbridge_trading market_* (migration 135)"
-    },
-    "fund_system": {
-      "engine": "MutualFundEngine (trading/fund/) — identity, NAV, distribution, fee, performance, comparison, exposure, transactions, cost basis, recurring, recommendations, strategies",
-      "identity": "fund:{fund_id}:{share_class}:{currency} — share classes never collapse",
-      "nav_policy": "published/estimated/confirmed kept distinct; NAV is not a guaranteed execution price",
-      "live_trading": "disabled — advisory and bookkeeping only this phase",
-      "sources": "manual-import + controlled CSV/XLSX/JSON file import; TDCC/provider feeds pending verification",
-      "storage": "JSON journal + PostgreSQL gptbridge_trading fund_* (migration 136)",
-      "research": "Qdrant star-financial-research-v1 for prospectus semantic retrieval"
-    },
-    "ai_intelligence": {
-      "engine": "InvestmentIntelligenceEngine (trading/intelligence/) — advisory only, separated from execution",
-      "analyzers": "TaiwanEquityIntelligence / USEquityIntelligence / MutualFundIntelligence / PortfolioIntelligence",
-      "pipeline": "market-data → validation → portfolio-context → market/instrument analysis → strategy-evaluation → risk → proposal → recommendation",
-      "model_router": "shared 星澄 runtime lanes (fast/research); lazy governed-channel consult; degraded rule-only when model down; no per-task models",
-      "safety": "AI cannot order/mutate accounts/modify risk/enable LIVE; external text is untrusted input",
-      "storage": "JSON journals + PostgreSQL gptbridge_trading (migration 137)"
-    },
-    "strategy_backtest": {
-      "strategy_engine": "trading/strategy/ — StrategyRegistry + immutable StrategyVersionService + validation (IS/validation/OOS/walk-forward, OOS consumed-once) + AI research (proposals land as DRAFT only)",
-      "strategy_types": "TREND_FOLLOWING/MEAN_REVERSION/MOMENTUM/BREAKOUT/MULTI_FACTOR/ASSET_ALLOCATION/PORTFOLIO_REBALANCING/FUND_RECURRING_INVESTMENT",
-      "backtest_engines": "BacktestEngine (equity, PIT-gated next-open fills) / FundBacktestEngine (NAV-priced, publish-delay + settlement) / PortfolioBacktestEngine (multi-account, explicit FX transfers)",
-      "pit": "signals only on confirmed bars; fills next bar; adjusted/raw explicit; survivorship flagged until verified membership source",
-      "costs": "TradingCostEngine — scoped fee rules per broker/account/market/direction; unverified rates marked assumed",
-      "execution_sim": "market/limit/partial/no-fill; slippage bps; same-bar stop/target conservative ordering; broker capability profiles (Fubon sub-brokerage ≠ US-native)",
-      "live_boundary": "LIVE_ELIGIBLE = validation passed only; no execution authorization; simulated fills never reach broker/account/position ledgers",
-      "queue": "bounded concurrency + cancel + timeout; results stale-marked when source revisions land",
-      "storage": "JSON journals + PostgreSQL gptbridge_trading (migration 138); mirrors to ai-assistant strategies/backtest_results"
-    }
+  "deny": [
+   "main-program",
+   "other-tools",
+   "direct-database-write",
+   "separate-business-database",
+   "separate-settings-layer"
+  ]
+ },
+ "runtime": {
+  "type": "python",
+  "entry": "src/channel_runtime.py",
+  "workingDirectory": "."
+ },
+ "distribution": {
+  "mode": "special-unpackaged",
+  "package": false
+ },
+ "request_channel": {
+  "model": "governance-authenticated-shared-layer",
+  "runtime_entry": "src/channel_runtime.py",
+  "direct_instruction": "PERMISSION_DENIED"
+ },
+ "launch": {
+  "primary": "governed-source-channel",
+  "background": "governed-source-channel"
+ },
+ "capabilities": {
+  "ai-connections": {
+   "entry_gateway": "xingcheng",
+   "direct_model_access": false,
+   "model_selection": "automatic-only",
+   "source_owner": "investment-mobile",
+   "runtime_independence": true,
+   "main_system_independent_tool": true,
+   "business_layer_owner": "investment-mobile",
+   "settings_owner": "investment-mobile",
+   "permission_profile": "ai-investment-manager-v1",
+   "separate_business_layer": false,
+   "separate_settings_layer": false
+  },
+  "investment-analysis": {
+   "entry_gateway": "investment-mobile",
+   "source_owner": "investment-mobile",
+   "runtime_independence": true
+  },
+  "investment-manager": {
+   "entry_gateway": "investment-mobile",
+   "source_owner": "investment-mobile",
+   "runtime_independence": true
+  },
+  "investment-market-search": {
+   "entry_gateway": "investment-mobile",
+   "source_owner": "investment-mobile",
+   "runtime_independence": true
   }
+ },
+ "environment": {
+  "allow": [
+   "GPTBRIDGE_INVESTMENT_MOBILE_ENABLED",
+   "GPTBRIDGE_INVESTMENT_MOBILE_ALLOW_LAN",
+   "GPTBRIDGE_INVESTMENT_MOBILE_PORT"
+  ]
+ },
+ "has_custom_ui": false,
+ "window": {
+  "width": 900,
+  "height": 720,
+  "minWidth": 720,
+  "minHeight": 560,
+  "title_key": "tool.window_title"
+ },
+ "test_targets": [
+  "tests/test_investment_mobile_reexport.py",
+  "tests/test_trading_engines.py",
+  "tests/test_market_acceptance.py",
+  "tests/test_fund_acceptance.py",
+  "tests/test_intelligence_acceptance.py"
+ ],
+ "product": "星澄 AI 投資管理與自動操盤系統",
+ "trading_system": {
+  "product": "星澄 AI 投資管理與自動操盤系統",
+  "domains": [
+   "market-data",
+   "instrument",
+   "portfolio",
+   "strategy",
+   "risk",
+   "trading",
+   "broker",
+   "mutual-fund",
+   "ai-analysis",
+   "ai-intelligence",
+   "backtest",
+   "simulation",
+   "live-trading",
+   "offline-broker",
+   "asset-management",
+   "monitoring",
+   "autotrading",
+   "audit"
+  ],
+  "engines": [
+   "market-data",
+   "strategy",
+   "risk",
+   "oms",
+   "portfolio",
+   "broker-adapter",
+   "trading-audit",
+   "mutual-fund",
+   "ai-intelligence"
+  ],
+  "business_domains_owner": "ai-assistant:tw-stock,us-stock,fund,ai-analysis,auto-trading,asset-management,market-data",
+  "trading_modes": [
+   "ANALYSIS",
+   "SHADOW",
+   "PAPER",
+   "LIVE"
+  ],
+  "default_mode": "ANALYSIS",
+  "live_requires": "explicit-human-authorization+verified-broker-api",
+  "broker_adapters": {
+   "tw": "CATHAY_SECURITIES",
+   "us": "FUBON_SUBBROKERAGE",
+   "fund": "MUTUAL_FUND_PROVIDER"
+  },
+  "native_components": {
+   "risk_core": "native/risk/risk_core.c",
+   "strategy_engine": "native/strategy/strategy_engine.cpp",
+   "oms": "native/oms/InvestmentMobile.Oms.csproj"
+  },
+  "signal_owner": "xingcheng-analysis-only",
+  "decision_owner": "independent-strategy-and-risk-engines",
+  "business_layer_owner": "ai-assistant",
+  "market_data": {
+   "engine": "MarketDataEngine (centralized bounded ingestion; no per-symbol processes)",
+   "markets": [
+    "TWSE",
+    "TPEx",
+    "NYSE",
+    "NASDAQ"
+   ],
+   "sources": "replaceable adapters; verified-only realtime; simulated/manual for tests",
+   "live_quotes": "pending official source verification",
+   "storage": "SQLite runtime cache + PostgreSQL gptbridge_trading market_* (migration 135)"
+  },
+  "fund_system": {
+   "engine": "MutualFundEngine (trading/fund/) — identity, NAV, distribution, fee, performance, comparison, exposure, transactions, cost basis, recurring, recommendations, strategies",
+   "identity": "fund:{fund_id}:{share_class}:{currency} — share classes never collapse",
+   "nav_policy": "published/estimated/confirmed kept distinct; NAV is not a guaranteed execution price",
+   "live_trading": "disabled — advisory and bookkeeping only this phase",
+   "sources": "manual-import + controlled CSV/XLSX/JSON file import; TDCC/provider feeds pending verification",
+   "storage": "JSON journal + PostgreSQL gptbridge_trading fund_* (migration 136)",
+   "research": "Qdrant star-financial-research-v1 for prospectus semantic retrieval"
+  },
+  "ai_intelligence": {
+   "engine": "InvestmentIntelligenceEngine (trading/intelligence/) — advisory only, separated from execution",
+   "analyzers": "TaiwanEquityIntelligence / USEquityIntelligence / MutualFundIntelligence / PortfolioIntelligence",
+   "pipeline": "market-data → validation → portfolio-context → market/instrument analysis → strategy-evaluation → risk → proposal → recommendation",
+   "model_router": "shared 星澄 runtime lanes (fast/research); lazy governed-channel consult; degraded rule-only when model down; no per-task models",
+   "safety": "AI cannot order/mutate accounts/modify risk/enable LIVE; external text is untrusted input",
+   "storage": "JSON journals + PostgreSQL gptbridge_trading (migration 137)"
+  },
+  "strategy_backtest": {
+   "strategy_engine": "trading/strategy/ — StrategyRegistry + immutable StrategyVersionService + validation (IS/validation/OOS/walk-forward, OOS consumed-once) + AI research (proposals land as DRAFT only)",
+   "strategy_types": "TREND_FOLLOWING/MEAN_REVERSION/MOMENTUM/BREAKOUT/MULTI_FACTOR/ASSET_ALLOCATION/PORTFOLIO_REBALANCING/FUND_RECURRING_INVESTMENT",
+   "backtest_engines": "BacktestEngine (equity, PIT-gated next-open fills) / FundBacktestEngine (NAV-priced, publish-delay + settlement) / PortfolioBacktestEngine (multi-account, explicit FX transfers)",
+   "pit": "signals only on confirmed bars; fills next bar; adjusted/raw explicit; survivorship flagged until verified membership source",
+   "costs": "TradingCostEngine — scoped fee rules per broker/account/market/direction; unverified rates marked assumed",
+   "execution_sim": "market/limit/partial/no-fill; slippage bps; same-bar stop/target conservative ordering; broker capability profiles (Fubon sub-brokerage ≠ US-native)",
+   "live_boundary": "LIVE_ELIGIBLE = validation passed only; no execution authorization; simulated fills never reach broker/account/position ledgers",
+   "queue": "bounded concurrency + cancel + timeout; results stale-marked when source revisions land",
+   "storage": "JSON journals + PostgreSQL gptbridge_trading (migration 138); mirrors to ai-assistant strategies/backtest_results"
+  },
+  "simulation_trading": {
+   "engine": "trading/simulation/ — SimulationTradingEngine owns ONLY paper-* ledgers; no broker adapters, no formal account/position writers",
+   "modes": "ANALYSIS (research) / SHADOW (immutable signal records) / PAPER (virtual fills) / LIVE (disabled — ModeGate fail-closed)",
+   "paper_accounts": "paper-cathay-tw (CATHAY_TW_PAPER, TWD) + paper-fubon-us (FUBON_US_PAPER, USD) seeded; append-only cash ledger (AVAILABLE/RESERVED/UNSETTLED, T+2/T+1 settlement)",
+   "orders": "PaperOrderManagementSystem — CREATED→VALIDATED→ACCEPTED→PARTIALLY_FILLED→FILLED|CANCELLED|EXPIRED|REJECTED; client_order_id idempotency; no double-fill",
+   "execution": "PaperExecutionEngine — daily-bar honest fills (never claims intraday); slippage/volume cap/TW price band/stale+session rejection",
+   "risk": "PaperRiskEngine — same contract shape as LIVE risk (ALLOW|DENY|INCOMPLETE_EVIDENCE); strategy allocation, dup orders, stale quotes, daily-loss + drawdown breakers",
+   "shadow": "ShadowTradingService (immutable signals incl. fund SUBSCRIBE/REDEEM/SWITCH) + SignalOutcomeTracker (1/5/20/60-bar MFE/MAE — not traded performance)",
+   "loops": "PaperStrategyCoordinator (capital allocation, no double-spend) + StrategyExecutionLoop (tick-driven, pause/resume/stop, fault isolation)",
+   "performance": "PaperPerformanceService — labelled 'PAPER PERFORMANCE'; separate from SHADOW outcomes / BACKTEST results / LIVE",
+   "recovery": "SimulationRecoveryService — sequenced event journal + checkpoint; restart reconciles pending orders; exec_id dedup prevents double fills",
+   "oms": "OMS PAPER branch delegates to SimulationTradingEngine when attached — formal executions/portfolio/cash untouched",
+   "storage": "JSON journals + PostgreSQL gptbridge_trading (migration 139, 13 tables, RLS); mirrors to ai-assistant shadow_signals/paper_executions"
+  },
+  "live_trading": {
+   "engine": "trading/live/ — LiveTradingCore facade over authorization, risk, orders, gateway, reconciliation, emergency, failure, audit, activation",
+   "phase_lock": "LiveActivationGate forced CLOSED this phase — dispatch_enabled=False in production wiring; fully-green submissions still end LIVE_PHASE_LOCKED at SUBMISSION_PENDING; no real-money orders possible",
+   "authorization": "TradingAuthorizationService — scoped (account/market/broker/instrument/strategy/mode/side/notional/expiry); issued by governed human authority only; AI-issued or expired auth denied",
+   "risk": "LiveRiskEngine — deterministic rules, verdicts ALLOW|DENY|INCOMPLETE_EVIDENCE; capital (per-order/daily/strategy limits, reservation ledger), position (instrument/market/sector caps, related-exposure view without merging legal instruments), loss (daily/weekly/monthly/drawdown breakers latched until authorized resume), CrossMarketRiskService aggregates TWD+USD books without assuming fund transferability",
+   "orders": "LiveOrderManagementSystem — CREATED→VALIDATING→AUTHORIZED→RISK_APPROVED→SUBMISSION_PENDING→SUBMITTED→ACKNOWLEDGED→PARTIALLY_FILLED→FILLED|CANCEL_PENDING→CANCELLED|REJECTED|EXPIRED|RECONCILIATION_REQUIRED, plus SUBMISSION_UNKNOWN; client_order_key idempotency survives restart; blind resubmit forbidden until broker query resolves",
+   "gateway": "BrokerGateway — capability contract (SUPPORTED|UNSUPPORTED|UNKNOWN; UNKNOWN ≠ supported); credentials via shared credman store only; adapters CATHAY_SECURITIES (TW equity/ETF), FUBON_SUBBROKERAGE (US equity/ETF sub-brokerage, distinct from Fubon TW API), MOCK_BROKER for tests; real place/cancel disabled until official API verification",
+   "reconciliation": "AccountReconciliationService — MATCHED|MISMATCHED|INCOMPLETE|UNAVAILABLE; mismatch halts new opens on the affected account; broker state is external truth, local state never overwrites it; AI cannot fabricate reports or release halts",
+   "emergency": "EmergencyTradingControl — stop-new-orders ≠ cancel-open ≠ liquidate; AI cannot release; authorized resume audited",
+   "failure": "TradingFailureController — broker disconnect/market feed loss/postgres failure block new opens; model failure is advisory-degraded only; last confirmed state preserved",
+   "audit": "TradingAuditService — event_id/correlation_id/account/proposal/order/strategy_version/auth_id/risk_decision_id/event_type/result; secrets masked",
+   "storage": "PostgreSQL gptbridge_trading (migration 140, 13 tables, RLS, simulated=false CHECK on every table) + JSONL journals under runtime/state/live"
+  },
+  "offline_broker_integration": {
+   "phase": "offline foundation only — NO real broker connection, no credentials, no network transport",
+   "adapters": "CATHAY_SECURITIES (tw equity/ETF) + FUBON_SUBBROKERAGE (us equity/ETF sub-brokerage — distinct from Fubon TW API); full contract surface (account/balance/position/order/execution/fee/error/session models), every live method returns BROKER_INTEGRATION_DISABLED",
+   "connection_states": "NOT_CONFIGURED|OFFLINE|MOCK|READY_FOR_INTEGRATION reachable; CONNECTED|DEGRADED|DISCONNECTED unreachable this phase (READY_FOR_INTEGRATION = local contract complete, NOT broker-authorized)",
+   "offline_gate": "BrokerOfflineGate — broker_network_enabled/live_trading_enabled/broker_authentication_enabled all false; mutation attempts by AI/frontend/strategy → OFFLINE_GATE_LOCKED; defense-in-depth beyond a boolean (no transport on adapters + gate checked at dispatch)",
+   "offline_accounts": "OfflineAccountService — cathay-tw/fubon-us/fund kinds; sources DEMO|MANUAL|FILE_IMPORT only; every record tagged source+updated_at+broker_confirmed=false; LIVE_BROKER_SYNC rejected",
+   "import": "InvestmentImportService — CSV/JSON (+XLSX when openpyxl present); staged select→detect→preview→map→validate→dedup→confirm→commit; per-target content-hash dedup; pre-commit snapshot + rollback; source file never modified",
+   "unified_portfolio": "UnifiedInvestmentPortfolio — per-account independence preserved; totals/cost/realized+unrealized PnL/dividends/allocation/currency exposure in chosen display currency; FX via CurrencyRateService with observed_at always reported, missing rates flagged fx_unavailable",
+   "mock_brokers": "MOCK_CATHAY_TW (lot 1000/odd-lot/T+2/TWD) + MOCK_FUBON_US (whole shares/limit-only/no extended hours/T+1/USD) — same contract as real adapters, every record tagged simulated, separate in-memory ledgers",
+   "storage": "PostgreSQL gptbridge_trading (migration 141, 11 tables, RLS; broker_confirmed=false CHECK on offline/import tables, simulated=true CHECK on broker_simulation*) + JSONL journals under runtime/state/offline-accounts + imports"
+  },
+  "asset_management": {
+   "engine": "trading/assets/ — UnifiedPortfolioEngine facade orchestrating account registry, positions, cost basis, transaction ledger, cash, currency conversion, valuation, performance, income, allocation, exposure, risk analytics, snapshots, environment isolation, 星澄 intelligence surface, recommendations, maintenance — all over the single offline journal (no second authority)",
+   "accounts": "stable ids CATHAY_TW/FUBON_US/MUTUAL_FUND/CASH_TWD/CASH_USD; label is display-only, never identity; future platforms register without re-keying",
+   "positions": "Decimal quantities/costs only; available=quantity−reserved via side journal; per-market precision (tw lot-1000, us whole-share, fund 4dp units); data_status manual|imported|stale|estimated — never broker_confirmed",
+   "cost_basis": "CostBasisEngine — average (TW) or FIFO (US) per account, recorded on every result; buys/sells/subscriptions/redemptions/splits/stock dividends/reinvested distributions; market moves never rewrite principal",
+   "ledger": "append-only typed transactions (buy…adjustment/split/stock_dividend); corrections link to originals, history never overwritten; net_amount is side-aware (buy = gross+fee+tax)",
+   "cash": "balance = available + reserved + in_settlement; TWD/USD never merged as tradable cash; sell proceeds sit in settlement until market T+N; insufficient data never assumed spendable",
+   "currency": "CurrencyConversionEngine over CurrencyRateService — latest + historical-at-date rates, observed_at always reported, RATE_UNAVAILABLE never fabricated; underlying accounts keep native currency",
+   "valuation": "per-position valuation timestamps (TW close vs US close vs NAV publish may differ); stale marks flagged; reference_only when sources are stale — mixed-time aggregates never disguised as one instant",
+   "performance": "realized/unrealized/income/fee/fx-cost separation; TWR (chain-linked between external flows) + MWR (dated-flow IRR); deposits never counted as profit",
+   "income": "dividends/ETF/fund distributions with ex/pay dates, gross, withholding, net; fund distributions classified income|principal|unconfirmed; income+cash double-counting blocked by idempotent identity",
+   "allocation": "8 dimensions (account/market/country/currency/asset_type/sector/instrument/strategy); user-owned targets + drift bands + concentration caps; AI set_target denied at engine AND schema level — suggestions stored, never applied",
+   "exposure": "direct/indirect/estimated views; basket constituents keep disclosure dates (stale flagged); missing baskets = incomplete data, not zero overlap; look-through never double-counted into market value",
+   "isolation": "MANUAL|SHADOW|PAPER|LIVE portfolio environments are non-interchangeable; PAPER writes never touch manual books; LIVE view empty this phase",
+   "intelligence": "PortfolioIntelligenceService — deterministic numbers feed 星澄 with sources/valuation-times/completeness/engine-version envelope; recommendations are advisory candidates with estimated costs, never orders",
+   "maintenance": "observable per-job runs (fx staleness, duplicates, snapshot, consistency) with fault isolation; model unavailability never stops asset management",
+   "storage": "PostgreSQL gptbridge_trading (migration 142, 7 tables, RLS; broker_confirmed=false + simulated=false CHECKs; set_by AI deny-listed) + JSON journals under runtime/state/"
+  },
+  "monitoring": {
+   "engine": "trading/monitoring/ — InvestmentMonitoringEngine facade: TW/US/fund monitors, data gate, alert rules, dedup/cooldown notifications, advisory recommendation engine (lifecycle+outcome), opportunity scanner, portfolio risk + cross-market exposure monitors, reallocation proposals, versioned reports, scheduler, orchestrator, maintenance",
+   "events": "MonitoringEvent — event_id/event_type/instrument_id/account_id/market/detected_at/source_timestamp/severity/evidence_refs/status; stable fingerprint dedup (occurrences++), state-token buckets allow genuinely new states",
+   "monitors": "TaiwanInvestmentMonitor + USInvestmentMonitor over CandleStore+IndicatorSet (MA5/20/50/200, RSI, MACD, ATR, volatility — deterministic only, 星澄 interprets); MutualFundMonitor over published NAV/distributions/fees — NAV never treated as realtime price; US session via TradingCalendar zoneinfo (no hardcoded Taiwan time, no pretended extended-hours coverage)",
+   "data_gate": "VALID|STALE|INCOMPLETE|UNAVAILABLE for quotes/NAV/FX/positions; insufficient data → historical research only, executable=false",
+   "alerts": "user/strategy-owned rules (price_above/below, ma_cross, volume_spike, volatility, holding_loss, allocation_drift, fund_nav_change, fund_announcement); severity INFO<NOTICE<WARNING<CRITICAL decided by rules, not LLM; set_rule rejects AI actors",
+   "notifications": "channels market|signal|fund|risk|allocation|system; fingerprint+cooldown-window dedup, merge-update (occurrences++), priority by severity, history journal; a notification can never execute a trade",
+   "recommendations": "equity BUY|SELL|ADD|REDUCE|HOLD|EXIT; fund SUBSCRIBE|ADD|HOLD|REDUCE|REDEEM|SWITCH; deterministic signal math + optional 星澄 reasoning; full lifecycle CREATED→…→EXPIRED/ARCHIVED via intelligence RecommendationLifecycle; outcome tracker marks ai_analysis — never booked as real return",
+   "scanner": "user-set deterministic filters (market/sector/volume/momentum/volatility/price/RSI/trend/fund fees); reports matched+missed conditions and data completeness — no fabricated AI confidence",
+   "risk_exposure": "PortfolioRiskMonitor wraps assets.risk_analytics (concentration/HHI/drawdown warnings only — formal RiskEngine decides trades); CrossMarketExposureMonitor wraps assets.exposure look-through — unknown baskets = PARTIAL_COVERAGE, never zero",
+   "reallocation": "candidate proposals with before/after weights, estimated costs, risk change, data sources, assumptions; AI may draft, never mutates targets or creates orders",
+   "reports": "daily/weekly/monthly, append-only versions; every section labelled by data class (confirmed/manual/model/simulated); data_gaps explicit — no fabricated numbers",
+   "scheduler": "wraps intelligence AnalysisScheduler slots (tw/us pre_open|intraday|post_close, fund nav_update, portfolio daily|weekly|monthly); run-key idempotency per data vintage; no busy polling",
+   "orchestrator": "single shared ModelRouter; task cache + dedup + bounded concurrency (2) + 30s budget; model down → degraded results, events preserved",
+   "maintenance": "bounded jobs (expire recs, model health, scheduler state, event integrity) with timeout/retry_limit/error_code, fault-isolated",
+   "storage": "PostgreSQL gptbridge_trading (migration 143, 8 tables: investment_monitor, monitoring_event, monitoring_rule, monitoring_alert, monitoring_notification, portfolio_reallocation_proposal, investment_report, investment_report_version; reuses 137 recommendation/schedule tables) + JSONL journals under runtime/state/monitoring/"
+  },
+  "autotrading": {
+   "engine": "AutoTradingEngine (trading/autotrade/) — orchestration over existing strategy/simulation/monitoring/intelligence",
+   "scope": "SHADOW/PAPER only — LIVE stays phase-locked; no real broker transport, credentials, or funds",
+   "pipeline": "MarketEvent→DataValidation→StrategyEvaluation→TradingSignal→AIAnalysis(optional)→TradeProposal→RiskDecision→PaperOrder→PaperExecution→PaperPortfolio→PerformanceAnalysis",
+   "runtime_states": [
+    "CREATED",
+    "READY",
+    "RUNNING",
+    "PAUSED",
+    "RISK_HALTED",
+    "DATA_BLOCKED",
+    "MODEL_BLOCKED",
+    "RECOVERING",
+    "STOPPED",
+    "FAILED"
+   ],
+   "capital": "user-owned per-account plans; weights + reserve ≤ 100%; AI cannot set or modify allocations",
+   "ai_integration": "DETERMINISTIC | AI_ASSISTED; shared model router; stale/unavailable evidence blocks dependent trades; AI never lifts a halt",
+   "persistence": "PostgreSQL gptbridge_trading (migration 144) + state_dir journals"
+  }
+ }
 }

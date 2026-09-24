@@ -40,6 +40,12 @@ class PaperRiskEngine:
             merged.update({k: Decimal(str(v)) if not isinstance(v, int)
                            else v for k, v in limits.items()})
         self._limits = merged
+        self._fp: Any | None = None
+
+    def close(self) -> None:
+        if self._fp is not None:
+            self._fp.close()
+            self._fp = None
 
     # ------------------------------------------------------------------
     def evaluate(
@@ -111,8 +117,10 @@ class PaperRiskEngine:
             "side": side, "notional": str(notional), "at": time.time(),
             "simulated": True,
         }
-        with self._path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        if self._fp is None:
+            self._fp = self._path.open("a", encoding="utf-8")
+        self._fp.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        self._fp.flush()
         return rec
 
     def decisions(self, limit: int = 100) -> list[dict[str, Any]]:

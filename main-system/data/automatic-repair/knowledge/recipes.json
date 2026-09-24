@@ -583,9 +583,9 @@
     "owner": "星澄",
     "automatic": true,
     "runtime_only": true,
-    "learned_at": "2026-09-24T05:58:04.847800+00:00",
-    "occurrence_count": 134,
-    "success_rate": 0.8880597014925373,
+    "learned_at": "2026-09-24T11:48:41.364432+00:00",
+    "occurrence_count": 131,
+    "success_rate": 0.8702290076335878,
     "source": "learned",
     "verification": "promoted-by-verified-repair-outcomes",
     "actions": [

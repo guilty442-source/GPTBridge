@@ -37,6 +37,8 @@ class PaperAccountService:
         self._path = self._dir / "paper_accounts.json"
         self._ledger_path = self._dir / "paper_cash_ledger.jsonl"
         self._accounts: dict[str, PaperAccount] = {}
+        self._entries: list[dict[str, Any]] = self._read_ledger()
+        self._ledger_fp: Any | None = None
         self._load()
         for aid, name, market, ccy in _SEED_ACCOUNTS:
             if aid not in self._accounts:
@@ -44,6 +46,11 @@ class PaperAccountService:
                     account_id=aid, account_name=name, market=market,
                     base_currency=ccy, initial_capital=Decimal("0"))
         self._persist()
+
+    def close(self) -> None:
+        if self._ledger_fp is not None:
+            self._ledger_fp.close()
+            self._ledger_fp = None
 
     # ------------------------------------------------------------------
     def create(self, account: PaperAccount) -> dict[str, Any]:
@@ -83,20 +90,31 @@ class PaperAccountService:
             "ref": ref, "settle_on": settle_on, "at": time.time(),
             "simulated": True,
         }
-        with self._ledger_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        if self._ledger_fp is None:
+            self._ledger_fp = self._ledger_path.open("a",
+                                                   encoding="utf-8")
+        self._ledger_fp.write(json.dumps(row, ensure_ascii=False) + "\n")
+        self._ledger_fp.flush()
+        self._entries.append(row)
         return {"ok": True, "entry": row}
 
     def ledger(self, account_id: str | None = None,
                limit: int = 500) -> list[dict[str, Any]]:
-        if not self._ledger_path.exists():
-            return []
-        rows = [json.loads(l) for l in
-                self._ledger_path.read_text("utf-8").splitlines()
-                if l.strip()]
+        rows = self._entries
         if account_id:
             rows = [r for r in rows if r["account_id"] == account_id]
         return rows[-limit:]
+
+    def _read_ledger(self) -> list[dict[str, Any]]:
+        if not self._ledger_path.exists():
+            return []
+        out = []
+        for l in self._ledger_path.read_text("utf-8").splitlines():
+            try:
+                out.append(json.loads(l))
+            except ValueError:
+                continue
+        return out
 
     def cash(self, account_id: str,
              on_date: date | None = None) -> dict[str, Any]:

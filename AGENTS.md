@@ -553,6 +553,41 @@ roadmap, phased-plan, flow-plan, or equivalent planning documents. Current
 work is governed directly by the Codex, registered contracts, and explicit
 user instructions.
 
+## Codex Amendment Pipeline (A382/A488)
+
+> Normative authority: Codex A382/A488/A537/A538。
+> Tunables single source: `main-system/config/automation-flows.json`（`codex-amendment-intake` flow）。
+
+Staged request artifacts (`artifact=codex-amendment-request`, `authority=request-only`)
+in the canonical intake dirs — `main-system/runtime/state/` and
+`governance_rule/execution/audit/convergence/` (`codex-amendment-request-*.json`) —
+are advanced by the periodic AutomationCore flow `codex-amendment-intake`
+(`main-system/src-core/tasks/codex_amendment_intake.py`, interval 300 s):
+
+```
+scan → ledger.begin (lineage lock, one active request per predecessor)
+     → build_successor (PG authority export → candidate sqlite + manifest)
+     → run_five_sovereign_audit (unanimous receipts + certificate)
+     → ready-for-governor   ← stop line; publication stays governor-invoked
+```
+
+- Xingcheng's receipt requires the governed web-search path: the driver
+  submits `xingcheng_web_search` to a running `local-model` via
+  `ToolboxService.request_tool_execution` (sync callable bridged through
+  `run_coroutine_threadsafe`). When the tool is cold the audit **defers**
+  (`successor-built`) — it never wakes the tool just to audit and never
+  permanently rejects a request for a transient outage.
+- Crashed audits (record stuck at `auditing`) are rewound to
+  `successor-built` — a certificate only exists after a unanimous pass.
+- Publication: `governance_rule/execution/codex_amendment_executor.py
+  --request <req.json> --prepared <candidate.sqlite3> --staging <dir>
+  --audit-result <audit.json> --apply` (governor only).
+- CLI: `python -m governance_rule.execution.codex_amendment_driver
+  --scan | --request <path> | --all`.
+
+Tests: `governance_rule/tests/test_codex_amendment_driver.py`,
+`main-system/tests/test_codex_amendment_intake_driver.py`.
+
 ## Governance
 
 - Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.

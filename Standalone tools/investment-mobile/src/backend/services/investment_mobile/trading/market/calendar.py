@@ -174,6 +174,11 @@ class TradingCalendar:
     def is_open(self, market: str, at: datetime) -> bool:
         return self.session_for(market, at) != "closed"
 
+    def local_now(self, market: str) -> datetime:
+        """Current wall-clock time in the market's own timezone."""
+        tz = _MARKET_TZ.get(market)
+        return datetime.now(tz or timezone.utc)
+
     def session_bounds_utc(
         self, market: str, day: date, session: str = "regular"
     ) -> tuple[datetime, datetime] | None:
