@@ -19,10 +19,14 @@ from .positions import PaperPositionService
 class PaperPerformanceService:
     def __init__(self, accounts: PaperAccountService,
                  positions: PaperPositionService,
-                 orders: PaperOrderManagementSystem) -> None:
+                 orders: PaperOrderManagementSystem,
+                 fund_positions: Any = None) -> None:
         self._accounts = accounts
         self._positions = positions
         self._orders = orders
+        # callable(account_id) -> list[dict] — settled fund units valued
+        # at latest published NAV; equities stay in PaperPositionService
+        self._fund_positions = fund_positions
 
     def report(self, account_id: str,
                marks: dict[str, Decimal] | None = None) -> dict[str, Any]:
@@ -40,6 +44,19 @@ class PaperPerformanceService:
             positions_value += (Decimal(p["quantity"]) * px) \
                 if px else Decimal(p["quantity"]) * Decimal(
                     p["average_cost"])
+        fund_rows = (self._fund_positions(account_id)
+                     if self._fund_positions is not None else [])
+        fund_value = sum(
+            (Decimal(str(p["market_value"])) for p in fund_rows),
+            Decimal("0"))
+        fund_realized = sum(
+            (Decimal(str(p.get("realized_pnl") or 0))
+             for p in fund_rows), Decimal("0"))
+        fund_unrealized = sum(
+            (Decimal(str(p.get("unrealized_pnl") or 0))
+             for p in fund_rows), Decimal("0"))
+        positions_value += fund_value
+        realized += fund_realized
         total = (Decimal(cash["available"]) + Decimal(cash["reserved"])
                  + Decimal(cash["unsettled"]) + positions_value)
         costs = Decimal("0")
@@ -60,10 +77,12 @@ class PaperPerformanceService:
             "initial_capital": str(initial),
             "total_assets": str(total),
             "cash": cash, "positions_value": str(positions_value),
+            "fund_positions_value": str(fund_value),
             "realized_pnl": str(realized),
             "unrealized_pnl": str(positions_value - sum(
                 Decimal(p["quantity"]) * Decimal(p["average_cost"])
-                for p in self._positions.list(account_id))),
+                for p in self._positions.list(account_id))
+                + fund_unrealized - fund_value),
             "total_return": f"{float(ret):.6f}",
             "costs": str(costs), "dividends": str(dividends),
             "trade_count": len(execs),

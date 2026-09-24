@@ -602,6 +602,9 @@ class TradingEngineService:
             monitoring=self.monitoring, intel=self.intel,
             strategy_registry=self.strategy_registry,
             fund_engine=self.fund_engine)
+        # PG persistence flows through the governed business mirror
+        # channel (the tool holds no business-schema write credential)
+        self.autotrade.pg_mirror.bind(self._mirror_outbox.append)
         # phase-13 runtime layer — bounded resources, shared market
         # subscriptions, incremental indicators, job/maintenance/
         # recovery/power/lifecycle/health/retention. Observes and bounds
@@ -1374,6 +1377,7 @@ class TradingEngineService:
             if result.get("ok"):
                 self._mirror_outbox.append({
                     "operation": "record_fund_nav", "nav": nav.to_dict()})
+                self.sim.fund_settlement.advance()
             return "fund", result
 
         if command == "investment-mobile-fund-import-txn":

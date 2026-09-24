@@ -82,20 +82,42 @@ class InvestmentAcceptanceMatrix:
 
 
 def _pg_mirror_probe(svc: Any) -> dict[str, Any]:
-    """Writer wired → PASS only when the PG schema is actually present;
-    absent schema stays BLOCKED (migrations 135-144 await governed
-    execution), and the probe self-upgrades once they land."""
+    """PASS only when the mirror is bound to the governed business
+    outbox AND a real mirror_run emit lands there (the tool never holds
+    a business-schema write credential — gptbridge_trading writes go
+    through the channel to the ai-assistant owner)."""
     mirror = getattr(getattr(svc, "autotrade", None), "pg_mirror", None)
     if mirror is None:
         return {"ok": False, "blocked": True,
                 "reason": "persistence_pg 寫入器未接線"}
-    st = mirror.status()
-    if not st.get("schema_present"):
+    outbox = getattr(svc, "_mirror_outbox", None)
+    if outbox is None:
         return {"ok": False, "blocked": True,
-                "reason": "寫入器已接線；gptbridge_trading schema 尚未套用 "
-                          "（migrations 135-144 待治理遷移執行）",
-                "status": st}
-    return {"ok": True, "status": st}
+                "reason": "業務鏡像 outbox 不存在"}
+    st = mirror.status()
+    if not st.get("channel_bound"):
+        return {"ok": False, "blocked": True,
+                "reason": "寫入器未綁定受管 outbox sink", "status": st}
+    ok = mirror.mirror_run({
+        "run_id": "acceptance-probe", "strategy_id": "probe",
+        "strategy_version": 1, "execution_mode": "SHADOW",
+        "state": "CREATED"})
+    tail = outbox[-1] if len(outbox) else {}
+    landed = (ok and tail.get("operation")
+              == "record_autotrade_runtime"
+              and (tail.get("run") or {}).get("run_id")
+              == "acceptance-probe")
+    if not landed:
+        return {"ok": False,
+                "reason": "mirror emit 未進入 outbox", "status": st}
+    # retract the probe op — outbox drains to PG, probe rows are not
+    # business data
+    try:
+        outbox.pop()
+    except Exception:
+        pass
+    return {"ok": True, "status": mirror.status(),
+            "delivery": "governed channel outbox → ai-assistant owner"}
 
 
 def _fund_paper_probe(svc: Any) -> dict[str, Any]:

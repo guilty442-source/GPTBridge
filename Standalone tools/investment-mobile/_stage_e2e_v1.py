@@ -241,7 +241,11 @@ class E2EV1(unittest.TestCase):
         self.assertGreaterEqual(r["counts"]["PASS"], 25)
         blocked = [f["feature_id"] for f in r["features"]
                    if f["status"] == "BLOCKED"]
-        self.assertIn("pg.persistence", blocked)
+        passed = [f["feature_id"] for f in r["features"]
+                  if f["status"] == "PASS"]
+        # pg mirror emits into the governed outbox — wired = PASS
+        self.assertIn("pg.persistence", passed)
+        self.assertIn("fund.paper", passed)
         self.assertIn("ui.control_route", blocked)
 
     # ============ offline safety ============

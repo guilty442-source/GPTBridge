@@ -80,15 +80,16 @@ class SimulationTradingEngine:
         self.outcomes = SignalOutcomeTracker(candle_store, fund_engine)
         self.coordinator = PaperStrategyCoordinator(
             self._dir, self.accounts, self.orders)
-        self.performance = PaperPerformanceService(
-            self.accounts, self.positions, self.orders)
-        self.benchmark = StrategyBenchmarkService(candle_store)
-        self.shadow_paper = ShadowPaperComparison()
         self.recovery = SimulationRecoveryService(self._dir)
         self.fund_settlement = PaperFundSettlementService(
             self._dir, nav=fund_engine.nav, fees=fund_engine.fees,
             accounts=self.accounts, risk=self.risk,
             recovery=self.recovery)
+        self.performance = PaperPerformanceService(
+            self.accounts, self.positions, self.orders,
+            fund_positions=self.fund_settlement.positions)
+        self.benchmark = StrategyBenchmarkService(candle_store)
+        self.shadow_paper = ShadowPaperComparison()
         self._loops: dict[str, StrategyExecutionLoop] = {}
 
     def close(self) -> None:
