@@ -103,6 +103,27 @@ def _load_provisions(db) -> list[dict]:
     return provisions
 
 
+def _registered_pairs(db) -> dict:
+    """A609 convergence registry: provision pair -> statement_code.
+
+    ``current`` entries mark pairs whose controlling/restatement
+    disposition is already registered; the scan still reports them as
+    duplication candidates but annotates the disposition so the report
+    distinguishes pending review from registered convergence.
+    """
+    out: dict = {}
+    try:
+        rows = db.execute(
+            "SELECT statement_code, controlling_id, restatement_id "
+            "FROM codex_normative_convergence_registry WHERE status='current'"
+        ).fetchall()
+    except Exception:
+        return out
+    for code, controlling, restatement in rows:
+        out[frozenset((str(controlling), str(restatement)))] = str(code)
+    return out
+
+
 def main() -> int:
     from governance_rule.execution.codex_repository import (
         codex_readonly_connection,
@@ -110,6 +131,7 @@ def main() -> int:
 
     with codex_readonly_connection() as db:
         provisions = _load_provisions(db)
+        registered = _registered_pairs(db)
 
     findings: list[dict] = []
     for a, b in combinations(provisions, 2):
@@ -138,18 +160,25 @@ def main() -> int:
             elif not cross_layer and sim >= 0.9:
                 cls, basis = "template-instance", f"rule-jaccard={sim:.3f}"
         if cls:
-            findings.append({
+            entry = {
                 "provision_a": a["id"],
                 "provision_b": b["id"],
                 "layers": f"{a['type']}<->{b['type']}",
                 "classification": cls,
                 "similarity_basis": basis,
                 "merge_candidate": "review-required",
-            })
+            }
+            code = registered.get(frozenset((a["id"], b["id"])))
+            if code:
+                entry["convergence_registered"] = code
+            findings.append(entry)
 
     counts: dict[str, int] = {}
     for f in findings:
         counts[f["classification"]] = counts.get(f["classification"], 0) + 1
+    counts["convergence-registered"] = sum(
+        1 for f in findings if "convergence_registered" in f
+    )
 
     report = {
         "schema": "codex-semantic-duplication-scan/v1",
