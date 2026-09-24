@@ -507,6 +507,7 @@ button:focus-visible {
   color: #b6f0ce;
 }
 .xingcheng-switch__toggle[data-tone="off"] { opacity: 0.85; }
+.xingcheng-mode-seg { display: flex; gap: 6px; }
 .xingcheng-approval__detail { display: grid; gap: 6px; margin: 0; }
 .xingcheng-approval__detail > div {
   display: grid;

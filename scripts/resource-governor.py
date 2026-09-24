@@ -441,18 +441,37 @@ class ProgramRule:
         self.ecoqos = bool(payload.get("ecoqos", False))
 
 
-def load_rules(path: Path) -> tuple[dict[str, Any], dict[str, ProgramRule], str | None]:
-    """Load the rules file; fail-closed to monitoring-only on any error."""
+def load_rules(
+    path: Path,
+) -> tuple[dict[str, Any], dict[str, ProgramRule], str | None, str | None]:
+    """Load the rules file; fail-closed to monitoring-only on any error.
+
+    Returns ``(defaults, programs, error, mode)``.  ``mode`` selects a
+    preset bundle from ``modes`` (low / medium / high); explicit
+    ``defaults`` keys override the selected preset, CLI flags override
+    both.  An unknown mode name is reported as an error.
+    """
     if not path.is_file():
-        return {}, {}, None
+        return {}, {}, None, None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        return {}, {}, f"{type(exc).__name__}: {exc}"
+        return {}, {}, f"{type(exc).__name__}: {exc}", None
     if not isinstance(payload, dict):
-        return {}, {}, "root must be an object"
+        return {}, {}, "root must be an object", None
     defaults_raw = payload.get("defaults")
     defaults = defaults_raw if isinstance(defaults_raw, dict) else {}
+    error: str | None = None
+    mode: str | None = None
+    raw_modes = payload.get("modes")
+    if isinstance(raw_modes, dict):
+        raw_mode = payload.get("mode", "medium")
+        preset = raw_modes.get(raw_mode) if isinstance(raw_mode, str) else None
+        if isinstance(preset, dict):
+            mode = raw_mode
+            defaults = {**preset, **defaults}
+        else:
+            error = f"unknown mode {raw_mode!r}"
     programs: dict[str, ProgramRule] = {}
     raw_programs = payload.get("programs")
     if isinstance(raw_programs, dict):
@@ -462,8 +481,8 @@ def load_rules(path: Path) -> tuple[dict[str, Any], dict[str, ProgramRule], str 
             try:
                 programs[key.strip().lower()] = ProgramRule(entry)
             except (TypeError, ValueError) as exc:
-                return defaults, programs, f"{key}: {type(exc).__name__}: {exc}"
-    return defaults, programs, None
+                return defaults, programs, f"{key}: {type(exc).__name__}: {exc}", mode
+    return defaults, programs, error, mode
 
 
 def _feature_enabled(flag: bool | None, defaults: dict[str, Any], key: str) -> bool:
@@ -550,6 +569,64 @@ def _resolve_features(config: "GovernorConfig", defaults: dict[str, Any]) -> dic
         "worker_job_memory_bytes": _resolve_job_memory_limit(defaults),
         "worker_job_process_limit": _resolve_job_process_limit(defaults),
         "resp_ratio": max(1.05, ratio_value),
+    }
+
+
+def _num_default(defaults: dict[str, Any], key: str, fallback: float) -> float:
+    value = defaults.get(key)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _resolve_thresholds(
+    config: "GovernorConfig", defaults: dict[str, Any]
+) -> dict[str, Any]:
+    """Per-cycle trigger thresholds.
+
+    Precedence: explicit CLI value > rules file (mode preset + defaults)
+    > built-in constant.  Resolved every cycle so a ``mode`` switch in
+    the rules file takes effect on the next hot reload.
+    """
+    sustain = (
+        float(config.sustain)
+        if config.sustain is not None
+        else _num_default(defaults, "sustain", SUSTAIN_SAMPLES)
+    )
+    sustain = max(1.0, sustain)
+    return {
+        "cpu_busy": (
+            config.cpu_busy
+            if config.cpu_busy is not None
+            else _num_default(defaults, "cpu_busy", CPU_BUSY_PCT)
+        ),
+        "cpu_extreme": (
+            config.cpu_extreme
+            if config.cpu_extreme is not None
+            else _num_default(defaults, "cpu_extreme", CPU_EXTREME_PCT)
+        ),
+        "sustain": int(sustain),
+        "extreme_sustain": max(
+            1,
+            int(
+                _num_default(
+                    defaults, "extreme_sustain", max(sustain * 2, EXTREME_SAMPLES)
+                )
+            ),
+        ),
+        "mem_trim_mb": (
+            config.mem_trim_mb
+            if config.mem_trim_mb is not None
+            else _num_default(defaults, "mem_trim_mb", MEM_TRIM_MB)
+        ),
+        "affinity": config.affinity and bool(defaults.get("affinity", True)),
+        "worker_cpu_budget": max(
+            1.0, _num_default(defaults, "worker_cpu_budget", WORKER_CPU_BUDGET_PCT)
+        ),
+        "worker_ram_budget": max(
+            1.0, _num_default(defaults, "worker_ram_budget", WORKER_RAM_BUDGET_PCT)
+        ),
     }
 
 
@@ -980,22 +1057,19 @@ def _clear_cpu_limit(key: tuple[int, float]) -> bool:
 class GovernorConfig:
     def __init__(self, args: argparse.Namespace) -> None:
         self.interval: float = float(args.interval)
-        self.cpu_busy: float = float(args.cpu_busy)
-        self.cpu_extreme: float = float(args.cpu_extreme)
+        # None = defer to rules file (mode preset + defaults), then constants.
+        self.cpu_busy: float | None = args.cpu_busy
+        self.cpu_extreme: float | None = args.cpu_extreme
         self.calm: float = CPU_CALM_PCT
-        self.sustain: int = int(args.sustain)
-        self.extreme_sustain: int = max(int(args.sustain) * 2, EXTREME_SAMPLES)
+        self.sustain: int | None = args.sustain
         self.calm_samples: int = CALM_SAMPLES
-        self.mem_trim_mb: float = float(args.mem_trim_mb)
+        self.mem_trim_mb: float | None = args.mem_trim_mb
         self.trim_cooldown: float = TRIM_COOLDOWN_SECONDS
         self.affinity: bool = not args.no_affinity
         self.dry_run: bool = bool(args.dry_run)
         self.log_samples: bool = bool(getattr(args, "log_samples", False))
-        # §10.64 worker aggregate budget (single-core-equivalent).
-        self.worker_cpu_budget: float = WORKER_CPU_BUDGET_PCT
-        self.worker_ram_budget: float = WORKER_RAM_BUDGET_PCT
-        # Process Lasso-inspired tier (all control features default OFF:
-        # None = defer to the rules-file defaults, which are false).
+        # Process Lasso-inspired tier (None = defer to the rules file:
+        # the selected mode preset, then explicit 'defaults' keys).
         rules_arg = getattr(args, "rules", None)
         self.rules_path: Path = Path(rules_arg) if rules_arg else RULES_FILE
         self.probalance_flag: bool | None = getattr(args, "probalance", None)
@@ -1111,8 +1185,9 @@ def govern_once(
         "1", "true", "yes",
     }
     dry_run = config.dry_run or disabled
-    defaults, programs, rules_error = load_rules(config.rules_path)
+    defaults, programs, rules_error, mode = load_rules(config.rules_path)
     features = _resolve_features(config, defaults)
+    thr = _resolve_thresholds(config, defaults)
     if rules_error and regulation.get("rules_error") != rules_error:
         _log_action({
             "action": "rules-invalid",
@@ -1140,7 +1215,7 @@ def govern_once(
     # machine; affinity is released when regulation clears.
     worker_cap = max(
         AFFINITY_MIN_CPUS,
-        int(logical * config.worker_cpu_budget // 100),
+        int(logical * thr["worker_cpu_budget"] // 100),
     )
     worker_affinity = list(range(min(worker_cap, logical)))
 
@@ -1295,16 +1370,16 @@ def govern_once(
                 and plane in WORKER_PLANES
             )
             busy_floor = (
-                REGULATED_WORKER_BUSY_PCT if throttling_workers else config.cpu_busy
+                REGULATED_WORKER_BUSY_PCT if throttling_workers else thr["cpu_busy"]
             )
-            sustain_need = 1 if throttling_workers else config.sustain
+            sustain_need = 1 if throttling_workers else thr["sustain"]
             busy_now = cpu >= busy_floor
-            extreme_now = cpu >= config.cpu_extreme
+            extreme_now = cpu >= thr["cpu_extreme"]
             calm_now = cpu < config.calm
 
             # ② aggregate containment while regulating (independent of the
             # per-process extreme-hog path below).
-            if plane in WORKER_PLANES and config.affinity:
+            if plane in WORKER_PLANES and thr["affinity"]:
                 if regulation["active"] and not record.reg_aff_set:
                     try:
                         if proc.cpu_affinity() != worker_affinity:
@@ -1342,8 +1417,8 @@ def govern_once(
                 )
             if (
                 extreme_now
-                and config.affinity
-                and record.busy >= config.extreme_sustain
+                and thr["affinity"]
+                and record.busy >= thr["extreme_sustain"]
                 and not record.aff_set
             ):
                 try:
@@ -1362,7 +1437,7 @@ def govern_once(
             if (
                 extreme_now
                 and plane in WORKER_PLANES
-                and record.busy >= config.extreme_sustain
+                and record.busy >= thr["extreme_sustain"]
             ):
                 if features["background_mode"] and not record.bg_set:
                     ok = True if dry_run else _set_background_mode(pid, True)
@@ -1384,7 +1459,7 @@ def govern_once(
                                     "limiter_percent": features["limiter_percent"],
                                     "ok": ok})
             if (
-                rss_mb >= config.mem_trim_mb
+                rss_mb >= thr["mem_trim_mb"]
                 and calm_now
                 and now - record.last_trim >= config.trim_cooldown
             ):
@@ -1486,7 +1561,7 @@ def govern_once(
                 break
             if record.pb_set or record.prio_set or record.bg_set:
                 continue
-            if cpu < config.cpu_busy:
+            if cpu < thr["cpu_busy"]:
                 continue
             if not dry_run:
                 try:
@@ -1515,12 +1590,12 @@ def govern_once(
     total_ram_mb = total_mem.total / (1024 * 1024)
     worker_ram_pct = (worker_rss_mb / total_ram_mb * 100.0) if total_ram_mb else 0.0
     over_budget = (
-        worker_cpu_pct > config.worker_cpu_budget
-        or worker_ram_pct > config.worker_ram_budget
+        worker_cpu_pct > thr["worker_cpu_budget"]
+        or worker_ram_pct > thr["worker_ram_budget"]
     )
     under_budget = (
-        worker_cpu_pct <= config.worker_cpu_budget * REGULATE_UNDER_FACTOR
-        and worker_ram_pct <= config.worker_ram_budget * REGULATE_UNDER_FACTOR
+        worker_cpu_pct <= thr["worker_cpu_budget"] * REGULATE_UNDER_FACTOR
+        and worker_ram_pct <= thr["worker_ram_budget"] * REGULATE_UNDER_FACTOR
     )
     if over_budget:
         regulation["over"] += 1
@@ -1571,6 +1646,7 @@ def govern_once(
     top_mem = sorted(rows, key=lambda item: item["mem_mb"], reverse=True)[:5]
     snapshot = {
         "interval": config.interval,
+        "mode": mode,
         "processes": len(rows),
         "tracked": len(records),
         "cpu_load_pct": max(0.0, _pm.cpu_percent()),
@@ -1588,8 +1664,8 @@ def govern_once(
             "cpu_pct": round(worker_cpu_pct, 1),
             "ram_mb": round(worker_rss_mb, 1),
             "ram_pct": round(worker_ram_pct, 2),
-            "budget_cpu_pct": config.worker_cpu_budget,
-            "budget_ram_pct": config.worker_ram_budget,
+            "budget_cpu_pct": thr["worker_cpu_budget"],
+            "budget_ram_pct": thr["worker_ram_budget"],
             "over_budget": over_budget,
             "planes": dict(
                 sorted(
@@ -1636,6 +1712,13 @@ def govern_once(
             "worker_job_cap": features["worker_job_cap"],
             "worker_job_percent": features["worker_job_percent"],
             "resp_strain_ratio": features["resp_ratio"],
+            "mode": mode,
+            "cpu_busy": thr["cpu_busy"],
+            "cpu_extreme": thr["cpu_extreme"],
+            "sustain": thr["sustain"],
+            "extreme_sustain": thr["extreme_sustain"],
+            "mem_trim_mb": thr["mem_trim_mb"],
+            "affinity": thr["affinity"],
             "rules_path": str(config.rules_path),
             "rules_loaded": bool(defaults or programs),
             "rules_error": rules_error,
@@ -1964,10 +2047,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--install-logon", action="store_true", help="register a per-user logon Run key")
     parser.add_argument("--uninstall-logon", action="store_true", help="remove the per-user logon Run key")
     parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL, help="cycle seconds (default 20)")
-    parser.add_argument("--cpu-busy", type=float, default=CPU_BUSY_PCT, help="busy CPU %% of one core (default 10)")
-    parser.add_argument("--cpu-extreme", type=float, default=CPU_EXTREME_PCT, help="extreme CPU %% of one core (default 150)")
-    parser.add_argument("--mem-trim-mb", type=float, default=MEM_TRIM_MB, help="working-set trim threshold MB (default 1500)")
-    parser.add_argument("--sustain", type=int, default=SUSTAIN_SAMPLES, help="busy samples before priority drop (default 3)")
+    parser.add_argument("--cpu-busy", type=float, default=None, help="busy CPU %% of one core (default: rules file mode, 10)")
+    parser.add_argument("--cpu-extreme", type=float, default=None, help="extreme CPU %% of one core (default: rules file mode, 20)")
+    parser.add_argument("--mem-trim-mb", type=float, default=None, help="working-set trim threshold MB (default: rules file mode, 1500)")
+    parser.add_argument("--sustain", type=int, default=None, help="busy samples before priority drop (default: rules file mode, 3)")
     parser.add_argument("--no-affinity", action="store_true", help="never cap CPU affinity")
     parser.add_argument("--log-samples", action="store_true", help="append per-cycle worker-ledger samples to the action log (30 min p95 audits)")
     parser.add_argument(

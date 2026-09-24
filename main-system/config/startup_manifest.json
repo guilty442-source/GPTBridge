@@ -34,7 +34,8 @@
       "readiness_contract": "loopback-tcp-11434",
       "deadline": "3s",
       "retry_budget": 1,
-      "shutdown_order": 10
+      "shutdown_order": 10,
+      "activation": "on-demand"
     }
   ],
   "probe_constants": {

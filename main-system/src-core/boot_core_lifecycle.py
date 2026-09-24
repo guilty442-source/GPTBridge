@@ -65,6 +65,12 @@ class BootCoreLifecycleMixin:
             env["GPTBRIDGE_STARTUP_STATE"] = startup_state
         if generation_id:
             env["GPTBRIDGE_STARTUP_GENERATION"] = generation_id
+        # P110/E173: propagate the complete-startup deadline epoch so the
+        # backend executor measures against boot_core's cycle start, not
+        # its own (pre-spawn gate time consumes the same 10 s budget).
+        boot_epoch = getattr(self, "_boot_epoch_wall", 0.0)
+        if boot_epoch:
+            env["GPTBRIDGE_BOOT_EPOCH"] = str(boot_epoch)
         if backend_port is not None:
             env["GPTBRIDGE_IPC_PORT"] = str(backend_port)
             env["GPTBRIDGE_GATEWAY_PORT"] = str(self._health_probe_port)

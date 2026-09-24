@@ -16,6 +16,8 @@ class AutomationSwitchesHandler:
             "app:get-pending-actions": self._handle_get_pending_actions,
             "app:get-automation-switches": self._handle_get_switches,
             "app:set-automation-switch": self._handle_set_switch,
+            "app:get-resource-mode": self._handle_get_resource_mode,
+            "app:set-resource-mode": self._handle_set_resource_mode,
             "app:propose-system-modification": self._handle_propose_system_modification,
         }
         handler = handlers.get(command)
@@ -92,6 +94,56 @@ class AutomationSwitchesHandler:
         return "app:set-automation-switch_result", {
             "ok": True,
             "switches": switches,
+        }
+
+    async def _handle_get_resource_mode(
+        self, payload: Dict[str, Any]
+    ) -> tuple[str, Dict[str, Any]]:
+        from tasks.resource_governor_signal import governor_mode
+
+        return "app:get-resource-mode_result", {
+            "ok": True,
+            "resource_mode": governor_mode(),
+        }
+
+    async def _handle_set_resource_mode(
+        self, payload: Dict[str, Any]
+    ) -> tuple[str, Dict[str, Any]]:
+        from tasks.resource_governor_signal import (
+            governor_mode,
+            set_governor_auto,
+            set_governor_mode,
+        )
+
+        mode = str(payload.get("mode") or "").strip()
+        if not mode:
+            return "app:set-resource-mode_result", {
+                "ok": False,
+                "error_code": "MISSING_MODE",
+                "message": "mode (low / medium / high / auto) is required",
+            }
+        try:
+            if mode == "auto":
+                status = set_governor_auto(True, actor="authenticated-ui")
+            else:
+                status = set_governor_mode(mode, actor="authenticated-ui")
+        except ValueError as error:
+            return "app:set-resource-mode_result", {
+                "ok": False,
+                "error_code": "MODE_UNKNOWN",
+                "message": str(error),
+                "resource_mode": governor_mode(),
+            }
+        except OSError as error:
+            return "app:set-resource-mode_result", {
+                "ok": False,
+                "error_code": "RULES_WRITE_FAILED",
+                "message": str(error),
+                "resource_mode": governor_mode(),
+            }
+        return "app:set-resource-mode_result", {
+            "ok": True,
+            "resource_mode": status,
         }
 
     async def _handle_propose_system_modification(

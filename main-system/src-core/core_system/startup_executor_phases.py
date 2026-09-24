@@ -222,6 +222,16 @@ class StartupExecutorPhasesMixin:
             )
             await app.git_automation.start()
         _lap("git_automation_ms")
+        if getattr(app, "resource_mode_advisor", None) is None:
+            from tasks.resource_mode_advisor import ResourceModeAdvisor
+
+            app.resource_mode_advisor = ResourceModeAdvisor(
+                app.project_root,
+                scheduler=getattr(app, "periodic_scheduler", None),
+                automation_core=getattr(app, "automation_core", None),
+            )
+            await app.resource_mode_advisor.start()
+        _lap("resource_mode_advisor_ms")
         if getattr(app, "saga_runtime", None) is None:
             from core_system.saga_runtime_integration import (
                 create_saga_runtime_integration,

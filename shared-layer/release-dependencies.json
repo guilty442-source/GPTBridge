@@ -479,7 +479,7 @@
     "required_files": {
       "main-system/config/tool-runtime-contract.json": "3bb666c43e07ac0862fe5435d113c6bf7ebb7f25a0a37aea15564bda2fd546e1",
       "main-system/config/tool-isolation-policy.json": "6c227073a14e2599901b60555aa2e432e89b81dda86c0a88c27759ba25131e6e",
-      "main-system/config/startup_manifest.json": "682edbaca1b541c7d6df01dd61ab18a9fc23acb26d68af7f32c473f6776728b3",
+      "main-system/config/startup_manifest.json": "2456c665da25613a4dfc4b5225783d101263b4b6a4699910b3a68c076ca6e840",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",

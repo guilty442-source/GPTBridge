@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { mainSystemLocale } from '@/locales/main-system'
 import './sovereign.css'
 import type {
@@ -28,24 +27,6 @@ const t = mainSystemLocale.sovereign
 
 import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
 
-const ROLE_LABELS: Record<string, string> = {
-  'runtime-sovereign': 'roleRuntime',
-  'health-maintenance-test-sub-sovereign': 'roleMaintenance',
-  'resource-dependency-sync-sub-sovereign': 'roleResource',
-  'data-governance-sub-sovereign': 'roleData',
-  'channel-contract-sync-sub-sovereign': 'roleIntegration',
-  'permission-sovereign': 'rolePermission',
-}
-
-const ROLE_SCOPES: Record<string, string> = {
-  'runtime-sovereign': 'scopeRuntime',
-  'health-maintenance-test-sub-sovereign': 'scopeMaintenance',
-  'resource-dependency-sync-sub-sovereign': 'scopeResource',
-  'data-governance-sub-sovereign': 'scopeData',
-  'channel-contract-sync-sub-sovereign': 'scopeIntegration',
-  'permission-sovereign': 'scopePermission',
-}
-
 function asString(value: unknown, fallback = ''): string {
   if (typeof value === 'string') return value
   if (typeof value === 'number') return String(value)
@@ -54,69 +35,6 @@ function asString(value: unknown, fallback = ''): string {
 
 function asBoolean(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null
-}
-
-interface SovereignEntry {
-  role: string
-  label: string
-  state: string
-  scope: string
-}
-
-function sovereignEntries(
-  rawList: unknown,
-  permission: Record<string, unknown> | undefined
-): SovereignEntry[] {
-  const rows: Array<Record<string, unknown>> = Array.isArray(rawList)
-    ? (rawList as Array<Record<string, unknown>>)
-    : []
-
-  const permissionEntry =
-    permission && Object.keys(permission).length > 0
-      ? {
-          role: 'permission-sovereign',
-          row: permission,
-          hasStarted: null,
-          stateOverride: asString(permission['state']) || t.governing,
-        }
-      : null
-
-  const entries: Array<{
-    role: string
-    row: Record<string, unknown>
-    hasStarted: boolean | null
-    stateOverride?: string
-  }> = rows.map((row) => ({
-    role: asString(row['role']),
-    row,
-    hasStarted: asBoolean(row['started']),
-  }))
-  if (permissionEntry) entries.push(permissionEntry)
-
-  return entries.map((entry) => {
-    let state: string
-    if (entry.stateOverride) {
-      state = entry.stateOverride
-    } else if (entry.hasStarted === true) {
-      state = t.running
-    } else if (entry.hasStarted === false) {
-      state = t.stopped
-    } else {
-      state = asString(entry.row['state']) || t.stateUnknown
-    }
-
-    const scopedLabel = asString(entry.row['scope'])
-    const scope =
-      asString(t[ROLE_SCOPES[entry.role] as keyof typeof t]) || scopedLabel || entry.role
-
-    return {
-      role: entry.role,
-      label:
-        asString(t[ROLE_LABELS[entry.role] as keyof typeof t]) || entry.role,
-      state,
-      scope,
-    }
-  })
 }
 
 function dependencyTone(state: string): 'success' | 'warning' | 'danger' | 'muted' {
@@ -158,19 +76,13 @@ export function SovereignDashboard({
   const sovereign =
     subscribedSovereign ?? runtimeStatus?.decision_sovereign
   const codex = sovereign?.governance_rules
-  const permission = sovereign?.permission
   const xingcheng = sovereign?.peer_systems?.xingcheng
 
   const dependencyState = asString(sovereign?.dependency_state, 'UNKNOWN')
   const executor = asString(sovereign?.executor, t.governedExecutorOnly)
-  const healthOwner = asString(sovereign?.health_owner, 'health-maintenance-test-sub-sovereign')
+  const healthOwner = asString(sovereign?.health_owner, '—')
   const ownedBy = asString(sovereign?.owned_by, '')
   const startedAt = asString(sovereign?.started_at, '')
-
-  const subSovereigns = useMemo(
-    () => sovereignEntries(sovereign?.sub_sovereigns, permission),
-    [sovereign, permission]
-  )
 
   const xingchengPowers = Array.isArray(xingcheng?.powers?.empowered)
     ? (xingcheng?.powers?.empowered as unknown[])
@@ -235,14 +147,19 @@ export function SovereignDashboard({
           <div className="sovereign-card__header">
             <span className="eyebrow">{t.codexTitle}</span>
             <strong className="sovereign-card__codex-version">
-              {asString(codex?.codex_schema, 'codex')} v
-              {asString(codex?.codex_version, '1')}
+              {codex?.codex_schema && codex?.codex_version
+                ? `${asString(codex.codex_schema)} v${asString(codex.codex_version)}`
+                : '—'}
             </strong>
           </div>
           <dl className="codex-facts">
             <div>
               <dt>{t.authority}</dt>
               <dd>{asString(codex?.authority_rank, t.supreme)}</dd>
+            </div>
+            <div>
+              <dt>{t.authoritySource}</dt>
+              <dd>{asString(codex?.authority_source, '—')}</dd>
             </div>
             <div>
               <dt>{t.bindingScope}</dt>
@@ -337,41 +254,6 @@ export function SovereignDashboard({
         </div>
       </div>
 
-      <header className="sovereign-sub-title">
-        <div>
-          <span className="eyebrow">{t.subSovereignsTitle}</span>
-          <h3>{t.subSovereignsTitle}</h3>
-          <p>{t.subSovereignsHint}</p>
-        </div>
-      </header>
-      <div className="sovereign-sub-grid">
-        {subSovereigns.map((sub) => (
-          <div
-            key={sub.role}
-            className="sovereign-sub-card"
-            data-state={
-              sub.state === t.running || sub.state === t.governing ? 'on' : 'off'
-            }
-          >
-            <div className="sovereign-sub-card__top">
-              <span className="sovereign-sub-card__dot" />
-              <strong>{sub.label}</strong>
-            </div>
-            <small>{sub.state}</small>
-            <p>{sub.scope}</p>
-          </div>
-        ))}
-        {subSovereigns.length === 0 && (
-          <div className="sovereign-sub-card" data-state="off">
-            <div className="sovereign-sub-card__top">
-              <span className="sovereign-sub-card__dot" />
-              <strong>{t.stateUnknown}</strong>
-            </div>
-            <small>{t.stateUnknown}</small>
-            <p>—</p>
-          </div>
-        )}
-      </div>
     </section>
   )
 }

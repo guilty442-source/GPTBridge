@@ -75,6 +75,7 @@ _FALLBACK: Final[dict[str, Any]] = {
             "deadline": "3s",
             "retry_budget": 1,
             "shutdown_order": 10,
+            "activation": "on-demand",
         },
     ),
     "probe_constants": {

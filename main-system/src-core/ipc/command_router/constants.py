@@ -40,6 +40,8 @@ MAIN_COMMANDS = {
     "app:get-pending-actions",
     "app:get-automation-switches",
     "app:set-automation-switch",
+    "app:get-resource-mode",
+    "app:set-resource-mode",
     "xingcheng-set-repair-release",
     "xingcheng-set-update-release",
     "xingcheng-set-native-model-enabled",

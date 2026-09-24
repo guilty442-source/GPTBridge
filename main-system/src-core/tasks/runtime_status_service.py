@@ -177,6 +177,12 @@ class RuntimeStatusService:
         if global_faults is not None:
             result["global_faults"] = global_faults
         try:
+            from tasks.resource_governor_signal import governor_mode
+
+            result["resource_mode"] = governor_mode()
+        except Exception:
+            result.setdefault("resource_mode", {})
+        try:
             from core_system.xingcheng_native_model_runtime import native_model_status
 
             result["xingcheng_native_model_runtime"] = native_model_status()
@@ -280,5 +286,11 @@ class RuntimeStatusService:
         global_faults = _global_fault_summary(recent_limit=50)
         if global_faults is not None:
             result["global_faults"] = global_faults
+        try:
+            from tasks.resource_governor_signal import governor_mode
+
+            result["resource_mode"] = governor_mode()
+        except Exception:
+            result.setdefault("resource_mode", {})
         _status_cache[cache_key] = (now, result)
         return dict(result)

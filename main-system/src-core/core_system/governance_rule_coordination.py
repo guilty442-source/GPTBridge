@@ -69,6 +69,7 @@ class GovernanceRuleCoordination:
         return {
             "authority": "codex-supreme",
             "rule_layer": "codex",
+            "authority_source": "postgresql-current-authority",
             "codex_schema": codex.schema,
             "codex_version": format_codex_version(codex.codex_version),
             "authority_rank": codex.preamble.authority_rank,

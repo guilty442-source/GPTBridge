@@ -98,6 +98,8 @@ class CommandRouter:
             "app:get-pending-actions",
             "app:get-automation-switches",
             "app:set-automation-switch",
+            "app:get-resource-mode",
+            "app:set-resource-mode",
         ):
             return await self._automation_handler.handle(command, payload)
 

@@ -143,6 +143,7 @@ export function XingchengDrawer({
   // change; a failure here is contained by the module boundary upstream.
   const pendingActions = useRuntimeStatusField('pending_actions') ?? []
   const switches = useRuntimeStatusField('automation_switches') ?? {}
+  const resourceMode = useRuntimeStatusField('resource_mode') ?? {}
   const cardinality = useRuntimeStatusField('pending_action_cardinality') ?? {}
   const nativeModel = useRuntimeStatusField('xingcheng_native_model_runtime')
   const faults = useRuntimeStatusField('global_faults') as
@@ -150,6 +151,11 @@ export function XingchengDrawer({
     | undefined
   const [faultBusy, setFaultBusy] = useState(false)
   const [faultMessage, setFaultMessage] = useState('')
+  const [modeBusy, setModeBusy] = useState(false)
+  const [modeMessage, setModeMessage] = useState('')
+  const currentMode = String(resourceMode.mode || 'medium')
+  const appliedMode = String(resourceMode.applied || '')
+  const autoMode = resourceMode.auto_mode === true
   const [faultDetail, setFaultDetail] = useState<GlobalFault | null>(null)
   const repairSwitchOn = switches.automatic_repair_enabled === true
   const updateSwitchOn = switches.automatic_update_enabled === true
@@ -200,6 +206,34 @@ export function XingchengDrawer({
   const openFaultDetail = (fault: GlobalFault) => {
     setFaultMessage('')
     setFaultDetail(fault)
+  }
+
+  const setResourceMode = async (mode: string) => {
+    if (modeBusy || mode === currentMode) return
+    setModeBusy(true)
+    setModeMessage('')
+    try {
+      const sent = sendCommand('app:set-resource-mode', { mode })
+      if (!sent.ok) {
+        setModeMessage(sent.message || xr.resourceModeFailed)
+        return
+      }
+      const result = await waitForIpcEvent(
+        'app:set-resource-mode_result',
+        15000
+      )
+      if (result.ok !== true) {
+        setModeMessage(String(result.message || '') || xr.resourceModeFailed)
+        return
+      }
+      sendCommand('app:get-runtime-status', {
+        source: 'resource_mode_update',
+      })
+    } catch {
+      setModeMessage(xr.resourceModeFailed)
+    } finally {
+      setModeBusy(false)
+    }
   }
   return (
     <Drawer
@@ -422,6 +456,47 @@ export function XingchengDrawer({
                 : nativeModel?.running ? xr.switchOn : xr.switchOff}
             </button>
           </div>
+          <div className="xingcheng-switch" data-testid="resource-mode-row">
+            <span className="xingcheng-switch__label">
+              {xr.resourceMode}
+              {appliedMode && appliedMode !== currentMode
+                ? ` · ${xr.resourceModeApplying}`
+                : ''}
+            </span>
+            <span className="xingcheng-mode-seg">
+              {(
+                [
+                  ['low', xr.resourceModeLow],
+                  ['medium', xr.resourceModeMedium],
+                  ['high', xr.resourceModeHigh],
+                ] as Array<[string, string]>
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className="xingcheng-switch__toggle"
+                  data-tone={!autoMode && currentMode === mode ? 'on' : 'off'}
+                  data-testid={`resource-mode-${mode}`}
+                  disabled={modeBusy}
+                  title={xr.resourceModeHint}
+                  onClick={() => void setResourceMode(mode)}
+                >
+                  {modeBusy && currentMode !== mode ? xr.resourceModeChanging : label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="xingcheng-switch__toggle"
+                data-tone={autoMode ? 'on' : 'off'}
+                data-testid="resource-mode-auto"
+                disabled={modeBusy}
+                title={xr.resourceModeAutoHint}
+                onClick={() => void setResourceMode('auto')}
+              >
+                {xr.resourceModeAuto}
+              </button>
+            </span>
+          </div>
           {(
             [
               ['automatic_repair_enabled', xr.switchRepair, repairSwitchOn, true],
@@ -448,6 +523,9 @@ export function XingchengDrawer({
         </div>
         {confirmMessages.xingcheng_native_model ? (
           <p className="xingcheng-approval__message">{confirmMessages.xingcheng_native_model}</p>
+        ) : null}
+        {modeMessage ? (
+          <p className="xingcheng-approval__message">{modeMessage}</p>
         ) : null}
 
         <div className="xingcheng-approvals__head">

@@ -59,6 +59,9 @@ class DependencyDeclaration:
     deadline: str
     retry_budget: int
     shutdown_order: int
+    # §10.7: "eager"（啟動階段拉起）| "on-demand"（僅探測，需求路徑拉起）。
+    # on-demand 服務缺席不使啟動退化；僅能力不存在（未安裝）才降級。
+    activation: str = "eager"
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)

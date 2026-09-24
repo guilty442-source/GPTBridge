@@ -110,6 +110,11 @@ class BootCore(
         self._startup_health_probe_interval = STARTUP_HEALTH_PROBE_INTERVAL
         self._backend_generation_ports = BACKEND_GENERATION_PORTS
         self._crash_repair_uptime_threshold = CRASH_REPAIR_UPTIME_THRESHOLD
+        # P110/E173: wall-clock epoch anchoring the complete-startup
+        # deadline across the boot_core -> backend process boundary.
+        # Set when each supervise cycle begins; exported to the backend
+        # as GPTBRIDGE_BOOT_EPOCH so its executor shares the same clock.
+        self._boot_epoch_wall = 0.0
 
     def _install_signals(self) -> None:
         def _stop_handler(_signum: int, _frame: object) -> None:
@@ -150,6 +155,7 @@ class BootCore(
     def _run_supervise_cycle(self, args: list[str]) -> int | None:
         """Run one supervise cycle. Returns exit code or None to continue."""
         # --- five pre-spawn dependency gates (phases 0-5) ---
+        self._boot_epoch_wall = time.time()
         startup = self._run_startup_phases()
         self._write_orchestrator_report(startup)
 

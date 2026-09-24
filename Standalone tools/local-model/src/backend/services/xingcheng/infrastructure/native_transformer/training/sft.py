@@ -480,20 +480,34 @@ def main(argv: list[str] | None = None) -> int:
     limit_cpu_threads(args.device, threads=args.cpu_threads)
 
     tokenizer = NativeBPETokenizer.load(args.tokenizer)
-    records = read_sft_jsonl(args.dataset_jsonl)
-    if not records:
-        raise SystemExit("SFT_DATASET_EMPTY")
-
-    split = max(1, int(len(records) * (1.0 - args.val_ratio)))
-    train_records = records[:split]
-    val_records = records[split:] or records[:1]
-
     if args.init_checkpoint or args.resume:
         loaded = load_checkpoint(
             args.init_checkpoint or args.resume, map_location=args.device or "cpu"
         )
         model = loaded["model"]
         model_config = loaded["config"]
+        embedded = loaded.get("tokenizer")
+        if embedded is not None:
+            # A checkpoint-trained vocabulary must drive encoding: the init
+            # weights only know their own token ids.  When the embedded
+            # tokenizer disagrees with --tokenizer, encoding the dataset
+            # with the directory build silently scrambles every training
+            # example (observed 2026-09-24: embedded sha 56a51e… vs
+            # directory sha 49880f… produced near-random models).
+            embedded_sha = str(
+                (embedded.state_dict() or {}).get("tokenizer_sha256") or ""
+            )
+            dir_sha = str(
+                (tokenizer.state_dict() or {}).get("tokenizer_sha256") or ""
+            )
+            if embedded_sha and dir_sha and embedded_sha != dir_sha:
+                raise SystemExit(
+                    "SFT_TOKENIZER_MISMATCH: init checkpoint embeds tokenizer "
+                    f"sha256={embedded_sha} but --tokenizer resolves to "
+                    f"sha256={dir_sha}; point --tokenizer at the build that "
+                    "produced the init checkpoint's vocabulary"
+                )
+            tokenizer = embedded
     else:
         factories = {
             "small": XingChengConfig.small,
@@ -507,6 +521,15 @@ def main(argv: list[str] | None = None) -> int:
             model_config.max_position_embeddings, args.max_length
         )
         model = XingChengForCausalLM(model_config)
+
+    records = read_sft_jsonl(args.dataset_jsonl)
+    if not records:
+        raise SystemExit("SFT_DATASET_EMPTY")
+
+    split = max(1, int(len(records) * (1.0 - args.val_ratio)))
+    train_records = records[:split]
+    val_records = records[split:] or records[:1]
+
     model_config.max_position_embeddings = max(
         model_config.max_position_embeddings, args.max_length
     )

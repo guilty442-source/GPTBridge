@@ -668,6 +668,11 @@ class NativeTransformerEngine:
             }
         out_ids = [int(token) for token in generated[0].tolist()]
         text = self.tokenizer.decode(out_ids, skip_special=True)
+        # Byte-spelled <|eot|> (the SFT weights emit it as literal text,
+        # not token id 8) marks the end of the assistant turn — truncate
+        # there like ChatSession does before the quality guard runs.
+        if "<|eot|>" in text:
+            text = text.split("<|eot|>", 1)[0].rstrip()
         latency_ms = round((time.perf_counter() - started) * 1_000, 3)
 
         guard_triggered, guard_reason = quality_guard(
@@ -856,6 +861,35 @@ def _release_engine(engine: NativeTransformerEngine) -> None:
         pass  # 歸還失敗不影響釋放語意；下次觸發再試
 
 
+_DIALOGUE_SYSTEM_PROMPT = "你是星澄，一個本地模型。簡短回答。"
+
+
+def _dialogue_templated_request(request: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Interactive dialogue turns must reach the SFT weights in
+    ``star-chat-format/v1`` — the same template the chat-foundation
+    dataset and the maturity L5/L6 probes use. Non-dialogue requests
+    (automatic workflows, batch, pre-templated prompts) pass through."""
+    if request.get("dialogue_interactive") is not True:
+        return request
+    prompt_text = str(request.get("prompt") or "")
+    if not prompt_text.strip() or "<|user|>" in prompt_text:
+        return request
+    from .native_transformer.chat_format import (
+        ChatMessage,
+        render_conversation,
+    )
+
+    rendered = dict(request)
+    rendered["prompt"] = render_conversation(
+        [
+            ChatMessage("system", _DIALOGUE_SYSTEM_PROMPT),
+            ChatMessage("user", prompt_text),
+        ],
+        add_generation_prompt=True,
+    )
+    return rendered
+
+
 def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
     """governed generate() 的原生短路入口（flag 開啟時由 runtime 呼叫）。"""
     if not flag_enabled():
@@ -865,6 +899,7 @@ def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
             "message": "原生引擎未啟用（XINGCHENG_NATIVE_ENGINE）",
             "fallback_required": False,
         }
+    request = _dialogue_templated_request(request)
     # G29/P3f：正式 C++ 推論執行層路由。required 為 fail-closed；
     # fallback 在 C++ 層失敗時記錄帳本後才允許回到 Python 路徑。
     try:

@@ -9,6 +9,7 @@ interface CodexSnapshot {
   rule_layer?: unknown
   codex_schema?: unknown
   codex_version?: unknown
+  authority_source?: unknown
   authority_rank?: unknown
   binding_scope?: unknown
   function?: unknown
@@ -72,6 +73,20 @@ export interface AutomationSwitches {
   updated_by?: string
 }
 
+export interface ResourceMode {
+  mode?: string
+  applied?: string | null
+  modes?: string[]
+  auto_mode?: boolean
+  running?: boolean
+  advisor?: {
+    target?: string | null
+    reason?: string | null
+    at?: string | null
+  } | null
+  rules_error?: string | null
+}
+
 export interface GlobalFault {
   fault_id?: string
   fault_type?: string
@@ -122,6 +137,7 @@ export interface RuntimeStatusPayload {
   pending_actions?: PendingActionApproval[]
   pending_action_count?: number
   automation_switches?: AutomationSwitches
+  resource_mode?: ResourceMode
   pending_action_cardinality?: PendingActionCardinality
   authority_reanchor?: Record<string, unknown>
   automation_modules?: Array<Record<string, unknown>>

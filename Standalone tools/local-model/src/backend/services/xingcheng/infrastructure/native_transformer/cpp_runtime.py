@@ -264,6 +264,7 @@ class CppInferenceEngine:
         bundle_info = ensure_bundle(self.checkpoint_path)
         self.bundle_dir = Path(bundle_info["output_dir"])
         self.weights_sha256 = str(bundle_info["weights_sha256"])
+        self._parameter_count = self._manifest_parameter_count()
         limit = (
             kv_memory_limit
             if kv_memory_limit is not None
@@ -271,6 +272,37 @@ class CppInferenceEngine:
         )
         self._engine = self._load_gated_engine(limit)
         self._lock = threading.Lock()
+
+    def _manifest_parameter_count(self) -> int:
+        """Parameter total from the exported tensor shapes in the bundle
+        manifest — keeps the C++ result contract identical to the Python
+        engine's ``parameter_count`` field. Tied embeddings are counted
+        once so the figure matches ``model.num_parameters()``."""
+        try:
+            manifest = json.loads(
+                (self.bundle_dir / "manifest.json").read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return 0
+        tensors = manifest.get("tensors") or {}
+        total = 0
+        for tensor in tensors.values():
+            count = 1
+            for dim in tensor.get("shape") or []:
+                count *= int(dim)
+            total += count
+        config = manifest.get("config") or {}
+        if config.get("tie_word_embeddings"):
+            lm_head = (tensors.get("lm_head.weight") or {}).get("shape")
+            embeddings = (
+                tensors.get("model.embeddings.word_embeddings.weight") or {}
+            ).get("shape")
+            if lm_head and lm_head == embeddings:
+                duplicate = 1
+                for dim in lm_head:
+                    duplicate *= int(dim)
+                total -= duplicate
+        return total
 
     # -- P3f GPU coordination -------------------------------------------
 
@@ -501,6 +533,28 @@ class CppInferenceEngine:
                 }
             text = self._engine.decode(out_ids, True)
 
+        # Turn-boundary + degeneration guards, mirroring the Python engine
+        # contract: byte-spelled <|eot|> terminates the visible reply, and
+        # degenerate output is replaced by the governed fallback message.
+        if "<|eot|>" in text:
+            text = text.split("<|eot|>", 1)[0].rstrip()
+        try:
+            from ..native_engine import generation_defaults, quality_guard
+
+            cpp_defaults = generation_defaults()
+            guard_triggered, guard_reason = quality_guard(
+                text,
+                min_chars=int(cpp_defaults.get("min_answer_chars") or 4),
+            )
+        except Exception:
+            cpp_defaults = {}
+            guard_triggered, guard_reason = False, ""
+        if guard_triggered:
+            text = (
+                str(cpp_defaults.get("fallback_message") or "")
+                or "我目前無法可靠回答這個問題。"
+            )
+
         latency_ms = round((time.perf_counter() - started) * 1_000, 3)
 
         def _digest(value: str) -> str:
@@ -537,6 +591,7 @@ class CppInferenceEngine:
             "model": "xingcheng-native-transformer",
             "model_family": "xingcheng-native",
             "parameter_class": "native-self-trained",
+            "parameter_count": self._parameter_count,
             "quantization": "none",
             "device": "cpu",
             "cpp_runtime": True,
@@ -552,6 +607,13 @@ class CppInferenceEngine:
             "context_window": int(
                 self._engine_config_value("max_position_embeddings")
             ),
+            "quality_guard": {
+                "triggered": bool(guard_triggered),
+                "reason": guard_reason,
+                "min_answer_chars": int(
+                    cpp_defaults.get("min_answer_chars") or 4
+                ),
+            },
             "prompt_eval_count": len(prompt_ids),
             "eval_count": len(out_ids),
             "total_duration_ns": int(latency_ms * 1_000_000),
@@ -658,7 +720,10 @@ class CppInferenceEngine:
                     "message": str(error),
                     "fallback_required": False,
                 }
-            texts = [self._engine.decode(list(ids), True) for ids in batch_out]
+            texts = [
+            self._engine.decode(list(ids), True).split("<|eot|>", 1)[0].rstrip()
+            for ids in batch_out
+        ]
 
         latency_ms = round((time.perf_counter() - started) * 1_000, 3)
 
@@ -691,6 +756,7 @@ class CppInferenceEngine:
                 "model": "xingcheng-native-transformer",
                 "model_family": "xingcheng-native",
                 "cpp_runtime": True,
+                "parameter_count": self._parameter_count,
                 "eval_count": len(ids),
                 "prompt_eval_count": len(prompt_ids[i]),
                 "latency_ms": latency_ms,

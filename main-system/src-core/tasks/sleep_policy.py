@@ -150,6 +150,23 @@ class SleepPolicyManager:
         """Wake + scan work shared by the private loop and the core flow."""
         await self._wake_slept_units(policy)
         await self._scan(policy)
+        # §10.7 on-demand 對稱卸載：本系統 spawn 的 Ollama 閒置逾
+        # warm_after_s 即終止（僅 owned pid；外部啟動的永不觸碰）。
+        # 同一 kill switch（enabled=false）閘住——卸載亦屬 sleep 動作。
+        if policy["enabled"] is not True:
+            return
+        try:
+            from core_system.ollama_demand import (  # noqa: PLC0415
+                DEFAULT_IDLE_UNLOAD_S,
+                stop_ollama_if_owned,
+            )
+
+            await asyncio.to_thread(
+                stop_ollama_if_owned,
+                float(policy.get("warm_after_s") or DEFAULT_IDLE_UNLOAD_S),
+            )
+        except Exception:
+            pass
 
     async def stop(self) -> None:
         core = getattr(self.app, "automation_core", None)

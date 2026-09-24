@@ -14,21 +14,30 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import socket
 import subprocess
+import tempfile
+import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 _logger = logging.getLogger("gptbridge.ollama_demand")
 
 OLLAMA_HOST = "127.0.0.1"
 OLLAMA_PORT = 11434
+DEFAULT_IDLE_UNLOAD_S = 900.0
 
 _AUDIT_PATH = (
     Path(__file__).resolve().parents[2]
     / "runtime" / "state" / "ollama-demand.jsonl"
 )
+_STATE_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "runtime" / "state" / "ollama-demand-state.json"
+)
+_STATE_LOCK = threading.Lock()
 
 
 def probe_ollama(*, timeout: float = 0.75) -> bool:
@@ -55,8 +64,57 @@ def _probe_tcp(timeout: float = 0.75) -> bool:
         return False
 
 
+def ollama_installed() -> bool:
+    """安裝探測：本機存在 Ollama 可執行檔（或 PATH 可解析）。
+
+    與 ``probe_ollama`` 分工：reachable = 服務活著；installed = 能力可被
+    按需拉起。就緒語義以 installed 判定能力，reachable 判定當前狀態。"""
+    appdata = os.environ.get("LOCALAPPDATA", "")
+    if appdata:
+        root = Path(appdata) / "Programs" / "Ollama"
+        if (root / "ollama app.exe").is_file() or (
+            root / "ollama.exe"
+        ).is_file():
+            return True
+    return shutil.which("ollama") is not None
+
+
+def _demand_state() -> dict[str, Any]:
+    try:
+        data = json.loads(_STATE_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+def _write_demand_state(state: dict[str, Any]) -> None:
+    try:
+        _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=str(_STATE_PATH.parent), suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(state, handle, ensure_ascii=False, indent=1)
+        os.replace(tmp, _STATE_PATH)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
+def _touch_use(pid: Optional[int] = None) -> None:
+    """記錄一次需求使用（每次 ensure 呼叫即為需求）；spawn 成功連帶記 pid。"""
+    with _STATE_LOCK:
+        state = _demand_state()
+        state["last_use"] = time.time()
+        if pid:
+            state["spawned_pid"] = int(pid)
+        _write_demand_state(state)
+
+
 def _spawn_ollama() -> tuple[int | None, str]:
-    """受治理本地 spawn（startup phase 與需求啟動共用同一實作）。
+    """受治理本地 spawn（僅供 ensure_ollama_ready 需求啟動使用）。
 
     回傳 ``(pid, cmdline)``；找不到可執行檔或 spawn 失敗回 ``(None, "")``。
     """
@@ -115,6 +173,7 @@ def ensure_ollama_ready(
     傳入後會把 spawn 的 pid 登錄（module_id=``ollama``）。
     """
     started = time.monotonic()
+    _touch_use()
     if probe_ollama():
         return True
     pid, cmd = _spawn_ollama()
@@ -123,9 +182,18 @@ def ensure_ollama_ready(
         _logger.warning("ollama demand-start: executable not found or spawn failed")
         return False
     _audit("spawn", pid=pid, cmd=cmd)
-    if process_registry is not None:
+    _touch_use(pid)
+    registry = process_registry
+    if registry is None:
         try:
-            process_registry.register(
+            from core_system.process_registry import get_process_registry
+
+            registry = get_process_registry()
+        except Exception:
+            registry = None
+    if registry is not None:
+        try:
+            registry.register(
                 pid,
                 module_id="ollama",
                 executable=cmd,
@@ -151,9 +219,52 @@ def ensure_ollama_ready(
     return False
 
 
+def stop_ollama_if_owned(idle_s: float = DEFAULT_IDLE_UNLOAD_S) -> bool:
+    """完成後卸載：僅終止『本系統 spawn 且仍 owned』且已閒置 ``idle_s`` 的 Ollama。
+
+    所有權界線由 ProcessRegistry 判定（``is_owned``）；外加 exe 影像名稱
+    複核以防 pid 回收誤殺。外部自行啟動的 Ollama 永不觸碰。
+    回傳是否實際執行停止。"""
+    state = _demand_state()
+    pid = state.get("spawned_pid")
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        from core_system.process_registry import get_process_registry
+
+        registry = get_process_registry()
+    except Exception:
+        return False
+    if not registry.is_owned(pid):
+        return False
+    last_use = float(state.get("last_use") or 0.0)
+    if time.time() - last_use < max(0.0, float(idle_s)):
+        return False
+    try:
+        from shared_layer.performance.process_metrics import (
+            process_exe,
+            process_terminate,
+        )
+    except Exception:
+        return False
+    exe = (process_exe(pid) or "").lower()
+    if "ollama" not in os.path.basename(exe):
+        _audit("unload-refused", pid=pid, reason="image-mismatch")
+        return False
+    if not process_terminate(pid):
+        _audit("unload-failed", pid=pid)
+        return False
+    registry.mark_shutdown(pid, "exited")
+    _audit("unload", pid=pid, idle_s=round(time.time() - last_use, 1))
+    return True
+
+
 __all__ = [
+    "DEFAULT_IDLE_UNLOAD_S",
     "OLLAMA_HOST",
     "OLLAMA_PORT",
     "ensure_ollama_ready",
+    "ollama_installed",
     "probe_ollama",
+    "stop_ollama_if_owned",
 ]

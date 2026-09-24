@@ -246,7 +246,18 @@ class ReadinessGate:
         reachable = {status.name: status.reachable for status in deps}
         data_ready = bool(reachable.get("postgresql"))
         semantic_ready = bool(reachable.get("qdrant"))
+        # §10.7 on-demand：Ollama 不常駐——能力就緒 = 可達或已安裝可拉起；
+        # 需求路徑（ensure_ollama_ready）負責實際啟動。
         model_ready = bool(reachable.get("ollama"))
+        if not model_ready:
+            try:
+                from core_system.ollama_demand import (  # noqa: PLC0415
+                    ollama_installed,
+                )
+
+                model_ready = ollama_installed()
+            except Exception:
+                model_ready = False
         return CapabilityReadiness(
             # The information layer is usable when its canonical stores are:
             # structured authority (PostgreSQL) plus semantic index (Qdrant).

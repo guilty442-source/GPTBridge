@@ -34,27 +34,41 @@ from startup_core.phases_constants import (
 
 class PhaseMixin(StartupPhaseExecutionMixin):
     def _phase_ollama(self) -> dict[str, Any]:
+        """§10.7 on-demand：啟動階段只做唯讀探測，不 spawn。
+
+        Ollama 依 ``resident-core.json`` 歸類 on-demand——boot 時缺席屬
+        常態而非退化；能力請求經
+        ``core_system.ollama_demand.ensure_ollama_ready()`` 受治理拉起。
+        僅在未安裝（能力不存在）時回報 degraded。"""
         start = time.monotonic()
-
-        def _check_api() -> bool:
-            return self._probe_tcp("127.0.0.1", OLLAMA_PORT, timeout=OLLAMA_PROBE_TIMEOUT)
-
-        ok = _check_api()
+        ok = self._probe_tcp(
+            "127.0.0.1", OLLAMA_PORT, timeout=OLLAMA_PROBE_TIMEOUT
+        )
+        installed = True
         if not ok:
-            # §10.7: spawn 與需求啟動共用同一受治理實作（core_system.ollama_demand）。
-            from core_system.ollama_demand import _spawn_ollama
+            from core_system.ollama_demand import ollama_installed
 
-            _spawn_ollama()
-            if not self._stop.wait(timeout=1.5):
-                ok = _check_api()
+            installed = ollama_installed()
         return {
             "phase": "ollama-start",
             "label": "啟動 Ollama",
             "critical": False,
+            "on_demand": True,
+            "installed": installed,
             "ready": ok,
-            "state": "ok" if ok else "degraded",
+            "state": (
+                "ok" if ok else ("deferred" if installed else "degraded")
+            ),
             "fault_code": "OLLAMA_READY" if ok else "OLLAMA_UNREACHABLE",
-            "message": "ready" if ok else "not reachable (degradable)",
+            "message": (
+                "ready"
+                if ok
+                else (
+                    "on-demand deferred (installed)"
+                    if installed
+                    else "not installed"
+                )
+            ),
             "duration_ms": int((time.monotonic() - start) * 1000),
         }
     def _phase_postgresql(self) -> dict[str, Any]:

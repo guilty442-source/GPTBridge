@@ -148,8 +148,14 @@ class ModelLifecycle:
         if not file_path.is_file():
             raise FileNotFoundError(f"ARTIFACT_MISSING:{file_path}")
         versions = self.artifacts.setdefault(kind, {"versions": []})
+        known = [
+            int(e["version"])
+            for e in versions["versions"]
+        ] + [
+            int(e["version"]) for e in versions.get("retired", [])
+        ]
         entry = {
-            "version": len(versions["versions"]) + 1,
+            "version": (max(known) + 1) if known else 1,
             "path": str(file_path),
             "sha256": _sha256_file(file_path),
             "registered_at": _utcnow(),

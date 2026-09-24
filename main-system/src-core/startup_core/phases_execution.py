@@ -238,6 +238,16 @@ class StartupPhaseExecutionMixin:
         postgres_ok = next((r["ready"] for r in results if r["phase"] == "postgresql-start"), False)
         qdrant_ok = next((r["ready"] for r in results if r["phase"] == "qdrant-start"), False)
         ollama_ok = next((r["ready"] for r in results if r["phase"] == "ollama-start"), False)
+        # §10.7 on-demand：Ollama 缺席僅在未安裝（能力不存在）時降級；
+        # 已安裝但未運行屬 deferred 常態，等待明確需求拉起。
+        ollama_installed = next(
+            (
+                bool(r.get("installed", True))
+                for r in results
+                if r["phase"] == "ollama-start"
+            ),
+            True,
+        )
         governance_ok = next((r["ready"] for r in results if r["phase"] == "governance-audit"), False)
         environment_ok = next((r["ready"] for r in results if r["phase"] == "environment-check"), False)
         postgres_cert = next(
@@ -325,7 +335,7 @@ class StartupPhaseExecutionMixin:
 
         if not gate_ok:
             startup_state = "FAILED"
-        elif not (qdrant_ok and ollama_ok):
+        elif not qdrant_ok or not (ollama_ok or ollama_installed):
             startup_state = "DEGRADED"
         else:
             startup_state = "READY"
