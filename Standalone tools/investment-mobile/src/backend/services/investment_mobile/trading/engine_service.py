@@ -204,7 +204,7 @@ class TradingEngineService:
         if command == "investment-mobile-signal-list":
             return "signal-list", {
                 "ok": True,
-                "signals": self.strategy._read_jsonl(self.strategy._signals_path),
+                "signals": self.strategy.signals(payload.get("limit", 100)),
             }
 
         if command == "investment-mobile-proposal-submit":

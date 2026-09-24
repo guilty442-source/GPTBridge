@@ -95,6 +95,9 @@ class StrategyEngine:
         self._append_jsonl(self._signals_path, signal.to_dict())
         return {"ok": True, "signal_id": signal.signal_id, "recorded": "signal"}
 
+    def signals(self, limit: int = 100) -> list[dict[str, Any]]:
+        return self._read_jsonl(self._signals_path)[-max(1, int(limit)):]
+
     # ------------------------------------------------------------------
     def evaluate(self, signal_id: str | None = None) -> list[dict[str, Any]]:
         """Convert qualifying signals into TradeProposals (read-only)."""
