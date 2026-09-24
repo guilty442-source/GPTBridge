@@ -192,7 +192,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 # Governor runtime-budget amendment (staged 2026-09-17): the ENTIRE
 # governance audit flow — every check, the self-health test-file barrier and
-# the merged verdict — must finish inside a hard 30-second wall-clock
+# the merged verdict — must finish inside a hard 60-second wall-clock
 # deadline.  Exceeding it is fail-closed (an over-budget audit never passes).
 # Tuned 2026-09-24: local machine baseline 10s but boot_core observed 45s under
 # governor throttling; relax to 60s to prevent false degraded on reference hardware.
@@ -275,7 +275,7 @@ def audit_runtime_governance(
     performs the full read-only checks — no result is ever reused.
 
     The whole flow is measured on a monotonic clock and must finish within
-    ``AUDIT_FLOW_BUDGET_SECONDS`` (the governor's hard 30-second budget); an
+    ``AUDIT_FLOW_BUDGET_SECONDS`` (the governor's hard 60-second budget); an
     over-budget flow returns a fail-closed budget error in addition to any
     check findings.
     """

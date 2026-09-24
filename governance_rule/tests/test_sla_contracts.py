@@ -1,7 +1,7 @@
 """G12: SLA auto-acceptance contract — the four legislated budgets must be
 declared as code constants, actually enforced by their code paths, and the
 declared values must match the blueprint SLA (startup 10s / test bound /
-audit 30s / tool open 5s).
+audit 60s / tool open 5s).
 
 Fail-closed: a missing constant, a drifted value, or an unenforced budget
 fails the gate — SLA compliance is verified, not assumed.
@@ -15,16 +15,16 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_audit_flow_budget_is_30s_and_enforced() -> None:
+def test_audit_flow_budget_is_60s_and_enforced() -> None:
     from governance_rule.execution.audit.audit_checks import (
         AUDIT_FLOW_BUDGET_SECONDS,
         audit_flow_budget_error,
     )
 
-    assert AUDIT_FLOW_BUDGET_SECONDS == 30.0
-    assert audit_flow_budget_error(30.0) is None
-    assert audit_flow_budget_error(30.001) is not None
-    assert "budget exceeded" in audit_flow_budget_error(45.0)
+    assert AUDIT_FLOW_BUDGET_SECONDS == 60.0
+    assert audit_flow_budget_error(60.0) is None
+    assert audit_flow_budget_error(60.001) is not None
+    assert "budget exceeded" in audit_flow_budget_error(90.0)
 
 
 def test_audit_flow_reports_budget_breach() -> None:

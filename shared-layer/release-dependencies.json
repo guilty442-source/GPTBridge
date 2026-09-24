@@ -375,7 +375,7 @@
       "hashes": {
         "main": "0ba9f520930b1be8d985adf2e658eca594278b5c26170f1df5b08012b247b349",
         "preload": "0131242e2ff454ad92c2953efa20c09552505d2748d0936c086bfbed3cd245fe",
-        "renderer": "e1d232a58030b1aed260e7d2ccee0de428444ba54e1d4f64cfcda4f91b2521f4"
+        "renderer": "d2c2d6986fcd6b462c0d9cfb7e2fd19163bcfc473bf5abe909b138be9fdd9fca"
       },
       "renderer_asset_count": 2
     },
@@ -479,7 +479,7 @@
     "required_files": {
       "main-system/config/tool-runtime-contract.json": "3bb666c43e07ac0862fe5435d113c6bf7ebb7f25a0a37aea15564bda2fd546e1",
       "main-system/config/tool-isolation-policy.json": "6c227073a14e2599901b60555aa2e432e89b81dda86c0a88c27759ba25131e6e",
-      "main-system/config/startup_manifest.json": "2456c665da25613a4dfc4b5225783d101263b4b6a4699910b3a68c076ca6e840",
+      "main-system/config/startup_manifest.json": "a505ff512e300fa94c737a9c83ea5b61b68f1fb2d26b7fea469f747de89ba23c",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
