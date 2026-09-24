@@ -98,6 +98,11 @@ class BootCore(
         self._connection_watchdog: Any = None
         self._child_output: list[str] = []
         self._child_output_lock = threading.Lock()
+        # Latched by _probe_health when the backend reports startup_dead —
+        # terminal for that generation (the flag never unlatches), so the
+        # monitor can terminate immediately instead of waiting the full
+        # dead-grace budget on a generation that can never become healthy.
+        self._backend_startup_dead = False
         self._http_opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({})
         )
@@ -212,6 +217,7 @@ class BootCore(
 
         child_started_at = time.monotonic()
         self._backend_healthy = False
+        self._backend_startup_dead = False
         self._unhealthy_since = time.monotonic()
         self._status = "backend-running"
         self._gateway.activate(self._active_backend_port, self._active_generation)
@@ -276,6 +282,12 @@ class BootCore(
             if self._maybe_handover(args, startup_state):
                 dead_generation = False
                 continue
+            if self._backend_startup_dead:
+                # startup_dead latches permanently once the generation
+                # fails — waiting the full grace only delays the retry.
+                dead_generation = True
+                self._terminate_child()
+                break
             if (
                 not self._backend_healthy
                 and self._unhealthy_since is not None

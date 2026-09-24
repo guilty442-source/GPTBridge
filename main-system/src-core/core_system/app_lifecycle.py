@@ -187,6 +187,12 @@ class AppLifecycleMixin:
             )
         else:
             self._startup_epoch = time.monotonic()
+        # Segment timing: boot_epoch -> app construction covers pre-spawn
+        # gates + spawn + interpreter + module imports — the previously
+        # unmeasured segment that consumed the startup deadline.
+        self._startup_pre_construct_ms = int(
+            (time.monotonic() - self._startup_epoch) * 1000
+        )
         self.startup_phase_active_since = time.monotonic()
         self.startup_phase_history: list[dict[str, Any]] = []
         self._shutdown_started = False

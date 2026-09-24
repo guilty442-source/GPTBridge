@@ -44,6 +44,7 @@ class StartupResult:
     failure_phase: str = ""
     handoff: dict[str, Any] = field(default_factory=dict)
     violations: list[str] = field(default_factory=list)
+    pre_executor_ms: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +57,7 @@ class StartupResult:
             "failure_phase": self.failure_phase,
             "handoff": self.handoff,
             "violations": self.violations,
+            "pre_executor_ms": self.pre_executor_ms,
         }
 
 

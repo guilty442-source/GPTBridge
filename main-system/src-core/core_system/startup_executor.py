@@ -144,6 +144,27 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
         # (app construction / sequence entry), pre-executor work consumes
         # the same 10 s budget — never a second, hidden clock.
         started = deadline_epoch if deadline_epoch is not None else time.monotonic()
+        # Segment timing evidence: how much of the single monotonic
+        # deadline was already consumed before the executor ran (pre-spawn
+        # gates + spawn + imports + listener + sovereign stack).  This
+        # segment was previously invisible — deadline-exceeded failures
+        # showed every phase missing without explaining where the time
+        # went.
+        pre_executor_ms = int((time.monotonic() - started) * 1000)
+        try:
+            self.app._log(
+                {
+                    "type": "startup_pre_executor",
+                    "pre_executor_ms": pre_executor_ms,
+                    "pre_construct_ms": getattr(
+                        self.app, "_startup_pre_construct_ms", None
+                    ),
+                    "deadline_ms": deadline_ms,
+                    "timestamp": _iso_now(),
+                }
+            )
+        except Exception:
+            pass
 
         self._generation = StartupGeneration(
             generation_id=generation_id,
@@ -160,6 +181,7 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
             generation_id=generation_id,
             ok=False,
             deadline_ms=deadline_ms,
+            pre_executor_ms=pre_executor_ms,
         )
         handlers = self._handlers()
 

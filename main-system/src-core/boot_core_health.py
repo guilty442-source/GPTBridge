@@ -55,6 +55,10 @@ class BootCoreHealthMixin:
                 with response_ctx as response:
                     payload = json.loads(response.read().decode("utf-8"))
             if payload.get("startup_dead") is True:
+                # Terminal latch — the backend never clears startup_dead,
+                # so the monitor can fail this generation fast instead of
+                # burning the whole dead-grace budget on a corpse.
+                self._backend_startup_dead = True
                 return False
             # Full readiness (frontend connected) is the strongest signal.
             if (

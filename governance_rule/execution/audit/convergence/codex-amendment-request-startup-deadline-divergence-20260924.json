@@ -56,7 +56,11 @@
   "runtime resolution path: governed_startup_constant reads metadata.startup_complete_deadline_ms codex-first with manifest fallback",
   "code constant STARTUP_HARD_DEADLINE_MS=10000 unchanged; SLA test pins it at 10000 and passes",
   "governance_rule/codex/architecture-languages.md normative text still legislates 啟動上限十秒/各獨立審計流程上限三十秒 — the human-language codex corpus retains the pre-retune values for both deadlines",
-  "related: AUDIT_FLOW_BUDGET_SECONDS was governor-retuned 30->60s (documented in audit_checks.py); architecture-languages.md still states 三十秒 — same divergence class"
+  "related: AUDIT_FLOW_BUDGET_SECONDS was governor-retuned 30->60s (documented in audit_checks.py); architecture-languages.md still states 三十秒 — same divergence class",
+  "operational evidence 2026-09-24: three consecutive startup generations at 05:49-05:51Z failed deadline-exceeded with ALL phases missing (phase-0 never ran) — pre-executor overhead (pre-spawn gates + spawn + imports + listener + sovereign stack) alone exceeded the deadline; successful generation at 05:58Z measured elapsed_ms=21658 with phases summing only 3297ms (~18.4s pre-executor/inter-phase overhead)",
+  "death-loop mechanics confirmed: deadline-exceeded latches startup_dead -> /health reports dead -> boot_core waits full 45s dead-grace -> terminate -> respawn; repair-requests.json accumulated 263 STARTUP_CRASH entries since 2026-09-14, mostly this loop",
+  "separate instant-crash mode observed: 17 consecutive exit_code=1 uptime=0 crashes 05:14-05:18Z with empty diagnosis (process died before logging init; coincides with heavy in-tree worker churn)",
+  "instrumentation added: startup_pre_executor log record + StartupResult.pre_executor_ms now expose the pre-executor segment on every attempt; boot_core fast-fails on startup_dead latch instead of waiting the full grace"
  ],
  "worker_note": "Draft produced by devin-cli audit worker; requires governor authorization before any normalization. The worker did not modify the codex or the manifest; the manifest delta observed in the working tree follows the already-amended metadata value.",
  "codex_mutation": "none"
