@@ -202,6 +202,18 @@
    ],
    "authority": "2026-09-23T03:13:43Z (consolidated)",
    "codex_changed": false
+  },
+  "round_12_resource_governor": {
+   "date": "2026-09-24",
+   "scope": "resource-governor mode-preset feature convergence (worker in-flight feature now settled)",
+   "checks": [
+    "load_rules() contract extended to 4-tuple (defaults, programs, error, mode): mode selects modes[] preset (low/medium/high), explicit defaults keys override preset, CLI flags override both; unknown mode fails closed to monitoring-only",
+    "single caller govern_once() already on 4-tuple; mode surfaced in monitoring snapshot",
+    "stale tests aligned: 4-tuple unpack; feature-gated tests now pass a missing rules path to isolate from the live rules file, which legitimately defaults to the medium preset (probalance/limiter/bg/ecoqos enabled)",
+    "mode consumers verified end-to-end: governor_mode()/set_governor_mode() persist+audit; IPC app:get-resource-mode/app:set-resource-mode wired in automation_handler; automation-flows.json declares resource-mode-advisor flow; auto_mode=false keeps advisor inert (manual mode wins)"
+   ],
+   "result": "test_resource_governor 18 passed / 1 skipped; project contract matrix 126 passed; commit 26e11b96",
+   "authority": "2026-09-23T03:13:43Z unchanged"
   }
  }
 }
