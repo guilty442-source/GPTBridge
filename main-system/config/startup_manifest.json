@@ -72,7 +72,7 @@
     "startup_dead_grace_seconds": 45.0
   },
   "governed_startup": {
-    "startup_complete_deadline_ms": 20000,
+    "startup_complete_deadline_ms": 40000,
     "phase_budget_ms": {
       "phase-0-local-preflight": 400,
       "phase-1-minimal-information-bootstrap": 400,

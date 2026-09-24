@@ -9,7 +9,6 @@ import { useAppState } from '@/ui/useAppState'
 import { XingchengDrawer } from '@/ui/AppXingchengDrawer'
 import { CapacityDrawer } from '@/ui/AppCapacityDrawer'
 import { AppSloDrawer } from '@/ui/AppSloDrawer'
-import { ExternalCollaborationPanel } from '@/ui/panel/ExternalCollaborationPanel'
 import { SagaVisualizerPanel } from '@/ui/panel/SagaVisualizerPanel'
 import { ModuleBoundary } from '@/shared/components/ModuleBoundary'
 import { useRuntimeStatusField } from '@/shared/hooks/useRuntimeStatusField'
@@ -22,7 +21,6 @@ const tp = mainSystemLocale.thirdParty
 const xr = mainSystemLocale.xingchengReport
 const app = mainSystemLocale.app
 const tb = mainSystemLocale.toolbox
-const ec = mainSystemLocale.externalCollaboration
 
 function displayVersion(value: string): string {
   const match = /^(\d+)\.(\d+)(?:\.\d+)?$/.exec(value.trim())
@@ -160,7 +158,6 @@ export default function App() {
   const [drawerCapacity, setDrawerCapacity] = useState(false)
   const [drawerSlo, setDrawerSlo] = useState(false)
   const [drawerThirdParty, setDrawerThirdParty] = useState(false)
-  const [drawerExternalCollaboration, setDrawerExternalCollaboration] = useState(false)
   const [drawerSagaVisualizer, setDrawerSagaVisualizer] = useState(false)
 
   return (
@@ -313,20 +310,6 @@ export default function App() {
           <button
             type="button"
             className="drawer-trigger"
-            onClick={() => setDrawerExternalCollaboration(true)}
-          >
-            <span className="drawer-trigger__icon" aria-hidden="true">{ec.icon}</span>
-            <span className="drawer-trigger__text">
-              <strong>{ec.title}</strong>
-              <small>{ec.subtitle}</small>
-            </span>
-            <svg className="drawer-trigger__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="drawer-trigger"
             onClick={() => setDrawerThirdParty(true)}
           >
             <span className="drawer-trigger__icon" aria-hidden="true">T</span>
@@ -404,16 +387,6 @@ export default function App() {
         <ThirdPartyPanel
           open={drawerThirdParty}
           onClose={() => setDrawerThirdParty(false)}
-          sendCommand={sendCommand}
-          waitForIpcEvent={waitForIpcEvent}
-          backendSocket={backendSocket}
-        />
-      </ModuleBoundary>
-
-      <ModuleBoundary name={ec.moduleBoundaryName}>
-        <ExternalCollaborationPanel
-          open={drawerExternalCollaboration}
-          onClose={() => setDrawerExternalCollaboration(false)}
           sendCommand={sendCommand}
           waitForIpcEvent={waitForIpcEvent}
           backendSocket={backendSocket}

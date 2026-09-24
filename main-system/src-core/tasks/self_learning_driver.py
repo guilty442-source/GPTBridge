@@ -66,6 +66,12 @@ _WAKE_BACKOFF_CAP_S = 7200.0
 # 未消訖回應的請求上限——有未結請求時不再疊加新請求。
 _MAX_OUTSTANDING = 4
 _MAX_RESULT_LEDGER = 16
+# 在飛請求的最大年齡：train_time_budget（政策 7200s）＋排隊/喚醒裕度。
+# 超齡視為遺失（列被頻外清除、工具消亡）——不永久阻斷後續循環。
+_OUTSTANDING_MAX_AGE_S = 6 * 3600.0
+# 請求已提交但工具未被喚醒的認領超時：超過則允許再次嘗試喚醒，
+# 讓重啟的 runtime 認領仍 queued 的列（lease 回收也依賴工具在跑）。
+_QUEUED_WAKE_RETRY_S = 600.0
 
 
 def _iso_now() -> str:
@@ -122,6 +128,7 @@ class SelfLearningDriver:
         toolbox_service: Any,
         *,
         project_root: Path | None = None,
+        state_path: Path | None = None,
     ) -> None:
         self.app = app
         self.toolbox = toolbox_service
@@ -129,8 +136,10 @@ class SelfLearningDriver:
             project_root or getattr(app, "project_root", "")
         ).resolve()
         self._tool_root = root / "Standalone tools" / "local-model"
+        self._state_path = Path(state_path) if state_path else _STATE_FILE
         self._registered = False
-        self._outstanding: list[str] = []
+        # request_id -> monotonic submit time；超齡未消訖視為遺失。
+        self._outstanding: dict[str, float] = {}
         self._wake_streak = 0
         self._next_wake_at = 0.0
         self._last_decision = ""
@@ -199,6 +208,16 @@ class SelfLearningDriver:
             return f"not-due:{not_due}"
 
         if self._outstanding:
+            # 請求在飛不重複提交。但列還停在 queued、工具又冷停時，
+            # lease/claim 無人執行——允許過認領超時後再次喚醒，讓
+            # 重啟的 runtime 消化既有 queued 請求（suppression 閘
+            # 仍由 _wake_owner 判定）。
+            oldest = min(self._outstanding.values())
+            if (
+                time.monotonic() - oldest >= _QUEUED_WAKE_RETRY_S
+                and not await self._owner_active()
+            ):
+                await self._wake_owner()
             return "request-outstanding"
 
         if not await self._owner_active():
@@ -330,7 +349,9 @@ class SelfLearningDriver:
                 or "queue rejected"
             )
             return "queue-failed"
-        self._outstanding.append(request_id)
+        if len(self._outstanding) >= _MAX_OUTSTANDING:
+            return "outstanding-limit"
+        self._outstanding[request_id] = time.monotonic()
         return "queued"
 
     async def _drain_results(self) -> None:
@@ -340,8 +361,8 @@ class SelfLearningDriver:
         sovereign = getattr(self.toolbox, "permission_sovereign", None)
         if sovereign is None:
             return
-        remaining: list[str] = []
-        for request_id in self._outstanding[-_MAX_OUTSTANDING:]:
+        now = time.monotonic()
+        for request_id, submitted_at in list(self._outstanding.items()):
             try:
                 response = await asyncio.to_thread(
                     sovereign.tool_execution_response,
@@ -369,9 +390,24 @@ class SelfLearningDriver:
                         "error"
                     )
                 self._results.append(entry)
-            else:
-                remaining.append(request_id)
-        self._outstanding = remaining
+                del self._outstanding[request_id]
+            elif now - submitted_at >= _OUTSTANDING_MAX_AGE_S:
+                # 回應永遠不會到達（列遺失/工具消亡）——記為 lost 並放行
+                # 下一循環；否則一個幽靈請求會永久凍結排程。
+                self._results.append(
+                    {
+                        "request_id": request_id,
+                        "status": "lost",
+                        "at": _iso_now(),
+                        "reason": "response never arrived "
+                        f"(age>{int(_OUTSTANDING_MAX_AGE_S)}s)",
+                    }
+                )
+                _logger.warning(
+                    "self-learning request %s expired without response",
+                    request_id,
+                )
+                del self._outstanding[request_id]
         self._results = self._results[-_MAX_RESULT_LEDGER:]
 
     # ------------------------------------------------------------------
@@ -383,7 +419,13 @@ class SelfLearningDriver:
             "registered": self._registered,
             "last_decision": self._last_decision,
             "last_error": self._last_error or None,
-            "outstanding": list(self._outstanding),
+            "outstanding": [
+                {
+                    "request_id": rid,
+                    "age_s": round(time.monotonic() - submitted, 1),
+                }
+                for rid, submitted in self._outstanding.items()
+            ],
             "wake_streak": self._wake_streak,
             "next_wake_in_s": max(
                 0.0, round(self._next_wake_at - time.monotonic(), 1)
@@ -402,16 +444,17 @@ class SelfLearningDriver:
         if fingerprint == self._last_write_fingerprint:
             return
         self._last_write_fingerprint = fingerprint
-        temporary = _STATE_FILE.with_name(
-            _STATE_FILE.name + f".{os.getpid()}.tmp"
+        state_path = self._state_path
+        temporary = state_path.with_name(
+            state_path.name + f".{os.getpid()}.tmp"
         )
         try:
-            _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
             temporary.write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
-            os.replace(temporary, _STATE_FILE)
+            os.replace(temporary, state_path)
         except OSError:
             try:
                 temporary.unlink()

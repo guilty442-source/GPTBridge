@@ -60,12 +60,12 @@ class LocalAiLifecycleMixin:
                 "action": "already-running",
                 "reason": "another self-learning cycle is in flight",
             }
-        try:
-            result = await asyncio.to_thread(
-                self._run_self_learning_cycle, payload
-            )
-        finally:
-            lock.release()
+        # 鎖的釋放在執行緒函式內的 finally——若 governed worker 取消本
+        # coroutine（request_cancelled），to_thread 的訓練執行緒仍在跑；
+        # 在 coroutine 層釋放會讓下一輪請求誤判空閒而並行第二輪訓練。
+        result = await asyncio.to_thread(
+            self._run_self_learning_cycle, payload
+        )
         return "xingcheng_self_learning_cycle_result", result
 
     def _run_self_learning_cycle(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -84,6 +84,8 @@ class LocalAiLifecycleMixin:
                 "action": "error",
                 "error": f"{type(exc).__name__}: {exc}",
             }
+        finally:
+            self._self_learning_cycle_lock.release()
 
     async def start(self) -> None:
         await asyncio.gather(
