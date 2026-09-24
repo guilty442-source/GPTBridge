@@ -1,0 +1,38 @@
+{
+  "id": "a502-baseline-reanchor-evidence-20260924",
+  "date": "2026-09-24",
+  "worker": "devin-cli",
+  "subject": "A502 schema-hash invariant remediation — live drift quantification and required re-anchor path",
+  "invariant": "metadata.postgresql_schema_authority_invariant: current_postgresql_schema_hash==ordered_verified_migrations_result_hash",
+  "live_state": {
+    "declared_ordered_verified_migrations_result_hash": "026ba131ee5fce5741dd293a2a5e7c617f028fc6d1addca5322c2254f47dcbda",
+    "declared_terminal_migration": "MIG_PG_000049 (sequence 49, status ordered-source-verified)",
+    "current_postgresql_schema_hash_status": "UNVERIFIED_FAIL_CLOSED",
+    "sql_migration_receipt_registry_rows": 0,
+    "registered_migrations": "sql_migration_registry sequences 0..49 (MIG_PG_BASELINE_000000 .. MIG_PG_000049)",
+    "migration_files_on_disk": "shared-layer/migrations 001..144+ (147 files)",
+    "unregistered_migrations": "~95 files (050_unified_lifecycle_state.sql .. 144_autotrading_center.sql) applied to the live shared PostgreSQL but absent from the registered chain",
+    "schema_object_registry_drift": {
+      "declared_active_objects": 323,
+      "live_objects": 717,
+      "live_not_declared": 698,
+      "declared_not_live": 304,
+      "notes": "registry schema_name mixes logical domains (engine/registry/module_private) with pg schemas; live includes 429 gptbridge_codex + 92 gptbridge_trading objects entirely absent from the registry, and 304 declared objects whose names no longer resolve under the recorded namespace — consistent with ~95 unregistered migrations of schema evolution"
+    },
+    "business_receipt_surface": "gptbridge_rag.migration_receipts (written by core_system.sql_governance.migration.MigrationExecutor) does not exist in the live database — no migration has ever been executed through the governed executor on this cluster"
+  },
+  "hash_recipe_findings": {
+    "canonicalization_contract": "sql_ddl_canonicalization_registry SQL_DDL_CANONICALIZATION_V1 (active): SHA-256; lowercase-unquoted identifiers, sorted-by-type-name-definition constraints, pg_get_functiondef/pg_get_indexdef/pg_get_triggerdef normalized, normalized expressions, qual+with-check+roles+command policies",
+    "migration_source_hash": "verified = sha256(migration file bytes) — reproduced for 001/002",
+    "target_schema_hash": "NOT reproducible from repository code — neither sha256(source+source_hash), canonical-json pair, nor information_schema dumps match; produced by governor-side replay tooling not present in this repo",
+    "current_definition_hash": "per-object declared hashes in sql_schema_object_registry likewise not reproducible from repo code",
+    "conclusion": "the exact aggregate recipe for current_postgresql_schema_hash is governor-side; any recipe invented implementation-side would define a different constant and cannot satisfy the declared 026ba131"
+  },
+  "required_remediation_path": [
+    "governor stamps or amends the canonical current_postgresql_schema_hash recipe (aggregate over SQL_DDL_CANONICALIZATION_V1 object digests)",
+    "baseline re-anchor migration registered in sql_migration_registry + sql_migration_authority_registry: either (a) MIG_PG_000050 baseline-reanchor capturing the live state as the new verified baseline, or (b) registration rows for every unregistered migration 050..144 recomputing the chain",
+    "execute the verification migration through the governed executor so a live receipt lands in sql_migration_receipt_registry (source_hash=live, observed_target_hash=expected, transaction_result=COMMITTED, verification_result=PASS)",
+    "amend metadata.current_postgresql_schema_hash_status to VERIFIED only after the live receipt exists; until then UNVERIFIED_FAIL_CLOSED is the correct state"
+  ],
+  "worker_assessment": "A502 is fail-closed by design and correctly latched. Implementation-side cannot fabricate the governor hash recipe or the receipt; the deliverable produced is this quantified drift evidence plus the staged amendment path. A re-anchor amendment draft requires governor-side hash values and must not carry invented constants."
+}
