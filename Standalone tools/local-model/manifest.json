@@ -24,11 +24,6 @@
       "id": "xingcheng",
       "path": "xingcheng",
       "companion_owner": "local-model"
-    },
-    {
-      "id": "model-dialogue",
-      "path": "model-dialogue",
-      "companion_owner": "local-model"
     }
   ],
   "shared_permission_owner": "local-model",

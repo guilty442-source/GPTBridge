@@ -16,7 +16,7 @@ public abstract class BrokerAdapterBase : IBrokerAdapter
     /// official broker API has been validated — never self-certified.</summary>
     public bool ApiVerified { get; internal set; }
 
-    public virtual BrokerOrderResult PlaceOrder(ManagedOrder order)
+    public virtual BrokerOrderResult PlaceOrder(OrderRequest order)
     {
         if (!ApiVerified)
             return new BrokerOrderResult(
@@ -24,29 +24,31 @@ public abstract class BrokerAdapterBase : IBrokerAdapter
         return PlaceVerified(order);
     }
 
-    protected virtual BrokerOrderResult PlaceVerified(ManagedOrder order)
+    protected virtual BrokerOrderResult PlaceVerified(OrderRequest order)
         => new(false, "BROKER_NOT_CONNECTED", null);
 }
 
 public sealed class CathaySecuritiesAdapter : BrokerAdapterBase
 {
-    public override string BrokerId => "cathay-tw";
+    public override string BrokerId => "CATHAY_SECURITIES";
     public override string Market => "tw";
-    public override string Label => "國泰綜合證券";
+    public override string Label => "國泰綜合證券（台股）";
 }
 
 public sealed class FubonSubBrokerageAdapter : BrokerAdapterBase
 {
-    public override string BrokerId => "fubon-us-sub";
+    public override string BrokerId => "FUBON_SUBBROKERAGE";
     public override string Market => "us";
-    public override string Label => "富邦證券複委託";
+    public override string Label => "富邦證券複委託（美股）";
 }
 
+/// <summary>Generic fund platform — provider undecided, never hardcoded
+/// to Cathay/Fubon; manual import until a provider API is verified.</summary>
 public sealed class FundPlatformAdapter : BrokerAdapterBase
 {
     public FundPlatformAdapter(string platformId) => PlatformId = platformId;
     public string PlatformId { get; }
-    public override string BrokerId => $"fund-platform-{PlatformId}";
+    public override string BrokerId => $"MUTUAL_FUND_PROVIDER:{PlatformId}";
     public override string Market => "fund";
-    public override string Label => "基金平台（可擴充）";
+    public override string Label => $"共同基金平台（{PlatformId}）";
 }

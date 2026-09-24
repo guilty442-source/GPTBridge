@@ -220,7 +220,7 @@ class OrderManagementSystem:
         return {"ok": True, "order_id": order.order_id, "receipt": receipt.to_dict()}
 
     # ------------------------------------------------------------------
-    def record_fill(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def record_execution(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Broker-reported execution (LIVE) — matched to a submitted order."""
         order_id = str(payload.get("order_id") or "")
         order = next((o for o in self._open_orders if o.order_id == order_id), None)

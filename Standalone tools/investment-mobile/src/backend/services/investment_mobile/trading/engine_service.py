@@ -57,7 +57,7 @@ class TradingEngineService:
             "investment-mobile-risk-evaluate",
             "investment-mobile-order-submit",
             "investment-mobile-order-list",
-            "investment-mobile-fill-record",
+            "investment-mobile-execution-record",
             # portfolio domain
             "investment-mobile-positions",
             "investment-mobile-portfolio-snapshot",
@@ -256,8 +256,8 @@ class TradingEngineService:
                 "executions": self.oms.executions(),
             }
 
-        if command == "investment-mobile-fill-record":
-            return "execution", self.oms.record_fill(payload)
+        if command == "investment-mobile-execution-record":
+            return "execution", self.oms.record_execution(payload)
 
         # ---------------- portfolio ----------------
         if command == "investment-mobile-positions":
