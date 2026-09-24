@@ -14,6 +14,7 @@ from .collab_svc_coordination import CollabSvcCoordinationMixin
 from .collab_svc_browser import CollabSvcBrowserMixin
 from .collab_svc_memory import CollabSvcMemoryMixin
 from .collab_svc_diagnostics import CollabSvcDiagnosticsMixin
+from .collab_orchestrator import CollabOrchestratorMixin
 
 __all__ = ["AiCollaborationService"]
 
@@ -66,6 +67,7 @@ class AiCollaborationService(
     CollabSvcBrowserMixin,
     CollabSvcMemoryMixin,
     CollabSvcDiagnosticsMixin,
+    CollabOrchestratorMixin,
 ):
     VERSION = _service_version()
     MAX_PARALLEL_AI = 6
@@ -93,6 +95,10 @@ class AiCollaborationService(
         "ai_nexus_add_agent",
         "ai_nexus_update_agent_business_settings",
         "ai_nexus_send_message",
+        "ai_nexus_collab_start",
+        "ai_nexus_collab_cancel",
+        "ai_nexus_collab_manual_result",
+        "ai_nexus_collab_resume",
         "ai_nexus_complete_browser_response",
         "ai_nexus_add_memory",
         "ai_nexus_create_task",
@@ -118,6 +124,20 @@ class AiCollaborationService(
         self._request_messages: dict[str, str] = {}
         self._send_inflight: dict[str, asyncio.Task] = {}
         self._send_results: dict[str, tuple[float, dict[str, Any]]] = {}
+        # Collaboration orchestrator state (Phase 2).
+        from ..domain.result_comparator import CollaborationResultComparator
+        from ..domain.result_synthesizer import CollaborationResultSynthesizer
+
+        self._collab_tasks: dict[str, dict[str, Any]] = {}
+        self._comparator = CollaborationResultComparator()
+        self._synthesizer = CollaborationResultSynthesizer()
+        self._runtime_pool: Any | None = None
+        # Tombstone tasks left running by a dead runtime generation; their
+        # completed provider replies stay resumable via collab_resume.
+        try:
+            self.repository.interrupted_collab_tasks(self._runtime_generation)
+        except Exception:
+            pass
 
     @property
     def runtime_generation(self) -> str:
@@ -136,6 +156,21 @@ class AiCollaborationService(
         if not request_id:
             return False
         message_id = self._request_messages.get(request_id)
+        # The id may map to a collaboration task rather than a group message.
+        if message_id and self.repository.get_collab_task(message_id):
+            tracking = self._collab_tasks.get(message_id)
+            if tracking is not None:
+                tracking["cancelled"] = True
+            pool = self._runtime_pool
+            if pool is not None:
+                for runtime in pool._runtimes.values():
+                    if runtime.state not in {"completed", "failed", "cancelled"}:
+                        await runtime.cancel(request_id)
+            self.repository.update_collab_task(
+                message_id, status="cancelled",
+                fault_reference="REQUEST_CANCELLED", completed=True,
+            )
+            return True
         if not message_id:
             return False
         cancelled = self.repository.cancel_pending_responses(message_id)
@@ -218,6 +253,10 @@ class AiCollaborationService(
             "ai_nexus_add_agent": self._add_agent,
             "ai_nexus_update_agent_business_settings": self._update_agent_business_settings,
             "ai_nexus_send_message": self._send_message,
+            "ai_nexus_collab_start": self._collab_start,
+            "ai_nexus_collab_cancel": self._collab_cancel,
+            "ai_nexus_collab_manual_result": self._collab_manual_result,
+            "ai_nexus_collab_resume": self._collab_resume,
             "ai_nexus_complete_browser_response": self._complete_browser_response,
             "ai_nexus_add_memory": self._add_memory,
             "ai_nexus_create_task": self._create_task,

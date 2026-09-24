@@ -8,6 +8,7 @@ from .collab_repo_schema import CollabRepoSchemaMixin
 from .collab_repo_agents import CollabRepoAgentsMixin
 from .collab_repo_messages import CollabRepoMessagesMixin
 from .collab_repo_memory_tasks import CollabRepoMemoryTasksMixin
+from .collab_repo_collab import CollabRepoTasksMixin
 
 __all__ = ["AiCollaborationRepository", "DEFAULT_AGENTS", "utc_now"]
 
@@ -17,6 +18,7 @@ class AiCollaborationRepository(
     CollabRepoAgentsMixin,
     CollabRepoMessagesMixin,
     CollabRepoMemoryTasksMixin,
+    CollabRepoTasksMixin,
 ):
     def __init__(self, project_root: Path) -> None:
         self.db_path = project_root / "runtime" / "state" / "ai_collaboration.sqlite3"

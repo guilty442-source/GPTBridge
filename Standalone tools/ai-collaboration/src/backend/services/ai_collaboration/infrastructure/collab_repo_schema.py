@@ -118,6 +118,49 @@ _SCHEMA_SCRIPT = """
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS ai_nexus_collab_tasks (
+                    task_id TEXT PRIMARY KEY,
+                    request_id TEXT NOT NULL DEFAULT '',
+                    mode TEXT NOT NULL,
+                    selected_providers_json TEXT NOT NULL DEFAULT '[]',
+                    original_request TEXT NOT NULL DEFAULT '',
+                    task_generation TEXT NOT NULL DEFAULT '',
+                    attempt_id TEXT NOT NULL DEFAULT '',
+                    overall_status TEXT NOT NULL DEFAULT 'created',
+                    comparison_json TEXT NOT NULL DEFAULT '{}',
+                    synthesis_json TEXT NOT NULL DEFAULT '{}',
+                    summary_reference TEXT NOT NULL DEFAULT '',
+                    fault_reference TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    started_at TEXT NOT NULL DEFAULT '',
+                    completed_at TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_ai_nexus_collab_tasks_created
+                ON ai_nexus_collab_tasks(created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS ai_nexus_collab_results (
+                    result_pk TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    request_id TEXT NOT NULL DEFAULT '',
+                    provider_id TEXT NOT NULL,
+                    response_id TEXT NOT NULL DEFAULT '',
+                    attempt_id TEXT NOT NULL DEFAULT '',
+                    response_text TEXT NOT NULL DEFAULT '',
+                    response_status TEXT NOT NULL DEFAULT '',
+                    capture_method TEXT NOT NULL DEFAULT '',
+                    captured_at TEXT NOT NULL DEFAULT '',
+                    completion_evidence TEXT NOT NULL DEFAULT '',
+                    adapter_version TEXT NOT NULL DEFAULT '',
+                    content_class TEXT NOT NULL DEFAULT 'UNTRUSTED_EXTERNAL_CONTENT',
+                    suggested_actions_json TEXT NOT NULL DEFAULT '[]',
+                    created_at TEXT NOT NULL,
+                    UNIQUE(task_id, provider_id, attempt_id),
+                    FOREIGN KEY(task_id) REFERENCES ai_nexus_collab_tasks(task_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_ai_nexus_collab_results_task
+                ON ai_nexus_collab_results(task_id);
                 """
 
 

@@ -39,6 +39,40 @@ type GroupMessage = {
   responses?: ResponseItem[]
 }
 
+type CollabResult = {
+  provider_id?: string
+  response_id?: string
+  response_text?: string
+  response_status?: string
+  capture_method?: string
+  captured_at?: string
+  adapter_version?: string
+  error_code?: string
+}
+
+type CollabComparison = {
+  common_points?: { text?: string; sources?: string[] }[]
+  differences?: { text?: string; source_provider?: string }[]
+  contradictions?: {
+    topic?: string[]
+    statements?: { provider_id?: string; text?: string }[]
+  }[]
+  unanswered_questions?: { question?: string; raised_by?: string }[]
+}
+
+type CollabTask = {
+  task_id?: string
+  request_id?: string
+  mode?: string
+  selected_providers?: string[]
+  original_request?: string
+  overall_status?: string
+  fault_reference?: string
+  provider_results?: CollabResult[]
+  comparison?: CollabComparison
+  synthesis?: { method?: string; summary?: string }
+}
+
 type CollaborationState = {
   ok?: boolean
   message?: string
@@ -47,7 +81,17 @@ type CollaborationState = {
   message_id?: string
   group_message?: GroupMessage
   runtime_generation?: string
+  collab_tasks?: CollabTask[]
+  task?: CollabTask
 }
+
+const COLLAB_MODES = [
+  { id: 'single', label: '單一 AI' },
+  { id: 'compare', label: '多 AI 比較' },
+  { id: 'sequential_review', label: '依序審查' },
+] as const
+
+type CollabMode = (typeof COLLAB_MODES)[number]['id']
 
 const PROMPT_PRESETS = [
   {
@@ -81,6 +125,9 @@ function responseLabel(status: string): string {
   if (status === 'failed') return '失敗'
   if (status === 'cancelled') return '已取消'
   if (status === 'opened') return '已開啟'
+  if (status === 'waiting_user') return '等待使用者'
+  if (status === 'aggregating') return '彙整中'
+  if (status === 'partial') return '部分完成'
   return '待命'
 }
 
@@ -148,6 +195,9 @@ export function AiCollaborationWindowApp() {
   const [newAgentProvider, setNewAgentProvider] = useState('')
   const [newAgentUrl, setNewAgentUrl] = useState('')
   const [draft, setDraft] = useState('')
+  const [collabMode, setCollabMode] = useState<CollabMode>('single')
+  const [collabTasks, setCollabTasks] = useState<CollabTask[]>([])
+  const [activeTaskId, setActiveTaskId] = useState('')
   const [message, setMessage] = useState('AI協作工具已就緒')
   const [messageId, setMessageId] = useState('')
   const [responses, setResponses] = useState<ResponseItem[]>([])
@@ -156,6 +206,7 @@ export function AiCollaborationWindowApp() {
   const loadedSelectionRef = useRef(false)
   const messageIdRef = useRef('')
   const inflightRequestRef = useRef('')
+  const activeTaskIdRef = useRef('')
 
   const selectedAgentList = useMemo(
     () => agents.filter((agent) => selectedAgents.has(agent.agent_id)),
@@ -166,6 +217,13 @@ export function AiCollaborationWindowApp() {
     [agents]
   )
   const selectedAgentSummary = `${selectedAgentList.length} / ${agents.length}`
+  const activeTask = useMemo(
+    () =>
+      collabTasks.find(
+        (item) => String(item.task_id || '') === activeTaskId
+      ) || null,
+    [collabTasks, activeTaskId]
+  )
 
   const request = useCallback(
     async (
@@ -207,6 +265,9 @@ export function AiCollaborationWindowApp() {
   const applyState = useCallback((state: CollaborationState) => {
     const nextAgents = Array.isArray(state.agents) ? state.agents : []
     setAgents(nextAgents)
+    if (Array.isArray(state.collab_tasks)) {
+      setCollabTasks(state.collab_tasks)
+    }
     if (!loadedSelectionRef.current && nextAgents.length > 0) {
       loadedSelectionRef.current = true
       setSelectedAgents(
@@ -532,32 +593,37 @@ export function AiCollaborationWindowApp() {
       setMessage('請至少選擇一個 AI')
       return
     }
-    const requestId = `ai_nexus_send_message:${Date.now()}:${Math.random()
+    const selectedProviders = selectedAgentList.map((agent) => agent.provider)
+    if (collabMode !== 'single' && selectedProviders.length < 2) {
+      setMessage('此模式至少需要兩個 AI')
+      return
+    }
+    const requestId = `ai_nexus_collab_start:${Date.now()}:${Math.random()
       .toString(16)
       .slice(2)}`
     inflightRequestRef.current = requestId
     setBusyAction('send')
-    setMessage(`正在交給 ${selectedAgents.size} 個 AI 協作...`)
+    setMessage(`正在交給 ${selectedProviders.length} 個 AI 協作...`)
     try {
       const result = (await request(
-        'ai_nexus_send_message',
+        'ai_nexus_collab_start',
         {
           content: draft,
-          agent_ids: Array.from(selectedAgents),
-          business_scope: 'general',
-          business_task: 'general',
+          provider_ids: selectedProviders,
+          mode: collabMode,
           request_id: requestId,
+          idempotency_key: requestId,
         },
-        180000
+        300000
       )) as CollaborationState
       if (result.ok === false) throw new Error(String(result.message || '送出失敗'))
-      const groupMessage = result.group_message || {}
-      const nextMessageId = String(groupMessage.message_id || result.message_id || '')
-      if (nextMessageId) {
-        messageIdRef.current = nextMessageId
-        setMessageId(nextMessageId)
+      const task = result.task || {}
+      const nextTaskId = String(task.task_id || '')
+      if (nextTaskId) {
+        activeTaskIdRef.current = nextTaskId
+        setActiveTaskId(nextTaskId)
       }
-      if (Array.isArray(groupMessage.responses)) setResponses(groupMessage.responses)
+      if (Array.isArray(result.collab_tasks)) setCollabTasks(result.collab_tasks)
       setDraft('')
       if (Array.isArray(result.agents)) setAgents(result.agents)
       setMessage(String(result.message || 'AI 協作已完成'))
@@ -571,39 +637,44 @@ export function AiCollaborationWindowApp() {
 
   const cancelSend = async () => {
     const requestId = inflightRequestRef.current
-    if (!requestId) return
+    const taskId = activeTaskIdRef.current
     setMessage('正在取消協作請求...')
     try {
-      sendCommand('toolbox_cancel_tool_run', { request_id: requestId })
+      if (taskId) {
+        await request('ai_nexus_collab_cancel', { task_id: taskId }, 15000)
+      } else if (requestId) {
+        sendCommand('toolbox_cancel_tool_run', { request_id: requestId })
+      }
+      await loadState(true)
     } catch {
       // best-effort: the runtime also cancels the in-flight task
     }
   }
 
-  const submitBrowserResult = async (agentId: string) => {
-    const activeMessageId = messageIdRef.current || messageId
-    if (!activeMessageId) {
-      setMessage('目前沒有等待中的瀏覽器任務')
+  const submitBrowserResult = async (providerId: string) => {
+    const taskId = activeTaskIdRef.current || activeTaskId
+    if (!taskId) {
+      setMessage('目前沒有等待中的協作任務')
       return
     }
-    const draftKey = `${activeMessageId}:${agentId}`
+    const draftKey = `${taskId}:${providerId}`
     const content = (browserDrafts[draftKey] || '').trim()
     if (!content) {
       setMessage('請先貼上瀏覽器中的 AI 回覆')
       return
     }
-    setBusyAction(`browser:${agentId}`)
+    setBusyAction(`browser:${providerId}`)
     try {
       const result = await request(
-        'ai_nexus_complete_browser_response',
-        { message_id: activeMessageId, agent_id: agentId, content },
+        'ai_nexus_collab_manual_result',
+        { task_id: taskId, provider_id: providerId, content },
         60000
       )
       if (result.ok === false) {
         throw new Error(String(result.message || '送出瀏覽器回覆失敗'))
       }
       setBrowserDrafts((current) => ({ ...current, [draftKey]: '' }))
-      setMessage(String(result.message || '已送出瀏覽器回覆'))
+      setMessage(String(result.message || '已匯入手動回覆'))
       await loadState(true)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '送出瀏覽器回覆失敗')
@@ -817,6 +888,19 @@ export function AiCollaborationWindowApp() {
 
         <div className="ai-collab-topcard-row ai-collab-composerrow" role="group" aria-label="協作需求輸入">
           <select
+            className="ai-collab-mode-select"
+            value={collabMode}
+            onChange={(event) => setCollabMode(event.target.value as CollabMode)}
+            disabled={Boolean(busyAction)}
+            aria-label="協作模式"
+          >
+            {COLLAB_MODES.map((mode) => (
+              <option key={mode.id} value={mode.id}>
+                {mode.label}
+              </option>
+            ))}
+          </select>
+          <select
             className="ai-collab-agent-select"
             value={selectedAgents.size === 1 ? Array.from(selectedAgents)[0] : ''}
             onChange={(event) => void selectSingleAgent(event.target.value)}
@@ -875,52 +959,185 @@ export function AiCollaborationWindowApp() {
             <div className="ai-collab-top-agents-head">
               <div>
                 <span>AI 回應</span>
-                <strong>{responses.length}</strong>
+                <strong>
+                  {activeTask
+                    ? `${(activeTask.provider_results || []).length}`
+                    : responses.length}
+                </strong>
               </div>
+              {collabTasks.length > 0 ? (
+                <select
+                  className="ai-collab-task-select"
+                  value={activeTaskId}
+                  onChange={(event) => {
+                    activeTaskIdRef.current = event.target.value
+                    setActiveTaskId(event.target.value)
+                  }}
+                  aria-label="選擇協作任務"
+                >
+                  {collabTasks.map((task) => (
+                    <option
+                      key={String(task.task_id)}
+                      value={String(task.task_id)}
+                    >
+                      {responseLabel(String(task.overall_status || ''))} ·{' '}
+                      {String(task.mode || '')} ·{' '}
+                      {String(task.original_request || '').slice(0, 20)}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
             </div>
-            {responses.length === 0 ? (
-              <p className="ai-collab-muted">送出協作後，AI 回應會顯示在這裡。</p>
-            ) : responses.map((response) => {
-              const agentId = String(response.agent_id || '')
-              const status = String(response.status || '')
-              const draftKey = `${messageId}:${agentId}`
-              const text = responseText(response)
-              return (
-                <article key={draftKey} className="ai-collab-response">
-                  <div className="ai-collab-response-head">
-                    <strong>{agentsById.get(agentId)?.name || agentId || 'AI'}</strong>
-                    <span className={`ai-collab-chip ai-collab-chip--${status}`}>
-                      {responseLabel(status)}
-                    </span>
-                  </div>
-                  {text ? <p className="ai-collab-response-body">{text}</p> : null}
-                  {status === 'awaiting-user' || status === 'waiting_verification' ? (
-                    <div className="ai-collab-browser-submit">
-                      <textarea
-                        value={browserDrafts[draftKey] || ''}
-                        onChange={(event) =>
-                          setBrowserDrafts((current) => ({
-                            ...current,
-                            [draftKey]: event.target.value,
-                          }))
-                        }
-                        placeholder="完成瀏覽器操作後，將 AI 回覆貼回這裡再送出。"
-                        disabled={Boolean(busyAction)}
-                      />
-                      <button
-                        type="button"
-                        className="ai-collab-primary"
-                        onClick={() => void submitBrowserResult(agentId)}
-                        disabled={Boolean(busyAction) || !(browserDrafts[draftKey] || '').trim()}
-                      >
-                        {busyAction === `browser:${agentId}` ? '送出中...' : '送出訊息'}
-                      </button>
+            {activeTask ? (
+              <>
+                {(activeTask.provider_results || []).map((result) => {
+                  const providerId = String(result.provider_id || '')
+                  const status = String(result.response_status || '')
+                  const draftKey = `${activeTask.task_id}:${providerId}`
+                  const text = String(result.response_text || '')
+                  return (
+                    <article key={draftKey} className="ai-collab-response">
+                      <div className="ai-collab-response-head">
+                        <strong>{providerId}</strong>
+                        <span className={`ai-collab-chip ai-collab-chip--${status}`}>
+                          {responseLabel(status)}
+                        </span>
+                        {result.capture_method ? (
+                          <span className="ai-collab-chip">
+                            {result.capture_method === 'MANUAL' ? '手動匯入' : '自動擷取'}
+                          </span>
+                        ) : null}
+                      </div>
+                      {text ? <p className="ai-collab-response-body">{text}</p> : null}
+                      {status === 'awaiting-user' ? (
+                        <div className="ai-collab-browser-submit">
+                          <textarea
+                            value={browserDrafts[draftKey] || ''}
+                            onChange={(event) =>
+                              setBrowserDrafts((current) => ({
+                                ...current,
+                                [draftKey]: event.target.value,
+                              }))
+                            }
+                            placeholder="完成瀏覽器操作後，將 AI 回覆貼回這裡再送出。"
+                            disabled={Boolean(busyAction)}
+                          />
+                          <button
+                            type="button"
+                            className="ai-collab-primary"
+                            onClick={() => void submitBrowserResult(providerId)}
+                            disabled={
+                              Boolean(busyAction) ||
+                              !(browserDrafts[draftKey] || '').trim()
+                            }
+                          >
+                            {busyAction === `browser:${providerId}` ? '送出中...' : '手動匯入'}
+                          </button>
+                        </div>
+                      ) : null}
+                      {result.error_code ? (
+                        <p className="ai-collab-muted">{String(result.error_code)}</p>
+                      ) : null}
+                    </article>
+                  )
+                })}
+                {activeTask.comparison &&
+                (activeTask.comparison.common_points?.length ||
+                  activeTask.comparison.differences?.length) ? (
+                  <article className="ai-collab-response ai-collab-comparison">
+                    <div className="ai-collab-response-head">
+                      <strong>比較結果</strong>
                     </div>
-                  ) : null}
-                  {response.error ? <p className="ai-collab-muted">{String(response.error)}</p> : null}
-                </article>
-              )
-            })}
+                    {(activeTask.comparison.common_points || []).length > 0 ? (
+                      <div>
+                        <span className="ai-collab-muted">共同觀點</span>
+                        {(activeTask.comparison.common_points || []).map(
+                          (item, index) => (
+                            <p key={`c${index}`} className="ai-collab-response-body">
+                              · {item.text}
+                            </p>
+                          )
+                        )}
+                      </div>
+                    ) : null}
+                    {(activeTask.comparison.differences || []).length > 0 ? (
+                      <div>
+                        <span className="ai-collab-muted">各 AI 差異</span>
+                        {(activeTask.comparison.differences || []).map(
+                          (item, index) => (
+                            <p key={`d${index}`} className="ai-collab-response-body">
+                              · [{item.source_provider}] {item.text}
+                            </p>
+                          )
+                        )}
+                      </div>
+                    ) : null}
+                    {(activeTask.comparison.contradictions || []).length > 0 ? (
+                      <div>
+                        <span className="ai-collab-muted">相互矛盾</span>
+                        {(activeTask.comparison.contradictions || []).map(
+                          (item, index) => (
+                            <p key={`k${index}`} className="ai-collab-response-body">
+                              · {(item.statements || [])
+                                .map((s) => `[${s.provider_id}] ${s.text}`)
+                                .join(' / ')}
+                            </p>
+                          )
+                        )}
+                      </div>
+                    ) : null}
+                    {(activeTask.comparison.unanswered_questions || []).length > 0 ? (
+                      <div>
+                        <span className="ai-collab-muted">尚未回答</span>
+                        {(activeTask.comparison.unanswered_questions || []).map(
+                          (item, index) => (
+                            <p key={`u${index}`} className="ai-collab-response-body">
+                              · {item.question}
+                            </p>
+                          )
+                        )}
+                      </div>
+                    ) : null}
+                  </article>
+                ) : null}
+                {activeTask.synthesis?.summary ? (
+                  <article className="ai-collab-response ai-collab-synthesis">
+                    <div className="ai-collab-response-head">
+                      <strong>整合結果</strong>
+                      <span className="ai-collab-chip">
+                        {activeTask.synthesis.method === 'governed-model'
+                          ? '受管模型'
+                          : '規則彙整'}
+                      </span>
+                    </div>
+                    <p className="ai-collab-response-body ai-collab-synthesis-body">
+                      {activeTask.synthesis.summary}
+                    </p>
+                  </article>
+                ) : null}
+              </>
+            ) : responses.length === 0 ? (
+              <p className="ai-collab-muted">送出協作後，AI 回應會顯示在這裡。</p>
+            ) : (
+              responses.map((response) => {
+                const agentId = String(response.agent_id || '')
+                const status = String(response.status || '')
+                const draftKey = `${messageId}:${agentId}`
+                const text = responseText(response)
+                return (
+                  <article key={draftKey} className="ai-collab-response">
+                    <div className="ai-collab-response-head">
+                      <strong>{agentsById.get(agentId)?.name || agentId || 'AI'}</strong>
+                      <span className={`ai-collab-chip ai-collab-chip--${status}`}>
+                        {responseLabel(status)}
+                      </span>
+                    </div>
+                    {text ? <p className="ai-collab-response-body">{text}</p> : null}
+                    {response.error ? <p className="ai-collab-muted">{String(response.error)}</p> : null}
+                  </article>
+                )
+              })
+            )}
           </div>
         </div>
         <div className="ai-collab-right" ref={rightPanelRef} aria-label="內建瀏覽器網頁區">

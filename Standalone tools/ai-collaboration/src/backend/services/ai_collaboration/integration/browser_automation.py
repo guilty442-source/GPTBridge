@@ -55,6 +55,7 @@ class BrowserAutomationSession:
         self._sessions: dict[str, str] = {}  # agent_id → session_id
         self._init_lock = asyncio.Lock()
         self._last_backend = "embedded-browser"
+        self._cancel_flags: set[str] = set()  # session_ids asked to stop
 
     def _browser(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Dispatch to the Electron IPC client, falling back to the
@@ -119,36 +120,138 @@ class BrowserAutomationSession:
     async def send_prompt(
         self, agent: dict[str, Any], prompt: str
     ) -> dict[str, Any]:
+        """Composite single-provider flow kept for legacy callers.
+
+        The collaboration orchestrator drives the same stages separately
+        through ``prepare_send`` / ``submit_prompt`` / ``wait_for_response``
+        so per-provider state machines stay isolated.
+        """
         provider = str(agent.get("provider") or "").strip().casefold()
         adapter = adapter_for(provider)
         try:
-            session_id = await self._ensure_agent_session(agent)
-            page_failure = await self._ensure_provider_page(
-                session_id, agent, adapter, provider
-            )
-            if page_failure is not None:
-                return page_failure
-            marker = await self._detect_verification(session_id)
-            if marker:
-                return self._verification_result(provider, marker, submitted=False)
-            early = await self._submit_prompt(
+            prepared = await self.prepare_send(agent, adapter)
+            if isinstance(prepared, dict):
+                return prepared
+            session_id, adapter = prepared
+            early = await self.submit_prompt(
                 session_id, provider, prompt, adapter
             )
             if early is not None:
                 return early
 
-            state, content, marker = await self._capture_response(
+            state, content, marker = await self.wait_for_response(
                 session_id, adapter
             )
-            if marker:
-                return self._verification_result(provider, marker, submitted=True)
-            if state == "response_completed" and content:
-                return self._completed_result(provider, content, session_id, state)
-            return self._capture_required_result(provider, state, session_id)
+            return self._capture_outcome(provider, session_id, state, content, marker)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             return self._prompt_failure(provider, exc)
+
+    async def prepare_send(
+        self,
+        agent: dict[str, Any],
+        adapter: ProviderAdapter | None = None,
+    ) -> tuple[str, ProviderAdapter | None] | dict[str, Any]:
+        """Ensure the provider session exists and sits on the right page.
+
+        Returns ``(session_id, adapter)`` or an early failure/awaiting
+        result dict (verification wall, invalid URL, session failure).
+        """
+        provider = str(agent.get("provider") or "").strip().casefold()
+        if adapter is None:
+            adapter = adapter_for(provider)
+        session_id = await self._ensure_agent_session(agent)
+        page_failure = await self._ensure_provider_page(
+            session_id, agent, adapter, provider
+        )
+        if page_failure is not None:
+            return page_failure
+        marker = await self._detect_verification(session_id)
+        if marker:
+            return self._verification_result(provider, marker, submitted=False)
+        return session_id, adapter
+
+    async def submit_prompt(
+        self,
+        session_id: str,
+        provider: str,
+        prompt: str,
+        adapter: ProviderAdapter | None,
+    ) -> dict[str, Any] | None:
+        """Fill the composer and activate the send control.
+
+        Returns an early failure/awaiting dict, or None once submitted."""
+        self._cancel_flags.discard(session_id)
+        return await self._submit_prompt(session_id, provider, prompt, adapter)
+
+    async def wait_for_response(
+        self,
+        session_id: str,
+        adapter: ProviderAdapter | None,
+    ) -> tuple[str, str, str | None]:
+        """Observe the provider reply until the state machine terminates.
+
+        Returns ``(response_state, content, verification_marker)``."""
+        return await self._capture_response(session_id, adapter)
+
+    def request_cancel(self, session_id: str) -> None:
+        """Ask the in-flight response wait for this session to stop.
+
+        Local capture stops deterministically; whether the remote page
+        actually stopped generating is unconfirmed by design.
+        """
+        self._cancel_flags.add(session_id)
+
+    def cancel_requested(self, session_id: str) -> bool:
+        return session_id in self._cancel_flags
+
+    async def probe_ready(
+        self, session_id: str, adapter: ProviderAdapter | None
+    ) -> bool:
+        """True only when the provider composer is actually present.
+
+        Readiness is a DOM fact, never just 'the URL looks right'.
+        """
+        input_selectors = (
+            adapter.input_selectors
+            if adapter is not None
+            else ("textarea", '[contenteditable="true"]')
+        )
+        script = f"""
+            (() => {{
+                for (const sel of {json.dumps(list(input_selectors))}) {{
+                    const el = document.querySelector(sel);
+                    if (el) return {{ ready: true }};
+                }}
+                return {{ ready: false }};
+            }})()
+        """
+        result = await self._execute_script(session_id, script)
+        return bool(result.get("ok")) and bool(
+            (result.get("result") or {}).get("ready")
+        )
+
+    def _capture_outcome(
+        self,
+        provider: str,
+        session_id: str,
+        state: str,
+        content: str,
+        marker: str | None,
+    ) -> dict[str, Any]:
+        if marker:
+            return self._verification_result(provider, marker, submitted=True)
+        if state == "response_cancelled":
+            result = self._waiting_result(
+                provider, "REQUEST_CANCELLED", submitted=True
+            )
+            result["status"] = "cancelled"
+            result["cancel_remote_state"] = "unconfirmed"
+            return result
+        if state == "response_completed" and content:
+            return self._completed_result(provider, content, session_id, state)
+        return self._capture_required_result(provider, state, session_id)
 
     async def _ensure_provider_page(
         self,
@@ -303,6 +406,8 @@ class BrowserAutomationSession:
         previous = ""
         stable = 0
         for _ in range(self.RESPONSE_TIMEOUT_SECONDS):
+            if session_id in self._cancel_flags:
+                return "response_cancelled", previous, None
             result = await self._execute_script(session_id, probe)
             if result.get("ok"):
                 page_marker = await self._detect_verification(session_id)

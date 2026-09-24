@@ -12,6 +12,7 @@ class CollabSvcAgentsMixin:
         memory_items = self.repository.list_memory_items()
         tasks = self.repository.list_tasks()
         diagnostics = self._diagnostics(agents, messages, memory_items, tasks)
+        pool = self._runtime_pool
         return {
             "ok": True,
             "version": self.VERSION,
@@ -37,6 +38,8 @@ class CollabSvcAgentsMixin:
             },
             "agents": agents,
             "messages": messages,
+            "collab_tasks": self.repository.list_collab_tasks(),
+            "provider_health": pool.health() if pool is not None else [],
             "memory_items": memory_items,
             "tasks": tasks,
             "diagnostics": diagnostics,

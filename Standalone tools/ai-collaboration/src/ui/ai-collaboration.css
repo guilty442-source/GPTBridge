@@ -461,6 +461,39 @@ body,
   outline-offset: 1px;
 }
 
+.ai-collab-mode-select,
+.ai-collab-task-select {
+  border: 1px solid #334155;
+  border-radius: 7px;
+  background: #0f172a;
+  color: #e5e7eb;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  max-width: 160px;
+}
+
+.ai-collab-mode-select:focus,
+.ai-collab-task-select:focus {
+  outline: 2px solid rgba(20, 184, 166, 0.4);
+  outline-offset: 1px;
+}
+
+.ai-collab-comparison,
+.ai-collab-synthesis {
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  padding-top: 8px;
+}
+
+.ai-collab-synthesis {
+  border-left: 3px solid #14b8a6;
+  padding-left: 8px;
+}
+
+.ai-collab-synthesis-body {
+  white-space: pre-wrap;
+}
+
 .ai-collab-primary,
 .ai-collab-app button {
   border: 1px solid #334155;
