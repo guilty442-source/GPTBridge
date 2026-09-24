@@ -2,7 +2,7 @@
 
 Codex basis: test-suite-architecture-directory (A57/E43).
 Owner: permission-sovereign.
-Management owner: health-maintenance-test-sub-sovereign.
+Management owner: decision-sovereign (A604; health-maintenance identity retired).
 """
 from __future__ import annotations
 

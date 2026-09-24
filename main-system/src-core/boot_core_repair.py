@@ -60,8 +60,8 @@ class BootCoreRepairMixin:
     def _on_connection_disconnected(self, failure_code: str, snapshot: Any) -> None:
         """Callback when the connection watchdog detects a persistent disconnection.
 
-        A67 failure path: health-maintenance-test-sub-sovereign-classifies > decision-sovereign-decides
-        > sub-sovereign-dispatch > governed-executor-repairs > boot-core-revalidates > ui-resynchronizes.
+        A67 failure path: maintenance-classifies > decision-sovereign-decides
+        > module-dispatch > governed-executor-repairs > boot-core-revalidates > ui-resynchronizes.
         A67 FORBID:duplicate-repair-owner — acquire the repair coordination
         lock before acting; if another owner already holds it, do not
         duplicate the repair.
