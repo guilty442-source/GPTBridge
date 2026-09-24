@@ -2,9 +2,10 @@
 
 A592/A604: the sub-sovereign layer is eliminated.  The former
 ``sub-sovereigns`` implementation package is removed; the five peer
-cores coordinate through registered single-purpose modules instead
-(FORBID:sub-sovereign-routing).  The only remaining codex child identity
-is the A485 星澄-owned learning module, re-exported here.
+cores govern registered single-purpose modules instead
+(FORBID:sub-sovereign-routing).  The A485 learning capability is
+intrinsic to the single-entity 星澄 sovereign — no child or module
+identity remains.
 """
 
 from __future__ import annotations

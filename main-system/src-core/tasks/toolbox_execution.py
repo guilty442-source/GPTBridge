@@ -36,10 +36,10 @@ class ExecutionMixin(ExecutionVerificationMixin):
                 "error_code": "TOOL_OUTSIDE_STANDALONE_SCOPE",
                 "message": "This standalone runtime can execute only its own tool.",
             }
-        # A334: the module-assignment registry is the execution gate —
+        # A334/A604: the module-assignment registry is the execution gate —
         # verify the exact registered execution identity, the managing
-        # sub-sovereign's hierarchy registration, and the module's
-        # decision/review authorities before any governed execution.
+        # dispatch marker, and the module's decision/review authorities
+        # before any governed execution.
         assignment_error = self._verify_module_assignment(tool_id)
         if assignment_error is not None:
             return assignment_error

@@ -98,7 +98,7 @@ class MaintenanceRepairChainMixin:
         if getattr(self, "_repair_decision_task", None) is None:
             self._repair_decision_task = asyncio.create_task(
                 self._repair_decision_loop(),
-                name="health-maintenance-test-sub-sovereign-health-classification",
+                name="health-maintenance-health-classification",
             )
 
     async def _repair_decision_tick(self) -> None:

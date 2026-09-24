@@ -122,7 +122,10 @@ def _active_hierarchy_rows() -> tuple[dict[str, str], ...]:
 
 
 def children_of(parent_id: str) -> tuple[str, ...]:
-    """返回指定父主權下所有 active 子主權 ID 元組（A334）。"""
+    """返回指定父主權下所有 active 子主權 ID 元組（A334）。
+
+    A592/A604: every hierarchy row is retired, so this returns ``()`` —
+    kept as a read-only codex projection, not a routing surface."""
     return tuple(
         row.get("child_identity", "")
         for row in _active_hierarchy_rows()
@@ -160,7 +163,10 @@ def primary_domain_of(sovereign_id: str) -> str:
 
 
 def validate_child_parent(child_id: str, expected_parent_id: str) -> bool:
-    """A334 fail-closed: 子主權的單一註冊父級必須符合預期。"""
+    """A334 fail-closed: 子主權的單一註冊父級必須符合預期。
+
+    A592/A604: with all hierarchy rows retired this is always ``False``
+    — a fail-closed guard against any retired child identity."""
     return parent_of(child_id) == expected_parent_id
 
 
@@ -246,13 +252,13 @@ def resolve_sovereign(
     """Resolve a sovereign identity to its materialized in-process instance.
 
     Top-level sovereigns are app attributes named after the identity
-    (``decision-sovereign`` -> ``app.decision_sovereign``); sub-sovereigns
-    resolve through their registered single parent's child registry (A334).
-    A retired identity resolves through its active
-    ``capability_dispatch_registry`` route to the successor module
-    instance (RULE_CAPABILITY_DISPATCH_V1); absent, pending or ambiguous
-    routes fail closed.  Returns ``None`` when the sovereign is not
-    materialized.
+    (``decision-sovereign`` -> ``app.decision_sovereign``).  A604: the
+    hierarchy layer is retired — the parent-edge branch below never
+    resolves a child (no active rows), and the retired-identity branch
+    resolves only through an active ``capability_dispatch_registry``
+    successor route (RULE_CAPABILITY_DISPATCH_V1); absent, pending or
+    ambiguous routes fail closed.  Returns ``None`` when the sovereign
+    is not materialized.
     """
     if app is None or not sovereign_id:
         return None

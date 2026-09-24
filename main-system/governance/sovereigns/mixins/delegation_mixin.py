@@ -32,10 +32,9 @@ class DelegationBase:
         """Route a request through the target sovereign's single entry gate.
 
         The requester is rewritten to this sovereign's identity so the
-        target's A10/A11 gates observe the true sovereign origin; a
-        sub-sovereign target additionally enforces its A334 single-parent
-        check, so only the codex parent can delegate into it.  Fails
-        closed when the target is not materialized or not started.
+        target's A10/A11 gates observe the true sovereign origin.  A604:
+        only materialized peers/modules resolve — a retired child
+        identity resolves to ``None`` and fails closed.
 
         The returned outcome carries a verifiable ``DelegationReceipt`` in
         ``result["delegation_receipt"]`` with the target's execution

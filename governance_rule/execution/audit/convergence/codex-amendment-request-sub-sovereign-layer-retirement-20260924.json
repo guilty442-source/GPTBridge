@@ -1,0 +1,61 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "amendment_id": "codex-amendment-request-sub-sovereign-layer-retirement-20260924",
+ "request_id": "sub-sovereign-layer-retirement-convergence-20260924",
+ "requested_by": "decision-sovereign",
+ "origin": "devin-cli implementation-convergence audit 2026-09-24 (activation-state target_root WARN after the sub-sovereign implementation layer was deleted)",
+ "change_class": "clarification",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "predecessor": {
+  "codex_version": "2026-09-23T03:13:43Z",
+  "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac9471",
+  "revision_sequence": 75
+ },
+ "status": "submitted",
+ "not_executed": true,
+ "problem": {
+  "summary": "architecture_activation_states.SUB_SOVEREIGN_LAYER still declares current_state=active / required_state=active with target_root=ARCH_CODE:SUB_SOVEREIGN_LAYER, and project_architecture_directory.SUB_SOVEREIGN_LAYER still declares an 'execution-control-dispatch-layer' boundary at main-system\\governance\\sub-sovereigns. The implementation package was deleted under A592/A604 (commit d72d449f and follow-ups e348d4b5); the layer is eliminated, so the active/mandated state contradicts the sovereigns registry and produces a permanent audit WARN.",
+  "codex_state": "architecture_activation_states: ('SUB_SOVEREIGN_LAYER', 'ARCH_CODE:SUB_SOVEREIGN_LAYER', 'active', 'active', None, '星澄', 'not-applicable'). project_architecture_directory: SUB_SOVEREIGN_LAYER -> 'execution-control-dispatch-layer', physical_root='E:\\\\GPTBridge\\\\main-system\\\\governance\\\\sub-sovereigns' (path does not exist).",
+  "risk_if_unamended": "audit_activation.py emits a non-blocking WARN on every run; consumers see an active/mandated architecture layer whose target root no longer exists, contradicting A592/A604 and the retired sovereign hierarchy."
+ },
+ "proposed_delta": {
+  "architecture_activation_states_updates": [
+   {
+    "architecture_code": "SUB_SOVEREIGN_LAYER",
+    "current_state": "retired",
+    "required_state": "retired",
+    "old_root_deletion_state": "removed-verified",
+    "verification_owner": "decision-sovereign",
+    "note": "follow the GLOBAL_CLEANER retired-row precedent; verification_owner moves off 星澄 to the decision core that owns architecture convergence"
+   }
+  ],
+  "project_architecture_directory_updates": [
+   {
+    "architecture_code": "SUB_SOVEREIGN_LAYER",
+    "role_or_classification": "retired-former-execution-control-layer",
+    "physical_root": "git-history:main-system/governance/sub-sovereigns (removed under A592/A604)",
+    "boundary_status": "none-current",
+    "activation_policy": "activation forbidden",
+    "alternatives": [
+     "delete the directory row entirely and rely on sovereign_hierarchy_registry retired rows for lineage",
+     "keep physical_root unchanged and only flip the state fields"
+    ]
+   }
+  ],
+  "metadata_updates": []
+ },
+ "gate_conditions": [
+  "successor build applies only the SUB_SOVEREIGN_LAYER row updates; no sovereign or module-assignment rows mutated",
+  "post-successor check: audit_activation.py emits no WARN for SUB_SOVEREIGN_LAYER",
+  "deterministic integrity seal + lineage closure + atomic publication per A382/A488"
+ ],
+ "evidence": [
+  "main-system/governance/sub-sovereigns/ deleted in commit d72d449f; residual child-registry machinery removed in e348d4b5",
+  "sovereign_hierarchy_registry: 19 child rows all retired; sovereigns table: all *-sub-sovereign ranks retired-...-A592/A604",
+  "module_assignment_registry: 17 rows, managing_sub_sovereign=none-single-purpose-module-dispatch for every module",
+  "audit_activation.py emits exactly one WARN: 'activation state target_root does not exist: SUB_SOVEREIGN_LAYER'"
+ ],
+ "worker_note": "Request artifact only — codex mutation requires governor disposition through the A382/A488 amendment flow. No code or registry row is changed by this file."
+}

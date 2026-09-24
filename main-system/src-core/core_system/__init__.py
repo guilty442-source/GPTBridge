@@ -7,9 +7,10 @@ resource-/liveness-critical primitives to the C++ native kernel (e.g.
 
 A592/A604: the sub-sovereign layer is eliminated.  The retired
 sub-sovereign classes and their compatibility aliases are removed; the
-five peer cores coordinate through registered single-purpose modules
-(FORBID:sub-sovereign-routing).  The A485 星澄-owned learning module
-keeps its codex identity as lineage.
+five peer cores govern registered single-purpose modules
+(FORBID:sub-sovereign-routing).  The A485 learning capability is
+intrinsic to the single-entity 星澄 sovereign; the retired codex
+identity survives only as lineage.
 
 Governance-layer names are resolved lazily (PEP 562) because the governance
 package itself imports ``core_system.codex_decision`` — an eager import here

@@ -1,7 +1,7 @@
 """Application Lifecycle Management.
 
 Core application lifecycle including initialization, startup phase tracking,
-sub-sovereign registry, and governance rules management.
+and governance rules management.
 """
 
 from __future__ import annotations

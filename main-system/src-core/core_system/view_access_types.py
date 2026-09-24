@@ -68,7 +68,6 @@ ACTOR_CEILINGS: Final[dict[str, str]] = {
     "ui-explicit-detail": "V3",
     "module": "V3",
     "tool": "V3",
-    "sub-sovereign": "V3",
     "sovereign": "V4",
     "maintenance": "V4",
     "permission-sovereign": "V5",

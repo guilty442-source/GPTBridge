@@ -1,9 +1,9 @@
 """Xingcheng repair curriculum — codified repair doctrine (A485).
 
 The curriculum is 星澄's declared repair knowledge for the fault classes
-the system actually emits.  Entries are applied by the learning
-sub-sovereign when ``learn.auto-start`` arms it — stored as taught
-recipes (``source="taught"``) so the learning module carries baseline
+the system actually emits.  Entries are applied by 星澄's own learning
+capability when ``learn.auto-start`` arms it — stored as taught
+recipes (``source="taught"``) so the entity carries baseline
 knowledge instead of starting cold.
 
 Bounds (same contract as learned recipes):

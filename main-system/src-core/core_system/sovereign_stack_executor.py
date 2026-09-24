@@ -64,7 +64,7 @@ class SovereignStackExecutor(SovereignStackActivationMixin):
             except Exception as error:
                 self._startup_failures.append(
                     {
-                        "sub_sovereign": attr_name,
+                        "sovereign": attr_name,
                         "error": f"top-sovereign-materialize:{type(error).__name__}: {error}",
                     }
                 )
@@ -83,7 +83,7 @@ class SovereignStackExecutor(SovereignStackActivationMixin):
                 except Exception as error:
                     self._startup_failures.append(
                         {
-                            "sub_sovereign": getattr(top, "sovereign_id", "?"),
+                            "sovereign": getattr(top, "sovereign_id", "?"),
                             "error": f"top-sovereign:{type(error).__name__}: {error}",
                         }
                     )

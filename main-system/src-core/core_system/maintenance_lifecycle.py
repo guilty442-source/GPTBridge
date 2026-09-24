@@ -98,7 +98,7 @@ class MaintenanceLifecycleMixin(MaintenanceLearningMixin):
         elif self._capability_task is None:
             self._capability_task = asyncio.create_task(
                 self._capability_check_loop(),
-                name="health-maintenance-test-sub-sovereign-capability",
+                name="health-maintenance-capability",
             )
 
         # A152/A154: start the health-classification loop so the maintenance

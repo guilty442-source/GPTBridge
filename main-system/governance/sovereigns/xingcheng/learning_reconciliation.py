@@ -1,8 +1,8 @@
-"""Learning reconciliation mixin (A185 split; A485 — learning sub-sovereign).
+"""Learning reconciliation mixin (A185 split; A485 — 星澄-owned learning).
 
-Moved with the learning-sub-sovereign into the 星澄 owner package
-(``governance/sovereigns/xingcheng``) per A485
-(learning-sub-sovereign-transfer-to-xingcheng).
+Intrinsic capability of the single-entity 星澄 sovereign
+(``governance/sovereigns/xingcheng``) per A485 — the retired
+learning-evidence-sync identity survives only as codex lineage (A604).
 """
 from __future__ import annotations
 

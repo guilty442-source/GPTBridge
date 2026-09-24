@@ -77,9 +77,10 @@ class RepairDecisionChain:
         Autonomous repair (governor directive 2026-09-18): the A366
         per-item user-confirmation gate is retired for both tiers —
         ``targeted`` (mutation) and ``runtime-recovery`` (stability)
-        repairs proceed through the governed chain and are registered
-        with the change-acceptance sub-sovereign as system-audit intake
-        before dispatch; acceptance is recorded with the verification
+        repairs proceed through the governed chain; the retired
+        change-acceptance intake (A604) resolves to ``None`` — no
+        retired identity is consulted — and acceptance is recorded
+        with the verification
         result.  ``user_confirmed`` remains accepted so explicit one-time
         manual commands stay lawful within their scope.
         """
@@ -387,7 +388,7 @@ class RepairDecisionChain:
             }
 
     # ------------------------------------------------------------------
-    # Step 3: Dispatch to release-update-sync-sub-sovereign (code change)
+    # Step 3: Dispatch to the release-update path (code change)
     # ------------------------------------------------------------------
 
     def _dispatch_to_programming(
@@ -395,13 +396,15 @@ class RepairDecisionChain:
         classified_signal: dict[str, Any],
         decision: dict[str, Any],
     ) -> dict[str, Any]:
-        """Delegate the code change to the release-update-sync-sub-sovereign.
+        """Delegate the code change to the governed release-update path.
 
         Per E127: ``CODE-ACTION:release-update-sync``.  The
         decision-sovereign makes the repair DECISION only; the
         actual source mutation is delegated to the release-update
-        synchronization sub-sovereign which dispatches an approved
-        governed programming tool.
+        path which dispatches an approved governed programming tool.
+        A592/A604: the retired release-update-sync identity has no
+        active successor, so this path fails closed while
+        ``app.system_programming_sovereign`` stays ``None``.
         """
         programming_sovereign = getattr(
             self.app, "system_programming_sovereign", None
@@ -409,7 +412,7 @@ class RepairDecisionChain:
         if programming_sovereign is None:
             return {
                 "ok": False,
-                "reason": "release-update-sync-sub-sovereign-unavailable",
+                "reason": "release-update-path-unavailable",
             }
 
         target_file = str(classified_signal.get("target_file") or "")

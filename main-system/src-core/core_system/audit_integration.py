@@ -1,7 +1,7 @@
 """Central-audit integration adapter (A448/A451).
 
 Bridges runtime audit events — the information-channel gateway audit and the
-synchronization sub-sovereign journal — to the central audit ledger
+synchronization journal — to the central audit ledger
 ``gptbridge_audit.event``.  Before this adapter those paths only wrote a core
 log entry or a JSON journal file; the central ledger is now the primary sink.
 

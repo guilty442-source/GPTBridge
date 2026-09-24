@@ -185,9 +185,9 @@ class XingchengAutoMixin:
             if self._auto_wake is not None:
                 self._auto_wake.clear()
             try:
-                # A485 commanded learning: retry the parent command until
-                # the learning child is materialized/started (startup order
-                # can make the first command fail closed).
+                # A485 commanded learning: retry the local capability
+                # command until the learning lifecycle is active (startup
+                # order can make the first command fail closed).
                 if not self._learning_armed:
                     await self.ensure_learning_automation()
 
@@ -206,8 +206,8 @@ class XingchengAutoMixin:
 
                 if anomalies:
                     await self._process_anomalies(anomalies, batch_size)
-                    # A485: anomalies trigger a parent-commanded learning
-                    # pass — the child only learns on 星澄's command.
+                    # A485: anomalies trigger a commanded learning pass —
+                    # this entity only learns on explicit command.
                     commanded = await self.command_learning_pass("anomaly")
                     if commanded.get("commanded"):
                         self._auto_metrics["learning_commands"] += 1

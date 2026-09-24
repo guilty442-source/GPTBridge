@@ -9,13 +9,13 @@ and **delegated to governed executors** (E102).  This mixin surfaces the
 read-only health status of those delegated maintenance actions so the
 maintenance sovereign can monitor system health.
 
-Authority boundaries (A152/A154/E127/E128):
+Authority boundaries (A152/A154/E127/E128, A604-normalized):
   * update / hot-reload  → runtime action, owned by runtime-sovereign (E127)
   * repair decision       → decision-sovereign (A152)
-  * code change           → release-update-sync-sub-sovereign (E127/A309/A322)
+  * code change           → governed executor under automation-core (E127/A309/A322)
   * backup coordination   → delegated governed executor (E102)
 
-The health-maintenance-test sub-sovereign supervises the **health** of these
+The maintenance capability supervises the **health** of these
 boundaries (read-only); it never owns the decision or execution.
 
 Extracted from ``maintenance_sovereign`` (retired, A302/A323) to keep each
@@ -74,7 +74,7 @@ class MaintenanceUpdateMixin:
         hot-update boundary and the system-wide hot-reload capability.
 
         Per E127 (``RUNTIME-ACTION:system-runtime``), hot-reload execution is
-        owned by the runtime sub-sovereign; the maintenance sovereign
+        owned by the system-runtime-sovereign; the maintenance sovereign
         monitors the health/readiness of the update boundary only.
         """
 
