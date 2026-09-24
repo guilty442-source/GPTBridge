@@ -1,5 +1,5 @@
 /**
- * ReleaseCompatibilityChecker.ts ?”Release Compatibility Gate (A360).
+ * ReleaseCompatibilityChecker.ts â€”Release Compatibility Gate (A360).
  *
  * Returns exactly PASS | WARN | FAIL and answers:
  * - Language boundaries intact?
