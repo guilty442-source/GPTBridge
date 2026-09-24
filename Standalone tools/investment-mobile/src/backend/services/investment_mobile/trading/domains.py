@@ -85,6 +85,81 @@ DOMAINS: dict[str, dict[str, str]] = {
                     "ledgers; survivorship risk flagged; stale on data "
                     "revision",
     },
+    "simulation": {
+        "module": "trading.simulation.engine.SimulationTradingEngine",
+        "contracts": "PaperAccount, PaperOrder, PaperExecution, "
+                     "PaperPosition, ShadowSignal, StrategyRun",
+        "boundary": "SHADOW immutable signal records + PAPER virtual "
+                    "ledgers (paper-* ids); owns no broker adapters or "
+                    "formal account/position writers; OMS delegates PAPER "
+                    "fills here; simulated rows never enter 134 authority "
+                    "tables",
+    },
+    "live-trading": {
+        "module": "trading.live.core.LiveTradingCore",
+        "contracts": "TradingAuthorization, LiveRiskDecision, LiveOrder, "
+                     "SubmissionRecord, ReconciliationReport, "
+                     "EmergencyEvent, LiveAuditEvent",
+        "boundary": "phase-locked dispatch (LiveActivationGate forced "
+                    "closed); deterministic risk only; auth issued by "
+                    "governed authority, never AI; broker calls only via "
+                    "capability-gated gateway; credentials stay in "
+                    "Credential Manager; simulated=false on every record",
+    },
+    "offline-broker": {
+        "module": "trading.offline.OfflineAccountService + "
+                  "trading.offline.InvestmentImportService + "
+                  "trading.offline.UnifiedInvestmentPortfolio + "
+                  "trading.broker.offline_gate.BrokerOfflineGate",
+        "contracts": "OfflineInvestmentAccount, OfflineHolding, "
+                     "OfflineCash, OfflineTransaction, OfflineDividend, "
+                     "ImportBatch, BrokerConnectionState",
+        "boundary": "offline only — broker_confirmed=false forever, "
+                    "CONNECT states unreachable, adapters hold no "
+                    "transport, mock ledgers never share real tables, "
+                    "imports are staged + snapshot-rollbackable",
+    },
+    "asset-management": {
+        "module": "trading.assets.UnifiedPortfolioEngine",
+        "contracts": "InvestmentAccount(stable id), Position, "
+                     "InvestmentTransaction, CashBalance, IncomeRecord, "
+                     "Valuation, AllocationTarget, ExposureBasket, "
+                     "PortfolioSnapshot, MaintenanceRun",
+        "boundary": "orchestration over the offline journal — never a "
+                    "second authority; Decimal-only money math; TWD/USD "
+                    "never merged as tradable cash; AI can analyze and "
+                    "propose but cannot mutate accounts/targets; manual "
+                    "data never becomes broker_confirmed",
+    },
+    "monitoring": {
+        "module": "trading.monitoring.InvestmentMonitoringEngine",
+        "contracts": "MonitoringEvent(stable fingerprint dedup), "
+                     "MonitoringRule(user-owned), Alert(severity by "
+                     "rule), Notification(dedup+cooldown+merge), "
+                     "InvestmentRecommendation(lifecycle+outcome), "
+                     "ReallocationProposal, InvestmentReport(versioned)",
+        "boundary": "observational/advisory only — events, alerts and "
+                    "recommendations never trade; deterministic "
+                    "IndicatorSet math, 星澄 interprets only; US sessions "
+                    "via TradingCalendar (no hardcoded Taiwan time); "
+                    "fund NAV is a published value, never a realtime "
+                    "price; data gate VALID|STALE|INCOMPLETE|UNAVAILABLE "
+                    "gates executable claims; AI cannot set rules, "
+                    "promote recs, or resolve events",
+    },
+    "autotrading": {
+        "module": "trading.autotrade.engine.AutoTradingEngine",
+        "contracts": "StrategyRun(runtime state machine), TradeProposal, "
+                     "RiskDecision, CapitalPlan, AutotradeEvent, "
+                     "AutonomousTradingReport",
+        "boundary": "SHADOW/PAPER orchestration over strategy+simulation+"
+                    "monitoring+intelligence only — LIVE stays "
+                    "phase-locked; no broker transport, credentials or "
+                    "funds; capital plans are user-owned (weights+reserve "
+                    "<=100%), AI cannot set or modify allocations, lift a "
+                    "halt, or issue orders; stale/unavailable evidence "
+                    "blocks dependent trades",
+    },
     "audit": {
         "module": "trading.audit.TradingAudit",
         "contracts": "audit_event",
