@@ -98,6 +98,86 @@ def _pg_mirror_probe(svc: Any) -> dict[str, Any]:
     return {"ok": True, "status": st}
 
 
+def _fund_paper_probe(svc: Any) -> dict[str, Any]:
+    """Run a real subscribe → price → settle → redeem cycle inside an
+    isolated sim engine (tempdir journals, shared read-only deps). PASS
+    only when the NAV-cycle settlement actually produces units and cash
+    movements — a wired-but-untested path stays FAIL, never assumed."""
+    import tempfile
+    from datetime import date
+    from decimal import Decimal
+    from pathlib import Path
+
+    from .backtest.cost import TradingCostEngine
+    from .fund.contracts import FundNAV
+    from .fund.engine import MutualFundEngine
+    from .market.calendar import TradingCalendar
+    from .modes import ModeGate
+    from .simulation.engine import SimulationTradingEngine
+
+    tmp = Path(tempfile.mkdtemp(prefix="fundprobe-"))
+    gate = ModeGate(tmp)
+    gate.set_mode("PAPER")
+    fund = MutualFundEngine(tmp / "fund", svc.fx)
+    nav_res = fund.nav.record(FundNAV(
+        fund_id="PROBE", share_class_id="A", nav_date=date.today(),
+        nav="10", currency="TWD", source_id="acceptance-probe"))
+    if not nav_res.get("ok"):
+        return {"ok": False, "reason": "probe NAV record failed"}
+    eng = SimulationTradingEngine(
+        tmp / "sim", gate, svc.candle_store, TradingCalendar(tmp),
+        fund, svc.bt_cost)
+    try:
+        eng.create_account({
+            "account_id": "paper-probe-fund", "account_name": "probe",
+            "market": "MUTUAL_FUND", "base_currency": "TWD",
+            "initial_capital": "0"})
+        eng.deposit("paper-probe-fund", "10000")
+        sub = eng.submit_order({
+            "market": "fund", "account_id": "paper-probe-fund",
+            "instrument_id": "fund:PROBE:A:TWD", "side": "subscribe",
+            "amount": "3000", "settle_lag_days": 0})
+        if not sub.get("ok"):
+            return {"ok": False,
+                    "reason": f"subscribe rejected: "
+                              f"{sub.get('error_code')}"}
+        eng.fund_settlement.advance()
+        txns = eng.fund_settlement.transactions("paper-probe-fund")
+        pos = eng.fund_settlement.positions("paper-probe-fund")
+        if (not txns or txns[0]["status"] != "SETTLED"
+                or not pos or Decimal(pos[0]["units"]) <= 0):
+            return {"ok": False,
+                    "reason": "申購未走完 NAV 結算循環",
+                    "transactions": txns}
+        cash = eng.accounts.cash("paper-probe-fund")
+        if Decimal(cash["available"]) != Decimal("7000"):
+            return {"ok": False,
+                    "reason": "申購結算現金不符", "cash": cash}
+        red = eng.submit_order({
+            "market": "fund", "account_id": "paper-probe-fund",
+            "instrument_id": "fund:PROBE:A:TWD", "side": "redeem",
+            "quantity": "150", "settle_lag_days": 0})
+        if not red.get("ok"):
+            return {"ok": False,
+                    "reason": f"redeem rejected: {red.get('error_code')}"}
+        eng.fund_settlement.advance()
+        cash2 = eng.accounts.cash("paper-probe-fund")
+        pos2 = eng.fund_settlement.positions("paper-probe-fund")
+        units_left = (Decimal(pos2[0]["units"]) if pos2
+                      else Decimal("0"))
+        if (units_left != Decimal("150")
+                or Decimal(cash2["available"]) != Decimal("8500")):
+            return {"ok": False,
+                    "reason": "贖回結算不符", "cash": cash2,
+                    "positions": pos2}
+        return {"ok": True, "settled_txns": 2,
+                "units_after_cycle": str(units_left),
+                "cash_available": cash2["available"],
+                "pricing_basis": "next_published_nav"}
+    finally:
+        eng.close()
+
+
 def build_matrix() -> InvestmentAcceptanceMatrix:
     """V1.0 feature registry — one row per verified capability."""
     m = InvestmentAcceptanceMatrix()
@@ -261,10 +341,10 @@ def build_matrix() -> InvestmentAcceptanceMatrix:
       ["test_autotrade_acceptance.py"], "codex:pg-authority",
       _pg_mirror_probe)
     R("fund.paper", "基金 PAPER 申贖結算模型", "mutual-fund",
-      "trading/fund/", "NAV research done; sim settlement pending",
-      [], "codex:mutual-fund",
-      lambda s: {"ok": False, "blocked": True,
-                 "reason": "基金模擬僅 NAV 分析——申贖結算未實作"})
+      "trading/simulation/fund_settlement.py",
+      "NAV-cycle settle; sim-only journal; probe runs full cycle",
+      ["_stage_e2e_v1.py"], "codex:mutual-fund",
+      _fund_paper_probe)
     R("ui.control_route", "ai-assistant→engine 控制路由", "autotrading",
       "governance route registry", "submit-only channel",
       [], "codex:submit-only",

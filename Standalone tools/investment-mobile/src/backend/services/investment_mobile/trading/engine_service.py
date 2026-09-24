@@ -245,6 +245,9 @@ class TradingEngineService:
             "investment-mobile-paper-performance",
             "investment-mobile-paper-corporate",
             "investment-mobile-paper-risk-decisions",
+            "investment-mobile-paper-fund-settle",
+            "investment-mobile-paper-fund-txn-list",
+            "investment-mobile-paper-fund-positions",
             "investment-mobile-shadow-signal",
             "investment-mobile-shadow-signals",
             "investment-mobile-shadow-outcome",
@@ -1068,6 +1071,9 @@ class TradingEngineService:
             if result.get("ok"):
                 self._mirror_outbox.append({
                     "operation": "record_fund_nav", "nav": nav.to_dict()})
+                # a new published NAV is the pricing trigger for pending
+                # paper fund applications
+                self.sim.fund_settlement.advance()
             return "fund", result
 
         if command == "investment-mobile-fund-nav-latest":
@@ -1968,6 +1974,24 @@ class TradingEngineService:
                 str(payload.get("kind") or ""),
                 ratio=payload.get("ratio") or "1",
                 cash_amount=payload.get("cash_amount") or "0")
+
+        if command == "investment-mobile-paper-fund-settle":
+            return "sim", self.sim.fund_settlement.advance()
+
+        if command == "investment-mobile-paper-fund-txn-list":
+            return "sim", {
+                "ok": True,
+                "transactions": self.sim.fund_settlement.transactions(
+                    payload.get("account_id")),
+                "pending_settlement":
+                    self.sim.fund_settlement.pending(
+                        payload.get("account_id"))}
+
+        if command == "investment-mobile-paper-fund-positions":
+            return "sim", {
+                "ok": True,
+                "positions": self.sim.fund_settlement.positions(
+                    payload.get("account_id"))}
 
         if command == "investment-mobile-paper-risk-decisions":
             return "sim", {

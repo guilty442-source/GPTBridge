@@ -28,6 +28,7 @@ from .contracts import (
     ShadowSignal, StrategyRun,
 )
 from .execution import PaperExecutionEngine
+from .fund_settlement import PaperFundSettlementService
 from .loop import PaperStrategyCoordinator, StrategyExecutionLoop
 from .orders import PaperOrderManagementSystem
 from .performance import (
@@ -84,6 +85,10 @@ class SimulationTradingEngine:
         self.benchmark = StrategyBenchmarkService(candle_store)
         self.shadow_paper = ShadowPaperComparison()
         self.recovery = SimulationRecoveryService(self._dir)
+        self.fund_settlement = PaperFundSettlementService(
+            self._dir, nav=fund_engine.nav, fees=fund_engine.fees,
+            accounts=self.accounts, risk=self.risk,
+            recovery=self.recovery)
         self._loops: dict[str, StrategyExecutionLoop] = {}
 
     def close(self) -> None:
@@ -138,6 +143,15 @@ class SimulationTradingEngine:
             return {"ok": False, "error_code": "PAPER_ACCOUNT_NOT_FOUND"}
         account_id = account["account_id"]
         market = market or account["market"]
+
+        # funds settle on the published-NAV cycle in a sim-only journal —
+        # never through the equity candle-fill path
+        if (market == "MUTUAL_FUND" or str(
+                payload.get("instrument_id") or "").startswith("fund:")):
+            return self.fund_settlement.submit(
+                payload, account,
+                strategy_run=self._run_for(
+                    str(payload.get("strategy_id") or "")))
 
         order = PaperOrder(
             account_id=account_id,
@@ -293,6 +307,7 @@ class SimulationTradingEngine:
             o = self.orders.get(oid)
             if o:
                 self.accounts.release_all(o["account_id"], oid)
+        res["fund_settlement"] = self.fund_settlement.advance()
         return res
 
     def process_market_event(self, instrument_id: str,
