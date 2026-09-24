@@ -15,6 +15,12 @@
 
 #include <stddef.h>
 
+#if defined(_WIN32)
+#  define RISK_API __declspec(dllexport)
+#else
+#  define RISK_API
+#endif
+
 #define RISK_APPROVED 0
 #define RISK_REJECTED_MARKET 1
 #define RISK_REJECTED_QUANTITY 2
@@ -48,7 +54,8 @@ typedef struct {
     double       daily_realized_pnl;
 } RiskOrderInput;
 
-int risk_evaluate_order(const RiskLimits *limits, const RiskOrderInput *order)
+RISK_API int risk_evaluate_order(
+    const RiskLimits *limits, const RiskOrderInput *order)
 {
     double projected;
 

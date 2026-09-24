@@ -30,12 +30,132 @@ _DEFAULT_LIMITS: dict[str, Any] = {
 }
 
 
+class _NativeRiskCore:
+    """ctypes binding to ``native/risk/risk_core.dll`` (MSVC build).
+
+    The native core evaluates the same limit contract; when the DLL is
+    absent the pure-Python path remains authoritative.
+    """
+
+    _MARKET_BITS = {"tw": 1, "us": 2, "fund": 4}
+
+    class _Limits(__import__("ctypes").Structure):
+        _fields_ = [
+            ("max_order_notional", __import__("ctypes").c_double),
+            ("max_position_notional", __import__("ctypes").c_double),
+            ("max_daily_loss", __import__("ctypes").c_double),
+            ("max_orders_per_day", __import__("ctypes").c_int),
+            ("max_single_position_weight", __import__("ctypes").c_double),
+            ("require_price", __import__("ctypes").c_int),
+            ("allowed_market_mask", __import__("ctypes").c_uint),
+        ]
+
+    class _Order(__import__("ctypes").Structure):
+        _fields_ = [
+            ("market_bit", __import__("ctypes").c_uint),
+            ("side", __import__("ctypes").c_int),
+            ("quantity", __import__("ctypes").c_double),
+            ("notional", __import__("ctypes").c_double),
+            ("existing_position_notional", __import__("ctypes").c_double),
+            ("existing_position_value", __import__("ctypes").c_double),
+            ("total_portfolio_value", __import__("ctypes").c_double),
+            ("daily_order_count", __import__("ctypes").c_int),
+            ("daily_realized_pnl", __import__("ctypes").c_double),
+        ]
+
+    _REASONS = {
+        1: "market not in allowed_markets",
+        2: "quantity must be positive",
+        3: "no price/notional — fail closed",
+        4: "order notional exceeds max_order_notional",
+        5: "daily order limit reached",
+        6: "daily loss limit breached",
+        7: "projected position exceeds max_position_notional",
+        8: "single-position weight exceeds cap",
+    }
+
+    def __init__(self, dll_path: Path) -> None:
+        import ctypes
+
+        self._ct = ctypes
+        self._lib = ctypes.CDLL(str(dll_path))
+        self._lib.risk_evaluate_order.restype = ctypes.c_int
+        self._lib.risk_evaluate_order.argtypes = [
+            ctypes.POINTER(self._Limits),
+            ctypes.POINTER(self._Order),
+        ]
+
+    @classmethod
+    def load(cls, tool_root: Path) -> "_NativeRiskCore | None":
+        dll = (
+            Path(tool_root)
+            / "native"
+            / "risk"
+            / ("risk_core.dll" if __import__("os").name == "nt" else "risk_core.so")
+        )
+        if not dll.is_file():
+            return None
+        try:
+            return cls(dll)
+        except OSError:
+            return None
+
+    def evaluate(
+        self,
+        intent: OrderIntent,
+        limits: dict[str, Any],
+        positions: Iterable[Position],
+        daily_order_count: int,
+        daily_realized_pnl: float,
+    ) -> tuple[int, list[str]]:
+        market_bit = self._MARKET_BITS.get(str(intent.market), 0)
+        existing = next(
+            (
+                p
+                for p in positions
+                if p.market == str(intent.market)
+                and p.instrument == str(intent.instrument)
+            ),
+            None,
+        )
+        lim = self._Limits(
+            max_order_notional=float(limits.get("max_order_notional") or 0),
+            max_position_notional=float(limits.get("max_position_notional") or 0),
+            max_daily_loss=float(limits.get("max_daily_loss") or 0),
+            max_orders_per_day=int(limits.get("max_orders_per_day") or 0),
+            max_single_position_weight=float(
+                limits.get("max_single_position_weight") or 0
+            ),
+            require_price=1 if limits.get("require_price") else 0,
+            allowed_market_mask=sum(
+                self._MARKET_BITS.get(str(m), 0)
+                for m in (limits.get("allowed_markets") or [])
+            ),
+        )
+        order = self._Order(
+            market_bit=market_bit,
+            side=1 if intent.side == "buy" else -1,
+            quantity=float(intent.quantity or 0),
+            notional=float(intent.effective_notional()),
+            existing_position_notional=existing.notional if existing else 0.0,
+            existing_position_value=existing.market_value if existing else 0.0,
+            total_portfolio_value=sum(p.market_value for p in positions),
+            daily_order_count=int(daily_order_count),
+            daily_realized_pnl=float(daily_realized_pnl),
+        )
+        code = self._lib.risk_evaluate_order(self._ct.byref(lim), self._ct.byref(order))
+        return code, [self._REASONS.get(code, f"native rejection {code}")] if code else []
+
+
 class RiskEngine:
     """Evaluates order intents against configured limits."""
 
-    def __init__(self, state_dir: Path) -> None:
+    def __init__(self, state_dir: Path, tool_root: Path | None = None) -> None:
         self._limits_path = state_dir / "risk-limits.json"
         self._limits = dict(_DEFAULT_LIMITS)
+        self._native = (
+            _NativeRiskCore.load(tool_root) if tool_root is not None else None
+        )
         self._load()
 
     def _load(self) -> None:
@@ -59,6 +179,20 @@ class RiskEngine:
         daily_order_count: int = 0,
         daily_realized_pnl: float = 0.0,
     ) -> RiskDecision:
+        positions = list(positions)
+        if self._native is not None:
+            code, reasons = self._native.evaluate(
+                intent,
+                self._limits,
+                positions,
+                daily_order_count,
+                daily_realized_pnl,
+            )
+            return RiskDecision(
+                approved=code == 0,
+                reasons=reasons,
+                limits_checked=["native:risk_core"],
+            )
         reasons: list[str] = []
         checked: list[str] = []
 
