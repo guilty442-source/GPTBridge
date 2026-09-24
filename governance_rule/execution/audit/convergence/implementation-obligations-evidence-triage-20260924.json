@@ -1,0 +1,585 @@
+{
+ "id": "implementation-obligations-evidence-triage-20260924",
+ "date": "2026-09-24",
+ "worker": "devin-cli",
+ "subject": "acceptance-evidence triage for implementation_obligations (63 rows: 59 mandated, 2 complete, 1 evidence-submitted, 1 superseded)",
+ "policy": "no obligation marked complete without bound acceptance evidence; verified items cite concrete session evidence (commits, audit passes, live PG reads); partial/open items retain mandated state",
+ "state_counts": {
+  "mandated": 59,
+  "complete": 2,
+  "evidence-submitted": 1,
+  "superseded": 1
+ },
+ "verified": {
+  "OBL_LAYERED_ARCHITECTURE": {
+   "verdict": "evidence-ready",
+   "evidence": [
+    "architecture audit green: zero layer violations post investment-mobile v2.0.0 manifest sync (INVESTMENT_MOBILE_REQUIRED_LAYERS={integration,trading})",
+    "protected-source-readonly gate passing"
+   ]
+  },
+  "OBL_TEST_SUITE_DIRECTORY": {
+   "verdict": "evidence-ready",
+   "evidence": [
+    "audit gate: governed test suite per active module enforced (blocked commits until layer contract synced)",
+    "investment-mobile 297/297, ai-assistant 72/72 green"
+   ]
+  },
+  "OBL_POSTGRESQL_AUTHORITY": {
+   "verdict": "evidence-ready",
+   "evidence": [
+    "runtime bounded lookup via governance-codex://official; SQLite not consulted for authority reads",
+    "module_capability_registry 45/45 parity derived-vs-PG verified live 2026-09-24",
+    "fail-closed on unavailable lookup confirmed in codex_amendment_driver AUTHORITY_EXPORT_UNAVAILABLE path"
+   ]
+  },
+  "OBL_SYSTEM_RELIABILITY": {
+   "verdict": "partial",
+   "evidence": [
+    "native double-load heap-corruption root-caused and fixed (43df7e45, 1cd55c20): sys.modules idempotent guard + hot-reload protection for core_system.native",
+    "faulthandler enabled at both entry points",
+    "startup_dead fast-fail: dead-grace 45s -> ~7s (d662ff6c)",
+    "cold-sleep settled-sweep fix (a9f8b8c7)"
+   ],
+   "gap": "no sustained-stability soak evidence; periodic TimeoutError events observed pre-crash"
+  },
+  "FINAL_CONVERGENCE_IMPLEMENTATION_PLAN": {
+   "verdict": "partial",
+   "evidence": [
+    "capability_dispatch_registry materialized 18 rows pending-explicit-successor-mapping",
+    "runtime dispatch resolver + retired-identity hop implemented (f3a74b79)",
+    "learning successor proposal staged"
+   ],
+   "gap": "17 successor mappings + RULE_CAPABILITY_DISPATCH_V1 activation await governor"
+  },
+  "OBL_MACHINE_SCHEMA_PARITY": {
+   "verdict": "open",
+   "evidence": [
+    "parity probe artifact machine-schema-parity-probe-20260924.json: 40 PENDING rows, surface map, recipe-gap documented"
+   ],
+   "gap": "semantic-hash recipe governor-side; producer/validator/persistence extractor toolchain required"
+  },
+  "OBL_SQL_MIGRATION": {
+   "verdict": "open",
+   "evidence": [
+    "a502-baseline-reanchor-evidence-20260924.json",
+    "chain recipe reverse-verified: sha256(target[i-1] || migration_file_sha)",
+    "SQL_DDL_CANONICALIZATION_V1 contract recovered from registry"
+   ],
+   "gap": "current_postgresql_schema_hash_status=UNVERIFIED_FAIL_CLOSED; live-hash probe needed; baseline re-anchor migration + actual PG receipt required"
+  },
+  "OBL_SCHEMA_DRIFT_GATE": {
+   "verdict": "open",
+   "evidence": [
+    "drift evidence: declared 323 vs live 717 objects (scope normalization incomplete)"
+   ],
+   "gap": "canonical-scope diff + re-anchor needed before gate can pass"
+  },
+  "OBL_SQL_GOVERNANCE_CLOSURE": {
+   "verdict": "open",
+   "evidence": [
+    "inventory diff produced in A502 artifact"
+   ],
+   "gap": "reconstruct-migration-chain + object inventory closure outstanding"
+  }
+ },
+ "pending_classification": [
+  "OBL_MODULE_RULE_INDEX_V1",
+  "OBL_RUNTIME_RULE_INDEX_V2",
+  "OBL_DAG_CAG_RAG_HYBRID",
+  "OBL_A334_RUNTIME_GATE_FULL_COVERAGE",
+  "OBL_ANTI_JAILBREAK",
+  "OBL_ARCHITECTURE_CATALOG",
+  "OBL_AUTHORITY_MARKER",
+  "OBL_BACKUP_RESTORE_AUTHORITY",
+  "OBL_BLOAT_VACUUM_CONTROL",
+  "OBL_BUSINESS_LOGIC_CSHARP_PARENT",
+  "OBL_CAPACITY_WATERMARK",
+  "OBL_CENTRAL_AUDIT_SQL",
+  "OBL_CHANNEL_ANOMALY_ISOLATION",
+  "OBL_CONNECTION_GENERATION_FENCE",
+  "OBL_DATA_CONTRACT_HANDSHAKE",
+  "OBL_DATA_LINEAGE",
+  "OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY",
+  "OBL_DATA_SLO",
+  "OBL_DATABASE_STARTUP_CERTIFICATION",
+  "OBL_DDL_AUDIT",
+  "OBL_DEV_RUNTIME_SEPARATION",
+  "OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE",
+  "OBL_DOMAIN_READ_ONLY_EMERGENCY",
+  "OBL_FORMAL_EVALUATOR_V2_PARITY",
+  "OBL_IDENTITY_AUTHENTICATION_SIMPLIFICATION",
+  "OBL_IMPLEMENTATION_PRECEDENCE",
+  "OBL_INTEGRATED_OBJECTIVES",
+  "OBL_LANGUAGE_DEPENDENCY_DAG_GATE",
+  "OBL_LONG_TRANSACTION_WATCHDOG",
+  "OBL_MAINTENANCE_UPDATE_INTEGRATION",
+  "OBL_MODEL_SCALING_STRATEGY",
+  "OBL_MODEL_TRAINING_GOVERNANCE_PARENT",
+  "OBL_NATIVE_COMPUTE_CORE_CLASS",
+  "OBL_NATIVE_PROMOTION_RECORD_CHECKER",
+  "OBL_NORMALIZED_TEST_FLOW_COVERAGE",
+  "OBL_ORPHAN_SCANNER",
+  "OBL_PERMISSION_PROOF_SNAPSHOT",
+  "OBL_REBUILD_CERTIFICATION",
+  "OBL_RPO_RTO_CLASS",
+  "OBL_SCHEMA_OWNERSHIP_LOCK",
+  "OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE",
+  "OBL_SHARED_TRANSPORT_SQL",
+  "OBL_SQL_HEALTH_READINESS",
+  "OBL_SQL_SECURITY_PROJECTION",
+  "OBL_SQL_TEST",
+  "OBL_SQLITE_FALLBACK",
+  "OBL_TOP_LEVEL_PATHS",
+  "OBL_TWO_PHASE_DELETION",
+  "OBL_WEIGHT_EVOLUTION",
+  "OBL_WORKLOAD_CLASS",
+  "OBL_WRITE_PROVENANCE",
+  "OBL_XINGCHENG_PRIMARY_GOAL",
+  "OBL_星澄_AUDIT",
+  "OBL_SINGLE_BLUEPRINT_PLANNING"
+ ],
+ "obligations": [
+  {
+   "obligation_code": "OBL_MODULE_RULE_INDEX_V1",
+   "target_state": "central module rule index registry validator generation loader and scoped query service",
+   "implementation_owner": "permission-sovereign",
+   "verification_owner": "decision-sovereign",
+   "introduced_version": "2026-09-22T16:37:22Z"
+  },
+  {
+   "obligation_code": "OBL_RUNTIME_RULE_INDEX_V2",
+   "target_state": "RUNTIME_RULE_INDEX_V2 producer validator atomic generation loader and benchmark evidence",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-22T16:30:28Z"
+  },
+  {
+   "obligation_code": "OBL_DAG_CAG_RAG_HYBRID",
+   "target_state": "all-machine-contract-parity-PASS|mandatory-tests-PASS|zero-cache-leakage|six-scenario-benchmark-PASS|architecture-parity",
+   "implementation_owner": "system-runtime-sovereign|permission-sovereign|decision-sovereign|xingcheng",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-22T09:45:31Z"
+  },
+  {
+   "obligation_code": "FINAL_CONVERGENCE_IMPLEMENTATION_PLAN",
+   "target_state": "RULE_CAPABILITY_DISPATCH_V1 governor activation and registry wiring complete; until governor activation the capability dispatch path remains pending and cannot be treated as current authority",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  },
+  {
+   "obligation_code": "OBL_A334_RUNTIME_GATE_FULL_COVERAGE",
+   "target_state": "100%-executable-runtime-entry-resolution-through-A334|zero-hard-coded-fallback|zero-orphan-executor|generation-validation",
+   "implementation_owner": "system-runtime-sovereign|permission-sovereign",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T09:38:01Z"
+  },
+  {
+   "obligation_code": "OBL_ANTI_JAILBREAK",
+   "target_state": "all instruction-bearing boundaries provenance-gated and adversarially verified",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_ARCHITECTURE_CATALOG",
+   "target_state": "all declared architecture entries validated and active",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_AUTHORITY_MARKER",
+   "target_state": "Every data record declares authority_class as central-official,module-private,derived,cache or degraded-copy;non-authoritative classes never satisfy authoritative reads.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_BACKUP_RESTORE_AUTHORITY",
+   "target_state": "A backup is a recovery artifact;restore alone grants no authority. Reopened data must pass schema,version,hash,RLS,role,lineage and generation certification.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_BLOAT_VACUUM_CONTROL",
+   "target_state": "Table/index bloat,dead tuples and autovacuum lag are measured;high-write transport and audit tables have explicit policies.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_BUSINESS_LOGIC_CSHARP_PARENT",
+   "target_state": "BUSINESS_LOGIC_CSHARP is a main-system internal orchestration service (not an independent tool)",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T10:09:23Z"
+  },
+  {
+   "obligation_code": "OBL_CAPACITY_WATERMARK",
+   "target_state": "Disk,WAL,SQLite WAL,transport backlog and Qdrant collection size use warning,critical and fail-closed watermarks.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_CENTRAL_AUDIT_SQL",
+   "target_state": "Central audit is append-only and cannot be silently deleted or modified;actor,operation,target,result,evidence,correlation,sequence and hash chain exactly align with AUDIT_EVENT_V1.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_CHANNEL_ANOMALY_ISOLATION",
+   "target_state": "all channel anomalies isolate exact scope while healthy and control routes remain continuous",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_CONNECTION_GENERATION_FENCE",
+   "target_state": "Restore,migration or role rotation increments connection_generation;older live connections cannot write.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_DATA_CONTRACT_HANDSHAKE",
+   "target_state": "A module declares supported contract_version before PostgreSQL use;incompatible clients are denied writes before query execution.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_DATA_LINEAGE",
+   "target_state": "Every central resource records source_module,source_revision,generation_method,synchronization_path,last_writer and reversible SQLite>PostgreSQL>Qdrant lineage.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY",
+   "target_state": "DIR_DATA_SCHEMA_AUTHORITY current catalog coverage and consumer policy parity active",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:19:25Z"
+  },
+  {
+   "obligation_code": "OBL_DATA_SLO",
+   "target_state": "Central query p95,transport claim latency,reconcile backlog,SQLite lock rate,Qdrant stale rate and restore success have registered objectives.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_DATABASE_STARTUP_CERTIFICATION",
+   "target_state": "READY requires schema version,RLS,required roles,migration head,audit append-only and authority-contract validation rather than SELECT 1.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_DDL_AUDIT",
+   "target_state": "Schema,index,RLS,role and grant changes append an independent DDL audit event in addition to migration logs.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_DEV_RUNTIME_SEPARATION",
+   "target_state": "development/runtime separation",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  },
+  {
+   "obligation_code": "OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE",
+   "target_state": "all directory_master_catalog entries active with authoritative schema,data,API,test,audit,lineage and acceptance evidence",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-15T11:18:35Z"
+  },
+  {
+   "obligation_code": "OBL_DOMAIN_READ_ONLY_EMERGENCY",
+   "target_state": "Integrity failure,schema drift or authority conflict can isolate a selected data domain as read-only without stopping healthy domains.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_FORMAL_EVALUATOR_V2_PARITY",
+   "target_state": "all active formal evaluators and tests match current declarative semantic hashes",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-15T08:41:47Z"
+  },
+  {
+   "obligation_code": "OBL_IDENTITY_AUTHENTICATION_SIMPLIFICATION",
+   "target_state": "remove-obsolete-requirements|rebuild-machine-schemas|authentication-contracts|UI-IPC-validation|permission-projection|tests|audit-privacy-projection|zero-current-stale-references",
+   "implementation_owner": "permission-sovereign|system-runtime-sovereign|decision-sovereign",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T09:22:51Z"
+  },
+  {
+   "obligation_code": "OBL_IMPLEMENTATION_PRECEDENCE",
+   "target_state": "implementation precedence write-back",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  },
+  {
+   "obligation_code": "OBL_INTEGRATED_OBJECTIVES",
+   "target_state": "integrated objectives mapping",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  },
+  {
+   "obligation_code": "OBL_LANGUAGE_DEPENDENCY_DAG_GATE",
+   "target_state": "registered read-only TypeScript language and dependency DAG checkers with exact evidence and mandatory cycle tests",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_LAYERED_ARCHITECTURE",
+   "target_state": "all declared GPTBridge layers mapped and validated",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_LONG_TRANSACTION_WATCHDOG",
+   "target_state": "Transaction age,idle-in-transaction and lock holders are bounded by workload policy with alert or governed termination.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_MACHINE_SCHEMA_PARITY",
+   "target_state": "all 74 registered machine schemas have equal evidenced producer,validator,persistence and canonical semantic hashes; current 74 PENDING remain incomplete and cannot be promoted without evidence",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T02:36:18Z"
+  },
+  {
+   "obligation_code": "OBL_MAINTENANCE_UPDATE_INTEGRATION",
+   "target_state": "maintenance x update integration and retention",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  },
+  {
+   "obligation_code": "OBL_MODEL_SCALING_STRATEGY",
+   "target_state": "medium/base scaling strategy execution",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  },
+  {
+   "obligation_code": "OBL_MODEL_TRAINING_GOVERNANCE_PARENT",
+   "target_state": "MODEL_TRAINING governance parent is XINGCHENG_INSTITUTION_ROOT; LOCAL_MODEL is dependency/provider only",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T10:09:23Z"
+  },
+  {
+   "obligation_code": "OBL_NATIVE_COMPUTE_CORE_CLASS",
+   "target_state": "NATIVE_COMPUTE_CORE is a native library with a stable C ABI, not a launchable service",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T10:09:23Z"
+  },
+  {
+   "obligation_code": "OBL_NATIVE_PROMOTION_RECORD_CHECKER",
+   "target_state": "request_registry remains SHADOW/STAGED until its host explicitly wires _native_primary through the registered contract; no native-primary claim before host wiring, parity, fail-closed and release evidence",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_NORMALIZED_TEST_FLOW_COVERAGE",
+   "target_state": "every active command and fault has current normalized links or an authorized current not-applicable rationale",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T02:36:18Z"
+  },
+  {
+   "obligation_code": "OBL_ORPHAN_SCANNER",
+   "target_state": "Periodic scans detect PostgreSQL resources without locators,Qdrant points without chunks and SQLite pending resources without PostgreSQL authority.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_PERMISSION_PROOF_SNAPSHOT",
+   "target_state": "Important writes persist the contemporaneous permission and RLS decision digest,policy version,scope and decision evidence.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_POSTGRESQL_AUTHORITY",
+   "target_state": "PostgreSQL is the sole SQL authority for central structured official data,shared transport and central audit. SQLite is module-private bounded state only and never gains central authority.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_REBUILD_CERTIFICATION",
+   "target_state": "Qdrant rebuild,PostgreSQL restore and SQLite repair remain non-serving until count,hash,revision,RLS and locator checks pass.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_RPO_RTO_CLASS",
+   "target_state": "Central PostgreSQL,governance Codex SQLite,module SQLite and Qdrant use distinct registered RPO and RTO classes.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_SCHEMA_DRIFT_GATE",
+   "target_state": "Any PostgreSQL catalog difference from canonical migration and schema registries fails closed before affected writes or readiness.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_SCHEMA_OWNERSHIP_LOCK",
+   "target_state": "Every schema has exactly one owner;runtime roles cannot CREATE,ALTER or DROP;DDL is exclusive to the migration executor.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE",
+   "target_state": "A66-successor|exact-seven-tool-directory|xingcheng-de-tool|system-rescue-internal-service|global-cleaner-retirement|model-dialogue-independent-tool|investment-mobile-class|local-model-xingcheng-separation|star-directory-parent|identity-groups|command-fault-test-path-projections|search-manifest-closure",
+   "implementation_owner": "permission-sovereign|system-runtime-sovereign|xingcheng",
+   "verification_owner": "decision-sovereign",
+   "introduced_version": "2026-09-16T09:22:51Z"
+  },
+  {
+   "obligation_code": "OBL_SHARED_TRANSPORT_SQL",
+   "target_state": "Transport rows bind message/event identity,correlation,causation,ordering,idempotency,retention,consumer ownership,lease state and audit linkage.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_SQL_GOVERNANCE_CLOSURE",
+   "target_state": "complete-postgresql-object-inventory|reconstruct-migration-chain|establish-ddl-canonicalization|register-security-projection|inventory-postgresql-roles|inventory-all-governed-sqlite-databases|classify-all-sqlite-state|define-reconciliation-contracts|implement-schema-drift-validator|implement-transaction-concurrency-validator|implement-transport-audit-validator|implement-recovery-validator|execute-TEST_SUITE_SQL_GOVERNANCE|submit-current-version-closure-evidence",
+   "implementation_owner": "decision-sovereign|permission-sovereign|information-layer-declared-owners",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T06:16:14Z"
+  },
+  {
+   "obligation_code": "OBL_SQL_HEALTH_READINESS",
+   "target_state": "Readiness validates authority,schema,migration,RLS,roles,audit and generation. PostgreSQL-unready features close explicitly;only registered scopes may use bounded SQLite degradation.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_SQL_MIGRATION",
+   "target_state": "SQL_MIGRATION_V1 producer,validator,ordered registry and live PostgreSQL schema parity active",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:19:25Z"
+  },
+  {
+   "obligation_code": "OBL_SQL_SECURITY_PROJECTION",
+   "target_state": "principal,principal_scope,can_read() and can_write() are database enforcement projections of permission decisions and never permission authority.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_SQL_TEST",
+   "target_state": "Migration replay,schema drift,permission scope,fallback reconciliation,audit immutability,restore certification and authority separation are mandatory release tests.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_SQLITE_FALLBACK",
+   "target_state": "SQLite fallback is module-private,bounded,observable,reconciled and non-canonical;each fallback declares PostgreSQL reconciliation target,generation,deadline and prohibited operations.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T05:16:30Z"
+  },
+  {
+   "obligation_code": "OBL_SYSTEM_RELIABILITY",
+   "target_state": "all capabilities meet declared stability performance repair and isolation SLOs",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_TEST_SUITE_DIRECTORY",
+   "target_state": "one active governed test suite per active module",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_TOP_LEVEL_PATHS",
+   "target_state": "all Codex connections resolve only the registered canonical PostgreSQL authority root; _codex_connection_for rejects non-canonical roots; legacy SQLite path constants CODEX_DATABASE_RELATIVE and CODEX_DATABASE_PATH are removed after all consumers migrate",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_TWO_PHASE_DELETION",
+   "target_state": "Deletion is tombstone>retention-window>purge and synchronizes PostgreSQL indexes,SQLite private data and Qdrant vectors.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_WEIGHT_EVOLUTION",
+   "target_state": "weight evolution five-stage flow",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  },
+  {
+   "obligation_code": "OBL_WORKLOAD_CLASS",
+   "target_state": "SQL work is classified interactive,transport,audit,reconciliation,maintenance or migration with isolated timeout,pool and priority budgets.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_WRITE_PROVENANCE",
+   "target_state": "Every INSERT and UPDATE binds actor_id,executor_id,decision_id,correlation_id and source_revision.",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "2026-09-16T03:46:27Z"
+  },
+  {
+   "obligation_code": "OBL_XINGCHENG_PRIMARY_GOAL",
+   "target_state": "xingcheng primary goal (command understanding + chat)",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  },
+  {
+   "obligation_code": "OBL_星澄_AUDIT",
+   "target_state": "星澄 read-only audit evidence views findings and challenge paths fully registered",
+   "implementation_owner": "module-execution-layer",
+   "verification_owner": "星澄",
+   "introduced_version": "1.00000"
+  },
+  {
+   "obligation_code": "OBL_SINGLE_BLUEPRINT_PLANNING",
+   "target_state": "planning documents remain retired; current work is represented only by Codex,registered contracts,lifecycle,obligation and evidence projections",
+   "implementation_owner": "system-runtime-sovereign",
+   "verification_owner": "permission-sovereign",
+   "introduced_version": "2026-09-21T11:30:53Z"
+  }
+ ]
+}
