@@ -214,6 +214,14 @@ class MarketDataEngine:
                     status.error_code = ""
                 return  # clean stream end
             except asyncio.CancelledError:
+                # Cancelled mid-failure means the connection is gone for
+                # good — report it truthfully instead of leaving a stale
+                # "degraded" that implies retries are still running.  A
+                # healthy stream keeps its last observed "connected".
+                if status.connection_status != ConnectionStatus.CONNECTED.value:
+                    status.connection_status = ConnectionStatus.DISCONNECTED.value
+                    status.recovery_status = "idle"
+                    self._persist_status()
                 return
             except Exception as exc:  # fault isolation boundary
                 attempts += 1
