@@ -1130,5 +1130,17 @@ def _multi_core_parallel(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "allocation within five-core budget"
 
 
+@register_rule("RULE_CAPABILITY_DISPATCH_V1")
+def _capability_dispatch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A592/A604): delegation to a retired sub-sovereign identity
+    resolves via exactly one active capability_dispatch_registry row; absent,
+    pending or ambiguous mapping fails closed."""
+    from governance_rule.execution.convergence.capability_dispatch import (
+        evaluate_dispatch,
+    )
+
+    return evaluate_dispatch(facts)
+
+
 for _rule_code, _provision_id in _DECLARED_PROVISION_RULES.items():
     register_rule(_rule_code)(_declared_provision_evaluator(_provision_id))
