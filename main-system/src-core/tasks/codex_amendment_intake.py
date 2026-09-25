@@ -4,8 +4,12 @@
 ``codex-amendment-request`` artifact，並經
 ``governance_rule.execution.codex_amendment_driver.advance_all`` 推進每個
 未結請求：lineage-locked intake → successor build → five-sovereign audit
-→ ``ready-for-governor``。本 driver **永不**封印或發布——執行仍由
-human governor 經 ``codex_amendment_executor --apply`` 觸發。
+→ ``ready-for-governor`` → ``auto_execute`` 開啟時經
+``codex_amendment_executor`` 解除唯讀、原子發布、恢復唯讀並封印
+（五主權一致稽核憑證為封印條件，executor 於任何變更前重新驗證）；
+旗標關閉時停在 ``ready-for-governor``，由 human governor 手動
+``--apply``。旗標單一來源：``automation-flows.json`` 本 flow 條目的
+``auto_execute``（每 tick 即時讀取，關閉立即生效）。
 
 Xingcheng 收據需要受管 web-search 路徑：``local-model`` 在跑時經
 ``ToolboxService.request_tool_execution`` 提交 ``xingcheng_web_search``
@@ -205,6 +209,29 @@ class CodexAmendmentIntakeDriver:
             }
 
     # ------------------------------------------------------------------
+    # governed auto-execute toggle (single source: automation-flows.json)
+    # ------------------------------------------------------------------
+
+    def _auto_execute_enabled(self) -> bool:
+        try:
+            manifest = json.loads(
+                (
+                    self._project_root
+                    / "main-system"
+                    / "config"
+                    / "automation-flows.json"
+                ).read_text(encoding="utf-8")
+            )
+            entry = (manifest.get("flows") or {}).get(FLOW_ID) or {}
+            return bool(entry.get("auto_execute"))
+        except Exception as error:  # noqa: BLE001 — unreadable = off
+            _logger.warning(
+                "codex-amendment intake: auto_execute flag unreadable: %s",
+                error,
+            )
+            return False
+
+    # ------------------------------------------------------------------
     # tick
     # ------------------------------------------------------------------
 
@@ -302,11 +329,15 @@ class CodexAmendmentIntakeDriver:
                 intake_dirs=self._intake_dirs,
                 ledger=ledger,
                 search=search,
+                auto_execute=self._auto_execute_enabled(),
             ),
         )
         self._last_results = results
         ready = sum(
             1 for r in results if r.get("state") == "ready-for-governor"
+        )
+        executed = sum(
+            1 for r in results if r.get("state") == "executed"
         )
         rejected = sum(1 for r in results if r.get("state") == "rejected")
         deferred = sum(
@@ -330,6 +361,7 @@ class CodexAmendmentIntakeDriver:
             )
         return (
             f"advanced:{len(results)} ready:{ready} "
+            f"executed:{executed} "
             f"rejected:{rejected} deferred:{deferred}"
         )
 

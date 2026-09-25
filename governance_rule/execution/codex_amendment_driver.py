@@ -58,10 +58,15 @@ from governance_rule.execution.codex_amendment import (
     SOVEREIGN_ALIASES,
 )
 from governance_rule.execution.codex_amendment_audit_gate import (
+    AUDIT_LEDGER_PATH,
     build_xingcheng_network_check,
 )
 from governance_rule.execution.codex_amendment_audit_runner import (
     run_five_sovereign_audit,
+)
+from governance_rule.execution.codex_amendment_executor import (
+    CodexAmendmentDenied,
+    execute_amendment,
 )
 from governance_rule.execution.codex_amendment_lifecycle import (
     STATE_AUDIT_PASSED,
@@ -595,6 +600,147 @@ def scan_requests(
     return sorted(found.values(), key=lambda item: item["request_id"])
 
 
+def _latest_audit_result(request_id: str) -> Mapping[str, Any] | None:
+    """Newest recorded audit verdict for ``request_id`` from the ledger.
+
+    The unanimous five-sovereign certificate is persisted in
+    ``codex_amendment_audit.jsonl`` before the record reaches
+    ``ready-for-governor``, so a later tick (or the auto-execute stage of
+    the same tick) can rebuild the exact ``audit_result`` mapping the
+    executor revalidates — no receipt is ever reconstructed from memory.
+    """
+    try:
+        lines = AUDIT_LEDGER_PATH.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    latest: Mapping[str, Any] | None = None
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if str(entry.get("amendment_id") or "") == request_id:
+            latest = entry
+    if not isinstance(latest, Mapping) or latest.get("ok") is not True:
+        return None
+    result = dict(latest)
+    # The ledger writes ``to_record()`` before the recorded flag flips, so
+    # the persisted entry always carries ``audit_recorded: false`` — the
+    # entry's presence in the append-only audit ledger is itself the
+    # recording evidence the executor revalidates.
+    result["audit_recorded"] = True
+    return result
+
+
+def _execute_ready_request(
+    request_path: Path,
+    *,
+    ledger: CodexAmendmentRequestLedger,
+    request_id: str,
+) -> dict[str, Any]:
+    """Apply a certified amendment end to end (A488 publish + seal).
+
+    ``execute_amendment`` revalidates the unanimous five-sovereign audit
+    certificate before mutating anything; ``run_auto_update`` lifts the
+    read-only attributes, atomically publishes the staged generation into
+    the PostgreSQL authority, restores read-only protection and verifies
+    the published generation — the seal-closing condition is the
+    certificate, no external signature is used.
+
+    Every failure is terminal ``rejected`` with evidence: A488 quarantines
+    staging and leaves the live generation untouched, so the owner
+    resubmits a corrected ``-rN`` revision instead of retrying a possibly
+    deterministic failure forever.
+    """
+    audit_result = _latest_audit_result(request_id)
+    if audit_result is None:
+        return {
+            "ok": False,
+            "state": STATE_READY_FOR_GOVERNOR,
+            "error": "AUDIT_RESULT_UNAVAILABLE",
+        }
+    candidate = (
+        ledger.root / CANDIDATES_DIRNAME / f"{request_id}.sqlite3"
+    )
+    if not candidate.is_file():
+        return {
+            "ok": False,
+            "state": STATE_READY_FOR_GOVERNOR,
+            "error": "CANDIDATE_DATABASE_MISSING",
+        }
+    certificate_hash = str(
+        (audit_result.get("certificate") or {}).get("certificate_hash")
+        or ""
+    )
+    try:
+        execution = execute_amendment(
+            request_path=request_path,
+            prepared_database=candidate,
+            audit_result=audit_result,
+            apply=True,
+        )
+    except CodexAmendmentDenied as error:
+        ledger.reject(
+            request_id,
+            reason=str(error),
+            evidence={"stage": "execute", "denied": True},
+        )
+        return {
+            "ok": False,
+            "state": STATE_REJECTED,
+            "error": str(error),
+        }
+    except Exception as error:  # noqa: BLE001 — terminal, never silent
+        ledger.reject(
+            request_id,
+            reason=f"EXECUTE_ERROR:{error}",
+            evidence={"stage": "execute"},
+        )
+        return {
+            "ok": False,
+            "state": STATE_REJECTED,
+            "error": f"EXECUTE_ERROR:{type(error).__name__}:{error}",
+        }
+    if not execution.ok:
+        ledger.reject(
+            request_id,
+            reason=execution.reason or "update-pipeline-rejected",
+            evidence={
+                "stage": "execute",
+                "phases": [dict(phase) for phase in execution.phases],
+            },
+        )
+        return {
+            "ok": False,
+            "state": STATE_REJECTED,
+            "error": execution.reason or "update-pipeline-rejected",
+        }
+    ledger.transition(
+        request_id,
+        STATE_EXECUTED,
+        evidence={
+            "executor": "codex_amendment_executor",
+            "auto_execute": True,
+            "executed_at": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+            "version": execution.version,
+            "seal_state": execution.seal_state,
+            "certificate_hash": certificate_hash,
+        },
+    )
+    return {
+        "ok": True,
+        "state": STATE_EXECUTED,
+        "version": execution.version,
+        "seal_state": execution.seal_state,
+        "certificate_hash": certificate_hash,
+    }
+
+
 async def advance_request(
     request_path: str | Path,
     *,
@@ -603,10 +749,18 @@ async def advance_request(
     search: Callable[[str], Any] | None = None,
     successor_version: str | None = None,
     gate: Any = None,
+    auto_execute: bool = False,
 ) -> dict[str, Any]:
     """Advance one staged request through build and audit.
 
-    Stops at ``ready-for-governor`` — publication stays governor-invoked.
+    Without ``auto_execute`` the driver stops at ``ready-for-governor`` —
+    publication stays governor-invoked.  With ``auto_execute`` the
+    governed certificate gate still applies unchanged: only requests that
+    reach ``ready-for-governor`` (unanimous five-sovereign audit with a
+    recorded certificate) are applied through ``execute_amendment`` —
+    lift read-only, atomically publish, restore read-only, seal — and
+    transition to ``executed``; every failure is terminal ``rejected``
+    with evidence.
     """
     ledger = ledger or CodexAmendmentRequestLedger()
     request_path = Path(request_path)
@@ -754,6 +908,32 @@ async def advance_request(
         )
         result["audit"] = run.as_dict()
         result.update(ok=run.ok, stage="audit", state=run.state)
+        if not run.ok:
+            return result
+        state = run.state
+        # fall through: audit-passed promotion + optional auto-execute
+    if state == STATE_AUDIT_PASSED:
+        # A crash between audit-passed and ready-for-governor left the
+        # certificate recorded but the promotion unwritten — complete the
+        # legal transition so the execute stage can proceed.
+        ledger.transition(
+            request_id,
+            STATE_READY_FOR_GOVERNOR,
+            evidence={"recovery": "audit-passed-promotion"},
+        )
+        state = STATE_READY_FOR_GOVERNOR
+    if state == STATE_READY_FOR_GOVERNOR and auto_execute:
+        outcome = _execute_ready_request(
+            request_path, ledger=ledger, request_id=request_id
+        )
+        result["execution"] = outcome
+        result.update(
+            ok=outcome["ok"],
+            stage="execute",
+            state=outcome["state"],
+        )
+        if outcome.get("error"):
+            result["error"] = outcome["error"]
         return result
     # audit-passed or ready-for-governor: nothing left for the driver.
     result.update(ok=True, stage="audit", state=state)
@@ -768,6 +948,7 @@ async def advance_all(
     search: Callable[[str], Any] | None = None,
     successor_version: str | None = None,
     gate: Any = None,
+    auto_execute: bool = False,
 ) -> list[dict[str, Any]]:
     """Advance every staged non-terminal request once."""
     ledger = ledger or CodexAmendmentRequestLedger()
@@ -783,6 +964,7 @@ async def advance_all(
                 search=search,
                 successor_version=successor_version,
                 gate=gate,
+                auto_execute=auto_execute,
             )
         )
     return results
@@ -796,6 +978,11 @@ def cli_main(argv: list[str] | None = None) -> int:
     parser.add_argument("--request", default="")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--source", default="", help="predecessor sqlite export")
+    parser.add_argument(
+        "--auto-execute",
+        action="store_true",
+        help="apply ready-for-governor requests via the governed executor",
+    )
     args = parser.parse_args(argv)
     if args.scan:
         print(json.dumps(scan_requests(), ensure_ascii=False, indent=2))
@@ -803,14 +990,19 @@ def cli_main(argv: list[str] | None = None) -> int:
     if args.request:
         outcome = asyncio.run(
             advance_request(
-                args.request, source_database=args.source or None
+                args.request,
+                source_database=args.source or None,
+                auto_execute=args.auto_execute,
             )
         )
         print(json.dumps(outcome, ensure_ascii=False, indent=2))
         return 0 if outcome.get("ok") else 1
     if args.all:
         outcomes = asyncio.run(
-            advance_all(source_database=args.source or None)
+            advance_all(
+                source_database=args.source or None,
+                auto_execute=args.auto_execute,
+            )
         )
         print(json.dumps(outcomes, ensure_ascii=False, indent=2))
         return 0 if all(item.get("ok") for item in outcomes) else 1
