@@ -109,7 +109,7 @@ def _restamp_binding_versions(connection: sqlite3.Connection, version: str) -> N
     for table in ("provision_lifecycle_status", "effective_provisions"):
         columns = _columns(connection, table)
         if "current_binding_version" in columns:
-            connection.execute(
+            connection.execute(  # sql-ok: identifier from the fixed allowlist above; once per table
                 f'UPDATE "{table}" SET current_binding_version=?', (version,)
             )
 
@@ -193,7 +193,7 @@ def _rebuild_search_documents(connection: sqlite3.Connection, version: str) -> i
         "FROM provision_lifecycle_status"
     ).fetchall()
     connection.execute("DELETE FROM codex_search_document")
-    count = 0
+    staged: list[tuple] = []
     for provision_type, provision_id, lifecycle_state in lifecycle:
         ptype, pid = str(provision_type), str(provision_id)
         if ptype in ("article", "principle", "edict", "sovereign"):
@@ -213,10 +213,7 @@ def _rebuild_search_documents(connection: sqlite3.Connection, version: str) -> i
             or "CODEX_MODULE_DIRECTORY"
         )
         law_code = laws.get((ptype, pid)) or prior_law.get((ptype, pid)) or "CODEX_MAIN"
-        connection.execute(
-            "INSERT INTO codex_search_document (provision_type, provision_id, "
-            "module_code, law_code, subject, content, content_hash, "
-            "lifecycle_state, version_identity) VALUES (?,?,?,?,?,?,?,?,?)",
+        staged.append(
             (
                 ptype,
                 pid,
@@ -227,10 +224,15 @@ def _rebuild_search_documents(connection: sqlite3.Connection, version: str) -> i
                 search_document_hash(content),
                 str(lifecycle_state),
                 version,
-            ),
+            )
         )
-        count += 1
-    return count
+    connection.executemany(
+        "INSERT INTO codex_search_document (provision_type, provision_id, "
+        "module_code, law_code, subject, content, content_hash, "
+        "lifecycle_state, version_identity) VALUES (?,?,?,?,?,?,?,?,?)",
+        staged,
+    )
+    return len(staged)
 
 
 def _rebuild_fts(connection: sqlite3.Connection) -> int:
@@ -281,14 +283,18 @@ def _rebuild_fts(connection: sqlite3.Connection) -> int:
                 continue
             staged_columns = _columns(connection, shadow)
             width = len(staged_columns)
-            connection.execute(f'DELETE FROM "{shadow}"')
-            for row in rows:
-                padded = list(row)[:width] + [None] * (width - len(row))
-                connection.execute(
-                    f'INSERT INTO "{shadow}" ({", ".join(staged_columns)}) '
-                    f'VALUES ({", ".join("?" for _ in staged_columns)})',
-                    padded,
-                )
+            connection.execute(  # sql-ok: identifier derived from sqlite_master shadow-table allowlist
+                f'DELETE FROM "{shadow}"'
+            )
+            padded_rows = [
+                list(row)[:width] + [None] * (width - len(row))
+                for row in rows
+            ]
+            connection.executemany(
+                f'INSERT INTO "{shadow}" ({", ".join(staged_columns)}) '  # sql-ok: identifier/column list from staged table metadata
+                f'VALUES ({", ".join("?" for _ in staged_columns)})',
+                padded_rows,
+            )
     finally:
         scratch.close()
     return len(docs)
@@ -317,6 +323,7 @@ def _rebuild_module_manifest(connection: sqlite3.Connection, version: str) -> No
     all_classification = _rows(connection, "provision_law_classification")
     all_resolution = _rows(connection, "provision_reference_resolution_v2")
     connection.execute("DELETE FROM codex_internal_module_manifest")
+    staged: list[tuple] = []
     for module in modules:
         membership = [row for row in all_membership if row[2] == module]
         member_keys = sorted((str(r[0]), str(r[1])) for r in membership)

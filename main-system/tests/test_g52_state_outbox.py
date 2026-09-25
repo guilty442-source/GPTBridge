@@ -3,8 +3,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tasks.state_outbox import OutboxPublisher
 from tasks.state_outbox_store import OutboxStore
+
+
+@pytest.fixture(autouse=True)
+def _sqlite_outbox_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Tests run on the bounded SQLite fallback; PostgreSQL is the runtime default.
+    monkeypatch.setenv("GPTBRIDGE_OUTBOX_ENGINE", "sqlite")
 
 
 class _Ui:

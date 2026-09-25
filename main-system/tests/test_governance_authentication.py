@@ -30,6 +30,12 @@ from governance_rule.permission_directory.directory_authority import (  # noqa: 
 )
 from governance_rule.permission_directory.execution import path_guard  # noqa: E402
 
+@pytest.fixture(autouse=True)
+def _sqlite_nonce_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Tests run on the bounded SQLite fallback; PostgreSQL is the runtime default.
+    monkeypatch.setenv("GPTBRIDGE_NONCE_ENGINE", "sqlite")
+
+
 import base64
 import json
 import os
