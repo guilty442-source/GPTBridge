@@ -474,7 +474,7 @@ class GenerationManager:
             # 1. Atomic alias swap: alias → new physical collection
             update_aliases = getattr(self.qdrant, "update_aliases", None)
             if update_aliases is not None:
-                from qdrant_client.http.models import (
+                from .vector_models import (
                     CreateAlias,
                     CreateAliasOperation,
                     DeleteAlias,
@@ -771,7 +771,7 @@ _GENERATION_DDL = (
 
 GENERATION_TABLE_SQL = "\n".join(_GENERATION_DDL)
 
-from qdrant_client.http.models import Distance, VectorParams  # noqa: E402
+from .vector_models import Distance, VectorParams  # noqa: E402
 
 __all__ = [
     "GenerationState",

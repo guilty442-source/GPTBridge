@@ -180,6 +180,7 @@ class LocalAiLifecycleMixin:
         import subprocess
         import time
         import urllib.request
+        from urllib.parse import urlsplit
         from pathlib import Path
 
         def healthy() -> bool:
