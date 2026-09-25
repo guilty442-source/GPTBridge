@@ -274,7 +274,13 @@ class CodexAmendmentIntakeDriver:
                     if isinstance(start_result, dict)
                     else {"ok": False, "result": str(start_result)}
                 )
-                for _ in range(3):
+                # governed-source startup takes ~5-10 s to verify —
+                # waiting only 3 ticks (6 s) abandons a wake that
+                # succeeded moments later and leaves the tool up with no
+                # pending search (previously the sleep policy then
+                # cold-slept it on a stale idle baseline before the next
+                # tick could use it).
+                for _ in range(8):
                     await asyncio.sleep(2)
                     if await self._owner_active():
                         search = self._channel_search

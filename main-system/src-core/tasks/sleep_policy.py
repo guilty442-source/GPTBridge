@@ -92,6 +92,11 @@ class SleepPolicyManager:
         self._stop_event = asyncio.Event()
         # tool_id -> last observed activity epoch (first seen = now)
         self._last_active: dict[str, float] = {}
+        # tool_id -> marker identifying the currently observed
+        # process/session (started request id, else active request id).
+        # A changed or newly appearing marker means the process (re)started
+        # since the previous scan — its idle baseline cannot predate that.
+        self._running_marks: dict[str, str] = {}
         # tool_id -> current tier ("hot"|"warm"|"cold")
         self._tiers: dict[str, str] = {}
         self._last_decisions: dict[str, str] = {}
@@ -232,9 +237,22 @@ class SleepPolicyManager:
         never_sleep = set(policy["never_sleep"])
         overrides = policy["units"] if isinstance(policy["units"], dict) else {}
 
-        tools = await self._running_tools()
+        tools = await self._running_marks()
         now = time.time()
+        # Marks for vanished tools are dropped so a later re-appearance
+        # counts as a fresh process even if its marker repeats.
+        for gone in set(self._running_marks) - set(tools):
+            self._running_marks.pop(gone, None)
         for tool_id in sorted(tools):
+            if self._running_marks.get(tool_id) != tools[tool_id]:
+                # Freshly (re)started process/session — reset the idle
+                # baseline.  Without this a stale ``_last_active`` epoch
+                # survives restarts and the very next scan cold-sleeps a
+                # just-woken unit before it can serve the request that
+                # demanded it (observed: every governed/local-model wake
+                # killed ~35 s after start).
+                self._running_marks[tool_id] = tools[tool_id]
+                self._last_active[tool_id] = now
             if tool_id in never_sleep:
                 self._tiers[tool_id] = "hot"
                 self._last_decisions[tool_id] = "exempt"
@@ -438,13 +456,24 @@ class SleepPolicyManager:
 
     async def _running_tools(self) -> set[str]:
         """Tool ids with a live governed process or started session."""
+        return set(await self._running_marks())
+
+    async def _running_marks(self) -> dict[str, str]:
+        """tool_id -> marker for the currently observed process/session.
+
+        The started-session request id is stable for the life of the
+        process; the active request id identifies one-shot executions.
+        A marker change therefore signals a (re)start or fresh work.
+        """
         active = getattr(self.toolbox, "_active_request_by_tool", None)
         started = getattr(self.toolbox, "_started_request_by_tool", None)
-        tools: set[str] = set()
-        for mapping in (active, started):
+        marks: dict[str, str] = {}
+        for label, mapping in (("started", started), ("active", active)):
             if isinstance(mapping, dict):
-                tools.update(str(t) for t in mapping if t)
-        return tools
+                for tool_id, request_id in mapping.items():
+                    if tool_id:
+                        marks[str(tool_id)] = f"{label}:{request_id}"
+        return marks
 
     def _drain_state_sync(self, tool_id: str) -> tuple[bool, float | None]:
         """(drained, last_activity_epoch) from the transport outbox."""
