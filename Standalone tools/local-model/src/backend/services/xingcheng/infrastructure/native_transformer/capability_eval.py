@@ -248,8 +248,10 @@ def _check_item(
             detail["passed"] = bool(match) and int(match.group(0)) == int(item["expected"])
         elif kind == "last_int":
             # 位值分解式答案（「… → 14 + 82 = 96」）的結論整數在最後；
-            # first_int 會誤取運算元，last_int 取回覆末位整數對 expected。
-            matches = re.findall(r"-?\d+", reply)
+            # first_int 會誤取運算元。重複生成時只取第一回合——
+            # 後續 <|eot|> 段的數字屬下一回合，不能算入本題。
+            segment = reply.split("<|eot|>")[0]
+            matches = re.findall(r"-?\d+", segment)
             detail["passed"] = bool(matches) and int(matches[-1]) == int(item["expected"])
         elif kind == "regex":
             detail["passed"] = bool(re.search(str(item["pattern"]), reply))
