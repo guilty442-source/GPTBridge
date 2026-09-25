@@ -201,9 +201,19 @@ class LocalAiLifecycleMixin:
         binary = Path(self.tool_root).parent / "searchd-go" / "bin" / "searchd.exe"
         if not binary.is_file() and not self._build_searchd(binary):
             return False
+        # 啟動時帶上 url 指定的 host:port——與 healthz 探測的端點一致；
+        # 非 loopback 位址由 searchd 自身拒絕（fail-closed），這裡不再重複判斷。
+        listen = ""
+        try:
+            parts = urlsplit(url)
+            if parts.hostname and parts.port:
+                listen = f"{parts.hostname}:{parts.port}"
+        except ValueError:
+            listen = ""
+        argv = [str(binary)] + (["--listen", listen] if listen else [])
         try:
             subprocess.Popen(
-                [str(binary)],
+                argv,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
