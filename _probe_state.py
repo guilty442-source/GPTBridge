@@ -1,35 +1,36 @@
-import sys
+import json
+from pathlib import Path
 
-sys.path[:0] = [
-    r"E:\GPTBridge\governance_rule",
-    r"E:\GPTBridge\shared-layer\src",
-    r"E:\GPTBridge\main-system\src-core",
-]
-
-from governance_rule.execution.codex_repository import (
-    codex_readonly_connection,
-    CODEX_SCHEMA,
+src = Path(
+    r"E:\GPTBridge\governance_rule\execution\audit\convergence"
+    r"\codex-amendment-request-cfamily-primary-stack-one-format-20260925.json"
+)
+dst = src.with_name(
+    "codex-amendment-request-cfamily-primary-stack-one-format-20260925-r4.json"
 )
 
-with codex_readonly_connection() as con:
-    for label, q in {
-        "seal_cols": f"SELECT column_name FROM information_schema.columns WHERE table_schema='{CODEX_SCHEMA}' AND table_name='seal_manifest' ORDER BY ordinal_position",
-        "rh_cols": f"SELECT column_name FROM information_schema.columns WHERE table_schema='{CODEX_SCHEMA}' AND table_name='revision_history' ORDER BY ordinal_position",
-        "seal_rows": f"SELECT * FROM {CODEX_SCHEMA}.seal_manifest ORDER BY version_epoch DESC",
-        "rh_tail": f"SELECT * FROM {CODEX_SCHEMA}.revision_history ORDER BY recorded_at_utc DESC LIMIT 4",
-    }.items():
-        try:
-            con.execute("SAVEPOINT sp")
-        except Exception:
-            pass
-        try:
-            rows = con.execute(q).fetchall()
-            print("---", label)
-            for r in rows[:8]:
-                print(" ", str(r)[:400])
-        except Exception as e:
-            print(label, "err:", str(e).splitlines()[0])
-        try:
-            con.execute("ROLLBACK TO SAVEPOINT sp")
-        except Exception:
-            pass
+d = json.loads(src.read_text(encoding="utf-8-sig"))
+d["request_id"] = "cfamily-primary-stack-one-format-20260925-r4"
+d["predecessor"] = {
+    "codex_version": "2026-09-25T08:10:00Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": (
+        "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590"
+    ),
+    "revision_sequence": 75,
+}
+d["origin"] = (
+    "human-governor directive 2026-09-25: unify file formats "
+    "(one language one format), optimize for high performance, high "
+    "execution speed, low consumption and low resource footprint, reduce "
+    "Python dependency, C/C++/C# primary on .NET 10; r4 restamp after "
+    "main-system-csharp14-migration-20260925 execution and r3 "
+    "REQUEST_HASH_MISMATCH rejection"
+)
+d.setdefault("verification", {})["requested_at"] = "2026-09-25T08:50:00Z"
+
+dst.write_text(
+    json.dumps(d, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+)
+print("wrote", dst, dst.stat().st_size)

@@ -1,0 +1,170 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "cfamily-primary-stack-one-format-20260925-r4",
+  "title": "Declare C-family primary execution stack, one-language-one-format convergence, and A610 language reallocation",
+  "summary": "Re-order the governed language stack so C23/C++23/C#14 (.NET 10 GC, unified format, automatic memory management) carry primary execution, bound Python to on-demand governance semantics, declare exactly one canonical authored-source format per language with grandfathered alternates denied for new files, and introduce provision A610 anchoring RULE_LANGUAGE_REALLOCATION_V1. Composes on the executed go-rust r3 text; Go and Rust keep their bounded roles.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive 2026-09-25: unify file formats (one language one format), optimize for high performance, high execution speed, low consumption and low resource footprint, reduce Python dependency, C/C++/C# primary on .NET 10; r4 restamp after main-system-csharp14-migration-20260925 execution and r3 REQUEST_HASH_MISMATCH rejection",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T08:10:00Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+    "revision_sequence": 75
+  },
+  "problem": {
+    "summary": "The implementation language surface has drifted from the declared stack: TypeScript accumulates .tsx/.d.ts alternates, the C# source roots in policy did not cover the registered .NET tools, process-metrics-csharp had no architecture registration, and the codex does not declare a primary execution order, a single canonical format per language, or a provision anchoring the registered RULE_LANGUAGE_REALLOCATION_V1 evaluator (C23/C++23/C#14 .NET 10 primary adaptive).",
+    "codex_state": "A35 lists the hybrid stack at c11/c++17 without a primary execution order or .NET 10 GC target; A341 lacks a primary-execution row; A348 lists multi-extension sets per language without primary/grandfathered distinction and omits fsharp from ALLOWED-LANGUAGES although A35 declares it in the stack; A604 assigns language responsibility without the C-family-primary optimization target; no provision anchors RULE_LANGUAGE_REALLOCATION_V1.",
+    "risk_if_unamended": "Extension alternates proliferate, the boundary gate cannot enforce a single canonical format, F# remains owned-but-disallowed, the reallocation evaluator lacks a codex anchor, and Python keeps absorbing execution work that the optimization target assigns to C/C++/C#."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A35"
+      },
+      "field": "rule",
+      "proposed": "STACK:c23+c++23+csharp14+fsharp+go+rust+python+typescript+sql hybrid; PRIMARY-EXECUTION-ORDER:c23>c++23>csharp14; RUNTIME-PLATFORM:.NET 10 GC+unified format+automatic memory management for CSharp-owned surfaces; C:approved deterministic rules+permission hot paths+resident runtime+native tests; CPP:object-oriented native capabilities+inference+native tests+approved audit hot paths; CSHARP:interfaces+typed adapters+authorized workflow orchestration+sole test orchestration+Windows .NET integration; FSHARP:data analysis+machine learning+high-correctness complex calculation; GO:bounded concurrent services+transport workers+network adapters+portable operational binaries through versioned contracts; RUST:memory-safe systems capabilities+parsers+integrity/security-sensitive native components through versioned C ABI or typed service contracts; PYTHON:on-demand gate adjudication+necessary governance semantics+model research/training+unavoidable boundaries only and nonresident after request completion; TYPESCRIPT:presentation+build-time type safety; SQL:data operations+structured authoritative persistence within declared authority boundaries; OPTIMIZATION-TARGET:high-performance+high-execution-speed+low-consumption+low-resource-footprint+reduced-python-residency; SOLE:allowed-code-architecture"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A341"
+      },
+      "field": "rule",
+      "proposed": "MATRIX:{primary-execution=>owner:C+C++;callers:CSharp adapters+C ABI;deny:Python second execution path}+{system-orchestration=>owner:CSharp;callers:TypeScript+C+++C+Go+Rust adapters;deny:adapter second orchestration}+{UI-state-and-presentation=>owner:TypeScript;caller:typed API data provider;deny:backend DOM control}+{Native-ABI=>owner:C;callers:Python+CSharp+Go+Rust+pybind11;deny:public C++ ABI}+{high-performance-algorithms=>owner:C++;callers:C ABI and approved bindings only;deny:duplicate authoritative implementation}+{Windows-DotNET=>owner:CSharp;callers:typed adapters+C ABI;deny:CSharp cross-platform domain logic}+{analysis-and-machine-learning=>owner:FSharp;callers:versioned service contracts;deny:FSharp governance+permission+business judgment}+{bounded-concurrent-service=>owner:Go;callers:versioned information/service contracts;deny:Go governance+permission+business judgment}+{memory-safe-systems-capability=>owner:Rust;callers:C ABI or versioned typed service contracts;deny:Rust governance+permission+business judgment}+{relational-data-operation=>owner:SQL;caller:application services;deny:fetch-all-then-filter}+{bounded-governance-semantics=>owner:Python;callers:governance adapters;deny:Python resident services}; UNIQUENESS:each capability has exactly one authoritative language owner and callers are adapters/consumers only; CALL-PATH:every cross-language call is typed+versioned+tested; FALLBACK:a fallback preserves behavior but cannot become a second active owner; CHANGE:owner transfer requires successor law+affected graph+atomic migration+old-owner removal+release hard gate."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A343"
+      },
+      "field": "rule",
+      "proposed": "CORE-ORDER:correctness-first>declared-language-owner>representative reproducible profile>contract and behavior oracle>independent acceptance>certified activation. NEW-FEATURE follows A604: execution modules prefer C/C++ then C#;C23 owns approved deterministic rules,resident runtime and native tests;C++23 owns native capabilities,inference,native tests and approved audit hot paths;C#14 on .NET 10 owns interfaces,authorized orchestration,Windows .NET integration and the sole test orchestrator;F# owns analysis,machine learning and high-correctness complex calculation;Go owns bounded concurrent services,transport workers,network adapters and portable operational binaries;Rust owns memory-safe systems capabilities,parsers and integrity/security-sensitive native components;Python is limited to on-demand governance semantics,model research/training and unavoidable boundaries and is nonresident after request completion. Go and Rust activation requires versioned contracts,toolchain evidence,owned tests,resource bounds and failure semantics;neither gains governance,permission or business authority. Promotion grants execution only. Missing or stale evidence,contract drift,failed parity or unsupported platform blocks activation and restores the last verified path."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A348"
+      },
+      "field": "rule",
+      "proposed": "GATE-NAME:LANGUAGE BOUNDARY GATE; VERDICT:exactly PASS|WARN|FAIL; TRIGGERS:save>pre-commit>integration>release; CHECKS:language_allowed+extension_valid+primary_format_valid+source_origin_valid+owner_valid+directory_valid+dependency_direction_valid+ABI_valid+API_contract_valid+duplicate_owner_absent+test_present+fallback_present+source_size_valid under A185. ALLOWED-LANGUAGES:c|cpp|csharp|fsharp|go|rust|python|typescript|sql. PRIMARY-FORMAT:one language=one canonical authored-source format: c=.c;cpp=.cpp;csharp=.cs;fsharp=.fs;go=.go;rust=.rs;python=.py;typescript=.ts;sql=.sql. GRANDFATHERED-ALTERNATES:existing files pinned and reviewable but new authored files denied: python=.pyi;typescript=.tsx,.d.ts;c=.h;cpp=.hpp,.inl;fsharp=.fsx. AUTHORED-DENY:.js,.jsx,.mjs,.cjs,.cc,.cxx,.hh,.hxx,.csx,.vb,.vbs and undeclared extensions. LANGUAGE-POLICY:immutable allowed-language and extension data must match this article. CHECKER-PIPELINE:scan>classify>compare Codex rules>produce evidence>PASS/WARN/FAIL; checker is read-only. OUTPUT:LANGUAGE BOUNDARY GATE newline PASS|WARN|FAIL newline Allowed languages: 9 plus deterministic typed evidence. GATE-DETAIL:C ABI is the public native boundary;C/C++ own deterministic and performance ownership;CSharp owns Windows adapter,orchestration interface and sole test orchestration on .NET 10;FSharp owns analysis and high-correctness calculation;Go owns bounded concurrent service and transport execution;Rust owns memory-safe systems execution;TypeScript owns UI;SQL owns set operations;Python owns bounded on-demand governance/application semantics and is nonresident after request completion. Tests follow the owning language and cross-language parity is mandatory. SEMANTICS:FAIL blocks trigger,WARN requires owner+evidence+expiry and never equals PASS,PASS requires all mandatory checks complete."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A604"
+      },
+      "field": "rule",
+      "proposed": "SUCCESSOR:A604 supersedes A591 and A592 and controls five-core and historical-sub-sovereign responsibility convergence. CURRENT-PEER-CORES:decision-core|permission-core|runtime-core|automation-core|xingcheng-assistant. XINGCHENG native model remains a separate owned model identity and not a core or independent tool. SUB-SOVEREIGN-LAYER:abolished; former identities are retired lineage only. RESPONSIBILITY-NORMALIZATION:policy/architecture+health/maintenance/test+data outcome+priority/change acceptance>decision-core and registered modules;directory+identity+permission+security-audit enforcement>permission-core and registered modules;startup+runtime-state+process lifecycle+governed execution>runtime-core and registered modules;resources+dependencies+channels+release/update+repair scheduling+cleanup/log synchronization>automation-core and registered modules;global alignment review+user permission interface+notification>xingcheng-assistant;self-learning+self-repair proposal+native-model evolution>XINGCHENG owned modules. MODULES execute domain work without independent authority. LANGUAGE-RESPONSIBILITY:C23 executes approved deterministic rules,permission hot paths,resident runtime and native tests;C++23 owns native capabilities,inference,native tests and approved audit hot paths;C#14 on .NET 10 GC owns interfaces,authorized orchestration,Windows .NET integration and the sole TestSuiteOrchestrator;FSharp owns analysis,ML and high-correctness calculation;Go owns bounded concurrent services,transport workers,network adapters and portable operational binaries;Rust owns memory-safe systems capabilities,parsers and integrity/security-sensitive native components;Python is bounded on-demand governance/model research/training/boundary only and is nonresident after request completion. OPTIMIZATION-TARGET:new execution work prefers C23/C++23/C#14 for high performance,high execution speed,low consumption and low resource footprint;Python dependency is reduced to its bounded role. Go and Rust acquire execution ownership only through registered versioned contracts and never acquire governance,permission or business authority. FIVE-CORE-SUITE-AUTONOMY:each core independently adjusts owned suites subject to language rules."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A215"
+      },
+      "field": "rule",
+      "proposed": "CANONICAL-MAP:C={.c,.h};C++={.cpp,.hpp,.inl};CSharp={.cs};FSharp={.fs};Go={.go};Rust={.rs};Python={.py,.pyi};TypeScript={.ts,.tsx,.d.ts};SQL={.sql}; MATCH:full-filename-suffix+lowercase canonical+longest-suffix-first so-.d.ts=TypeScript-declaration-not-.ts-generic; EXCLUSIVITY:one-file=one-language classification+extension belongs-to-one-language only; C:.c implementation/test+.h C-public/interface header only; CPP:.cpp implementation/test+.hpp C++ header+.inl C++ template/inline implementation included-by-.hpp only; CSHARP:.cs implementation/test only; FSHARP:.fs implementation/test only; GO:.go implementation/test only; RUST:.rs implementation/test only; PYTHON:.py implementation/test/package-entry+.pyi declaration-only; TYPESCRIPT:.ts non-JSX logic/test+.tsx JSX presentation/test+.d.ts declaration-only; SQL:.sql schema/query/migration/test-data-operation only; TESTS:use-own-language-extension+name/path metadata identifies-test+no-special-additional-source-extension; PROJECT-METADATA:.csproj/.sln/.fsproj/go.mod/Cargo.toml/package.json/tsconfig/CMake/project/build manifests are-not-language-source+may-configure-build only+cannot-contain-embedded-application-source to-evade-map; GENERATED:must-use-target-language canonical-extension+generated identity/hash/owner; HEADERS:.h cannot contain-C++ constructs+.hpp cannot-be-public-C-ABI; INL:not-independent-translation-unit+no-global-state/business/workflow+single-owning-.hpp contract; DECLARATIONS:.pyi/.d.ts contain-types/signatures-only+must-match implementation/contract; SQL-EMBEDDED:SQL strings inside-other-language remain-host-language-source but A207 parameterization/pushdown checks apply; CLASSIFIER:normalize-path+reject-trailing-space/dot+alternate-data-stream+double-extension masquerade+case variant; CHECK:A208 at-save/precommit/integrated-main/release verifies extension/language syntax/build registration/owner/generated parity; MIGRATION:noncanonical source renamed+all imports/includes/build references atomically updated in-one-certified-release"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A211"
+      },
+      "field": "rule",
+      "proposed": "SOLE-MAPPING:Python=bounded on-demand system-control+semantic/business logic; TypeScript=UI presentation/client; C=public native interface only; pybind11=Python-specific binding only; C++=profile-proven implementation/performance core; CSharp=Windows/.NET adapter+authorized orchestration only; FSharp=data-analysis+machine-learning+high-correctness calculation; Go=bounded concurrent services+transport workers+network adapters+portable operational binaries; Rust=memory-safe systems+parsers+integrity/security-sensitive native components; SQL=set-based data reduction; PYTHON-API>versioned contracts only; NATIVE-TREE:native/{include,bridge,core}; WINDOWS-FLOW:Windows-specific calls>CSharp adapter>C-ABI>C++core>Python; DATA-FLOW:SQL>data reduction>Python orchestration; TYPESCRIPT-FLOW:TypeScript>declared client contracts only; GO-FLOW:Go>versioned service contracts only; RUST-FLOW:Rust>C-ABI or typed service contracts only; FSHARP-FLOW:FSharp>typed analysis contracts only; OWNERSHIP:one owner one implementation; INTERFACE:language-neutral public interface is C ABI only; PRIORITY:C ABI>C++ private core>CSharp orchestration>Python semantics>SQL reduction>TypeScript presentation; SUPERSEDED:canonical-nine-language-role-map; CHANGE:historical auto-updates reserved"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A264"
+      },
+      "field": "rule",
+      "proposed": "LANGUAGES:Python bounded control/semantics/business; TypeScript presentation; C stable language-neutral ABI; pybind11 binding only; C++ private high-load implementation; CSharp unique Windows/.NET adapter+sole test-suite orchestration; FSharp analysis+ML+high-correctness calculation; Go bounded concurrent services+network adapters+portable binaries; Rust memory-safe systems+parsers+integrity components; SQL bounded data reduction; single versioned contract+registered roots/extensions+one owner; changes require language review compatibility tests and certified activation"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A352"
+      },
+      "field": "rule",
+      "proposed": "VERDICT-MATRIX:{Python>SQL=>FAIL}|{Python>UI=>FAIL}|{SQL>Python=>FAIL}|{SQL>UI=>FAIL}|{UI>Python=>FAIL}|{UI>SQL=>FAIL}|{UI>CSharp=>FAIL}|{CSharp>SQL=>FAIL}|{CSharp>UI=>FAIL}|{TypeScript>database=>FAIL}|{TypeScript>Python-import=>FAIL}|{TypeScript>native=>FAIL}|{go-private-bridge=>FAIL}|{csharp-private-bridge=>FAIL}|{TypeScript>process-spawn=>FAIL}|{TypeScript>Worker-dom-storage=>FAIL}|{FSharp>SQL=>FAIL}|{FSharp>UI=>FAIL}|{FSharp>Python-direct=>FAIL}|{Go>domain-logic=>FAIL}|{Go>SQL=>FAIL}|{Go>UI=>FAIL}|{Go>permission=>FAIL}|{Go>governance=>FAIL}|{Rust>domain-logic=>FAIL}|{Rust>SQL=>FAIL}|{Rust>UI=>FAIL}|{Rust>permission=>FAIL}|{Rust>governance=>FAIL}; FAIL_CLOSED:no fallback auto-apply"
+    }
+  ],
+  "proposed_delta": {
+    "language_policy_alignment": [
+      "LanguagePolicy.ts: CSharp SOURCE_ROOTS extended to the registered .NET tool roots; FSharp/Go/Rust added with roles, roots and boundary rules; PRIMARY_FORMAT + GRANDFATHERED_EXTENSIONS tables added; Python role restated as bounded on-demand",
+      "LanguageBoundaryChecker.ts: allowedLanguages + canonicalRoles + CANONICAL_EXTENSIONS + forbidden boundaries cover the full nine-language surface",
+      "review_constants.py: ALLOWED_LANGUAGES aligned to the executed codex stack (9 languages); dotnet/.net/asp.net resolve to csharp; f#/fsharp to fsharp; golang to go; vb.net refuses LANGUAGE_NOT_ALLOWED",
+      "StarCodingExpert: csharp generation/analysis landed commit 8ff5c7e2",
+      "corpus.py code suffixes add .fs/.go/.rs"
+    ],
+    "registrations": [
+      "architecture_registry.json: process-metrics-csharp component (BLOCK_TOOLS, standalone-service, owner system-runtime, code PROCESS_METRICS_CSHARP) + runtime core processes list",
+      "tool-isolation-policy.json: process-metrics-csharp quotas (128MB/40%/no-network/tool-scoped)"
+    ],
+    "formal_rule_anchor": "RULE_LANGUAGE_REALLOCATION_V1 evaluator registered in governance_rule/execution/formal_rules/evaluators.py; this request adds provision A610 as its codex anchor (evaluator docstring corrected from A605, which is the runtime-rule-index article)",
+    "pending_composition": "go-rust-language-responsibility-20260925-r3 is EXECUTED; this request composes on the live text and keeps Go/Rust in their bounded roles",
+    "migration_posture": "grandfathered extensions (.tsx/.d.ts/.pyi/.h/.hpp/.inl/.fsx) remain reviewable; new authored files must use the primary format; mass renames are deferred to an explicit migration plan so this amendment is non-disruptive"
+  },
+  "verification": {
+    "evidence_files": [
+      "main-system/code/policy/LanguagePolicy.ts",
+      "main-system/code/checkers/LanguageBoundaryChecker.ts",
+      "main-system/governance/sovereigns/xingcheng/review_constants.py",
+      "main-system/governance/sovereigns/xingcheng/review_language.py",
+      "governance_rule/execution/audit/architecture_registry.json",
+      "main-system/config/tool-isolation-policy.json",
+      "governance_rule/execution/formal_rules/evaluators.py",
+      "Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_constants.py"
+    ],
+    "audit": "governance_rule.execution.audit must exit 0 after registry changes",
+    "requested_at": "2026-09-25T08:50:00Z"
+  },
+  "proposed_successors": [
+    {
+      "registry": "articles",
+      "action": "insert",
+      "rows": [
+        {
+          "position": 610,
+          "provision_id": "A610",
+          "section_index": "7",
+          "subject": "primary-language-reallocation-and-dotnet10-runtime",
+          "rule": "PRIMARY-LANGUAGES:C23>C++23>C#14(.NET 10); .NET-RUNTIME:unified format+automatic memory management via .NET 10 GC for all CSharp-owned surfaces; ADAPTIVE:the evaluator RULE_LANGUAGE_REALLOCATION_V1 validates primary_languages facts against c23/cpp23/csharp14 (.NET 10) and requires dotnet_version=10 when csharp is primary; PYTHON-REDUCTION:Python residency shrinks to bounded on-demand governance semantics",
+          "prohibition": "FORBID:primary-language-undeclared|non-dotnet10-csharp-runtime|python-resident-mechanical-work; FAIL-CLOSED on facts lacking any primary language or carrying a non-10 .NET runtime verdict",
+          "exception": "execution ownership only; no governance, permission or business authority is granted by reallocation"
+        }
+      ]
+    },
+    {
+      "registry": "project_architecture_directory",
+      "action": "insert",
+      "rows": [
+        {
+          "architecture_code": "PROCESS_METRICS_CSHARP",
+          "canonical_name": "process-metrics-csharp",
+          "entity_kind": "main-system-internal-metrics-service",
+          "owner": "permission-sovereign",
+          "parent_code": "STANDALONE_TOOLS",
+          "physical_root": "E:\\GPTBridge\\Standalone tools\\process-metrics-csharp",
+          "logical_boundary": "Windows .NET process-metrics collection tool; bounded adapter surface only",
+          "responsibilities": "process and machine metrics collection|bounded Windows performance-counter integration|metrics projection to information layer",
+          "dependencies": "shared-layer",
+          "interfaces": "information-channel",
+          "data_authority": "metrics evidence read-only; no authoritative persistence",
+          "runtime_boundary": "separate process tree|on-demand lifecycle|isolation quotas per tool-isolation-policy",
+          "failure_boundary": "separate failure domain|no cascade to main-system",
+          "permission_scope": "tool-scoped",
+          "introduced_version": "1.71600"
+        }
+      ]
+    }
+  ]
+}
