@@ -1,4 +1,4 @@
-/* governed_tool.c — M1 受管工具執行面 ABI 決策自由語義
+/* governed_tool.c — M1 受管工具執行面 ABI 決策自由語義 (C23) */
  * （star-governed-tool-runtime-abi/v1；Python governed_runtime 為權威）
  */
 #include "governed_tool.h"
