@@ -1,0 +1,49 @@
+﻿--- machine_schema_registry status/parity_status:
+   ('active', 'PENDING', 60)
+   ('active-contract-pending-parity', 'PENDING', 14)
+--- schemas in registry lacking parity evidence rows:
+   count: 34
+   ('ARCHITECTURE_DIAGRAM_PROVISION_V1', 'active', 'PENDING')
+   ('ARCHITECTURE_DIAGRAM_SYNC_V1', 'active', 'PENDING')
+   ('AUDIT_CHECKPOINT_V1', 'active', 'PENDING')
+   ('BACKEND_GENERATION_HANDOFF_CONTRACT', 'active', 'PENDING')
+   ('CANCELLATION_CONTRACT_V1', 'active', 'PENDING')
+   ('DELEGATION_CONTRACT_V1', 'active', 'PENDING')
+   ('EXECUTION_PIPELINE_CONTRACT_V1', 'active', 'PENDING')
+   ('EXECUTION_RECEIPT_V1', 'active', 'PENDING')
+   ('IDENTITY_AUTHENTICATION_V1', 'active', 'PENDING')
+   ('INFORMATION_SQL_CLOSURE_V1', 'active', 'PENDING')
+   ('LANGUAGE_SEMANTIC_NORMALIZATION_CONTRACT', 'active', 'PENDING')
+   ('MODEL_DIALOGUE_MODE_CONTRACT', 'active', 'PENDING')
+   ('POSTGRESQL_OBJECT_INVENTORY_V1', 'active', 'PENDING')
+   ('POSTGRESQL_ROLE_V1', 'active', 'PENDING')
+   ('PROJECT_ARCHITECTURE_CLOSURE_V1', 'active', 'PENDING')
+   ('RUNTIME_HEALTH_V1', 'active', 'PENDING')
+   ('SEARCH_TOOL_RESULT_CONTRACT', 'active', 'PENDING')
+   ('SQL_HEALTH_EVIDENCE_V1', 'active', 'PENDING')
+   ('SQL_MIGRATION_RECEIPT_V1', 'active', 'PENDING')
+   ('SQL_OBJECT_COVERAGE_V1', 'active', 'PENDING')
+   ('SQL_RECONCILIATION_V1', 'active', 'PENDING')
+   ('SQL_RECOVERY_EVIDENCE_V1', 'active', 'PENDING')
+   ('SQL_RUNTIME_SCHEMA_COMPATIBILITY_V1', 'active', 'PENDING')
+   ('SQL_SCHEMA_OBJECT_V1', 'active', 'PENDING')
+   ('SQL_SECURITY_PARITY_V1', 'active', 'PENDING')
+   ('SQL_SECURITY_PROJECTION_V1', 'active', 'PENDING')
+   ('SQL_SESSION_CONTEXT_V1', 'active', 'PENDING')
+   ('SQL_TRANSACTION_CONCURRENCY_V1', 'active', 'PENDING')
+   ('SQL_TRANSACTION_POLICY_V1', 'active', 'PENDING')
+   ('SQLITE_STATE_SCOPE_V1', 'active', 'PENDING')
+   ('TOOL_RELIABILITY_PROFILE_V1', 'active', 'PENDING')
+   ('TOOL_RUNTIME_CONTRACT_V1', 'active', 'PENDING')
+   ('TRANSPORT_CONTRACT_V1', 'active', 'PENDING')
+   ('TRANSPORT_ENVELOPE_V1', 'active', 'PENDING')
+
+--- codex_search_document version_identity counts:
+   ('2026-09-23T03:13:43Z', 890)
+--- codex_version now: ('2026-09-25T15:42:05Z',)
+python-three-domain-minimization-20260925-r2.json -> executed None
+python-work-transfer-ownership-20260925.json -> executed None
+data-architecture-rust-vector-qdrant-sqlite-retire-20260925.json -> executed None
+test-audit-responsibility-division-20260925.json -> executed None
+language-division-gap-closure-20260925.json -> rejected None
+language-division-gap-closure-20260925-r2.json -> executed None
