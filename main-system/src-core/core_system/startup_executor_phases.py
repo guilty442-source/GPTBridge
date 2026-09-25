@@ -259,6 +259,19 @@ class StartupExecutorPhasesMixin:
             )
             await app.git_automation.start()
         _lap("git_automation_ms")
+        if getattr(app, "package_version_driver", None) is None:
+            from tasks.package_version_driver import PackageVersionDriver
+
+            # A624/§1.1：套件版本收斂——經 AutomationCore 註冊到共享
+            # 排程（deny 不回落私有迴圈）；偵測→升級→投遞修法典請求，
+            # 落地由 codex-amendment-intake 管線完成。
+            app.package_version_driver = PackageVersionDriver(
+                app,
+                app.toolbox_service,
+                project_root=app.project_root,
+            )
+            await app.package_version_driver.start()
+        _lap("package_version_driver_ms")
         if getattr(app, "resource_mode_advisor", None) is None:
             from tasks.resource_mode_advisor import ResourceModeAdvisor
 

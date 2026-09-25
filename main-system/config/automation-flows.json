@@ -313,6 +313,14 @@
       "enabled": true,
       "description": "清單登記（inventory-only）：平台自動掃描＋下載 job 排程（成功間隔 30min、錯誤重試 30s、僅使用者開啟後運行）。媒體寫入使用者自選 destination——治理 retention 不適用（使用者資料面，分類≠授權）；工具內部歷史表由 repository.prune_state 於每次啟動修剪（jobs≤200/post_scan_jobs≤100/entity_history 每實體≤20 版本；dedupe 表與 removed_accounts 還原清單不動）"
     },
+    "package-version-sync": {
+      "owner": "package-version-driver（main-system tasks/package_version_driver）",
+      "kind": "periodic",
+      "interval_s": 3600,
+      "pausable": true,
+      "enabled": true,
+      "description": "A624 套件版本收斂：每 tick 偵測已安裝工具鏈／套件版本（vendored go、venv python+pip、rustc、dotnet SDK、PostgreSQL、git、manifest 宣告）→ mode=upgrade 的技術執行其套件管理器升級（bounded timeout、env 政策；離線/vendored fail-closed 記帳，不走網路）→ 偵測值與法典條文宣告值漂移時產生 codex-amendment-request 投遞 convergence intake，由既有管線五主權稽核＋auto_execute 落地；driver 永不直寫權威庫。kill switch：本 flow enabled=false 或 config/package-version-sync.json enabled=false"
+    },
     "codex-amendment-intake": {
       "owner": "codex-amendment-driver（governance_rule/execution/codex_amendment_driver）",
       "kind": "periodic",
