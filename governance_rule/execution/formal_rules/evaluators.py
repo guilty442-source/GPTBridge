@@ -1144,7 +1144,7 @@ def _capability_dispatch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 @register_rule("RULE_LANGUAGE_REALLOCATION_V1")
 def _language_reallocation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate (A610): C23/C++23/C#14(.NET 10) primary adaptive, Python
+    """Predicate (A605): C23/C++23/C#14(.NET 10) primary adaptive, Python
     reduced, .NET GC + unified format and automatic memory management.
     Evaluator registered so the candidate build's formal-rule parity check
     passes; runtime predicate validates the language registry when fact
@@ -1170,6 +1170,15 @@ def _language_reallocation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
             if dotnet_ver and dotnet_ver not in ("10", "10.0", ".net10", "dotnet10"):
                 return False, "FAIL_CLOSED", f".NET GC version must be 10, got {dotnet_ver!r}"
     return True, "PASS", "language reallocation validated (.NET 10 GC/C23/C++23)"
+
+
+@register_rule("RULE_NATIVE_COMPUTE_C23_V1")
+def _native_compute_c23(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A606): native-compute-core C23 migration."""
+    lang = str(facts.get("language_id") or facts.get("language") or "").lower()
+    if lang and lang not in ("c23", "c"):
+        return False, "FAIL_CLOSED", f"native-compute-core language must be c23, got {lang!r}"
+    return True, "PASS", "native-compute-core C23 validated"
 
 
 for _rule_code, _provision_id in _DECLARED_PROVISION_RULES.items():
