@@ -1,0 +1,97 @@
+{
+  "schema": "star-package-version-sync/v1",
+  "comment": "A624: automation core owns package version reconciliation — detect installed toolchain/package versions, run governed upgrades where a package manager exists, then emit codex amendment requests so declared versions converge to actual. enabled=false is the kill switch; per-ecosystem mode=off|detect|upgrade. Toolchains are vendored (A622 forbids network fetch when a vendored copy exists) so they are detect-only.",
+  "enabled": true,
+  "intake_dir": "governance_rule/execution/audit/convergence",
+  "state_file": "runtime/state/package-version-sync.json",
+  "audit_log": "runtime/logs/package-version-sync.jsonl",
+  "upgrade_timeout_s": 600,
+  "detect_timeout_s": 30,
+  "technologies": {
+    "python-runtime": {
+      "mode": "detect",
+      "detect": {"kind": "command", "argv": ["main-system/.venv/Scripts/python.exe", "--version"], "pattern": "Python (\\d+\\.\\d+\\.\\d+)"},
+      "codex_refs": [
+        {"provision_id": "A615", "field": "rule", "pattern": "Python (\\d+\\.\\d+\\.\\d+)"},
+        {"provision_id": "A35", "field": "rule", "pattern": "python(\\d+\\.\\d+\\.\\d+)"}
+      ]
+    },
+    "go-toolchain": {
+      "mode": "detect",
+      "detect": {"kind": "command", "argv": [".tools/go/go/bin/go.exe", "version"], "pattern": "go(\\d+\\.\\d+\\.\\d+)"},
+      "codex_refs": [
+        {"provision_id": "A615", "field": "rule", "pattern": "Go (\\d+\\.\\d+\\.\\d+)"},
+        {"provision_id": "A35", "field": "rule", "pattern": "go(\\d+\\.\\d+\\.\\d+)"}
+      ]
+    },
+    "rust-toolchain": {
+      "mode": "detect",
+      "detect": {"kind": "command", "argv": ["rustc", "--version"], "pattern": "rustc (\\d+\\.\\d+\\.\\d+)"},
+      "codex_refs": [
+        {"provision_id": "A615", "field": "rule", "pattern": "Rust (\\d+\\.\\d+\\.\\d+)"},
+        {"provision_id": "A35", "field": "rule", "pattern": "rust(\\d+\\.\\d+\\.\\d+)"}
+      ]
+    },
+    "dotnet-runtime": {
+      "mode": "detect",
+      "detect": {"kind": "command", "argv": ["dotnet", "--list-sdks"], "pattern": "(\\d+)\\.", "extract": "major"},
+      "codex_refs": [
+        {"provision_id": "A615", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"},
+        {"provision_id": "A610", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"},
+        {"provision_id": "A35", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"}
+      ]
+    },
+    "postgresql": {
+      "mode": "detect",
+      "detect": {"kind": "postgres", "query": "SHOW server_version", "pattern": "(\\d+\\.\\d+)"},
+      "codex_refs": [
+        {"provision_id": "A615", "field": "rule", "pattern": "PostgreSQL (\\d+\\.\\d+)"},
+        {"provision_id": "A610", "field": "rule", "pattern": "PostgreSQL=(\\d+\\.\\d+)", "render": "PostgreSQL={v}"},
+        {"provision_id": "A35", "field": "rule", "pattern": "sql-postgresql(\\d+\\.\\d+)", "render": "sql-postgresql{v}"}
+      ]
+    },
+    "git": {
+      "mode": "detect",
+      "detect": {"kind": "command", "argv": ["git", "--version"], "pattern": "git version (\\d+\\.\\d+\\.\\d+)"},
+      "codex_refs": [
+        {"provision_id": "A610", "field": "rule", "pattern": "Git=(\\d+\\.\\d+\\.\\d+)", "render": "Git={v}"}
+      ]
+    },
+    "react": {
+      "mode": "upgrade",
+      "manifest": {"kind": "package-json", "path": "main-system/package.json", "dep": "react"},
+      "detect": {"kind": "manifest-json", "path": "main-system/package.json", "field": "dependencies.react", "pattern": "(\\d+\\.\\d+\\.\\d+)"},
+      "upgrade": {"cwd": "main-system", "argv": ["npm", "update", "react"]},
+      "codex_refs": [
+        {"provision_id": "A615", "field": "rule", "pattern": "React (\\d+\\.\\d+\\.\\d+)"},
+        {"provision_id": "A610", "field": "rule", "pattern": "React=(\\d+\\.\\d+\\.\\d+)", "render": "React={v}"}
+      ]
+    },
+    "numpy": {
+      "mode": "upgrade",
+      "detect": {"kind": "pip", "package": "numpy", "pattern": "(\\d+\\.\\d+\\.\\d+)"},
+      "upgrade": {"cwd": ".", "argv": ["main-system/.venv/Scripts/python.exe", "-m", "pip", "install", "--upgrade", "numpy"]},
+      "codex_refs": [
+        {"provision_id": "A615", "field": "rule", "pattern": "NumPy (\\d+\\.\\d+\\.\\d+)"}
+      ]
+    },
+    "cargo-deps": {
+      "mode": "upgrade",
+      "manifest": {"kind": "cargo-toml", "path": "Standalone tools/vectord-rs/Cargo.toml"},
+      "upgrade": {"cwd": "Standalone tools/vectord-rs", "argv": ["cargo", "update"]}
+    },
+    "go-deps": {
+      "mode": "upgrade",
+      "manifest": {"kind": "go-mod", "path": "Standalone tools/searchd-go/go.mod"},
+      "upgrade": {"cwd": "Standalone tools/searchd-go", "argv": [".tools/go/go/bin/go.exe", "get", "-u", "./..."], "env": {"GOPROXY": "off", "GOSUMDB": "off", "GOTOOLCHAIN": "local", "GOWORK": "off", "GOFLAGS": "-buildvcs=false"}}
+    },
+    "julia-deps": {
+      "mode": "detect",
+      "manifest": {"kind": "project-toml", "path": "Standalone tools/julia-compute/Project.toml"}
+    },
+    "dotnet-deps": {
+      "mode": "detect",
+      "manifest": {"kind": "dotnet-proj", "paths": ["Standalone tools/business-logic-csharp", "Standalone tools/business-logic-fsharp", "Standalone tools/process-metrics-csharp", "native/test_suites/csharp", "native/test_suites/csharp_investment", "Standalone tools/investment-mobile/native/oms"]}
+    }
+  }
+}
