@@ -128,7 +128,7 @@ def _compile_cuda_kernels(
             bat.write_text(
                 "@echo off\r\n"
                 f'call "{vcvars}" -vcvars_ver={toolset} >nul || exit /b 1\r\n'
-                f'"{nvcc}" -std=c++17 {extra}-Xcompiler /EHsc,/MD '
+                f'"{nvcc}" -std=c++20 {extra}-Xcompiler /EHsc,/MD,/std:c++latest '
                 "-gencode=arch=compute_80,code=sm_86 "
                 "-gencode=arch=compute_80,code=compute_80 "
                 f'-c "{src}" -o "{obj}"\r\n',
@@ -205,7 +205,9 @@ def _extension():
         extra_objects=extra_objects,
         language="c++",
         extra_compile_args=(
-            ["/std:c++17", "/utf-8"] if sys.platform == "win32" else ["-std=c++17"]
+            ["/std:c++latest", "/std:clatest", "/utf-8"]
+            if sys.platform == "win32"
+            else ["-std=c++23"]
         ),
         optional=False,
     )
