@@ -48,6 +48,15 @@ def _iso_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _version_gt(actual: str, declared: str) -> bool:
+    """Numeric dotted-version compare; non-numeric tails ignored."""
+    def parts(v: str) -> tuple[int, ...]:
+        return tuple(int(x) for x in re.findall(r"\d+", v))
+
+    a, d = parts(actual), parts(declared)
+    return a > d
+
+
 class PackageVersionDriver:
     """Periodic governed package-version reconciliation (A624)."""
 
@@ -364,6 +373,20 @@ class PackageVersionDriver:
                         continue
                     declared = m.group(1)
                     if declared == ref["actual"]:
+                        continue
+                    # A624: codex pins are canonical *requirements*; the
+                    # driver restamps only upgrades (actual > declared).
+                    # An actual below the pin is a pending upgrade — recorded
+                    # in state, never emitted as a downgrade amendment.
+                    if not _version_gt(ref["actual"], declared):
+                        pending.append(
+                            {
+                                "tech": ref["tech"],
+                                "provision_id": pid,
+                                "declared": declared,
+                                "actual": ref["actual"],
+                            }
+                        )
                         continue
                     new_text = new_text.replace(
                         m.group(0),
