@@ -1,0 +1,173 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "formal-rule-parity-cfamily-activation-20260925-r3",
+  "title": "Advance RULE_LANGUAGE_REALLOCATION_V1, RULE_NATIVE_COMPUTE_C23_V1, RULE_MAIN_SYSTEM_CSHARP14_V1 and RULE_RESOURCE_GOVERNOR_CPP23_V1 to evaluator-parity-verified and register their ownership-map rows",
+  "summary": "Four rules entered formal_rule_registry with status=proposed via the executed migration chain (language-reallocation-c-cpp-csharp-adaptive-20260925 @ 2026-09-25T05:02:08Z, native-compute-core-c23-migration-20260925 @ 2026-09-25T07:50:20Z, main-system-csharp14-migration-20260925 @ 2026-09-25T08:10:00Z, resource-governor-cpp23-migration-20260925 @ 2026-09-25T09:40:49Z+). All four machine evaluators are now registered in governance_rule/execution/formal_rules/evaluators.py and canonical parity fact fixtures exist for each; the parity run formal-rule-parity-2026-09-25T102104Z.json records 69/69 PASS including all four rules (evidence ids 4da21e68a09e978184aa, 829265adb38bfac106f1, 5f960eccca516a88a744, 15e161eee105fa4921a7). This request completes the declared lifecycle proposed -> declared-pending-evaluator-parity -> evaluator-parity-verified for each rule and inserts the formal_rule_ownership_map rows every other in-force rule carries, restoring the truthfulness of formal_evaluator_parity_state=EVALUATOR_PARITY_VERIFIED which the later rule inserts had made stale.",
+  "requested_by": "decision-sovereign",
+  "origin": "post-execution residual of the cfamily/native-compute/csharp14 migration chain; parity evidence produced by governance_rule.execution.formal_rules.parity run against codex 2026-09-25T09:40:49Z | r2: predecessor restamped to codex 2026-09-25T10:10:06Z after resource-governor-cpp23-migration-20260925 execution made r1 stale (STALE_PREDECESSOR_VERSION); content otherwise unchanged | r3: resubmitted after backend hot-reload of formal_rules.evaluators made the newly registered RULE_RESOURCE_GOVERNOR_CPP23_V1 evaluator visible to the successor builder (r2 rejected RULE_EVALUATOR_REQUIRED on a stale in-process registry)",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T10:10:06Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+    "revision_sequence": 75
+  },
+  "proposed_successors": [
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_LANGUAGE_REALLOCATION_V1"
+      },
+      "set": {
+        "status": "declared-pending-evaluator-parity"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_LANGUAGE_REALLOCATION_V1"
+      },
+      "set": {
+        "status": "evaluator-parity-verified",
+        "parity_status": "VERIFIED",
+        "parity_evidence_id": "4da21e68a09e978184aa",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_NATIVE_COMPUTE_C23_V1"
+      },
+      "set": {
+        "status": "declared-pending-evaluator-parity"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_NATIVE_COMPUTE_C23_V1"
+      },
+      "set": {
+        "status": "evaluator-parity-verified",
+        "parity_status": "VERIFIED",
+        "parity_evidence_id": "829265adb38bfac106f1",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_MAIN_SYSTEM_CSHARP14_V1"
+      },
+      "set": {
+        "status": "declared-pending-evaluator-parity"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_MAIN_SYSTEM_CSHARP14_V1"
+      },
+      "set": {
+        "status": "evaluator-parity-verified",
+        "parity_status": "VERIFIED",
+        "parity_evidence_id": "5f960eccca516a88a744",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23_V1"
+      },
+      "set": {
+        "status": "declared-pending-evaluator-parity"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23_V1"
+      },
+      "set": {
+        "status": "evaluator-parity-verified",
+        "parity_status": "VERIFIED",
+        "parity_evidence_id": "15e161eee105fa4921a7",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "formal_rule_ownership_map",
+      "action": "insert",
+      "rows": [
+        {
+          "invariant_code": "language-reallocation:RULE_LANGUAGE_REALLOCATION_V1",
+          "rule_code": "RULE_LANGUAGE_REALLOCATION_V1",
+          "owner_domain": "language-reallocation",
+          "version_identity": "<successor-version>",
+          "status": "current"
+        },
+        {
+          "invariant_code": "native-compute:RULE_NATIVE_COMPUTE_C23_V1",
+          "rule_code": "RULE_NATIVE_COMPUTE_C23_V1",
+          "owner_domain": "native-compute",
+          "version_identity": "<successor-version>",
+          "status": "current"
+        },
+        {
+          "invariant_code": "main-system:RULE_MAIN_SYSTEM_CSHARP14_V1",
+          "rule_code": "RULE_MAIN_SYSTEM_CSHARP14_V1",
+          "owner_domain": "main-system",
+          "version_identity": "<successor-version>",
+          "status": "current"
+        },
+        {
+          "invariant_code": "resource-governor:RULE_RESOURCE_GOVERNOR_CPP23_V1",
+          "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23_V1",
+          "owner_domain": "resource-governor",
+          "version_identity": "<successor-version>",
+          "status": "current"
+        }
+      ]
+    }
+  ],
+  "mapping_basis": {
+    "source": "governance_rule/execution/formal_rules/parity.py run + formal_rule_registry/fact_fixtures.py canonical fixtures",
+    "rule": "RULE_STATE_TRANSITIONS chain enforced by codex_amendment_contract.validate_rule_transition; parity evidence required for evaluator-parity-verified",
+    "ownership_row": "formal_rule_ownership_map convention <owner_domain>:<rule_code> with status=current; owner_domain matches each rule's precedence_scope"
+  },
+  "required_execution_steps": [
+    "five-sovereign-audit",
+    "human-governor-review",
+    "governed-successor-seal",
+    "authority-re-anchor",
+    "certification-complete"
+  ],
+  "out_of_scope": [
+    "formal_evaluator_parity_release_effect and verified_release_state (still truthfully denied: machine_schema_parity_state=PENDING|PENDING:40 and other gates remain)",
+    "semantic_hash / evaluator_hash / test_contract_hash / controlling_provision_hash on the rule rows (governor-side seal-time data)",
+    "machine_schema_registry parity debt (40 pending rows — separate workstream)",
+    "metadata values not enumerated above (formal_evaluator_parity_state is already EVALUATOR_PARITY_VERIFIED and becomes truthful again once these transitions land)"
+  ],
+  "evidence": [
+    "parity run formal-rule-parity-2026-09-25T102104Z.json: 69/69 PASS; RULE_LANGUAGE_REALLOCATION_V1 evidence_id=4da21e68a09e978184aa, RULE_NATIVE_COMPUTE_C23_V1 evidence_id=829265adb38bfac106f1, RULE_MAIN_SYSTEM_CSHARP14_V1 evidence_id=5f960eccca516a88a744, RULE_RESOURCE_GOVERNOR_CPP23_V1 evidence_id=15e161eee105fa4921a7, all decision=PASS",
+    "evaluators registered: governance_rule/execution/formal_rules/evaluators.py @register_rule for all four rule codes",
+    "canonical fixtures: governance_rule/execution/formal_rules/fact_fixtures.py entries for all four rules exercise each evaluator's real PASS path with the registry required_inputs",
+    "live registry read 2026-09-25: all four rules status=proposed parity_status=PENDING; formal_rule_ownership_map has no rows for them"
+  ]
+}
