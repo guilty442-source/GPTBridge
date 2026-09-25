@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import math
 import sqlite3
 from typing import Any
 
-import numpy as np
-
 from .investment_analysis import analyze_investments
+
+
+def _cosine_similarity(query: Any, vector: Any) -> float:
+    """Bounded cosine score without resident numpy (g100: resident
+    numerics live in the native compute core; numpy survives only inside
+    the training window)."""
+    q = [float(v) for v in query]
+    d = [float(v) for v in vector]
+    if len(q) != len(d) or not q:
+        return 0.0
+    qn = math.sqrt(sum(v * v for v in q)) or 1.0
+    dn = math.sqrt(sum(v * v for v in d)) or 1.0
+    return sum(a * b for a, b in zip(q, d)) / (qn * dn)
 
 
 class LocalAiEmbeddingMixin:
@@ -87,12 +99,10 @@ class LocalAiEmbeddingMixin:
             return []
         if len(vectors) != len(candidates) + 1:
             return []
-        query = np.array(vectors[0], dtype=np.float32)
-        query_norm = np.linalg.norm(query) or 1.0
+        query = vectors[0]
         ranked: list[tuple[float, dict[str, Any]]] = []
         for item, vector in zip(candidates, vectors[1:]):
-            vec = np.array(vector, dtype=np.float32)
-            score = float(np.dot(query, vec) / (query_norm * (np.linalg.norm(vec) or 1.0)))
+            score = _cosine_similarity(query, vector)
             ranked.append((score, item))
         ranked.sort(key=lambda row: row[0], reverse=True)
         return [
