@@ -1,6 +1,7 @@
 /*
  * memory.h — shared native memory/buffer primitives (A204/A213/A214/A220;
- * Memory & Buffer Architecture V1).  Pure C port of the former memory.hpp.
+ * Memory & Buffer Architecture V1).  Pure C23 port of the former memory.hpp.
+ * C23 upgrade: constexpr, typeof, _BitInt, auto, nullability.
  *
  * Single owner of the four ownership classes used by every native
  * domain (parser / vector / transformer).  Domains never build their
@@ -166,7 +167,9 @@ static inline int gptbridge_native_mem_budget_admits(
  * 正確性：對齊失敗回 NULL；呼叫方需配對 free；size 需 overflow 檢查
  * 速度：對齊後 _mm256_load_pd 可替代 loadu，編譯器可自動向量化
  * ------------------------------------------------------------------ */
-#define GPTBRIDGE_NATIVE_SIMD_ALIGN 32
+/* C23: constexpr for compile-time constants */
+constexpr int GPTBRIDGE_NATIVE_SIMD_ALIGN = 32;
+#define GPTBRIDGE_NATIVE_SIMD_ALIGN_C23 32
 
 static inline void* gptbridge_native_mem_aligned_alloc(int64_t bytes) {
     if (bytes <= 0) return NULL;
