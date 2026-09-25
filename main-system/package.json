@@ -51,11 +51,11 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
-    "electron": "^39.2.4",
+    "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "madge": "^8.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vite": "^7.3.3"
   },
   "build": {
