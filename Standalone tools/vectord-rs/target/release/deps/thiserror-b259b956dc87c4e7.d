@@ -1,0 +1,14 @@
+E:\GPTBridge\Standalone tools\vectord-rs\target\release\deps\thiserror-b259b956dc87c4e7.d: C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\lib.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\aserror.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\display.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\var.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\private.rs E:\GPTBridge\Standalone\ tools\vectord-rs\target\release\build\thiserror-33be31c3997a6aa6\out/private.rs
+
+E:\GPTBridge\Standalone tools\vectord-rs\target\release\deps\libthiserror-b259b956dc87c4e7.rlib: C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\lib.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\aserror.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\display.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\var.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\private.rs E:\GPTBridge\Standalone\ tools\vectord-rs\target\release\build\thiserror-33be31c3997a6aa6\out/private.rs
+
+E:\GPTBridge\Standalone tools\vectord-rs\target\release\deps\libthiserror-b259b956dc87c4e7.rmeta: C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\lib.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\aserror.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\display.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\var.rs C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\private.rs E:\GPTBridge\Standalone\ tools\vectord-rs\target\release\build\thiserror-33be31c3997a6aa6\out/private.rs
+
+C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\lib.rs:
+C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\aserror.rs:
+C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\display.rs:
+C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\var.rs:
+C:\Users\guilt\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.21\src\private.rs:
+E:\GPTBridge\Standalone\ tools\vectord-rs\target\release\build\thiserror-33be31c3997a6aa6\out/private.rs:
+
+# env-dep:OUT_DIR=E:\\GPTBridge\\Standalone tools\\vectord-rs\\target\\release\\build\\thiserror-33be31c3997a6aa6\\out

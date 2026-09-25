@@ -38,6 +38,8 @@ pub struct CollectionDump {
 pub struct SnapshotFile {
     pub schema: String,
     pub collections: Vec<CollectionDump>,
+    #[serde(default)]
+    pub aliases: Vec<(String, String)>,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -333,6 +335,28 @@ impl Store {
         self.aliases.read().unwrap().get(alias).cloned()
     }
 
+    pub fn delete_alias(&self, alias: &str) -> bool {
+        self.aliases.write().unwrap().remove(alias).is_some()
+    }
+
+    pub fn alias_pairs(&self) -> Vec<(String, String)> {
+        self.aliases
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(a, c)| (a.clone(), c.clone()))
+            .collect()
+    }
+
+    pub fn collection_names(&self) -> Vec<String> {
+        self.collections.read().unwrap().keys().cloned().collect()
+    }
+
+    pub fn drop_collection(&self, name: &str) -> bool {
+        let resolved = self.resolve(name);
+        self.collections.write().unwrap().remove(&resolved).is_some()
+    }
+
     pub fn upsert_points(
         &self,
         collection: &str,
@@ -411,6 +435,7 @@ impl Store {
 
     pub fn dump(&self) -> SnapshotFile {
         let collections = self.collections.read().unwrap();
+        let aliases = self.aliases.read().unwrap();
         SnapshotFile {
             schema: STORE_SCHEMA.to_string(),
             collections: collections
@@ -421,6 +446,7 @@ impl Store {
                     points: coll.dump(),
                 })
                 .collect(),
+            aliases: aliases.iter().map(|(a, c)| (a.clone(), c.clone())).collect(),
         }
     }
 
@@ -436,6 +462,10 @@ impl Store {
                     coll_dump.name.clone(),
                     Collection::load(coll_dump.dimension, coll_dump.points)?,
                 );
+            }
+            let mut aliases = store.aliases.write().unwrap();
+            for (alias, target) in dump.aliases {
+                aliases.insert(alias, target);
             }
         }
         Ok(store)

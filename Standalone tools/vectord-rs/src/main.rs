@@ -211,6 +211,21 @@ fn route(app: &App, method: &str, path: &str, body: &[u8]) -> Value {
                 None => err("COLLECTION_MISSING"),
             }
         }
+        ("POST", "/v1/collections/list") => {
+            let names = app.store.collection_names();
+            ok(json!({"collections": names}))
+        }
+        ("POST", "/v1/collections/delete") => {
+            let req: InfoRequest = match serde_json::from_slice(body) {
+                Ok(r) => r,
+                Err(_) => return err("INVALID_JSON"),
+            };
+            let existed = app.store.drop_collection(&req.name);
+            if existed {
+                app.dirty.store(true, Ordering::Relaxed);
+            }
+            ok(json!({"collection": req.name, "existed": existed}))
+        }
         ("POST", "/v1/aliases/set") => {
             let req: AliasSetRequest = match serde_json::from_slice(body) {
                 Ok(r) => r,
@@ -228,6 +243,27 @@ fn route(app: &App, method: &str, path: &str, body: &[u8]) -> Value {
                 Some(collection) => ok(json!({"alias": req.alias, "collection": collection})),
                 None => err("ALIAS_MISSING"),
             }
+        }
+        ("POST", "/v1/aliases/list") => {
+            ok(json!({
+                "aliases": app
+                    .store
+                    .alias_pairs()
+                    .into_iter()
+                    .map(|(a, c)| json!({"alias_name": a, "collection_name": c}))
+                    .collect::<Vec<_>>(),
+            }))
+        }
+        ("POST", "/v1/aliases/delete") => {
+            let req: AliasGetRequest = match serde_json::from_slice(body) {
+                Ok(r) => r,
+                Err(_) => return err("INVALID_JSON"),
+            };
+            let existed = app.store.delete_alias(&req.alias);
+            if existed {
+                app.dirty.store(true, Ordering::Relaxed);
+            }
+            ok(json!({"alias": req.alias, "existed": existed}))
         }
         ("POST", "/v1/points/upsert") => {
             let req: UpsertRequest = match serde_json::from_slice(body) {
