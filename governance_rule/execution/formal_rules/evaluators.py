@@ -1212,7 +1212,7 @@ def _language_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 def _vector_engine_rust(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A611): Rust Vector Engine 1.98.1 + SQLite retired."""
     engine = str(facts.get("vector_engine") or facts.get("engine") or "").lower()
-    if engine and "rust" not in engine and "qdrant" not in engine:
+    if engine and "rust" not in engine:
         return False, "FAIL_CLOSED", f"vector engine must be rust-vector-engine, got {engine!r}"
     sqlite = str(facts.get("sqlite") or facts.get("sqlite_status") or "").lower()
     if sqlite and "retired" not in sqlite and "disabled" not in sqlite:
