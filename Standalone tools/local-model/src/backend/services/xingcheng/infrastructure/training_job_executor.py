@@ -145,6 +145,86 @@ def _read_snapshot_documents(path: Path) -> list[dict[str, str]]:
     return documents
 
 
+def _resolve_train_framework(configuration: Mapping[str, Any]) -> str:
+    """A612: JAX 為唯一訓練框架；torch 僅存 migration-only lineage。
+
+    預設 ``jax``；``configuration["framework"]`` 或環境
+    ``XINGCHENG_TRAIN_FRAMEWORK`` 設 ``torch`` 走已退役的 lineage 路徑
+    （僅供遷移窗口使用，fail-closed 於未知值）。
+    """
+    import os
+
+    requested = str(
+        configuration.get("framework")
+        or os.environ.get("XINGCHENG_TRAIN_FRAMEWORK")
+        or "jax"
+    ).strip().lower()
+    if requested not in ("jax", "torch"):
+        raise TrainingJobExecutorError(
+            "EXECUTOR_TRAIN_FRAMEWORK_UNSUPPORTED",
+            f"unsupported training framework: {requested}",
+        )
+    return requested
+
+
+def _jax_sft_train_fn(
+    train_documents: list,
+    val_documents: list,
+    configuration: Mapping[str, Any],
+    *,
+    output_dir: Path,
+    resume: Path | None,
+) -> dict[str, Any]:
+    """A612 JAX SFT 路徑：JAX+XLA 唯一訓練框架，輸出 star-jax-checkpoint/v1。
+
+    torch ``.pt`` init/resume 權重屬 migration-only lineage，不餵入 JAX
+    參數樹——需 init 權重時 fail-closed（JAX_INIT_TORCH_CHECKPOINT）。
+    """
+    from .native_transformer.bpe import NativeBPETokenizer
+    from .native_transformer.config import build_model_config
+    from .native_transformer.jax_backend import (
+        JaxSFTConfig,
+        jax_sft_train,
+    )
+
+    init_checkpoint = configuration.get("init_checkpoint") or resume
+    if init_checkpoint is not None and str(init_checkpoint).endswith(".pt"):
+        raise TrainingJobExecutorError(
+            "JAX_INIT_TORCH_CHECKPOINT",
+            "torch .pt init/resume is migration-only lineage; provide a "
+            "star-jax-checkpoint/v1 directory or omit init_checkpoint",
+        )
+    tokenizer = NativeBPETokenizer.load(configuration["tokenizer_dir"])
+    config = build_model_config(
+        str(configuration.get("preset") or "small"),
+        tokenizer,
+        int(configuration.get("max_length") or 512),
+    )
+    train_config = JaxSFTConfig(
+        **{
+            key: configuration[key]
+            for key in JaxSFTConfig.__dataclass_fields__
+            if key in configuration
+        }
+    )
+    params = None
+    if init_checkpoint is not None:
+        from .native_transformer.jax_backend import load_jax_checkpoint
+
+        params, _manifest = load_jax_checkpoint(init_checkpoint)
+    summary = jax_sft_train(
+        config,
+        tokenizer,
+        train_documents,
+        val_documents,
+        train_config,
+        output_dir=output_dir,
+        params=params,
+    )
+    summary["final_checkpoint"] = str(Path(output_dir) / "final")
+    return summary
+
+
 def _default_sft_train_fn(
     train_documents: list,
     val_documents: list,
@@ -154,6 +234,14 @@ def _default_sft_train_fn(
     resume: Path | None,
 ) -> dict[str, Any]:
     """SFT job trainer: tokenizer + optional init checkpoint + masked loss."""
+    if _resolve_train_framework(configuration) == "jax":
+        return _jax_sft_train_fn(
+            train_documents,
+            val_documents,
+            configuration,
+            output_dir=output_dir,
+            resume=resume,
+        )
     from .native_transformer.bpe import NativeBPETokenizer
     from .native_transformer.checkpoint import load_checkpoint
     from .native_transformer.modules.model import XingChengForCausalLM

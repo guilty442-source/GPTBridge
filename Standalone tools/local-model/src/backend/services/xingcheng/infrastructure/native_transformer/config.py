@@ -249,3 +249,27 @@ class XingChengConfig:
         cfg.moe_num_experts = num_experts
         cfg.moe_top_k = top_k
         return cfg
+
+
+def build_model_config(preset: str, tokenizer: Any, block_size: int) -> XingChengConfig:
+    """Preset → XingChengConfig（torch-free；JAX 後端共用此單一來源）。"""
+    factories = {
+        "small": XingChengConfig.small,
+        "medium": XingChengConfig.medium,
+        "base": XingChengConfig.base,
+        "xlarge": XingChengConfig.xlarge,
+        "large": XingChengConfig.large,
+        "small_moe": XingChengConfig.small_moe,
+        "medium_moe": XingChengConfig.medium_moe,
+        "base_moe": XingChengConfig.base_moe,
+        "xlarge_moe": XingChengConfig.xlarge_moe,
+        "large_moe": XingChengConfig.large_moe,
+    }
+    if preset not in factories:
+        raise ValueError(f"UNKNOWN_PRESET:{preset}")
+    config = factories[preset]()
+    config.vocab_size = int(tokenizer.vocab_size)
+    config.max_position_embeddings = max(
+        config.max_position_embeddings, block_size
+    )
+    return config

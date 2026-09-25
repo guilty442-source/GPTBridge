@@ -19,7 +19,7 @@ import numpy as np
 import torch
 
 from ..checkpoint import load_checkpoint, save_checkpoint
-from ..config import XingChengConfig
+from ..config import XingChengConfig, build_model_config
 from ..execution.backend import default_dtype, resolve_device
 from ..modules.model import XingChengForCausalLM
 from .budget import check_train_budget
@@ -437,27 +437,6 @@ def _save(
     )
 
 
-def build_model_config(preset: str, tokenizer: Any, block_size: int) -> XingChengConfig:
-    factories = {
-        "small": XingChengConfig.small,
-        "medium": XingChengConfig.medium,
-        "base": XingChengConfig.base,
-        "xlarge": XingChengConfig.xlarge,
-        "large": XingChengConfig.large,
-        "small_moe": XingChengConfig.small_moe,
-        "medium_moe": XingChengConfig.medium_moe,
-        "base_moe": XingChengConfig.base_moe,
-        "xlarge_moe": XingChengConfig.xlarge_moe,
-        "large_moe": XingChengConfig.large_moe,
-    }
-    if preset not in factories:
-        raise ValueError(f"UNKNOWN_PRESET:{preset}")
-    config = factories[preset]()
-    config.vocab_size = int(tokenizer.vocab_size)
-    config.max_position_embeddings = max(
-        config.max_position_embeddings, block_size
-    )
-    return config
 
 
 def limit_cpu_threads(device: str | None = None, *, threads: int = 0) -> int:
