@@ -1,7 +1,8 @@
 """xingcheng_personality — 星澄人格設定.
 
 星澄（Xingcheng）人格隸屬原生模型；人格資料存放於獨立資料庫。
-星澄助理是另一個介面身分組，不繼承原生模型、人格或學習子主宰身分。
+星澄助理是另一個介面身分組（獨立特權機構），其身分表面已由
+``xingcheng_assistant_identity`` 自行持有——本模組不再承載助理欄位。
 
 人格設定來源：
   * Governance Codex — 星澄的主宰身份與權力邊界
@@ -34,8 +35,6 @@ XINGCHENG_RANK = _XINGCHENG_SOVEREIGN.rank
 
 # 預設展示名稱（可被 manifest 覆蓋）
 _DEFAULT_NATIVE_MODEL_DISPLAY_NAME = "星澄"
-_DEFAULT_TOOL_DISPLAY_NAME = "星澄助理"
-XINGCHENG_ASSISTANT_IDENTITY_GROUP = "xingcheng-assistant-identity-group"
 
 
 class XingchengPersonality:
@@ -48,12 +47,12 @@ class XingchengPersonality:
     def __init__(self, app: Any) -> None:
         self.app = app
         self._manifest_cache: dict[str, Any] | None = None
-        from .xingcheng_identity_store import XingchengIdentityStores
+        from .xingcheng_identity_store import XingchengIdentityStore
 
-        self._identity_stores = XingchengIdentityStores(
+        self._identity_store = XingchengIdentityStore(
             Path(getattr(app, "project_root", Path.cwd()))
         )
-        self._identity_stores.initialize()
+        self._identity_store.initialize()
 
     # ------------------------------------------------------------------
     # 身份屬性
@@ -89,16 +88,6 @@ class XingchengPersonality:
         return _DEFAULT_NATIVE_MODEL_DISPLAY_NAME
 
     @property
-    def tool_display_name(self) -> str:
-        """固定的助理展示名稱；星澄助理不是工具。"""
-        return _DEFAULT_TOOL_DISPLAY_NAME
-
-    @property
-    def assistant_identity(self) -> str:
-        """星澄助理的獨立介面身分組。"""
-        return XINGCHENG_ASSISTANT_IDENTITY_GROUP
-
-    @property
     def operation_mode(self) -> str:
         """操作模式。"""
         manifest = self._manifest()
@@ -116,12 +105,8 @@ class XingchengPersonality:
             "rank": self.rank,
             "module_id": self.module_id,
             "native_model_display_name": self.native_model_display_name,
-            "tool_display_name": self.tool_display_name,
-            "assistant_identity": self.assistant_identity,
-            "assistant_identity_database": "xingcheng_assistant_identity",
             "personality_database": "xingcheng_identity",
-            "database_separation": "strict",
-            "identity_stores": self._identity_stores.status(),
+            "identity_stores": self._identity_store.status(),
             "operation_mode": self.operation_mode,
         }
 
@@ -146,7 +131,6 @@ class XingchengPersonality:
 
 __all__ = [
     "XINGCHENG_IDENTITY",
-    "XINGCHENG_ASSISTANT_IDENTITY_GROUP",
     "XINGCHENG_MODULE_ID",
     "XINGCHENG_RANK",
     "XINGCHENG_ROLE",
