@@ -42,7 +42,7 @@ _PRIVATE_NETWORKS = [
     ipaddress.ip_network("fe80::/10"),          # link-local IPv6
 ]
 
-# 明確授權的本地服務（例如本機 searchd / searchd）
+# 明確授權的本地服務（例如本機 searchd）
 _DEFAULT_ALLOWED_LOCAL = frozenset({
     "127.0.0.1:8091",   # 星澄 searchd（Go metasearch）連接埠
     "127.0.0.1:8888",

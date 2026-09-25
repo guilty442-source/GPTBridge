@@ -3,7 +3,7 @@
 對應需求：
   - go-service 層僅透過版本化合約溝通（``xingcheng-searchd/v1``，
     契約定義見 ``Standalone tools/searchd-go/CONTRACT.md``）
-  - 取代 searchd 外部依賴；治理邊界不變（loopback allowlist +
+  - 已取代 SearXNG 外部依賴；治理邊界不變（loopback allowlist +
     URLSafetyChecker + metadata-only 結果）
   - Provider 錯誤不得造成星澄整體失敗（上層 ``_run_web_search``
     仍負責 fail-closed 降級）
