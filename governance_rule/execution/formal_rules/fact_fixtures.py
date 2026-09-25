@@ -313,6 +313,28 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "typescript_version": "7.0.2",
         "electron_version": "44.4.5",
     },
+    # A611: Rust vector engine + SQLite retired — both checks exercised.
+    "RULE_VECTOR_ENGINE_RUST_V1": {
+        "vector_engine": "rust-vector-engine",
+        "sqlite": "retired",
+    },
+    # A612: JAX replaces PyTorch — framework check exercised.
+    "RULE_JAX_PYTORCH_V1": {
+        "framework": "jax",
+    },
+    # A613: native JavaScript frontend — language check exercised.
+    "RULE_JS_NATIVE_V1": {
+        "language_id": "javascript",
+    },
+    # A614: Go/Rust replace Node.js — runtime check exercised.
+    "RULE_GO_RUST_NODE_V1": {
+        "runtime": "go",
+    },
+    # A615: official language table — evaluator accepts any fact set
+    # (authority is the registry lookup, not the fixture).
+    "RULE_LANGUAGE_TABLE_OFFICIAL_V1": {
+        "language_table": "official",
+    },
 }
 
 
