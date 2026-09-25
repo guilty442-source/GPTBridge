@@ -16,6 +16,26 @@ const HNSW_MAX_LAYER: usize = 16;
 const HNSW_EF_CONSTRUCTION: usize = 200;
 const HNSW_EF_SEARCH: usize = 64;
 
+/// Below this live-point count, queries use an exact brute-force scan.
+/// HNSW graph connectivity is probabilistic; for small collections an
+/// exact pass is both faster and immune to entry-point/topology misses.
+const EXACT_SCAN_THRESHOLD: usize = 4096;
+
+fn cosine_score(a: &[f32], b: &[f32]) -> f32 {
+    let mut dot = 0.0_f64;
+    let mut na = 0.0_f64;
+    let mut nb = 0.0_f64;
+    for (x, y) in a.iter().zip(b.iter()) {
+        dot += (*x as f64) * (*y as f64);
+        na += (*x as f64) * (*x as f64);
+        nb += (*y as f64) * (*y as f64);
+    }
+    if na <= 0.0 || nb <= 0.0 {
+        return 0.0;
+    }
+    (dot / (na.sqrt() * nb.sqrt())) as f32
+}
+
 pub const STORE_SCHEMA: &str = "vectord-store/v1";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -198,6 +218,30 @@ impl Collection {
             return Ok(Vec::new());
         }
         let live = self.live_count().max(1);
+        if live <= EXACT_SCAN_THRESHOLD {
+            let mut scored: Vec<(String, f32, Value)> = Vec::with_capacity(top_k);
+            for (id, internal) in &self.forward {
+                if self.tombstoned.contains(id) {
+                    continue;
+                }
+                let payload = self.payloads.get(id).cloned().unwrap_or(Value::Null);
+                if !filter_ok(&payload, filter) {
+                    continue;
+                }
+                let vector = match self.vectors.get(internal) {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let score = cosine_score(query, vector);
+                if score < score_threshold {
+                    continue;
+                }
+                scored.push((id.clone(), score, payload));
+            }
+            scored.sort_by(|x, y| y.1.total_cmp(&x.1));
+            scored.truncate(top_k);
+            return Ok(scored);
+        }
         // Over-fetch so tombstoned / filtered-out hits cannot starve the
         // caller-visible top_k window.
         let fetch = (top_k.saturating_mul(4) + 64).min(live);
@@ -549,6 +593,27 @@ mod tests {
             .upsert_points("coll", vec![("x".into(), vec![1.0; 8], json!({}))])
             .unwrap_err();
         assert!(err.contains("DIMENSION_MISMATCH"));
+    }
+
+    #[test]
+    fn exact_match_query_still_returns_other_neighbours() {
+        // Reproduce: query identical to a stored vector must not starve the
+        // remaining live points out of the top_k window.
+        let store = Store::new(1024);
+        store.ensure_collection("coll", 8).unwrap();
+        store
+            .upsert_points(
+                "coll",
+                vec![
+                    ("a".into(), [1.0_f32].into_iter().chain([0.0; 7]).collect::<Vec<f32>>(), json!({"module_id": "m1"})),
+                    ("b".into(), [0.9_f32, 0.1].into_iter().chain([0.0; 6]).collect::<Vec<f32>>(), json!({"module_id": "m2"})),
+                ],
+            )
+            .unwrap();
+        let hits = store
+            .search("coll", &[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 10, -1.0, &Filter::default())
+            .unwrap();
+        assert_eq!(hits.len(), 2, "hits: {:?}", hits.iter().map(|h| &h.0).collect::<Vec<_>>());
     }
 
     #[test]

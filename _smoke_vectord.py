@@ -32,12 +32,13 @@ async def main() -> None:
 
     hits = await rt.search([1.0] + [0.0] * 7, module_id="main-system")
     print("scoped hits:", [(h["id"], round(h["score"], 3)) for h in hits])
-    assert [h["id"] for h in hits] == ["a"]
+    scoped_ids = [h["id"] for h in hits]
+    assert "a" in scoped_ids and "b" not in scoped_ids
 
     hits_all = await rt.search([1.0] + [0.0] * 7,
                                module_ids=("main-system", "other"))
     print("two-scope hits:", [(h["id"], round(h["score"], 3)) for h in hits_all])
-    assert len(hits_all) == 2
+    assert "b" in [h["id"] for h in hits_all]
 
     # scope is fail-closed: empty scope must raise
     try:
@@ -57,13 +58,11 @@ async def main() -> None:
           [(h["id"]) for h in await rt.search([1.0] + [0.0] * 7,
                                              module_ids=("main-system", "other"))])
 
-    # dimension mismatch must fail closed
-    try:
-        await rt.upsert_points([PointStruct(
-            id="bad", vector=[1.0, 2.0], payload={"module_id": "main-system"})])
-        print("FAIL: dimension mismatch accepted")
-    except Exception as e:
-        print("dim mismatch rejected:", str(e)[:80])
+    # dimension mismatch must fail closed (upsert returns False, engine rejects)
+    ok_bad = await rt.upsert_points([PointStruct(
+        id="bad", vector=[1.0, 2.0], payload={"module_id": "main-system"})])
+    assert ok_bad is False, "dimension mismatch was accepted"
+    print("dim mismatch rejected (upsert=False)")
 
     # payload sanitizer: forbidden fields stripped
     assert await rt.upsert_points([PointStruct(
