@@ -355,14 +355,7 @@ def _rebuild_module_manifest(connection: sqlite3.Connection, version: str) -> No
             for r in _rows(connection, "provision_reference_resolution_v2")
             if str(r[1]) in member_ids
         ]
-        connection.execute(
-            "INSERT INTO codex_internal_module_manifest (module_code, "
-            "version_identity, provision_count, active_count, "
-            "superseded_count, membership_hash, content_hash, "
-            "dependency_hash, search_document_hash, status, sealed_at_utc, "
-            "retired_count, other_state_count, lifecycle_hash, "
-            "classification_hash, successor_resolution_hash) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        staged.append(
             (
                 module,
                 version,
@@ -380,8 +373,18 @@ def _rebuild_module_manifest(connection: sqlite3.Connection, version: str) -> No
                 content_hash(lifecycle_rows),
                 content_hash(classification_rows),
                 content_hash(resolution_rows),
-            ),
+            )
         )
+    connection.executemany(
+        "INSERT INTO codex_internal_module_manifest (module_code, "
+        "version_identity, provision_count, active_count, "
+        "superseded_count, membership_hash, content_hash, "
+        "dependency_hash, search_document_hash, status, sealed_at_utc, "
+        "retired_count, other_state_count, lifecycle_hash, "
+        "classification_hash, successor_resolution_hash) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        staged,
+    )
 
 
 def _rebuild_search_manifest(
@@ -436,14 +439,16 @@ def _sync_normative_surface(connection: sqlite3.Connection, version: str) -> Non
         "FROM current_normative_surface"
     ).fetchall()
     existing = {(str(r[1]), str(r[2])) for r in surface}
-    for _eid, otype, oid in surface:
-        state = lifecycle.get((str(otype), str(oid)))
-        if state is not None:
-            connection.execute(
-                "UPDATE current_normative_surface SET lifecycle_state=? "
-                "WHERE surface_entry_id=?",
-                (state, _eid),
-            )
+    state_updates = [
+        (lifecycle.get((str(otype), str(oid))), _eid)
+        for _eid, otype, oid in surface
+        if lifecycle.get((str(otype), str(oid))) is not None
+    ]
+    connection.executemany(
+        "UPDATE current_normative_surface SET lifecycle_state=? "
+        "WHERE surface_entry_id=?",
+        state_updates,
+    )
     connection.execute(
         "UPDATE current_normative_surface SET version_identity=?", (version,)
     )
@@ -452,12 +457,15 @@ def _sync_normative_surface(connection: sqlite3.Connection, version: str) -> Non
         for (ptype, pid), state in lifecycle.items()
         if state == "active" and (ptype, pid) not in existing
     ]
-    for ptype, pid, state in to_add:
-        connection.execute(
-            "INSERT INTO current_normative_surface (surface_entry_id, "
-            "surface_layer, object_type, object_identity, lifecycle_state, "
-            "default_search_visible, version_identity, status) "
-            "VALUES (?,?,?,?,?,?,?,?)",
+    insert_sql = (
+        "INSERT INTO current_normative_surface (surface_entry_id, "
+        "surface_layer, object_type, object_identity, lifecycle_state, "
+        "default_search_visible, version_identity, status) "
+        "VALUES (?,?,?,?,?,?,?,?)"
+    )
+    connection.executemany(
+        insert_sql,
+        [
             (
                 f"{ptype}:{pid}",
                 _SURFACE_LAYERS.get(ptype, "UNKNOWN"),
@@ -467,23 +475,26 @@ def _sync_normative_surface(connection: sqlite3.Connection, version: str) -> Non
                 1,
                 version,
                 "current",
-            ),
-        )
+            )
+            for ptype, pid, state in to_add
+        ],
+    )
     # Formal rules registered without a lifecycle row still belong on the
     # surface: they are current normative objects of this generation.
     rules = connection.execute(
         "SELECT rule_code FROM formal_rule_registry WHERE status<>'withdrawn'"
     ).fetchall()
     rule_keys = {("formal-rule", str(r[0])) for r in rules}
-    for _ptype, pid in sorted(rule_keys - existing - set(to_add_keys(to_add))):
-        connection.execute(
-            "INSERT INTO current_normative_surface (surface_entry_id, "
-            "surface_layer, object_type, object_identity, lifecycle_state, "
-            "default_search_visible, version_identity, status) "
-            "VALUES (?,?,?,?,?,?,?,?)",
+    connection.executemany(
+        insert_sql,
+        [
             (f"formal-rule:{pid}", "FORMAL-RULE", "formal-rule", pid,
-             "active", 1, version, "current"),
-        )
+             "active", 1, version, "current")
+            for _ptype, pid in sorted(
+                rule_keys - existing - set(to_add_keys(to_add))
+            )
+        ],
+    )
 
 
 def to_add_keys(to_add):

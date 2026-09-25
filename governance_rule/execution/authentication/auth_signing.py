@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import sqlite3
 import threading
@@ -241,6 +242,106 @@ class _NonceStore:
     def close(self) -> None:
         with self._lock:
             self._connection.close()
+
+
+_PG_IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+
+
+class _PostgresNonceStore:
+    """Authoritative nonce ledger in the central PostgreSQL transport schema.
+
+    A348/A610: PostgreSQL is the sole structured-data authority; the
+    ``sqlite`` store below survives only as the bounded migration-window
+    fallback selected by ``GPTBRIDGE_NONCE_ENGINE``.
+    """
+
+    def __init__(self, policy: object) -> None:
+        target = str(getattr(policy, "nonce_store_path", "") or "")
+        _, _, rest = target.partition("postgresql:")
+        schema, _, table = rest.partition(":")
+        if (
+            not rest
+            or not table
+            or not _PG_IDENT.fullmatch(schema)
+            or not _PG_IDENT.fullmatch(table)
+        ):
+            raise permission_denied()
+        try:
+            import psycopg
+            from psycopg import sql as _sql
+
+            from shared_layer.security.dsn_policy import (
+                DsnPurpose,
+                resolve_dsn,
+            )
+        except Exception as exc:
+            raise permission_denied() from exc
+        self._psycopg = psycopg
+        self._sql = _sql
+        self._table = _sql.SQL("{}.{}").format(
+            _sql.Identifier(schema), _sql.Identifier(table)
+        )
+        try:
+            binding = resolve_dsn(DsnPurpose.RUNTIME)
+            self._connection = psycopg.connect(binding.dsn)
+        except Exception as exc:
+            raise permission_denied() from exc
+        self._lock = threading.RLock()
+        self._clock_skew = policy.allowed_clock_skew_seconds
+
+    def consume(
+        self,
+        namespace: str,
+        actor: str,
+        nonce: str,
+        expires_at: int,
+        now: int,
+    ) -> None:
+        psycopg = self._psycopg
+        _sql = self._sql
+        with self._lock:
+            try:
+                with self._connection.transaction():
+                    self._connection.execute(
+                        _sql.SQL("DELETE FROM {} WHERE expires_at < %s").format(
+                            self._table
+                        ),
+                        (now - self._clock_skew,),
+                    )
+                    self._connection.execute(
+                        _sql.SQL(
+                            "INSERT INTO {} (namespace, actor, nonce, expires_at) "
+                            "VALUES (%s, %s, %s, %s)"
+                        ).format(self._table),
+                        (namespace, actor, nonce, expires_at),
+                    )
+            except psycopg.errors.UniqueViolation as exc:
+                raise permission_denied() from exc
+            except psycopg.Error as exc:
+                raise permission_denied() from exc
+
+    def close(self) -> None:
+        with self._lock:
+            self._connection.close()
+
+
+def _build_nonce_store(project_root: Path, policy: object):
+    """Select the nonce-store engine (A501 bounded fallback contract).
+
+    ``policy.nonce_store_engine`` is authoritative; the
+    ``GPTBRIDGE_NONCE_ENGINE`` env var may only downgrade to ``sqlite``
+    during the bounded migration window.
+    """
+
+    engine = str(getattr(policy, "nonce_store_engine", "") or "").strip().lower()
+    override = str(os.environ.get("GPTBRIDGE_NONCE_ENGINE", "")).strip().lower()
+    if override:
+        engine = override
+    if engine == "postgresql":
+        return _PostgresNonceStore(policy)
+    if engine == "sqlite":
+        return _NonceStore(project_root, policy)
+    raise permission_denied()
 
 
 def _new_key(policy: object, now: int) -> _SigningKey:
