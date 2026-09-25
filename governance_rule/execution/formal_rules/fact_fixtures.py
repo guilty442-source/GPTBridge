@@ -254,6 +254,19 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "lease": {"valid": True, "fencing_token": "ftok-parity-1"},
         "decision": {"recorded": True},
     },
+    # A605: resident execution component declares a primary C-family
+    # language with .NET 10 GC for the C# slot — the evaluator's real
+    # pass path (allowed primary + version check exercised).
+    "RULE_LANGUAGE_REALLOCATION_V1": {
+        "primary_languages": ["c23", "cpp23", "csharp14"],
+        "language_id": "csharp14",
+        "dotnet_version": "10",
+        "runtime_form": "service",
+        "owner_sovereign": "system-runtime",
+        "memory_strategy": "dotnet-gc",
+        "format_contract": "dotnet-format",
+        "performance_budget": "csharp14_dotnet10_gc_p95_ms<=30",
+    },
 }
 
 
