@@ -1,0 +1,32 @@
+﻿identity types: Counter({'article': 544, 'edict': 144, 'principle': 115, 'sovereign': 42})
+classified types: Counter({'article': 555, 'edict': 144, 'principle': 115, 'sovereign': 42})
+missing count: 0
+missing sample: []
+missing+active: 0 []
+meta: language_boundary_standard = A203-A210
+meta: native_cross_language_abi = C-ABI-only
+meta: six_language_automatic_check = superseded-by-eight-language-automatic-check|required:python|typescript|c|cpp|csharp|go|rust|sql
+meta: canonical_language_roles = python-bounded-governance-application|typescript-presentation|c-interface-deterministic-runtime|cpp-native-performance-audit|csharp-interfac
+meta: language_statistics_cpp_rule = .cpp=C++-exclusive;GPTBridgeLauncher.cpp=C++
+meta: cross_language_release_gate = mandatory automatic API+ABI+schema+fallback+CSharp-Windows interop verification
+meta: exclusive_language_capability_matrix = A341
+meta: language_boundary_gate = PASS|WARN|FAIL;A348
+meta: language_policy_ts_role = immutable-data-only
+meta: language_checker_role = scan>classify>compare>evidence>verdict;no-repair
+meta: canonical_cross_language_topology = TypeScript>contract>Python>{SQL|pybind11>C-ABI>C++|CSharp>Windows.NET}
+meta: cross_language_allow_deny_matrix = A351
+meta: explicit_language_edge_fail_matrix = A352
+meta: language_dependency_evidence = python-ast|typescript-resolver|cpp-preprocessor-build|roslyn-msbuild|cmake-csproj-tsconfig
+meta: language_governance_final_gate = A361
+meta: language_governance_final_results = APPROVED|APPROVED_WITH_WARNINGS|REJECTED|INCOMPLETE_EVIDENCE
+meta: unified_language_governance_graph = A362
+meta: language_governance_schema_version = 1.0.0
+meta: language_governance_schema_lifecycle = FREEZE-PENDING
+meta: language_governance_public_api = scan|analyze|validate|getEvidence|getDecision
+meta: language_governance_ir_version = 1
+meta: codex_directory_closure_current = A469
+meta: closure_status_source = live-canonical-registries-not-hard-coded-counts
+meta: module_line_count_language_codes = PYTHON|TYPESCRIPT|C|CPP|CSHARP|FSHARP|GO|RUST|SQL
+meta: governance_closure_current_version = 2026-09-23T03:13:43Z
+meta: governance_closure_plan_state = active-planned-evidence-pending
+meta: governance_closure_execution_order = B1_CODEX_CONSISTENCY>B2_FORMAL_PARITY>CORE_DIRECTORIES>REMAINING_DIRECTORIES>MODULE_ACCEPTANCE>B3_OBLIGATIONS>LANGUAGE_FREEZE>SHARED_LAYER_R
