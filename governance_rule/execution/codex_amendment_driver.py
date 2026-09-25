@@ -66,6 +66,7 @@ from governance_rule.execution.codex_amendment_audit_runner import (
 )
 from governance_rule.execution.codex_amendment_executor import (
     CodexAmendmentDenied,
+    DEFAULT_STAGING,
     execute_amendment,
 )
 from governance_rule.execution.codex_amendment_lifecycle import (
@@ -681,6 +682,9 @@ def _execute_ready_request(
             prepared_database=candidate,
             audit_result=audit_result,
             apply=True,
+            # Per-request staging so a service tick and a CLI run on the
+            # same request never share scratch state mid-flight.
+            staging_root=DEFAULT_STAGING / request_id,
         )
     except CodexAmendmentDenied as error:
         ledger.reject(
