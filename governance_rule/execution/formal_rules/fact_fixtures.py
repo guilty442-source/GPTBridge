@@ -267,6 +267,22 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "format_contract": "dotnet-format",
         "performance_budget": "csharp14_dotnet10_gc_p95_ms<=30",
     },
+    # A606: native-compute-core declares C23 with arena memory strategy —
+    # the evaluator's real pass path (language check exercised).
+    "RULE_NATIVE_COMPUTE_C23_V1": {
+        "module_id": "native-compute-core",
+        "language_id": "c23",
+        "memory_strategy": "arena",
+        "format_contract": "clang-tidy",
+    },
+    # A607: main-system declares C#14 on .NET 10 GC — the evaluator's real
+    # pass path (language check exercised).
+    "RULE_MAIN_SYSTEM_CSHARP14_V1": {
+        "module_id": "main-system",
+        "language_id": "csharp14",
+        "memory_strategy": "dotnet-gc",
+        "format_contract": "dotnet-format",
+    },
 }
 
 
