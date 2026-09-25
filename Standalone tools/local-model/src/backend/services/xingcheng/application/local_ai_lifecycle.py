@@ -168,7 +168,7 @@ class LocalAiLifecycleMixin:
         try:
             data = json.loads(
                 (Path(self.tool_root) / "runtime/settings/web-search.json")
-                .read_text(encoding="utf-8")
+                .read_text(encoding="utf-8-sig")
             )
         except (OSError, json.JSONDecodeError):
             return {}
