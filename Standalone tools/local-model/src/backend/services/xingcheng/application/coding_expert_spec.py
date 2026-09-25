@@ -57,6 +57,10 @@ class CodingExpertSpecMixin:
             inferred["language"] = "typescript"
         elif "javascript" in normalized or "javascript" in str(prompt).casefold():
             inferred["language"] = "javascript"
+        elif re.search(r"\bvb\.net\b|\bf#\b|\bfsharp\b", normalized):
+            inferred["language"] = re.search(r"\bvb\.net\b|\bf#\b|\bfsharp\b", normalized).group(0)
+        elif re.search(r"(?:c#|c＃|csharp|\.net\b|\bdotnet\b|asp\.net)", normalized):
+            inferred["language"] = "csharp"
         elif re.search(r"\bsql\b", normalized):
             inferred["language"] = "sql"
         elif "json" in normalized:
@@ -83,6 +87,8 @@ class CodingExpertSpecMixin:
         ).strip().casefold()
         inferred["action"] = action if action in cls.ALLOWED_ACTIONS else "generate"
         inferred["language"] = str(inferred.get("language") or "python").strip().casefold()
+        if inferred["language"] in {"c#", "c＃", ".net", "dotnet", "asp.net"}:
+            inferred["language"] = "csharp"
         inferred["kind"] = str(inferred.get("kind") or "function").strip().casefold()
         if inferred["language"] == "sql":
             inferred["kind"] = "query"

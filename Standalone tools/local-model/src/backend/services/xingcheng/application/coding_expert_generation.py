@@ -330,6 +330,102 @@ def read_item(item_id: int) -> dict[str, object]:
         return query + ";\n"
 
     @classmethod
+    def _csharp_expression(cls, spec: dict[str, Any]) -> str:
+        operation = str(spec.get("operation") or "custom")
+        expressions = {
+            "average": "values.Length == 0 ? 0 : values.Average()",
+            "sum": "values.Sum()",
+            "maximum": "values.Length == 0 ? (double?)null : values.Max()",
+            "minimum": "values.Length == 0 ? (double?)null : values.Min()",
+            "count": "values.Length",
+            "sort": "values.OrderBy(value => value).ToArray()",
+        }
+        if operation in expressions:
+            return expressions[operation]
+        candidate = str(spec.get("return_expression") or "null").strip()[:4_000]
+        return "null" if candidate in {"", "None"} else candidate
+
+    @staticmethod
+    def _csharp_identifier(value: Any, default: str = "GeneratedTask") -> str:
+        normalized = re.sub(r"\W+", "_", str(value or "").strip(), flags=re.UNICODE)
+        normalized = normalized.strip("_") or default
+        parts = [part for part in normalized.split("_") if part]
+        candidate = "".join(part[:1].upper() + part[1:] for part in parts) or default
+        if candidate[0].isdigit() or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", candidate):
+            return default
+        return candidate[:80]
+
+    @classmethod
+    def _csharp_source(cls, spec: dict[str, Any], prompt: str) -> str:
+        kind = str(spec.get("kind") or "function")
+        name = cls._csharp_identifier(spec.get("name"))
+        requested = spec.get("parameters")
+        parameters = (
+            [cls._identifier(item, f"arg_{index}") for index, item in enumerate(requested)]
+            if isinstance(requested, list)
+            else ["payload"]
+        )
+        parameters = list(dict.fromkeys(parameters))[:16]
+        description = str(spec.get("description") or prompt or "Star generated code").replace("*/", "")[:500]
+        operation = str(spec.get("operation") or "custom")
+        numeric_op = operation in {"average", "sum", "maximum", "minimum", "count", "sort"}
+        if kind == "class":
+            field = cls._identifier(spec.get("field"), "value")
+            return (
+                f"/// <summary>{description}</summary>\n"
+                f"public class {name}\n"
+                "{\n"
+                f"    public object {cls._csharp_identifier(field, 'Value')} {{ get; }}\n\n"
+                f"    public {name}(object {field})\n"
+                "    {\n"
+                f"        {cls._csharp_identifier(field, 'Value')} = {field};\n"
+                "    }\n"
+                "}\n"
+            )
+        usings = "using System;\nusing System.Linq;\n\n" if numeric_op else "using System;\n\n"
+        typed_parameters = ", ".join(
+            (
+                f"double[] {parameter}"
+                if numeric_op and parameter == "values"
+                else f"object {parameter}"
+            )
+            for parameter in parameters
+        )
+        return_type = {
+            "average": "double",
+            "sum": "double",
+            "maximum": "double?",
+            "minimum": "double?",
+            "count": "int",
+            "sort": "double[]",
+        }.get(operation, "object")
+        method_source = (
+            f"{usings}"
+            f"/// <summary>{description}</summary>\n"
+            f"public static class {name}Task\n"
+            "{\n"
+            f"    public static {return_type} {name}({typed_parameters})\n"
+            "    {\n"
+            f"        return {cls._csharp_expression(spec)};\n"
+            "    }\n"
+            "}\n"
+        )
+        if kind != "test":
+            return method_source
+        subject = cls._csharp_identifier(spec.get("subject"), name)
+        return (
+            "using System;\nusing System.Diagnostics;\n\n"
+            f"/// <summary>{description}</summary>\n"
+            f"public static class {name}Test\n"
+            "{\n"
+            f"    public static void Test{subject}()\n"
+            "    {\n"
+            f"        Debug.Assert(typeof({subject}Task).GetMethod(\"{subject}\") != null);\n"
+            "    }\n"
+            "}\n"
+        )
+
+    @classmethod
     def _json_document(cls, spec: dict[str, Any], prompt: str) -> str:
         value = spec.get("value")
         if value is None:

@@ -13,6 +13,7 @@ from core_system.codex_decision import accepted_outcome, refusal_outcome
 
 from .review_constants import (
     ALLOWED_LANGUAGES,
+    _LANGUAGE_ALIASES,
     _LANGUAGE_EXTENSIONS,
     _FILE_LINE_WARNING_THRESHOLD,
 )
@@ -28,6 +29,7 @@ class XingchengLanguageReviewMixin:
     async def _adjudicate_language_review(self, request: SovereignRequest) -> SovereignOutcome:
         """Language conformance review (transferred capability, advisory only)."""
         language = str(request.payload.get("language") or "").lower()
+        language = _LANGUAGE_ALIASES.get(language, language)
         if language not in ALLOWED_LANGUAGES:
             return refusal_outcome("LANGUAGE_NOT_ALLOWED", self.verified_basis("A139"))
         files = request.payload.get("files") or []

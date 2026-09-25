@@ -174,6 +174,33 @@ class CodingExpertAnalysisMixin:
         }
 
     @classmethod
+    def _csharp_analysis(cls, source: str) -> dict[str, Any]:
+        findings = [
+            {
+                "severity": "high",
+                "code": "DANGEROUS_CSHARP_PATTERN",
+                "symbol": pattern,
+                "line": source[: match.start()].count("\n") + 1,
+            }
+            for pattern in cls.PROHIBITED_CSHARP_PATTERNS
+            for match in [re.search(pattern, source)]
+            if match is not None
+        ]
+        return {
+            "node_count": 0,
+            "functions": re.findall(
+                r"(?:public|private|protected|internal|static|sealed|override|virtual|async|\s)+"
+                r"[A-Za-z_][\w<>\[\],?\s]*?\s+([A-Za-z_][\w]*)\s*\(",
+                source,
+            ),
+            "classes": re.findall(r"\bclass\s+([A-Za-z_][\w]*)", source),
+            "imports": re.findall(r"\busing\s+([A-Za-z_][\w.]*)\s*;", source),
+            "complexity": 1 + len(re.findall(r"\b(?:if|for|while|case|catch|foreach)\b|&&|\|\|", source)),
+            "security_findings": findings,
+            "syntax_errors": cls._balanced_delimiters(source),
+        }
+
+    @classmethod
     def _sql_analysis(cls, source: str) -> dict[str, Any]:
         without_comments = re.sub(r"--[^\n]*|/\*[\s\S]*?\*/", " ", source)
         lexical_source = re.sub(
@@ -218,6 +245,9 @@ class CodingExpertAnalysisMixin:
             errors.extend(analysis["syntax_errors"])
         elif language in {"typescript", "javascript"}:
             analysis = cls._script_analysis(source)
+            errors.extend(analysis["syntax_errors"])
+        elif language == "csharp":
+            analysis = cls._csharp_analysis(source)
             errors.extend(analysis["syntax_errors"])
         elif language == "sql":
             analysis = cls._sql_analysis(source)

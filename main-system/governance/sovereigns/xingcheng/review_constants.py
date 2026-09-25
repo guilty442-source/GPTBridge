@@ -22,14 +22,24 @@ _CLASSIFY_KINDS = (
 )
 
 # Language-review capability (transferred from abolished language-review-sub-sovereign)
-ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c", "csharp", "sql")
+ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c", "csharp", "dotnet", "sql")
 _LANGUAGE_EXTENSIONS = {
     "python": {".py"},
     "typescript": {".ts", ".tsx"},
     "cpp": {".cpp", ".cc", ".cxx", ".hpp", ".hh"},
     "c": {".c", ".h"},
     "csharp": {".cs"},
+    "dotnet": {".cs", ".csproj", ".sln", ".vb", ".fs", ".fsx"},
     "sql": {".sql"},
+}
+_LANGUAGE_ALIASES = {
+    "c#": "csharp",
+    "c＃": "csharp",
+    ".net": "dotnet",
+    "asp.net": "dotnet",
+    "vb.net": "dotnet",
+    "f#": "dotnet",
+    "fsharp": "dotnet",
 }
 _FILE_LINE_WARNING_THRESHOLD = 1000
 
@@ -40,5 +50,6 @@ __all__ = [
     "_CLASSIFY_KINDS",
     "ALLOWED_LANGUAGES",
     "_LANGUAGE_EXTENSIONS",
+    "_LANGUAGE_ALIASES",
     "_FILE_LINE_WARNING_THRESHOLD",
 ]

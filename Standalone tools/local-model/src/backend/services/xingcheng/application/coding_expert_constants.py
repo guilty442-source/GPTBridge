@@ -8,7 +8,9 @@ from typing import Any
 class CodingExpertConstants:
     """Class-level constants and low-level utility helpers for StarCodingExpert."""
 
-    ALLOWED_LANGUAGES = frozenset({"python", "typescript", "javascript", "sql", "json"})
+    ALLOWED_LANGUAGES = frozenset(
+        {"python", "typescript", "javascript", "csharp", "sql", "json"}
+    )
     ALLOWED_ACTIONS = frozenset({"generate", "analyze", "refactor", "self_upgrade"})
     ALLOWED_PYTHON_KINDS = frozenset(
         {"function", "class", "dataclass", "test", "api"}
@@ -85,6 +87,16 @@ class CodingExpertConstants:
         r"\bnew\s+Function\s*\(",
         r"\bchild_process\b",
         r"\bprocess\.binding\s*\(",
+    )
+    PROHIBITED_CSHARP_PATTERNS = (
+        r"\bSystem\.Diagnostics\.Process\b",
+        r"\bProcess\.(?:Start|Kill|GetProcesses)\s*\(",
+        r"\bSystem\.Reflection\.Emit\b",
+        r"\bAssembly\.Load",
+        r"\bDllImport\s*\(",
+        r"\bunsafe\s*\b",
+        r"\bFile\.(?:Delete|Move|Copy|WriteAll|AppendAll)",
+        r"\bDirectory\.(?:Delete|Move)",
     )
     PROHIBITED_SQL_KEYWORDS = frozenset(
         {
