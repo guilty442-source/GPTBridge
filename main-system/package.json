@@ -47,16 +47,16 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.7.7",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "madge": "^8.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^7.0.2",
-    "vite": "^7.3.3"
+    "vite": "^8.3.1"
   },
   "build": {
     "appId": "com.gptbridge.auto-agent-ide",
