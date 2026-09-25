@@ -103,7 +103,7 @@
  "canonical_authorities": {
   "structured-authority": "postgresql",
   "governance-codex": "codex-authority",
-  "semantic-index": "qdrant"
+  "semantic-index": "vectord"
  },
  "git_plane_flow": [
   {
@@ -399,21 +399,41 @@
    "block": "BLOCK_SHARED"
   },
   {
-   "component_id": "qdrant",
+   "component_id": "vectord",
    "architectural_role": "data",
-   "runtime_form": "external-service",
-   "owner_sovereign": "xingcheng-domain",
-   "execution_identity": "gptbridge-qdrant",
-   "physical_path": "shared-layer/sql",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "gptbridge-vectord",
+   "physical_path": "Standalone tools/vectord-rs",
    "lifecycle": "resident",
    "canonical": true,
    "dependencies": [],
    "information_channels": [
     "semantic-index"
    ],
+   "architecture_code": "STANDALONE_TOOLS",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED",
+   "implementation_language": "rust",
+   "data_classification": "rebuildable-derived-only"
+  },
+  {
+   "component_id": "qdrant",
+   "architectural_role": "data",
+   "runtime_form": "external-service",
+   "owner_sovereign": "xingcheng-domain",
+   "execution_identity": "gptbridge-qdrant",
+   "physical_path": "shared-layer/sql",
+   "lifecycle": "degraded-only",
+   "canonical": false,
+   "dependencies": [],
+   "information_channels": [
+    "semantic-index"
+   ],
    "architecture_code": "SHARED_LAYER",
    "unit": "UNIT_PLATFORM",
-   "block": "BLOCK_SHARED"
+   "block": "BLOCK_SHARED",
+   "retirement": "retire-after-cutover: data preserved until migration and consumer validation complete (A610 DATA-SAFETY)"
   },
   {
    "component_id": "module-sqlite",
