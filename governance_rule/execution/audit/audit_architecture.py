@@ -16,6 +16,7 @@ topology source of truth.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -98,4 +99,56 @@ def check_architecture_registry(root: Path, errors: list[str]) -> None:
             errors.append(f"sovereign ownership module is missing: {relative}")
 
 
-__all__ = ["check_architecture_registry"]
+_TS_RETIREMENT_BASELINE = (
+    Path(__file__).resolve().parent / "typescript_grandfathered_baseline.json"
+)
+_TS_RETIREMENT_TOOL_NOISE = frozenset({
+    "venv", "node_modules", "__pycache__",
+    "dist", "dist-ui", "build", "release", "releases", "runtime", "out",
+})
+
+
+def check_typescript_retirement(root: Path, errors: list[str]) -> None:
+    """A348: TypeScript retired -> JavaScript-ESM.
+
+    Only authored ``.ts``/``.tsx`` sources pinned in the grandfathered
+    baseline may exist; any new-authored TypeScript path is denied.
+    Migration runs through ``main-system/scripts/ts_to_esm.mjs``.
+    """
+    try:
+        payload = json.loads(
+            _TS_RETIREMENT_BASELINE.read_text(encoding="utf-8")
+        )
+        baseline = {
+            str(entry).replace("\\", "/") for entry in payload.get("files", [])
+        }
+    except (OSError, json.JSONDecodeError) as error:
+        errors.append(
+            f"typescript grandfathered baseline unreadable: {error}"
+        )
+        return
+
+    root = Path(root)
+    found: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if d not in _TS_RETIREMENT_TOOL_NOISE and not d.startswith(".")
+        ]
+        for name in filenames:
+            if not name.endswith((".ts", ".tsx")):
+                continue
+            relative = (Path(dirpath) / name).relative_to(root).as_posix()
+            if relative not in baseline:
+                found.append(relative)
+    if found:
+        shown = ", ".join(sorted(found)[:20])
+        errors.append(
+            "new-authored TypeScript denied (A348 retired -> "
+            f"JavaScript-ESM): {shown}"
+            + (f" ... +{len(found) - 20} more" if len(found) > 20 else "")
+        )
+
+
+__all__ = ["check_architecture_registry", "check_typescript_retirement"]

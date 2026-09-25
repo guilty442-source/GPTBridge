@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LanguageBoundaryChecker.ts — Language Boundary Gate (A348/A351/A352/A353).
  *
  * VERDICT: exactly PASS | WARN | FAIL
@@ -27,6 +27,10 @@ export interface LanguagePolicy {
   allowedLanguages: string[];
   canonicalRoles: Map<string, string>;
   forbiddenCrossBoundaries: CrossBoundaryRule[];
+  // A348: retired languages deny new-authored files; pinned grandfathered
+  // paths remain legal until migrated through scripts/ts_to_esm.mjs.
+  retiredLanguages?: string[];
+  grandfatheredPaths?: ReadonlySet<string>;
 }
 
 export interface CrossBoundaryRule {
@@ -40,6 +44,7 @@ export interface CrossBoundaryRule {
 // JavaScript-ESM and Julia admitted (final-language-and-package-division).
 export const LANGUAGE_POLICY: LanguagePolicy = {
   allowedLanguages: ['Python', 'JavaScript', 'Julia', 'C', 'C++', 'CSharp', 'FSharp', 'Go', 'Rust', 'SQL'],
+  retiredLanguages: ['TypeScript'],
   canonicalRoles: new Map([
     // A219, A211
     ['Python', 'bounded governance semantics+governance thin-wrapper+JAX training+necessary validation+nonresident'],
@@ -116,6 +121,18 @@ export class LanguageBoundaryChecker {
       });
     }
 
+    // A348: retired language denies new-authored files; pinned
+    // grandfathered paths stay legal until migrated.
+    if (this.policy.retiredLanguages?.includes(language)) {
+      if (!this.isGrandfathered(filePath.replace(/\\/g, '/'))) {
+        violations.push({
+          rule: 'language_allowed',
+          message: language + ' retired (A348 -> JavaScript-ESM); new-authored file denied -- migrate via main-system/scripts/ts_to_esm.mjs',
+          severity: 'error',
+        });
+      }
+    }
+
     // Check cross-boundary imports
     const importViolations = this.checkImports(filePath, content, language);
     violations.push(...importViolations);
@@ -153,6 +170,21 @@ export class LanguageBoundaryChecker {
     const ext = this.canonicalExtension(filePath);
     const validExts = CANONICAL_EXTENSIONS[language as keyof typeof CANONICAL_EXTENSIONS] || [];
     return ext !== null && (validExts as readonly string[]).includes(ext);
+  }
+
+  /** Repo-relative baseline suffix match: callers may hand cwd-relative or
+   * root-relative paths; a pinned path is grandfathered when it equals or
+   * suffix-matches the normalized path in either direction. */
+  private isGrandfathered(normalized: string): boolean {
+    const baseline = this.policy.grandfatheredPaths;
+    if (!baseline || baseline.size === 0) return false;
+    if (baseline.has(normalized)) return true;
+    for (const pinned of baseline) {
+      if (normalized.endsWith('/' + pinned) || pinned.endsWith('/' + normalized)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private checkImports(filePath: string, content: string, language: string): LanguageViolation[] {
@@ -307,11 +339,17 @@ export class LanguageBoundaryChecker {
   }
 }
 
-export function runLanguageBoundaryGate(files: Map<string, string>): {
+export function runLanguageBoundaryGate(
+  files: Map<string, string>,
+  grandfatheredPaths?: ReadonlySet<string>,
+): {
   overall: LanguageVerdict;
   results: LanguageBoundaryResult[];
 } {
-  const checker = new LanguageBoundaryChecker();
+  const checker = new LanguageBoundaryChecker({
+    ...LANGUAGE_POLICY,
+    grandfatheredPaths,
+  });
   const results = checker.checkProject(files);
   const overall = results.some(r => r.verdict === 'FAIL') ? 'FAIL' :
                   results.some(r => r.verdict === 'WARN') ? 'WARN' : 'PASS';

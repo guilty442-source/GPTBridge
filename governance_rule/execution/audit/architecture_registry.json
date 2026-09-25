@@ -421,7 +421,7 @@
    "component_id": "julia-compute",
    "architectural_role": "execution",
    "runtime_form": "standalone-service",
-   "owner_sovereign": "automation-sovereign",
+   "owner_sovereign": "system-runtime",
    "execution_identity": "gptbridge-julia-compute",
    "physical_path": "Standalone tools/julia-compute",
    "lifecycle": "on-demand",
@@ -562,7 +562,9 @@
    ],
    "architecture_code": "MAIN_SYSTEM",
    "unit": "UNIT_RUNTIME",
-   "block": "BLOCK_CORE"
+   "block": "BLOCK_CORE",
+   "implementation_language": "javascript-esm",
+   "formal_responsibility": "React UI presentation+frontend state+desktop interaction (A35/A348; TypeScript retired, grandfathered sources migrate via ts_to_esm)"
   },
   {
    "component_id": "xingcheng-assistant-store",
@@ -954,7 +956,7 @@
   {
    "component_id": "business-logic-fsharp",
    "architectural_role": "execution",
-   "runtime_form": "internal-library",
+   "runtime_form": "internal-service",
    "owner_sovereign": "system-runtime",
    "execution_identity": "business-logic-fsharp",
    "physical_path": "Standalone tools/business-logic-fsharp",

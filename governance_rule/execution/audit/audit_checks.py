@@ -170,7 +170,10 @@ from .audit_authority import (
     check_tool_isolation_hardening,
 )
 from .audit_activation import check_activation_states
-from .audit_architecture import check_architecture_registry
+from .audit_architecture import (
+    check_architecture_registry,
+    check_typescript_retirement,
+)
 from .audit_directories import check_directory_audit
 from .audit_sql_patterns import check_sql_anti_patterns
 from .audit_formal_rules import (
@@ -305,6 +308,7 @@ def audit_runtime_governance(
         lambda r: _collect(check_codex_text_integrity, r),
         lambda r: _collect(check_codex_mirror_quality, r),
         lambda r: _collect(check_architecture_registry, r),
+        lambda r: _collect(check_typescript_retirement, r),
         lambda r: _collect(check_directory_audit, r),
         lambda r: _collect(check_activation_states, r),
         lambda r: _collect(check_formal_rules, r),

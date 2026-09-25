@@ -84,15 +84,38 @@ export class LanguageGovernanceRunner {
     }
   }
 
+  /** Pinned A348 grandfathered TypeScript paths (shared with Python audit). */
+  private async loadGrandfatheredBaseline(): Promise<ReadonlySet<string>> {
+    const fs = await import('fs');
+    const path = await import('path');
+    const baselinePath = path.resolve(
+      __dirname,
+      '../../governance_rule/execution/audit/typescript_grandfathered_baseline.json',
+    );
+    try {
+      const payload = JSON.parse(await fs.promises.readFile(baselinePath, 'utf-8'));
+      return new Set(
+        (payload.files ?? []).map((f: string) => f.replace(/\\/g, '/')),
+      );
+    } catch {
+      // Fail-closed: no baseline -> every TypeScript path is denied.
+      return new Set();
+    }
+  }
+
   async runAllGates(): Promise<GovernanceResult> {
     const startTime = Date.now();
     const files = await this.scanFiles();
 
     const gates: GateResult[] = [];
 
+    // Gate 1: Language Boundary -- A348 retirement check needs the pinned
+    // grandfathered baseline (same artifact the Python audit reads).
+    const grandfathered = await this.loadGrandfatheredBaseline();
+
     // Gate 1: Language Boundary
     gates.push(await this.runGate('Language Boundary Gate', async () => {
-      return runLanguageBoundaryGate(files);
+      return runLanguageBoundaryGate(files, grandfathered);
     }));
 
     // Gate 2: Dependency DAG

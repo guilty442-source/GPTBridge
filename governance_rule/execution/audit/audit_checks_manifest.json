@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-25T17:54:51Z",
+  "generated_at": "2026-09-25T18:14:00Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
     "native_checks": 367,
-    "delegated_checks": 28,
+    "delegated_checks": 29,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -3135,6 +3135,12 @@
       "kind": "delegated",
       "reason": "python oracle (transition)",
       "python": "check_architecture_registry"
+    },
+    {
+      "id": "python-check:check_typescript_retirement",
+      "kind": "delegated",
+      "reason": "python oracle (transition)",
+      "python": "check_typescript_retirement"
     },
     {
       "id": "python-check:check_directory_audit",

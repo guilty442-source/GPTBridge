@@ -37,7 +37,7 @@ def build_platform_renderer(
         "vite",
         "build",
         "-c",
-        "vite.platform-tools.config.ts",
+        "vite.platform-tools.config.mjs",
     ]
     completed = subprocess.run(
         command,

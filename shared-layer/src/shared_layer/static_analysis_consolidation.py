@@ -72,6 +72,7 @@ class LanguageStandard(str, Enum):
     CPP = "C++20"
     PYTHON = "strict-typing-boundary"
     TYPESCRIPT = "strict"
+    JAVASCRIPT = "esm"
     CSHARP = "nullable-analysis"
     SQL = "dialect-aware"
 
@@ -108,6 +109,11 @@ LANGUAGE_ANALYSIS_FOCUS: dict[str, tuple[str, ...]] = {
         "no_fallthrough_cases",
         "no_unchecked_indexed_access",  # phased
         "exact_optional_property_types",  # phased
+    ),
+    "javascript": (
+        "boundary_contract",
+        "optional_checking",
+        "type_safety",
     ),
     "csharp": (
         "nullable_analysis",
@@ -677,11 +683,22 @@ LANGUAGE_BASELINES: dict[str, LanguageBaseline] = {
             "optional_checking": True,
         },
     ),
+    "javascript": LanguageBaseline(
+        language="javascript",
+        standard=LanguageStandard.JAVASCRIPT,
+        analysis_focus=LANGUAGE_ANALYSIS_FOCUS["javascript"],
+        linter_config={
+            "esm_only": True,
+            "no_backend_surface": True,
+        },
+    ),
     "typescript": LanguageBaseline(
         language="typescript",
         standard=LanguageStandard.TYPESCRIPT,
         analysis_focus=LANGUAGE_ANALYSIS_FOCUS["typescript"],
         linter_config={
+            "retired": True,  # A348: grandfathered files only; JS-ESM owns UI
+            "grandfathered_only": True,
             "strict": True,
             "strictNullChecks": True,
             "noImplicitAny": True,
