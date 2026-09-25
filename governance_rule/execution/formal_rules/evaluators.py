@@ -1144,17 +1144,32 @@ def _capability_dispatch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 @register_rule("RULE_LANGUAGE_REALLOCATION_V1")
 def _language_reallocation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate (A605): C/C++/C# primary adaptive, Python reduced, unified
-    format and automatic memory management.  Evaluator registered so the
-    candidate build's formal-rule parity check passes; runtime predicate
-    validates the language registry when fact `primary_languages` is supplied.
+    """Predicate (A605): C23/C++23/C#14(.NET 10) primary adaptive, Python
+    reduced, .NET GC + unified format and automatic memory management.
+    Evaluator registered so the candidate build's formal-rule parity check
+    passes; runtime predicate validates the language registry when fact
+    `primary_languages` is supplied.
     """
     primary = facts.get("primary_languages") or facts.get("language_ids") or []
     if primary:
         langs = [str(x).lower() for x in primary]
-        if not any(lang in ("c11", "cpp", "csharp", "c", "c++", "c#") for lang in langs):
-            return False, "FAIL_CLOSED", "primary languages must include c11/cpp/csharp"
-    return True, "PASS", "language reallocation validated"
+        # Accept C23/C++23/C#14 and legacy aliases for backward compat
+        allowed = {
+            "c23", "c11", "c",
+            "cpp23", "cpp", "c++23", "c++",
+            "csharp", "csharp14", "c#14", "c#", "cs",
+            "dotnet10", ".net10",
+        }
+        if not any(lang in allowed for lang in langs):
+            return False, "FAIL_CLOSED", "primary languages must include c23/cpp23/csharp14 (.NET 10)"
+        # .NET 10 GC is required when csharp is primary
+        has_csharp = any(lang in ("csharp", "csharp14", "c#14", "c#") for lang in langs)
+        if has_csharp:
+            # Optional fact: dotnet_version should be 10 if supplied
+            dotnet_ver = str(facts.get("dotnet_version") or facts.get("dotnet_gc_version") or "").strip()
+            if dotnet_ver and dotnet_ver not in ("10", "10.0", ".net10", "dotnet10"):
+                return False, "FAIL_CLOSED", f".NET GC version must be 10, got {dotnet_ver!r}"
+    return True, "PASS", "language reallocation validated (.NET 10 GC/C23/C++23)"
 
 
 for _rule_code, _provision_id in _DECLARED_PROVISION_RULES.items():

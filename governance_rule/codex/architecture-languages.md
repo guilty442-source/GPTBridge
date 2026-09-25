@@ -1,13 +1,13 @@
 # GPTBridge 程式語言架構
 
-本文件是正式法典的架構投影；權責以 PostgreSQL 法典 A35、A341、A343、A348、A604 為準。
+本文件是正式法典的架構投影；權責以 PostgreSQL 法典 A35、A341、A343、A348、A604、A605 為準。C11 已升級至 C23，C++17 至 C++23，C#12 至 C#14(.NET 10)。
 
 ```mermaid
 flowchart TB
   CONTRACT[法典與版本化契約]
-  CONTRACT --> C[C11：決定性規則、權限熱路徑、常駐運行與原生測試]
-  CONTRACT --> CPP[C++：原生能力、推論、原生測試與審計熱路徑]
-  CONTRACT --> CS[C#：介面、型別轉接、授權流程與唯一測試編排]
+  CONTRACT --> C[C23：決定性規則、權限熱路徑、常駐運行與原生測試 (C23 _BitInt/constexpr/typeof)]
+  CONTRACT --> CPP[C++23：原生能力、推論、原生測試與審計熱路徑 (modules/constexpr/expected/mdspan)]
+  CONTRACT --> CS[C#14/.NET 10：介面、型別轉接、授權流程與唯一測試編排 (.NET 10 GC DATAS/Span<T>)]
   CONTRACT --> FS[F#：資料分析、機器學習與高正確性複雜計算]
   CONTRACT --> GO[Go：有界並行服務、傳輸工作、網路轉接與可攜式操作程式]
   CONTRACT --> RS[Rust：記憶體安全系統能力、解析器與完整性／安全敏感元件]
