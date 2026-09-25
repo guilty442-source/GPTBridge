@@ -1208,5 +1208,22 @@ def _language_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "language versions validated"
 
 
+@register_rule("RULE_INFRA_VERSIONS_V1")
+def _infra_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A610): PostgreSQL18.6/SQLite disabled/TypeScript7.0.2/Electron44.4.5/Git2.55.0."""
+    pg = str(facts.get("postgres_version") or facts.get("postgresql") or "").strip()
+    if pg and pg not in ("18.6", "18.6.0", "postgresql18.6"):
+        return False, "FAIL_CLOSED", f"postgres_version must be 18.6, got {pg!r}"
+    sqlite = str(facts.get("sqlite") or facts.get("sqlite_usage") or "").lower()
+    if sqlite and "disabled" not in sqlite and "no" not in sqlite:
+        return False, "FAIL_CLOSED", "sqlite must be disabled"
+    git = str(facts.get("git_version") or facts.get("git") or "").strip()
+    if git and git not in ("2.55.0", "2.55", "git2.55.0"):
+        # Allow windows suffix
+        if not git.startswith("2.55.0"):
+            return False, "FAIL_CLOSED", f"git_version must be 2.55.0, got {git!r}"
+    return True, "PASS", "infra versions validated"
+
+
 for _rule_code, _provision_id in _DECLARED_PROVISION_RULES.items():
     register_rule(_rule_code)(_declared_provision_evaluator(_provision_id))
