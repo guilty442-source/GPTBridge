@@ -189,7 +189,11 @@ through the same governed pipeline used for manual training:
 3. queue and run a governed SFT job initialised from the lifecycle's active
    weights,
 4. evaluate the resulting artifact against the policy's eval suites
-   (default `star-native-eval-dialogue-v1`) with the current active weights
+   (`star-native-eval-dialogue-v1` perplexity/tps gate **plus**
+   `star-capability-suite-v2` per-category regression gate — zh-TW/en/
+   math/code/reading/multi_turn/context_tracking/instruction/
+   tool_call_format/expert_routing; any category pass-rate drop vs the
+   active weights fails the candidate) with the current active weights
    as baseline,
 5. only if every gate passes: register the adapter, `stage`, and — when
    `auto_activate` is set — `activate`, register the weights in the model

@@ -471,19 +471,17 @@ def build_qa_records(rng: random.Random, *, qa_scale: int = 0) -> list[dict[str,
 def build_arithmetic_records(
     rng: random.Random, *, arith_scale: int = 700
 ) -> list[dict[str, Any]]:
-    """位值分解算術課程。
+    """一位數運算表課程（v20b 修正版）。
 
-    根因修補：BPE 把二位數整數合成單一 token，模型只能死記
-    （運算元, 運算元 → 結果）配對——這也是 v19b/v25/v26 裸模型
-    算術一律 ~17% 的結構性原因。本切片把答案改為「先拆位、逐位
-    運算、最後才輸出結果」的格式，讓結果 token 有機會被計算過程
-    決定而非被記憶決定：
+    v20 位值分解實驗結論：模型確實學會了「個位 x+y=z，十位 a+b=c →
+    a+b=s」的表面格式，但 BPE 二位數 token 沒有位值語義——
+    「38」在詞表中是單一 token，模型拆不出 (3,8)，分解法在
+    900 步內只複製了格式、沒有建立位數映射，且覆寫了已記住的
+    直答配對造成 math 類回歸（0.18→0.09）。
 
-        個位 4+2=6，十位 1+8=9 → 14 + 82 = 96
-
-    模型學到的技能是「token→位數分解→位值運算→合成結果」，
-    對未見過的運算元組合也能泛化（小模型的合理上限是
-    二位數加減與一位數乘除；乘法採直式位值法，除法採乘法逆查）。
+    本版聚焦一位數加減乘除全表（每組事實出現多次、模板多樣），
+    這是此規模模型能可靠學會的算術下限；二位數以上維持既有
+    直答配對（背誦型），不混入分解格式以免格式/數值脫鉤。
     """
     def q_tpl(a: int, op: str, b: int) -> str:
         zh = {"+": "加", "-": "減", "×": "乘", "÷": "除以"}[op]
@@ -496,104 +494,74 @@ def build_arithmetic_records(
             f"{a} {op} {b} 的答案",
         ])
 
-    def add_cot(a: int, b: int) -> str:
-        au, bu = a % 10, b % 10
-        at, bt = a // 10, b // 10
-        u = au + bu
-        carry, ud = divmod(u, 10)
-        t = at + bt + carry
-        steps = f"個位 {au}+{bu}={u}"
-        if carry:
-            steps += f" 進 1"
-        steps += f"，十位 {at}+{bt}"
-        if carry:
-            steps += f"+1"
-        steps += f"={t} → {a} + {b} = {a + b}"
-        return steps
-
-    def sub_cot(a: int, b: int) -> str:
-        au, bu = a % 10, b % 10
-        at, bt = a // 10, b // 10
-        if au >= bu:
-            return (
-                f"個位 {au}-{bu}={au - bu}，"
-                f"十位 {at}-{bt}={at - bt} → {a} - {b} = {a - b}"
-            )
-        return (
-            f"個位 {au} 不夠減 {bu}，借位 {au + 10}-{bu}={au + 10 - bu}，"
-            f"十位 {at}-1-{bt}={at - 1 - bt} → {a} - {b} = {a - b}"
-        )
-
-    def mul_cot(a: int, b: int) -> str:
-        au, at = a % 10, a // 10
-        u = au * b
-        carry, ud = divmod(u, 10)
-        t = at * b + carry
-        steps = f"個位 {au}×{b}={u}"
-        if carry:
-            steps += f" 進 {carry}"
-        steps += f"，十位 {at}×{b}"
-        if carry:
-            steps += f"+{carry}"
-        steps += f"={t} → {a} × {b} = {a * b}"
-        return steps
-
-    def div_cot(a: int, b: int) -> str:
-        q = a // b
-        return f"{b} × {q} = {a} → {a} ÷ {b} = {q}"
+    def direct(a: int, op: str, b: int, ans: int) -> dict[str, Any]:
+        return _convo(q_tpl(a, op, b), f"{a} {op} {b} = {ans}")
 
     records: list[dict[str, Any]] = []
-    seen: set[tuple[int, str, int]] = set()
-    specs = [
-        ("+", 250, lambda: (rng.randint(10, 99), rng.randint(10, 99))),
-        ("-", 200, lambda: _desc_pair(rng)),
-        ("×", 150, lambda: (rng.randint(10, 99), rng.randint(2, 9))),
-        ("÷", 100, lambda: _div_pair(rng)),
-        ("1d", 60, lambda: (rng.randint(1, 9), rng.randint(1, 9))),
+
+    # ── 一位數全表（雙向順序都收：模型要泛化運算元次序）─────────
+    facts: list[tuple[int, str, int, int]] = []
+    for a in range(1, 10):
+        for b in range(1, 10):
+            facts.append((a, "+", b, a + b))
+            if a >= b:
+                facts.append((a, "-", b, a - b))
+            facts.append((a, "×", b, a * b))
+            if a % b == 0:
+                facts.append((a, "÷", b, a // b))
+    rng.shuffle(facts)
+    per_fact = max(1, arith_scale // len(facts))
+    for a, op, b, ans in facts:
+        for _ in range(per_fact):
+            records.append(direct(a, op, b, ans))
+
+    # ── 一位數文字題（應用題結尾仍是數字）──────────────────────
+    word_pool = [
+        ("小明有 {a} 元，又得到 {b} 元，現在總共有幾元？", "+"),
+        ("桌上有 {a} 顆蘋果，拿走 {b} 顆，還剩幾顆？", "-"),
+        ("一盒有 {a} 支筆，{b} 盒共有幾支？", "×"),
+        ("把 {a} 顆糖果平分給 {b} 個人，每人幾顆？", "÷"),
     ]
-    for op, target, sampler in specs:
+    for tpl, op in word_pool:
         made = 0
-        tries = 0
-        while made < target and tries < target * 20:
-            tries += 1
-            a, b = sampler()
-            key = (a, op, b)
-            if key in seen:
-                continue
-            seen.add(key)
+        while made < 12:
             if op == "+":
-                ans = add_cot(a, b)
+                a, b = rng.randint(1, 9), rng.randint(1, 9)
+                ans = a + b
             elif op == "-":
-                ans = sub_cot(a, b)
-            elif op == "×":
-                ans = mul_cot(a, b)
-            elif op == "÷":
-                ans = div_cot(a, b)
-            else:  # 1d — 一位數直接答（免分解仍給等式結尾）
-                real_op = rng.choice(["+", "-", "×"])
-                if real_op == "-" and a < b:
+                a, b = rng.randint(2, 9), rng.randint(1, 9)
+                if a < b:
                     a, b = b, a
-                ans = f"{a} {real_op} {b} = " + str(
-                    {"+": a + b, "-": a - b, "×": a * b}[real_op]
-                )
-                records.append(_convo(q_tpl(a, real_op, b), ans))
-                made += 1
-                continue
-            records.append(_convo(q_tpl(a, op, b), ans))
+                ans = a - b
+            elif op == "×":
+                a, b = rng.randint(2, 9), rng.randint(2, 9)
+                ans = a * b
+            else:
+                b = rng.randint(2, 9)
+                ans = rng.randint(2, 9)
+                a = b * ans
+            records.append(
+                _convo(tpl.format(a=a, b=b) + "只輸出數字。", str(ans))
+            )
             made += 1
+
+    # ── 少量二位數直答（維持舊資料風格，避免格式衝突）──────────
+    seen: set[tuple[int, int, str]] = set()
+    made = 0
+    while made < 60:
+        a, b = rng.randint(10, 99), rng.randint(10, 99)
+        op = rng.choice(["+", "-"])
+        if op == "-" and a < b:
+            a, b = b, a
+        if (a, b, op) in seen:
+            continue
+        seen.add((a, b, op))
+        ans = a + b if op == "+" else a - b
+        records.append(direct(a, op, b, ans))
+        made += 1
+
     rng.shuffle(records)
     return records
-
-
-def _desc_pair(rng: random.Random) -> tuple[int, int]:
-    a, b = rng.randint(10, 99), rng.randint(10, 99)
-    return (max(a, b), min(a, b))
-
-
-def _div_pair(rng: random.Random) -> tuple[int, int]:
-    b = rng.randint(2, 9)
-    q = rng.randint(2, 12)
-    return (b * q, b)
 
 
 def build_replay_records(
