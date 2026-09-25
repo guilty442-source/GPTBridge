@@ -1,0 +1,353 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "capability-dispatch-successor-mappings-20260924",
+  "title": "Materialize all 18 retired-identity successor mappings in capability_dispatch_registry and register RULE_CAPABILITY_DISPATCH_V1 (canonical continuation of codex-amendment-request-capability-dispatch-20260922)",
+  "summary": "Governor disposition governor_disposition_capability_dispatch=authorized-materialized created module_capability_registry (45 rows, parity-verified) and capability_dispatch_registry (18 retired-identity rows, all pending-explicit-successor-mapping). This request completes the authorized materialization: one explicit successor mapping per retired identity derived from sub_sovereign_retirement_matrix.json (old_parent -> owning core engine per A591; prescribed replacement_single_purpose_modules where listed; the learning-evidence mapping exactly as prescribed in the original request), plus the RULE_CAPABILITY_DISPATCH_V1 formal-rule row. Runtime wiring (dispatch_route_of + resolve_sovereign successor hop + learning_command dispatch gate) is implemented fail-closed and inert until rows seal to active.",
+  "requested_by": "decision-sovereign",
+  "origin": "completion of governor-authorized capability-dispatch materialization; original request cannot pass intake (descriptive format, REQUEST_ARTIFACT_INVALID) — this is its canonical restatement covering every prescribed route | submitted by governor directive '全部處理' 2026-09-25; predecessor restamped to 2026-09-25T00:48:00Z",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T00:48:00Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+    "revision_sequence": 75
+  },
+  "governor_disposition": {
+    "source": "metadata.governor_disposition_capability_dispatch",
+    "recorded": "authorized-materialized|module-registry=45|retired-routes=18-pending-explicit-successor|runtime-activation-not-inferred",
+    "scope": "formal capability-dispatch registry and fail-closed resolution contract",
+    "note": "successor choices per row are proposals for governor adjudication at seal time — the audit gate and human review are the dispute surface; rows marked uncertain carry alternatives in evidence"
+  },
+  "proposed_successors": [
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "learning-evidence-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "xingcheng-auto-learning-module",
+        "execution_identity": "xingcheng-native-model",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "automatic-log-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "automation-sovereign",
+        "execution_identity": "automation-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "channel-contract-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "automation-sovereign",
+        "execution_identity": "automation-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "cleanup-retention-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "automation-sovereign",
+        "execution_identity": "automation-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "dependency-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "automation-sovereign",
+        "execution_identity": "automation-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "release-update-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "automation-sovereign",
+        "execution_identity": "automation-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "repair-backup-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "automation-sovereign",
+        "execution_identity": "automation-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "resource-dependency-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "automation-sovereign",
+        "execution_identity": "automation-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "runtime-state-sync-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "automation-sovereign",
+        "execution_identity": "automation-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "change-acceptance-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "decision-sovereign",
+        "execution_identity": "decision-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "data-governance-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "decision-sovereign",
+        "execution_identity": "decision-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "health-maintenance-test-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "decision-sovereign",
+        "execution_identity": "decision-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "policy-architecture-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "decision-sovereign",
+        "execution_identity": "decision-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "priority-capability-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "decision-sovereign",
+        "execution_identity": "decision-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "directory-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "permission-sovereign",
+        "execution_identity": "permission-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "identity-group-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "permission-sovereign",
+        "execution_identity": "permission-sovereign",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "startup-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "boot-core",
+        "execution_identity": "boot-core",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "capability_dispatch_registry",
+      "action": "update",
+      "key": {
+        "retired_identity": "system-sub-sovereign"
+      },
+      "set": {
+        "successor_module_identity": "main-system",
+        "execution_identity": "main-system",
+        "decision_authority": "治理層",
+        "status": "active",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "insert",
+      "rows": [
+        {
+          "rule_code": "RULE_CAPABILITY_DISPATCH_V1",
+          "controlling_provision_id": "A604",
+          "required_inputs": "retired_identity|capability_dispatch_registry|module_capability_registry|delegation_target",
+          "predicate": "delegation to a retired sub-sovereign identity must resolve via exactly one active capability_dispatch_registry row carrying an explicit successor_module_identity and execution_identity; absent, pending or ambiguous mapping fails closed; active identities retain existing A334 behaviour",
+          "pass_decision": "PASS",
+          "fail_decision": "FAIL_CLOSED",
+          "severity": "critical",
+          "evidence_schema": "CAPABILITY_DISPATCH_CLOSURE",
+          "low_cost_path": "deterministic-registry-lookup",
+          "precedence_scope": "capability-dispatch",
+          "version_identity": "<successor-version>",
+          "status": "proposed",
+          "semantic_hash": "",
+          "evaluator_hash": "",
+          "test_contract_hash": "",
+          "controlling_provision_hash": "",
+          "parity_status": "PENDING",
+          "parity_evidence_id": ""
+        }
+      ]
+    }
+  ],
+  "mapping_basis": {
+    "source": "governance_rule/execution/audit/convergence/sub_sovereign_retirement_matrix.json",
+    "rule": "old_parent sovereign's owning core engine is the successor per A591 (owning core engine); rows with prescribed replacement_single_purpose_modules use the primary module",
+    "per_row": {
+      "automatic-log-sync-sub-sovereign": "parent=automation-sovereign -> automation-sovereign",
+      "channel-contract-sync-sub-sovereign": "parent=automation-sovereign -> automation-sovereign",
+      "cleanup-retention-sync-sub-sovereign": "parent=automation-sovereign -> automation-sovereign",
+      "dependency-sync-sub-sovereign": "parent=automation-sovereign -> automation-sovereign",
+      "release-update-sync-sub-sovereign": "parent=automation-sovereign -> automation-sovereign",
+      "repair-backup-sync-sub-sovereign": "parent=automation-sovereign -> automation-sovereign",
+      "resource-dependency-sync-sub-sovereign": "parent=automation-sovereign -> automation-sovereign",
+      "runtime-state-sync-sub-sovereign": "parent=automation-sovereign -> automation-sovereign",
+      "change-acceptance-sub-sovereign": "parent=decision-sovereign -> decision-sovereign",
+      "data-governance-sub-sovereign": "parent=decision-sovereign -> decision-sovereign",
+      "health-maintenance-test-sub-sovereign": "parent=decision-sovereign -> decision-sovereign",
+      "policy-architecture-sub-sovereign": "parent=decision-sovereign -> decision-sovereign",
+      "priority-capability-sub-sovereign": "parent=decision-sovereign -> decision-sovereign",
+      "directory-sub-sovereign": "parent=permission-sovereign -> permission-sovereign",
+      "identity-group-sub-sovereign": "parent=permission-sovereign -> permission-sovereign",
+      "learning-evidence-sync-sub-sovereign": "parent=星澄 -> xingcheng-auto-learning-module (explicitly prescribed minimal_row)",
+      "startup-sub-sovereign": "parent=system-runtime-sovereign; replacement modules [boot-core, bootstrap-entry, launcher-ui, sub-sovereign-orchestration] -> boot-core (startup engine); alternative: sub-sovereign-orchestration",
+      "system-sub-sovereign": "parent=system-runtime-sovereign; replacement modules [main-system, xingcheng-sovereign] -> main-system (module coordination engine); alternative: sub-sovereign-orchestration"
+    }
+  },
+  "required_execution_steps": [
+    "five-sovereign-audit",
+    "human-governor-review",
+    "governed-successor-seal",
+    "external-signatures",
+    "authority-re-anchor",
+    "certification-complete",
+    "un-xfail test_xingcheng_learning_command dispatch cases after activation"
+  ],
+  "out_of_scope": [
+    "module_assignment_registry rows for successor modules (module dispatch already uses none-single-purpose-module-dispatch)",
+    "evidence_hash recomputation on updated dispatch rows (governor-side seal evidence)",
+    "RULE_CAPABILITY_DISPATCH_V1 evaluator/parity lifecycle (proposed -> declared-pending-evaluator-parity -> evaluator-parity-verified -> active is its own evidence path)",
+    "per-domain duty-split decisions: rows whose domain duties were subdivided across multiple modules may need follow-up dispatch rows (capability_code discrimination)"
+  ],
+  "evidence": [
+    "live predecessor read 2026-09-24 via readonly_connection: capability_dispatch_registry has 18 rows all status=pending-explicit-successor-mapping with NULL successor fields",
+    "all 18 proposed successor_module_identity values exist in module_capability_registry with status=registered-current (automation-sovereign, decision-sovereign, permission-sovereign, xingcheng-auto-learning-module, boot-core, main-system)",
+    "formal_rule_registry contains no RULE_CAPABILITY_DISPATCH_V1 row (verified live); insert uses status=proposed per the formal-rule lifecycle initial state",
+    "runtime wiring implemented fail-closed (commit f3a74b79): dispatch_route_of + resolve_sovereign successor hop + learning_command gate; verified inert while rows pending (4 pass / 5 xfail in test_xingcheng_learning_command)",
+    "prior submission attempt rejected REQUEST_LINEAGE_LOCKED (lineage held by startup-deadline-normalize-40000-20260924-r2 ready-for-governor) — restatement required after that seal changes the predecessor head"
+  ]
+}

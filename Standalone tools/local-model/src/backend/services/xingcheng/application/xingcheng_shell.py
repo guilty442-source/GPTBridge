@@ -9,8 +9,11 @@
     永遠可作答，對應 MoE 的 shared expert；
   - ``math`` — 確定性離線計算/統計專家，可判定式問題直接接管；
   - ``reading`` — 來源標注式文件理解（需提供 documents）；
-  - ``coding`` — AST 驗證的程式合成/分析。
-- **聚合**：top-k（預設 1）專家勝出直接作答；專家失敗或低信心時
+  - ``coding`` — AST 驗證的程式合成/分析；self_upgrade/repair 只產生
+    提案（``source_write_performed=False``），殼層永不執行；
+  - ``investment`` — 確定性投資組合分析（需提供 holdings）；
+  - ``rag`` — 共享知識庫檢索回答（payload 旗標或知識庫提示詞觸發）。
+- **聚合**：top-k（上限 2）專家勝出直接作答；專家失敗或低信心時
   降回共享專家，回覆附 gate 權重與專家履歷供觀測。
 
 模型層對應：``XingChengConfig.use_moe``/``*_moe`` presets 提供權重級
@@ -40,7 +43,15 @@ _INTENT_TO_EXPERT = {
     "data_organization": "math",
     "reading": "reading",
     "coding": "coding",
+    "repair": "coding",
+    "self_upgrade": "coding",
+    "analysis": "investment",
+    "risk": "investment",
+    "search": "investment",
 }
+
+#: 觸發 rag 專家的提示詞線索（知識庫/文件庫查詢語意）。
+_RAG_CUES = ("知識庫", "文件庫", "資料庫裡", "內部文件", "共享文件")
 
 _EXPRESSION_PATTERN = re.compile(
     r"[0-9][0-9.()\s+*/%^×÷-]*[0-9)]\s*(?:=|等於|是多少|多少)?"
@@ -67,7 +78,7 @@ class XingchengShell:
     """服務層 MoE 殼：gate→top-k experts→聚合；general 為共享專家。"""
 
     FORMAT = SHELL_FORMAT
-    EXPERTS = ("general", "math", "reading", "coding")
+    EXPERTS = ("general", "math", "reading", "coding", "investment", "rag")
     TOP_K = 2  # gate 取樣上限；共享專家不計入
 
     def __init__(self, service: Any) -> None:
@@ -88,8 +99,14 @@ class XingchengShell:
         weights["general"] = 1.0  # shared expert 永遠可用
         for intent in intents:
             expert = _INTENT_TO_EXPERT.get(intent)
-            if expert:
-                weights[expert] = max(weights[expert], 0.6)
+            if not expert:
+                continue
+            # self_upgrade/repair 是明確的動作請求，意圖命中即接管
+            # （coding 專家僅產生提案，不執行）。
+            weights[expert] = max(
+                weights[expert],
+                0.75 if intent in {"self_upgrade", "repair"} else 0.6,
+            )
         # 特徵加成：可解析算式 → math；有文件 → reading；
         # 明確程式產物要求 → coding。
         if _EXPRESSION_PATTERN.search(prompt) and any(
@@ -103,6 +120,13 @@ class XingchengShell:
             for cue in ("```", "函式", "function", "def ", "class ", "寫一個程式", "寫程式")
         ):
             weights["coding"] = max(weights["coding"], 0.75)
+        # 投資意圖僅在提供持股資料時接管；無資料一律降回共享專家誠實作答。
+        if self._has_holdings(payload):
+            weights["investment"] = max(weights["investment"], 0.85)
+        if payload.get("rag") is True or payload.get("use_rag") is True or any(
+            cue in prompt for cue in _RAG_CUES
+        ):
+            weights["rag"] = max(weights["rag"], 0.8)
         ranked = sorted(
             ((w, name) for name, w in weights.items() if name != "general"),
             key=lambda item: (-item[0], item[1]),
@@ -125,6 +149,13 @@ class XingchengShell:
             if isinstance(value, list) and value:
                 return True
         return False
+
+    @staticmethod
+    def _has_holdings(payload: Mapping[str, Any]) -> bool:
+        holdings = payload.get("holdings")
+        return isinstance(holdings, list) and any(
+            isinstance(item, Mapping) for item in holdings
+        )
 
     # ------------------------------------------------------------------
     # experts
@@ -160,11 +191,13 @@ class XingchengShell:
             return None
         return {"text": answer, "detail": result}
 
-    def _expert_coding(self, prompt: str, payload: Mapping[str, Any]) -> dict[str, Any] | None:
+    def _expert_coding(
+        self, prompt: str, payload: Mapping[str, Any], intent: str = "coding"
+    ) -> dict[str, Any] | None:
         request = dict(payload)
         request.setdefault("prompt", prompt)
         try:
-            result = self._service.coding_expert.process(request, "coding")
+            result = self._service.coding_expert.process(request, intent)
         except Exception:
             return None
         if result.get("ok") is not True:
@@ -173,10 +206,83 @@ class XingchengShell:
         if not source:
             return None
         language = str(result.get("language") or "").strip() or "text"
+        text = f"```{language}\n{source}\n```"
+        proposal = result.get("upgrade_proposal")
+        if intent == "self_upgrade" and isinstance(proposal, dict):
+            text = (
+                "以下為自我升級提案（僅提案，未執行；需治理核准鏈）：\n\n"
+                + text
+            )
         return {
-            "text": f"```{language}\n{source}\n```",
+            "text": text,
             "detail": result,
         }
+
+    def _expert_investment(
+        self, prompt: str, payload: Mapping[str, Any]
+    ) -> dict[str, Any] | None:
+        if not self._has_holdings(payload):
+            return None
+        try:
+            from .investment_analysis import analyze_investments
+
+            result = analyze_investments(dict(payload))
+        except Exception:
+            return None
+        if result.get("ok") is not True:
+            return None
+        portfolio = result.get("portfolio") or {}
+        total = portfolio.get("total_current_value_twd")
+        count = portfolio.get("active_holding_count")
+        lines = [f"投資組合分析（{count} 檔持倉，總值 NT${total}）："]
+        models = result.get("model_results") or {}
+        for key, label in (
+            ("return-trend", "加權成本報酬率"),
+            ("risk-volatility", "加權波動率"),
+            ("income-distribution", "加權配息率"),
+            ("scenario-stress", "壓力情境估計損失"),
+        ):
+            model = models.get(key) or {}
+            metrics = model.get("metrics") or {}
+            if key == "scenario-stress":
+                loss = metrics.get("estimated_loss_twd")
+                if loss is not None:
+                    lines.append(f"- {label}：NT${loss}")
+            else:
+                for metric_key, value in metrics.items():
+                    if value is not None and "percent" in metric_key:
+                        lines.append(f"- {label}：{value:.2f}%")
+                        break
+        warnings = result.get("risk_warnings") or []
+        if warnings:
+            lines.append(f"風險提醒 {len(warnings)} 項：")
+            lines.extend(
+                f"- {item.get('message', '')}" for item in warnings[:5]
+            )
+        lines.append("（分析結果不是投資建議或交易指令。）")
+        return {"text": "\n".join(lines), "detail": result}
+
+    def _expert_rag(
+        self, prompt: str, payload: Mapping[str, Any]
+    ) -> dict[str, Any] | None:
+        local_rag = getattr(self._service, "local_rag", None)
+        if local_rag is None:
+            return None
+        request = dict(payload)
+        request["question"] = prompt
+        try:
+            result = local_rag.query(request)
+        except Exception:
+            return None
+        if not isinstance(result, dict) or result.get("ok") is not True:
+            return None
+        answer = str(result.get("answer") or result.get("response") or "").strip()
+        if not answer:
+            return None
+        citations = result.get("citations") or []
+        if citations and result.get("evidence_sufficient") is True:
+            answer = f"{answer}\n\n（引用 {len(citations)} 則知識庫來源）"
+        return {"text": answer, "detail": result}
 
     def _expert_general(
         self, prompt: str, history: list[dict[str, str]]
@@ -225,7 +331,23 @@ class XingchengShell:
             elif name == "reading":
                 specialist_out = self._expert_reading(text_prompt, request_payload)
             elif name == "coding":
-                specialist_out = self._expert_coding(text_prompt, request_payload)
+                trigger = next(
+                    (
+                        intent
+                        for intent in gate["intents"]
+                        if _INTENT_TO_EXPERT.get(intent) == "coding"
+                    ),
+                    "coding",
+                )
+                specialist_out = self._expert_coding(
+                    text_prompt, request_payload, trigger
+                )
+            elif name == "investment":
+                specialist_out = self._expert_investment(
+                    text_prompt, request_payload
+                )
+            elif name == "rag":
+                specialist_out = self._expert_rag(text_prompt, request_payload)
             if specialist_out is not None:
                 experts_used.append(name)
                 break

@@ -1,64 +1,64 @@
 {
- "artifact": "codex-amendment-request",
- "authority": "request-only",
- "amendment_id": "codex-amendment-request-a609-convergence-registry-completion-20260924",
- "request_id": "a609-convergence-registry-a5-e2-a29-e16-20260924",
- "requested_by": "decision-sovereign",
- "origin": "devin-cli implementation-convergence audit 2026-09-24 (A609 semantic-duplication scan; follow-up to revision 73 normative-convergence)",
- "change_class": "authority-duty",
- "required_review": "five-sovereign-audit-unanimous-pass",
- "flow": "A382/A488-non-disruptive-amendment-flow",
- "predecessor": {
-  "codex_version": "2026-09-23T03:13:43Z",
-  "history_head": "9a0e38abd69170c0c2ca4e64d0c0d0219f2ad9b0856235907fbfea27f3a43496",
-  "revision_sequence": 74
- },
- "status": "draft-awaiting-governor",
- "not_executed": true,
- "problem": {
-  "summary": "A609 requires one controlling normative proposition per cross-layer restatement. The semantic-duplication scan (813 provisions) flags two cross-layer pairs without a codex_normative_convergence_registry entry: A5<->E2 (token-jaccard=0.818, execution-delegation restatement) and A29<->E16 (token-jaccard=0.917, operational-authority restatement). All other flagged cross-layer pairs are already registered (13 current entries: A13,A28,A42,A45,A49,A58,A151,A166,P9,P19,P24,P49,P85).",
-  "codex_state": "A5: EXECUTION:delegate-to-governed-executor; DIRECT-EXEC:sovereign+codex-none | E2: EXECUTION:delegate-governed-executor; DIRECT-EXEC:sovereign+codex-none -- same proposition. A29: CODEX:operational-authority; BASIS:codex-only; DUTY:guard-immutable+integrity; CODEX-POWER:none | E16: GOVERNANCE-AUTHORITY:operational-authority; BASIS:codex-only; DUTY:guard-immutable+integrity; CODEX-POWER:none -- same proposition.",
-  "risk_if_unamended": "A609 single-controlling-proposition closure remains incomplete; the two unregistered pairs leave the cross-layer restatement surface ambiguous for downstream readers (which layer controls)."
- },
- "proposed_delta": {
-  "registry_insertions": [
-   {
-    "table": "codex_normative_convergence_registry",
-    "statement_code": "CONVERGENCE_014",
-    "controlling_type": "edict",
-    "controlling_id": "E2",
-    "restatement_type": "article",
-    "restatement_id": "A5",
-    "relationship_kind": "restatement-non-independent",
-    "facet_merge_policy": "supplemental-responsibility-and-prohibition-only",
-    "resolution_basis": "edict-over-restatement",
-    "status": "current"
-   },
-   {
-    "table": "codex_normative_convergence_registry",
-    "statement_code": "CONVERGENCE_015",
-    "controlling_type": "edict",
-    "controlling_id": "E16",
-    "restatement_type": "article",
-    "restatement_id": "A29",
-    "relationship_kind": "restatement-non-independent",
-    "facet_merge_policy": "supplemental-responsibility-and-prohibition-only",
-    "resolution_basis": "edict-over-restatement",
-    "status": "current"
-   }
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "amendment_id": "codex-amendment-request-a609-convergence-registry-completion-20260924",
+  "request_id": "a609-convergence-registry-a5-e2-a29-e16-20260924",
+  "requested_by": "decision-sovereign",
+  "origin": "devin-cli implementation-convergence audit 2026-09-24 (A609 semantic-duplication scan; follow-up to revision 73 normative-convergence)",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "predecessor": {
+    "codex_version": "2026-09-23T03:13:43Z",
+    "history_head": "9a0e38abd69170c0c2ca4e64d0c0d0219f2ad9b0856235907fbfea27f3a43496",
+    "revision_sequence": 74
+  },
+  "status": "applied-current",
+  "not_executed": false,
+  "problem": {
+    "summary": "A609 requires one controlling normative proposition per cross-layer restatement. The semantic-duplication scan (813 provisions) flags two cross-layer pairs without a codex_normative_convergence_registry entry: A5<->E2 (token-jaccard=0.818, execution-delegation restatement) and A29<->E16 (token-jaccard=0.917, operational-authority restatement). All other flagged cross-layer pairs are already registered (13 current entries: A13,A28,A42,A45,A49,A58,A151,A166,P9,P19,P24,P49,P85).",
+    "codex_state": "A5: EXECUTION:delegate-to-governed-executor; DIRECT-EXEC:sovereign+codex-none | E2: EXECUTION:delegate-governed-executor; DIRECT-EXEC:sovereign+codex-none -- same proposition. A29: CODEX:operational-authority; BASIS:codex-only; DUTY:guard-immutable+integrity; CODEX-POWER:none | E16: GOVERNANCE-AUTHORITY:operational-authority; BASIS:codex-only; DUTY:guard-immutable+integrity; CODEX-POWER:none -- same proposition.",
+    "risk_if_unamended": "A609 single-controlling-proposition closure remains incomplete; the two unregistered pairs leave the cross-layer restatement surface ambiguous for downstream readers (which layer controls)."
+  },
+  "proposed_delta": {
+    "registry_insertions": [
+      {
+        "table": "codex_normative_convergence_registry",
+        "statement_code": "CONVERGENCE_014",
+        "controlling_type": "edict",
+        "controlling_id": "E2",
+        "restatement_type": "article",
+        "restatement_id": "A5",
+        "relationship_kind": "restatement-non-independent",
+        "facet_merge_policy": "supplemental-responsibility-and-prohibition-only",
+        "resolution_basis": "edict-over-restatement",
+        "status": "current"
+      },
+      {
+        "table": "codex_normative_convergence_registry",
+        "statement_code": "CONVERGENCE_015",
+        "controlling_type": "edict",
+        "controlling_id": "E16",
+        "restatement_type": "article",
+        "restatement_id": "A29",
+        "relationship_kind": "restatement-non-independent",
+        "facet_merge_policy": "supplemental-responsibility-and-prohibition-only",
+        "resolution_basis": "edict-over-restatement",
+        "status": "current"
+      }
+    ],
+    "note": "version_identity and evidence_hash are assigned by the governed successor-normalization pipeline, not by this request."
+  },
+  "gate_conditions": [
+    "successor build applies only the two registry insertions; no provision text mutated",
+    "semantic-duplication scan on the successor shows zero unregistered cross-layer-restatement review-required pairs",
+    "normative-classification check passes on the successor generation",
+    "deterministic integrity seal + lineage closure + atomic publication per A382/A488"
   ],
-  "note": "version_identity and evidence_hash are assigned by the governed successor-normalization pipeline, not by this request."
- },
- "gate_conditions": [
-  "successor build applies only the two registry insertions; no provision text mutated",
-  "semantic-duplication scan on the successor shows zero unregistered cross-layer-restatement review-required pairs",
-  "normative-classification check passes on the successor generation",
-  "deterministic integrity seal + lineage closure + atomic publication per A382/A488"
- ],
- "evidence": [
-  "governance_rule/execution/audit/convergence/codex-semantic-duplication-scan.json (regenerated 2026-09-23T17:49:16Z against PostgreSQL authority)",
-  "codex_normative_convergence_registry current entries verified via governed read-only connection (13 rows; A5/E2 and A29/E16 absent)"
- ],
- "worker_note": "Draft produced by devin-cli audit worker; requires governor authorization before successor normalization.",
- "codex_mutation": "none"
+  "evidence": [
+    "governance_rule/execution/audit/convergence/codex-semantic-duplication-scan.json (regenerated 2026-09-23T17:49:16Z against PostgreSQL authority)",
+    "codex_normative_convergence_registry current entries verified via governed read-only connection (13 rows; A5/E2 and A29/E16 absent)"
+  ],
+  "worker_note": "Governor disposition completed out-of-band: CONVERGENCE_014 (A5->E2) and CONVERGENCE_015 (A29->E16) verified live in codex_normative_convergence_registry at codex_version 2026-09-25T00:48:00Z; request closed without executor run.",
+  "codex_mutation": "none"
 }
