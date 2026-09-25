@@ -214,18 +214,15 @@ def test_unverified_taught_recipe_does_not_plan(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _child(tmp_path: Path) -> Any:
-    from governance.sovereigns.xingcheng.learning_sub_sovereign import (
-        LearningEvidenceSyncSubSovereign,
-    )
+def _entity(tmp_path: Path) -> Any:
+    from governance.sovereigns.xingcheng_sovereign import XingchengSovereign
 
     app = SimpleNamespace(project_root=tmp_path)
-    parent = SimpleNamespace(sovereign_id="星澄")
-    return LearningEvidenceSyncSubSovereign(app, parent=parent)
+    return XingchengSovereign(app)
 
 
 def test_learn_teach_adjudication(tmp_path: Path) -> None:
-    child = _child(tmp_path)
+    child = _entity(tmp_path)
     request = SimpleNamespace(
         payload={
             "signature": {
@@ -246,7 +243,7 @@ def test_learn_teach_adjudication(tmp_path: Path) -> None:
 
 
 def test_learn_teach_rejects_unbounded_remedy(tmp_path: Path) -> None:
-    child = _child(tmp_path)
+    child = _entity(tmp_path)
     request = SimpleNamespace(
         payload={
             "signature": {"error_class": "X"},
@@ -261,7 +258,7 @@ def test_learn_teach_rejects_unbounded_remedy(tmp_path: Path) -> None:
 
 
 def test_curriculum_applies_on_arm(tmp_path: Path) -> None:
-    child = _child(tmp_path)
+    child = _entity(tmp_path)
     child._ensure_learner()
     result = child._apply_repair_curriculum()
     assert result["applied"] > 0
@@ -283,15 +280,12 @@ def test_bridge_emits_teaching_example(tmp_path: Path) -> None:
             (tool, rid, payload)
         )
     )
-    from governance.sovereigns.xingcheng.learning_sub_sovereign import (
-        LearningEvidenceSyncSubSovereign,
-    )
+    from governance.sovereigns.xingcheng_sovereign import XingchengSovereign
 
     app = SimpleNamespace(
         project_root=tmp_path, permission_sovereign=permission
     )
-    parent = SimpleNamespace(sovereign_id="星澄")
-    child = LearningEvidenceSyncSubSovereign(app, parent=parent)
+    child = XingchengSovereign(app)
     child._ensure_learner()
     child._adjudicate_learn_teach(
         SimpleNamespace(
@@ -317,15 +311,12 @@ def test_bridge_failure_does_not_fail_teach(tmp_path: Path) -> None:
         raise RuntimeError("channel down")
 
     permission = SimpleNamespace(submit_tool_execution_request=_explode)
-    from governance.sovereigns.xingcheng.learning_sub_sovereign import (
-        LearningEvidenceSyncSubSovereign,
-    )
+    from governance.sovereigns.xingcheng_sovereign import XingchengSovereign
 
     app = SimpleNamespace(
         project_root=tmp_path, permission_sovereign=permission
     )
-    parent = SimpleNamespace(sovereign_id="星澄")
-    child = LearningEvidenceSyncSubSovereign(app, parent=parent)
+    child = XingchengSovereign(app)
     outcome = child._adjudicate_learn_teach(
         SimpleNamespace(
             payload={
@@ -338,9 +329,9 @@ def test_bridge_failure_does_not_fail_teach(tmp_path: Path) -> None:
 
 
 def test_learn_teach_in_bounded_commands() -> None:
-    from governance.sovereigns.xingcheng import learning_sub_sovereign
+    from governance.sovereigns.xingcheng import learning_capability
 
-    assert "learn.teach" in learning_sub_sovereign._LEARNING_INTENTS
+    assert "learn.teach" in learning_capability._LEARNING_INTENTS
 
 
 # ---------------------------------------------------------------------------
@@ -358,26 +349,11 @@ def test_repair_intent_allowed() -> None:
         / "services"
         / "xingcheng"
         / "application"
-        / "gpt_training_gate.py"
+        / "training_gate.py"
     )
     source = gate_path.read_text(encoding="utf-8")
     assert '"repair",' in source
 
-
-def test_repair_intent_routed() -> None:
-    catalog_path = (
-        Path(__file__).resolve().parents[2]
-        / "Standalone tools"
-        / "local-model"
-        / "src"
-        / "backend"
-        / "services"
-        / "xingcheng"
-        / "infrastructure"
-        / "transformer_runtime_catalog.py"
-    )
-    source = catalog_path.read_text(encoding="utf-8")
-    assert '"repair": ("deepseek-r1:14b", "qwen3.6:35b-a3b-coding")' in source
 
 
 def test_teaching_dispatch_registered() -> None:

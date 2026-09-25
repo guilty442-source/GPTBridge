@@ -1,7 +1,7 @@
 {
   "version": "star-resource-governor-rules/v1",
   "description": "Per-program resource rules for the Process Lasso-inspired governor tier. 'mode' selects a preset bundle from 'modes' (low / medium / high); explicit 'defaults' keys override the selected preset, and --no-* / numeric CLI flags override both. 'exclude' keeps a program unmanaged (monitoring only). cpu_limit_percent is a share of total machine CPU (100 = one full core). worker_* keys are the aggregate worker-plane budget/cap; cpu_busy/cpu_extreme are per-core percent; sustain/extreme_sustain are consecutive samples. auto_mode=true enables demand-driven advisor; power_saving_schedule.enabled=true forces nightly 22:00-07:00 low mode (省電) when auto_mode is active.",
-  "mode": "low",
+  "mode": "medium",
   "modes": {
     "low": {
       "description": "Quiet/battery-first: workers yield aggressively.",
