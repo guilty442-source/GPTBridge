@@ -72,6 +72,7 @@ class CodexAmendmentIntakeDriver:
         self._registered = False
         self._last_decision = ""
         self._last_error = ""
+        self._last_wake: dict[str, Any] | None = None
         self._last_results: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------
@@ -258,12 +259,20 @@ class CodexAmendmentIntakeDriver:
             # broker's ai-channel and resource-hold gates) so the next
             # audit can obtain the receipt.
             try:
-                await self.toolbox.start_tool(
+                start_result = await self.toolbox.start_tool(
                     {
                         "tool_id": OWNER_TOOL_ID,
                         "request_id": f"codex-audit-wake-{time.time_ns()}",
                         "background": True,
                     }
+                )
+                # The governed start path reports denials as a result dict
+                # rather than raising — persist it so the wake failure is
+                # observable instead of silently re-deferring every tick.
+                self._last_wake = (
+                    dict(start_result)
+                    if isinstance(start_result, dict)
+                    else {"ok": False, "result": str(start_result)}
                 )
                 for _ in range(3):
                     await asyncio.sleep(2)
@@ -272,6 +281,10 @@ class CodexAmendmentIntakeDriver:
                         _logger.info("codex audit owner woken for search")
                         break
             except Exception as error:  # noqa: BLE001
+                self._last_wake = {
+                    "ok": False,
+                    "error": f"{type(error).__name__}: {error}",
+                }
                 _logger.warning("codex audit wake failed: %s", error)
 
         # advance_all runs its own event loop on this worker thread; the
@@ -324,6 +337,7 @@ class CodexAmendmentIntakeDriver:
             "registered": self._registered,
             "last_decision": self._last_decision,
             "last_error": self._last_error,
+            "last_wake": self._last_wake,
             "last_results": list(self._last_results),
         }
 
@@ -332,6 +346,7 @@ class CodexAmendmentIntakeDriver:
             "flow": FLOW_ID,
             "last_decision": self._last_decision,
             "last_error": self._last_error,
+            "last_wake": self._last_wake,
             "result_count": len(self._last_results),
             "written_at": _iso_now(),
         }
