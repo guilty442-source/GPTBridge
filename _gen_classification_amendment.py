@@ -91,7 +91,7 @@ req = {
 }
 
 out = (
-    r"E:\GPTBridge\governance_rule\execution\audit\convergence\"
+    "E:/GPTBridge/governance_rule/execution/audit/convergence/"
     "codex-amendment-request-delegated-identity-classification-20260925.json"
 )
 with open(out, "w", encoding="utf-8", newline="\n") as f:

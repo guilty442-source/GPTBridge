@@ -1,0 +1,282 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "delegated-identity-classification-20260925",
+  "title": "Classify 35 active delegated normative identities under CODEX_MAIN",
+  "summary": "35 active provision_lifecycle_status identities (26 closure-definition CLOSURE_DELEGATED_*, 1 formal-rule RULE_DELEGATED_A498_V1, 8 registry-rule REGISTRY_A*) carry no provision_law_classification row, so the directory audit gate reports 'provision classification does not map every provision exactly once'. This request classifies all 35 under CODEX_MAIN/main-codex, matching the CODEX_MAIN classification precedent for delegated normative identities and the A610 repair. Executing this amendment also runs the rebuilt generation bookkeeping path (codex_generation_projections), which restamps the version axis and rebuilds search/FTS/manifest/revision/seal projections for the current generation.",
+  "requested_by": "decision-sovereign",
+  "origin": "post-execution audit repair: governance audit FAIL on provision_law_classification coverage (35 unclassified active delegated identities)",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T17:52:49Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+    "revision_sequence": 75
+  },
+  "problem": {
+    "summary": "35 active delegated identities lack provision_law_classification rows; check_provision_classification fails closed"
+  },
+  "proposed_successors": [
+    {
+      "registry": "provision_law_classification",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A231_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A231"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A252_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A252"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A253_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A253"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A271_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A271"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A272_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A272"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A274_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A274"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A331_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A331"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A377_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A377"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A381_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A381"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A385_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A385"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A421_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A421"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A466_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A466"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A468_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A468"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A47_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A47"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A475_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A475"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A489_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A489"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A490_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A490"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A492_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A492"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A514_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A514"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A515_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A515"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A516_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A516"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A517_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A517"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A518_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A518"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A519_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A519"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A520_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A520"
+        },
+        {
+          "provision_type": "closure-definition",
+          "provision_id": "CLOSURE_DELEGATED_A532_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A532"
+        },
+        {
+          "provision_type": "formal-rule",
+          "provision_id": "RULE_DELEGATED_A498_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A498"
+        },
+        {
+          "provision_type": "registry-rule",
+          "provision_id": "REGISTRY_A521_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A521"
+        },
+        {
+          "provision_type": "registry-rule",
+          "provision_id": "REGISTRY_A522_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A522"
+        },
+        {
+          "provision_type": "registry-rule",
+          "provision_id": "REGISTRY_A523_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A523"
+        },
+        {
+          "provision_type": "registry-rule",
+          "provision_id": "REGISTRY_A524_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A524"
+        },
+        {
+          "provision_type": "registry-rule",
+          "provision_id": "REGISTRY_A525_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A525"
+        },
+        {
+          "provision_type": "registry-rule",
+          "provision_id": "REGISTRY_A526_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A526"
+        },
+        {
+          "provision_type": "registry-rule",
+          "provision_id": "REGISTRY_A528_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A528"
+        },
+        {
+          "provision_type": "registry-rule",
+          "provision_id": "REGISTRY_A534_V1",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "A534"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-25T19:27:13Z",
+    "expected_audit_result": "provision classification maps every provision exactly once"
+  }
+}
