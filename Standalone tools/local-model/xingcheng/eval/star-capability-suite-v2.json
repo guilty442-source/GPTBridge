@@ -2,7 +2,7 @@
   "format_version": "star-capability-suite/v1",
   "suite_id": "star-capability-suite-v2",
   "seed": 42,
-  "notes": "v2：保留 v1 全題＋使用者實際問法算術（last_int）、閱讀抽取、多輪銜接、MoE expert_routing 路由健康（entropy/utilized 絕對界線）。供 self-learning 候選啟用的跨版本回歸閘門。",
+  "notes": "v2：保留 v1 全題＋使用者實際問法算術（last_int）、閱讀抽取、多輪銜接、MoE expert_routing 路由健康（entropy/utilized 絕對界線）。供 self-learning 候選啟用的跨版本回歸閘門。 v2.1：math-add-1/math-mul-1 的 first_int 對回聲式回答會誤取運算元，改 last_int（第一回合段）。",
   "items": [
     {
       "id": "zhtw-ppl-1",
@@ -28,7 +28,7 @@
     {
       "id": "math-add-1",
       "category": "math",
-      "check": "first_int",
+      "check": "last_int",
       "prompt": "請計算：17 + 25 = ",
       "expected": 42,
       "max_new_tokens": 8
@@ -36,7 +36,7 @@
     {
       "id": "math-mul-1",
       "category": "math",
-      "check": "first_int",
+      "check": "last_int",
       "prompt": "請計算：6 × 7 = ",
       "expected": 42,
       "max_new_tokens": 8
