@@ -1,4 +1,5 @@
-/* a263_channel_core.c — A263 channel 決定性語義（純語義，I/O 由呼叫方）。
+/* a263_channel_core.c — A263 channel 決定性語義（C23 純語義，I/O 由呼叫方）。
+ * C23 upgrade: constexpr, auto, _BitInt for 64-bit generation.
  *
  * 逐函式對齊 shared_layer/channel_runtime.py、connection_mixin.py、
  * heartbeat_mixin.py、transactional_outbox.py 的可觀測行為。
