@@ -232,9 +232,11 @@ class LocalAiLifecycleMixin:
         env.update(
             {
                 "GOCACHE": str(repo_root / ".tools" / "gocache"),
+                "GOFLAGS": "-buildvcs=false",
                 "GOPROXY": "off",
                 "GOSUMDB": "off",
                 "GOTOOLCHAIN": "local",
+                "GOWORK": "off",
             }
         )
         try:

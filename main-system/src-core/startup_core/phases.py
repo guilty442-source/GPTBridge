@@ -165,7 +165,64 @@ class PhaseMixin(StartupPhaseExecutionMixin):
                 return True
         except OSError:
             return False
+    def _phase_vectord(self) -> dict[str, Any]:
+        """A610 takeover: semantic-index readiness is owned by the Rust
+        vectord engine (target primary; Qdrant retires after cutover)."""
+        start = time.monotonic()
+        vectord_port = int(os.environ.get("VECTORD_PORT", "8092"))
+
+        def _check() -> bool:
+            return self._probe_tcp("127.0.0.1", vectord_port, timeout=QDRANT_PROBE_TIMEOUT)
+
+        ok = _check()
+        if not ok:
+            workspace = getattr(self, "workspace_root", None) or Path.cwd()
+            binary = (
+                workspace
+                / "Standalone tools"
+                / "vectord-rs"
+                / "bin"
+                / "vectord.exe"
+            )
+            if binary.is_file():
+                creationflags = (
+                    int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
+                    | int(getattr(subprocess, "DETACHED_PROCESS", 0) or 0)
+                )
+                store_dir = binary.parents[1] / "runtime"
+                try:
+                    subprocess.Popen(  # noqa: S603 — governed local tool spawn
+                        [
+                            str(binary),
+                            "--bind",
+                            f"127.0.0.1:{vectord_port}",
+                            "--store-dir",
+                            str(store_dir),
+                        ],
+                        cwd=str(binary.parents[1]),
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        creationflags=creationflags,
+                    )
+                except Exception:
+                    pass
+                if not self._stop.wait(timeout=1.5):
+                    ok = _check()
+        return {
+            "phase": "qdrant-start",
+            "label": "啟動 vectord（Rust 語意索引）",
+            "critical": False,
+            "ready": ok,
+            "state": "ok" if ok else "degraded",
+            "fault_code": "VECTORD_READY" if ok else "VECTORD_UNREACHABLE",
+            "message": "ready" if ok else "not reachable (degradable)",
+            "duration_ms": int((time.monotonic() - start) * 1000),
+        }
+
     def _phase_qdrant(self) -> dict[str, Any]:
+        if os.environ.get("VECTOR_BACKEND", "rust").strip().lower() != "qdrant":
+            return self._phase_vectord()
         start = time.monotonic()
 
         def _check() -> bool:

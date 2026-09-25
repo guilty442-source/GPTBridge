@@ -28,6 +28,7 @@ from .rag_qdrant import (
     RagQueryResult,
     sanitize_payload,
 )
+from .rust_vector_runtime import select_vector_runtime
 from shared_layer.security.qdrant_scope import QdrantScopeError
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline
@@ -151,9 +152,9 @@ class CanonicalRagPipeline(
         qdrant_ok = await self.qdrant.initialize()
         if qdrant_ok:
             await self.qdrant.ensure_collection()
-        if self.qdrant.collection_error or (
+        if self.qdrant.collection_error or "_URL_NOT_LOOPBACK" in (
             self.qdrant.last_error or ""
-        ).startswith("QDRANT_URL_NOT_LOOPBACK"):
+        ):
             # Hard contract violation — BLOCKED, never silently degraded.
             self._blocked_reason = (
                 self.qdrant.collection_error or self.qdrant.last_error
