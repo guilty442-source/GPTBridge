@@ -5,6 +5,7 @@ Contains the _run_startup_phases method extracted from PhaseMixin.
 from __future__ import annotations
 
 import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
@@ -148,9 +149,18 @@ class StartupPhaseExecutionMixin:
 
         phase_by_identity = {
             "postgresql": "postgresql-start",
+            # A610: both semantic-index identities share the backend-aware
+            # `qdrant-start` handler, which dispatches on VECTOR_BACKEND.
             "qdrant": "qdrant-start",
+            "vectord": "qdrant-start",
             "ollama": "ollama-start",
         }
+        # Exactly one semantic-index backend owns the live path: the
+        # standby engine is never probed or spawned by startup.
+        semantic_backend = os.environ.get(
+            "VECTOR_BACKEND", "rust"
+        ).strip().lower()
+        standby_identity = "qdrant" if semantic_backend != "qdrant" else "vectord"
         bootstrap_results: dict[str, dict[str, Any]] = {}
         dependency_results: dict[str, dict[str, Any]] = {}
         if not self._stop.is_set():
@@ -179,6 +189,19 @@ class StartupPhaseExecutionMixin:
                         phase,
                     )
                 for dep in ordered_deps:
+                    if dep.identity == standby_identity:
+                        dependency_results[dep.identity] = {
+                            "phase": f"{dep.identity}-standby",
+                            "ready": False,
+                            "state": "standby",
+                            "criticality": dep.criticality,
+                            "required_by": dep.required_by,
+                            "fault_code": "SEMANTIC_BACKEND_STANDBY",
+                            "message": "standby vector backend — not probed "
+                            "while VECTOR_BACKEND selects the other engine",
+                            "duration_ms": 0,
+                        }
+                        continue
                     futures[
                         executor.submit(
                             handlers[phase_by_identity[dep.identity]], self
