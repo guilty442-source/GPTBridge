@@ -1,4 +1,4 @@
-/* ipc_registry.c — E2 傳輸/註冊面 C 原型實作 */
+/* ipc_registry.c — E2 傳輸/註冊面 C23 原型實作 */
 #include "ipc_registry.h"
 #include <string.h>
 #include <stdio.h>

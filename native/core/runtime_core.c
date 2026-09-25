@@ -1,4 +1,4 @@
-/* runtime_core.c — 運行核心 C 原型實作（純 C11） */
+/* runtime_core.c — 運行核心 C23 原型實作（C23） */
 #include "runtime_core.h"
 #include <string.h>
 #include <stdio.h>
