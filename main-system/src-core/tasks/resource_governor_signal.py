@@ -35,24 +35,26 @@ _ADVISOR_STATE_FILE = (
     Path(__file__).resolve().parents[2]
     / "runtime" / "state" / "resource-mode-advisor.json"
 )
-GOVERNOR_MODES = ("low", "medium", "high")
+GOVERNOR_MODES = ("sleep", "low", "medium", "high")
 
-# Night power-saving schedule — 22:00-07:00 low (省電), default auto.
+# Night power-saving schedule — 22:00-07:00 sleep (省電深眠), default auto.
 # Configured in ``resource-governor-rules.json`` via ``power_saving_schedule``
 # {enabled, start, end, mode}.  Missing file/key falls back to enabled-true
-# with the same 22-07 low defaults so the requested behaviour is on by default.
+# with the same 22-07 sleep defaults so the requested behaviour is on by default.
 _POWER_SAVING_DEFAULT_ENABLED = True
 _POWER_SAVING_DEFAULT_START = "22:00"
 _POWER_SAVING_DEFAULT_END = "07:00"
-_POWER_SAVING_DEFAULT_MODE = "low"
+_POWER_SAVING_DEFAULT_MODE = "sleep"
 
 # Auto-mode advisor control law (§10.64 demand-driven tier selection).
 # Evaluated by the governed ``resource-mode-advisor`` automation flow;
 # only acts while the rules file carries ``auto_mode: true`` — a manual
 # UI/CLI selection flips the flag off so the advisor never fights the user.
+# Sleep is the most restrictive tier (CPU 5% strict, RAM 30%, VRAM disabled);
+# used for nightly 22-07 power saving.
 _AUTO_STREAK: int = 3            # consecutive evals before high/medium switch
 _AUTO_COOLDOWN_S: float = 600.0  # min seconds between auto mode changes
-_STRAIN_CPU_PCT: float = 85.0    # machine-wide load -> low immediately
+_STRAIN_CPU_PCT: float = 85.0    # machine-wide load -> low immediately (sleep only via schedule)
 _STRAIN_MEM_PCT: float = 90.0
 _HEADROOM_CPU_PCT: float = 60.0  # headroom required to allow high
 _HEADROOM_MEM_PCT: float = 75.0
@@ -307,7 +309,8 @@ def auto_adjust_mode() -> dict:
 
     Control law (all signals from the governor's own state file):
 
-    * ``low``    — night power-saving 22:00-07:00 (省電) when
+    * ``sleep``  — night power-saving 22:00-07:00 (睡眠/省電深眠, CPU 5%
+      strict / RAM 30% / VRAM disabled) when
       ``power_saving_schedule.enabled`` and ``auto_mode``; applied
       immediately so 22:00 switches promptly.  Highest priority.
     * ``low``    — responsiveness strained, or machine CPU >= 85 %, or RAM
@@ -363,7 +366,7 @@ def auto_adjust_mode() -> dict:
     )
     headroom = cpu_load < _HEADROOM_CPU_PCT and mem_used < _HEADROOM_MEM_PCT
 
-    # 夜間省電排程 — 22:00-07:00 預設切 low（省電），僅在 auto_mode 下生效。
+    # 夜間省電排程 — 22:00-07:00 預設切 sleep（睡眠/省電深眠 CPU 5%/RAM30%/VRAM禁用），僅在 auto_mode 下生效。
     schedule = _resolve_power_saving_schedule(rules)
     start_min = _parse_time_to_minutes(schedule["start"], _POWER_SAVING_DEFAULT_START)
     end_min = _parse_time_to_minutes(schedule["end"], _POWER_SAVING_DEFAULT_END)
@@ -373,7 +376,7 @@ def auto_adjust_mode() -> dict:
 
     urgent = False
     if in_power_saving:
-        # 最高優先：夜間窗口內強制切至省電模式（預設 low），立即生效確保 22:00 準時進入
+        # 最高優先：夜間窗口內強制切至省電模式（預設 sleep），立即生效確保 22:00 準時進入
         target = schedule["mode"]
         reason = f"night-power-saving ({schedule['start']}-{schedule['end']})"
         urgent = True

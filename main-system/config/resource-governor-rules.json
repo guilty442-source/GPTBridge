@@ -1,8 +1,31 @@
 {
   "version": "star-resource-governor-rules/v1",
-  "description": "Per-program resource rules for the Process Lasso-inspired governor tier. 'mode' selects a preset bundle from 'modes' (low / medium / high); explicit 'defaults' keys override the selected preset, and --no-* / numeric CLI flags override both. 'exclude' keeps a program unmanaged (monitoring only). cpu_limit_percent is a share of total machine CPU (100 = one full core). worker_* keys are the aggregate worker-plane budget/cap; cpu_busy/cpu_extreme are per-core percent; sustain/extreme_sustain are consecutive samples. auto_mode=true enables demand-driven advisor; power_saving_schedule.enabled=true forces nightly 22:00-07:00 low mode (省電) when auto_mode is active.",
+  "description": "Per-program resource rules for the Process Lasso-inspired governor tier. 'mode' selects a preset bundle from 'modes' (sleep / low / medium / high); explicit 'defaults' keys override the selected preset, and --no-* / numeric CLI flags override both. 'exclude' keeps a program unmanaged (monitoring only). cpu_limit_percent is a share of total machine CPU (100 = one full core). worker_* keys are the aggregate worker-plane budget/cap; cpu_busy/cpu_extreme are per-core percent; sustain/extreme_sustain are consecutive samples. auto_mode=true enables demand-driven advisor (預設自動); power_saving_schedule.enabled=true forces nightly 22:00-07:00 sleep mode (睡眠/省電深眠 CPU 5% strict / RAM 30% / VRAM disabled) when auto_mode is active.",
   "mode": "medium",
   "modes": {
+    "sleep": {
+      "description": "Sleep/睡眠省電深眠: CPU strict 5% hard cap, RAM 30%, VRAM disabled (CPU-only, no GPU).",
+      "probalance": true,
+      "cpu_limiter": true,
+      "background_mode": true,
+      "ecoqos": true,
+      "limiter_percent": 5.0,
+      "resp_strain_ratio": 1.2,
+      "worker_job_cap": true,
+      "worker_cpu_budget": 5.0,
+      "worker_ram_budget": 30.0,
+      "worker_job_percent": 5.0,
+      "worker_job_memory_percent": 30.0,
+      "worker_job_process_limit": 32,
+      "cpu_busy": 5.0,
+      "cpu_extreme": 10.0,
+      "sustain": 2,
+      "extreme_sustain": 4,
+      "mem_trim_mb": 600.0,
+      "affinity": true,
+      "gpu_enabled": false,
+      "vram_budget_percent": 0
+    },
     "low": {
       "description": "Quiet/battery-first: workers yield aggressively.",
       "probalance": true,
@@ -74,6 +97,6 @@
     "enabled": true,
     "start": "22:00",
     "end": "07:00",
-    "mode": "low"
+    "mode": "sleep"
   }
 }
