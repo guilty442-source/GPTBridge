@@ -9,6 +9,7 @@ from typing import Final
 REGISTERED_LOCAL_SERVICES: Final[dict[str, tuple[str, int]]] = {
     "postgresql": ("127.0.0.1", 5432),
     "qdrant": ("127.0.0.1", 6333),
+    "vectord": ("127.0.0.1", 8092),
     "ollama": ("127.0.0.1", 11434),
 }
 

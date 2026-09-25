@@ -17,10 +17,20 @@
       "shutdown_order": 30
     },
     {
-      "identity": "qdrant",
+      "identity": "vectord",
       "owner": "rag-runtime-sovereign",
       "required_by": "rag-semantic-retrieval",
       "criticality": "capability-critical",
+      "readiness_contract": "loopback-tcp-8092",
+      "deadline": "3s",
+      "retry_budget": 1,
+      "shutdown_order": 20
+    },
+    {
+      "identity": "qdrant",
+      "owner": "rag-runtime-sovereign",
+      "required_by": "rag-semantic-retrieval-migration-window",
+      "criticality": "optional",
       "readiness_contract": "loopback-tcp-6333",
       "deadline": "3s",
       "retry_budget": 1,
@@ -51,6 +61,7 @@
     "ollama": 11434,
     "postgresql": 5432,
     "qdrant": 6333,
+    "vectord": 8092,
     "health_probe": 8765
   },
   "supervisor": {
@@ -116,6 +127,7 @@
     "no_fixed_criticality_services": [
       "postgresql",
       "qdrant",
+      "vectord",
       "ollama"
     ]
   }

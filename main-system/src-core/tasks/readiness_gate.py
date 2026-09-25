@@ -18,6 +18,7 @@ dependencies.  Repair belongs to the maintenance sovereign decision path.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Final
 from datetime import datetime, timezone
@@ -245,7 +246,14 @@ class ReadinessGate:
         """Project the capability matrix from the existing readiness signals."""
         reachable = {status.name: status.reachable for status in deps}
         data_ready = bool(reachable.get("postgresql"))
-        semantic_ready = bool(reachable.get("qdrant"))
+        # A610 takeover: the Rust vectord engine owns the semantic index;
+        # qdrant counts only inside the explicit migration window.
+        semantic_backend = os.environ.get("VECTOR_BACKEND", "rust").strip().lower()
+        semantic_ready = bool(
+            reachable.get("qdrant")
+            if semantic_backend == "qdrant"
+            else reachable.get("vectord")
+        )
         # §10.7 on-demand：Ollama 不常駐——能力就緒 = 可達或已安裝可拉起；
         # 需求路徑（ensure_ollama_ready）負責實際啟動。
         model_ready = bool(reachable.get("ollama"))
