@@ -1,0 +1,233 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-v2",
+  "seed": 42,
+  "notes": "v2：保留 v1 全題＋使用者實際問法算術（last_int）、閱讀抽取、多輪銜接、MoE expert_routing 路由健康（entropy/utilized 絕對界線）。供 self-learning 候選啟用的跨版本回歸閘門。",
+  "items": [
+    {
+      "id": "zhtw-ppl-1",
+      "category": "zh-TW",
+      "check": "ppl_max",
+      "eval_text": "臺灣的秋天氣候涼爽，適合出外旅遊。山上楓葉轉紅，海邊風浪較大，漁民會特別注意天氣預報。",
+      "max": 3000.0
+    },
+    {
+      "id": "zhtw-ppl-2",
+      "category": "zh-TW",
+      "check": "ppl_max",
+      "eval_text": "系統更新前請先確認備份完成，若驗證失敗會自動回復到先前版本，過程中服務不會中斷。",
+      "max": 3000.0
+    },
+    {
+      "id": "en-ppl-1",
+      "category": "en",
+      "check": "ppl_max",
+      "eval_text": "The database migration runs in two phases: first the schema is updated, then the rows are copied in batches.",
+      "max": 3000.0
+    },
+    {
+      "id": "math-add-1",
+      "category": "math",
+      "check": "first_int",
+      "prompt": "請計算：17 + 25 = ",
+      "expected": 42,
+      "max_new_tokens": 8
+    },
+    {
+      "id": "math-mul-1",
+      "category": "math",
+      "check": "first_int",
+      "prompt": "請計算：6 × 7 = ",
+      "expected": 42,
+      "max_new_tokens": 8
+    },
+    {
+      "id": "math-cmp-1",
+      "category": "math",
+      "check": "contains",
+      "prompt": "比較大小：83 和 38，哪個比較大？回答：",
+      "expected": "83",
+      "max_new_tokens": 8
+    },
+    {
+      "id": "code-ppl-1",
+      "category": "code",
+      "check": "ppl_max",
+      "eval_text": "def fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n - 1) + fibonacci(n - 2)",
+      "max": 3000.0
+    },
+    {
+      "id": "code-regex-1",
+      "category": "code",
+      "check": "regex",
+      "prompt": "def add(a, b):",
+      "pattern": "return\\s+a\\s*\\+\\s*b",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "reading-ppl-1",
+      "category": "reading",
+      "check": "ppl_max",
+      "eval_text": "閱讀下列文章並回答問題。文章：圖書館每週二休館，其餘日子上午九點開放至下午五點。問題：圖書館哪天不開放？答案：星期二。",
+      "max": 3000.0
+    },
+    {
+      "id": "multi-turn-1",
+      "category": "multi_turn",
+      "check": "contains",
+      "prompt": "<|im_start|>user\n我叫小林。<|im_end|>\n<|im_start|>assistant\n你好小林。<|im_end|>\n<|im_start|>user\n我叫什麼名字？<|im_end|>\n<|im_start|>assistant\n",
+      "expected": "小林",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "context-1",
+      "category": "context_tracking",
+      "check": "contains",
+      "prompt": "<|im_start|>user\n記住這個代號：TR-55。<|im_end|>\n<|im_start|>assistant\n好的，已記住代號 TR-55。<|im_end|>\n<|im_start|>user\n代號是什麼？<|im_end|>\n<|im_start|>assistant\n",
+      "expected": "TR-55",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "instruction-1",
+      "category": "instruction",
+      "check": "choice",
+      "prompt": "<|im_start|>user\n只回答「是」或「否」：天空是藍色的嗎？<|im_end|>\n<|im_start|>assistant\n",
+      "allowed": [
+        "是"
+      ],
+      "max_new_tokens": 8
+    },
+    {
+      "id": "instruction-2",
+      "category": "instruction",
+      "check": "contains",
+      "prompt": "<|im_start|>user\n請複誦：蘋果<|im_end|>\n<|im_start|>assistant\n",
+      "expected": "蘋果",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "toolcall-1",
+      "category": "tool_call_format",
+      "check": "tool_call",
+      "prompt": "<|im_start|>user\n呼叫 get_time 工具取得現在時間。<|im_end|>\n<|im_start|>assistant\n",
+      "tool_name": "get_time",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "math-add-zh-1",
+      "category": "math",
+      "check": "last_int",
+      "prompt": "1+1等於多少？",
+      "expected": 2,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "math-add-zh-2",
+      "category": "math",
+      "check": "last_int",
+      "prompt": "計算 14 + 82，只輸出數字。",
+      "expected": 96,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "math-add-carry-1",
+      "category": "math",
+      "check": "last_int",
+      "prompt": "38 + 57 等於多少？",
+      "expected": 95,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "math-sub-zh-1",
+      "category": "math",
+      "check": "last_int",
+      "prompt": "100 - 37 等於多少？",
+      "expected": 63,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "math-sub-borrow-1",
+      "category": "math",
+      "check": "last_int",
+      "prompt": "82 - 57 等於多少？",
+      "expected": 25,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "math-mul-zh-1",
+      "category": "math",
+      "check": "last_int",
+      "prompt": "7 × 8 = ?",
+      "expected": 56,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "math-div-zh-1",
+      "category": "math",
+      "check": "last_int",
+      "prompt": "56 ÷ 8 是多少？",
+      "expected": 7,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "math-word-1",
+      "category": "math",
+      "check": "last_int",
+      "prompt": "小明有 45 元，又得到 28 元，現在總共有幾元？只輸出數字。",
+      "expected": 73,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "reading-contains-1",
+      "category": "reading",
+      "check": "contains",
+      "prompt": "根據文章回答問題：水在標準大氣壓下於攝氏 100 度沸騰。請問水在幾度沸騰？",
+      "expected": "100",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "multi-turn-2",
+      "category": "multi_turn",
+      "check": "contains",
+      "prompt": "<|im_start|>user\n什麼是機器學習？<|im_end|>\n<|im_start|>assistant\n機器學習是讓電腦從資料中自動找出規律的方法。<|im_end|>\n<|im_start|>user\n那深度學習呢？<|im_end|>\n<|im_start|>assistant\n",
+      "expected": "神經",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "route-math-1",
+      "category": "expert_routing",
+      "check": "router_health",
+      "prompt": "請逐步計算並說明：12 + 34、56 + 78、90 + 11、23 + 45、67 + 89、10 + 20、33 + 44、55 + 66，每題都要寫出位值分解過程與最終答案。",
+      "min_entropy": 1.8,
+      "min_utilized": 10,
+      "max_collapsed": 6
+    },
+    {
+      "id": "route-zh-1",
+      "category": "expert_routing",
+      "check": "router_health",
+      "prompt": "請用繁體中文詳細說明什麼是光合作用、它為什麼重要、過程中需要哪些物質、產生什麼產物，以及哪些生物會進行光合作用，並舉例說明它對地球生態系統的影響。",
+      "min_entropy": 1.8,
+      "min_utilized": 10,
+      "max_collapsed": 6
+    },
+    {
+      "id": "route-code-1",
+      "category": "expert_routing",
+      "check": "router_health",
+      "prompt": "def quicksort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[0]\n    left = [x for x in arr[1:] if x < pivot]\n    right = [x for x in arr[1:] if x >= pivot]\n    return quicksort(left) + [pivot] + quicksort(right)\n\n# 請解釋這段程式碼的時間複雜度與空間複雜度",
+      "min_entropy": 1.8,
+      "min_utilized": 10,
+      "max_collapsed": 6
+    },
+    {
+      "id": "route-reading-1",
+      "category": "expert_routing",
+      "check": "router_health",
+      "prompt": "台灣的半導體產業在全球供應鏈中扮演關鍵角色，從晶圓代工、封裝測試到 IC 設計都有完整布局。台積電作為龍頭企業，其先進製程技術領先全球，客戶涵蓋蘋果、輝達等國際大廠。請摘要這段文字的重點並說明產業鏈上下游關係。",
+      "min_entropy": 1.8,
+      "min_utilized": 10,
+      "max_collapsed": 6
+    }
+  ]
+}

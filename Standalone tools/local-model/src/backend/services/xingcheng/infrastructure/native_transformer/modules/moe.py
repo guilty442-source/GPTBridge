@@ -93,9 +93,18 @@ class XingChengMoE(nn.Module):
             expert_out = self.experts[expert_id](expert_input)  # (M, hidden)
             output[positions] += expert_out * selected_weights.unsqueeze(-1)
 
+        # 路由專家合成的 RMS——供 shared/routed 貢獻比觀測（無梯度）。
+        with torch.no_grad():
+            self._last_routed_rms = float(output.float().pow(2).mean().sqrt().item())
+
         # 共享專家：所有 token 常駐啟用（權重 1.0）。
+        shared_rms_sq = 0.0
         for shared in self.shared_experts:
-            output = output + shared(x)
+            shared_out = shared(x)
+            output = output + shared_out
+            with torch.no_grad():
+                shared_rms_sq += float(shared_out.float().pow(2).mean().item())
+        self._last_shared_rms = shared_rms_sq ** 0.5
 
         output = output.view(b, s, h)
 
@@ -146,6 +155,8 @@ class XingChengMoE(nn.Module):
             "z_loss": getattr(self, "_last_z_loss", 0.0),
             "utilized_experts": self.utilization() or 0,
             "is_collapsed": self.is_collapsed() or False,
+            "shared_rms": getattr(self, "_last_shared_rms", 0.0),
+            "routed_rms": getattr(self, "_last_routed_rms", 0.0),
             "num_experts": self.num_experts,
             "num_shared_experts": self.num_shared,
             "top_k": self.top_k,

@@ -36,6 +36,7 @@ REPORT_FORMAT = "star-capability-eval/v1"
 CATEGORIES = (
     "zh-TW", "en", "math", "code", "reading",
     "multi_turn", "context_tracking", "instruction", "tool_call_format",
+    "expert_routing",
 )
 
 
@@ -58,7 +59,8 @@ def load_suite(path: str | Path) -> dict[str, Any]:
         if item.get("category") not in CATEGORIES:
             raise ValueError(f"unknown category: {item.get('category')}")
         if item.get("check") not in (
-            "ppl_max", "contains", "first_int", "regex", "tool_call", "choice",
+            "ppl_max", "contains", "first_int", "last_int", "regex",
+            "tool_call", "choice", "router_health",
         ):
             raise ValueError(f"unknown check: {item.get('check')}")
     canonical = json.dumps(suite, ensure_ascii=False, sort_keys=True)
@@ -155,6 +157,63 @@ def _check_item(
     max_new = int(item.get("max_new_tokens") or 32)
     detail: dict[str, Any] = {"id": item.get("id"), "check": kind}
     try:
+        if kind == "router_health":
+            # MoE 路由健康：一次 forward 收集各 MoE 層 metrics，
+            # 以絕對界線判定（entropy/utilized/collapsed）。無 MoE
+            # 層的 checkpoint 標 skipped——dense baseline 不適用，
+            # pass_rate=None 時 compare_reports 自動略過此類別。
+            ids = list(
+                tokenizer.encode(str(item["prompt"]), add_bos=True, add_eos=False)
+            )
+            if not ids:
+                detail["passed"] = False
+                detail["error"] = "empty-prompt-tokens"
+                return detail
+            backbone = getattr(model, "model", model)
+            layers = getattr(backbone, "layers", [])
+            moe_layers = [
+                (i, layer.mlp)
+                for i, layer in enumerate(layers)
+                if getattr(layer, "is_moe", False)
+                and hasattr(getattr(layer, "mlp", None), "metrics")
+            ]
+            if not moe_layers:
+                detail["skipped"] = "no-moe-layers"
+                detail["passed"] = False
+                return detail
+            max_len = int(
+                getattr(getattr(model, "config", None), "max_position_embeddings", 256)
+                or 256
+            )
+            batch = torch.tensor(
+                [ids[: min(256, max_len)]], dtype=torch.long, device=device
+            )
+            with torch.no_grad():
+                model(batch)
+            per_layer = [
+                {"layer": i, **m.metrics()} for i, m in moe_layers
+            ]
+            entropies = [
+                float(m["router_entropy"]) for m in per_layer
+                if m.get("router_entropy") is not None
+            ]
+            utilized = [
+                int(m["utilized_experts"]) for m in per_layer
+                if m.get("utilized_experts") is not None
+            ]
+            collapsed = sum(1 for m in per_layer if m.get("is_collapsed"))
+            mean_entropy = sum(entropies) / len(entropies) if entropies else 0.0
+            mean_utilized = sum(utilized) / len(utilized) if utilized else 0.0
+            detail["mean_router_entropy"] = round(mean_entropy, 4)
+            detail["mean_utilized_experts"] = round(mean_utilized, 2)
+            detail["collapsed_layers"] = collapsed
+            detail["per_layer"] = per_layer
+            detail["passed"] = (
+                mean_entropy >= float(item.get("min_entropy") or 0.0)
+                and mean_utilized >= float(item.get("min_utilized") or 0.0)
+                and collapsed <= int(item.get("max_collapsed") or 0)
+            )
+            return detail
         if kind == "ppl_max":
             ppl = _perplexity(model, tokenizer, device, str(item["eval_text"]))
             detail["perplexity"] = ppl
@@ -187,6 +246,11 @@ def _check_item(
         elif kind == "first_int":
             match = re.search(r"-?\d+", reply)
             detail["passed"] = bool(match) and int(match.group(0)) == int(item["expected"])
+        elif kind == "last_int":
+            # 位值分解式答案（「… → 14 + 82 = 96」）的結論整數在最後；
+            # first_int 會誤取運算元，last_int 取回覆末位整數對 expected。
+            matches = re.findall(r"-?\d+", reply)
+            detail["passed"] = bool(matches) and int(matches[-1]) == int(item["expected"])
         elif kind == "regex":
             detail["passed"] = bool(re.search(str(item["pattern"]), reply))
         elif kind == "tool_call":
