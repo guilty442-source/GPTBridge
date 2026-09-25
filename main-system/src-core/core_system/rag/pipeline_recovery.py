@@ -584,7 +584,7 @@ class PipelineRecoveryMixin:
                         raise CanonicalCheckError(
                             f"EMBEDDING_DIMENSION_MISMATCH:{len(v)}"
                         )
-                from qdrant_client.http.models import PointStruct
+                from .vector_models import PointStruct
                 from .rag_qdrant import sanitize_payload
                 points = [
                     PointStruct(

@@ -335,7 +335,7 @@ class OutboxWorker:
 
     async def _apply_event(self, event: OutboxEvent) -> bool:
         """Apply single outbox event to Qdrant."""
-        from qdrant_client.http.models import PointStruct
+        from .vector_models import PointStruct
         from .rag_qdrant import sanitize_payload
 
         if event.operation == OutboxOperation.UPSERT:

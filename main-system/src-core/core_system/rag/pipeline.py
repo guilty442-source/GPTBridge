@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from qdrant_client.http.models import PointStruct
+from .vector_models import PointStruct
 
 _logger = logging.getLogger("gptbridge.rag")
 

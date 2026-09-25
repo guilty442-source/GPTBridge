@@ -20,8 +20,15 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
 import psycopg
-from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from .vector_models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    QdrantClient,
+    VectorParams,
+)
 
 from shared_layer.metadata_contract import (
     FIELD_CONTENT_HASH,

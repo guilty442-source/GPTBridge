@@ -18,7 +18,7 @@ from typing import Any, Callable, Optional
 
 import psycopg
 from psycopg.rows import dict_row
-from qdrant_client.http.models import PointStruct
+from .vector_models import PointStruct
 
 try:
     from shared_layer.database.lineage import (

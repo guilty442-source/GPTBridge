@@ -14,7 +14,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from qdrant_client.http.models import PointStruct
+from .vector_models import PointStruct
 
 from .rag_contracts import OutboxOperation, OutboxState
 from .rag_qdrant import IndexState, sanitize_payload

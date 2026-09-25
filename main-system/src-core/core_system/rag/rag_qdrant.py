@@ -26,8 +26,18 @@ from typing import Any, AsyncIterator, Iterable, Optional
 from urllib.parse import urlparse
 
 import psycopg
-from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, MatchAny, PayloadSchemaType
+from .vector_models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchAny,
+    MatchValue,
+    PayloadSchemaType,
+    PointStruct,
+    QdrantClient,
+    VectorParams,
+    require_qdrant_client,
+)
 
 from shared_layer.metadata_contract import (
     FIELD_CONTENT_HASH,
@@ -218,7 +228,8 @@ class QdrantCanonicalRuntime:
             self._healthy = False
             return False
         try:
-            self.client = QdrantClient(
+            client_cls = require_qdrant_client()
+            self.client = client_cls(
                 url=self.config.qdrant_url,
                 api_key=self.config.qdrant_api_key,
                 timeout=30,

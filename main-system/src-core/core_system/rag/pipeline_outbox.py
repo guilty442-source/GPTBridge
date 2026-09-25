@@ -23,7 +23,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from qdrant_client.http.models import PointStruct
+from .vector_models import PointStruct
 
 from .rag_contracts import OutboxOperation, OutboxState
 from .rag_qdrant import sanitize_payload
