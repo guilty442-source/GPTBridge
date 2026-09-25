@@ -141,6 +141,13 @@ def execute_amendment(
         staging,
         prepared_database=prepared,
         apply=apply,
+        bookkeeping={
+            "change_id": amendment_id,
+            "change_scope": str(request.get("change_class") or "amendment-execution"),
+            "summary": str(
+                request.get("title") or request.get("summary") or amendment_id
+            ),
+        },
     )
     phases = tuple(
         {"phase": phase.phase, "ok": phase.ok, "detail": phase.detail}

@@ -534,6 +534,7 @@ def run_auto_update(
     version: str | None = None,
     apply: bool = False,
     notify: Callable[[Mapping[str, object]], Any] | None = None,
+    bookkeeping: Mapping[str, str] | None = None,
 ) -> AutoUpdateResult:
     """Run the directed update order; stop fail-closed at the first failure."""
     phases: list[PhaseRecord] = []
