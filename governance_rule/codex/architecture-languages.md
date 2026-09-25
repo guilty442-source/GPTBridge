@@ -1,39 +1,73 @@
 # GPTBridge 程式語言架構
 
-本文件是正式法典的架構投影；權責以 PostgreSQL 法典 A35、A341、A343、A348、A604、A605 為準。C11 已升級至 C23，C++17 至 C++23，C#12 至 C#14(.NET 10)。
+本文件是正式法典的架構投影；權責以 PostgreSQL 法典 A35、A341、A343、A348、A604、A605、A615 為準。
+
+| 技術 | 目標版本 | 正式責任 |
+| ---------- | -------------- | ------------------------------------- |
+| C | C23 | 運行核心、權限熱路徑、決定性執行、純計算 |
+| C++ | C++23 | 模型推論、Native Tool Runtime、Audit Engine |
+| Rust | 1.98.1 | 本地向量引擎、記憶體安全元件、桌面原生整合 |
+| Go | 1.27.1 | 星澄網路搜尋、批次處理、網路與檔案 I/O |
+| C# | C# 14 | Application、API、Workflow、Windows 整合 |
+| F# | F# 10.0 | 核心業務邏輯、資料轉換、驗證、業務狀態轉移 |
+| .NET | .NET 10 | C#／F# 共用執行環境 |
+| Python | 3.14.7 | 治理語意、必要薄封裝、模型研發與訓練 |
+| JAX | 待相容性鎖定 | 星澄模型訓練、自動微分、加速數值計算 |
+| NumPy | 2.5.3 | 資料前處理、統計、陣列計算 |
+| JavaScript | ECMAScript／ESM | React UI、前端狀態、IPC Client |
+| React | 19.2.8 | UI 元件及畫面 |
+| PostgreSQL | 18.6 | 唯一正式結構化資料權威 |
+| Git | 2.55.0 | 原始碼版本管理 |
 
 ```mermaid
 flowchart TB
-  CONTRACT[法典與版本化契約]
-  CONTRACT --> C[C23：決定性規則、權限熱路徑、常駐運行與原生測試 (C23 _BitInt/constexpr/typeof)]
-  CONTRACT --> CPP[C++23：原生能力、推論、原生測試與審計熱路徑 (modules/constexpr/expected/mdspan)]
-  CONTRACT --> CS[C#14/.NET 10：介面、型別轉接、授權流程與唯一測試編排 (.NET 10 GC DATAS/Span<T>)]
-  CONTRACT --> FS[F# 10.0/.NET 10：資料分析、機器學習與高正確性複雜計算]
-  CONTRACT --> GO[Go 1.27.1：有界並行服務、傳輸工作、網路轉接與可攜式操作程式]
-  CONTRACT --> RS[Rust 1.98.1：記憶體安全系統能力、解析器與完整性／安全敏感元件]
-  CONTRACT --> PY[Python：按需治理語意、模型研究訓練與必要邊界]
-  CONTRACT --> TS[TypeScript：呈現層與建置期型別安全]
-  CONTRACT --> SQL[SQL：資料操作與結構化權威持久化]
-  TS --> IPC[型別化 IPC／API]
-  IPC --> CS
-  CS --> ABI[版本化 C ABI／服務契約]
-  GO --> ABI
-  RS --> ABI
-  FS --> ABI
-  PY --> ABI
-  ABI --> C
-  ABI --> CPP
+  GPTBridge --> ReactJS[React / JavaScript]
+  ReactJS --> TauriRust[Tauri / Rust]
+  TauriRust --> Contract[Versioned Contract]
+  Contract --> CRuntime[C Runtime Core]
+  CRuntime --> CSharpApp[C# Application<br>.NET 10]
+  CRuntime --> CppNative[C++ Native<br>Engine]
+  CRuntime --> PyGov[Python Governance<br>3.14.7]
+  CSharpApp --> FSharpCore[F# Domain Core<br>.NET 10]
+  FSharpCore --> BusinessRules[Business Rules<br>Validation<br>Data Transformation<br>State Transition]
+  CppNative --> Inference[Inference]
+  CppNative --> Audit[Audit]
+  CppNative --> ToolRuntime[Tool Runtime]
+  PyGov --> Decision[Decision]
+  PyGov --> Permission[Permission Policy]
+  PyGov --> GovRules[Governance Rules]
+  FSharpCore --> GoRustLayer[Goberned Tool Layer]
+  GoRustLayer --> Go[Go<br>1.27.1]
+  GoRustLayer --> Rust[Rust<br>1.98.1]
+  Go --> Search[星澄網路搜尋]
+  Go --> Batch[Batch/I/O]
+  Rust --> Vector[Vector Engine]
+  Rust --> NativeSec[Native Security]
+  Vector --> PG[PostgreSQL<br>18.6]
+  NativeSec --> PG
+  Search --> PG
+  Batch --> PG
+
+  subgraph Training[獨立模型訓練環境]
+    PyTrain[Python 3.14.7] --> JAX[JAX / Flax / Optax]
+    JAX --> Numpy[NumPy 2.5.3]
+    Numpy --> Weights[模型權重]
+    Weights --> CppInfer[C++ Inference]
+  end
 ```
 
-- C23 執行已核准的決定性規則，不得自行修改治理規則；以 C23 新標準 (_BitInt/constexpr/typeof/auto) 與 arena 管理實現高效能高穩定低消耗。
-- C++23 擁有原生能力、推論、原生測試及已核准審計熱路徑；以 modules/constexpr/std::expected/mdspan 與 RAII 實現高執行速度與確定性析構。
-- C#14/.NET 10 負責介面及已授權流程編排，不得繞過裁決與權限；以 .NET 10 垃圾回收 (Generational GC 0/1/2 + DATAS 動態適應 + Span<T>/Memory<T> 池化) 實現自動記憶體管理與低 GC pause (<3ms)。
-- F# 10.0/.NET 10 負責資料分析、機器學習及要求高度正確性的複雜計算；以 F# 10 新特性與 .NET 10 GC 實現高正確性與低資源佔用。
-- Go 1.27.1 負責有界並行服務、傳輸工作、網路轉接與可攜式操作程式；以 Go 1.27.1 的 arena 與 GC 優化實現低消耗與高穩定性。
-- Rust 1.98.1 負責記憶體安全系統能力、解析器及完整性與安全敏感的原生元件；以 Rust 1.98.1 ownership/borrow 與 Box/Arc/arena 實現自動記憶體管理與高執行速度。
-- Python 僅保留按需治理語意、模型研究訓練及不可避免的語言邊界，預設不常駐執行機械性工作。
-- TypeScript／TSX 僅負責呈現與建置期型別安全。
-- SQL 負責資料操作與宣告範圍內的結構化權威持久化。
+- C23 執行已核准的決定性規則，不得自行修改治理規則；以 C23 新標準與 arena 管理實現高效能高穩定低消耗。
+- C++23 擁有原生能力、推論、原生測試及已核准審計熱路徑；以 modules/constexpr 與 RAII 實現高執行速度。
+- Rust 1.98.1 負責本地向量引擎、記憶體安全元件、桌面原生整合。
+- Go 1.27.1 負責星澄網路搜尋、批次處理、網路與檔案 I/O。
+- C#14/.NET 10 負責 Application/API/Workflow/Windows 整合；以 .NET 10 GC 實現自動記憶體管理。
+- F#10.0/.NET 10 負責核心業務邏輯、資料轉換、驗證、業務狀態轉移。
+- Python 3.14.7 僅保留治理語意、必要薄封裝、模型研發與訓練，預設不常駐。
+- JAX 待相容性鎖定，負責星澄模型訓練、自動微分、加速數值計算；以 XLA 實現高效能。
+- NumPy 2.5.3 負責資料前處理、統計、陣列計算。
+- JavaScript (ECMAScript/ESM) 與 React 19.2.8 負責 UI 元件及畫面。
+- PostgreSQL 18.6 為唯一正式結構化資料權威；SQLite 已退休。
+- Git 2.55.0 為原始碼版本管理。
 
 Go 與 Rust 只取得已登記能力的執行權，不取得治理、權限或業務裁決權。跨語言呼叫必須使用版本化契約；公開原生邊界仍以 C ABI 或正式型別服務契約為準。
 
