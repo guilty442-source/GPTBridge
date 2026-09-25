@@ -61,10 +61,8 @@ class CodingExpertProcessMixin:
         suffixes = {
             "python": {".py"},
             "typescript": {".ts", ".tsx"},
-            "javascript": {".js", ".jsx", ".mjs"},
             "csharp": {".cs"},
             "sql": {".sql"},
-            "json": {".json"},
         }
         valid = (
             not candidate.is_absolute()
@@ -122,7 +120,7 @@ class CodingExpertProcessMixin:
                 "supported_kinds": sorted(self.ALLOWED_PYTHON_KINDS),
             }
         if (
-            language in {"typescript", "javascript", "csharp"}
+            language in {"typescript", "csharp"}
             and str(spec["kind"]) not in self.ALLOWED_SCRIPT_KINDS
         ):
             return {
@@ -144,14 +142,12 @@ class CodingExpertProcessMixin:
         else:
             if language == "python":
                 source = self._python_source(spec, prompt)
-            elif language in {"typescript", "javascript"}:
+            elif language == "typescript":
                 source = self._script_source(spec, prompt, language)
             elif language == "csharp":
                 source = self._csharp_source(spec, prompt)
-            elif language == "sql":
-                source = self._sql_source(spec)
             else:
-                source = self._json_document(spec, prompt)
+                source = self._sql_source(spec)
         validation = self._validate_source(language, source)
         tests = self._generated_tests(spec, source)
         result: dict[str, Any] = {
@@ -178,10 +174,8 @@ class CodingExpertProcessMixin:
                 or {
                     "python": "xingcheng/src/backend/services/xingcheng/application/generated_extension.py",
                     "typescript": "xingcheng/src/backend/services/xingcheng/application/generated_extension.ts",
-                    "javascript": "xingcheng/src/backend/services/xingcheng/application/generated_extension.js",
                     "csharp": "xingcheng/src/backend/services/xingcheng/application/generated_extension.cs",
                     "sql": "xingcheng/src/backend/services/xingcheng/application/generated_query.sql",
-                    "json": "xingcheng/src/backend/services/xingcheng/application/generated_extension.json",
                 }[language],
                 language,
                 existing_source=bool(original_source),

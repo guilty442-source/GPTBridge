@@ -425,9 +425,4 @@ def read_item(item_id: int) -> dict[str, object]:
             "}\n"
         )
 
-    @classmethod
-    def _json_document(cls, spec: dict[str, Any], prompt: str) -> str:
-        value = spec.get("value")
-        if value is None:
-            value = {"name": str(spec.get("name") or "star-generated"), "description": prompt}
-        return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+

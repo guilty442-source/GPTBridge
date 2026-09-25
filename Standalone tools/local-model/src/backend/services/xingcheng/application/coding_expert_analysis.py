@@ -243,7 +243,7 @@ class CodingExpertAnalysisMixin:
         if language == "python":
             analysis = cls._python_analysis(source)
             errors.extend(analysis["syntax_errors"])
-        elif language in {"typescript", "javascript"}:
+        elif language == "typescript":
             analysis = cls._script_analysis(source)
             errors.extend(analysis["syntax_errors"])
         elif language == "csharp":

@@ -9,7 +9,7 @@ class CodingExpertConstants:
     """Class-level constants and low-level utility helpers for StarCodingExpert."""
 
     ALLOWED_LANGUAGES = frozenset(
-        {"python", "typescript", "javascript", "csharp", "sql", "json"}
+        {"python", "typescript", "csharp", "sql"}
     )
     ALLOWED_ACTIONS = frozenset({"generate", "analyze", "refactor", "self_upgrade"})
     ALLOWED_PYTHON_KINDS = frozenset(

@@ -988,6 +988,23 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             throw InferenceError("JSON_INT_EXPECTED:moe_layer_interval");
         cfg.moe_layer_interval = static_cast<int64_t>(v->number);
     }
+    // v26 fine-grained/shared-expert fields — optional for the same
+    // backward-compat reason as the R5 shape fields above.
+    if (const JsonValue* v = json_optional(config_json, "moe_num_shared_experts")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_num_shared_experts");
+        cfg.moe_num_shared_experts = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_expert_intermediate_size")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_expert_intermediate_size");
+        cfg.moe_expert_intermediate_size = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_shared_intermediate_size")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_shared_intermediate_size");
+        cfg.moe_shared_intermediate_size = static_cast<int64_t>(v->number);
+    }
     cfg.quantization = json_string(config_json, "quantization");
 
     const std::string weights_name = json_string(manifest, "weights_file");
@@ -1433,6 +1450,32 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
                 layer.expert_down_t.push_back(
                     transpose_matrix(layer.expert_down.back()));
             }
+            // Always-on shared experts (v26 DeepSeek-MoE): weight-1.0
+            // contribution on every token, mirrors modules/moe.py.
+            const int64_t shared = cfg.moe_num_shared_experts;
+            layer.shared_gate.reserve(static_cast<size_t>(shared));
+            layer.shared_up.reserve(static_cast<size_t>(shared));
+            layer.shared_down.reserve(static_cast<size_t>(shared));
+            layer.shared_gate_t.reserve(static_cast<size_t>(shared));
+            layer.shared_up_t.reserve(static_cast<size_t>(shared));
+            layer.shared_down_t.reserve(static_cast<size_t>(shared));
+            for (int64_t e = 0; e < shared; ++e) {
+                const std::string sp =
+                    prefix + "mlp.shared_experts." +
+                    std::to_string(e) + ".";
+                layer.shared_gate.push_back(
+                    bundle_->tensor(sp + "gate_proj.weight"));
+                layer.shared_up.push_back(
+                    bundle_->tensor(sp + "up_proj.weight"));
+                layer.shared_down.push_back(
+                    bundle_->tensor(sp + "down_proj.weight"));
+                layer.shared_gate_t.push_back(
+                    transpose_matrix(layer.shared_gate.back()));
+                layer.shared_up_t.push_back(
+                    transpose_matrix(layer.shared_up.back()));
+                layer.shared_down_t.push_back(
+                    transpose_matrix(layer.shared_down.back()));
+            }
         } else {
             layer.gate_proj = bundle_->tensor(prefix + "mlp.gate_proj.weight");
             layer.up_proj = bundle_->tensor(prefix + "mlp.up_proj.weight");
@@ -1551,7 +1594,10 @@ void NativeInferenceEngine::validate_supported() const {
     const ModelConfig& cfg = bundle_->config();
     if (cfg.use_moe &&
         (cfg.moe_num_experts < 2 || cfg.moe_top_k < 1 ||
-         cfg.moe_top_k > cfg.moe_num_experts || cfg.moe_layer_interval < 1)) {
+         cfg.moe_top_k > cfg.moe_num_experts || cfg.moe_layer_interval < 1 ||
+         cfg.moe_num_shared_experts < 0 ||
+         cfg.moe_expert_intermediate_size < 0 ||
+         cfg.moe_shared_intermediate_size < 0)) {
         throw InferenceError("MOE_CONFIG_UNSUPPORTED");
     }
     if (cfg.quantization != "none" && cfg.quantization != "int8" &&
@@ -2135,6 +2181,16 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             // expert groups naturally span all sequences in the batch.
             const int64_t experts = cfg.moe_num_experts;
             const int64_t top_k = cfg.moe_top_k;
+            // v26 fine-grained experts: the routed/shared MLP inner width
+            // may differ from the dense FFN's intermediate_size.
+            const int64_t expert_inter =
+                cfg.moe_expert_intermediate_size > 0
+                    ? cfg.moe_expert_intermediate_size
+                    : cfg.intermediate_size;
+            const int64_t shared_inter =
+                cfg.moe_shared_intermediate_size > 0
+                    ? cfg.moe_shared_intermediate_size
+                    : expert_inter;
             std::vector<double> probs = linear(
                 normed, total_tokens, hidden_size, layer.router_t, experts);
             std::vector<int64_t> top_idx(static_cast<size_t>(total_tokens * top_k));
@@ -2231,18 +2287,18 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             if (!group_rows.empty()) {
                 std::vector<double> gate = matmul_grouped(
                     grouped_in, group_rows, gate_list, hidden_size,
-                    cfg.intermediate_size);
+                    expert_inter);
                 std::vector<double> up = matmul_grouped(
                     grouped_in, group_rows, up_list, hidden_size,
-                    cfg.intermediate_size);
+                    expert_inter);
                 std::vector<double> act(
-                    static_cast<size_t>(grouped_rows * cfg.intermediate_size));
+                    static_cast<size_t>(grouped_rows * expert_inter));
                 for (size_t i = 0; i < act.size(); ++i) {
                     const double g = gate[i];
                     act[i] = (g / (1.0 + std::exp(-g))) * up[i];
                 }
                 std::vector<double> grouped_out = matmul_grouped(
-                    act, group_rows, down_list, cfg.intermediate_size,
+                    act, group_rows, down_list, expert_inter,
                     hidden_size);
                 for (int64_t r = 0; r < grouped_rows; ++r) {
                     const double w = row_weight[static_cast<size_t>(r)];
@@ -2253,6 +2309,26 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     for (int64_t d = 0; d < hidden_size; ++d) {
                         dst[d] += w * src[d];
                     }
+                }
+            }
+            // Shared experts (v26): always-on SwiGLU over every token,
+            // weight 1.0 — mirrors modules/moe.py `output + shared(x)`.
+            for (size_t se = 0; se < layer.shared_gate.size(); ++se) {
+                std::vector<double> sg = linear(
+                    normed, total_tokens, hidden_size,
+                    layer.shared_gate_t[se], shared_inter);
+                std::vector<double> su = linear(
+                    normed, total_tokens, hidden_size,
+                    layer.shared_up_t[se], shared_inter);
+                for (size_t i = 0; i < sg.size(); ++i) {
+                    const double g = sg[i];
+                    sg[i] = (g / (1.0 + std::exp(-g))) * su[i];
+                }
+                std::vector<double> sd = linear(
+                    sg, total_tokens, shared_inter,
+                    layer.shared_down_t[se], hidden_size);
+                for (size_t i = 0; i < mlp_out.size(); ++i) {
+                    mlp_out[i] += sd[i];
                 }
             }
             if (module_rms != nullptr) {

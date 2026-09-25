@@ -51,6 +51,13 @@ struct ModelConfig {
     int64_t moe_num_experts = 8;
     int64_t moe_top_k = 2;
     int64_t moe_layer_interval = 1;
+    // DeepSeek-MoE style (v26): always-on shared experts plus
+    // fine-grained routed experts whose intermediate width may be
+    // narrower than the dense FFN. 0 = fall back to intermediate_size
+    // (expert) / moe_expert_intermediate_size (shared).
+    int64_t moe_num_shared_experts = 0;
+    int64_t moe_expert_intermediate_size = 0;
+    int64_t moe_shared_intermediate_size = 0;
     std::string quantization = "none";
 };
 
@@ -208,6 +215,14 @@ private:
         std::vector<std::vector<double>> expert_gate_t;
         std::vector<std::vector<double>> expert_up_t;
         std::vector<std::vector<double>> expert_down_t;
+        // Always-on shared experts (DeepSeek-MoE): weight-1.0
+        // contribution on every token, mirroring modules/moe.py.
+        std::vector<TensorView> shared_gate;
+        std::vector<TensorView> shared_up;
+        std::vector<TensorView> shared_down;
+        std::vector<std::vector<double>> shared_gate_t;
+        std::vector<std::vector<double>> shared_up_t;
+        std::vector<std::vector<double>> shared_down_t;
         std::vector<double> q_proj_t;
         std::vector<double> k_proj_t;
         std::vector<double> v_proj_t;
