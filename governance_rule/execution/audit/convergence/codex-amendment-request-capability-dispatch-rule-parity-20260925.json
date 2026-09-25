@@ -1,0 +1,115 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "capability-dispatch-rule-parity-activation-20260925-r2",
+  "title": "Advance RULE_CAPABILITY_DISPATCH_V1 lifecycle to evaluator-parity-verified, register its ownership-map row, and close the stale capability-dispatch materialization metadata",
+  "summary": "capability-dispatch-successor-mappings-20260924-r2 executed at codex 2026-09-25T01:41:50Z: all 18 retired-identity rows sealed active and the RULE_CAPABILITY_DISPATCH_V1 row inserted with status=proposed. The machine evaluator is now registered (formal_rules.evaluators -> convergence.capability_dispatch.evaluate_dispatch) and the canonical parity fact fixture exists; the G67 parity run formal-rule-parity-2026-09-25T024810Z.json records 65/65 PASS including this rule (evidence_id 385f0f88156833662485). This request completes the declared lifecycle: proposed -> declared-pending-evaluator-parity -> evaluator-parity-verified, inserts the formal_rule_ownership_map row every other in-force rule carries, and restates the two capability-dispatch metadata state rows plus the global formal_evaluator_parity_state so the codex reflects reality (all in-force rules parity-verified; no rule remains in parity debt).",
+  "requested_by": "decision-sovereign",
+  "origin": "post-execution residual of capability-dispatch-successor-mappings-20260924-r2; submitted by governor directive '繼續' 2026-09-25; parity evidence produced by governance_rule.execution.formal_rules.parity run against codex 2026-09-25T01:41:50Z | r2: bare-id driver invocation created a rejected lifecycle record for the unsuffixed id — resubmitted under r2",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T01:41:50Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+    "revision_sequence": 75
+  },
+  "proposed_successors": [
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_CAPABILITY_DISPATCH_V1"
+      },
+      "set": {
+        "status": "declared-pending-evaluator-parity"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_CAPABILITY_DISPATCH_V1"
+      },
+      "set": {
+        "status": "evaluator-parity-verified",
+        "parity_status": "VERIFIED",
+        "parity_evidence_id": "385f0f88156833662485",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "formal_rule_ownership_map",
+      "action": "insert",
+      "rows": [
+        {
+          "invariant_code": "capability-dispatch:RULE_CAPABILITY_DISPATCH_V1",
+          "rule_code": "RULE_CAPABILITY_DISPATCH_V1",
+          "owner_domain": "capability-dispatch",
+          "version_identity": "<successor-version>",
+          "status": "current"
+        }
+      ]
+    },
+    {
+      "registry": "metadata",
+      "action": "update",
+      "key": {
+        "key": "capability_dispatch_formal_rule_state"
+      },
+      "set": {
+        "value": "DECLARED_IN_A604|registry-materialized|evaluator-registered|parity-verified"
+      }
+    },
+    {
+      "registry": "metadata",
+      "action": "update",
+      "key": {
+        "key": "capability_dispatch_registry_state"
+      },
+      "set": {
+        "value": "MATERIALIZED_COMPLETE|fail-closed"
+      }
+    },
+    {
+      "registry": "metadata",
+      "action": "update",
+      "key": {
+        "key": "formal_evaluator_parity_state"
+      },
+      "set": {
+        "value": "EVALUATOR_PARITY_VERIFIED"
+      }
+    }
+  ],
+  "mapping_basis": {
+    "source": "governance_rule/execution/formal_rules/parity.py run + formal_rule_registry/fact_fixtures.py canonical fixture",
+    "rule": "RULE_STATE_TRANSITIONS chain enforced by codex_amendment_contract.validate_rule_transition; parity evidence required for evaluator-parity-verified",
+    "ownership_row": "formal_rule_ownership_map convention <owner_domain>:<rule_code> with status=current; owner_domain=capability-dispatch matches the rule's precedence_scope"
+  },
+  "required_execution_steps": [
+    "five-sovereign-audit",
+    "human-governor-review",
+    "governed-successor-seal",
+    "authority-re-anchor",
+    "certification-complete"
+  ],
+  "out_of_scope": [
+    "formal_evaluator_parity_release_effect and verified_release_state (still truthfully denied: machine_schema_parity_state=PENDING|PENDING:40 and other gates remain)",
+    "semantic_hash / evaluator_hash / test_contract_hash / controlling_provision_hash on the rule row (governor-side seal-time data, same treatment as r2)",
+    "machine_schema_registry parity debt (40 pending rows — separate workstream)",
+    "metadata values not enumerated above"
+  ],
+  "evidence": [
+    "parity run formal-rule-parity-2026-09-25T024810Z.json: 65/65 PASS; RULE_CAPABILITY_DISPATCH_V1 outcome evidence_id=385f0f88156833662485 decision=PASS",
+    "evaluator registered: governance_rule/execution/formal_rules/evaluators.py @register_rule('RULE_CAPABILITY_DISPATCH_V1') -> evaluate_dispatch (convergence/capability_dispatch.py)",
+    "canonical fixture added: governance_rule/execution/formal_rules/fact_fixtures.py RULE_CAPABILITY_DISPATCH_V1 exercises the real PASS path (declared requirements -> exactly one eligible active module -> valid lease -> recorded decision)",
+    "live registry read 2026-09-25: capability_dispatch_registry 18/18 rows active; dispatch_route_of resolves every retired identity to an explicit successor (0 unresolved)",
+    "live registry read 2026-09-25: formal_rule_registry RULE_CAPABILITY_DISPATCH_V1 status=proposed parity_status=PENDING; formal_rule_ownership_map has no row for the rule (every other in-force rule carries one)",
+    "stale metadata: capability_dispatch_formal_rule_state=...evaluator-registration-pending; capability_dispatch_registry_state=MATERIALIZED_INCOMPLETE|fail-closed; formal_evaluator_parity_state=DECLARED_PENDING_EVALUATOR_PARITY"
+  ]
+}

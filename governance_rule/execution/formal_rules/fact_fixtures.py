@@ -227,6 +227,33 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "directory_catalog_parity": True,
         "catalog_parity": True,
     },
+    # A604/A592: declared request resolves to exactly one eligible active
+    # module under a valid lease with the dispatch decision recorded.
+    "RULE_CAPABILITY_DISPATCH_V1": {
+        "requirements": {
+            "capability_codes": ["cap-parity"],
+            "permission_scope": ["perm-parity"],
+            "resource_constraints": {"cpu": 4},
+            "contract_version": "v1",
+        },
+        "candidates": [
+            {
+                "module_identity": "parity-module",
+                "single_responsibility": "parity dispatch target",
+                "capability_codes": ["cap-parity"],
+                "resource_requirements": {"cpu": 1},
+                "permission_requirements": ["perm-parity"],
+                "contract_version": "v1",
+                "runtime_state": "active",
+                "availability": "ready",
+                "version": "1",
+                "owner_engine_domain": "parity-domain",
+                "execution_identity": "parity-executor",
+            },
+        ],
+        "lease": {"valid": True, "fencing_token": "ftok-parity-1"},
+        "decision": {"recorded": True},
+    },
 }
 
 

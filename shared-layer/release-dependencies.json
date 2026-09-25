@@ -282,8 +282,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-09-24T16:05:05Z",
-    "codex_sha256": "93abddfd4a1b62fced92a09c9735de7681237cb184685bb5c59f40b0159d812b",
+    "codex_version": "2026-09-25T03:00:26Z",
+    "codex_sha256": "3090c647082fea3b1f78350c002ce47b7ea06f327664081154d0b1a72b838aa4",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -483,7 +483,7 @@
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
-      "Standalone tools/local-model/runtime/settings/native-engine.json": "ac875af2b4c0b23eafa7006971beee97d39cb1db1f7f2a2bead02746db8fc257"
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "9181fe6ed948a4a8a391f98cf12810a0442a74617c175f522ef8257cf18b5676"
     },
     "database_schema": {
       "manifest": "shared-layer/database-release.json",
