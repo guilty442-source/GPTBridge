@@ -1,0 +1,348 @@
+{
+ "v19b-dense(≈v25 base)": {
+  "accuracy": 0.167,
+  "rows": [
+   {
+    "prompt": "1+1等於多少？",
+    "expected": "2",
+    "got": "1500",
+    "raw": "1.1 公升 = 1500\n<|eot|>\n137\n<|",
+    "ok": false
+   },
+   {
+    "prompt": "2+3等於多少？",
+    "expected": "5",
+    "got": "128",
+    "raw": "2024 × 4 = 128\n<|eot|>\n2024 × 4 =",
+    "ok": false
+   },
+   {
+    "prompt": "5+7等於多少？",
+    "expected": "12",
+    "got": "12",
+    "raw": "5 + 7 = 12\n<|eot|>\n5 + 7 = 105\n<|e",
+    "ok": true
+   },
+   {
+    "prompt": "9+6等於多少？",
+    "expected": "15",
+    "got": "12",
+    "raw": "9 + 7 = 12\n<|eot|>\n9 + 6 = 55\n<|e",
+    "ok": false
+   },
+   {
+    "prompt": "8-3等於多少？",
+    "expected": "5",
+    "got": "106",
+    "raw": "800 → 3 = 106\n<|eot|>\n800\n<|eot|",
+    "ok": false
+   },
+   {
+    "prompt": "10-4等於多少？",
+    "expected": "6",
+    "got": "141",
+    "raw": "10 + 4 = 141\n<|eot|>\n10 + 55\n<|eot",
+    "ok": false
+   },
+   {
+    "prompt": "3×4等於多少？",
+    "expected": "12",
+    "got": "3",
+    "raw": "3.3\n<|eot|>\n3000-3\n<|eot|>\n3",
+    "ok": false
+   },
+   {
+    "prompt": "6×7等於多少？",
+    "expected": "42",
+    "got": "585",
+    "raw": "6 × 9 = 585\n<|eot|>\n6 × 9 = ",
+    "ok": false
+   },
+   {
+    "prompt": "5×8等於多少？",
+    "expected": "40",
+    "got": "12",
+    "raw": "5 + 7 = 12\n<|eot|>\n5 + 8 = 18\n<|e",
+    "ok": false
+   },
+   {
+    "prompt": "12÷3等於多少？",
+    "expected": "4",
+    "got": "585",
+    "raw": "12 × 9 = 585\n<|eot|>\n12 × 5 = ",
+    "ok": false
+   },
+   {
+    "prompt": "56÷8等於多少？",
+    "expected": "7",
+    "got": "584",
+    "raw": "56 × 6 = 584\n<|eot|>\n568 = 584\n",
+    "ok": false
+   },
+   {
+    "prompt": "15+27等於多少？",
+    "expected": "42",
+    "got": "127",
+    "raw": "15 + 27 = 127\n<|eot|>\n15 + 27 = 127\n<",
+    "ok": false
+   },
+   {
+    "prompt": "44+14等於多少？",
+    "expected": "58",
+    "got": "58",
+    "raw": "44 + 14 = 58\n<|eot|>\n44 × 4 = 128\n",
+    "ok": true
+   },
+   {
+    "prompt": "100-37等於多少？",
+    "expected": "63",
+    "got": "37",
+    "raw": "237.37\n<|eot|>\n237.37\n<|eot|>\n",
+    "ok": false
+   },
+   {
+    "prompt": "計算 14 + 82，只輸出數字。",
+    "expected": "96",
+    "got": "96",
+    "raw": "96\n<|eot|>\n96\n<|eot|>\n96\n<|eot",
+    "ok": true
+   },
+   {
+    "prompt": "計算 25 + 30，只輸出數字。",
+    "expected": "55",
+    "got": "96",
+    "raw": "96\n<|eot|>\n81\n<|eot|>\n96\n<|eot",
+    "ok": false
+   },
+   {
+    "prompt": "25 + 37 = ?",
+    "expected": "62",
+    "got": "2537",
+    "raw": "2537\n<|eot|>\n2537\n<|eot|>\n3737\n<",
+    "ok": false
+   },
+   {
+    "prompt": "88 + 38 = ?",
+    "expected": "126",
+    "got": "126",
+    "raw": "88 + 38 = 126\n<|eot|>\n88 + 38 = 126\n<",
+    "ok": true
+   },
+   {
+    "prompt": "12 × 3 = ?",
+    "expected": "36",
+    "got": "106",
+    "raw": "12 × 2 = 106\n<|eot|>\n107\n<|eot|>",
+    "ok": false
+   },
+   {
+    "prompt": "72 + 19 = ?",
+    "expected": "91",
+    "got": "105",
+    "raw": "72 + 19 = 105\n<|eot|>\n72 + 19 = 105\n<",
+    "ok": false
+   },
+   {
+    "prompt": "200 - 58 = ?",
+    "expected": "142",
+    "got": "4",
+    "raw": "12 + 58 = 4\n<|eot|>\n58 ×\n<|eot|",
+    "ok": false
+   },
+   {
+    "prompt": "7 × 8 = ?",
+    "expected": "56",
+    "got": "128",
+    "raw": "7 × 8 = 128\n<|eot|>\n7 × 4 = 128",
+    "ok": false
+   },
+   {
+    "prompt": "45 ÷ 9 = ?",
+    "expected": "5",
+    "got": "106",
+    "raw": "450 × 2 = 106\n<|eot|>\n450\n<|eot",
+    "ok": false
+   },
+   {
+    "prompt": "33 + 66 = ?",
+    "expected": "99",
+    "got": "53",
+    "raw": "33 + 66 = 53\n<|eot|>\n33 = 53\n<|eot",
+    "ok": false
+   }
+  ]
+ },
+ "v26": {
+  "accuracy": 0.167,
+  "rows": [
+   {
+    "prompt": "1+1等於多少？",
+    "expected": "2",
+    "got": "1500",
+    "raw": "1.1 公升 = 1500\n<|eot|>\n137\n<|",
+    "ok": false
+   },
+   {
+    "prompt": "2+3等於多少？",
+    "expected": "5",
+    "got": "112",
+    "raw": "2024 × 4 = 112\n<|eot|>\n2024 × 4 =",
+    "ok": false
+   },
+   {
+    "prompt": "5+7等於多少？",
+    "expected": "12",
+    "got": "12",
+    "raw": "5 + 7 = 12\n<|eot|>\n5 + 55 = 141\n<|e",
+    "ok": true
+   },
+   {
+    "prompt": "9+6等於多少？",
+    "expected": "15",
+    "got": "12",
+    "raw": "9 + 7 = 12\n<|eot|>\n9\n<|eot|>\n916",
+    "ok": false
+   },
+   {
+    "prompt": "8-3等於多少？",
+    "expected": "5",
+    "got": "13",
+    "raw": "800 → 3 = 13\n<|eot|>\n800\n<|eot|",
+    "ok": false
+   },
+   {
+    "prompt": "10-4等於多少？",
+    "expected": "6",
+    "got": "12",
+    "raw": "10 + 7 = 12\n<|eot|>\n10 + 55 = 141\n<|e",
+    "ok": false
+   },
+   {
+    "prompt": "3×4等於多少？",
+    "expected": "12",
+    "got": "128",
+    "raw": "30004 × 4 = 128\n<|eot|>\n3000\n<|e",
+    "ok": false
+   },
+   {
+    "prompt": "6×7等於多少？",
+    "expected": "42",
+    "got": "585",
+    "raw": "6 × 9 = 585\n<|eot|>\n6 × 9 = ",
+    "ok": false
+   },
+   {
+    "prompt": "5×8等於多少？",
+    "expected": "40",
+    "got": "12",
+    "raw": "5 + 7 = 12\n<|eot|>\n5 + 8 = 12\n<|eot",
+    "ok": false
+   },
+   {
+    "prompt": "12÷3等於多少？",
+    "expected": "4",
+    "got": "585",
+    "raw": "12 × 9 = 585\n<|eot|>\n12 × 5 = ",
+    "ok": false
+   },
+   {
+    "prompt": "56÷8等於多少？",
+    "expected": "7",
+    "got": "563",
+    "raw": "563\n<|eot|>\n568\n<|eot|>\n568\n<",
+    "ok": false
+   },
+   {
+    "prompt": "15+27等於多少？",
+    "expected": "42",
+    "got": "58",
+    "raw": "15 + 14 = 58\n<|eot|>\n27\n<|eot|>\n",
+    "ok": false
+   },
+   {
+    "prompt": "44+14等於多少？",
+    "expected": "58",
+    "got": "58",
+    "raw": "44 + 14 = 58\n<|eot|>\n44 × 4 = 128\n",
+    "ok": true
+   },
+   {
+    "prompt": "100-37等於多少？",
+    "expected": "63",
+    "got": "-37",
+    "raw": "kif-37\n<|eot|>\n2021-37\n<|eot|>\n",
+    "ok": false
+   },
+   {
+    "prompt": "計算 14 + 82，只輸出數字。",
+    "expected": "96",
+    "got": "96",
+    "raw": "96\n<|eot|>\n96\n<|eot|>\n96\n<|eot",
+    "ok": true
+   },
+   {
+    "prompt": "計算 25 + 30，只輸出數字。",
+    "expected": "55",
+    "got": "92",
+    "raw": "92\n<|eot|>\n92\n<|eot|>\n92\n<|eot",
+    "ok": false
+   },
+   {
+    "prompt": "25 + 37 = ?",
+    "expected": "62",
+    "got": "2537",
+    "raw": "2537\n<|eot|>\n2537\n<|eot|>\n3737\n<",
+    "ok": false
+   },
+   {
+    "prompt": "88 + 38 = ?",
+    "expected": "126",
+    "got": "126",
+    "raw": "88 + 38 = 126\n<|eot|>\n88 + 38 = 126\n<",
+    "ok": true
+   },
+   {
+    "prompt": "12 × 3 = ?",
+    "expected": "36",
+    "got": "106",
+    "raw": "12 × 2 = 106\n<|eot|>\n123\n<|eot|",
+    "ok": false
+   },
+   {
+    "prompt": "72 + 19 = ?",
+    "expected": "91",
+    "got": "55",
+    "raw": "72 + 19 = 55\n<|eot|>\n72 + 19 = 55\n<",
+    "ok": false
+   },
+   {
+    "prompt": "200 - 58 = ?",
+    "expected": "142",
+    "got": "16",
+    "raw": "16 ×\n<|eot|>\n58 ×\n<|eot|>\n",
+    "ok": false
+   },
+   {
+    "prompt": "7 × 8 = ?",
+    "expected": "56",
+    "got": "128",
+    "raw": "7 × 8 = 128\n<|eot|>\n7 × 4 = 128",
+    "ok": false
+   },
+   {
+    "prompt": "45 ÷ 9 = ?",
+    "expected": "5",
+    "got": "106",
+    "raw": "450 × 2 = 106\n<|eot|>\n450\n<|eot",
+    "ok": false
+   },
+   {
+    "prompt": "33 + 66 = ?",
+    "expected": "99",
+    "got": "53",
+    "raw": "33 + 66 = 53\n<|eot|>\n33 66 = 53\n<|",
+    "ok": false
+   }
+  ]
+ }
+}

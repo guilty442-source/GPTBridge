@@ -468,6 +468,134 @@ def build_qa_records(rng: random.Random, *, qa_scale: int = 0) -> list[dict[str,
     return records
 
 
+def build_arithmetic_records(
+    rng: random.Random, *, arith_scale: int = 700
+) -> list[dict[str, Any]]:
+    """位值分解算術課程。
+
+    根因修補：BPE 把二位數整數合成單一 token，模型只能死記
+    （運算元, 運算元 → 結果）配對——這也是 v19b/v25/v26 裸模型
+    算術一律 ~17% 的結構性原因。本切片把答案改為「先拆位、逐位
+    運算、最後才輸出結果」的格式，讓結果 token 有機會被計算過程
+    決定而非被記憶決定：
+
+        個位 4+2=6，十位 1+8=9 → 14 + 82 = 96
+
+    模型學到的技能是「token→位數分解→位值運算→合成結果」，
+    對未見過的運算元組合也能泛化（小模型的合理上限是
+    二位數加減與一位數乘除；乘法採直式位值法，除法採乘法逆查）。
+    """
+    def q_tpl(a: int, op: str, b: int) -> str:
+        zh = {"+": "加", "-": "減", "×": "乘", "÷": "除以"}[op]
+        return rng.choice([
+            f"計算 {a} {op} {b}，只輸出數字。",
+            f"{a} {op} {b} = ?",
+            f"{a}{op}{b}等於多少？",
+            f"算一下 {a} {op} {b}",
+            f"{a}{zh}{b}是多少？",
+            f"{a} {op} {b} 的答案",
+        ])
+
+    def add_cot(a: int, b: int) -> str:
+        au, bu = a % 10, b % 10
+        at, bt = a // 10, b // 10
+        u = au + bu
+        carry, ud = divmod(u, 10)
+        t = at + bt + carry
+        steps = f"個位 {au}+{bu}={u}"
+        if carry:
+            steps += f" 進 1"
+        steps += f"，十位 {at}+{bt}"
+        if carry:
+            steps += f"+1"
+        steps += f"={t} → {a} + {b} = {a + b}"
+        return steps
+
+    def sub_cot(a: int, b: int) -> str:
+        au, bu = a % 10, b % 10
+        at, bt = a // 10, b // 10
+        if au >= bu:
+            return (
+                f"個位 {au}-{bu}={au - bu}，"
+                f"十位 {at}-{bt}={at - bt} → {a} - {b} = {a - b}"
+            )
+        return (
+            f"個位 {au} 不夠減 {bu}，借位 {au + 10}-{bu}={au + 10 - bu}，"
+            f"十位 {at}-1-{bt}={at - 1 - bt} → {a} - {b} = {a - b}"
+        )
+
+    def mul_cot(a: int, b: int) -> str:
+        au, at = a % 10, a // 10
+        u = au * b
+        carry, ud = divmod(u, 10)
+        t = at * b + carry
+        steps = f"個位 {au}×{b}={u}"
+        if carry:
+            steps += f" 進 {carry}"
+        steps += f"，十位 {at}×{b}"
+        if carry:
+            steps += f"+{carry}"
+        steps += f"={t} → {a} × {b} = {a * b}"
+        return steps
+
+    def div_cot(a: int, b: int) -> str:
+        q = a // b
+        return f"{b} × {q} = {a} → {a} ÷ {b} = {q}"
+
+    records: list[dict[str, Any]] = []
+    seen: set[tuple[int, str, int]] = set()
+    specs = [
+        ("+", 250, lambda: (rng.randint(10, 99), rng.randint(10, 99))),
+        ("-", 200, lambda: _desc_pair(rng)),
+        ("×", 150, lambda: (rng.randint(10, 99), rng.randint(2, 9))),
+        ("÷", 100, lambda: _div_pair(rng)),
+        ("1d", 60, lambda: (rng.randint(1, 9), rng.randint(1, 9))),
+    ]
+    for op, target, sampler in specs:
+        made = 0
+        tries = 0
+        while made < target and tries < target * 20:
+            tries += 1
+            a, b = sampler()
+            key = (a, op, b)
+            if key in seen:
+                continue
+            seen.add(key)
+            if op == "+":
+                ans = add_cot(a, b)
+            elif op == "-":
+                ans = sub_cot(a, b)
+            elif op == "×":
+                ans = mul_cot(a, b)
+            elif op == "÷":
+                ans = div_cot(a, b)
+            else:  # 1d — 一位數直接答（免分解仍給等式結尾）
+                real_op = rng.choice(["+", "-", "×"])
+                if real_op == "-" and a < b:
+                    a, b = b, a
+                ans = f"{a} {real_op} {b} = " + str(
+                    {"+": a + b, "-": a - b, "×": a * b}[real_op]
+                )
+                records.append(_convo(q_tpl(a, real_op, b), ans))
+                made += 1
+                continue
+            records.append(_convo(q_tpl(a, op, b), ans))
+            made += 1
+    rng.shuffle(records)
+    return records
+
+
+def _desc_pair(rng: random.Random) -> tuple[int, int]:
+    a, b = rng.randint(10, 99), rng.randint(10, 99)
+    return (max(a, b), min(a, b))
+
+
+def _div_pair(rng: random.Random) -> tuple[int, int]:
+    b = rng.randint(2, 9)
+    q = rng.randint(2, 12)
+    return (b * q, b)
+
+
 def build_replay_records(
     corpus_path: str | Path,
     rng: random.Random,
@@ -506,13 +634,19 @@ def build_chat_foundation_dataset(
     replay_chars: int = 120_000,
     echo_scale: int = 0,
     qa_scale: int = 0,
+    arith_scale: int = 0,
 ) -> list[dict[str, Any]]:
-    """組合 chat + qa + replay 並打亂；回傳可直接餵 SFTDataset 的記錄列。"""
+    """組合 chat + qa + arith + replay 並打亂；回傳可直接餵 SFTDataset 的記錄列。"""
     rng = random.Random(seed)
     chat = build_chat_records(rng, echo_scale=echo_scale)
     qa = build_qa_records(rng, qa_scale=qa_scale)
+    arith = (
+        build_arithmetic_records(rng, arith_scale=arith_scale)
+        if arith_scale > 0
+        else []
+    )
     replay = build_replay_records(corpus_path, rng, target_chars=replay_chars)
-    records = chat + qa + replay
+    records = chat + qa + arith + replay
     rng.shuffle(records)
     return records
 
@@ -542,11 +676,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="額外產生 N 個唯一複製值（強制 induction 而非記憶）")
     parser.add_argument("--qa-scale", type=int, default=0,
                         help="開放域 QA 切片目標量（含模板擴充）")
+    parser.add_argument("--arith-scale", type=int, default=0,
+                        help="位值分解算術課程切片量")
     args = parser.parse_args(argv)
 
     records = build_chat_foundation_dataset(
         args.corpus, seed=args.seed, replay_chars=args.replay_chars,
-        echo_scale=args.echo_scale, qa_scale=args.qa_scale)
+        echo_scale=args.echo_scale, qa_scale=args.qa_scale,
+        arith_scale=args.arith_scale)
     out = write_dataset(records, args.out)
     sidecar = out.with_suffix(out.suffix + ".sha256")
     chat_n = sum(1 for r in records if "messages" in r)

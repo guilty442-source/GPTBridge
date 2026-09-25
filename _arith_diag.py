@@ -66,7 +66,9 @@ def rendered(prompt: str) -> str:
 
 
 def extract_number(text: str) -> str:
-    m = re.findall(r"-?\d+", text)
+    # 引擎未在 <|eot|> 停止時的續寫屬雜訊——只取首行答案。
+    first = re.split(r"<\|eot\|>|\n", text, maxsplit=1)[0]
+    m = re.findall(r"-?\d+", first)
     return m[-1] if m else ""
 
 

@@ -55,6 +55,14 @@ _INTENT_TO_EXPERT = {
 #: 觸發 rag 專家的提示詞線索（知識庫/文件庫查詢語意）。
 _RAG_CUES = ("知識庫", "文件庫", "資料庫裡", "內部文件", "共享文件")
 
+#: 觸發 web 專家的即時資訊線索——模型本體沒有即時知識，命中此類
+#: 問題時改走受管 ``xingcheng_web_search`` 通道取證據再回答。
+_WEB_CUES = (
+    "最新", "即時", "新聞", "今天天氣", "今日天氣", "現在天氣",
+    "現在股價", "目前股價", "最新股價", "今天的新聞", "近日",
+    "news", "weather", "latest", "current events", "recent news",
+)
+
 _EXPRESSION_PATTERN = re.compile(
     r"[0-9][0-9.()\s+*/%^×÷-]*[0-9)]\s*(?:=|等於|是多少|多少)?"
 )
@@ -80,7 +88,7 @@ class XingchengShell:
     """服務層 MoE 殼：gate→top-k experts→聚合；general 為共享專家。"""
 
     FORMAT = SHELL_FORMAT
-    EXPERTS = ("general", "math", "reading", "coding", "investment", "rag")
+    EXPERTS = ("general", "math", "reading", "coding", "investment", "rag", "web")
     TOP_K = 2  # gate 取樣上限；共享專家不計入
 
     def __init__(self, service: Any) -> None:
@@ -129,6 +137,14 @@ class XingchengShell:
             cue in prompt for cue in _RAG_CUES
         ):
             weights["rag"] = max(weights["rag"], 0.8)
+        # 即時資訊：payload 旗標或提示詞即時線索 → web 專家取證據後
+        # 仍由共享專家 grounded 生成（web 專家內部呼叫 general）。
+        if (
+            payload.get("web_search") is True
+            or payload.get("use_web") is True
+            or any(cue in prompt for cue in _WEB_CUES)
+        ):
+            weights["web"] = max(weights["web"], 0.8)
         ranked = sorted(
             ((w, name) for name, w in weights.items() if name != "general"),
             key=lambda item: (-item[0], item[1]),
@@ -286,6 +302,88 @@ class XingchengShell:
             answer = f"{answer}\n\n（引用 {len(citations)} 則知識庫來源）"
         return {"text": answer, "detail": result}
 
+    def _expert_web(
+        self,
+        prompt: str,
+        payload: Mapping[str, Any],
+        history: list[dict[str, str]],
+    ) -> dict[str, Any] | None:
+        """即時資訊專家：受管 ``_run_web_search`` 取證據 → 注入
+        general 專家 grounded 生成 → 附加來源引用。
+
+        搜尋通道失敗時回傳 None（降回一般對話，模型以誠實邊界
+        回應）；搜尋成功但無結果時回傳確定性告知；模型生成失敗
+        時降為確定性結果列表——任何情況都不讓模型在無證據下
+        編造即時資訊。
+        """
+        searcher = getattr(self._service, "_run_web_search", None)
+        if searcher is None:
+            return None
+        query = str(payload.get("search_query") or prompt).strip()
+        if not query:
+            return None
+        try:
+            result = searcher(
+                query, int(payload.get("max_results") or 5)
+            )
+        except Exception:
+            return None
+        if not isinstance(result, dict) or result.get("ok") is not True:
+            return None
+        items = result.get("results") or []
+        if not items:
+            return {
+                "text": (
+                    "我搜尋了即時資料，但沒有找到相關結果。"
+                    "如果你提供更多關鍵字或背景，我可以再試一次。"
+                ),
+                "detail": result,
+            }
+        # 證據塊：metadata only（title/domain/snippet），不含完整頁面。
+        evidence_lines = [
+            f"[{i + 1}] {item.get('title') or '(無標題)'}"
+            f"（{item.get('domain') or '未知來源'}）"
+            f"：{str(item.get('snippet') or '').strip()[:200]}"
+            for i, item in enumerate(items[:5])
+        ]
+        evidence = "\n".join(evidence_lines)
+        grounded_prompt = (
+            f"{prompt}\n\n"
+            "【即時搜尋結果】\n"
+            f"{evidence}\n"
+            "請只根據以上搜尋結果簡要回答；若結果不足，請說明資料不足。"
+        )
+        citations = [
+            {
+                "title": item.get("title"),
+                "url": item.get("url"),
+                "domain": item.get("domain"),
+                "rank": item.get("rank"),
+            }
+            for item in items[:5]
+        ]
+        domains = "、".join(
+            dict.fromkeys(
+                str(c["domain"]) for c in citations if c.get("domain")
+            )
+        )
+        footer = f"\n\n（即時搜尋 · 來源：{domains or '網路'}）"
+        general = self._expert_general(grounded_prompt, history)
+        text = str(general.get("text") or "").strip()
+        if general.get("ok") is not True or not text:
+            # 生成失敗 → 確定性證據列表，引用照樣保留。
+            text = "搜尋到以下即時結果：\n" + "\n".join(
+                f"{i + 1}. {item.get('title') or '(無標題)'}"
+                f"（{item.get('domain') or '未知來源'}）\n"
+                f"   {str(item.get('snippet') or '').strip()[:150]}"
+                for i, item in enumerate(items[:5])
+            )
+        return {
+            "text": text + footer,
+            "detail": result,
+            "citations": citations,
+        }
+
     def _expert_general(
         self, prompt: str, history: list[dict[str, str]]
     ) -> dict[str, Any]:
@@ -350,12 +448,16 @@ class XingchengShell:
                 )
             elif name == "rag":
                 specialist_out = self._expert_rag(text_prompt, request_payload)
+            elif name == "web":
+                specialist_out = self._expert_web(
+                    text_prompt, request_payload, turns
+                )
             if specialist_out is not None:
                 experts_used.append(name)
                 break
 
         if specialist_out is not None:
-            return {
+            response = {
                 "ok": True,
                 "format": SHELL_FORMAT,
                 "text": specialist_out["text"],
@@ -369,6 +471,9 @@ class XingchengShell:
                 },
                 "expert_detail": specialist_out.get("detail"),
             }
+            if specialist_out.get("citations"):
+                response["citations"] = specialist_out["citations"]
+            return response
 
         general = self._expert_general(text_prompt, turns)
         experts_used.append("general")
