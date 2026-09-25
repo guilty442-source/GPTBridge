@@ -39,7 +39,9 @@ from tasks.state_outbox_store import (
     POLL_INTERVAL_SECONDS,
     RETRY_INTERVAL_SECONDS,
     OutboxStore,
+    PgOutboxStore,
     _EVENT_REQUIRED_FIELDS,
+    build_outbox_store,
 )
 
 _logger = logging.getLogger("gptbridge.state_outbox")
@@ -65,7 +67,7 @@ class OutboxPublisher:
     def __init__(self, app: Any) -> None:
         self.app = app
         project_root = Path(getattr(app, "project_root", Path.cwd())).resolve()
-        self._store = OutboxStore(project_root)
+        self._store = build_outbox_store(project_root)
         self._backend_generation = uuid.uuid4().hex
         self._release_id = component_version("main-system")
         self._sessions: dict[int, dict[str, Any]] = {}
@@ -79,7 +81,7 @@ class OutboxPublisher:
             self._native_shadow = None
 
     @property
-    def store(self) -> OutboxStore:
+    def store(self) -> OutboxStore | PgOutboxStore:
         return self._store
 
     @property
