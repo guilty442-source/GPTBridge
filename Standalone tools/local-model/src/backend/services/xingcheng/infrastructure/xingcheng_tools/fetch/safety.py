@@ -7,7 +7,7 @@
   - localhost 非必要存取
   - 127.0.0.1 任意探測
   - 私有網段任意探測
-只有明確授權的本地服務才能存取（例如本機 SearXNG）。
+只有明確授權的本地服務才能存取（例如本機 searchd）。
 """
 
 from __future__ import annotations
@@ -42,12 +42,10 @@ _PRIVATE_NETWORKS = [
     ipaddress.ip_network("fe80::/10"),          # link-local IPv6
 ]
 
-# 明確授權的本地服務（例如本機 SearXNG / searchd）
+# 明確授權的本地服務（例如本機 searchd / searchd）
 _DEFAULT_ALLOWED_LOCAL = frozenset({
-    "127.0.0.1:8080",   # 常見 SearXNG 連接埠
     "127.0.0.1:8091",   # 星澄 searchd（Go metasearch）連接埠
     "127.0.0.1:8888",
-    "localhost:8080",
     "localhost:8091",
     "localhost:8888",
 })

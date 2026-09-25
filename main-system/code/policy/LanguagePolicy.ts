@@ -16,7 +16,7 @@ export const LANGUAGE_ROLES = {
   JavaScript: 'React UI presentation/client+frontend state+desktop interaction (ESM)',
   Julia: 'statistics+mathematical models+optimization+simulation+scientific computation',
   SQL: 'set-based data operations within the PostgreSQL sole authority',
-  Python: 'bounded governance semantics+governance thin-wrapper+JAX training+necessary validation only+nonresident after request completion',
+  Python: 'three-domain minimization only+governance(necessary sovereign semantics/rules/thin-wrapper;necessary portions resident)+xingcheng-training(JAX/NumPy;activated at training time)+development-verification(pytest/governance verification/push gate;on-demand)',
   TypeScript: 'RETIRED — succeeded by JavaScript-ESM; grandfathered existing authored files only',
 } as const;
 

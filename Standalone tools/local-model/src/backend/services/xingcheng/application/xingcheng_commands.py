@@ -871,7 +871,7 @@ def _create_self_learning_commands() -> list:
             handler="_handle_web_search",
             category="search",
             description=(
-                "經受管 SearXNG loopback 路徑執行一次 Web 搜尋"
+                "經受管 searchd (Go metasearch) loopback 路徑執行一次 Web 搜尋"
                 "（A177 資訊層治理通道；五核心稽核的外部證據檢查使用）"
             ),
             aliases=(),

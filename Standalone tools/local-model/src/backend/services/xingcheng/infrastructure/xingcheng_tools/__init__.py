@@ -2,7 +2,7 @@
 
 與 `native_transformer/`（模型核心）嚴格分離。本套件只保留治理稽核
 釘定的網路邊界宣告：loopback-only 的 searchd（Go metasearch）／
-SearXNG provider 與 URL 安全檢查。
+與 URL 安全檢查。
 外部故障排除研究走 `ai-collaboration` 受管通道，不經此套件。
 """
 
@@ -13,7 +13,6 @@ from .search.types import (
     SearchResult, FetchStatus, SearchPriority,
 )
 from .search.provider import SearchProvider, SearchProviderError
-from .search.searxng import SearXNGProvider
 from .search.searchd import SearchdProvider
 from .fetch.safety import URLSafetyChecker, URLSafetyError, URLSafetyConfig
 
@@ -28,7 +27,6 @@ __all__ = [
     "SearchPriority",
     "SearchProvider",
     "SearchProviderError",
-    "SearXNGProvider",
     "SearchdProvider",
     "URLSafetyChecker",
     "URLSafetyError",

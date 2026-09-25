@@ -134,7 +134,7 @@ class LocalAiLifecycleMixin:
     async def _handle_web_search(
         self, command: str, payload: dict[str, Any]
     ) -> tuple[str, dict[str, Any]]:
-        """``xingcheng_web_search``：受管 SearXNG loopback 搜尋。
+        """``xingcheng_web_search``：受管 searchd (Go) loopback 搜尋。
 
         A177：對外查詢只允許資訊層治理通道；此命令是五核心稽核
         ``xingcheng`` 收據的外部證據來源（audit gate 的
@@ -264,12 +264,9 @@ class LocalAiLifecycleMixin:
         return proc.returncode == 0 and binary.is_file()
 
     def _web_search_providers(self) -> list[Any]:
-        """依 settings/env 組出有序 provider 鏈（auto = searchd→searxng）。"""
+        """依 settings/env 組出有序 provider 鏈（auto = searchd→searchd）。"""
         import os
 
-        from ..infrastructure.xingcheng_tools.search.searxng import (
-            SearXNGProvider,
-        )
         from ..infrastructure.xingcheng_tools.search.searchd import (
             SearchdProvider,
         )
@@ -285,18 +282,14 @@ class LocalAiLifecycleMixin:
             or settings.get("searchd_url")
             or "http://127.0.0.1:8091"
         )
-        searxng_url = str(
-            os.environ.get("XINGCHENG_SEARXNG_URL")
-            or settings.get("searxng_url")
-            or "http://127.0.0.1:8080"
-        )
         auto_start = settings.get("auto_start") is not False
 
         providers: list[Any] = []
         if mode in {"auto", "searchd"} and self._ensure_searchd(searchd_url, auto_start):
             providers.append(SearchdProvider(searchd_url))
-        if mode in {"auto", "searxng"}:
-            providers.append(SearXNGProvider(searxng_url))
+        # A610 transfer table: xingcheng web search and external data
+        # acquisition are owned by Go (searchd).  There is no Python
+        # fallback provider - absence of searchd fails closed.
         return providers
 
     def _run_web_search(self, query: str, max_results: int) -> dict[str, Any]:
