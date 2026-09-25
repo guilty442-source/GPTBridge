@@ -1,16 +1,85 @@
+import json
+from pathlib import Path
+
+dst = Path(
+    r"E:\GPTBridge\governance_rule\execution\audit\convergence"
+    r"\codex-amendment-request-a610-law-classification-20260925.json"
+)
+
+request = {
+    "artifact": "codex-amendment-request",
+    "authority": "request-only",
+    "schema": "codex-amendment-request/v1",
+    "request_id": "a610-law-classification-20260925",
+    "title": "Register provision_law_classification row for executed article A610",
+    "summary": (
+        "The executed amendment cfamily-primary-stack-one-format-20260925-r6 "
+        "inserted article A610 but omitted the mandatory "
+        "provision_law_classification row. The directory audit gate (A231) "
+        "now reports 'provision classification does not map every provision "
+        "exactly once'. This request inserts the missing classification, "
+        "matching the CODEX_MAIN/main-codex classification precedent of the "
+        "adjacent language-responsibility provisions A604 and A607."
+    ),
+    "requested_by": "decision-sovereign",
+    "origin": (
+        "post-execution audit repair: governance audit FAIL on "
+        "provision_law_classification coverage after cfamily r6 execution; "
+        "A610 classified under CODEX_MAIN per A604/A607 precedent"
+    ),
+    "change_class": "architecture-authority",
+    "required_review": "five-sovereign-audit-unanimous-pass",
+    "flow": "A382/A488-non-disruptive-amendment-flow",
+    "not_executed": True,
+    "predecessor": {
+        "codex_version": "2026-09-25T09:14:48Z",
+        "version_identity": "E2:2026-09-23T03:13:43Z",
+        "version_epoch": 2,
+        "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+        "revision_sequence": 75,
+    },
+    "problem": {
+        "summary": (
+            "articles.A610 exists but provision_law_classification has no "
+            "('article','A610') row; check_provision_classification fails "
+            "closed"
+        )
+    },
+    "proposed_successors": [
+        {
+            "registry": "provision_law_classification",
+            "action": "insert",
+            "rows": [
+                {
+                    "provision_type": "article",
+                    "provision_id": "A610",
+                    "tier": "main-codex",
+                    "law_code": "CODEX_MAIN",
+                    "authority_basis": "A35|A341|A604|A607",
+                }
+            ],
+        }
+    ],
+    "verification": {
+        "requested_at": "2026-09-25T09:30:00Z",
+        "expected_audit_result": (
+            "provision classification maps every provision exactly once"
+        ),
+    },
+}
+
+dst.write_text(
+    json.dumps(request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+)
+print("wrote", dst)
+
+sys_path_added = False
 import sys
-
-sys.path[:0] = [r"governance_rule", r"shared-layer\src"]
-from governance_rule.execution.codex_repository import codex_readonly_connection
-
-with codex_readonly_connection() as conn:
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT provision_type, provision_id, law_code, tier FROM provision_law_classification WHERE provision_id IN ('A604','A607','A610','A341','A35')"
-    )
-    for row in cur.fetchall():
-        print(row)
-    print()
-    cur.execute("SELECT DISTINCT law_code, tier FROM provision_law_classification WHERE provision_type='article' ORDER BY 1,2")
-    for row in cur.fetchall():
-        print(row)
+for p in (r"E:\GPTBridge\governance_rule", r"E:\GPTBridge\shared-layer\src"):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+from governance_rule.execution.codex_amendment_lifecycle import (
+    load_amendment_request,
+)
+r = load_amendment_request(dst)
+print("request_id:", r.request_id, "| hash:", r.request_hash[:16])
