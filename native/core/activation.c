@@ -1,4 +1,4 @@
-/* activation.c — E3 啟動面 C 原型實作 */
+/* activation.c — E3 啟動面 C23 原型實作 (C23 constexpr/auto) */
 #include "activation.h"
 #include <string.h>
 
