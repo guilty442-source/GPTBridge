@@ -48,6 +48,7 @@ from .auth_signing import (
     _is_launcher_ancestor,
     _new_key,
     _NonceStore,
+    _build_nonce_store,
     sign_launcher_attestation,
 )
 from .auth_tokens import TokenOperationsMixin
@@ -107,7 +108,7 @@ class GovernanceAuthenticationService(TokenOperationsMixin):
         self._bound_tool_id = attestation.bound_tool_id
         self._caller_path = attestation.caller_path
         self._key_ring = _KeyRing(_new_key(policy, now), None)
-        self._nonces = _NonceStore(root, policy)
+        self._nonces = _build_nonce_store(root, policy)
         self._nonces.consume(
             "launcher-attestation",
             attestation.actor,

@@ -94,10 +94,10 @@ def _epoch(connection: sqlite3.Connection) -> int:
 
 
 def _restamp_metadata(connection: sqlite3.Connection, version: str, epoch: int) -> None:
-    for key in PROJECT_VERSION_KEYS:
-        connection.execute(
-            "UPDATE metadata SET value=? WHERE key=?", (version, key)
-        )
+    connection.executemany(
+        "UPDATE metadata SET value=? WHERE key=?",
+        [(version, key) for key in PROJECT_VERSION_KEYS],
+    )
     connection.execute(
         "UPDATE metadata SET value=? WHERE key='current_version_identity'",
         (f"E{epoch}:{version}",),
@@ -290,8 +290,8 @@ def _rebuild_fts(connection: sqlite3.Connection) -> int:
                 list(row)[:width] + [None] * (width - len(row))
                 for row in rows
             ]
-            connection.executemany(
-                f'INSERT INTO "{shadow}" ({", ".join(staged_columns)}) '  # sql-ok: identifier/column list from staged table metadata
+            connection.executemany(  # sql-ok: identifier/column list from staged table metadata
+                f'INSERT INTO "{shadow}" ({", ".join(staged_columns)}) '
                 f'VALUES ({", ".join("?" for _ in staged_columns)})',
                 padded_rows,
             )
