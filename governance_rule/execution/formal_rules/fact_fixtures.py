@@ -291,6 +291,28 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "memory_strategy": "raii",
         "format_contract": "clang-tidy",
     },
+    # A609: unified language version set — the evaluator's real pass path
+    # (version facts present and within the declared set).
+    "RULE_LANGUAGE_VERSIONS_V1": {
+        "c_version": "c23",
+        "cpp_version": "cpp23",
+        "csharp_version": "csharp14",
+        "dotnet_version": "10",
+        "fsharp_version": "10",
+        "rust_version": "1.98.1",
+        "go_version": "1.27.1",
+        "python_version": "3.14.7",
+        "numpy_version": "2.5.3",
+    },
+    # A610: infrastructure versions — PostgreSQL 18.6, SQLite disabled,
+    # Git 2.55.0 (real pass path: all three checks exercised).
+    "RULE_INFRA_VERSIONS_V1": {
+        "postgres_version": "18.6",
+        "sqlite": "disabled",
+        "git_version": "2.55.0",
+        "typescript_version": "7.0.2",
+        "electron_version": "44.4.5",
+    },
 }
 
 
