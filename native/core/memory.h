@@ -167,8 +167,9 @@ static inline int gptbridge_native_mem_budget_admits(
  * 正確性：對齊失敗回 NULL；呼叫方需配對 free；size 需 overflow 檢查
  * 速度：對齊後 _mm256_load_pd 可替代 loadu，編譯器可自動向量化
  * ------------------------------------------------------------------ */
-/* C23: constexpr for compile-time constants */
-constexpr int GPTBRIDGE_NATIVE_SIMD_ALIGN = 32;
+/* enum constant: MSVC clatest has no C23 constexpr yet; enum is the
+ * portable compile-time int constant across C11..C23 modes. */
+enum { GPTBRIDGE_NATIVE_SIMD_ALIGN = 32 };
 #define GPTBRIDGE_NATIVE_SIMD_ALIGN_C23 32
 
 static inline void* gptbridge_native_mem_aligned_alloc(int64_t bytes) {

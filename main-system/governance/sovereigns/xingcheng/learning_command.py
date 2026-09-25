@@ -37,6 +37,7 @@ class XingchengLearningCommandMixin:
     _learning_active: bool
     _learning_commands: list[dict[str, Any]]
     _learning_armed: bool
+    _learning_arm_task: Any
     _learning_history: list[dict[str, Any]]
     _last_reconciliation: dict[str, Any]
 
@@ -44,6 +45,7 @@ class XingchengLearningCommandMixin:
         super().__init__(*args, **kwargs)
         self._learning_commands = []
         self._learning_armed = False
+        self._learning_arm_task = None
         self._learning_history = []
         self._last_reconciliation = {}
 

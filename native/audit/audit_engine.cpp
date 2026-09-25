@@ -36,6 +36,17 @@ namespace {
  * unchanged; audit semantics preserved — malformed input still throws
  * JsonError and aborts the manifest load). */
 
+// C++20+: path::u8string() returns std::u8string (char8_t). Byte-preserving
+// conversion so UTF-8 filenames still bind to std::string comparisons.
+std::string u8_bytes(const fs::path& p) {
+#if defined(__cpp_char8_t)
+    const auto s = p.u8string();
+    return std::string(reinterpret_cast<const char*>(s.c_str()), s.size());
+#else
+    return p.u8string();
+#endif
+}
+
 /* ------------------------------------------------------------------
  * File helpers (read-only)
  * ------------------------------------------------------------------ */
@@ -264,12 +275,12 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
     if (check.kind == "glob-min-count") {
         const fs::path g = fs::u8path(check.glob);
         const fs::path dir = fs::u8path(root) / g.parent_path();
-        const std::string pattern = g.filename().u8string();
+        const std::string pattern = u8_bytes(g.filename());
         std::int64_t count = 0;
         if (fs::is_directory(dir, ec)) {
             for (const auto& entry : fs::directory_iterator(dir, ec)) {
                 if (entry.is_regular_file(ec) &&
-                    wildcard_match(pattern, entry.path().filename().u8string()))
+                    wildcard_match(pattern, u8_bytes(entry.path().filename())))
                     ++count;
             }
         }

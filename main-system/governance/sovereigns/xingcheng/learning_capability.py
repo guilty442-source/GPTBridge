@@ -224,8 +224,16 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
 
     async def _adjudicate_learn_auto_start(self, request: Any) -> Any:
         """Arm the reconcile loop — the only path that enables auto-learning."""
-        self._ensure_learner()
-        curriculum = self._apply_repair_curriculum()
+        # Curriculum apply performs per-recipe SQLite writes plus a governed
+        # teaching-example submit for each entry — that synchronous work once
+        # held the event loop ~8 s inside the startup deadline window, so it
+        # runs on a worker thread; loop-bound reconcile task creation stays
+        # in this coroutine.
+        def _arm_sync() -> dict[str, Any]:
+            self._ensure_learner()
+            return self._apply_repair_curriculum()
+
+        curriculum = await asyncio.to_thread(_arm_sync)
         self._start_reconcile_loop()
         task = self._reconcile_task
         self._auto_learning_armed = task is not None and not task.done()

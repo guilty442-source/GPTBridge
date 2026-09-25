@@ -72,7 +72,7 @@ SHIM_STATUSES: Final[frozenset[str]] = frozenset({"retired", "deprecated"})
 CANONICAL_AUTHORITY_KINDS: Final[dict[str, str]] = {
     "structured-authority": "postgresql",
     "governance-codex": "codex-authority",
-    "semantic-index": "qdrant",
+    "semantic-index": "vectord",
 }
 
 

@@ -476,12 +476,37 @@ class XingchengSovereign(
         }
 
     async def start_supervision(self) -> None:
-        """Start the auto-loop and command the learning engine (A297/A485)."""
+        """Start the auto-loop and command the learning engine (A297/A485).
+
+        The learn.auto-start command is dispatched as a tracked
+        background task instead of an awaited call: its adjudication
+        performs synchronous store/teaching work that held the complete
+        -startup deadline budget hostage (~8 s measured).  The auto-loop
+        re-issues the command through ``ensure_learning_automation``
+        until accepted, so the arm-until-accepted contract is unchanged;
+        ``stop_supervision`` cancels the task when shutdown lands
+        mid-arm.
+        """
         await self.start_auto_loop()
-        await self.start_learning_automation()
+        task = self._learning_arm_task
+        if task is None or task.done():
+            self._learning_arm_task = asyncio.create_task(
+                self.start_learning_automation(),
+                name="xingcheng-learning-arm",
+            )
 
     async def stop_supervision(self) -> None:
         """Disarm commanded learning, then stop the auto-loop."""
+        task = self._learning_arm_task
+        self._learning_arm_task = None
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass
         await self.stop_learning_automation()
         await self.stop_auto_loop()
 

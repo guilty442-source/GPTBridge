@@ -62,7 +62,7 @@ int main() {
             "{\"id\":\"d\",\"kind\":\"delegated\",\"reason\":\"py\"}]}");
         std::vector<AuditCheck> checks;
         std::string error;
-        NT_CHECK(gptbridge::audit_load_manifest(m.u8string(), &checks, &error),
+        NT_CHECK(gptbridge::audit_load_manifest(native_tests::u8path(m), &checks, &error),
                  "manifest should parse");
         NT_CHECK(checks.size() == 4, "expected 4 checks");
         NT_CHECK(checks[0].id == "a" && checks[0].kind == "file-exists",
@@ -80,14 +80,14 @@ int main() {
         std::vector<AuditCheck> checks;
         std::string error;
         write_file(m, "{not json");
-        NT_CHECK(!gptbridge::audit_load_manifest(m.u8string(), &checks, &error),
+        NT_CHECK(!gptbridge::audit_load_manifest(native_tests::u8path(m), &checks, &error),
                  "malformed json must fail");
         NT_CHECK(!error.empty(), "error reason required");
         NT_CHECK(!gptbridge::audit_load_manifest(
-                     (dir / "absent.json").u8string(), &checks, &error),
+                     native_tests::u8path(dir / "absent.json"), &checks, &error),
                  "missing manifest must fail");
         write_file(m, "{\"schema\":\"x\"}");
-        NT_CHECK(!gptbridge::audit_load_manifest(m.u8string(), &checks, &error),
+        NT_CHECK(!gptbridge::audit_load_manifest(native_tests::u8path(m), &checks, &error),
                  "missing checks[] must fail");
         remove_dir(dir);
     } NT_END_TEST("audit_engine_suite", "manifest_fail_closed");
@@ -101,7 +101,7 @@ int main() {
             {"n1", "file-not-exists", "gone.txt", "", {}, 0, ""},
             {"n2", "file-not-exists", "ok.txt", "", {}, 0, ""},
         };
-        auto report = gptbridge::audit_run(checks, dir.u8string());
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
         NT_CHECK(report.passed == 2 && report.failed == 2, "2 pass / 2 fail");
         NT_CHECK(find(report, "e1")->status == AuditStatus::PASS, "e1 pass");
         NT_CHECK(find(report, "e2")->status == AuditStatus::FAIL, "e2 fail");
@@ -118,7 +118,7 @@ int main() {
             {"c2", "file-contains", "c.txt", "", {"delta"}, 0, ""},
             {"c3", "file-contains", "absent.txt", "", {"x"}, 0, ""},
         };
-        auto report = gptbridge::audit_run(checks, dir.u8string());
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
         NT_CHECK(find(report, "c1")->status == AuditStatus::PASS, "all markers");
         NT_CHECK(find(report, "c2")->status == AuditStatus::FAIL,
                  "missing marker");
@@ -147,7 +147,7 @@ int main() {
             {"p5", "text-no-pollution", "pua.txt", "", {}, 0, ""},
             {"p6", "text-no-pollution", "ctrl.txt", "", {}, 0, ""},
         };
-        auto report = gptbridge::audit_run(checks, dir.u8string());
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
         NT_CHECK(find(report, "p0")->status == AuditStatus::PASS,
                  "clean text must pass");
         for (int i = 1; i <= 6; ++i)
@@ -168,7 +168,7 @@ int main() {
             {"d1", "delegated", "", "", {}, 0, "python oracle"},
             {"u1", "unknown-kind", "", "", {}, 0, ""},
         };
-        auto report = gptbridge::audit_run(checks, dir.u8string());
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
         NT_CHECK(find(report, "g1")->status == AuditStatus::PASS, "glob >= 2");
         NT_CHECK(find(report, "g2")->status == AuditStatus::FAIL, "glob < 3");
         NT_CHECK(find(report, "d1")->status == AuditStatus::DELEGATED,
@@ -198,7 +198,7 @@ int main() {
             {"f5", "file-not-contains", "bad.py", "",
              {"governanceenforcer"}, 0, "", false, true},
         };
-        auto report = gptbridge::audit_run(checks, dir.u8string());
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
         NT_CHECK(find(report, "f1")->status == AuditStatus::PASS, "clean");
         NT_CHECK(find(report, "f2")->status == AuditStatus::FAIL,
                  "forbidden marker");
@@ -227,7 +227,7 @@ int main() {
             {"d2", "dir-exists", "nothere", "", {}, 0, ""},
             {"d3", "dir-exists", "ok.json", "", {}, 0, ""},
         };
-        auto report = gptbridge::audit_run(checks, dir.u8string());
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
         NT_CHECK(find(report, "j1")->status == AuditStatus::PASS, "all keys");
         NT_CHECK(find(report, "j2")->status == AuditStatus::FAIL,
                  "missing key");

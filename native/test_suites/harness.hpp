@@ -5,10 +5,23 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 namespace native_tests {
+
+// C++20+: path::u8string() returns std::u8string (char8_t); pre-C++20 it
+// returned std::string. Byte-preserving bridge so UTF-8 paths still bind
+// to std::string APIs under /std:c++latest.
+inline std::string u8path(const std::filesystem::path& p) {
+#if defined(__cpp_char8_t)
+    const auto s = p.u8string();
+    return std::string(reinterpret_cast<const char*>(s.c_str()), s.size());
+#else
+    return p.u8string();
+#endif
+}
 
 struct CaseResult {
     std::string suite;
