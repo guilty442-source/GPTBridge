@@ -300,7 +300,40 @@ class ProcessMixin:
         _request_id, process, _kind = await self._active_tool_process(tool_id)
         if process is not None and process.returncode is None:
             return True
-        return bool(self._started_request_by_tool.get(tool_id))
+        if self._started_request_by_tool.get(tool_id):
+            return True
+        # A governed runtime may have been started outside this service's
+        # spawn tracking (another backend instance, a governed supervisor,
+        # or an earlier backend generation whose process outlived it).  The
+        # start path's already-running branch returns ``ok`` without
+        # populating ``_started_request_by_tool``, so relying on the spawn
+        # maps alone reports a false cold state and permanently wedges
+        # governed consumers such as the codex-amendment intake's
+        # Xingcheng search wiring.  Verify real process liveness from the
+        # manifest-resolved source-runtime entry instead.
+        return await asyncio.to_thread(
+            self._external_runtime_active, tool_id
+        )
+
+    def _external_runtime_active(self, tool_id: str) -> bool:
+        """Best-effort liveness probe for externally started tool runtimes.
+
+        Fail-closed: any resolution or scan failure reports inactive so a
+        caller never mistakes an unknown state for a live governed channel.
+        """
+        try:
+            manifest, tool_dir = self._load_manifest_cached(tool_id)
+            if not self._has_governed_source_runtime(manifest):
+                return False
+            try:
+                entry = self._resolve_special_unpacked_entry(
+                    manifest, tool_dir
+                )
+            except ValueError:
+                return False
+            return bool(self._running_source_runtime_process_ids(entry))
+        except Exception:  # noqa: BLE001 — unknown means inactive
+            return False
 
     async def _started_tool_process(
         self,

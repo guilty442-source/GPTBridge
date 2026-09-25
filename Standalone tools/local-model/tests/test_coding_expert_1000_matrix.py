@@ -54,7 +54,7 @@ def _valid_generation_cases() -> list[dict[str, Any]]:
             }
         )
 
-    for language in ("typescript", "javascript"):
+    for language in ("typescript", "csharp"):
         for index in range(200):
             cases.append(
                 {
@@ -154,14 +154,19 @@ def _rejection_cases() -> list[dict[str, Any]]:
         )
 
     for index in range(40):
-        language = "typescript" if index % 2 else "javascript"
+        language = "typescript" if index % 2 else "csharp"
+        source = (
+            dangerous_script[index % len(dangerous_script)]
+            if language == "typescript"
+            else 'System.Diagnostics.Process.Start("cmd", "/c exit");\n'
+        )
         cases.append(
             {
                 "id": f"reject-{language}-security-{index:03d}",
                 "category": "reject-security",
                 "payload": {
                     "prompt": f"分析 {language} 安全性",
-                    "source_code": dangerous_script[index % len(dangerous_script)],
+                    "source_code": source,
                     "code_spec": {"action": "analyze", "language": language},
                 },
                 "intent": "coding",
@@ -203,14 +208,31 @@ def _rejection_cases() -> list[dict[str, Any]]:
         )
 
     for index in range(40):
+        if index % 2:
+            cases.append(
+                {
+                    "id": f"reject-unsupported-language-{index:03d}",
+                    "category": "reject-language",
+                    "payload": {
+                        "prompt": "建立 JavaScript 驗證函式",
+                        "code_spec": {
+                            "language": "javascript",
+                            "kind": "function",
+                            "name": f"script_case_{index}",
+                        },
+                    },
+                    "intent": "coding",
+                }
+            )
+            continue
         cases.append(
             {
-                "id": f"reject-json-syntax-{index:03d}",
+                "id": f"reject-typescript-syntax-{index:03d}",
                 "category": "reject-syntax",
                 "payload": {
-                    "prompt": "分析 JSON 語法",
-                    "source_code": f"{{unquoted_{index}: true}}",
-                    "code_spec": {"action": "analyze", "language": "json"},
+                    "prompt": "分析 TypeScript 語法",
+                    "source_code": f"export function broken_{index}(x {{",
+                    "code_spec": {"action": "analyze", "language": "typescript"},
                 },
                 "intent": "coding",
             }
@@ -231,7 +253,7 @@ def test_star_coding_capability_1000_case_matrix(case: dict[str, Any]) -> None:
     result = StarCodingExpert().process(case["payload"], case["intent"])
     category = case["category"]
 
-    if category in {"python", "typescript", "javascript", "sql"}:
+    if category in {"python", "typescript", "csharp", "sql"}:
         assert result["ok"] is True
         assert result["language"] == category
         assert result["validation"]["syntax_ok"] is True
@@ -242,6 +264,9 @@ def test_star_coding_capability_1000_case_matrix(case: dict[str, Any]) -> None:
             assert result["validation"]["analysis"]["read_only"] is True
             assert result["source"].lstrip().startswith("SELECT ")
             assert result["source"].count(";") == 1
+        elif category == "csharp":
+            assert "public static" in result["source"]
+            assert "ScriptCase" in result["source"]
         else:
             assert "export function script_case_" in result["source"]
             assert not result["validation"]["errors"]
@@ -251,6 +276,9 @@ def test_star_coding_capability_1000_case_matrix(case: dict[str, Any]) -> None:
         assert result["ok"] is False
         assert result["validation"]["security_ok"] is False
         assert result["validation"]["analysis"]["security_findings"]
+    elif category == "reject-language":
+        assert result["ok"] is False
+        assert result["error_code"] == "UNSUPPORTED_CODE_LANGUAGE"
     elif category == "reject-scope":
         assert result["ok"] is True
         assert result["upgrade_proposal"]["proposal_ready"] is False
