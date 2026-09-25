@@ -22,7 +22,9 @@ pub const STORE_SCHEMA: &str = "vectord-store/v1";
 pub struct SnapshotPoint {
     pub id: String,
     pub vector: Vec<f32>,
-    pub payload: Value,
+    /// Payload serialized as canonical JSON text — bincode cannot drive
+    /// `serde_json::Value` (it requires `deserialize_any`).
+    pub payload_json: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -242,11 +244,15 @@ impl Collection {
                 Some(v) => v.clone(),
                 None => continue,
             };
-            let payload = self.payloads.get(id).cloned().unwrap_or(Value::Null);
+            let payload = self
+                .payloads
+                .get(id)
+                .map(|p| p.to_string())
+                .unwrap_or_else(|| "null".to_string());
             out.push(SnapshotPoint {
                 id: id.clone(),
                 vector,
-                payload,
+                payload_json: payload,
             });
         }
         out
@@ -255,7 +261,9 @@ impl Collection {
     fn load(dimension: usize, points: Vec<SnapshotPoint>) -> Result<Self, String> {
         let mut collection = Collection::new(dimension, points.len() + 1024);
         for point in points {
-            collection.upsert(&point.id, &point.vector, point.payload)?;
+            let payload: Value =
+                serde_json::from_str(&point.payload_json).unwrap_or(Value::Null);
+            collection.upsert(&point.id, &point.vector, payload)?;
         }
         Ok(collection)
     }
@@ -421,12 +429,14 @@ impl Store {
             return Err(format!("SNAPSHOT_SCHEMA_MISMATCH:{}", dump.schema));
         }
         let store = Store::new(capacity_hint);
-        let mut collections = store.collections.write().unwrap();
-        for coll_dump in dump.collections {
-            collections.insert(
-                coll_dump.name.clone(),
-                Collection::load(coll_dump.dimension, coll_dump.points)?,
-            );
+        {
+            let mut collections = store.collections.write().unwrap();
+            for coll_dump in dump.collections {
+                collections.insert(
+                    coll_dump.name.clone(),
+                    Collection::load(coll_dump.dimension, coll_dump.points)?,
+                );
+            }
         }
         Ok(store)
     }
