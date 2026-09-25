@@ -1,0 +1,58 @@
+[
+ {
+  "prompt": "什麼是光合作用？",
+  "ok": true,
+  "error": null,
+  "reply": "光合作用是植物利用陽光，把二氧化碳和水轉換成養分並釋放氧氣的過程，是地球大部分生命的能量來源。",
+  "degraded": null
+ },
+ {
+  "prompt": "請自我介紹。",
+  "ok": true,
+  "error": null,
+  "reply": "我是星澄，本地原生語言模型。我可以回答問題、整理資訊、寫程式建議、做計算分析，也能協助文件摘要。有什麼想問的嗎？",
+  "degraded": null
+ },
+ {
+  "prompt": "幫我寫一首關於秋天的短詩。",
+  "ok": true,
+  "error": null,
+  "reply": "楓紅落滿徑，風起送微涼。\n雁影天邊遠，一盞桂花香。",
+  "degraded": null
+ },
+ {
+  "prompt": "今天天氣如何？",
+  "ok": true,
+  "error": null,
+  "reply": "我無法取得即時天氣資料。建議看中央氣象署 App；如果你告訴我地點與預報內容，我可以幫你解讀。",
+  "degraded": null
+ },
+ {
+  "prompt": "分析我的投資組合風險。",
+  "ok": true,
+  "error": null,
+  "reply": "請律的對話只存在本機的受治理資料庫中，用於本地自我學習，不會上傳到任何外部服務。",
+  "degraded": null
+ },
+ {
+  "prompt": "給我三個學英文的建議。",
+  "ok": true,
+  "error": null,
+  "reply": "1. 每天固定接觸英文 15 分鐘。2. 開口跟讀練習。3. 優先記高頻單字配例句。",
+  "degraded": null
+ },
+ {
+  "prompt": "1+1等於多少？",
+  "ok": true,
+  "error": null,
+  "reply": "1.1 公升 = 1500",
+  "degraded": null
+ },
+ {
+  "prompt": "你好",
+  "ok": true,
+  "error": null,
+  "reply": "你好！我是星澄，有什麼可以幫你的嗎？",
+  "degraded": null
+ }
+]
