@@ -1,0 +1,74 @@
+﻿OBL: OBL_FORMAL_EVALUATOR_V2_PARITY | mandated | all active formal evaluators and tests match current declarative semantic hashes | evaluator tests+adversarial fixtures+registry/evaluator semantic hash parity+星澄 review
+OBL: OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY | mandated | DIR_DATA_SCHEMA_AUTHORITY current catalog coverage and consumer policy parity active | directory rows+catalog snapshot+owner/read/write/migration/hash/consumer parity
+OBL: OBL_SQL_MIGRATION | mandated | SQL_MIGRATION_V1 producer,validator,ordered registry and live PostgreSQL schema parity active | ordered migration replay+current PostgreSQL catalog hash equality+formal evaluator parity
+OBL: OBL_CENTRAL_AUDIT_SQL | mandated | Central audit is append-only and cannot be silently deleted or modified;actor,operation,target,result,evidence,correlation,sequence and hash | schema parity,append-only role denial,chain and tamper tests
+OBL: OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE | mandated | A66-successor|exact-seven-tool-directory|xingcheng-de-tool|system-rescue-internal-service|global-cleaner-retirement|model-dialogue-independe | architecture assertions|projection parity|mirror quality|tests|physical evidence
+OBL: OBL_IDENTITY_AUTHENTICATION_SIMPLIFICATION | mandated | remove-obsolete-requirements|rebuild-machine-schemas|authentication-contracts|UI-IPC-validation|permission-projection|tests|audit-privacy-pr | schema parity|runtime tests|UI-IPC scan|audit privacy scan
+OBL: OBL_A334_RUNTIME_GATE_FULL_COVERAGE | mandated | 100%-executable-runtime-entry-resolution-through-A334|zero-hard-coded-fallback|zero-orphan-executor|generation-validation | runtime-path inventory|assignment parity|negative tests
+OBL: OBL_DAG_CAG_RAG_HYBRID | evidence-submitted | all-machine-contract-parity-PASS|mandatory-tests-PASS|zero-cache-leakage|six-scenario-benchmark-PASS|architecture-parity | machine_schema_parity_evidence|TEST_SUITE_DAG_CAG_RAG_HYBRID|security-zero-leakage evidence|RAG_HYBR
+OBL: OBL_NATIVE_PROMOTION_RECORD_CHECKER | mandated | request_registry remains SHADOW/STAGED until its host explicitly wires _native_primary through the registered contract; no native-primary cl | host wiring evidence|native/Python parity|failure-mode evidence|current source revision|primary acti
+OBL: OBL_MACHINE_SCHEMA_PARITY | mandated | all 74 registered machine schemas have equal evidenced producer,validator,persistence and canonical semantic hashes; current 74 PENDING rema | machine_schema_parity_evidence with four equal hashes and PASS for every one of the 74 current schem
+OBL: FINAL_CONVERGENCE_IMPLEMENTATION_PLAN | mandated | RULE_CAPABILITY_DISPATCH_V1 governor activation and registry wiring complete; until governor activation the capability dispatch path remains | governor activation receipt|registry parity|retired-identity routing tests|missing-or-ambiguous fail
+OBL: OBL_RUNTIME_RULE_INDEX_V2 | complete | RUNTIME_RULE_INDEX_V2 producer validator atomic generation loader and benchmark evidence | published 0fb19aaed92899587b186ddc08baa804e368c5307c408677b5f318fb74cbc5e1; live validator zero erro
+OBL: OBL_MODULE_RULE_INDEX_V1 | complete | central module rule index registry validator generation loader and scoped query service | published 680c1a35112541a3f53c00948dec5d06174b076ba301d52b0d764599a35b2bcc; MODULE_RULE_INDEX_V1; Po
+active provisions referencing superseded: 50
+   A57 -> ['A56']
+   A267 -> ['A260']
+   A259 -> ['A254', 'A255', 'A256', 'A257', 'A258']
+   A265 -> ['A255']
+   A344 -> ['A339']
+   A604 -> ['A591', 'A592']
+   A342 -> ['A339']
+   A346 -> ['A214']
+   A347 -> ['A185']
+   A348 -> ['A185']
+   A349 -> ['A338']
+   A373 -> ['A372']
+   A374 -> ['A372']
+   A536 -> ['A248']
+   A407 -> ['A399', 'A406']
+   A408 -> ['A398', 'A406']
+   A409 -> ['A394', 'A406']
+   A410 -> ['A397', 'A406']
+   A411 -> ['A406']
+   A412 -> ['A100', 'A109']
+   A416 -> ['A415']
+   A456 -> ['A414']
+   A430 -> ['A426', 'A429']
+   A434 -> ['A426']
+   A435 -> ['A174']
+   A441 -> ['A170']
+   A446 -> ['A69']
+   A447 -> ['A177']
+   A477 -> ['A103', 'A91']
+   A478 -> ['A29']
+   A479 -> ['A450']
+   A487 -> ['A285', 'A286', 'A48', 'E34', 'E69', 'E86', 'P43', 'P51', 'P59']
+   A488 -> ['A382']
+   A491 -> ['A490']
+   A493 -> ['A406']
+   A494 -> ['A300', 'A381']
+   A496 -> ['A130', 'A284', 'A287', 'A315']
+   A537 -> ['A528', 'A534']
+   A538 -> ['A382', 'A528']
+   A539 -> ['A382', 'A528']
+   A541 -> ['A534']
+   A545 -> ['A544']
+   A550 -> ['A426']
+   A598 -> ['A554']
+   A601 -> ['A248']
+   A603 -> ['A163', 'A245', 'E138', 'P86']
+   A481 -> ['A440']
+   A606 -> ['A602']
+   A540 -> ['A526', 'A534']
+   A469 -> ['A379']
+=== provision_reference_resolution ['predecessor_id', 'active_successor_id', 'resolution_path', 'status', 'validated_at_utc'] rows=9
+    {'predecessor_id': 'A406', 'active_successor_id': 'A411', 'resolution_path': 'A406>A411', 'status': 'active', 'validated_at_utc': '2026-09-13T23:31:26.596162Z'}
+    {'predecessor_id': 'A395', 'active_successor_id': 'A411', 'resolution_path': 'A395>A406>A411', 'status': 'active', 'validated_at_utc': '2026-09-13T23:31:26.596162Z'}
+    {'predecessor_id': 'A397', 'active_successor_id': 'A410', 'resolution_path': 'A397>A410', 'status': 'active', 'validated_at_utc': '2026-09-13T23:31:26.596162Z'}
+    {'predecessor_id': 'A394', 'active_successor_id': 'A409', 'resolution_path': 'A394>A409', 'status': 'active', 'validated_at_utc': '2026-09-13T23:31:26.596162Z'}
+=== provision_reference_resolution_v2 ['predecessor_type', 'predecessor_id', 'declared_successor_identity', 'resolved_successor_type', 'resolved_active_successor_id', 'resolution_path', 'status', 'validated_at_utc'] rows=88
+    {'predecessor_type': 'article', 'predecessor_id': 'A100', 'declared_successor_identity': 'ARTICLE_A412', 'resolved_successor_type': 'article', 'resolved_active_successor_id': 'A412', 'resolution_path': 'article:A100>article:A412', 'status': 'resolved-active', 'validated_at_utc': '2026-09-13T23:37:12.484051Z'}
+    {'predecessor_type': 'article', 'predecessor_id': 'A109', 'declared_successor_identity': 'ARTICLE_A412', 'resolved_successor_type': 'article', 'resolved_active_successor_id': 'A412', 'resolution_path': 'article:A109>article:A412', 'status': 'resolved-active', 'validated_at_utc': '2026-09-13T23:37:12.484051Z'}
+    {'predecessor_type': 'article', 'predecessor_id': 'A131', 'declared_successor_identity': 'None', 'resolved_successor_type': 'None', 'resolved_active_successor_id': 'None', 'resolution_path': 'article:A131', 'status': 'retired-no-successor', 'validated_at_utc': '2026-09-13T23:37:12.484051Z'}
+    {'predecessor_type': 'article', 'predecessor_id': 'A203', 'declared_successor_identity': 'codex/provision/article/A212', 'resolved_successor_type': 'article', 'resolved_active_successor_id': 'A219', 'resolution_path': 'article:A203>article:A212>article:A218>article:A219', 'status': 'resolved-active', 'validated_at_utc': '2026-09-13T23:37:12.484051Z'}

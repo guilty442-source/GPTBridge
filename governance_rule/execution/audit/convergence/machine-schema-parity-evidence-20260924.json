@@ -464,11 +464,5 @@
    "producer_validator_layer": "PASS",
    "persistence_layer": "CANONICAL_MISMATCH"
   }
- ],
- "subject": "machine-schema parity toolchain run — producer/validator layers deterministic, canonical persistence mismatch quantified",
- "verdict": {
-  "producer_validator_layer": "40/40 PASS — toolchain deterministic",
-  "persistence_layer": "0/40 MATCH — governor-side descriptor projection differs; canonical_semantic_hash not reproducible from registry row under any tested projection (field subsets, field-keyed, list, pipe-join, NFC variants)"
- },
- "required_action": "governor: publish canonical descriptor projection OR authorize re-stamp of canonical_semantic_hash/content_hash to toolchain outputs (see parity re-stamp proposal)"
+ ]
 }
