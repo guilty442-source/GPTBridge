@@ -18,5 +18,6 @@ imageio-ffmpeg==0.6.0
 numpy==2.5.3; python_version >= "3.12"
 numpy>=2.4,<2.6; python_version < "3.12"
 Pillow>=10.0,<14
-sentence-transformers>=4.1.0
-torch>=2.2,<3
+# A612/A621: torch/sentence-transformers/triton retired (migration-only lineage);
+# JAX+XLA is the sole training framework.
+jax>=0.10,<0.12

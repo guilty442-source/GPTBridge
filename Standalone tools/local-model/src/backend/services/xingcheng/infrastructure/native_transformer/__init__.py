@@ -1,10 +1,10 @@
 """星澄原生模型 (XingCheng Native Model) — 本地原生 Transformer 架構。
 
-正式主線技術棧：
+正式主線技術棧（A612：JAX+XLA 為唯一訓練框架；PyTorch 為 migration-only lineage）：
 
     星澄
       → Python
-      → PyTorch (nn.Module / Tensor / Autograd)
+      → JAX/XLA（jax_backend；訓練）+ PyTorch lineage（遷移窗口，唯讀延續）
       → Transformer (Embedding / Attention / MLP / RMSNorm / Residual / LM Head / Sampling)
       → Tensor Operations (GEMM / Softmax / Reduction / Activation / Gather / Scatter ...)
       → Computation Graph + Autograd (Backward Graph / Gradient / Optimizer)

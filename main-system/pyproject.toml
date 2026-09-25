@@ -26,11 +26,7 @@ local-model = [
     "numpy==2.5.3; python_version >= '3.12'",
     "numpy>=2.4,<2.6; python_version < '3.12'",
     "pillow>=10.0,<14",
-    "sentence-transformers>=4.1.0",
-    "torch>=2.2,<3",
-]
-gpu = [
-    "triton>=3.0,<4",
+    "jax>=0.10,<0.12",
 ]
 
 [tool.uv]

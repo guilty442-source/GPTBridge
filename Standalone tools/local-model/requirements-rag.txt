@@ -1,17 +1,12 @@
 # 星澄原生模型 + RAG 執行期依賴。
-# torch 為原生 Transformer 計算後端；triton 為可選 GPU 加速核心，
-# 不可用時自動回退至 PyTorch 純實作。
+# A612：JAX+XLA 為唯一訓練框架（native_transformer/jax_backend）；
+# PyTorch/sentence-transformers/triton 已退役為 migration-only lineage，
+# 不再於 manifest 宣告（A621）。
 numpy==2.5.3; python_version >= "3.12"
 numpy>=2.4,<2.6; python_version < "3.12"
+jax>=0.10,<0.12
 psycopg[binary]>=3.2,<4
 qdrant-client>=1.12,<2
 # P24: psutil removed — process/system metrics go through the native
 # primitives via shared_layer.performance.process_metrics (fail-closed).
-sentence-transformers>=4.1.0
 tokenizers>=0.20,<1
-torch>=2.2,<3
-
-# 可選 GPU 加速（triton 不可用時自動回退至 PyTorch）
-# Linux 用官方 triton；Windows 用 triton-windows port（提供同名 triton 模組）
-# triton>=3.0,<4 ; sys_platform == "linux"
-# triton-windows>=3.0,<4 ; sys_platform == "win32"

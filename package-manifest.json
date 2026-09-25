@@ -19,6 +19,9 @@
     "cargo": "not found (Rust not installed)",
     "numpy_installed": "2.4.6",
     "numpy_target": "2.5.3 (requires Python >=3.12, current 3.11.9, pending Python 3.14.7 upgrade)",
+    "jax": "JAX 0.11.x (XLA; sole training framework per A612)",
+    "jax_installed": "0.10.2 (main-system venv, py3.11) / 0.11.2 (root venv, py3.13)",
+    "pytorch": "RETIRED (A612->JAX); migration-only lineage, not declared in manifests",
     "nodejs_types": "26.6.2",
     "nodejs": "v26.9.0"
   },

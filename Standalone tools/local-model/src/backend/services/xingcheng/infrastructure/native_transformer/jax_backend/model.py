@@ -172,5 +172,8 @@ def forward_logits(
         gate = jax.nn.silu(normed @ block["w1"])
         x = x + ((gate * (normed @ block["w3"])) @ block["w2"])
     x = _rms_norm(x, params["final_norm"], eps)
-    head = params["lm_head"] if params["lm_head"] is not None else params["tok_emb"]
+    head = params["lm_head"]
+    if head is None:
+        # tied embeddings：tok_emb [V,H] 共享為 LM head → x @ W^T
+        return x @ jnp.swapaxes(params["tok_emb"], -1, -2)
     return x @ head
