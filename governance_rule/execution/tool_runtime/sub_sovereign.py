@@ -1,9 +1,9 @@
 """sub_sovereign — 受治理執行器契約（模組執行層之執行器官）。
 
 本契約描述 **模組執行層** 的受治理執行器（GovernedToolRuntime），
-非法典子主宰決策層。法典子主宰（A315/A322/A323/A324）為無決策、
-無審查、無授權、無執行之管理角色，定義於
-``main-system/governance/sub_sovereigns/``，與本契約為不同層次。
+非法典子主宰決策層。法典子主宰層已退役（A592/A604：原
+``main-system/governance/sub-sovereigns/`` 套件已刪除），與本契約
+為不同層次；本契約不受該層退役影響。
 
 本契約中各域 channel_runtime.py 之 GovernedToolRuntime 實例為受治理
 執行器，向其隸屬主宰回報通道角色、健康狀態與本地維護（清理／修復／
