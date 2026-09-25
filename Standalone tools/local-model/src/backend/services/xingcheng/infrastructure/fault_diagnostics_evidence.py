@@ -268,6 +268,44 @@ class FaultDiagnosticsEvidenceMixin:
         limit: int = _MAX_OUTBOX_EVENTS,
     ) -> list[dict[str, Any]]:
         """Recent committed outbox events (A195) — newest first."""
+        import os
+
+        engine = str(
+            os.environ.get("GPTBRIDGE_OUTBOX_ENGINE", "") or "postgresql"
+        ).strip().lower()
+        if engine == "postgresql":
+            try:
+                import psycopg
+
+                from shared_layer.security.dsn_policy import (
+                    DsnPurpose,
+                    resolve_dsn,
+                )
+
+                with psycopg.connect(
+                    resolve_dsn(DsnPurpose.RUNTIME).dsn
+                ) as db:
+                    rows = db.execute(
+                        "SELECT sequence, entity_type, entity_id, operation, "
+                        "authoritative_revision, committed_at "
+                        "FROM gptbridge_transport.outbox_event "
+                        "ORDER BY sequence DESC LIMIT %s",
+                        (max(1, int(limit)),),
+                    ).fetchall()
+            except Exception:
+                return []
+            return [
+                {
+                    "sequence": int(row[0]),
+                    "entity_type": str(row[1] or ""),
+                    "entity_id": str(row[2] or ""),
+                    "operation": str(row[3] or ""),
+                    "authoritative_revision": int(row[4] or 0),
+                    "committed_at": str(row[5] or ""),
+                }
+                for row in rows
+            ]
+
         path = self.state_dir / "state-outbox.sqlite3"
         if not path.is_file():
             return []

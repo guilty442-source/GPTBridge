@@ -168,8 +168,21 @@ def sign_launcher_attestation(
 
 
 class _NonceStore:
-    def __init__(self, project_root: Path, policy: object) -> None:
-        database = resolve_project_path(project_root, policy.nonce_store_path)
+    # Bounded migration-window fallback path (A501): used when the policy
+    # authority moved to PostgreSQL but ``GPTBRIDGE_NONCE_ENGINE=sqlite``
+    # selects this store for the migration window or test isolation.
+    SQLITE_FALLBACK_PATH = "main-system/runtime/state/governance_authentication.sqlite3"
+
+    def __init__(
+        self,
+        project_root: Path,
+        policy: object,
+        *,
+        path: str | None = None,
+    ) -> None:
+        database = resolve_project_path(
+            project_root, path or policy.nonce_store_path
+        )
         directory = directory_authority_snapshot()
         main_boundary = next(
             (
@@ -340,7 +353,13 @@ def _build_nonce_store(project_root: Path, policy: object):
     if engine == "postgresql":
         return _PostgresNonceStore(policy)
     if engine == "sqlite":
-        return _NonceStore(project_root, policy)
+        target = str(getattr(policy, "nonce_store_path", "") or "")
+        fallback = (
+            _NonceStore.SQLITE_FALLBACK_PATH
+            if target.startswith("postgresql:")
+            else None
+        )
+        return _NonceStore(project_root, policy, path=fallback)
     raise permission_denied()
 
 

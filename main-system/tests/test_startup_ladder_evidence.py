@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
+
+import pytest
 from pathlib import Path
 
 SRC_CORE = Path(__file__).resolve().parents[1] / "src-core"
@@ -53,7 +55,10 @@ def test_private_state_corrupt_store_fails_closed(tmp_path: Path) -> None:
     assert result["stores"]["updates"] != "ok"
 
 
-def test_recovery_ready_with_inspectable_outbox(tmp_path: Path) -> None:
+def test_recovery_ready_with_inspectable_outbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GPTBRIDGE_OUTBOX_ENGINE", "sqlite")
     outbox = tmp_path / "state-outbox.sqlite3"
     conn = sqlite3.connect(outbox)
     conn.execute(
@@ -72,7 +77,10 @@ def test_recovery_ready_with_inspectable_outbox(tmp_path: Path) -> None:
     assert result["total_events"] == 2
 
 
-def test_recovery_not_ready_without_outbox(tmp_path: Path) -> None:
+def test_recovery_not_ready_without_outbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GPTBRIDGE_OUTBOX_ENGINE", "sqlite")
     result = _probe_recovery(tmp_path)
     assert result["ready"] is False
     assert result["reason"] == "outbox-absent"

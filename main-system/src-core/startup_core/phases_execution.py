@@ -65,6 +65,37 @@ def _probe_private_state(state_root: Any) -> dict[str, Any]:
 
 def _probe_recovery(state_root: Any) -> dict[str, Any]:
     """RECOVERY_READY evidence: transport outbox backlog is inspectable."""
+    import os  # noqa: PLC0415
+
+    engine = str(
+        os.environ.get("GPTBRIDGE_OUTBOX_ENGINE", "") or "postgresql"
+    ).strip().lower()
+    if engine == "postgresql":
+        try:
+            import psycopg  # noqa: PLC0415
+
+            from shared_layer.security.dsn_policy import (  # noqa: PLC0415
+                DsnPurpose,
+                resolve_dsn,
+            )
+
+            with psycopg.connect(resolve_dsn(DsnPurpose.RUNTIME).dsn) as conn:
+                pending = conn.execute(
+                    "SELECT COUNT(*) FROM gptbridge_transport.outbox_event "
+                    "WHERE committed_at IS NULL"
+                ).fetchone()[0]
+                total = conn.execute(
+                    "SELECT COUNT(*) FROM gptbridge_transport.outbox_event"
+                ).fetchone()[0]
+        except Exception as error:  # noqa: BLE001 — probe must not raise
+            return {"ready": False, "reason": f"{type(error).__name__}: {error}"}
+        return {
+            "ready": True,
+            "engine": "postgresql",
+            "pending_events": pending,
+            "total_events": total,
+        }
+
     import sqlite3  # noqa: PLC0415
 
     outbox = state_root / "state-outbox.sqlite3"
