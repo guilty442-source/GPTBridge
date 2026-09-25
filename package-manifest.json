@@ -14,7 +14,13 @@
     "electron": "Electron 44.4.5",
     "postgresql": "PostgreSQL 18.6",
     "sqlite": "disabled",
-    "git": "Git 2.55.0"
+    "git": "Git 2.55.0",
+    "nodejs_runtime": "v26.9.0",
+    "cargo": "not found (Rust not installed)",
+    "numpy_installed": "2.4.6",
+    "numpy_target": "2.5.3 (requires Python >=3.12, current 3.11.9, pending Python 3.14.7 upgrade)",
+    "nodejs_types": "26.6.2",
+    "nodejs": "v26.9.0"
   },
   "node": {
     "react": "19.2.8",
@@ -107,5 +113,6 @@
     "urllib3": "2.8.0",
     "uvicorn": "0.54.0",
     "websockets": "17.1"
-  }
+  },
+  "nuget": "  甇典斗瑁撠獢...\n  撠獢賢冽啁嚗舫脰\n撠獢 'StarBusinessLogic' 隞乩憟隞嗅\n   [net10.0]: 曆唬遙雿甇 Framework 憟隞嗚\n"
 }

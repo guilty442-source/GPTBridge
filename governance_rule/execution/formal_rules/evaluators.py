@@ -1208,6 +1208,27 @@ def _language_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "language versions validated"
 
 
+@register_rule("RULE_VECTOR_ENGINE_RUST_V1")
+def _vector_engine_rust(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A611): Rust Vector Engine 1.98.1 + SQLite retired."""
+    engine = str(facts.get("vector_engine") or facts.get("engine") or "").lower()
+    if engine and "rust" not in engine and "qdrant" not in engine:
+        return False, "FAIL_CLOSED", f"vector engine must be rust-vector-engine, got {engine!r}"
+    sqlite = str(facts.get("sqlite") or facts.get("sqlite_status") or "").lower()
+    if sqlite and "retired" not in sqlite and "disabled" not in sqlite:
+        return False, "FAIL_CLOSED", "sqlite must be retired/disabled"
+    return True, "PASS", "vector engine validated"
+
+
+@register_rule("RULE_JAX_PYTORCH_V1")
+def _jax_pytorch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A612): JAX replaces PyTorch."""
+    framework = str(facts.get("framework") or facts.get("ml_framework") or "").lower()
+    if framework and "jax" not in framework:
+        return False, "FAIL_CLOSED", f"framework must be jax, got {framework!r}"
+    return True, "PASS", "JAX validated"
+
+
 @register_rule("RULE_INFRA_VERSIONS_V1")
 def _infra_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A610): PostgreSQL18.6/SQLite disabled/TypeScript7.0.2/Electron44.4.5/Git2.55.0."""

@@ -367,6 +367,38 @@ boot. Acceptance tests: `main-system/tests/test_p0_lazy_lifecycle_handover.py`
 + stability window; failures mark `failed-isolated`/`rolled-back` and
 reactivate the previous generation).
 
+## 星澄 Governed Metasearch (searchd / `xingcheng-searchd/v1`)
+
+Web search is served by **searchd**, a Go-native metasearch engine
+(`Standalone tools/searchd-go/`, module `xingcheng/searchd`, go-service
+layer per LanguagePolicy — versioned-contract consumer only). It replaces
+SearXNG as the primary provider: concurrent fan-out to compiled-in
+credential-free adapters (Wikipedia opensearch, Bing RSS, DuckDuckGo
+Lite), URL-normalization dedupe, deterministic reciprocal-rank fusion
+(k=60), bounded metadata-only results.
+
+Governance boundary is unchanged: the only entry point is the governed
+`xingcheng_web_search` command (`local_ai_lifecycle._run_web_search`),
+which audits into `web_search_log` and returns bounded metadata.
+Provider chain is driven by `runtime/settings/web-search.json`
+(`provider`: `auto`/`searchd`/`searxng`; env `XINGCHENG_SEARCH_PROVIDER`
+/`XINGCHENG_SEARCHD_URL`/`XINGCHENG_SEARXNG_URL` override; `auto_start`
+lazily spawns `searchd-go/bin/searchd.exe`). `auto` = searchd first,
+empty-or-error degrades to SearXNG. searchd hard-fails to start on any
+non-loopback listen address; outbound destinations are a compiled-in
+allowlist (`*.wikipedia.org`, `*.duckduckgo.com`, `bing.com`) enforced at
+the transport layer including redirects — it can never act as an
+arbitrary proxy. Contract: `Standalone tools/searchd-go/CONTRACT.md`.
+Portable Go toolchain lives in `.tools/` (gitignored).
+
+```powershell
+# build + test + run
+cd 'Standalone tools\searchd-go'
+go build -o bin\searchd.exe .\cmd\searchd
+go test ./...
+.\bin\searchd.exe   # 127.0.0.1:8091, POST /v1/search, GET /healthz
+```
+
 ## On-Demand Model Activation (Lazy 星澄)
 
 > Normative authority: Codex A586。
