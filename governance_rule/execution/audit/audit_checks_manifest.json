@@ -1,6 +1,6 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-25T11:02:12Z",
+  "generated_at": "2026-09-25T12:08:33Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
     "native_checks": 367,
