@@ -8,6 +8,17 @@ from pathlib import Path
 
 HOOK_VERSION = 1
 
+# Governed checks need the project interpreter: audit/manifest modules
+# import packages installed only in ``main-system/.venv`` (e.g. psycopg).
+# ``env python`` resolves the base interpreter, so re-exec when the venv
+# interpreter exists and this process is not already running it.
+_VENV_PYTHON = (
+    Path(__file__).resolve().parents[2]
+    / "main-system" / ".venv" / "Scripts" / "python.exe"
+)
+if _VENV_PYTHON.is_file() and Path(sys.executable).resolve() != _VENV_PYTHON:
+    os.execv(str(_VENV_PYTHON), [str(_VENV_PYTHON), str(Path(__file__).resolve())])
+
 WORKTREE_ROOT = Path.cwd()
 PROJECT_ROOT = WORKTREE_ROOT
 sys.path.insert(0, str(PROJECT_ROOT))
