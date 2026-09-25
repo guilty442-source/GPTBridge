@@ -2,7 +2,7 @@
   "artifact": "codex-amendment-request",
   "authority": "request-only",
   "schema": "codex-amendment-request/v1",
-  "request_id": "cfamily-primary-stack-one-format-20260925-r2",
+  "request_id": "cfamily-primary-stack-one-format-20260925-r3",
   "title": "Declare C-family primary execution stack, one-language-one-format convergence, and A610 language reallocation",
   "summary": "Re-order the governed language stack so C23/C++23/C#14 (.NET 10 GC, unified format, automatic memory management) carry primary execution, bound Python to on-demand governance semantics, declare exactly one canonical authored-source format per language with grandfathered alternates denied for new files, and introduce provision A610 anchoring RULE_LANGUAGE_REALLOCATION_V1. Composes on the executed go-rust r3 text; Go and Rust keep their bounded roles.",
   "requested_by": "decision-sovereign",
@@ -63,14 +63,6 @@
       },
       "field": "rule",
       "proposed": "SUCCESSOR:A604 supersedes A591 and A592 and controls five-core and historical-sub-sovereign responsibility convergence. CURRENT-PEER-CORES:decision-core|permission-core|runtime-core|automation-core|xingcheng-assistant. XINGCHENG native model remains a separate owned model identity and not a core or independent tool. SUB-SOVEREIGN-LAYER:abolished; former identities are retired lineage only. RESPONSIBILITY-NORMALIZATION:policy/architecture+health/maintenance/test+data outcome+priority/change acceptance>decision-core and registered modules;directory+identity+permission+security-audit enforcement>permission-core and registered modules;startup+runtime-state+process lifecycle+governed execution>runtime-core and registered modules;resources+dependencies+channels+release/update+repair scheduling+cleanup/log synchronization>automation-core and registered modules;global alignment review+user permission interface+notification>xingcheng-assistant;self-learning+self-repair proposal+native-model evolution>XINGCHENG owned modules. MODULES execute domain work without independent authority. LANGUAGE-RESPONSIBILITY:C23 executes approved deterministic rules,permission hot paths,resident runtime and native tests;C++23 owns native capabilities,inference,native tests and approved audit hot paths;C#14 on .NET 10 GC owns interfaces,authorized orchestration,Windows .NET integration and the sole TestSuiteOrchestrator;FSharp owns analysis,ML and high-correctness calculation;Go owns bounded concurrent services,transport workers,network adapters and portable operational binaries;Rust owns memory-safe systems capabilities,parsers and integrity/security-sensitive native components;Python is bounded on-demand governance/model research/training/boundary only and is nonresident after request completion. OPTIMIZATION-TARGET:new execution work prefers C23/C++23/C#14 for high performance,high execution speed,low consumption and low resource footprint;Python dependency is reduced to its bounded role. Go and Rust acquire execution ownership only through registered versioned contracts and never acquire governance,permission or business authority. FIVE-CORE-SUITE-AUTONOMY:each core independently adjusts owned suites subject to language rules."
-    },
-    {
-      "table": "articles",
-      "key": {
-        "provision_id": "A610"
-      },
-      "field": "rule",
-      "proposed": "NEW-PROVISION:language-reallocation-primary-adaptive; SUBJECT:primary-language-reallocation-and-dotnet10-runtime; RULE:PRIMARY-LANGUAGES:C23>C++23>C#14(.NET 10); .NET-RUNTIME:unified format+automatic memory management via .NET 10 GC for all CSharp-owned surfaces; ADAPTIVE:the evaluator RULE_LANGUAGE_REALLOCATION_V1 validates primary_languages facts against c23/cpp23/csharp14 (.NET 10) and requires dotnet_version=10 when csharp is primary; PYTHON-REDUCTION:Python residency shrinks to bounded on-demand governance semantics; FAIL-CLOSED:facts lacking any primary language or carrying a non-10 .NET runtime verdict FAIL_CLOSED; AUTHORITY:execution ownership only;no governance,permission or business authority is granted by reallocation."
     }
   ],
   "proposed_delta": {
@@ -102,5 +94,22 @@
     ],
     "audit": "governance_rule.execution.audit must exit 0 after registry changes",
     "requested_at": "2026-09-25T04:45:00Z"
-  }
+  },
+  "proposed_successors": [
+    {
+      "registry": "articles",
+      "action": "insert",
+      "rows": [
+        {
+          "position": 610,
+          "provision_id": "A610",
+          "section_index": "7",
+          "subject": "primary-language-reallocation-and-dotnet10-runtime",
+          "rule": "PRIMARY-LANGUAGES:C23>C++23>C#14(.NET 10); .NET-RUNTIME:unified format+automatic memory management via .NET 10 GC for all CSharp-owned surfaces; ADAPTIVE:the evaluator RULE_LANGUAGE_REALLOCATION_V1 validates primary_languages facts against c23/cpp23/csharp14 (.NET 10) and requires dotnet_version=10 when csharp is primary; PYTHON-REDUCTION:Python residency shrinks to bounded on-demand governance semantics",
+          "prohibition": "FORBID:primary-language-undeclared|non-dotnet10-csharp-runtime|python-resident-mechanical-work; FAIL-CLOSED on facts lacking any primary language or carrying a non-10 .NET runtime verdict",
+          "exception": "execution ownership only; no governance, permission or business authority is granted by reallocation"
+        }
+      ]
+    }
+  ]
 }
