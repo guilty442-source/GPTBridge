@@ -1,0 +1,111 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "formal-rule-parity-versions-activation-20260925-r2",
+  "title": "Advance RULE_LANGUAGE_VERSIONS_V1 and RULE_INFRA_VERSIONS_V1 to evaluator-parity-verified and register their ownership-map rows",
+  "summary": "Two rules entered formal_rule_registry with status=proposed (unified language versions C23/C++23/C#14/.NET10/F#10/Rust1.98.1/Go1.27.1/Python3.14.7/NumPy2.5.3 and infrastructure versions PostgreSQL18.6/SQLite-disabled/TypeScript7.0.2/Electron44.4.5/Git2.55.0). Both machine evaluators are registered in evaluators.py and both pass the canonical parity fixtures (71/71 PASS). This request promotes them to evaluator-parity-verified and registers their ownership-map rows.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive 2026-09-25: unified language and infrastructure version surface; evaluator registration precedes this activation request",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T12:04:12Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+    "revision_sequence": 75
+  },
+  "proposed_successors": [
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_LANGUAGE_VERSIONS_V1"
+      },
+      "set": {
+        "status": "declared-pending-evaluator-parity"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_LANGUAGE_VERSIONS_V1"
+      },
+      "set": {
+        "status": "evaluator-parity-verified",
+        "parity_status": "VERIFIED",
+        "parity_evidence_id": "07c2aadfdf3872894a3e",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_INFRA_VERSIONS_V1"
+      },
+      "set": {
+        "status": "declared-pending-evaluator-parity"
+      }
+    },
+    {
+      "registry": "formal_rule_registry",
+      "action": "update",
+      "key": {
+        "rule_code": "RULE_INFRA_VERSIONS_V1"
+      },
+      "set": {
+        "status": "evaluator-parity-verified",
+        "parity_status": "VERIFIED",
+        "parity_evidence_id": "5c3534024626805efd5b",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "formal_rule_ownership_map",
+      "action": "insert",
+      "rows": [
+        {
+          "invariant_code": "language-reallocation:RULE_LANGUAGE_VERSIONS_V1",
+          "rule_code": "RULE_LANGUAGE_VERSIONS_V1",
+          "owner_domain": "language-reallocation",
+          "status": "current",
+          "version_identity": "<successor-version>"
+        },
+        {
+          "invariant_code": "infrastructure-versions:RULE_INFRA_VERSIONS_V1",
+          "rule_code": "RULE_INFRA_VERSIONS_V1",
+          "owner_domain": "infrastructure-versions",
+          "status": "current",
+          "version_identity": "<successor-version>"
+        }
+      ]
+    }
+  ],
+  "mapping_basis": {
+    "source": "governance_rule/execution/formal_rules/parity.py run + formal_rules/fact_fixtures.py canonical fixtures",
+    "rule": "RULE_STATE_TRANSITIONS chain enforced by codex_amendment_contract.validate_rule_transition; parity evidence required for evaluator-parity-verified",
+    "ownership_row": "formal_rule_ownership_map convention <owner_domain>:<rule_code> with status=current"
+  },
+  "required_execution_steps": [
+    "five-sovereign-audit",
+    "human-governor-review",
+    "governed-successor-seal",
+    "authority-re-anchor",
+    "certification-complete"
+  ],
+  "out_of_scope": [
+    "actual toolchain upgrades (Python 3.14.7, PostgreSQL 18.6, Git 2.55.0 runtime installs remain operator work)",
+    "machine_schema_registry parity debt (separate workstream)",
+    "semantic_hash/evaluator_hash/test_contract_hash/controlling_provision_hash on the rule rows (governor-side seal-time data)"
+  ],
+  "evidence": [
+    "parity run formal-rule-parity-2026-09-25T121341Z.json: 71/71 PASS; RULE_LANGUAGE_VERSIONS_V1 evidence_id=07c2aadfdf3872894a3e, RULE_INFRA_VERSIONS_V1 evidence_id=5c3534024626805efd5b, both decision=PASS",
+    "evaluators registered: governance_rule/execution/formal_rules/evaluators.py RULE_LANGUAGE_VERSIONS_V1 (A609) + RULE_INFRA_VERSIONS_V1 (A610)",
+    "canonical fixtures added: fact_fixtures.py PARITY_FACT_FIXTURES entries for both rules exercise the real pass paths"
+  ]
+}
