@@ -1,0 +1,31 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v1",
+ "request_id": "test-audit-responsibility-division-20260925",
+ "title": "Final test and audit responsibility division with unified evidence pipeline",
+ "summary": "Governor directive: test and audit formally integrated. Per-language test/audit responsibility - C/C++ native suites+ABI+runtime+inference parity; Rust vector engine+FFI+recovery+Tauri; Go search+batch I/O+cancellation+concurrency; F# domain rules+state transition+data validation; C# TestSuiteOrchestrator+application+contract tests; Python necessary governance tests+JAX tests+push gate; Julia numerical+optimization+simulation tests; JavaScript React+IPC schema+Tauri UI integration; PostgreSQL migration+transaction+data authority tests. Formal evidence flow: per-language native tests>C# TestSuiteOrchestrator>unified test evidence>C++ audit engine>Python governance/push gate>formal verdict. No second formal test orchestrator,audit engine or release gate is created for Rust,Go,Julia or JAX.",
+ "requested_by": "decision-sovereign",
+ "origin": "human-governor directive 2026-09-25: final test and audit responsibility division",
+ "change_class": "clarification",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "predecessor": {
+  "codex_version": "2026-09-25T15:15:25Z",
+  "version_identity": "E2:2026-09-23T03:13:43Z",
+  "version_epoch": 2,
+  "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+  "revision_sequence": 75
+ },
+ "changes": [
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A610"
+   },
+   "field": "rule",
+   "proposed": "PRIMARY-LANGUAGES:C23>C++23>C#14(.NET 10 shared with F#10); INFRA-VERSIONS:PostgreSQL=18.6 sole structured data authority+Git=2.55.0 source version management+React=19.2.8 frontend components+TypeScript=retired-succeeded-by-JavaScript-ESM+SQLite=disabled(retire-after-data-migration)+Qdrant=retired-after-rust-vector-engine-cutover+Rust-Vector-Engine=target-primary-semantic-index+Node.js=retired-succeeded-by-Go/Rust+PyTorch=retired-succeeded-by-JAX; .NET-RUNTIME:unified format+automatic memory management via .NET 10 GC for all CSharp and FSharp surfaces; ADAPTIVE:evaluators RULE_LANGUAGE_REALLOCATION_V1+RULE_LANGUAGE_VERSIONS_V1+RULE_INFRA_VERSIONS_V1 validate primary and version facts fail-closed; PYTHON-MINIMIZATION:Python residency is limited to exactly three domains-governance(necessary sovereign semantics+governance rules+governance thin-wrapper;necessary portions resident)+xingcheng-training(JAX+jaxlib+necessary training packages+NumPy;activated at training time)+development-verification(necessary pytest+governance verification+push gate;activated at development or verification time);all other Python use is denied PYTHON-WORK-TRANSFER:all remaining Python work transfers to its already-approved language owner-network-search>Go xingcheng search engine;web and external data acquisition>Go network I/O;batch files and streaming>Go batch/IO tools;vector indexing>Rust vector engine;RAG retrieval mechanical execution>Rust with PostgreSQL retaining formal data validation;untrusted-data parsing>Rust designated native-security component;statistics and scientific computation>Julia on-demand analysis;optimization and simulation>Julia numerical work;business rules>FSharp non-sovereign domain logic;data validation and transformation>FSharp business data;business process>CSharp application/workflow;system scheduling and state>existing C/C++(no second Rust/Go scheduler);formal model inference>C++/C(no second formal inference engine);model training>Python+JAX retained;necessary governance semantics>Python retained. TRANSFER-INVARIANTS:Julia does not replace JAX;Rust does not replace the existing C23 runtime;Go does not replace CSharp workflow. OWNERSHIP:each capability has exactly one formal execution owner. DATA-ARCHITECTURE-TARGET:GPTBridge>PostgreSQL>canonical source data>index events>Rust vector engine>ANN retrieval>candidate IDs>PostgreSQL scope/revision/tombstone>authorized context. DATA-SAFETY:SQLite and Qdrant retirement is decided but actual data MUST NOT be deleted before data migration and consumer validation complete; the Rust vector index stores only rebuildable derived data and never replaces PostgreSQL as the formal data authority; pre-cutover Qdrant canonical-semantic-index articles remain in effect until the cutover event completes. TEST-AUDIT-RESPONSIBILITY:C/C++>native suites+ABI+runtime+inference parity;Rust>vector engine+FFI+recovery+Tauri;Go>search+batch I/O+cancellation+concurrency;FSharp>domain rules+state transition+data validation;CSharp>TestSuiteOrchestrator+application+contract tests;Python>necessary governance tests+JAX tests+push gate;Julia>numerical+optimization+simulation tests;JavaScript>React+IPC schema+Tauri UI integration;PostgreSQL>migration+transaction+data authority tests. TEST-EVIDENCE-FLOW:per-language native tests>CSharp TestSuiteOrchestrator>unified test evidence>C++ audit engine>Python governance/push gate>formal verdict. SINGLE-PIPELINE-INVARIANT:no second formal test orchestrator,audit engine or release gate is created for Rust,Go,Julia or JAX."
+  }
+ ]
+}
