@@ -81,6 +81,7 @@ class XingchengSovereign(
     """星澄主宰：自有域完全權力，隔離於系統決策鏈。"""
 
     sovereign_id = "星澄"
+    ROLE = "星澄"
 
     # A10/A11 explicit intent allowlist — adjudicated intents explicitly
     _EXECUTION_INTENTS: frozenset[str] = frozenset(

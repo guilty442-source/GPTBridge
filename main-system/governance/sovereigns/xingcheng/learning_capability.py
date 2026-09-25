@@ -530,20 +530,13 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
     # Learning-driven fault-message reconciliation
     # ------------------------------------------------------------------
 
-    def _project_root(self) -> Path:
-        raw = getattr(self.app, "project_root", None)
-        if raw:
-            return Path(raw).resolve()
-        # governance/sovereigns/xingcheng/... -> main-system -> GPTBridge
-        return Path(__file__).resolve().parents[4]
-
     def _ensure_learner(self) -> None:
         if self._learner is not None:
             return
         try:
             from tasks.repair_learning import RepairLearner, RepairLearningStore
 
-            root = self._project_root()
+            root = self._project_root
             self._store = RepairLearningStore(
                 root / "main-system" / "data" / "automatic-repair"
             )

@@ -171,14 +171,14 @@ class MaintenanceUpdateMixin:
         *,
         approval_token: str | None = None,
     ) -> Any:
-        """Delegate an approved third-party update to the third-party sovereign."""
-        decision_sovereign = getattr(self.app, "decision_sovereign", None)
-        third_party = getattr(decision_sovereign, "third_party_sovereign", None)
+        """Delegate an approved third-party update to the automation-core module."""
+        automation_sovereign = getattr(self.app, "automation_sovereign", None)
+        third_party = getattr(automation_sovereign, "third_party_manager", None)
         if third_party is None:
-            raise RuntimeError("third-party sovereign is not available")
-        apply = getattr(third_party, "apply_approved_update")
+            raise RuntimeError("third-party update module is not available")
+        apply = getattr(third_party, "execute_update")
         if not callable(apply):
-            raise RuntimeError("third-party sovereign does not expose apply_approved_update")
+            raise RuntimeError("third-party module does not expose execute_update")
         return await apply(tool_id, approval_token=approval_token)
 
     async def execute_auto_third_party_updates(
@@ -187,12 +187,12 @@ class MaintenanceUpdateMixin:
         approval_token: str = "maintenance-auto",
         only_available: bool = True,
     ) -> Any:
-        """Delegate approved automatic third-party updates to the third-party sovereign."""
-        decision_sovereign = getattr(self.app, "decision_sovereign", None)
-        third_party = getattr(decision_sovereign, "third_party_sovereign", None)
+        """Delegate approved automatic third-party updates to the automation-core module."""
+        automation_sovereign = getattr(self.app, "automation_sovereign", None)
+        third_party = getattr(automation_sovereign, "third_party_manager", None)
         if third_party is None:
-            raise RuntimeError("third-party sovereign is not available")
-        apply = getattr(third_party, "apply_approved_auto_updates")
+            raise RuntimeError("third-party update module is not available")
+        apply = getattr(third_party, "execute_auto_updates")
         if not callable(apply):
-            raise RuntimeError("third-party sovereign does not expose apply_approved_auto_updates")
+            raise RuntimeError("third-party module does not expose execute_auto_updates")
         return await apply(approval_token=approval_token, only_available=only_available)

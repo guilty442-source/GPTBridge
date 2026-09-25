@@ -72,6 +72,49 @@ class AutomationSovereign(
         self._autonomy_stop = asyncio.Event()
 
     # ------------------------------------------------------------------
+    # Third-party dependency module (A604: third-party-dependency domain
+    # normalized to automation-core; ThirdPartyManager is the governed
+    # execution module, not a sovereign)
+    # ------------------------------------------------------------------
+
+    @property
+    def third_party_manager(self) -> Any:
+        """Lazily build the governed third-party update module."""
+        manager = self.__dict__.get("_third_party_manager")
+        if manager is None:
+            from pathlib import Path
+
+            from core_system.third_party_manager import ThirdPartyManager
+
+            workspace = Path(getattr(self.app, "project_root", Path.cwd()))
+            manager = ThirdPartyManager(
+                workspace
+                / "governance_rule"
+                / "execution"
+                / "third_party_management"
+                / "tool_inventory.json",
+                token_authenticator=self._third_party_token_authenticator,
+            )
+            self.__dict__["_third_party_manager"] = manager
+        return manager
+
+    def _third_party_token_authenticator(self, token: str) -> Any:
+        """Authenticate a third-party approval token through the governance
+        authentication service (fail-closed: any unavailable or invalid state
+        raises so the manager denies the update)."""
+        governance = getattr(self.app, "governance", None)
+        if governance is None:
+            raise PermissionError("governance-unavailable")
+        authentication = getattr(governance, "_authentication", None)
+        if authentication is None:
+            authentication = getattr(governance, "authentication", None)
+        if authentication is None or not callable(
+            getattr(authentication, "authenticate_token", None)
+        ):
+            raise PermissionError("governance-authentication-unavailable")
+        return authentication.authenticate_token(token)
+
+    # ------------------------------------------------------------------
     # Intent gate (A10/A11 explicit allowlist)
     # ------------------------------------------------------------------
 

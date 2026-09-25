@@ -224,7 +224,7 @@ class LearningReconciliationMixin:
           confirmed does not stay on the fault surface.
         """
         self._ensure_learner()
-        root = Path(project_root).resolve() if project_root else self._project_root()
+        root = Path(project_root).resolve() if project_root else self._project_root
         if self._learner is None:
             return {
                 "ok": False,
