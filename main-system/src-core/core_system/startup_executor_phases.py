@@ -242,6 +242,12 @@ class StartupExecutorPhasesMixin:
 
             app.sleep_policy = SleepPolicyManager(app, app.toolbox_service)
             await app.sleep_policy.start()
+            # On-demand executions are demand signals for the idle
+            # manager — the callback was declared on ToolboxService but
+            # never wired, so requests could not refresh the baseline.
+            app.toolbox_service._tool_activity_callback = (
+                app.sleep_policy.note_activity
+            )
         _lap("sleep_policy_ms")
         if getattr(app, "git_automation", None) is None:
             from tasks.git_automation import GitAutomationService

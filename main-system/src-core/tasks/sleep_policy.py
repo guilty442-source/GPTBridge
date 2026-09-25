@@ -28,6 +28,7 @@ State: ``runtime/state/sleep-policy.json``; audit:
 from __future__ import annotations
 
 import asyncio
+import calendar
 import json
 import logging
 import os
@@ -92,11 +93,6 @@ class SleepPolicyManager:
         self._stop_event = asyncio.Event()
         # tool_id -> last observed activity epoch (first seen = now)
         self._last_active: dict[str, float] = {}
-        # tool_id -> marker identifying the currently observed
-        # process/session (started request id, else active request id).
-        # A changed or newly appearing marker means the process (re)started
-        # since the previous scan — its idle baseline cannot predate that.
-        self._process_marks: dict[str, str] = {}
         # tool_id -> current tier ("hot"|"warm"|"cold")
         self._tiers: dict[str, str] = {}
         self._last_decisions: dict[str, str] = {}
@@ -237,22 +233,9 @@ class SleepPolicyManager:
         never_sleep = set(policy["never_sleep"])
         overrides = policy["units"] if isinstance(policy["units"], dict) else {}
 
-        tools = await self._running_marks()
+        tools = await self._running_tools()
         now = time.time()
-        # Marks for vanished tools are dropped so a later re-appearance
-        # counts as a fresh process even if its marker repeats.
-        for gone in set(self._process_marks) - set(tools):
-            self._process_marks.pop(gone, None)
         for tool_id in sorted(tools):
-            if self._process_marks.get(tool_id) != tools[tool_id]:
-                # Freshly (re)started process/session — reset the idle
-                # baseline.  Without this a stale ``_last_active`` epoch
-                # survives restarts and the very next scan cold-sleeps a
-                # just-woken unit before it can serve the request that
-                # demanded it (observed: every governed/local-model wake
-                # killed ~35 s after start).
-                self._process_marks[tool_id] = tools[tool_id]
-                self._last_active[tool_id] = now
             if tool_id in never_sleep:
                 self._tiers[tool_id] = "hot"
                 self._last_decisions[tool_id] = "exempt"
@@ -273,6 +256,17 @@ class SleepPolicyManager:
                 continue
 
             idle_since = self._last_active.setdefault(tool_id, last_activity or now)
+            # The idle baseline can never predate the currently running
+            # process: a (re)start resets the clock even if the demand
+            # that spawned it has no transport row yet.  Without this
+            # floor a stale ``_last_active`` epoch survives restarts and
+            # the very next scan cold-sleeps a just-woken unit before it
+            # can serve the request that demanded it (observed: every
+            # governed local-model wake killed ~35 s after start).
+            started_at = self._tool_process_started_at(tool_id, tools.get(tool_id))
+            if started_at and started_at > idle_since:
+                idle_since = started_at
+                self._last_active[tool_id] = started_at
             if last_activity and last_activity > idle_since:
                 idle_since = last_activity
                 self._last_active[tool_id] = last_activity
@@ -333,6 +327,12 @@ class SleepPolicyManager:
                 tool_id,
                 (result or {}).get("message") or (result or {}).get("error_code"),
             )
+
+    def note_activity(self, tool_id: str) -> None:
+        """Toolbox demand callback — a governed execution request counts
+        as activity for the target unit (idle baseline resets so the
+        request can complete inside its own cold_after window)."""
+        self._last_active[str(tool_id)] = time.time()
 
     # -- wake fallback (回退路徑) ----------------------------------------
 
@@ -454,26 +454,52 @@ class SleepPolicyManager:
 
     # -- data sources ---------------------------------------------------
 
-    async def _running_tools(self) -> set[str]:
-        """Tool ids with a live governed process or started session."""
-        return set(await self._running_marks())
-
-    async def _running_marks(self) -> dict[str, str]:
-        """tool_id -> marker for the currently observed process/session.
-
-        The started-session request id is stable for the life of the
-        process; the active request id identifies one-shot executions.
-        A marker change therefore signals a (re)start or fresh work.
-        """
+    async def _running_tools(self) -> dict[str, str]:
+        """tool_id -> request id of the live governed process/session."""
         active = getattr(self.toolbox, "_active_request_by_tool", None)
         started = getattr(self.toolbox, "_started_request_by_tool", None)
-        marks: dict[str, str] = {}
-        for label, mapping in (("started", started), ("active", active)):
+        tools: dict[str, str] = {}
+        for mapping in (active, started):
             if isinstance(mapping, dict):
                 for tool_id, request_id in mapping.items():
                     if tool_id:
-                        marks[str(tool_id)] = f"{label}:{request_id}"
-        return marks
+                        tools[str(tool_id)] = str(request_id or "")
+        return tools
+
+    def _tool_process_started_at(
+        self, tool_id: str, request_id: str | None
+    ) -> float | None:
+        """Epoch the tool's current governed process registered at.
+
+        Read from the shared ``ProcessRegistry`` (§10.10): the record
+        matching the live ``request_id`` is exact; otherwise the newest
+        non-terminal record for the module bounds the baseline.  Missing
+        registry data is not an error — the caller falls back to the
+        transport-activity baseline.
+        """
+        registry = getattr(self.toolbox, "_process_registry", None)
+        records = getattr(registry, "_records", None)
+        if not isinstance(records, dict):
+            return None
+        best: float | None = None
+        for record in records.values():
+            if getattr(record, "module_id", "") != tool_id:
+                continue
+            if getattr(record, "shutdown_state", "") in ("exited", "failed"):
+                continue
+            try:
+                epoch = float(calendar.timegm(
+                    time.strptime(
+                        str(getattr(record, "started_at", "") or ""),
+                        "%Y-%m-%dT%H:%M:%SZ",
+                    )
+                ))
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if request_id and getattr(record, "request_id", "") == request_id:
+                return epoch
+            best = max(best, epoch) if best is not None else epoch
+        return best
 
     def _drain_state_sync(self, tool_id: str) -> tuple[bool, float | None]:
         """(drained, last_activity_epoch) from the transport outbox."""
