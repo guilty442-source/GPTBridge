@@ -63,9 +63,13 @@ class CanonicalRagPipeline(
         *,
         document_fetcher: Optional[Any] = None,
         embed_texts: Optional[Any] = None,
+        vector_runtime: Optional[Any] = None,
     ) -> None:
         self.config = config
-        self.qdrant = QdrantCanonicalRuntime(config)
+        # A610 target-primary: the canonical vector runtime is the Rust
+        # vectord engine by default; ``vector_runtime`` stays injectable
+        # for governed stand-ins and migration tooling.
+        self.qdrant = vector_runtime or select_vector_runtime(config)
         self.postgresql = PostgreSQLMetadataAuthority(config.postgresql_dsn)
         self.domain_model = PythonDomainModel(config)
         self._initialized = False

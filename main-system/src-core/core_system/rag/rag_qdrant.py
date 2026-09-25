@@ -14,6 +14,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -169,6 +170,24 @@ class RagPipelineConfig:
     # survive restarts; None keeps the in-memory/temp fallbacks for tests.
     queue_db_path: Optional[str] = None
     degraded_root: Optional[str] = None
+    # A610 Rust-Vector-Engine=target-primary: canonical vector runtime is
+    # the governed vectord service; "qdrant" remains selectable through
+    # VECTOR_BACKEND only for the bounded migration/verification window.
+    vector_backend: str = field(
+        default_factory=lambda: os.environ.get("VECTOR_BACKEND", "rust")
+    )
+    vectord_url: str = field(
+        default_factory=lambda: os.environ.get(
+            "VECTORD_URL", "http://127.0.0.1:8092"
+        )
+    )
+    vectord_auto_start: bool = field(
+        default_factory=lambda: os.environ.get("VECTORD_AUTOSTART", "1")
+        not in {"0", "false", "no"}
+    )
+    vectord_store_dir: Optional[str] = field(
+        default_factory=lambda: os.environ.get("VECTOR_STORE_DIR") or None
+    )
 
 
 class QdrantCanonicalRuntime:

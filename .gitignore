@@ -111,3 +111,6 @@ governance_rule/execution/audit/capability_ledger.jsonl
 governance_rule/execution/audit/codex_entry_state.json
 .worktrees/
 /nul
+
+target/
+Standalone tools/vectord-rs/runtime/
