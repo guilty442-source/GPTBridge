@@ -160,28 +160,136 @@ class LocalAiLifecycleMixin:
         )
         return "xingcheng_web_search_result", result
 
+    def _web_search_settings(self) -> dict[str, Any]:
+        """``runtime/settings/web-search.json``（provider 選擇政策檔）。"""
+        import json
+        from pathlib import Path
+
+        try:
+            data = json.loads(
+                (Path(self.tool_root) / "runtime/settings/web-search.json")
+                .read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _ensure_searchd(self, url: str, auto_start: bool) -> bool:
+        """確認 searchd loopback 服務可用；必要時惰性啟動受管 binary。"""
+        import json
+        import subprocess
+        import time
+        import urllib.request
+        from pathlib import Path
+
+        def healthy() -> bool:
+            try:
+                req = urllib.request.Request(
+                    f"{url.rstrip('/')}/healthz",
+                    headers={"User-Agent": "XingCheng/1.0"},
+                )
+                with urllib.request.urlopen(req, timeout=1.0) as resp:
+                    return json.loads(resp.read().decode("utf-8")).get("ok") is True
+            except Exception:
+                return False
+
+        if healthy():
+            return True
+        if not auto_start:
+            return False
+        binary = Path(self.tool_root).parent / "searchd-go" / "bin" / "searchd.exe"
+        if not binary.is_file():
+            return False
+        try:
+            subprocess.Popen(
+                [str(binary)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                | getattr(subprocess, "DETACHED_PROCESS", 0),
+            )
+        except OSError:
+            return False
+        for _ in range(30):  # 最長等 3 秒
+            if healthy():
+                return True
+            time.sleep(0.1)
+        return False
+
+    def _web_search_providers(self) -> list[Any]:
+        """依 settings/env 組出有序 provider 鏈（auto = searchd→searxng）。"""
+        import os
+
+        from ..infrastructure.xingcheng_tools.search.searxng import (
+            SearXNGProvider,
+        )
+        from ..infrastructure.xingcheng_tools.search.searchd import (
+            SearchdProvider,
+        )
+
+        settings = self._web_search_settings()
+        mode = str(
+            os.environ.get("XINGCHENG_SEARCH_PROVIDER")
+            or settings.get("provider")
+            or "auto"
+        ).strip().lower()
+        searchd_url = str(
+            os.environ.get("XINGCHENG_SEARCHD_URL")
+            or settings.get("searchd_url")
+            or "http://127.0.0.1:8091"
+        )
+        searxng_url = str(
+            os.environ.get("XINGCHENG_SEARXNG_URL")
+            or settings.get("searxng_url")
+            or "http://127.0.0.1:8080"
+        )
+        auto_start = settings.get("auto_start") is not False
+
+        providers: list[Any] = []
+        if mode in {"auto", "searchd"} and self._ensure_searchd(searchd_url, auto_start):
+            providers.append(SearchdProvider(searchd_url))
+        if mode in {"auto", "searxng"}:
+            providers.append(SearXNGProvider(searxng_url))
+        return providers
+
     def _run_web_search(self, query: str, max_results: int) -> dict[str, Any]:
         try:
-            from ..infrastructure.xingcheng_tools.search.searxng import (
-                SearXNGProvider,
-            )
             from ..infrastructure.xingcheng_tools.search.types import (
                 SearchRequest,
             )
 
-            provider = SearXNGProvider()
+            providers = self._web_search_providers()
+            if not providers:
+                raise RuntimeError("no governed search provider available")
+
             request = SearchRequest(
                 original_question=query,
                 queries=[query],
                 max_results=max_results,
             )
-            results = provider.search(request)
+            last_error: Exception | None = None
+            used_provider: Any | None = None
+            used_results: list[Any] = []
+            for provider in providers:
+                try:
+                    results = provider.search(request)
+                except Exception as exc:  # noqa: BLE001 — 降級到下一 provider
+                    last_error = exc
+                    continue
+                used_provider, used_results = provider, results
+                if results:
+                    break
+                # 空結果可能是上游全掛而非真空無結果——鏈上還有
+                # provider 時繼續嘗試，全部空才回空集合。
+            if used_provider is None:
+                raise last_error or RuntimeError("all search providers failed")
             return {
                 "ok": True,
                 "source": "xingcheng-web-search",
-                "provider": provider.name,
+                "provider": used_provider.name,
                 "query": query,
-                "result_count": len(results),
+                "result_count": len(used_results),
+                "adapters": getattr(used_provider, "last_adapter_status", []),
                 "results": [
                     {
                         "title": item.title,
@@ -191,7 +299,7 @@ class LocalAiLifecycleMixin:
                         "provider": item.provider,
                         "rank": item.rank,
                     }
-                    for item in results
+                    for item in used_results
                 ],
             }
         except Exception as exc:  # noqa: BLE001 — fail closed, record type
