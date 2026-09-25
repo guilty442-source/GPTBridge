@@ -957,6 +957,52 @@ def _create_infer_command() -> list:
     ]
 
 
+def _create_chat_commands() -> list:
+    """Create chat (shell/MoE) command specification."""
+    return [
+        CommandSpec(
+            name="xingcheng_chat",
+            handler="_handle_chat",
+            category="chat",
+            description=(
+                "統一對話入口（xingcheng-shell MoE：gate 路由→"
+                "math/reading/coding 專家→共享 general 專家）"
+            ),
+            aliases=("chat", "c"),
+            parameters=(
+                ParameterSpec(
+                    name="prompt",
+                    type="string",
+                    required=False,
+                    description="使用者訊息",
+                ),
+                ParameterSpec(
+                    name="message",
+                    type="string",
+                    required=False,
+                    description="使用者訊息（與 prompt 等價）",
+                ),
+                ParameterSpec(
+                    name="question",
+                    type="string",
+                    required=False,
+                    description="問題（與 prompt 等價）",
+                ),
+                ParameterSpec(
+                    name="history",
+                    type="array",
+                    required=False,
+                    description="多輪歷史 [{role, content}]（有界 8 輪）",
+                ),
+            ),
+            examples=(
+                'xingcheng_chat --prompt "什麼是複利？"',
+                'xingcheng_chat --message "3 + 5 等於多少"',
+            ),
+        ),
+    ]
+
+
 def _create_all_commands() -> list:
     """Create all command specifications."""
     all_commands = []
@@ -973,6 +1019,7 @@ def _create_all_commands() -> list:
     all_commands.extend(_create_codex_commands())
     all_commands.extend(_create_teaching_commands())
     all_commands.extend(_create_self_learning_commands())
+    all_commands.extend(_create_chat_commands())
     all_commands.extend(_create_infer_command())
     return all_commands
 

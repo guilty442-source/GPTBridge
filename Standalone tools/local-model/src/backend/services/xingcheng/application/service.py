@@ -41,6 +41,7 @@ from .local_ai_maintenance import LocalAiMaintenanceMixin
 from .local_ai_utility import LocalAiUtilityMixin
 from .local_ai_capability import LocalAiCapabilityMixin
 from .local_ai_teaching import LocalAiTeachingMixin
+from .xingcheng_shell import XingchengShellMixin
 
 
 def _service_version() -> str:
@@ -77,6 +78,7 @@ class LocalAiService(
     CodexDiagnosticsMixin,
     InvestmentChannelMixin,
     InferenceChannelMixin,
+    XingchengShellMixin,
 ):
     VERSION = _service_version()
     NATIVE_MODEL_ID = "star-main-native-model"
@@ -221,6 +223,7 @@ class LocalAiService(
         ),
     )
     COMMANDS = {
+        "xingcheng_chat",
         "xingcheng_status",
         "xingcheng_infer",
         "xingcheng_search_investments",

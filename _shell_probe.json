@@ -1,0 +1,38 @@
+[
+ {
+  "prompt": "3 + 5 等於多少",
+  "ok": true,
+  "expert": "math",
+  "weights": {
+   "general": 1.0,
+   "math": 0.8,
+   "reading": 0.0,
+   "coding": 0.0
+  },
+  "text": "3 + 5 = 8"
+ },
+ {
+  "prompt": "125 × 8 = ?",
+  "ok": true,
+  "expert": "math",
+  "weights": {
+   "general": 1.0,
+   "math": 0.8,
+   "reading": 0.0,
+   "coding": 0.0
+  },
+  "text": "125 * 8 = 1000"
+ },
+ {
+  "prompt": "什麼是光合作用？",
+  "ok": true,
+  "expert": "general",
+  "weights": {
+   "general": 1.0,
+   "math": 0.0,
+   "reading": 0.0,
+   "coding": 0.0
+  },
+  "text": "光合作用是植物利用陽光，把二氧化碳和水轉換成養分並釋放氧氣的過程，是地球大部分生命的能量來源。"
+ }
+]
