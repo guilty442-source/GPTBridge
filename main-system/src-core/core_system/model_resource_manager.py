@@ -109,6 +109,37 @@ class ModelResourceManager:
 
     # -- admission ----------------------------------------------------------
 
+    def _is_sleep_blocking_vram(self) -> bool:
+        """Sleep/睡眠模式下 VRAM 禁用（CPU-only）：當配置為 sleep 或夜間 sleep 窗口激活時，任何需要 VRAM 的載入皆拒絕。"""
+        try:
+            from tasks.resource_governor_signal import governor_mode  # noqa: PLC0415
+
+            info = governor_mode()
+            configured = info.get("mode")
+            # 直接配置為 sleep → 立即禁用
+            if configured == "sleep":
+                return True
+            # 夜間省電窗口激活且目標為 sleep → 視為 sleep 期間（即使 rules 尚未切換完成，亦提前禁用以免新模型搶佔 VRAM）
+            ps = info.get("power_saving_schedule") if isinstance(info.get("power_saving_schedule"), dict) else {}
+            if ps and ps.get("active") and ps.get("mode") == "sleep":
+                return True
+            # 額外：檢查當前模式配置是否標記 gpu_enabled=false（sleep 的顯式標記）
+            try:
+                from pathlib import Path as _Path
+                import json as _json
+
+                rules_path = _Path(__file__).resolve().parents[2] / "config" / "resource-governor-rules.json"
+                rules = _json.loads(rules_path.read_text(encoding="utf-8"))
+                modes = rules.get("modes") if isinstance(rules.get("modes"), dict) else {}
+                cur_mode_cfg = modes.get(configured) if isinstance(modes, dict) else None
+                if isinstance(cur_mode_cfg, dict) and cur_mode_cfg.get("gpu_enabled") is False:
+                    return True
+            except Exception:
+                pass
+            return False
+        except Exception:
+            return False
+
     def request_load(
         self,
         role: ModelRole | str,
@@ -118,6 +149,10 @@ class ModelResourceManager:
         ram_mb: int = 0,
     ) -> AdmitDecision:
         """資源閘門：通過才登錄為 loaded；失敗 fail-closed。"""
+        # Sleep 模式 VRAM 禁用 — 先於遙測檢查
+        if vram_mb and self._is_sleep_blocking_vram():
+            cls_tmp = role if isinstance(role, ModelRole) else ModelRole(str(role))
+            return AdmitDecision(False, "sleep-mode-vram-disabled: sleep forbids GPU/VRAM (CPU-only)", cls_tmp.value, model_id)
         cls = role if isinstance(role, ModelRole) else ModelRole(str(role))
         policy = self._policies[cls]
 

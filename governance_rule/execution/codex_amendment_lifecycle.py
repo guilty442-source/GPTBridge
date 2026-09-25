@@ -388,6 +388,35 @@ class CodexAmendmentRequestLedger:
         }
         _atomic_json(record_path, record)
 
+    def _record_stale_request(
+        self, request: AmendmentRequest, request_path: str | Path
+    ) -> None:
+        """Persist a terminal rejection for a stale first-seen request."""
+        record_path = self._record_path(request.request_id)
+        record = {
+            "schema": LIFECYCLE_SCHEMA,
+            "request_id": request.request_id,
+            "state": STATE_REJECTED,
+            "request_hash": request.request_hash,
+            "lineage_key": request.lineage_key,
+            "request_path": str(Path(request_path).resolve()),
+            "predecessor": dict(request.predecessor),
+            "scope": list(request.scope),
+            "record_path": str(record_path),
+            "lock_path": "",
+            "not_executed": True,
+            "closed_at": _utc_now(),
+            "history": [
+                {
+                    "at": _utc_now(),
+                    "from": "",
+                    "to": STATE_REJECTED,
+                    "evidence": {"stale_at": _utc_now()},
+                }
+            ],
+        }
+        _atomic_json(record_path, record)
+
     def _validate_lineage(
         self,
         request: AmendmentRequest,
@@ -455,11 +484,18 @@ class CodexAmendmentRequestLedger:
                 existing["lock_path"] = str(lock_path)
                 _atomic_json(Path(str(existing["record_path"])), existing)
             return self._record_from_payload(existing)
-        self._validate_lineage(
-            request,
-            current_version=current_version,
-            expected_revision_sequence=expected_revision_sequence,
-        )
+        try:
+            self._validate_lineage(
+                request,
+                current_version=current_version,
+                expected_revision_sequence=expected_revision_sequence,
+            )
+        except AmendmentLifecycleError:
+            # A stale first-seen request must still reach a terminal record:
+            # without persistence every scan re-runs the full build against a
+            # predecessor that can never match again (zombie reprocessing).
+            self._record_stale_request(request, request_path)
+            raise
         lock_path = self._acquire_lineage(request)
         record_path = self._record_path(request.request_id)
         record = {

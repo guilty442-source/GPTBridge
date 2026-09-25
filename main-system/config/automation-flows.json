@@ -287,7 +287,7 @@
       "interval_s": 60,
       "pausable": false,
       "enabled": true,
-      "description": "需求驅動＋夜間省電自動調整：22:00-07:00 夜間窗口強制 low（省電，最高優先、立即切換）；strained/CPU≥85%/RAM≥90%→low（立即）；worker 需求（admission hold 或帳本≥80%預算）＋機器餘裕（CPU<60%/RAM<75%）→high；其餘→medium；high/medium 需連續 3 次評估、切換冷卻 600s。預設 auto_mode=true（預設自動）；power_saving_schedule.enabled=true（22-07 省電）。僅在 auto_mode=true 時生效；手動選檔自動關閉 auto（使用者意圖優先）"
+      "description": "需求驅動＋夜間睡眠省電自動調整：22:00-07:00 夜間窗口強制 sleep（睡眠/省電深眠 CPU 5% strict/RAM 30%/VRAM禁用，最高優先、立即切換）；strained/CPU≥85%/RAM≥90%→low（立即）；worker 需求（admission hold 或帳本≥80%預算）＋機器餘裕（CPU<60%/RAM<75%）→high；其餘→medium；high/medium 需連續 3 次評估、切換冷卻 600s。檔位 sleep/low/medium/high；預設 auto_mode=true（預設自動）；power_saving_schedule.enabled=true（22-07 睡眠）。僅在 auto_mode=true 時生效；手動選檔自動關閉 auto（使用者意圖優先）"
     },
     "file-sorter-automation": {
       "owner": "FileSorterAutomationService（file-sorter 工具行程內）",

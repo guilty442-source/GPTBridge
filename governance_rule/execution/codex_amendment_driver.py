@@ -614,8 +614,17 @@ async def advance_request(
     try:
         request = load_amendment_request(request_path)
     except AmendmentLifecycleError as error:
+        # Close the malformed artifact in the ledger instead of leaving it
+        # state-less: an unrecorded failure is re-scanned on every tick
+        # forever (zombie reprocessing).  ``_record_invalid_request`` keeps
+        # any existing terminal record intact.
+        ledger._record_invalid_request(request_path, error)
         result.update(
-            ok=False, stage="intake", state=STATE_REJECTED, error=str(error)
+            ok=False,
+            stage="intake",
+            state=STATE_REJECTED,
+            error=str(error),
+            request_id=request_path.stem,
         )
         return result
     request_id = request.request_id
@@ -764,18 +773,7 @@ async def advance_all(
     ledger = ledger or CodexAmendmentRequestLedger()
     results: list[dict[str, Any]] = []
     for item in scan_requests(intake_dirs, ledger=ledger):
-        if not item.get("valid"):
-            results.append(
-                {
-                    "request_id": item.get("request_id"),
-                    "ok": False,
-                    "stage": "intake",
-                    "state": "",
-                    "error": item.get("error"),
-                }
-            )
-            continue
-        if item.get("state") in TERMINAL_STATES:
+        if item.get("valid") and item.get("state") in TERMINAL_STATES:
             continue
         results.append(
             await advance_request(

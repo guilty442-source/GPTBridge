@@ -9,8 +9,9 @@ The tick itself is deliberately thin: the control law lives in
 knowledge stays in one module.  The advisor is inert unless the rules
 file carries ``auto_mode: true`` (預設自動) — a manual mode selection
 always wins.  When ``power_saving_schedule.enabled`` the advisor forces
-``low`` (省電) during the nightly window 22:00-07:00; the schedule is
-resolved from ``resource-governor-rules.json`` with defaults enabled.
+``sleep`` (睡眠/省電深眠 CPU 5% strict / RAM 30% / VRAM disabled) during
+the nightly window 22:00-07:00; the schedule is resolved from
+``resource-governor-rules.json`` with defaults enabled (sleep/low/medium/high).
 """
 from __future__ import annotations
 
