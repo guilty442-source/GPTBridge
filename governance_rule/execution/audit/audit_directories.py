@@ -258,6 +258,18 @@ def check_provision_classification(root: Path, errors: list[str]) -> None:
                     f"SELECT {identity_columns[table]} FROM {table}"
                 )
             }
+        # Delegated normative identities (closure-definition / formal-rule /
+        # registry-rule) are provision kinds too: their authoritative
+        # enumeration is the active set in provision_lifecycle_status, and each
+        # one must be classified exactly once as well.
+        expected |= {
+            (str(row[0]), str(row[1]))
+            for row in connection.execute(
+                "SELECT provision_type, provision_id FROM provision_lifecycle_status "
+                "WHERE lifecycle_state='active' AND provision_type IN "
+                "('closure-definition','formal-rule','registry-rule')"
+            )
+        }
         law_codes = {
             str(row[0])
             for row in connection.execute("SELECT law_code FROM law_structure_directory")
