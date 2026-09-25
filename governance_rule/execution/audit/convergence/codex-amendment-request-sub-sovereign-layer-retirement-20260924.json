@@ -9,7 +9,7 @@
  "required_review": "five-sovereign-audit-unanimous-pass",
  "flow": "A382/A488-non-disruptive-amendment-flow",
  "predecessor": {
-  "codex_version": "2026-09-23T03:13:43Z",
+  "codex_version": "2026-09-24T16:05:05Z",
   "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac9471",
   "revision_sequence": 75
  },
@@ -57,5 +57,63 @@
   "module_assignment_registry: 17 rows, managing_sub_sovereign=none-single-purpose-module-dispatch for every module",
   "audit_activation.py emits exactly one WARN: 'activation state target_root does not exist: SUB_SOVEREIGN_LAYER'"
  ],
- "worker_note": "Request artifact only — codex mutation requires governor disposition through the A382/A488 amendment flow. No code or registry row is changed by this file."
+ "worker_note": "request-only schema repair 2026-09-25: added canonical changes[] mapping of proposed_delta onto real columns (project_architecture_directory has no role_or_classification/boundary_status/activation_policy; entity_kind+physical_root+retired_version carry the retirement); predecessor refreshed to live codex 2026-09-24T16:05:05Z. Intent unchanged [worker:devin]",
+ "changes": [
+  {
+   "table": "architecture_activation_states",
+   "key": {
+    "architecture_code": "SUB_SOVEREIGN_LAYER"
+   },
+   "field": "current_state",
+   "proposed": "retired"
+  },
+  {
+   "table": "architecture_activation_states",
+   "key": {
+    "architecture_code": "SUB_SOVEREIGN_LAYER"
+   },
+   "field": "required_state",
+   "proposed": "retired"
+  },
+  {
+   "table": "architecture_activation_states",
+   "key": {
+    "architecture_code": "SUB_SOVEREIGN_LAYER"
+   },
+   "field": "old_root_deletion_state",
+   "proposed": "removed-verified"
+  },
+  {
+   "table": "architecture_activation_states",
+   "key": {
+    "architecture_code": "SUB_SOVEREIGN_LAYER"
+   },
+   "field": "verification_owner",
+   "proposed": "decision-sovereign"
+  },
+  {
+   "table": "project_architecture_directory",
+   "key": {
+    "architecture_code": "SUB_SOVEREIGN_LAYER"
+   },
+   "field": "entity_kind",
+   "proposed": "retired-former-execution-control-layer"
+  },
+  {
+   "table": "project_architecture_directory",
+   "key": {
+    "architecture_code": "SUB_SOVEREIGN_LAYER"
+   },
+   "field": "physical_root",
+   "proposed": "git-history:main-system/governance/sub-sovereigns (removed under A592/A604)"
+  },
+  {
+   "table": "project_architecture_directory",
+   "key": {
+    "architecture_code": "SUB_SOVEREIGN_LAYER"
+   },
+   "field": "retired_version",
+   "proposed": "2026-09-24T16:05:05Z"
+  }
+ ]
 }
