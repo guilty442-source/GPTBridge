@@ -172,6 +172,22 @@ def _rebuild_search_documents(connection: sqlite3.Connection, version: str) -> i
             "FROM provision_law_classification"
         )
     }
+    # law_code is NOT NULL; provisions without a classification row keep the
+    # law recorded by the previous generation, falling back to CODEX_MAIN.
+    prior_law = {
+        (str(row[0]), str(row[1])): str(row[2])
+        for row in connection.execute(
+            "SELECT provision_type, provision_id, law_code "
+            "FROM codex_search_document"
+        )
+    }
+    prior_module = {
+        (str(row[0]), str(row[1])): str(row[2])
+        for row in connection.execute(
+            "SELECT provision_type, provision_id, module_code "
+            "FROM codex_search_document"
+        )
+    }
     lifecycle = connection.execute(
         "SELECT provision_type, provision_id, lifecycle_state "
         "FROM provision_lifecycle_status"
@@ -191,8 +207,12 @@ def _rebuild_search_documents(connection: sqlite3.Connection, version: str) -> i
                 f"{ptype} {pid} resolves normative detail through its "
                 "registered owner"
             )
-        module_code = modules.get((ptype, pid))
-        law_code = laws.get((ptype, pid))
+        module_code = (
+            modules.get((ptype, pid))
+            or prior_module.get((ptype, pid))
+            or "CODEX_MODULE_DIRECTORY"
+        )
+        law_code = laws.get((ptype, pid)) or prior_law.get((ptype, pid)) or "CODEX_MAIN"
         connection.execute(
             "INSERT INTO codex_search_document (provision_type, provision_id, "
             "module_code, law_code, subject, content, content_hash, "
