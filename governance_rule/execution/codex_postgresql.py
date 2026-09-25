@@ -108,6 +108,14 @@ def import_sqlite_predecessor(source: Path) -> dict[str, Any]:
         source_version = str(metadata.get("codex_version", ""))
         total_rows = 0
         with psycopg.connect(admin_dsn()) as target:
+            # Serialize concurrent publishers: two governed executors racing
+            # the shared authority must not interleave DROP/CREATE (duplicate
+            # -table race observed 2026-09-25 when a service tick and a CLI
+            # run executed the same request).  The xact-scoped lock releases
+            # automatically on commit/abort.
+            target.execute(
+                "SELECT pg_advisory_xact_lock(hashtext('gptbridge.codex.import'))"
+            )
             # Monotonic-version guard (fail-closed): the authority never
             # regresses.  A source older than the live codex version is a
             # stale/fixture import and must be refused before any DROP.
