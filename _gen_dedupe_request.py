@@ -97,7 +97,7 @@ req = {
     "artifact": "codex-amendment-request",
     "authority": "request-only",
     "schema": "codex-amendment-request/v1",
-    "request_id": "formal-rule-dedupe-parity-activation-20260925",
+    "request_id": "formal-rule-dedupe-parity-activation-20260925-r2",
     "title": "Withdraw three duplicate formal-rule registry rows and advance all eleven pending rules to evaluator-parity-verified with ownership-map rows",
     "summary": (
         "formal-rule-batch-registration-20260925-r3 re-inserted RULE_VECTOR_ENGINE_RUST_V1, "
@@ -114,14 +114,15 @@ req = {
         "human-governor directive 2026-09-25: dedupe cleanup keeps the earlier 14:24:47Z rows "
         "as authoritative and withdraws only the later 14:31:38Z duplicates; parity activation "
         "follows the same two-step transition used by cfamily/versions activations; parity run "
-        "formal-rule-parity-batch-20260925.json 85/85 PASS"
+        "formal-rule-parity-batch-20260925.json 85/85 PASS; r2 restamped to codex head "
+        "2026-09-25T14:48:15Z after five-core-language-assignment-20260925-r2 executed"
     ),
     "change_class": "clarification",
     "required_review": "five-sovereign-audit-unanimous-pass",
     "flow": "A382/A488-non-disruptive-amendment-flow",
     "not_executed": True,
     "predecessor": {
-        "codex_version": "2026-09-25T14:31:38Z",
+        "codex_version": "2026-09-25T14:48:15Z",
         "version_identity": "E2:2026-09-23T03:13:43Z",
         "version_epoch": 2,
         "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
@@ -152,6 +153,6 @@ req = {
     ],
 }
 
-out = Path(r"E:\GPTBridge\main-system\runtime\state\codex-amendment-request-formal-rule-dedupe-parity-20260925.json")
+out = Path(r"E:\GPTBridge\main-system\runtime\state\codex-amendment-request-formal-rule-dedupe-parity-20260925-r2.json")
 out.write_text(json.dumps(req, ensure_ascii=False, indent=2), encoding="utf-8")
 print("written:", out, "ops:", len(ops))

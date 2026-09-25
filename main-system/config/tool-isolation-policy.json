@@ -194,6 +194,19 @@
       "cpu_percent_limit": 50,
       "network_policy": "loopback-only",
       "filesystem_policy": "tool-scoped"
+    },
+    "searchd-go": {
+      "memory_limit_mb": 128,
+      "cpu_percent_limit": 40,
+      "network_policy": "public-web-read-only",
+      "filesystem_policy": "none",
+      "restart_on_crash": true,
+      "max_restart_attempts": 3,
+      "restart_backoff_seconds": [
+        2,
+        5,
+        15
+      ]
     }
   },
   "crash_containment": {

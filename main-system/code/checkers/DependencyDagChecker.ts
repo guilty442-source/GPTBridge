@@ -166,7 +166,7 @@ export class DependencyDagChecker {
 
   private extractModuleId(file: string, content: string): string | null {
     // Simplified: use file path as module ID
-    return file.replace(/\\/g, '/').replace(/\.(ts|tsx|py|cs|cpp|c|h|hpp|sql)$/, '');
+    return file.replace(/\\/g, '/').replace(/\.(ts|tsx|py|pyi|cs|cpp|c|h|hpp|sql|js|jsx|mjs|cjs|jl|go|rs|fs)$/, '');
   }
 
   private detectLanguage(file: string): string {
