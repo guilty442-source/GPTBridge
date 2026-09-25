@@ -1,6 +1,6 @@
 # GPTBridge 程式語言架構
 
-本文件是正式法典的架構投影；權責以 PostgreSQL 法典 A35、A341、A343、A348、A604、A605、A615 為準。
+本文件是正式法典的架構投影；權責以 PostgreSQL 法典 A35、A341、A343、A348、A604、A605、A610–A621 為準。
 
 | 技術 | 目標版本 | 正式責任 |
 | ---------- | -------------- | ------------------------------------- |
@@ -14,8 +14,10 @@
 | Python | 3.14.7 | 治理語意、必要薄封裝、模型研發與訓練 |
 | JAX | 待相容性鎖定 | 星澄模型訓練、自動微分、加速數值計算 |
 | NumPy | 2.5.3 | 資料前處理、統計、陣列計算 |
-| JavaScript | ECMAScript／ESM | React UI、前端狀態、IPC Client |
+| JavaScript | ECMAScript／ESM | React UI、前端狀態、桌面互動 |
 | React | 19.2.8 | UI 元件及畫面 |
+| Julia | 待正式版本鎖定 | 統計、數學模型、最佳化、模擬、科學計算 |
+| TypeScript | 已退役 | 由 JavaScript ESM 繼任；既有 .ts/.tsx/.d.ts 檔案保留至遷移完成（grandfathered-existing-only，A348） |
 | PostgreSQL | 18.6 | 唯一正式結構化資料權威 |
 | Git | 2.55.0 | 原始碼版本管理 |
 
@@ -65,7 +67,9 @@ flowchart TB
 - Python 3.14.7 僅保留治理語意、必要薄封裝、模型研發與訓練，預設不常駐。
 - JAX 待相容性鎖定，負責星澄模型訓練、自動微分、加速數值計算；以 XLA 實現高效能。
 - NumPy 2.5.3 負責資料前處理、統計、陣列計算。
-- JavaScript (ECMAScript/ESM) 與 React 19.2.8 負責 UI 元件及畫面。
+- JavaScript (ECMAScript/ESM) 與 React 19.2.8 負責 UI 元件、前端狀態及桌面互動。
+- Julia 負責統計、數學模型、最佳化、模擬與科學計算，版本待正式鎖定。
+- TypeScript 已退役並由 JavaScript ESM 繼任；既有檔案在遷移完成前保留為 grandfathered-existing-only（A348）。
 - PostgreSQL 18.6 為唯一正式結構化資料權威；SQLite 已退休。
 - Git 2.55.0 為原始碼版本管理。
 

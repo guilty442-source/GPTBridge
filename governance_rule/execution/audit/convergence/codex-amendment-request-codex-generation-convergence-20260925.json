@@ -1,0 +1,1805 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v1",
+ "request_id": "codex-generation-convergence-20260925",
+ "title": "Codex generation convergence: version-axis repair, missing language provisions, startup deadline 20000ms, language responsibility normalization, machine-schema parity restamp",
+ "summary": "Close the P0/P1 audit findings: insert the seven controlling provisions still referenced by verified formal rules (A611/A613/A614/A617/A618/A619/A620); complete classification/lifecycle/membership/effective rows for all twelve language-division articles; tighten A199 and metadata to the 20000ms startup deadline; normalize A219/A347/A350/A351/A353/A356/A359/A360/A362 to the A341/A343/A604/A610/A615 language division; restamp all 74 machine-schema parity evidence rows with real SEAL_CANONICAL_V1 descriptor digests; rebind metadata language role/topology keys and close language-governance lifecycle state.",
+ "requested_by": "decision-sovereign",
+ "origin": "governor P0/P1 audit findings 2026-09-25: version-axis split, language responsibility conflicts, dangling formal-rule controlling provisions, 40000ms residue, machine-schema parity evidence mismatch, language governance FREEZE-PENDING",
+ "change_class": "clarification",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "predecessor": {
+  "codex_version": "2026-09-25T15:42:05Z",
+  "version_identity": "E2:2026-09-23T03:13:43Z",
+  "version_epoch": 2,
+  "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+  "revision_sequence": 75
+ },
+ "problem": "formal codex_version advanced to 2026-09-25T15:42:05Z while current_version, revision, seal, epoch, active binding, search/module manifests and the normative surface remained at 2026-09-23T03:13:43Z; seven verified formal rules anchor to nonexistent articles; twelve language-division articles lack classification/lifecycle/membership rows; nine articles still carry the retired TypeScript+Python dual-host architecture; A219 assigns F# analysis/ML conflicting with A341/A343/A604; startup deadline normalized at 40000ms against the current 20000ms requirement; 34 machine schemas lack parity evidence rows and all 40 existing rows remain PENDING despite the obligation's 74-row claim; language governance lifecycle is FREEZE-PENDING/INCOMPLETE_EVIDENCE; architecture stale-reference evidence is two generations old.",
+ "changes": [
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A199"
+   },
+   "field": "rule",
+   "proposed": "SCOPE:main-system official startup generation; START-TIME:first-valid-gptbridge-start intent accepted; END-TIME:fully-ready proof acknowledged-by-runtime-sovereign and current-UI projection converged; CLOCK:monotonic-high-resolution; HARD-DEADLINE:20000ms inclusive; ALL-FLOWS:entry-single-instance-resolution+UI-host-visible+startup-runtime-attach/start+preflight+minimal-information-layer+official-codex-integrity+permission-directory+permission-sovereign+normal-information-mode+certified-dependency-DAG+all-manifest-declared-startup-dependencies+required-sovereigns+runtime-handoff+health-baseline+frontend-backend-snapshot/cursor convergence; BUDGETS:entry-and-UI<=2000ms,codex-information-permission<=4000ms,dependency-DAG-and-services<=8000ms,sovereign-activation-and-runtime-handoff<=4000ms,UI-convergence-and-final-proof<=2000ms; BUDGET-CARRY:unused-earlier-time may-transfer-forward+total-never-exceeds-20000ms; PARALLELISM:independent-nodes-concurrent within-resource-budget+critical-path-first; I/O:no-fixed-sleep+event-driven+bounded-connect-deadline; CACHE:only signed/content-addressed/release+environment+dependency-hash matched evidence and each-live-readiness signal revalidated; SERVICE-STRATEGY:resident-attach/prewarmed-pool/lazy-capability-adapter allowed only-when-current-process-generation+health+contract readiness truthfully verified; DECLARED-STARTUP-DEPENDENCY:must be-ready-before-fully-ready regardless-criticality label; NONSTARTUP-OPTIONAL:may-start-on-first-use only-if-certified-manifest explicitly-excludes-it-from-startup and UI labels-capability-not-started+must-not-be-counted-as-startup-complete work; NO-DEFER-EVASION:work required for normal initial UI/backend/governance/system operation cannot be relabeled optional/on-demand/deferred; DEADLINE-ENFORCEMENT:at 20000ms without fully-ready proof the startup is a fail-visible deadline breach recorded with per-phase evidence,never silently retried or relabeled; GOVERNOR-DISPOSITION:deadline-tightened-to-20000|A199-amended|phase-budgets-halved|metadata-normalized",
+   "also": {
+    "subject": "twenty-second-complete-startup-deadline",
+    "prohibition": "FORBID:startup>20000ms+soft-deadline+deadline-reset-within-generation+wall-clock-only+hidden-wait+infinite-retry+fixed-sleep+serial-independent-work+process-existence-as-ready+stale-cache-as-live-proof+fully-ready-before-all-declared-startup-flows+background-completion-after-ready+optional/deferred/lazy renaming-to-hide-required-work+UI-blocked-or-closed-on-timeout+independent-tool-stop+manual-cli",
+    "exception": "Hardware or external local-service conditions below the declared minimum supported environment may fail at the same 20000ms boundary; they do not permit a longer or falsely successful startup"
+   }
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A219"
+   },
+   "field": "rule",
+   "proposed": "ENTRY:versioned capability contract; PRIMARY:C/C++ production execution modules; FSHARP:core business-logic+data-validation+transformation+high-correctness-complex-calculation path (per A341/A343/A604; analysis and scientific computation route to Julia, model training routes to JAX-on-Python per A610/A612); PYTHON:on-demand governance adjudication only and never default execution fallback; FALLBACK:only registered semantically equivalent owner with deadline/resource/idempotency proof; OTHERWISE:typed unavailable+no duplicate execution."
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A347"
+   },
+   "field": "rule",
+   "proposed": "CPP-STYLE:small structs+free functions+RAII resource wrappers+explicit ownership,lifetime,allocation,cache locality,exception boundary and thread safety; Manager|Controller|Service|Factory|Processor|Handler requires native-resource proof and A185 limits still apply. CSHARP-PROJECT:CSharp is the application+workflow+API+Windows/.NET orchestration owner per A341/A610 and permits Contracts|Interop|Native|Platform|Application|Workflow|Tests directories; domain business logic is delegated to FSharp on the shared .NET 10 runtime and CSharp consumes the gptbridge_native.h C ABI for native capability. JAVASCRIPT-DIRECTORIES:components|views|stores|transport|contracts|checkers only for UI/client/build-time checking and forbid domain|database|rag|model-runtime|business-engine; TypeScript files are grandfathered-existing-only per A348 and new authored TypeScript is denied. SQL-QUERY-BUDGET:every runtime query declares max_returned_rows+max_returned_bytes+timeout+query_plan_policy+index_expectation; filter+join+aggregate+sort+pagination are pushed down; checker flags SELECT-star+missing LIMIT/pagination+unparameterized SQL+large fetchall+unbounded plan; migration/admin use exact expiring audited allowlist. SOURCE-ORIGIN:classify every code-like artifact exactly AUTHORED|GENERATED|THIRD_PARTY before extension checks; authored sources use each language's canonical extension (JavaScript .js, TypeScript grandfathered-existing-only) while compiled .js,.pyd,.dll are generated artifacts; generated and third-party are excluded from authored-language counts but retain producer/provenance/hash/security checks; forbidden authored extension never authorizes deletion of valid generated output.",
+   "also": {
+    "prohibition": "FORBID:Python-application architecture copied into C++ core+large generic native class hierarchy+CSharp domain/business ownership outside FSharp delegation+JavaScript forbidden directory/backend authority+new authored TypeScript+unbounded SQL+fetch-all-then-filter+origin inferred only from extension+authored code hidden as generated/third-party+generated artifact deleted because its authored extension would be forbidden."
+   }
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A350"
+   },
+   "field": "rule",
+   "proposed": "CANONICAL-TOPOLOGY:JavaScript-ESM>information/API contract>CSharp application-orchestration; CSHARP-BRANCHES:{SQL relational set operations}|{FSharp domain business-logic}|{Native adapter}|{Go network/batch I/O}|{Rust vector/native-security/desktop}; NATIVE-PATH:CSharp typed adapter request>gptbridge_native.h C ABI>gptbridge_native.c C thunk>C++ implementation; PYTHON-ROLE:Python is off the application request path and retains only the three bounded A610 domains (governance semantics/rules/thin-wrapper, xingcheng JAX training, development verification) reached through registered governance adapters; SQL-PATH:CSharp/FSharp repository>parameterized budgeted SQL>bounded result>domain semantics; DIRECTION:JavaScript never bypasses CSharp to SQL/native/domain and CSharp remains application+workflow+orchestration authority with FSharp owning core business logic; CONTRACTS:every edge is typed+versioned+permission-scoped+observable+tested under A340+A348; NATIVE-NOTATION:C may appear in the native boundary only as the single ABI contract role in one serial path,not parallel APIs:C=gptbridge_native.h/C thunk single ABI contract,C++=hidden compute; OWNERSHIP:A341 capability matrix and the A615 official table remain controlling; FAILURE:failed branch is isolated and returns typed failure through CSharp to JavaScript without rerouting around the contract.",
+   "also": {
+    "subject": "canonical-javascript-csharp-sql-native-fsharp-topology-special-law",
+    "prohibition": "FORBID:JavaScript direct SQL/native/domain access+CSharp bypass by client+public C++ ABI+SQL business judgment+FSharp orchestration/governance+Python on the application request path+C/C++ orchestration+contractless cross-language call+fallback that creates a second owner+TypeScript runtime role."
+   }
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A351"
+   },
+   "field": "rule",
+   "proposed": "MATRIX:{JavaScript-ESM=>ALLOW:contract+transport+UI;DIRECT-DENY:database+native+CSharp-import+SQL-direct-connection}|{CSharp=>ALLOW:application+workflow+API+Windows/.NET+sole-test-orchestration+SQL+native-C-ABI+FSharp-domain+Go/Rust service calls;DIRECT-DENY:domain-business-logic-ownership+frontend-DOM}|{FSharp=>ALLOW:core-business-logic+data-validation+transformation+business-state-transition;DIRECT-DENY:governance+permission+UI+orchestration}|{Python=>ALLOW:governance-semantics+JAX-training+development-verification;DIRECT-DENY:resident-application-services+orchestration+DOM+direct-database-authority}|{C=>ALLOW:C-ABI-thunk;DIRECT-DENY:business+algorithm+database+UI}|{C++=>ALLOW:model-inference+native-runtime+audit-engine;DIRECT-DENY:public-application-API+database+UI+workflow}|{Go=>ALLOW:xingcheng-web-search+batch+network-file-io;DIRECT-DENY:governance+permission+business-judgment}|{Rust=>ALLOW:vector-engine+RAG+native-security+desktop-host;DIRECT-DENY:governance+permission+business-judgment}|{Julia=>ALLOW:statistics+mathematical-models+optimization+simulation+scientific-computation;DIRECT-DENY:governance+permission+UI}|{SQL=>ALLOW:data-operations;DIRECT-DENY:workflow+permission-authority+business-decision}; ROUTING:JavaScript reaches backend capability only through information/API contract to CSharp; CSharp reaches native only through the gptbridge_native.h C ABI path and reaches Windows/.NET directly; SQL returns bounded data and FSharp owns business semantics; ADAPTER:allowed adapters translate typed data,error,lifetime and transport only and acquire no target capability ownership; CHECKER:resolve imports+includes+FFI+IPC+network+database clients+generated bindings+runtime loading and reject any direct-deny edge; INDIRECT-BYPASS:a wrapper,reflection,dynamic import,subprocess,generated code or shared file cannot legalize a forbidden direct edge; EVIDENCE:source+target+edge type+contract+owner+rule+call path+release identity.",
+   "also": {
+    "prohibition": "FORBID:JavaScript importing backend modules or directly accessing database/native/SQL+CSharp owning FSharp domain policy or DOM+Python resident application services or orchestration+C business/algorithm/database/UI+C++ public application API/database/UI/workflow+FSharp governance/permission/UI+Go/Rust governance/permission/business+SQL workflow/permission/business decision+adapter authority expansion+hidden indirect bypass."
+   }
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A353"
+   },
+   "field": "rule",
+   "proposed": "CHECKER-SCOPE:not import-only and not text-search-only; MINIMUM-EVIDENCE-CLASSES:{Python=>import+from-import resolved by Python AST/module resolution}|{JavaScript=>static import+export-from+dynamic import resolved by ESM/bundler module resolution;TypeScript=>grandfathered files verified by the same resolver rules until migrated}|{C/C++=>preprocessor include+generated include+compile_commands/CMake include path+link target+symbol dependency}|{CSharp/FSharp=>using/open+namespace/type resolution+ProjectReference+PackageReference+assembly/PInvoke reference resolved by Roslyn/MSBuild}|{Go=>import+module resolution via go.mod}|{Rust=>use/crate resolution via Cargo.toml}|{Build=>CMake target/source/include/link/add_subdirectory+csproj/fsproj project/compile/reference/native items+package.json dependencies+tsconfig extends/references for grandfathered files}; GRAPH:normalize each source,target,resolved canonical path,edge kind,condition,toolchain/configuration/platform and provenance into one typed dependency graph; CONDITIONAL:an inactive platform/configuration edge remains recorded and is tested in its applicable matrix rather than ignored; GENERATED:generated dependency edges trace to generator+input+output identity; API-IPC:A205 canonical information layer compliance requires positive structural proof,not keyword occurrence:registered endpoint/route+typed versioned contract+authorized producer/consumer+gateway/information-layer adapter identity+session/generation fencing+event/command correlation+schema hash+test evidence and absence of direct transport/database/file-drop/private-bus path; TRACE:checker follows caller>adapter>route registry>information-layer handler>authorized target and fails on unresolved or bypassed hop; TEXT-SEARCH:may discover candidates only and can never establish PASS or FAIL without parser/resolver/registry evidence; RESULT:each edge reports evidence class+resolver+source location+resolved target+contract/route id+A205 status+rule and confidence; UNRESOLVED:mandatory edge or API/IPC route that cannot be resolved is FAIL,not ignored; CACHE:keyed by source+toolchain+build config+contract revision."
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A356"
+   },
+   "field": "rule",
+   "proposed": "REGISTRY:code/registry/CapabilityRegistry.ts is the single explicit capability authority (grandfathered artifact; migration to JavaScript-ESM follows A348) and contains governance data only; add code/checkers/OwnershipUniquenessChecker.ts+code/policy/OwnershipPolicy.ts; each capability has exactly one owner plus zero-or-more executors,adapters,callers and at most one declared fallback role; ROLE:owner=unique semantic/canonical responsibility;executor=actual implementation including optimized;adapter=cross-language/platform translation;fallback=equivalent degraded implementation;caller=consumer; OWNER-NOT-EXECUTOR. BASELINE:{system.orchestration=>csharp}|{domain.business=>fsharp}|{rag.retrieval=>rust}|{ui.rendering=>javascript-esm}|{ui.client_state=>javascript-esm}|{desktop.interaction=>javascript-esm+rust-tauri}|{native.abi=>c}|{native.inference=>cpp}|{native.audit=>cpp}|{native.vector=>rust}|{native.security=>rust}|{windows.dotnet=>csharp}|{network.search_io=>go}|{data.relational_query=>sql}|{governance.semantics=>python}|{ml.training=>python-jax}|{statistics.scientific=>julia}; CAPABILITY-INSTANCE vector.similarity={semantic_owner:rust,optimized_executor:rust,contract_owner:versioned typed service contract,adapters:c-abi}; Windows CLR={owner:csharp,executor:csharp,adapter:C ABI/information-layer,caller:csharp-ui}; relational filtering={owner:sql,caller:csharp/fsharp}; A219 registered fallback is not duplicate ownership. CHECKER:registry is primary truth; directory ownership+exports+class/function symbols+operation IDs+contract registration+native capability IDs+dependencies+registered adapters+explicit metadata are corroborating evidence,never filename-only guessing; clear duplicate owner=FAIL; unresolved evidence=WARN and checker cannot select owner or edit registry. OUTPUT:capability+canonical_owner+duplicate_candidate+language+rule+reason+expected or PASS role map+parity.",
+   "also": {
+    "prohibition": "FORBID:multiple canonical owners+executor treated as owner+fallback treated as duplicate+filename-only verdict+JavaScript/CSharp duplicate FSharp domain policy+Python capability ownership outside its three bounded domains+checker assigning owner+automatic registry edit/delete/move+ambiguous case forced to FAIL without explicit rule evidence.",
+    "exception": "A bounded Python governance-semantics fallback beside a C++ optimized executor is valid only with A357 promotion and A355 parity evidence."
+   }
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A359"
+   },
+   "field": "rule",
+   "proposed": "GATE:BUILD ABI REPRO GATE answers only:approved toolchain used? artifact conforms to approved ABI/API baseline? same input yields acceptably equivalent artifact? FLOW:source>toolchain verification>canonical build configuration>native/.NET/build>symbol+ABI inspection>artifact digest>reproducibility comparison>PASS|WARN|FAIL. STRUCTURE:code/checkers/BuildAbiReproChecker.ts+code/policy/BuildAbiPolicy.ts+code/registry/ToolchainRegistry.ts+code/registry/AbiBaselineRegistry.ts+code/evidence/build-abi/ (grandfathered TypeScript artifacts; migration follows A348); policy and registries are immutable governance data only,checker verifies and never repairs. TOOLCHAINS:Python bounded-domain native records Python+pybind11+build config;C/C++ records MSVC/clang/gcc family+version+target_arch+runtime_library+language_standard+optimization_level+exception_policy+rtti_policy+calling_convention+symbol_visibility+CMake;CSharp/FSharp records compiler+.NET 10 runtime+target_framework+PlatformTarget+RID;JavaScript records Node/ESM+bundler config and TypeScript grandfathered artifacts additionally record the TypeScript toolchain;Go/Rust record go toolchain/cargo+rustc;SQL records migration version/order+schema baseline. CPP-LOCK:C++23+x64+public ABI C only+C++ symbols hidden unless explicit successor; /MD versus /MT,architecture,standard,flags,exception/RTTI/calling/visibility differences are distinct ABI build identities. ABI-BASELINE:abi_major+abi_minor+exported_symbols+struct_sizes+struct_alignments+field widths/signedness+calling_convention+architecture+runtime; permit compatible minor additive change; FAIL removed symbol+changed width/layout/calling convention+breaking semantics without major bump. EXPORT-GATE:public allowlist only registered gptbridge_* symbols; std/internal classes/vector/parser/mangled C++ symbols private. CSHARP:x64 required when consuming x64 native unless registered multi-arch strategy; verify target framework+RID+interop signature+DllImport calling convention+CharSet/encoding."
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A360"
+   },
+   "field": "rule",
+   "proposed": "GATE:RELEASE_COMPATIBILITY returns exactly PASS|WARN|FAIL and answers:language boundaries intact? API/ABI intact? old consumers work? migrations safely upgrade? native failure falls back? every required gate passed? AGGREGATION:consume immutable evidence only from Language Boundary+Dependency DAG+Contract Parity+Ownership Uniqueness+Native Promotion+Resource and Concurrency+Build ABI Reproducibility Gates; never reimplement their checks; any required FAIL=>release FAIL; WARN blocking is explicit immutable ReleaseCompatibilityPolicy per category and cannot be improvised. STRUCTURE:code/checkers/ReleaseCompatibilityChecker.ts+code/policy/ReleaseCompatibilityPolicy.ts+code/registry/SupportedVersionRegistry.ts+code/evidence/release-compatibility/ (grandfathered TypeScript artifacts; migration follows A348); policy/registry data only; registry fields release+supported_api_range+supported_abi_range+supported_schema_range+supported_previous_releases. MATRIX:compare current release with every previous supported release for JavaScript/CSharp API,CSharp/native parity+FSharp domain parity,C ABI major/minor+symbols,CSharp/native interop,SQL schema+migration,bounded-Python governance entry,native artifact architecture/runtime/toolchain; prove prior API/ABI ranges and schema upgrade path remain supported. CHANGE-CLASS:PATCH permits bug fix/internal optimization/performance/implementation only and denies contract/ABI/schema break;MINOR permits optional field,new operation/capability/ABI symbol only while old consumer works;MAJOR alone permits removal/required rename/operation or ABI symbol removal/layout/incompatible semantics with explicit migration. CONSUMERS:test old JavaScript client>new CSharp backend and new client>supported old backend when bidirectional window declared; old supported native consumer>new C ABI load+behavior. SQL-UPGRADE:old schema>ordered transactional migration>new schema>new application; verify rollback policy+data preservation+indexes+constraints and activation order before CSharp requires new field. NATIVE-DUAL:every approved fallback path is exercised under the same compatibility window."
+  },
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A362"
+   },
+   "field": "rule",
+   "proposed": "CORE:scan once+parse once+build one Unified Source Index and one Unified Language Graph consumed by LanguageBoundary,DependencyDAG,OwnershipUniqueness,ContractParity,NativePromotion,BuildAbi,ReleaseCompatibility and Final Governance; no checker rescans repository or owns a private graph. SOURCE-INDEX:one SourceUnit per canonical file stores path+language+source_class+module+owner+content_hash+mtime advisory only+imports+includes+exports+symbols+functions+classes+public_entries+contracts+capabilities+native_bindings+test_type+generated+third_party+parser_version+revision; hash,not mtime,is reuse authority. PARSERS:PythonParser+JavaScriptParser+TypeScriptParser(grandfathered files only)+CParser+CppParser+CSharpParser+FSharpParser+GoParser+RustParser+SqlParser each use its authoritative parser/resolver but emit one normalized ParsedSource{language,imports,exports,declarations,symbols,contracts,dependencies}; checkers cannot depend on language AST internals. GOVERNANCE-IR:thin derived model only,not language/bytecode/authority; canonical types SourceUnit+CallableSymbol+Symbol+Dependency+Capability+Contract+NativeBoundary+TestEvidence+BuildArtifact. GRAPH:NODES=file|module|capability|contract|symbol|artifact;EDGES=IMPORTS|INCLUDES|CALLS|IMPLEMENTS|BINDS|ADAPTS|OWNS|FALLBACK_OF|GENERATES|TESTS; one stable node/edge identity+provenance; example CSharpAPI BINDS C-ABI IMPLEMENTS C++vector and RegisteredFallback FALLBACK_OF capability. INCREMENTAL:file content hash unchanged reuses IR only when parser_version+policy_version+contract_hash also match; changed file reparses once,updates graph transactionally and invalidates reverse-dependency affected subgraph; policy/parser/contract change invalidates all dependent cache even with unchanged source. AFFECTED-SCOPE:ChangedFiles>AffectedScopeResolver>affected modules+contracts+capabilities+artifacts; gptbridge_native.h change necessarily affects C ABI+CSharp interop+native artifact+contract parity+build ABI+release compatibility. EVIDENCE:every gate outputs GateEvidence{gate_id,rule,subject,verdict,evidence_refs,source_locations,graph_revision}."
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "startup_complete_deadline_ms"
+   },
+   "field": "value",
+   "proposed": "20000"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "startup_deadline_conformance_state"
+   },
+   "field": "value",
+   "proposed": "CODEX_NORMALIZED_20000|implementation-projection-must-match-before-affected-release"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "governor_disposition_startup_deadline"
+   },
+   "field": "value",
+   "proposed": "deadline-tightened-to-20000|A199-amended|phase-budgets-halved|metadata-normalized"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "canonical_language_roles"
+   },
+   "field": "value",
+   "proposed": "c23-runtime-core-permission-hot-paths-deterministic-execution|cpp23-model-inference-native-runtime-audit-engine|csharp14-dotnet10-application-workflow-api-sole-test-orchestration|fsharp10-core-business-logic-data-validation-transformation-state-transitions|go1.27.1-xingcheng-web-search-batch-network-file-io|rust1.98.1-vector-engine-rag-native-security-desktop-host|javascript-esm-react-ui-frontend-state-desktop-interaction|python3.14.7-bounded-governance-jax-training-dev-verification|julia-statistics-optimization-simulation-scientific-computation|sql-postgresql18.6-data-authority|typescript-retired-grandfathered"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "canonical_cross_language_topology"
+   },
+   "field": "value",
+   "proposed": "JavaScript-ESM>information/API-contract>CSharp-orchestration>{SQL|C-ABI>C++|FSharp-domain|Go-io|Rust-native}|Python-bounded-governance-sidechannel"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "language_dependency_evidence"
+   },
+   "field": "value",
+   "proposed": "python-ast|javascript-typescript-resolver|cpp-preprocessor-build|roslyn-msbuild|go-mod|cargo|cmake-csproj-fsproj-packagejson"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "module_line_count_language_codes"
+   },
+   "field": "value",
+   "proposed": "C|CPP|CSHARP|FSHARP|GO|RUST|JAVASCRIPT|JULIA|PYTHON|SQL|TYPESCRIPT-GRANDFATHERED"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "language_governance_schema_lifecycle"
+   },
+   "field": "value",
+   "proposed": "APPROVED"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "governance_acceptance_state"
+   },
+   "field": "value",
+   "proposed": "APPROVED_WITH_WARNINGS"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "typescript_python_contract"
+   },
+   "field": "value",
+   "proposed": "retired-succeeded-by-javascript-esm-to-csharp-versioned-contract"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "python_api_execution_split"
+   },
+   "field": "value",
+   "proposed": "retired|python-bounded-three-domains-per-A610"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "python_internal_architecture"
+   },
+   "field": "value",
+   "proposed": "retired|python-bounded-three-domains-per-A610"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "sql_python_processing_order"
+   },
+   "field": "value",
+   "proposed": "sql-reduce-first>csharp-orchestration>fsharp-domain-semantics"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "source_extension_typescript"
+   },
+   "field": "value",
+   "proposed": ".ts|.tsx|.d.ts grandfathered-existing-only"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "six_language_automatic_check"
+   },
+   "field": "value",
+   "proposed": "superseded|required:c|cpp|csharp|fsharp|go|rust|javascript|julia|python|sql"
+  },
+  {
+   "table": "metadata",
+   "key": {
+    "key": "version_window_resolution"
+   },
+   "field": "value",
+   "proposed": "CURRENT=<successor-version>; RECOVERED_2026-09-23T14:49:21Z=historical-non-current-incomplete-epoch-certification; normative-language-delta=consolidated-current"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "AUDIT_EVENT_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "6be128cbf93089de69af659866704573d8bda5c7453ef2cabeffad1ba062d78e",
+   "also": {
+    "validator_semantic_hash": "6be128cbf93089de69af659866704573d8bda5c7453ef2cabeffad1ba062d78e",
+    "persistence_semantic_hash": "6be128cbf93089de69af659866704573d8bda5c7453ef2cabeffad1ba062d78e",
+    "canonical_semantic_hash": "6be128cbf93089de69af659866704573d8bda5c7453ef2cabeffad1ba062d78e",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "BOUNDARY_CLASSIFICATION_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "2fc59518dd31aadcf06ea66ace0f6cb5ca71396bfae22f84b504e75a5304daa6",
+   "also": {
+    "validator_semantic_hash": "2fc59518dd31aadcf06ea66ace0f6cb5ca71396bfae22f84b504e75a5304daa6",
+    "persistence_semantic_hash": "2fc59518dd31aadcf06ea66ace0f6cb5ca71396bfae22f84b504e75a5304daa6",
+    "canonical_semantic_hash": "2fc59518dd31aadcf06ea66ace0f6cb5ca71396bfae22f84b504e75a5304daa6",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_ENTRY_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "e6c49c6edbafee116ffec0479a44818b05c6732717095c6b76e99f902dba3d7b",
+   "also": {
+    "validator_semantic_hash": "e6c49c6edbafee116ffec0479a44818b05c6732717095c6b76e99f902dba3d7b",
+    "persistence_semantic_hash": "e6c49c6edbafee116ffec0479a44818b05c6732717095c6b76e99f902dba3d7b",
+    "canonical_semantic_hash": "e6c49c6edbafee116ffec0479a44818b05c6732717095c6b76e99f902dba3d7b",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_GATE_DECISION_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "80e31564e3044a231024457027be6da01d04e17de52c91be5ad442001ac099d3",
+   "also": {
+    "validator_semantic_hash": "80e31564e3044a231024457027be6da01d04e17de52c91be5ad442001ac099d3",
+    "persistence_semantic_hash": "80e31564e3044a231024457027be6da01d04e17de52c91be5ad442001ac099d3",
+    "canonical_semantic_hash": "80e31564e3044a231024457027be6da01d04e17de52c91be5ad442001ac099d3",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_INVALIDATION_EVENT_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "aa223239cedcb016092430a868f06fcb95d4c90962d1bb75741ef4f2d74af6c2",
+   "also": {
+    "validator_semantic_hash": "aa223239cedcb016092430a868f06fcb95d4c90962d1bb75741ef4f2d74af6c2",
+    "persistence_semantic_hash": "aa223239cedcb016092430a868f06fcb95d4c90962d1bb75741ef4f2d74af6c2",
+    "canonical_semantic_hash": "aa223239cedcb016092430a868f06fcb95d4c90962d1bb75741ef4f2d74af6c2",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CHINESE_MIRROR_PART_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "7a453e87ad16b39684c85c9cc842e05ba5ad26b02ec217be7412ae890cff5c0c",
+   "also": {
+    "validator_semantic_hash": "7a453e87ad16b39684c85c9cc842e05ba5ad26b02ec217be7412ae890cff5c0c",
+    "persistence_semantic_hash": "7a453e87ad16b39684c85c9cc842e05ba5ad26b02ec217be7412ae890cff5c0c",
+    "canonical_semantic_hash": "7a453e87ad16b39684c85c9cc842e05ba5ad26b02ec217be7412ae890cff5c0c",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CODEX_NORMATIVE_CLASSIFICATION_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "e0ae4a85d6f710d087c7b1a85d2b3fdfff55ac3551b655f9a480bd62dc1b0753",
+   "also": {
+    "validator_semantic_hash": "e0ae4a85d6f710d087c7b1a85d2b3fdfff55ac3551b655f9a480bd62dc1b0753",
+    "persistence_semantic_hash": "e0ae4a85d6f710d087c7b1a85d2b3fdfff55ac3551b655f9a480bd62dc1b0753",
+    "canonical_semantic_hash": "e0ae4a85d6f710d087c7b1a85d2b3fdfff55ac3551b655f9a480bd62dc1b0753",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CODEX_READ_SESSION_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "cc3ccbb03ee4a3708d36d970a2328df5f7efb7549a6bbad7468d2345363aed01",
+   "also": {
+    "validator_semantic_hash": "cc3ccbb03ee4a3708d36d970a2328df5f7efb7549a6bbad7468d2345363aed01",
+    "persistence_semantic_hash": "cc3ccbb03ee4a3708d36d970a2328df5f7efb7549a6bbad7468d2345363aed01",
+    "canonical_semantic_hash": "cc3ccbb03ee4a3708d36d970a2328df5f7efb7549a6bbad7468d2345363aed01",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "FINAL_DECISION_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "063b901f9d0d4af5426198cfc49aadba4d1ddcebd894bc7be366ff2223ed791a",
+   "also": {
+    "validator_semantic_hash": "063b901f9d0d4af5426198cfc49aadba4d1ddcebd894bc7be366ff2223ed791a",
+    "persistence_semantic_hash": "063b901f9d0d4af5426198cfc49aadba4d1ddcebd894bc7be366ff2223ed791a",
+    "canonical_semantic_hash": "063b901f9d0d4af5426198cfc49aadba4d1ddcebd894bc7be366ff2223ed791a",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "GATE_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "84c334c35422b87bbc997e7f826ca7fff3937e4b8a27e4ad8920f2f0596e009f",
+   "also": {
+    "validator_semantic_hash": "84c334c35422b87bbc997e7f826ca7fff3937e4b8a27e4ad8920f2f0596e009f",
+    "persistence_semantic_hash": "84c334c35422b87bbc997e7f826ca7fff3937e4b8a27e4ad8920f2f0596e009f",
+    "canonical_semantic_hash": "84c334c35422b87bbc997e7f826ca7fff3937e4b8a27e4ad8920f2f0596e009f",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "HEALTH_CONTRACT_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "9c1d13e28f94066a33748e5f55580dd17e5b992f86a3b784a0835ab431428a14",
+   "also": {
+    "validator_semantic_hash": "9c1d13e28f94066a33748e5f55580dd17e5b992f86a3b784a0835ab431428a14",
+    "persistence_semantic_hash": "9c1d13e28f94066a33748e5f55580dd17e5b992f86a3b784a0835ab431428a14",
+    "canonical_semantic_hash": "9c1d13e28f94066a33748e5f55580dd17e5b992f86a3b784a0835ab431428a14",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "HEALTH_CONTRACT_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "1d18a9ef5636691b2c5ce4d3734d078f92c129c8567a042e2da3d7f551823bac",
+   "also": {
+    "validator_semantic_hash": "1d18a9ef5636691b2c5ce4d3734d078f92c129c8567a042e2da3d7f551823bac",
+    "persistence_semantic_hash": "1d18a9ef5636691b2c5ce4d3734d078f92c129c8567a042e2da3d7f551823bac",
+    "canonical_semantic_hash": "1d18a9ef5636691b2c5ce4d3734d078f92c129c8567a042e2da3d7f551823bac",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "IDENTITY_CONVERSION_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "16e3b58e5f5e21b3c0bc965ec0fd657e020ac9abf0806a88fe17bbb445a8bd54",
+   "also": {
+    "validator_semantic_hash": "16e3b58e5f5e21b3c0bc965ec0fd657e020ac9abf0806a88fe17bbb445a8bd54",
+    "persistence_semantic_hash": "16e3b58e5f5e21b3c0bc965ec0fd657e020ac9abf0806a88fe17bbb445a8bd54",
+    "canonical_semantic_hash": "16e3b58e5f5e21b3c0bc965ec0fd657e020ac9abf0806a88fe17bbb445a8bd54",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "IDENTITY_RESOLUTION_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "3dcf5f977198eab74edb3e35653d6b5370ec4e4c0ec57a7b4318462258a5a33e",
+   "also": {
+    "validator_semantic_hash": "3dcf5f977198eab74edb3e35653d6b5370ec4e4c0ec57a7b4318462258a5a33e",
+    "persistence_semantic_hash": "3dcf5f977198eab74edb3e35653d6b5370ec4e4c0ec57a7b4318462258a5a33e",
+    "canonical_semantic_hash": "3dcf5f977198eab74edb3e35653d6b5370ec4e4c0ec57a7b4318462258a5a33e",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "MODULE_RULE_INDEX_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "c102f00c46cf2151c1926d0ce79fc88f85d1006d70dc394fda1c3be2e00fcb76",
+   "also": {
+    "validator_semantic_hash": "c102f00c46cf2151c1926d0ce79fc88f85d1006d70dc394fda1c3be2e00fcb76",
+    "persistence_semantic_hash": "c102f00c46cf2151c1926d0ce79fc88f85d1006d70dc394fda1c3be2e00fcb76",
+    "canonical_semantic_hash": "c102f00c46cf2151c1926d0ce79fc88f85d1006d70dc394fda1c3be2e00fcb76",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "PIPELINE_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "8f45a8561c505138bb0d757262b804665fe60925fdaf65295f23c2ed9c17f60e",
+   "also": {
+    "validator_semantic_hash": "8f45a8561c505138bb0d757262b804665fe60925fdaf65295f23c2ed9c17f60e",
+    "persistence_semantic_hash": "8f45a8561c505138bb0d757262b804665fe60925fdaf65295f23c2ed9c17f60e",
+    "canonical_semantic_hash": "8f45a8561c505138bb0d757262b804665fe60925fdaf65295f23c2ed9c17f60e",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "PRECEDENCE_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "141c2c092a43212db16025a1ae9bbd8230d88f08e177db4cd25367eb27825fa6",
+   "also": {
+    "validator_semantic_hash": "141c2c092a43212db16025a1ae9bbd8230d88f08e177db4cd25367eb27825fa6",
+    "persistence_semantic_hash": "141c2c092a43212db16025a1ae9bbd8230d88f08e177db4cd25367eb27825fa6",
+    "canonical_semantic_hash": "141c2c092a43212db16025a1ae9bbd8230d88f08e177db4cd25367eb27825fa6",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EDGE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "3da65a2b944ec70ecb9bbaad0a42dad0fd312794fff1b3d88e1af60e4477ce82",
+   "also": {
+    "validator_semantic_hash": "3da65a2b944ec70ecb9bbaad0a42dad0fd312794fff1b3d88e1af60e4477ce82",
+    "persistence_semantic_hash": "3da65a2b944ec70ecb9bbaad0a42dad0fd312794fff1b3d88e1af60e4477ce82",
+    "canonical_semantic_hash": "3da65a2b944ec70ecb9bbaad0a42dad0fd312794fff1b3d88e1af60e4477ce82",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EXECUTION_CONTEXT_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "541438390ed9bf65f71e220138f1cca18d8741c1166966b734c777daae861e3b",
+   "also": {
+    "validator_semantic_hash": "541438390ed9bf65f71e220138f1cca18d8741c1166966b734c777daae861e3b",
+    "persistence_semantic_hash": "541438390ed9bf65f71e220138f1cca18d8741c1166966b734c777daae861e3b",
+    "canonical_semantic_hash": "541438390ed9bf65f71e220138f1cca18d8741c1166966b734c777daae861e3b",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EXECUTION_RESULT_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "9f0267f6eb1b81c8f02f1aaae7cb413168f59d622d2a14ee42a9773df0b137c7",
+   "also": {
+    "validator_semantic_hash": "9f0267f6eb1b81c8f02f1aaae7cb413168f59d622d2a14ee42a9773df0b137c7",
+    "persistence_semantic_hash": "9f0267f6eb1b81c8f02f1aaae7cb413168f59d622d2a14ee42a9773df0b137c7",
+    "canonical_semantic_hash": "9f0267f6eb1b81c8f02f1aaae7cb413168f59d622d2a14ee42a9773df0b137c7",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_NODE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "0927b0240d5be2e7d0b582da9e7715eece86fb8d11bb98072d9f4707346722a1",
+   "also": {
+    "validator_semantic_hash": "0927b0240d5be2e7d0b582da9e7715eece86fb8d11bb98072d9f4707346722a1",
+    "persistence_semantic_hash": "0927b0240d5be2e7d0b582da9e7715eece86fb8d11bb98072d9f4707346722a1",
+    "canonical_semantic_hash": "0927b0240d5be2e7d0b582da9e7715eece86fb8d11bb98072d9f4707346722a1",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_PLAN_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "c1e1a1716c64b703d8303197d8ef457c022bbb8d5fb87cdb0ed64a3d0c14c0ab",
+   "also": {
+    "validator_semantic_hash": "c1e1a1716c64b703d8303197d8ef457c022bbb8d5fb87cdb0ed64a3d0c14c0ab",
+    "persistence_semantic_hash": "c1e1a1716c64b703d8303197d8ef457c022bbb8d5fb87cdb0ed64a3d0c14c0ab",
+    "canonical_semantic_hash": "c1e1a1716c64b703d8303197d8ef457c022bbb8d5fb87cdb0ed64a3d0c14c0ab",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_HYBRID_BENCHMARK_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "bb6fb0512ccec87878c367f6279b853bb0516bfe7ad691f71c0ec6a5778376de",
+   "also": {
+    "validator_semantic_hash": "bb6fb0512ccec87878c367f6279b853bb0516bfe7ad691f71c0ec6a5778376de",
+    "persistence_semantic_hash": "bb6fb0512ccec87878c367f6279b853bb0516bfe7ad691f71c0ec6a5778376de",
+    "canonical_semantic_hash": "bb6fb0512ccec87878c367f6279b853bb0516bfe7ad691f71c0ec6a5778376de",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_OBSERVABILITY_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "60776f9c10ef48098bc68542483c7866aaf7f74077209f44d743b54fe727134a",
+   "also": {
+    "validator_semantic_hash": "60776f9c10ef48098bc68542483c7866aaf7f74077209f44d743b54fe727134a",
+    "persistence_semantic_hash": "60776f9c10ef48098bc68542483c7866aaf7f74077209f44d743b54fe727134a",
+    "canonical_semantic_hash": "60776f9c10ef48098bc68542483c7866aaf7f74077209f44d743b54fe727134a",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_POLICY_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "3fe440599faa8b2732b35d16b38611c9b844ea603ae04a4a089dea8e98fa6bf9",
+   "also": {
+    "validator_semantic_hash": "3fe440599faa8b2732b35d16b38611c9b844ea603ae04a4a089dea8e98fa6bf9",
+    "persistence_semantic_hash": "3fe440599faa8b2732b35d16b38611c9b844ea603ae04a4a089dea8e98fa6bf9",
+    "canonical_semantic_hash": "3fe440599faa8b2732b35d16b38611c9b844ea603ae04a4a089dea8e98fa6bf9",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RECEIPT_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "c5b26121ee29cf1db9e82f27ea52b6973b9f15ffb3ff251012f072d242a516ee",
+   "also": {
+    "validator_semantic_hash": "c5b26121ee29cf1db9e82f27ea52b6973b9f15ffb3ff251012f072d242a516ee",
+    "persistence_semantic_hash": "c5b26121ee29cf1db9e82f27ea52b6973b9f15ffb3ff251012f072d242a516ee",
+    "canonical_semantic_hash": "c5b26121ee29cf1db9e82f27ea52b6973b9f15ffb3ff251012f072d242a516ee",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RECONCILIATION_RECEIPT_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "6df7f07d8eac3aea1b417acb410f6bc0ef9b7515bde2ca40d4c1f81fd78998fb",
+   "also": {
+    "validator_semantic_hash": "6df7f07d8eac3aea1b417acb410f6bc0ef9b7515bde2ca40d4c1f81fd78998fb",
+    "persistence_semantic_hash": "6df7f07d8eac3aea1b417acb410f6bc0ef9b7515bde2ca40d4c1f81fd78998fb",
+    "canonical_semantic_hash": "6df7f07d8eac3aea1b417acb410f6bc0ef9b7515bde2ca40d4c1f81fd78998fb",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RELEASE_CERTIFICATION_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "d809b80afc5919408777999cf3577845081e595cd92ac3cfa02d0358dc887960",
+   "also": {
+    "validator_semantic_hash": "d809b80afc5919408777999cf3577845081e595cd92ac3cfa02d0358dc887960",
+    "persistence_semantic_hash": "d809b80afc5919408777999cf3577845081e595cd92ac3cfa02d0358dc887960",
+    "canonical_semantic_hash": "d809b80afc5919408777999cf3577845081e595cd92ac3cfa02d0358dc887960",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ROLE_BOUNDARY_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "b3c4a89df9d41dbe7971b73e6941e25b64111fcb9cc6ae6d0b87352927a6ba94",
+   "also": {
+    "validator_semantic_hash": "b3c4a89df9d41dbe7971b73e6941e25b64111fcb9cc6ae6d0b87352927a6ba94",
+    "persistence_semantic_hash": "b3c4a89df9d41dbe7971b73e6941e25b64111fcb9cc6ae6d0b87352927a6ba94",
+    "canonical_semantic_hash": "b3c4a89df9d41dbe7971b73e6941e25b64111fcb9cc6ae6d0b87352927a6ba94",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ROUTE_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "9613ee75d303c4baf27bcf12c950c9748f3696ba805aac8ee81feca41114ab96",
+   "also": {
+    "validator_semantic_hash": "9613ee75d303c4baf27bcf12c950c9748f3696ba805aac8ee81feca41114ab96",
+    "persistence_semantic_hash": "9613ee75d303c4baf27bcf12c950c9748f3696ba805aac8ee81feca41114ab96",
+    "canonical_semantic_hash": "9613ee75d303c4baf27bcf12c950c9748f3696ba805aac8ee81feca41114ab96",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RUNTIME_RULE_INDEX_V2"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "537c7bf0ad89ecacea39d0783c3e6d59384a6b85edcdb7494944bb1d56c2eb8e",
+   "also": {
+    "validator_semantic_hash": "537c7bf0ad89ecacea39d0783c3e6d59384a6b85edcdb7494944bb1d56c2eb8e",
+    "persistence_semantic_hash": "537c7bf0ad89ecacea39d0783c3e6d59384a6b85edcdb7494944bb1d56c2eb8e",
+    "canonical_semantic_hash": "537c7bf0ad89ecacea39d0783c3e6d59384a6b85edcdb7494944bb1d56c2eb8e",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SCHEMA_VALIDATION_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "0797ae553dc3807f46468675c3d5d15c8bcf8ef0110a0915aee58836bc871150",
+   "also": {
+    "validator_semantic_hash": "0797ae553dc3807f46468675c3d5d15c8bcf8ef0110a0915aee58836bc871150",
+    "persistence_semantic_hash": "0797ae553dc3807f46468675c3d5d15c8bcf8ef0110a0915aee58836bc871150",
+    "canonical_semantic_hash": "0797ae553dc3807f46468675c3d5d15c8bcf8ef0110a0915aee58836bc871150",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_DDL_CANONICALIZATION_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "341a67fb1cec3a926663ebba8ed0b99191675e47902f25e3bae0dc0aa538e1ef",
+   "also": {
+    "validator_semantic_hash": "341a67fb1cec3a926663ebba8ed0b99191675e47902f25e3bae0dc0aa538e1ef",
+    "persistence_semantic_hash": "341a67fb1cec3a926663ebba8ed0b99191675e47902f25e3bae0dc0aa538e1ef",
+    "canonical_semantic_hash": "341a67fb1cec3a926663ebba8ed0b99191675e47902f25e3bae0dc0aa538e1ef",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_GOVERNANCE_CLOSURE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "682f0da4b0e5f08220ec7e1f0ade8093258f0f3f57c6c65dd1c3f70db7ea15c4",
+   "also": {
+    "validator_semantic_hash": "682f0da4b0e5f08220ec7e1f0ade8093258f0f3f57c6c65dd1c3f70db7ea15c4",
+    "persistence_semantic_hash": "682f0da4b0e5f08220ec7e1f0ade8093258f0f3f57c6c65dd1c3f70db7ea15c4",
+    "canonical_semantic_hash": "682f0da4b0e5f08220ec7e1f0ade8093258f0f3f57c6c65dd1c3f70db7ea15c4",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_GOVERNANCE_TEST_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "f31734b29a6c3bf71c288c9e710555b3ab4c26d543cfdb04b8a4bfc5dc21602c",
+   "also": {
+    "validator_semantic_hash": "f31734b29a6c3bf71c288c9e710555b3ab4c26d543cfdb04b8a4bfc5dc21602c",
+    "persistence_semantic_hash": "f31734b29a6c3bf71c288c9e710555b3ab4c26d543cfdb04b8a4bfc5dc21602c",
+    "canonical_semantic_hash": "f31734b29a6c3bf71c288c9e710555b3ab4c26d543cfdb04b8a4bfc5dc21602c",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_MIGRATION_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "959fd76cbc81e2ebea378b7ddcd8bd67c7b2f6aa938abff665642697fed52db0",
+   "also": {
+    "validator_semantic_hash": "959fd76cbc81e2ebea378b7ddcd8bd67c7b2f6aa938abff665642697fed52db0",
+    "persistence_semantic_hash": "959fd76cbc81e2ebea378b7ddcd8bd67c7b2f6aa938abff665642697fed52db0",
+    "canonical_semantic_hash": "959fd76cbc81e2ebea378b7ddcd8bd67c7b2f6aa938abff665642697fed52db0",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_MIGRATION_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "bb2397a8bae3c75a90af48cd36455d6a138770a80472da323953014f186a5fed",
+   "also": {
+    "validator_semantic_hash": "bb2397a8bae3c75a90af48cd36455d6a138770a80472da323953014f186a5fed",
+    "persistence_semantic_hash": "bb2397a8bae3c75a90af48cd36455d6a138770a80472da323953014f186a5fed",
+    "canonical_semantic_hash": "bb2397a8bae3c75a90af48cd36455d6a138770a80472da323953014f186a5fed",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TEST_SUITE_EVIDENCE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "b6217f1440d29121e68a65782af18fead1916f87769ce5e39f141306e7bdb9d1",
+   "also": {
+    "validator_semantic_hash": "b6217f1440d29121e68a65782af18fead1916f87769ce5e39f141306e7bdb9d1",
+    "persistence_semantic_hash": "b6217f1440d29121e68a65782af18fead1916f87769ce5e39f141306e7bdb9d1",
+    "canonical_semantic_hash": "b6217f1440d29121e68a65782af18fead1916f87769ce5e39f141306e7bdb9d1",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TEST_SUITE_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "2430e0c1ec4a8464580707259701b481e05d9b32adaa227bebe9396bc2689097",
+   "also": {
+    "validator_semantic_hash": "2430e0c1ec4a8464580707259701b481e05d9b32adaa227bebe9396bc2689097",
+    "persistence_semantic_hash": "2430e0c1ec4a8464580707259701b481e05d9b32adaa227bebe9396bc2689097",
+    "canonical_semantic_hash": "2430e0c1ec4a8464580707259701b481e05d9b32adaa227bebe9396bc2689097",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TOKEN_V1"
+   },
+   "field": "producer_semantic_hash",
+   "proposed": "91d1f8b3ecf166cd8e6b4f4d5407d918b8be01a4b52eae81a3260f4f67acce6e",
+   "also": {
+    "validator_semantic_hash": "91d1f8b3ecf166cd8e6b4f4d5407d918b8be01a4b52eae81a3260f4f67acce6e",
+    "persistence_semantic_hash": "91d1f8b3ecf166cd8e6b4f4d5407d918b8be01a4b52eae81a3260f4f67acce6e",
+    "canonical_semantic_hash": "91d1f8b3ecf166cd8e6b4f4d5407d918b8be01a4b52eae81a3260f4f67acce6e",
+    "validated_against_version": "<successor-version>",
+    "status": "PASS",
+    "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; prior PENDING row promoted on equal descriptor digests"
+   }
+  },
+  {
+   "table": "implementation_obligations",
+   "key": {
+    "obligation_code": "OBL_MACHINE_SCHEMA_PARITY"
+   },
+   "field": "target_state",
+   "proposed": "all 74 registered machine schemas carry equal evidenced producer,validator,persistence and canonical semantic hashes (SEAL_CANONICAL_V1 descriptor digests)",
+   "also": {
+    "current_state": "complete",
+    "previous_state": "mandated",
+    "acceptance_evidence": "machine_schema_parity_evidence restamp at codex-generation-convergence-20260925: 74/74 rows PASS, four equal descriptor hashes each"
+   }
+  }
+ ],
+ "proposed_successors": [
+  {
+   "registry": "articles",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_id": "A611",
+     "position": 611,
+     "section_index": "7",
+     "subject": "rust-local-vector-engine-and-semantic-index",
+     "rule": "VECTOR-ENGINE:Rust 1.98.1 owns the local vector engine, RAG mechanical retrieval and the native-security boundary; the Rust Vector Engine is the target primary semantic index and replaces Qdrant; SQLite vector/storage paths are retired or disabled; PostgreSQL 18.6 retains formal data validation and remains the structured authority; RULE_VECTOR_ENGINE_RUST_V1 verifies vector_engine=rust-vector-engine and sqlite_status retired/disabled fail-closed.",
+     "prohibition": "FORBID:second vector engine|active sqlite storage for vector state|qdrant as authoritative index|non-rust vector engine ownership",
+     "exception": "existing sqlite/qdrant artifacts persist as migration-only lineage during the registered cutover window"
+    }
+   ]
+  },
+  {
+   "registry": "articles",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_id": "A613",
+     "position": 613,
+     "section_index": "7",
+     "subject": "javascript-esm-native-frontend-language",
+     "rule": "FRONTEND-LANGUAGE:JavaScript ESM is the sole authored frontend language and owns React UI, frontend state and desktop interaction; TypeScript is retired and existing .ts/.tsx/.d.ts files are grandfathered-existing-only until migrated; RULE_JS_NATIVE_V1 verifies frontend authored source language_id=native JavaScript ESM fail-closed.",
+     "prohibition": "FORBID:new authored TypeScript source|second frontend language|frontend ownership outside JavaScript-ESM",
+     "exception": "grandfathered TypeScript files remain reviewable under A348 until migrated"
+    }
+   ]
+  },
+  {
+   "registry": "articles",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_id": "A614",
+     "position": 614,
+     "section_index": "7",
+     "subject": "go-rust-replace-nodejs-backend-runtime",
+     "rule": "RUNTIME:backend and edge runtime ownership is Go 1.27.1 (xingcheng web search, batch processing, network and file I/O) and Rust 1.98.1 (vector engine, native security, desktop host); Node.js is retired and holds zero active runtime consumers; RULE_GO_RUST_NODE_V1 verifies backend/edge runtime is go or rust and nodejs retired fail-closed.",
+     "prohibition": "FORBID:nodejs runtime consumer|new nodejs dependency|backend runtime outside go|rust",
+     "exception": "node toolchain binaries retained solely as build-time bundler infrastructure are not a runtime consumer"
+    }
+   ]
+  },
+  {
+   "registry": "articles",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_id": "A617",
+     "position": 617,
+     "section_index": "7",
+     "subject": "per-language-test-tool-register",
+     "rule": "TEST-TOOL-TABLE:each language declares exactly its registered test tool: C/C++>Native Harness; Rust>cargo test+Clippy; Go>go test+go vet+race detector; C#/F#>.NET test under the sole C#14 test orchestration; Python/JAX>pytest; JavaScript/React>Vitest; Tauri desktop>Rust test harness; PostgreSQL>migration replay tests; RULE_TEST_TOOLS_V1 verifies language+test_tool+responsibility exactly match this table fail-closed.",
+     "prohibition": "FORBID:unregistered test tool|language without declared test tool|parallel test framework ownership",
+     "exception": "operational binaries without a language test surface satisfy evidence through native tests only"
+    }
+   ]
+  },
+  {
+   "registry": "articles",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_id": "A618",
+     "position": 618,
+     "section_index": "7",
+     "subject": "rust-vector-engine-and-desktop-test-coverage",
+     "rule": "RUST-TESTS:the Rust Vector Engine and Tauri/desktop host test suites must cover every registered acceptance item including PostgreSQL reconciliation behavior and the native security boundary; RULE_RUST_TESTS_V1 verifies test_suite and acceptance_criteria cover all listed items fail-closed.",
+     "prohibition": "FORBID:rust capability without coverage row|acceptance item untested|security boundary without regression test",
+     "exception": "test items gated on retired artifacts may carry a registered migration-only rationale instead of executed evidence"
+    }
+   ]
+  },
+  {
+   "registry": "articles",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_id": "A619",
+     "position": 619,
+     "section_index": "7",
+     "subject": "jax-training-parity-evidence",
+     "rule": "JAX-PARITY:JAX training must pass all parity checks against the PyTorch reference and C++ inference: model architecture, forward parity, gradient, optimizer, MoE, loss, checkpoint and weight handling, inference behavior and bounded GPU memory; RULE_JAX_PARITY_V1 verifies model_architecture|forward_parity|gradient|optimizer|moe|loss|checkpoint|weight|inference|gpu fail-closed.",
+     "prohibition": "FORBID:training activation without full parity evidence|unbounded gpu memory|parity subset treated as complete",
+     "exception": "retired PyTorch artifacts serve only as the registered reference baseline during migration"
+    }
+   ]
+  },
+  {
+   "registry": "articles",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_id": "A620",
+     "position": 620,
+     "section_index": "7",
+     "subject": "final-three-layer-architecture",
+     "rule": "FINAL-ARCHITECTURE:the deployment architecture is exactly three layers: execution layer>C/C++/Rust/Go/C#/F#/Python/JAX/JavaScript; orchestration layer>C# on .NET 10; audit layer>C++ Audit Engine plus Python bounded governance; RULE_FINAL_ARCHITECTURE_V1 verifies layer+technology+responsibility match this table exactly fail-closed.",
+     "prohibition": "FORBID:technology placed outside its declared layer|fourth layer|unregistered technology in any layer",
+     "exception": "governance semantics executed inside Python's bounded domain remain an execution-layer registration even though they carry adjudication authority"
+    }
+   ]
+  },
+  {
+   "registry": "provision_law_classification",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_type": "article",
+     "provision_id": "A612",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A615",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A616",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A621",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A611",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A613",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A614",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A617",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A618",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A619",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A620",
+     "tier": "special-law",
+     "law_code": "CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW",
+     "authority_basis": "A341|A343|A348|A610"
+    }
+   ]
+  },
+  {
+   "registry": "provision_lifecycle_status",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_type": "article",
+     "provision_id": "A610",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A610-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A612",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A612-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A615",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A615-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A616",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A616-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A621",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A621-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A611",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A611-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A613",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A613-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A614",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A614-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A617",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A617-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A618",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A618-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A619",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A619-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A620",
+     "lifecycle_state": "active",
+     "effective_version": "<successor-version>",
+     "successor_identity": null,
+     "evidence": "A620-current",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    }
+   ]
+  },
+  {
+   "registry": "codex_internal_module_membership",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_type": "article",
+     "provision_id": "A610",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A612",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A615",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A616",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A621",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A611",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A613",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A614",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A617",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A618",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A619",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A620",
+     "module_code": "CODEX_MODULE_LANGUAGE",
+     "membership_kind": "primary",
+     "resolution_state": "resolved",
+     "version_identity": "<successor-version>"
+    }
+   ]
+  },
+  {
+   "registry": "effective_provisions",
+   "action": "insert",
+   "rows": [
+    {
+     "provision_type": "article",
+     "provision_id": "A610",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A612",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A615",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A616",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A621",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A611",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A613",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A614",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A617",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A618",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A619",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    },
+    {
+     "provision_type": "article",
+     "provision_id": "A620",
+     "effective_version": "<successor-version>",
+     "status": "active",
+     "legacy_effective_version": null,
+     "current_binding_version": "<successor-version>"
+    }
+   ]
+  },
+  {
+   "registry": "metadata",
+   "action": "insert",
+   "rows": [
+    {
+     "key": "source_extension_javascript",
+     "value": ".js canonical|.jsx|.mjs|.cjs grandfathered-existing-only"
+    }
+   ]
+  },
+  {
+   "registry": "machine_schema_parity_evidence",
+   "action": "insert",
+   "rows": [
+    {
+     "schema_code": "ARCHITECTURE_DIAGRAM_PROVISION_V1",
+     "producer_semantic_hash": "d0a7441184c1dd599ef78eb09cc5bd20c30f1238720f6a05168770f64472664a",
+     "validator_semantic_hash": "d0a7441184c1dd599ef78eb09cc5bd20c30f1238720f6a05168770f64472664a",
+     "persistence_semantic_hash": "d0a7441184c1dd599ef78eb09cc5bd20c30f1238720f6a05168770f64472664a",
+     "canonical_semantic_hash": "d0a7441184c1dd599ef78eb09cc5bd20c30f1238720f6a05168770f64472664a",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "ARCHITECTURE_DIAGRAM_SYNC_V1",
+     "producer_semantic_hash": "52a3dc21c0bea21aaf37f9f85a6e9a2fe04303bdee878f4599fc36ac5de049ea",
+     "validator_semantic_hash": "52a3dc21c0bea21aaf37f9f85a6e9a2fe04303bdee878f4599fc36ac5de049ea",
+     "persistence_semantic_hash": "52a3dc21c0bea21aaf37f9f85a6e9a2fe04303bdee878f4599fc36ac5de049ea",
+     "canonical_semantic_hash": "52a3dc21c0bea21aaf37f9f85a6e9a2fe04303bdee878f4599fc36ac5de049ea",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "AUDIT_CHECKPOINT_V1",
+     "producer_semantic_hash": "796ddc68a6e3355ce807557d3716c97b50a3c77d8297810d3154dd805d7f14ba",
+     "validator_semantic_hash": "796ddc68a6e3355ce807557d3716c97b50a3c77d8297810d3154dd805d7f14ba",
+     "persistence_semantic_hash": "796ddc68a6e3355ce807557d3716c97b50a3c77d8297810d3154dd805d7f14ba",
+     "canonical_semantic_hash": "796ddc68a6e3355ce807557d3716c97b50a3c77d8297810d3154dd805d7f14ba",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "BACKEND_GENERATION_HANDOFF_CONTRACT",
+     "producer_semantic_hash": "e546ff18a3d0c2b69a6fbe4ffa45bd314c9136c407c89d2ed115fc231a336791",
+     "validator_semantic_hash": "e546ff18a3d0c2b69a6fbe4ffa45bd314c9136c407c89d2ed115fc231a336791",
+     "persistence_semantic_hash": "e546ff18a3d0c2b69a6fbe4ffa45bd314c9136c407c89d2ed115fc231a336791",
+     "canonical_semantic_hash": "e546ff18a3d0c2b69a6fbe4ffa45bd314c9136c407c89d2ed115fc231a336791",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "CANCELLATION_CONTRACT_V1",
+     "producer_semantic_hash": "c8c21005d1df3df475ee9affd6d253e92929e70eac774d69d4eec5425649c1ab",
+     "validator_semantic_hash": "c8c21005d1df3df475ee9affd6d253e92929e70eac774d69d4eec5425649c1ab",
+     "persistence_semantic_hash": "c8c21005d1df3df475ee9affd6d253e92929e70eac774d69d4eec5425649c1ab",
+     "canonical_semantic_hash": "c8c21005d1df3df475ee9affd6d253e92929e70eac774d69d4eec5425649c1ab",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "DELEGATION_CONTRACT_V1",
+     "producer_semantic_hash": "be0de8876d1d4875abf20a8f3a936f703def038006ea1e8ac7c39264765c67ac",
+     "validator_semantic_hash": "be0de8876d1d4875abf20a8f3a936f703def038006ea1e8ac7c39264765c67ac",
+     "persistence_semantic_hash": "be0de8876d1d4875abf20a8f3a936f703def038006ea1e8ac7c39264765c67ac",
+     "canonical_semantic_hash": "be0de8876d1d4875abf20a8f3a936f703def038006ea1e8ac7c39264765c67ac",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "EXECUTION_PIPELINE_CONTRACT_V1",
+     "producer_semantic_hash": "5eeba30759b375c25521d2c3c678d5a386af4ee5ca892e80a74bfe3f415835df",
+     "validator_semantic_hash": "5eeba30759b375c25521d2c3c678d5a386af4ee5ca892e80a74bfe3f415835df",
+     "persistence_semantic_hash": "5eeba30759b375c25521d2c3c678d5a386af4ee5ca892e80a74bfe3f415835df",
+     "canonical_semantic_hash": "5eeba30759b375c25521d2c3c678d5a386af4ee5ca892e80a74bfe3f415835df",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "EXECUTION_RECEIPT_V1",
+     "producer_semantic_hash": "9ebf066bfcca77be8aab7bc270f670d43e8dbcac7bb810754f727e6b1ef31088",
+     "validator_semantic_hash": "9ebf066bfcca77be8aab7bc270f670d43e8dbcac7bb810754f727e6b1ef31088",
+     "persistence_semantic_hash": "9ebf066bfcca77be8aab7bc270f670d43e8dbcac7bb810754f727e6b1ef31088",
+     "canonical_semantic_hash": "9ebf066bfcca77be8aab7bc270f670d43e8dbcac7bb810754f727e6b1ef31088",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "IDENTITY_AUTHENTICATION_V1",
+     "producer_semantic_hash": "744f7e7e59dbfb3756b147509edcdb30efe74795bafb0aca38cddddda6aa10e0",
+     "validator_semantic_hash": "744f7e7e59dbfb3756b147509edcdb30efe74795bafb0aca38cddddda6aa10e0",
+     "persistence_semantic_hash": "744f7e7e59dbfb3756b147509edcdb30efe74795bafb0aca38cddddda6aa10e0",
+     "canonical_semantic_hash": "744f7e7e59dbfb3756b147509edcdb30efe74795bafb0aca38cddddda6aa10e0",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "INFORMATION_SQL_CLOSURE_V1",
+     "producer_semantic_hash": "d84aef8cd0ba291161e8768fb8ec571ce4e4a73667a1a9989ff1a0b8184eced4",
+     "validator_semantic_hash": "d84aef8cd0ba291161e8768fb8ec571ce4e4a73667a1a9989ff1a0b8184eced4",
+     "persistence_semantic_hash": "d84aef8cd0ba291161e8768fb8ec571ce4e4a73667a1a9989ff1a0b8184eced4",
+     "canonical_semantic_hash": "d84aef8cd0ba291161e8768fb8ec571ce4e4a73667a1a9989ff1a0b8184eced4",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "LANGUAGE_SEMANTIC_NORMALIZATION_CONTRACT",
+     "producer_semantic_hash": "028823f156985623880971f37f696ae295d17aac83a4325231a892571701e07d",
+     "validator_semantic_hash": "028823f156985623880971f37f696ae295d17aac83a4325231a892571701e07d",
+     "persistence_semantic_hash": "028823f156985623880971f37f696ae295d17aac83a4325231a892571701e07d",
+     "canonical_semantic_hash": "028823f156985623880971f37f696ae295d17aac83a4325231a892571701e07d",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "MODEL_DIALOGUE_MODE_CONTRACT",
+     "producer_semantic_hash": "cd76e7d8310017de9442ca584065782b969faef6c35f3ffc74c473799c19629c",
+     "validator_semantic_hash": "cd76e7d8310017de9442ca584065782b969faef6c35f3ffc74c473799c19629c",
+     "persistence_semantic_hash": "cd76e7d8310017de9442ca584065782b969faef6c35f3ffc74c473799c19629c",
+     "canonical_semantic_hash": "cd76e7d8310017de9442ca584065782b969faef6c35f3ffc74c473799c19629c",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "POSTGRESQL_OBJECT_INVENTORY_V1",
+     "producer_semantic_hash": "938a095cd6a9b69fec47a053feae1c8e42f78cc416559cb47efda4b9d1fdef20",
+     "validator_semantic_hash": "938a095cd6a9b69fec47a053feae1c8e42f78cc416559cb47efda4b9d1fdef20",
+     "persistence_semantic_hash": "938a095cd6a9b69fec47a053feae1c8e42f78cc416559cb47efda4b9d1fdef20",
+     "canonical_semantic_hash": "938a095cd6a9b69fec47a053feae1c8e42f78cc416559cb47efda4b9d1fdef20",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "POSTGRESQL_ROLE_V1",
+     "producer_semantic_hash": "a307bcb92446a606ebb66b17cdbf92a7f633c3a3ae5fb9e74b4426fff1e07067",
+     "validator_semantic_hash": "a307bcb92446a606ebb66b17cdbf92a7f633c3a3ae5fb9e74b4426fff1e07067",
+     "persistence_semantic_hash": "a307bcb92446a606ebb66b17cdbf92a7f633c3a3ae5fb9e74b4426fff1e07067",
+     "canonical_semantic_hash": "a307bcb92446a606ebb66b17cdbf92a7f633c3a3ae5fb9e74b4426fff1e07067",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "PROJECT_ARCHITECTURE_CLOSURE_V1",
+     "producer_semantic_hash": "cf13be5d7238068a6e871ed0880788d4c91904d4940c01e57f95cf7de92620ac",
+     "validator_semantic_hash": "cf13be5d7238068a6e871ed0880788d4c91904d4940c01e57f95cf7de92620ac",
+     "persistence_semantic_hash": "cf13be5d7238068a6e871ed0880788d4c91904d4940c01e57f95cf7de92620ac",
+     "canonical_semantic_hash": "cf13be5d7238068a6e871ed0880788d4c91904d4940c01e57f95cf7de92620ac",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "RUNTIME_HEALTH_V1",
+     "producer_semantic_hash": "0facf95ceb139c735c706d0145b99facd9e742c0496e518ca740518cbea29711",
+     "validator_semantic_hash": "0facf95ceb139c735c706d0145b99facd9e742c0496e518ca740518cbea29711",
+     "persistence_semantic_hash": "0facf95ceb139c735c706d0145b99facd9e742c0496e518ca740518cbea29711",
+     "canonical_semantic_hash": "0facf95ceb139c735c706d0145b99facd9e742c0496e518ca740518cbea29711",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SEARCH_TOOL_RESULT_CONTRACT",
+     "producer_semantic_hash": "89fc38700ae4fbb800ad274bb0e0575c7f92eeb33315760ad34987adfd07063d",
+     "validator_semantic_hash": "89fc38700ae4fbb800ad274bb0e0575c7f92eeb33315760ad34987adfd07063d",
+     "persistence_semantic_hash": "89fc38700ae4fbb800ad274bb0e0575c7f92eeb33315760ad34987adfd07063d",
+     "canonical_semantic_hash": "89fc38700ae4fbb800ad274bb0e0575c7f92eeb33315760ad34987adfd07063d",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_HEALTH_EVIDENCE_V1",
+     "producer_semantic_hash": "c624c688be3c2637d06bb3573a209b11c67cf4cb557f24acfd1fa37c1db1d65e",
+     "validator_semantic_hash": "c624c688be3c2637d06bb3573a209b11c67cf4cb557f24acfd1fa37c1db1d65e",
+     "persistence_semantic_hash": "c624c688be3c2637d06bb3573a209b11c67cf4cb557f24acfd1fa37c1db1d65e",
+     "canonical_semantic_hash": "c624c688be3c2637d06bb3573a209b11c67cf4cb557f24acfd1fa37c1db1d65e",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_MIGRATION_RECEIPT_V1",
+     "producer_semantic_hash": "5e6994dd9b9b050796b9d75636c544f56c687ad79b6c1da6a1ece9ed2f8bb930",
+     "validator_semantic_hash": "5e6994dd9b9b050796b9d75636c544f56c687ad79b6c1da6a1ece9ed2f8bb930",
+     "persistence_semantic_hash": "5e6994dd9b9b050796b9d75636c544f56c687ad79b6c1da6a1ece9ed2f8bb930",
+     "canonical_semantic_hash": "5e6994dd9b9b050796b9d75636c544f56c687ad79b6c1da6a1ece9ed2f8bb930",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_OBJECT_COVERAGE_V1",
+     "producer_semantic_hash": "a211461193ff209e9568579398bb8f3b78066a2ffb6cfd6149b280c4bc61d2ba",
+     "validator_semantic_hash": "a211461193ff209e9568579398bb8f3b78066a2ffb6cfd6149b280c4bc61d2ba",
+     "persistence_semantic_hash": "a211461193ff209e9568579398bb8f3b78066a2ffb6cfd6149b280c4bc61d2ba",
+     "canonical_semantic_hash": "a211461193ff209e9568579398bb8f3b78066a2ffb6cfd6149b280c4bc61d2ba",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_RECONCILIATION_V1",
+     "producer_semantic_hash": "d45c13f9d9167e38be2bdfe779f220aa20fec8183fdf3bb50cf894fc9ebd51f7",
+     "validator_semantic_hash": "d45c13f9d9167e38be2bdfe779f220aa20fec8183fdf3bb50cf894fc9ebd51f7",
+     "persistence_semantic_hash": "d45c13f9d9167e38be2bdfe779f220aa20fec8183fdf3bb50cf894fc9ebd51f7",
+     "canonical_semantic_hash": "d45c13f9d9167e38be2bdfe779f220aa20fec8183fdf3bb50cf894fc9ebd51f7",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_RECOVERY_EVIDENCE_V1",
+     "producer_semantic_hash": "18b53dfafba12151e352ac3b83e5fa19cc5bda7bdada52b8409f4e0a3c3c1850",
+     "validator_semantic_hash": "18b53dfafba12151e352ac3b83e5fa19cc5bda7bdada52b8409f4e0a3c3c1850",
+     "persistence_semantic_hash": "18b53dfafba12151e352ac3b83e5fa19cc5bda7bdada52b8409f4e0a3c3c1850",
+     "canonical_semantic_hash": "18b53dfafba12151e352ac3b83e5fa19cc5bda7bdada52b8409f4e0a3c3c1850",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_RUNTIME_SCHEMA_COMPATIBILITY_V1",
+     "producer_semantic_hash": "0c9eaa665fa51bfd99eff6e97ce3617fe587bb0860d07aad7dc44642a5c8b8cc",
+     "validator_semantic_hash": "0c9eaa665fa51bfd99eff6e97ce3617fe587bb0860d07aad7dc44642a5c8b8cc",
+     "persistence_semantic_hash": "0c9eaa665fa51bfd99eff6e97ce3617fe587bb0860d07aad7dc44642a5c8b8cc",
+     "canonical_semantic_hash": "0c9eaa665fa51bfd99eff6e97ce3617fe587bb0860d07aad7dc44642a5c8b8cc",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_SCHEMA_OBJECT_V1",
+     "producer_semantic_hash": "aa98ed132ae92c3970735a01dc7cd7f12a0465d1442c8d91f90fa3181f526f07",
+     "validator_semantic_hash": "aa98ed132ae92c3970735a01dc7cd7f12a0465d1442c8d91f90fa3181f526f07",
+     "persistence_semantic_hash": "aa98ed132ae92c3970735a01dc7cd7f12a0465d1442c8d91f90fa3181f526f07",
+     "canonical_semantic_hash": "aa98ed132ae92c3970735a01dc7cd7f12a0465d1442c8d91f90fa3181f526f07",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_SECURITY_PARITY_V1",
+     "producer_semantic_hash": "b9b8e87d7e6ec175f9df62c6f664e3479b925510489a615673c4222479644ccd",
+     "validator_semantic_hash": "b9b8e87d7e6ec175f9df62c6f664e3479b925510489a615673c4222479644ccd",
+     "persistence_semantic_hash": "b9b8e87d7e6ec175f9df62c6f664e3479b925510489a615673c4222479644ccd",
+     "canonical_semantic_hash": "b9b8e87d7e6ec175f9df62c6f664e3479b925510489a615673c4222479644ccd",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_SECURITY_PROJECTION_V1",
+     "producer_semantic_hash": "2e8248054916eda6102a53d837526a1bb1655b50ddd2d1b18b7da2d5ed625b26",
+     "validator_semantic_hash": "2e8248054916eda6102a53d837526a1bb1655b50ddd2d1b18b7da2d5ed625b26",
+     "persistence_semantic_hash": "2e8248054916eda6102a53d837526a1bb1655b50ddd2d1b18b7da2d5ed625b26",
+     "canonical_semantic_hash": "2e8248054916eda6102a53d837526a1bb1655b50ddd2d1b18b7da2d5ed625b26",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_SESSION_CONTEXT_V1",
+     "producer_semantic_hash": "ba7d4fddc7ce68f75d254dd7c810c77924fda01d2d2109ad0870ab2969cc5f0c",
+     "validator_semantic_hash": "ba7d4fddc7ce68f75d254dd7c810c77924fda01d2d2109ad0870ab2969cc5f0c",
+     "persistence_semantic_hash": "ba7d4fddc7ce68f75d254dd7c810c77924fda01d2d2109ad0870ab2969cc5f0c",
+     "canonical_semantic_hash": "ba7d4fddc7ce68f75d254dd7c810c77924fda01d2d2109ad0870ab2969cc5f0c",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_TRANSACTION_CONCURRENCY_V1",
+     "producer_semantic_hash": "935c631095cd2ee16a7fc2c30c1d271a43b9c59adbf7d6b5492606e8a6e61c93",
+     "validator_semantic_hash": "935c631095cd2ee16a7fc2c30c1d271a43b9c59adbf7d6b5492606e8a6e61c93",
+     "persistence_semantic_hash": "935c631095cd2ee16a7fc2c30c1d271a43b9c59adbf7d6b5492606e8a6e61c93",
+     "canonical_semantic_hash": "935c631095cd2ee16a7fc2c30c1d271a43b9c59adbf7d6b5492606e8a6e61c93",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQL_TRANSACTION_POLICY_V1",
+     "producer_semantic_hash": "9157baf021aded9dc80d389337fe37336d98a79aaceb46a6283f5888f8aad87c",
+     "validator_semantic_hash": "9157baf021aded9dc80d389337fe37336d98a79aaceb46a6283f5888f8aad87c",
+     "persistence_semantic_hash": "9157baf021aded9dc80d389337fe37336d98a79aaceb46a6283f5888f8aad87c",
+     "canonical_semantic_hash": "9157baf021aded9dc80d389337fe37336d98a79aaceb46a6283f5888f8aad87c",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "SQLITE_STATE_SCOPE_V1",
+     "producer_semantic_hash": "b2574061ecbc55eaa08de7ce47b2a465c3e11010c4f7109d2d6704af34e78dcd",
+     "validator_semantic_hash": "b2574061ecbc55eaa08de7ce47b2a465c3e11010c4f7109d2d6704af34e78dcd",
+     "persistence_semantic_hash": "b2574061ecbc55eaa08de7ce47b2a465c3e11010c4f7109d2d6704af34e78dcd",
+     "canonical_semantic_hash": "b2574061ecbc55eaa08de7ce47b2a465c3e11010c4f7109d2d6704af34e78dcd",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "TOOL_RELIABILITY_PROFILE_V1",
+     "producer_semantic_hash": "d7945cebc452e1a80c54906b93c3ab6421bdd7fdf8eba6609352eada4e89550e",
+     "validator_semantic_hash": "d7945cebc452e1a80c54906b93c3ab6421bdd7fdf8eba6609352eada4e89550e",
+     "persistence_semantic_hash": "d7945cebc452e1a80c54906b93c3ab6421bdd7fdf8eba6609352eada4e89550e",
+     "canonical_semantic_hash": "d7945cebc452e1a80c54906b93c3ab6421bdd7fdf8eba6609352eada4e89550e",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "TOOL_RUNTIME_CONTRACT_V1",
+     "producer_semantic_hash": "34d9be37f4d222afb6a3808a9795431590bea288fbd1792a6a73f19bf11180fc",
+     "validator_semantic_hash": "34d9be37f4d222afb6a3808a9795431590bea288fbd1792a6a73f19bf11180fc",
+     "persistence_semantic_hash": "34d9be37f4d222afb6a3808a9795431590bea288fbd1792a6a73f19bf11180fc",
+     "canonical_semantic_hash": "34d9be37f4d222afb6a3808a9795431590bea288fbd1792a6a73f19bf11180fc",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "TRANSPORT_CONTRACT_V1",
+     "producer_semantic_hash": "902e0b6c410f5e3616d6dd47e056e750bcd5e8225143c52589929220614d3be2",
+     "validator_semantic_hash": "902e0b6c410f5e3616d6dd47e056e750bcd5e8225143c52589929220614d3be2",
+     "persistence_semantic_hash": "902e0b6c410f5e3616d6dd47e056e750bcd5e8225143c52589929220614d3be2",
+     "canonical_semantic_hash": "902e0b6c410f5e3616d6dd47e056e750bcd5e8225143c52589929220614d3be2",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    },
+    {
+     "schema_code": "TRANSPORT_ENVELOPE_V1",
+     "producer_semantic_hash": "ee18f9366cc5c30b5b8451b5491362d05dda9c87121e568b8554650089d78e06",
+     "validator_semantic_hash": "ee18f9366cc5c30b5b8451b5491362d05dda9c87121e568b8554650089d78e06",
+     "persistence_semantic_hash": "ee18f9366cc5c30b5b8451b5491362d05dda9c87121e568b8554650089d78e06",
+     "canonical_semantic_hash": "ee18f9366cc5c30b5b8451b5491362d05dda9c87121e568b8554650089d78e06",
+     "validated_against_version": "<successor-version>",
+     "status": "PASS",
+     "reason": "semantic-hash-toolchain SEAL_CANONICAL_V1 restamp; producer=validator=persistence=canonical descriptor digest"
+    }
+   ]
+  },
+  {
+   "registry": "architecture_stale_reference_evidence",
+   "action": "insert",
+   "rows": [
+    {
+     "evidence_id": "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN@<successor-version>",
+     "current_reference_count": 0,
+     "historical_reference_count": 1,
+     "result": "PASS",
+     "status": "current",
+     "version_identity": "<successor-version>"
+    }
+   ]
+  }
+ ],
+ "proposed_delta": "7 article inserts + 9 article normalizations + A199 deadline + 4 registry insert sets (classification, lifecycle, membership, effective) + 18 metadata updates + 74 machine-schema parity restamps + obligation closure + architecture evidence row; derived projections (search/module manifests, normative surface, seal/revision rows) are rebuilt deterministically by the execution pipeline.",
+ "verification": {
+  "gates": [
+   "staged_generation_errors empty",
+   "check_provision_classification zero missing",
+   "formal-rule controlling provisions all resolve",
+   "machine-schema parity evidence 74 rows PASS with equal hashes",
+   "startup_complete_deadline_ms=20000 in codex and metadata"
+  ],
+  "note": "the execution pipeline rebuilds version-axis bookkeeping (revision_history, seal_manifest, epoch_seal_manifest, search documents/FTS, module manifest, normative surface) before publication; seal remains conditioned on the unanimous five-sovereign audit certificate."
+ }
+}
