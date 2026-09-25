@@ -205,41 +205,69 @@ try {
 # own cl line; the whole fleet is scheduled under $MaxParallel with a
 # 600s per-batch cap.
 $buildJobs = @()
-function Add-BuildJob($name, $clLine) {
+# MSVC /std:c++latest 與 /std:clatest 互斥（D8016）——同一 cl 行程只能給一個
+# 標準旗標。混合 .c/.cpp 的套件因此拆成「C 編譯 / C++ 編譯 / 連結」三步：
+# .c 走 C23 軌（clatest）、.cpp 走 C++23 軌（c++latest），obj 分語言目錄。
+function Add-BuildJob($name, $batLines) {
     $objDir = Join-Path $out ("obj\" + $name)
     New-Item -ItemType Directory -Force -Path $objDir | Out-Null
     $batPath = Join-Path $out ("_build_" + $name + ".bat")
-    $lines = @("@echo off", "call `"$vcvars`" >nul || exit /b 1", $clLine)
+    $lines = @("@echo off", "call `"$vcvars`" >nul || exit /b 1") + @($batLines)
     Set-Content -Path $batPath -Value $lines -Encoding ASCII
     $script:buildJobs += @{ name = $name; bat = $batPath }
+}
+function New-CompileBatLines($name, $exePath, $srcs, $incs) {
+    # 依副檔名拆 .c/.cpp，各用對應 /std 旗標編譯成 obj，最後連結。
+    $objDir = Join-Path $out ("obj\" + $name)
+    $objCpp = Join-Path $objDir "cpp"
+    $objC = Join-Path $objDir "c"
+    New-Item -ItemType Directory -Force -Path $objCpp | Out-Null
+    New-Item -ItemType Directory -Force -Path $objC | Out-Null
+    $cppSrcs = @($srcs | Where-Object { $_ -match '\.cpp$' })
+    $cSrcs = @($srcs | Where-Object { $_ -match '\.c$' })
+    $incArgs = ""
+    foreach ($i in $incs) { $incArgs += " /I`"$i`"" }
+    $lines = @()
+    $objs = @()
+    foreach ($s in $cppSrcs) {
+        $o = Join-Path $objCpp ([System.IO.Path]::GetFileNameWithoutExtension($s) + ".obj")
+        $objs += $o
+        $lines += "cl /nologo /std:c++latest /utf-8 /O2 /EHsc /I`"$includeDir`"$incArgs /c /Fo`"$o`" `"$s`" >nul || exit /b 1"
+    }
+    foreach ($s in $cSrcs) {
+        $o = Join-Path $objC ([System.IO.Path]::GetFileNameWithoutExtension($s) + ".obj")
+        $objs += $o
+        $lines += "cl /nologo /std:clatest /utf-8 /O2 /I`"$includeDir`"$incArgs /c /Fo`"$o`" `"$s`" >nul || exit /b 1"
+    }
+    $objArgs = ""
+    foreach ($o in $objs) { $objArgs += " `"$o`"" }
+    $lines += "cl /nologo$objArgs /Fe`"$exePath`" >nul || exit /b 1"
+    return $lines
 }
 foreach ($suite in $suites) {
     $srcPath = Join-Path $PSScriptRoot $suite.src
     $exePath = Join-Path $out $suite.exe
     $suiteName = [System.IO.Path]::GetFileNameWithoutExtension($suite.exe)
-    $objDir = Join-Path $out ("obj\" + $suiteName)
-    $extraSrcs = ""
-    if ($suite.ContainsKey("extra")) {
-        foreach ($e in $suite.extra) { $extraSrcs += " `"$e`"" }
-    }
-    $extraInc = ""
-    if ($suite.ContainsKey("inc")) {
-        foreach ($i in $suite.inc) { $extraInc += " /I`"$i`"" }
-    }
-    Add-BuildJob $suiteName ("cl /nologo /std:c++latest /std:clatest /utf-8 /O2 /EHsc /I`"$includeDir`"$extraInc /Fe:$exePath /Fo:$objDir\ `"$srcPath`"$extraSrcs >nul || exit /b 1")
+    $srcs = @($srcPath)
+    if ($suite.ContainsKey("extra")) { $srcs += @($suite.extra) }
+    $incs = @()
+    if ($suite.ContainsKey("inc")) { $incs = @($suite.inc) }
+    Add-BuildJob $suiteName (New-CompileBatLines $suiteName $exePath $srcs $incs)
 }
 # 獨立審計引擎 CLI（pre-commit 閘門嵌入式）
 $auditExe = Join-Path $out "audit-engine.exe"
 $auditSrc = Join-Path $auditDir "audit_engine.cpp"
 $auditObj = Join-Path $out "obj\audit-engine"
-Add-BuildJob "audit-engine" ("cl /nologo /std:c++latest /std:clatest /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe:$auditExe /Fo:$auditObj\ `"$auditSrc`" >nul || exit /b 1")
+New-Item -ItemType Directory -Force -Path $auditObj | Out-Null
+Add-BuildJob "audit-engine" @("cl /nologo /std:c++latest /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe`"$auditExe`" /Fo`"$auditObj\`" `"$auditSrc`" >nul || exit /b 1")
 # M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
 $tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
 $sidecarSrc = Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"
 $driverObj = Join-Path $out "obj\proxy_client_driver"
-Add-BuildJob "proxy_client_driver" ("cl /nologo /std:c++latest /std:clatest /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$driverExe /Fo:$driverObj\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" >nul || exit /b 1")
+New-Item -ItemType Directory -Force -Path $driverObj | Out-Null
+Add-BuildJob "proxy_client_driver" @("cl /nologo /std:c++latest /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe`"$driverExe`" /Fo`"$driverObj\`" `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" >nul || exit /b 1")
 
 $bq = [System.Collections.Generic.Queue[object]]::new()
 foreach ($j in $buildJobs) { $bq.Enqueue($j) }

@@ -205,7 +205,9 @@ def _extension():
         extra_objects=extra_objects,
         language="c++",
         extra_compile_args=(
-            ["/std:c++latest", "/std:clatest", "/utf-8"]
+            # MSVC /std:c++latest 與 /std:clatest 互斥（D8016）；C++23 軌升級
+            # 由 c++latest 承擔，.c 檔沿用 cl 預設 C 模式（與 c++17 時相同）。
+            ["/std:c++latest", "/utf-8"]
             if sys.platform == "win32"
             else ["-std=c++23"]
         ),
