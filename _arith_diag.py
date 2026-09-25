@@ -51,8 +51,8 @@ PROBES = [
 ]
 
 MODELS = {
-    "v25": r"Standalone tools\local-model\xingcheng\runtime\models\jobs"
-    r"\sft-280m-moe8i2-v19b-20260925\final.pt",
+    "v19b-dense(≈v25 base)": r"Standalone tools\local-model\xingcheng"
+    r"\runtime\models\jobs\sft-88m-v19b-qa-20260924\latest.pt",
     "v26": r"Standalone tools\local-model\xingcheng\runtime\models\jobs"
     r"\sft-294m-moe16s1-v19-20260925\final.pt",
 }

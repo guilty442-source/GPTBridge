@@ -96,7 +96,7 @@ class SleepPolicyManager:
         # process/session (started request id, else active request id).
         # A changed or newly appearing marker means the process (re)started
         # since the previous scan — its idle baseline cannot predate that.
-        self._running_marks: dict[str, str] = {}
+        self._process_marks: dict[str, str] = {}
         # tool_id -> current tier ("hot"|"warm"|"cold")
         self._tiers: dict[str, str] = {}
         self._last_decisions: dict[str, str] = {}
@@ -241,17 +241,17 @@ class SleepPolicyManager:
         now = time.time()
         # Marks for vanished tools are dropped so a later re-appearance
         # counts as a fresh process even if its marker repeats.
-        for gone in set(self._running_marks) - set(tools):
-            self._running_marks.pop(gone, None)
+        for gone in set(self._process_marks) - set(tools):
+            self._process_marks.pop(gone, None)
         for tool_id in sorted(tools):
-            if self._running_marks.get(tool_id) != tools[tool_id]:
+            if self._process_marks.get(tool_id) != tools[tool_id]:
                 # Freshly (re)started process/session — reset the idle
                 # baseline.  Without this a stale ``_last_active`` epoch
                 # survives restarts and the very next scan cold-sleeps a
                 # just-woken unit before it can serve the request that
                 # demanded it (observed: every governed/local-model wake
                 # killed ~35 s after start).
-                self._running_marks[tool_id] = tools[tool_id]
+                self._process_marks[tool_id] = tools[tool_id]
                 self._last_active[tool_id] = now
             if tool_id in never_sleep:
                 self._tiers[tool_id] = "hot"
