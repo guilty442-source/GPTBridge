@@ -195,6 +195,19 @@
       "network_policy": "loopback-only",
       "filesystem_policy": "tool-scoped"
     },
+    "vectord-rs": {
+      "memory_limit_mb": 2048,
+      "cpu_percent_limit": 60,
+      "network_policy": "loopback-only",
+      "filesystem_policy": "tool-scoped",
+      "restart_on_crash": true,
+      "max_restart_attempts": 3,
+      "restart_backoff_seconds": [
+        2,
+        5,
+        15
+      ]
+    },
     "searchd-go": {
       "memory_limit_mb": 128,
       "cpu_percent_limit": 40,

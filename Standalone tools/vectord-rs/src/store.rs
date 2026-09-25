@@ -63,6 +63,8 @@ pub struct Filter {
     pub must: Vec<Condition>,
     #[serde(default)]
     pub should: Vec<Condition>,
+    #[serde(default)]
+    pub must_not: Vec<Condition>,
 }
 
 fn json_eq(a: &Value, b: &Value) -> bool {
@@ -96,6 +98,9 @@ pub fn filter_ok(payload: &Value, filter: &Filter) -> bool {
     if !filter.should.is_empty()
         && !filter.should.iter().any(|c| condition_ok(payload, c))
     {
+        return false;
+    }
+    if filter.must_not.iter().any(|c| condition_ok(payload, c)) {
         return false;
     }
     true
