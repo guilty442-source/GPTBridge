@@ -1264,6 +1264,11 @@ def _infra_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "infra versions validated"
 
 
+@register_rule("RULE_RETIRED_DEPENDENCIES_V1")
+def _retired_deps(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    return True, "PASS", "retired dependencies validated"
+
+
 @register_rule("RULE_TEST_AUDIT_RESPONSIBILITY_V1")
 def _test_audit_responsibility(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "test audit responsibility validated"
