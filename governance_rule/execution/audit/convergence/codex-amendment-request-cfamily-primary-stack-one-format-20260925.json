@@ -12,11 +12,11 @@
   "flow": "A382/A488-non-disruptive-amendment-flow",
   "not_executed": true,
   "predecessor": {
-    "codex_version": "2026-09-25T03:00:26Z",
+    "codex_version": "2026-09-25T05:02:08Z",
     "version_identity": "E2:2026-09-23T03:13:43Z",
     "version_epoch": 2,
     "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
-    "revision_sequence": 76
+    "revision_sequence": 77
   },
   "problem": {
     "summary": "The implementation language surface has drifted from the declared stack: TypeScript accumulates .tsx/.d.ts alternates, the C# source roots in policy did not cover the registered .NET tools, process-metrics-csharp had no architecture registration, and the codex does not declare a primary execution order, a single canonical format per language, or a provision anchoring the registered RULE_LANGUAGE_REALLOCATION_V1 evaluator (C23/C++23/C#14 .NET 10 primary adaptive).",
