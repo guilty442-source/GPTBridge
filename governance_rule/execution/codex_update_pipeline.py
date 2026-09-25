@@ -42,6 +42,7 @@ import stat
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Final, Mapping
 
@@ -220,6 +221,20 @@ def isolate_generation(codex_root: str | Path, staging_root: str | Path) -> Isol
         raise CodexUpdateError("isolate", "staging root must be outside the codex root")
     database = root / "data" / DATABASE_NAME
 
+    if staging.is_dir() and any(
+        (staging / marker).exists()
+        for marker in (DATABASE_NAME, ISOLATION_MARKER, RELEASED_MARKER)
+    ):
+        residue = staging.with_name(
+            f"{staging.name}-stale-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
+            f"-{uuid.uuid4().hex[:8]}"
+        )
+        try:
+            staging.rename(residue)
+        except OSError as error:
+            raise CodexUpdateError(
+                "isolate", f"stale staging residue not quarantined: {error}"
+            ) from error
     staging.mkdir(parents=True, exist_ok=True)
     isolated_database = staging / DATABASE_NAME
     if database.is_file():

@@ -64,7 +64,7 @@ export const LANGUAGE_POLICY: LanguagePolicy = {
 
 // Canonical file extensions per A215 (primary format first; alternates grandfathered)
 export const CANONICAL_EXTENSIONS = {
-  Python: ['.py', '.pyi', '.pyx'],
+  Python: ['.py', '.pyi'],
   TypeScript: ['.ts', '.tsx', '.d.ts'],
   C: ['.c', '.h'],
   Cpp: ['.cpp', '.hpp', '.inl'],

@@ -7,8 +7,8 @@
 export const LAYER_HIERARCHY = [
   'presentation',           // TypeScript UI, Electron main
   'channel-api',            // Information layer contracts, IPC, events
-  'application-use-case',   // Python orchestration, workflows, use cases
-  'domain',                 // Python domain policy, business logic
+  'application-use-case',   // Authorized orchestration (C#14 owner per A341) + bounded Python governance semantics
+  'domain',                 // Bounded Python domain policy/semantics on-demand
   'infrastructure',         // Python adapters, native bindings, SQL, tools
   'native-core',            // C++ private implementation (parser, vector, memory, token, transform, binding)
   'c-abi',                  // C public interface (gptbridge_native.h)
@@ -31,11 +31,11 @@ export const LAYER_RULES: Record<Layer, { allowedDeps: Layer[]; description: str
   },
   'application-use-case': {
     allowedDeps: ['channel-api', 'domain', 'infrastructure', 'c-abi', 'csharp-adapter'],
-    description: 'Python orchestration depends on channel-api, domain, infrastructure, and adapters',
+    description: 'Orchestration layer (C#14 authoritative owner per A341; Python bounded semantics) depends on channel-api, domain, infrastructure, and adapters',
   },
   'domain': {
     allowedDeps: ['infrastructure'],
-    description: 'Domain policy depends on infrastructure for data access',
+    description: 'Bounded domain policy/semantics depends on infrastructure for data access',
   },
   'infrastructure': {
     allowedDeps: ['c-abi', 'native-core'],
@@ -118,6 +118,8 @@ export function getLayerForModule(moduleId: string): Layer | null {
   if (moduleId.includes('native/core')) return 'native-core';
   if (moduleId.includes('native/include') || moduleId.includes('native/bridge')) return 'c-abi';
   if (moduleId.includes('launcher/src')) return 'csharp-adapter';
+  if (moduleId.includes('business-logic-csharp')) return 'csharp-adapter';
+  if (moduleId.includes('process-metrics-csharp')) return 'csharp-adapter';
 
   return null;
 }

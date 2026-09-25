@@ -38,12 +38,15 @@ export interface DependencyDagResult {
 export const LAYER_ORDER = [
   'presentation',      // TypeScript UI
   'channel-api',       // Information layer contracts
-  'application-use-case', // Python orchestration
-  'domain',            // Python domain policy
-  'infrastructure',    // Python adapters, native bindings
+  'application-use-case', // Authorized orchestration (C#14 owner) + bounded Python semantics
+  'domain',            // Bounded Python domain policy
+  'infrastructure',    // Adapters, native bindings
   'native-core',       // C++ private implementation
   'c-abi',             // C public interface
   'csharp-adapter',    // C# Windows adapter
+  'fsharp-analysis',   // F# analysis/ML capability
+  'go-service',        // Go bounded concurrent services
+  'rust-component',    // Rust memory-safe systems
 ];
 
 export class DependencyDagChecker {
@@ -188,6 +191,9 @@ export class DependencyDagChecker {
     if (language === 'C++' || normalized.includes('native/core/')) return 'native-core';
     if (language === 'C' || normalized.includes('native/include/') || normalized.includes('native/bridge/')) return 'c-abi';
     if (language === 'CSharp') return 'csharp-adapter';
+    if (language === 'FSharp') return 'fsharp-analysis';
+    if (language === 'Go') return 'go-service';
+    if (language === 'Rust') return 'rust-component';
     return 'unknown';
   }
 

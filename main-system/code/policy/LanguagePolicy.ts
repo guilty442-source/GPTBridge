@@ -4,16 +4,17 @@
  * Immutable data only. Single source of truth for language governance.
  */
 
+// A35 (codex 2026-09-25T10:59:50Z): PRIMARY-EXECUTION-ORDER c23>c++23>csharp14
 export const LANGUAGE_ROLES = {
-  C: 'public native interface only+stable ABI',
-  Cpp: 'private high-load implementation+measured-performance-critical',
-  CSharp: 'Windows-specific .NET/CLR/WinRT/COM integration only',
+  C: 'approved deterministic rules+permission hot paths+resident runtime+native tests+public native interface+stable ABI',
+  Cpp: 'object-oriented native capabilities+inference+native tests+approved audit hot paths+private high-load implementation',
+  CSharp: 'interfaces+typed adapters+authorized workflow orchestration+sole test orchestration+Windows .NET integration',
   FSharp: 'data analysis+machine learning+high-correctness complex calculation',
   Go: 'bounded concurrent services+transport workers+network adapters+portable operational binaries through versioned contracts',
   Rust: 'memory-safe systems capabilities+parsers+integrity/security-sensitive native components through versioned C ABI or typed service contracts',
-  TypeScript: 'UI presentation/client+contract+transport+type-safety+governance-checker',
-  SQL: 'relational set operations+data selection+projection',
-  Python: 'on-demand governance semantics+model research/training+bounded boundaries',
+  TypeScript: 'presentation+build-time type safety+UI client+contract+transport+governance-checker',
+  SQL: 'data operations+structured authoritative persistence+relational set operations',
+  Python: 'on-demand gate adjudication+necessary governance semantics+model research/training+bounded boundaries only+nonresident after request completion',
 } as const;
 
 // Primary format: one language = one canonical authored-source format
@@ -56,11 +57,11 @@ export const CANONICAL_EXTENSIONS = {
 } as const;
 
 export const SOLE_MAPPING = {
-  Python: 'system-control+semantic/business logic',
+  Python: 'bounded on-demand system-control+semantic/business logic',
   TypeScript: 'UI presentation/client',
-  C: 'public native interface only',
-  Cpp: 'measured-performance-critical deterministic-native-compute+algorithms+memory',
-  CSharp: 'Windows-specific .NET/CLR/WinRT/COM integration that cannot-be-provided-by-existing-Python/TypeScript/C/C++ owner without-loss',
+  C: 'public native interface only+approved deterministic rules+permission hot paths+resident runtime',
+  Cpp: 'profile-proven implementation/performance core+measured-performance-critical deterministic-native-compute+algorithms+memory',
+  CSharp: 'Windows/.NET adapter+authorized orchestration only that cannot-be-provided-by-existing-Python/TypeScript/C/C++ owner without-loss',
   FSharp: 'data analysis+machine learning+high-correctness complex calculation that cannot-be-provided-by-existing-Python/C/C++/CSharp owner without-loss',
   Go: 'bounded concurrent services+transport workers+network adapters+portable operational binaries that cannot-be-provided-by-existing-owners without-loss',
   Rust: 'memory-safe systems capabilities+parsers+integrity/security-sensitive native components that cannot-be-provided-by-existing-owners without-loss',
@@ -103,18 +104,18 @@ export const PYTHON_INTERNAL_LAYERS = [
   'infrastructure',
 ] as const;
 
+// A343: execution modules prefer C/C++ then C#; Python bounded on-demand
 export const CORE_ORDER = [
   'correctness-first',
-  'Python authoritative implementation',
+  'declared-language-owner',
   'representative reproducible profile',
-  'bottleneck confirmed',
-  'C++ optimization candidate',
-  'API/behavior/performance comparison',
+  'contract and behavior oracle',
   'independent acceptance',
+  'certified activation',
 ] as const;
 
 export type Language = keyof typeof LANGUAGE_ROLES;
-export type Layer = 'presentation' | 'channel-api' | 'application-use-case' | 'domain' | 'infrastructure' | 'native-core' | 'c-abi' | 'csharp-adapter';
+export type Layer = 'presentation' | 'channel-api' | 'application-use-case' | 'domain' | 'infrastructure' | 'native-core' | 'c-abi' | 'csharp-adapter' | 'fsharp-analysis' | 'go-service' | 'rust-component';
 
 export function getLanguageForFile(filePath: string): Language | null {
   const lower = filePath.toLowerCase();
