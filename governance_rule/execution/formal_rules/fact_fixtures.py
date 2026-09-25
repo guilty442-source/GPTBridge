@@ -283,6 +283,14 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "memory_strategy": "dotnet-gc",
         "format_contract": "dotnet-format",
     },
+    # A608: resource-governor declares C++23 — the evaluator's real pass
+    # path (language check exercised).
+    "RULE_RESOURCE_GOVERNOR_CPP23_V1": {
+        "module_id": "resource-governor",
+        "language_id": "cpp23",
+        "memory_strategy": "raii",
+        "format_contract": "clang-tidy",
+    },
 }
 
 
