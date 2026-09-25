@@ -335,6 +335,14 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     "RULE_LANGUAGE_TABLE_OFFICIAL_V1": {
         "language_table": "official",
     },
+    # Accept-all registry-lookup evaluators (A616-A621 family): the real
+    # pass path is unconditional, fixtures only pin the evaluated input.
+    "RULE_RETIRED_DEPENDENCIES_V1": {"scope": "retired-dependencies"},
+    "RULE_TEST_AUDIT_RESPONSIBILITY_V1": {"scope": "test-audit-responsibility"},
+    "RULE_TEST_TOOLS_V1": {"scope": "test-tools"},
+    "RULE_RUST_TESTS_V1": {"scope": "rust-tests"},
+    "RULE_JAX_PARITY_V1": {"scope": "jax-parity"},
+    "RULE_FINAL_ARCHITECTURE_V1": {"scope": "final-architecture"},
 }
 
 
