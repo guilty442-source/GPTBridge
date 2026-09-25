@@ -12,7 +12,9 @@
   - ``coding`` — AST 驗證的程式合成/分析；self_upgrade/repair 只產生
     提案（``source_write_performed=False``），殼層永不執行；
   - ``investment`` — 確定性投資組合分析（需提供 holdings）；
-  - ``rag`` — 共享知識庫檢索回答（payload 旗標或知識庫提示詞觸發）。
+  - ``rag`` — 共享知識庫檢索回答（payload 旗標或知識庫提示詞觸發）；
+  - ``web`` — 即時資訊：經受管 ``xingcheng_web_search`` 取證據後由
+    shared expert grounded 生成並附引用；無證據時不生成即時資訊。
 - **聚合**：top-k（上限 2）專家勝出直接作答；專家失敗或低信心時
   降回共享專家，回覆附 gate 權重與專家履歷供觀測。
 
