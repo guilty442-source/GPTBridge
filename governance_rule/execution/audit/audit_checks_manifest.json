@@ -1,6 +1,6 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-25T20:06:22Z",
+  "generated_at": "2026-09-25T23:27:56Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
     "native_checks": 367,
@@ -3010,9 +3010,9 @@
       ]
     },
     {
-      "id": "architecture:network-allowlist:xingcheng_tools/search/searxng.py",
+      "id": "architecture:network-allowlist:xingcheng_tools/search/searchd.py",
       "kind": "file-contains",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searxng.py",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searchd.py",
       "markers": [
         "NETWORK_DESTINATION_ALLOWLIST"
       ]

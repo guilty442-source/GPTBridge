@@ -662,7 +662,7 @@ def build_manifest(root: Path) -> dict[str, object]:
              "shared-layer/src/shared_layer/local/vector_store.py",
              ['"engine": "local-vector-degraded-cache"',
               '"canonical": False'])
-    for name in ("market_data.py", "xingcheng_tools/search/searxng.py"):
+    for name in ("market_data.py", "xingcheng_tools/search/searchd.py"):
         path = ("Standalone tools/local-model/src/backend/services/"
                 f"xingcheng/infrastructure/{name}")
         contains(f"architecture:network-allowlist:{name}",

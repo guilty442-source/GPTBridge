@@ -110,7 +110,7 @@ def check_architecture_sources(root: Path, errors: list[str]) -> None:
         "shared_database": root / "shared-layer/src/shared_layer/database/__init__.py",
         "local_vector": root / "shared-layer/src/shared_layer/local/vector_store.py",
         "market_network": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data.py",
-        "search_network": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searxng.py",
+        "search_network": root / "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searchd.py",
     }
     architecture_text = {
         name: path.read_text(encoding="utf-8") if path.is_file() else ""

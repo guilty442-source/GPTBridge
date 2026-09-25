@@ -16,7 +16,7 @@
   human amendment command (A382 step 1) remains, and no actor may fabricate
   evidence, receipts or certificates.
 - A177: network access runs only through the governed information-layer
-  path; Xingcheng's web search is the registerable loopback SearXNG tool.
+  path; Xingcheng's web search is the registerable loopback searchd tool.
 - A446/A121: every audit outcome is receipted, independently verifiable and
   fail-closed; an unrecorded result is never a pass.
 
@@ -25,7 +25,7 @@ Governor-proposed ordinance (request currently staged in
 the Codex update flow becomes automated, but no work division and no
 execution may start until every one of the five active sovereigns has
 audited the staged amendment and all five receipts passed.  Xingcheng's
-audit uses the Xingcheng web-search (SearXNG) tool through the governed
+audit uses the Xingcheng web-search (searchd) tool through the governed
 channel.
 
 This module is the mechanism only.  It never writes the Codex database,
@@ -419,7 +419,7 @@ def build_xingcheng_network_check(
     """Build the Xingcheng audit check over the governed web-search path.
 
     ``search`` must be the information-layer callable bound to the
-    Xingcheng web_search (SearXNG loopback) tool — never a direct socket,
+    Xingcheng web_search (searchd loopback) tool — never a direct socket,
     HTTP client or database connection (A177).  When no governed callable
     is wired the check fails closed instead of inventing evidence.
     """
