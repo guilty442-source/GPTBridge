@@ -418,6 +418,23 @@
    "data_classification": "rebuildable-derived-only"
   },
   {
+   "component_id": "julia-compute",
+   "architectural_role": "execution",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "automation-sovereign",
+   "execution_identity": "gptbridge-julia-compute",
+   "physical_path": "Standalone tools/julia-compute",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [],
+   "information_channels": [],
+   "architecture_code": "STANDALONE_TOOLS",
+   "unit": "UNIT_PLATFORM",
+   "block": "BLOCK_SHARED",
+   "implementation_language": "julia",
+   "formal_responsibility": "statistics-scientific-compute; optimization-simulation (A610 PYTHON-WORK-TRANSFER)"
+  },
+  {
    "component_id": "qdrant",
    "architectural_role": "data",
    "runtime_form": "external-service",

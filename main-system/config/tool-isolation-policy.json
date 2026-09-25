@@ -195,6 +195,15 @@
       "network_policy": "loopback-only",
       "filesystem_policy": "tool-scoped"
     },
+    "julia-compute": {
+      "memory_limit_mb": 1024,
+      "cpu_percent_limit": 60,
+      "network_policy": "offline",
+      "filesystem_policy": "tool-scoped",
+      "restart_on_crash": false,
+      "max_restart_attempts": 0,
+      "restart_backoff_seconds": []
+    },
     "vectord-rs": {
       "memory_limit_mb": 2048,
       "cpu_percent_limit": 60,
