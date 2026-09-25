@@ -36,13 +36,13 @@ go test ./...
 {
   "provider": "searchd",
   "searchd_url": "http://127.0.0.1:8091",
-  "searxng_url": "http://127.0.0.1:8080",
   "auto_start": true
 }
 ```
 
-- `provider`: `searchd`（預設）或 `searxng` 或 `auto`（searchd 優先，
-  失敗降級 searxng）。
+- `provider`: `searchd`（本 repo 預設——SearXNG 已停用）或 `searxng`
+  或 `auto`（searchd 優先，空/錯降級 searxng）。未提供 settings 檔時
+  程式預設為 `auto`。
 - `auto_start`: searchd 未運行時由 governed 命令惰性啟動
   `bin\searchd.exe`。
 - env 覆寫：`XINGCHENG_SEARCH_PROVIDER`、`XINGCHENG_SEARCHD_URL`。

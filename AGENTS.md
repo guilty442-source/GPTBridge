@@ -384,7 +384,8 @@ Provider chain is driven by `runtime/settings/web-search.json`
 (`provider`: `auto`/`searchd`/`searxng`; env `XINGCHENG_SEARCH_PROVIDER`
 /`XINGCHENG_SEARCHD_URL`/`XINGCHENG_SEARXNG_URL` override; `auto_start`
 lazily spawns `searchd-go/bin/searchd.exe`). `auto` = searchd first,
-empty-or-error degrades to SearXNG. searchd hard-fails to start on any
+empty-or-error degrades to SearXNG; the repo's `web-search.json` pins
+`provider: "searchd"` — SearXNG is retired from the default chain. searchd hard-fails to start on any
 non-loopback listen address; outbound destinations are a compiled-in
 allowlist (`*.wikipedia.org`, `*.duckduckgo.com`, `bing.com`) enforced at
 the transport layer including redirects — it can never act as an
