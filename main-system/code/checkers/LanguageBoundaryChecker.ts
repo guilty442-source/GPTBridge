@@ -226,7 +226,11 @@ export class LanguageBoundaryChecker {
       TypeScript: ['main-system/src-ui/', 'main-system/scripts/'],
       C: ['native/include/', 'native/bridge/', 'native/core/'],
       Cpp: ['native/core/', 'native/bridge/'],
-      CSharp: ['main-system/launcher/src/'],
+      CSharp: [
+        'main-system/launcher/src/',
+        'Standalone tools/business-logic-csharp/',
+        'Standalone tools/process-metrics-csharp/',
+      ],
       SQL: ['governance/', 'main-system/src-core/'],
     };
 
