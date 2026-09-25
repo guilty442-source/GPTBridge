@@ -1,0 +1,51 @@
+﻿=== law_classification A605-A621:
+   ('article', 'A605', 'main-codex', 'CODEX_MAIN')
+   ('article', 'A606', 'main-codex', 'CODEX_MAIN')
+   ('article', 'A607', 'main-codex', 'CODEX_MAIN')
+   ('article', 'A608', 'main-codex', 'CODEX_MAIN')
+   ('article', 'A609', 'main-codex', 'CODEX_MAIN')
+   ('article', 'A610', 'main-codex', 'CODEX_MAIN')
+=== lifecycle:
+=== metadata:
+  canonical_language_roles = python-bounded-governance-application|typescript-presentation|c-interface-deterministic-runtime|cpp-native-performance-audit|csharp-interface-orchestration|fsha
+  startup_complete_deadline_ms = 40000
+  current_version_epoch = 2
+  language_policy_ts_role = immutable-data-only
+  canonical_cross_language_topology = TypeScript>contract>Python>{SQL|pybind11>C-ABI>C++|CSharp>Windows.NET}
+  language_governance_final_results = APPROVED|APPROVED_WITH_WARNINGS|REJECTED|INCOMPLETE_EVIDENCE
+  language_governance_schema_lifecycle = FREEZE-PENDING
+  module_line_count_language_codes = PYTHON|TYPESCRIPT|C|CPP|CSHARP|FSHARP|GO|RUST|SQL
+  governance_acceptance_state = INCOMPLETE_EVIDENCE
+  codex_version = 2026-09-25T15:42:05Z
+  active_provision_binding_version = 2026-09-23T03:13:43Z
+  current_version_identity = E2:2026-09-23T03:13:43Z
+  current_version = 2026-09-23T03:13:43Z
+  governance_closure_current_version = 2026-09-23T03:13:43Z
+  governor_disposition_startup_deadline = deadline-relaxed-to-40000|A199-amended|phase-budgets-doubled|metadata-normalized
+  startup_deadline_conformance_state = CODEX_NORMALIZED_40000|implementation-projection-must-match-before-affected-release
+=== seal_manifest cols: ['version', 'history_head', 'provision_count', 'identity_count', 'lineage_count', 'certification_state', 'content_root', 'identity_root', 'full_root', 'version_epoch']
+  seal: {'version': '2026-09-22T16:41:03Z', 'history_head': 'ef9d8e2ea4444a2dc590588d351818b866198dac7559c8627875585f0d7ac803', 'provision_count': 701, 'identity_count': 865, 'lineage_count': 899, 'certification_state': 'sealed-pending-external-signatures', 'content_root': '345032c9e2189bdf908ac4ae51eff593cee872982c7074d1a7b008ca50f295d6', 'identity_root': '781a37adaaa0f76881ab8668a6a4825a8cdcf9a26c098973372339404dd94f5f', 'full_root': '06c8be3b18c5c37675031a96d91beaaf946f64bf45f5aa3fad72829ccedfc93d', 'version_epoch': '2'}
+  seal: {'version': '2026-09-23T03:09:18Z', 'history_head': 'a70062044a007919bd60953a287acf13c33207a99236e854975cc760e9083599', 'provision_count': 702, 'identity_count': 879, 'lineage_count': 913, 'certification_state': 'sealed-pending-external-signatures', 'content_root': 'a56cf5ec79186d0933fc811998bf5a18c486f698752cd3cfa660520c5064c025', 'identity_root': 'fa68f5d3cb78977d65d5efc0337626f9d09b77f38b73b3ce546e7f90d38ba84b', 'full_root': 'ed0341bc3f0baa02a702915e548b638012cf41c53d6e9e5b8ebe1d7ad6fa2829', 'version_epoch': '2'}
+  seal: {'version': '2026-09-23T03:13:43Z', 'history_head': 'bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590', 'provision_count': 702, 'identity_count': 879, 'lineage_count': 914, 'certification_state': 'sealed-governed-authorization', 'content_root': 'a56cf5ec79186d0933fc811998bf5a18c486f698752cd3cfa660520c5064c025', 'identity_root': 'cbf12c6cd5da579eeb37da694e45c28bf9ef8a44733f11bbd11cd58f98b403e3', 'full_root': '95e926828945464579041f822586bfc770b07f207c33a6fd718312e8e505a4cf', 'version_epoch': '2'}
+=== revision_history cols: ['sequence', 'change_id', 'version', 'recorded_date', 'change_scope', 'summary', 'previous_hash', 'entry_hash', 'version_epoch', 'recorded_at_utc', 'timestamp_status', 'timestamp_migration_evidence']
+  count: 74
+  rev: {'sequence': 74, 'change_id': 'codex-integration-2026-09-23T03:13:43Z', 'version': '2026-09-23T03:13:43Z', 'recorded_date': '2026-09-23', 'change_scope': 'codex-projection-integration', 'summary': 'Integrate current classification, convergence, search, module and architecture projections without adding provisions', 'previous_hash': 'a70062044a007919bd60953a287acf13c33207a99236e854975cc760e9083599', 'entry_hash': '9a0e38abd69170c0c2ca4e64d0c0d0219f2ad9b0856235907fbfea27f3a43496', 'version_epoch': 2, 'recorded_at_utc': '2026-09-23T03:13:43Z', 'timestamp_status': 'verified', 'timestamp_migration_evidence': 'projection-only-successor-amendment'}
+  rev: {'sequence': 75, 'change_id': 'current-certification-projection-repair-2026-09-23T22:51:19Z', 'version': '2026-09-23T03:13:43Z', 'recorded_date': '2026-09-23', 'change_scope': 'certification-projection-repair', 'summary': 'Bind current epoch seal and certification evidence to current version; retire obsolete external closure gates', 'previous_hash': '9a0e38abd69170c0c2ca4e64d0c0d0219f2ad9b0856235907fbfea27f3a43496', 'entry_hash': 'bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590', 'version_epoch': 2, 'recorded_at_utc': '2026-09-23T22:51:19Z', 'timestamp_status': 'verified', 'timestamp_migration_evidence': 'same-version-projection-repair'}
+=== epochs: [{'epoch': 2, 'baseline_version': '2026-09-15T08:10:14Z', 'version_identity': 'E2:2026-09-15T15:42:01Z', 'history_head': 'f25e1470fbdc423bf0e2ba9c2afd6ddde87430316296ec9a4e006a39957becc4', 'predecessor_epoch': 1, 'predecessor_version': '1.00000', 'predecessor_full_root': None, 'status': 'external-signatures-required', 'reset_authority': 'explicit-user-command'}]
+=== search_index_manifest: [{'search_schema_id': 'CODEX_SEARCH_V2', 'codex_version_identity': '2026-09-23T03:13:43Z', 'authoritative_content_root': '9f455bec3e2230926e9dcf192d8a27b7cb871e612963700189cec6a642251468', 'source_count': 890, 'indexed_count': 890, 'fts_tokenizer': 'unicode61', 'module_manifest_root': '84788ed1eed8d5d3cd5a3627df383b420f2ff41e0554f19bda4228ac5eb2c008', 'index_content_hash': '9f455bec3e2230926e9dcf192d8a27b7cb871e612963700189cec6a642251468', 'built_at_utc': '2026-09-23T03:13:43Z', 'status': 'current', 'alias_count': 121, 'alias_hash': '7364dd661303356510416740a682dd6d71d0b5e8f9c9397c49517c02b561e9cf', 'fts_row_count': 831, 'fts_content_hash': 'fce12d3e7152fde2d6aa7a91aea91bc130311412451f1d626e5f71646fac531c', 'dependency_graph_hash': 'da7d2847c3667a9bbfcbdbd67cf9b92a266e93280860314d75abd2d423cee7f9', 'dependency_cycle_status': 'ACYCLIC'}]
+python.exe : Traceback (most recent call last):
+位於 線路:1 字元:1
++ & "main-system\.venv\Scripts\python.exe" _probe15.py 2>&1 | Out-File  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "E:\GPTBridge\_probe15.py", line 76, in <module>
+    cur.execute(f"SELECT * FROM {t} LIMIT 3")
+  File "E:\GPTBridge\governance_rule\execution\codex_repository.py", line 187, in execute
+    self._cursor.execute(_translate_query(statement), parameters)
+  File "E:\GPTBridge\main-system\.venv\Lib\site-packages\psycopg\cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UndefinedTable: relation "codex_module_manifest" does not exist
+LINE 1: SELECT * FROM codex_module_manifest LIMIT 3
+                      ^

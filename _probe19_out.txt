@@ -1,0 +1,111 @@
+﻿--- obligations current_state counts:
+   ('complete', 2)
+   ('evidence-submitted', 1)
+   ('mandated', 59)
+   ('superseded', 1)
+--- obligations target_state counts:
+   ('100%-executable-runtime-entry-resolution-through-A334|zero-hard-coded-fallback|zero-orphan-executor|generation-validation', 1)
+   ('A backup is a recovery artifact;restore alone grants no authority. Reopened data must pass schema,version,hash,RLS,role,lineage and generation certification.', 1)
+   ('A module declares supported contract_version before PostgreSQL use;incompatible clients are denied writes before query execution.', 1)
+   ('A66-successor|exact-seven-tool-directory|xingcheng-de-tool|system-rescue-internal-service|global-cleaner-retirement|model-dialogue-independent-tool|investment-mobile-class|local-model-xingcheng-separation|star-directory-parent|identity-groups|command-fault-test-path-projections|search-manifest-closure', 1)
+   ('all-machine-contract-parity-PASS|mandatory-tests-PASS|zero-cache-leakage|six-scenario-benchmark-PASS|architecture-parity', 1)
+   ('all 74 registered machine schemas have equal evidenced producer,validator,persistence and canonical semantic hashes; current 74 PENDING remain incomplete and cannot be promoted without evidence', 1)
+   ('all active formal evaluators and tests match current declarative semantic hashes', 1)
+   ('all capabilities meet declared stability performance repair and isolation SLOs', 1)
+   ('all channel anomalies isolate exact scope while healthy and control routes remain continuous', 1)
+   ('all Codex connections resolve only the registered canonical PostgreSQL authority root; _codex_connection_for rejects non-canonical roots; legacy SQLite path constants CODEX_DATABASE_RELATIVE and CODEX_DATABASE_PATH are removed after all consumers migrate', 1)
+   ('all declared architecture entries validated and active', 1)
+   ('all declared GPTBridge layers mapped and validated', 1)
+   ('all directory_master_catalog entries active with authoritative schema,data,API,test,audit,lineage and acceptance evidence', 1)
+   ('all instruction-bearing boundaries provenance-gated and adversarially verified', 1)
+   ('Any PostgreSQL catalog difference from canonical migration and schema registries fails closed before affected writes or readiness.', 1)
+   ('BUSINESS_LOGIC_CSHARP is a main-system internal orchestration service (not an independent tool)', 1)
+   ('Central audit is append-only and cannot be silently deleted or modified;actor,operation,target,result,evidence,correlation,sequence and hash chain exactly align with AUDIT_EVENT_V1.', 1)
+   ('central module rule index registry validator generation loader and scoped query service', 1)
+   ('Central PostgreSQL,governance Codex SQLite,module SQLite and Qdrant use distinct registered RPO and RTO classes.', 1)
+   ('Central query p95,transport claim latency,reconcile backlog,SQLite lock rate,Qdrant stale rate and restore success have registered objectives.', 1)
+   ('complete-postgresql-object-inventory|reconstruct-migration-chain|establish-ddl-canonicalization|register-security-projection|inventory-postgresql-roles|inventory-all-governed-sqlite-databases|classify-all-sqlite-state|define-reconciliation-contracts|implement-schema-drift-validator|implement-transaction-concurrency-validator|implement-transport-audit-validator|implement-recovery-validator|execute-TEST_SUITE_SQL_GOVERNANCE|submit-current-version-closure-evidence', 1)
+   ('Deletion is tombstone>retention-window>purge and synchronizes PostgreSQL indexes,SQLite private data and Qdrant vectors.', 1)
+   ('development/runtime separation', 1)
+   ('DIR_DATA_SCHEMA_AUTHORITY current catalog coverage and consumer policy parity active', 1)
+   ('Disk,WAL,SQLite WAL,transport backlog and Qdrant collection size use warning,critical and fail-closed watermarks.', 1)
+   ('every active command and fault has current normalized links or an authorized current not-applicable rationale', 1)
+   ('Every central resource records source_module,source_revision,generation_method,synchronization_path,last_writer and reversible SQLite>PostgreSQL>Qdrant lineage.', 1)
+   ('Every data record declares authority_class as central-official,module-private,derived,cache or degraded-copy;non-authoritative classes never satisfy authoritative reads.', 1)
+   ('Every INSERT and UPDATE binds actor_id,executor_id,decision_id,correlation_id and source_revision.', 1)
+   ('Every schema has exactly one owner;runtime roles cannot CREATE,ALTER or DROP;DDL is exclusive to the migration executor.', 1)
+   ('implementation precedence write-back', 1)
+   ('Important writes persist the contemporaneous permission and RLS decision digest,policy version,scope and decision evidence.', 1)
+   ('integrated objectives mapping', 1)
+   ('Integrity failure,schema drift or authority conflict can isolate a selected data domain as read-only without stopping healthy domains.', 1)
+   ('maintenance x update integration and retention', 1)
+   ('medium/base scaling strategy execution', 1)
+   ('Migration replay,schema drift,permission scope,fallback reconciliation,audit immutability,restore certification and authority separation are mandatory release tests.', 1)
+   ('MODEL_TRAINING governance parent is XINGCHENG_INSTITUTION_ROOT; LOCAL_MODEL is dependency/provider only', 1)
+   ('NATIVE_COMPUTE_CORE is a native library with a stable C ABI, not a launchable service', 1)
+   ('one active governed test suite per active module', 1)
+   ('Periodic scans detect PostgreSQL resources without locators,Qdrant points without chunks and SQLite pending resources without PostgreSQL authority.', 1)
+   ('planning documents remain retired; current work is represented only by Codex,registered contracts,lifecycle,obligation and evidence projections', 1)
+   ('PostgreSQL is the sole SQL authority for central structured official data,shared transport and central audit. SQLite is module-private bounded state only and never gains central authority.', 1)
+   ('principal,principal_scope,can_read() and can_write() are database enforcement projections of permission decisions and never permission authority.', 1)
+   ('Qdrant rebuild,PostgreSQL restore and SQLite repair remain non-serving until count,hash,revision,RLS and locator checks pass.', 1)
+   ('Readiness validates authority,schema,migration,RLS,roles,audit and generation. PostgreSQL-unready features close explicitly;only registered scopes may use bounded SQLite degradation.', 1)
+   ('READY requires schema version,RLS,required roles,migration head,audit append-only and authority-contract validation rather than SELECT 1.', 1)
+   ('registered read-only TypeScript language and dependency DAG checkers with exact evidence and mandatory cycle tests', 1)
+   ('remove-obsolete-requirements|rebuild-machine-schemas|authentication-contracts|UI-IPC-validation|permission-projection|tests|audit-privacy-projection|zero-current-stale-references', 1)
+   ('request_registry remains SHADOW/STAGED until its host explicitly wires _native_primary through the registered contract; no native-primary claim before host wiring, parity, fail-closed and release evidence', 1)
+   ('Restore,migration or role rotation increments connection_generation;older live connections cannot write.', 1)
+   ('RULE_CAPABILITY_DISPATCH_V1 governor activation and registry wiring complete; until governor activation the capability dispatch path remains pending and cannot be treated as current authority', 1)
+   ('RUNTIME_RULE_INDEX_V2 producer validator atomic generation loader and benchmark evidence', 1)
+   ('Schema,index,RLS,role and grant changes append an independent DDL audit event in addition to migration logs.', 1)
+   ('SQL work is classified interactive,transport,audit,reconciliation,maintenance or migration with isolated timeout,pool and priority budgets.', 1)
+   ('SQL_MIGRATION_V1 producer,validator,ordered registry and live PostgreSQL schema parity active', 1)
+   ('SQLite fallback is module-private,bounded,observable,reconciled and non-canonical;each fallback declares PostgreSQL reconciliation target,generation,deadline and prohibited operations.', 1)
+   ('Table/index bloat,dead tuples and autovacuum lag are measured;high-write transport and audit tables have explicit policies.', 1)
+   ('Transaction age,idle-in-transaction and lock holders are bounded by workload policy with alert or governed termination.', 1)
+   ('Transport rows bind message/event identity,correlation,causation,ordering,idempotency,retention,consumer ownership,lease state and audit linkage.', 1)
+   ('weight evolution five-stage flow', 1)
+   ('xingcheng primary goal (command understanding + chat)', 1)
+   ('?? read-only audit evidence views findings and challenge paths fully registered', 1)
+--- obligations sample (74-claim one):
+   ('OBL_FORMAL_EVALUATOR_V2_PARITY', 'all active formal evaluators and tests match current declarative semantic hashes', 'mandated', 'A463')
+   ('OBL_SCHEMA_OWNERSHIP_LOCK', 'Every schema has exactly one owner;runtime roles cannot CREATE,ALTER or DROP;DDL is exclusive to the migration executor.', 'mandated', 'A499')
+   ('OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY', 'DIR_DATA_SCHEMA_AUTHORITY current catalog coverage and consumer policy parity active', 'mandated', 'A502')
+   ('OBL_SCHEMA_DRIFT_GATE', 'Any PostgreSQL catalog difference from canonical migration and schema registries fails closed before affected writes or readiness.', 'mandated', 'A501')
+   ('OBL_MACHINE_SCHEMA_PARITY', 'all 74 registered machine schemas have equal evidenced producer,validator,persistence and canonical semantic hashes; current 74 PENDING remain incomplete and cannot be promoted without evidence', 'mandated', 'A480')
+
+--- machine_schema_registry count: (74,)
+--- parity evidence statuses:
+   ('PENDING', 40)
+--- parity sample:
+   ('RECEIPT_V1', 'PENDING', 'PASS forbidden until producer,validator,persistence and canonical semantic hashes are equal and evidenced', '2026-09-16T03:44:21Z')
+   ('TOKEN_V1', 'PENDING', 'PASS forbidden until producer,validator,persistence and canonical semantic hashes are equal and evidenced', '2026-09-16T03:44:21Z')
+   ('HEALTH_CONTRACT_V1', 'PENDING', 'PASS forbidden until producer,validator,persistence and canonical semantic hashes are equal and evidenced', '2026-09-16T03:44:21Z')
+   ('TEST_SUITE_V1', 'PENDING', 'PASS forbidden until producer,validator,persistence and canonical semantic hashes are equal and evidenced', '2026-09-16T03:44:21Z')
+   ('FINAL_DECISION_V1', 'PENDING', 'PASS forbidden until producer,validator,persistence and canonical semantic hashes are equal and evidenced', '2026-09-16T03:44:21Z')
+
+--- normative surface version_identity counts:
+   ('2026-09-16T14:48:49Z', 'current', 854)
+
+--- stale_reference_evidence rows:
+   {'evidence_id': 'CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN@2026-09-16T09:22:51Z', 'current_reference_count': 0, 'historical_reference_count': 1, 'result': 'PASS', 'version_identity': '2026-09-16T09:22:51Z', 'status': 'current'}
+
+--- superseded refs: active provisions referencing superseded:
+python.exe : Traceback (most recent call last):
+位於 線路:1 字元:1
++ & "main-system\.venv\Scripts\python.exe" _probe19.py 2>&1 | Out-File  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "E:\GPTBridge\_probe19.py", line 39, in <module>
+    cur = conn.execute(
+          ^^^^^^^^^^^^^
+  File "E:\GPTBridge\governance_rule\execution\codex_repository.py", line 214, in execute
+    cursor = self._connection.execute(_translate_query(statement), parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\GPTBridge\main-system\.venv\Lib\site-packages\psycopg\connection.py", line 304, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UndefinedColumn: column r.referencing_provision does not exist
+LINE 1: ...les p JOIN provision_reference_resolution_v2 r ON r.referenc...
+                                                             ^
