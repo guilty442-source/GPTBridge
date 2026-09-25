@@ -46,7 +46,7 @@ async def test_automatic_cleanup_runs_in_process_without_spawn(tmp_path: Path) -
     assert result["stage"] == "completed"
     assert result["request_id"].startswith("automatic-cleanup-")
     status = service.status()
-    assert status["owner"] == "health-maintenance-test-sub-sovereign"
+    assert status["owner"] == "decision-sovereign"
     assert status["executor"] == "main-system-internal-cleanup"
     assert "global-cleaner" not in json.dumps(status)
     assert service.module_cleanup_status()["module_count"] == 1

@@ -66,7 +66,7 @@ def test_full_chain_traverses_all_stages_fail_closed(tmp_path: Path) -> None:
     (fail-closed, not fail-silent)."""
     orch = _orchestrator(tmp_path)
     result = orch.process_health_signal(
-        _crash_signal(), actor="health-maintenance-test-sub-sovereign"
+        _crash_signal(), actor="decision-sovereign"
     )
     assert result["stage"] == "complete"
     for key in ("objective", "grant", "plan", "execution", "verification", "finalization"):
