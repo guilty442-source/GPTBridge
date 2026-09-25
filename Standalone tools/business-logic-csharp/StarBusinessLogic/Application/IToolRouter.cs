@@ -1,4 +1,4 @@
-using StarBusinessLogic.Domain;
+using StarDomain;
 
 namespace StarBusinessLogic.Application;
 

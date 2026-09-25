@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="StarBusinessLogic.Tests/StarBusinessLogic.Tests.csproj" />
   <Project Path="StarBusinessLogic/StarBusinessLogic.csproj" />
+  <Project Path="../business-logic-fsharp/StarDomain/StarDomain.fsproj" />
   <Project Path="StarBusinessHost/StarBusinessHost.csproj" />
 </Solution>

@@ -18,7 +18,7 @@ module IntentRules =
     let private hasAny (lower: string) (keys: string list) =
         keys |> List.exists (fun k -> lower.Contains k)
 
-    let classify (prompt: string) : IntentResult =
+    let classify (prompt: string | null) : IntentResult =
         let text =
             match prompt with
             | null -> ""
@@ -65,7 +65,7 @@ type RuleIntentClassifier() =
     static let maxCache = 128
     static let ttlTicks = TimeSpan.FromMinutes(5.0).Ticks
 
-    member _.Classify(prompt: string) : IntentResult =
+    member _.Classify(prompt: string | null) : IntentResult =
         let key =
             match prompt with
             | null -> ""

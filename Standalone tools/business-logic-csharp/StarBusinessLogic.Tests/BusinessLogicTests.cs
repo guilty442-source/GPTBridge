@@ -1,4 +1,4 @@
-using StarBusinessLogic.Domain;
+using StarDomain;
 using StarBusinessLogic.Application;
 
 namespace StarBusinessLogic.Tests;

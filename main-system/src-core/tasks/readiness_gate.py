@@ -247,13 +247,20 @@ class ReadinessGate:
         reachable = {status.name: status.reachable for status in deps}
         data_ready = bool(reachable.get("postgresql"))
         # A610 takeover: the Rust vectord engine owns the semantic index;
-        # qdrant counts only inside the explicit migration window.
+        # qdrant counts only inside the explicit migration window.  qdrant
+        # is declared "optional" in the manifest so it is never probed into
+        # `deps` — probe it on demand when (and only when) that window is
+        # deliberately open.
         semantic_backend = os.environ.get("VECTOR_BACKEND", "rust").strip().lower()
-        semantic_ready = bool(
-            reachable.get("qdrant")
-            if semantic_backend == "qdrant"
-            else reachable.get("vectord")
-        )
+        if semantic_backend == "qdrant":
+            try:
+                semantic_ready = probe_registered_local_service(
+                    "qdrant", timeout=DEPENDENCY_PROBE_TIMEOUT
+                ).reachable
+            except Exception:
+                semantic_ready = False
+        else:
+            semantic_ready = bool(reachable.get("vectord"))
         # §10.7 on-demand：Ollama 不常駐——能力就緒 = 可達或已安裝可拉起；
         # 需求路徑（ensure_ollama_ready）負責實際啟動。
         model_ready = bool(reachable.get("ollama"))
