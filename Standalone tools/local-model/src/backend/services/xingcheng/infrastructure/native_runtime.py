@@ -395,8 +395,31 @@ class StarNativeRuntime:
                 "message": "原生模型為純文字架構，不支援視覺輸入。",
                 "fallback_required": False,
             }
+        # 互動對話走乾淨 star-chat-format（與 SFT 資料同模板），
+        # 不套任務信封（角色/意圖/結構化上下文），並帶有界歷史回合；
+        # 其餘（自動工作流、專家、批次）維持治理信封格式。
+        dialogue = bool(kwargs.get("_dialogue_interactive"))
+        history: list[dict[str, str]] = []
+        if dialogue:
+            raw_history = kwargs.get("history")
+            if isinstance(raw_history, list):
+                for item in raw_history[-8:]:
+                    if not isinstance(item, Mapping):
+                        continue
+                    role = str(item.get("role") or "").strip().casefold()
+                    if role not in {"user", "assistant"}:
+                        continue
+                    content = str(item.get("content") or "").strip()[:1_000]
+                    if content:
+                        history.append({"role": role, "content": content})
         request = {
-            "prompt": self._compose_prompt(kwargs),
+            "prompt": (
+                str(kwargs.get("prompt") or "")
+                if dialogue
+                else self._compose_prompt(kwargs)
+            ),
+            "dialogue_interactive": dialogue,
+            "history": history,
             "intent": str(kwargs.get("intent") or ""),
             "max_tokens": kwargs.get("max_tokens"),
             "temperature": kwargs.get("temperature"),

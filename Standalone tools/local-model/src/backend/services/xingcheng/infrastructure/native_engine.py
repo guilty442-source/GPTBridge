@@ -265,11 +265,20 @@ _ALLOWED_PUNCTUATION = set(
 )
 
 
-def quality_guard(text: str, *, min_chars: int) -> tuple[bool, str]:
-    """回應品質護欄：過短、亂碼比例過高或高度重複時觸發。"""
+def quality_guard(
+    text: str, *, min_chars: int, prompt: str = ""
+) -> tuple[bool, str]:
+    """回應品質護欄：過短、亂碼比例過高、高度重複或已知退化模式時觸發。"""
     value = str(text or "").strip()
     if len(value) < max(1, int(min_chars)):
         return True, "answer-too-short"
+    # 記憶句式 parroting：SFT 記憶訓練曾佔比過高使模型對任何問題
+    # 都回「好的，我記住了：X」。prompt 非記憶指令時命中即退化。
+    if "我記住了" in value.replace(" ", ""):
+        memory_cues = ("記住", "記得", "記一下", "幫我記", "remember")
+        lowered = str(prompt or "").casefold()
+        if not any(cue in lowered for cue in memory_cues):
+            return True, "memorization-parroting"
     allowed = 0
     total = 0
     for char in value:
@@ -676,7 +685,9 @@ class NativeTransformerEngine:
         latency_ms = round((time.perf_counter() - started) * 1_000, 3)
 
         guard_triggered, guard_reason = quality_guard(
-            text, min_chars=int(defaults["min_answer_chars"])
+            text,
+            min_chars=int(defaults["min_answer_chars"]),
+            prompt=str(prompt or ""),
         )
         if guard_triggered:
             text = (
@@ -879,14 +890,22 @@ def _dialogue_templated_request(request: Mapping[str, Any]) -> Mapping[str, Any]
         render_conversation,
     )
 
+    turns = [ChatMessage("system", _DIALOGUE_SYSTEM_PROMPT)]
+    # 有界歷史回合（呼叫端已裁切；此處再限 8 輪防 prompt 膨脹）。
+    raw_history = request.get("history")
+    if isinstance(raw_history, list):
+        for item in raw_history[-8:]:
+            if not isinstance(item, Mapping):
+                continue
+            role = str(item.get("role") or "").strip().casefold()
+            if role not in {"user", "assistant"}:
+                continue
+            content = str(item.get("content") or "").strip()[:1_000]
+            if content:
+                turns.append(ChatMessage(role, content))
+    turns.append(ChatMessage("user", prompt_text))
     rendered = dict(request)
-    rendered["prompt"] = render_conversation(
-        [
-            ChatMessage("system", _DIALOGUE_SYSTEM_PROMPT),
-            ChatMessage("user", prompt_text),
-        ],
-        add_generation_prompt=True,
-    )
+    rendered["prompt"] = render_conversation(turns, add_generation_prompt=True)
     return rendered
 
 

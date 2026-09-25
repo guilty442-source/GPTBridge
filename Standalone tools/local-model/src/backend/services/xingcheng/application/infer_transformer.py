@@ -160,6 +160,11 @@ class InferTransformerMixin:
                 "requested_model": direct_runtime_model or automatic_runtime_model or None,
                 "_user_designated_model": bool(direct_runtime_model),
                 "_dialogue_interactive": dialogue_interactive,
+                "history": (
+                    inference_payload.get("history")
+                    if dialogue_interactive
+                    else None
+                ),
                 "images": visual_inputs,
                 "complex_pipeline": (
                     not direct_runtime_model
