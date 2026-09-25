@@ -53,7 +53,7 @@ class LocalRagRetrievalMixin:
             return requested
         if payload.get("images") or re.search(r"圖片|影像|截圖|照片|image|visual", question, re.I):
             return "visual"
-        if re.search(r"程式|程式碼|函式|除錯|code|debug|python|typescript|sql", question, re.I):
+        if re.search(r"程式|程式碼|函式|除錯|code|debug|python|typescript|javascript|julia|sql", question, re.I):
             return "code"
         if re.search(r"深入|嚴謹推理|證明|多步推理|deep reasoning|prove", question, re.I):
             return "deep"

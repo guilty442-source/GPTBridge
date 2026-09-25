@@ -5,7 +5,7 @@
  */
 
 export const LAYER_HIERARCHY = [
-  'presentation',           // TypeScript UI, Electron main
+  'presentation',           // JavaScript-ESM React UI (TypeScript grandfathered)
   'channel-api',            // Information layer contracts, IPC, events
   'application-use-case',   // Authorized orchestration (C#14 owner per A341) + bounded Python governance semantics
   'domain',                 // Bounded Python domain policy/semantics on-demand
@@ -16,6 +16,7 @@ export const LAYER_HIERARCHY = [
   'fsharp-analysis',        // F# analysis/ML/high-correctness calculation
   'go-service',             // Go bounded concurrent services/transport workers/network adapters
   'rust-component',         // Rust memory-safe systems/parsers/integrity components
+  'julia-compute',          // Julia statistics/optimization/scientific compute
 ] as const;
 
 export type Layer = typeof LAYER_HIERARCHY[number];
@@ -23,7 +24,7 @@ export type Layer = typeof LAYER_HIERARCHY[number];
 export const LAYER_RULES: Record<Layer, { allowedDeps: Layer[]; description: string }> = {
   'presentation': {
     allowedDeps: ['channel-api'],
-    description: 'TypeScript UI may ONLY depend on channel-api contracts (A351)',
+    description: 'JavaScript React UI may ONLY depend on channel-api contracts (A351)',
   },
   'channel-api': {
     allowedDeps: [],
@@ -64,6 +65,10 @@ export const LAYER_RULES: Record<Layer, { allowedDeps: Layer[]; description: str
   'rust-component': {
     allowedDeps: ['c-abi'],
     description: 'Rust components are consumed through the C ABI or typed service contracts only',
+  },
+  'julia-compute': {
+    allowedDeps: ['channel-api'],
+    description: 'Julia scientific-compute capability is called through versioned contracts only',
   },
 };
 
@@ -120,6 +125,8 @@ export function getLayerForModule(moduleId: string): Layer | null {
   if (moduleId.includes('launcher/src')) return 'csharp-adapter';
   if (moduleId.includes('business-logic-csharp')) return 'csharp-adapter';
   if (moduleId.includes('process-metrics-csharp')) return 'csharp-adapter';
+  if (moduleId.includes('searchd-go')) return 'go-service';
+  if (moduleId.includes('julia')) return 'julia-compute';
 
   return null;
 }

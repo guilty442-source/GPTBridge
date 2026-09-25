@@ -9,7 +9,7 @@ export interface Capability {
   id: string;
   name: string;
   owner: string;                    // Module/sovereign that owns this capability
-  language: 'Python' | 'TypeScript' | 'C' | 'C++' | 'CSharp' | 'SQL';
+  language: 'Python' | 'TypeScript' | 'JavaScript' | 'Julia' | 'C' | 'C++' | 'CSharp' | 'FSharp' | 'Go' | 'Rust' | 'SQL';
   layer: string;
   latencyBudgetMs?: number;         // For native promotion (A358)
   cpuBudgetPercent?: number;

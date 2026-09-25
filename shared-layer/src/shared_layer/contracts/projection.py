@@ -131,6 +131,11 @@ _KIND_PROJECTIONS: dict[CanonicalKind, dict[str, str]] = {
 
 def project(spec: TypeSpec, language: str) -> str:
     """Return the type expression for ``language`` honouring presence."""
+    # TypeScript is retired (A211/A348): JavaScript-ESM succeeds it on the
+    # client, so "javascript" resolves onto the same wire-type names, which
+    # remain valid in JSDoc positions for the successor language.
+    if language == "javascript":
+        language = "typescript"
     try:
         base = _KIND_PROJECTIONS[spec.kind][language]
     except KeyError:

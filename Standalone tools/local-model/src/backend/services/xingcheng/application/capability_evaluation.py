@@ -74,8 +74,8 @@ def evaluate_star_capabilities() -> dict[str, Any]:
         ),
         (
             "coding",
-            "typescript-nullable-maximum",
-            lambda: _typescript_nullable_maximum_ok(coding),
+            "javascript-nullable-maximum",
+            lambda: _javascript_nullable_maximum_ok(coding),
         ),
         (
             "coding",
@@ -228,15 +228,18 @@ def _dangerous_filesystem_code_rejected(expert: StarCodingExpert) -> bool:
     return result["ok"] is False and result["validation"]["security_ok"] is False
 
 
-def _typescript_nullable_maximum_ok(expert: StarCodingExpert) -> bool:
+def _javascript_nullable_maximum_ok(expert: StarCodingExpert) -> bool:
+    # TypeScript retired: the request normalizes to the JavaScript-ESM
+    # successor, which emits untyped ESM source.
     result = expert.process(
         {"prompt": "用 TypeScript 寫找最大值函式"},
         "coding",
     )
     return (
         result["ok"] is True
-        and "): number | null {" in result["source"]
-        and ": null" in result["source"]
+        and result["language"] == "javascript"
+        and "Math.max(...values)" in result["source"]
+        and "export function" in result["source"]
     )
 
 

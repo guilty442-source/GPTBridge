@@ -176,10 +176,15 @@ class ThirdPartyCapabilityCheck:
 
 ALLOWED_STACK: Final[tuple[str, ...]] = (
     "python",
-    "typescript",
+    "typescript",   # grandfathered only — retired per A211/A348
+    "javascript",
+    "julia",
     "cpp",
     "c",
     "csharp",
+    "fsharp",
+    "go",
+    "rust",
     "sql",
 )
 

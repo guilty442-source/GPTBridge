@@ -47,6 +47,7 @@ export const LAYER_ORDER = [
   'fsharp-analysis',   // F# analysis/ML capability
   'go-service',        // Go bounded concurrent services
   'rust-component',    // Rust memory-safe systems
+  'julia-compute',     // Julia scientific compute
 ];
 
 export class DependencyDagChecker {
@@ -173,6 +174,8 @@ export class DependencyDagChecker {
     const map: Record<string, string> = {
       '.py': 'Python', '.pyi': 'Python',
       '.ts': 'TypeScript', '.tsx': 'TypeScript', '.d.ts': 'TypeScript',
+      '.js': 'JavaScript', '.jsx': 'JavaScript', '.mjs': 'JavaScript', '.cjs': 'JavaScript',
+      '.jl': 'Julia',
       '.cs': 'CSharp',
       '.cpp': 'C++', '.hpp': 'C++', '.inl': 'C++',
       '.c': 'C', '.h': 'C',
@@ -194,6 +197,7 @@ export class DependencyDagChecker {
     if (language === 'FSharp') return 'fsharp-analysis';
     if (language === 'Go') return 'go-service';
     if (language === 'Rust') return 'rust-component';
+    if (language === 'Julia') return 'julia-compute';
     return 'unknown';
   }
 
@@ -224,7 +228,9 @@ export class DependencyDagChecker {
 
   private isCrossLanguageAllowed(from: string, to: string): boolean {
     const allowed: Record<string, string[]> = {
-      'TypeScript': ['TypeScript'],
+      'TypeScript': ['TypeScript'], // grandfathered files only
+      'JavaScript': ['JavaScript'],
+      'Julia': ['Julia'],
       'Python': ['Python', 'C', 'C++', 'CSharp', 'SQL'],
       'C': ['C', 'C++'],
       'C++': ['C++', 'C'],
