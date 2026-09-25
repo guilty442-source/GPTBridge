@@ -330,6 +330,7 @@ def execute_staged_change(
     *,
     prepared_database: str | Path | None = None,
     version: str | None = None,
+    bookkeeping: Mapping[str, str] | None = None,
 ) -> PhaseRecord:
     """Phase 2: apply the prepared successor and validate the staged change."""
     if prepared_database is not None:
@@ -341,6 +342,19 @@ def execute_staged_change(
         _set_read_only(stage.database, False)
         shutil.copyfile(prepared, stage.database)
     _normalize_version(stage.database, version)
+    bookkeeping_evidence: dict[str, Any] = {}
+    if prepared_database is not None:
+        # A prepared successor is a new generation: rebind every derived
+        # projection (version axis, revision chain, seal/epoch manifests,
+        # search index, module manifest, normative surface) to the staged
+        # codex_version before validation and publication.
+        from governance_rule.execution.codex_generation_projections import (
+            rebuild_generation_bookkeeping,
+        )
+
+        bookkeeping_evidence = rebuild_generation_bookkeeping(
+            stage.database, **dict(bookkeeping or {})
+        )
     errors = _validate_and_render(stage, version)
     return PhaseRecord(
         phase="execute-change",
@@ -350,6 +364,7 @@ def execute_staged_change(
             "fence_id": stage.fence_id,
             "version": version or stage.source_version,
             "errors": tuple(errors),
+            "bookkeeping": bookkeeping_evidence,
         },
     )
 
