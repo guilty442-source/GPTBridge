@@ -99,7 +99,7 @@ def _build_engine(root: Path) -> bool:
     include = root / "native" / "include"
     bat = (
         f'@echo off\r\ncall "{vcvars}" >nul || exit /b 1\r\n'
-        f'cl /nologo /std:c++17 /utf-8 /O2 /EHsc '
+        f'cl /nologo /std:c++latest /std:clatest /utf-8 /O2 /EHsc '
         f'/DGPTBRIDGE_AUDIT_ENGINE_CLI /I"{include}" '
         f'/Fe:"{exe}" /Fo:"{exe.parent}\\\\" "{src}" >nul || exit /b 1\r\n'
     )

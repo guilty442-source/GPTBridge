@@ -226,20 +226,20 @@ foreach ($suite in $suites) {
     if ($suite.ContainsKey("inc")) {
         foreach ($i in $suite.inc) { $extraInc += " /I`"$i`"" }
     }
-    Add-BuildJob $suiteName ("cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`"$extraInc /Fe:$exePath /Fo:$objDir\ `"$srcPath`"$extraSrcs >nul || exit /b 1")
+    Add-BuildJob $suiteName ("cl /nologo /std:c++latest /std:clatest /utf-8 /O2 /EHsc /I`"$includeDir`"$extraInc /Fe:$exePath /Fo:$objDir\ `"$srcPath`"$extraSrcs >nul || exit /b 1")
 }
 # 獨立審計引擎 CLI（pre-commit 閘門嵌入式）
 $auditExe = Join-Path $out "audit-engine.exe"
 $auditSrc = Join-Path $auditDir "audit_engine.cpp"
 $auditObj = Join-Path $out "obj\audit-engine"
-Add-BuildJob "audit-engine" ("cl /nologo /std:c++17 /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe:$auditExe /Fo:$auditObj\ `"$auditSrc`" >nul || exit /b 1")
+Add-BuildJob "audit-engine" ("cl /nologo /std:c++latest /std:clatest /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe:$auditExe /Fo:$auditObj\ `"$auditSrc`" >nul || exit /b 1")
 # M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
 $tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
 $sidecarSrc = Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"
 $driverObj = Join-Path $out "obj\proxy_client_driver"
-Add-BuildJob "proxy_client_driver" ("cl /nologo /std:c++17 /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$driverExe /Fo:$driverObj\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" >nul || exit /b 1")
+Add-BuildJob "proxy_client_driver" ("cl /nologo /std:c++latest /std:clatest /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe:$driverExe /Fo:$driverObj\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" >nul || exit /b 1")
 
 $bq = [System.Collections.Generic.Queue[object]]::new()
 foreach ($j in $buildJobs) { $bq.Enqueue($j) }
