@@ -24,7 +24,16 @@ import json
 import sqlite3
 from typing import Final, Iterable, Mapping, Sequence
 
-import psycopg
+# psycopg is optional at import time: commit-gate manifests only probe
+# SQLite mirrors, and the driver is required solely when an actual
+# PostgreSQL connection is passed in.
+_SCHEMA_ERRORS: tuple[type[BaseException], ...] = (sqlite3.Error,)
+try:
+    import psycopg
+except ImportError:
+    pass
+else:
+    _SCHEMA_ERRORS = (sqlite3.Error, psycopg.Error)
 
 # A run of five or more U+003F characters is treated as replacement damage.
 # Legitimate prose question marks are single, so the threshold keeps the
@@ -96,7 +105,7 @@ def _table_columns(connection: sqlite3.Connection, table: str) -> tuple[str, ...
         return tuple(
             str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")
         )
-    except (sqlite3.Error, psycopg.Error):
+    except _SCHEMA_ERRORS:
         return ()
 
 

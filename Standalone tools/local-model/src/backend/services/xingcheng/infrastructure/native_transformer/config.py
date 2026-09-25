@@ -62,6 +62,9 @@ class XingChengConfig:
     moe_top_k: int = 2
     moe_aux_loss_weight: float = 0.01
     moe_layer_interval: int = 1            # 1=每層皆 MoE，2=隔層 MoE
+    moe_num_shared_experts: int = 0        # DeepSeek-MoE 常駐共享專家數
+    moe_expert_intermediate_size: int = 0  # 0=同 intermediate_size（細粒度專家用更小值）
+    moe_shared_intermediate_size: int = 0  # 0=同 moe_expert_intermediate_size
 
     # ── 量化 ────────────────────────────────────────────────────
     quantization: str = "none"              # "none" | "int8" | "int4" | "fp8"
@@ -104,6 +107,12 @@ class XingChengConfig:
                 raise ValueError("moe_top_k 必須介於 1 與 moe_num_experts 之間")
             if self.moe_layer_interval < 1:
                 raise ValueError("moe_layer_interval 至少為 1")
+            if self.moe_num_shared_experts < 0:
+                raise ValueError("moe_num_shared_experts 不得為負")
+            if self.moe_expert_intermediate_size < 0:
+                raise ValueError("moe_expert_intermediate_size 不得為負")
+            if self.moe_shared_intermediate_size < 0:
+                raise ValueError("moe_shared_intermediate_size 不得為負")
         if self.kv_cache_quant not in ("none", "int8"):
             raise ValueError("kv_cache_quant 僅支援 none/int8")
         if self.quantization not in ("none", "int8", "int4", "fp8"):

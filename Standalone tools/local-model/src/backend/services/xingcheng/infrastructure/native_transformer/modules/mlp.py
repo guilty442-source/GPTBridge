@@ -18,17 +18,23 @@ from ..kernels import swiglu
 class XingChengMLP(nn.Module):
     """FFN：SwiGLU 預設，否則標準 two-layer MLP。"""
 
-    def __init__(self, config: XingChengConfig) -> None:
+    def __init__(
+        self,
+        config: XingChengConfig,
+        intermediate_size: int | None = None,
+    ) -> None:
         super().__init__()
         self.config = config
         self.use_swiglu = config.use_swiglu
-        if config.use_swiglu:
-            self.gate_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=False)
-            self.up_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=False)
-            self.down_proj = nn.Linear(config.intermediate_size, config.hidden_size, bias=False)
+        # MoE 細粒度/共享專家可用較小的 intermediate（None/0 → 全尺寸）。
+        inter = int(intermediate_size or config.intermediate_size)
+        if self.use_swiglu:
+            self.gate_proj = nn.Linear(config.hidden_size, inter, bias=False)
+            self.up_proj = nn.Linear(config.hidden_size, inter, bias=False)
+            self.down_proj = nn.Linear(inter, config.hidden_size, bias=False)
         else:
-            self.fc1 = nn.Linear(config.hidden_size, config.intermediate_size)
-            self.fc2 = nn.Linear(config.intermediate_size, config.hidden_size)
+            self.fc1 = nn.Linear(config.hidden_size, inter)
+            self.fc2 = nn.Linear(inter, config.hidden_size)
         self._init_weights()
 
     def _init_weights(self) -> None:

@@ -26,8 +26,29 @@ class XingChengMoE(nn.Module):
         # Router：hidden → num_experts
         self.router = nn.Linear(config.hidden_size, self.num_experts, bias=False)
         nn.init.normal_(self.router.weight, mean=0.0, std=config.initializer_range)
-        # Experts：各自為獨立 MLP（SwiGLU 或標準）
-        self.experts = nn.ModuleList([XingChengMLP(config) for _ in range(self.num_experts)])
+        # Experts：各自為獨立 MLP（SwiGLU 或標準）；細粒度專家用
+        # moe_expert_intermediate_size（0 → 全尺寸）。
+        expert_inter = int(
+            config.moe_expert_intermediate_size or config.intermediate_size
+        )
+        self.experts = nn.ModuleList(
+            [
+                XingChengMLP(config, intermediate_size=expert_inter)
+                for _ in range(self.num_experts)
+            ]
+        )
+        # 共享專家（DeepSeek-MoE）：常駐啟用、權重 1.0，捕捉通用知識，
+        # 讓路由專家承擔細粒度專精。
+        self.num_shared = int(config.moe_num_shared_experts)
+        shared_inter = int(
+            config.moe_shared_intermediate_size or expert_inter
+        )
+        self.shared_experts = nn.ModuleList(
+            [
+                XingChengMLP(config, intermediate_size=shared_inter)
+                for _ in range(self.num_shared)
+            ]
+        )
 
     def forward(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """回傳 (output, aux_loss)。
@@ -71,6 +92,10 @@ class XingChengMoE(nn.Module):
             expert_input = x[positions]  # (M, hidden)
             expert_out = self.experts[expert_id](expert_input)  # (M, hidden)
             output[positions] += expert_out * selected_weights.unsqueeze(-1)
+
+        # 共享專家：所有 token 常駐啟用（權重 1.0）。
+        for shared in self.shared_experts:
+            output = output + shared(x)
 
         output = output.view(b, s, h)
 
@@ -122,6 +147,7 @@ class XingChengMoE(nn.Module):
             "utilized_experts": self.utilization() or 0,
             "is_collapsed": self.is_collapsed() or False,
             "num_experts": self.num_experts,
+            "num_shared_experts": self.num_shared,
             "top_k": self.top_k,
         }
 

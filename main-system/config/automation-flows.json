@@ -316,9 +316,9 @@
     "codex-amendment-intake": {
       "owner": "codex-amendment-driver（governance_rule/execution/codex_amendment_driver）",
       "kind": "periodic",
-      "pausable": true,
+      "pausable": false,
       "enabled": true,
-      "description": "Codex 修訂請求管線驅動：掃描受管 intake（main-system/runtime/state 與 governance_rule/execution/audit/convergence 的 codex-amendment-request-*.json）→ ledger.begin 取得 lineage lock → build_successor 建候選（PG 權威匯出為 non-authoritative sqlite）→ run_five_sovereign_audit → ready-for-governor。停在總督核准前：發布仍由 governor 經 codex_amendment_executor --apply 觸發。xingcheng 收據需 governed web-search callable（xingcheng_web_search 經 GovernedRequestClient.request_sync → local-model）；未接線時 defer （successor-built）而非永久拒絕。CLI：python -m governance_rule.execution.codex_amendment_driver --scan|--request|--all",
+      "description": "Codex 修訂請求管線驅動（pausable=false 保障治理關鍵路徑不受資源管制/睡眠模式暫停）：掃描受管 intake（main-system/runtime/state 與 governance_rule/execution/audit/convergence 的 codex-amendment-request-*.json）→ ledger.begin 取得 lineage lock → build_successor 建候選（PG 權威匯出為 non-authoritative sqlite）→ run_five_sovereign_audit → ready-for-governor。停在總督核准前：發布仍由 governor 經 codex_amendment_executor --apply 觸發。xingcheng 收據需 governed web-search callable（xingcheng_web_search 經 GovernedRequestClient.request_sync → local-model）；未接線時 defer （successor-built）而非永久拒絕。CLI：python -m governance_rule.execution.codex_amendment_driver --scan|--request|--all",
       "interval_s": 300
     }
   }

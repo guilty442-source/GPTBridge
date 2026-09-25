@@ -476,6 +476,7 @@ export function XingchengDrawer({
             <span className="xingcheng-mode-seg">
               {(
                 [
+                  ['sleep', (xr as any).resourceModeSleep || '睡眠'],
                   ['low', xr.resourceModeLow],
                   ['medium', xr.resourceModeMedium],
                   ['high', xr.resourceModeHigh],

@@ -16,9 +16,11 @@
 - **聚合**：top-k（上限 2）專家勝出直接作答；專家失敗或低信心時
   降回共享專家，回覆附 gate 權重與專家履歷供觀測。
 
-模型層對應：``XingChengConfig.use_moe``/``*_moe`` presets 提供權重級
-MoE；本殼先在服務層給出相同拓撲（router→experts→shared expert），
-未來換用 MoE checkpoint 時 general expert 直接升級、介面不變。
+模型層對應：general 專家即 ``XingChengConfig.use_moe`` 權重級 MoE
+checkpoint（E=8/k=2/interval=2，由 dense v19b 經
+``training/upcycle_moe.py`` 稀疏升級＋SFT 分化而來，weights v25）——
+殼層 gate 決定「哪個能力中心作答」，模型層 router 決定「token 走
+哪些專家」，兩級 MoE 同構。
 """
 
 from __future__ import annotations

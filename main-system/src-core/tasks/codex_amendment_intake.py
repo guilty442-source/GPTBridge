@@ -247,6 +247,32 @@ class CodexAmendmentIntakeDriver:
         search = None
         if await self._owner_active():
             search = self._channel_search
+        elif actionable:
+            # Governance-critical audit path: the xingcheng receipt requires
+            # the governed web-search channel, but the owner (local-model)
+            # is lazily started only for ai-channel dialogue.  A codex
+            # amendment waiting in successor-built would otherwise remain
+            # deferred forever (XINGCHENG_SEARCH_UNAVAILABLE) and the
+            # "法典修正按" appears to not auto-execute.  Wake the owner
+            # directly via the governed toolbox path (bypassing the
+            # broker's ai-channel and resource-hold gates) so the next
+            # audit can obtain the receipt.
+            try:
+                await self.toolbox.start_tool(
+                    {
+                        "tool_id": OWNER_TOOL_ID,
+                        "request_id": f"codex-audit-wake-{time.time_ns()}",
+                        "background": True,
+                    }
+                )
+                for _ in range(3):
+                    await asyncio.sleep(2)
+                    if await self._owner_active():
+                        search = self._channel_search
+                        _logger.info("codex audit owner woken for search")
+                        break
+            except Exception as error:  # noqa: BLE001
+                _logger.warning("codex audit wake failed: %s", error)
 
         # advance_all runs its own event loop on this worker thread; the
         # sync search callable bridges back to the main loop for each

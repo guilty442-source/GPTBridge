@@ -46,12 +46,6 @@ from pathlib import Path
 from typing import Any, Callable, Final, Mapping
 
 from governance_rule.execution.chinese_codex_mirror import PART_NAMES
-from governance_rule.execution.codex_postgresql import (
-    authority_state,
-    export_postgresql_codex,
-    import_sqlite_predecessor,
-    verify_sqlite_parity,
-)
 from governance_rule.execution.codex_mirror_writer import (
     MirrorRenderError,
     mirror_errors,
@@ -234,6 +228,10 @@ def isolate_generation(codex_root: str | Path, staging_root: str | Path) -> Isol
         # Canonical root post-cutover (A173): the live authority is the
         # PostgreSQL schema, so the staged working copy is a
         # non-authoritative export of it.
+        from governance_rule.execution.codex_postgresql import (
+            export_postgresql_codex,
+        )
+
         export_postgresql_codex(isolated_database)
     else:
         raise CodexUpdateError("isolate", f"codex database not found: {database}")
@@ -360,6 +358,11 @@ def wire_generation(stage: IsolatedStage) -> PhaseRecord:
     # rehearsals) must never republish the shared authority.
     canonical = _same_path(stage.codex_root, _canonical_codex_root())
     if canonical:
+        from governance_rule.execution.codex_postgresql import (
+            import_sqlite_predecessor,
+            verify_sqlite_parity,
+        )
+
         postgres_state: Any = import_sqlite_predecessor(stage.database)
         postgres_parity: Any = verify_sqlite_parity(stage.database)
         if postgres_parity["result"] != "PASS":
@@ -404,6 +407,10 @@ def _published_database(stage: IsolatedStage) -> Path:
 def _published_version(stage: IsolatedStage) -> str:
     if _same_path(stage.codex_root, _canonical_codex_root()):
         try:
+            from governance_rule.execution.codex_postgresql import (
+                authority_state,
+            )
+
             return str(authority_state().get("codex_version") or "")
         except Exception:
             pass

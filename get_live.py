@@ -1,0 +1,2 @@
+from governance_rule.execution.codex_amendment_driver import _live_authority_identity
+print(_live_authority_identity())
