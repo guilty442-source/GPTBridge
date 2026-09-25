@@ -1,4 +1,4 @@
-/* activation_broker.c — §10.65 E3：按需啟動 broker 決策機
+/* activation_broker.c — §10.65 E3：按需啟動 broker 決策機 (C23) */
 
 實作對齊 Python model_service_activation.py 的 _ensure_inner／
 _maybe_release_owner／note_explicit_owner_stop／_write_state 節流；
