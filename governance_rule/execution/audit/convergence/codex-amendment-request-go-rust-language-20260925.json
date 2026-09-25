@@ -1,0 +1,95 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "go-rust-language-responsibility-20260925-r3",
+  "title": "Add Go and Rust to the governed programming-language architecture",
+  "summary": "Register Go for bounded concurrent services and Rust for memory-safe systems capabilities without granting either language governance, permission or business authority.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive 2026-09-24; r3 restamp on authority 2026-09-25T00:02:07Z after sub-sovereign-layer-retirement execution",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T00:02:07Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+    "revision_sequence": 75
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A35"
+      },
+      "field": "rule",
+      "proposed": "STACK:c11+c++17+csharp+fsharp+go+rust+python+typescript+sql hybrid; C:approved deterministic rules+permission hot paths+resident runtime+native tests; CPP:object-oriented native capabilities+inference+native tests+approved audit hot paths; CSHARP:interfaces+typed adapters+authorized workflow orchestration+sole test orchestration; FSHARP:data analysis+machine learning+high-correctness complex calculation; GO:bounded concurrent services+transport workers+network adapters+portable operational binaries through versioned contracts; RUST:memory-safe systems capabilities+parsers+integrity/security-sensitive native components through versioned C ABI or typed service contracts; PYTHON:on-demand gate adjudication+necessary governance semantics+model research/training+unavoidable boundaries only and nonresident after request completion; TYPESCRIPT:presentation+build-time type safety; SQL:data operations+structured authoritative persistence within declared authority boundaries; SOLE:allowed-code-architecture"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A341"
+      },
+      "field": "rule",
+      "proposed": "MATRIX:{system-orchestration=>owner:Python;callers:TypeScript+CSharp+C+++Go+Rust adapters;deny:adapter second orchestration}+{UI-state-and-presentation=>owner:TypeScript;caller:typed API data provider;deny:backend DOM control}+{Native-ABI=>owner:C;callers:Python+CSharp+Go+Rust+pybind11;deny:public C++ ABI}+{high-performance-algorithms=>owner:C++;callers:C ABI and approved bindings only;deny:duplicate authoritative implementation}+{Windows-DotNET=>owner:CSharp;callers:typed adapters+C ABI;deny:CSharp cross-platform domain logic}+{bounded-concurrent-service=>owner:Go;callers:versioned information/service contracts;deny:Go governance+permission+business judgment}+{memory-safe-systems-capability=>owner:Rust;callers:C ABI or versioned typed service contracts;deny:Rust governance+permission+business judgment}+{relational-data-operation=>owner:SQL;caller:application services;deny:fetch-all-then-filter}+{business-semantics=>owner:Python;callers:UI+API;deny:SQL/native/service languages independent business judgment}; UNIQUENESS:each capability has exactly one authoritative language owner and callers are adapters/consumers only; CALL-PATH:every cross-language call is typed+versioned+tested; FALLBACK:a fallback preserves behavior but cannot become a second active owner; CHANGE:owner transfer requires successor law+affected graph+atomic migration+old-owner removal+release hard gate."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A343"
+      },
+      "field": "rule",
+      "proposed": "CORE-ORDER:correctness-first>declared-language-owner>representative reproducible profile>contract and behavior oracle>independent acceptance>certified activation. NEW-FEATURE follows A604: execution modules prefer C/C++;C11 owns approved deterministic rules,resident runtime and native tests;C++ owns native capabilities,inference,native tests and approved audit hot paths;C# owns interfaces and authorized orchestration;F# owns analysis,machine learning and high-correctness complex calculation;Go owns bounded concurrent services,transport workers,network adapters and portable operational binaries;Rust owns memory-safe systems capabilities,parsers and integrity/security-sensitive native components;Python is limited to on-demand governance semantics,model research/training and unavoidable boundaries. Go and Rust activation requires versioned contracts,toolchain evidence,owned tests,resource bounds and failure semantics;neither gains governance,permission or business authority. Promotion grants execution only. Missing or stale evidence,contract drift,failed parity or unsupported platform blocks activation and restores the last verified path."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A348"
+      },
+      "field": "rule",
+      "proposed": "GATE-NAME:LANGUAGE BOUNDARY GATE; VERDICT:exactly PASS|WARN|FAIL; TRIGGERS:save>pre-commit>integration>release; CHECKS:language_allowed+extension_valid+source_origin_valid+owner_valid+directory_valid+dependency_direction_valid+ABI_valid+API_contract_valid+duplicate_owner_absent+test_present+fallback_present+source_size_valid under A185. ALLOWED-LANGUAGES:python|typescript|c|cpp|csharp|go|rust|sql; SOURCE-EXTENSIONS:python=.py,.pyi;typescript=.ts,.tsx,.d.ts;c=.c,.h;cpp=.cpp,.hpp,.inl;csharp=.cs;go=.go;rust=.rs;sql=.sql; AUTHORED-DENY:.js|.jsx|.mjs|.cjs|.cc|.cxx|.hh|.hxx|.csx and undeclared extensions. LANGUAGE-POLICY:immutable allowed-language and extension data must match this article. CHECKER-PIPELINE:scan>classify>compare Codex rules>produce evidence>PASS/WARN/FAIL; checker is read-only. OUTPUT:LANGUAGE BOUNDARY GATE newline PASS|WARN|FAIL newline Allowed languages: 8 plus deterministic typed evidence. GATE-DETAIL:C ABI is the public native boundary;C/C++ retain deterministic and performance ownership;CSharp owns Windows adapter and orchestration interface;Go owns bounded concurrent service and transport execution;Rust owns memory-safe systems execution;TypeScript owns UI;SQL owns set operations;Python owns bounded governance/application semantics. Tests follow the owning language and cross-language parity is mandatory. SEMANTICS:FAIL blocks trigger,WARN requires owner+evidence+expiry and never equals PASS,PASS requires all mandatory checks complete."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A604"
+      },
+      "field": "rule",
+      "proposed": "SUCCESSOR:A604 supersedes A591 and A592 and controls five-core and historical-sub-sovereign responsibility convergence. CURRENT-PEER-CORES:decision-core|permission-core|runtime-core|automation-core|xingcheng-assistant. XINGCHENG native model remains a separate owned model identity and not a core or independent tool. SUB-SOVEREIGN-LAYER:abolished; former identities are retired lineage only. RESPONSIBILITY-NORMALIZATION:policy/architecture+health/maintenance/test+data outcome+priority/change acceptance>decision-core and registered modules;directory+identity+permission+security-audit enforcement>permission-core and registered modules;startup+runtime-state+process lifecycle+governed execution>runtime-core and registered modules;resources+dependencies+channels+release/update+repair scheduling+cleanup/log synchronization>automation-core and registered modules;global alignment review+user permission interface+notification>xingcheng-assistant;self-learning+self-repair proposal+native-model evolution>XINGCHENG owned modules. MODULES execute domain work without independent authority. LANGUAGE-RESPONSIBILITY:C11 executes approved deterministic rules,permission hot paths,resident runtime and native tests;C++ owns native capabilities,inference,native tests and approved audit hot paths;CSharp owns interfaces,authorized orchestration and the sole TestSuiteOrchestrator;FSharp owns analysis,ML and high-correctness calculation;Go owns bounded concurrent services,transport workers,network adapters and portable operational binaries;Rust owns memory-safe systems capabilities,parsers and integrity/security-sensitive native components;Python is bounded on-demand governance/model research/training/boundary only. Go and Rust acquire execution ownership only through registered versioned contracts and never acquire governance,permission or business authority. FIVE-CORE-SUITE-AUTONOMY:each core independently adjusts owned suites subject to language rules. CAPABILITY-DISPATCH:MODULE_CAPABILITY_REGISTRY/v1 and RULE_CAPABILITY_DISPATCH_V1 remain controlling and fail closed on absent,invalid or ambiguous routes."
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "canonical_language_roles"
+      },
+      "field": "value",
+      "proposed": "python-bounded-governance-application|typescript-presentation|c-interface-deterministic-runtime|cpp-native-performance-audit|csharp-interface-orchestration|fsharp-analysis-ml-correctness|go-bounded-concurrent-services-transport|rust-memory-safe-systems-integrity|sql-data-authority"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "module_line_count_language_codes"
+      },
+      "field": "value",
+      "proposed": "PYTHON|TYPESCRIPT|C|CPP|CSHARP|FSHARP|GO|RUST|SQL"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "six_language_automatic_check"
+      },
+      "field": "value",
+      "proposed": "superseded-by-eight-language-automatic-check|required:python|typescript|c|cpp|csharp|go|rust|sql"
+    }
+  ],
+  "required_normalization": [
+    "A344-A362 cross-language topology, parser, toolchain, evidence and release-gate references must add Go and Rust before publication",
+    "language checker policy and dependency graph must support .go and .rs before either language is marked PASS",
+    "Chinese Codex mirrors and architecture-languages.md regenerate only from the published successor",
+    "missing Go or Rust toolchain/parity evidence remains INCOMPLETE_EVIDENCE and never silently passes"
+  ],
+  "activation_gate": "Go and Rust are approved language roles only after the published successor and matching checker/toolchain evidence; this request alone grants no runtime activation.",
+  "status": "submitted"
+}
