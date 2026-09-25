@@ -21,6 +21,7 @@ Fail-closed rules:
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 import json
 import os
@@ -53,6 +54,8 @@ STATE_SUCCESSOR_BUILT: Final[str] = "successor-built"
 STATE_AUDITING: Final[str] = "auditing"
 STATE_AUDIT_PASSED: Final[str] = "audit-passed"
 STATE_READY_FOR_GOVERNOR: Final[str] = "ready-for-governor"
+ORPHANED_LINEAGE_LOCK_GRACE_SECONDS: Final[int] = 60
+
 STATE_EXECUTED: Final[str] = "executed"
 STATE_REJECTED: Final[str] = "rejected"
 STATE_WITHDRAWN: Final[str] = "withdrawn"
@@ -304,22 +307,64 @@ class CodexAmendmentRequestLedger:
             "scope": list(request.scope),
             "created_at": _utc_now(),
         }
-        try:
-            descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            existing = _load_json(lock_path)
-            existing_request = str(existing.get("request_id") or "")
-            if existing_request == request.request_id:
-                return lock_path
-            raise AmendmentLifecycleError(
-                "REQUEST_LINEAGE_LOCKED",
-                f"{request.lineage_key} held by {existing_request or 'unknown'}",
-            )
+        reclaimed = False
+        while True:
+            try:
+                descriptor = os.open(
+                    lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY
+                )
+                break
+            except FileExistsError:
+                existing = _load_json(lock_path)
+                existing_request = str(existing.get("request_id") or "")
+                if existing_request == request.request_id:
+                    return lock_path
+                if reclaimed or not self._lineage_lock_is_dead(existing):
+                    raise AmendmentLifecycleError(
+                        "REQUEST_LINEAGE_LOCKED",
+                        f"{request.lineage_key} held by "
+                        f"{existing_request or 'unknown'}",
+                    )
+                try:
+                    lock_path.unlink()
+                except FileNotFoundError:
+                    pass
+                reclaimed = True
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
             handle.flush()
             os.fsync(handle.fileno())
         return lock_path
+
+    def _lineage_lock_is_dead(self, lock: Mapping[str, Any]) -> bool:
+        """True when no live request can still hold this lineage lock.
+
+        ``transition()`` releases the lock on terminal states, but any path
+        that marks a request terminal without it leaves the lock behind and
+        permanently blocks the lineage (observed 2026-09-25: an executed
+        request's lock kept rejecting later same-lineage builds).  A lock
+        is dead when the holder's record is already terminal, or when no
+        holder record exists after the begin() write window — ``begin``
+        persists the record immediately after creating the lock, so a
+        recordless lock older than the grace window means the holder died.
+        An unattributed lock keeps blocking (fail-closed).
+        """
+        holder = str(lock.get("request_id") or "")
+        if not holder:
+            return False
+        record = self.load_record(holder)
+        if record is not None:
+            return str(record.get("state") or "") in TERMINAL_STATES
+        created_at = str(lock.get("created_at") or "")
+        try:
+            created = calendar.timegm(
+                time.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ")
+            )
+        except ValueError:
+            return False
+        return (
+            time.time() - created
+        ) > ORPHANED_LINEAGE_LOCK_GRACE_SECONDS
 
     def _release_lineage(self, record: Mapping[str, Any]) -> None:
         raw_lock_path = str(record.get("lock_path") or "")
