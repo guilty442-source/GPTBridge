@@ -71,6 +71,30 @@
       },
       "field": "rule",
       "proposed": "CANONICAL-MAP:C={.c,.h};C++={.cpp,.hpp,.inl};CSharp={.cs};FSharp={.fs};Go={.go};Rust={.rs};Python={.py,.pyi};TypeScript={.ts,.tsx,.d.ts};SQL={.sql}; MATCH:full-filename-suffix+lowercase canonical+longest-suffix-first so-.d.ts=TypeScript-declaration-not-.ts-generic; EXCLUSIVITY:one-file=one-language classification+extension belongs-to-one-language only; C:.c implementation/test+.h C-public/interface header only; CPP:.cpp implementation/test+.hpp C++ header+.inl C++ template/inline implementation included-by-.hpp only; CSHARP:.cs implementation/test only; FSHARP:.fs implementation/test only; GO:.go implementation/test only; RUST:.rs implementation/test only; PYTHON:.py implementation/test/package-entry+.pyi declaration-only; TYPESCRIPT:.ts non-JSX logic/test+.tsx JSX presentation/test+.d.ts declaration-only; SQL:.sql schema/query/migration/test-data-operation only; TESTS:use-own-language-extension+name/path metadata identifies-test+no-special-additional-source-extension; PROJECT-METADATA:.csproj/.sln/.fsproj/go.mod/Cargo.toml/package.json/tsconfig/CMake/project/build manifests are-not-language-source+may-configure-build only+cannot-contain-embedded-application-source to-evade-map; GENERATED:must-use-target-language canonical-extension+generated identity/hash/owner; HEADERS:.h cannot contain-C++ constructs+.hpp cannot-be-public-C-ABI; INL:not-independent-translation-unit+no-global-state/business/workflow+single-owning-.hpp contract; DECLARATIONS:.pyi/.d.ts contain-types/signatures-only+must-match implementation/contract; SQL-EMBEDDED:SQL strings inside-other-language remain-host-language-source but A207 parameterization/pushdown checks apply; CLASSIFIER:normalize-path+reject-trailing-space/dot+alternate-data-stream+double-extension masquerade+case variant; CHECK:A208 at-save/precommit/integrated-main/release verifies extension/language syntax/build registration/owner/generated parity; MIGRATION:noncanonical source renamed+all imports/includes/build references atomically updated in-one-certified-release"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A211"
+      },
+      "field": "rule",
+      "proposed": "SOLE-MAPPING:Python=bounded on-demand system-control+semantic/business logic; TypeScript=UI presentation/client; C=public native interface only; pybind11=Python-specific binding only; C++=profile-proven implementation/performance core; CSharp=Windows/.NET adapter+authorized orchestration only; FSharp=data-analysis+machine-learning+high-correctness calculation; Go=bounded concurrent services+transport workers+network adapters+portable operational binaries; Rust=memory-safe systems+parsers+integrity/security-sensitive native components; SQL=set-based data reduction; PYTHON-API>versioned contracts only; NATIVE-TREE:native/{include,bridge,core}; WINDOWS-FLOW:Windows-specific calls>CSharp adapter>C-ABI>C++core>Python; DATA-FLOW:SQL>data reduction>Python orchestration; TYPESCRIPT-FLOW:TypeScript>declared client contracts only; GO-FLOW:Go>versioned service contracts only; RUST-FLOW:Rust>C-ABI or typed service contracts only; FSHARP-FLOW:FSharp>typed analysis contracts only; OWNERSHIP:one owner one implementation; INTERFACE:language-neutral public interface is C ABI only; PRIORITY:C ABI>C++ private core>CSharp orchestration>Python semantics>SQL reduction>TypeScript presentation; SUPERSEDED:canonical-nine-language-role-map; CHANGE:historical auto-updates reserved"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A264"
+      },
+      "field": "rule",
+      "proposed": "LANGUAGES:Python bounded control/semantics/business; TypeScript presentation; C stable language-neutral ABI; pybind11 binding only; C++ private high-load implementation; CSharp unique Windows/.NET adapter+sole test-suite orchestration; FSharp analysis+ML+high-correctness calculation; Go bounded concurrent services+network adapters+portable binaries; Rust memory-safe systems+parsers+integrity components; SQL bounded data reduction; single versioned contract+registered roots/extensions+one owner; changes require language review compatibility tests and certified activation"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A352"
+      },
+      "field": "rule",
+      "proposed": "VERDICT-MATRIX:{Python>SQL=>FAIL}|{Python>UI=>FAIL}|{SQL>Python=>FAIL}|{SQL>UI=>FAIL}|{UI>Python=>FAIL}|{UI>SQL=>FAIL}|{UI>CSharp=>FAIL}|{CSharp>SQL=>FAIL}|{CSharp>UI=>FAIL}|{TypeScript>database=>FAIL}|{TypeScript>Python-import=>FAIL}|{TypeScript>native=>FAIL}|{go-private-bridge=>FAIL}|{csharp-private-bridge=>FAIL}|{TypeScript>process-spawn=>FAIL}|{TypeScript>Worker-dom-storage=>FAIL}|{FSharp>SQL=>FAIL}|{FSharp>UI=>FAIL}|{FSharp>Python-direct=>FAIL}|{Go>domain-logic=>FAIL}|{Go>SQL=>FAIL}|{Go>UI=>FAIL}|{Go>permission=>FAIL}|{Go>governance=>FAIL}|{Rust>domain-logic=>FAIL}|{Rust>SQL=>FAIL}|{Rust>UI=>FAIL}|{Rust>permission=>FAIL}|{Rust>governance=>FAIL}; FAIL_CLOSED:no fallback auto-apply"
     }
   ],
   "proposed_delta": {
