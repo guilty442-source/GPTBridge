@@ -28,7 +28,6 @@ sys.path.insert(0, str(SHARED_SRC))
 sys.path.insert(0, str(GOVERNANCE_RULE))
 
 from governance.sovereigns._base import SovereignBase, SovereignRequest
-from governance.sub_sovereigns._base import SubSovereignBase
 from governance.sovereigns.decision_sovereign import DecisionSovereign
 from governance.sovereigns.permission_sovereign import PermissionSovereign
 from governance.sovereigns.automation_sovereign import AutomationSovereign
@@ -86,7 +85,6 @@ async def test_base_delegate_execution_returns_refusal() -> None:
         AutomationSovereign,
         SystemRuntimeSovereign,
         XingchengSovereign,
-        SubSovereignBase,
     ],
     ids=[
         "decision-sovereign",
@@ -94,7 +92,6 @@ async def test_base_delegate_execution_returns_refusal() -> None:
         "automation-sovereign",
         "system-runtime-sovereign",
         "xingcheng-sovereign",
-        "sub-sovereign-base",
     ],
 )
 def test_every_sovereign_overrides_delegate_execution(cls: type) -> None:
@@ -102,24 +99,6 @@ def test_every_sovereign_overrides_delegate_execution(cls: type) -> None:
     assert _has_override(cls, "_delegate_execution"), (
         f"{cls.__name__} must override _delegate_execution (A446/A121)"
     )
-
-
-@pytest.mark.asyncio
-async def test_sub_sovereign_delegate_execution_returns_decision() -> None:
-    """Sub-sovereigns are no-decision-no-execution (A64/A284/A322)."""
-
-    class TestSubSovereign(SubSovereignBase):
-        sovereign_id = "directory-sub-sovereign"
-        parent_sovereign_id = "permission-sovereign"
-
-        async def _adjudicate(self, request: SovereignRequest):
-            return accepted_outcome({"coordinated": True}, ("A130",))
-
-    sub = TestSubSovereign(app=SimpleNamespace())
-    decision = accepted_outcome({"coordinated": True}, ("A130",))
-    result = await sub._delegate_execution(decision, _make_request())
-    assert result.accepted is True
-    assert "delegation_receipt" in result.result
 
 
 @pytest.mark.asyncio

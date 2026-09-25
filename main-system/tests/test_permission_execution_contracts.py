@@ -37,9 +37,6 @@ from governance.sovereigns._base import SovereignBase  # noqa: E402
 from governance.sovereigns.permission.auth_supervision import (  # noqa: E402
     PermissionAuthSupervisionMixin,
 )
-from governance.sovereigns.system_runtime.module_routing import (  # noqa: E402
-    SystemRuntimeModuleRoutingMixin,
-)
 
 
 def _request(intent: str = "permission.authorize", **payload) -> SovereignRequest:
@@ -186,40 +183,6 @@ async def test_authorize_kwargs_match_governance_signature(monkeypatch) -> None:
     assert recorded, "issued grant must be recorded in the ledger"
 
 
-class _RoutingHarness(SystemRuntimeModuleRoutingMixin):
-    def __init__(self, assignment: dict) -> None:
-        self.app = SimpleNamespace()
-        self._sub_sovereigns = {"child-a": object()}
-        self._assignment = assignment
-
-    def verified_basis(self, *refs):
-        return ("A334",)
-
-    async def delegate_to(self, child_id, request):
-        return accepted_outcome({"delegated_to": child_id}, ("A334",))
-
-
-@pytest.mark.asyncio
-async def test_module_routing_reads_registry_dict_keys(monkeypatch) -> None:
-    import governance.registries as registries
-
-    harness = _RoutingHarness({"managing_sub_sovereign": "child-a"})
-    monkeypatch.setattr(registries, "module_assignment", lambda module: harness._assignment)
-    outcome = await harness._adjudicate_module_route(
-        _request(intent="module.route", module="FILE_SORTER")
-    )
-    assert outcome.accepted is True
-    assert outcome.result["delegated_to"] == "child-a"
-
-    harness._assignment = {"module_architecture_code": "FILE_SORTER"}
-    outcome = await harness._adjudicate_module_route(
-        _request(intent="module.route", module="FILE_SORTER")
-    )
-    assert outcome.accepted is False
-    assert outcome.refusal is not None
-    assert outcome.refusal.reason_code == "SUB_SOVEREIGN_UNASSIGNED"
-
-
 def test_sovereign_status_mro_prefers_mixin() -> None:
     from governance.sovereigns.decision_sovereign import DecisionSovereign
     from governance.sovereigns.permission_sovereign import PermissionSovereign
@@ -236,7 +199,9 @@ def test_sovereign_status_mro_prefers_mixin() -> None:
         SystemRuntimeSovereign,
     ):
         assert cls.status is not SovereignBase.status, cls.__name__
-        assert cls.live_status is not SovereignBase.live_status, cls.__name__
+        # live_status must resolve to a mixin (StatusBase or a per-domain
+        # status mixin), never to SovereignBase's own __dict__.
+        assert not cls.live_status.__qualname__.startswith("SovereignBase."), cls.__name__
 
     mro = XingchengSovereign.__mro__
     assert mro.index(SovereignBase) > mro.index(XingchengSovereign.__bases__[0])

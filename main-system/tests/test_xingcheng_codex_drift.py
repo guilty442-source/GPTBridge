@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -22,9 +23,6 @@ sys.path.insert(0, str(ROOT.parent / "shared-layer" / "src"))
 
 from core_system.auto_action_policy import read_pending_actions  # noqa: E402
 from core_system.codex_decision import SovereignRequest  # noqa: E402
-from governance.sovereigns.xingcheng.learning_sub_sovereign import (  # noqa: E402
-    LearningEvidenceSyncSubSovereign,
-)
 from governance.sovereigns.xingcheng_sovereign import XingchengSovereign  # noqa: E402
 
 
@@ -42,6 +40,13 @@ def _sovereign(tmp_path: Path) -> tuple[_App, XingchengSovereign]:
     app = _App(tmp_path)
     sovereign = XingchengSovereign(app)
     app.xingcheng_sovereign = sovereign
+    # Simulate the registry slot an A604 violation would materialize into;
+    # production sovereigns never create this attribute.
+    sovereign._sub_sovereigns = {}
+    # _registries() is lru-cached process-wide: a sibling test may have
+    # populated it inside a fixture-monkeypatched codex window.
+    from governance import registries
+    registries._registries.cache_clear()
     return app, sovereign
 
 
@@ -62,7 +67,10 @@ def test_retired_child_materialized_flagged_critical(tmp_path: Path) -> None:
     """A604: materializing an identity whose codex row is retired is
     critical drift (retired-identity-active)."""
     app, sovereign = _sovereign(tmp_path)
-    child = LearningEvidenceSyncSubSovereign(app, parent=sovereign)
+    child = SimpleNamespace(
+        sovereign_id=_CHILD_ID,
+        parent_sovereign_id=sovereign.sovereign_id,
+    )
     sovereign._sub_sovereigns[_CHILD_ID] = child
     report = sovereign.compare_codex_implementation()
     assert any(
@@ -91,7 +99,10 @@ def test_retired_child_flagged_regardless_of_claimed_parent(tmp_path: Path) -> N
     """A604: a retired identity stays drift even when the instance claims
     a different parent — no active declaration exists to mismatch."""
     app, sovereign = _sovereign(tmp_path)
-    child = LearningEvidenceSyncSubSovereign(app, parent=sovereign)
+    child = SimpleNamespace(
+        sovereign_id=_CHILD_ID,
+        parent_sovereign_id=sovereign.sovereign_id,
+    )
     child.parent_sovereign_id = "decision-sovereign"
     sovereign._sub_sovereigns[_CHILD_ID] = child
     report = sovereign.compare_codex_implementation()

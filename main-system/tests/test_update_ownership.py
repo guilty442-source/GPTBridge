@@ -1,3 +1,11 @@
+"""Update-execution ownership under the five-core model (A604).
+
+The retired sub-sovereign layer (``MaintenanceSovereign`` and the
+``*-sub-sovereign`` identities) is gone.  Third-party update execution is
+delegated to the governed ``ThirdPartyManager`` module owned by
+automation-core (``automation_sovereign.third_party_manager``).
+"""
+
 from __future__ import annotations
 
 import sys
@@ -16,42 +24,23 @@ sys.path.insert(0, str(SRC_CORE))
 sys.path.insert(0, str(SHARED_SRC))
 sys.path.insert(0, str(GOVERNANCE_RULE))
 
-from core_system import (
-    MaintenanceSovereign,
-    DataSubSovereign,
-    RuntimeSubSovereign,
-    ThirdPartySubSovereign,
-)
-
-
-def test_update_management_has_one_owner() -> None:
-    # HealthMaintenanceTestSubSovereign has health monitoring methods only
-    assert hasattr(MaintenanceSovereign, "_update_status")
-    assert hasattr(MaintenanceSovereign, "_automatic_repair_status")
-    assert hasattr(MaintenanceSovereign, "_fault_determination_status")
-    assert hasattr(MaintenanceSovereign, "_backup_status")
-    # Execution methods are on MaintenanceUpdateMixin (used by runtime), not the sovereign
-    assert not hasattr(RuntimeSubSovereign, "hot_update_status")
-    assert not hasattr(ThirdPartySubSovereign, "execute_update")
-    assert not hasattr(ThirdPartySubSovereign, "execute_auto_updates")
-
 
 @pytest.mark.asyncio
 async def test_maintenance_delegates_approved_update_execution() -> None:
     calls: list[tuple[str, str | None]] = []
 
     class Executor:
-        async def apply_approved_update(
+        async def execute_update(
             self, tool_id: str, *, approval_token: str | None = None
         ) -> str:
             calls.append((tool_id, approval_token))
             return "applied"
 
-    # New architecture: decision_sovereign.third_party_sovereign -> dependency-sync-sub-sovereign
+    # A604: third-party-dependency domain normalized to automation-core;
+    # the governed module is automation_sovereign.third_party_manager.
     app = SimpleNamespace(
-        decision_sovereign=SimpleNamespace(third_party_sovereign=Executor())
+        automation_sovereign=SimpleNamespace(third_party_manager=Executor())
     )
-    # Use MaintenanceUpdateMixin directly for testing execution delegation
     from core_system.maintenance_update import MaintenanceUpdateMixin
 
     class TestSovereign(MaintenanceUpdateMixin):
@@ -68,53 +57,45 @@ async def test_maintenance_delegates_approved_update_execution() -> None:
     assert calls == [("uv", "approved")]
 
 
-def test_maintenance_is_the_only_governance_health_checker(tmp_path: Path) -> None:
-    calls = 0
+@pytest.mark.asyncio
+async def test_maintenance_delegates_approved_auto_update_execution() -> None:
+    calls: list[tuple[str, bool]] = []
 
-    class Governance:
-        def runtime_integrity_ready(self) -> bool:
-            nonlocal calls
-            calls += 1
-            return True
+    class Executor:
+        async def execute_auto_updates(
+            self, *, approval_token: str, only_available: bool = True
+        ) -> str:
+            calls.append((approval_token, only_available))
+            return "applied"
 
     app = SimpleNamespace(
-        project_root=tmp_path,
-        governance=Governance(),
-        governance_integrity_ready=None,
+        automation_sovereign=SimpleNamespace(third_party_manager=Executor())
     )
-    maintenance = MaintenanceSovereign(app)
-    maintenance._health_checker = lambda _root: {"ok": True}
-    maintenance._health_monitoring()
+    from core_system.maintenance_update import MaintenanceUpdateMixin
 
-    RuntimeSubSovereign(app).live_status()
-    data = DataSubSovereign(app)
-    data._data_directory_report()
+    class TestSovereign(MaintenanceUpdateMixin):
+        def __init__(self, app):
+            self.app = app
 
-    assert calls == 1
-    assert app.governance_integrity_ready is True
+    sovereign = TestSovereign(app)
+
+    result = await sovereign.execute_auto_third_party_updates(
+        approval_token="approved", only_available=False
+    )
+
+    assert result == "applied"
+    assert calls == [("approved", False)]
 
 
-def test_maintenance_is_the_only_cleaner_and_repair_executor_owner() -> None:
-    app = SimpleNamespace()
-    maintenance = MaintenanceSovereign(app)
-    maintenance._daily_cleaner = object()
-    maintenance._repair_service = object()
-    app.maintenance_sovereign = maintenance
-    data = DataSubSovereign(app)
+@pytest.mark.asyncio
+async def test_third_party_update_fails_closed_without_module() -> None:
+    """No automation core / no module -> fail closed, never silent."""
+    from core_system.maintenance_update import MaintenanceUpdateMixin
 
-    ownership = maintenance.executor_ownership_status()
-    consistency = data._consistency_integrity_status()
-    directory = data._data_directory_status()
+    class TestSovereign(MaintenanceUpdateMixin):
+        def __init__(self, app):
+            self.app = app
 
-    # New sovereign role is health-maintenance-test-sub-sovereign
-    assert ownership == {
-        "owner": "health-maintenance-test-sub-sovereign",
-        "daily_global_cleaner": True,
-        "central_repair": True,
-    }
-    assert consistency["repair_delegated"] is True
-    assert consistency["executor_owner"] == "health-maintenance-test-sub-sovereign"
-    assert directory["cleanup_delegated"] is True
-    assert directory["executor_owner"] == "health-maintenance-test-sub-sovereign"
-    assert "_daily_cleaner" not in vars(data)
-    assert "_repair_service" not in vars(data)
+    sovereign = TestSovereign(SimpleNamespace(automation_sovereign=None))
+    with pytest.raises(RuntimeError, match="not available"):
+        await sovereign.execute_third_party_update("uv")

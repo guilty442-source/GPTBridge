@@ -34,14 +34,14 @@ def test_new_state_files_projected(tmp_path: Path) -> None:
     _write_state(root, "pending-actions.json", [
         {"action_id": "a1", "kind": "repair", "summary": "STARTUP_CRASH",
          "status": "awaiting-confirmation",
-         "detail": {"failure_code": "STARTUP_CRASH", "owner": "startup-sub-sovereign"}},
+         "detail": {"failure_code": "STARTUP_CRASH", "owner": "system-runtime-sovereign"}},
     ])
     _write_state(root, "automation-switches.json",
                  {"automatic_repair_enabled": False, "updated_by": "ui"})
     _write_state(root, "hot-reload-watcher.json",
                  {"consecutive_failures": 6, "type": "channel_recovery_attempt"})
     _write_state(root, "startup-generation.json",
-                 {"role": "startup-sub-sovereign",
+                 {"role": "startup-executor",
                   "result": {"ok": False, "generation_id": "g1",
                              "phases": [{"phase_id": "p2", "ok": False}]}})
 

@@ -88,9 +88,11 @@ class FaultDiagnosticsLocalizeMixin:
           4. maintenance-manual target entities
 
         Module mentions are resolved through A334
-        ``module_assignment_registry`` to their managing sub-sovereign —
+        ``module_assignment_registry`` to their decision authority —
         localizing not just *where* the fault is but *which governed
-        owner* is responsible for that module.
+        authority* is responsible for that module (A604: modules are
+        dispatched directly, ``managing_sub_sovereign`` holds only the
+        ``none-single-purpose-module-dispatch`` sentinel).
         """
         if evidence is None:
             evidence = self.runtime_state_evidence()
@@ -160,14 +162,14 @@ class FaultDiagnosticsLocalizeMixin:
         # 1. Symptom entity mentions.
         for entity, hits in self._symptom_entities(symptom).items():
             bump(entity, 4.0, "symptom", f"entity-mentioned: {hits[0]}")
-        # Registered module codes resolve to their A334 owner.
+        # Registered module codes resolve to their A334 decision authority.
         for module_code in self._module_mentions(symptom, index):
             owner = index.get(module_code, {})
             slot = bump(
                 f"module:{module_code}", 5.0, "symptom",
                 f"module-mentioned: {module_code}",
             )
-            slot["managing_sub_sovereign"] = owner.get(
+            slot["module_manager"] = owner.get(
                 "managing_sub_sovereign", ""
             )
             slot["decision_authority"] = owner.get("decision_authority", "")

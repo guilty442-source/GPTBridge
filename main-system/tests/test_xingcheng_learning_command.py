@@ -24,9 +24,6 @@ sys.path.insert(0, str(ROOT.parent))
 sys.path.insert(0, str(ROOT.parent / "shared-layer" / "src"))
 
 from core_system.codex_decision import SovereignRequest  # noqa: E402
-from governance.sovereigns.xingcheng.learning_sub_sovereign import (  # noqa: E402
-    LearningEvidenceSyncSubSovereign,
-)
 from governance.sovereigns.xingcheng_sovereign import XingchengSovereign  # noqa: E402
 
 
@@ -39,26 +36,26 @@ class _App:
         self.xingcheng_sovereign = None
 
 
-def _stack(tmp_path: Path) -> tuple[_App, XingchengSovereign, object]:
-    """Materialize 星澄 + its codex learning child wired for delegation."""
+def _stack(tmp_path: Path) -> tuple[_App, XingchengSovereign, XingchengSovereign]:
+    """Materialize 星澄 — learning is an intrinsic capability of the
+    single native-model entity (A485), commanded via learn.* intents."""
     app = _App(tmp_path)
     sovereign = XingchengSovereign(app)
     app.xingcheng_sovereign = sovereign
-    child = LearningEvidenceSyncSubSovereign(app, parent=sovereign)
-    child._started = True
-    sovereign._sub_sovereigns[_CHILD_ID] = child
-    return app, sovereign, child
+    sovereign._started = True
+    sovereign._learning_active = True
+    return app, sovereign, sovereign
 
 
-def test_child_does_not_self_arm_on_start(tmp_path: Path) -> None:
-    """start() must not arm auto-learning — only a parent command may."""
+def test_entity_does_not_self_arm_on_start(tmp_path: Path) -> None:
+    """start() activates the capability but must not arm auto-learning —
+    only an owner-issued learn.auto-start command may (A485)."""
     app = _App(tmp_path)
-    child = LearningEvidenceSyncSubSovereign(app, parent=None)
-    report = asyncio.run(child.start())
+    sovereign = XingchengSovereign(app)
+    report = asyncio.run(sovereign.start())
     assert report["ok"] is True
-    assert report["reconciliation"] == "commanded-by-parent"
-    assert child._reconcile_task is None
-    assert child._auto_learning_armed is False
+    assert sovereign._reconcile_task is None
+    assert sovereign._auto_learning_armed is False
 
 
 def test_fault_manuals_are_ingested_by_learning_while_fault_owner_stays_permission(
@@ -99,25 +96,15 @@ def test_fault_manuals_are_ingested_by_learning_while_fault_owner_stays_permissi
         "governance_rule.execution.codex_repository.codex_readonly_connection",
         _fixture_codex_connection,
     )
-    child = LearningEvidenceSyncSubSovereign(_App(tmp_path), parent=None)
-    child._ingest_fault_manual_catalog()
-    projection = child.status()["fault_manual_catalog"]
-    assert projection["owner"] == "learning-evidence-sync-sub-sovereign"
+    sovereign = XingchengSovereign(_App(tmp_path))
+    sovereign._ingest_fault_manual_catalog()
+    projection = sovereign.learning_capability_status()["fault_manual_catalog"]
+    assert projection["owner"] == "星澄"
     assert projection["fault_directory_owner"] == "permission-sovereign"
     assert projection["count"] == 1
     assert projection["catalog_hash"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "A604 retired learning-evidence-sync-sub-sovereign: the "
-        "delegation path fails closed (child-parent-mismatch) pending "
-        "the convergence workstream registry switch — see "
-        "governance_rule/execution/audit/convergence/"
-        "a594-learning-command-regression-20260922.json"
-    ),
-)
 def test_auto_start_arms_learning_loop(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
@@ -133,14 +120,15 @@ def test_auto_start_arms_learning_loop(tmp_path: Path) -> None:
     asyncio.run(_run())
 
 
-def test_learning_command_requires_parent_delegation(tmp_path: Path) -> None:
-    """A bare requester claim without a delegation nonce fails closed."""
-    app = _App(tmp_path)
-    child = LearningEvidenceSyncSubSovereign(app, parent=None)
-    child._started = True
+def test_learning_intents_are_not_adjudicatable(tmp_path: Path) -> None:
+    """learn.* intents are owner-issued commands (A485), not adjudicatable
+    intents — handle() must refuse them at the intent gate."""
+    sovereign = XingchengSovereign(_App(tmp_path))
+    sovereign._started = True
+    sovereign._learning_active = True
 
     async def _run() -> None:
-        outcome = await child.handle(
+        outcome = await sovereign.handle(
             SovereignRequest(
                 intent="learn.reconcile",
                 subject="learning",
@@ -149,21 +137,11 @@ def test_learning_command_requires_parent_delegation(tmp_path: Path) -> None:
             )
         )
         assert outcome.accepted is False
-        assert child._auto_learning_armed is False
+        assert sovereign._auto_learning_armed is False
 
     asyncio.run(_run())
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "A604 retired learning-evidence-sync-sub-sovereign: the "
-        "delegation path fails closed (child-parent-mismatch) pending "
-        "the convergence workstream registry switch — see "
-        "governance_rule/execution/audit/convergence/"
-        "a594-learning-command-regression-20260922.json"
-    ),
-)
 def test_reconcile_pass_returns_receipt(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
@@ -176,16 +154,6 @@ def test_reconcile_pass_returns_receipt(tmp_path: Path) -> None:
     asyncio.run(_run())
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "A604 retired learning-evidence-sync-sub-sovereign: the "
-        "delegation path fails closed (child-parent-mismatch) pending "
-        "the convergence workstream registry switch — see "
-        "governance_rule/execution/audit/convergence/"
-        "a594-learning-command-regression-20260922.json"
-    ),
-)
 def test_supervision_commands_learning_lifecycle(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
@@ -200,22 +168,11 @@ def test_supervision_commands_learning_lifecycle(tmp_path: Path) -> None:
     asyncio.run(_run())
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "A604 retired learning-evidence-sync-sub-sovereign: the "
-        "delegation path fails closed (child-parent-mismatch) pending "
-        "the convergence workstream registry switch — see "
-        "governance_rule/execution/audit/convergence/"
-        "a594-learning-command-regression-20260922.json"
-    ),
-)
 def test_learning_status_surface(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
         status = sovereign.learning_status()
-        assert status["materialized"] is True
-        assert status["child"] == _CHILD_ID
+        assert status["active"] is True
         assert status["auto_learning"] == "disarmed"
         await sovereign.start_learning_automation()
         status = sovereign.learning_status()
@@ -228,16 +185,6 @@ def test_learning_status_surface(tmp_path: Path) -> None:
     asyncio.run(_run())
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "A604 retired learning-evidence-sync-sub-sovereign: the "
-        "delegation path fails closed (child-parent-mismatch) pending "
-        "the convergence workstream registry switch — see "
-        "governance_rule/execution/audit/convergence/"
-        "a594-learning-command-regression-20260922.json"
-    ),
-)
 def test_push_learning_outcome(tmp_path: Path) -> None:
     async def _run() -> None:
         _, sovereign, child = _stack(tmp_path)
@@ -267,7 +214,7 @@ def test_unknown_learning_intent_fails_closed(tmp_path: Path) -> None:
         _, sovereign, child = _stack(tmp_path)
         # An undeclared intent never reaches adjudication — the A10/A11
         # intent allowlist gate refuses it at the authorization tier.
-        outcome = await child.handle(
+        outcome = await sovereign.handle(
             SovereignRequest(
                 intent="learn.destroy-everything",
                 subject="learning",

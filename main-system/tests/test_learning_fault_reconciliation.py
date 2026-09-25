@@ -22,9 +22,6 @@ sys.path.insert(0, str(ROOT / "src-core"))
 sys.path.insert(0, str(ROOT.parent))
 sys.path.insert(0, str(ROOT.parent / "shared-layer" / "src"))
 
-from governance.sovereigns.xingcheng.learning_sub_sovereign import (  # noqa: E402
-    LearningEvidenceSyncSubSovereign,
-)
 from governance.sovereigns.xingcheng_sovereign import (  # noqa: E402
     XingchengSovereign,
 )
@@ -112,7 +109,7 @@ def test_reconcile_removes_only_non_actionable_messages(tmp_path: Path) -> None:
             {**_fallback_action("repair-confirmed"), "status": "confirmed"},
         ],
     )
-    sovereign = LearningEvidenceSyncSubSovereign(_App(tmp_path))
+    sovereign = XingchengSovereign(_App(tmp_path))
 
     receipt = sovereign.reconcile_pending_fault_messages()
 
@@ -146,14 +143,14 @@ def test_reconcile_removes_only_non_actionable_messages(tmp_path: Path) -> None:
     ]
     assert len(entries) == 1
     entry = entries[0]
-    assert entry["actor"] == "learning-evidence-sync-sub-sovereign"
+    assert entry["actor"] == "星澄"
     assert set(entry["removed"]) == set(receipt["removed"])
     assert entry["pending_before"] == 4 and entry["pending_after"] == 2
 
 
 def test_reconcile_is_idempotent(tmp_path: Path) -> None:
     _write_actions(tmp_path, [_fallback_action("repair-fallback")])
-    sovereign = LearningEvidenceSyncSubSovereign(_App(tmp_path))
+    sovereign = XingchengSovereign(_App(tmp_path))
 
     first = sovereign.reconcile_pending_fault_messages()
     second = sovereign.reconcile_pending_fault_messages()
@@ -204,16 +201,6 @@ def test_remove_pending_actions_rejects_non_pending_items(tmp_path: Path) -> Non
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "A604 retired learning-evidence-sync-sub-sovereign: the "
-        "delegation path fails closed (child-parent-mismatch) pending "
-        "the convergence workstream registry switch — see "
-        "governance_rule/execution/audit/convergence/"
-        "a594-learning-command-regression-20260922.json"
-    ),
-)
 async def test_reconcile_loop_eliminates_messages_automatically(
     tmp_path: Path,
 ) -> None:
@@ -223,10 +210,8 @@ async def test_reconcile_loop_eliminates_messages_automatically(
     app = _App(tmp_path)
     parent = XingchengSovereign(app)
     app.xingcheng_sovereign = parent
-    sovereign = LearningEvidenceSyncSubSovereign(
-        app, parent=parent, reconcile_interval=0.5
-    )
-    parent._sub_sovereigns["learning-evidence-sync-sub-sovereign"] = sovereign
+    parent._reconcile_interval = 0.5
+    sovereign = parent
 
     await sovereign.start()
     assert sovereign._reconcile_task is None
@@ -250,11 +235,11 @@ async def test_reconcile_loop_eliminates_messages_automatically(
             if line.strip()
         ]
         assert entries
-        assert entries[0]["actor"] == "learning-evidence-sync-sub-sovereign"
+        assert entries[0]["actor"] == "星澄"
         assert "repair-fallback-auto" in entries[0]["removed"]
-        live = sovereign.live_status()
+        live = sovereign.live_status()["learning"]
         assert live["reconcile_loop"] is True
-        assert live["reconciliation"].get("at")
+        assert live["last_reconciliation"].get("at")
     finally:
         await sovereign.stop()
     assert sovereign._reconcile_task is None
@@ -262,16 +247,15 @@ async def test_reconcile_loop_eliminates_messages_automatically(
 
 @pytest.mark.asyncio
 async def test_stop_is_safe_without_start(tmp_path: Path) -> None:
-    sovereign = LearningEvidenceSyncSubSovereign(_App(tmp_path))
+    sovereign = XingchengSovereign(_App(tmp_path))
     await sovereign.stop()
     assert sovereign._reconcile_task is None
 
 
 def test_reconcile_interval_env_override(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("GPTBRIDGE_LEARNING_RECONCILE_INTERVAL", "0.25")
-    sovereign = LearningEvidenceSyncSubSovereign(_App(tmp_path))
+    sovereign = XingchengSovereign(_App(tmp_path))
     assert sovereign._interval_seconds() == 0.25
-    explicit = LearningEvidenceSyncSubSovereign(
-        _App(tmp_path), reconcile_interval=7.5
-    )
+    explicit = XingchengSovereign(_App(tmp_path))
+    explicit._reconcile_interval = 7.5
     assert explicit._interval_seconds() == 7.5

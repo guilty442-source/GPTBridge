@@ -33,12 +33,6 @@ from governance.sovereigns.system_runtime_sovereign import (  # noqa: E402
 from governance.sovereigns.xingcheng_sovereign import (  # noqa: E402
     XingchengSovereign,
 )
-from governance.sub_sovereigns.channel_contract_sync_sub_sovereign import (  # noqa: E402
-    ChannelContractSyncSubSovereign,
-)
-from governance.sub_sovereigns.health_maintenance_test_sub_sovereign import (  # noqa: E402
-    HealthMaintenanceTestSubSovereign,
-)
 
 SOVEREIGN_CLASSES = (
     DecisionSovereign,
@@ -54,7 +48,6 @@ def test_sovereigns_instantiate() -> None:
     for cls in SOVEREIGN_CLASSES:
         instance = cls()
         assert instance.sovereign_id
-        assert hasattr(instance, "_sub_sovereigns")
         assert hasattr(instance, "_independent_verifier")
 
 
@@ -92,28 +85,12 @@ def test_mixin_method_ownership() -> None:
     )
 
 
-def test_child_status_accepts_method_selector() -> None:
-    """status() calls _child_status(child, 'orchestration_status') — the
-    resolved method must accept the selector, not a narrower shadow."""
-    for cls in (AutomationSovereign, SystemRuntimeSovereign):
-        signature = inspect.signature(cls._child_status)
-        assert "method" in signature.parameters
-        assert cls()._child_status("missing", "orchestration_status") == {
-            "role": "missing",
-            "enabled": False,
-            "materialized": False,
-        }
-
 
 def test_no_shadowed_mixin_methods() -> None:
     """Within one class no two mixins may define the same method name —
     the later definition would be unreachable dead code (cooperative
     ``__init__`` excluded)."""
-    for cls in (
-        *SOVEREIGN_CLASSES,
-        ChannelContractSyncSubSovereign,
-        HealthMaintenanceTestSubSovereign,
-    ):
+    for cls in SOVEREIGN_CLASSES:
         mixins = [
             c for c in cls.mro() if c.__name__.endswith("Mixin")
         ]
@@ -135,24 +112,10 @@ def test_no_shadowed_mixin_methods() -> None:
 
 def test_base_does_not_shadow_mixins() -> None:
     """SovereignBase/SubSovereignBase come last in every MRO."""
-    for cls in (
-        *SOVEREIGN_CLASSES,
-        ChannelContractSyncSubSovereign,
-        HealthMaintenanceTestSubSovereign,
-    ):
+    for cls in SOVEREIGN_CLASSES:
         names = [c.__name__ for c in cls.mro()]
         for base in ("SovereignBase", "SubSovereignBase"):
             if base in names:
                 assert names.index(base) > max(
                     names.index(m) for m in names if m.endswith("Mixin")
                 )
-
-
-def test_channel_contract_mixin_wins_over_base() -> None:
-    assert ChannelContractSyncSubSovereign.live_status.__qualname__.startswith(
-        "ContractRegistryMixin."
-    )
-    assert (
-        ChannelContractSyncSubSovereign.orchestration_status.__qualname__
-        .startswith("ContractRegistryMixin.")
-    )
