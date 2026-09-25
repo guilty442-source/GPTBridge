@@ -22,10 +22,14 @@ _CLASSIFY_KINDS = (
 )
 
 # Language-review capability (transferred from abolished language-review-sub-sovereign)
-ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c", "csharp", "fsharp", "go", "rust", "sql")
+# A35/A348 final-language-division: javascript-esm+julia admitted; typescript
+# retired (grandfathered files stay reviewable, new-authored .ts is denied).
+ALLOWED_LANGUAGES = ("python", "typescript", "javascript", "julia", "cpp", "c", "csharp", "fsharp", "go", "rust", "sql")
 _LANGUAGE_EXTENSIONS = {
     "python": {".py"},
-    "typescript": {".ts", ".tsx"},
+    "typescript": {".ts", ".tsx", ".d.ts"},
+    "javascript": {".js", ".jsx", ".mjs", ".cjs"},
+    "julia": {".jl"},
     "cpp": {".cpp", ".hpp", ".inl"},
     "c": {".c", ".h"},
     "csharp": {".cs"},
@@ -43,6 +47,10 @@ _LANGUAGE_ALIASES = {
     "f#": "fsharp",
     "fsharp": "fsharp",
     "golang": "go",
+    "js": "javascript",
+    "jsx": "javascript",
+    "jl": "julia",
+    "ts": "typescript",
 }
 _FILE_LINE_WARNING_THRESHOLD = 1000
 

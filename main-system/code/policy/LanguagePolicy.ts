@@ -4,17 +4,20 @@
  * Immutable data only. Single source of truth for language governance.
  */
 
-// A35 (codex 2026-09-25T10:59:50Z): PRIMARY-EXECUTION-ORDER c23>c++23>csharp14
+// A35 (codex 2026-09-25, final-language-and-package-division):
+// PRIMARY-EXECUTION-ORDER c23>c++23>csharp14; TypeScript retired->JavaScript-ESM.
 export const LANGUAGE_ROLES = {
-  C: 'approved deterministic rules+permission hot paths+resident runtime+native tests+public native interface+stable ABI',
-  Cpp: 'object-oriented native capabilities+inference+native tests+approved audit hot paths+private high-load implementation',
-  CSharp: 'interfaces+typed adapters+authorized workflow orchestration+sole test orchestration+Windows .NET integration',
-  FSharp: 'data analysis+machine learning+high-correctness complex calculation',
-  Go: 'bounded concurrent services+transport workers+network adapters+portable operational binaries through versioned contracts',
-  Rust: 'memory-safe systems capabilities+parsers+integrity/security-sensitive native components through versioned C ABI or typed service contracts',
-  TypeScript: 'presentation+build-time type safety+UI client+contract+transport+governance-checker',
-  SQL: 'data operations+structured authoritative persistence+relational set operations',
-  Python: 'on-demand gate adjudication+necessary governance semantics+model research/training+bounded boundaries only+nonresident after request completion',
+  C: 'runtime core+permission hot paths+deterministic execution+low-level computation+stable ABI',
+  Cpp: 'model inference+native tool runtime+audit engine+private high-load implementation',
+  CSharp: 'application+workflow+API+Windows .NET integration+sole test orchestration on .NET 10',
+  FSharp: 'core business logic+data validation+transformation+business state transitions',
+  Go: 'xingcheng web search+batch processing+network and file I/O bounded concurrent services',
+  Rust: 'local vector engine+RAG retrieval+native security+desktop host',
+  JavaScript: 'React UI presentation/client+frontend state+desktop interaction (ESM)',
+  Julia: 'statistics+mathematical models+optimization+simulation+scientific computation',
+  SQL: 'set-based data operations within the PostgreSQL sole authority',
+  Python: 'bounded governance semantics+governance thin-wrapper+JAX training+necessary validation only+nonresident after request completion',
+  TypeScript: 'RETIRED — succeeded by JavaScript-ESM; grandfathered existing authored files only',
 } as const;
 
 // Primary format: one language = one canonical authored-source format
@@ -26,27 +29,34 @@ export const PRIMARY_FORMAT = {
   FSharp: '.fs',
   Go: '.go',
   Rust: '.rs',
-  TypeScript: '.ts',
+  JavaScript: '.js',
+  Julia: '.jl',
   SQL: '.sql',
   Python: '.py',
+  // TypeScript retired — no canonical new-authored format.
 } as const;
 
 // Grandfathered alternates: existing files pinned, new authored files denied.
+// A348: typescript=.ts,.tsx,.d.ts (retired); javascript=.jsx,.mjs,.cjs.
 export const GRANDFATHERED_EXTENSIONS = {
   Python: ['.pyi'] as const,
-  TypeScript: ['.tsx', '.d.ts'] as const,
+  TypeScript: ['.ts', '.tsx', '.d.ts'] as const,
+  JavaScript: ['.jsx', '.mjs', '.cjs'] as const,
   C: ['.h'] as const,
   Cpp: ['.hpp', '.inl'] as const,
   CSharp: [] as const,
   FSharp: ['.fsx'] as const,
   Go: [] as const,
   Rust: [] as const,
+  Julia: [] as const,
   SQL: [] as const,
 } as const;
 
 export const CANONICAL_EXTENSIONS = {
   Python: ['.py', '.pyi'] as const,
   TypeScript: ['.ts', '.tsx', '.d.ts'] as const,
+  JavaScript: ['.js', '.jsx', '.mjs', '.cjs'] as const,
+  Julia: ['.jl'] as const,
   C: ['.c', '.h'] as const,
   Cpp: ['.cpp', '.hpp', '.inl'] as const,
   CSharp: ['.cs'] as const,
@@ -57,14 +67,16 @@ export const CANONICAL_EXTENSIONS = {
 } as const;
 
 export const SOLE_MAPPING = {
-  Python: 'bounded on-demand system-control+semantic/business logic',
-  TypeScript: 'UI presentation/client',
-  C: 'public native interface only+approved deterministic rules+permission hot paths+resident runtime',
-  Cpp: 'profile-proven implementation/performance core+measured-performance-critical deterministic-native-compute+algorithms+memory',
-  CSharp: 'Windows/.NET adapter+authorized orchestration only that cannot-be-provided-by-existing-Python/TypeScript/C/C++ owner without-loss',
-  FSharp: 'data analysis+machine learning+high-correctness complex calculation that cannot-be-provided-by-existing-Python/C/C++/CSharp owner without-loss',
-  Go: 'bounded concurrent services+transport workers+network adapters+portable operational binaries that cannot-be-provided-by-existing-owners without-loss',
-  Rust: 'memory-safe systems capabilities+parsers+integrity/security-sensitive native components that cannot-be-provided-by-existing-owners without-loss',
+  Python: 'bounded governance semantics+governance thin-wrapper+JAX training and necessary validation',
+  JavaScript: 'React UI presentation/client+frontend state+desktop interaction',
+  Julia: 'statistics+mathematical models+optimization+simulation+scientific computation',
+  C: 'runtime core+permission hot paths+deterministic execution+low-level computation',
+  Cpp: 'model inference+native tool runtime+audit engine',
+  CSharp: 'application+workflow+API+Windows/.NET integration+sole test orchestration',
+  FSharp: 'core business logic+data validation+transformation+business state transitions',
+  Go: 'xingcheng web search+batch processing+network and file I/O',
+  Rust: 'local vector engine+RAG retrieval+native security+desktop host',
+  TypeScript: 'retired lineage succeeded by JavaScript-ESM (existing authored files grandfathered)',
 } as const;
 
 export const NATIVE_BOUNDARY_FORMS = [
@@ -72,19 +84,26 @@ export const NATIVE_BOUNDARY_FORMS = [
   'pybind11-Python-specific',
 ] as const;
 
+// A352 verdict matrix: listed edges are FAIL; fail-closed, no auto-fallback.
 export const FORBIDDEN_CROSS_BOUNDARIES = {
-  TypeScript: ['Python-import', 'database', 'native', 'CSharp', 'SQL-direct-connection', 'DOM', 'frontend-storage', 'UI-framework'],
-  Python: ['DOM', 'frontend-storage', 'UI-framework'],
+  JavaScript: ['database', 'Python-import', 'native', 'process-spawn', 'Worker-dom-storage', 'filesystem-bridge-Python'],
+  TypeScript: ['new-authored'], // retired: any newly authored .ts/.tsx/.d.ts is FAIL
+  Python: ['SQL', 'UI', 'DOM', 'frontend-storage', 'UI-framework'],
+  SQL: ['Python', 'UI'],
+  UI: ['Python', 'SQL', 'CSharp'],
   Cpp: ['Python', 'SQL', 'UI'],
-  CSharp: ['domain', 'SQL', 'native'],
-  FSharp: ['Python', 'SQL', 'UI'],
-  Go: ['domain', 'SQL', 'native', 'UI'],
-  Rust: ['domain', 'SQL', 'UI'],
+  CSharp: ['SQL', 'UI', 'domain', 'native'],
+  FSharp: ['SQL', 'UI', 'Python-direct'],
+  Go: ['domain', 'SQL', 'UI', 'permission', 'governance', 'private-bridge'],
+  Rust: ['domain', 'SQL', 'UI', 'permission', 'governance'],
+  Julia: ['governance', 'UI', 'SQL'],
 } as const;
 
 export const SOURCE_ROOTS = {
   Python: ['main-system/src-core/', 'shared-layer/src/', 'governance/', 'Standalone tools/'],
-  TypeScript: ['main-system/src-ui/', 'main-system/scripts/'],
+  JavaScript: ['main-system/src-ui/', 'main-system/scripts/'],
+  TypeScript: ['main-system/src-ui/', 'main-system/scripts/'], // grandfathered files only
+  Julia: ['Standalone tools/'],
   C: ['native/include/', 'native/bridge/'],
   Cpp: ['native/core/', 'native/bridge/'],
   CSharp: [

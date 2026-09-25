@@ -36,36 +36,46 @@ export interface CrossBoundaryRule {
 }
 
 // Canonical language configuration per A219, A211, A215, A264
+// A348: 10 allowed languages — TypeScript retired (grandfathered only),
+// JavaScript-ESM and Julia admitted (final-language-and-package-division).
 export const LANGUAGE_POLICY: LanguagePolicy = {
-  allowedLanguages: ['Python', 'TypeScript', 'C', 'C++', 'CSharp', 'FSharp', 'Go', 'Rust', 'SQL'],
+  allowedLanguages: ['Python', 'JavaScript', 'Julia', 'C', 'C++', 'CSharp', 'FSharp', 'Go', 'Rust', 'SQL'],
   canonicalRoles: new Map([
     // A219, A211
-    ['Python', 'on-demand governance semantics+model research/training+bounded boundaries'],
-    ['TypeScript', 'UI presentation/client+contract+transport+type-safety+governance-checker'],
-    ['C', 'public native interface only+stable ABI'],
-    ['C++', 'private high-load implementation+measured-performance-critical'],
-    ['CSharp', 'Windows-specific .NET/CLR/WinRT/COM integration only'],
-    ['FSharp', 'data analysis+machine learning+high-correctness complex calculation'],
-    ['Go', 'bounded concurrent services+transport workers+network adapters+portable operational binaries through versioned contracts'],
-    ['Rust', 'memory-safe systems capabilities+parsers+integrity/security-sensitive native components through versioned C ABI or typed service contracts'],
-    ['SQL', 'relational set operations+data selection+projection'],
+    ['Python', 'bounded governance semantics+governance thin-wrapper+JAX training+necessary validation+nonresident'],
+    ['JavaScript', 'React UI presentation/client+frontend state+desktop interaction (ESM)'],
+    ['Julia', 'statistics+mathematical models+optimization+simulation+scientific computation'],
+    ['C', 'runtime core+permission hot paths+deterministic execution+stable ABI'],
+    ['C++', 'model inference+native tool runtime+audit engine+private implementation'],
+    ['CSharp', 'application+workflow+API+Windows .NET integration+sole test orchestration on .NET 10'],
+    ['FSharp', 'core business logic+data validation+transformation+business state transitions'],
+    ['Go', 'xingcheng web search+batch processing+network and file I/O'],
+    ['Rust', 'local vector engine+RAG retrieval+native security+desktop host'],
+    ['SQL', 'relational set operations+data selection+projection within PostgreSQL sole authority'],
+    ['TypeScript', 'RETIRED — succeeded by JavaScript-ESM; grandfathered existing files only'],
   ]),
   forbiddenCrossBoundaries: [
     // A351, A352
-    { from: 'TypeScript', to: ['Python-import', 'database', 'native', 'CSharp', 'SQL-direct-connection'], reason: 'TypeScript MUST use information-layer contracts only' },
-    { from: 'Python', to: ['DOM', 'frontend-storage', 'UI-framework'], reason: 'Python MUST NOT access frontend primitives' },
+    { from: 'JavaScript', to: ['database', 'Python-import', 'native', 'process-spawn', 'Worker-dom-storage'], reason: 'JavaScript owns React UI only; no backend/data/native/process edges' },
+    { from: 'Python', to: ['SQL', 'UI', 'DOM', 'frontend-storage', 'UI-framework'], reason: 'Python MUST NOT access data/UI surfaces directly' },
+    { from: 'SQL', to: ['Python', 'UI'], reason: 'SQL bounded data operations only' },
     { from: 'C++', to: ['Python', 'SQL', 'UI'], reason: 'C++ private implementation only; exposed via C ABI' },
-    { from: 'CSharp', to: ['domain', 'SQL', 'native'], reason: 'CSharp Windows adapter only' },
-    { from: 'FSharp', to: ['Python', 'SQL', 'UI'], reason: 'FSharp analysis/ML capability only' },
-    { from: 'Go', to: ['domain', 'SQL', 'native', 'UI'], reason: 'Go bounded concurrent service only; no governance/permission/business judgment' },
-    { from: 'Rust', to: ['domain', 'SQL', 'UI'], reason: 'Rust memory-safe systems capability only; no governance/permission/business judgment' },
+    { from: 'CSharp', to: ['domain', 'SQL', 'UI', 'native'], reason: 'CSharp orchestration/adapter only' },
+    { from: 'FSharp', to: ['SQL', 'UI', 'Python'], reason: 'FSharp business-logic capability only' },
+    { from: 'Go', to: ['domain', 'SQL', 'UI', 'permission', 'governance'], reason: 'Go bounded service only; no governance/permission/business judgment' },
+    { from: 'Rust', to: ['domain', 'SQL', 'UI', 'permission', 'governance'], reason: 'Rust memory-safe systems capability only; no governance/permission/business judgment' },
+    { from: 'Julia', to: ['governance', 'UI', 'SQL'], reason: 'Julia scientific-compute capability only' },
   ],
 };
 
-// Canonical file extensions per A215 (primary format first; alternates grandfathered)
+// Canonical file extensions per A215 (primary format first; alternates
+// grandfathered). TypeScript stays classified so existing files are pinned,
+// not "unknown"; JavaScript .jsx/.mjs/.cjs are grandfathered alternates.
 export const CANONICAL_EXTENSIONS = {
   Python: ['.py', '.pyi'],
   TypeScript: ['.ts', '.tsx', '.d.ts'],
+  JavaScript: ['.js', '.jsx', '.mjs', '.cjs'],
+  Julia: ['.jl'],
   C: ['.c', '.h'],
   Cpp: ['.cpp', '.hpp', '.inl'],
   CSharp: ['.cs'],
@@ -213,6 +223,42 @@ export class LanguageBoundaryChecker {
       'UI-framework': [
         /import\s+(tkinter|PyQt5|PyQt6|PySide2|PySide6|wx|kivy)/,
       ],
+      'process-spawn': [
+        /\brequire\(['"](?:node:)?child_process['"]\)/,
+        /\bfrom\s+['"](?:node:)?child_process['"]/,
+        /\bspawn(?:Sync)?\s*\(/,
+        /\bexec(?:File|Sync)?\s*\(/,
+      ],
+      'Worker-dom-storage': [
+        /\bnew\s+Worker\s*\(/,
+        /localStorage/,
+        /sessionStorage/,
+        /indexedDB/,
+      ],
+      'permission': [
+        /\bpermission[-_]?sovereign\b/,
+        /\bPERMISSION_[A-Z_]+\b/,
+      ],
+      'governance': [
+        /\bgovernance\b/,
+        /\bcodex\b/i,
+      ],
+      'new-authored': [],
+      'UI': [
+        /import\s+(tkinter|PyQt5|PyQt6|PySide2|PySide6|wx|kivy)/,
+        /document\.|window\.|\.querySelector|\.getElementById/,
+      ],
+      'domain': [],
+      'Python': [
+        /\bimport\s+(sqlite3|psycopg2|sqlalchemy)/,
+        /\bfrom\s+(sqlite3|psycopg2|sqlalchemy)\s+import/,
+        /\bimport\s+(tkinter|PyQt5|PyQt6|PySide2|PySide6)/,
+      ],
+      'SQL': [
+        /\bimport\s+(sqlite3|psycopg2|sqlalchemy|psycopg)/,
+        /\bfrom\s+(sqlite3|psycopg2|sqlalchemy|psycopg)\s+import/,
+        /\.execute\s*\(|\.query\s*\(/,
+      ],
     };
 
     const checkPatterns = patterns[forbidden] || [];
@@ -223,7 +269,9 @@ export class LanguageBoundaryChecker {
     const normalized = filePath.replace(/\\/g, '/');
     const rules: Record<string, string[]> = {
       Python: ['main-system/src-core/', 'shared-layer/src/', 'governance/', 'Standalone tools/'],
+      JavaScript: ['main-system/src-ui/', 'main-system/scripts/'],
       TypeScript: ['main-system/src-ui/', 'main-system/scripts/'],
+      Julia: ['Standalone tools/'],
       C: ['native/include/', 'native/bridge/', 'native/core/'],
       Cpp: ['native/core/', 'native/bridge/'],
       CSharp: [

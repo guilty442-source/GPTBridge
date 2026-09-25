@@ -1,0 +1,31 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v1",
+ "request_id": "five-core-language-assignment-20260925",
+ "title": "Five-core per-core language assignment and responsibility table",
+ "summary": "Governor directive: assign per-core language sets and responsibilities under the final language division. decision-core: C+necessary Python+C# for deterministic execution, governance semantics, adjudication flow. permission-core: C+C+++necessary Python+C# for permission hot paths, governance directory, audit and test. runtime-core: C+C+++designated Rust components for resources, state, lifecycle and native execution. automation-core: C#+F#+C+on-demand Go for workflow orchestration, business rules, task and batch I/O. xingcheng-assistant: JavaScript+Rust+C#+F#+Go+C++ for desktop interaction, search, tools and inference. LANGUAGE-RESPONSIBILITY restated to the final division (Rust vector engine/RAG/native security/desktop host; Go xingcheng web-search/batch/network+file I/O; F# core business logic; JavaScript React UI; Python bounded governance+JAX; TypeScript retired; Julia pending lock).",
+ "requested_by": "decision-sovereign",
+ "origin": "human-governor directive 2026-09-25: five-core language and responsibility assignment table",
+ "change_class": "clarification",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "predecessor": {
+  "codex_version": "2026-09-25T14:24:47Z",
+  "version_identity": "E2:2026-09-23T03:13:43Z",
+  "version_epoch": 2,
+  "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+  "revision_sequence": 75
+ },
+ "changes": [
+  {
+   "table": "articles",
+   "key": {
+    "provision_id": "A604"
+   },
+   "field": "rule",
+   "proposed": "SUCCESSOR:A604 supersedes A591 and A592 and controls five-core and historical-sub-sovereign responsibility convergence. CURRENT-PEER-CORES:decision-core|permission-core|runtime-core|automation-core|xingcheng-assistant. XINGCHENG native model remains a separate owned model identity and not a core or independent tool. SUB-SOVEREIGN-LAYER:abolished; former identities are retired lineage only. RESPONSIBILITY-NORMALIZATION:policy/architecture+health/maintenance/test+data outcome+priority/change acceptance>decision-core and registered modules;directory+identity+permission+security-audit enforcement>permission-core and registered modules;startup+runtime-state+process lifecycle+governed execution>runtime-core and registered modules;resources+dependencies+channels+release/update+repair scheduling+cleanup/log synchronization>automation-core and registered modules;global alignment review+user permission interface+notification>xingcheng-assistant;self-learning+self-repair proposal+native-model evolution>XINGCHENG owned modules. MODULES execute domain work without independent authority. CORE-LANGUAGE-ASSIGNMENT:decision-core>C+necessary-Python+CSharp for deterministic execution,governance semantics and adjudication flow;permission-core>C+C+++necessary-Python+CSharp for permission hot paths,governance directory,audit and test;runtime-core>C+C+++designated-Rust-components for resources,state,lifecycle and native execution;automation-core>CSharp+FSharp+C+on-demand-Go for workflow orchestration,business rules,task and batch I/O;xingcheng-assistant>JavaScript+Rust+CSharp+FSharp+Go+C++ for desktop interaction,search,tools and inference. LANGUAGE-RESPONSIBILITY:C23 executes runtime core,permission hot paths,deterministic execution and low-level computation;C++23 owns model inference,native tool runtime and audit engine;C#14 on .NET 10 owns application,workflow,API,Windows integration and the sole test orchestration;FSharp10 owns core business logic,data validation,transformation and business state transitions;Go1.27.1 owns xingcheng web search,batch processing and network/file I/O;Rust1.98.1 owns local vector engine,RAG retrieval,native security and desktop host;JavaScript-ESM owns React UI,frontend state and desktop interaction;Julia owns scientific computation pending formal version lock;Python3.14.7 is bounded on-demand governance semantics,thin-wrapper and JAX training and is nonresident after request completion;TypeScript is retired-succeeded-by-JavaScript-ESM. OPTIMIZATION-TARGET:new execution work prefers C23/C++23/C#14 for high performance,high execution speed,low consumption and low resource footprint;Python dependency is reduced to its bounded role. Go,Rust,JavaScript and Julia acquire execution ownership only through registered versioned contracts and never acquire governance,permission or business authority. FIVE-CORE-SUITE-AUTONOMY:each core independently adjusts owned suites subject to language rules."
+  }
+ ]
+}
