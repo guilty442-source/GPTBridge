@@ -124,6 +124,7 @@ export function getLayerForModule(moduleId: string): Layer | null {
   if (moduleId.includes('native/include') || moduleId.includes('native/bridge')) return 'c-abi';
   if (moduleId.includes('launcher/src')) return 'csharp-adapter';
   if (moduleId.includes('business-logic-csharp')) return 'csharp-adapter';
+  if (moduleId.includes('business-logic-fsharp')) return 'fsharp-analysis';
   if (moduleId.includes('process-metrics-csharp')) return 'csharp-adapter';
   if (moduleId.includes('searchd-go')) return 'go-service';
   if (moduleId.includes('julia')) return 'julia-compute';
