@@ -1,4 +1,4 @@
-/* C-owned KV block pool. Allocator and deallocator live in this C owner. */
+/* C23 C-owned KV block pool. Allocator and deallocator live in this C23 owner. */
 #include "gptbridge_kv_pool.h"
 
 #include <limits.h>

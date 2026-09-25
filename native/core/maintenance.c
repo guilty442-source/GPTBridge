@@ -1,4 +1,4 @@
-/* maintenance.c — 維護排程 tick C 原型實作（純 C11） */
+/* maintenance.c — 維護排程 tick C23 原型實作（C23 constexpr） */
 #include "maintenance.h"
 #include <string.h>
 

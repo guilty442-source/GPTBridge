@@ -1,5 +1,5 @@
 /*
- * parser.c — parsing compute core (A221/E186).  Pure C.
+ * parser.c — parsing compute core (A221/E186).  Pure C23.
  *
  * Owns parsing compute (token estimation, text analysis).
  * Python owns all memory; C borrows raw pointers + length.

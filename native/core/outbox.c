@@ -1,4 +1,4 @@
-/* outbox.c — state outbox 游標/窗口 C 原型實作（純 C11） */
+/* outbox.c — state outbox 游標/窗口 C23 原型實作（C23） */
 #include "outbox.h"
 #include <string.h>
 
