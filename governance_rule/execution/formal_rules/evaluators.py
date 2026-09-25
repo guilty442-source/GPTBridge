@@ -1144,7 +1144,7 @@ def _capability_dispatch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 @register_rule("RULE_LANGUAGE_REALLOCATION_V1")
 def _language_reallocation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate (A605): C23/C++23/C#14(.NET 10) primary adaptive, Python
+    """Predicate (A610): C23/C++23/C#14(.NET 10) primary adaptive, Python
     reduced, .NET GC + unified format and automatic memory management.
     Evaluator registered so the candidate build's formal-rule parity check
     passes; runtime predicate validates the language registry when fact
