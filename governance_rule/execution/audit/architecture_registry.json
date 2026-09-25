@@ -934,6 +934,23 @@
    "block": "BLOCK_TOOLS"
   },
   {
+   "component_id": "searchd-go",
+   "architectural_role": "execution",
+   "runtime_form": "internal-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "searchd-go",
+   "physical_path": "Standalone tools/searchd-go",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "SEARCHD_GO",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
    "component_id": "native-compute-core",
    "architectural_role": "execution",
    "runtime_form": "native-library",
