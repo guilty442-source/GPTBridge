@@ -1,0 +1,89 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "language-division-gap-closure-20260925-r2",
+  "title": "Close live-codex gaps left by the executed language-division batch",
+  "summary": "Insert the four controlling provisions that registered formal rules already anchor to (A612/A615/A616/A621), repair A355 contract-parity for the TypeScript retirement, and reconcile the A215 JavaScript extension set with the A348 grandfathered alternates.",
+  "requested_by": "decision-sovereign",
+  "origin": "codex-vs-implementation comparison 2026-09-25: registered rules anchor to nonexistent provisions; A355 still mandates TypeScript parity; A215 vs A348 extension tension",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T15:22:22Z",
+    "version_identity": "E2:2026-09-23T03:13:43Z",
+    "version_epoch": 2,
+    "history_head": "bedd83c81bcc3dc3d2171bac92b6ace4b9acfa8b65e56d5ab7e6e2ac94717590",
+    "revision_sequence": 75
+  },
+  "problem": "final-language-and-package-division and the rule-registration batch executed and left live law internally inconsistent: formal_rule_registry rows anchor to A612/A615/A616/A621 which do not exist as articles (dangling controlling provisions); A355 still names TypeScript<->Python contract parity although TypeScript is retired per A211/A348/A610; A215 lists .jsx/.mjs/.cjs as canonical JavaScript extensions while A348 marks them grandfathered-existing-only.",
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A355"
+      },
+      "field": "rule",
+      "proposed": "GATE:CONTRACT PARITY GATE verifies JavaScript-ESM<->Python,Python<->Native,C ABI<->C++ implementation and Python/C ABI<->CSharp WindowsAdapter; grandfathered TypeScript contract files remain reviewable under the same parity axes until migrated to JavaScript-ESM; STRUCTURE:add code/checkers/ContractParityChecker.ts+code/policy/ContractPolicy.ts and register in GovernanceCheckerRegistry; ContractPolicy is immutable data only:canonical contract source+supported major/minor range+required envelope fields+compatibility rules+native parity rules+error taxonomy; checker verifies only and never mutates. JS-PYTHON:operation-id exact; request/response field name,type,required,nullable; error taxonomy; negotiable contract major/minor; unknown-field policy; timeout/deadline semantics; request-id+correlation-id preservation; idempotency; A200 sequence; semantic aliases or optional/required drift FAIL. PYTHON-NATIVE:signature+validation+return type+error class+edge cases+timeout+cancellation+idempotency+fallback presence; semantic result parity,not bit identity,and declared numeric tolerance allowed. C-ABI:header symbol=exported symbol=implemented C++ target; verify ABI version+struct size/layout+field signedness/width+calling convention+visibility+status codes+buffer ownership. CSHARP:method/type/error mapping+lifetime+handle ownership+encoding+timeout+UTF8/UTF16+IntPtr/SafeHandle+32/64-bit width. OUTPUT:CONTRACT PARITY GATE+PASS|WARN|FAIL+boundary+operation+field/symbol+both-side declarations+rule+reason+expected; no generic failure."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A215"
+      },
+      "field": "rule",
+      "proposed": "CANONICAL-MAP:C={.c,.h};C++={.cpp,.hpp,.inl};CSharp={.cs};FSharp={.fs};Go={.go};Rust={.rs};Python={.py,.pyi};JavaScript={.js canonical; .jsx,.mjs,.cjs grandfathered-existing-only per A348};Julia={.jl};TypeScript={.ts,.tsx,.d.ts grandfathered-existing-only};SQL={.sql}; MATCH:full-filename-suffix+lowercase canonical+longest-suffix-first so-.d.ts=TypeScript-declaration-not-.ts-generic; EXCLUSIVITY:one-file=one-language classification+extension belongs-to-one-language only; C:.c implementation/test+.h C-public/interface header only; CPP:.cpp implementation/test+.hpp C++ header+.inl C++ template/inline implementation included-by-.hpp only; CSHARP:.cs implementation/test only; FSHARP:.fs implementation/test only; GO:.go implementation/test only; RUST:.rs implementation/test only; PYTHON:.py implementation/test/package-entry+.pyi declaration-only; JAVASCRIPT:.js ESM implementation/test canonical for new authored source+.jsx/.mjs/.cjs retained and reviewable for existing files only; JULIA:.jl implementation/test pending formal version lock; TYPESCRIPT:existing .ts/.tsx/.d.ts retained and reviewable+new authored source denied (JavaScript-ESM successor); SQL:.sql schema/query/migration/test-data-operation only; TESTS:use-own-language-extension+name/path metadata identifies-test+no-special-additional-source-extension; PROJECT-METADATA:.csproj/.sln/.fsproj/go.mod/Cargo.toml/package.json/tsconfig/CMake/project/build manifests are-not-language-source+may-configure-build only+cannot-contain-embedded-application-source to-evade-map; GENERATED:must-use-target-language canonical-extension+generated identity/hash/owner; HEADERS:.h cannot contain-C++ constructs+.hpp cannot contain-C-only constructs"
+    }
+  ],
+  "proposed_delta": "4 article inserts (A612/A615/A616/A621) + 2 article repairs (A355/A215); no behavioural expansion beyond already-executed division law; registered proposed rules gain real controlling provisions.",
+  "proposed_successors": [
+    {
+      "registry": "articles",
+      "action": "insert",
+      "rows": [
+        {
+          "position": 612,
+          "provision_id": "A612",
+          "section_index": "7",
+          "subject": "jax-replaces-pytorch-training-framework",
+          "rule": "ML-FRAMEWORK:JAX with XLA and automatic memory management is the sole model training and research framework serving Python's bounded governance/training role; PyTorch is retired: no active training or inference consumer, no new authored source or manifest may declare it; RULE_JAX_PYTORCH_V1 verifies framework=jax fail-closed.",
+          "prohibition": "FORBID:pytorch-framework|new pytorch import or dependency|second ML framework ownership|torch resident runtime",
+          "exception": "existing pytorch artifacts persist as migration-only lineage during the A610 python-reduction window"
+        },
+        {
+          "position": 615,
+          "provision_id": "A615",
+          "section_index": "7",
+          "subject": "official-language-version-responsibility-table",
+          "rule": "LANGUAGE-TABLE:the sole canonical language/version/responsibility table is: C C23 runtime-core+permission-hot-paths; C++ C++23 inference+native-runtime+audit; Rust 1.98.1 vector-engine+RAG+native-security+desktop-host; Go 1.27.1 web-search+batch+network-file-io; C#14 on .NET 10 application+workflow+API+sole-test-orchestration; F#10 domain business-logic on shared .NET 10; Python 3.14.7 governance semantics+JAX training nonresident with NumPy 2.5.3; JavaScript ESM React 19.2.8 UI+frontend-state+desktop-interaction; Julia statistics+mathematical-models+optimization+simulation+scientific-compute (version pending formal lock); SQL PostgreSQL 18.6 sole structured authority; TypeScript retired-grandfathered; RULE_LANGUAGE_TABLE_OFFICIAL_V1 verifies each declared language+version+responsibility fact against this table fail-closed.",
+          "prohibition": "FORBID:parallel or divergent language table|unlisted language in authored source|version drift without amendment|new-authored typescript|undeclared responsibility",
+          "exception": "julia version stays pending formal lock until a dedicated amendment pins it"
+        },
+        {
+          "position": 616,
+          "provision_id": "A616",
+          "section_index": "7",
+          "subject": "test-responsibility-and-audit-gate",
+          "rule": "TEST-RESPONSIBILITY:C#14 on .NET 10 is the sole test orchestrator; every technology declares its test responsibility per the official table; pytest is the sole integration framework; the release Push Gate must enforce the formal governance rule before activation and a single-language pass never implies system acceptance; RULE_TEST_AUDIT_RESPONSIBILITY_V1 verifies each declared technology carries test_responsibility and an audit_gate record fail-closed.",
+          "prohibition": "FORBID:capability activation without executed test evidence|second test orchestrator|integration framework other than pytest|release without audit-gate enforcement",
+          "exception": "operational binaries without a Python test surface satisfy evidence through native tests only"
+        },
+        {
+          "position": 621,
+          "provision_id": "A621",
+          "section_index": "7",
+          "subject": "retired-dependency-register",
+          "rule": "RETIRED-REGISTER:the complete retired dependency set is exactly PyTorch, Electron, TypeScript, Qdrant, SQLite, Node.js; each carries status RETIRED or MIGRATION_ONLY with zero active consumers required; successors: TypeScript->JavaScript-ESM, Node.js->Go/Rust, PyTorch->JAX, SQLite->PostgreSQL 18.6, Electron->Rust desktop host + JavaScript UI, Qdrant->Rust vector engine; RULE_RETIRED_DEPENDENCIES_V1 verifies no new authored source or dependency manifest declares a retired dependency fail-closed.",
+          "prohibition": "FORBID:new dependency on a retired item|retired dependency in release artifacts|resurrection without amendment|active consumer of a RETIRED dependency",
+          "exception": "retired items remain visible in historical lineage and grandfathered files"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "expected_effect": "formal_rule_registry proposed rows A612/A615/A616/A621 resolve to existing controlling provisions; A355 and A215 consistent with the executed final-language-and-package-division",
+    "rollback": "single-amendment rollback restores predecessor codex_version"
+  }
+}
