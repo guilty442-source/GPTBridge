@@ -53,9 +53,8 @@ class CodingExpertSpecMixin:
                     }[name],
                 )
                 break
-        if "typescript" in normalized or "typescript" in str(prompt).casefold():
-            inferred["language"] = "typescript"
-        elif "javascript" in normalized or "javascript" in str(prompt).casefold():
+        if re.search(r"typescript|javascript|\bjs\b|\besm\b|\bjsx\b|\breact\b", normalized):
+            # TypeScript retired: its requests resolve to the JavaScript-ESM successor.
             inferred["language"] = "javascript"
         elif re.search(r"\bvb\.net\b|\bf#\b|\bfsharp\b", normalized):
             inferred["language"] = re.search(r"\bvb\.net\b|\bf#\b|\bfsharp\b", normalized).group(0)
@@ -89,6 +88,8 @@ class CodingExpertSpecMixin:
         inferred["language"] = str(inferred.get("language") or "python").strip().casefold()
         if inferred["language"] in {"c#", "c＃", ".net", "dotnet", "asp.net"}:
             inferred["language"] = "csharp"
+        if inferred["language"] in {"typescript", "ts", "js", "jsx", "esm"}:
+            inferred["language"] = "javascript"
         inferred["kind"] = str(inferred.get("kind") or "function").strip().casefold()
         if inferred["language"] == "sql":
             inferred["kind"] = "query"

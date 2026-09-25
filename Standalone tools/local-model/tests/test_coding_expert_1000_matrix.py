@@ -54,7 +54,7 @@ def _valid_generation_cases() -> list[dict[str, Any]]:
             }
         )
 
-    for language in ("typescript", "csharp"):
+    for language in ("javascript", "csharp"):
         for index in range(200):
             cases.append(
                 {
@@ -154,10 +154,10 @@ def _rejection_cases() -> list[dict[str, Any]]:
         )
 
     for index in range(40):
-        language = "typescript" if index % 2 else "csharp"
+        language = "javascript" if index % 2 else "csharp"
         source = (
             dangerous_script[index % len(dangerous_script)]
-            if language == "typescript"
+            if language == "javascript"
             else 'System.Diagnostics.Process.Start("cmd", "/c exit");\n'
         )
         cases.append(
@@ -214,9 +214,9 @@ def _rejection_cases() -> list[dict[str, Any]]:
                     "id": f"reject-unsupported-language-{index:03d}",
                     "category": "reject-language",
                     "payload": {
-                        "prompt": "建立 JavaScript 驗證函式",
+                        "prompt": "建立 Kotlin 驗證函式",
                         "code_spec": {
-                            "language": "javascript",
+                            "language": "kotlin",
                             "kind": "function",
                             "name": f"script_case_{index}",
                         },
@@ -227,12 +227,12 @@ def _rejection_cases() -> list[dict[str, Any]]:
             continue
         cases.append(
             {
-                "id": f"reject-typescript-syntax-{index:03d}",
+                "id": f"reject-javascript-syntax-{index:03d}",
                 "category": "reject-syntax",
                 "payload": {
-                    "prompt": "分析 TypeScript 語法",
+                    "prompt": "分析 JavaScript 語法",
                     "source_code": f"export function broken_{index}(x {{",
-                    "code_spec": {"action": "analyze", "language": "typescript"},
+                    "code_spec": {"action": "analyze", "language": "javascript"},
                 },
                 "intent": "coding",
             }
@@ -253,7 +253,7 @@ def test_star_coding_capability_1000_case_matrix(case: dict[str, Any]) -> None:
     result = StarCodingExpert().process(case["payload"], case["intent"])
     category = case["category"]
 
-    if category in {"python", "typescript", "csharp", "sql"}:
+    if category in {"python", "javascript", "csharp", "sql"}:
         assert result["ok"] is True
         assert result["language"] == category
         assert result["validation"]["syntax_ok"] is True

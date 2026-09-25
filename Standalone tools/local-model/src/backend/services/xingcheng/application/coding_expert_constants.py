@@ -8,8 +8,11 @@ from typing import Any
 class CodingExpertConstants:
     """Class-level constants and low-level utility helpers for StarCodingExpert."""
 
+    # A35/A348 final-language-division: JavaScript-ESM owns React UI;
+    # TypeScript is retired (new-authored .ts denied), so generation
+    # normalizes typescript requests onto the javascript successor.
     ALLOWED_LANGUAGES = frozenset(
-        {"python", "typescript", "csharp", "sql"}
+        {"python", "javascript", "csharp", "sql"}
     )
     ALLOWED_ACTIONS = frozenset({"generate", "analyze", "refactor", "self_upgrade"})
     ALLOWED_PYTHON_KINDS = frozenset(

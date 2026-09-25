@@ -60,7 +60,7 @@ class CodingExpertProcessMixin:
         candidate = PurePosixPath(str(value or "").replace("\\", "/"))
         suffixes = {
             "python": {".py"},
-            "typescript": {".ts", ".tsx"},
+            "javascript": {".js"},
             "csharp": {".cs"},
             "sql": {".sql"},
         }
@@ -120,7 +120,7 @@ class CodingExpertProcessMixin:
                 "supported_kinds": sorted(self.ALLOWED_PYTHON_KINDS),
             }
         if (
-            language in {"typescript", "csharp"}
+            language in {"javascript", "csharp"}
             and str(spec["kind"]) not in self.ALLOWED_SCRIPT_KINDS
         ):
             return {
@@ -142,7 +142,7 @@ class CodingExpertProcessMixin:
         else:
             if language == "python":
                 source = self._python_source(spec, prompt)
-            elif language == "typescript":
+            elif language == "javascript":
                 source = self._script_source(spec, prompt, language)
             elif language == "csharp":
                 source = self._csharp_source(spec, prompt)
@@ -173,7 +173,7 @@ class CodingExpertProcessMixin:
                 spec.get("target_path")
                 or {
                     "python": "xingcheng/src/backend/services/xingcheng/application/generated_extension.py",
-                    "typescript": "xingcheng/src/backend/services/xingcheng/application/generated_extension.ts",
+                    "javascript": "xingcheng/src/backend/services/xingcheng/application/generated_extension.js",
                     "csharp": "xingcheng/src/backend/services/xingcheng/application/generated_extension.cs",
                     "sql": "xingcheng/src/backend/services/xingcheng/application/generated_query.sql",
                 }[language],
