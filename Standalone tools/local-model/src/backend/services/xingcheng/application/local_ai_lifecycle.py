@@ -198,7 +198,7 @@ class LocalAiLifecycleMixin:
         if not auto_start:
             return False
         binary = Path(self.tool_root).parent / "searchd-go" / "bin" / "searchd.exe"
-        if not binary.is_file():
+        if not binary.is_file() and not self._build_searchd(binary):
             return False
         try:
             subprocess.Popen(
@@ -215,6 +215,40 @@ class LocalAiLifecycleMixin:
                 return True
             time.sleep(0.1)
         return False
+
+    def _build_searchd(self, binary: "Path") -> bool:
+        """bin/ 是 gitignore 產物——fresh checkout 缺 binary 時用 vendored
+        Go 工具鏈就地建置（GOPROXY=off：go.mod 無外部依賴）。失敗 fail-closed。"""
+        import os
+        import subprocess
+        from pathlib import Path
+
+        repo_root = Path(__file__).resolve().parents[7]
+        module_dir = repo_root / "Standalone tools" / "searchd-go"
+        go_exe = repo_root / ".tools" / "go" / "go" / "bin" / "go.exe"
+        if not go_exe.is_file() or not (module_dir / "go.mod").is_file():
+            return False
+        env = os.environ.copy()
+        env.update(
+            {
+                "GOCACHE": str(repo_root / ".tools" / "gocache"),
+                "GOPROXY": "off",
+                "GOSUMDB": "off",
+                "GOTOOLCHAIN": "local",
+            }
+        )
+        try:
+            proc = subprocess.run(
+                [str(go_exe), "build", "-o", str(binary), "./cmd/searchd"],
+                cwd=str(module_dir),
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=180,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return proc.returncode == 0 and binary.is_file()
 
     def _web_search_providers(self) -> list[Any]:
         """依 settings/env 組出有序 provider 鏈（auto = searchd→searxng）。"""

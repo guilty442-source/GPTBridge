@@ -1,0 +1,14 @@
+﻿
+##### codex-amendment-request-js-native-20260925.json.superseded  id=js-native-replaces-typescript-20260925 class=architecture-authority
+
+##### codex-amendment-request-nodejs-replace-20260925.json.superseded  id=go-rust-replace-nodejs-20260925 class=architecture-authority
+
+##### codex-amendment-request-test-tools-20260925.json.superseded  id=test-tools-official-20260925 class=architecture-authority
+
+##### codex-amendment-request-rust-tests-20260925.json.superseded  id=rust-tests-enhanced-20260925 class=architecture-authority
+
+##### codex-amendment-request-jax-parity-20260925.json.superseded  id=jax-training-parity-20260925 class=architecture-authority
+
+##### codex-amendment-request-final-architecture-20260925.json.superseded  id=final-architecture-v2026-7-20260925 class=architecture-authority
+### MISSING main-system\runtime\state\codex-amendment-request-data-architecture-rust-vector-qdrant-sqlite-retire-20260925.json
+### MISSING main-system\runtime\state\codex-amendment-request-language-division-gap-closure-20260925-r2.json
