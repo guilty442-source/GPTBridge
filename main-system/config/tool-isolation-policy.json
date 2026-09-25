@@ -208,6 +208,15 @@
         15
       ]
     },
+    "business-logic-fsharp": {
+      "memory_limit_mb": 256,
+      "cpu_percent_limit": 40,
+      "network_policy": "offline",
+      "filesystem_policy": "none",
+      "restart_on_crash": false,
+      "max_restart_attempts": 0,
+      "restart_backoff_seconds": []
+    },
     "searchd-go": {
       "memory_limit_mb": 128,
       "cpu_percent_limit": 40,

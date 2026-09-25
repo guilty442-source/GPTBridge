@@ -915,6 +915,21 @@
    "block": "BLOCK_TOOLS"
   },
   {
+   "component_id": "business-logic-fsharp",
+   "architectural_role": "execution",
+   "runtime_form": "internal-library",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "business-logic-fsharp",
+   "physical_path": "Standalone tools/business-logic-fsharp",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [],
+   "information_channels": [],
+   "architecture_code": "BUSINESS_LOGIC_FSHARP",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
    "component_id": "process-metrics-csharp",
    "architectural_role": "execution",
    "runtime_form": "standalone-service",
@@ -1080,6 +1095,7 @@
     "boot-core",
     "bootstrap-entry",
     "business-logic-csharp",
+    "business-logic-fsharp",
     "file-sorter",
     "information-channel-gateway",
     "investment-mobile",
