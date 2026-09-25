@@ -13,10 +13,10 @@ from governance_rule.execution.codex_repository import (
 
 with codex_readonly_connection() as con:
     for label, q in {
-        "seal_manifest": f"SELECT version, certification_state, history_head, version_epoch, version_identity FROM {CODEX_SCHEMA}.seal_manifest",
-        "revision_max": f"SELECT MAX(revision) FROM {CODEX_SCHEMA}.revision_history",
-        "revision_cols": f"SELECT column_name FROM information_schema.columns WHERE table_schema='{CODEX_SCHEMA}' AND table_name='seal_manifest' ORDER BY ordinal_position",
+        "seal_cols": f"SELECT column_name FROM information_schema.columns WHERE table_schema='{CODEX_SCHEMA}' AND table_name='seal_manifest' ORDER BY ordinal_position",
         "rh_cols": f"SELECT column_name FROM information_schema.columns WHERE table_schema='{CODEX_SCHEMA}' AND table_name='revision_history' ORDER BY ordinal_position",
+        "seal_rows": f"SELECT * FROM {CODEX_SCHEMA}.seal_manifest ORDER BY version_epoch DESC",
+        "rh_tail": f"SELECT * FROM {CODEX_SCHEMA}.revision_history ORDER BY recorded_at_utc DESC LIMIT 4",
     }.items():
         try:
             con.execute("SAVEPOINT sp")
@@ -25,8 +25,8 @@ with codex_readonly_connection() as con:
         try:
             rows = con.execute(q).fetchall()
             print("---", label)
-            for r in rows[-6:]:
-                print(" ", str(r)[:250])
+            for r in rows[:8]:
+                print(" ", str(r)[:400])
         except Exception as e:
             print(label, "err:", str(e).splitlines()[0])
         try:
