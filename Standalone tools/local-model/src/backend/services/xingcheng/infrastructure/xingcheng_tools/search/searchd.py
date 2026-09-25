@@ -50,6 +50,13 @@ class SearchdProvider(SearchProvider):
         self.timeout = max(1.0, min(30.0, float(timeout)))
         self.max_results_per_query = max_results_per_query
         self.safety = safety or URLSafetyChecker()
+        # hostname 已被 loopback allowlist 驗證；把自訂 port 註冊進
+        # checker 的授權本地端點（預設 8091 已在靜態清單）。
+        port = parsed.port
+        endpoint_key = (
+            f"{parsed.hostname}:{port}" if port else str(parsed.hostname)
+        )
+        self.safety.config.allowed_local_endpoints.add(endpoint_key)
         self.last_adapter_status: list[dict[str, Any]] = []
 
     def is_available(self) -> bool:
