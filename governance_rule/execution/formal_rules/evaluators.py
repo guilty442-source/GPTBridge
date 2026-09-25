@@ -1190,5 +1190,14 @@ def _main_system_csharp14(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "main-system C#14 validated"
 
 
+@register_rule("RULE_RESOURCE_GOVERNOR_CPP23_V1")
+def _resource_governor_cpp23(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A608): resource-governor C++23 migration."""
+    lang = str(facts.get("language_id") or facts.get("language") or "").lower()
+    if lang and lang not in ("cpp23", "cpp", "c++23", "c++"):
+        return False, "FAIL_CLOSED", f"resource-governor language must be cpp23, got {lang!r}"
+    return True, "PASS", "resource-governor C++23 validated"
+
+
 for _rule_code, _provision_id in _DECLARED_PROVISION_RULES.items():
     register_rule(_rule_code)(_declared_provision_evaluator(_provision_id))
