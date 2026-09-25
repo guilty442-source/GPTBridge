@@ -120,18 +120,29 @@ export class LanguageBoundaryChecker {
     return { verdict, file: filePath, language, violations, warnings };
   }
 
+  // A215: longest-suffix-first canonical extension (e.g. .d.ts before .ts)
+  private canonicalExtension(filePath: string): string | null {
+    const lower = filePath.toLowerCase();
+    const all = Object.values(CANONICAL_EXTENSIONS).flat() as string[];
+    const match = all
+      .filter(ext => lower.endsWith(ext))
+      .sort((a, b) => b.length - a.length)[0];
+    return match ?? null;
+  }
+
   private detectLanguage(filePath: string): string | null {
-    const ext = filePath.substring(filePath.lastIndexOf('.'));
+    const ext = this.canonicalExtension(filePath);
+    if (!ext) return null;
     for (const [lang, exts] of Object.entries(CANONICAL_EXTENSIONS)) {
-      if (exts.includes(ext)) return lang;
+      if ((exts as readonly string[]).includes(ext)) return lang;
     }
     return null;
   }
 
   private isValidExtension(filePath: string, language: string): boolean {
-    const ext = filePath.substring(filePath.lastIndexOf('.'));
+    const ext = this.canonicalExtension(filePath);
     const validExts = CANONICAL_EXTENSIONS[language as keyof typeof CANONICAL_EXTENSIONS] || [];
-    return validExts.includes(ext);
+    return ext !== null && (validExts as readonly string[]).includes(ext);
   }
 
   private checkImports(filePath: string, content: string, language: string): LanguageViolation[] {

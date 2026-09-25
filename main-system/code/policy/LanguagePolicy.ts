@@ -117,14 +117,20 @@ export type Language = keyof typeof LANGUAGE_ROLES;
 export type Layer = 'presentation' | 'channel-api' | 'application-use-case' | 'domain' | 'infrastructure' | 'native-core' | 'c-abi' | 'csharp-adapter';
 
 export function getLanguageForFile(filePath: string): Language | null {
-  const ext = filePath.substring(filePath.lastIndexOf('.'));
+  const lower = filePath.toLowerCase();
+  // A215: longest-suffix-first so .d.ts resolves as TypeScript declaration,
+  // not generic .ts; then casefolded suffix match.
   const entries = Object.entries(CANONICAL_EXTENSIONS) as Array<
     [Language, readonly string[]]
   >;
+  const candidates: Array<{ lang: Language; ext: string }> = [];
   for (const [lang, exts] of entries) {
-    if (exts.includes(ext)) return lang;
+    for (const ext of exts) {
+      if (lower.endsWith(ext)) candidates.push({ lang, ext });
+    }
   }
-  return null;
+  candidates.sort((a, b) => b.ext.length - a.ext.length);
+  return candidates.length ? candidates[0].lang : null;
 }
 
 export function isValidLocation(filePath: string, language: Language): boolean {

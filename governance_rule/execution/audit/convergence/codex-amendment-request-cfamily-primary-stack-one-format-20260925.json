@@ -63,6 +63,14 @@
       },
       "field": "rule",
       "proposed": "SUCCESSOR:A604 supersedes A591 and A592 and controls five-core and historical-sub-sovereign responsibility convergence. CURRENT-PEER-CORES:decision-core|permission-core|runtime-core|automation-core|xingcheng-assistant. XINGCHENG native model remains a separate owned model identity and not a core or independent tool. SUB-SOVEREIGN-LAYER:abolished; former identities are retired lineage only. RESPONSIBILITY-NORMALIZATION:policy/architecture+health/maintenance/test+data outcome+priority/change acceptance>decision-core and registered modules;directory+identity+permission+security-audit enforcement>permission-core and registered modules;startup+runtime-state+process lifecycle+governed execution>runtime-core and registered modules;resources+dependencies+channels+release/update+repair scheduling+cleanup/log synchronization>automation-core and registered modules;global alignment review+user permission interface+notification>xingcheng-assistant;self-learning+self-repair proposal+native-model evolution>XINGCHENG owned modules. MODULES execute domain work without independent authority. LANGUAGE-RESPONSIBILITY:C23 executes approved deterministic rules,permission hot paths,resident runtime and native tests;C++23 owns native capabilities,inference,native tests and approved audit hot paths;C#14 on .NET 10 GC owns interfaces,authorized orchestration,Windows .NET integration and the sole TestSuiteOrchestrator;FSharp owns analysis,ML and high-correctness calculation;Go owns bounded concurrent services,transport workers,network adapters and portable operational binaries;Rust owns memory-safe systems capabilities,parsers and integrity/security-sensitive native components;Python is bounded on-demand governance/model research/training/boundary only and is nonresident after request completion. OPTIMIZATION-TARGET:new execution work prefers C23/C++23/C#14 for high performance,high execution speed,low consumption and low resource footprint;Python dependency is reduced to its bounded role. Go and Rust acquire execution ownership only through registered versioned contracts and never acquire governance,permission or business authority. FIVE-CORE-SUITE-AUTONOMY:each core independently adjusts owned suites subject to language rules."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A215"
+      },
+      "field": "rule",
+      "proposed": "CANONICAL-MAP:C={.c,.h};C++={.cpp,.hpp,.inl};CSharp={.cs};FSharp={.fs};Go={.go};Rust={.rs};Python={.py,.pyi};TypeScript={.ts,.tsx,.d.ts};SQL={.sql}; MATCH:full-filename-suffix+lowercase canonical+longest-suffix-first so-.d.ts=TypeScript-declaration-not-.ts-generic; EXCLUSIVITY:one-file=one-language classification+extension belongs-to-one-language only; C:.c implementation/test+.h C-public/interface header only; CPP:.cpp implementation/test+.hpp C++ header+.inl C++ template/inline implementation included-by-.hpp only; CSHARP:.cs implementation/test only; FSHARP:.fs implementation/test only; GO:.go implementation/test only; RUST:.rs implementation/test only; PYTHON:.py implementation/test/package-entry+.pyi declaration-only; TYPESCRIPT:.ts non-JSX logic/test+.tsx JSX presentation/test+.d.ts declaration-only; SQL:.sql schema/query/migration/test-data-operation only; TESTS:use-own-language-extension+name/path metadata identifies-test+no-special-additional-source-extension; PROJECT-METADATA:.csproj/.sln/.fsproj/go.mod/Cargo.toml/package.json/tsconfig/CMake/project/build manifests are-not-language-source+may-configure-build only+cannot-contain-embedded-application-source to-evade-map; GENERATED:must-use-target-language canonical-extension+generated identity/hash/owner; HEADERS:.h cannot contain-C++ constructs+.hpp cannot-be-public-C-ABI; INL:not-independent-translation-unit+no-global-state/business/workflow+single-owning-.hpp contract; DECLARATIONS:.pyi/.d.ts contain-types/signatures-only+must-match implementation/contract; SQL-EMBEDDED:SQL strings inside-other-language remain-host-language-source but A207 parameterization/pushdown checks apply; CLASSIFIER:normalize-path+reject-trailing-space/dot+alternate-data-stream+double-extension masquerade+case variant; CHECK:A208 at-save/precommit/integrated-main/release verifies extension/language syntax/build registration/owner/generated parity; MIGRATION:noncanonical source renamed+all imports/includes/build references atomically updated in-one-certified-release"
     }
   ],
   "proposed_delta": {
@@ -108,6 +116,29 @@
           "rule": "PRIMARY-LANGUAGES:C23>C++23>C#14(.NET 10); .NET-RUNTIME:unified format+automatic memory management via .NET 10 GC for all CSharp-owned surfaces; ADAPTIVE:the evaluator RULE_LANGUAGE_REALLOCATION_V1 validates primary_languages facts against c23/cpp23/csharp14 (.NET 10) and requires dotnet_version=10 when csharp is primary; PYTHON-REDUCTION:Python residency shrinks to bounded on-demand governance semantics",
           "prohibition": "FORBID:primary-language-undeclared|non-dotnet10-csharp-runtime|python-resident-mechanical-work; FAIL-CLOSED on facts lacking any primary language or carrying a non-10 .NET runtime verdict",
           "exception": "execution ownership only; no governance, permission or business authority is granted by reallocation"
+        }
+      ]
+    },
+    {
+      "registry": "project_architecture_directory",
+      "action": "insert",
+      "rows": [
+        {
+          "architecture_code": "PROCESS_METRICS_CSHARP",
+          "canonical_name": "process-metrics-csharp",
+          "entity_kind": "main-system-internal-metrics-service",
+          "owner": "permission-sovereign",
+          "parent_code": "STANDALONE_TOOLS",
+          "physical_root": "E:\\GPTBridge\\Standalone tools\\process-metrics-csharp",
+          "logical_boundary": "Windows .NET process-metrics collection tool; bounded adapter surface only",
+          "responsibilities": "process and machine metrics collection|bounded Windows performance-counter integration|metrics projection to information layer",
+          "dependencies": "shared-layer",
+          "interfaces": "information-channel",
+          "data_authority": "metrics evidence read-only; no authoritative persistence",
+          "runtime_boundary": "separate process tree|on-demand lifecycle|isolation quotas per tool-isolation-policy",
+          "failure_boundary": "separate failure domain|no cascade to main-system",
+          "permission_scope": "tool-scoped",
+          "introduced_version": "1.71600"
         }
       ]
     }
