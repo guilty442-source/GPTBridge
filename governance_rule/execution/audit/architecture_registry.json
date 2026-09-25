@@ -915,6 +915,25 @@
    "block": "BLOCK_TOOLS"
   },
   {
+   "component_id": "process-metrics-csharp",
+   "architectural_role": "execution",
+   "runtime_form": "standalone-service",
+   "owner_sovereign": "system-runtime",
+   "execution_identity": "process-metrics-csharp",
+   "physical_path": "Standalone tools/process-metrics-csharp",
+   "lifecycle": "on-demand",
+   "canonical": true,
+   "dependencies": [
+    "shared-layer"
+   ],
+   "information_channels": [
+    "information-channel"
+   ],
+   "architecture_code": "PROCESS_METRICS_CSHARP",
+   "unit": "",
+   "block": "BLOCK_TOOLS"
+  },
+  {
    "component_id": "native-compute-core",
    "architectural_role": "execution",
    "runtime_form": "native-library",
@@ -1052,6 +1071,7 @@
     "module-sqlite",
     "native-compute-core",
     "postgresql",
+    "process-metrics-csharp",
     "shared-layer",
     "system-rescue",
     "system-runtime-sovereign",

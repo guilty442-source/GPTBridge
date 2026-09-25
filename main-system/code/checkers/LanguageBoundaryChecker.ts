@@ -37,14 +37,15 @@ export interface CrossBoundaryRule {
 
 // Canonical language configuration per A219, A211, A215, A264
 export const LANGUAGE_POLICY: LanguagePolicy = {
-  allowedLanguages: ['Python', 'TypeScript', 'C', 'C++', 'CSharp', 'SQL'],
+  allowedLanguages: ['Python', 'TypeScript', 'C', 'C++', 'CSharp', 'FSharp', 'SQL'],
   canonicalRoles: new Map([
     // A219, A211
-    ['Python', 'system-control+semantic/business logic+orchestration+governed-workflow+adapter-coordination'],
+    ['Python', 'on-demand governance semantics+model research/training+bounded boundaries'],
     ['TypeScript', 'UI presentation/client+contract+transport+type-safety+governance-checker'],
     ['C', 'public native interface only+stable ABI'],
     ['C++', 'private high-load implementation+measured-performance-critical'],
     ['CSharp', 'Windows-specific .NET/CLR/WinRT/COM integration only'],
+    ['FSharp', 'data analysis+machine learning+high-correctness complex calculation'],
     ['SQL', 'relational set operations+data selection+projection'],
   ]),
   forbiddenCrossBoundaries: [
@@ -53,16 +54,18 @@ export const LANGUAGE_POLICY: LanguagePolicy = {
     { from: 'Python', to: ['DOM', 'frontend-storage', 'UI-framework'], reason: 'Python MUST NOT access frontend primitives' },
     { from: 'C++', to: ['Python', 'SQL', 'UI'], reason: 'C++ private implementation only; exposed via C ABI' },
     { from: 'CSharp', to: ['domain', 'SQL', 'native'], reason: 'CSharp Windows adapter only' },
+    { from: 'FSharp', to: ['Python', 'SQL', 'UI'], reason: 'FSharp analysis/ML capability only' },
   ],
 };
 
-// Canonical file extensions per A215
+// Canonical file extensions per A215 (primary format first; alternates grandfathered)
 export const CANONICAL_EXTENSIONS = {
   Python: ['.py', '.pyi', '.pyx'],
   TypeScript: ['.ts', '.tsx', '.d.ts'],
   C: ['.c', '.h'],
   Cpp: ['.cpp', '.hpp', '.inl'],
   CSharp: ['.cs'],
+  FSharp: ['.fs', '.fsx'],
   SQL: ['.sql'],
 };
 

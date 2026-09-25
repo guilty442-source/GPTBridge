@@ -5,12 +5,36 @@
  */
 
 export const LANGUAGE_ROLES = {
-  Python: 'system-control+semantic/business logic+orchestration+governed-workflow+adapter-coordination',
-  TypeScript: 'UI presentation/client+contract+transport+type-safety+governance-checker',
   C: 'public native interface only+stable ABI',
   Cpp: 'private high-load implementation+measured-performance-critical',
   CSharp: 'Windows-specific .NET/CLR/WinRT/COM integration only',
+  FSharp: 'data analysis+machine learning+high-correctness complex calculation',
+  TypeScript: 'UI presentation/client+contract+transport+type-safety+governance-checker',
   SQL: 'relational set operations+data selection+projection',
+  Python: 'on-demand governance semantics+model research/training+bounded boundaries',
+} as const;
+
+// Primary format: one language = one canonical authored-source format
+// (codex direction: C-family primary stack, single-format convergence).
+export const PRIMARY_FORMAT = {
+  C: '.c',
+  Cpp: '.cpp',
+  CSharp: '.cs',
+  FSharp: '.fs',
+  TypeScript: '.ts',
+  SQL: '.sql',
+  Python: '.py',
+} as const;
+
+// Grandfathered alternates: existing files pinned, new authored files denied.
+export const GRANDFATHERED_EXTENSIONS = {
+  Python: ['.pyi'] as const,
+  TypeScript: ['.tsx', '.d.ts'] as const,
+  C: ['.h'] as const,
+  Cpp: ['.hpp', '.inl'] as const,
+  CSharp: [] as const,
+  FSharp: ['.fsx'] as const,
+  SQL: [] as const,
 } as const;
 
 export const CANONICAL_EXTENSIONS = {
@@ -19,6 +43,7 @@ export const CANONICAL_EXTENSIONS = {
   C: ['.c', '.h'] as const,
   Cpp: ['.cpp', '.hpp', '.inl'] as const,
   CSharp: ['.cs'] as const,
+  FSharp: ['.fs', '.fsx'] as const,
   SQL: ['.sql'] as const,
 } as const;
 
@@ -28,6 +53,7 @@ export const SOLE_MAPPING = {
   C: 'public native interface only',
   Cpp: 'measured-performance-critical deterministic-native-compute+algorithms+memory',
   CSharp: 'Windows-specific .NET/CLR/WinRT/COM integration that cannot-be-provided-by-existing-Python/TypeScript/C/C++ owner without-loss',
+  FSharp: 'data analysis+machine learning+high-correctness complex calculation that cannot-be-provided-by-existing-Python/C/C++/CSharp owner without-loss',
 } as const;
 
 export const NATIVE_BOUNDARY_FORMS = [
@@ -40,6 +66,7 @@ export const FORBIDDEN_CROSS_BOUNDARIES = {
   Python: ['DOM', 'frontend-storage', 'UI-framework'],
   Cpp: ['Python', 'SQL', 'UI'],
   CSharp: ['domain', 'SQL', 'native'],
+  FSharp: ['Python', 'SQL', 'UI'],
 } as const;
 
 export const SOURCE_ROOTS = {
@@ -47,7 +74,12 @@ export const SOURCE_ROOTS = {
   TypeScript: ['main-system/src-ui/', 'main-system/scripts/'],
   C: ['native/include/', 'native/bridge/'],
   Cpp: ['native/core/', 'native/bridge/'],
-  CSharp: ['main-system/launcher/src/'],
+  CSharp: [
+    'main-system/launcher/src/',
+    'Standalone tools/business-logic-csharp/',
+    'Standalone tools/process-metrics-csharp/',
+  ],
+  FSharp: ['Standalone tools/'],
   SQL: ['governance/', 'main-system/src-core/'],
 } as const;
 
