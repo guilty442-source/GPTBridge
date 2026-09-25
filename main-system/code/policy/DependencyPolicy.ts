@@ -13,6 +13,9 @@ export const LAYER_HIERARCHY = [
   'native-core',            // C++ private implementation (parser, vector, memory, token, transform, binding)
   'c-abi',                  // C public interface (gptbridge_native.h)
   'csharp-adapter',         // C# Windows/.NET adapter
+  'fsharp-analysis',        // F# analysis/ML/high-correctness calculation
+  'go-service',             // Go bounded concurrent services/transport workers/network adapters
+  'rust-component',         // Rust memory-safe systems/parsers/integrity components
 ] as const;
 
 export type Layer = typeof LAYER_HIERARCHY[number];
@@ -49,6 +52,18 @@ export const LAYER_RULES: Record<Layer, { allowedDeps: Layer[]; description: str
   'csharp-adapter': {
     allowedDeps: ['c-abi'],
     description: 'C# adapter calls through C ABI only',
+  },
+  'fsharp-analysis': {
+    allowedDeps: ['channel-api'],
+    description: 'F# analysis/ML capability is called through versioned service contracts only',
+  },
+  'go-service': {
+    allowedDeps: ['channel-api'],
+    description: 'Go bounded services consume versioned information/service contracts only',
+  },
+  'rust-component': {
+    allowedDeps: ['c-abi'],
+    description: 'Rust components are consumed through the C ABI or typed service contracts only',
   },
 };
 

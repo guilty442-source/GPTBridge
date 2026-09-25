@@ -231,6 +231,9 @@ export class LanguageBoundaryChecker {
         'Standalone tools/business-logic-csharp/',
         'Standalone tools/process-metrics-csharp/',
       ],
+      FSharp: ['Standalone tools/'],
+      Go: ['Standalone tools/'],
+      Rust: ['Standalone tools/'],
       SQL: ['governance/', 'main-system/src-core/'],
     };
 
