@@ -37,7 +37,7 @@ export interface CrossBoundaryRule {
 
 // Canonical language configuration per A219, A211, A215, A264
 export const LANGUAGE_POLICY: LanguagePolicy = {
-  allowedLanguages: ['Python', 'TypeScript', 'C', 'C++', 'CSharp', 'FSharp', 'SQL'],
+  allowedLanguages: ['Python', 'TypeScript', 'C', 'C++', 'CSharp', 'FSharp', 'Go', 'Rust', 'SQL'],
   canonicalRoles: new Map([
     // A219, A211
     ['Python', 'on-demand governance semantics+model research/training+bounded boundaries'],
@@ -46,6 +46,8 @@ export const LANGUAGE_POLICY: LanguagePolicy = {
     ['C++', 'private high-load implementation+measured-performance-critical'],
     ['CSharp', 'Windows-specific .NET/CLR/WinRT/COM integration only'],
     ['FSharp', 'data analysis+machine learning+high-correctness complex calculation'],
+    ['Go', 'bounded concurrent services+transport workers+network adapters+portable operational binaries through versioned contracts'],
+    ['Rust', 'memory-safe systems capabilities+parsers+integrity/security-sensitive native components through versioned C ABI or typed service contracts'],
     ['SQL', 'relational set operations+data selection+projection'],
   ]),
   forbiddenCrossBoundaries: [
@@ -55,6 +57,8 @@ export const LANGUAGE_POLICY: LanguagePolicy = {
     { from: 'C++', to: ['Python', 'SQL', 'UI'], reason: 'C++ private implementation only; exposed via C ABI' },
     { from: 'CSharp', to: ['domain', 'SQL', 'native'], reason: 'CSharp Windows adapter only' },
     { from: 'FSharp', to: ['Python', 'SQL', 'UI'], reason: 'FSharp analysis/ML capability only' },
+    { from: 'Go', to: ['domain', 'SQL', 'native', 'UI'], reason: 'Go bounded concurrent service only; no governance/permission/business judgment' },
+    { from: 'Rust', to: ['domain', 'SQL', 'UI'], reason: 'Rust memory-safe systems capability only; no governance/permission/business judgment' },
   ],
 };
 
@@ -66,6 +70,8 @@ export const CANONICAL_EXTENSIONS = {
   Cpp: ['.cpp', '.hpp', '.inl'],
   CSharp: ['.cs'],
   FSharp: ['.fs', '.fsx'],
+  Go: ['.go'],
+  Rust: ['.rs'],
   SQL: ['.sql'],
 };
 

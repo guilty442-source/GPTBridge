@@ -9,6 +9,8 @@ export const LANGUAGE_ROLES = {
   Cpp: 'private high-load implementation+measured-performance-critical',
   CSharp: 'Windows-specific .NET/CLR/WinRT/COM integration only',
   FSharp: 'data analysis+machine learning+high-correctness complex calculation',
+  Go: 'bounded concurrent services+transport workers+network adapters+portable operational binaries through versioned contracts',
+  Rust: 'memory-safe systems capabilities+parsers+integrity/security-sensitive native components through versioned C ABI or typed service contracts',
   TypeScript: 'UI presentation/client+contract+transport+type-safety+governance-checker',
   SQL: 'relational set operations+data selection+projection',
   Python: 'on-demand governance semantics+model research/training+bounded boundaries',
@@ -21,6 +23,8 @@ export const PRIMARY_FORMAT = {
   Cpp: '.cpp',
   CSharp: '.cs',
   FSharp: '.fs',
+  Go: '.go',
+  Rust: '.rs',
   TypeScript: '.ts',
   SQL: '.sql',
   Python: '.py',
@@ -34,6 +38,8 @@ export const GRANDFATHERED_EXTENSIONS = {
   Cpp: ['.hpp', '.inl'] as const,
   CSharp: [] as const,
   FSharp: ['.fsx'] as const,
+  Go: [] as const,
+  Rust: [] as const,
   SQL: [] as const,
 } as const;
 
@@ -44,6 +50,8 @@ export const CANONICAL_EXTENSIONS = {
   Cpp: ['.cpp', '.hpp', '.inl'] as const,
   CSharp: ['.cs'] as const,
   FSharp: ['.fs', '.fsx'] as const,
+  Go: ['.go'] as const,
+  Rust: ['.rs'] as const,
   SQL: ['.sql'] as const,
 } as const;
 
@@ -54,6 +62,8 @@ export const SOLE_MAPPING = {
   Cpp: 'measured-performance-critical deterministic-native-compute+algorithms+memory',
   CSharp: 'Windows-specific .NET/CLR/WinRT/COM integration that cannot-be-provided-by-existing-Python/TypeScript/C/C++ owner without-loss',
   FSharp: 'data analysis+machine learning+high-correctness complex calculation that cannot-be-provided-by-existing-Python/C/C++/CSharp owner without-loss',
+  Go: 'bounded concurrent services+transport workers+network adapters+portable operational binaries that cannot-be-provided-by-existing-owners without-loss',
+  Rust: 'memory-safe systems capabilities+parsers+integrity/security-sensitive native components that cannot-be-provided-by-existing-owners without-loss',
 } as const;
 
 export const NATIVE_BOUNDARY_FORMS = [
@@ -67,6 +77,8 @@ export const FORBIDDEN_CROSS_BOUNDARIES = {
   Cpp: ['Python', 'SQL', 'UI'],
   CSharp: ['domain', 'SQL', 'native'],
   FSharp: ['Python', 'SQL', 'UI'],
+  Go: ['domain', 'SQL', 'native', 'UI'],
+  Rust: ['domain', 'SQL', 'UI'],
 } as const;
 
 export const SOURCE_ROOTS = {
@@ -80,6 +92,8 @@ export const SOURCE_ROOTS = {
     'Standalone tools/process-metrics-csharp/',
   ],
   FSharp: ['Standalone tools/'],
+  Go: ['Standalone tools/'],
+  Rust: ['Standalone tools/', 'native/'],
   SQL: ['governance/', 'main-system/src-core/'],
 } as const;
 

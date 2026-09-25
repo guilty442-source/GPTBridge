@@ -22,7 +22,7 @@ _CLASSIFY_KINDS = (
 )
 
 # Language-review capability (transferred from abolished language-review-sub-sovereign)
-ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c", "csharp", "fsharp", "sql")
+ALLOWED_LANGUAGES = ("python", "typescript", "cpp", "c", "csharp", "fsharp", "go", "rust", "sql")
 _LANGUAGE_EXTENSIONS = {
     "python": {".py"},
     "typescript": {".ts", ".tsx"},
@@ -30,6 +30,8 @@ _LANGUAGE_EXTENSIONS = {
     "c": {".c", ".h"},
     "csharp": {".cs"},
     "fsharp": {".fs"},
+    "go": {".go"},
+    "rust": {".rs"},
     "sql": {".sql"},
 }
 _LANGUAGE_ALIASES = {
@@ -40,6 +42,7 @@ _LANGUAGE_ALIASES = {
     "asp.net": "csharp",
     "f#": "fsharp",
     "fsharp": "fsharp",
+    "golang": "go",
 }
 _FILE_LINE_WARNING_THRESHOLD = 1000
 

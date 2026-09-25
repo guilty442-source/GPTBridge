@@ -206,7 +206,7 @@ class CorpusDocument:
 _CODE_SUFFIXES: frozenset[str] = frozenset(
     {
         ".py", ".ts", ".tsx", ".sql", ".c", ".h", ".cpp", ".cs", ".fs",
-        ".js", ".json",
+        ".go", ".rs", ".js", ".json",
     }
 )
 
