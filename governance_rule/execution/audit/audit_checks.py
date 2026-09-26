@@ -158,6 +158,13 @@ from .audit_architecture import (
 )
 from .audit_directories import check_directory_audit
 from .audit_sql_patterns import check_sql_anti_patterns
+from .audit_optimization import (
+    check_bootstrap_native_entry,
+    check_channel_gateway_csharp,
+    check_gpu_coordinator_lazy_torch,
+    check_jax_sft_retrace_bound,
+    check_renderer_idle_gating,
+)
 from .audit_formal_rules import (
     check_formal_rules,
     check_implementation_obligations,

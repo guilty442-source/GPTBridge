@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-26T13:42:22Z",
+  "generated_at": "2026-09-26T15:27:09Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
     "native_checks": 334,
-    "delegated_checks": 29,
+    "delegated_checks": 34,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -2882,6 +2882,36 @@
       "kind": "delegated",
       "reason": "python oracle (transition)",
       "python": "check_sql_anti_patterns"
+    },
+    {
+      "id": "python-check:check_bootstrap_native_entry",
+      "kind": "delegated",
+      "reason": "python oracle (transition)",
+      "python": "check_bootstrap_native_entry"
+    },
+    {
+      "id": "python-check:check_channel_gateway_csharp",
+      "kind": "delegated",
+      "reason": "python oracle (transition)",
+      "python": "check_channel_gateway_csharp"
+    },
+    {
+      "id": "python-check:check_gpu_coordinator_lazy_torch",
+      "kind": "delegated",
+      "reason": "python oracle (transition)",
+      "python": "check_gpu_coordinator_lazy_torch"
+    },
+    {
+      "id": "python-check:check_jax_sft_retrace_bound",
+      "kind": "delegated",
+      "reason": "python oracle (transition)",
+      "python": "check_jax_sft_retrace_bound"
+    },
+    {
+      "id": "python-check:check_renderer_idle_gating",
+      "kind": "delegated",
+      "reason": "python oracle (transition)",
+      "python": "check_renderer_idle_gating"
     },
     {
       "id": "python-check:protected-source-semantic",

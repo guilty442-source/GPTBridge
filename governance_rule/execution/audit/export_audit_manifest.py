@@ -49,6 +49,7 @@ _CHECK_MODULES = (
     "audit_contract_axes",
     "audit_runtime_contracts",
     "audit_sql_patterns",
+    "audit_optimization",
 )
 
 # Python check functions fully or partially covered by native checks
