@@ -7,9 +7,11 @@ A624 + §1.1：自動化核心擁有套件版本收斂。每個 tick：
 2. **upgrade** — mode=upgrade 的技術執行其套件管理器升級命令（bounded
    timeout、env 政策注入）；離線／vendored 生態 fail-closed 記帳，不
    fallback 網路抓取（A622 禁止有 vendored 副本仍走網路）。
-3. **amend** — 偵測值與法典條文宣告值漂移時，產生
+3. **amend** — 偵測值高於法典條文宣告值時（升級已落地），產生
    ``codex-amendment-request`` JSON 投遞 convergence intake；升版文案
-   只替換條文 rule 內的版本 token。落地一律經既有
+   只替換條文 rule 內的版本 token。法典版本是 canonical 需求釘——
+   偵測值低於釘定值屬 pending-upgrade，記入狀態檔而不產生降級修正案。
+   落地一律經既有
    ``codex-amendment-intake`` → 五主權稽核 → ``auto_execute`` 管線——
    本 driver 永不直接寫權威庫。
 
