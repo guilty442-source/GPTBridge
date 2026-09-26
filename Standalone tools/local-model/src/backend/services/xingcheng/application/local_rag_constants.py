@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from ..infrastructure.local_rag_canonical import CanonicalRagAdapter
-from shared_layer.local.local_sqlite_rag_repository import LocalSqliteRagRepository
+from shared_layer.local.local_rag_repository import LocalRagRepository
 from shared_layer.local.vector_store import LocalVectorStore
 from ..infrastructure.qwen_reranker import QwenReranker
 
@@ -42,13 +42,13 @@ class LocalRagConstants:
         *,
         vector_store: LocalVectorStore | None = None,
         reranker: QwenReranker | None = None,
-        repository: LocalSqliteRagRepository | None = None,
+        repository: LocalRagRepository | None = None,
         canonical: Any = None,
     ) -> None:
         self.tool_root = Path(tool_root).resolve()
         self.project_root = self.tool_root.parent.resolve()
         self.native_runtime = native_runtime
-        self.repository = repository or LocalSqliteRagRepository(self.tool_root)
+        self.repository = repository or LocalRagRepository(self.tool_root)
         self.vector_store = vector_store or LocalVectorStore(self.tool_root)
         self.reranker = reranker or QwenReranker()
         # A371-A374: canonical path adapter.  Constructed lazily — it only

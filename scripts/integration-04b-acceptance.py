@@ -713,7 +713,7 @@ def fault_scenarios() -> None:
             )[:300],
             "PASS" if qd_ok else "FAIL",
             "scripts/integration-04b-isolated-start.py::_scenario_qdrant_double",
-            "" if qd_ok else "QDRANT_DOUBLE_FAILED",
+            "" if qd_ok else "VECTOR_DOUBLE_FAILED",
         )
         od = scenarios.get("ollama-double") or {}
         od_ok = bool(od.get("ok"))

@@ -39,7 +39,7 @@ class CollabRepoAgentsMixin:
     def list_agents(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
             rows = connection.execute(  # sql-ok: fixed column list
-                f"SELECT {self._AGENT_COLUMNS} FROM ai_nexus_agents ORDER BY rowid"
+                f"SELECT {self._AGENT_COLUMNS} FROM ai_nexus_agents ORDER BY sort_seq, agent_id"
             ).fetchall()
         return [self._agent_row(row) for row in rows]
 
@@ -49,7 +49,7 @@ class CollabRepoAgentsMixin:
         placeholders = ",".join("?" for _ in agent_ids)
         with self._connect() as connection:
             rows = connection.execute(  # sql-ok: generated ? placeholder list
-                f"SELECT {self._AGENT_COLUMNS} FROM ai_nexus_agents WHERE agent_id IN ({placeholders}) ORDER BY rowid",
+                f"SELECT {self._AGENT_COLUMNS} FROM ai_nexus_agents WHERE agent_id IN ({placeholders}) ORDER BY sort_seq, agent_id",
                 agent_ids,
             ).fetchall()
         found = {str(row["agent_id"]): self._agent_row(row) for row in rows}
@@ -107,13 +107,17 @@ class CollabRepoAgentsMixin:
             suffix += 1
         agent_id = candidate
         with self._connect() as connection:
+            max_seq_row = connection.execute(
+                "SELECT COALESCE(MAX(sort_seq), 0) AS max_seq FROM ai_nexus_agents"
+            ).fetchone()
+            next_seq = int(max_seq_row["max_seq"]) + 1
             connection.execute(
                 """
                 INSERT INTO ai_nexus_agents
                 (agent_id, name, provider, home_url, general_url, investment_url, star_training_url,
                  general_enabled, investment_enabled, business_capabilities_json,
-                 enabled, selected, status, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, '', 1, 1, '["general"]', 1, 0, 'idle', ?)
+                 enabled, selected, status, sort_seq, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, '', 1, 1, '["general"]', 1, 0, 'idle', ?, ?)
                 """,
                 (
                     agent_id,
@@ -122,6 +126,7 @@ class CollabRepoAgentsMixin:
                     normalized_url,
                     normalized_url,
                     normalized_url,
+                    next_seq,
                     utc_now(),
                 ),
             )

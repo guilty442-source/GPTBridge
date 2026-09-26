@@ -114,3 +114,7 @@ governance_rule/execution/audit/codex_entry_state.json
 
 target/
 Standalone tools/vectord-rs/runtime/
+
+# .NET build/test artifacts (C# migration; never source-of-record)
+*.obj
+TestResults/

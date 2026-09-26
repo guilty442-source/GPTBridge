@@ -341,8 +341,18 @@ def test_rag_rejects_governance_rule_paths(tmp_path: Path) -> None:
     assert result["errors"][0]["error"] == "RAG_GOVERNANCE_PATH_DENIED"
 
 
-def test_local_vector_store_persists_points_to_sqlite(tmp_path: Path) -> None:
-    store = LocalVectorStore(tmp_path / "xingcheng" / "runtime" / "state" / "vectors.sqlite3")
+def test_local_vector_store_persists_points_to_postgresql(tmp_path: Path) -> None:
+    import uuid as _uuid
+
+    import psycopg
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+    schema = "vect_test_" + _uuid.uuid4().hex[:12]
+    with psycopg.connect(resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.commit()
+    store = LocalVectorStore(tmp_path / "xingcheng" / "runtime" / "state", schema=schema)
     store.replace_document(
         "doc-1",
         [
@@ -384,7 +394,7 @@ def test_canonical_ingest_writes_through_to_pipeline(tmp_path: Path) -> None:
     assert len(store.points) == 1  # local mirror still written (A44)
 
 
-def test_canonical_query_reads_qdrant_and_pg_channels(tmp_path: Path) -> None:
+def test_canonical_query_reads_vector_and_pg_channels(tmp_path: Path) -> None:
     canonical = FakeCanonicalAdapter(ready=True)
     rag, _, _ = build_rag(tmp_path, canonical=canonical)
     rag.ingest(

@@ -683,7 +683,7 @@ def _scenario_protocol_double(
     return observed
 
 
-_QDRANT_PROBE = (
+_VECTOR_PROBE = (
     "import sys\n"
     "try:\n"
     "    import httpx\n"
@@ -744,7 +744,7 @@ def _scenario_qdrant_double(release: Path, state_root: Path, port: int, timeout_
         ),
     }
     result = _scenario_protocol_double(
-        release, "qdrant", routes_ok, routes_bad, _QDRANT_PROBE
+        release, "qdrant", routes_ok, routes_bad, _VECTOR_PROBE
     )
     result["note"] = (
         "release contract = HTTP GET /collections qdrant envelope; "

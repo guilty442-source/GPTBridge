@@ -1,4 +1,4 @@
-"""Split from consolidated test_xingcheng.py (local-model/tests/test_local_sqlite_rag_repository.py)."""
+"""Split from consolidated test_xingcheng.py (local-model/tests/test_local_rag_repository.py)."""
 from __future__ import annotations
 
 import _xingcheng_test_support as _support  # noqa: F401
@@ -9,8 +9,8 @@ import sys
 import uuid
 from pathlib import Path
 from shared_layer.resource_identity import locator_id_for  # noqa: E402
-from shared_layer.local.local_sqlite_rag_repository import (  # noqa: E402
-    LocalSqliteRagRepository,
+from shared_layer.local.local_rag_repository import (  # noqa: E402
+    LocalRagRepository,
 )
 
 import hashlib
@@ -73,7 +73,7 @@ def _chunks() -> list[dict]:
 
 
 def test_replace_document_persists_metadata_and_chunks(tmp_path: Path) -> None:
-    repository = LocalSqliteRagRepository(tmp_path / "xingcheng")
+    repository = LocalRagRepository(tmp_path / "xingcheng")
 
     repository.replace_document(document=_document(tmp_path), chunks=_chunks())
 
@@ -90,7 +90,7 @@ def test_replace_document_persists_metadata_and_chunks(tmp_path: Path) -> None:
 
 
 def test_keyword_search_returns_scored_matching_chunks(tmp_path: Path) -> None:
-    repository = LocalSqliteRagRepository(tmp_path / "xingcheng")
+    repository = LocalRagRepository(tmp_path / "xingcheng")
     repository.replace_document(document=_document(tmp_path), chunks=_chunks())
 
     results = repository.keyword_search(
@@ -106,7 +106,7 @@ def test_keyword_search_returns_scored_matching_chunks(tmp_path: Path) -> None:
 
 
 def test_keyword_search_respects_module_scope(tmp_path: Path) -> None:
-    repository = LocalSqliteRagRepository(tmp_path / "xingcheng")
+    repository = LocalRagRepository(tmp_path / "xingcheng")
     repository.replace_document(document=_document(tmp_path), chunks=_chunks())
 
     results = repository.keyword_search(
@@ -117,13 +117,13 @@ def test_keyword_search_respects_module_scope(tmp_path: Path) -> None:
 
 
 def test_status_reports_counts_without_storing_physical_content(tmp_path: Path) -> None:
-    repository = LocalSqliteRagRepository(tmp_path / "xingcheng")
+    repository = LocalRagRepository(tmp_path / "xingcheng")
     repository.replace_document(document=_document(tmp_path), chunks=_chunks())
 
     status = repository.status()
 
-    assert status["engine"] == "local-sqlite3-degraded"
-    assert status["schema"] == "local-rag-keywords"
+    assert status["engine"] == "postgresql"
+    assert status["schema"] == "gptbridge_xingcheng.keyword-metadata"
     assert status["content_storage"] == "excluded-by-architecture"
     assert status["document_count"] == 1
     assert status["chunk_count"] == 2
@@ -131,7 +131,7 @@ def test_status_reports_counts_without_storing_physical_content(tmp_path: Path) 
 
 
 def test_replace_document_overwrites_previous_version(tmp_path: Path) -> None:
-    repository = LocalSqliteRagRepository(tmp_path / "xingcheng")
+    repository = LocalRagRepository(tmp_path / "xingcheng")
     document = _document(tmp_path)
     document["sha256"] = "old-digest"
     repository.replace_document(document=document, chunks=_chunks())

@@ -1,7 +1,7 @@
 """Split from consolidated test_ai_collaboration.py."""
 from __future__ import annotations
 
-import sqlite3
+from shared_layer.local import pg_adapter
 
 from _ai_collaboration_test_support import *  # noqa: F401,F403
 
@@ -26,7 +26,7 @@ def test_retired_google_search_row_is_removed_on_existing_databases(
     tmp_path: Path,
 ) -> None:
     repository = AiCollaborationRepository(tmp_path)
-    connection = sqlite3.connect(repository.db_path)
+    connection = pg_adapter.connect("gptbridge_collab")
     connection.execute(
         "INSERT OR REPLACE INTO ai_nexus_agents "
         "(agent_id, name, provider, home_url, enabled, selected, status, updated_at) "

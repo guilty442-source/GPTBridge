@@ -48,7 +48,7 @@ HOST_MAP = {
     "STATE_SERVICE": "main-system",
     "LAUNCHER": "launcher-ui",
     "POSTGRESQL_AUTHORITY": "postgresql",
-    "QDRANT_AUTHORITY": "qdrant",
+    "VECTOR_AUTHORITY": "vectord",
 }
 
 

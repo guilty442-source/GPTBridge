@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS cognition.model_capability (
 CREATE TABLE IF NOT EXISTS cognition.rag_reference (
     resource_id text NOT NULL REFERENCES cognition.knowledge(resource_id),
     central_resource_id text NOT NULL,
-    qdrant_point_id uuid,
+    vector_point_id uuid,
     module_id text NOT NULL,
     version bigint NOT NULL DEFAULT 1,
     PRIMARY KEY (resource_id, central_resource_id)

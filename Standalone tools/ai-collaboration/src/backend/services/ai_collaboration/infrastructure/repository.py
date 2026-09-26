@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -29,9 +30,11 @@ class AiCollaborationRepository(
         # retired ai_collaboration.sqlite3 store was migrated into the
         # ``gptbridge_collab`` schema via the governed sqlite_to_pg
         # pipeline with ledger evidence.
-        self.db_path = f"postgresql:{PG_SCHEMA}"
+        # AI_COLLAB_PG_SCHEMA lets test fixtures isolate a throwaway schema.
+        self._schema = str(os.environ.get("AI_COLLAB_PG_SCHEMA") or PG_SCHEMA)
+        self.db_path = f"postgresql:{self._schema}"
         self._ensure_schema()
         self._ensure_default_agents()
 
     def _connect(self) -> Any:
-        return pg_adapter.connect(PG_SCHEMA)
+        return pg_adapter.connect(self._schema)

@@ -24,6 +24,7 @@ _SCHEMA_SCRIPT = """
                     session_state TEXT NOT NULL DEFAULT 'closed',
                     login_state TEXT NOT NULL DEFAULT 'unknown',
                     adapter_version TEXT NOT NULL DEFAULT '',
+                    sort_seq INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL
                 );
 
@@ -191,6 +192,7 @@ class CollabRepoSchemaMixin:
         self._ensure_column(connection, "ai_nexus_agents", "session_state", "TEXT NOT NULL DEFAULT 'closed'")
         self._ensure_column(connection, "ai_nexus_agents", "login_state", "TEXT NOT NULL DEFAULT 'unknown'")
         self._ensure_column(connection, "ai_nexus_agents", "adapter_version", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column(connection, "ai_nexus_agents", "sort_seq", "INTEGER NOT NULL DEFAULT 0")
         self._ensure_column(connection, "ai_nexus_group_messages", "business_scope", "TEXT NOT NULL DEFAULT 'general'")
         self._ensure_column(connection, "ai_nexus_group_messages", "request_id", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_group_messages", "runtime_generation", "TEXT NOT NULL DEFAULT ''")
@@ -223,18 +225,37 @@ class CollabRepoSchemaMixin:
             for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
         }
         if column not in columns:
-            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {definition}")
 
     def _ensure_default_agents(self) -> None:
         now = utc_now()
         with self._connect() as connection:
-            for agent in DEFAULT_AGENTS:
-                self._seed_default_agent(connection, agent, now)
+            for sort_seq, agent in enumerate(DEFAULT_AGENTS, start=1):
+                self._seed_default_agent(connection, agent, now, sort_seq)
             for retired_agent_id in RETIRED_AGENT_IDS:
                 connection.execute(
                     "DELETE FROM ai_nexus_agents WHERE agent_id = ?",
                     (retired_agent_id,),
                 )
+            for sort_seq, agent in enumerate(DEFAULT_AGENTS, start=1):
+                connection.execute(
+                    "UPDATE ai_nexus_agents SET sort_seq = ? "
+                    "WHERE agent_id = ? AND sort_seq = 0",
+                    (sort_seq, agent["agent_id"]),
+                )
+            connection.execute(
+                """
+                UPDATE ai_nexus_agents AS a
+                SET sort_seq = s.new_seq
+                FROM (
+                    SELECT agent_id,
+                           1000 + ROW_NUMBER() OVER (ORDER BY updated_at, agent_id) AS new_seq
+                    FROM ai_nexus_agents
+                    WHERE sort_seq = 0
+                ) AS s
+                WHERE s.agent_id = a.agent_id
+                """
+            )
             rows = connection.execute(
                 "SELECT agent_id, business_capabilities_json FROM ai_nexus_agents"
             ).fetchall()
@@ -251,14 +272,15 @@ class CollabRepoSchemaMixin:
         connection: Any,
         agent: dict[str, Any],
         now: str,
+        sort_seq: int,
     ) -> None:
         connection.execute(
             """
             INSERT OR IGNORE INTO ai_nexus_agents
             (agent_id, name, provider, home_url, general_url, investment_url, star_training_url,
              general_enabled, investment_enabled, business_capabilities_json,
-             enabled, selected, status, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, 1, ?, 'idle', ?)
+             enabled, selected, status, sort_seq, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, 1, ?, 'idle', ?, ?)
             """,
             (
                 agent["agent_id"],
@@ -270,6 +292,7 @@ class CollabRepoSchemaMixin:
                 agent["home_url"] if agent["agent_id"] == "chatgpt" else "",
                 json.dumps(agent.get("business_capabilities", []), ensure_ascii=False),
                 1 if agent.get("selected", True) else 0,
+                sort_seq,
                 now,
             ),
         )
