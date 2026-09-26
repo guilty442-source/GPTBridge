@@ -72,12 +72,16 @@ _INTEGER_PK_RE = re.compile(
 )
 
 
-def translate(statement: str) -> str:
+def translate(statement: str, pk_resolver: Any = None) -> str:
     """Translate a sqlite-flavoured statement into PostgreSQL syntax.
 
     ``PRAGMA`` returns an empty string (caller treats as no-op).
     ``?`` placeholders become ``%s`` (psycopg).  Literal ``%`` that is
     not part of a psycopg placeholder is escaped first.
+
+    *pk_resolver* (optional) maps a table name to its primary-key column
+    list; used to build the correct ``ON CONFLICT`` target for
+    ``INSERT OR REPLACE`` on composite keys.
     """
     stmt = statement.strip()
     pragma_info = _PRAGMA_TABLE_INFO_RE.match(stmt)
@@ -133,13 +137,13 @@ def translate(statement: str) -> str:
         mode = "REPLACE"
         stmt = re.sub(r"^\s*REPLACE\s+INTO", "INSERT INTO", stmt, flags=re.IGNORECASE)
     if mode:
-        stmt = _append_conflict_clause(stmt, mode)
+        stmt = _append_conflict_clause(stmt, mode, pk_resolver)
     # placeholder translation: escape stray % then ? -> %s
     stmt = re.sub(r"%(?![sbt])", "%%", stmt).replace("?", "%s")
     return stmt
 
 
-def _append_conflict_clause(stmt: str, mode: str) -> str:
+def _append_conflict_clause(stmt: str, mode: str, pk_resolver: Any = None) -> str:
     """Append an ON CONFLICT clause inferred from the column list."""
     m = re.match(
         r"INSERT\s+INTO\s+([^\s(]+)\s*\(([^)]*)\)\s*VALUES\s*\(",
@@ -152,16 +156,23 @@ def _append_conflict_clause(stmt: str, mode: str) -> str:
     table, columns = m.group(1), [c.strip() for c in m.group(2).split(",")]
     if mode == "IGNORE":
         return stmt + " ON CONFLICT DO NOTHING"
-    # REPLACE / OR REPLACE: upsert on the first column (PK convention in
-    # the governed stores is single-column primary keys — verified per
-    # migrated schema; multi-column PKs must spell the target out).
     if len(columns) < 2:
         return stmt + " ON CONFLICT DO NOTHING"
-    target = columns[0]
+    # REPLACE / OR REPLACE: upsert on the table's real primary key.
+    # Composite keys are resolved through the connection's PK map; when no
+    # resolver is available the first column is the governed-store
+    # convention for single-column primary keys.
+    bare = table.strip('"').split(".")[-1]
+    pk_cols = pk_resolver(bare) if pk_resolver is not None else None
+    if pk_cols is None:
+        pk_cols = [columns[0]]
     updates = ", ".join(
-        f"{c} = EXCLUDED.{c}" for c in columns[1:]
+        f"{c} = EXCLUDED.{c}" for c in columns if c not in pk_cols
     )
-    return stmt + f" ON CONFLICT ({target}) DO UPDATE SET {updates}"  # sql-ok: identifiers derive from parsed INSERT column list, values parameterized
+    target = ", ".join(pk_cols)
+    if not updates:
+        return stmt + f" ON CONFLICT ({target}) DO NOTHING"
+    return stmt + f" ON CONFLICT ({target}) DO UPDATE SET {updates}"  # sql-ok: identifiers derive from parsed INSERT column list / PK metadata, values parameterized
 
 
 # ---------------------------------------------------------------------------
@@ -261,8 +272,9 @@ class PgCursor:
     plus value-order unpacking, via :class:`PgRow`.
     """
 
-    def __init__(self, cursor: Any) -> None:
+    def __init__(self, cursor: Any, pk_resolver: Any = None) -> None:
         self._cursor = cursor
+        self._pk_resolver = pk_resolver
 
     def __iter__(self) -> Iterator[Any]:
         return iter(self._cursor)
@@ -288,14 +300,14 @@ class PgCursor:
         self._cursor.close()
 
     def execute(self, statement: str, parameters: Sequence[Any] = ()) -> "PgCursor":
-        translated = translate(statement)
+        translated = translate(statement, pk_resolver=self._pk_resolver)
         if not translated:
             return self
         self._cursor.execute(translated, parameters)
         return self
 
     def executemany(self, statement: str, seq: Iterable[Sequence[Any]]) -> "PgCursor":
-        translated = translate(statement)
+        translated = translate(statement, pk_resolver=self._pk_resolver)
         if not translated:
             return self
         self._cursor.executemany(translated, list(seq))
@@ -309,6 +321,31 @@ class PgConnection:
         self._connection = connection
         self.schema = schema
         self.row_factory: Any = None  # accepted for API parity; rows are dicts
+        self._pk_cache: dict[str, list[str] | None] = {}
+
+    def _resolve_pk(self, table: str) -> list[str] | None:
+        """Return the primary-key column list for *table* in search_path.
+
+        Cached per connection; ``None`` (cached) means the table has no
+        primary key — callers then fall back to the first INSERT column.
+        """
+        if table in self._pk_cache:
+            return self._pk_cache[table]
+        row_cur = self._connection.cursor()
+        row_cur.execute(
+            "SELECT kcu.column_name FROM information_schema.table_constraints tc "
+            "JOIN information_schema.key_column_usage kcu "
+            "ON tc.constraint_schema = kcu.constraint_schema "
+            "AND tc.constraint_name = kcu.constraint_name "
+            "WHERE tc.constraint_type = 'PRIMARY KEY' "
+            "AND tc.table_schema = current_schema() AND tc.table_name = %s "
+            "ORDER BY kcu.ordinal_position",
+            (table,),
+        )
+        cols = [str(r[0]) for r in row_cur.fetchall()]
+        row_cur.close()
+        self._pk_cache[table] = cols or None
+        return self._pk_cache[table]
 
     # -- sqlite3 surface ------------------------------------------------------
 
@@ -327,7 +364,7 @@ class PgConnection:
         return cur
 
     def cursor(self) -> PgCursor:
-        return PgCursor(self._connection.cursor())
+        return PgCursor(self._connection.cursor(), pk_resolver=self._resolve_pk)
 
     def commit(self) -> None:
         self._connection.commit()
