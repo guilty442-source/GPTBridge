@@ -115,7 +115,7 @@
     "tests/test_coding_expert_1000_matrix.py",
     "tests/test_google_search.py",
     "tests/test_local_rag.py",
-    "tests/test_local_sqlite_rag_repository.py",
+    "tests/test_local_rag_repository.py",
     "tests/test_reading_expert.py",
     "tests/test_transformer_training_repository.py",
     "tests/test_xingcheng_layering.py"
