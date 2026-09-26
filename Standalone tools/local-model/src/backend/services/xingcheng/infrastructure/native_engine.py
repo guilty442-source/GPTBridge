@@ -81,6 +81,24 @@ NATIVE_FOUNDATION_LICENSE = "first-party-self-trained"
 NATIVE_ENGINE_SETTINGS = "runtime/settings/native-engine.json"
 NATIVE_EXECUTION_LEDGER = "xingcheng/runtime/logs/native-engine-executions.jsonl"
 
+# Perf/bounded-growth: per-generation telemetry with no readers — cap to
+# the newest 2000 lines once past ~1MB. One stat per append; trim runs
+# only past the threshold. Fail-open: errors leave the file untouched.
+_EXECUTION_LEDGER_TRIM_BYTES = 1_048_576
+_EXECUTION_LEDGER_KEEP_LINES = 2000
+
+
+def _maybe_trim_execution_ledger(ledger: Path) -> None:
+    try:
+        if ledger.stat().st_size <= _EXECUTION_LEDGER_TRIM_BYTES:
+            return
+        lines = ledger.read_text(encoding="utf-8").splitlines(keepends=True)
+        if len(lines) <= _EXECUTION_LEDGER_KEEP_LINES:
+            return
+        ledger.write_text("".join(lines[-_EXECUTION_LEDGER_KEEP_LINES:]), encoding="utf-8")
+    except OSError:
+        pass
+
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
 
@@ -441,6 +459,7 @@ class NativeTransformerEngine:
                     )
                     + "\n"
                 )
+            _maybe_trim_execution_ledger(ledger)
         except Exception:
             pass
 
@@ -739,6 +758,7 @@ class NativeTransformerEngine:
                     )
                     + "\n"
                 )
+            _maybe_trim_execution_ledger(ledger)
         except OSError:  # pragma: no cover - 帳本寫入為 best-effort 證據
             pass
         if progress_callback is not None:

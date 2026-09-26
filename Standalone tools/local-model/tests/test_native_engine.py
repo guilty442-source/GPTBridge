@@ -10,8 +10,12 @@ import _xingcheng_test_support as _support  # noqa: F401
 
 import json
 
-import torch
 import pytest
+
+try:
+    import torch
+except ModuleNotFoundError:
+    torch = None  # type: ignore[assignment]
 
 from xingcheng.infrastructure.native_engine import (
     NATIVE_CHECKPOINT_ENV,
@@ -23,12 +27,16 @@ from xingcheng.infrastructure.native_engine import (
     generate_via_native_engine,
     native_engine_for,
 )
-from xingcheng.infrastructure.native_transformer import (
-    XingChengConfig,
-    XingChengForCausalLM,
-    XingChengTokenizer,
-    save_checkpoint,
-)
+try:
+    from xingcheng.infrastructure.native_transformer import (
+        XingChengConfig,
+        XingChengForCausalLM,
+        XingChengTokenizer,
+        save_checkpoint,
+    )
+except ModuleNotFoundError as _exc:
+    if _exc.name != "torch":
+        raise
 from xingcheng.infrastructure.native_runtime import StarNativeRuntime
 
 
@@ -40,6 +48,8 @@ def _small_config() -> XingChengConfig:
 
 
 def _write_checkpoint(tmp_path) -> str:
+    if torch is None:
+        pytest.skip("A612: torch lineage retired; torch-dependent surface skips without torch")
     cfg = _small_config()
     torch.manual_seed(31)
     model = XingChengForCausalLM(cfg)

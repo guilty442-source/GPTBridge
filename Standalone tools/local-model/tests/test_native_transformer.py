@@ -19,23 +19,34 @@ del _p
 # -- CONSOLIDATED TEST SUITE --
 
 import pytest
-import torch
 
-from native_transformer import (
+try:
+    import torch
+
+    from native_transformer import (
     XingChengConfig,
     XingChengForCausalLM,
     XingChengTokenizer,
     load_checkpoint,
     save_checkpoint,
 )
-from native_transformer.inference import Generator, KVCache, Sampler, SamplingConfig
-from native_transformer.training import (
+    from native_transformer.inference import Generator, KVCache, Sampler, SamplingConfig
+    from native_transformer.training import (
     TextDataset,
     Trainer,
     TrainingConfig,
     make_dataloader,
 )
-from native_transformer.quantization import quantize_model, dequantize_model
+    from native_transformer.quantization import quantize_model, dequantize_model
+except ModuleNotFoundError as _exc:
+    if _exc.name != "torch":
+        raise
+    torch = None  # type: ignore[assignment]
+
+pytestmark = pytest.mark.skipif(
+    torch is None,
+    reason="A612: torch lineage retired; torch-dependent surface skips without torch",
+)
 
 
 def _small_config() -> XingChengConfig:

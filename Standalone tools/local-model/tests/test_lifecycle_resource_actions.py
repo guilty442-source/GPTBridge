@@ -9,15 +9,27 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _xingcheng_test_support  # noqa: F401,E402
 
-from test_training_job_executor import _fake_train_fn, _queued_job  # noqa: E402
+try:
+    from test_training_job_executor import _fake_train_fn, _queued_job  # noqa: E402
+    from xingcheng.infrastructure.native_transformer.execution.auto_release import (  # noqa: E402
+        get_manager,
+    )
+except ModuleNotFoundError as _exc:
+    if _exc.name != "torch":
+        raise
+    _fake_train_fn = _queued_job = get_manager = None  # type: ignore[assignment]
+
+import pytest  # noqa: E402
+
+pytestmark = pytest.mark.skipif(
+    _queued_job is None,
+    reason="A612: torch lineage retired; test_training_job_executor helpers unavailable",
+)
 from xingcheng.infrastructure.training_job_executor import (  # noqa: E402
     TrainingJobExecutor,
 )
 from xingcheng.infrastructure.transformer_training_repository import (  # noqa: E402
     TransformerTrainingRepository,
-)
-from xingcheng.infrastructure.native_transformer.execution.auto_release import (  # noqa: E402
-    get_manager,
 )
 
 
