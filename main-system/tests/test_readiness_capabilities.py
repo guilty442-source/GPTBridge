@@ -108,17 +108,18 @@ def test_tool_runtime_requires_backend_and_broker(monkeypatch) -> None:
     assert ReadinessGate(app).evaluate().capabilities.tool_runtime_ready is False
 
 
-def test_qdrant_migration_window_backend(monkeypatch) -> None:
-    # A610 transition: VECTOR_BACKEND=qdrant keeps qdrant as the semantic
-    # probe source for the bounded migration window; vectord reachability
-    # is irrelevant while that window is open.
+def test_retired_qdrant_backend_fails_closed(monkeypatch) -> None:
+    # A611 cutover sealed: Qdrant is retired. VECTOR_BACKEND=qdrant can no
+    # longer redirect the semantic probe; vectord alone drives
+    # semantic_ready, so a dead vectord is not ready even if the retired
+    # backend would still answer on 6333.
     monkeypatch.setenv("VECTOR_BACKEND", "qdrant")
     _patch_probe(
         monkeypatch, {"postgresql": True, "vectord": False, "qdrant": True, "ollama": True}
     )
     capabilities = ReadinessGate(_App()).evaluate().capabilities
-    assert capabilities.semantic_ready is True
-    assert capabilities.information_ready is True
+    assert capabilities.semantic_ready is False
+    assert capabilities.information_ready is False
 
 
 def test_rust_backend_ignores_qdrant_reachability(monkeypatch) -> None:
