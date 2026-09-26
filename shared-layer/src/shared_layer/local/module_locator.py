@@ -1,17 +1,17 @@
-"""module_locator — codex-native owning-module locator map on sqlite3.
+"""module_locator — codex-native owning-module locator map on PostgreSQL.
 
-Stdlib-only replacement for ``shared_layer.module_locator_repository
-.ModuleLocatorRepository`` (A219/E21 + A37/E23).  Same contract: owning-module
-only, never stored in the central index.
+Owning-module-only contract (A219/E21 + A37/E23), never stored in the
+central index.  A610/A621: the SQLite file was retired; the map lives in
+the module's PostgreSQL schema via ``shared_layer.local.pg_adapter``.
 """
 
 from __future__ import annotations
 
-import sqlite3
 import threading
 import uuid
-from pathlib import Path
 from typing import Final
+
+from . import pg_adapter
 
 _SCHEMA: Final = (
     """CREATE TABLE IF NOT EXISTS module_locator_map (
@@ -25,42 +25,30 @@ _SCHEMA: Final = (
 
 
 class LocalModuleLocatorRepository:
-    """Owning-module-only local sqlite locator map.
+    """Owning-module-only PostgreSQL locator map.
 
-    AA15: a single shared connection replaces per-operation
-    ``sqlite3.connect`` calls; a lock serializes access since the
-    connection is opened with ``check_same_thread=False``.
+    ``schema`` names the module-private PostgreSQL schema that owns the
+    map (e.g. ``gptbridge_xingcheng_main``).
     """
 
-    def __init__(self, db_path: Path | str, module_id: str) -> None:
-        self._db_path = Path(db_path).resolve()
+    def __init__(self, schema: str, module_id: str) -> None:
+        self._schema = str(schema or "").strip()
+        if not self._schema:
+            raise ValueError("MODULE_LOCATOR_CONFIGURATION_REQUIRED")
         self._module_id = str(module_id or "").strip().casefold()
         if not self._module_id:
             raise ValueError("MODULE_LOCATOR_CONFIGURATION_REQUIRED")
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._connection: sqlite3.Connection | None = None
+        self._connection: pg_adapter.PgConnection | None = None
         with self._lock:
             self._connect().execute(_SCHEMA)
             self._connection.commit()
 
-    def _connect(self) -> sqlite3.Connection:
+    def _connect(self) -> pg_adapter.PgConnection:
         if self._connection is None:
-            connection = sqlite3.connect(
-                self._db_path, timeout=10.0, check_same_thread=False
+            self._connection = pg_adapter.connect(
+                self._schema, autocommit=False
             )
-            connection.row_factory = sqlite3.Row
-            # Perf/low-lock: WAL + busy timeout match sqlite_store /
-            # vector_store so concurrent readers never block writers.
-            try:
-                connection.execute("PRAGMA journal_mode=WAL")
-            except sqlite3.DatabaseError:
-                pass
-            try:
-                connection.execute("PRAGMA busy_timeout=10000")
-            except sqlite3.DatabaseError:
-                pass
-            self._connection = connection
         return self._connection
 
     def put(self, locator_id: uuid.UUID, resource_id: str, ntfs_relative_path: str) -> None:
@@ -79,6 +67,12 @@ class LocalModuleLocatorRepository:
                 (str(locator_id), resource_id, self._module_id),
             ).fetchone()
         return None if row is None else str(row["ntfs_relative_path"])
+
+    def close(self) -> None:
+        with self._lock:
+            if self._connection is not None:
+                self._connection.close()
+                self._connection = None
 
 
 ModuleLocatorRepository = LocalModuleLocatorRepository

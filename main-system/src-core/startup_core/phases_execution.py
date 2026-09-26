@@ -25,40 +25,41 @@ STARTUP_PHASE_MAX_WORKERS = 8
 # the toolbox registry.  Each must open read-only and pass a quick
 # integrity check — a corrupt private store must stop the ladder, not
 # be silently skipped.
-_PRIVATE_STATE_STORES: Final[tuple[str, ...]] = (
-    "state-outbox",
-    "updates",
-    "governance_authentication",
-    "gptbridge",
+# A610/A621: module-private structured state lives in PostgreSQL schemas
+# (sole structured-data authority). Each retired store name maps to the
+# schema that absorbed it; the probe verifies schema reachability —
+# an unreachable private store must still stop the ladder.
+_PRIVATE_STATE_STORES: Final[tuple[tuple[str, str], ...]] = (
+    ("state-outbox", "gptbridge_transport"),
+    ("updates", "gptbridge_legacy"),
+    ("governance_authentication", "gptbridge_transport"),
+    ("gptbridge", "gptbridge_legacy"),
 )
 
 
 def _probe_private_state(state_root: Any) -> dict[str, Any]:
-    """PRIVATE_STATE_READY evidence: per-store existence + integrity."""
-    import sqlite3  # noqa: PLC0415
-
-    detail: dict[str, Any] = {"stores": {}, "probed": 0}
+    """PRIVATE_STATE_READY evidence: PostgreSQL schema reachability."""
+    del state_root  # file paths are retired; the probe targets PostgreSQL
+    detail: dict[str, Any] = {"stores": {}, "probed": 0, "engine": "postgresql"}
+    try:
+        from shared_layer.local import pg_adapter  # noqa: PLC0415
+    except Exception as error:  # noqa: BLE001 — probe must not raise
+        detail["ready"] = False
+        detail["reason"] = f"adapter-unavailable:{type(error).__name__}"
+        return detail
     ok = True
-    for name in _PRIVATE_STATE_STORES:
-        path = state_root / f"{name}.sqlite3"
-        if not path.is_file():
-            detail["stores"][name] = "absent"
-            continue
+    for name, schema in _PRIVATE_STATE_STORES:
         detail["probed"] += 1
         try:
-            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-            try:
-                verdict = conn.execute("PRAGMA quick_check(1)").fetchone()
-            finally:
-                conn.close()
-            healthy = bool(verdict and verdict[0] == "ok")
+            with pg_adapter.connect(schema) as conn:
+                conn.execute(
+                    "SELECT 1 FROM information_schema.schemata "
+                    "WHERE schema_name = current_schema()"
+                ).fetchone()
+            detail["stores"][name] = f"ok:postgresql:{schema}"
         except Exception as error:  # noqa: BLE001 — probe must not raise
-            healthy = False
-            detail["stores"][name] = f"fault:{type(error).__name__}: {error}"
             ok = False
-            continue
-        detail["stores"][name] = "ok" if healthy else f"corrupt:{verdict[0]}"
-        ok = ok and healthy
+            detail["stores"][name] = f"fault:{type(error).__name__}: {error}"
     detail["ready"] = ok and detail["probed"] > 0
     return detail
 
@@ -96,23 +97,9 @@ def _probe_recovery(state_root: Any) -> dict[str, Any]:
             "total_events": total,
         }
 
-    import sqlite3  # noqa: PLC0415
-
-    outbox = state_root / "state-outbox.sqlite3"
-    if not outbox.is_file():
-        return {"ready": False, "reason": "outbox-absent"}
-    try:
-        conn = sqlite3.connect(f"file:{outbox}?mode=ro", uri=True)
-        try:
-            pending = conn.execute(
-                "SELECT COUNT(*) FROM outbox_events WHERE committed_at IS NULL"
-            ).fetchone()[0]
-            total = conn.execute("SELECT COUNT(*) FROM outbox_events").fetchone()[0]
-        finally:
-            conn.close()
-    except Exception as error:  # noqa: BLE001 — probe must not raise
-        return {"ready": False, "reason": f"{type(error).__name__}: {error}"}
-    return {"ready": True, "pending_events": pending, "total_events": total}
+    # A610/A621: the SQLite outbox was retired; any other engine value
+    # is a misconfiguration — fail closed rather than probing dead paths.
+    return {"ready": False, "reason": f"unsupported-outbox-engine:{engine}"}
 
 
 def _dependency_start_order(declarations: tuple[Any, ...]) -> list[Any]:

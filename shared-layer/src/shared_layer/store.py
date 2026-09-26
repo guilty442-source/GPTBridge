@@ -5,8 +5,9 @@ in the PostgreSQL central index.  The implementation uses ````pg_notify```` for
 channel-level alerts and ````SELECT ... FOR UPDATE SKIP LOCKED```` for safe
 concurrent claim operations.
 
-````LocalSharedLayerStore```` remains available as a local fallback, but the default
-````SharedLayerStore```` is the PostgreSQL variant.
+PostgreSQL is the sole structured-data authority (A610/A621); the
+``LocalSharedLayerStore`` SQLite fallback was retired with the migration
+window and ``SharedLayerStore`` is the PostgreSQL variant only.
 """
 
 from __future__ import annotations
@@ -29,7 +30,6 @@ from governance_rule.permission_directory.execution.path_guard import (
     permission_denied,
 )
 
-from .local.sqlite_store import LocalSharedLayerStore
 from .store_async import PostgresStoreAsyncMixin
 from .store_helpers import (
     _CHANS,
@@ -646,7 +646,6 @@ class PostgresSharedLayerStore(PostgresStoreAsyncMixin):
 SharedLayerStore = PostgresSharedLayerStore
 
 __all__ = [
-    "LocalSharedLayerStore",
     "PostgresSharedLayerStore",
     "SharedLayerStore",
 ]

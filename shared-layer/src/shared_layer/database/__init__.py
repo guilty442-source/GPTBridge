@@ -1,8 +1,9 @@
 """PostgreSQL lifecycle for GPTBridge's canonical structured data.
 
 PostgreSQL owns central structured data, shared transport, and audit roles.
-The local SQLite package is limited to owner-private state and bounded,
-observable degraded operation that must reconcile back to PostgreSQL.
+A610/A621: SQLite and Qdrant engine paths are retired; remaining
+sqlite/qdrant-named functions below are PostgreSQL-backed governance
+registries that only record historical artifact metadata.
 Members remain lazy so health inspection does not require an eager connection.
 """
 
@@ -70,13 +71,9 @@ _LAZY_EXPORTS = {
     "is_domain_readonly": ("readonly_domain", "is_readonly"),
     "record_query_fingerprint": ("query_fingerprint", "record"),
     "get_hot_queries": ("query_fingerprint", "get_hot"),
-    "apply_sqlite_pragma": ("sqlite_pragma_policy", "apply_pragma"),
-    "get_sqlite_pragma_policy": ("sqlite_pragma_policy", "get_pragma_policy"),
     "register_sqlite_class": ("sqlite_classification", "register"),
     "get_sqlite_class": ("sqlite_classification", "get_class"),
     "list_sqlite_by_class": ("sqlite_classification", "list_by_class"),
-    "check_and_checkpoint": ("sqlite_wal_governor", "check_and_checkpoint"),
-    "get_wal_stats": ("sqlite_wal_governor", "get_wal_stats"),
     "BatchWriter": ("batch_writer", "BatchWriter"),
     "LocatorCache": ("locator_cache", "LocatorCache"),
     "get_default_locator_cache": ("locator_cache", "get_default_cache"),
@@ -293,11 +290,6 @@ _LAZY_EXPORTS = {
     "execute_pg_health_observe": ("maintenance.maintenance_postgres", "execute_pg_health_observe"),
     "build_pg_maintenance_signals": ("maintenance.maintenance_postgres", "build_pg_signals"),
     "get_pg_maintenance_executors": ("maintenance.maintenance_postgres", "get_pg_maintenance_executors"),
-    "collect_sqlite_health": ("maintenance.maintenance_sqlite", "collect_sqlite_health"),
-    "execute_sqlite_checkpoint": ("maintenance.maintenance_sqlite", "execute_sqlite_checkpoint"),
-    "execute_sqlite_health_observe": ("maintenance.maintenance_sqlite", "execute_sqlite_health_observe"),
-    "build_sqlite_maintenance_signals": ("maintenance.maintenance_sqlite", "build_sqlite_signals"),
-    "get_sqlite_maintenance_executors": ("maintenance.maintenance_sqlite", "get_sqlite_maintenance_executors"),
     "collect_reconcile_state": ("maintenance.maintenance_reconcile", "collect_reconcile_state"),
     "evaluate_reconcile_adjustment": ("maintenance.maintenance_reconcile", "evaluate_reconcile_adjustment"),
     "apply_reconcile_adjustment": ("maintenance.maintenance_reconcile", "apply_reconcile_adjustment"),

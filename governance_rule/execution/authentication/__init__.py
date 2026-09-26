@@ -47,7 +47,6 @@ from .auth_signing import (
     _canonical,
     _is_launcher_ancestor,
     _new_key,
-    _NonceStore,
     _build_nonce_store,
     sign_launcher_attestation,
 )

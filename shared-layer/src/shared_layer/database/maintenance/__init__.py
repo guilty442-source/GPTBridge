@@ -3,10 +3,8 @@
 Governed, observable, interruptible, verifiable, low-risk local database
 automatic maintenance control plane.
 
-PostgreSQL is the central structured authority.
-SQLite handles governance codex, module-private state, checkpoint, cache,
-bounded fallback.
-Qdrant is the canonical semantic/vector index.
+PostgreSQL is the canonical structured authority; A610/A621 retired
+the SQLite and Qdrant engine paths.
 
 Maintenance actions are registered, policy-gated, budget-constrained,
 lease-protected, and verified after execution.
@@ -102,6 +100,5 @@ __all__ = [
 
 # Engine-specific modules (not exported by default to avoid circular imports)
 # from . import maintenance_postgres
-# from . import maintenance_sqlite
 # from . import maintenance_reconcile
 # from . import maintenance_backup

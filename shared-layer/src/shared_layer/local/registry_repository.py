@@ -1,15 +1,15 @@
-"""registry_repository — codex-native local resource registry cache on sqlite3.
+"""registry_repository — codex-native resource registry on PostgreSQL.
 
-Stdlib-only local cache for module-private resource locators (A219/E21 +
-A37/E23 + A44/E30).  The canonical central registry lives in PostgreSQL;
-this repository is a bounded, owner-private cache and must not be treated as
-authoritative outside its module scope.
+Module-private resource locators (A219/E21 + A37/E23 + A44/E30).
+The canonical central registry lives in PostgreSQL; this repository
+is a bounded, owner-private view and must not be treated as authoritative
+outside its module scope.  A610/A621: connections are ``pg_adapter``
+PostgreSQL facades (sqlite-style ``execute`` API).
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -45,11 +45,11 @@ class ResourceRecord:
 class LocalResourceRegistry:
     """Central registry. Physical locations never leave this repository API."""
 
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(self, connection: Any) -> None:
         self.connection = connection
 
     @staticmethod
-    def _ensure_schema(connection: sqlite3.Connection) -> None:
+    def _ensure_schema(connection: Any) -> None:
         connection.execute(
             """CREATE TABLE IF NOT EXISTS resource (
                    resource_id TEXT NOT NULL PRIMARY KEY,

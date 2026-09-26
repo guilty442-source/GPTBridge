@@ -23,7 +23,6 @@ Codex basis:
 """
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 from typing import Any, Final
 
@@ -410,21 +409,14 @@ def get_capability_degradation_matrix(
     instead of declaring a second copy.  An absent or unreadable codex
     returns an empty mapping — callers fail closed on missing rows.
     """
+    del codex_db_path  # A610/A621: explicit sqlite paths retired; only
+    # the governed PostgreSQL codex repository remains a readable source.
     try:
-        if codex_db_path is not None:
-            # Explicit path = predecessor/staging fixture, never authority.
-            database = Path(codex_db_path)
-            if not database.is_file():
-                return {}
-            connection_ctx = sqlite3.connect(
-                f"file:{database.as_posix()}?mode=ro", uri=True
-            )
-        else:
-            from governance_rule.execution.codex_repository import (
-                codex_readonly_connection,
-            )
+        from governance_rule.execution.codex_repository import (
+            codex_readonly_connection,
+        )
 
-            connection_ctx = codex_readonly_connection()
+        connection_ctx = codex_readonly_connection()
         with connection_ctx as connection:
             columns = [
                 row[1]

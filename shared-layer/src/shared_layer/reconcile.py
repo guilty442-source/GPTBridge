@@ -7,9 +7,8 @@ the system data sub-sovereign.
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Iterable
 
 
 @dataclass(frozen=True)
@@ -22,9 +21,13 @@ class PendingReconcileRecord:
 
 
 class ReconcileStateStore:
-    """Transport-neutral storage used by an authorized reconciliation owner."""
+    """Transport-neutral storage used by an authorized reconciliation owner.
 
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    The injected connection is engine-agnostic; ``?`` placeholders are
+    translated by ``pg_adapter`` for PostgreSQL-backed stores.
+    """
+
+    def __init__(self, connection: Any) -> None:
         self.connection = connection
         self._ensure_schema()
 

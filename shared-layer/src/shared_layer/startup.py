@@ -113,7 +113,7 @@ class SharedLayerStartup:
             "database-health",
             True,
             bool(database.get("available")),
-            str(database.get("fault_code") or "LOCAL_SQLITE_UNAVAILABLE"),
+            str(database.get("fault_code") or "LOCAL_POSTGRES_UNAVAILABLE"),
             str(database.get("message") or database.get("error") or "ready"),
             _gate_data_from_database_health(database),
         )

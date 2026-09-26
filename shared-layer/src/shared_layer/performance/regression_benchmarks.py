@@ -192,15 +192,16 @@ def _benchmark_encode_json_optimization() -> dict[str, Any]:
 
 def _benchmark_reconcile_batch() -> dict[str, Any]:
     """Benchmark the reconcile mark_pending_batch optimization."""
-    import sqlite3
     import sys
     _p = str(_PROJECT_ROOT / "shared-layer" / "src")
     if _p not in sys.path:
         sys.path.insert(0, _p)
+    from shared_layer.local.pg_adapter import connect as pg_connect
     from shared_layer.reconcile import ReconcileStateStore
 
-    # In-memory SQLite for benchmark
-    conn = sqlite3.connect(":memory:")
+    # A610/A621: reconcile ledger lives in PostgreSQL; benchmark uses the
+    # maintenance schema so no sqlite fallback is measured.
+    conn = pg_connect("gptbridge_maintenance")
     store = ReconcileStateStore(conn)
 
     # Single-row commits (V1 path)

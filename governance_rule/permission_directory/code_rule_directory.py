@@ -298,22 +298,18 @@ def _sealed_reader(snapshot: CodeRuleDirectorySnapshot):
 def _load_from_sql() -> CodeRuleDirectorySnapshot | None:
     """SQL authority (migrated per user: Python 目錄改用SQL).
 
-    Reads the single row from ``code_rule_directory`` in the owner-private
-    SQLite store.  Returns None when the table is absent or unreadable so
-    callers can fall back to the sealed Python tuple (fail-safe, not
-    fail-closed for reads).
+    Reads the single row from ``gptbridge_permission.code_rule_directory``
+    in PostgreSQL via ``pg_adapter``.  Returns None when the table is
+    absent or unreadable so callers can fall back to the sealed Python
+    tuple (fail-safe, not fail-closed for reads).
     """
     try:
         import json
-        import sqlite3
-        from pathlib import Path
 
-        db = Path(__file__).resolve().parent / "data" / "identity_directory.db"
-        if not db.is_file():
-            return None
-        conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+        from shared_layer.local.pg_adapter import connect as pg_connect
+
+        conn = pg_connect("gptbridge_permission")
         try:
-            conn.row_factory = sqlite3.Row
             row = conn.execute("select * from code_rule_directory where id=1").fetchone()  # sql-ok: single-row directory snapshot reads every contract field
             if row is None:
                 return None
@@ -343,6 +339,12 @@ def _load_from_sql() -> CodeRuleDirectorySnapshot | None:
                 approved_action_names=tuple(json.loads(row["approved_action_names"])),
                 approved_target_names=tuple(json.loads(row["approved_target_names"])),
                 approved_data_scope_names=tuple(json.loads(row["approved_data_scope_names"])),
+                independent_tool_host_bindings=tuple(
+                    tuple(pair) for pair in json.loads(row["independent_tool_host_bindings"])
+                ),
+                runtime_owner_tool_bindings=tuple(
+                    tuple(pair) for pair in json.loads(row["runtime_owner_tool_bindings"])
+                ),
                 required_locale_keys=tuple(json.loads(row["required_locale_keys"])),
                 category_labels=bool(row["category_labels"]),
                 requirements=tuple(json.loads(row["requirements"])),

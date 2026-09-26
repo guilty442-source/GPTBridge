@@ -1,5 +1,5 @@
 """Tests for data platform governance: invariants, contract registry,
-migration compatibility, query allowlist, RLS matrix, SQLite fleet,
+migration compatibility, query allowlist, RLS matrix,
 reconcile conflict classification, restore certification, dead-letter,
 retention, backup catalog, generation fence, maintenance window.
 """
@@ -40,11 +40,6 @@ from shared_layer.database.schema_contract_registry import (
     verify_contract,
     EXPECTED_MIGRATION_COUNT,
     TableContract,
-)
-from shared_layer.database.sqlite_fleet_registry import (
-    discover_sqlite_databases,
-    inspect_fleet,
-    _inspect_one,
 )
 from shared_layer.database.restore_certification import (
     certify_restore,
@@ -297,53 +292,6 @@ class TestRlsTestMatrix:
                     assert cell.expectation == Expectation.ALLOW
                 else:
                     assert cell.expectation == Expectation.DENY
-
-
-# ============================================================================
-# 5. SQLite Fleet Registry
-# ============================================================================
-
-class TestSqliteFleetRegistry:
-    def test_inspect_nonexistent_file(self, tmp_path):
-        entry = _inspect_one(tmp_path / "nonexistent.db")
-        assert entry.error == "file_not_found"
-        assert entry.integrity_ok is False
-
-    def test_inspect_valid_database(self, tmp_path):
-        db_path = tmp_path / "test.db"
-        conn = sqlite3.connect(str(db_path))
-        conn.execute("CREATE TABLE schema_version (schema_version INTEGER PRIMARY KEY)")
-        conn.execute("INSERT INTO schema_version VALUES (1)")
-        conn.execute("CREATE TABLE module_metadata (module_id TEXT PRIMARY KEY)")
-        conn.execute("INSERT INTO module_metadata VALUES ('test-module')")
-        conn.commit()
-        conn.close()
-        entry = _inspect_one(db_path)
-        assert entry.integrity_ok is True
-        assert entry.schema_version == 1
-        assert entry.owner == "test-module"
-
-    def test_discover_databases(self, tmp_path):
-        (tmp_path / "a.sqlite").write_text("")
-        (tmp_path / "sub").mkdir()
-        (tmp_path / "sub" / "b.db").write_text("")
-        (tmp_path / "c.txt").write_text("")
-        found = discover_sqlite_databases([tmp_path])
-        paths = [str(p) for p in found]
-        assert any("a.sqlite" in p for p in paths)
-        assert any("b.db" in p for p in paths)
-        assert not any("c.txt" in p for p in paths)
-
-    def test_inspect_fleet(self, tmp_path):
-        db_path = tmp_path / "fleet.db"
-        conn = sqlite3.connect(str(db_path))
-        conn.execute("CREATE TABLE schema_version (schema_version INTEGER PRIMARY KEY)")
-        conn.execute("INSERT INTO schema_version VALUES (2)")
-        conn.close()
-        result = inspect_fleet([tmp_path])
-        assert result.total_databases >= 1
-        assert result.total_size_bytes > 0
-        assert all(e.integrity_ok for e in result.entries if e.error == "")
 
 
 # ============================================================================

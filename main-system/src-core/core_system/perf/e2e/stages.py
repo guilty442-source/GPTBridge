@@ -1,4 +1,4 @@
-"""E2E stage adapters — each wraps a REAL primitive so measurements are
+﻿"""E2E stage adapters ??each wraps a REAL primitive so measurements are
 honest, not simulated:
 
 - ts_dispatch / serialization: real json.dumps of the request payload
@@ -6,13 +6,13 @@ honest, not simulated:
 - transport: real loopback HTTP round-trip against an in-process
   ``http.server`` bound to 127.0.0.1 (the same shape as ipcSession).
 - py_validation / py_orchestration: real json.loads + command routing.
-- sql_roundtrip: real sqlite3 round-trips (temp file DB — represents the
+- sql_roundtrip: real PostgreSQL round-trips (pg_adapter ??represents the
   data-IO leg; PostgreSQL-specific latency is out of scope when no DSN is
   configured and is recorded as ``engine`` metadata).
 - native_*: real ``_sovereign_native.pyd`` call through the shared
-  ``NativeExecutionRuntime`` — queue wait (submit→worker-start) and compute
+  ``NativeExecutionRuntime`` ??queue wait (submit?orker-start) and compute
   are measured separately, never merged.
-- csharp_adapter: real subprocess spawn round-trip — the C# Windows adapter
+- csharp_adapter: real subprocess spawn round-trip ??the C# Windows adapter
   (GPTBridgeLauncher) is a process-boundary component; we measure the real
   OS process boundary cost as its representative.
 - model_wait: pluggable callable (e.g. a governed local-model generate);
@@ -22,7 +22,6 @@ honest, not simulated:
 from __future__ import annotations
 
 import json
-import sqlite3
 import subprocess
 import sys
 import time
@@ -89,7 +88,7 @@ def python_orchestration(
 
 
 def sql_roundtrip(
-    ctx: TraceContext, conn: sqlite3.Connection, *, repeats: int = 1
+    ctx: TraceContext, conn: Any, *, repeats: int = 1
 ) -> int:
     """Real SQL round-trips, counted individually."""
     total = 0
@@ -112,7 +111,7 @@ def native_call(
 ) -> list[float]:
     """Real native call through the shared bounded runtime.
 
-    Queue wait (submit → worker start) and compute are measured separately
+    Queue wait (submit ??worker start) and compute are measured separately
     by capturing the worker's own start timestamp.
     """
     worker_started: list[int] = []
@@ -133,9 +132,9 @@ def native_call(
         deadline_at=time.monotonic() + 30.0,
         combine=lambda parts: [x for part in parts for x in part],
     )
-    # Queue wait = submit → worker start only.  Recording it as its own
+    # Queue wait = submit ??worker start only.  Recording it as its own
     # [submitted, worker_started] span keeps it from overlapping the
-    # boundary/compute spans in critical-path coverage — wait is never
+    # boundary/compute spans in critical-path coverage ??wait is never
     # folded into execution time, and never double-counted either.
     if worker_started:
         wait_end = worker_started[0]
@@ -147,7 +146,7 @@ def native_call(
 
 
 def csharp_adapter(ctx: TraceContext) -> bytes:
-    """C# Windows adapter boundary — real process spawn round-trip."""
+    """C# Windows adapter boundary ??real process spawn round-trip."""
     with ctx.span(Phase.CSHARP_ADAPTER) as span:
         proc = subprocess.run(
             ["cmd.exe", "/c", "echo", "ok"],
@@ -163,7 +162,7 @@ def csharp_adapter(ctx: TraceContext) -> bytes:
 def model_wait(
     ctx: TraceContext, call: Optional[Callable[[], Any]]
 ) -> Optional[Any]:
-    """Local model wait — pluggable; marked unavailable when absent."""
+    """Local model wait ??pluggable; marked unavailable when absent."""
     if call is None:
         with ctx.span(Phase.MODEL_WAIT) as span:
             span.meta["unavailable"] = True

@@ -15,8 +15,8 @@ not absolute performance numbers.
 from __future__ import annotations
 
 import json
-import sqlite3
 import sys
+import uuid
 from pathlib import Path
 
 _p = str(Path(__file__).resolve().parents[1] / "src")
@@ -165,11 +165,39 @@ class TestEncodeJsonOptimization:
         assert len(result["budget_checks"]) > 0
 
 
+import psycopg
+import pytest
+
+from shared_layer.local.pg_adapter import connect as pg_connect
+from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+
+@pytest.fixture()
+def reconcile_conn():
+    """Isolated PostgreSQL schema per test (A610/A621: no SQLite)."""
+    schema = f"reconcile_test_{uuid.uuid4().hex[:12]}"
+    admin = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(admin, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "
+                  f'"{schema}" TO gptbridge_runtime')
+        c.commit()
+    conn = pg_connect(schema)
+    try:
+        yield conn
+    finally:
+        conn.close()
+        with psycopg.connect(admin, connect_timeout=5) as c:
+            c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+            c.commit()
+
+
 # --- Reconcile batch optimization tests ---
 
 class TestReconcileBatchOptimization:
-    def test_mark_pending_batch_preserves_correctness(self):
-        conn = sqlite3.connect(":memory:")
+    def test_mark_pending_batch_preserves_correctness(self, reconcile_conn):
+        conn = reconcile_conn
         store = ReconcileStateStore(conn)
 
         # Single row
@@ -186,17 +214,15 @@ class TestReconcileBatchOptimization:
         pending = store.pending("mod-a", limit=100)
         assert len(pending) == 9
 
-        conn.close()
-
-    def test_mark_pending_batch_empty_returns_zero(self):
-        conn = sqlite3.connect(":memory:")
+        
+    def test_mark_pending_batch_empty_returns_zero(self, reconcile_conn):
+        conn = reconcile_conn
         store = ReconcileStateStore(conn)
         count = store.mark_pending_batch([])
         assert count == 0
-        conn.close()
-
-    def test_mark_pending_batch_updates_existing(self):
-        conn = sqlite3.connect(":memory:")
+        
+    def test_mark_pending_batch_updates_existing(self, reconcile_conn):
+        conn = reconcile_conn
         store = ReconcileStateStore(conn)
 
         # Insert initial
@@ -213,8 +239,7 @@ class TestReconcileBatchOptimization:
         assert pending[0].local_version == 2
         assert pending[0].local_content_hash == "hash123"
 
-        conn.close()
-
+        
     def test_reconcile_batch_benchmark_runs(self):
         result = _benchmark_reconcile_batch()
         assert result["capability_id"] == "python.reconcile.mark_pending"

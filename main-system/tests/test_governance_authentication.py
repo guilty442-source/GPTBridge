@@ -31,9 +31,58 @@ from governance_rule.permission_directory.directory_authority import (  # noqa: 
 from governance_rule.permission_directory.execution import path_guard  # noqa: E402
 
 @pytest.fixture(autouse=True)
-def _sqlite_nonce_engine(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Tests run on the bounded SQLite fallback; PostgreSQL is the runtime default.
-    monkeypatch.setenv("GPTBRIDGE_NONCE_ENGINE", "sqlite")
+def _pg_nonce_schema(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A610/A621: isolated PostgreSQL nonce schema per test; the bounded
+    # SQLite fallback was retired with the migration window.
+    import dataclasses
+    import uuid
+
+    import psycopg
+
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+    schema = f"nonce_test_{uuid.uuid4().hex[:12]}"
+    with psycopg.connect(
+        resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5
+    ) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(
+            f'CREATE TABLE "{schema}".governance_used_nonces ('
+            "namespace text NOT NULL, actor text NOT NULL, "
+            "nonce text NOT NULL, expires_at bigint NOT NULL, "
+            "PRIMARY KEY (namespace, actor, nonce))"
+        )
+        c.execute(f'GRANT USAGE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.execute(
+            "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "
+            f'"{schema}" TO gptbridge_runtime'
+        )
+        c.commit()
+    authority = authentication_module.directory_authority_snapshot()
+    policy = authority.key_management_policy
+    patched = dataclasses.replace(
+        authority,
+        key_management_policy=dataclasses.replace(
+            policy,
+            nonce_store_path=(
+                f"postgresql:{schema}:governance_used_nonces"
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        authentication_module, "directory_authority_snapshot", lambda: patched
+    )
+    yield
+    try:
+        with psycopg.connect(
+            resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5
+        ) as c:
+            c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+            c.commit()
+    except Exception:
+        pass
 
 
 import base64

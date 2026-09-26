@@ -1,8 +1,9 @@
 """E2EHarness — wires real services for the benchmark paths.
 
 - HTTP: real loopback ``http.server`` on 127.0.0.1:0 (request echo).
-- SQL: real sqlite3 temp-file database (data-IO representative; the
-  ``engine`` metadata field keeps this honest — it is NOT PostgreSQL).
+- SQL: real PostgreSQL round-trips through ``pg_adapter`` against the
+  isolated ``gptbridge_perf`` schema (data-IO representative; the
+  ``engine`` metadata field keeps this honest).
 - Native: shared ``NativeExecutionRuntime`` + the real
   ``_sovereign_native`` pyd ``vector_dot``; unavailable → path marked.
 - C# adapter: real process spawn (see stages.csharp_adapter).
@@ -11,11 +12,8 @@
 from __future__ import annotations
 
 import json
-import sqlite3
-import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from typing import Any, Optional
 
 from .paths import PathContext
@@ -50,8 +48,7 @@ class E2EHarness:
                  model_call: Optional[Any] = None) -> None:
         self._http: Optional[ThreadingHTTPServer] = None
         self._http_thread: Optional[threading.Thread] = None
-        self._tmpdir: Optional[tempfile.TemporaryDirectory[str]] = None
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: Optional[Any] = None
         self._native_runtime: Any = None
         self._native_dot: Optional[Any] = None
         self._native_workers = native_workers
@@ -67,9 +64,10 @@ class E2EHarness:
         )
         self._http_thread.start()
 
-        self._tmpdir = tempfile.TemporaryDirectory(prefix="e2e-perf-")
-        db_path = Path(self._tmpdir.name) / "perf.sqlite3"
-        self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        from shared_layer.local.pg_adapter import connect as pg_connect
+
+        self._conn = pg_connect("gptbridge_perf")
+        self._conn.execute("DROP TABLE IF EXISTS perf_kv")
         self._conn.execute(
             "CREATE TABLE perf_kv (key TEXT PRIMARY KEY, value TEXT)"
         )
@@ -102,7 +100,7 @@ class E2EHarness:
         return PathContext(
             http_endpoint=f"http://127.0.0.1:{port}/ipc",
             sql_conn=self._conn,
-            sql_engine="sqlite-tempfile",
+            sql_engine="postgresql-pg_adapter",
             native_runtime=self._native_runtime,
             native_dot=self._native_dot,
             native_vectors=[[0.5] * size, [0.25] * size],
@@ -120,9 +118,6 @@ class E2EHarness:
         if self._conn is not None:
             self._conn.close()
             self._conn = None
-        if self._tmpdir is not None:
-            self._tmpdir.cleanup()
-            self._tmpdir = None
 
     def __enter__(self) -> "E2EHarness":
         return self.start()

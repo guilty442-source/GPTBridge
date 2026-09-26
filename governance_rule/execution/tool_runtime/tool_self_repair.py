@@ -186,19 +186,21 @@ def run_local_self_repair(
     clear_pycache: bool = True,
     ledger: Path | None = None,
 ) -> dict[str, Any]:
-    """Convenience runner that also writes a per-tool repair ledger if given."""
+    """Convenience runner that also writes a repair ledger if ``ledger``.
+
+    A610/A621: the ledger rows live in PostgreSQL
+    ``gptbridge_repair.self_repair_runs``; ``ledger`` remains accepted
+    for API compatibility but no longer selects a file location.
+    """
     result = ToolLocalRepair(
         tool_id, tool_root, clear_pycache=clear_pycache
     ).repair()
     payload = result.as_dict()
     if ledger is not None:
-        ledger_root = Path(ledger).resolve()
-        ledger_root.mkdir(parents=True, exist_ok=True)
-        record_path = ledger_root / "automatic-repair.sqlite3"
-        connection = sqlite3.connect(record_path, timeout=10)
+        from shared_layer.local.pg_adapter import connect as pg_connect
+
+        connection = pg_connect("gptbridge_repair")
         try:
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute("PRAGMA synchronous=NORMAL")
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS self_repair_runs ("
                 "run_id TEXT PRIMARY KEY, tool_id TEXT NOT NULL, "
@@ -207,7 +209,7 @@ def run_local_self_repair(
             )
             run_id = f"{result.started_at}-{result.tool_id}"
             connection.execute(
-                "INSERT INTO self_repair_runs "
+                "INSERT OR REPLACE INTO self_repair_runs "
                 "(run_id, tool_id, started_at, completed_at, ok, detail_json) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (
@@ -222,7 +224,7 @@ def run_local_self_repair(
             connection.commit()
         finally:
             connection.close()
-        payload["database"] = str(record_path)
+        payload["database"] = "postgresql:gptbridge_repair:self_repair_runs"
     return payload
 
 

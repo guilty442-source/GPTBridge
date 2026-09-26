@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import sqlite3
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -79,7 +78,7 @@ class RegistryLocatorResolver:
     into a module-to-module message.
     """
 
-    def __init__(self, project_root: Path | str, connection: sqlite3.Connection) -> None:
+    def __init__(self, project_root: Path | str, connection: Any) -> None:
         self._project_root = Path(project_root).resolve()
         self._connection = connection
 

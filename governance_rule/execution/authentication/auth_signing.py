@@ -10,7 +10,6 @@ import json
 import os
 import re
 import secrets
-import sqlite3
 import threading
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -167,96 +166,6 @@ def sign_launcher_attestation(
     return replace(unsigned, signature=signature)
 
 
-class _NonceStore:
-    # Bounded migration-window fallback path (A501): used when the policy
-    # authority moved to PostgreSQL but ``GPTBRIDGE_NONCE_ENGINE=sqlite``
-    # selects this store for the migration window or test isolation.
-    SQLITE_FALLBACK_PATH = "main-system/runtime/state/governance_authentication.sqlite3"
-
-    def __init__(
-        self,
-        project_root: Path,
-        policy: object,
-        *,
-        path: str | None = None,
-    ) -> None:
-        database = resolve_project_path(
-            project_root, path or policy.nonce_store_path
-        )
-        directory = directory_authority_snapshot()
-        main_boundary = next(
-            (
-                boundary
-                for boundary in directory.boundaries
-                if boundary.key == "main_system"
-            ),
-            None,
-        )
-        if main_boundary is None or len(main_boundary.runtime_writable_roots) != 1:
-            raise permission_denied()
-        runtime_root = resolve_project_path(
-            project_root,
-            main_boundary.runtime_writable_roots[0],
-        )
-        try:
-            database.relative_to(runtime_root)
-        except ValueError as exc:
-            raise permission_denied() from exc
-        database.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            self._connection = sqlite3.connect(
-                str(database),
-                timeout=5.0,
-                isolation_level=None,
-                check_same_thread=False,
-            )
-            self._connection.execute(
-                "CREATE TABLE IF NOT EXISTS governance_used_nonces ("
-                "namespace TEXT NOT NULL, actor TEXT NOT NULL, "
-                "nonce TEXT NOT NULL, expires_at INTEGER NOT NULL, "
-                "PRIMARY KEY (namespace, actor, nonce)) WITHOUT ROWID"
-            )
-        except sqlite3.Error as exc:
-            raise permission_denied() from exc
-        self._lock = threading.RLock()
-        self._clock_skew = policy.allowed_clock_skew_seconds
-
-    def consume(
-        self,
-        namespace: str,
-        actor: str,
-        nonce: str,
-        expires_at: int,
-        now: int,
-    ) -> None:
-        with self._lock:
-            try:
-                self._connection.execute("BEGIN IMMEDIATE")
-                self._connection.execute(
-                    "DELETE FROM governance_used_nonces WHERE expires_at < ?",
-                    (now - self._clock_skew,),
-                )
-                self._connection.execute(
-                    "INSERT INTO governance_used_nonces "
-                    "(namespace, actor, nonce, expires_at) VALUES (?, ?, ?, ?)",
-                    (namespace, actor, nonce, expires_at),
-                )
-                self._connection.execute("COMMIT")
-            except sqlite3.IntegrityError as exc:
-                self._connection.execute("ROLLBACK")
-                raise permission_denied() from exc
-            except sqlite3.Error as exc:
-                try:
-                    self._connection.execute("ROLLBACK")
-                except sqlite3.Error:
-                    pass
-                raise permission_denied() from exc
-
-    def close(self) -> None:
-        with self._lock:
-            self._connection.close()
-
-
 _PG_IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 
 
@@ -339,27 +248,17 @@ class _PostgresNonceStore:
 
 
 def _build_nonce_store(project_root: Path, policy: object):
-    """Select the nonce-store engine (A501 bounded fallback contract).
+    """Select the nonce-store engine (A501/A610/A621).
 
-    ``policy.nonce_store_engine`` is authoritative; the
-    ``GPTBRIDGE_NONCE_ENGINE`` env var may only downgrade to ``sqlite``
-    during the bounded migration window.
+    ``policy.nonce_store_engine`` is authoritative and must be
+    ``postgresql`` — the bounded SQLite fallback was retired with the
+    migration window; any other value fails closed.
     """
+    del project_root  # authority lives in PostgreSQL, not a file
 
     engine = str(getattr(policy, "nonce_store_engine", "") or "").strip().lower()
-    override = str(os.environ.get("GPTBRIDGE_NONCE_ENGINE", "")).strip().lower()
-    if override:
-        engine = override
     if engine == "postgresql":
         return _PostgresNonceStore(policy)
-    if engine == "sqlite":
-        target = str(getattr(policy, "nonce_store_path", "") or "")
-        fallback = (
-            _NonceStore.SQLITE_FALLBACK_PATH
-            if target.startswith("postgresql:")
-            else None
-        )
-        return _NonceStore(project_root, policy, path=fallback)
     raise permission_denied()
 
 

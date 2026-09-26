@@ -27,11 +27,7 @@ from shared_layer.database.maintenance.maintenance_postgres import (
     collect_lock_pressure as collect_pg_lock_pressure,
     collect_statistics_freshness as collect_pg_statistics_freshness,
 )
-from shared_layer.database.maintenance.maintenance_sqlite import (
-    get_sqlite_maintenance_executors,
-    build_sqlite_signals as build_sqlite_maintenance_signals,
-    collect_sqlite_health,
-)
+
 from shared_layer.database.maintenance.maintenance_reconcile import (
     get_reconcile_maintenance_executors,
     build_reconcile_signals as build_reconcile_maintenance_signals,
@@ -42,7 +38,7 @@ from shared_layer.database.maintenance.maintenance_backup import (
     build_backup_signals as build_backup_maintenance_signals,
     collect_backup_info,
 )
-from shared_layer.database.sqlite_classification import list_by_class
+
 from shared_layer.database.workload_lanes import WorkloadClass, get_lane_pool
 
 
@@ -224,11 +220,6 @@ class MaintenanceControllerIntegration:
         # PostgreSQL executors
         pg_executors = get_pg_maintenance_executors()
         for action_id, executor in pg_executors.items():
-            self.controller.set_executor(action_id, executor)
-
-        # SQLite executors
-        sqlite_executors = get_sqlite_maintenance_executors()
-        for action_id, executor in sqlite_executors.items():
             self.controller.set_executor(action_id, executor)
 
         # Reconcile executors
@@ -456,55 +447,9 @@ class MaintenanceControllerIntegration:
         except Exception:
             pass
 
-        # SQLite signals
-        try:
-            import sqlite3
-            from pathlib import Path
-
-            sqlite_dbs: list[dict[str, Any]] = []
-            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as registry_conn:
-                for db_class in ["A", "B", "C", "D"]:
-                    sqlite_dbs.extend(
-                        list_by_class(registry_conn, db_class=db_class)
-                    )
-            if sqlite_dbs:
-                health_metrics = []
-                for db in sqlite_dbs:
-                    database_path = str(db.get("database_path") or "")
-                    if not database_path or not Path(database_path).is_file():
-                        continue
-                    try:
-                        connection = sqlite3.connect(
-                            f"file:{Path(database_path).as_posix()}?mode=ro",
-                            uri=True,
-                        )
-                        try:
-                            health = collect_sqlite_health(
-                                connection,
-                                str(db.get("module_id") or ""),
-                                database_path,
-                            )
-                        finally:
-                            connection.close()
-                        health_metrics.append(health)
-                    except Exception:
-                        continue
-                if health_metrics:
-                    signals.update(build_sqlite_maintenance_signals(health_metrics))
-                    # Adaptive-plane 聚合：全 DB 體積總和＋待檢查點數
-                    # （WAL ≥ 50MB 閾視為 pending maintenance）。
-                    mb = 1024 * 1024
-                    signals["sqlite_db_bytes"] = int(
-                        sum(h.db_size_mb for h in health_metrics) * mb
-                    )
-                    signals["sqlite_wal_bytes"] = int(
-                        sum(h.wal_size_mb for h in health_metrics) * mb
-                    )
-                    signals["sqlite_pending_count"] = sum(
-                        1 for h in health_metrics if h.wal_size_mb >= 50.0
-                    )
-        except Exception:
-            pass
+        # A610/A621: the SQLite fleet is retired — no sqlite health
+        # signals are collected; PostgreSQL maintenance signals above are
+        # the sole structured-data observations.
 
         # Reconcile signals
         try:
@@ -541,9 +486,6 @@ class MaintenanceControllerIntegration:
                     active_connections=int(signals.get("pg_connections") or 0),
                     transport_backlog=int(signals.get("transport_backlog") or 0),
                     reconcile_backlog=int(signals.get("reconcile_pending") or 0),
-                    sqlite_pending_count=int(signals.get("sqlite_pending_count") or 0),
-                    sqlite_db_bytes=int(signals.get("sqlite_db_bytes") or 0),
-                    sqlite_wal_bytes=int(signals.get("sqlite_wal_bytes") or 0),
                 ),
                 fields=(
                     "pg_latency_ms",
@@ -551,9 +493,6 @@ class MaintenanceControllerIntegration:
                     "active_connections",
                     "transport_backlog",
                     "reconcile_backlog",
-                    "sqlite_pending_count",
-                    "sqlite_db_bytes",
-                    "sqlite_wal_bytes",
                 ),
             )
             # S7: push the tuned pool bound into the live connection manager

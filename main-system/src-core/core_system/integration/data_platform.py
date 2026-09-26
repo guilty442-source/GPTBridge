@@ -3,10 +3,12 @@
 The factories here only *wire* already-governed components:
 
   * cross-engine Saga runtime (:mod:`shared_layer.workflow`),
-  * bounded SQLite failover store (:mod:`shared_layer.failover_store`)
-    with its A508/A509/A512 hooks,
   * reconciliation authority
     (:class:`core_system.data_reconciliation.ReconcileService`).
+
+A610/A621: the bounded SQLite failover store (``failover_store``) and
+its A508/A509/A512 closure were retired with the SQLite engine; no
+degraded write path remains to wire.
 
 No business rule is invented here: the reconcile callback translates the
 ``ReconcileService`` verdicts into the worker's declared state machine and
@@ -19,23 +21,9 @@ constructed, so a half-assembled store can never be returned to a caller.
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
-from shared_layer.failover_store import (
-    BoundedLimits,
-    FailoverSharedLayerStore,
-    ReconciliationContractError,
-    SqliteReconciliationContract,
-    load_reconciliation_contract,
-)
-from shared_layer.security.generation import GenerationLedger
-from shared_layer.security.sqlite_scope import (
-    SqliteScopeBinding,
-    SqliteScopeError,
-    assert_binding,
-)
 from shared_layer.workflow import (
     Operation,
     PostgresSagaStore,
@@ -185,88 +173,6 @@ def build_reconcile_callback(
     return reconcile
 
 
-def build_failover_store(
-    *,
-    primary_store: Any,
-    fallback_store: Any,
-    reconcile_connection: sqlite3.Connection,
-    policy_allows_failover: Callable[[], bool],
-    generation_provider: Callable[[], Optional[int]],
-    pg_identity_resolver: Callable[[Any], Optional[str]],
-    permission_revalidator: Callable[[str, str, dict[str, Any]], bool],
-    contract: Optional[SqliteReconciliationContract] = None,
-    codex_db_path: Optional[str] = None,
-    db_path: Optional[str] = None,
-    sqlite_scope: Optional[SqliteScopeBinding] = None,
-    bounded_limits: Optional[BoundedLimits] = None,
-    generation_ledger: Optional[GenerationLedger] = None,
-    pg_commit_identity_provider: Optional[Callable[..., Optional[str]]] = None,
-    config: Any = None,
-) -> FailoverSharedLayerStore:
-    """Assemble the A508/A509/A512 failover store from injected hooks.
-
-    A file-backed SQLite buffer always requires an A512
-    :class:`SqliteScopeBinding` that verifies for the declared path; a
-    missing contract, hook or scope fails closed before construction.
-    """
-    if primary_store is None:
-        raise IntegrationWireError("FAILOVER_PRIMARY_STORE_REQUIRED")
-    if fallback_store is None:
-        raise IntegrationWireError("FAILOVER_FALLBACK_STORE_REQUIRED")
-    if not isinstance(reconcile_connection, sqlite3.Connection):
-        raise IntegrationWireError("FAILOVER_RECONCILE_CONNECTION_REQUIRED")
-    for name, hook in (
-        ("policy_allows_failover", policy_allows_failover),
-        ("generation_provider", generation_provider),
-        ("pg_identity_resolver", pg_identity_resolver),
-        ("permission_revalidator", permission_revalidator),
-    ):
-        if not callable(hook):
-            raise IntegrationWireError(f"FAILOVER_HOOK_REQUIRED:{name}")
-
-    if contract is None:
-        if not (codex_db_path and str(codex_db_path).strip()):
-            raise IntegrationWireError("FAILOVER_A509_CONTRACT_REQUIRED")
-        try:
-            contract = load_reconciliation_contract(codex_db_path)
-        except ReconciliationContractError as error:
-            raise IntegrationWireError(
-                f"FAILOVER_A509_CONTRACT_UNLOADABLE:{error}"
-            ) from error
-
-    if sqlite_scope is None:
-        raise IntegrationWireError("FAILOVER_A512_SQLITE_SCOPE_REQUIRED")
-    declared_path = str(db_path or sqlite_scope.path or "").strip()
-    if not declared_path or declared_path == ":memory:":
-        raise IntegrationWireError("FAILOVER_SQLITE_PATH_REQUIRED")
-    try:
-        assert_binding(sqlite_scope, declared_path)
-    except SqliteScopeError as error:
-        raise IntegrationWireError(
-            f"FAILOVER_A512_SQLITE_SCOPE_UNVERIFIED:{error}"
-        ) from error
-
-    return FailoverSharedLayerStore(
-        primary_store,
-        fallback_store,
-        reconcile_connection,
-        policy_allows_failover=policy_allows_failover,
-        config=config,
-        bounded_limits=bounded_limits,
-        db_path=declared_path,
-        contract=contract,
-        generation_provider=generation_provider,
-        generation_ledger=generation_ledger,
-        pg_identity_resolver=pg_identity_resolver,
-        pg_commit_identity_provider=pg_commit_identity_provider,
-        permission_revalidator=permission_revalidator,
-        sqlite_scope=sqlite_scope,
-        reconcile_service_factory=(
-            lambda local, pg: ReconcileService(local, pg)
-        ),
-    )
-
-
 def _assert_handlers(handlers: Any) -> None:
     if handlers is None:
         raise IntegrationWireError("SAGA_HANDLERS_REQUIRED")
@@ -300,7 +206,6 @@ __all__ = [
     "DEFAULT_SAGA_WORKER",
     "IntegrationWireError",
     "SagaServices",
-    "build_failover_store",
     "build_reconcile_callback",
     "build_saga_services",
 ]

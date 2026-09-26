@@ -21,7 +21,6 @@ A430/E160 source-size compliance).
 from __future__ import annotations
 
 import asyncio
-import sqlite3
 import time
 import uuid
 from pathlib import Path
@@ -35,10 +34,8 @@ from tasks.state_outbox_store import (
     DRAIN_BATCH_LIMIT,
     OUTBOX_CONTRACT_VERSION,
     OUTBOX_EVENT_NAME,
-    OUTBOX_RELATIVE_PATH,
     POLL_INTERVAL_SECONDS,
     RETRY_INTERVAL_SECONDS,
-    OutboxStore,
     PgOutboxStore,
     _EVENT_REQUIRED_FIELDS,
     build_outbox_store,
@@ -81,7 +78,7 @@ class OutboxPublisher:
             self._native_shadow = None
 
     @property
-    def store(self) -> OutboxStore | PgOutboxStore:
+    def store(self) -> PgOutboxStore:
         return self._store
 
     @property
@@ -102,7 +99,7 @@ class OutboxPublisher:
         invalidation_keys: Iterable[str] = (),
         state_hash: str = "",
         correlation_id: str = "",
-        connection: sqlite3.Connection | None = None,
+        connection: Any = None,
     ) -> dict[str, Any]:
         """Commit-side append (A195 STATE-CHANGE) then wake the publisher."""
         event = self._store.append(
@@ -411,7 +408,6 @@ class OutboxPublisher:
 __all__ = [
     "OUTBOX_CONTRACT_VERSION",
     "OUTBOX_EVENT_NAME",
-    "OUTBOX_RELATIVE_PATH",
     "OutboxPublisher",
-    "OutboxStore",
+    "PgOutboxStore",
 ]

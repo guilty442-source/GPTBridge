@@ -9,8 +9,64 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import uuid
+
+import psycopg
+import pytest
+
+from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
 from core_system.request_registry import RequestRegistry
-from tasks.state_outbox_store import OutboxStore
+from tasks.state_outbox_store import PgOutboxStore
+
+
+def _create_outbox_schema(schema: str) -> None:
+    with psycopg.connect(resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(
+            f'CREATE TABLE "{schema}".outbox_entity_revision ('
+            "entity_id text PRIMARY KEY, revision bigint NOT NULL)"
+        )
+        c.execute(
+            f'CREATE TABLE "{schema}".outbox_event ('
+            "sequence bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
+            "entity_id text NOT NULL, entity_type text NOT NULL, "
+            "operation text NOT NULL, authoritative_revision bigint NOT NULL, "
+            "previous_revision bigint NOT NULL, "
+            "changed_field_allowlist text NOT NULL, "
+            "invalidation_keys text NOT NULL, state_hash text NOT NULL, "
+            "backend_generation text NOT NULL, release_id text NOT NULL, "
+            "contract_version text NOT NULL, correlation_id text NOT NULL, "
+            "committed_at text NOT NULL, recorded_at text NOT NULL)"
+        )
+        c.execute(f'GRANT USAGE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.execute(
+            f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "
+            f'"{schema}" TO gptbridge_runtime'
+        )
+        c.commit()
+
+
+@pytest.fixture()
+def pg_outbox(tmp_path: Path):
+    """Isolated PostgreSQL schema per test (A610/A621: no SQLite)."""
+    schema = f"outbox_test_{uuid.uuid4().hex[:12]}"
+    _create_outbox_schema(schema)
+    store = PgOutboxStore(tmp_path, schema=schema)
+    try:
+        yield store
+    finally:
+        try:
+            store.close()
+        except Exception:
+            pass
+        try:
+            with psycopg.connect(
+                resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5
+            ) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
 
 
 def _registry(tmp_path: Path) -> RequestRegistry:
@@ -126,10 +182,10 @@ def test_7_backend_disconnect_marks_interrupted_and_recovers(tmp_path):
     assert not reg.mark_started("r1").ok
 
 
-def test_8_streaming_events_attributed_per_request(tmp_path):
+def test_8_streaming_events_attributed_per_request(tmp_path, pg_outbox):
     """Token/state events carry request correlation + monotonic sequence;
     per-generation idempotency keys prevent duplicate delivery."""
-    store = OutboxStore(tmp_path / "outbox.sqlite3")
+    store = pg_outbox
     events = []
     for seq_req in ("req-a", "req-b"):
         for i in range(3):

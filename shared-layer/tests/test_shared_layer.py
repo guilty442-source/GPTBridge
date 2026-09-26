@@ -263,13 +263,36 @@ def test_local_database_health_check_and_locator(tmp_path) -> None:
     from shared_layer.local.database import LocalDatabaseHealthCheck
     from shared_layer.local.module_locator import LocalModuleLocatorRepository
 
-    repo = LocalModuleLocatorRepository(tmp_path / "locator.sqlite3", "mod-a")
-    locator = uuid.uuid4()
-    repo.put(locator, "res-1", "shared-layer/x.txt")
-    assert repo.resolve(locator, "res-1") == "shared-layer/x.txt"
-    assert repo.resolve(locator, "res-missing") is None
-    assert repo.resolve(uuid.uuid4(), "res-1") is None
+    # A610/A621: PostgreSQL schema replaces the retired sqlite file.
+    schema = "locator_test_" + uuid.uuid4().hex[:12]
+    import psycopg
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+    with psycopg.connect(resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(
+            f'GRANT USAGE, CREATE ON SCHEMA "{schema}" '
+            "TO gptbridge_runtime"
+        )
+        c.commit()
+    try:
+        repo = LocalModuleLocatorRepository(schema, "mod-a")
+        locator = uuid.uuid4()
+        repo.put(locator, "res-1", "shared-layer/x.txt")
+        assert repo.resolve(locator, "res-1") == "shared-layer/x.txt"
+        assert repo.resolve(locator, "res-missing") is None
+        assert repo.resolve(uuid.uuid4(), "res-1") is None
 
-    # Cross-module isolation: a different module_id sees nothing
-    other = LocalModuleLocatorRepository(tmp_path / "locator.sqlite3", "mod-b")
-    assert other.resolve(locator, "res-1") is None
+        # Cross-module isolation: a different module_id sees nothing
+        other = LocalModuleLocatorRepository(schema, "mod-b")
+        assert other.resolve(locator, "res-1") is None
+    finally:
+        try:
+            repo.close()
+            other.close()
+        except Exception:
+            pass
+        with psycopg.connect(
+            resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5
+        ) as c:
+            c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+            c.commit()

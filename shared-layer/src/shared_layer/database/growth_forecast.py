@@ -3,15 +3,15 @@
 Records one sample per metric per day and projects growth with
 least-squares linear regression:
 
-    metrics: db_size, index_size, wal_growth, qdrant_collection_size,
-             sqlite_fleet_total, backup_size
+    metrics: pg_database_size, pg_schema_size, wal_growth, backup_size
     horizons: 30 / 90 / 180 / 365 days
     output: projected bytes, exhaustion date, confidence, assumptions
 
-Samples live in a local SQLite store — capacity telemetry is
-information-layer data, not central authority, so no migration is
-required.  The forecaster never triggers cleanup; crossing a budget
-only produces an archive/maintenance *proposal* upstream.
+Samples live in PostgreSQL ``gptbridge_maintenance.capacity_sample``
+via ``pg_adapter`` — capacity telemetry is information-layer data,
+not central authority.  The forecaster never triggers cleanup;
+crossing a budget only produces an archive/maintenance *proposal*
+upstream.
 
 Usage:
     from shared_layer.database.growth_forecast import (
@@ -20,20 +20,16 @@ Usage:
 """
 from __future__ import annotations
 
-import sqlite3
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 FORECAST_HORIZONS_DAYS: tuple[int, ...] = (30, 90, 180, 365)
 
 GROWTH_METRICS: tuple[str, ...] = (
-    "db_size",
-    "index_size",
+    "pg_database_size",
+    "pg_schema_size",
     "wal_growth",
-    "qdrant_collection_size",
-    "sqlite_fleet_total",
     "backup_size",
 )
 
@@ -41,10 +37,17 @@ _SECONDS_PER_DAY = 86_400.0
 
 
 class GrowthSampleStore:
-    """One-sample-per-day recorder for capacity metrics."""
+    """One-sample-per-day recorder for capacity metrics.
 
-    def __init__(self, db_path: Path | str) -> None:
-        self.connection = sqlite3.connect(str(db_path))
+    A610/A621: ``schema`` selects the PostgreSQL schema holding the
+    sample table (default ``gptbridge_maintenance``); callers and tests
+    may pass an isolated schema instead of the former sqlite path.
+    """
+
+    def __init__(self, schema: str = "gptbridge_maintenance") -> None:
+        from ..local.pg_adapter import connect
+
+        self.connection = connect(schema)
         self.connection.execute(
             """CREATE TABLE IF NOT EXISTS capacity_sample (
                 metric TEXT NOT NULL,

@@ -1,23 +1,24 @@
-"""authorization — codex-native local authorization on sqlite3.
+"""authorization — codex-native local authorization on PostgreSQL.
 
-Stdlib-only replacement for ``shared_layer.access_gateway.postgres
+Replacement for ``shared_layer.access_gateway.postgres
 .PostgresAuthorization`` (A219/E21 + A37/E23).  The authorization checks are
-data-driven from the local central registry instead of PostgreSQL RLS; the
-semantics (explicit allow, no implicit disclosure) are unchanged.
+data-driven from the central registry; the semantics (explicit allow, no
+implicit disclosure) are unchanged.  A610/A621: PostgreSQL is the sole
+structured-data authority — pass a ``pg_adapter.PgConnection`` (or any
+connection exposing the sqlite-style ``execute`` API through the adapter).
 """
 
 from __future__ import annotations
 
-import sqlite3
 from typing import Any
 
 from .registry_repository import LocalResourceRegistry
 
 
 class LocalAuthorization:
-    """Authorization checks against the local central registry only."""
+    """Authorization checks against the central registry only."""
 
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(self, connection: Any) -> None:
         self.connection = connection
         self._registry = LocalResourceRegistry(connection)
 

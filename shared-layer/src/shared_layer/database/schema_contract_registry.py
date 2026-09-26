@@ -1356,7 +1356,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 148  # every physical *.sql, including the 087/088 dual-numbered files
+EXPECTED_MIGRATION_COUNT = 150  # every physical *.sql, including dual-numbered files
 
 
 @dataclass

@@ -187,36 +187,6 @@ class TestQueryFingerprintModule:
         assert callable(get_hot_queries)
 
 
-class TestSqlitePragmaPolicyModule:
-    def test_import_apply_pragma(self):
-        from shared_layer.database.sqlite_pragma_policy import apply_pragma
-        assert callable(apply_pragma)
-
-    def test_import_get_pragma_policy(self):
-        from shared_layer.database.sqlite_pragma_policy import get_pragma_policy
-        assert callable(get_pragma_policy)
-
-    def test_class_a_is_conservative(self):
-        from shared_layer.database.sqlite_pragma_policy import get_pragma_policy
-        policy = get_pragma_policy("A")
-        assert policy["synchronous"] == "FULL"
-        assert policy["journal_mode"] == "WAL"
-
-    def test_class_b_is_normal(self):
-        from shared_layer.database.sqlite_pragma_policy import get_pragma_policy
-        policy = get_pragma_policy("B")
-        assert policy["synchronous"] == "NORMAL"
-
-    def test_all_four_classes(self):
-        from shared_layer.database.sqlite_pragma_policy import get_all_policies
-        policies = get_all_policies()
-        assert set(policies.keys()) == {"A", "B", "C", "D"}
-
-    def test_lazy_export_via_init(self):
-        from shared_layer.database import apply_sqlite_pragma, get_sqlite_pragma_policy
-        assert callable(apply_sqlite_pragma)
-        assert callable(get_sqlite_pragma_policy)
-
 
 class TestSqliteClassificationModule:
     def test_import_register(self):
@@ -236,20 +206,6 @@ class TestSqliteClassificationModule:
         assert callable(register_sqlite_class)
         assert callable(get_sqlite_class)
 
-
-class TestSqliteWalGovernorModule:
-    def test_import_check_and_checkpoint(self):
-        from shared_layer.database.sqlite_wal_governor import check_and_checkpoint
-        assert callable(check_and_checkpoint)
-
-    def test_import_get_wal_stats(self):
-        from shared_layer.database.sqlite_wal_governor import get_wal_stats
-        assert callable(get_wal_stats)
-
-    def test_lazy_export_via_init(self):
-        from shared_layer.database import check_and_checkpoint, get_wal_stats
-        assert callable(check_and_checkpoint)
-        assert callable(get_wal_stats)
 
 
 class TestBatchWriterModule:
