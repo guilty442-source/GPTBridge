@@ -17,6 +17,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -55,13 +56,23 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func main() {
 	listen := flag.String("listen", "127.0.0.1:8091", "loopback listen address")
 	upstreamTimeout := flag.Duration("upstream-timeout", 8*time.Second, "per-adapter upstream timeout")
+	maxInflight := flag.Int("max-inflight", 16, "max concurrent /v1/search requests")
 	flag.Parse()
 
 	if err := loopbackOnly(*listen); err != nil {
 		log.Fatalf("searchd: %v", err)
 	}
 
+	// Soft memory limit: GC leans harder before RSS grows unbounded — the
+	// service is a small loopback endpoint and should never balloon.
+	debug.SetMemoryLimit(256 << 20) // 256 MiB
+
 	engine := search.NewEngine(*upstreamTimeout, nil)
+
+	// Concurrency gate: bounded in-flight searches — each fans out to one
+	// goroutine per adapter, so unbounded callers could spawn unbounded
+	// upstream work; queue instead of exceeding the budget.
+	inflight := make(chan struct{}, *maxInflight)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -71,6 +82,16 @@ func main() {
 		})
 	})
 	mux.HandleFunc("/v1/search", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case inflight <- struct{}{}:
+			defer func() { <-inflight }()
+		case <-r.Context().Done():
+			writeJSON(w, http.StatusServiceUnavailable, search.Response{
+				OK: false, Contract: search.ContractVersion, Engine: "searchd",
+				Error: "OVERLOADED",
+			})
+			return
+		}
 		if r.Method != http.MethodPost {
 			writeJSON(w, http.StatusMethodNotAllowed, search.Response{
 				OK: false, Contract: search.ContractVersion, Engine: "searchd",

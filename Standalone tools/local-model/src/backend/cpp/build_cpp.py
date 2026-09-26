@@ -128,7 +128,7 @@ def _compile_cuda_kernels(
             bat.write_text(
                 "@echo off\r\n"
                 f'call "{vcvars}" -vcvars_ver={toolset} >nul || exit /b 1\r\n'
-                f'"{nvcc}" -std=c++20 {extra}-Xcompiler /EHsc,/MD,/std:c++latest '
+                f'"{nvcc}" -O3 -std=c++20 {extra}-Xcompiler /O2,/EHsc,/MD,/std:c++latest '
                 "-gencode=arch=compute_80,code=sm_86 "
                 "-gencode=arch=compute_80,code=compute_80 "
                 f'-c "{src}" -o "{obj}"\r\n',
@@ -207,9 +207,15 @@ def _extension():
         extra_compile_args=(
             # MSVC /std:c++latest 與 /std:clatest 互斥（D8016）；C++23 軌升級
             # 由 c++latest 承擔，.c 檔沿用 cl 預設 C 模式（與 c++17 時相同）。
-            ["/std:c++latest", "/utf-8"]
+            # /O2 /GL + /LTCG 為 Release 跨模組最佳化；/arch:AVX2 啟用 SIMD
+            # 路徑（受管宿主 ISA 基線）。不用 /fp:fast — 會改變數值結果，
+            # 破壞 parity 證據。
+            ["/std:c++latest", "/utf-8", "/O2", "/GL", "/arch:AVX2", "/fp:precise"]
             if sys.platform == "win32"
-            else ["-std=c++23"]
+            else ["-std=c++23", "-O3", "-flto", "-march=native"]
+        ),
+        extra_link_args=(
+            ["/LTCG", "/OPT:REF", "/OPT:ICF"] if sys.platform == "win32" else []
         ),
         optional=False,
     )

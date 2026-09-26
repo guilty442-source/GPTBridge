@@ -1,0 +1,46 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "module-optimization-matrix-20260926",
+  "title": "Declare per-module optimization directions and primary metrics (A626)",
+  "summary": "Governor-directed addition: pins the per-module optimization matrix (direction + primary observation metrics) for C runtime, C++ inference, Rust vector engine, Go search, C#/F#, Julia, JAX and JavaScript/React, with a before/after evidence requirement and a fast-math guardrail.",
+  "requested_by": "human-governor (explicit directive: optimization matrix table + '都做')",
+  "origin": "module-optimization matrix supplied by governor 2026-09-26; codex had no per-module optimization-direction declaration",
+  "change_class": "addition",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-26T00:30:33Z",
+    "version_identity": "E2:2026-09-26T00:30:33Z",
+    "version_epoch": 2,
+    "history_head": "e20321309ecae4d1741c2cc27b80985f4df5875c790d7278cf64f45dcaa799f0",
+    "revision_sequence": 81
+  },
+  "problem": {
+    "summary": "A35 declares a global optimization target and A357/A358 govern Python->native promotion budgets, but no provision declares the per-module optimization direction or the primary metrics each module must report; optimization work is therefore unevidenced and unverifiable per module."
+  },
+  "proposed_successors": [
+    {
+      "registry": "articles",
+      "action": "insert",
+      "rows": [
+        {
+          "position": 626,
+          "provision_id": "A626",
+          "section_index": "7",
+          "subject": "per-module-optimization-direction-and-metric-matrix",
+          "rule": "PER-MODULE-OPTIMIZATION-MATRIX:each module owns an explicit optimization direction and its primary observation metrics; C-RUNTIME>release-optimization+cross-module-optimization(LTO) metrics=cpu+ram+p95; CPP-INFERENCE>compiler-optimization+SIMD-paths metrics=tokens/s+latency+ram; RUST-VECTOR-ENGINE>cargo-release+lto metrics=recall@k+query-latency+ram; GO-SEARCH>escape-analysis+gc-tuning+concurrency-control metrics=cpu+ram+search-latency; CSHARP-FSHARP>dotnet-release+applicable-aot/readytorun metrics=startup+gc+ram; JULIA>type-stability+reduced-first-compile metrics=compute-time+startup-time; JAX>jit+reduced-recompilation metrics=training-throughput+gpu-vram; JAVASCRIPT-REACT>existing-build-optimization+reduced-duplicate-render metrics=ui-cpu+memory. EVIDENCE:every optimization change records before/after primary metrics for its module on the governed host profile; numeric-altering flags (e.g. fast-math) count as semantic changes, not optimizations, and require parity evidence.",
+          "prohibition": "FORBID:optimization without a declared metric|fast-math or semantics-changing flags presented as pure optimization|release-flag regression without recorded before/after evidence|debug-build shipped as production artifact",
+          "exception": "debug/diagnostic builds exempt from release-optimization requirement; modules without a declared optimization direction may not claim optimization evidence"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-26T12:00:00Z",
+    "expected_audit_result": "A626 inserted as the sole per-module optimization matrix; position 625->626 ordering preserved; projections rebuilt for successor generation"
+  }
+}

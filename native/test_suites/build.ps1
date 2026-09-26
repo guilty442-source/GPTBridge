@@ -232,16 +232,16 @@ function New-CompileBatLines($name, $exePath, $srcs, $incs) {
     foreach ($s in $cppSrcs) {
         $o = Join-Path $objCpp ([System.IO.Path]::GetFileNameWithoutExtension($s) + ".obj")
         $objs += $o
-        $lines += "cl /nologo /std:c++latest /utf-8 /O2 /EHsc /I`"$includeDir`"$incArgs /c /Fo`"$o`" `"$s`" >nul || exit /b 1"
+        $lines += "cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`"$incArgs /c /Fo`"$o`" `"$s`" >nul || exit /b 1"
     }
     foreach ($s in $cSrcs) {
         $o = Join-Path $objC ([System.IO.Path]::GetFileNameWithoutExtension($s) + ".obj")
         $objs += $o
-        $lines += "cl /nologo /std:clatest /utf-8 /O2 /I`"$includeDir`"$incArgs /c /Fo`"$o`" `"$s`" >nul || exit /b 1"
+        $lines += "cl /nologo /std:clatest /utf-8 /O2 /GL /I`"$includeDir`"$incArgs /c /Fo`"$o`" `"$s`" >nul || exit /b 1"
     }
     $objArgs = ""
     foreach ($o in $objs) { $objArgs += " `"$o`"" }
-    $lines += "cl /nologo$objArgs /Fe`"$exePath`" >nul || exit /b 1"
+    $lines += "cl /nologo$objArgs /Fe`"$exePath`" /link /LTCG >nul || exit /b 1"
     return $lines
 }
 foreach ($suite in $suites) {
@@ -259,7 +259,7 @@ $auditExe = Join-Path $out "audit-engine.exe"
 $auditSrc = Join-Path $auditDir "audit_engine.cpp"
 $auditObj = Join-Path $out "obj\audit-engine"
 New-Item -ItemType Directory -Force -Path $auditObj | Out-Null
-Add-BuildJob "audit-engine" @("cl /nologo /std:c++latest /utf-8 /O2 /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe`"$auditExe`" /Fo:$auditObj\ `"$auditSrc`" >nul || exit /b 1")
+Add-BuildJob "audit-engine" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe`"$auditExe`" /Fo:$auditObj\ `"$auditSrc`" /link /LTCG >nul || exit /b 1")
 # M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
@@ -267,7 +267,7 @@ $tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
 $sidecarSrc = Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"
 $driverObj = Join-Path $out "obj\proxy_client_driver"
 New-Item -ItemType Directory -Force -Path $driverObj | Out-Null
-Add-BuildJob "proxy_client_driver" @("cl /nologo /std:c++latest /utf-8 /O2 /EHsc /I`"$includeDir`" /Fe`"$driverExe`" /Fo:$driverObj\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" >nul || exit /b 1")
+Add-BuildJob "proxy_client_driver" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$driverExe`" /Fo:$driverObj\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" /link /LTCG >nul || exit /b 1")
 
 $bq = [System.Collections.Generic.Queue[object]]::new()
 foreach ($j in $buildJobs) { $bq.Enqueue($j) }

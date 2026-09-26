@@ -177,6 +177,19 @@ def _make_extension() -> Any:
         # gptbridge_native.c #pragma comment(lib, ...) — no extra libraries
         # needed here; keep the list empty so the contract stays in one place.
         language="c++",
+        # Release optimization: /O2 + /GL whole-program optimization +
+        # /LTCG link-time codegen is the governed release baseline;
+        # /arch:AVX2 enables the ISA baseline of the governed host.
+        # /fp:fast is deliberately absent — fast-math changes results and
+        # would break determinism/parity evidence.
+        extra_compile_args=(
+            ["/O2", "/GL", "/arch:AVX2", "/fp:precise", "/utf-8"]
+            if sys.platform == "win32"
+            else ["-O3", "-flto", "-march=native"]
+        ),
+        extra_link_args=(
+            ["/LTCG", "/OPT:REF", "/OPT:ICF"] if sys.platform == "win32" else []
+        ),
         optional=True,
     )
 

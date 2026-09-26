@@ -4,7 +4,11 @@ import { defineConfig } from "vite";
 export default defineConfig({
 	root: resolve(import.meta.dirname, "src-ui/renderer"),
 	base: "./",
-	plugins: [react()],
+	plugins: [react({
+		// React Compiler: auto-memoizes components/hooks at build time —
+		// eliminates redundant re-renders without manual useMemo/memo.
+		babel: { plugins: ["babel-plugin-react-compiler"] }
+	})],
 	resolve: { alias: {
 		"@": resolve(import.meta.dirname, "src-ui/renderer"),
 		"@main-locales": resolve(import.meta.dirname, "locales"),
