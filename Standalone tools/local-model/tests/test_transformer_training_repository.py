@@ -7,9 +7,12 @@ from _xingcheng_test_support import ROOT
 import asyncio
 import hashlib
 import json
-import sqlite3
 import sys
+import tempfile
+import time
 from pathlib import Path
+
+import psycopg
 import pytest
 from xingcheng.application.service import LocalAiService
 from xingcheng.infrastructure.native_runtime import StarNativeRuntime
@@ -20,7 +23,6 @@ from xingcheng.infrastructure.transformer_training_repository import (
 import asyncio
 import hashlib
 import json
-import sqlite3
 import sys
 from pathlib import Path
 
@@ -31,6 +33,64 @@ ROOT = Path(__file__).resolve().parents[2]
 
 from xingcheng.application.service import LocalAiService
 from xingcheng.infrastructure.native_runtime import StarNativeRuntime
+
+
+
+# ---------------------------------------------------------------------------
+# Shared-schema isolation (A610): the repository now lives in the governed
+# ``gptbridge_xingcheng`` PostgreSQL schema, so every test previously isolated
+# by a private sqlite file must serialize against sibling xdist workers and
+# start from empty training tables.  A host-wide lock file serializes both the
+# DDL (CREATE OR REPLACE FUNCTION deadlocked concurrent workers on pg_proc)
+# and the data; TRUNCATE restores the sqlite-era clean-slate semantics.
+# ---------------------------------------------------------------------------
+
+_TEST_LOCK_PATH = Path(tempfile.gettempdir()) / "gptbridge-ttr-tests.lock"
+
+_ISOLATED_TABLES = (
+    "transformer_training_dataset_example",
+    "transformer_training_dataset",
+    "transformer_training_job",
+    "transformer_adapter_candidate",
+    "transformer_adapter_evaluation",
+    "transformer_adapter_release",
+    "transformer_runtime_model_state",
+    "transformer_training_audit_event",
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_training_tables(tmp_path: Path):
+    import msvcrt
+    import os
+
+    fd = os.open(_TEST_LOCK_PATH, os.O_RDWR | os.O_CREAT)
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+        deadline = time.monotonic() + 120
+        while True:
+            try:
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                break
+            except OSError:
+                if time.monotonic() > deadline:
+                    os.close(fd)
+                    raise
+                time.sleep(0.05)
+        # Ensure DDL exists, then wipe training rows for a clean slate.
+        repository = TransformerTrainingRepository(tmp_path)
+        with repository._connect() as connection:
+            connection.execute(
+                "TRUNCATE " + ", ".join(_ISOLATED_TABLES) + " RESTART IDENTITY CASCADE"
+            )
+        yield
+    finally:
+        try:
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+        os.close(fd)
 
 
 def _sha(value: str) -> str:
@@ -89,9 +149,8 @@ def test_training_database_is_isolated_and_initialized(tmp_path: Path) -> None:
 
     assert status["ok"] is True
     assert status["schema_version"] == 1
-    assert Path(status["path"]) == (
-        tmp_path / "xingcheng" / "runtime" / "state" / "transformer-training.sqlite3"
-    )
+    assert status["engine"] == "postgresql"
+    assert status["path"] == "postgresql:gptbridge_xingcheng"
     assert status["tables"]["transformer_runtime_model_state"] == 1
     assert status["base_weights_immutable"] is True
     assert status["automatic_weight_replacement"] is False
@@ -239,14 +298,14 @@ def test_dataset_registration_is_content_deduplicated(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("operation", ["update", "delete"])
-def test_dataset_snapshot_links_are_sqlite_immutable(
+def test_dataset_snapshot_links_are_immutable(
     tmp_path: Path,
     operation: str,
 ) -> None:
     repository = TransformerTrainingRepository(tmp_path)
     created = _create_dataset(repository, tmp_path)
 
-    with pytest.raises(sqlite3.IntegrityError, match="SNAPSHOT_IMMUTABLE"):
+    with pytest.raises(psycopg.Error, match="SNAPSHOT_IMMUTABLE"):
         with repository._connect() as connection:
             if operation == "update":
                 connection.execute(
@@ -337,7 +396,7 @@ def test_audit_events_are_hash_chained_and_immutable(tmp_path: Path) -> None:
     assert audit["ok"] is True
     assert audit["event_count"] == 2
     assert audit["head_sha256"] != "0" * 64
-    with pytest.raises(sqlite3.IntegrityError, match="AUDIT_IMMUTABLE"):
+    with pytest.raises(psycopg.Error, match="AUDIT_IMMUTABLE"):
         with repository._connect() as connection:
             connection.execute(
                 "UPDATE transformer_training_audit_event SET event_type = 'changed'"
