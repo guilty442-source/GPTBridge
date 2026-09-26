@@ -1,7 +1,7 @@
 """Bounded local vector cache for degraded RAG operation.
 
-Qdrant remains the canonical semantic index. Vectors persisted to local SQLite
-provide an observable tool-private cache while Qdrant is unavailable and must
+The Rust vectord engine remains the canonical semantic index. Vectors persisted to PostgreSQL
+provide an observable tool-private cache while vectord is unavailable and must
 not be treated as cross-module semantic authority. Two point styles are accepted:
 
 * external vectors — points carry ``vector`` (e.g. an Ollama embedding model,
@@ -22,7 +22,6 @@ import json
 import hashlib
 import math
 import re
-import sqlite3
 import struct
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -32,6 +31,8 @@ from pathlib import Path
 from typing import Any, Final, Iterator, Optional
 
 from .native_kernel import available as _native_available
+from .pg_adapter import PgConnection
+from .pg_adapter import connect as pg_connect
 from .native_kernel import dot_vectors as _native_dot
 from ..security.qdrant_scope import QdrantScopeError
 
@@ -115,9 +116,9 @@ def embed_vector(text: str, dimension: int = _DIMENSION) -> list[float]:
 
 
 class LocalVectorStore:
-    """Tool-private SQLite vector cache for bounded degraded retrieval.
+    """Tool-private PostgreSQL vector cache for bounded degraded retrieval.
 
-    Qdrant remains canonical. Modules may cache embeddings locally for
+    vectord remains canonical. Modules may cache embeddings locally for
     continuity, but these candidates are non-authoritative and must be
     reconciled through the governed RAG path before canonical use.
     """
@@ -135,12 +136,8 @@ class LocalVectorStore:
         self.endpoint = "local" if endpoint in {"", "local"} else str(endpoint).rstrip("/")
         self._dimension = int(dimension)
         self._native = _native_available()
-        path = Path(root).resolve()
-        if path.is_dir():
-            path = path / "local-rag-vectors.sqlite3"
-        self.database_path = path
-        self.location = str(path)
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_path = Path("postgresql:gptbridge_rag")
+        self.location = str(self.database_path)
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -154,7 +151,7 @@ class LocalVectorStore:
                     point_id TEXT NOT NULL PRIMARY KEY,
                     document_id TEXT NOT NULL,
                     module_id TEXT NOT NULL,
-                    vector TEXT NOT NULL,
+                    vector BYTEA NOT NULL,
                     payload TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS collection_state (
@@ -167,18 +164,9 @@ class LocalVectorStore:
             )
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=5)
-        connection.row_factory = sqlite3.Row
+    def _connect(self) -> Iterator[PgConnection]:
+        connection = pg_connect("gptbridge_rag", autocommit=False)
         try:
-            # Perf/low-IO: WAL + NORMAL sync + larger cache + memory temp
-            # store. WAL persists after first set; the rest are per-connection
-            # and cheap to re-apply.
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute("PRAGMA synchronous=NORMAL")
-            connection.execute("PRAGMA busy_timeout = 5000")
-            connection.execute("PRAGMA cache_size=-64000")
-            connection.execute("PRAGMA temp_store=MEMORY")
             yield connection
             connection.commit()
         except BaseException:
@@ -197,7 +185,7 @@ class LocalVectorStore:
             return value
 
     @staticmethod
-    def _declared_dimension(connection: sqlite3.Connection) -> Optional[int]:
+    def _declared_dimension(connection: PgConnection) -> Optional[int]:
         """Declared collection dimension: collection_state first, then the
         legacy MAX(collection_meta.vector_size) for databases predating the
         state table."""
@@ -359,7 +347,7 @@ class LocalVectorStore:
             point_id,
             document_id,
             point_module,
-            sqlite3.Binary(struct.pack(f"<{len(vector)}d", *vector)),
+            bytes(struct.pack(f"<{len(vector)}d", *vector)),
             json.dumps(payload, ensure_ascii=False),
         )
         return row, len(vector)
@@ -372,11 +360,11 @@ class LocalVectorStore:
         module_ids: tuple[str, ...] = (),
     ) -> list[dict[str, Any]]:
         # A207: push down WHERE filter and LIMIT into SQL; cosine scoring
-        # remains in Python because SQLite has no native vector operations,
+        # remains in Python because the cache stores raw vectors,
         # but we bound the candidate set with a SQL-level ceiling so the
         # application-side sort operates on a bounded result, not the full
         # table.
-        # A52 qdrant-scope: the degraded local cache obeys the same scope
+        # A52 module-scope: the degraded local cache obeys the same scope
         # discipline as the canonical index — an empty module scope is
         # rejected fail-closed instead of scanning every cached module.
         if not module_ids:
@@ -403,7 +391,7 @@ class LocalVectorStore:
 
     def _fetch_rows(
         self, module_ids: tuple[str, ...], bounded_limit: int
-    ) -> list[sqlite3.Row]:
+    ) -> list[Any]:
         """Bounded candidate fetch with SQL-level module filter + ceiling."""
         with self._connect() as connection:
             if module_ids:
@@ -426,7 +414,7 @@ class LocalVectorStore:
                 (bounded_limit,),
             ).fetchall()
 
-    def _hit_record(self, row: sqlite3.Row, score: float) -> dict[str, Any]:
+    def _hit_record(self, row: Any, score: float) -> dict[str, Any]:
         """Flatten a stored payload + row keys into a query hit record."""
         payload = self._loads(row["payload"])
         payload = payload if isinstance(payload, dict) else {}
@@ -477,7 +465,7 @@ class LocalVectorStore:
                 "index_version": collection_state.get("index_version"),
                 "location": self.location,
             }
-        except (OSError, ValueError, sqlite3.Error) as exc:
+        except (OSError, ValueError, Exception) as exc:
             return {
                 "available": False,
                 "engine": "local-vector-degraded-cache",

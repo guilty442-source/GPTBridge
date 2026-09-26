@@ -49,9 +49,7 @@ class LocalRagConstants:
         self.project_root = self.tool_root.parent.resolve()
         self.native_runtime = native_runtime
         self.repository = repository or LocalSqliteRagRepository(self.tool_root)
-        self.vector_store = vector_store or LocalVectorStore(
-            self.tool_root / "runtime" / "state" / "local-rag-vectors.sqlite3"
-        )
+        self.vector_store = vector_store or LocalVectorStore(self.tool_root)
         self.reranker = reranker or QwenReranker()
         # A371-A374: canonical path adapter.  Constructed lazily — it only
         # opens its background loop when first probed, so environments without

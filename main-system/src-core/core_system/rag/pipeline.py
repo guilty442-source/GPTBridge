@@ -29,6 +29,7 @@ from .canonical_vector_runtime import (
     sanitize_payload,
 )
 from .rust_vector_runtime import select_vector_runtime
+from shared_layer.local.pg_adapter import connect as pg_connect
 from shared_layer.security.qdrant_scope import QdrantScopeError
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline

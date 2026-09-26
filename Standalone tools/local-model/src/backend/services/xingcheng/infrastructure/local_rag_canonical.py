@@ -166,9 +166,10 @@ class CanonicalRagAdapter:
             chunk_overlap=200,
             top_k=48,
             score_threshold=0.0,
-            # A374: durable pending_rag_mutation queue + degraded stores
-            # survive restarts between canonical outages.
-            queue_db_path=str(state_dir / "rag-reconciliation-queue.sqlite3"),
+            # A374: the durable pending_rag_mutation queue lives in
+            # ``gptbridge_rag`` (PostgreSQL); degraded stores stay JSON
+            # files that survive restarts between canonical outages.
+            queue_db_path="postgresql:gptbridge_rag",
             degraded_root=str(state_dir / "rag-degraded"),
         )
 
