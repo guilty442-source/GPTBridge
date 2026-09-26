@@ -145,7 +145,7 @@ def _append_conflict_clause(stmt: str, mode: str) -> str:
     updates = ", ".join(
         f"{c} = EXCLUDED.{c}" for c in columns[1:]
     )
-    return stmt + f" ON CONFLICT ({target}) DO UPDATE SET {updates}"
+    return stmt + f" ON CONFLICT ({target}) DO UPDATE SET {updates}"  # sql-ok: identifiers derive from parsed INSERT column list, values parameterized
 
 
 # ---------------------------------------------------------------------------

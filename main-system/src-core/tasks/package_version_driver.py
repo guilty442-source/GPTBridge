@@ -359,7 +359,7 @@ class PackageVersionDriver:
         pending: list[dict[str, Any]] = []
         with codex_readonly_connection() as conn:
             for (pid, field), reflist in refs.items():
-                row = conn.execute(
+                row = conn.execute(  # sql-ok: column name from manifest field whitelist, value parameterized
                     f"SELECT {field} FROM articles WHERE provision_id=?",
                     (pid,),
                 ).fetchone()

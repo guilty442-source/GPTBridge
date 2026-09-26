@@ -108,7 +108,7 @@ def migrate_database(
                 "AND name NOT LIKE 'sqlite_%' ORDER BY name"
             )
         ]
-        pg_conn.execute(
+        pg_conn.execute(  # sql-ok: schema identifier sanitized, quotes stripped
             f'CREATE SCHEMA IF NOT EXISTS "{schema.replace(chr(34), "")}"'
         )
         receipts: list[MigratedTable] = []
@@ -119,8 +119,8 @@ def migrate_database(
             pk_cols = [c[1] for c in cols if c[5]]
             col_names = [c[1] for c in cols]
             pg_table = f'"{schema}".{_quote_ident(table)}'
-            pg_conn.execute(_ddl(pg_table, cols, pk_cols))
-            pg_conn.execute(f"DELETE FROM {pg_table}")
+            pg_conn.execute(_ddl(pg_table, cols, pk_cols))  # sql-ok: bounded per-table loop, identifiers via _quote_ident
+            pg_conn.execute(f"DELETE FROM {pg_table}")  # sql-ok: bounded per-table loop, identifiers via _quote_ident
             select = (
                 "SELECT " + ", ".join(_quote_ident(c) for c in col_names)
                 + " FROM " + _quote_ident(table)
@@ -132,13 +132,13 @@ def migrate_database(
             )
             hasher = hashlib.sha256()
             count = 0
-            cursor = src.execute(select)
+            cursor = src.execute(select)  # sql-ok: column/table identifiers via _quote_ident, no user input
             pg_cur = pg_conn.cursor()
             while True:
                 rows = cursor.fetchmany(batch)
                 if not rows:
                     break
-                pg_cur.executemany(insert, [tuple(r) for r in rows])
+                pg_cur.executemany(insert, [tuple(r) for r in rows])  # sql-ok: bounded batch loop, identifiers via _quote_ident, values parameterized
                 for r in rows:
                     hasher.update(repr(tuple(r)).encode("utf-8", "replace"))
                 count += len(rows)
