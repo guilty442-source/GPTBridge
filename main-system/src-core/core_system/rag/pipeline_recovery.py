@@ -463,7 +463,7 @@ class PipelineRecoveryMixin:
 
         # Phase-2 unified status surface
         result["active_generation"] = getattr(self, "_active_generation", None)
-        result["canonical_vector_database"] = "qdrant"
+        result["canonical_vector_database"] = "vectord"
         result["embedding_model"] = self.config.embedding_model
         result["embedding_dimension"] = self.config.embedding_dimension
         outbox_stats = getattr(self.postgresql, "outbox_stats", None)

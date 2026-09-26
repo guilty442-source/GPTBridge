@@ -19,8 +19,7 @@ from startup_core.phases_constants import (
     POSTGRES_PROBE_ATTEMPTS,
     POSTGRES_PROBE_DELAY,
     POSTGRESQL_PORT,
-    QDRANT_PORT,
-    QDRANT_PROBE_TIMEOUT,
+    VECTORD_PROBE_TIMEOUT,
     STARTUP_GATE_DEADLINE_SECONDS,
 )
 # DependencyDeclaration(**entry) materialization happens in
@@ -167,12 +166,12 @@ class PhaseMixin(StartupPhaseExecutionMixin):
             return False
     def _phase_vectord(self) -> dict[str, Any]:
         """A610 takeover: semantic-index readiness is owned by the Rust
-        vectord engine (target primary; Qdrant retires after cutover)."""
+        vectord engine (Qdrant retired; sealed cutover)."""
         start = time.monotonic()
         vectord_port = int(os.environ.get("VECTORD_PORT", "8092"))
 
         def _check() -> bool:
-            return self._probe_tcp("127.0.0.1", vectord_port, timeout=QDRANT_PROBE_TIMEOUT)
+            return self._probe_tcp("127.0.0.1", vectord_port, timeout=VECTORD_PROBE_TIMEOUT)
 
         ok = _check()
         if not ok:
@@ -210,7 +209,7 @@ class PhaseMixin(StartupPhaseExecutionMixin):
                 if not self._stop.wait(timeout=1.5):
                     ok = _check()
         return {
-            "phase": "qdrant-start",
+            "phase": "vectord-start",
             "label": "啟動 vectord（Rust 語意索引）",
             "critical": False,
             "ready": ok,
@@ -220,53 +219,6 @@ class PhaseMixin(StartupPhaseExecutionMixin):
             "duration_ms": int((time.monotonic() - start) * 1000),
         }
 
-    def _phase_qdrant(self) -> dict[str, Any]:
-        if os.environ.get("VECTOR_BACKEND", "rust").strip().lower() != "qdrant":
-            return self._phase_vectord()
-        start = time.monotonic()
-
-        def _check() -> bool:
-            return self._probe_tcp("127.0.0.1", QDRANT_PORT, timeout=QDRANT_PROBE_TIMEOUT)
-
-        ok = _check()
-        if not ok:
-            # Attempt to start Qdrant (mirrors _phase_ollama behavior).
-            # Search known locations for the Qdrant binary.
-            workspace = getattr(self, "workspace_root", None) or Path.cwd()
-            candidates = [
-                workspace / "Standalone tools" / "local-model" / "runtime" / "qdrant" / "bin" / "qdrant.exe",
-                Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "qdrant" / "qdrant.exe",
-            ]
-            qdrant_exe = next((c for c in candidates if c.is_file()), None)
-            if qdrant_exe is not None:
-                qdrant_root = qdrant_exe.parents[1]  # .../qdrant/
-                creationflags = (
-                    int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0)
-                    | int(getattr(subprocess, "DETACHED_PROCESS", 0) or 0)
-                )
-                try:
-                    subprocess.Popen(  # noqa: S603 — governed local tool spawn
-                        [str(qdrant_exe)],
-                        cwd=str(qdrant_root),
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=creationflags,
-                    )
-                except Exception:
-                    pass
-                if not self._stop.wait(timeout=1.5):
-                    ok = _check()
-        return {
-            "phase": "qdrant-start",
-            "label": "啟動 Qdrant",
-            "critical": False,
-            "ready": ok,
-            "state": "ok" if ok else "degraded",
-            "fault_code": "QDRANT_READY" if ok else "QDRANT_UNREACHABLE",
-            "message": "ready" if ok else "not reachable (degradable)",
-            "duration_ms": int((time.monotonic() - start) * 1000),
-        }
     def _phase_governance_audit(self) -> dict[str, Any]:
         start = time.monotonic()
         try:
@@ -336,6 +288,6 @@ PhaseMixin._PHASE_HANDLERS = {  # type: ignore[attr-defined]
     "environment-check": PhaseMixin._phase_environment_check,
     "governance-audit": PhaseMixin._phase_governance_audit,
     "postgresql-start": PhaseMixin._phase_postgresql,
-    "qdrant-start": PhaseMixin._phase_qdrant,
+    "vectord-start": PhaseMixin._phase_vectord,
     "ollama-start": PhaseMixin._phase_ollama,
 }

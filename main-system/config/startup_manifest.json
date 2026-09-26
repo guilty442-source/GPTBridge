@@ -27,16 +27,6 @@
       "shutdown_order": 20
     },
     {
-      "identity": "qdrant",
-      "owner": "rag-runtime-sovereign",
-      "required_by": "rag-semantic-retrieval-migration-window",
-      "criticality": "optional",
-      "readiness_contract": "loopback-tcp-6333",
-      "deadline": "3s",
-      "retry_budget": 1,
-      "shutdown_order": 20
-    },
-    {
       "identity": "ollama",
       "owner": "model-runtime-sovereign",
       "required_by": "local-model-inference",
@@ -53,14 +43,13 @@
     "postgres_connect_timeout": 1.0,
     "postgres_probe_attempts": 3,
     "postgres_probe_delay": 0.5,
-    "qdrant_probe_timeout": 0.5,
     "dependency_probe_timeout": 0.75,
-    "startup_gate_deadline_seconds": 90.0
+    "startup_gate_deadline_seconds": 90.0,
+    "vectord_probe_timeout": 0.5
   },
   "ports": {
     "ollama": 11434,
     "postgresql": 5432,
-    "qdrant": 6333,
     "vectord": 8092,
     "health_probe": 8765
   },
@@ -126,7 +115,6 @@
     ],
     "no_fixed_criticality_services": [
       "postgresql",
-      "qdrant",
       "vectord",
       "ollama"
     ]

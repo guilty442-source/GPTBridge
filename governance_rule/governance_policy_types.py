@@ -263,7 +263,7 @@ class SystemResponsibilityPolicy:
     git: str
     sql: str
     sqlite: str
-    qdrant_rag: str
+    vector_rag: str
     local_vector_fallback: str
     llm: str
     separation: str

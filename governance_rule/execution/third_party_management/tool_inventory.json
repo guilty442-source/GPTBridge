@@ -1,10 +1,23 @@
 {
   "schema": "governance-tool-inventory-v1",
   "managed_by": "dependency-sync-sub-sovereign",
-  "codex_basis": ["P25", "A51", "E37"],
+  "codex_basis": [
+    "P25",
+    "A51",
+    "E37"
+  ],
   "format": "registry",
   "deny_by_default": true,
-  "categories": ["compiler-toolchain", "runtime", "package-manager", "database", "vector-db", "llm-runtime", "llm-models", "rag"],
+  "categories": [
+    "compiler-toolchain",
+    "runtime",
+    "package-manager",
+    "database",
+    "vector-db",
+    "llm-runtime",
+    "llm-models",
+    "rag"
+  ],
   "review_duties": [
     "third-party-introduction-review",
     "third-party-version-management",
@@ -144,19 +157,24 @@
       "license": "PostgreSQL License",
       "status": "running",
       "verified": true,
-      "components": ["psql.exe", "initdb.exe", "pg_dump.exe", "postgres.exe"]
+      "components": [
+        "psql.exe",
+        "initdb.exe",
+        "pg_dump.exe",
+        "postgres.exe"
+      ]
     },
     {
       "id": "qdrant",
       "name": "Qdrant",
       "category": "vector-db",
-      "formal": true,
-      "formality": "formal-tool",
+      "formal": false,
+      "formality": "retired",
       "codex_formal_tool_name": "qdrant",
       "version": "1.19.0",
       "path": "E:\\GPTBridge\\local-model\\runtime\\qdrant\\bin\\qdrant.exe",
       "license": "Apache-2.0",
-      "status": "running",
+      "status": "retired",
       "verified": true,
       "endpoint": "127.0.0.1:6333"
     },

@@ -375,17 +375,19 @@ class RustVectorRuntime(QdrantCanonicalRuntime):
 
 
 def select_vector_runtime(config: RagPipelineConfig) -> QdrantCanonicalRuntime:
-    """Canonical vector-runtime selector (A610 Rust-Vector-Engine=target-primary).
+    """Canonical vector-runtime selector (A611: Rust engine is the
+    primary semantic index; the Qdrant cutover is sealed).
 
-    ``vector_backend`` resolves to ``rust`` by default — the takeover
-    state.  ``qdrant`` stays selectable through ``VECTOR_BACKEND`` for
-    the bounded migration/verification window until the retire-after-
-    cutover event completes.
+    Only ``rust``/``vectord`` selects a live runtime — Qdrant is retired
+    and every other value fails closed.
     """
     backend = str(getattr(config, "vector_backend", "") or "rust").strip().lower()
-    if backend == "qdrant":
-        return QdrantCanonicalRuntime(config)
-    return RustVectorRuntime(config)
+    if backend in {"rust", "vectord"}:
+        return RustVectorRuntime(config)
+    raise ValueError(
+        f"VECTOR_BACKEND_UNSUPPORTED: {backend!r} — Qdrant is retired; "
+        "the canonical semantic index is the Rust vectord engine"
+    )
 
 
 __all__ = [

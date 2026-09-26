@@ -22,7 +22,7 @@ OLLAMA_PROBE_TIMEOUT: Final[float] = _cfg_probe("ollama_probe_timeout")
 POSTGRES_CONNECT_TIMEOUT: Final[float] = _cfg_probe("postgres_connect_timeout")
 POSTGRES_PROBE_ATTEMPTS: Final[int] = _cfg_probe("postgres_probe_attempts")
 POSTGRES_PROBE_DELAY: Final[float] = _cfg_probe("postgres_probe_delay")
-QDRANT_PROBE_TIMEOUT: Final[float] = _cfg_probe("qdrant_probe_timeout")
+VECTORD_PROBE_TIMEOUT: Final[float] = _cfg_probe("vectord_probe_timeout")
 STARTUP_GATE_DEADLINE_SECONDS: Final[float] = _cfg_probe("startup_gate_deadline_seconds")
 
 BOOTSTRAP_PHASES: Final[tuple[str, ...]] = _cfg_bootstrap_phases()
@@ -39,7 +39,6 @@ DEPENDENCY_MANIFEST: Final[tuple[dict[str, Any], ...]] = _cfg_dependency_manifes
 # Port constants — loaded from config (A191/A192)
 OLLAMA_PORT: Final[int] = _cfg_port("ollama")
 POSTGRESQL_PORT: Final[int] = _cfg_port("postgresql")
-QDRANT_PORT: Final[int] = _cfg_port("qdrant")
 
 
 __all__ = [
@@ -47,11 +46,10 @@ __all__ = [
     "POSTGRES_CONNECT_TIMEOUT",
     "POSTGRES_PROBE_ATTEMPTS",
     "POSTGRES_PROBE_DELAY",
-    "QDRANT_PROBE_TIMEOUT",
+    "VECTORD_PROBE_TIMEOUT",
     "STARTUP_GATE_DEADLINE_SECONDS",
     "BOOTSTRAP_PHASES",
     "DEPENDENCY_MANIFEST",
     "OLLAMA_PORT",
     "POSTGRESQL_PORT",
-    "QDRANT_PORT",
 ]

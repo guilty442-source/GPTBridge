@@ -27,7 +27,7 @@ _PHASE_NAMES = (
     "environment-check",
     "governance-audit",
     "postgresql-start",
-    "qdrant-start",
+    "vectord-start",
     "ollama-start",
 )
 

@@ -82,12 +82,12 @@ def check_authority_policy(root: Path, errors: list[str]) -> None:
         or responsibilities.sql != "structured-mutable-official-data-postgresql"
         or responsibilities.sqlite
         != "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only"
-        or responsibilities.qdrant_rag != "qdrant-semantic-knowledge-index"
+        or responsibilities.vector_rag != "rust-vector-engine-semantic-knowledge-index"
         or responsibilities.local_vector_fallback
         != "bounded-observable-degraded-cache-only-never-canonical"
         or responsibilities.llm != "understanding-reasoning-and-operations"
         or responsibilities.separation
-        != "git-postgresql-sqlite-qdrant-rag-and-llm-roles-must-not-replace-one-another"
+        != "git-postgresql-sqlite-rust-vector-engine-rag-and-llm-roles-must-not-replace-one-another"
         or responsibilities.governed_flow
         != "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
         or responsibilities.management_owner
@@ -97,7 +97,7 @@ def check_authority_policy(root: Path, errors: list[str]) -> None:
             "governance-rule-for-authority-permissions-and-boundaries",
             "git-for-system-version-and-development-history",
             "sql-for-structured-mutable-official-data",
-            "qdrant-semantic-knowledge-index-for-semantic-retrieval-candidates",
+            "rust-vector-engine-semantic-knowledge-index-for-semantic-retrieval-candidates",
         )
         or responsibilities.llm_inference_as_source_of_truth
     ):

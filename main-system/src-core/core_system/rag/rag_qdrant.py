@@ -1,8 +1,8 @@
 """RAG Pipeline — Canonical RAG path implementation (A371-A374).
 
-A371: DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
-A374: Binding order: 1 QDRANT_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
-A373: CANONICAL-TAKEOVER: normal read/write must prove Qdrant dense retrieval and PostgreSQL metadata/FTS/index_state are the live path
+A371: DEFAULT-PATH: source content > vectord (Rust engine) dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
+A374: Binding order: 1 RUST_VECTOR_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
+A373: CANONICAL-TAKEOVER: normal read/write must prove vectord dense retrieval and PostgreSQL metadata/FTS/index_state are the live path
 A374: INDEX-STATE: every indexed resource/chunk records embedding_model, embedding_dimension, chunk_size, chunk_overlap, indexed_at_utc
 
 A486+A487: Index Generation + Alias switching. Queries target logical alias; physical collections are versioned.
@@ -180,9 +180,8 @@ class RagPipelineConfig:
     # survive restarts; None keeps the in-memory/temp fallbacks for tests.
     queue_db_path: Optional[str] = None
     degraded_root: Optional[str] = None
-    # A610 Rust-Vector-Engine=target-primary: canonical vector runtime is
-    # the governed vectord service; "qdrant" remains selectable through
-    # VECTOR_BACKEND only for the bounded migration/verification window.
+    # A611 cutover sealed: canonical vector runtime is the governed
+    # vectord service; Qdrant is retired (no live selection path).
     vector_backend: str = field(
         default_factory=lambda: os.environ.get("VECTOR_BACKEND", "rust")
     )

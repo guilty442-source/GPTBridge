@@ -180,18 +180,9 @@ class StartupPhaseExecutionMixin:
 
         phase_by_identity = {
             "postgresql": "postgresql-start",
-            # A610: both semantic-index identities share the backend-aware
-            # `qdrant-start` handler, which dispatches on VECTOR_BACKEND.
-            "qdrant": "qdrant-start",
-            "vectord": "qdrant-start",
+            "vectord": "vectord-start",
             "ollama": "ollama-start",
         }
-        # Exactly one semantic-index backend owns the live path: the
-        # standby engine is never probed or spawned by startup.
-        semantic_backend = os.environ.get(
-            "VECTOR_BACKEND", "rust"
-        ).strip().lower()
-        standby_identity = "qdrant" if semantic_backend != "qdrant" else "vectord"
         bootstrap_results: dict[str, dict[str, Any]] = {}
         dependency_results: dict[str, dict[str, Any]] = {}
         if not self._stop.is_set():
@@ -220,19 +211,6 @@ class StartupPhaseExecutionMixin:
                         phase,
                     )
                 for dep in ordered_deps:
-                    if dep.identity == standby_identity:
-                        dependency_results[dep.identity] = {
-                            "phase": f"{dep.identity}-standby",
-                            "ready": False,
-                            "state": "standby",
-                            "criticality": dep.criticality,
-                            "required_by": dep.required_by,
-                            "fault_code": "SEMANTIC_BACKEND_STANDBY",
-                            "message": "standby vector backend — not probed "
-                            "while VECTOR_BACKEND selects the other engine",
-                            "duration_ms": 0,
-                        }
-                        continue
                     futures[
                         executor.submit(
                             handlers[phase_by_identity[dep.identity]], self
@@ -290,7 +268,7 @@ class StartupPhaseExecutionMixin:
             gate_ok = False
 
         postgres_ok = next((r["ready"] for r in results if r["phase"] == "postgresql-start"), False)
-        qdrant_ok = next((r["ready"] for r in results if r["phase"] == "qdrant-start"), False)
+        vectord_ok = next((r["ready"] for r in results if r["phase"] == "vectord-start"), False)
         ollama_ok = next((r["ready"] for r in results if r["phase"] == "ollama-start"), False)
         # §10.7 on-demand：Ollama 缺席僅在未安裝（能力不存在）時降級；
         # 已安裝但未運行屬 deferred 常態，等待明確需求拉起。
@@ -356,7 +334,7 @@ class StartupPhaseExecutionMixin:
                 (StartupPhase.DATABASE_FOUNDATION_READY, postgres_ok),
                 (StartupPhase.CENTRAL_AUTHORITY_READY, central_authority_ok),
                 (StartupPhase.MODULE_PRIVATE_READY, private_state["ready"]),
-                (StartupPhase.SEMANTIC_INDEX_READY, qdrant_ok),
+                (StartupPhase.SEMANTIC_INDEX_READY, vectord_ok),
                 (StartupPhase.RECOVERY_READY, recovery["ready"]),
                 (StartupPhase.READ_MODEL_READY, read_model_ok),
             ]
@@ -389,7 +367,7 @@ class StartupPhaseExecutionMixin:
 
         if not gate_ok:
             startup_state = "FAILED"
-        elif not qdrant_ok or not (ollama_ok or ollama_installed):
+        elif not vectord_ok or not (ollama_ok or ollama_installed):
             startup_state = "DEGRADED"
         else:
             startup_state = "READY"
@@ -410,7 +388,7 @@ class StartupPhaseExecutionMixin:
                 dep.identity for dep in declarations if not dep.is_core_critical
             ],
             "postgresql": next((r for r in results if r["phase"] == "postgresql-start"), {}),
-            "qdrant": next((r for r in results if r["phase"] == "qdrant-start"), {}),
+            "vectord": next((r for r in results if r["phase"] == "vectord-start"), {}),
             "ollama": next((r for r in results if r["phase"] == "ollama-start"), {}),
             "environment": next((r for r in results if r["phase"] == "environment-check"), {}),
             "governance_audit": next((r for r in results if r["phase"] == "governance-audit"), {}),
