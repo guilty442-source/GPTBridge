@@ -36,13 +36,11 @@ _STATEMENT_NEUTRAL = re.compile(
 _SELECT_STAR = re.compile(r"\bselect\s+\*", re.IGNORECASE)
 _OFFSET = re.compile(r"\boffset\b", re.IGNORECASE)
 
-# Files whose SQL-in-loop is the measured subject, a chaos/stress driver,
+# Files whose SQL-in-loop is the measured subject, a stress driver,
 # or deliberate test fixture — not production paths.
 _EXEMPT_PATH_PARTS = (
     "/tests/",
     "/test_",
-    "chaos_sqlite.py",
-    "reconcile_stress.py",
     "regression_benchmarks.py",
     "/benchmark",
     "/perf/",
@@ -68,11 +66,8 @@ _EXEMPT_FILES = (
     "repair_learning.py",
     "roles.py",
     "session.py",
-    "sqlite_pragma_policy.py",
-    "sqlite_wal_governor.py",
     "transport_notify.py",
     "maintenance_postgres.py",
-    "failover_store.py",
     "domain.py",
     "codex_repository.py",
     "codex_postgresql.py",
@@ -80,11 +75,8 @@ _EXEMPT_FILES = (
     "audit_directories.py",
     "successor_framework.py",
     "store_async.py",
-    "build_identity_directory.py",
-    "chaos_pg.py",
     "data_layer_contract.py",
     "lineage.py",
-    "sqlite_reconciliation_contract.py",
     "_entity_history.py",
 )
 
