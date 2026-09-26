@@ -1,0 +1,103 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "test-audit-final-division-20260926",
+  "title": "New article A625: final test/audit responsibility division + evidence chain",
+  "summary": "Adds article A625 codifying the final per-language test/audit responsibility matrix (9 surfaces) and the single formal evidence chain (native tests > C# TestSuiteOrchestrator > Unified Test Evidence > C++ Audit Engine > Python governance/push gate > formal verdict), with the standing prohibition on second orchestrators, audit engines, or release gates.",
+  "requested_by": "decision-sovereign",
+  "origin": "user directive: formal test/audit responsibility division and unified evidence chain",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-25T23:58:26Z",
+    "version_identity": "E2:2026-09-25T23:58:26Z",
+    "version_epoch": 2,
+    "history_head": "f7e2c44c284795e7f308200a861ef84f5b281bb274d288b4671c623e56b718a4",
+    "revision_sequence": 79
+  },
+  "problem": {
+    "summary": "A616 declares a test-responsibility requirement and A617 the tool table, but no provision pins the per-language test domain matrix or the single formal evidence chain end to end"
+  },
+  "proposed_successors": [
+    {
+      "registry": "articles",
+      "action": "insert",
+      "rows": [
+        {
+          "position": 625,
+          "provision_id": "A625",
+          "section_index": "7",
+          "subject": "test-audit-final-responsibility-division",
+          "rule": "TEST-AUDIT-DIVISION:test and audit responsibility is assigned per language exactly: C/C++>native-suites+ABI+runtime+inference-parity; Rust>vector-engine+FFI+recovery+tauri; Go>search+batch-io+cancellation+concurrency; F#>domain-rules+state-transition+data-validation; C#>TestSuiteOrchestrator+application+contract-tests; Python>necessary-governance-tests+JAX-tests+push-gate; Julia>numerical+optimization+simulation; JavaScript>react+ipc-schema+tauri-ui-integration; PostgreSQL>migration+transaction+data-authority. EVIDENCE-CHAIN:formal evidence flows exactly native-language tests > C# TestSuiteOrchestrator > Unified Test Evidence > C++ Audit Engine > Python governance/push gate > formal verdict; no second formal test orchestrator, audit engine, or release gate may be created for Rust, Go, Julia, JAX, or any future technology.",
+          "prohibition": "FORBID:second test orchestrator|second audit engine|second release gate|technology without declared test domain|evidence chain bypass or reorder|informal suite emitting a formal verdict",
+          "exception": "informal per-language diagnostic suites may exist but never produce formal verdicts; retired technologies carry no active test responsibility beyond migration evidence"
+        }
+      ]
+    },
+    {
+      "registry": "provision_law_classification",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "article",
+          "provision_id": "A625",
+          "tier": "special-law",
+          "law_code": "CODEX_TEST_VALIDATION_EVALUATION_SPECIAL_LAW",
+          "authority_basis": "A210|A348|A359|A360|A616|A617"
+        }
+      ]
+    },
+    {
+      "registry": "provision_lifecycle_status",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "article",
+          "provision_id": "A625",
+          "lifecycle_state": "active",
+          "effective_version": "<successor-version>",
+          "successor_identity": null,
+          "evidence": "A625-current",
+          "legacy_effective_version": null,
+          "current_binding_version": "<successor-version>"
+        }
+      ]
+    },
+    {
+      "registry": "codex_internal_module_membership",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "article",
+          "provision_id": "A625",
+          "module_code": "CODEX_MODULE_TEST",
+          "membership_kind": "primary",
+          "resolution_state": "resolved",
+          "version_identity": "<successor-version>"
+        }
+      ]
+    },
+    {
+      "registry": "effective_provisions",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "article",
+          "provision_id": "A625",
+          "effective_version": "<successor-version>",
+          "status": "active",
+          "legacy_effective_version": null,
+          "current_binding_version": "<successor-version>"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-26T00:19:42Z",
+    "expected_audit_result": "provision classification maps every provision exactly once; projections rebuilt for successor generation"
+  }
+}
