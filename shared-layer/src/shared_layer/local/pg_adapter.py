@@ -223,7 +223,7 @@ class PgConnection:
         cur = self.cursor()
         for statement in script.split(";"):
             if statement.strip():
-                cur.execute(statement)
+                cur.execute(statement)  # sql-ok: executescript parity — bounded split of caller-owned DDL script
         return cur
 
     def cursor(self) -> PgCursor:
