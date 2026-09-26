@@ -91,7 +91,17 @@
     }
   },
   "defaults": {},
-  "programs": {},
+  "programs": {
+    "cl.exe": {"exclude": true},
+    "link.exe": {"exclude": true},
+    "lib.exe": {"exclude": true},
+    "mt.exe": {"exclude": true},
+    "rc.exe": {"exclude": true},
+    "nvcc.exe": {"exclude": true},
+    "cicc.exe": {"exclude": true},
+    "ptxas.exe": {"exclude": true},
+    "cudafe++.exe": {"exclude": true}
+  },
   "auto_mode": true,
   "power_saving_schedule": {
     "enabled": true,
