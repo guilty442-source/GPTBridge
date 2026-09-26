@@ -37,10 +37,90 @@ callers that exercise exotic sqlite-isms must translate explicitly.
 from __future__ import annotations
 
 import logging
+import os
 import re
+import threading
+from collections import OrderedDict
 from typing import Any, Iterable, Iterator, Sequence
 
 _logger = logging.getLogger("gptbridge.pg_adapter")
+
+
+# ---------------------------------------------------------------------------
+# Bounded connection pool
+#
+# ``psycopg.connect`` pays a full TCP + auth handshake + SET search_path on
+# every call; the governed repositories open a connection per operation, so
+# per-request latency was dominated by connect churn and each checkout also
+# spawned a short-lived PG backend (server-side RAM/CPU).  A bounded pool
+# keyed by (dsn, schema, autocommit, row_factory) turns each checkout into a
+# single loopback ``SELECT 1`` validation (~100x cheaper than a handshake)
+# while never mixing distinct bindings.
+#
+# ``PG_ADAPTER_POOL=0`` disables pooling outright (fail-open to the
+# per-call-connect behaviour); a dead checked-out connection is discarded
+# and a fresh one opened — callers never observe a broken pool entry.
+# ---------------------------------------------------------------------------
+
+_POOL_MAX_SIZE = 4
+_pool_lock = threading.Lock()
+_pool: dict[tuple[Any, ...], list[Any]] = {}
+
+
+def _pool_enabled() -> bool:
+    return os.environ.get("PG_ADAPTER_POOL", "1") != "0"
+
+
+def _pool_checkout(key: tuple[Any, ...]) -> Any | None:
+    while True:
+        with _pool_lock:
+            entries = _pool.get(key)
+            conn = entries.pop() if entries else None
+        if conn is None:
+            return None
+        try:
+            conn.execute("SELECT 1")  # loopback liveness probe
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            continue
+        return conn
+
+
+def _pool_release(key: tuple[Any, ...], conn: Any) -> None:
+    try:
+        conn.rollback()  # no-op on clean/autocommit backends
+    except Exception:
+        pass
+    try:
+        if conn.closed:
+            return
+    except Exception:
+        return
+    with _pool_lock:
+        entries = _pool.setdefault(key, [])
+        if len(entries) < _POOL_MAX_SIZE:
+            entries.append(conn)
+            conn = None
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def close_pool() -> None:
+    """Drop every pooled backend (process teardown / test isolation)."""
+    with _pool_lock:
+        entries = [conn for conns in _pool.values() for conn in conns]
+        _pool.clear()
+    for conn in entries:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 class PgUnavailable(RuntimeError):
@@ -72,6 +152,14 @@ _INTEGER_PK_RE = re.compile(
     r"INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT", re.IGNORECASE
 )
 
+# Statement translation runs ~15 regex passes per query; the same
+# statement texts recur constantly in the governed repositories, so cache
+# translations that are pk_resolver-independent (only the INSERT OR
+# REPLACE / REPLACE INTO conflict-clause path consults the resolver).
+_translate_lock = threading.Lock()
+_translate_cache: "OrderedDict[str, str]" = OrderedDict()
+_TRANSLATE_CACHE_MAX = 1024
+
 
 def translate(statement: str, pk_resolver: Any = None) -> str:
     """Translate a sqlite-flavoured statement into PostgreSQL syntax.
@@ -84,6 +172,11 @@ def translate(statement: str, pk_resolver: Any = None) -> str:
     list; used to build the correct ``ON CONFLICT`` target for
     ``INSERT OR REPLACE`` on composite keys.
     """
+    with _translate_lock:
+        cached = _translate_cache.get(statement)
+        if cached is not None:
+            _translate_cache.move_to_end(statement)
+            return cached
     stmt = statement.strip()
     pragma_info = _PRAGMA_TABLE_INFO_RE.match(stmt)
     if pragma_info:
@@ -166,6 +259,12 @@ def translate(statement: str, pk_resolver: Any = None) -> str:
         stmt = _append_conflict_clause(stmt, mode, pk_resolver)
     # placeholder translation: escape stray % then ? -> %s
     stmt = re.sub(r"%(?![sbt])", "%%", stmt).replace("?", "%s")
+    if mode is None:
+        with _translate_lock:
+            _translate_cache[statement] = stmt
+            _translate_cache.move_to_end(statement)
+            while len(_translate_cache) > _TRANSLATE_CACHE_MAX:
+                _translate_cache.popitem(last=False)
     return stmt
 
 
@@ -363,11 +462,17 @@ class PgCursor:
 class PgConnection:
     """sqlite3.Connection-compatible facade over a psycopg connection."""
 
-    def __init__(self, connection: Any, schema: str) -> None:
+    def __init__(
+        self,
+        connection: Any,
+        schema: str,
+        pool_key: tuple[Any, ...] | None = None,
+    ) -> None:
         self._connection = connection
         self.schema = schema
         self.row_factory: Any = None  # accepted for API parity; rows are dicts
         self._pk_cache: dict[str, list[str] | None] = {}
+        self._pool_key = pool_key
 
     def _resolve_pk(self, table: str) -> list[str] | None:
         """Return the primary-key column list for *table* in search_path.
@@ -419,7 +524,14 @@ class PgConnection:
         self._connection.rollback()
 
     def close(self) -> None:
-        self._connection.close()
+        connection = self._connection
+        if connection is None:
+            return
+        self._connection = None
+        if self._pool_key is not None and _pool_enabled():
+            _pool_release(self._pool_key, connection)
+        else:
+            connection.close()
 
     @property
     def total_changes(self) -> int:
@@ -431,10 +543,13 @@ class PgConnection:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
+        if self._connection is None:
+            return False
         if exc_type is None:
             self._connection.commit()
         else:
             self._connection.rollback()
+        self.close()  # return the backend to the pool on block exit
         return False
 
 
@@ -477,22 +592,31 @@ def connect(
         import psycopg  # noqa: PLC0415
     except ImportError as exc:
         raise PgUnavailable("psycopg is not importable") from exc
-    conn = psycopg.connect(
-        dsn or _resolve_dsn(),
-        autocommit=autocommit,
-        connect_timeout=connect_timeout,
-        row_factory=row_factory or _pg_row_factory,
+    resolved_dsn = dsn or _resolve_dsn()
+    pool_key: tuple[Any, ...] | None = (
+        (resolved_dsn, schema, bool(autocommit), row_factory)
+        if _pool_enabled()
+        else None
     )
-    conn.execute(
-        "SET search_path TO " + '"' + schema.replace('"', "") + '", public'
-    )
-    return PgConnection(conn, schema)
+    conn = _pool_checkout(pool_key) if pool_key is not None else None
+    if conn is None:
+        conn = psycopg.connect(
+            resolved_dsn,
+            autocommit=autocommit,
+            connect_timeout=connect_timeout,
+            row_factory=row_factory or _pg_row_factory,
+        )
+        conn.execute(
+            "SET search_path TO " + '"' + schema.replace('"', "") + '", public'
+        )
+    return PgConnection(conn, schema, pool_key)
 
 
 __all__ = [
     "PgConnection",
     "PgCursor",
     "PgUnavailable",
+    "close_pool",
     "connect",
     "translate",
 ]

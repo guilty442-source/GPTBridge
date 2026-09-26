@@ -37,11 +37,11 @@ def start_loop_stall_watchdog(app: Any) -> None:
     async def _beat() -> None:
         while True:
             heartbeat["t"] = time.monotonic()
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.075)
 
     def _watch() -> None:
         while True:
-            time.sleep(0.1)
+            time.sleep(0.15)
             lag = time.monotonic() - heartbeat["t"]
             if lag < threshold:
                 continue
