@@ -4,8 +4,8 @@ Manages the two-stage deletion lifecycle:
     active → tombstone → retention window → purge
 
 The coordinator tombstones a resource, waits for the retention window
-to expire, then purges it from all three engines (PostgreSQL index,
-SQLite private data, Qdrant vectors) in sync.
+to expire, then purges it from both engines (PostgreSQL index and
+vectord vectors) in sync.
 
 Usage:
     from shared_layer.database.deletion_coordinator import (
@@ -21,14 +21,13 @@ Usage:
     with connection_manager.connection() as conn:
         eligible = get_purge_eligible(conn)
         for item in eligible:
-            # Delete from SQLite + Qdrant first, then advance
+            # Delete vector points first, then advance
             advance_stage(conn, resource_id=item["resource_id"])
 
-Runtime entry (injected PG / Qdrant / SQLite interfaces):
+Runtime entry (injected PG / vectord interfaces):
     runtime = DeletionCoordinatorRuntime(
         connection_provider=connection_manager.connection,
-        qdrant=qdrant_delete_adapter,
-        sqlite=sqlite_private_adapter,
+        vector=vector_delete_adapter,
     )
     outcomes = await runtime.purge_eligible_async()
 
@@ -40,7 +39,7 @@ untouched and returns a typed FAILED outcome — never a silent PURGED.
 Codex basis:
     A8/E21  — PostgreSQL: central-structured-official-data.
     A44/E30 — four-functions-local.
-    A52/E38 — RAG: Qdrant canonical semantic index.
+    A52/E38 — RAG: canonical semantic vector index.
 """
 from __future__ import annotations
 
@@ -73,8 +72,7 @@ class PurgeOutcome:
     module_id: str
     status: PurgeStatus
     stage: Optional[str] = None
-    qdrant_deleted: Optional[bool] = None
-    sqlite_deleted: Optional[bool] = None
+    vector_deleted: Optional[bool] = None
     reason: Optional[str] = None
 
     @property
@@ -88,8 +86,7 @@ class PurgeOutcome:
             "status": self.status.value,
             "ok": self.ok,
             "stage": self.stage,
-            "qdrant_deleted": self.qdrant_deleted,
-            "sqlite_deleted": self.sqlite_deleted,
+            "vector_deleted": self.vector_deleted,
             "reason": self.reason,
         }
 
@@ -103,8 +100,8 @@ def tombstone(
     """Mark a resource as tombstoned (stage: active → tombstone).
 
     The resource remains recoverable until the retention window expires.
-    The runtime is responsible for syncing the tombstone to SQLite
-    (pending-delete) and Qdrant (point tombstone).
+    The runtime is responsible for removing the vectord points before the
+    authoritative tombstone is raised.
     """
     connection.execute(_TOMBSTONE, (resource_id, retention_days))
 
@@ -116,8 +113,8 @@ def advance_stage(
 ) -> str:
     """Advance the deletion stage (tombstone → retention → purged).
 
-    Returns the new stage.  The caller must ensure cross-engine cleanup
-    (SQLite, Qdrant) is complete before advancing to 'purged'.
+    Returns the new stage.  The caller must ensure vector cleanup
+    (vectord) is complete before advancing to 'purged'.
     """
     row = connection.execute(_ADVANCE, (resource_id,)).fetchone()
     return str(row[0]) if row and row[0] else "unknown"
@@ -147,18 +144,16 @@ class DeletionCoordinatorRuntime:
     Injected interfaces (all duck-typed, sync or async where noted):
       connection_provider — callable returning a psycopg connection *or* a
           context manager yielding one (e.g. ``connection_manager.connection``).
-      qdrant — object with ``delete_resource(module_id, resource_id)``
+      vector -- vectord adapter object with ``delete_resource(module_id, resource_id)``
           (sync or async; True/int is success, False/None is failure) and an
           optional ``count_resource_points(module_id, resource_id)`` used to
           verify the delete.
-      sqlite — optional object with ``delete_resource(module_id, resource_id)``
           for the module-private store.
       tombstone_raiser — object with async ``raise_tombstone(**kwargs)`` used
           by the reconciliation replay path.
 
     Purge cycle order per resource:
-      1. Qdrant vectors deleted (idempotent)
-      2. SQLite private data deleted (when configured)
+      1. vectord points deleted (idempotent)
       3. PostgreSQL stage advanced tombstone → retention → purged
     A failure at any step returns FAILED with the stage untouched.
     """
@@ -167,14 +162,12 @@ class DeletionCoordinatorRuntime:
         self,
         *,
         connection_provider: Optional[Callable[[], Any]] = None,
-        qdrant: Any = None,
-        sqlite: Any = None,
+        vector: Any = None,
         tombstone_raiser: Any = None,
         retention_days: int = 30,
     ) -> None:
         self._connection_provider = connection_provider
-        self._qdrant = qdrant
-        self._sqlite = sqlite
+        self._vector = vector
         self._tombstone_raiser = tombstone_raiser
         self._retention_days = int(retention_days)
 
@@ -243,29 +236,29 @@ class DeletionCoordinatorRuntime:
         self, *, resource_id: str, module_id: str
     ) -> PurgeOutcome:
         """Purge one eligible resource, async interfaces supported."""
-        if self._qdrant is None:
+        if self._vector is None:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
                 status=PurgeStatus.FAILED,
-                reason="qdrant-interface-missing",
+                reason="vector-interface-missing",
             )
         try:
             deleted = await self._maybe_await(
-                self._qdrant.delete_resource(module_id, resource_id)
+                self._vector.delete_resource(module_id, resource_id)
             )
         except Exception as exc:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=False,
-                reason=f"qdrant-delete-failed: {exc}",
+                status=PurgeStatus.FAILED, vector_deleted=False,
+                reason=f"vector-delete-failed: {exc}",
             )
         if deleted is False or deleted is None:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=False,
-                reason="qdrant-delete-unsuccessful",
+                status=PurgeStatus.FAILED, vector_deleted=False,
+                reason="vector-delete-unsuccessful",
             )
-        verifier = getattr(self._qdrant, "count_resource_points", None)
+        verifier = getattr(self._vector, "count_resource_points", None)
         if callable(verifier):
             try:
                 remaining = await self._maybe_await(
@@ -274,71 +267,46 @@ class DeletionCoordinatorRuntime:
             except Exception as exc:
                 return PurgeOutcome(
                     resource_id=resource_id, module_id=module_id,
-                    status=PurgeStatus.FAILED, qdrant_deleted=True,
-                    reason=f"qdrant-verify-failed: {exc}",
+                    status=PurgeStatus.FAILED, vector_deleted=True,
+                    reason=f"vector-verify-failed: {exc}",
                 )
             if remaining:
                 return PurgeOutcome(
                     resource_id=resource_id, module_id=module_id,
-                    status=PurgeStatus.FAILED, qdrant_deleted=True,
-                    reason=f"qdrant-points-remain: {remaining}",
-                )
-        sqlite_deleted: Optional[bool] = None
-        if self._sqlite is not None:
-            try:
-                sqlite_deleted = bool(
-                    await self._maybe_await(
-                        self._sqlite.delete_resource(module_id, resource_id)
-                    )
-                )
-            except Exception as exc:
-                return PurgeOutcome(
-                    resource_id=resource_id, module_id=module_id,
-                    status=PurgeStatus.FAILED, qdrant_deleted=True,
-                    sqlite_deleted=False,
-                    reason=f"sqlite-delete-failed: {exc}",
-                )
-            if not sqlite_deleted:
-                return PurgeOutcome(
-                    resource_id=resource_id, module_id=module_id,
-                    status=PurgeStatus.FAILED, qdrant_deleted=True,
-                    sqlite_deleted=False,
-                    reason="sqlite-delete-unsuccessful",
+                    status=PurgeStatus.FAILED, vector_deleted=True,
+                    reason=f"vector-points-remain: {remaining}",
                 )
         try:
             stage = self._advance_to_purged(resource_id)
         except Exception as exc:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=True,
-                sqlite_deleted=sqlite_deleted,
+                status=PurgeStatus.FAILED, vector_deleted=True,
                 reason=f"advance-stage-failed: {exc}",
             )
         if stage != "purged":
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, stage=stage, qdrant_deleted=True,
-                sqlite_deleted=sqlite_deleted,
+                status=PurgeStatus.FAILED, stage=stage, vector_deleted=True,
                 reason=f"stage-not-purged: {stage}",
             )
         return PurgeOutcome(
             resource_id=resource_id, module_id=module_id,
-            status=PurgeStatus.PURGED, stage="purged", qdrant_deleted=True,
-            sqlite_deleted=sqlite_deleted,
+            status=PurgeStatus.PURGED, stage="purged", vector_deleted=True,
         )
 
     def purge_one(self, *, resource_id: str, module_id: str) -> PurgeOutcome:
         """Sync purge one resource; async interfaces are refused, not awaited."""
-        if self._qdrant is None:
+        if self._vector is None:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
                 status=PurgeStatus.FAILED,
-                reason="qdrant-interface-missing",
+                reason="vector-interface-missing",
             )
         try:
             deleted = self._require_sync(
-                self._qdrant.delete_resource(module_id, resource_id),
-                "qdrant.delete_resource",
+                self._vector.delete_resource(module_id, resource_id),
+                "vector.delete_resource",
             )
         except DeletionInterfaceError as exc:
             return PurgeOutcome(
@@ -348,80 +316,63 @@ class DeletionCoordinatorRuntime:
         except Exception as exc:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=False,
-                reason=f"qdrant-delete-failed: {exc}",
+                status=PurgeStatus.FAILED, vector_deleted=False,
+                reason=f"vector-delete-failed: {exc}",
             )
         if deleted is False or deleted is None:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=False,
-                reason="qdrant-delete-unsuccessful",
+                status=PurgeStatus.FAILED, vector_deleted=False,
+                reason="vector-delete-unsuccessful",
             )
-        verifier = getattr(self._qdrant, "count_resource_points", None)
+        verifier = getattr(self._vector, "count_resource_points", None)
         if callable(verifier):
             try:
                 remaining = self._require_sync(
                     verifier(module_id, resource_id),
-                    "qdrant.count_resource_points",
+                    "vector.count_resource_points",
                 )
             except DeletionInterfaceError as exc:
                 return PurgeOutcome(
                     resource_id=resource_id, module_id=module_id,
-                    status=PurgeStatus.FAILED, qdrant_deleted=True,
+                    status=PurgeStatus.FAILED, vector_deleted=True,
                     reason=str(exc),
                 )
             except Exception as exc:
                 return PurgeOutcome(
                     resource_id=resource_id, module_id=module_id,
-                    status=PurgeStatus.FAILED, qdrant_deleted=True,
-                    reason=f"qdrant-verify-failed: {exc}",
+                    status=PurgeStatus.FAILED, vector_deleted=True,
+                    reason=f"vector-verify-failed: {exc}",
                 )
             if remaining:
                 return PurgeOutcome(
                     resource_id=resource_id, module_id=module_id,
-                    status=PurgeStatus.FAILED, qdrant_deleted=True,
-                    reason=f"qdrant-points-remain: {remaining}",
+                    status=PurgeStatus.FAILED, vector_deleted=True,
+                    reason=f"vector-points-remain: {remaining}",
                 )
         try:
-            sqlite_deleted: Optional[bool] = None
-            if self._sqlite is not None:
-                sqlite_deleted = bool(
-                    self._require_sync(
-                        self._sqlite.delete_resource(module_id, resource_id),
-                        "sqlite.delete_resource",
-                    )
-                )
-                if not sqlite_deleted:
-                    return PurgeOutcome(
-                        resource_id=resource_id, module_id=module_id,
-                        status=PurgeStatus.FAILED, qdrant_deleted=True,
-                        sqlite_deleted=False,
-                        reason="sqlite-delete-unsuccessful",
-                    )
             stage = self._advance_to_purged(resource_id)
         except DeletionInterfaceError as exc:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=True,
+                status=PurgeStatus.FAILED, vector_deleted=True,
                 reason=str(exc),
             )
         except Exception as exc:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=True,
+                status=PurgeStatus.FAILED, vector_deleted=True,
                 reason=f"purge-failed: {exc}",
             )
         if stage != "purged":
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, stage=stage, qdrant_deleted=True,
-                sqlite_deleted=sqlite_deleted,
+                status=PurgeStatus.FAILED, stage=stage, vector_deleted=True,
                 reason=f"stage-not-purged: {stage}",
             )
         return PurgeOutcome(
             resource_id=resource_id, module_id=module_id,
-            status=PurgeStatus.PURGED, stage="purged", qdrant_deleted=True,
-            sqlite_deleted=sqlite_deleted,
+            status=PurgeStatus.PURGED, stage="purged", vector_deleted=True,
         )
 
     def purge_eligible(self, *, limit: int = 100) -> list[PurgeOutcome]:
@@ -463,36 +414,36 @@ class DeletionCoordinatorRuntime:
     ) -> PurgeOutcome:
         """Vector delete first, authoritative tombstone second.
 
-        Qdrant vectors are removed before the PostgreSQL tombstone is
+        Vector points are removed before the PostgreSQL tombstone is
         raised so a query barrier can never expose a hit whose vectors are
         already gone.  Re-running is idempotent (delete + tombstone upsert).
         """
-        if self._qdrant is None:
+        if self._vector is None:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
                 status=PurgeStatus.FAILED,
-                reason="qdrant-interface-missing",
+                reason="vector-interface-missing",
             )
         try:
             deleted = await self._maybe_await(
-                self._qdrant.delete_resource(module_id, resource_id)
+                self._vector.delete_resource(module_id, resource_id)
             )
         except Exception as exc:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=False,
-                reason=f"qdrant-delete-failed: {exc}",
+                status=PurgeStatus.FAILED, vector_deleted=False,
+                reason=f"vector-delete-failed: {exc}",
             )
         if deleted is False or deleted is None:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=False,
-                reason="qdrant-delete-unsuccessful",
+                status=PurgeStatus.FAILED, vector_deleted=False,
+                reason="vector-delete-unsuccessful",
             )
         if self._tombstone_raiser is None:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=True,
+                status=PurgeStatus.FAILED, vector_deleted=True,
                 reason="tombstone-raiser-missing",
             )
         try:
@@ -508,12 +459,12 @@ class DeletionCoordinatorRuntime:
         except Exception as exc:
             return PurgeOutcome(
                 resource_id=resource_id, module_id=module_id,
-                status=PurgeStatus.FAILED, qdrant_deleted=True,
+                status=PurgeStatus.FAILED, vector_deleted=True,
                 reason=f"tombstone-raise-failed: {exc}",
             )
         return PurgeOutcome(
             resource_id=resource_id, module_id=module_id,
-            status=PurgeStatus.PURGED, qdrant_deleted=True,
+            status=PurgeStatus.PURGED, vector_deleted=True,
             reason=None,
         )
 
