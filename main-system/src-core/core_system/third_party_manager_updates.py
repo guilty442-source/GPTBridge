@@ -68,6 +68,17 @@ class ThirdPartyUpdateMixin:
 
         command, args, version_regex = probe_spec
         executable = shutil.which(command)
+        if tool_id == "python":
+            venv_python = (
+                self._inventory_path.parents[3]
+                / "main-system"
+                / ".venv"
+                / "Scripts"
+                / "python.exe"
+            )
+            if venv_python.is_file():
+                executable = str(venv_python)
+                command = executable
         if executable is None:
             info.error = f"executable '{command}' not found in PATH"
             self._version_cache[tool_id] = info

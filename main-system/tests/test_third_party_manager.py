@@ -107,8 +107,8 @@ class TestThirdPartyManagerInit:
     def test_is_auto_updatable(self, inventory_file: Path) -> None:
         manager = ThirdPartyManager(inventory_file)
         assert manager.is_auto_updatable("uv") is True
-        assert manager.is_auto_updatable("npm") is True
         assert manager.is_auto_updatable("ollama") is True
+        assert manager.is_auto_updatable("npm") is False
         assert manager.is_auto_updatable("git") is False
         assert manager.is_auto_updatable("python") is False
 
@@ -256,9 +256,9 @@ class TestStatus:
 class TestAutoUpdatableTools:
     def test_auto_updatable_set_contents(self) -> None:
         assert "uv" in AUTO_UPDATABLE_TOOLS
-        assert "npm" in AUTO_UPDATABLE_TOOLS
         assert "ollama" in AUTO_UPDATABLE_TOOLS
-        assert "electron" in AUTO_UPDATABLE_TOOLS
+        assert "npm" not in AUTO_UPDATABLE_TOOLS
+        assert "electron" not in AUTO_UPDATABLE_TOOLS
         assert "git" not in AUTO_UPDATABLE_TOOLS
         assert "python" not in AUTO_UPDATABLE_TOOLS
         assert "postgresql" not in AUTO_UPDATABLE_TOOLS
