@@ -52,6 +52,10 @@ class PgUnavailable(RuntimeError):
 # ---------------------------------------------------------------------------
 
 _PRAGMA_RE = re.compile(r"^\s*PRAGMA\b", re.IGNORECASE)
+_PRAGMA_TABLE_INFO_RE = re.compile(
+    r"^\s*PRAGMA\s+table_info\s*\(\s*['\"]?([A-Za-z_][\w$]*)['\"]?\s*\)\s*;?\s*$",
+    re.IGNORECASE,
+)
 _SQLITE_MASTER_RE = re.compile(
     r"SELECT\s+name\s+FROM\s+sqlite_master\s+WHERE\s+type\s*=\s*'table'",
     re.IGNORECASE,
@@ -76,6 +80,18 @@ def translate(statement: str) -> str:
     not part of a psycopg placeholder is escaped first.
     """
     stmt = statement.strip()
+    pragma_info = _PRAGMA_TABLE_INFO_RE.match(stmt)
+    if pragma_info:
+        table = pragma_info.group(1).replace('"', '""')
+        return (
+            "SELECT ordinal_position - 1 AS cid, column_name AS name, "
+            "data_type AS type, "
+            "CASE WHEN is_nullable = 'NO' THEN 1 ELSE 0 END AS \"notnull\", "
+            "column_default AS dflt_value, 0 AS pk "
+            "FROM information_schema.columns "
+            f"WHERE table_schema = current_schema() AND table_name = '{table}' "  # sql-ok: identifier validated by _PRAGMA_TABLE_INFO_RE charset
+            "ORDER BY ordinal_position"
+        )
     if _PRAGMA_RE.match(stmt):
         return ""
     if _BEGIN_RE.match(stmt):

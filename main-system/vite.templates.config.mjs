@@ -4,7 +4,8 @@ import { defineConfig } from "vite";
 export default defineConfig({ build: {
 	outDir: resolve(import.meta.dirname, "dist-ui/templates"),
 	emptyOutDir: true,
-	minify: false,
+	// Perf: node CJS bundle — esbuild minify shrinks disk + load IO.
+	minify: true,
 	target: "node18",
 	rollupOptions: {
 		input: {

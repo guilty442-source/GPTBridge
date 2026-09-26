@@ -66,17 +66,19 @@ function sameCapacityBreakdown(
 ): boolean {
   if (a === b) return true
   if (!a || !b) return false
+  // Optional chaining: normalizeCapacityBreakdown may yield partial shapes;
+  // a throw inside a setState updater would break rendering — never throw.
   return (
-    a.program.sizeBytes === b.program.sizeBytes &&
-    a.program.fileCount === b.program.fileCount &&
-    a.runtime.sizeBytes === b.runtime.sizeBytes &&
-    a.runtime.fileCount === b.runtime.fileCount &&
-    a.userData.sizeBytes === b.userData.sizeBytes &&
-    a.userData.fileCount === b.userData.fileCount &&
-    a.cache.sizeBytes === b.cache.sizeBytes &&
-    a.cache.fileCount === b.cache.fileCount &&
-    a.backups.sizeBytes === b.backups.sizeBytes &&
-    a.backups.fileCount === b.backups.fileCount
+    a.program?.sizeBytes === b.program?.sizeBytes &&
+    a.program?.fileCount === b.program?.fileCount &&
+    a.runtime?.sizeBytes === b.runtime?.sizeBytes &&
+    a.runtime?.fileCount === b.runtime?.fileCount &&
+    a.userData?.sizeBytes === b.userData?.sizeBytes &&
+    a.userData?.fileCount === b.userData?.fileCount &&
+    a.cache?.sizeBytes === b.cache?.sizeBytes &&
+    a.cache?.fileCount === b.cache?.fileCount &&
+    a.backups?.sizeBytes === b.backups?.sizeBytes &&
+    a.backups?.fileCount === b.backups?.fileCount
   )
 }
 
@@ -248,7 +250,10 @@ export function useToolboxApplications({
             tool.codePath === sized.codePath &&
             tool.projectSizeBytes === sized.projectSizeBytes &&
             tool.projectFileCount === sized.projectFileCount &&
-            tool.capacityBreakdown === sized.capacityBreakdown
+            sameCapacityBreakdown(
+              tool.capacityBreakdown,
+              sized.capacityBreakdown
+            )
           ) {
             return tool
           }
