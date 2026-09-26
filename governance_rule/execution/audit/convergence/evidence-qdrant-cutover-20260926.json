@@ -1,0 +1,31 @@
+{
+ "artifact": "vector-engine-cutover-evidence",
+ "schema": "vector-cutover-evidence/v1",
+ "generated_at_utc": "2026-09-26T00:14:28Z",
+ "source_qdrant": {
+  "endpoint": "127.0.0.1:6333",
+  "collection": "gptbridge_shared_knowledge",
+  "points_count": 0,
+  "aliases": {},
+  "dimension": 2560,
+  "distance": "Cosine",
+  "note": "collection present but empty; WAL/segment files are allocated-but-empty capacity"
+ },
+ "target_vectord": {
+  "endpoint": "127.0.0.1:8092",
+  "contract": "vectord/v1",
+  "collection": "gptbridge_shared_knowledge",
+  "dimension": 2560,
+  "points_count": 0,
+  "snapshot": "Standalone tools/vectord-rs/runtime/vectord-snapshot.bin"
+ },
+ "migration": "no-op: zero points and zero aliases in source; schema re-created at identical dimension 2560/cosine",
+ "consumer_verification": [
+  "rust unit tests 6/6 (store.rs incl. exact-match regression)",
+  "adapter contract tests 9/9 (rust_vector_runtime)",
+  "RAG+startup+readiness suite 281 passed",
+  "live smoke: upsert/scope-search/unscoped-deny/alias/tombstone/dimension-deny/payload-sanitize/snapshot-reload",
+  "readiness gate: semantic_ready sourced from vectord probe (7/7)"
+ ],
+ "data_safety": "source storage retained at Standalone tools/local-model/runtime/qdrant; no deletion performed"
+}
