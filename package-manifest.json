@@ -15,7 +15,7 @@
     "typescript": "TypeScript 7.0.2",
     "electron": "Electron 44.4.5",
     "postgresql": "PostgreSQL 18.6",
-    "postgresql_installed": "17.11 (postgresql-x64-17 running; postgresql-x64-18 binaries installed at C:/Program Files/PostgreSQL/18, engine migration pending)",
+    "postgresql_installed": "18.6 (postgresql-x64-18 on :5432; postgresql-x64-17 retired)",
     "sqlite": "disabled",
     "git": "Git 2.55.0",
     "nodejs_runtime": "v26.9.0",
@@ -93,5 +93,5 @@
     "tzdata": "2026.4",
     "websockets": "16.1.1"
   },
-  "nuget": "  甇典斗瑁撠獢...\n  撠獢賢冽啁嚗舫脰\n撠獢 'StarBusinessLogic' 隞乩憟隞嗅\n   [net10.0]: 曆唬遙雿甇 Framework 憟隞嗚\n"
+  "nuget": "  ?�典?��??�獢...\n  ?�獢賢冽?��??�脰\n?�獢 'StarBusinessLogic' ?�乩?��??�\n   [net10.0]: ?�唬?�雿??Framework ?��??�\n"
 }

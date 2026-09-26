@@ -183,19 +183,12 @@ class GitAutomationService:
         native = self._dirwatch_native()
         if native is None or self._dirwatch_thread is not None:
             return
-        try:
-            worktrees = self._list_worktrees()[: self._DIRWATCH_MAX_HANDLES]
-        except Exception:
-            return
-        for worktree in worktrees:
-            try:
-                handle = int(native.dirwatch_open(worktree))
-            except Exception:
-                continue
-            if handle:
-                self._dirwatch_handles[worktree] = handle
-        if not self._dirwatch_handles:
-            return
+        # Worktree enumeration runs a git subprocess and each handle open
+        # is a syscall — doing either on the caller's event loop stalls
+        # every concurrent coroutine (health probes included) and defeats
+        # wait_for timeouts on the startup phase.  The pump thread owns
+        # enumeration + open instead; until the first handles land, the
+        # TTL sweep alone keeps snapshots fresh (unchanged fail-soft).
         self._dirwatch_stop.clear()
         self._dirwatch_thread = threading.Thread(
             target=self._dirwatch_pump,
@@ -204,10 +197,6 @@ class GitAutomationService:
             name="git-automation-dirwatch",
         )
         self._dirwatch_thread.start()
-        _logger.info(
-            "git automation dirwatch on %d worktree(s)",
-            len(self._dirwatch_handles),
-        )
 
     def _stop_dirwatch(self) -> None:
         self._dirwatch_stop.set()
@@ -232,6 +221,26 @@ class GitAutomationService:
         sweep so the debounce clock starts early."""
         from governance_rule.execution.git_automation_facade import (
             notify_changed,
+        )
+
+        try:
+            worktrees = self._list_worktrees()[: self._DIRWATCH_MAX_HANDLES]
+        except Exception:
+            worktrees = []
+        for worktree in worktrees:
+            try:
+                handle = int(native.dirwatch_open(worktree))
+            except Exception:
+                continue
+            if handle:
+                self._dirwatch_handles[worktree] = handle
+        if not self._dirwatch_handles:
+            # Nothing to watch — same outcome as before (no pump); the
+            # sweep TTL still covers change detection.
+            return
+        _logger.info(
+            "git automation dirwatch on %d worktree(s)",
+            len(self._dirwatch_handles),
         )
 
         while not self._dirwatch_stop.is_set():

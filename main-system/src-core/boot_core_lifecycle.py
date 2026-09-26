@@ -233,9 +233,38 @@ class BootCoreLifecycleMixin:
         except Exception:
             pass
 
+    def _kill_process_tree(self, child: subprocess.Popen[bytes]) -> bool:
+        """Terminate a spawned backend and all of its descendants.
+
+        The spawned interpreter is a venv redirector (``pythonw.exe`` in the
+        deployment venv) which launches the real backend interpreter as a
+        child process.  ``Popen.terminate`` only signals the redirector —
+        the real backend survives orphaned, keeps the IPC port bound, and
+        turns into a zombie that answers nothing while the next
+        generation's probes keep hitting it.  Kill the whole tree.
+        """
+        if os.name != "nt":
+            return False
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(child.pid), "/T", "/F"],
+                capture_output=True,
+                timeout=15,
+                creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0) or 0),
+            )
+        except Exception:
+            return False
+        try:
+            child.wait(timeout=10)
+        except Exception:
+            pass
+        return True
+
     def _terminate_child(self) -> None:
         child = self._child
         if child is None or child.poll() is not None:
+            return
+        if self._kill_process_tree(child):
             return
         try:
             child.terminate()
@@ -248,6 +277,8 @@ class BootCoreLifecycleMixin:
 
     def _terminate_process(self, child: subprocess.Popen[bytes]) -> None:
         if child.poll() is not None:
+            return
+        if self._kill_process_tree(child):
             return
         try:
             child.terminate()

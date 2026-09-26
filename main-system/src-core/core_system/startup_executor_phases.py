@@ -99,26 +99,38 @@ class StartupExecutorPhasesMixin:
     async def _phase_read_official_codex(self, record: PhaseRecord) -> None:
         """PHASE-2: read the official codex and verify runtime integrity."""
         app = self.app  # type: ignore[attr-defined]
-        if app.governance is None:
-            from core_system.governance_runtime import MainSystemGovernance
-
-            app.governance = MainSystemGovernance.from_environment(app.project_root)
         # A435: read the official codex identity through the official
         # entry bounded lookup — never a direct repository call.
         from governance_rule.execution.codex_reconcile import bounded_lookup
 
-        identity = await asyncio.to_thread(
+        # A199 PARALLELISM: the codex identity lookup (PostgreSQL
+        # round-trip) is independent of the launch-credential load —
+        # run both concurrently instead of serialising them.
+        identity_task = asyncio.ensure_future(asyncio.to_thread(
             bounded_lookup,
             "startup-executor",
             purpose="status",
             scope=("codex:identity",),
             reader=lambda ctx: ctx.codex_identity(),
-        )
-        integrity = False
+        ))
         try:
-            integrity = bool(app.governance.runtime_integrity_ready())
-        except Exception:
+            if app.governance is None:
+                from core_system.governance_runtime import (
+                    MainSystemGovernance,
+                )
+
+                app.governance = await asyncio.to_thread(
+                    MainSystemGovernance.from_environment, app.project_root
+                )
             integrity = False
+            try:
+                integrity = bool(app.governance.runtime_integrity_ready())
+            except Exception:
+                integrity = False
+            identity = await identity_task
+        finally:
+            if not identity_task.done():
+                identity_task.cancel()
         if not integrity:
             raise RuntimeError("official-codex-integrity-unverified")
         record.detail["codex_version"] = identity["codex_version"]

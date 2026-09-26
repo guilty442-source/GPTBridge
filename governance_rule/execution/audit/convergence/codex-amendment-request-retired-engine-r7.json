@@ -1,0 +1,793 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "retired-engine-r7",
+  "title": "[r7] Retire Qdrant/SQLite entries in non-article registries; sync control rules to vectord era",
+  "summary": "Companion to qdrant-cutover-rust-vector-engine-20260926-r2 (articles-only). Synchronizes the non-article registries with the executed physical retirement: 31 a233 directory entries (QDRANT_AUTHORITY architecture, QDRANT_*/LOCAL_SQLITE_* fault codes with zero emitters, TF_/TS_ qdrant test identities, 24 DSA entries whose PostgreSQL objects no longer exist), 24 data_schema_authority_directory rows, the QDRANT_AUTHORITY activation state, and 7 data_governance_control_registry rules that still name Qdrant/SQLite as live stores. Bounded SQLite usage remains lawful under A8; this request retires only entries that reference objects, engines or emitters that no longer exist.",
+  "requested_by": "decision-sovereign",
+  "origin": "repository-wide Qdrant/SQLite production retirement convergence 2026-09-26; codex-vs-implementation audit: non-article registries still declare retired engines active; user directive: fix codex together via governed flow",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-26T15:12:35Z",
+    "version_identity": "E2:2026-09-26T15:12:35Z",
+    "version_epoch": 2,
+    "history_head": "94ab88bdf83f4bbf0a26bdb27e17c6b3d023f00df9a58f600c6197d722b476fa",
+    "revision_sequence": 82
+  },
+  "problem": {
+    "summary": "Non-article codex registries still mark retired Qdrant/SQLite artifacts active: a233_normalized_directory_entry (31 rows incl. QDRANT_AUTHORITY, dead fault codes, 24 DSA entries for dropped PostgreSQL objects), data_schema_authority_directory (24 rows for dropped objects), architecture_activation_states QDRANT_AUTHORITY active, and data_governance_control_registry rules naming Qdrant vectors/Qdrant rebuild/SQLite WAL as live governance semantics."
+  },
+  "verification": {
+    "evidence": "physical-state-verified-2026-09-26: gptbridge_index.sqlite_generation/sqlite_database_class/sqlite_template_release/qdrant_contract objects absent from PostgreSQL; no code emits QDRANT_*/LOCAL_SQLITE_* fault codes; Engine.SQLITE removed; vectord is sole vector backend; shared-layer suite 1514 passed"
+  },
+  "proposed_successors": [
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "QDRANT_AUTHORITY"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "QDRANT_READY"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "QDRANT_UNAVAILABLE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "QDRANT_UNREACHABLE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "LOCAL_SQLITE_READY"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "LOCAL_SQLITE_UNAVAILABLE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "TF_QDRANT_DEFAULT_AND_RAG_RECONCILIATION"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "TS_QDRANT_AUTHORITY"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_ENGINE_SQLITE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_CAN_WRITE_SQLITE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_DEPRECATE_QDRANT_CONTRACT"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_GET_ACTIVE_QDRANT_CONTRACT"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_GET_ACTIVE_SQLITE_TEMPLATE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_REGISTER_QDRANT_CONTRACT"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_REGISTER_SQLITE_TEMPLATE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_RETIRE_QDRANT_CONTRACT"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_UPSERT_SQLITE_CLASS"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_UPSERT_SQLITE_GENERATION"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_INDEX_SQLITE_CLASS_IDX"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_INDEX_SQLITE_GENERATION_STALE_IDX"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_QDRANT_CONTRACT_READ"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_QDRANT_CONTRACT_WRITE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_CLASS_READ"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_CLASS_WRITE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_GENERATION_READ"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_GENERATION_WRITE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_TPL_READ"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_TPL_WRITE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_TABLE_GPTBRIDGE_INDEX_QDRANT_CONTRACT"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_TABLE_GPTBRIDGE_INDEX_SQLITE_DATABASE_CLASS"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_TABLE_GPTBRIDGE_INDEX_SQLITE_GENERATION"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "a233_normalized_directory_entry",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_TABLE_GPTBRIDGE_INDEX_SQLITE_TEMPLATE_RELEASE"
+      },
+      "set": {
+        "status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_ENGINE_SQLITE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_CAN_WRITE_SQLITE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_DEPRECATE_QDRANT_CONTRACT"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_GET_ACTIVE_QDRANT_CONTRACT"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_GET_ACTIVE_SQLITE_TEMPLATE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_REGISTER_QDRANT_CONTRACT"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_REGISTER_SQLITE_TEMPLATE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_RETIRE_QDRANT_CONTRACT"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_UPSERT_SQLITE_CLASS"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_FUNCTION_GPTBRIDGE_INDEX_UPSERT_SQLITE_GENERATION"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_INDEX_SQLITE_CLASS_IDX"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_INDEX_SQLITE_GENERATION_STALE_IDX"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_QDRANT_CONTRACT_READ"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_QDRANT_CONTRACT_WRITE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_CLASS_READ"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_CLASS_WRITE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_GENERATION_READ"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_GENERATION_WRITE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_TPL_READ"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_POLICY_SQLITE_TPL_WRITE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_TABLE_GPTBRIDGE_INDEX_QDRANT_CONTRACT"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_TABLE_GPTBRIDGE_INDEX_SQLITE_DATABASE_CLASS"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_TABLE_GPTBRIDGE_INDEX_SQLITE_GENERATION"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_schema_authority_directory",
+      "action": "update",
+      "key": {
+        "entry_code": "DSA_TABLE_GPTBRIDGE_INDEX_SQLITE_TEMPLATE_RELEASE"
+      },
+      "set": {
+        "lifecycle_status": "retired",
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "registry": "architecture_activation_states",
+      "action": "update",
+      "key": {
+        "architecture_code": "QDRANT_AUTHORITY"
+      },
+      "set": {
+        "current_state": "retired",
+        "required_state": "retired",
+        "changed_at_utc": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_governance_control_registry",
+      "action": "update",
+      "key": {
+        "control_code": "DATA_LINEAGE"
+      },
+      "set": {
+        "control_rule": "Every central resource records source_module,source_revision,generation_method,synchronization_path,last_writer and reversible bounded-local>PostgreSQL>Rust-Vector-Engine lineage.",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_governance_control_registry",
+      "action": "update",
+      "key": {
+        "control_code": "TWO_PHASE_DELETION"
+      },
+      "set": {
+        "control_rule": "Deletion is tombstone>retention-window>purge and synchronizes PostgreSQL indexes,bounded module-private state and Rust-Vector-Engine vectors.",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_governance_control_registry",
+      "action": "update",
+      "key": {
+        "control_code": "ORPHAN_SCANNER"
+      },
+      "set": {
+        "control_rule": "Periodic scans detect PostgreSQL resources without locators,Rust-Vector-Engine points without chunks and bounded pending resources without PostgreSQL authority.",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_governance_control_registry",
+      "action": "update",
+      "key": {
+        "control_code": "REBUILD_CERTIFICATION"
+      },
+      "set": {
+        "control_rule": "Rust-Vector-Engine rebuild,PostgreSQL restore and bounded-state repair remain non-serving until count,hash,revision,RLS and locator checks pass.",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_governance_control_registry",
+      "action": "update",
+      "key": {
+        "control_code": "DATA_SLO"
+      },
+      "set": {
+        "control_rule": "Central query p95,transport claim latency,reconcile backlog,bounded-store contention rate,Rust-Vector-Engine stale rate and restore success have registered objectives.",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_governance_control_registry",
+      "action": "update",
+      "key": {
+        "control_code": "RPO_RTO_CLASS"
+      },
+      "set": {
+        "control_rule": "Central PostgreSQL,governance Codex bounded store,module bounded state and Rust-Vector-Engine use distinct registered RPO and RTO classes.",
+        "version_identity": "<successor-version>"
+      }
+    },
+    {
+      "registry": "data_governance_control_registry",
+      "action": "update",
+      "key": {
+        "control_code": "CAPACITY_WATERMARK"
+      },
+      "set": {
+        "control_rule": "Disk,WAL,transport backlog,bounded-store growth and Rust-Vector-Engine collection size use warning,critical and fail-closed watermarks.",
+        "version_identity": "<successor-version>"
+      }
+    }
+  ],
+  "resubmission_of": "retired-engine-registry-sync-20260926",
+  "resubmission_reason": "round-3: rejected"
+}

@@ -24,6 +24,7 @@ duty still runs; the overall report aggregates per-duty results.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import subprocess
 import sys
@@ -36,6 +37,7 @@ from .versioning import component_version
 MAIN_SYSTEM_TOOL_ID: Final[str] = "main-system"
 DEFAULT_INTERVAL_SECONDS: Final[float] = 6 * 60 * 60
 MIN_INTERVAL_SECONDS: Final[float] = 60.0
+SYNTAX_SCAN_TIMEOUT_SECONDS: Final[float] = 240.0
 SELF_MAINTENANCE_VERSION: Final[str] = component_version("main-system-self-maintenance")
 
 
@@ -44,8 +46,10 @@ class MainSystemSelfMaintenance:
 
     The service is constructed with a project root and an optional governance
     authentication service (used only for the read-only integrity verify
-    duty).  The heavy repair/cleanup code runs in a worker thread via
-    ``asyncio.to_thread`` so the mother process stays responsive.
+    duty).  The heavy repair/cleanup code runs off the event loop — in a
+    worker thread via ``asyncio.to_thread`` or, for the GIL-bound source
+    syntax sweep, in a dedicated subprocess — so the mother process stays
+    responsive.
     """
 
     VERSION = SELF_MAINTENANCE_VERSION
@@ -285,61 +289,82 @@ class MainSystemSelfMaintenance:
                 "skipped": True,
                 "reason": "stability-fix-runs-only-at-startup",
             }
-        try:
-            from tasks.source_repair import SourceRepairService, syntax_problems
-        except Exception as error:
+        source_repair = self.project_root / "main-system" / "src-core" / "tasks" / "source_repair.py"
+        if not source_repair.is_file():
             return {
                 "ok": False,
                 "duty": "stability-fix",
-                "error": f"{type(error).__name__}: {error}",
+                "error": "source-repair-module-not-found",
             }
 
         def _check() -> dict[str, Any]:
-            service = SourceRepairService(self.project_root)
-            problems: list[dict[str, Any]] = []
+            # The syntax sweep is pure GIL-bound CPU work (read_text +
+            # compile() per source).  Running it in-process starves the
+            # event loop for the whole pass, so the probe is delegated to
+            # a dedicated subprocess — identical report semantics, zero
+            # GIL contention with the supervisor health path (A199).
+            env = dict(os.environ)
+            src_core = str(source_repair.parent.parent)
+            shared_src = str(
+                self.project_root / "shared-layer" / "src"
+            )
+            extra = os.pathsep.join((src_core, shared_src))
+            env["PYTHONPATH"] = (
+                f"{extra}{os.pathsep}{env['PYTHONPATH']}"
+                if env.get("PYTHONPATH")
+                else extra
+            )
+            # sys.executable may be a windowed pythonw redirector whose
+            # stdio is not forwarded through capture pipes — prefer the
+            # console-subsystem python.exe from the same environment.
+            interpreter = str(Path(sys.executable).with_name("python.exe"))
+            if not Path(interpreter).is_file():
+                interpreter = sys.executable
             try:
-                sources = service.python_sources()
-            except Exception as probe_error:
+                result = subprocess.run(
+                    [
+                        interpreter,
+                        "-B",
+                        "-m",
+                        "tasks.source_repair",
+                        "--syntax-scan",
+                        "--project-root",
+                        str(self.project_root),
+                    ],
+                    cwd=src_core,
+                    capture_output=True,
+                    text=True,
+                    timeout=SYNTAX_SCAN_TIMEOUT_SECONDS,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                    env=env,
+                )
+            except subprocess.TimeoutExpired:
                 return {
                     "ok": False,
                     "probed_sources": 0,
-                    "problems": problems,
-                    "error": f"{type(probe_error).__name__}: {probe_error}",
+                    "problems": [],
+                    "error": "syntax-scan-timeout",
                 }
-            from concurrent.futures import ThreadPoolExecutor
-
-            def _problem(source_path: Path) -> dict[str, Any] | None:
-                problem = syntax_problems(source_path)
-                if problem.get("ok"):
-                    return None
+            if not result.stdout.strip():
+                detail = (result.stderr or "").strip().splitlines()
                 return {
-                    "file": str(
-                        source_path.relative_to(self.project_root).as_posix()
+                    "ok": False,
+                    "probed_sources": 0,
+                    "problems": [],
+                    "error": (
+                        f"syntax-scan-exit-{result.returncode}"
+                        + (f":{detail[-1]}" if detail else "")
                     ),
-                    "error": problem.get("error"),
-                    "message": problem.get("message"),
                 }
-
-            # ast.parse is I/O+CPU per file; scanning all sources serially
-            # is a measurable startup cost — bounded parallel scan instead.
-            from shared_layer.performance.thread_budget import (
-                bounded_workers,
-            )
-
-            with ThreadPoolExecutor(
-                max_workers=bounded_workers(len(sources)),
-                thread_name_prefix="stability-scan",
-            ) as executor:
-                problems = [
-                    item
-                    for item in executor.map(_problem, sources)
-                    if item is not None
-                ]
-            return {
-                "ok": len(problems) == 0,
-                "probed_sources": len(sources),
-                "problems": problems,
-            }
+            try:
+                return json.loads(result.stdout)
+            except ValueError as error:
+                return {
+                    "ok": False,
+                    "probed_sources": 0,
+                    "problems": [],
+                    "error": f"{type(error).__name__}: {error}",
+                }
 
         try:
             report = await asyncio.to_thread(_check)

@@ -403,9 +403,49 @@ def _record_single_code_repair(
     )
 
 
+def syntax_scan_report(project_root: Path) -> dict[str, Any]:
+    """Read-only syntax probe over all governed backend sources.
+
+    The scan is deliberately serial: callers run this inside a dedicated
+    subprocess so the GIL-bound ``compile()`` sweep cannot starve the
+    host process's event loop during startup.
+    """
+    project_root = project_root.resolve()
+    service = SourceRepairService(project_root)
+    problems: list[dict[str, Any]] = []
+    try:
+        sources = service.python_sources()
+    except Exception as probe_error:
+        return {
+            "ok": False,
+            "probed_sources": 0,
+            "problems": problems,
+            "error": f"{type(probe_error).__name__}: {probe_error}",
+        }
+    for source_path in sources:
+        problem = syntax_problems(source_path)
+        if problem.get("ok"):
+            continue
+        problems.append(
+            {
+                "file": str(
+                    source_path.relative_to(project_root).as_posix()
+                ),
+                "error": problem.get("error"),
+                "message": problem.get("message"),
+            }
+        )
+    return {
+        "ok": len(problems) == 0,
+        "probed_sources": len(sources),
+        "problems": problems,
+    }
+
+
 def _cli() -> int:
     parser = argparse.ArgumentParser(description="main-system source auto-repair agent")
     parser.add_argument("--self-repair", action="store_true")
+    parser.add_argument("--syntax-scan", action="store_true")
     parser.add_argument("--project-root", default=None)
     parser.add_argument("--no-record", action="store_true")
     arguments = parser.parse_args()
@@ -423,6 +463,9 @@ def _cli() -> int:
         if report.get("errors"):
             return 3
         return 0 if report.get("ok") else 2
+    if arguments.syntax_scan:
+        print(json.dumps(syntax_scan_report(project_root), ensure_ascii=False))
+        return 0
     print(json.dumps({"ok": True, "probe": "dry-run-only"}))
     return 0
 
@@ -436,6 +479,7 @@ __all__ = [
     "orphan_candidate_indices",
     "self_repair_sources",
     "syntax_problems",
+    "syntax_scan_report",
 ]
 
 if __name__ == "__main__":

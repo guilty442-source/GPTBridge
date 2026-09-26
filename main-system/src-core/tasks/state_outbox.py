@@ -256,27 +256,30 @@ class OutboxPublisher:
                     "outbox drain exceeded %.0fs deadline",
                     _DRAIN_DEADLINE_SECONDS,
                 )
-                # §10.63 R3: deadline-driven wait — with no pending retries
-                # the loop sleeps purely on the event wake; pending retries
-                # wake at the earliest retry deadline instead of a fixed
-                # POLL_INTERVAL_SECONDS poll.
-                next_retry = self._next_retry_deadline()
-                if self._native_shadow is not None:
-                    self._native_shadow.observe_retry_deadline(next_retry)
-                if next_retry is None:
-                    await self._wake.wait()
-                else:
-                    try:
-                        await asyncio.wait_for(
-                            self._wake.wait(),
-                            timeout=max(0.05, next_retry - time.monotonic()),
-                        )
-                    except asyncio.TimeoutError:
-                        pass
             except asyncio.CancelledError:
                 raise
             except Exception:
                 await asyncio.sleep(POLL_INTERVAL_SECONDS)
+                continue
+            # §10.63 R3: deadline-driven wait — with no pending retries
+            # the loop sleeps purely on the event wake; pending retries
+            # wake at the earliest retry deadline instead of a fixed
+            # POLL_INTERVAL_SECONDS poll.  This must run after EVERY
+            # drain pass — without it an empty drain hot-spins the
+            # publisher and starves the event loop.
+            next_retry = self._next_retry_deadline()
+            if self._native_shadow is not None:
+                self._native_shadow.observe_retry_deadline(next_retry)
+            if next_retry is None:
+                await self._wake.wait()
+            else:
+                try:
+                    await asyncio.wait_for(
+                        self._wake.wait(),
+                        timeout=max(0.05, next_retry - time.monotonic()),
+                    )
+                except asyncio.TimeoutError:
+                    pass
 
     def _next_retry_deadline(self) -> float | None:
         """Earliest unacked retry deadline across sessions (monotonic)."""

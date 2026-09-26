@@ -184,11 +184,23 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
             pre_executor_ms=pre_executor_ms,
         )
         handlers = self._handlers()
+        # A199 BUDGET-CARRY: unused budget from earlier phases transfers
+        # forward — a phase's effective bound is its declared share plus
+        # whatever earlier phases left unspent, capped by the single
+        # complete-startup deadline.  Strict per-phase caps without carry
+        # contradicted the codified carry-forward rule and killed phases
+        # that were comfortably inside the 20 s total.
+        carry_ms = 0.0
 
         for phase_id in phases:
             elapsed_ms = int((time.monotonic() - started) * 1000)
             remaining_ms = deadline_ms - elapsed_ms
-            budget_ms = min(int(budgets.get(phase_id, remaining_ms)), remaining_ms)
+            declared_ms = budgets.get(phase_id)
+            budget_ms = (
+                remaining_ms
+                if declared_ms is None
+                else min(int(declared_ms) + int(carry_ms), remaining_ms)
+            )
             record = PhaseRecord(phase_id=phase_id, budget_ms=budget_ms)
             result.phases.append(record)
 
@@ -224,6 +236,11 @@ class StartupSovereignExecutor(StartupExecutorPhasesMixin):
                 record.duration_ms = int((time.monotonic() - started) * 1000) - (
                     elapsed_ms
                 )
+                if declared_ms is not None:
+                    carry_ms = max(
+                        0.0,
+                        carry_ms + float(declared_ms) - record.duration_ms,
+                    )
 
         result.elapsed_ms = int((time.monotonic() - started) * 1000)
         result.bottleneck = self._bottleneck(result.phases)
