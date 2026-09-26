@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 import logging
 from contextlib import contextmanager
 from pathlib import Path
@@ -97,8 +98,8 @@ class _ConnectionPool:
                     self._in_use.add(id(conn))
                     yield conn
                     return
-            # Wait for a connection
-            import time
+            # Wait for a connection (low-CPU: 50ms granularity is ample
+            # for a multi-second pool timeout; avoids 100Hz spin).
             start = time.monotonic()
             while time.monotonic() - start < self._timeout:
                 with self._lock:
@@ -107,13 +108,15 @@ class _ConnectionPool:
                         self._in_use.add(id(conn))
                         yield conn
                         return
-                time.sleep(0.01)
+                time.sleep(0.05)
             raise TimeoutError("connection pool exhausted")
         finally:
             if conn is not None:
                 with self._lock:
                     self._in_use.discard(id(conn))
-                    if not self._closed and len(self._pool) < self._min:
+                    # Perf: retain up to max (not min) to avoid
+                    # close/reconnect churn under bursty concurrency.
+                    if not self._closed and len(self._pool) < self._max:
                         self._pool.append(conn)
                     else:
                         try:
