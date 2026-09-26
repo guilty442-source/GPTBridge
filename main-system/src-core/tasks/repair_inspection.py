@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import sqlite3
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -23,20 +22,15 @@ def _iso_now() -> str:
 
 
 def database_integrity(path: Path, owner: str | None = None) -> str:
+    """A610/A621: sqlite engines are retired — a file carrying the SQLite
+    magic header is *residue*, not a database to open.  Detection stays
+    header-only; the corrupt-file preservation flow upstream still copies
+    any hit into the recovery root as evidence."""
     raw = path.read_bytes()
     if raw[:1] == b"{" and owner is not None:
-        raise sqlite3.DatabaseError("protected database verification belongs to the owner tool")
-    if raw[:16] != b"SQLite format 3\x00":
-        raise sqlite3.DatabaseError("not a valid SQLite file")
-    connection = sqlite3.connect(
-        f"file:{path.as_posix()}?mode=ro", uri=True, timeout=3
-    )
-    try:
-        result = connection.execute("PRAGMA integrity_check").fetchone()
-    finally:
-        connection.close()
-    if not result or str(result[0]).casefold() != "ok":
-        raise sqlite3.DatabaseError(str(result))
+        raise ValueError("protected database verification belongs to the owner tool")
+    if raw[:16] == b"SQLite format 3\x00":
+        raise ValueError("RETIRED_SQLITE_RESIDUE")
     return "ok"
 
 
@@ -243,7 +237,7 @@ def _inspect_database(
     try:
         database_integrity(database)
         return (relative_project, "checked", "", "")
-    except (OSError, sqlite3.DatabaseError) as error:
+    except (OSError, ValueError) as error:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         destination = recovery_root / f"{database.name}.{stamp}.corrupt"
         try:
