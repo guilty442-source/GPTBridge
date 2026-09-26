@@ -354,32 +354,35 @@ class DatabaseRecoveryInspector:
 
 
 class RepairRunStore:
+    """Per-tool repair run log (A610/A621: ``gptbridge_repair.repair_runs``).
+
+    The retired per-tool ``automatic-repair.sqlite3`` files were merged
+    into the shared PostgreSQL table keyed by ``target_tool_id``; the
+    ``database_root`` argument is accepted for signature parity.
+    """
+
     def __init__(self, database_root: Path) -> None:
         self.database_root = database_root.resolve()
-        self._connections: dict[str, tuple[sqlite3.Connection, Path]] = {}
+        self._connection: Any = None
         self._connection_lock = threading.RLock()
 
-    def _connect(self, target_id: str) -> tuple[sqlite3.Connection, Path]:
-        cached = self._connections.get(target_id)
-        if cached is not None:
-            return cached
-        owner_root = self.database_root / target_id
-        owner_root.mkdir(parents=True, exist_ok=True)
-        path = owner_root / "automatic-repair.sqlite3"
-        connection = sqlite3.connect(path, timeout=10)
-        connection.execute("PRAGMA journal_mode=WAL")
-        connection.execute("PRAGMA synchronous=NORMAL")
-        connection.execute(
-            "CREATE TABLE IF NOT EXISTS repair_runs ("
-            "run_id TEXT PRIMARY KEY, target_tool_id TEXT NOT NULL, "
-            "started_at TEXT NOT NULL, completed_at TEXT NOT NULL, "
-            "failure_code TEXT NOT NULL, ok INTEGER NOT NULL, "
-            "detail_json TEXT NOT NULL)"
-        )
-        self._connections[target_id] = (connection, path)
-        return connection, path
+    def _connect(self, target_id: str) -> tuple[Any, str]:
+        from shared_layer.local import pg_adapter
 
-    def record(self, target_id: str, result: dict[str, Any]) -> Path:
+        if self._connection is None:
+            connection = pg_adapter.connect("gptbridge_repair", autocommit=False)
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS repair_runs ("
+                "run_id TEXT PRIMARY KEY, target_tool_id TEXT NOT NULL, "
+                "started_at TEXT NOT NULL, completed_at TEXT NOT NULL, "
+                "failure_code TEXT NOT NULL, ok INTEGER NOT NULL, "
+                "detail_json TEXT NOT NULL)"
+            )
+            connection.commit()
+            self._connection = connection
+        return self._connection, "postgresql:gptbridge_repair.repair_runs"
+
+    def record(self, target_id: str, result: dict[str, Any]) -> str:
         with self._connection_lock:
             connection, path = self._connect(target_id)
             connection.execute(

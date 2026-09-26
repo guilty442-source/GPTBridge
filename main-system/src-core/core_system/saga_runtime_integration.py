@@ -144,11 +144,16 @@ class SagaRuntimeIntegration:
         module_id = str(operation.module_id)
         sqlite_path = _module_sqlite_path(module_id)
         if sqlite_path is None:
+            # A610/A621: no module-private SQLite owner DB remains —
+            # PostgreSQL is the sole structured-data authority, so there
+            # is literally nothing left to reconcile for this module.
+            operation.checkpoint["pending_after"] = 0
+            operation.checkpoint["actions"] = {"retired-sqlite-authority": 1}
             return StepResult(
                 step.step_id,
-                StepStatus.FAILED.value,
-                detail=f"MODULE_SQLITE_NOT_FOUND:{module_id}",
-                error_code="MODULE_SQLITE_NOT_FOUND",
+                StepStatus.COMPLETED.value,
+                detail=f"pending_after=0 retired-sqlite-authority:{module_id}",
+                payload={"actions": {"retired-sqlite-authority": 1}, "pending_after": 0},
             )
         batch_size = int(operation.checkpoint.get("batch_size") or DEFAULT_BATCH_SIZE)
         connection = sqlite3.connect(str(sqlite_path))
@@ -190,7 +195,8 @@ class SagaRuntimeIntegration:
         module_id = str(operation.module_id)
         sqlite_path = _module_sqlite_path(module_id)
         if sqlite_path is None:
-            return False
+            # No SQLite owner DB → PostgreSQL is already authoritative.
+            return True
         connection = sqlite3.connect(str(sqlite_path))
         try:
             from .binding.reconciliation import ReconcileService

@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import logging
 import pathlib
-import sqlite3
 import time
 from typing import Any
+
+from shared_layer.local import pg_adapter
 
 from .fault_analysis_service_types import FaultSummary
 
@@ -89,34 +90,35 @@ class FaultAnalysisCollectorsMixin:
     """Fault evidence collector methods for FaultAnalysisService."""
 
     def _collect_repair_runs(self) -> list[FaultSummary]:
-        """Collect repair run records from per-tool SQLite databases."""
+        """Collect repair run records from ``gptbridge_repair.repair_runs``.
+
+        A610/A621: per-tool ``automatic-repair.sqlite3`` files were merged
+        into the shared PostgreSQL table keyed by ``target_tool_id``.
+        """
         faults: list[FaultSummary] = []
-        if not self._repair_root.is_dir():
+        try:
+            with pg_adapter.connect("gptbridge_repair") as connection:
+                tool_rows = connection.execute(
+                    "SELECT DISTINCT target_tool_id FROM repair_runs"
+                ).fetchall()
+        except Exception as exc:
+            _logger.debug("fault_analysis_repair_runs_list err=%s", exc)
             return faults
-        for tool_dir in self._repair_root.iterdir():
-            if not tool_dir.is_dir():
+        for row in tool_rows:
+            tool_id = str(row[0] or "")
+            if not tool_id:
                 continue
-            db_path = tool_dir / "automatic-repair.sqlite3"
-            if not db_path.is_file():
-                continue
-            tool_id = tool_dir.name
             try:
-                faults.extend(self._read_repair_runs_db(db_path, tool_id))
+                faults.extend(self._read_repair_runs_db(tool_id))
             except Exception as exc:
                 _logger.debug("fault_analysis_repair_runs_skip tool=%s err=%s", tool_id, exc)
         return faults
 
     def _collect_repair_learning(self) -> list[FaultSummary]:
-        """Collect repair outcome history (current learning-store schema)."""
+        """Collect repair outcome history from ``gptbridge_repair``."""
         faults: list[FaultSummary] = []
-        db_path = self._repair_root / "repair-learning.sqlite3"
-        if not db_path.is_file():
-            return faults
         try:
-            connection = sqlite3.connect(
-                f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=3,
-            )
-            try:
+            with pg_adapter.connect("gptbridge_repair") as connection:
                 rows = connection.execute(
                     "SELECT outcome_id, signature_hash, remedy, ok, "
                     "detail_json, recorded_at FROM repair_outcomes "
@@ -124,11 +126,6 @@ class FaultAnalysisCollectorsMixin:
                     (_REPAIR_OUTCOME_SCAN_LIMIT,),
                 ).fetchall()
                 absorbed_ids = self._absorbed_learning_outcome_ids(connection)
-            except sqlite3.OperationalError:
-                rows = []
-                absorbed_ids = set()
-            finally:
-                connection.close()
             for outcome_id, sig, remedy, ok, detail_json, recorded_at in rows:
                 if str(remedy or "") == _NON_ACTIONABLE_OUTCOME_REMEDY:
                     continue
@@ -165,7 +162,7 @@ class FaultAnalysisCollectorsMixin:
         return faults
 
     def _absorbed_learning_outcome_ids(
-        self, connection: sqlite3.Connection
+        self, connection: Any
     ) -> set[str]:
         """Failure-evidence ids absorbed by reconciliation markers."""
         try:

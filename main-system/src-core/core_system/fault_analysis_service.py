@@ -15,10 +15,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import sqlite3
 import threading
 from pathlib import Path
 from typing import Any
+
+from shared_layer.local import pg_adapter
 
 from .fault_analysis_service_types import (
     _iso_now,
@@ -198,45 +199,45 @@ class FaultAnalysisService(FaultAnalysisCollectorsMixin):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _read_repair_runs_db(self, db_path: Path, tool_id: str) -> list[FaultSummary]:
-        """Read repair run records from a single tool's SQLite database."""
+    def _read_repair_runs_db(self, tool_id: str) -> list[FaultSummary]:
+        """Read repair run records for one tool from ``gptbridge_repair``.
+
+        A610/A621: the per-tool ``automatic-repair.sqlite3`` files were
+        merged into ``gptbridge_repair.repair_runs`` (ledger evidence).
+        """
         faults: list[FaultSummary] = []
-        connection = sqlite3.connect(
-            f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=3,
-        )
-        try:
-            try:
-                rows = connection.execute(
-                    "SELECT id, failure_code, error_class, error_message, "
-                    "repair_action, outcome, timestamp, target_file "
-                    "FROM repair_runs ORDER BY timestamp DESC LIMIT 100"
-                ).fetchall()
-            except sqlite3.OperationalError:
-                try:
-                    rows = connection.execute(
-                        "SELECT id, failure_code, '', '', "
-                        "repair_action, status, timestamp, '' "
-                        "FROM repair_runs ORDER BY timestamp DESC LIMIT 100"
-                    ).fetchall()
-                except sqlite3.OperationalError:
-                    rows = []
+        with pg_adapter.connect("gptbridge_repair") as connection:
+            rows = connection.execute(
+                "SELECT run_id, target_tool_id, started_at, completed_at, "
+                "failure_code, ok, detail_json "
+                "FROM repair_runs WHERE target_tool_id = ? "
+                "ORDER BY started_at DESC LIMIT 100",
+                (tool_id,),
+            ).fetchall()
             for row in rows:
-                rid, fail_code, err_class, err_msg, action, outcome, ts, target = row
+                rid = row["run_id"]
+                fail_code = row["failure_code"]
+                ts = row["completed_at"] or row["started_at"]
+                detail: dict[str, Any] = {}
+                try:
+                    parsed = json.loads(row["detail_json"] or "{}")
+                    if isinstance(parsed, dict):
+                        detail = parsed
+                except (TypeError, ValueError):
+                    detail = {}
                 faults.append(FaultSummary(
                     fault_id=f"repair-{tool_id}-{rid}",
                     fault_type="repair",
                     source=f"tool:{tool_id}",
                     timestamp=str(ts or ""),
                     severity=self._severity_from_code(str(fail_code or "")),
-                    error_class=str(err_class or fail_code or ""),
-                    error_message=str(err_msg or ""),
-                    target_entity=str(target or tool_id),
-                    repair_action=str(action or ""),
-                    repair_outcome=self._normalize_outcome(str(outcome or "")),
+                    error_class=str(detail.get("error_class") or fail_code or ""),
+                    error_message=str(detail.get("error_message") or detail.get("message") or ""),
+                    target_entity=str(detail.get("target_file") or tool_id),
+                    repair_action=str(detail.get("repair_action") or ""),
+                    repair_outcome="success" if row["ok"] else "failure",
                     raw_evidence={"failure_code": fail_code, "run_id": rid},
                 ))
-        finally:
-            connection.close()
         return faults
 
     def _read_repair_recipes(self) -> list[dict[str, Any]]:
@@ -255,24 +256,14 @@ class FaultAnalysisService(FaultAnalysisCollectorsMixin):
             return []
 
     def _read_learned_recipes(self) -> list[dict[str, Any]]:
-        """Read learned recipes from the repair learning database."""
-        db_path = self._repair_root / "repair-learning.sqlite3"
-        if not db_path.is_file():
-            return []
+        """Read learned recipes from ``gptbridge_repair`` (A610/A621)."""
         try:
-            connection = sqlite3.connect(
-                f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=3,
-            )
-            try:
+            with pg_adapter.connect("gptbridge_repair") as connection:
                 rows = connection.execute(
                     "SELECT recipe_id, name, failure_signatures_json, remedy, "
                     "owner, learned_at, occurrence_count, success_rate "
                     "FROM learned_recipes ORDER BY occurrence_count DESC LIMIT 50"
                 ).fetchall()
-            except sqlite3.OperationalError:
-                rows = []
-            finally:
-                connection.close()
             return [
                 {
                     "signature_hash": r[0],
