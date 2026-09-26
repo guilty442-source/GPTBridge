@@ -70,14 +70,14 @@ class MaintenanceLearningMixin:
             analysis = dict(self._learning_analysis)
             analysis["enabled"] = True
             analysis["authority"] = self.ROLE
-            analysis["persistence"] = "sqlite-survives-restart"
+            analysis["persistence"] = "postgres-persisted"
             return analysis
         except Exception as error:
             return {
                 "enabled": True,
                 "authority": self.ROLE,
                 "error": f"{type(error).__name__}: {error}",
-                "persistence": "sqlite-survives-restart",
+                "persistence": "postgres-persisted",
             }
 
     def record_repair_outcome(
@@ -98,7 +98,7 @@ class MaintenanceLearningMixin:
         The sovereign coordinates learning: when a governed executor (boot_core,
         CentralRepairService, ConnectionWatchdog) completes a repair, the
         sovereign records the outcome so recurring error→remedy patterns can
-        be promoted to learned recipes.  This state is persisted in SQLite and
+        be promoted to learned recipes.  This state is persisted in PostgreSQL and
         is not reset by subsequent auto-repair restarts.
         """
         self._ensure_learning_store()
@@ -135,7 +135,7 @@ class MaintenanceLearningMixin:
                 "recorded": True,
                 "signature_hash": signature_hash,
                 "promotion": promotion,
-                "persistence": "sqlite-survives-restart",
+                "persistence": "postgres-persisted",
             }
         except Exception as error:
             return {

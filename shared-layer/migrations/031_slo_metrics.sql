@@ -5,8 +5,8 @@
 --   central-query-p95       — central query p95 latency (ms)
 --   transport-claim-latency  — transport claim latency (ms)
 --   reconcile-backlog        — reconcile backlog count
---   sqlite-lock-rate         — SQLite lock contention rate (percent)
---   qdrant-stale-rate        — Qdrant stale point rate (percent)
+--   module-state-lock-rate   — module bounded-state lock contention rate (percent)
+--   vectord-stale-rate       — vectord stale point rate (percent)
 --   restore-success          — restore success rate (percent)
 --
 -- Codex basis:
@@ -52,8 +52,8 @@ INSERT INTO gptbridge_index.slo_metric (
     ('central-query-p95',       100,  'lower',  'ms',      300, 'Central query p95 latency'),
     ('transport-claim-latency',  500,  'lower',  'ms',      300, 'Transport claim latency'),
     ('reconcile-backlog',       1000, 'lower',  'count',   300, 'Reconcile backlog count'),
-    ('sqlite-lock-rate',          5,  'lower',  'percent', 300, 'SQLite lock contention rate'),
-    ('qdrant-stale-rate',         2,  'lower',  'percent', 300, 'Qdrant stale point rate'),
+    ('module-state-lock-rate',    5,  'lower',  'percent', 300, 'Module bounded-state lock contention rate'),
+    ('vectord-stale-rate',        2,  'lower',  'percent', 300, 'vectord stale point rate'),
     ('restore-success',          99,  'higher', 'percent', 86400, 'Restore success rate')
 ON CONFLICT (metric_name) DO NOTHING;
 

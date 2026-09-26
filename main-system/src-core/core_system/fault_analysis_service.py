@@ -36,8 +36,11 @@ from .fault_analysis_service_collectors import FaultAnalysisCollectorsMixin
 class FaultAnalysisService(FaultAnalysisCollectorsMixin):
     """Read-only fault evidence aggregation and pattern detection."""
 
-    def __init__(self, project_root: Path | str) -> None:
+    def __init__(
+        self, project_root: Path | str, *, repair_schema: str = "gptbridge_repair"
+    ) -> None:
         self.project_root = Path(project_root).resolve()
+        self._repair_schema = repair_schema
         self._repair_root = self.project_root.joinpath(*_AUTOMATIC_REPAIR_ROOT)
         self._state_root = self.project_root.joinpath(*_RUNTIME_STATE_ROOT)
         self._rescue_root = self.project_root.joinpath(*_SYSTEM_RESCUE_ROOT)

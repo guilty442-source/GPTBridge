@@ -159,6 +159,11 @@ def test_supervision_commands_learning_lifecycle(tmp_path: Path) -> None:
         _, sovereign, child = _stack(tmp_path)
         sovereign._started = True
         await sovereign.start_supervision()
+        # arming is dispatched through a tracked background task (A297/A485)
+        for _ in range(200):
+            if sovereign._learning_armed:
+                break
+            await asyncio.sleep(0.05)
         assert sovereign._learning_armed is True
         assert child._auto_learning_armed is True
         await sovereign.stop_supervision()

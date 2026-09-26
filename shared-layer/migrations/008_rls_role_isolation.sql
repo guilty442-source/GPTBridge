@@ -13,20 +13,20 @@
 -- Create per-module executor roles (NOLOGIN — only used via SET ROLE)
 DO $$
 DECLARE
-    module_id text;
+    v_module_id text;
 BEGIN
-    FOR module_id IN
-        SELECT DISTINCT module_id FROM gptbridge_security.principal
-        WHERE principal_type = 'module'
+    FOR v_module_id IN
+        SELECT DISTINCT principal.module_id FROM gptbridge_security.principal
+        WHERE module_id IS NOT NULL
     LOOP
         -- Skip if role already exists
         IF NOT EXISTS (
             SELECT 1 FROM pg_roles
-            WHERE rolname = 'gptbridge_module_' || replace(module_id, '-', '_')
+            WHERE rolname = 'gptbridge_module_' || replace(v_module_id, '-', '_')
         ) THEN
             EXECUTE format(
                 'CREATE ROLE gptbridge_module_%I NOLOGIN',
-                replace(module_id, '-', '_')
+                replace(v_module_id, '-', '_')
             );
         END IF;
     END LOOP;
@@ -77,4 +77,4 @@ ALTER TABLE gptbridge_audit.event
     ADD COLUMN IF NOT EXISTS idempotency_key text;
 
 CREATE INDEX IF NOT EXISTS audit_module_id_idx
-    ON gptbridge_audit.event (acting_module_id, created_at);
+    ON gptbridge_audit.event (acting_module_id, occurred_at);

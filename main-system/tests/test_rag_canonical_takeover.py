@@ -170,7 +170,7 @@ async def test_matching_dimension_passes_and_absent_collection_created() -> None
 # ---------------------------------------------------------------------------
 
 
-class _FakeQdrant:
+class _FakeVector:
     def __init__(self, hits: Optional[list[dict[str, Any]]] = None) -> None:
         self.healthy = True
         self.hits = hits or []
@@ -272,9 +272,9 @@ def _state(resource_id: str, module_id: str = "xingcheng", status: str = "indexe
 
 def _canonical_pipeline(
     hits: Optional[list[dict[str, Any]]] = None,
-) -> tuple[CanonicalRagPipeline, _FakeQdrant, _FakePostgres]:
+) -> tuple[CanonicalRagPipeline, _FakeVector, _FakePostgres]:
     pipe = CanonicalRagPipeline(_config())
-    vector, pg = _FakeQdrant(hits), _FakePostgres()
+    vector, pg = _FakeVector(hits), _FakePostgres()
     pipe.vector, pipe.postgresql = vector, pg
     pipe._initialized = True
     pipe._state_machine.evaluate_startup(
@@ -470,7 +470,7 @@ def test_forbidden_payload_fields_cover_codex_contract() -> None:
 def test_vector_alone_is_never_canonical() -> None:
     pipe = CanonicalRagPipeline(_config())
     pipe._initialized = True
-    pipe.vector = _FakeQdrant()
+    pipe.vector = _FakeVector()
     pipe.postgresql = _FakePostgres()
     pipe.postgresql.healthy = False
     assert pipe.is_ready() is False
@@ -530,8 +530,8 @@ class _FakePostgresWithGeneration(_FakePostgres):
 @pytest.mark.asyncio
 async def test_initialize_binds_active_generation() -> None:
     pipe = CanonicalRagPipeline(_config())
-    vector = _FakeQdrant()
-    vector.client = object()  # raw QdrantClient present post-initialize
+    vector = _FakeVector()
+    vector.client = object()  # raw VectorClient present post-initialize
     pipe.vector = vector
     pipe.postgresql = _FakePostgresWithGeneration(_active_gen())
 
@@ -548,7 +548,7 @@ async def test_initialize_flags_drifted_generation_for_rebuild() -> None:
     generation stale: index_state no longer matches -> DEGRADED until a
     new generation is built/verified/activated."""
     pipe = CanonicalRagPipeline(_config())
-    vector = _FakeQdrant()
+    vector = _FakeVector()
     vector.client = object()
     pipe.vector = vector
     pipe.postgresql = _FakePostgresWithGeneration(
@@ -564,7 +564,7 @@ async def test_initialize_flags_drifted_generation_for_rebuild() -> None:
 @pytest.mark.asyncio
 async def test_initialize_without_generation_leaves_unbound() -> None:
     pipe = CanonicalRagPipeline(_config())
-    vector = _FakeQdrant()
+    vector = _FakeVector()
     vector.client = object()
     pipe.vector = vector
     pipe.postgresql = _FakePostgresWithGeneration(None)

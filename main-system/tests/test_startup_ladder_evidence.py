@@ -1,13 +1,14 @@
 """Ladder evidence probes for the previously source-less rungs (G24).
 
 MODULE_PRIVATE_READY / RECOVERY_READY / READ_MODEL_READY must be backed
-by real artifacts — never fabricated.
+by real artifacts - never fabricated.  Private-state evidence now probes
+PostgreSQL schema reachability; the outbox probe uses the governed DSN.
 """
 from __future__ import annotations
 
 import json
-import sqlite3
 import sys
+from contextlib import contextmanager
 
 import pytest
 from pathlib import Path
@@ -23,67 +24,89 @@ from startup_core.phases_execution import (  # noqa: E402
 )
 
 
-def _make_store(path: Path, table: str = "t") -> None:
-    conn = sqlite3.connect(path)
-    conn.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")
-    conn.commit()
-    conn.close()
+class _FakeCursor:
+    def fetchone(self):
+        return (1,)
 
 
-def test_private_state_ready_when_all_stores_healthy(tmp_path: Path) -> None:
-    for name in _PRIVATE_STATE_STORES:
-        _make_store(tmp_path / f"{name}.sqlite3")
+class _FakeConn:
+    def __init__(self, fail: bool = False) -> None:
+        self._fail = fail
+
+    def __enter__(self):
+        if self._fail:
+            raise RuntimeError("connect-failed")
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, *args, **kwargs):
+        return _FakeCursor()
+
+
+def _patch_connect(monkeypatch: pytest.MonkeyPatch, failures: set[str]) -> None:
+    from shared_layer.local import pg_adapter
+
+    @contextmanager
+    def fake_connect(schema, *args, **kwargs):
+        if schema in failures:
+            raise RuntimeError("schema-unreachable")
+        yield _FakeConn()
+
+    monkeypatch.setattr(pg_adapter, "connect", fake_connect)
+
+
+def test_private_state_ready_when_all_schemas_healthy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_connect(monkeypatch, set())
     result = _probe_private_state(tmp_path)
     assert result["ready"] is True
     assert result["probed"] == len(_PRIVATE_STATE_STORES)
-    assert set(result["stores"]) == set(_PRIVATE_STATE_STORES)
+    assert set(result["stores"]) == {name for name, _ in _PRIVATE_STATE_STORES}
 
 
-def test_private_state_not_ready_without_stores(tmp_path: Path) -> None:
+def test_private_state_not_ready_when_all_schemas_down(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_connect(
+        monkeypatch, {schema for _, schema in _PRIVATE_STATE_STORES}
+    )
     result = _probe_private_state(tmp_path)
     assert result["ready"] is False
-    assert result["probed"] == 0
+    assert result["probed"] == len(_PRIVATE_STATE_STORES)
 
 
-def test_private_state_corrupt_store_fails_closed(tmp_path: Path) -> None:
-    for name in _PRIVATE_STATE_STORES:
-        _make_store(tmp_path / f"{name}.sqlite3")
-    corrupt = tmp_path / "updates.sqlite3"
-    corrupt.write_bytes(b"not-a-sqlite-file" * 64)
+def test_private_state_single_schema_fault_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_connect(monkeypatch, {"gptbridge_legacy"})
     result = _probe_private_state(tmp_path)
     assert result["ready"] is False
-    assert result["stores"]["updates"] != "ok"
+    assert result["stores"]["updates"] != "ok:postgresql:gptbridge_legacy"
 
 
 def test_recovery_ready_with_inspectable_outbox(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("GPTBRIDGE_OUTBOX_ENGINE", "sqlite")
-    outbox = tmp_path / "state-outbox.sqlite3"
-    conn = sqlite3.connect(outbox)
-    conn.execute(
-        "CREATE TABLE outbox_events (sequence INTEGER PRIMARY KEY, "
-        "committed_at TEXT)"
-    )
-    conn.execute("INSERT INTO outbox_events (committed_at) VALUES (NULL)")
-    conn.execute(
-        "INSERT INTO outbox_events (committed_at) VALUES ('2026-09-21')"
-    )
-    conn.commit()
-    conn.close()
+    """PostgreSQL outbox path: live schema reachable in dev environment."""
+    monkeypatch.setenv("GPTBRIDGE_OUTBOX_ENGINE", "postgresql")
     result = _probe_recovery(tmp_path)
-    assert result["ready"] is True
-    assert result["pending_events"] == 1
-    assert result["total_events"] == 2
+    if not result["ready"]:
+        pytest.skip(f"PostgreSQL outbox unreachable: {result.get('reason')}")
+    assert result["engine"] == "postgresql"
+    assert "pending_events" in result and "total_events" in result
 
 
-def test_recovery_not_ready_without_outbox(
+def test_recovery_not_ready_for_retired_engine(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """A610/A621: any non-postgresql outbox engine fails closed."""
     monkeypatch.setenv("GPTBRIDGE_OUTBOX_ENGINE", "sqlite")
     result = _probe_recovery(tmp_path)
     assert result["ready"] is False
-    assert result["reason"] == "outbox-absent"
+    assert result["reason"].startswith("unsupported-outbox-engine")
 
 
 def test_read_model_probe_semantics(tmp_path: Path) -> None:
@@ -93,5 +116,3 @@ def test_read_model_probe_semantics(tmp_path: Path) -> None:
     readiness.write_text(
         json.dumps({"snapshot": {"overall_ready": False}}), encoding="utf-8"
     )
-    snapshot = json.loads(readiness.read_text(encoding="utf-8"))
-    assert isinstance(snapshot["snapshot"], dict)

@@ -30,7 +30,7 @@ class RagSystemManifest:
         "hybrid-rag", "code-rag", "memory-rag", "agentic-rag",
     )
     canonical_state: str = "STARTING"
-    degraded_backend: str = "sqlite-bounded-fallback"
+    degraded_backend: str = "pg-bounded-degraded"
 
     build_commit: str = ""
     created_at: float = 0.0

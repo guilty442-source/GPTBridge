@@ -25,9 +25,6 @@ class DiagnosisCode(str, Enum):
     PG_IDLE_IN_TRANSACTION = "PG_IDLE_IN_TRANSACTION"
     PG_SLOW_QUERIES = "PG_SLOW_QUERIES"
     PG_CONNECTION_LEAK = "PG_CONNECTION_LEAK"
-    SQLITE_WAL_STALLED = "SQLITE_WAL_STALLED"
-    SQLITE_BUSY_STORM = "SQLITE_BUSY_STORM"
-    SQLITE_CORRUPTION_RISK = "SQLITE_CORRUPTION_RISK"
     RECONCILE_BACKLOG = "RECONCILE_BACKLOG"
     RECONCILE_STALLED = "RECONCILE_STALLED"
     SCHEMA_DRIFT = "SCHEMA_DRIFT"
@@ -181,28 +178,6 @@ class DiagnosisEngine:
                 thresholds={"pg_slow_query_count_5min_gt": 10, "pg_slow_query_p95_ms_gt": 2000},
                 cooldown_seconds=180,
                 condition="slow_queries > 10/5min AND p95 > 2s",
-            ),
-            # SQLite WAL Stalled
-            DiagnosisRule(
-                rule_id="SQLITE_WAL_STALLED_V1",
-                rule_version="1.0",
-                diagnosis_code=DiagnosisCode.SQLITE_WAL_STALLED,
-                severity=Severity.WARNING,
-                inputs=("sqlite_wal_size_mb", "sqlite_wal_age_seconds"),
-                thresholds={"sqlite_wal_size_mb_gt": 100, "sqlite_wal_age_seconds_gt": 300},
-                cooldown_seconds=180,
-                condition="WAL > 100MB AND age > 5min",
-            ),
-            # SQLite Busy Storm
-            DiagnosisRule(
-                rule_id="SQLITE_BUSY_STORM_V1",
-                rule_version="1.0",
-                diagnosis_code=DiagnosisCode.SQLITE_BUSY_STORM,
-                severity=Severity.CRITICAL,
-                inputs=("sqlite_busy_count_5min", "sqlite_busy_rate_per_sec"),
-                thresholds={"sqlite_busy_count_5min_gt": 50, "sqlite_busy_rate_per_sec_gt": 10},
-                cooldown_seconds=30,
-                condition="busy events > 50/5min OR rate > 10/s",
             ),
             # Reconcile Backlog
             DiagnosisRule(

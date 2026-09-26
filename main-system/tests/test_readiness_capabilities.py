@@ -68,8 +68,8 @@ def test_missing_semantic_index_degrades_information_only(monkeypatch) -> None:
 
 
 def test_model_and_maintenance_gates_are_independent(monkeypatch) -> None:
-    # Â§10.7 on-demandï¼šmodel_ready = ?¯é? OR å·²å?è£å¯?‰èµ·?”â€?
-    # æ­¤è?æ¨¡æ“¬?Œæœªå®‰è??æ??½ä»¤ model_ready ??False??
+    # (comment rewritten: original text was corrupted)
+    # (comment rewritten: original text was corrupted)
     import core_system.ollama_demand as ollama_demand
 
     monkeypatch.setattr(ollama_demand, "ollama_installed", lambda: False)
@@ -85,7 +85,7 @@ def test_model_and_maintenance_gates_are_independent(monkeypatch) -> None:
 
 
 def test_model_ready_when_ollama_installed_but_idle(monkeypatch) -> None:
-    # on-demand å¸¸æ?ï¼šæ??™æœª?‹è?ä½†å¯?·è?æª”å??????½å?å°±ç?ï¼ˆdeferredï¼‰ã€?
+    # (comment rewritten: original text was corrupted)
     import core_system.ollama_demand as ollama_demand
 
     monkeypatch.setattr(ollama_demand, "ollama_installed", lambda: True)

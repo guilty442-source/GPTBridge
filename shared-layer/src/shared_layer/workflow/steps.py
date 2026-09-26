@@ -50,7 +50,7 @@ COMPENSATION_TABLE: dict[str, OutcomeStrategy] = {
     "VECTOR_UPSERT": OutcomeStrategy.INVALIDATE,
     "AUDIT_APPEND": OutcomeStrategy.APPEND_ONLY,
     "TRANSPORT_REQUEST": OutcomeStrategy.RETRY_IDEMPOTENT,
-    "SQLITE_FALLBACK": OutcomeStrategy.RECONCILE,
+    "LOCAL_FALLBACK": OutcomeStrategy.RECONCILE,
     "PG_MARK_READY": OutcomeStrategy.VERIFY_THEN_DECIDE,
     "VECTOR_DELETE": OutcomeStrategy.RECONCILE,
     "FILE_DELETE": OutcomeStrategy.RECONCILE,

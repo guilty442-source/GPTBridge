@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_audit.ddl_event (
     object_type text,
     schema_name text,
     object_name text,
-    session_user text NOT NULL,
+    "session_user" text NOT NULL,
     migration_executor boolean NOT NULL DEFAULT false,
     statement_hash text,
     occurred_at timestamptz NOT NULL DEFAULT now()
@@ -94,7 +94,7 @@ BEGIN
     INSERT INTO gptbridge_audit.ddl_event (
         command_tag, object_identity, object_type,
         schema_name, object_name,
-        session_user, migration_executor
+        "session_user", migration_executor
     )
     VALUES (
         v_command_tag, v_object_identity, v_object_type,

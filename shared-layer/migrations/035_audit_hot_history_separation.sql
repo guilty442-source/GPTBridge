@@ -43,10 +43,15 @@ CREATE OR REPLACE FUNCTION gptbridge_audit.archive_audit_events(
 DECLARE
     v_count integer;
 BEGIN
-    WITH moved AS (
-        DELETE FROM gptbridge_audit.event
+    WITH victims AS (
+        SELECT event_id FROM gptbridge_audit.event
         WHERE occurred_at < now() - (p_older_than_days || ' days')::interval
+        ORDER BY occurred_at
         LIMIT p_batch_limit
+    ),
+    moved AS (
+        DELETE FROM gptbridge_audit.event
+        WHERE event_id IN (SELECT event_id FROM victims)
         RETURNING *
     )
     INSERT INTO gptbridge_audit.event_history

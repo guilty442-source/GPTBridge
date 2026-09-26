@@ -548,7 +548,7 @@ def _fake_http_service(
     stop: threading.Event,
     routes: dict,
 ) -> None:
-    """Minimal HTTP/1.1 protocol test double (Qdrant/Ollama).
+    """Minimal HTTP/1.1 protocol test double (vectord/Ollama).
 
     ``routes`` maps ``(METHOD, path)`` to ``(status, payload_dict)``;
     unknown paths answer 404.  Every request line is recorded so the
@@ -690,12 +690,14 @@ _VECTOR_PROBE = (
     "except Exception:\n"
     "    sys.exit(9)\n"
     "try:\n"
-    "    r = httpx.get('http://127.0.0.1:__PORT__/collections', timeout=5)\n"
+    "    r = httpx.post('http://127.0.0.1:__PORT__/v1/collections/list', timeout=5)\n"
     "    r.raise_for_status()\n"
-    "    names = [c.get('name') for c in r.json().get('result', {}).get('collections', [])]\n"
+    "    body = r.json()\n"
+    "    ok = body.get('ok') is True\n"
+    "    names = body.get('collections') or []\n"
     "except Exception:\n"
     "    sys.exit(5)\n"
-    "sys.exit(0 if '04b_double_collection' in names else 4)\n"
+    "sys.exit(0 if ok and '04b_double_collection' in names else 4)\n"
 )
 
 
@@ -719,36 +721,33 @@ _OLLAMA_PROBE = (
 )
 
 
-def _scenario_qdrant_double(release: Path, state_root: Path, port: int, timeout_s: float) -> dict:
-    """Qdrant protocol double at the release client-contract layer.
+def _scenario_vectord_double(release: Path, state_root: Path, port: int, timeout_s: float) -> dict:
+    """vectord protocol double at the release client-contract layer.
 
-    The RC venv intentionally carries no ``qdrant_client`` (lazy RAG), so
-    the release contract is the HTTP surface itself: ``GET /collections``
-    must return the qdrant envelope ``result.collections``.  An
-    incompatible endpoint (HTTP 500) must be rejected.
+    The canonical vector runtime is the loopback Rust ``vectord`` service
+    (``VectordClient`` / vectord/v1): the release contract is
+    ``POST /v1/collections/list`` returning ``{"ok": true, "collections":
+    [...]}``.  An incompatible endpoint (HTTP 500) must be rejected
+    fail-closed.
     """
     routes_ok = {
-        ("GET", "/collections"): (
+        ("POST", "/v1/collections/list"): (
             200,
-            {
-                "result": {"collections": [{"name": "04b_double_collection"}]},
-                "status": "ok",
-                "time": 0.001,
-            },
+            {"ok": True, "collections": ["04b_double_collection"]},
         ),
     }
     routes_bad = {
-        ("GET", "/collections"): (
+        ("POST", "/v1/collections/list"): (
             500,
-            {"status": {"error": "04b test double: incompatible service"}},
+            {"ok": False, "error": "04b test double: incompatible service"},
         ),
     }
     result = _scenario_protocol_double(
-        release, "qdrant", routes_ok, routes_bad, _VECTOR_PROBE
+        release, "vectord", routes_ok, routes_bad, _VECTOR_PROBE
     )
     result["note"] = (
-        "release contract = HTTP GET /collections qdrant envelope; "
-        "compatible accepted, incompatible (500) rejected fail-closed"
+        "release contract = HTTP POST /v1/collections/list vectord/v1 "
+        "envelope; compatible accepted, incompatible (500) rejected fail-closed"
     )
     return result
 
@@ -916,7 +915,7 @@ def main() -> int:
             ("lifecycle", _scenario_lifecycle),
             ("mid-start-kill", _scenario_mid_start_kill),
             ("service-double", _scenario_service_double),
-            ("qdrant-double", _scenario_qdrant_double),
+            ("vectord-double", _scenario_vectord_double),
             ("ollama-double", _scenario_ollama_double),
         ):
             port = _free_port()

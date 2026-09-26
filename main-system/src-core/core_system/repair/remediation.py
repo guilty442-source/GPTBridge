@@ -160,42 +160,6 @@ class RemediationRegistry:
                 rollback=lambda ctx: True,
                 description="Retry transient connection failure",
             ),
-            # R1: Safe automatic - clear expired local cache
-            RemediationAction(
-                remediation_id="clear_expired_cache_v1",
-                version="1.0",
-                diagnosis_code=DiagnosisCode.SQLITE_WAL_STALLED,
-                risk_class=RiskClass.R1_SAFE_AUTO,
-                required_permission="repair.cache.clear",
-                scope_fence={"database": "sqlite", "module": "local"},
-                preconditions=(
-                    RemediationPrecondition(
-                        name="no_active_writers",
-                        check=lambda ctx: ctx.get("sqlite_active_writers", 0) == 0,
-                        description="No active SQLite writers",
-                    ),
-                ),
-                postconditions=(
-                    RemediationPostcondition(
-                        name="wal_size_reduced",
-                        check=lambda ctx: ctx.get("sqlite_wal_size_mb", 999) < 50,
-                        description="WAL size reduced below 50MB",
-                    ),
-                ),
-                dry_run=lambda ctx: DryRunResult(
-                    target="sqlite_checkpoint",
-                    expected_changes=["WAL checkpoint", "cache clear"],
-                    affected_rows=0,
-                    affected_database="sqlite",
-                    required_locks=["sqlite_db_lock"],
-                    rollback_available=True,
-                    estimated_risk="low",
-                    estimated_duration_seconds=10,
-                ),
-                execute=lambda ctx: {"action": "sqlite_checkpoint", "result": "checkpointed"},
-                rollback=lambda ctx: True,
-                description="Checkpoint SQLite WAL and clear expired cache",
-            ),
             # R2: Governed automatic - resume paused reconcile
             RemediationAction(
                 remediation_id="resume_reconcile_v1",
@@ -413,67 +377,6 @@ class RemediationRegistry:
                 rollback=lambda ctx: False,
                 description="Cancel stale optional query causing lock contention",
                 requires_maintenance_window=False,
-            ),
-            # R3: Manual approval - SQLite checkpoint with safety
-            RemediationAction(
-                remediation_id="sqlite_checkpoint_safe_v2",
-                version="2.0",
-                diagnosis_code=DiagnosisCode.SQLITE_WAL_STALLED,
-                risk_class=RiskClass.R3_MANUAL_APPROVAL,
-                required_permission="repair.sqlite.checkpoint",
-                scope_fence={"database": "sqlite", "module": "local"},
-                preconditions=(
-                    RemediationPrecondition(
-                        name="db_accessible",
-                        check=lambda ctx: ctx.get("sqlite_accessible", False),
-                        description="SQLite database must be accessible",
-                    ),
-                    RemediationPrecondition(
-                        name="not_authority_db",
-                        check=lambda ctx: ctx.get("is_authority_db", False) == False,
-                        description="Must not be authority database",
-                    ),
-                    RemediationPrecondition(
-                        name="no_long_active_writer",
-                        check=lambda ctx: ctx.get("sqlite_long_writer", False) == False,
-                        description="No long-running active writer",
-                    ),
-                    RemediationPrecondition(
-                        name="wal_size_exceeds_threshold",
-                        check=lambda ctx: ctx.get("sqlite_wal_size_mb", 0) > 100,
-                        description="WAL size must exceed threshold",
-                    ),
-                    RemediationPrecondition(
-                        name="disk_headroom_sufficient",
-                        check=lambda ctx: ctx.get("disk_free_gb", 0) > 1,
-                        description="At least 1GB disk headroom",
-                    ),
-                ),
-                postconditions=(
-                    RemediationPostcondition(
-                        name="wal_size_reduced",
-                        check=lambda ctx: ctx.get("sqlite_wal_size_mb", 999) < 50,
-                        description="WAL size reduced below 50MB",
-                    ),
-                    RemediationPostcondition(
-                        name="integrity_pass",
-                        check=lambda ctx: ctx.get("sqlite_integrity_ok", False),
-                        description="SQLite integrity check must pass",
-                    ),
-                ),
-                dry_run=lambda ctx: DryRunResult(
-                    target="sqlite_checkpoint",
-                    expected_changes=["WAL checkpoint", "truncate WAL", "integrity check"],
-                    affected_rows=0,
-                    affected_database="sqlite",
-                    required_locks=["sqlite_db_lock"],
-                    rollback_available=True,
-                    estimated_risk="low",
-                    estimated_duration_seconds=30,
-                ),
-                execute=lambda ctx: {"action": "sqlite_checkpoint", "result": "checkpointed"},
-                rollback=lambda ctx: True,
-                description="Safe SQLite WAL checkpoint with full preconditions",
             ),
             # R3: Manual approval - transport worker restart
             RemediationAction(

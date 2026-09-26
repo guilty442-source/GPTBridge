@@ -9,6 +9,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[2]
 for _p in (
     str(_ROOT),
@@ -93,26 +95,37 @@ def test_python_gateway_is_default_deny_and_xingcheng_read_only() -> None:
     assert allowed.decide(star, "execute", "governance_rule").allowed is False
 
 
-def _vector_schema() -> str:
+@pytest.fixture
+def vector_schema():
+    import uuid
     schema = "vect_test_" + uuid.uuid4().hex[:12]
     import psycopg
     from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
-    with psycopg.connect(resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5) as c:
+    dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(dsn, connect_timeout=5) as c:
         c.execute(f'CREATE SCHEMA "{schema}"')
         c.execute(
             f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime'
         )
         c.commit()
-    return schema
+    try:
+        yield schema
+    finally:
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
 
 
-def test_local_vector_store_is_fixed_location(tmp_path: Path) -> None:
+def test_local_vector_store_is_fixed_location(tmp_path: Path, vector_schema) -> None:
     """The degraded local cache reports the PostgreSQL rag schema as its
     durable home (vectord stays canonical) and fails closed on drift."""
 
     from shared_layer.local.vector_store import LocalVectorStore, embed_vector
 
-    store = LocalVectorStore(tmp_path, schema=_vector_schema())
+    store = LocalVectorStore(tmp_path, schema=vector_schema)
     assert str(store.database_path).startswith("postgresql:")
     assert store.status()["canonical"] is False
     assert store.status()["reconciliation_required"] is True
@@ -132,13 +145,13 @@ def test_local_vector_store_is_fixed_location(tmp_path: Path) -> None:
         raise AssertionError("dimension mismatch accepted")
 
 
-def test_local_vector_store_dimension_write_guard_and_reconcile(tmp_path: Path) -> None:
+def test_local_vector_store_dimension_write_guard_and_reconcile(tmp_path: Path, vector_schema) -> None:
     """Embedding dimension / index-version changes go through an explicit
     reconcile; writes carrying the wrong dimension fail closed."""
 
     from shared_layer.local.vector_store import LocalVectorStore, embed_vector
 
-    store = LocalVectorStore(tmp_path, schema=_vector_schema())
+    store = LocalVectorStore(tmp_path, schema=vector_schema)
     vector = embed_vector("alpha beta")
 
     store.replace_document(
@@ -194,13 +207,13 @@ def test_local_vector_store_dimension_write_guard_and_reconcile(tmp_path: Path) 
         raise AssertionError("stale dimension accepted after reconcile")
 
 
-def test_local_hits_require_module_scope_and_stay_in_scope(tmp_path: Path) -> None:
-    """Degraded local hits obey the same module-scope discipline as Qdrant."""
+def test_local_hits_require_module_scope_and_stay_in_scope(tmp_path: Path, vector_schema) -> None:
+    """Degraded local hits obey the same module-scope discipline as the canonical vector engine."""
 
     from shared_layer.local.vector_store import LocalVectorStore, embed_vector
     from shared_layer.security.vector_scope import VectorScopeError
 
-    store = LocalVectorStore(tmp_path, schema=_vector_schema())
+    store = LocalVectorStore(tmp_path, schema=vector_schema)
     store.replace_document(
         "doc-1",
         [{"id": "p1", "text": "alpha beta", "module_id": "vaultly"}],

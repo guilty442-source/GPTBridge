@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 
-TEST_SUITE_VERSION = "chaos-matrix-v1"
+TEST_SUITE_VERSION = "chaos-matrix-v2"
 
 
 @dataclass
@@ -27,7 +27,6 @@ class CertificationResult:
     test_suite_version: str = TEST_SUITE_VERSION
 
     postgresql_integrity: Optional[bool] = None
-    sqlite_integrity: Optional[bool] = None
     vector_integrity: Optional[bool] = None
     rls_verified: Optional[bool] = None
     migration_verified: Optional[bool] = None
@@ -43,7 +42,6 @@ class CertificationResult:
 
     _VERIFIED_FIELDS = (
         "postgresql_integrity",
-        "sqlite_integrity",
         "vector_integrity",
         "rls_verified",
         "migration_verified",
@@ -73,7 +71,6 @@ class CertificationResult:
             "schema_version": self.schema_version,
             "test_suite_version": self.test_suite_version,
             "postgresql_integrity": self.postgresql_integrity,
-            "sqlite_integrity": self.sqlite_integrity,
             "vector_integrity": self.vector_integrity,
             "rls_verified": self.rls_verified,
             "migration_verified": self.migration_verified,
@@ -107,14 +104,13 @@ def build_certification(
 ) -> CertificationResult:
     """Assemble a result from subsystem outcomes.
 
-    Mapping: chaos report covers all three engines; split it per-engine
+    Mapping: chaos report covers the active engines; split it per-engine
     only when the caller provides per-engine booleans via ``evidence``.
     """
     result = CertificationResult(
         database_generation=database_generation,
         schema_version=schema_version,
         postgresql_integrity=chaos_ok,
-        sqlite_integrity=chaos_ok,
         vector_integrity=chaos_ok,
         rls_verified=rls_ok,
         migration_verified=migration_ok,

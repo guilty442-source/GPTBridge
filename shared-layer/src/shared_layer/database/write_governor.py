@@ -34,7 +34,6 @@ WRITE_SOURCES: tuple[str, ...] = (
     "audit",
     "transport",
     "reconcile",
-    "sqlite_wal",
     "vector_reindex",
 )
 
@@ -82,10 +81,6 @@ DEFAULT_POLICIES: dict[str, WriteSourcePolicy] = {
     "reconcile": WriteSourcePolicy(
         "reconcile", rate_bytes_per_second=16 * 1024 * 1024,
         max_batch_bytes=8 * 1024 * 1024, exclusion_group="bulk",
-    ),
-    "sqlite_wal": WriteSourcePolicy(
-        "sqlite_wal", rate_bytes_per_second=32 * 1024 * 1024,
-        max_batch_bytes=16 * 1024 * 1024,
     ),
     "vector_reindex": WriteSourcePolicy(
         "vector_reindex", rate_bytes_per_second=64 * 1024 * 1024,

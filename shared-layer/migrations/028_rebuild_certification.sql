@@ -75,7 +75,7 @@ CREATE OR REPLACE FUNCTION gptbridge_index.record_rebuild_certification(
     p_schema_version text DEFAULT NULL,
     p_rls_verified boolean DEFAULT false,
     p_locator_verified boolean DEFAULT false,
-    p_certified_by text
+    p_certified_by text DEFAULT NULL
 ) RETURNS uuid AS $$
 DECLARE
     v_id uuid;

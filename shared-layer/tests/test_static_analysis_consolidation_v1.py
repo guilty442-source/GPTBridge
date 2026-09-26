@@ -13,7 +13,7 @@ Tests the full static analysis pipeline:
 Codex basis:
     A205 — API boundary
     A204/A220 — C ABI boundary
-    A211 — six-language canonical roles
+    A211 — seven-language canonical roles
     A348/A351/A352/A353 — language boundary gate
 """
 from __future__ import annotations
@@ -81,8 +81,8 @@ class TestLanguageStandards:
     def test_sql_dialect_aware(self):
         assert "dialect" in LanguageStandard.SQL.value.lower()
 
-    def test_six_languages(self):
-        assert len(LanguageStandard) == 6
+    def test_seven_languages(self):
+        assert len(LanguageStandard) == 7
 
     def test_analysis_focus_c(self):
         focus = LANGUAGE_ANALYSIS_FOCUS["c"]
@@ -591,13 +591,14 @@ class TestLanguageBaselines:
 
     def test_all_baselines(self):
         baselines = all_language_baselines()
-        assert len(baselines) == 6
+        assert len(baselines) == 7
         assert "c" in baselines
         assert "cpp" in baselines
         assert "python" in baselines
         assert "typescript" in baselines
         assert "csharp" in baselines
         assert "sql" in baselines
+        assert "javascript" in baselines
 
     def test_unknown_language(self):
         assert get_language_baseline("rust") is None

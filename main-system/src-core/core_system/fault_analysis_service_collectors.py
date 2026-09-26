@@ -118,7 +118,7 @@ class FaultAnalysisCollectorsMixin:
         """Collect repair outcome history from ``gptbridge_repair``."""
         faults: list[FaultSummary] = []
         try:
-            with pg_adapter.connect("gptbridge_repair") as connection:
+            with pg_adapter.connect(self._repair_schema) as connection:
                 rows = connection.execute(
                     "SELECT outcome_id, signature_hash, remedy, ok, "
                     "detail_json, recorded_at FROM repair_outcomes "

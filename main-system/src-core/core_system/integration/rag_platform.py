@@ -48,6 +48,7 @@ def build_rag_router(
     embedding_provider: Any = None,
     embedding_runtime: Any = None,
     degraded_root: Optional[str | Path] = None,
+    degraded_schema: Optional[str] = None,
 ) -> RagServices:
     """Instantiate canonical/degraded backends and the architecture router.
 
@@ -74,6 +75,7 @@ def build_rag_router(
     degraded = DegradedRagBackend(
         config,
         Path(degraded_root) if degraded_root is not None else None,
+        degraded_schema=degraded_schema,
     )
     health_gate = CanonicalHealthGate(
         vector,

@@ -114,33 +114,6 @@ def verify_pg_analyze(
     return True, "ANALYZE verified"
 
 
-def verify_sqlite_checkpoint(
-    action: MaintenanceAction,
-    before: dict[str, Any],
-    after: dict[str, Any],
-    context: dict[str, Any],
-) -> tuple[bool, str]:
-    """Verify SQLite checkpoint execution."""
-    if not after.get("checkpoint_completed", False):
-        return False, "Checkpoint did not complete"
-
-    wal_before = before.get("wal_size_mb", 0)
-    wal_after = after.get("wal_size_mb", 0)
-
-    # WAL should have decreased (at least some progress)
-    if wal_after >= wal_before * 0.9:
-        return False, f"WAL size did not decrease: {wal_before:.1f}MB -> {wal_after:.1f}MB"
-
-    # Check integrity not worsened
-    if after.get("integrity_worsened", False):
-        return False, "Integrity check worsened after checkpoint"
-
-    # Database should still be accessible
-    if not after.get("db_accessible", True):
-        return False, "Database not accessible after checkpoint"
-
-    return True, "Checkpoint verified"
-
 
 def verify_reconcile_throttle(
     action: MaintenanceAction,
@@ -243,12 +216,10 @@ def verify_health_observe(
 # Register default verifiers
 def _register_default_verifiers(verifier: Verifier) -> None:
     verifier.register_verifier("pg_analyze_table_v1", verify_pg_analyze)
-    verifier.register_verifier("sqlite_checkpoint_v1", verify_sqlite_checkpoint)
     verifier.register_verifier("reconcile_throttle_v1", verify_reconcile_throttle)
     verifier.register_verifier("backup_verify_v1", verify_backup_verify)
     verifier.register_verifier("projection_rebuild_v1", verify_projection_rebuild)
     verifier.register_verifier("pg_health_observe_v1", verify_health_observe)
-    verifier.register_verifier("sqlite_health_observe_v1", verify_health_observe)
     verifier.register_verifier("reconcile_health_observe_v1", verify_health_observe)
 
 
@@ -271,7 +242,6 @@ __all__ = [
     "verify_action",
     "get_verifier",
     "verify_pg_analyze",
-    "verify_sqlite_checkpoint",
     "verify_reconcile_throttle",
     "verify_backup_verify",
     "verify_projection_rebuild",

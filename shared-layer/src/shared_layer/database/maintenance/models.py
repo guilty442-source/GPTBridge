@@ -53,7 +53,7 @@ class MaintenanceJob:
     job_id: UUID = field(default_factory=uuid4)
     action_id: str = ""
     action_version: int = 1
-    engine: str = ""  # "postgresql" | "sqlite" | "reconcile" | "backup"
+    engine: str = ""  # "postgresql" | "reconcile" | "backup"
     database_id: str = ""
     module_id: str = ""
     risk_class: MaintenanceRiskClass = MaintenanceRiskClass.M0_OBSERVE
@@ -172,8 +172,6 @@ class MaintenanceReasonCode(enum.Enum):
 
     # Trigger reasons
     PG_ANALYZE_REQUIRED = "PG_ANALYZE_REQUIRED"
-    SQLITE_WAL_PRESSURE = "SQLITE_WAL_PRESSURE"
-    SQLITE_CHECKPOINT_BLOCKED = "SQLITE_CHECKPOINT_BLOCKED"
     RECONCILE_BACKLOG_HIGH = "RECONCILE_BACKLOG_HIGH"
     RECONCILE_THROTTLED = "RECONCILE_THROTTLED"
     BACKUP_STALE = "BACKUP_STALE"

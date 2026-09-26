@@ -5,8 +5,11 @@ import _xingcheng_test_support as _support  # noqa: F401
 from _xingcheng_test_support import ROOT  # noqa: F401
 
 import json
-import sqlite3
+import uuid
 from pathlib import Path
+
+import psycopg
+import pytest
 
 from xingcheng.infrastructure.fault_diagnostics import FaultDiagnostics
 
@@ -56,7 +59,7 @@ def test_new_state_files_projected(tmp_path: Path) -> None:
     assert startup["ok"] is False and startup["failed_phases"] == ["p2"]
 
 
-def _build_aux_root(tmp_path: Path) -> Path:
+def _build_aux_root(tmp_path: Path, schema: str) -> Path:
     root = _fake_root(tmp_path)
     state = root / "main-system" / "runtime" / "state"
     (state / "boot-output.log").write_text(
@@ -72,41 +75,65 @@ def _build_aux_root(tmp_path: Path) -> Path:
         {"action_id": "a1", "kind": "repair", "status": "awaiting-confirmation",
          "summary": "X", "detail": {"failure_code": "X", "owner": "main-backend"}},
     ])
-    _build_learning_db(root)
+    _build_learning_db(root, schema)
     return root
 
 
-def _build_learning_db(root: Path) -> None:
-    learning_dir = root / "main-system" / "data" / "automatic-repair"
-    learning_dir.mkdir(parents=True)
-    db = sqlite3.connect(learning_dir / "repair-learning.sqlite3")
-    db.execute(
-        "CREATE TABLE error_signatures (signature_hash TEXT, error_class TEXT, "
-        "message_pattern TEXT, failure_code TEXT, file_context TEXT, "
-        "target_tool_id TEXT, first_seen TEXT, last_seen TEXT, occurrence_count INTEGER)"
-    )
-    db.execute(
-        "CREATE TABLE repair_outcomes (outcome_id TEXT, run_id TEXT, "
-        "signature_hash TEXT, remedy TEXT, ok INTEGER, detail_json TEXT, recorded_at TEXT)"
-    )
-    db.execute(
-        "CREATE TABLE learned_recipes (recipe_id TEXT, name TEXT, "
-        "failure_signatures_json TEXT, remedy TEXT, owner TEXT, automatic INTEGER, "
-        "runtime_only INTEGER, learned_at TEXT, occurrence_count INTEGER, "
-        "success_rate REAL, source TEXT)"
-    )
-    db.execute(
-        "INSERT INTO error_signatures VALUES ('s1','E','m','IPC_DEAD','','ipc-channel','','now',7)"
-    )
-    db.execute(
-        "INSERT INTO repair_outcomes VALUES ('o1','r1','s1','x',0,'{}','now')"
-    )
-    db.commit()
-    db.close()
+@pytest.fixture
+def repair_schema():
+    schema = "fd_test_" + uuid.uuid4().hex[:12]
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+    dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.commit()
+    from shared_layer.local.pg_adapter import connect as pg_connect
+    c = pg_connect(schema)
+    if True:
+        c.execute(
+            'CREATE TABLE IF NOT EXISTS error_signatures ('
+            "signature_hash TEXT, error_class TEXT, message_pattern TEXT, "
+            "failure_code TEXT, file_context TEXT, target_tool_id TEXT, "
+            "first_seen TEXT, last_seen TEXT, occurrence_count INTEGER)"
+        )
+        c.execute(
+            'CREATE TABLE IF NOT EXISTS repair_outcomes ('
+            "outcome_id TEXT, run_id TEXT, signature_hash TEXT, remedy TEXT, "
+            "ok INTEGER, detail_json TEXT, recorded_at TEXT)"
+        )
+        c.execute(
+            'CREATE TABLE IF NOT EXISTS learned_recipes ('
+            "recipe_id TEXT, name TEXT, failure_signatures_json TEXT, remedy TEXT, "
+            "owner TEXT, automatic INTEGER, runtime_only INTEGER, learned_at TEXT, "
+            "occurrence_count INTEGER, success_rate REAL, source TEXT)"
+        )
+        c.execute(
+            'INSERT INTO error_signatures VALUES '
+            "('s1','E','m','IPC_DEAD','','ipc-channel','','now',7)"
+        )
+        c.execute(
+            'INSERT INTO repair_outcomes VALUES '
+            "('o1','r1','s1','x',0,'{}','now')"
+        )
+        c.commit()
+    try:
+        yield schema
+    finally:
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
 
 
-def test_aux_evidence_readers(tmp_path: Path) -> None:
-    fd = FaultDiagnostics(_build_aux_root(tmp_path))
+def _build_learning_db(root: Path, schema: str) -> str:
+    return schema
+
+
+def test_aux_evidence_readers(tmp_path: Path, repair_schema) -> None:
+    fd = FaultDiagnostics(_build_aux_root(tmp_path, repair_schema), repair_schema=repair_schema)
     assert fd.boot_log_tail()["lines"] == [
         "ERROR IPC: no active UI shells", "Traceback boom",
     ]
@@ -116,13 +143,15 @@ def test_aux_evidence_readers(tmp_path: Path) -> None:
     assert learning["recurring_signatures"][0]["occurrence_count"] == 7
 
 
-def test_diagnose_merges_aux_evidence(tmp_path: Path) -> None:
-    result = FaultDiagnostics(_build_aux_root(tmp_path)).diagnose("後端斷線")
+def test_diagnose_merges_aux_evidence(tmp_path: Path, repair_schema) -> None:
+    result = FaultDiagnostics(
+        _build_aux_root(tmp_path, repair_schema), repair_schema=repair_schema
+    ).diagnose("後端斷線")
     loc = result["localization"]
     sources = {a["source"] for a in loc["anomalies"]}
     assert "pending-actions.json" in sources
     assert "tool-crash-quarantine" in sources
-    assert "repair-learning.sqlite3" in sources
+    assert "gptbridge_repair" in sources
     entities = {a["entity"] for a in loc["anomalies"]}
     assert "tool-runtime" in entities
     assert "ipc-channel" in entities

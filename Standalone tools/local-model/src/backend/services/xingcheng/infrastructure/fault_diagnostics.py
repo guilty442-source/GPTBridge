@@ -34,9 +34,12 @@ class FaultDiagnostics(
 ):
     """Read-only fault-diagnosis evidence collector for Xingcheng."""
 
-    def __init__(self, project_root: Path | str) -> None:
+    def __init__(
+        self, project_root: Path | str, repair_schema: str = "gptbridge_repair"
+    ) -> None:
         self.project_root = Path(project_root).resolve()
         self.state_dir = self.project_root.joinpath(*_STATE_RELATIVE)
+        self.repair_schema = repair_schema
 
     def _codex_available(self) -> bool:
         """True when the governed PostgreSQL codex authority answers."""

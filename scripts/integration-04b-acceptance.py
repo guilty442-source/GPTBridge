@@ -691,17 +691,17 @@ def fault_scenarios() -> None:
             "scripts/integration-04b-isolated-start.py::_fake_pg_server",
             "" if sd_ok else "SERVICE_DOUBLE_ACCEPTED",
         )
-        # 04B-21/04B-22 — Qdrant/Ollama protocol-level doubles, same
+        # 04B-21/04B-22 — vectord/Ollama protocol-level doubles, same
         # pattern as 04B-20 but at the HTTP contract layer the release
-        # actually speaks (the RC venv carries httpx; qdrant_client is
-        # lazily loaded and intentionally absent from the lock).
-        qd = scenarios.get("qdrant-double") or {}
+        # actually speaks (the RC venv carries httpx; the canonical
+        # vector runtime is the loopback vectord service).
+        qd = scenarios.get("vectord-double") or {}
         qd_ok = bool(qd.get("ok"))
         record(
             "04B-21",
-            "qdrant protocol double (compatible accept + incompatible reject)",
-            "double receives GET /collections; compatible qdrant envelope "
-            "accepted; incompatible 500 rejected fail-closed",
+            "vectord protocol double (compatible accept + incompatible reject)",
+            "double receives POST /v1/collections/list; compatible vectord/v1 "
+            "envelope accepted; incompatible 500 rejected fail-closed",
             json.dumps(
                 {
                     "hits": qd.get("compatible_hits"),
@@ -712,7 +712,7 @@ def fault_scenarios() -> None:
                 ensure_ascii=False,
             )[:300],
             "PASS" if qd_ok else "FAIL",
-            "scripts/integration-04b-isolated-start.py::_scenario_qdrant_double",
+            "scripts/integration-04b-isolated-start.py::_scenario_vectord_double",
             "" if qd_ok else "VECTOR_DOUBLE_FAILED",
         )
         od = scenarios.get("ollama-double") or {}
@@ -753,10 +753,10 @@ def fault_scenarios() -> None:
                "double: scripts/integration-04b-isolated-start.py::_fake_pg_server",
                "BLOCKED_ENV")
         record("04B-21",
-               "qdrant protocol double (compatible accept + incompatible reject)",
+               "vectord protocol double (compatible accept + incompatible reject)",
                "requires --with-isolated-start",
                "not executed (--with-isolated-start not passed)", "BLOCKED",
-               "double: scripts/integration-04b-isolated-start.py::_scenario_qdrant_double",
+               "double: scripts/integration-04b-isolated-start.py::_scenario_vectord_double",
                "BLOCKED_ENV")
         record("04B-22",
                "ollama protocol double (compatible accept + incompatible reject)",
@@ -949,7 +949,7 @@ def main() -> int:
         },
         "completion": "NOT_COMPLETE",
         "minimal_fix_list": [
-            "Isolated backend dependency probes unreachable by bound-root design — all three shared-service doubles (PG 04B-20, Qdrant 04B-21, Ollama 04B-22) verified at the release client-contract layer",
+            "Isolated backend dependency probes unreachable by bound-root design — all three shared-service doubles (PG 04B-20, vectord 04B-21, Ollama 04B-22) verified at the release client-contract layer",
             "IPC streaming surface (task_progress/task_finished) unobservable under bound-root runtime_failed — task_queue is a startup-phase construct; heartbeat-deadline timeout + teardown resilience probed live in 04B-19",
         ],
     }

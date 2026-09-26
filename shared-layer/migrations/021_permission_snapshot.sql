@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_audit.permission_snapshot (
     snapshot_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id uuid REFERENCES gptbridge_audit.event(event_id) ON DELETE CASCADE,
     actor_id text NOT NULL,
-    session_user text NOT NULL,
+    "session_user" text NOT NULL,
     target_module text NOT NULL,
     target_resource_id text,
     target_classification text,
@@ -120,7 +120,7 @@ BEGIN
     WHERE pg_has_role(v_session_user, principal.role_name, 'member');
 
     INSERT INTO gptbridge_audit.permission_snapshot (
-        actor_id, session_user, target_module, target_resource_id,
+        actor_id, "session_user", target_module, target_resource_id,
         target_classification, evaluated_roles, evaluated_policies,
         decision_summary, rls_context,
         can_read, can_write, can_write_resource

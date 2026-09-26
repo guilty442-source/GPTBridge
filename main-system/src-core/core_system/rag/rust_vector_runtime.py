@@ -86,10 +86,10 @@ def _filter_to_json(query_filter: Any) -> dict:
 
 
 class VectordClient:
-    """Duck-typed stand-in for ``qdrant_client.QdrantClient``.
+    """Duck-typed vectord client for the pipeline's vector-store surface.
 
     The pipeline, generation manager and health gate reach the vector
-    store through the small QdrantClient surface used in this codebase;
+    store through the small vector-client surface used in this codebase;
     each method below translates that call into the vectord HTTP contract
     and returns ``SimpleNamespace`` objects shaped like the vector
     models the callers destructure (``.collections[].name``,

@@ -1,10 +1,10 @@
-"""SQLite fallback saga and conflict resolution.
+"""Bounded local fallback saga and conflict resolution.
 
 While PostgreSQL is offline the module records the operation locally
 (``local_outbox`` semantics) with its idempotency key and pending sync
-marker.  SQLite may never declare a central operation complete: when PG
-returns, local operations are reconciled and the central authority decides
-complete / conflict.
+marker.  Local fallback state may never declare a central operation
+complete: when PG returns, local operations are reconciled and the
+central authority decides complete / conflict.
 
 Conflicts are never resolved by timestamp (no last-write-wins); authority,
 generation, revision and operation lineage decide.
@@ -41,11 +41,11 @@ class LocalOperation:
     result: dict[str, object] = field(default_factory=dict)
 
     def mark_synced(self) -> None:
-        raise FallbackSagaError("SQLITE_CANNOT_DECLARE_CENTRAL_COMPLETION")
+        raise FallbackSagaError("LOCAL_CANNOT_DECLARE_CENTRAL_COMPLETION")
 
     def mark_pending_sync(self, via: str) -> None:
         if not via.startswith("reconcile:"):
-            raise FallbackSagaError("SQLITE_SYNC_REQUIRES_RECONCILE_PATH")
+            raise FallbackSagaError("LOCAL_SYNC_REQUIRES_RECONCILE_PATH")
         self.status = LocalOperationStatus.PENDING_SYNC
         self.pending_sync = True
 

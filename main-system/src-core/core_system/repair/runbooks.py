@@ -137,30 +137,7 @@ def pg_lock_contention_diagnosis(ctx: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================================
-# SQLITE_BUSY_STORM Runbook
-# ============================================================================
-
-def sqlite_busy_storm_runbook(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Step-by-step SQLite busy storm remediation."""
-    steps = [
-        ("confirm_active_writers", lambda c: c.get("sqlite_active_writers", 0) > 0),
-        ("confirm_long_reader", lambda c: c.get("sqlite_longest_reader_seconds", 0) > 60),
-        ("confirm_wal_size", lambda c: c.get("sqlite_wal_size_mb", 0) > 100),
-        ("reduce_batch", lambda c: True),  # Reduce batch size
-        ("extend_retry", lambda c: True),  # Extend bounded retry
-        ("pause_background_writes", lambda c: True),  # Pause background writes
-    ]
-
-    executed = []
-    for step_name, check in steps:
-        if check(ctx):
-            executed.append(step_name)
-        else:
-            break
-
-    return {"executed_steps": executed, "remaining": len(steps) - len(executed)}
-
-
+# RECONCILE_BACKLOG Runbook
 # ============================================================================
 # RECONCILE_BACKLOG Runbook
 # ============================================================================
@@ -268,12 +245,6 @@ RUNBOOKS: dict["DiagnosisCode", Runbook] = {
         remediate=lambda ctx, diag: {"actions": ["diagnose_only"], "requires_approval": True},
         requires_approval=True,
     ),
-    DiagnosisCode.SQLITE_BUSY_STORM: Runbook(
-        diagnosis_code=DiagnosisCode.SQLITE_BUSY_STORM,
-        diagnose=lambda c: {"steps": sqlite_busy_storm_runbook(c)},
-        remediate=lambda c, d: {"actions": "sqlite_busy_storm_steps"},
-        requires_approval=False,
-    ),
     DiagnosisCode.RECONCILE_BACKLOG: Runbook(
         diagnosis_code=DiagnosisCode.RECONCILE_BACKLOG,
         diagnose=lambda c: {"adaptive": reconcile_backlog_runbook(c)},
@@ -319,7 +290,6 @@ __all__ = [
     "pg_pool_saturation_diagnosis",
     "pg_pool_saturation_remediation",
     "pg_lock_contention_diagnosis",
-    "sqlite_busy_storm_runbook",
     "reconcile_backlog_runbook",
     "schema_drift_runbook",
     "rls_drift_runbook",

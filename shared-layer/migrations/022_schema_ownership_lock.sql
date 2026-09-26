@@ -86,8 +86,7 @@ CREATE EVENT TRIGGER ddl_guard_trigger
         'CREATE TRIGGER', 'DROP TRIGGER',
         'CREATE TYPE', 'ALTER TYPE', 'DROP TYPE',
         'CREATE VIEW', 'ALTER VIEW', 'DROP VIEW',
-        'CREATE ROLE', 'ALTER ROLE', 'DROP ROLE',
-        'CREATE POLICY', 'DROP POLICY',
+                'CREATE POLICY', 'DROP POLICY',
         'GRANT', 'REVOKE'
     )
     EXECUTE FUNCTION gptbridge_security.ddl_guard();

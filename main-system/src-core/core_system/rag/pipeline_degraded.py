@@ -41,6 +41,7 @@ class DegradedRagPipeline:
         config: RagPipelineConfig,
         degraded_root: Optional[Path] = None,
         enqueue_mutation: Optional[Any] = None,
+        degraded_schema: Optional[str] = None,
     ) -> None:
         self.config = config
         # A374: every degraded mutation must be recorded as a durable
@@ -51,8 +52,13 @@ class DegradedRagPipeline:
             degraded_root = _default_degraded_root()
         degraded_root.mkdir(parents=True, exist_ok=True)
 
-        self.vector_store = LocalVectorStore(degraded_root, dimension=config.embedding_dimension)
-        self.repository = LocalRagRepository(degraded_root)
+        store_kwargs: dict[str, Any] = (
+            {"schema": degraded_schema} if degraded_schema else {}
+        )
+        self.vector_store = LocalVectorStore(
+            degraded_root, dimension=config.embedding_dimension, **store_kwargs
+        )
+        self.repository = LocalRagRepository(degraded_root, **store_kwargs)
         self.vector_store.ensure_collection(config.embedding_dimension)
 
         _logger.info("DegradedRagPipeline: initialized at %s", degraded_root)
@@ -111,7 +117,7 @@ class DegradedRagPipeline:
         embedding: list[float],
         now_utc: str,
     ) -> None:
-        """Write the bounded degraded mirror (vector cache + sqlite repo)."""
+        """Write the bounded degraded mirror (vector cache + local repo)."""
         point = {
             "id": point_id,
             "vector": embedding,

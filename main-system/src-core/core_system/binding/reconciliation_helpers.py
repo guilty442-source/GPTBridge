@@ -11,7 +11,7 @@ from typing import Any
 class ReconcileHelpersMixin:
     """Reconcile helper methods."""
 
-    sqlite: Any
+    local: Any
     pg: Any
 
     def mark_pending(

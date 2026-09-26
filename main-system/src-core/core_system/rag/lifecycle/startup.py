@@ -73,7 +73,7 @@ TAKEOVER_CRITERIA: tuple[str, ...] = (
     "local-rag-query-via-canonical-gateway",
     "vector-is-dense-primary-path",
     "pg-is-metadata-fts-index-state-primary",
-    "sqlite-fault-only",
+    "no-sqlite-authority",
     "canonical-true-responses",
     "reconciliation-required-false",
     "vector-down-enters-degraded",

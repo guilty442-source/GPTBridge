@@ -47,7 +47,8 @@ GRANT SELECT, INSERT, UPDATE ON gptbridge_index.readonly_domain
 
 -- Seed default domains
 INSERT INTO gptbridge_index.readonly_domain (domain_name, is_readonly) VALUES
-    ('central-index'), ('transport'), ('audit'), ('rag'), ('governance')
+    ('central-index', false), ('transport', false), ('audit', false),
+    ('rag', false), ('governance', false)
 ON CONFLICT (domain_name) DO NOTHING;
 
 -- ============================================================================

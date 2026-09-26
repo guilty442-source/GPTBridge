@@ -47,7 +47,7 @@ class _FakePostgres:
         return True
 
 
-class _FakeQdrant:
+class _FakeVector:
     def __init__(self) -> None:
         self.counts: dict[tuple[str, str], Optional[int]] = {}
         self.delete_calls: list[tuple[str, str]] = []
@@ -91,9 +91,9 @@ def _row(
     }
 
 
-def _rig() -> tuple[_FakePostgres, _FakeQdrant, RagParityAudit]:
+def _rig() -> tuple[_FakePostgres, _FakeVector, RagParityAudit]:
     pg = _FakePostgres()
-    qd = _FakeQdrant()
+    qd = _FakeVector()
     return pg, qd, RagParityAudit(pg, qd, _Config())
 
 

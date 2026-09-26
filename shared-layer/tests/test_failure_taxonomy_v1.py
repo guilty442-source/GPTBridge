@@ -314,7 +314,7 @@ class TestErrorMapping:
         assert isinstance(f, ConflictError)
         assert not f.retryable
 
-    def test_map_sqlite_busy(self):
+    def test_map_locked_database(self):
         class FakeDatabaseError(Exception):
             pass
         exc = FakeDatabaseError("database is locked")
@@ -322,7 +322,7 @@ class TestErrorMapping:
         assert isinstance(f, UnavailableError)
         assert f.retryable
 
-    def test_map_sqlite_constraint(self):
+    def test_map_constraint_violation(self):
         class FakeDatabaseError(Exception):
             pass
         exc = FakeDatabaseError("constraint failed")

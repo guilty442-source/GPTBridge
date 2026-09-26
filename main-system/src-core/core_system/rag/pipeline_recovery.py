@@ -688,7 +688,7 @@ class PipelineRecoveryMixin:
             embedding_dimension=self.config.embedding_dimension,
             collection_alias=self.config.collection_name,
             canonical_state=self.gateway_state(),
-            degraded_backend="sqlite-bounded-fallback",
+            degraded_backend="pg-bounded-degraded",
         )
 
     async def status(self) -> dict[str, Any]:

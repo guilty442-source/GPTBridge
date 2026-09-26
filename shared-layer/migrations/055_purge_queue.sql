@@ -106,6 +106,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, gptbridge_ind
 -- ============================================================================
 -- get_purge_eligible() — find approved purges past retention
 -- ============================================================================
+-- 027 created get_purge_eligible(integer) against resource tombstones with a
+-- different row shape; the queue-backed version changes the return type, so
+-- the old function must be dropped before replacing it.
+DROP FUNCTION IF EXISTS gptbridge_index.get_purge_eligible(integer);
 CREATE OR REPLACE FUNCTION gptbridge_index.get_purge_eligible(
     p_limit integer DEFAULT 100
 ) RETURNS TABLE (

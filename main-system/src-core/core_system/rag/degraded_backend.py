@@ -36,9 +36,12 @@ class DegradedRagBackend:
         self,
         config: RagPipelineConfig,
         degraded_root: Optional[Path] = None,
+        degraded_schema: Optional[str] = None,
     ) -> None:
         self.config = config
-        self.pipeline = DegradedRagPipeline(config, degraded_root)
+        self.pipeline = DegradedRagPipeline(
+            config, degraded_root, degraded_schema=degraded_schema
+        )
 
     def health(self) -> RagBackendHealth:
         """Return degraded backend health."""

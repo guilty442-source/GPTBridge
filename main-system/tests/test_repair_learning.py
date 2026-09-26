@@ -56,12 +56,35 @@ def test_error_signature_differs_by_error_class() -> None:
 
 
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def repair_schema():
+    import uuid
+    schema = "rl_test_" + uuid.uuid4().hex[:12]
+    import psycopg
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+    dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.commit()
+    try:
+        yield schema
+    finally:
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
+
 # RepairLearningStore
 # ---------------------------------------------------------------------------
 
 
-def test_learning_store_records_and_retrieves_errors(tmp_path: Path) -> None:
-    store = RepairLearningStore(tmp_path)
+def test_learning_store_records_and_retrieves_errors(tmp_path: Path, repair_schema) -> None:
+    store = RepairLearningStore(tmp_path, schema=repair_schema)
     sig = ErrorSignature(
         signature_hash="abc123",
         error_class="SyntaxError",
@@ -75,8 +98,8 @@ def test_learning_store_records_and_retrieves_errors(tmp_path: Path) -> None:
     assert sigs[0]["occurrence_count"] == 2
 
 
-def test_learning_store_records_outcomes(tmp_path: Path) -> None:
-    store = RepairLearningStore(tmp_path)
+def test_learning_store_records_outcomes(tmp_path: Path, repair_schema) -> None:
+    store = RepairLearningStore(tmp_path, schema=repair_schema)
     sig = ErrorSignature(
         signature_hash="def456",
         error_class="IndentationError",
@@ -97,8 +120,8 @@ def test_learning_store_records_outcomes(tmp_path: Path) -> None:
     assert outcomes[0]["remedy"] == "indentation-repair"
 
 
-def test_learning_store_saves_and_retrieves_learned_recipes(tmp_path: Path) -> None:
-    store = RepairLearningStore(tmp_path)
+def test_learning_store_saves_and_retrieves_learned_recipes(tmp_path: Path, repair_schema) -> None:
+    store = RepairLearningStore(tmp_path, schema=repair_schema)
     recipe = LearnedRecipe(
         recipe_id="learned-test-1",
         name="Test learned recipe",
@@ -120,8 +143,8 @@ def test_learning_store_saves_and_retrieves_learned_recipes(tmp_path: Path) -> N
 # ---------------------------------------------------------------------------
 
 
-def test_learner_promotes_pattern_after_threshold(tmp_path: Path) -> None:
-    store = RepairLearningStore(tmp_path)
+def test_learner_promotes_pattern_after_threshold(tmp_path: Path, repair_schema) -> None:
+    store = RepairLearningStore(tmp_path, schema=repair_schema)
     learner = RepairLearner(store)
     sig = ErrorSignature(
         signature_hash=_normalize_error_signature(
@@ -148,8 +171,8 @@ def test_learner_promotes_pattern_after_threshold(tmp_path: Path) -> None:
     assert recipe["source"] == "learned"
 
 
-def test_learner_does_not_promote_with_single_occurrence(tmp_path: Path) -> None:
-    store = RepairLearningStore(tmp_path)
+def test_learner_does_not_promote_with_single_occurrence(tmp_path: Path, repair_schema) -> None:
+    store = RepairLearningStore(tmp_path, schema=repair_schema)
     learner = RepairLearner(store)
     sig = ErrorSignature(
         signature_hash="single-occurrence",
@@ -167,8 +190,8 @@ def test_learner_does_not_promote_with_single_occurrence(tmp_path: Path) -> None
     assert result["promoted"] is False
 
 
-def test_learner_suggests_best_remedy(tmp_path: Path) -> None:
-    store = RepairLearningStore(tmp_path)
+def test_learner_suggests_best_remedy(tmp_path: Path, repair_schema) -> None:
+    store = RepairLearningStore(tmp_path, schema=repair_schema)
     learner = RepairLearner(store)
     sig = ErrorSignature(
         signature_hash="suggest-test",
@@ -191,8 +214,8 @@ def test_learner_suggests_best_remedy(tmp_path: Path) -> None:
     assert suggestion["success_rate"] == 1.0
 
 
-def test_learner_analyze_history(tmp_path: Path) -> None:
-    store = RepairLearningStore(tmp_path)
+def test_learner_analyze_history(tmp_path: Path, repair_schema) -> None:
+    store = RepairLearningStore(tmp_path, schema=repair_schema)
     learner = RepairLearner(store)
     sig = ErrorSignature(
         signature_hash="analyze-test",
@@ -217,20 +240,20 @@ def test_learner_analyze_history(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_central_repair_status_includes_learning(tmp_path: Path) -> None:
+def test_central_repair_status_includes_learning(tmp_path: Path, repair_schema) -> None:
     repair_root = tmp_path / "repair"
     repair_root.mkdir()
-    svc = CentralRepairService(tmp_path, repair_root)
+    svc = CentralRepairService(tmp_path, repair_root, repair_schema=repair_schema)
     status = svc.status()
     assert status["self_upgrading"] is True
     assert status["learning_enabled"] is True
     assert "learned_recipe_count" in status["knowledge_base"]
 
 
-def test_central_repair_known_recipes_includes_learned(tmp_path: Path) -> None:
+def test_central_repair_known_recipes_includes_learned(tmp_path: Path, repair_schema) -> None:
     repair_root = tmp_path / "repair"
     repair_root.mkdir()
-    svc = CentralRepairService(tmp_path, repair_root)
+    svc = CentralRepairService(tmp_path, repair_root, repair_schema=repair_schema)
     # Manually inject a learned recipe.
     recipe = LearnedRecipe(
         recipe_id="learned-injection-test",
@@ -247,18 +270,18 @@ def test_central_repair_known_recipes_includes_learned(tmp_path: Path) -> None:
     assert "learned-injection-test" in ids
 
 
-def test_central_repair_suggest_remedy_returns_empty_for_unknown(tmp_path: Path) -> None:
+def test_central_repair_suggest_remedy_returns_empty_for_unknown(tmp_path: Path, repair_schema) -> None:
     repair_root = tmp_path / "repair"
     repair_root.mkdir()
-    svc = CentralRepairService(tmp_path, repair_root)
+    svc = CentralRepairService(tmp_path, repair_root, repair_schema=repair_schema)
     result = svc.suggest_remedy_for_error("NeverSeenError", "no history")
     assert result["suggested"] is False
 
 
-def test_central_repair_learning_report(tmp_path: Path) -> None:
+def test_central_repair_learning_report(tmp_path: Path, repair_schema) -> None:
     repair_root = tmp_path / "repair"
     repair_root.mkdir()
-    svc = CentralRepairService(tmp_path, repair_root)
+    svc = CentralRepairService(tmp_path, repair_root, repair_schema=repair_schema)
     report = svc.learning_report()
     assert "total_error_types" in report
     assert "learned_recipes" in report

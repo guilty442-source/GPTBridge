@@ -109,7 +109,10 @@ class FaultDiagnosticsAuxMixin:
         and failed — both distinguish a transient from a chronic fault.
         """
         try:
-            db = pg_connect("gptbridge_repair", autocommit=True)
+            db = pg_connect(
+                getattr(self, "repair_schema", "gptbridge_repair"),
+                autocommit=True,
+            )
             try:
                 signatures = self._signature_rows(db)
                 failures = self._failure_rows(db)

@@ -8,7 +8,9 @@ the service stays bounded at DEGRADED.
 
 from __future__ import annotations
 
-import sqlite3
+import uuid
+
+import psycopg
 
 import pytest
 
@@ -20,13 +22,38 @@ from core_system.rag.runtime_state import (
 )
 
 
-def _machine() -> RagRuntimeStateMachine:
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
-    return RagRuntimeStateMachine(ReconciliationQueue(conn))
+@pytest.fixture
+def queue_conn():
+    schema = "rrq_test_" + uuid.uuid4().hex[:12]
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+    dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.commit()
+    from shared_layer.local.pg_adapter import connect as pg_connect
+    conn = pg_connect(schema)
+    try:
+        yield conn
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
 
 
-def test_startup_to_canonical() -> None:
-    m = _machine()
+def _machine(queue_conn) -> RagRuntimeStateMachine:
+    return RagRuntimeStateMachine(ReconciliationQueue(queue_conn))
+
+
+def test_startup_to_canonical(queue_conn) -> None:
+    m = _machine(queue_conn)
     state = m.evaluate_startup(
         vector_healthy=True, postgresql_healthy=True, index_state_matches=True
     )
@@ -35,8 +62,8 @@ def test_startup_to_canonical() -> None:
     assert m.reconciliation_required is False
 
 
-def test_startup_to_degraded_when_store_down() -> None:
-    m = _machine()
+def test_startup_to_degraded_when_store_down(queue_conn) -> None:
+    m = _machine(queue_conn)
     state = m.evaluate_startup(
         vector_healthy=False, postgresql_healthy=True, index_state_matches=True
     )
@@ -44,8 +71,8 @@ def test_startup_to_degraded_when_store_down() -> None:
     assert m.reconciliation_required is True
 
 
-def test_canonical_failure_degrades() -> None:
-    m = _machine()
+def test_canonical_failure_degrades(queue_conn) -> None:
+    m = _machine(queue_conn)
     m.evaluate_startup(
         vector_healthy=True, postgresql_healthy=True, index_state_matches=True
     )
@@ -55,8 +82,8 @@ def test_canonical_failure_degrades() -> None:
     assert m.reconciliation_failed is False
 
 
-def test_recovery_cycle_degraded_reconciling_canonical() -> None:
-    m = _machine()
+def test_recovery_cycle_degraded_reconciling_canonical(queue_conn) -> None:
+    m = _machine(queue_conn)
     m.evaluate_startup(
         vector_healthy=True, postgresql_healthy=True, index_state_matches=True
     )
@@ -71,8 +98,8 @@ def test_recovery_cycle_degraded_reconciling_canonical() -> None:
     assert m.reconciliation_required is False
 
 
-def test_reconciliation_failure_surfaces_derived_state() -> None:
-    m = _machine()
+def test_reconciliation_failure_surfaces_derived_state(queue_conn) -> None:
+    m = _machine(queue_conn)
     m.evaluate_startup(
         vector_healthy=True, postgresql_healthy=True, index_state_matches=True
     )
@@ -90,8 +117,8 @@ def test_reconciliation_failure_surfaces_derived_state() -> None:
     assert status["last_error"] == "hash mismatch during verify"
 
 
-def test_reconciliation_parity_failure_is_reported() -> None:
-    m = _machine()
+def test_reconciliation_parity_failure_is_reported(queue_conn) -> None:
+    m = _machine(queue_conn)
     m.evaluate_startup(
         vector_healthy=False, postgresql_healthy=True, index_state_matches=True
     )
@@ -103,8 +130,8 @@ def test_reconciliation_parity_failure_is_reported() -> None:
     assert m.effective_state == "RECONCILIATION_FAILED"
 
 
-def test_retry_clears_failed_flag_and_recovers() -> None:
-    m = _machine()
+def test_retry_clears_failed_flag_and_recovers(queue_conn) -> None:
+    m = _machine(queue_conn)
     m.evaluate_startup(
         vector_healthy=False, postgresql_healthy=True, index_state_matches=True
     )
@@ -119,8 +146,8 @@ def test_retry_clears_failed_flag_and_recovers() -> None:
     assert m.effective_state == "CANONICAL"
 
 
-def test_begin_reconciliation_requires_healthy_stores() -> None:
-    m = _machine()
+def test_begin_reconciliation_requires_healthy_stores(queue_conn) -> None:
+    m = _machine(queue_conn)
     m.evaluate_startup(
         vector_healthy=False, postgresql_healthy=False, index_state_matches=False
     )
@@ -128,8 +155,8 @@ def test_begin_reconciliation_requires_healthy_stores() -> None:
         m.begin_reconciliation(vector_healthy=False, postgresql_healthy=True)
 
 
-def test_forbidden_transitions_raise() -> None:
-    m = _machine()
+def test_forbidden_transitions_raise(queue_conn) -> None:
+    m = _machine(queue_conn)
     with pytest.raises(TransitionError):
         m.begin_reconciliation(vector_healthy=True, postgresql_healthy=True)
     m.evaluate_startup(
@@ -141,8 +168,8 @@ def test_forbidden_transitions_raise() -> None:
         )
 
 
-def test_report_failure_idempotent_while_degraded() -> None:
-    m = _machine()
+def test_report_failure_idempotent_while_degraded(queue_conn) -> None:
+    m = _machine(queue_conn)
     m.evaluate_startup(
         vector_healthy=False, postgresql_healthy=True, index_state_matches=True
     )
@@ -151,8 +178,8 @@ def test_report_failure_idempotent_while_degraded() -> None:
     assert m.status()["last_error"] == "still down"
 
 
-def test_seconds_in_state_counts_from_last_transition() -> None:
-    m = _machine()
+def test_seconds_in_state_counts_from_last_transition(queue_conn) -> None:
+    m = _machine(queue_conn)
     m.evaluate_startup(
         vector_healthy=False, postgresql_healthy=False, index_state_matches=False
     )
@@ -161,7 +188,7 @@ def test_seconds_in_state_counts_from_last_transition() -> None:
     assert secs >= 0.0
 
 
-def test_seconds_in_state_invalid_timestamp_is_zero() -> None:
-    m = _machine()
+def test_seconds_in_state_invalid_timestamp_is_zero(queue_conn) -> None:
+    m = _machine(queue_conn)
     m._last_transition_at = "not-a-timestamp"
     assert m.seconds_in_state == 0.0

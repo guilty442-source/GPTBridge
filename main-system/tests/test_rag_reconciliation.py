@@ -23,7 +23,7 @@ from core_system.rag.canonical_vector_runtime import RagPipelineConfig
 from core_system.rag.runtime_state import RagRuntimeState
 
 
-class _FakeQdrant:
+class _FakeVector:
     def __init__(self) -> None:
         self.healthy = True
         self.points: list[Any] = []
@@ -167,7 +167,7 @@ def _pipeline(
     content: str,
     vector_dim: int = 2560,
     fetcher: Any = None,
-) -> tuple[CanonicalRagPipeline, _FakeQdrant, _FakePostgres]:
+) -> tuple[CanonicalRagPipeline, _FakeVector, _FakePostgres]:
     cfg = RagPipelineConfig(
                collection_name="gptbridge_shared_knowledge",
         postgresql_dsn="postgresql://unused",
@@ -182,7 +182,7 @@ def _pipeline(
         }),
         embed_texts=lambda texts: [[0.1] * vector_dim for _ in texts],
     )
-    vector, pg = _FakeQdrant(), _FakePostgres()
+    vector, pg = _FakeVector(), _FakePostgres()
     pipe.vector, pipe.postgresql = vector, pg
     pipe._initialized = True
     pipe._state_machine.evaluate_startup(

@@ -101,9 +101,10 @@ class LocalRagRepository:
     Keyword scoring is a LIKE/BM25-style layer over the keyword store.
     """
 
-    def __init__(self, tool_root: Path) -> None:
+    def __init__(self, tool_root: Path, *, schema: str = "gptbridge_xingcheng") -> None:
         self.project_root = Path(tool_root).resolve().parent
-        self.database_path = Path("postgresql:gptbridge_xingcheng")
+        self._schema = schema
+        self.database_path = Path(f"postgresql:{schema}")
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -151,7 +152,7 @@ class LocalRagRepository:
 
     @contextmanager
     def _connect(self) -> Iterator[PgConnection]:
-        connection = pg_connect("gptbridge_xingcheng", autocommit=False)
+        connection = pg_connect(self._schema, autocommit=False)
         try:
             yield connection
             connection.commit()

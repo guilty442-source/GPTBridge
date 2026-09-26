@@ -42,7 +42,6 @@ class DeletionStep(str, Enum):
     PG_TOMBSTONE = "pg_tombstone"
     OUTBOX_EVENT = "outbox_event"
     VECTOR_DELETE = "vector_delete"
-    SQLITE_CACHE_DELETE = "sqlite_cache_delete"
     RETRIEVAL_CACHE_INVALIDATE = "retrieval_cache_invalidate"
     DERIVED_INVALIDATE = "derived_invalidate"
     MEMORY_EVALUATE = "memory_evaluate"

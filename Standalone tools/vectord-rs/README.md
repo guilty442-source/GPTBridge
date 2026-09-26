@@ -27,8 +27,8 @@ Copy-Item target\release\vectord.exe bin\vectord.exe
 
 ## 由誰啟動
 
-1. `startup_core` 的 `qdrant-start` phase：預設（`VECTOR_BACKEND` 非
-   `qdrant`）改探測/拉起 vectord。
+1. `startup_core` 的 `vectord-start` phase：預設（`VECTOR_BACKEND=rust`）
+   檢測/拉起 vectord。
 2. `RustVectorRuntime.initialize()` 惰性 ensure：probe → build →
    spawn，與 `searchd` 的受管模式相同。
 

@@ -61,7 +61,7 @@ CREATE OR REPLACE FUNCTION gptbridge_index.lock_version(
     p_major integer DEFAULT NULL,
     p_minor integer DEFAULT NULL,
     p_patch integer DEFAULT NULL,
-    p_locked_by text,
+    p_locked_by text DEFAULT NULL,
     p_description text DEFAULT NULL
 ) RETURNS uuid AS $$
 DECLARE

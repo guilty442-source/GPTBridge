@@ -24,7 +24,7 @@ class MaintenanceAction:
 
     action_id: str
     version: int
-    engine: str  # "postgresql" | "sqlite" | "reconcile" | "backup"
+    engine: str  # "postgresql" | "reconcile" | "backup"
     risk_class: MaintenanceRiskClass
 
     # Trigger rule: callable(signals: dict) -> bool
@@ -193,77 +193,6 @@ def _register_builtin_actions(registry: MaintenanceRegistry) -> None:
         lease_scope="pg:health:observe",
         description="Collect PostgreSQL health metrics",
         tags=("postgresql", "health", "observe"),
-    ))
-
-    # --- SQLite Actions ---
-
-    def sqlite_checkpoint_trigger(signals: dict[str, Any]) -> bool:
-        wal_mb = signals.get("sqlite_wal_size_mb", 0)
-        threshold = signals.get("sqlite_checkpoint_threshold_mb", 50)
-        return (
-            wal_mb >= threshold
-            and not signals.get("sqlite_blocked_writer", False)
-            and signals.get("disk_healthy", True)
-        )
-
-    def sqlite_checkpoint_preconditions(ctx: dict[str, Any]) -> tuple[bool, str]:
-        db_class = ctx.get("sqlite_db_class", "D")
-        if db_class == "A":
-            return False, "Class A (governance codex) - checkpoint not allowed"
-        if ctx.get("sqlite_long_reader", False):
-            return False, "Long-running reader active"
-        return True, "OK"
-
-    def sqlite_checkpoint_verify(before: dict, after: dict, ctx: dict) -> tuple[bool, str]:
-        if not after.get("checkpoint_completed", False):
-            return False, "Checkpoint did not complete"
-        wal_before = before.get("wal_size_mb", 0)
-        wal_after = after.get("wal_size_mb", 0)
-        if wal_after >= wal_before * 0.9:
-            return False, "WAL size did not decrease sufficiently"
-        return True, "OK"
-
-    registry.register(MaintenanceAction(
-        action_id="sqlite_checkpoint_v1",
-        version=1,
-        engine="sqlite",
-        risk_class=MaintenanceRiskClass.M1_SAFE_AUTO,
-        trigger_rule=sqlite_checkpoint_trigger,
-        preconditions=sqlite_checkpoint_preconditions,
-        verification_contract=sqlite_checkpoint_verify,
-        timeout_seconds=60.0,
-        max_attempts=3,
-        cooldown_seconds=300.0,
-        rollback_or_recovery_policy="Checkpoint is idempotent; on failure, retry. Class A databases never checkpoint.",
-        lease_scope="sqlite:checkpoint:{module_id}:{database_id}",
-        description="Run SQLite WAL checkpoint (PASSIVE/RESTART/TRUNCATE based on WAL size)",
-        tags=("sqlite", "wal", "checkpoint"),
-    ))
-
-    def sqlite_health_observe_trigger(signals: dict[str, Any]) -> bool:
-        return True
-
-    def sqlite_health_observe_preconditions(ctx: dict[str, Any]) -> tuple[bool, str]:
-        return True, "OK"
-
-    def sqlite_health_observe_verify(before: dict, after: dict, ctx: dict) -> tuple[bool, str]:
-        return True, "OK"
-
-    registry.register(MaintenanceAction(
-        action_id="sqlite_health_observe_v1",
-        version=1,
-        engine="sqlite",
-        risk_class=MaintenanceRiskClass.M0_OBSERVE,
-        trigger_rule=sqlite_health_observe_trigger,
-        preconditions=sqlite_health_observe_preconditions,
-        verification_contract=sqlite_health_observe_verify,
-        timeout_seconds=10.0,
-        max_attempts=1,
-        cooldown_seconds=60.0,
-        rollback_or_recovery_policy="Observation only.",
-        lease_scope="sqlite:health:observe",
-        description="Collect SQLite health metrics per database class",
-        tags=("sqlite", "health", "observe"),
     ))
 
     # --- Reconcile Actions ---

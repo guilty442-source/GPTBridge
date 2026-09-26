@@ -58,8 +58,8 @@ class TestWatchdogBloatRpoRtoMigration:
         assert "rpo_rto_class" in text
         assert "rpo_seconds" in text
         assert "rto_seconds" in text
-        for engine in ("postgresql-central", "governance-codex-sqlite",
-                       "module-sqlite", "qdrant"):
+        for engine in ("postgresql-central", "governance-codex",
+                       "module-local-state", "vectord"):
             assert engine in text
 
     def test_defines_capacity_thresholds(self):
@@ -109,8 +109,8 @@ class TestSloMetricsMigration:
     def test_seeds_default_metrics(self):
         text = (_MIGRATIONS_DIR / "031_slo_metrics.sql").read_text("utf-8")
         for metric in ("central-query-p95", "transport-claim-latency",
-                       "reconcile-backlog", "sqlite-lock-rate",
-                       "qdrant-stale-rate", "restore-success"):
+                       "reconcile-backlog", "module-state-lock-rate",
+                       "vectord-stale-rate", "restore-success"):
             assert metric in text
 
 

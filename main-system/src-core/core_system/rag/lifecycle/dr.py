@@ -60,7 +60,7 @@ BACKUP_PRIORITIES: tuple[BackupPriority, ...] = (
     BackupPriority("policy", True, False, "governance config"),
     BackupPriority("locator-registry", True, False, "source identity map"),
     BackupPriority("vector", False, True, "rebuildable vector projection"),
-    BackupPriority("sqlite-cache", False, True, "degraded-path rebuildable"),
+    BackupPriority("degraded-mirror", False, True, "degraded-path rebuildable"),
 )
 
 

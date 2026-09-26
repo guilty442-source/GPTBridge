@@ -197,7 +197,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_trading.strategy_validation (
     strategy_id   text NOT NULL,
     version       int  NOT NULL,
     split         text NOT NULL,       -- in_sample|validation|out_of_sample|walk_forward
-    window        text NOT NULL,
+    "window"        text NOT NULL,
     run_id        text,
     metrics       jsonb NOT NULL DEFAULT '{}',
     flags         jsonb NOT NULL DEFAULT '[]',  -- OOS_REUSED|NARROW_PROFIT_ISLAND
@@ -234,7 +234,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_trading.strategy_comparison (
     run_ids          jsonb NOT NULL DEFAULT '[]',
     comparable       boolean NOT NULL DEFAULT false,
     mismatched_basis jsonb NOT NULL DEFAULT '[]',
-    table            jsonb NOT NULL DEFAULT '[]',
+    result_table            jsonb NOT NULL DEFAULT '[]',
     created_at       timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (comparison_id)
 );

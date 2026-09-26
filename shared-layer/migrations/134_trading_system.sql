@@ -254,52 +254,11 @@ CREATE INDEX IF NOT EXISTS portfolio_snapshot_idx
     ON gptbridge_trading.portfolio_snapshot (account_id, taken_at DESC);
 
 -- ============================================================================
--- fund_nav + fund_transaction — mutual-fund domain (manual import first)
+-- fund_nav + fund_transaction + strategy_version are owned by the
+-- dedicated domain migrations (136_fund_data / 138_strategy_backtest);
+-- defining them here with the older manual-import shape would shadow the
+-- versioned fund/share-class model via CREATE TABLE IF NOT EXISTS.
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS gptbridge_trading.fund_nav (
-    nav_id         text        NOT NULL,
-    module_id      text        NOT NULL DEFAULT 'ai-assistant',
-    instrument_id  text        NOT NULL REFERENCES gptbridge_trading.instrument(instrument_id),
-    nav            numeric     NOT NULL,
-    nav_date       date        NOT NULL,
-    currency       text,
-    source         text        NOT NULL DEFAULT 'manual',
-    imported_at    timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (nav_id),
-    UNIQUE (instrument_id, nav_date)
-);
-
-CREATE TABLE IF NOT EXISTS gptbridge_trading.fund_transaction (
-    transaction_id text        NOT NULL,
-    module_id      text        NOT NULL DEFAULT 'ai-assistant',
-    account_id     text        NOT NULL REFERENCES gptbridge_trading.account(account_id),
-    instrument_id  text        NOT NULL REFERENCES gptbridge_trading.instrument(instrument_id),
-    kind           text        NOT NULL,  -- subscription | redemption
-    units          numeric     NOT NULL,
-    amount         numeric     NOT NULL,
-    currency       text,
-    trade_date     date,
-    source         text        NOT NULL DEFAULT 'manual',
-    imported_at    timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (transaction_id)
-);
-CREATE INDEX IF NOT EXISTS fund_transaction_idx
-    ON gptbridge_trading.fund_transaction (instrument_id, trade_date DESC);
-
--- ============================================================================
--- strategy_version — governed strategy lineage
--- ============================================================================
-CREATE TABLE IF NOT EXISTS gptbridge_trading.strategy_version (
-    strategy_id    text        NOT NULL,
-    module_id      text        NOT NULL DEFAULT 'ai-assistant',
-    version        int         NOT NULL,
-    kind           text        NOT NULL,  -- signal-follow | ai-proposal | ...
-    params         jsonb       NOT NULL DEFAULT '{}'::jsonb,
-    artifact       text,                   -- native model artifact ref
-    status         text        NOT NULL DEFAULT 'active',
-    created_at     timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (strategy_id, version)
-);
 
 -- ============================================================================
 -- authorization_grant — explicit human authorization for LIVE
@@ -374,7 +333,6 @@ BEGIN
         'cash_balance', 'market_observation', 'trading_signal',
         'trade_proposal', 'risk_decision', 'order_request',
         'order_receipt', 'execution', 'portfolio_snapshot',
-        'fund_nav', 'fund_transaction', 'strategy_version',
         'audit_event', 'authorization_grant', 'research_document'
     ]
     LOOP
@@ -387,27 +345,27 @@ BEGIN
             t
         );
         EXECUTE format(
-            'DROP POLICY IF EXISTS %I_read ON gptbridge_trading.%I',
-            t, t
+            'DROP POLICY IF EXISTS %I ON gptbridge_trading.%I',
+            t || '_read', t
         );
         EXECUTE format(
-            'CREATE POLICY %I_read ON gptbridge_trading.%I
+            'CREATE POLICY %I ON gptbridge_trading.%I
              FOR SELECT USING (gptbridge_security.can_read(module_id))',
-            t, t
+            t || '_read', t
         );
         EXECUTE format(
-            'DROP POLICY IF EXISTS %I_write ON gptbridge_trading.%I',
-            t, t
+            'DROP POLICY IF EXISTS %I ON gptbridge_trading.%I',
+            t || '_write', t
         );
         EXECUTE format(
-            'CREATE POLICY %I_write ON gptbridge_trading.%I
+            'CREATE POLICY %I ON gptbridge_trading.%I
              FOR ALL
              USING (gptbridge_security.can_write(module_id))
              WITH CHECK (
                  gptbridge_security.can_write(module_id)
                  AND module_id = current_setting(''app.current_module_id'', true)
              )',
-            t, t
+            t || '_write', t
         );
         EXECUTE format(
             'REVOKE ALL ON gptbridge_trading.%I FROM PUBLIC', t
@@ -426,7 +384,6 @@ BEGIN
         'cash_balance', 'market_observation', 'trading_signal',
         'trade_proposal', 'risk_decision', 'order_request',
         'order_receipt', 'execution', 'portfolio_snapshot',
-        'fund_nav', 'fund_transaction', 'strategy_version',
         'authorization_grant', 'research_document'
     ]
     LOOP

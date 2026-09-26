@@ -14,7 +14,8 @@
 --     tuple, and autovacuum lag snapshots.
 --   * gptbridge_index.rpo_rto_class — per-engine RPO/RTO classes.
 --   * gptbridge_index.capacity_threshold — warning/critical/fail-closed
---     thresholds for disk, WAL, SQLite WAL, transport backlog, Qdrant size.
+--     thresholds for disk, WAL, module-local state, transport backlog,
+--     vectord collection size.
 
 -- ============================================================================
 -- long_transaction_watchdog
@@ -22,7 +23,7 @@
 CREATE TABLE IF NOT EXISTS gptbridge_index.long_transaction_watchdog (
     watchdog_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     pid integer NOT NULL,
-    session_user text NOT NULL,
+    "session_user" text NOT NULL,
     state text NOT NULL,
     query text,
     transaction_age_seconds bigint NOT NULL,
@@ -98,8 +99,8 @@ CREATE INDEX IF NOT EXISTS bloat_table_idx
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS gptbridge_index.rpo_rto_class (
     engine text PRIMARY KEY CHECK (engine IN (
-        'postgresql-central', 'governance-codex-sqlite',
-        'module-sqlite', 'qdrant'
+        'postgresql-central', 'governance-codex',
+        'module-local-state', 'vectord'
     )),
     rpo_seconds bigint NOT NULL,  -- max acceptable data loss window
     rto_seconds bigint NOT NULL,  -- max acceptable downtime
@@ -132,9 +133,9 @@ INSERT INTO gptbridge_index.rpo_rto_class (
     engine, rpo_seconds, rto_seconds, backup_frequency_seconds, description
 ) VALUES
     ('postgresql-central',       300,    600,  3600, 'Central PostgreSQL: 5min RPO, 10min RTO'),
-    ('governance-codex-sqlite',  86400,  3600, 86400, 'Governance codex SQLite: 24h RPO, 1h RTO'),
-    ('module-sqlite',            3600,  1800,  7200, 'Module SQLite: 1h RPO, 30min RTO'),
-    ('qdrant',                   3600,  1800,  7200, 'Qdrant: 1h RPO, 30min RTO')
+    ('governance-codex',         86400,  3600, 86400, 'Governance codex (PostgreSQL): 24h RPO, 1h RTO'),
+    ('module-local-state',       3600,  1800,  7200, 'Module bounded local state: 1h RPO, 30min RTO'),
+    ('vectord',                  3600,  1800,  7200, 'vectord canonical vector engine: 1h RPO, 30min RTO')
 ON CONFLICT (engine) DO NOTHING;
 
 -- ============================================================================
@@ -175,7 +176,7 @@ INSERT INTO gptbridge_index.capacity_threshold (
 ) VALUES
     ('disk-usage-percent',           75,  85,  95, 'percent', 'Disk usage'),
     ('wal-size-mb',                 1024, 2048, 4096, 'MB', 'PostgreSQL WAL size'),
-    ('sqlite-wal-size-mb',             50,  100,  200, 'MB', 'SQLite WAL size'),
+    ('module-state-size-mb',           50,  100,  200, 'MB', 'Module bounded local state size'),
     ('transport-backlog-count',       100,  500, 1000, 'count', 'Transport pending queue'),
-    ('qdrant-collection-size-mb',    2048, 4096, 8192, 'MB', 'Qdrant collection size')
+    ('vectord-collection-size-mb',   2048, 4096, 8192, 'MB', 'vectord collection size')
 ON CONFLICT (metric_name) DO NOTHING;

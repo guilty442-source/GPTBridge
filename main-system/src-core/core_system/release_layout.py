@@ -17,7 +17,7 @@ path re-checks before a standby backend is allowed to run from a bundle.
 
 * **Release 必須包含** backend code、shared runtime dependencies、required
   contracts、dependency lock、build metadata —— 缺一即 fail-closed。
-* **不得隨更新複製** PostgreSQL 資料、Qdrant 索引、模型權重、使用者資料 ——
+* **不得隨更新複製** PostgreSQL 資料、vectord 索引、模型權重、使用者資料 ——
   任一隨 payload 複製即拒絕（這些是正式權威狀態，存在於 release 之外）。
 
 The five compatibility gates (codex／permissions／ipc／sql_schema／frontend)
