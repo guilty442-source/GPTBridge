@@ -74,7 +74,9 @@ class HotReloadWatcher(HotReloadReloadMixin, HotReloadHealthMixin):
         # Adaptive polling: start at base interval, increase when stable
         self._adaptive_poll_interval = POLL_INTERVAL_SECONDS
         self._min_poll_interval = POLL_INTERVAL_SECONDS
-        self._max_poll_interval = 60.0  # Max 60 seconds
+        # Perf/low-CPU: settle to 120s when stable (was 60s); resets to
+        # base on any change so edit responsiveness is unchanged.
+        self._max_poll_interval = 120.0
         self._consecutive_no_changes = 0
 
     # ── lifecycle ─────────────────────────────────────────────────────

@@ -181,7 +181,9 @@ class ReloadExecutionMixin:
         request_path: Path,
         *,
         timeout: float = 60.0,
-        poll_interval: float = 0.5,
+        # Perf/low-IO: terminal status changes on second granularity;
+        # 1s halves file reads (120 -> 60 per cycle) with no UX impact.
+        poll_interval: float = 1.0,
     ) -> None:
         """Poll backend-update-request.json for a terminal status."""
         terminal_states = {

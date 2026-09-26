@@ -374,7 +374,11 @@ class PgOutboxStore:
         self._psycopg = psycopg
         self._sql = _sql
         self._lock = threading.Lock()
-        self._conn = psycopg.connect(resolve_dsn(DsnPurpose.RUNTIME).dsn)
+        # Perf/fail-fast: bound the connect so a down DB fails in seconds
+        # instead of hanging the outbox/publisher startup indefinitely.
+        self._conn = psycopg.connect(
+            resolve_dsn(DsnPurpose.RUNTIME).dsn, connect_timeout=5
+        )
 
     def append(
         self,

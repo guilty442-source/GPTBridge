@@ -53,7 +53,10 @@ TARGET_TOOL_ID = "xingcheng"
 OWNER_TOOL_ID = "local-model"
 
 _DEFAULT_IDLE_INTERVAL = 5.0
-_DEFAULT_PENDING_INTERVAL = 1.0
+# Perf/low-CPU: event-driven wake via LISTEN/NOTIFY (_on_transport_notify)
+# already fires immediately on new ai requests; the poll interval is only
+# a fallback, so 2s halves polling with no activation-latency impact.
+_DEFAULT_PENDING_INTERVAL = 2.0
 _DEFAULT_COOLDOWN_SECONDS = 20.0
 _DEFAULT_MIN_BACKOFF_SECONDS = 15.0
 _DEFAULT_MAX_BACKOFF_SECONDS = 180.0
