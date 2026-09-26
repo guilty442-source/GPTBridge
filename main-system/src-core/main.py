@@ -168,9 +168,11 @@ class GPTBridgeApp(
 # Backward compatibility: expose main() at module level
 async def main() -> None:
     """Module entry point for backward compatibility."""
+    # Perf: single App construction — the composition root wires all
+    # services/sovereigns, so building it twice doubles startup work.
+    # (run_server is already imported at module top; do not re-import.)
     app_instance = GPTBridgeApp()
     try:
-        from ipc.server import run_server
         import argparse
 
         parser = argparse.ArgumentParser(description="GPTBridge Mother Tool Entry")
@@ -191,8 +193,6 @@ async def main() -> None:
         )
 
         args = parser.parse_args()
-
-        app_instance = GPTBridgeApp()
 
         try:
             await run_server(
