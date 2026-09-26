@@ -106,6 +106,7 @@ def julia_version() -> Optional[str]:
             capture_output=True,
             text=True,
             timeout=15,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -170,6 +171,7 @@ class JuliaCompute:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 cwd=str(_tool_root()),
             )
         except subprocess.TimeoutExpired as exc:

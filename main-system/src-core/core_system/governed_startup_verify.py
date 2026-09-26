@@ -153,7 +153,7 @@ def verify_dependency_classification(
 ) -> dict[str, Any]:
     """Verify dependency classification against A191 rules.
 
-    Per A191: ``POSTGRESQL/QDRANT/OLLAMA:no-global-fixed-criticality+critical-
+    Per A191: ``POSTGRESQL/VECTORD/OLLAMA:no-global-fixed-criticality+critical-
     only-when-required-by-a-core-ready-contract in-current-certified-manifest``.
     """
     violations: list[str] = []

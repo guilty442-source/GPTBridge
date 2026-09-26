@@ -6,7 +6,7 @@ Lives inside the xingcheng runtime (local-model tool); all xingcheng internals a
 Architecture:
 - Component: chinese-semantic-engine (model, internal-module of xingcheng/local-model)
 - Sovereign: xingcheng-domain
-- Dependencies: shared-layer, qdrant, local-model
+- Dependencies: shared-layer, vector, local-model
 - Information channels: information-channel
 """
 
@@ -48,14 +48,14 @@ class SemanticConfig:
 
     Attributes:
         model_endpoint: Target model endpoint identifier.
-        qdrant_collection: Qdrant collection for semantic indexing.
+        vector_collection: vectord collection for semantic indexing.
         max_context_tokens: Maximum token context window.
         enable_fusion_retrieval: Enable dense+sparse+semantic fusion.
         fallback_enabled: Allow degraded-mode fallback.
         timeout_seconds: Request timeout.
     """
     model_endpoint: str = "xingcheng"
-    qdrant_collection: str = "chinese-semantic-v2"
+    vector_collection: str = "chinese-semantic-v2"
     max_context_tokens: int = 8192
     enable_fusion_retrieval: bool = True
     fallback_enabled: bool = True
@@ -417,7 +417,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
         super().__init__(config)
         self._capability_registry = capability_registry
         self._module_identity = module_identity or ModuleIdentity(module_id=COMPONENT_ID)
-        self._qdrant_client = None
+        self._vector_client = None
         self._model_runtime = None
         self._native_model = None
         self._model_available = False
@@ -426,7 +426,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
         self._import_error: str | None = None
 
     async def _initialize(self) -> None:
-        """Initialize xingcheng model runtime and Qdrant connections."""
+        """Initialize xingcheng model runtime and vector-store connections."""
         try:
             from shared_layer.adaptive import get_plane
             from shared_layer.local.vector_store import LocalVectorStore
@@ -441,11 +441,11 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
                 # the repo root as cwd and would leak a stray DB file
                 # outside governed roots).
                 _tool_root = Path(__file__).resolve().parents[5]
-                self._qdrant_client = LocalVectorStore(
+                self._vector_client = LocalVectorStore(
                     root=_tool_root / "runtime" / "state",
                     dimension=256,
                 )
-                self._qdrant_client.ensure_collection(256)
+                self._vector_client.ensure_collection(256)
 
             # Initialize native model directly (no external runtime needed)
             self._native_model = StarNativeLanguageModel(model_role="main")
@@ -460,7 +460,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
 
     async def _shutdown(self) -> None:
         """Cleanup connections."""
-        if self._qdrant_client:
+        if self._vector_client:
             pass  # LocalVectorStore doesn't need explicit close
         if self._model_runtime:
             pass  # Native model doesn't need explicit close
@@ -517,15 +517,15 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
             raise SemanticModelUnavailable(
                 f"Xingcheng model not available: {self._import_error}"
             )
-        if not self._qdrant_client:
-            raise SemanticModelUnavailable("Qdrant not initialized")
+        if not self._vector_client:
+            raise SemanticModelUnavailable("vector store not initialized")
 
         try:
             from .rag.hybrid import HybridRetriever
         except ImportError as e:
             raise SemanticModelUnavailable(f"Xingcheng module not available: {e}")
 
-        retriever = HybridRetriever(self._qdrant_client)
+        retriever = HybridRetriever(self._vector_client)
         results = await retriever.retrieve(
             query=request.text,
             method=request.parameters.get("method", "semantic-fusion"),
@@ -534,7 +534,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
 
         return SemanticResponse(
             result={"results": results},
-            metadata={"method": "hybrid-fusion", "collection": self._config.qdrant_collection},
+            metadata={"method": "hybrid-fusion", "collection": self._config.vector_collection},
         )
 
     async def _synthesize_impl(self, request: SemanticRequest) -> SemanticResponse:
@@ -564,7 +564,7 @@ class XingchengSemanticProcessor(BaseSemanticProcessor):
         base = await super().health_check()
         base.update({
             "processor_type": "xingcheng-native",
-            "qdrant_connected": self._qdrant_client is not None,
+            "vector_connected": self._vector_client is not None,
             "model_runtime_connected": self._model_runtime is not None,
         })
         return base

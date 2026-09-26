@@ -215,7 +215,7 @@ def make_idempotency_key(
 class OutboxStep:
     """Record of one store's result within a cross-store saga (A374)."""
 
-    store: str  # "qdrant" | "postgresql"
+    store: str  # "vector" | "postgresql"
     operation: str  # e.g. "upsert", "tombstone", "index_state"
     succeeded: bool
     applied_at: str

@@ -147,7 +147,7 @@ _FALLBACK: Final[dict[str, Any]] = {
         ),
         "no_fixed_criticality_services": (
             "postgresql",
-            "qdrant",
+            "vectord",
             "ollama",
         ),
     },

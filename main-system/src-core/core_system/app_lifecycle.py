@@ -50,7 +50,8 @@ from governance.sovereigns import (
 from main_shutdown import GPTBridgeAppShutdownMixin
 from core_system.maintenance_controller_integration import create_maintenance_controller_integration
 # RAG/CAG integrations are imported lazily inside the on-demand helpers
-# below: their module trees pull qdrant_client (~1.2s import) which is
+# below: their module trees pull the vector_models shim (which may import
+# the retired qdrant_client package, ~1.2s) which is
 # capability-critical, not boot-critical — see MS1/MS2 lazy loading.
 
 

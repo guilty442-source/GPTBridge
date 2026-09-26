@@ -6,7 +6,7 @@ authorized step, never a service-side file read.
       -> owning module's resolver
       -> authorized content
 
-RAG never learns physical paths.  Even if Qdrant were read directly,
+RAG never learns physical paths.  Even if vectord were read directly,
 only opaque IDs are there — no path, no full text.  Code RAG and
 Memory RAG each plug in their own resolver:
 

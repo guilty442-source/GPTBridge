@@ -14,7 +14,7 @@ from backend.services.xingcheng.infrastructure.native_runtime import (
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="GPTBridge 本機共用 RAG")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser("status", help="檢查 Qdrant、PostgreSQL FTS 與模型設定")
+    subparsers.add_parser("status", help="檢查 vectord、PostgreSQL FTS 與模型設定")
     index = subparsers.add_parser("index", help="將檔案或資料夾加入共用知識庫")
     index.add_argument("paths", nargs="+", help="E:\\GPTBridge 內的檔案或資料夾")
     query = subparsers.add_parser("query", help="查詢共用知識庫")

@@ -7,12 +7,12 @@ DEGRADED → RECONCILING → CANONICAL is only allowed after pending
       → re-fetch the owning module's original content
       → re-chunk (canonical chunker contract)
       → re-embed via the governed local runtime (qwen3-embedding:4b, 2560d)
-      → Qdrant upsert / delete
+      → vectord upsert / delete
       → PostgreSQL metadata / index_state
       → verify index_state
       → mark reconciled (canonical_synced_at)
 
-— followed by honest parity (index_state chunk coverage vs Qdrant
+— followed by honest parity (index_state chunk coverage vs vectord
 points, point-id / content-hash / embedding-version completeness) plus
 queue-drain verification.  Degraded SQLite hashing vectors are NEVER
 replayed into the 2560-dim canonical collection; embeddings are always
@@ -64,11 +64,11 @@ class PipelineRecoveryMixin:
             return self.state
         if self.state != RagRuntimeState.DEGRADED:
             return self.state
-        if not (self.qdrant.is_healthy() and self.postgresql.is_healthy()):
+        if not (self.vector.is_healthy() and self.postgresql.is_healthy()):
             return self.state
         try:
             self._state_machine.begin_reconciliation(
-                qdrant_healthy=True, postgresql_healthy=True
+                vector_healthy=True, postgresql_healthy=True
             )
         except (CanonicalCheckError, TransitionError) as exc:
             self._state_machine.report_canonical_failure(
@@ -83,12 +83,12 @@ class PipelineRecoveryMixin:
         return self._state_machine.complete_reconciliation(**parity)
 
     async def _recovery_parity(self) -> dict[str, bool]:
-        """Honest parity: index_state chunk coverage vs Qdrant points,
+        """Honest parity: index_state chunk coverage vs vectord points,
         plus point-id / content-hash / embedding-version completeness."""
         summary = await self.postgresql.index_state_summary(
             self.config.embedding_model, self.config.embedding_dimension
         )
-        points = self.qdrant.points_count()
+        points = self.vector.points_count()
         if summary is None or points is None:
             raise CanonicalCheckError("parity inputs unavailable")
         return {
@@ -190,13 +190,13 @@ class PipelineRecoveryMixin:
     async def run_parity_sweep(
         self, *, module_id: Optional[str] = None, drain: bool = True
     ) -> dict[str, Any]:
-        """§10.6 定期一致性掃描：比對 PG index_state/chunk 與 Qdrant 逐資源
+        """§10.6 定期一致性掃描：比對 PG index_state/chunk 與 vectord 逐資源
         point 數、embedding 版本、content hash；只把漂移資源 enqueue 到
         durable reconciliation_queue（預設隨即 drain 修復）。不得以刪除
-        Qdrant collection 作為修復手段。"""
+        vectord collection 作為修復手段。"""
         from .parity_audit import RagParityAudit
 
-        audit = RagParityAudit(self.postgresql, self.qdrant, self.config)
+        audit = RagParityAudit(self.postgresql, self.vector, self.config)
         report = await audit.sweep(module_id=module_id)
         if drain and report.get("enqueued"):
             report["drain"] = await self.run_reconciliation()
@@ -246,7 +246,7 @@ class PipelineRecoveryMixin:
 
     async def _reconcile_item(self, item: Any) -> None:
         """Replay one pending mutation: re-fetch → re-chunk → re-embed →
-        Qdrant upsert/delete → PG index_state → verify."""
+        vectord upsert/delete → PG index_state → verify."""
         module_id = str(
             item.payload.get("module_id")
             or str(item.locator_id).split(":", 1)[0]
@@ -277,7 +277,7 @@ class PipelineRecoveryMixin:
 
         When a ``DeletionCoordinatorRuntime`` is injected
         (``self._deletion_coordinator``) the replay goes through its typed
-        runtime entry, which keeps the fixed order (Qdrant delete before the
+        runtime entry, which keeps the fixed order (vectord delete before the
         PostgreSQL tombstone) and is idempotent.  Without it the canonical
         pipeline performs the same two steps directly.
         """
@@ -296,7 +296,7 @@ class PipelineRecoveryMixin:
                     f"{module_id}:{item.resource_id}: {outcome.reason}"
                 )
             return
-        await self.qdrant.delete_resource(module_id, item.resource_id)
+        await self.vector.delete_resource(module_id, item.resource_id)
         await self.postgresql.raise_tombstone(
             module_id=module_id,
             resource_id=item.resource_id,
@@ -430,14 +430,14 @@ class PipelineRecoveryMixin:
             "reconciliation_required": self._state_machine.reconciliation_required,
             "queue_pending": self._queue.pending_count(),
             "queue_complete": self._queue.is_complete(),
-            "qdrant": {
-                "healthy": self.qdrant.is_healthy(),
+            "vector": {
+                "healthy": self.vector.is_healthy(),
                 "collection": self.config.collection_name,
-                "loopback": getattr(self.qdrant, "last_error", None) is None
-                or not str(getattr(self.qdrant, "last_error", "")).startswith(
-                    "QDRANT_URL_NOT_LOOPBACK"
+                "loopback": getattr(self.vector, "last_error", None) is None
+                or not str(getattr(self.vector, "last_error", "")).startswith(
+                    "VECTOR_URL_NOT_LOOPBACK"
                 ),
-                "collection_error": getattr(self.qdrant, "collection_error", None),
+                "collection_error": getattr(self.vector, "collection_error", None),
             },
             "postgresql": {
                 "healthy": self.postgresql.is_healthy(),
@@ -508,7 +508,7 @@ class PipelineRecoveryMixin:
         return result
 
     # ------------------------------------------------------------------
-    # RAG-16D: disaster-recovery rebuild — Qdrant is rebuildable from
+    # RAG-16D: disaster-recovery rebuild — vectord is rebuildable from
     # PostgreSQL authority + qwen3-embedding:4b; SQLite is never the
     # restore source.
     # ------------------------------------------------------------------
@@ -524,7 +524,7 @@ class PipelineRecoveryMixin:
         """Rebuild the canonical semantic index from zero.
 
         Sequence (lifecycle.dr.REBUILD_SEQUENCE):
-        START_QDRANT -> CREATE_GENERATION -> READ_PG_METADATA ->
+        START_VECTORD -> CREATE_GENERATION -> READ_PG_METADATA ->
         RESOLVE_SOURCES -> RECHUNK_REEMBED -> VALIDATE -> ACTIVATE.
 
         Sources come from PostgreSQL (chunk rows carry canonical content);
@@ -539,10 +539,10 @@ class PipelineRecoveryMixin:
         rebuilt = 0
         self._migrating = True
         try:
-            # START_QDRANT
-            if not await self.qdrant.initialize() and not self.qdrant.is_healthy():
+            # START_VECTORD
+            if not await self.vector.initialize() and not self.vector.is_healthy():
                 return evaluate_rebuild(tuple(steps), 0, 0)
-            steps.append(RebuildStep.START_QDRANT)
+            steps.append(RebuildStep.START_VECTORD)
 
             # CREATE_GENERATION (BUILDING — never serves queries)
             generation = await generation_manager.create_generation()
@@ -585,7 +585,7 @@ class PipelineRecoveryMixin:
                             f"EMBEDDING_DIMENSION_MISMATCH:{len(v)}"
                         )
                 from .vector_models import PointStruct
-                from .rag_qdrant import sanitize_payload
+                from .canonical_vector_runtime import sanitize_payload
                 points = [
                     PointStruct(
                         id=str(
@@ -602,7 +602,7 @@ class PipelineRecoveryMixin:
                     )
                     for c, v in zip(chunks, vectors)
                 ]
-                if not await self.qdrant.upsert_points(
+                if not await self.vector.upsert_points(
                     points, generation_id=generation.generation_id
                 ):
                     continue

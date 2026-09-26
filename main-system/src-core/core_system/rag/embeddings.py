@@ -188,7 +188,7 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 
     Output dimension follows the loaded model and is NOT the canonical
     2560-dim contract — this provider may only serve degraded/test paths and
-    must never feed the canonical Qdrant collection.
+    must never feed the canonical vectord collection.
     """
 
     def __init__(self, model: str = "all-MiniLM-L6-v2") -> None:

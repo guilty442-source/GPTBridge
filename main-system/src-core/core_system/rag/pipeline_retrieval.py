@@ -4,7 +4,7 @@ The canonical pipeline must NOT degrade to dense-only retrieval after
 canonical takeover.  This mixin adds the hybrid retrieval surface that
 ``LocalRagService`` already operates in degraded mode:
 
-    Qdrant Dense  ┐
+    vectord Dense  ┐
                    ├─ RRF (Reciprocal Rank Fusion)
     PG FTS        ┘
                    ↓
@@ -126,13 +126,13 @@ class PipelineRetrievalMixin:
         candidate_limit: int = 24,
         score_threshold: Optional[float] = None,
     ) -> list[dict[str, Any]]:
-        """Canonical hybrid retrieval: Qdrant Dense + PG FTS + RRF.
+        """Canonical hybrid retrieval: vectord Dense + PG FTS + RRF.
 
         Returns fused chunk-level records sorted by ``rrf_score``.
         Each record carries ``vector_rank``, ``keyword_rank``, and
         ``rrf_score`` for observability.
         """
-        # Dense channel (Qdrant + index_state proof)
+        # Dense channel (vectord + index_state proof)
         vector_hits = _resolve(
             self.vector_search(
                 query_embedding,

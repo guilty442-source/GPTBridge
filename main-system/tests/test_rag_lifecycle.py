@@ -247,9 +247,9 @@ def test_startup_blocked_missing_generation():
 
 
 def test_startup_degraded_on_qdrant_down():
-    verdict, reasons = startup_gate(StartupChecks(qdrant_ok=False))
+    verdict, reasons = startup_gate(StartupChecks(vector_ok=False))
     assert verdict is StartupVerdict.DEGRADED_READY
-    assert "qdrant-unreachable" in reasons
+    assert "vector-unreachable" in reasons
 
 
 def test_startup_canonical():
@@ -270,7 +270,7 @@ def test_takeover_requires_all_12():
 
 def test_takeover_rejects_unknown_criteria():
     results = {c: True for c in TAKEOVER_CRITERIA}
-    results["qdrant-reachable"] = True   # not a criterion
+    results["vector-reachable"] = True   # not a criterion
     assert not evaluate_takeover(results).complete
 
 
@@ -284,7 +284,7 @@ def test_post_takeover_invariant():
 
 def test_backup_priorities():
     pg = next(b for b in BACKUP_PRIORITIES if b.component == "pg-metadata")
-    qd = next(b for b in BACKUP_PRIORITIES if b.component == "qdrant")
+    qd = next(b for b in BACKUP_PRIORITIES if b.component == "vector")
     assert pg.must_backup and not pg.rebuildable
     assert qd.rebuildable and not qd.must_backup
 
@@ -294,7 +294,7 @@ def test_rebuild_from_zero():
     assert rep.complete
     rep2 = evaluate_rebuild(REBUILD_SEQUENCE, 90, 100)
     assert not rep2.complete
-    assert "canonical-data-in-qdrant" in rep2.gap
+    assert "canonical-data-in-vector" in rep2.gap
 
 
 # ---------- upgrade plan + shadow ----------
@@ -354,7 +354,7 @@ async def test_apply_migration_vector_rebuild_via_governed_path():
         seen.append(_plan)
         return RebuildReport(
             steps_completed=(
-                RebuildStep.START_QDRANT,
+                RebuildStep.START_VECTORD,
                 RebuildStep.CREATE_GENERATION,
                 RebuildStep.READ_PG_METADATA,
                 RebuildStep.RESOLVE_SOURCES,
@@ -377,7 +377,7 @@ async def test_apply_migration_incomplete_rebuild_never_activates():
     plan = plan_migration(RagSchemaVersions(4, 7, 3), RagSchemaVersions(4, 7, 4))
     partial = RebuildReport(
         steps_completed=(
-            RebuildStep.START_QDRANT,
+            RebuildStep.START_VECTORD,
             RebuildStep.CREATE_GENERATION,
             RebuildStep.READ_PG_METADATA,
         ),

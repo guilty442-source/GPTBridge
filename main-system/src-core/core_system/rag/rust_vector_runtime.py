@@ -1,7 +1,7 @@
 """Rust vector engine runtime — governed takeover of the canonical dense
 vector index (codex A610 DATA-ARCHITECTURE-TARGET).
 
-``RustVectorRuntime`` subclasses :class:`QdrantCanonicalRuntime` so the
+``RustVectorRuntime`` subclasses :class:`CanonicalVectorRuntime` so the
 entire pipeline surface (search / upsert / delete / counts / generation
 aliases / health gate) keeps working unchanged — only the transport and
 process ownership differ: instead of a Qdrant server the runtime drives
@@ -28,7 +28,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Optional
 
-from .rag_qdrant import QdrantCanonicalRuntime, RagPipelineConfig, is_loopback_url
+from .canonical_vector_runtime import CanonicalVectorRuntime, RagPipelineConfig, is_loopback_url
 
 _logger = logging.getLogger("gptbridge.rag.vectord")
 
@@ -91,7 +91,7 @@ class VectordClient:
     The pipeline, generation manager and health gate reach the vector
     store through the small QdrantClient surface used in this codebase;
     each method below translates that call into the vectord HTTP contract
-    and returns ``SimpleNamespace`` objects shaped like the qdrant
+    and returns ``SimpleNamespace`` objects shaped like the vector
     models the callers destructure (``.collections[].name``,
     ``.points_count``, ``.config.params.vectors.size``, ``.points[].id``
     and so on).
@@ -243,10 +243,10 @@ class VectordClient:
         return None
 
 
-class RustVectorRuntime(QdrantCanonicalRuntime):
+class RustVectorRuntime(CanonicalVectorRuntime):
     """Canonical vector runtime backed by the governed Rust engine.
 
-    Behaviour contract is inherited from ``QdrantCanonicalRuntime``;
+    Behaviour contract is inherited from ``CanonicalVectorRuntime``;
     ``initialize`` additionally enforces the loopback rule on the vectord
     URL and can lazily build/start the managed binary (same pattern as
     the governed ``searchd`` provider), remaining fail-closed throughout.
@@ -298,6 +298,7 @@ class RustVectorRuntime(QdrantCanonicalRuntime):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=600,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except (OSError, subprocess.TimeoutExpired):
             return False
@@ -374,7 +375,7 @@ class RustVectorRuntime(QdrantCanonicalRuntime):
             return False
 
 
-def select_vector_runtime(config: RagPipelineConfig) -> QdrantCanonicalRuntime:
+def select_vector_runtime(config: RagPipelineConfig) -> CanonicalVectorRuntime:
     """Canonical vector-runtime selector (A611: Rust engine is the
     primary semantic index; the Qdrant cutover is sealed).
 

@@ -55,6 +55,10 @@ class RagDagExecutor:
         self._compensations = dict(compensations or {})
         self._node_timeout = max(0.1, float(node_timeout_seconds))
         self._retry_limit = max(0, int(retry_limit))
+        self._pool: concurrent.futures.ThreadPoolExecutor | None = None
+        # Warm the worker at construction: thread-start cost lands here
+        # (outside any measured execute()), not inside node latency.
+        self._get_pool().submit(lambda: None).result()
 
     def execute(
         self,
@@ -233,19 +237,35 @@ class RagDagExecutor:
         context: RagDagExecutionContext,
         upstream: Mapping[str, Mapping[str, Any]],
     ) -> Mapping[str, Any]:
-        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        # 池常駐於 executor：每節點新建 ThreadPoolExecutor 會讓每次
+        # thread start 的成本計入 node latency（Windows 上可達百毫秒級）。
+        # 超時時整池拋棄（worker 可能仍卡在 runaway handler 中），下一次
+        # 執行延遲重建——語意與逐節點建池一致，但正常路徑重用既有 thread。
+        pool = self._get_pool()
+        future = pool.submit(handler, node, context, dict(upstream))
         try:
-            future = pool.submit(handler, node, context, dict(upstream))
-            try:
-                return future.result(timeout=self._node_timeout)
-            except concurrent.futures.TimeoutError as error:
-                future.cancel()
-                raise TimeoutError("node-timeout") from error
-        finally:
-            # wait=True 會阻塞到 runaway handler 結束，使 node timeout
-            # 完全失去 wall-clock 約束；逾時路徑以 wait=False 放手，
-            # 讓執行緒自行終結（Python 無法強殺執行中 thread）。
-            pool.shutdown(wait=False, cancel_futures=True)
+            return future.result(timeout=self._node_timeout)
+        except concurrent.futures.TimeoutError as error:
+            future.cancel()
+            self._discard_pool()
+            raise TimeoutError("node-timeout") from error
+
+    def _get_pool(self) -> concurrent.futures.ThreadPoolExecutor:
+        if self._pool is None:
+            self._pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        return self._pool
+
+    def _discard_pool(self) -> None:
+        # wait=True 會阻塞到 runaway handler 結束，使 node timeout
+        # 完全失去 wall-clock 約束；逾時路徑以 wait=False 放手，
+        # 讓執行緒自行終結（Python 無法強殺執行中 thread）。
+        if self._pool is not None:
+            self._pool.shutdown(wait=False, cancel_futures=True)
+            self._pool = None
+
+    def close(self) -> None:
+        """Release the worker pool; timed-out workers keep detaching."""
+        self._discard_pool()
 
     def _compensate(
         self,

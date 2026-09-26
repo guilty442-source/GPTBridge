@@ -9,7 +9,7 @@
 - **修復後驗證**：`record_outcome(verified=…)`；未驗證成功計入重試預算
 - **失敗升級**：預算耗盡 → `escalated=True`，不再自動嘗試（待人工）
 
-防止「數秒內反覆重啟 PostgreSQL／Qdrant／Ollama」——反覆修復可能比原故障
+防止「數秒內反覆重啟 PostgreSQL／vectord／Ollama」——反覆修復可能比原故障
 更拖垮機器。持久化 JSON（atomic write）；預設閉合：狀態檔損毀時拒絕嘗試。
 """
 

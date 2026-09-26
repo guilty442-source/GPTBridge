@@ -45,7 +45,7 @@ class MemoryRetrievalResult:
 def retrieve_memory(query: str, session_id: str = "", top_k: int = 10) -> MemoryRetrievalResult:
     """Decision-level memory retrieval interface.
 
-    Actual retrieval is delegated to the Qdrant governed executor.
+    Actual retrieval is delegated to the vectord governed executor.
     """
     return MemoryRetrievalResult(query=query)
 
@@ -53,7 +53,7 @@ def retrieve_memory(query: str, session_id: str = "", top_k: int = 10) -> Memory
 def store_memory(entry: MemoryEntry) -> bool:
     """Decision-level memory storage interface.
 
-    Actual storage is delegated to the Qdrant governed executor.
+    Actual storage is delegated to the vectord governed executor.
     """
     return True
 

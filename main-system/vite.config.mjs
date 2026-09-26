@@ -18,7 +18,24 @@ export default defineConfig({
 	build: {
 		outDir: resolve(import.meta.dirname, "dist-ui/renderer"),
 		emptyOutDir: true,
-		minify: false,
-		target: "es2022"
+		// Perf: esbuild minify + react vendor chunk — smaller first load
+		// and long-term caching of the framework bundle across app edits.
+		minify: true,
+		target: "es2022",
+		rollupOptions: {
+			output: {
+				// rolldown-based vite expects the function form here.
+				manualChunks: (id) => {
+					if (
+						id.includes("node_modules/react/") ||
+						id.includes("node_modules/react-dom/") ||
+						id.includes("node_modules/scheduler/")
+					) {
+						return "vendor"
+					}
+					return undefined
+				},
+			},
+		}
 	}
 });

@@ -1,6 +1,6 @@
 """A374 Step 3: Python domain model — sole owner of typed RAG results.
 
-Builds ``RagQueryResult`` from canonical sources only: Qdrant dense hits
+Builds ``RagQueryResult`` from canonical sources only: vectord dense hits
 joined with PostgreSQL metadata and authoritative index_state.  Hits
 without index_state proof are dropped (A373 canonical-takeover).
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from .rag_qdrant import IndexState, RagPipelineConfig, RagQueryResult
+from .canonical_vector_runtime import IndexState, RagPipelineConfig, RagQueryResult
 
 _logger = logging.getLogger("gptbridge.rag")
 
@@ -23,14 +23,14 @@ class PythonDomainModel:
 
     def build_typed_result(
         self,
-        qdrant_hits: list[dict[str, Any]],
+        vector_hits: list[dict[str, Any]],
         pg_metadata: dict[str, dict[str, Any]],
         index_states: dict[str, IndexState],
         pg_chunks: Optional[dict[str, dict[str, Any]]] = None,
     ) -> list[RagQueryResult]:
         """Build typed domain results from canonical sources."""
         results = []
-        for hit in qdrant_hits:
+        for hit in vector_hits:
             payload = hit.get("payload", {})
             resource_id = payload.get("resource_id") or hit.get("id")
             module_id = payload.get("module_id")
@@ -46,7 +46,7 @@ class PythonDomainModel:
                 _logger.warning("PythonDomainModel: missing index_state for %s", key)
                 continue
 
-            # Content is authoritative in PostgreSQL; Qdrant payloads never
+            # Content is authoritative in PostgreSQL; vectord payloads never
             # carry it.  Hydrate from the barrier batch when available.
             chunk_row = (pg_chunks or {}).get(str(hit.get("id")), {})
             results.append(RagQueryResult(

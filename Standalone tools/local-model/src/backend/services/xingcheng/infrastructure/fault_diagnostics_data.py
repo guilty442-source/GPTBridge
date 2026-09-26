@@ -157,7 +157,7 @@ _LOCATION_ALIASES: Final[dict[str, tuple[str, ...]]] = {
         "起不來", "閃退",
     ),
     "dependency-set": (
-        "依賴", "dependency", "postgres", "qdrant", "ollama",
+        "依賴", "dependency", "postgres", "vector", "ollama",
         "資料庫", "服務未啟動",
     ),
     "update-channel": (

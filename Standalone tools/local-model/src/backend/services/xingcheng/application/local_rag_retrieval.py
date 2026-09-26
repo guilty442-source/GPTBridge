@@ -226,7 +226,7 @@ class LocalRagRetrievalMixin:
                 "reranker_fallback": reranker.get("fallback"),
                 "generation_skipped": True,
                 "retrieval": (
-                    "canonical-qdrant-dense+postgresql-fts+index-state+rrf"
+                    "canonical-vector-dense+postgresql-fts+index-state+rrf"
                     if canonical
                     else "local-vector-degraded-cache+local-sqlite3-fts+rrf"
                 ),
@@ -234,7 +234,7 @@ class LocalRagRetrievalMixin:
                 "canonical_pending_reconciliation": pending_reconciliation,
                 "reconciliation_required": not canonical,
                 "authority": (
-                    "canonical-qdrant-postgresql"
+                    "canonical-vector-postgresql"
                     if canonical
                     else "non-canonical-reconciliation-required"
                 ),
@@ -263,7 +263,7 @@ class LocalRagRetrievalMixin:
             "canonical": canonical,
             "reconciliation_required": not canonical,
             "authority": (
-                "canonical-qdrant-postgresql"
+                "canonical-vector-postgresql"
                 if canonical
                 else "non-canonical-reconciliation-required"
             ),
@@ -353,7 +353,7 @@ class LocalRagRetrievalMixin:
             "generation_attempts": attempts, "generation": generated,
             "embedding_model": str(self.native_runtime.EMBEDDING_MODEL),
             "retrieval": (
-                "canonical-qdrant-dense+postgresql-fts+index-state+rrf+qwen3-reranker"
+                "canonical-vector-dense+postgresql-fts+index-state+rrf+qwen3-reranker"
                 if canonical_ready
                 else "local-vector-degraded-cache+local-sqlite3-fts+rrf+qwen3-reranker"
             ),
@@ -361,7 +361,7 @@ class LocalRagRetrievalMixin:
             "canonical_pending_reconciliation": pending_reconciliation,
             "reconciliation_required": not canonical_ready,
             "authority": (
-                "canonical-qdrant-postgresql"
+                "canonical-vector-postgresql"
                 if canonical_ready
                 else "non-canonical-reconciliation-required"
             ),
@@ -381,7 +381,7 @@ class LocalRagRetrievalMixin:
             "canonical": canonical_ready,
             "reconciliation_required": not canonical_ready,
             "authority": (
-                "canonical-qdrant-postgresql"
+                "canonical-vector-postgresql"
                 if canonical_ready
                 else "non-canonical-reconciliation-required"
             ),
@@ -431,13 +431,13 @@ class LocalRagRetrievalMixin:
         return {
             "citations": citations,
             "retrieval": (
-                "canonical-qdrant-dense+postgresql-fts+index-state+rrf"
+                "canonical-vector-dense+postgresql-fts+index-state+rrf"
                 if canonical
                 else "local-vector-degraded-cache+local-sqlite3-fts+rrf"
             ),
             "canonical": canonical,
             "authority": (
-                "canonical-qdrant-postgresql"
+                "canonical-vector-postgresql"
                 if canonical
                 else "non-canonical-reconciliation-required"
             ),

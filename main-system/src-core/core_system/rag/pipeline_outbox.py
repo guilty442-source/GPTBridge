@@ -2,7 +2,7 @@
 
 ``gptbridge_rag.outbox_event`` is THE canonical outbox: resource/chunk/
 index_state metadata and the outbox event commit in ONE PostgreSQL
-transaction; Qdrant writes are NEVER part of it — they are applied by
+transaction; vectord writes are NEVER part of it — they are applied by
 this driver (synchronously on the request path, or replayed by
 ``process_outbox`` after a crash).
 
@@ -13,7 +13,7 @@ Guarantees:
   UPSERT an overwrite; DELETE verifies zero remaining points.
 - DEAD_LETTER is observable through ``outbox_stats()`` — never dropped.
 - Tombstone-first delete: PostgreSQL tombstone makes the resource
-  logically invisible BEFORE any physical delete, and a failed Qdrant
+  logically invisible BEFORE any physical delete, and a failed vectord
   delete can never make it visible again.
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ from typing import Any, Optional
 from .vector_models import PointStruct
 
 from .rag_contracts import OutboxOperation, OutboxState
-from .rag_qdrant import sanitize_payload
+from .canonical_vector_runtime import sanitize_payload
 
 _logger = logging.getLogger("gptbridge.rag")
 
@@ -70,7 +70,7 @@ class PipelineOutboxMixin:
     # -- event application -----------------------------------------------------
 
     async def _apply_outbox_event(self, event: dict[str, Any]) -> bool:
-        """Apply one outbox event to Qdrant + index_state writeback.
+        """Apply one outbox event to vectord + index_state writeback.
 
         All branches are idempotent: replays converge to the same state.
         """
@@ -85,7 +85,7 @@ class PipelineOutboxMixin:
             OutboxOperation.DELETE.value,
         ):
             # delete_resource verifies zero remaining points itself
-            return await self.qdrant.delete_resource(
+            return await self.vector.delete_resource(
                 module_id=module_id,
                 resource_id=resource_id,
                 generation_id=generation_id,
@@ -151,18 +151,18 @@ class PipelineOutboxMixin:
             )
             for c, vector in zip(chunks, vectors)
         ]
-        if not await self.qdrant.upsert_points(
+        if not await self.vector.upsert_points(
             points, generation_id=generation_id
         ):
             return False
-        # index_state writeback only after Qdrant confirms
+        # index_state writeback only after vectord confirms
         await self.postgresql.upsert_index_state(
             self._outbox_index_state(event, chunks),
         )
         return True
 
     def _outbox_index_state(self, event: dict[str, Any], chunks: list) -> Any:
-        from .rag_qdrant import IndexState
+        from .canonical_vector_runtime import IndexState
 
         first = chunks[0] if chunks else {}
         return IndexState(
@@ -239,7 +239,7 @@ class PipelineOutboxMixin:
                 stats["retried"] += 1
         if succeeded_ids and batch_mark is not None:
             # G102: one UPDATE for the whole successful batch instead of
-            # per-event round trips.  Apply is idempotent (Qdrant upsert /
+            # per-event round trips.  Apply is idempotent (vectord upsert /
             # delete replay), so a crash before this flush simply replays.
             await batch_mark(succeeded_ids)
         return stats
@@ -260,10 +260,10 @@ class PipelineOutboxMixin:
         """Tombstone-first delete guarantee.
 
         Order: PG tombstone (logical invisibility, immediate) → canonical
-        outbox DELETE_RESOURCE → Qdrant delete (verified) → degraded SQLite
+        outbox DELETE_RESOURCE → vectord delete (verified) → degraded SQLite
         delete → provenance derived marked stale → index_state='deleted'.
 
-        A failed Qdrant delete leaves the event PENDING for replay and can
+        A failed vectord delete leaves the event PENDING for replay and can
         never resurrect the resource — the read barrier reads the
         tombstone, not the vector index.  ``purge=True`` is a separate,
         explicit physical purge — never implied by delete.
@@ -313,10 +313,10 @@ class PipelineOutboxMixin:
             )
         else:
             # Event remains PENDING — replayed by process_outbox once
-            # Qdrant is reachable; the tombstone keeps reads closed.
+            # vectord is reachable; the tombstone keeps reads closed.
             await self.postgresql.mark_outbox(
                 event["event_id"], OutboxState.RETRY.value,
-                error="qdrant delete pending",
+                error="vector delete pending",
                 next_retry_at=(
                     datetime.now(timezone.utc)
                     + timedelta(seconds=_OUTBOX_RETRY_BASE_SECONDS)

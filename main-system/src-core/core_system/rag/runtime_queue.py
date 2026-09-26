@@ -31,7 +31,7 @@ class TombstoneGuard:
       * PostgreSQL tombstone is written first.
       * Resource revision is monotonic.
       * tombstone_generation is monotonic.
-      * Queue items and Qdrant payloads carry tombstone metadata.
+      * Queue items and vectord payloads carry tombstone metadata.
       * Stale create/update/vector writes are rejected.
       * Vectors are removed only after authoritative tombstone handling.
       * Purge only after retention/audit/consumer acknowledgement gates.
@@ -400,11 +400,11 @@ class ReconciliationQueue:
 
 
 class CrossStoreOutbox:
-    """A374: outbox/saga coordinator for idempotent Qdrant + PostgreSQL writes.
+    """A374: outbox/saga coordinator for idempotent vectord + PostgreSQL writes.
 
     Order:
       1. Commit canonical operation identity (queue item / intent) first.
-      2. Apply Qdrant and PostgreSQL writes idempotently.
+      2. Apply vectord and PostgreSQL writes idempotently.
       3. Record each store result.
       4. Expose partial success as incomplete/recoverable.
       5. Compensate or enqueue reconciliation.
@@ -419,7 +419,7 @@ class CrossStoreOutbox:
         self,
         *,
         operation_id: str,
-        qdrant_writer: Callable[[], tuple[bool, Optional[str], Optional[str]]],
+        vector_writer: Callable[[], tuple[bool, Optional[str], Optional[str]]],
         postgresql_writer: Callable[[], tuple[bool, Optional[str], Optional[str]]],
         verify_parity: Callable[[list[OutboxStep]], bool],
     ) -> SagaResult:
@@ -427,11 +427,11 @@ class CrossStoreOutbox:
         now = datetime.now(timezone.utc).isoformat()
         steps: list[OutboxStep] = []
 
-        # Step 1: Qdrant write (idempotent — caller responsibility)
-        q_ok, q_err, q_id = qdrant_writer()
+        # Step 1: vectord write (idempotent — caller responsibility)
+        vec_ok, vec_err, vec_id = vector_writer()
         steps.append(OutboxStep(
-            store="qdrant", operation="upsert", succeeded=q_ok,
-            applied_at=now, error=q_err, store_record_id=q_id,
+            store="vector", operation="upsert", succeeded=vec_ok,
+            applied_at=now, error=vec_err, store_record_id=vec_id,
         ))
 
         # Step 2: PostgreSQL write (idempotent — caller responsibility)
@@ -442,8 +442,8 @@ class CrossStoreOutbox:
         ))
 
         # Step 3: Parity verification — never report complete until proven.
-        complete = q_ok and p_ok and verify_parity(steps)
-        compensation_required = (q_ok ^ p_ok)  # exactly one store succeeded
+        complete = vec_ok and p_ok and verify_parity(steps)
+        compensation_required = (vec_ok ^ p_ok)  # exactly one store succeeded
 
         return SagaResult(
             operation_id=operation_id,

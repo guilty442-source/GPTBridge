@@ -1,6 +1,6 @@
 """A44 degraded-mode RAG pipeline — bounded local stores.
 
-Used by ``CanonicalRagPipeline`` when canonical Qdrant/PostgreSQL are
+Used by ``CanonicalRagPipeline`` when canonical vectord/PostgreSQL are
 unavailable (state=DEGRADED).  All operations are non-canonical and
 reconciliation_required.  The local stores live in ``shared_layer.local``
 (codex-native SQLite engine, A219/A37 — no external service dependency).
@@ -19,7 +19,7 @@ from typing import Any, Optional
 from shared_layer.local.local_sqlite_rag_repository import LocalSqliteRagRepository
 from shared_layer.local.vector_store import LocalVectorStore
 
-from .rag_qdrant import IndexState, RagPipelineConfig, RagQueryResult
+from .canonical_vector_runtime import IndexState, RagPipelineConfig, RagQueryResult
 
 _logger = logging.getLogger("gptbridge.rag")
 
@@ -32,7 +32,7 @@ def _default_degraded_root() -> Path:
 class DegradedRagPipeline:
     """A44 Degraded Mode RAG pipeline using local stores.
 
-    This pipeline is used when canonical Qdrant/PostgreSQL are unavailable.
+    This pipeline is used when canonical vectord/PostgreSQL are unavailable.
     All operations are non-canonical and require reconciliation.
     """
 

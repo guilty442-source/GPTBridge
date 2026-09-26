@@ -315,7 +315,7 @@ class RetrievalBenchmark:
 # RAG-12: the four retrieval modes the takeover is benchmarked across.
 BENCHMARK_METHODS = ("dense", "fts", "hybrid_rrf", "hybrid_reranked")
 
-# Payload keys that must never appear on a Qdrant point (phase-1 rule +
+# Payload keys that must never appear on a vectord point (phase-1 rule +
 # RAG-12 gate #4).
 FORBIDDEN_PAYLOAD_KEYS = frozenset((
     "content", "text", "path", "physical_location", "windows_path",
@@ -363,7 +363,7 @@ class SecurityGate:
 
     async def run(self) -> SecurityGateResult:
         checks: dict[str, str] = {}
-        checks["qdrant_payload_clean"] = self.check_payload_clean()
+        checks["vector_payload_clean"] = self.check_payload_clean()
         checks["sqlite_never_primary"] = self.check_sqlite_never_primary()
         checks["degraded_not_canonical"] = self.check_degraded_not_canonical()
         checks["dimension_mismatch_no_overwrite"] = (
@@ -382,8 +382,8 @@ class SecurityGate:
     # -- individual checks ------------------------------------------------------
 
     def check_payload_clean(self) -> str:
-        """Gate #4: no Qdrant payload may carry content/path fields."""
-        scroll = getattr(self._pipeline.qdrant, "stored_payloads", None)
+        """Gate #4: no vectord payload may carry content/path fields."""
+        scroll = getattr(self._pipeline.vector, "stored_payloads", None)
         if scroll is None:
             return "skipped:no payload inspection hook"
         for payload in scroll():
@@ -395,9 +395,9 @@ class SecurityGate:
     def check_sqlite_never_primary(self) -> str:
         """Gate #5: while canonical is healthy, SQLite is never primary."""
         sm = getattr(self._pipeline, "_state_machine", None)
-        qdrant_ok = bool(getattr(self._pipeline.qdrant, "_healthy", False))
+        vector_ok = bool(getattr(self._pipeline.vector, "_healthy", False))
         pg_ok = bool(getattr(self._pipeline.postgresql, "_healthy", False))
-        if qdrant_ok and pg_ok and sm is not None:
+        if vector_ok and pg_ok and sm is not None:
             from .runtime_state import RagRuntimeState
             if sm.state != RagRuntimeState.CANONICAL:
                 return "fail:canonical backends healthy but state != CANONICAL"
@@ -415,24 +415,24 @@ class SecurityGate:
     async def check_dimension_mismatch(self) -> str:
         """Gate #7: a mismatched collection dimension must never be
         silently overwritten."""
-        qdrant = self._pipeline.qdrant
+        vector = self._pipeline.vector
         dim = self._pipeline.config.embedding_dimension
-        existing = getattr(qdrant, "_dimension", None) or getattr(
-            qdrant, "dimension", None
+        existing = getattr(vector, "_dimension", None) or getattr(
+            vector, "dimension", None
         )
         if existing is None:
             return "skipped:no dimension introspection hook"
-        ok = await qdrant.ensure_collection(int(existing) + 1)
+        ok = await vector.ensure_collection(int(existing) + 1)
         if ok:
             return "fail:ensure_collection accepted wrong dimension"
         # Correct dimension must still succeed.
-        if not await qdrant.ensure_collection(dim):
+        if not await vector.ensure_collection(dim):
             return "fail:ensure_collection rejected correct dimension"
         return "pass"
 
     async def check_tombstone_barrier(self) -> str:
         """Gates #3/#10: a tombstoned resource must be unreadable even
-        while a stale Qdrant point survives (read barrier = PostgreSQL)."""
+        while a stale vectord point survives (read barrier = PostgreSQL)."""
         fetch = getattr(
             self._pipeline.postgresql, "fetch_chunks_for_points", None
         )
@@ -442,13 +442,13 @@ class SecurityGate:
 
     def check_module_scope_enforced(self) -> str:
         """Gates #1/#2: retrieval must always carry a module scope."""
-        search = getattr(self._pipeline.qdrant, "search", None)
+        search = getattr(self._pipeline.vector, "search", None)
         if search is None:
-            return "skipped:no qdrant.search hook"
+            return "skipped:no vector.search hook"
         import inspect
         params = inspect.signature(search).parameters
         if "module_id" not in params and "module_ids" not in params:
-            return "fail:qdrant.search has no module scope parameter"
+            return "fail:vector.search has no module scope parameter"
         return "pass"
 
     def check_generation_isolation(self) -> str:
@@ -499,13 +499,13 @@ def create_sample_test_set(output_path: Path) -> None:
                 "question": "What is the canonical RAG pipeline architecture?",
                 "expected_resource_ids": [
                     "core_system/rag/pipeline.py",
-                    "core_system/rag/rag_qdrant.py",
+                    "core_system/rag/canonical_vector_runtime.py",
                 ],
                 "expected_chunk_ids": [
                     "pipeline.py:CanonicalRagPipeline",
-                    "rag_qdrant.py:QdrantCanonicalRuntime",
+                    "canonical_vector_runtime.py:CanonicalVectorRuntime",
                 ],
-                "expected_keywords": ["canonical", "rag", "pipeline", "qdrant"],
+                "expected_keywords": ["canonical", "rag", "pipeline", "vector"],
                 "module_id": "core_system",
                 "category": "docs",
                 "difficulty": "easy",

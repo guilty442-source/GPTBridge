@@ -7,7 +7,7 @@ recorded ``RAG orchestrator not initialized`` on every startup.
 
 This integration is the composition root for the live runtime:
 
-    CanonicalRagPipeline   Qdrant dense + PostgreSQL FTS/authority
+    CanonicalRagPipeline   vectord dense + PostgreSQL FTS/authority
       -> formal retrievers retrieve_hybrid/code/memory/metadata
       -> RagOrchestrator   plan -> dispatch -> fuse -> agentic rounds (DAG)
       -> RagApplicationService   capability + two-point sovereign + audit
@@ -45,7 +45,7 @@ from .rag.orchestration.evidence import (
 from .rag.orchestration.orchestrator import RagOrchestrator
 from .rag.pipeline import CanonicalRagPipeline
 from .rag.pipeline_retrieval import reciprocal_rank_fusion
-from .rag.rag_qdrant import RagPipelineConfig
+from .rag.canonical_vector_runtime import RagPipelineConfig
 from .rag.retrievers.code import CodeRetrievalRequest, CodeRetriever
 from .rag.retrievers.hybrid import HybridRetrievalRequest, HybridRetriever
 from .rag.retrievers.memory import MemoryRetrievalRequest, MemoryRetriever
@@ -534,12 +534,8 @@ class RagRuntimeIntegration:
         data_dir = Path(self.app.project_root) / "main-system" / "data" / "rag"
         data_dir.mkdir(parents=True, exist_ok=True)
         config = RagPipelineConfig(
-            qdrant_url=os.environ.get(
-                "QDRANT_URL", "http://localhost:6333"
-            ),
-            qdrant_api_key=os.environ.get("QDRANT_API_KEY") or None,
             collection_name=os.environ.get(
-                "QDRANT_COLLECTION", "gptbridge_shared_knowledge"
+                "VECTOR_COLLECTION", "gptbridge_shared_knowledge"
             ),
             postgresql_dsn=dsn,
             queue_db_path=str(data_dir / "reconcile-queue.sqlite3"),

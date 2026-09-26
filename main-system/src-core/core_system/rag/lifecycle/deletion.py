@@ -2,9 +2,9 @@
 
     DELETE requested
       -> PostgreSQL TOMBSTONED        (immediately invisible)
-      -> query barrier                (PG blocks stale Qdrant hits)
+      -> query barrier                (PG blocks stale vectord hits)
       -> outbox delete event
-      -> Qdrant delete points         (may fail — safe: barrier holds)
+      -> vectord delete points         (may fail — safe: barrier holds)
       -> SQLite degraded cache delete
       -> retrieval cache invalidate
       -> derived knowledge invalidate (provenance cascade)
@@ -12,7 +12,7 @@
       -> verify
       -> DELETED
 
-If Qdrant is offline the physical step retries via outbox, but the
+If vectord is offline the physical step retries via outbox, but the
 resource is already unfindable — "deleted but still searchable" is
 structurally impossible.
 
@@ -157,7 +157,7 @@ def advance_deletion(
 
 def query_barrier(record: DeletionRecord | None) -> bool:
     """True => the resource must be filtered from results even if a
-    stale Qdrant point still exists."""
+    stale vectord point still exists."""
     return record is not None and record.state in (
         DeletionState.REQUESTED,
         DeletionState.TOMBSTONED,

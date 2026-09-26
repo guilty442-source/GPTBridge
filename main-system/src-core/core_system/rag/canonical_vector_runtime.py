@@ -34,9 +34,7 @@ from .vector_models import (
     MatchValue,
     PayloadSchemaType,
     PointStruct,
-    QdrantClient,
     VectorParams,
-    require_qdrant_client,
 )
 
 from shared_layer.metadata_contract import (
@@ -81,7 +79,7 @@ INDEX_STATE_FIELDS = (
     "indexed_at_utc",
 )
 
-# Canonical takeover (RAG-01..07): Qdrant is the dense vector authority only.
+# Canonical takeover (RAG-01..07): vectord is the dense vector authority only.
 # Payloads may carry opaque ids + filterable metadata — never content or
 # physical locators; PostgreSQL owns content/FTS/locators.
 FORBIDDEN_PAYLOAD_FIELDS = frozenset(
@@ -91,13 +89,13 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
 
 
 def is_loopback_url(url: str) -> bool:
-    """RAG rule 2: Qdrant is local-owned, local-only — loopback hosts only."""
+    """RAG rule 2: vectord is local-owned, local-only — loopback hosts only."""
     host = (urlparse(str(url)).hostname or "").strip().lower()
     return host in _LOOPBACK_HOSTS
 
 
 def sanitize_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Strip fields that must never enter the Qdrant canonical payload.
+    """Strip fields that must never enter the vectord canonical payload.
 
     Removes the five named forbidden fields plus ``source`` (a physical
     path) and any key that itself denotes a path/location — deterministic,
@@ -115,7 +113,7 @@ def sanitize_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _collection_vector_size(info: Any) -> Optional[int]:
-    """Read the configured vector size off a Qdrant collection info object."""
+    """Read the configured vector size off a vectord collection info object."""
     try:
         vectors = info.config.params.vectors
     except AttributeError:
@@ -161,8 +159,6 @@ class RagQueryResult:
 @dataclass
 class RagPipelineConfig:
     """Configuration for the canonical RAG pipeline."""
-    qdrant_url: str
-    qdrant_api_key: Optional[str]
     collection_name: str
     postgresql_dsn: str
     # Governed local embedding contract (A49): qwen3-embedding:4b via the
@@ -199,8 +195,15 @@ class RagPipelineConfig:
     )
 
 
-class QdrantCanonicalRuntime:
-    """A374 Step 1: QDRANT_CANONICAL_RUNTIME - makes healthy Qdrant the proven default dense read/write executor.
+class CanonicalVectorRuntime:
+    """A374 Step 1: CANONICAL_VECTOR_RUNTIME — the canonical dense
+    read/write executor contract, backed by the Rust vectord engine
+    (A611; the Qdrant cutover is sealed).
+
+    The base class holds the shared behaviour contract (search, upsert,
+    delete, counts, generation aliases).  Binding a live engine belongs to
+    the subclass — the Qdrant client path is retired and the base
+    ``initialize`` fails closed rather than resurrecting it.
 
     A486: Supports alias-based queries. The canonical alias (e.g., gptbridge_shared_knowledge)
     always points to the ACTIVE generation collection. Physical collections are versioned
@@ -209,7 +212,7 @@ class QdrantCanonicalRuntime:
 
     def __init__(self, config: RagPipelineConfig) -> None:
         self.config = config
-        self.client: Optional[QdrantClient] = None
+        self.client: Any = None
         self._healthy = False
         self._alias_name = config.collection_name  # The logical alias name
         # Canonical takeover: sticky contract violations surface as BLOCKED.
@@ -217,32 +220,19 @@ class QdrantCanonicalRuntime:
         self.last_error: Optional[str] = None
 
     async def initialize(self) -> bool:
-        """Initialize Qdrant connection and ensure alias target collection exists."""
-        if not is_loopback_url(self.config.qdrant_url):
-            self.last_error = (
-                f"QDRANT_URL_NOT_LOOPBACK: {self.config.qdrant_url} — the "
-                "canonical vector index is local-owned and loopback-only"
-            )
-            _logger.error("QdrantCanonicalRuntime: %s", self.last_error)
-            self._healthy = False
-            return False
-        try:
-            client_cls = require_qdrant_client()
-            self.client = client_cls(
-                url=self.config.qdrant_url,
-                api_key=self.config.qdrant_api_key,
-                timeout=30,
-            )
-            # Check health
-            collections = self.client.get_collections()
-            self._healthy = True
-            _logger.info("QdrantCanonicalRuntime: healthy, collections=%d", len(collections.collections))
-            return True
-        except Exception as exc:
-            _logger.warning("QdrantCanonicalRuntime: initialization failed: %s", exc)
-            self.last_error = str(exc)
-            self._healthy = False
-            return False
+        """Fail closed — the retired backend path cannot bind a client.
+
+        A611/A621: Qdrant is retired with zero active consumers; the live
+        runtime is :class:`RustVectorRuntime` selected through
+        ``select_vector_runtime``.  Subclasses override this method.
+        """
+        self.last_error = (
+            "VECTOR_BACKEND_RETIRED: the legacy vectord path is retired; "
+            "use RustVectorRuntime via select_vector_runtime"
+        )
+        _logger.error("CanonicalVectorRuntime: %s", self.last_error)
+        self._healthy = False
+        return False
 
     async def ensure_collection(self, dimension: Optional[int] = None) -> bool:
         """Ensure the canonical collection (alias target) exists with correct vector config."""
@@ -262,7 +252,7 @@ class QdrantCanonicalRuntime:
                         distance=Distance.COSINE,
                     ),
                 )
-                _logger.info("QdrantCanonicalRuntime: created collection %s", self.config.collection_name)
+                _logger.info("CanonicalVectorRuntime: created collection %s", self.config.collection_name)
                 return True
             # Existing collection: verify the vector contract; a dimension
             # mismatch is a hard INDEX_MISMATCH — never overwrite or silently
@@ -275,11 +265,11 @@ class QdrantCanonicalRuntime:
                     f"INDEX_MISMATCH:collection={self.config.collection_name} "
                     f"dimension={existing_size} expected={size}"
                 )
-                _logger.error("QdrantCanonicalRuntime: %s", self.collection_error)
+                _logger.error("CanonicalVectorRuntime: %s", self.collection_error)
                 return False
             return True
         except Exception as exc:
-            _logger.error("QdrantCanonicalRuntime: ensure_collection failed: %s", exc)
+            _logger.error("CanonicalVectorRuntime: ensure_collection failed: %s", exc)
             return False
 
     async def ensure_payload_indexes(self) -> bool:
@@ -303,13 +293,13 @@ class QdrantCanonicalRuntime:
                         field_name=field_name,
                         field_schema=schema_type,
                     )
-                    _logger.info("QdrantCanonicalRuntime: created payload index for %s", field_name)
+                    _logger.info("CanonicalVectorRuntime: created payload index for %s", field_name)
                 except Exception:
                     # Index may already exist
                     pass
             return True
         except Exception as exc:
-            _logger.error("QdrantCanonicalRuntime: ensure_payload_indexes failed: %s", exc)
+            _logger.error("CanonicalVectorRuntime: ensure_payload_indexes failed: %s", exc)
             return False
 
     def _get_target_collection(self, generation_id: Optional[str] = None) -> str:
@@ -323,11 +313,11 @@ class QdrantCanonicalRuntime:
         points: list[PointStruct],
         generation_id: Optional[str] = None,
     ) -> bool:
-        """Upsert vectors to Qdrant (canonical write path).
+        """Upsert vectors to vectord (canonical write path).
 
         Every point payload is sanitized (no content/physical locators may
         enter the canonical index, A371) and must carry the mandatory
-        ``module_id`` scope field (A52 qdrant-scope, fail closed).
+        ``module_id`` scope field (A52 vector-scope, fail closed).
 
         If generation_id provided, writes to that physical collection.
         Otherwise writes to the alias (ACTIVE generation).
@@ -357,7 +347,7 @@ class QdrantCanonicalRuntime:
             )
             return True
         except Exception as exc:
-            _logger.error("QdrantCanonicalRuntime: upsert to %s failed: %s", target, exc)
+            _logger.error("CanonicalVectorRuntime: upsert to %s failed: %s", target, exc)
             return False
 
     async def search(
@@ -370,7 +360,7 @@ class QdrantCanonicalRuntime:
         generation_id: Optional[str] = None,
         additional_filter: Optional[Filter] = None,
     ) -> list[dict[str, Any]]:
-        """Search Qdrant for similar vectors (canonical read path).
+        """Search vectord for similar vectors (canonical read path).
 
         ``module_id``/``module_ids`` scope is mandatory: a search without a
         non-empty module scope raises ``QdrantScopeError`` (fail closed) and
@@ -400,7 +390,7 @@ class QdrantCanonicalRuntime:
 
             query_filter = Filter(must=must_conditions)
 
-            qdrant_start = time.monotonic()
+            vector_start = time.monotonic()
             response = self.client.query_points(
                 collection_name=target,
                 query=query_vector,
@@ -410,7 +400,7 @@ class QdrantCanonicalRuntime:
                 with_payload=True,
                 with_vectors=False,
             )
-            _observe_qdrant_latency((time.monotonic() - qdrant_start) * 1000.0)
+            _observe_qdrant_latency((time.monotonic() - vector_start) * 1000.0)
             return [
                 {
                     "id": hit.id,
@@ -421,7 +411,7 @@ class QdrantCanonicalRuntime:
                 for hit in response.points
             ]
         except Exception as exc:
-            _logger.error("QdrantCanonicalRuntime: search on %s failed: %s", target, exc)
+            _logger.error("CanonicalVectorRuntime: search on %s failed: %s", target, exc)
             return []
 
     async def search_with_payload_filter(
@@ -494,7 +484,7 @@ class QdrantCanonicalRuntime:
             count = int(getattr(remaining, "count", 0) or 0)
             if count:
                 _logger.error(
-                    "QdrantCanonicalRuntime: %d points remain after delete on %s "
+                    "CanonicalVectorRuntime: %d points remain after delete on %s "
                     "(module=%s resource=%s)",
                     count,
                     target,
@@ -504,7 +494,7 @@ class QdrantCanonicalRuntime:
                 return False
             return True
         except Exception as exc:
-            _logger.error("QdrantCanonicalRuntime: delete on %s failed: %s", target, exc)
+            _logger.error("CanonicalVectorRuntime: delete on %s failed: %s", target, exc)
             return False
 
     def count_resource_points(
@@ -543,7 +533,7 @@ class QdrantCanonicalRuntime:
             return int(getattr(result, "count", 0) or 0)
         except Exception as exc:
             _logger.warning(
-                "QdrantCanonicalRuntime: count_resource_points on %s failed: %s",
+                "CanonicalVectorRuntime: count_resource_points on %s failed: %s",
                 target,
                 exc,
             )
@@ -592,7 +582,7 @@ class QdrantCanonicalRuntime:
             info = self.client.get_collection(target)
             return int(info.points_count or 0)
         except Exception as exc:
-            _logger.warning("QdrantCanonicalRuntime: points_count on %s failed: %s", target, exc)
+            _logger.warning("CanonicalVectorRuntime: points_count on %s failed: %s", target, exc)
             return None
 
     def is_healthy(self) -> bool:
@@ -603,15 +593,15 @@ class QdrantCanonicalRuntime:
         if not self._healthy or self.client is None:
             return False
         try:
-            # Qdrant create_alias will replace existing alias
+            # vectord create_alias will replace existing alias
             self.client.create_alias(
                 alias_name=alias_name,
                 collection_name=collection_name,
             )
-            _logger.info("QdrantCanonicalRuntime: alias %s -> %s", alias_name, collection_name)
+            _logger.info("CanonicalVectorRuntime: alias %s -> %s", alias_name, collection_name)
             return True
         except Exception as exc:
-            _logger.error("QdrantCanonicalRuntime: create_alias failed: %s", exc)
+            _logger.error("CanonicalVectorRuntime: create_alias failed: %s", exc)
             return False
 
     async def get_alias_target(self, alias_name: str) -> Optional[str]:
@@ -625,5 +615,5 @@ class QdrantCanonicalRuntime:
                     return alias.collection_name
             return None
         except Exception as exc:
-            _logger.warning("QdrantCanonicalRuntime: get_alias_target failed: %s", exc)
+            _logger.warning("CanonicalVectorRuntime: get_alias_target failed: %s", exc)
             return None

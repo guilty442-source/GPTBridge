@@ -28,7 +28,7 @@ from .data_platform import (
     build_saga_services,
 )
 
-# MS1/MS2 lazy RAG: ``rag_platform`` pulls the whole qdrant stack — keep it
+# MS1/MS2 lazy RAG: ``rag_platform`` pulls the whole vector stack — keep it
 # out of ``import core_system.integration.data_platform`` (saga path) by
 # resolving these names on first attribute access instead of eagerly.
 _RAG_LAZY_NAMES = {"RagServices", "build_rag_router"}

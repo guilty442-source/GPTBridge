@@ -5,7 +5,7 @@ Covers the takeover invariants at the canonical boundary:
   RAG-01  embedding contract qwen3-embedding:4b / 2560 (config level)
   RAG-02  gateway surface states + BLOCKED on hard contract violations
   RAG-04  read barrier: index_state proof, scope, tombstone, identity
-  RAG-09  Qdrant payload contract: no content/text/path/physical_location
+  RAG-09  vectord payload contract: no content/text/path/physical_location
 """
 
 from __future__ import annotations
@@ -16,10 +16,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from core_system.rag.pipeline import CanonicalRagPipeline
-from core_system.rag.rag_qdrant import (
+from core_system.rag.canonical_vector_runtime import (
     FORBIDDEN_PAYLOAD_FIELDS,
     IndexState,
-    QdrantCanonicalRuntime,
+    CanonicalVectorRuntime,
     RagPipelineConfig,
     is_loopback_url,
     sanitize_payload,
@@ -29,8 +29,6 @@ from core_system.rag.runtime_state import RagRuntimeState
 
 def _config(**overrides: Any) -> RagPipelineConfig:
     base = dict(
-        qdrant_url="http://127.0.0.1:6333",
-        qdrant_api_key=None,
         collection_name="gptbridge_shared_knowledge",
         postgresql_dsn="postgresql://unused",
     )
@@ -65,28 +63,29 @@ def test_openai_provider_defaults_match_canonical_contract() -> None:
 
 
 # ---------------------------------------------------------------------------
-# RAG-02: loopback-only Qdrant + gateway surface states
+# RAG-02: loopback-only vector engine + gateway surface states
 # ---------------------------------------------------------------------------
 
 
-def test_qdrant_url_must_be_loopback() -> None:
-    assert is_loopback_url("http://127.0.0.1:6333")
-    assert is_loopback_url("http://localhost:6333")
-    assert is_loopback_url("http://[::1]:6333")
-    assert not is_loopback_url("http://8.8.8.8:6333")
-    assert not is_loopback_url("https://qdrant.cloud.example:6333")
-    assert not is_loopback_url("http://192.168.1.10:6333")
+def test_vector_url_must_be_loopback() -> None:
+    assert is_loopback_url("http://127.0.0.1:8092")
+    assert is_loopback_url("http://localhost:8092")
+    assert is_loopback_url("http://[::1]:8092")
+    assert not is_loopback_url("http://8.8.8.8:8092")
+    assert not is_loopback_url("https://vector.cloud.example:8092")
+    assert not is_loopback_url("http://192.168.1.10:8092")
 
 
 @pytest.mark.asyncio
-async def test_remote_qdrant_url_is_rejected_before_connect() -> None:
-    runtime = QdrantCanonicalRuntime(
-        _config(qdrant_url="http://192.168.1.10:6333")
-    )
+async def test_retired_base_runtime_initialize_fails_closed() -> None:
+    # A611: the legacy backend path is retired — the base runtime can no
+    # longer bind a client; only RustVectorRuntime (via
+    # select_vector_runtime) initializes a live engine.
+    runtime = CanonicalVectorRuntime(_config())
     ok = await runtime.initialize()
     assert ok is False
     assert runtime.is_healthy() is False
-    assert runtime.last_error.startswith("QDRANT_URL_NOT_LOOPBACK")
+    assert runtime.last_error.startswith("VECTOR_BACKEND_RETIRED")
     assert runtime.client is None  # client never constructed
 
 
@@ -131,7 +130,7 @@ def _collection_info(size: int) -> Any:
 
 @pytest.mark.asyncio
 async def test_existing_collection_dimension_mismatch_blocks() -> None:
-    runtime = QdrantCanonicalRuntime(_config())
+    runtime = CanonicalVectorRuntime(_config())
     client = MagicMock()
     existing = MagicMock()
     existing.name = "gptbridge_shared_knowledge"
@@ -150,7 +149,7 @@ async def test_existing_collection_dimension_mismatch_blocks() -> None:
 
 @pytest.mark.asyncio
 async def test_matching_dimension_passes_and_absent_collection_created() -> None:
-    runtime = QdrantCanonicalRuntime(_config())
+    runtime = CanonicalVectorRuntime(_config())
     client = MagicMock()
     existing = MagicMock()
     existing.name = "gptbridge_shared_knowledge"
@@ -275,13 +274,13 @@ def _canonical_pipeline(
     hits: Optional[list[dict[str, Any]]] = None,
 ) -> tuple[CanonicalRagPipeline, _FakeQdrant, _FakePostgres]:
     pipe = CanonicalRagPipeline(_config())
-    qdrant, pg = _FakeQdrant(hits), _FakePostgres()
-    pipe.qdrant, pipe.postgresql = qdrant, pg
+    vector, pg = _FakeQdrant(hits), _FakePostgres()
+    pipe.vector, pipe.postgresql = vector, pg
     pipe._initialized = True
     pipe._state_machine.evaluate_startup(
-        qdrant_healthy=True, postgresql_healthy=True, index_state_matches=True
+        vector_healthy=True, postgresql_healthy=True, index_state_matches=True
     )
-    return pipe, qdrant, pg
+    return pipe, vector, pg
 
 
 def _hit(point_id: str, module_id: str = "xingcheng", resource_id: str = "doc-1") -> dict[str, Any]:
@@ -311,7 +310,7 @@ async def test_barrier_drops_hits_without_pg_proof() -> None:
         _hit("pt-conflict", resource_id="doc-other"),
         _hit("pt-scope", module_id="other-module", resource_id="doc-scope"),
     ]
-    pipe, qdrant, pg = _canonical_pipeline(hits)
+    pipe, vector, pg = _canonical_pipeline(hits)
     pg.index_states[("xingcheng", "doc-ok")] = _state("doc-ok")
     pg.index_states[("xingcheng", "doc-dead")] = _state("doc-dead", status="tombstoned")
     pg.index_states[("xingcheng", "doc-no-chunk")] = _state("doc-no-chunk")
@@ -340,8 +339,8 @@ async def test_barrier_drops_hits_without_pg_proof() -> None:
     assert len(results) == 1
     assert results[0]["point_id"] == "pt-ok"
     assert results[0]["content"] == "canonical content"  # hydrated from PG
-    # Filter pushdown: module scope was pushed into the Qdrant query.
-    assert qdrant.search_calls[0]["module_ids"] == ("xingcheng",)
+    # Filter pushdown: module scope was pushed into the vectord query.
+    assert vector.search_calls[0]["module_ids"] == ("xingcheng",)
 
 
 @pytest.mark.asyncio
@@ -360,7 +359,7 @@ async def test_vector_search_raises_when_blocked() -> None:
 
 @pytest.mark.asyncio
 async def test_qdrant_payload_never_carries_forbidden_fields() -> None:
-    pipe, qdrant, pg = _canonical_pipeline()
+    pipe, vector, pg = _canonical_pipeline()
     document = {
         "module_id": "xingcheng",
         "resource_id": "doc-1",
@@ -401,8 +400,8 @@ async def test_qdrant_payload_never_carries_forbidden_fields() -> None:
         document=document, chunks=chunks, vectors=[[0.1] * 2560]
     )
     assert ok is True
-    assert len(qdrant.points) == 1
-    payload = qdrant.points[0].payload
+    assert len(vector.points) == 1
+    payload = vector.points[0].payload
     for forbidden in FORBIDDEN_PAYLOAD_FIELDS:
         assert forbidden not in payload
     assert not any("path" in key or "location" in key for key in payload)
@@ -414,7 +413,7 @@ async def test_qdrant_payload_never_carries_forbidden_fields() -> None:
 
 @pytest.mark.asyncio
 async def test_index_document_blocked_never_writes() -> None:
-    pipe, qdrant, pg = _canonical_pipeline()
+    pipe, vector, pg = _canonical_pipeline()
     pipe._blocked_reason = "INDEX_MISMATCH:collection dimension=1536 expected=2560"
     with pytest.raises(RuntimeError, match="INDEX_MISMATCH"):
         await pipe.index_document(
@@ -426,7 +425,7 @@ async def test_index_document_blocked_never_writes() -> None:
             chunks=[],
             vectors=[],
         )
-    assert qdrant.points == []
+    assert vector.points == []
 
 
 @pytest.mark.asyncio
@@ -464,19 +463,19 @@ def test_forbidden_payload_fields_cover_codex_contract() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Scenario 3: PostgreSQL down — Qdrant alone is never "complete canonical"
+# Scenario 3: PostgreSQL down — vectord alone is never "complete canonical"
 # ---------------------------------------------------------------------------
 
 
 def test_qdrant_alone_is_never_canonical() -> None:
     pipe = CanonicalRagPipeline(_config())
     pipe._initialized = True
-    pipe.qdrant = _FakeQdrant()
+    pipe.vector = _FakeQdrant()
     pipe.postgresql = _FakePostgres()
     pipe.postgresql.healthy = False
     assert pipe.is_ready() is False
     pipe._state_machine.evaluate_startup(
-        qdrant_healthy=True, postgresql_healthy=False, index_state_matches=False
+        vector_healthy=True, postgresql_healthy=False, index_state_matches=False
     )
     assert pipe.state == RagRuntimeState.DEGRADED
     assert pipe.gateway_state() == "DEGRADED_READY"
@@ -485,7 +484,7 @@ def test_qdrant_alone_is_never_canonical() -> None:
 def test_startup_gate_never_reaches_canonical_without_both_stores() -> None:
     pipe = CanonicalRagPipeline(_config())
     pipe._state_machine.evaluate_startup(
-        qdrant_healthy=True, postgresql_healthy=True, index_state_matches=False
+        vector_healthy=True, postgresql_healthy=True, index_state_matches=False
     )
     assert pipe.state == RagRuntimeState.DEGRADED
     assert pipe.gateway_state() == "DEGRADED_READY"
@@ -531,9 +530,9 @@ class _FakePostgresWithGeneration(_FakePostgres):
 @pytest.mark.asyncio
 async def test_initialize_binds_active_generation() -> None:
     pipe = CanonicalRagPipeline(_config())
-    qdrant = _FakeQdrant()
-    qdrant.client = object()  # raw QdrantClient present post-initialize
-    pipe.qdrant = qdrant
+    vector = _FakeQdrant()
+    vector.client = object()  # raw QdrantClient present post-initialize
+    pipe.vector = vector
     pipe.postgresql = _FakePostgresWithGeneration(_active_gen())
 
     assert await pipe.initialize() is True
@@ -549,9 +548,9 @@ async def test_initialize_flags_drifted_generation_for_rebuild() -> None:
     generation stale: index_state no longer matches -> DEGRADED until a
     new generation is built/verified/activated."""
     pipe = CanonicalRagPipeline(_config())
-    qdrant = _FakeQdrant()
-    qdrant.client = object()
-    pipe.qdrant = qdrant
+    vector = _FakeQdrant()
+    vector.client = object()
+    pipe.vector = vector
     pipe.postgresql = _FakePostgresWithGeneration(
         _active_gen(embedding_dimension=1536)
     )
@@ -565,9 +564,9 @@ async def test_initialize_flags_drifted_generation_for_rebuild() -> None:
 @pytest.mark.asyncio
 async def test_initialize_without_generation_leaves_unbound() -> None:
     pipe = CanonicalRagPipeline(_config())
-    qdrant = _FakeQdrant()
-    qdrant.client = object()
-    pipe.qdrant = qdrant
+    vector = _FakeQdrant()
+    vector.client = object()
+    pipe.vector = vector
     pipe.postgresql = _FakePostgresWithGeneration(None)
 
     assert await pipe.initialize() is True

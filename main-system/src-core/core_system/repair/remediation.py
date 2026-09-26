@@ -337,8 +337,8 @@ class RemediationRegistry:
                 preconditions=(
                     RemediationPrecondition(
                         name="qdrant_unavailable_confirmed",
-                        check=lambda ctx: not ctx.get("qdrant_healthy", True),
-                        description="Qdrant unavailability must be confirmed",
+                        check=lambda ctx: not ctx.get("vector_healthy", True),
+                        description="vectord unavailability must be confirmed",
                     ),
                 ),
                 postconditions=(
@@ -352,7 +352,7 @@ class RemediationRegistry:
                     target="degraded_mode_switch",
                     expected_changes=["switch to degraded mode", "enable local vector store"],
                     affected_rows=0,
-                    affected_database="qdrant",
+                    affected_database="vector",
                     required_locks=[],
                     rollback_available=True,
                     estimated_risk="medium",

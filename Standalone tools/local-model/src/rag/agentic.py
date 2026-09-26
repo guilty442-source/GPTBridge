@@ -3,7 +3,7 @@
 Per A52, Agentic RAG performs multi-step retrieval, reasoning, and adaptation
 for complex query reasoning.  It iteratively refines retrieval based on
 intermediate results, coordinating with the Xingcheng cognition layer for
-reasoning steps.  The shared index backend is Qdrant (local-owned, local-only).
+reasoning steps.  The shared index backend is vectord (local-owned, local-only).
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class AgenticRetrievalResult:
 def retrieve_agentic(query: str, max_steps: int = MAX_STEPS) -> AgenticRetrievalResult:
     """Decision-level agentic retrieval interface.
 
-    Actual multi-step retrieval is delegated to the Qdrant governed executor
+    Actual multi-step retrieval is delegated to the vectord governed executor
     and the Xingcheng cognition layer for reasoning.
     """
     return AgenticRetrievalResult(query=query)

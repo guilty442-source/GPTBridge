@@ -68,7 +68,7 @@ class LocalAiEmbeddingMixin:
             "canonical": context.get("canonical") is True,
             "authority": str(context.get("authority") or ""),
             "role": (
-                "canonical-qdrant-postgresql"
+                "canonical-vector-postgresql"
                 if context.get("canonical") is True
                 else "bounded-degraded-cache"
             ),

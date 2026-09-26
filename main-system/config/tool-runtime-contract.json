@@ -78,7 +78,7 @@
       "runtime_language": "python"
     },
     "vector_index": {
-      "engine": "qdrant",
+      "engine": "vectord",
       "role": "rag-vector-only",
       "mandatory_filter": "module_id"
     },

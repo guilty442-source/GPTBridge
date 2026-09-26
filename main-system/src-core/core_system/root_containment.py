@@ -33,7 +33,7 @@ Key invariants (A202/E176):
   * **Scope** — all GPTBridge-managed Python/Node/.NET/native runtimes,
     virtual-environments, interpreters, SDKs, compilers, linkers, package-
     managers, dependency-packages, native-libraries, drivers-not-OS-managed,
-    CLI-tools, all-non-Ollama-model-runtimes/models, PostgreSQL/Qdrant
+    CLI-tools, all-non-Ollama-model-runtimes/models, PostgreSQL/vectord
     managed-binaries, build-toolchains, dependency-download-cache.
   * **Exception 1** — Windows 11 native tools at OS-owned paths.
   * **Exception 2** — Ollama runtime + download + managed-model-store at

@@ -4,16 +4,16 @@ A374 STATE-MACHINE:
     runtime RAG state is exactly STARTING, CANONICAL, DEGRADED, or RECONCILING.
 
     STARTING    -> initial; transitions to CANONICAL only after all canonical
-                  checks pass (healthy Qdrant + healthy PostgreSQL + matching
+                  checks pass (healthy vectord + healthy PostgreSQL + matching
                   authoritative index_state + complete reconciliation queue).
-    CANONICAL   -> verified Qdrant/PostgreSQL fault -> DEGRADED.
+    CANONICAL   -> verified vectord/PostgreSQL fault -> DEGRADED.
     DEGRADED    -> bounded local path may continue for the affected scope only;
                   every degraded create/update/tombstone/archive/permission/
                   version mutation must create a durable queue item;
                   reconciliation_required=true.
     DEGRADED    -> canonical recovery detected -> RECONCILING.
     RECONCILING -> verify source SHA-256 -> re-chunk -> re-embed -> idempotent
-                  Qdrant write -> update PostgreSQL -> verify counts/IDs/hashes/
+                  vectord write -> update PostgreSQL -> verify counts/IDs/hashes/
                   versions -> drain queue.  Only after reconciliation succeeds
                   may reconciliation_required=false and state return CANONICAL.
 
@@ -179,7 +179,7 @@ class RagRuntimeStateMachine:
     def evaluate_startup(
         self,
         *,
-        qdrant_healthy: bool,
+        vector_healthy: bool,
         postgresql_healthy: bool,
         index_state_matches: bool,
     ) -> RagRuntimeState:
@@ -194,7 +194,7 @@ class RagRuntimeStateMachine:
                     f"evaluate_startup called in state {self._state.value}"
                 )
         if (
-            qdrant_healthy
+            vector_healthy
             and postgresql_healthy
             and index_state_matches
             and self._queue.is_complete()
@@ -209,7 +209,7 @@ class RagRuntimeStateMachine:
     # -- CANONICAL -> DEGRADED ----------------------------------------------
 
     def report_canonical_failure(self, reason: str) -> RagRuntimeState:
-        """A374: verified Qdrant/PostgreSQL fault -> DEGRADED (idempotent)."""
+        """A374: verified vectord/PostgreSQL fault -> DEGRADED (idempotent)."""
         with self._lock:
             self._last_error = reason
             current = self._state
@@ -222,11 +222,11 @@ class RagRuntimeStateMachine:
     def begin_reconciliation(
         self,
         *,
-        qdrant_healthy: bool,
+        vector_healthy: bool,
         postgresql_healthy: bool,
     ) -> RagRuntimeState:
         """A374: DEGRADED -> RECONCILING after canonical recovery detected."""
-        if not (qdrant_healthy and postgresql_healthy):
+        if not (vector_healthy and postgresql_healthy):
             raise CanonicalCheckError(
                 "Cannot begin reconciliation: canonical services not healthy"
             )
@@ -251,7 +251,7 @@ class RagRuntimeStateMachine:
           * verify source SHA-256
           * re-chunk
           * re-embed
-          * perform idempotent Qdrant writes
+          * perform idempotent vectord writes
           * update PostgreSQL
           * verify counts, IDs, hashes, and versions
           * drain the queue

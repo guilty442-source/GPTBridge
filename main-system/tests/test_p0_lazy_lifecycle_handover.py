@@ -32,10 +32,10 @@ SRC_CORE = Path(__file__).resolve().parents[1] / "src-core"
 
 
 def test_main_import_does_not_pull_rag_stack() -> None:
-    """Importing the composition root must not load qdrant/rag modules."""
+    """Importing the composition root must not load vector/rag modules."""
     code = (
         "import sys, main; "
-        "print('QDRANT:' + str('qdrant_client' in sys.modules)); "
+        "print('QDRANT:' + str('vector_client' in sys.modules)); "
         "print('RAGRT:' + str('core_system.rag_runtime_integration' in sys.modules))"
     )
     proc = subprocess.run(

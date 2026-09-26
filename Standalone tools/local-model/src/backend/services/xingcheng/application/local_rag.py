@@ -19,15 +19,15 @@ class LocalRagService(
                  This implementation provides the *execution* surface for all four
                  sub-architectures.  The *declaration* lives in ``src/rag/`` (A2:
                  pure-declaration; A5: execution delegated to governed-executor).
-      A8/E21  — Qdrant is the canonical semantic index; LocalVectorStore is a
+      A8/E21  — vectord is the canonical semantic index; LocalVectorStore is a
                  bounded degraded cache only (FORBID: local-vector-as-canonical).
       A44/E30 — Fallback: sqlite-private + local-vector-cache + bounded +
                  observable + reconciled + non-canonical.  This service operates
-                 in degraded mode when Qdrant is unavailable; all results are
+                 in degraded mode when vectord is unavailable; all results are
                  non-canonical and reconciliation_required=True.
-      A49/E35 — Formal-tools: Qdrant is a formal tool; implementation dependencies
+      A49/E35 — Formal-tools: vectord is a formal tool; implementation dependencies
                  (LocalVectorStore, SQLite FTS) are approved-inventory, NOT role
-                 authority — they do not replace Qdrant's canonical role.
+                 authority — they do not replace vectord's canonical role.
     """
 
 

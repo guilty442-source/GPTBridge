@@ -109,7 +109,7 @@ def test_tool_runtime_requires_backend_and_broker(monkeypatch) -> None:
 
 
 def test_retired_qdrant_backend_fails_closed(monkeypatch) -> None:
-    # A611 cutover sealed: Qdrant is retired. VECTOR_BACKEND=qdrant can no
+    # A611 cutover sealed: vectord is retired. VECTOR_BACKEND=qdrant can no
     # longer redirect the semantic probe; vectord alone drives
     # semantic_ready, so a dead vectord is not ready even if the retired
     # backend would still answer on 6333.
@@ -123,7 +123,7 @@ def test_retired_qdrant_backend_fails_closed(monkeypatch) -> None:
 
 
 def test_rust_backend_ignores_qdrant_reachability(monkeypatch) -> None:
-    # Post-takeover default: qdrant up/down does not drive semantic_ready;
+    # Post-takeover default: vector up/down does not drive semantic_ready;
     # only vectord does.
     monkeypatch.delenv("VECTOR_BACKEND", raising=False)
     _patch_probe(

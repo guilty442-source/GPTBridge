@@ -70,7 +70,7 @@ NON_ACCESS_ACTORS: Final[tuple[str, ...]] = (
     "auditors",
     "brokers",
     "postgresql",
-    "qdrant",
+    "vectord",
 )
 
 # A189: AUDIT — audit content restrictions

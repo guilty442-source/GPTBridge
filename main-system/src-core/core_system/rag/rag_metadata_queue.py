@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional, Sequence
 
-from .rag_qdrant import IndexState
+from .canonical_vector_runtime import IndexState
 from .runtime_state import ReconciliationQueueItem
 
 _logger = logging.getLogger("gptbridge.rag")
@@ -328,7 +328,7 @@ class RagMetadataReconciliationMixin:
     ) -> list[tuple[str, str]]:
         """RAG-16D rebuild source list: (module_id, resource_id) pairs for
         every indexed resource that is NOT tombstoned — PostgreSQL is the
-        rebuild authority, never SQLite and never Qdrant."""
+        rebuild authority, never SQLite and never vectord."""
         if not self._healthy or not self._conn:
             return []
         try:
@@ -757,7 +757,7 @@ class RagMetadataReconciliationMixin:
 
     # -- RAG-08: canonical outbox_event --------------------------------------
     # gptbridge_rag.outbox_event is THE canonical outbox (A486/A487):
-    # metadata + index_state + outbox commit in ONE transaction; Qdrant is
+    # metadata + index_state + outbox commit in ONE transaction; vectord is
     # never part of that transaction — a worker applies events afterwards.
 
     async def document_write_tx(
@@ -769,7 +769,7 @@ class RagMetadataReconciliationMixin:
         outbox_event: dict[str, Any],
     ) -> bool:
         """Atomic canonical write: resource + chunks + outbox event in ONE
-        PostgreSQL transaction.  Qdrant is deliberately excluded — it is
+        PostgreSQL transaction.  vectord is deliberately excluded — it is
         applied by the outbox worker after commit."""
         if not self._healthy or not self._conn:
             return False
@@ -1059,7 +1059,7 @@ class RagMetadataReconciliationMixin:
 
         Deletes chunk + index_state rows and flips the tombstone to
         ``purged=TRUE`` in one statement sequence.  Callers must have
-        already verified zero Qdrant points — purging lifts the read
+        already verified zero vectord points — purging lifts the read
         barrier, so any surviving physical residue would resurrect the
         resource.
         """

@@ -6,7 +6,7 @@ Identity so same-named symbols in different modules never collide:
 
     symbol_id = "python:shared_layer.rag_bridge.bridge:RagIndexCoordinator"
 
-Qdrant answers "semantically similar to what"; PostgreSQL graph
+vectord answers "semantically similar to what"; PostgreSQL graph
 relations answer "actually connected to what" — graph edges are
 relational data, not vectors:
 

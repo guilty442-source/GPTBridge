@@ -1,9 +1,9 @@
 """Document-level canonical write path (A371-A374).
 
-Fixed flow: resource → PostgreSQL metadata → chunk → Qdrant →
+Fixed flow: resource → PostgreSQL metadata → chunk → vectord →
 qdrant_point_id 回寫 PostgreSQL.  PostgreSQL is the metadata/chunk/
-index_state authority and never stores vectors; Qdrant stores dense
-vectors only.  index_state is written back only after Qdrant confirms
+index_state authority and never stores vectors; vectord stores dense
+vectors only.  index_state is written back only after vectord confirms
 the upsert.  Any failed or degraded write leaves a durable
 pending_rag_mutation for idempotent replay.
 """
@@ -17,7 +17,7 @@ from typing import Any, Optional
 from .vector_models import PointStruct
 
 from .rag_contracts import OutboxOperation, OutboxState
-from .rag_qdrant import IndexState, sanitize_payload
+from .canonical_vector_runtime import IndexState, sanitize_payload
 from .runtime_state import RagRuntimeState
 
 _logger = logging.getLogger("gptbridge.rag")
@@ -81,11 +81,11 @@ class PipelineDocumentsMixin:
         collection_dimension: Optional[int],
     ) -> bool:
         """PG authority writes + outbox event (ONE transaction) ->
-        Qdrant upsert -> outbox SUCCEEDED + index_state writeback.
+        vectord upsert -> outbox SUCCEEDED + index_state writeback.
 
         RAG-08: the outbox event commits with the metadata, so a crash
         after commit leaves a durable PENDING event that ``process_outbox``
-        replays idempotently.  Qdrant is never part of the PG transaction.
+        replays idempotently.  vectord is never part of the PG transaction.
         """
         event = self._new_outbox_event(
             operation=OutboxOperation.UPSERT_RESOURCE,
@@ -118,17 +118,17 @@ class PipelineDocumentsMixin:
             insert = getattr(self.postgresql, "insert_outbox_event", None)
             if insert is not None:
                 await insert(event)
-        # Step 3: Qdrant dense vector write (canonical semantic index).
-        if not await self.qdrant.ensure_collection(collection_dimension):
+        # Step 3: vectord dense vector write (canonical semantic index).
+        if not await self.vector.ensure_collection(collection_dimension):
             return False
         points = self._document_points(document, chunks, vectors, module_id, resource_id)
-        if not (points and await self.qdrant.upsert_points(points)):
+        if not (points and await self.vector.upsert_points(points)):
             # Outbox event stays PENDING — replay applies the vector write.
             mark = getattr(self.postgresql, "mark_outbox", None)
             if mark is not None:
                 await mark(
                     event["event_id"], OutboxState.RETRY.value,
-                    error="qdrant upsert pending",
+                    error="vector upsert pending",
                     next_retry_at=datetime.now(timezone.utc).isoformat(),
                 )
             return False
@@ -178,7 +178,7 @@ class PipelineDocumentsMixin:
         module_id: str,
         resource_id: str,
     ) -> list[PointStruct]:
-        """Build Qdrant PointStructs for a document's chunks."""
+        """Build vectord PointStructs for a document's chunks."""
         return [
             PointStruct(
                 id=str(chunk.get("qdrant_point_id") or chunk.get("point_id")),
@@ -205,7 +205,7 @@ class PipelineDocumentsMixin:
         embedding_model: str,
         collection_dimension: Optional[int],
     ) -> bool:
-        """Step 4: write index_state back to PostgreSQL after Qdrant confirms."""
+        """Step 4: write index_state back to PostgreSQL after vectord confirms."""
         first_point = str(chunks[0].get("qdrant_point_id") or chunks[0].get("point_id")) if chunks else ""
         state = IndexState(
             resource_id=resource_id,

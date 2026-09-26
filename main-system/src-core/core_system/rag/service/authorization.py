@@ -2,7 +2,7 @@
 
     actor
       -> Scope Authorization      (may actor search module A at all?)
-      -> Qdrant pre-filter        (gateway translates scope, never caller)
+      -> vectord pre-filter        (gateway translates scope, never caller)
       -> retrieval
       -> Resource Authorization   (may actor read resource X?)
       -> Evidence Pool

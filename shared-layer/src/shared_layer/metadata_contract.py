@@ -1,6 +1,6 @@
 """metadata_contract — canonical resource metadata fields for all modules.
 
-Every module (PostgreSQL central index, SQLite local stores, Qdrant payloads,
+Every module (PostgreSQL central index, SQLite local stores, vectord point payloads,
 audit records, transport requests) MUST use these fixed fields when describing
 a resource.  This contract is the single source of truth for field names,
 types, and semantics (A8/E21 + A44/E30).
@@ -16,7 +16,7 @@ Fixed fields:
 
 Data ownership contract:
     PostgreSQL  = central index & relation truth
-    Qdrant      = rebuildable vector index (never the sole copy of unique data)
+    vectord     = rebuildable vector index (never the sole copy of unique data)
     SQLite/NTFS = original or module-private data
 """
 
@@ -137,7 +137,7 @@ _HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$|^$")
 class ResourceMetadata:
     """Canonical resource metadata — the single contract across all stores.
 
-    Every PostgreSQL row, SQLite row, Qdrant payload, and audit record that
+    Every PostgreSQL row, SQLite row, vectord point payload, and audit record that
     describes a resource MUST populate these fields.  Stores MAY add
     store-specific fields, but these fixed fields are mandatory and their
     names/types MUST NOT diverge.
@@ -258,7 +258,7 @@ class ResourceMetadata:
         return result
 
     def as_tags(self) -> dict[str, str]:
-        """Flat string tags for Qdrant payload (all values as strings)."""
+        """Flat string tags for the vectord point payload (all values as strings)."""
         tags: dict[str, str] = {
             FIELD_MODULE_ID: self.module_id,
             FIELD_RESOURCE_ID: self.resource_id,
@@ -279,7 +279,7 @@ class ResourceMetadata:
 
 
 # ---------------------------------------------------------------------------
-# Qdrant payload contract — every vector point MUST carry these tags.
+# Vector point payload contract — every vector point MUST carry these tags.
 # ---------------------------------------------------------------------------
 
 QDRANT_REQUIRED_PAYLOAD_FIELDS: Final[tuple[str, ...]] = (
@@ -292,7 +292,7 @@ QDRANT_REQUIRED_PAYLOAD_FIELDS: Final[tuple[str, ...]] = (
 
 
 def validate_qdrant_payload(payload: dict[str, Any]) -> list[str]:
-    """Validate a Qdrant point payload against the metadata contract.
+    """Validate a vectord point payload against the metadata contract.
 
     Returns a list of violation messages (empty = valid).
     """

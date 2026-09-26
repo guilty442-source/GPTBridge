@@ -5,7 +5,7 @@ Instantiates the canonical backend, the bounded degraded backend and the
 changes the existing classes' behaviour.  ``RagArchitectureRouter.search``
 is already async and is delegated asynchronously by :class:`RagServices`.
 
-Fail-closed wiring: a missing pipeline config, Qdrant runtime or PostgreSQL
+Fail-closed wiring: a missing pipeline config, vectord runtime or PostgreSQL
 metadata authority raises :class:`IntegrationWireError` before any backend
 is constructed.
 """
@@ -20,7 +20,7 @@ from ..rag.architecture_router import RagArchitectureRouter
 from ..rag.canonical_backend import CanonicalRagBackend
 from ..rag.degraded_backend import DegradedRagBackend
 from ..rag.health_gate import CanonicalHealthGate
-from ..rag.rag_qdrant import RagPipelineConfig
+from ..rag.canonical_vector_runtime import RagPipelineConfig
 from .data_platform import IntegrationWireError
 
 
@@ -41,7 +41,7 @@ class RagServices:
 def build_rag_router(
     config: RagPipelineConfig,
     *,
-    qdrant: Any,
+    vector: Any,
     postgresql: Any,
     generation_manager: Any = None,
     outbox_repo: Any = None,
@@ -51,21 +51,21 @@ def build_rag_router(
 ) -> RagServices:
     """Instantiate canonical/degraded backends and the architecture router.
 
-    ``qdrant`` and ``postgresql`` are the canonical runtime authorities
-    (``QdrantCanonicalRuntime`` / ``PostgreSQLMetadataAuthority`` or their
+    ``vector`` and ``postgresql`` are the canonical runtime authorities
+    (``CanonicalVectorRuntime`` / ``PostgreSQLMetadataAuthority`` or their
     governed stand-ins); generation manager and outbox repository are
     forwarded to the canonical backend and the health gate.
     """
     if not isinstance(config, RagPipelineConfig):
         raise IntegrationWireError("RAG_PIPELINE_CONFIG_REQUIRED")
-    if qdrant is None:
-        raise IntegrationWireError("RAG_QDRANT_RUNTIME_REQUIRED")
+    if vector is None:
+        raise IntegrationWireError("RAG_VECTOR_RUNTIME_REQUIRED")
     if postgresql is None:
         raise IntegrationWireError("RAG_POSTGRESQL_AUTHORITY_REQUIRED")
 
     canonical = CanonicalRagBackend(
         config,
-        qdrant,
+        vector,
         postgresql,
         generation_manager,
         outbox_repo,
@@ -76,7 +76,7 @@ def build_rag_router(
         Path(degraded_root) if degraded_root is not None else None,
     )
     health_gate = CanonicalHealthGate(
-        qdrant,
+        vector,
         postgresql,
         generation_manager,
         outbox_repo,

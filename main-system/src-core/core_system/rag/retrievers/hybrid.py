@@ -1,4 +1,4 @@
-"""HybridRetriever — Qdrant Dense + PG FTS + RRF (A52 hybrid-rag).
+"""HybridRetriever — vectord Dense + PG FTS + RRF (A52 hybrid-rag).
 
 General knowledge retrieval combining dense vector similarity and
 sparse keyword matching via Reciprocal Rank Fusion.  This is the
@@ -35,7 +35,7 @@ class HybridRetrievalResult:
     query: str = ""
     candidates: list[dict[str, Any]] = field(default_factory=list)
     reranker_meta: dict[str, Any] = field(default_factory=dict)
-    retrieval: str = "canonical-qdrant-dense+postgresql-fts+rrf"
+    retrieval: str = "canonical-vector-dense+postgresql-fts+rrf"
 
 
 class HybridRetriever:

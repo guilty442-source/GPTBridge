@@ -1,7 +1,7 @@
 """RAG four-sub-architecture — A52/E38 declaration (pure-declaration layer).
 
 Per the Governance Codex (A52 / E38), the RAG architecture consists of four
-sub-architectures sharing Qdrant (local-owned) as the semantic index backend:
+sub-architectures sharing the Rust vectord engine (local-owned) as the semantic index backend:
 
   1. Hybrid RAG    — dense + sparse + semantic fusion retrieval
   2. Code RAG      — code snippet + AST + dependency graph retrieval
@@ -19,8 +19,8 @@ Declaration vs execution (A2/A5):
     local-model/src/backend/services/xingcheng/application/local_rag.py
   That implementation operates in A44 degraded-fallback mode (bounded +
   observable + reconciled + non-canonical) using LocalVectorStore (SQLite
-  cache) and SQLite FTS, while Qdrant remains the canonical semantic index
-  (A8: local-vector-as-canonical is FORBIDDEN).  The execution layer imports
+  cache) and SQLite FTS, while the Rust vectord engine is the canonical semantic index
+  (A8/A611: Qdrant is retired; vectord is canonical).  The execution layer imports
   SUB_ARCHITECTURES and validate_architecture from this package to verify
   all four sub-architectures are acknowledged at runtime (A52 prohibition).
 
@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 RAG_ARCH_VERSION: Final[str] = "rag-v1"
-SHARED_INDEX_BACKEND: Final[str] = "qdrant"
+SHARED_INDEX_BACKEND: Final[str] = "vectord"
 OWNERSHIP: Final[str] = "local-owned"
 HOSTING: Final[str] = "local-only"
 

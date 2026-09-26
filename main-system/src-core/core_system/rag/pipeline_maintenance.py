@@ -9,11 +9,11 @@ One governed pass over the canonical data path:
        after the physical vector state is verified gone; live residue is
        re-enqueued as durable DELETE_RESOURCE work instead (RAG-10).
     4. optional ``run_parity_sweep`` on a slower cadence — incremental
-       canonical inspection + automatic Qdrant repair through the
+       canonical inspection + automatic vectord repair through the
        durable reconciliation queue (§10.6).
 
 Every step is bounded by batch limits and a wall-clock budget.  Nothing
-here ever deletes the Qdrant collection, rebuilds undrifted resources,
+here ever deletes the vectord collection, rebuilds undrifted resources,
 or bypasses the outbox for physical mutations.
 """
 
@@ -36,7 +36,7 @@ class PipelineMaintenanceMixin:
     tombstone purge / parity repair)."""
 
     # Lease horizon must exceed the slowest legitimate apply attempt
-    # (Qdrant client timeout is 30 s) so a live worker's lease is never
+    # (vectord client timeout is 30 s) so a live worker's lease is never
     # reclaimed mid-flight.
     _OUTBOX_STALE_LEASE_S = int(
         os.environ.get("RAG_OUTBOX_STALE_LEASE_S", "300")
@@ -64,7 +64,7 @@ class PipelineMaintenanceMixin:
         Fail-closed: outside CANONICAL the cycle is a no-op (recovery owns
         repair while DEGRADED); every individual step degrades to a counted
         no-op when the authority is unavailable.  ``include_parity`` adds
-        the incremental index_state↔Qdrant sweep with drain — callers keep
+        the incremental index_state↔vectord sweep with drain — callers keep
         it on a slower cadence than the outbox pass.
         """
         started = time.monotonic()
@@ -134,7 +134,7 @@ class PipelineMaintenanceMixin:
         """Tombstone cleanup closure (RAG-10).
 
         For each aged, unpurged tombstone:
-          * Qdrant point count unverifiable → keep tombstone (fail-closed).
+          * vectord point count unverifiable → keep tombstone (fail-closed).
           * Residual points > 0 → enqueue a durable DELETE_RESOURCE outbox
             event (orphan repair); the tombstone stays until the physical
             delete is verified — never purge over live residue.
@@ -172,7 +172,7 @@ class PipelineMaintenanceMixin:
             module_id = str(row["module_id"])
             resource_id = str(row["resource_id"])
             try:
-                remaining = self.qdrant.count_resource_points(
+                remaining = self.vector.count_resource_points(
                     module_id, resource_id
                 )
             except Exception:  # noqa: BLE001

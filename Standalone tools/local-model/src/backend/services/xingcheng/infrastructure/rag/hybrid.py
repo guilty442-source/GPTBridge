@@ -1,6 +1,6 @@
 """Hybrid Retriever for Chinese Semantic Engine v2.
 
-Implements dense + sparse + semantic fusion retrieval using Qdrant
+Implements dense + sparse + semantic fusion retrieval using vectord
 and local vector stores.
 """
 

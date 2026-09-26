@@ -1,8 +1,8 @@
 """RAG Package — Canonical RAG Pipeline (A371-A374).
 
-A371: DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
+A371: DEFAULT-PATH: source content > vector dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
 A374: Binding order: 1 QDRANT_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
-A373: CANONICAL-TAKEOVER: normal read/write execution must prove Qdrant dense retrieval and PostgreSQL official metadata/FTS/index_state are the live path
+A373: CANONICAL-TAKEOVER: normal read/write execution must prove vectord dense retrieval and PostgreSQL official metadata/FTS/index_state are the live path
 A374: INDEX-STATE: every indexed resource/chunk records embedding_model, embedding_dimension, chunk_size, chunk_overlap, indexed_at_utc
 """
 
@@ -11,7 +11,7 @@ from .pipeline import (
     RagPipelineConfig,
     IndexState,
     RagQueryResult,
-    QdrantCanonicalRuntime,
+    CanonicalVectorRuntime,
     PostgreSQLMetadataAuthority,
     PythonDomainModel,
 )
@@ -74,7 +74,7 @@ __all__ = [
     "RagPipelineConfig",
     "IndexState",
     "RagQueryResult",
-    "QdrantCanonicalRuntime",
+    "CanonicalVectorRuntime",
     "PostgreSQLMetadataAuthority",
     "PythonDomainModel",
     "create_rag_pipeline_from_env",

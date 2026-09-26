@@ -231,9 +231,11 @@ async def test_pausable_jobs_defer_under_regulation() -> None:
 
     scheduler.register("pausable-job", 0.02, _pausable, pausable=True)
     scheduler.register("essential-job", 0.02, _essential)
-    await asyncio.sleep(0.25)
+    # 0.6s window: Windows asyncio timer granularity (~15-100ms/loop
+    # iteration under load) makes 0.25s marginal for two deferrals.
+    await asyncio.sleep(0.6)
     paused["on"] = False
-    await asyncio.sleep(0.06)
+    await asyncio.sleep(0.08)
     await scheduler.stop()
 
     job = {j["name"]: j for j in scheduler.jobs()}

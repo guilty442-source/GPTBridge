@@ -1,7 +1,7 @@
 """A374 reconciliation data-flow tests.
 
 pending_rag_mutation replay: re-fetch owning-module content → re-chunk →
-re-embed via the governed local runtime (2560d) → Qdrant upsert/delete →
+re-embed via the governed local runtime (2560d) → vectord upsert/delete →
 PostgreSQL index_state → verify → mark reconciled.  Degraded-dimension
 vectors are never replayed into the canonical collection.
 """
@@ -15,7 +15,7 @@ from typing import Any, Optional
 import pytest
 
 from core_system.rag.pipeline import CanonicalRagPipeline
-from core_system.rag.rag_qdrant import RagPipelineConfig
+from core_system.rag.canonical_vector_runtime import RagPipelineConfig
 from core_system.rag.runtime_state import RagRuntimeState
 
 
@@ -132,8 +132,7 @@ def _pipeline(
     fetcher: Any = None,
 ) -> tuple[CanonicalRagPipeline, _FakeQdrant, _FakePostgres]:
     cfg = RagPipelineConfig(
-        qdrant_url="http://unused", qdrant_api_key=None,
-        collection_name="gptbridge_shared_knowledge",
+               collection_name="gptbridge_shared_knowledge",
         postgresql_dsn="postgresql://unused",
     )
     pipe = CanonicalRagPipeline(
@@ -145,13 +144,13 @@ def _pipeline(
         }),
         embed_texts=lambda texts: [[0.1] * vector_dim for _ in texts],
     )
-    qdrant, pg = _FakeQdrant(), _FakePostgres()
-    pipe.qdrant, pipe.postgresql = qdrant, pg
+    vector, pg = _FakeQdrant(), _FakePostgres()
+    pipe.vector, pipe.postgresql = vector, pg
     pipe._initialized = True
     pipe._state_machine.evaluate_startup(
-        qdrant_healthy=False, postgresql_healthy=False, index_state_matches=False
+        vector_healthy=False, postgresql_healthy=False, index_state_matches=False
     )
-    return pipe, qdrant, pg
+    return pipe, vector, pg
 
 
 async def _enqueue(pipe: CanonicalRagPipeline, operation: str = "update") -> None:
@@ -167,15 +166,15 @@ async def _enqueue(pipe: CanonicalRagPipeline, operation: str = "update") -> Non
 
 @pytest.mark.asyncio
 async def test_pending_mutation_replays_full_flow() -> None:
-    pipe, qdrant, pg = _pipeline(content="x" * 3000)
+    pipe, vector, pg = _pipeline(content="x" * 3000)
     await _enqueue(pipe)
     assert pipe.state == RagRuntimeState.DEGRADED
 
     state = await pipe.attempt_recovery()
 
     assert state == RagRuntimeState.CANONICAL
-    assert qdrant.points, "re-chunked content must reach Qdrant"
-    assert all(len(p.vector) == 2560 for p in qdrant.points)
+    assert vector.points, "re-chunked content must reach vectord"
+    assert all(len(p.vector) == 2560 for p in vector.points)
     assert pg.index_states, "index_state writeback required"
     assert pg.reconciled, "canonical queue row must be stamped"
     assert pipe._queue.is_complete()
@@ -184,32 +183,32 @@ async def test_pending_mutation_replays_full_flow() -> None:
 @pytest.mark.asyncio
 async def test_degraded_dimension_vectors_never_replayed() -> None:
     # A 256-dim degraded hashing vector must be rejected, never upserted.
-    pipe, qdrant, pg = _pipeline(content="x" * 3000, vector_dim=256)
+    pipe, vector, pg = _pipeline(content="x" * 3000, vector_dim=256)
     await _enqueue(pipe)
 
     state = await pipe.attempt_recovery()
 
     assert state == RagRuntimeState.DEGRADED
     assert pipe.state_machine.effective_state == "RECONCILIATION_FAILED"
-    assert qdrant.points == [], "wrong-dimension vectors must not reach Qdrant"
+    assert vector.points == [], "wrong-dimension vectors must not reach vectord"
     assert pipe.state_machine.reconciliation_required is True
 
 
 @pytest.mark.asyncio
 async def test_tombstone_replay_deletes_vectors() -> None:
-    pipe, qdrant, pg = _pipeline(content="x")
+    pipe, vector, pg = _pipeline(content="x")
     await _enqueue(pipe, operation="tombstone")
 
     state = await pipe.attempt_recovery()
 
     assert state == RagRuntimeState.CANONICAL
-    assert qdrant.deleted == [("xingcheng", "doc-abc")]
+    assert vector.deleted == [("xingcheng", "doc-abc")]
     assert pg.tombstones and pg.tombstones[0]["content_hash"] == "h" * 64
 
 
 @pytest.mark.asyncio
 async def test_missing_source_retries_then_dead_letters() -> None:
-    pipe, qdrant, pg = _pipeline(
+    pipe, vector, pg = _pipeline(
         content="", fetcher=lambda module_id, locator_id: None
     )
     await _enqueue(pipe)
@@ -224,7 +223,7 @@ async def test_missing_source_retries_then_dead_letters() -> None:
 
 @pytest.mark.asyncio
 async def test_tombstone_replay_routes_through_deletion_coordinator() -> None:
-    pipe, qdrant, pg = _pipeline(content="x")
+    pipe, vector, pg = _pipeline(content="x")
     coordinator = _FakeDeletionCoordinator()
     pipe._deletion_coordinator = coordinator
     await _enqueue(pipe, operation="tombstone")
@@ -239,13 +238,13 @@ async def test_tombstone_replay_routes_through_deletion_coordinator() -> None:
         "content_hash": "h" * 64,
         "reason": "reconciled-tombstone",
     }]
-    assert qdrant.deleted == [], "coordinator owns the vector delete"
+    assert vector.deleted == [], "coordinator owns the vector delete"
     assert pg.tombstones == [], "coordinator owns the tombstone raise"
 
 
 @pytest.mark.asyncio
 async def test_tombstone_replay_coordinator_refusal_stays_degraded() -> None:
-    pipe, qdrant, pg = _pipeline(content="x")
+    pipe, vector, pg = _pipeline(content="x")
     pipe._deletion_coordinator = _FakeDeletionCoordinator(ok=False)
     await _enqueue(pipe, operation="tombstone")
 
@@ -253,7 +252,7 @@ async def test_tombstone_replay_coordinator_refusal_stays_degraded() -> None:
 
     assert state == RagRuntimeState.DEGRADED
     assert pipe.state_machine.effective_state == "RECONCILIATION_FAILED"
-    assert qdrant.deleted == []
+    assert vector.deleted == []
     assert pg.tombstones == []
 
 
@@ -264,16 +263,16 @@ async def test_deletion_coordinator_runtime_completes_tombstone_replay() -> None
         DeletionCoordinatorRuntime,
     )
 
-    pipe, qdrant, pg = _pipeline(content="x")
+    pipe, vector, pg = _pipeline(content="x")
     pipe._deletion_coordinator = DeletionCoordinatorRuntime(
-        qdrant=qdrant, tombstone_raiser=pg
+        vector=vector, tombstone_raiser=pg
     )
     await _enqueue(pipe, operation="tombstone")
 
     state = await pipe.attempt_recovery()
 
     assert state == RagRuntimeState.CANONICAL
-    assert qdrant.deleted == [("xingcheng", "doc-abc")]
+    assert vector.deleted == [("xingcheng", "doc-abc")]
     assert pg.tombstones and pg.tombstones[0]["content_hash"] == "h" * 64
 
 

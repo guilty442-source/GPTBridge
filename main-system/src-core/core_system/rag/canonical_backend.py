@@ -1,8 +1,8 @@
-"""Canonical RAG Backend — Qdrant + PostgreSQL + Outbox 完整實作。
+"""Canonical RAG Backend — vectord + PostgreSQL + Outbox 完整實作。
 
 實作 RagIndexBackend 介面。
 支援：
-- PostgreSQL transaction (metadata + outbox) + Qdrant upsert (idempotent)
+- PostgreSQL transaction (metadata + outbox) + vectord upsert (idempotent)
 - Tombstone-first delete
 - Canonical Read Barrier verification
 - Reconciliation pipeline
@@ -53,7 +53,7 @@ from .rag_contracts import (
     OutboxState,
     OutboxOperation,
 )
-from .rag_qdrant import QdrantCanonicalRuntime, RagPipelineConfig
+from .canonical_vector_runtime import CanonicalVectorRuntime, RagPipelineConfig
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .generation import GenerationManager, GenerationConfig
 from .outbox import OutboxRepository
@@ -67,7 +67,7 @@ _RECONCILE_SCAN_LIMIT = 10_000
 
 
 class CanonicalRagBackend:
-    """Canonical RAG backend: Qdrant (alias) + PostgreSQL + Outbox.
+    """Canonical RAG backend: vectord (alias) + PostgreSQL + Outbox.
 
     Write path (upsert_resource):
     1. Compute embeddings (with cache)
@@ -77,7 +77,7 @@ class CanonicalRagBackend:
        - COMMIT
     3. OutboxWorker (async):
        - Fetch PENDING events
-       - Upsert to Qdrant (idempotent by point_id)
+       - Upsert to vectord (idempotent by point_id)
        - Mark outbox SUCCEEDED
        - Update index_state = ACTIVE
 
@@ -87,12 +87,12 @@ class CanonicalRagBackend:
        - Create outbox_event = PENDING (DELETE)
        - COMMIT
     2. OutboxWorker:
-       - Delete from Qdrant
+       - Delete from vectord
        - Mark outbox SUCCEEDED
        - Update index_state = DELETED
 
     Search path (search):
-    1. Qdrant alias search (ACTIVE generation)
+    1. vectord alias search (ACTIVE generation)
     2. Canonical Read Barrier: verify against PostgreSQL
        - generation_id match
        - content_hash match
@@ -105,14 +105,14 @@ class CanonicalRagBackend:
     def __init__(
         self,
         config: RagPipelineConfig,
-        qdrant: QdrantCanonicalRuntime,
+        vector: CanonicalVectorRuntime,
         postgresql: PostgreSQLMetadataAuthority,
         generation_manager: GenerationManager,
         outbox_repo: OutboxRepository,
         embedding_provider: Any = None,  # EmbeddingProvider
     ) -> None:
         self.config = config
-        self.qdrant = qdrant
+        self.vector = vector
         self.postgresql = postgresql
         self.generation_manager = generation_manager
         self.outbox_repo = outbox_repo
@@ -214,23 +214,23 @@ class CanonicalRagBackend:
 
     def health(self) -> RagBackendHealth:
         """Return canonical backend health."""
-        qdrant_healthy = self.qdrant.is_healthy()
+        vector_healthy = self.vector.is_healthy()
         pg_healthy = self.postgresql.is_healthy()
 
         return RagBackendHealth(
             backend_type=BackendType.CANONICAL,
-            healthy=qdrant_healthy and pg_healthy,
-            state="CANONICAL_READY" if (qdrant_healthy and pg_healthy) else "DEGRADED",
+            healthy=vector_healthy and pg_healthy,
+            state="CANONICAL_READY" if (vector_healthy and pg_healthy) else "DEGRADED",
             components={
-                "qdrant": qdrant_healthy,
+                "vector": vector_healthy,
                 "postgresql": pg_healthy,
                 "generation_manager": self.generation_manager is not None,
                 "outbox": self.outbox_repo is not None,
             },
             embedding_available=self.embedding_provider is not None,
             metadata_available=pg_healthy,
-            vector_available=qdrant_healthy,
-            message="Canonical backend operational" if (qdrant_healthy and pg_healthy) else "Degraded",
+            vector_available=vector_healthy,
+            message="Canonical backend operational" if (vector_healthy and pg_healthy) else "Degraded",
         )
 
     # =========================================================================
@@ -241,7 +241,7 @@ class CanonicalRagBackend:
         """Index resource through canonical transactional path.
 
         Returns immediately after PostgreSQL commit.
-        Qdrant upsert happens asynchronously via OutboxWorker.
+        vectord upsert happens asynchronously via OutboxWorker.
         """
         start_time = time.monotonic()
         conn = self._get_pg_conn()
@@ -254,7 +254,7 @@ class CanonicalRagBackend:
                 # 2. Upsert chunks metadata
                 chunk_ids = self._upsert_chunks_metadata(cur, request, new_version)
 
-                # 3. Create outbox event for async Qdrant upsert
+                # 3. Create outbox event for async vectord upsert
                 outbox_event_id = self._create_outbox_event(
                     cur,
                     request=request,
@@ -424,7 +424,7 @@ class CanonicalRagBackend:
         event_id = str(uuid.uuid4())
         now = time.time()
 
-        # Prepare payload for Qdrant upsert (will be filled by OutboxWorker with actual vectors)
+        # Prepare payload for vectord upsert (will be filled by OutboxWorker with actual vectors)
         payload = {
             "module_id": request.module_id,
             "resource_id": request.resource_id,
@@ -472,7 +472,7 @@ class CanonicalRagBackend:
 
         1. Mark TOMBSTONED in PostgreSQL (immediate read barrier)
         2. Create outbox DELETE event
-        3. OutboxWorker deletes from Qdrant
+        3. OutboxWorker deletes from vectord
         3. Mark index_state = DELETED
         """
         start_time = time.monotonic()
@@ -572,10 +572,10 @@ class CanonicalRagBackend:
     # =========================================================================
 
     async def search(self, request: RagSearchRequest) -> RagSearchResult:
-        """Search via Qdrant alias with full Canonical Read Barrier verification.
+        """Search via vectord alias with full Canonical Read Barrier verification.
 
         Verification chain:
-        1. point exists in Qdrant
+        1. point exists in vectord
         2. metadata exists in PostgreSQL
         3. index_state = ACTIVE
         4. generation_id == active_generation
@@ -593,8 +593,8 @@ class CanonicalRagBackend:
                 if active_gen:
                     active_generation = active_gen.generation_id
 
-            # Search Qdrant alias
-            hits = await self.qdrant.search(
+            # Search vectord alias
+            hits = await self.vector.search(
                 query_vector=list(request.query_vector),
                 module_ids=tuple(request.module_ids) if request.module_ids else None,
                 top_k=request.top_k,
@@ -701,8 +701,8 @@ class CanonicalRagBackend:
 
         1. Scan index_state for mismatches (generation, hash, version)
         2. For each mismatch:
-           - If Qdrant has data but PG missing: create PG record
-           - If PG has data but Qdrant missing: create outbox UPSERT
+           - If vectord has data but PG missing: create PG record
+           - If PG has data but vectord missing: create outbox UPSERT
            - If both exist but hash mismatch: create outbox UPSERT with new hash
            - If generation mismatch: move to correct generation collection
         3. Clean up tombstones with zero live points
@@ -768,14 +768,14 @@ class CanonicalRagBackend:
             for row in rows:
                 discrepancy = None
 
-                # Check if point exists in Qdrant
-                qdrant_has = False
+                # Check if point exists in vectord
+                vector_has = False
                 if row["qdrant_point_id"]:
                     try:
                         # Quick existence check
-                        qdrant_has = True  # Simplified
+                        vector_has = True  # Simplified
                     except Exception:
-                        qdrant_has = False
+                        vector_has = False
 
                 # Check generation match
                 if active_generation and row["generation_id"] != active_generation:

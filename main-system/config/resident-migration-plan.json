@@ -96,7 +96,6 @@
     "keep_resident": [
       "psutil",
       "psycopg",
-      "qdrant-client",
       "websockets"
     ],
     "on_demand_only": [

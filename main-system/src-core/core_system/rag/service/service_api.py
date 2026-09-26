@@ -10,13 +10,13 @@ Flow for query():
       -> capability check (rag.query)
       -> Permission Sovereign point 1: query admission
       -> orchestrator plan/retrieve/fuse/rerank (Canonical Gateway
-         owns all PG/Qdrant translation — no other module touches
+         owns all PG/vectord translation — no other module touches
          the vector store)
       -> Permission Sovereign point 2: per-resource authorization
       -> evidence pool -> context -> generation decision
       -> RagResponse (+ audit record, no data copy)
 
-Qdrant is reachable only inside this service's canonical gateway —
+vectord is reachable only inside this service's canonical gateway —
 there is no API surface that takes a collection name or raw filter.
 """
 from __future__ import annotations

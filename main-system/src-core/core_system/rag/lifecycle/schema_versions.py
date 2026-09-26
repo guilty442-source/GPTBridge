@@ -1,11 +1,11 @@
 """Three-axis schema versioning + governed migration plan.
 
-PG field changes, Qdrant payload changes and RAG behaviour changes
+PG field changes, vectord payload changes and RAG behaviour changes
 do not move together, so one ``version`` is wrong:
 
     rag_schema_version      — behaviour/contracts
     metadata_schema_version — PostgreSQL side
-    vector_schema_version   — Qdrant payload/point side
+    vector_schema_version   — vectord payload/point side
 
 Migration is a planned sequence, never a silent runtime mutation:
 

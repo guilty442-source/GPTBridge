@@ -101,14 +101,14 @@ def test_timed_stage_marks_trace_and_metrics() -> None:
     metrics = RagMetrics()
     begin_trace("rag-timed-1")
     try:
-        with timed_stage("qdrant", metrics):
+        with timed_stage("vector", metrics):
             pass
         trace = current_trace()
         assert trace is not None
-        assert trace.timings.qdrant_ms >= 0
+        assert trace.timings.vector_ms >= 0
     finally:
         end_trace()
-    assert metrics.snapshot()["stages"]["qdrant"]["samples"] == 1
+    assert metrics.snapshot()["stages"]["vector"]["samples"] == 1
 
 
 def test_timed_stage_without_trace_still_records() -> None:

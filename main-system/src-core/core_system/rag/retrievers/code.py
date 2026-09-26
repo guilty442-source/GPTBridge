@@ -6,7 +6,7 @@ Code-specific retrieval that combines:
   3. Symbol-level filtering (AST-extracted symbols)
   4. Dependency graph traversal (imports, call graphs)
 
-Shares Qdrant + PostgreSQL + embedding runtime with the other retrievers
+Shares vectord + PostgreSQL + embedding runtime with the other retrievers
 but applies code-specific filtering and ranking.
 """
 from __future__ import annotations

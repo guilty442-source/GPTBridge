@@ -46,7 +46,7 @@ class StartupReport:
     ready: bool
     stages: tuple[str, ...]
     database: dict[str, object]
-    qdrant: dict[str, object]
+    vectord: dict[str, object]
     state: str = STATE_READY
     ollama: dict[str, object] = field(default_factory=dict)
     gates: tuple[dict[str, object], ...] = field(default_factory=tuple)
@@ -61,7 +61,7 @@ def _gate_data_from_database_health(database: dict[str, object]) -> dict[str, ob
 
 
 class SharedLayerStartup:
-    """Probe bounded local degraded storage and optional Qdrant/Ollama health.
+    """Probe bounded local degraded storage and optional vectord/Ollama health.
 
     Canonical PostgreSQL readiness is enforced by the host bootstrap before
     this local recovery surface may be treated as normal operation.
@@ -71,7 +71,7 @@ class SharedLayerStartup:
         self,
         shared_root: Path | str,
         settings: DatabaseSettings,
-        qdrant_health: Callable[[], dict[str, object]],
+        vectord_health: Callable[[], dict[str, object]],
         registry_check: Callable[[], bool],
         locator_check: Callable[[], bool],
         governance_check: Callable[[], bool],
@@ -79,7 +79,7 @@ class SharedLayerStartup:
     ) -> None:
         self.root = Path(shared_root).resolve()
         self.settings = settings
-        self.qdrant_health = qdrant_health
+        self.vectord_health = vectord_health
         self.registry_check = registry_check
         self.locator_check = locator_check
         self.governance_check = governance_check
@@ -122,15 +122,15 @@ class SharedLayerStartup:
             return self._build_report(gates, stages, database, {}, {})
         stages.extend(("local-database-health", "database-health"))
 
-        # S4: qdrant and ollama are independent non-critical probes — run them
+        # S4: vectord and ollama are independent non-critical probes — run them
         # concurrently. Hard gates below stay sequential to preserve the
         # critical early-exit report shape.
-        qdrant: dict = {}
+        vectord: dict = {}
         ollama: dict = {}
 
-        def _probe_qdrant() -> dict:
+        def _probe_vectord() -> dict:
             try:
-                return dict(self.qdrant_health() or {})
+                return dict(self.vectord_health() or {})
             except Exception as exc:
                 return {"available": False, "last_error": str(exc)[:300]}
 
@@ -143,23 +143,23 @@ class SharedLayerStartup:
                 return {"available": False, "last_error": str(exc)[:300]}
 
         with ThreadPoolExecutor(max_workers=bounded_workers(2)) as pool:
-            qdrant = pool.submit(_probe_qdrant).result()
+            vectord = pool.submit(_probe_vectord).result()
             ollama = pool.submit(_probe_ollama).result()
 
-        qdrant_available = qdrant.get("available") is True
-        qdrant_gate = GateResult(
-            "qdrant",
+        vectord_available = vectord.get("available") is True
+        vectord_gate = GateResult(
+            "vectord",
             False,
-            qdrant_available,
-            "QDRANT_READY" if qdrant_available else "QDRANT_UNAVAILABLE",
-            "ready" if qdrant_available else str(qdrant.get("last_error") or "qdrant unavailable"),
-            {"available": qdrant_available},
+            vectord_available,
+            "VECTORD_READY" if vectord_available else "VECTORD_UNAVAILABLE",
+            "ready" if vectord_available else str(vectord.get("last_error") or "vectord unavailable"),
+            {"available": vectord_available},
         )
-        gates.append(qdrant_gate)
-        if qdrant_available:
-            stages.append("qdrant-health-collection")
+        gates.append(vectord_gate)
+        if vectord_available:
+            stages.append("vectord-health-collection")
         else:
-            stages.append("qdrant-degraded")
+            stages.append("vectord-degraded")
 
         if self.ollama_health is not None:
             ollama_available = ollama.get("available") is True
@@ -183,18 +183,18 @@ class SharedLayerStartup:
             result = self._safe_check(name, True, check)
             gates.append(result)
             if not result.passed:
-                return self._build_report(gates, stages, database, qdrant, ollama)
+                return self._build_report(gates, stages, database, vectord, ollama)
             stages.append(name)
 
         stages.append("READY")
-        return self._build_report(gates, stages, database, qdrant, ollama)
+        return self._build_report(gates, stages, database, vectord, ollama)
 
     def _build_report(
         self,
         gates: list[GateResult],
         stages: list[str],
         database: dict[str, object] | None,
-        qdrant: dict[str, object],
+        vectord: dict[str, object],
         ollama: dict[str, object],
     ) -> StartupReport:
         database = database or {}
@@ -216,7 +216,7 @@ class SharedLayerStartup:
             ready,
             tuple(stages),
             database,
-            qdrant,
+            vectord,
             state=state,
             ollama=ollama,
             gates=gate_dicts,

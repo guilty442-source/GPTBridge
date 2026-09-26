@@ -230,7 +230,7 @@ def rls_drift_runbook(ctx: dict[str, Any]) -> dict[str, Any]:
 # ============================================================================
 
 def qdrant_mismatch_runbook(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Qdrant mismatch - mark reindex, enqueue rebuild, don't modify PG authority."""
+    """vectord mismatch - mark reindex, enqueue rebuild, don't modify PG authority."""
     return {
         "action": "reindex_required",
         "steps": [

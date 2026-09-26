@@ -1,8 +1,8 @@
 """RAG Pipeline — Canonical RAG path implementation (A371-A374).
 
-A371: DEFAULT-PATH: source content > qdrant dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
+A371: DEFAULT-PATH: source content > vector dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
 A374: Binding order: 1 QDRANT_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
-A373: CANONICAL-TAKEOVER: normal read/write must prove Qdrant dense retrieval and PostgreSQL metadata/FTS/index_state are the live path
+A373: CANONICAL-TAKEOVER: normal read/write must prove vectord dense retrieval and PostgreSQL metadata/FTS/index_state are the live path
 A374: INDEX-STATE: every indexed resource/chunk records embedding_model, embedding_dimension, chunk_size, chunk_overlap, indexed_at_utc
 """
 
@@ -26,7 +26,6 @@ from .vector_models import (
     Filter,
     MatchValue,
     PointStruct,
-    QdrantClient,
     VectorParams,
 )
 
@@ -43,7 +42,7 @@ from shared_layer.metadata_contract import (
 from .generation import _GENERATION_DDL
 from .rag_metadata_documents import RagMetadataDocumentsMixin
 from .rag_metadata_queue import RagMetadataReconciliationMixin
-from .rag_qdrant import IndexState
+from .canonical_vector_runtime import IndexState
 
 _logger = logging.getLogger("gptbridge.rag")
 

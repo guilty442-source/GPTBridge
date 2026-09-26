@@ -1,17 +1,14 @@
 """Vector-store model surface — single import point for the RAG package.
 
-With the Rust vectord engine as target-primary (codex A610), the Python
-``qdrant_client`` package is needed only while the ``qdrant`` backend stays
-selectable for the bounded migration window — the canonical Rust path must
-import cleanly even when the package is absent or broken.
-
-This module therefore tries the real ``qdrant_client`` models first and
+The canonical vector engine is the Rust ``vectord`` service (codex A611;
+the Qdrant cutover is sealed).  The retired ``qdrant_client`` package is
+no longer required by any live path, so this module tries its model
+classes first — they remain convenient transport-neutral shapes — and
 falls back to attribute-container equivalents that carry exactly the
 fields this codebase constructs (``id``/``vector``/``payload``,
 ``key``/``match``, ``must``/``should``/``must_not``, alias operations).
-The vectord client only reads those attributes, so behaviour on the Rust
-path is identical either way; the ``qdrant`` backend fails closed when
-``QDRANT_CLIENT_AVAILABLE`` is false.
+The vectord client only reads those attributes, so behaviour is
+identical either way.
 """
 
 from __future__ import annotations
@@ -92,21 +89,6 @@ except Exception:  # qdrant-client absent or broken — rust path needs none
         TEXT = "text"
 
 
-def require_qdrant_client() -> Any:
-    """Return the real ``QdrantClient`` class or fail closed.
-
-    Only the transitional ``qdrant`` backend may call this; the canonical
-    Rust path never reaches it.
-    """
-    if not QDRANT_CLIENT_AVAILABLE:
-        raise RuntimeError(
-            "QDRANT_CLIENT_UNAVAILABLE: qdrant backend selected but the "
-            "qdrant_client package is not importable — the canonical path "
-            "is the Rust vectord engine (VECTOR_BACKEND=rust)"
-        )
-    return QdrantClient
-
-
 __all__ = [
     "QDRANT_CLIENT_AVAILABLE",
     "QdrantClient",
@@ -122,5 +104,4 @@ __all__ = [
     "PayloadSchemaType",
     "PointStruct",
     "VectorParams",
-    "require_qdrant_client",
 ]

@@ -57,7 +57,7 @@ class IndexGeneration:
     chunk_overlap: int
     created_at: str                       # ISO UTC
     state: GenerationState
-    collection_name: str                  # Physical Qdrant collection
+    collection_name: str                  # Physical vectord collection
     alias_name: str                       # Logical alias (e.g., "gptbridge_shared_knowledge")
     previous_generation_id: Optional[str] = None
     points_count: int = 0
@@ -114,7 +114,7 @@ class GenerationLifecycleStatus(str, Enum):
 class GenerationCleanupResult:
     """Typed result of ``cleanup_old_generations``.
 
-    ``ok`` is True only for a fully completed cleanup; a missing Qdrant
+    ``ok`` is True only for a fully completed cleanup; a missing vectord
     client, missing generation listing, or capacity refusal is reported
     explicitly and never silently treated as success.
     """
@@ -173,7 +173,7 @@ class GenerationManager:
 
     def __init__(
         self,
-        qdrant_client: Any,
+        vector_client: Any,
         config: GenerationConfig,
         metadata_db: Any,  # PostgreSQLMetadataAuthority
         *,
@@ -183,7 +183,7 @@ class GenerationManager:
             Callable[[str], Any]
         ] = None,
     ) -> None:
-        self.qdrant = qdrant_client
+        self.vector = vector_client
         self.config = config
         self.metadata_db = metadata_db
         self._current_generation: Optional[IndexGeneration] = None
@@ -202,7 +202,7 @@ class GenerationManager:
         return f"gen-{date_part}-{suffix}"
 
     def _physical_collection_name(self, generation_id: str) -> str:
-        """Map generation ID to physical Qdrant collection name."""
+        """Map generation ID to physical vectord collection name."""
         return f"{self.config.alias_name}_{generation_id}"
 
     @staticmethod
@@ -211,7 +211,7 @@ class GenerationManager:
         *,
         points_estimate: Optional[int] = None,
     ) -> QdrantCollectionSpec:
-        """Estimate one generation's Qdrant footprint for the capacity gate."""
+        """Estimate one generation's vectord footprint for the capacity gate."""
         points = (
             int(generation.points_count or 0)
             if points_estimate is None
@@ -227,7 +227,7 @@ class GenerationManager:
         operation: str,
         successor: Optional[IndexGeneration],
     ) -> Optional[CapacityDecision]:
-        """Qdrant capacity gate; None means no budget provider is configured.
+        """vectord capacity gate; None means no budget provider is configured.
 
         A configured provider that fails or yields an unknown budget returns
         an UNKNOWN decision with ``allowed=False`` — fail-closed.
@@ -358,7 +358,7 @@ class GenerationManager:
 
         Returns True only when the build gate allowed the operation and the
         collection is verified present afterwards; a capacity refusal or a
-        missing Qdrant client returns False (never a fake success).  Call
+        missing vectord client returns False (never a fake success).  Call
         ``ensure_collection_checked`` for the typed refusal reason.
         """
         result = await self.ensure_collection_checked(generation)
@@ -369,7 +369,7 @@ class GenerationManager:
     ) -> GenerationBuildResult:
         """Capacity-gated collection build with a typed result.
 
-        Order: rebuild-queue admission -> Qdrant capacity (dual-collection
+        Order: rebuild-queue admission -> vectord capacity (dual-collection
         headroom: the ACTIVE collection must stay queryable while the
         successor is built) -> real ``create_collection``.  Any failure is
         reported as REFUSED / UNAVAILABLE / FAILED — never as success.
@@ -398,19 +398,19 @@ class GenerationManager:
                 reason=decision.reason, capacity=decision, queue=gate,
             )
 
-        if self.qdrant is None:
+        if self.vector is None:
             return GenerationBuildResult(
                 ok=False, status=GenerationLifecycleStatus.UNAVAILABLE,
                 collection_name=collection_name,
-                reason="qdrant-client-unavailable",
+                reason="vector-client-unavailable",
                 capacity=decision, queue=gate,
             )
         try:
-            collections = self.qdrant.get_collections()
+            collections = self.vector.get_collections()
             names = {c.name for c in collections.collections}
             created = False
             if collection_name not in names:
-                self.qdrant.create_collection(
+                self.vector.create_collection(
                     collection_name=collection_name,
                     vectors_config=VectorParams(
                         size=generation.embedding_dimension,
@@ -465,14 +465,14 @@ class GenerationManager:
     async def promote_to_active(self, generation: IndexGeneration) -> bool:
         """Atomically switch alias to point to the new generation.
 
-        Uses a single ``update_aliases`` call (create+delete in one Qdrant
+        Uses a single ``update_aliases`` call (create+delete in one vectord
         operation) so a crash mid-swap can never leave the alias missing
         or pointing at a half-built collection; falls back to sequential
         create_alias on clients that lack the batch API.
         """
         try:
             # 1. Atomic alias swap: alias → new physical collection
-            update_aliases = getattr(self.qdrant, "update_aliases", None)
+            update_aliases = getattr(self.vector, "update_aliases", None)
             if update_aliases is not None:
                 from .vector_models import (
                     CreateAlias,
@@ -491,7 +491,7 @@ class GenerationManager:
                     ]
                 )
             else:
-                self.qdrant.create_alias(
+                self.vector.create_alias(
                     alias_name=generation.alias_name,
                     collection_name=generation.collection_name,
                 )
@@ -570,7 +570,7 @@ class GenerationManager:
     ) -> GenerationCleanupResult:
         """Delete RETIRED/FAILED generations beyond the retention limit.
 
-        Bounded, real Qdrant deletions through the injected client
+        Bounded, real vectord deletions through the injected client
         (``delete_collection``).  Explicit no-op when the client or the
         retired-generation listing is missing.  Refuses when the rebuild
         queue is not accepting or the capacity budget is unknown/exceeded
@@ -618,14 +618,14 @@ class GenerationManager:
             )
 
         delete_collection = (
-            getattr(self.qdrant, "delete_collection", None)
-            if self.qdrant is not None
+            getattr(self.vector, "delete_collection", None)
+            if self.vector is not None
             else None
         )
         if not callable(delete_collection):
             return GenerationCleanupResult(
                 status=GenerationLifecycleStatus.UNAVAILABLE,
-                reason="qdrant-client-unavailable",
+                reason="vector-client-unavailable",
                 retained=retained_ids,
             )
 
@@ -709,7 +709,7 @@ class GenerationManager:
         """Verify a BUILDING generation is query-ready."""
         try:
             # 1. Check collection exists and has expected vector config
-            info = self.qdrant.get_collection(generation.collection_name)
+            info = self.vector.get_collection(generation.collection_name)
             vector_config = info.config.params.vectors
             if vector_config.size != generation.embedding_dimension:
                 return {"ok": False, "reason": "dimension_mismatch"}

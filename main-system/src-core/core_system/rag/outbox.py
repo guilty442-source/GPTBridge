@@ -44,7 +44,7 @@ class RagOutboxState(str, Enum):
     """rag_outbox table lifecycle states (DONE/FAILED terminal set)."""
     PENDING = "PENDING"        # Waiting for worker
     PROCESSING = "PROCESSING"  # Worker picked up
-    DONE = "DONE"              # Successfully applied to Qdrant
+    DONE = "DONE"              # Successfully applied to vectord
     FAILED = "FAILED"          # Max retries exceeded
     DEAD_LETTER = "DEAD_LETTER"  # Permanent failure, needs manual intervention
 
@@ -292,17 +292,17 @@ class OutboxRepository:
         return stats
 
 class OutboxWorker:
-    """Background worker that consumes outbox and applies to Qdrant."""
+    """Background worker that consumes outbox and applies to vectord."""
 
     def __init__(
         self,
         outbox_repo: OutboxRepository,
-        qdrant_runtime: Any,  # QdrantCanonicalRuntime
+        vector_runtime: Any,  # CanonicalVectorRuntime
         batch_size: int = 50,
         max_attempts: int = 5,
     ) -> None:
         self.outbox = outbox_repo
-        self.qdrant = qdrant_runtime
+        self.vector = vector_runtime
         self.batch_size = batch_size
         self.max_attempts = max_attempts
         self._running = False
@@ -334,9 +334,9 @@ class OutboxWorker:
         return results
 
     async def _apply_event(self, event: OutboxEvent) -> bool:
-        """Apply single outbox event to Qdrant."""
+        """Apply single outbox event to vectord."""
         from .vector_models import PointStruct
-        from .rag_qdrant import sanitize_payload
+        from .canonical_vector_runtime import sanitize_payload
 
         if event.operation == OutboxOperation.UPSERT:
             if not event.payload:
@@ -346,13 +346,13 @@ class OutboxWorker:
                 vector=event.payload["vector"],
                 payload=sanitize_payload(event.payload["payload"]),
             )
-            success = await self.qdrant.upsert_points([point], generation_id=event.generation_id)
+            success = await self.vector.upsert_points([point], generation_id=event.generation_id)
             if success:
                 self._record_point_lineage(event, point)
             return success
 
         elif event.operation == OutboxOperation.DELETE:
-            return await self.qdrant.delete_resource(
+            return await self.vector.delete_resource(
                 module_id=event.module_id,
                 resource_id=event.resource_id,
                 generation_id=event.generation_id,
@@ -360,7 +360,7 @@ class OutboxWorker:
 
         elif event.operation == OutboxOperation.UPDATE_METADATA:
             # Metadata-only update: payload contains updated fields
-            # This requires read-modify-write on Qdrant point
+            # This requires read-modify-write on vectord point
             # For simplicity, treat as UPSERT with full payload
             if not event.payload:
                 return False
@@ -369,7 +369,7 @@ class OutboxWorker:
                 vector=event.payload["vector"],
                 payload=sanitize_payload(event.payload["payload"]),
             )
-            success = await self.qdrant.upsert_points([point], generation_id=event.generation_id)
+            success = await self.vector.upsert_points([point], generation_id=event.generation_id)
             if success:
                 self._record_point_lineage(event, point)
             return success
@@ -378,7 +378,7 @@ class OutboxWorker:
         return False
 
     def _record_point_lineage(self, event: OutboxEvent, point: Any) -> None:
-        """Record an applied Qdrant point + embedded_from/indexed_from arcs.
+        """Record an applied vectord point + embedded_from/indexed_from arcs.
 
         Best-effort: a lineage failure is only logged and never fails the
         outbox event.  A stable run_id (the outbox event id) keeps the graph

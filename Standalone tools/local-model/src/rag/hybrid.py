@@ -2,7 +2,7 @@
 
 Per A52, Hybrid RAG combines dense vector retrieval, sparse keyword retrieval,
 and semantic fusion for general knowledge retrieval.  The shared index backend
-is Qdrant (local-owned, local-only).
+is vectord (local-owned, local-only).
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ class HybridRetrievalResult:
 def retrieve(query: str, top_k: int = 10) -> HybridRetrievalResult:
     """Decision-level hybrid retrieval interface.
 
-    Actual retrieval is delegated to the Qdrant governed executor.
+    Actual retrieval is delegated to the vectord governed executor.
     """
     return HybridRetrievalResult(query=query)
 

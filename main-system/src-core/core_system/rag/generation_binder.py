@@ -1,6 +1,6 @@
 """Query Generation Binding — 查詢結果版本一致性驗證。
 
-A486+A487: Every Qdrant hit must be verified against PostgreSQL metadata
+A486+A487: Every vectord hit must be verified against PostgreSQL metadata
 to ensure generation_id and content_hash match. Mismatches are dropped
 and trigger reconciliation.
 """
@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from .rag_qdrant import IndexState, RagQueryResult
+from .canonical_vector_runtime import IndexState, RagQueryResult
 
 _logger = logging.getLogger("gptbridge.rag.verification")
 
@@ -35,7 +35,7 @@ class VerifiedHit:
 
 
 class GenerationBinder:
-    """Binds Qdrant hits to PostgreSQL metadata with generation verification."""
+    """Binds vectord hits to PostgreSQL metadata with generation verification."""
 
     def __init__(self, metadata_authority: Any) -> None:
         self.metadata = metadata_authority  # PostgreSQLMetadataAuthority

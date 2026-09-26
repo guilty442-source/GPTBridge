@@ -15,7 +15,7 @@ Key invariants:
 
   * **Payload access** — Xingcheng-exclusive.  All other sovereigns, sub-
     sovereigns, modules, tools, UI, operators, administrators, maintainers,
-    developers, loggers, auditors, brokers, PostgreSQL, Qdrant have no
+    developers, loggers, auditors, brokers, PostgreSQL, vectord have no
     content access (A189: PAYLOAD-ACCESS).
   * **Permission Sovereign** — may validate fixed channel identity, status,
     and revocation proof, but cannot view, decrypt, search, export, replay,

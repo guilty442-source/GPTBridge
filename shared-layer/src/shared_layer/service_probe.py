@@ -8,7 +8,8 @@ from typing import Final
 
 REGISTERED_LOCAL_SERVICES: Final[dict[str, tuple[str, int]]] = {
     "postgresql": ("127.0.0.1", 5432),
-    "qdrant": ("127.0.0.1", 6333),
+    # Qdrant retired (A611 sealed cutover): no registered probe channel —
+    # probing it must fail closed via UNREGISTERED_INFORMATION_CHANNEL.
     "vectord": ("127.0.0.1", 8092),
     "ollama": ("127.0.0.1", 11434),
 }

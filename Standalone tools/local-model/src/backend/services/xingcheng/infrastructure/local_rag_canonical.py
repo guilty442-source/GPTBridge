@@ -1,13 +1,14 @@
 """Canonical RAG adapter — sync facade binding LocalRagService to the
 CanonicalRagPipeline (A371-A374).
 
-The canonical pipeline is async (psycopg AsyncConnection + Qdrant).  This
-adapter owns a dedicated background event-loop thread (Windows selector
-policy, required by psycopg) and exposes bounded synchronous methods so the
-sync ``LocalRagService`` can use the live canonical path:
+The canonical pipeline is async (psycopg AsyncConnection + vectord, the
+Rust vector engine).  This adapter owns a dedicated background event-loop
+thread (Windows selector policy, required by psycopg) and exposes bounded
+synchronous methods so the sync ``LocalRagService`` can use the live
+canonical path:
 
-    query:   query_vector + keyword_search  (Qdrant dense + PG FTS/index_state)
-    ingest:  index_document                 (Qdrant points + PG authority rows)
+    query:   query_vector + keyword_search  (vectord dense + PG FTS/index_state)
+    ingest:  index_document                 (vectord points + PG authority rows)
 
 When the pipeline is unavailable (services down, optional dependencies
 missing, DSN unset) the adapter stays not-ready and every caller falls back
@@ -27,7 +28,7 @@ from typing import Any, Optional, Sequence
 
 _logger = logging.getLogger("gptbridge.local_rag.canonical")
 
-_DEFAULT_QDRANT_URL = "http://127.0.0.1:6333"
+_DEFAULT_VECTORD_URL = "http://127.0.0.1:8092"
 _DEFAULT_COLLECTION = "gptbridge_shared_knowledge"
 _CALL_TIMEOUT_SECONDS = 30.0
 
@@ -150,12 +151,11 @@ class CanonicalRagAdapter:
         """Governed local contract + durable A374 stores."""
         state_dir = Path(self._tool_root) / "runtime" / "state"
         return config_type(
-            qdrant_url=os.environ.get("QDRANT_URL", _DEFAULT_QDRANT_URL),
-            qdrant_api_key=os.environ.get("QDRANT_API_KEY") or None,
             collection_name=os.environ.get(
-                "QDRANT_COLLECTION", _DEFAULT_COLLECTION
+                "VECTOR_COLLECTION", _DEFAULT_COLLECTION
             ),
             postgresql_dsn=dsn,
+            vectord_url=os.environ.get("VECTORD_URL", _DEFAULT_VECTORD_URL),
             # 原生 hashed embedding（in-process，無外部模型相依）。
             embedding_model=embedding_model,
             embedding_dimension=int(
@@ -274,7 +274,7 @@ class CanonicalRagAdapter:
         runtime = self._runtime_status()
         gateway_state = self._gateway_state(runtime)
         return {
-            "engine": "canonical-qdrant-postgresql",
+            "engine": "canonical-vector-postgresql",
             "canonical": gateway_state == "CANONICAL_READY",
             "ready": self._ready,
             "enabled": self._enabled,
@@ -287,8 +287,8 @@ class CanonicalRagAdapter:
             "reconciliation_required": runtime.get(
                 "reconciliation_required", True
             ),
-            "collection": os.environ.get("QDRANT_COLLECTION", _DEFAULT_COLLECTION),
-            "qdrant_url": os.environ.get("QDRANT_URL", _DEFAULT_QDRANT_URL),
+            "collection": os.environ.get("VECTOR_COLLECTION", _DEFAULT_COLLECTION),
+            "vectord_url": os.environ.get("VECTORD_URL", _DEFAULT_VECTORD_URL),
             "postgresql": "configured"
             if os.environ.get("GPTBRIDGE_POSTGRES_DSN")
             else "dsn-missing",
@@ -375,7 +375,7 @@ class CanonicalRagAdapter:
         chunks: list[dict[str, Any]],
         vectors: list[list[float]],
     ) -> bool:
-        """Canonical write-through: Qdrant points + PG resource/chunk/index_state."""
+        """Canonical write-through: vectord points + PG resource/chunk/index_state."""
         dimension = len(vectors[0]) if vectors else 0
         return bool(
             self._submit(

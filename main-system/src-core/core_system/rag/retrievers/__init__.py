@@ -1,7 +1,7 @@
 """RAG retrievers — four sub-architectures on the canonical pipeline (A52).
 
 Each retriever shares:
-  * Qdrant (dense vector index)
+  * vectord (dense vector index)
   * PostgreSQL (metadata / FTS / index_state authority)
   * Embedding runtime (governed local model contract)
   * Reranker (Qwen3 CrossEncoder, injected)
@@ -9,7 +9,7 @@ Each retriever shares:
 
 But each has a different retrieval behavior:
 
-  HybridRetriever    — Qdrant Dense + PG FTS + RRF
+  HybridRetriever    — vectord Dense + PG FTS + RRF
   CodeRetriever      — chunk + AST + symbol + dependency graph
   AgenticRetriever   — retrieve → evaluate → reformulate → retrieve
   MemoryRetriever    — session + episodic + long-term memory

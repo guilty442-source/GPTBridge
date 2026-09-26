@@ -1,7 +1,7 @@
 """RAG-16 Observability — unified request trace + metrics registry.
 
 One trace per request: ``rag_request_id`` flows admission → scope →
-planning → embedding → Qdrant → PostgreSQL FTS → fusion → reranker →
+planning → embedding → vectord → PostgreSQL FTS → fusion → reranker →
 context build → generation → citation validation → response.
 
 Traces carry timings and counts only — never full document content or
@@ -29,7 +29,7 @@ TRACE_STAGES: tuple[str, ...] = (
     "query_planning",
     "architecture_routing",
     "embedding",
-    "qdrant",
+    "vector",
     "postgres_fts",
     "code_graph",
     "memory_lookup",
@@ -48,7 +48,7 @@ class RagTimings:
     scope_resolve_ms: float = 0.0
     planning_ms: float = 0.0
     embedding_ms: float = 0.0
-    qdrant_ms: float = 0.0
+    vector_ms: float = 0.0
     postgres_fts_ms: float = 0.0
     code_graph_ms: float = 0.0
     memory_ms: float = 0.0
@@ -78,7 +78,7 @@ class RagTrace:
         "planning": "planning_ms",
         "architecture_routing": "planning_ms",
         "embedding": "embedding_ms",
-        "qdrant": "qdrant_ms",
+        "vector": "vector_ms",
         "postgres_fts": "postgres_fts_ms",
         "code_graph": "code_graph_ms",
         "memory_lookup": "memory_ms",
@@ -179,7 +179,7 @@ COUNTERS: tuple[str, ...] = (
     "rag_query_failed_total",
     "canonical_query_total",
     "degraded_query_total",
-    "qdrant_error_total",
+    "vector_error_total",
     "postgres_error_total",
     "embedding_error_total",
     "reranker_fallback_total",

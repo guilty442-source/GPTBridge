@@ -1,6 +1,6 @@
 """RAG Pipeline — canonical RAG path (A371-A374) + A44 degraded delegation.
 
-A371/A374: Qdrant dense retrieval > PostgreSQL metadata/FTS/index_state >
+A371/A374: vectord dense retrieval > PostgreSQL metadata/FTS/index_state >
 Python domain model > typed result.  A373: canonical read/write must prove
 both stores are live; DEGRADED state delegates to ``DegradedRagPipeline``.
 """
@@ -21,9 +21,9 @@ from .vector_models import PointStruct
 _logger = logging.getLogger("gptbridge.rag")
 
 
-from .rag_qdrant import (
+from .canonical_vector_runtime import (
     IndexState,
-    QdrantCanonicalRuntime,
+    CanonicalVectorRuntime,
     RagPipelineConfig,
     RagQueryResult,
     sanitize_payload,
@@ -54,9 +54,9 @@ class CanonicalRagPipeline(
     PipelineMaintenanceMixin,
     PipelineDocumentsMixin,
 ):
-    """A371-A374: canonical path — Qdrant dense retrieval > PostgreSQL
+    """A371-A374: canonical path — vectord dense retrieval > PostgreSQL
     metadata/FTS/index_state authority > domain model > typed result.
-    A373: normal execution must prove Qdrant + PostgreSQL are live."""
+    A373: normal execution must prove vectord + PostgreSQL are live."""
 
     def __init__(
         self,
@@ -70,7 +70,7 @@ class CanonicalRagPipeline(
         # A610 target-primary: the canonical vector runtime is the Rust
         # vectord engine by default; ``vector_runtime`` stays injectable
         # for governed stand-ins and migration tooling.
-        self.qdrant = vector_runtime or select_vector_runtime(config)
+        self.vector = vector_runtime or select_vector_runtime(config)
         self.postgresql = PostgreSQLMetadataAuthority(config.postgresql_dsn)
         self.domain_model = PythonDomainModel(config)
         self._initialized = False
@@ -100,7 +100,7 @@ class CanonicalRagPipeline(
             self._queue, self._tombstone, self._outbox
         )
         # Canonical takeover: sticky hard-contract violation (dimension
-        # mismatch, non-loopback Qdrant URL, unverifiable contract).  While
+        # mismatch, non-loopback vectord URL, unverifiable contract).  While
         # set the surface state is BLOCKED and canonical reads/writes raise
         # instead of silently delegating to the degraded backend.
         self._blocked_reason: Optional[str] = None
@@ -111,7 +111,7 @@ class CanonicalRagPipeline(
         # drops hits carrying a different generation_id.
         self._active_generation: Optional[str] = None
         # G50: production assembly point for the A486/A487 generation
-        # lifecycle.  Constructed during initialize() once Qdrant +
+        # lifecycle.  Constructed during initialize() once vectord +
         # PostgreSQL are proven; ``_generation_rebuild_required`` flags a
         # config-fingerprint drift that demands a NEW generation (never an
         # in-place edit of the ACTIVE one).
@@ -142,22 +142,22 @@ class CanonicalRagPipeline(
         """Initialize all canonical components in order (A374).
 
         After initialization, evaluate the A374 startup readiness gate:
-        STARTING -> CANONICAL only when Qdrant + PostgreSQL are healthy,
+        STARTING -> CANONICAL only when vectord + PostgreSQL are healthy,
         the authoritative index_state matches, and the reconciliation queue
         is complete.  Otherwise STARTING -> DEGRADED.
         """
         _logger.info("CanonicalRagPipeline: initializing...")
 
-        # Step 1: Qdrant canonical runtime
-        qdrant_ok = await self.qdrant.initialize()
-        if qdrant_ok:
-            await self.qdrant.ensure_collection()
-        if self.qdrant.collection_error or "_URL_NOT_LOOPBACK" in (
-            self.qdrant.last_error or ""
+        # Step 1: vectord canonical runtime
+        vector_ok = await self.vector.initialize()
+        if vector_ok:
+            await self.vector.ensure_collection()
+        if self.vector.collection_error or "_URL_NOT_LOOPBACK" in (
+            self.vector.last_error or ""
         ):
             # Hard contract violation — BLOCKED, never silently degraded.
             self._blocked_reason = (
-                self.qdrant.collection_error or self.qdrant.last_error
+                self.vector.collection_error or self.vector.last_error
             )
 
         # Step 2: PostgreSQL metadata authority
@@ -167,13 +167,13 @@ class CanonicalRagPipeline(
         # proven — retrieval drops hits from any other generation
         # (RAG-16), and a config-fingerprint drift marks the pipeline
         # as needing a new-generation build before canonical indexing.
-        qdrant_client = getattr(self.qdrant, "client", None)
-        if qdrant_ok and pg_ok and qdrant_client is not None:
+        vector_client = getattr(self.vector, "client", None)
+        if vector_ok and pg_ok and vector_client is not None:
             try:
                 from .generation import GenerationConfig, GenerationManager
 
                 self.generation_manager = GenerationManager(
-                    qdrant_client,
+                    vector_client,
                     GenerationConfig(
                         alias_name=self.config.collection_name,
                         embedding_model=self.config.embedding_model,
@@ -202,9 +202,9 @@ class CanonicalRagPipeline(
                 )
 
         self._initialized = (
-            qdrant_ok and pg_ok and self._blocked_reason is None
+            vector_ok and pg_ok and self._blocked_reason is None
         )
-        _logger.info("CanonicalRagPipeline: initialized=%s (qdrant=%s, pg=%s)", self._initialized, qdrant_ok, pg_ok)
+        _logger.info("CanonicalRagPipeline: initialized=%s (vector=%s, pg=%s)", self._initialized, vector_ok, pg_ok)
 
         # A374: evaluate startup readiness gate.
         index_state_matches = self._initialized  # minimal: both stores up
@@ -225,7 +225,7 @@ class CanonicalRagPipeline(
                 _logger.warning("CanonicalRagPipeline: queue check failed: %s", exc)
                 index_state_matches = False
         self._state_machine.evaluate_startup(
-            qdrant_healthy=qdrant_ok,
+            vector_healthy=vector_ok,
             postgresql_healthy=pg_ok,
             index_state_matches=index_state_matches,
         )
@@ -253,11 +253,11 @@ class CanonicalRagPipeline(
         return mapping.get(self._state_machine.effective_state, "BOOTSTRAPPING")
 
     def is_ready(self) -> bool:
-        """A373: Prove Qdrant + PostgreSQL are live path."""
+        """A373: Prove vectord + PostgreSQL are live path."""
         return (
             self._initialized
             and self._blocked_reason is None
-            and self.qdrant.is_healthy()
+            and self.vector.is_healthy()
             and self.postgresql.is_healthy()
         )
 
@@ -298,12 +298,12 @@ class CanonicalRagPipeline(
         metadata: dict[str, Any],
         embedding: list[float],
     ) -> IndexState:
-        """Canonical index_resource: Qdrant write, then index_state writeback."""
+        """Canonical index_resource: vectord write, then index_state writeback."""
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         point_id = str(uuid.uuid4())
         now_utc = datetime.now(timezone.utc).isoformat()
         # Payload contract: opaque ids + filterable metadata only — content
-        # and physical locators live in PostgreSQL, never in Qdrant.
+        # and physical locators live in PostgreSQL, never in vectord.
         point = PointStruct(
             id=point_id,
             vector=embedding,
@@ -317,7 +317,7 @@ class CanonicalRagPipeline(
                 }
             ),
         )
-        await self.qdrant.upsert_points([point])
+        await self.vector.upsert_points([point])
         index_state = IndexState(
             resource_id=resource_id,
             module_id=module_id,
@@ -354,35 +354,35 @@ class CanonicalRagPipeline(
 
         # Canonical path
         try:
-            # A373: CANONICAL-TAKEOVER - prove Qdrant + PostgreSQL are live
-            if not self.qdrant.is_healthy():
-                raise RuntimeError("Qdrant canonical runtime not healthy")
+            # A373: CANONICAL-TAKEOVER - prove vectord + PostgreSQL are live
+            if not self.vector.is_healthy():
+                raise RuntimeError("vectord canonical runtime not healthy")
             if not self.postgresql.is_healthy():
                 raise RuntimeError("PostgreSQL metadata authority not healthy")
 
-            # Step 1: Qdrant dense retrieval
-            qdrant_hits = await self.qdrant.search(
+            # Step 1: vectord dense retrieval
+            vector_hits = await self.vector.search(
                 query_vector=query_embedding,
                 module_id=module_id,
                 top_k=top_k,
                 score_threshold=score_threshold,
             )
 
-            if not qdrant_hits:
+            if not vector_hits:
                 return []
 
-            pg_metadata, index_states = await self._pg_evidence(qdrant_hits)
+            pg_metadata, index_states = await self._pg_evidence(vector_hits)
             pg_chunks = await self.postgresql.fetch_chunks_for_points(
                 (module_id,) if module_id else tuple(
                     str(h.get("payload", {}).get("module_id") or "")
-                    for h in qdrant_hits
+                    for h in vector_hits
                 ),
-                [str(h.get("id")) for h in qdrant_hits],
+                [str(h.get("id")) for h in vector_hits],
             )
 
             # Step 4: Build typed results via Python domain model
             return self.domain_model.build_typed_result(
-                qdrant_hits, pg_metadata, index_states, pg_chunks=pg_chunks
+                vector_hits, pg_metadata, index_states, pg_chunks=pg_chunks
             )
         except Exception as exc:
             _logger.error("CanonicalRagPipeline: canonical query failed: %s", exc)
@@ -392,16 +392,16 @@ class CanonicalRagPipeline(
             return await self._get_degraded_pipeline().query(query_embedding, module_id, top_k, score_threshold)
 
     async def _pg_evidence(
-        self, qdrant_hits: list[dict[str, Any]]
+        self, vector_hits: list[dict[str, Any]]
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Steps 2-3: batch-fetch PostgreSQL metadata + index_state proof."""
         resource_ids = [
             hit.get("payload", {}).get("resource_id") or hit.get("id")
-            for hit in qdrant_hits
+            for hit in vector_hits
         ]
         module_ids = set(
             hit.get("payload", {}).get("module_id")
-            for hit in qdrant_hits
+            for hit in vector_hits
             if hit.get("payload", {}).get("module_id")
         )
         pg_metadata: dict[str, Any] = {}
@@ -450,8 +450,8 @@ class CanonicalRagPipeline(
         trace = current_trace()
         started = time.perf_counter()
         try:
-            with timed_stage("qdrant"):
-                hits = await self.qdrant.search(
+            with timed_stage("vector"):
+                hits = await self.vector.search(
                     query_vector=query_embedding,
                     module_ids=module_ids,
                     top_k=top_k,
@@ -459,7 +459,7 @@ class CanonicalRagPipeline(
                 )
         except Exception:
             RAG_METRICS.inc("rag_query_failed_total")
-            RAG_METRICS.inc("qdrant_error_total")
+            RAG_METRICS.inc("vector_error_total")
             RAG_METRICS.observe_latency(
                 (time.perf_counter() - started) * 1000
             )
@@ -473,7 +473,7 @@ class CanonicalRagPipeline(
         # Canonical read barrier: one batch PG lookup proves every hit —
         # chunk metadata exists, resource is not tombstoned, module scope is
         # in the governed request scope — and hydrates content from the PG
-        # authority (Qdrant payloads never carry content).
+        # authority (vectord payloads never carry content).
         with timed_stage("postgres_fts"):
             chunk_rows = await self.postgresql.fetch_chunks_for_points(
                 tuple(module_ids), [str(hit.get("id")) for hit in hits]
@@ -553,14 +553,14 @@ class CanonicalRagPipeline(
             )
 
     # ------------------------------------------------------------------
-    # A52: Four sub-architecture retrievers — share Qdrant + PostgreSQL +
+    # A52: Four sub-architecture retrievers — share vectord + PostgreSQL +
     # embedding runtime + reranker + governance, but differ in retrieval
     # behavior.  The reranker is injected (A49: pipeline does not own a
     # model load).
     # ------------------------------------------------------------------
 
     def hybrid_retriever(self, reranker=None):
-        """A52 hybrid-rag: Qdrant Dense + PG FTS + RRF."""
+        """A52 hybrid-rag: vectord Dense + PG FTS + RRF."""
         from .retrievers import HybridRetriever
         return HybridRetriever(self, reranker)
 
@@ -585,7 +585,7 @@ __all__ = [
     "RagPipelineConfig",
     "IndexState",
     "RagQueryResult",
-    "QdrantCanonicalRuntime",
+    "CanonicalVectorRuntime",
     "PostgreSQLMetadataAuthority",
     "PythonDomainModel",
     "DegradedRagPipeline",

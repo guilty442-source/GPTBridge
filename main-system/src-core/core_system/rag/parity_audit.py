@@ -1,12 +1,12 @@
 """§10.6 RAG 增量索引一致性（定期 parity sweep）。
 
-比對 PostgreSQL 權威（``index_state`` + ``chunk`` 實際列數）與 Qdrant
+比對 PostgreSQL 權威（``index_state`` + ``chunk`` 實際列數）與 vectord
 逐資源 point 數、embedding 版本、document hash；漂移資源逐一 enqueue
 到 durable ``reconciliation_queue``，由既有 ``run_reconciliation`` 修復。
 
 Fail-closed 規則：
-- 只修復有問題的資源，不得整庫重建、不得刪除 Qdrant collection。
-- 任何一側無法驗證（qdrant count 失敗／index_state 缺欄）視為
+- 只修復有問題的資源，不得整庫重建、不得刪除 vectord collection。
+- 任何一側無法驗證（vector count 失敗／index_state 缺欄）視為
   ``unverifiable``，同樣 enqueue —— 中斷不得宣告成功。
 """
 
@@ -39,11 +39,11 @@ def _sweep_window() -> int:
 
 
 class RagParityAudit:
-    """PG↔Qdrant 逐資源一致性掃描器。"""
+    """PG↔vectord 逐資源一致性掃描器。"""
 
-    def __init__(self, postgresql: Any, qdrant: Any, config: Any) -> None:
+    def __init__(self, postgresql: Any, vector: Any, config: Any) -> None:
         self.postgresql = postgresql
-        self.qdrant = qdrant
+        self.vector = vector
         self.config = config
 
     async def sweep(self, *, module_id: Optional[str] = None) -> dict[str, Any]:
@@ -63,11 +63,11 @@ class RagParityAudit:
         }
         # P15: windowed keyset sweep — index_state rows are fetched in
         # bounded pages ((module_id, resource_id) cursor) and the PG chunk
-        # counts + Qdrant point counts are batched per window, so neither
+        # counts + vectord point counts are batched per window, so neither
         # side materializes a full-table result set nor issues a serial
         # per-resource round trip.  Authorities/test doubles without the
         # windowed APIs fall back to the original full-fetch path.
-        count_batch = getattr(self.qdrant, "count_resource_points_batch", None)
+        count_batch = getattr(self.vector, "count_resource_points_batch", None)
         window_fn = getattr(
             self.postgresql, "chunk_counts_for_resources", None
         )
@@ -110,7 +110,7 @@ class RagParityAudit:
             if not rows:
                 break
 
-            qdrant_counts: dict[tuple[str, str], Optional[int]] = {}
+            vector_counts: dict[tuple[str, str], Optional[int]] = {}
             if count_batch is not None:
                 by_module: dict[str, list[str]] = {}
                 for row in rows:
@@ -121,7 +121,7 @@ class RagParityAudit:
                     for rid_key, cnt in count_batch(
                         mid_key, rid_list
                     ).items():
-                        qdrant_counts[(mid_key, rid_key)] = cnt
+                        vector_counts[(mid_key, rid_key)] = cnt
 
             for row in rows:
                 report["checked"] += 1
@@ -135,15 +135,15 @@ class RagParityAudit:
                     reasons.append("pg-chunk-count-mismatch")
 
                 if count_batch is not None:
-                    qdrant_points = qdrant_counts.get((mid, rid))
+                    vector_points = vector_counts.get((mid, rid))
                 else:
-                    qdrant_points = self.qdrant.count_resource_points(
+                    vector_points = self.vector.count_resource_points(
                         mid, rid
                     )
-                if qdrant_points is None:
-                    reasons.append("qdrant-unverifiable")
+                if vector_points is None:
+                    reasons.append("vector-unverifiable")
                     report["unverifiable"] += 1
-                elif qdrant_points != pg_chunks:
+                elif vector_points != pg_chunks:
                     reasons.append("point-count-mismatch")
 
                 if not row.get("content_hash"):
@@ -168,7 +168,7 @@ class RagParityAudit:
                         "reasons": reasons,
                         "declared_chunks": declared,
                         "pg_chunks": pg_chunks,
-                        "qdrant_points": qdrant_points,
+                        "vector_points": vector_points,
                     }
                 )
                 if await self._enqueue(mid, rid, row, reasons):

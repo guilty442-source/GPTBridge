@@ -40,7 +40,7 @@ def locator_id_for(module_id: str, resource_id: str) -> uuid.UUID:
 
 
 def point_id_for(chunk_id: str) -> uuid.UUID:
-    """Canonical Qdrant point_id for a RAG chunk (A52/E38).
+    """Canonical vector point_id for a RAG chunk (A52/E38; vectord storage).
 
     Formula: uuid5(NAMESPACE_URL, f"gptbridge-rag:{chunk_id}")
     """

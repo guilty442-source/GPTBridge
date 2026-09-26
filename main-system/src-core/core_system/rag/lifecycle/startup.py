@@ -1,7 +1,7 @@
 """Startup gate + Canonical Takeover acceptance.
 
 Startup:
-    load policy -> check PG -> check Qdrant -> check embedding
+    load policy -> check PG -> check vectord -> check embedding
     runtime -> check active generation -> check schema versions
     -> check migration state
       => CANONICAL_READY | DEGRADED_READY | BLOCKED
@@ -29,7 +29,7 @@ class StartupVerdict(str, Enum):
 class StartupChecks:
     policy_loaded: bool = True
     pg_ok: bool = True
-    qdrant_ok: bool = True
+    vector_ok: bool = True
     embedding_runtime_ok: bool = True
     active_generation_present: bool = True
     schema_compatible: bool = True
@@ -38,7 +38,7 @@ class StartupChecks:
 
 
 def startup_gate(checks: StartupChecks) -> tuple[StartupVerdict, tuple[str, ...]]:
-    """Hard blockers first; a merely-unreachable Qdrant degrades,
+    """Hard blockers first; a merely-unreachable vectord degrades,
     an inconsistent system never starts."""
     blocked: list[str] = []
     if not checks.policy_loaded:
@@ -57,8 +57,8 @@ def startup_gate(checks: StartupChecks) -> tuple[StartupVerdict, tuple[str, ...]
     degraded: list[str] = []
     if not checks.pg_ok:
         degraded.append("pg-unreachable")
-    if not checks.qdrant_ok:
-        degraded.append("qdrant-unreachable")
+    if not checks.vector_ok:
+        degraded.append("vector-unreachable")
     if not checks.embedding_runtime_ok:
         degraded.append("embedding-runtime-down")
     if degraded:
@@ -71,13 +71,13 @@ def startup_gate(checks: StartupChecks) -> tuple[StartupVerdict, tuple[str, ...]
 # ----------------------------------------------------------------------
 TAKEOVER_CRITERIA: tuple[str, ...] = (
     "local-rag-query-via-canonical-gateway",
-    "qdrant-is-dense-primary-path",
+    "vector-is-dense-primary-path",
     "pg-is-metadata-fts-index-state-primary",
     "sqlite-fault-only",
     "canonical-true-responses",
     "reconciliation-required-false",
-    "qdrant-down-enters-degraded",
-    "qdrant-recovered-enters-reconciling",
+    "vector-down-enters-degraded",
+    "vector-recovered-enters-reconciling",
     "reconcile-complete-returns-canonical",
     "benchmark-pass",
     "authorization-tests-pass",
@@ -94,7 +94,7 @@ class TakeoverReport:
 
 def evaluate_takeover(results: dict[str, bool]) -> TakeoverReport:
     """CANONICAL_TAKEOVER_COMPLETE only when all 12 criteria pass —
-    'Qdrant is reachable' is not a completion condition."""
+    'vectord is reachable' is not a completion condition."""
     missing = tuple(
         c for c in TAKEOVER_CRITERIA if not results.get(c, False)
     )

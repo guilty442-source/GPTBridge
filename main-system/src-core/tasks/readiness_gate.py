@@ -5,7 +5,7 @@ system may only declare ``ready`` when ALL four conditions are satisfied:
 
   1. backend-runtime-ready      — command router initialized
   2. governance-ready            — runtime integrity verified
-  3. required-dependencies-ready — PostgreSQL, Qdrant, Ollama reachable
+  3. required-dependencies-ready — PostgreSQL, vectord, Ollama reachable
   4. authenticated-ipc-connected  — WebSocket origin authenticated
 
 A socket being open alone is NOT ready (FORBID:socket-open-alone-as-ready).
@@ -191,7 +191,7 @@ class ReadinessGate:
             return False
 
     def _check_dependencies(self) -> tuple[bool, list[DependencyStatus]]:
-        """Condition 3: required dependencies (PostgreSQL/Qdrant/Ollama) reachable."""
+        """Condition 3: required dependencies (PostgreSQL/vectord/Ollama) reachable."""
         statuses: list[DependencyStatus] = []
         all_reachable = True
         for name, port in REQUIRED_DEPENDENCIES:
@@ -263,7 +263,7 @@ class ReadinessGate:
                 model_ready = False
         return CapabilityReadiness(
             # The information layer is usable when its canonical stores are:
-            # structured authority (PostgreSQL) plus semantic index (Qdrant).
+            # structured authority (PostgreSQL) plus semantic index (vectord).
             information_ready=data_ready and semantic_ready,
             data_ready=data_ready,
             semantic_ready=semantic_ready,

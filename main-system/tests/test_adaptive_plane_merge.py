@@ -248,14 +248,14 @@ def test_pool_wait_success_publishes_wait_ms(tmp_path, monkeypatch):
 
 
 def test_qdrant_search_publishes_latency(tmp_path, monkeypatch):
-    """QdrantCanonicalRuntime.search → qdrant_latency_ms 注入。"""
+    """CanonicalVectorRuntime.search → qdrant_latency_ms 注入。"""
     import asyncio
     from types import SimpleNamespace
 
     plane = AdaptiveDataPlane()
     monkeypatch.setattr("shared_layer.adaptive.get_plane", lambda: plane)
 
-    from core_system.rag.rag_qdrant import QdrantCanonicalRuntime
+    from core_system.rag.canonical_vector_runtime import CanonicalVectorRuntime
 
     class _Resp:
         points = []
@@ -264,7 +264,7 @@ def test_qdrant_search_publishes_latency(tmp_path, monkeypatch):
         def query_points(self, **kwargs):
             return _Resp()
 
-    rt = object.__new__(QdrantCanonicalRuntime)
+    rt = object.__new__(CanonicalVectorRuntime)
     rt.config = SimpleNamespace(
         collection_name="col", top_k=5, score_threshold=0.1
     )
@@ -291,7 +291,7 @@ def test_qdrant_search_failure_silent_on_plane_error(tmp_path, monkeypatch):
         "shared_layer.adaptive.get_plane", lambda: _BadPlane()
     )
 
-    from core_system.rag.rag_qdrant import QdrantCanonicalRuntime
+    from core_system.rag.canonical_vector_runtime import CanonicalVectorRuntime
 
     class _Resp:
         points = []
@@ -300,7 +300,7 @@ def test_qdrant_search_failure_silent_on_plane_error(tmp_path, monkeypatch):
         def query_points(self, **kwargs):
             return _Resp()
 
-    rt = object.__new__(QdrantCanonicalRuntime)
+    rt = object.__new__(CanonicalVectorRuntime)
     rt.config = SimpleNamespace(
         collection_name="col", top_k=5, score_threshold=0.1
     )
@@ -320,16 +320,14 @@ def test_rag_health_check_feeds_backlog_and_degraded(monkeypatch):
     from types import SimpleNamespace
 
     from core_system.rag.pipeline import CanonicalRagPipeline
-    from core_system.rag.rag_qdrant import RagPipelineConfig
+    from core_system.rag.canonical_vector_runtime import RagPipelineConfig
 
     cfg = RagPipelineConfig(
-        qdrant_url="http://unused",
-        qdrant_api_key=None,
         collection_name="col",
         postgresql_dsn="postgresql://unused",
     )
     pipe = CanonicalRagPipeline(cfg)
-    pipe.qdrant = SimpleNamespace(
+    pipe.vector = SimpleNamespace(
         is_healthy=lambda: False, last_error=None, collection_error=None
     )
 
@@ -343,7 +341,7 @@ def test_rag_health_check_feeds_backlog_and_degraded(monkeypatch):
     )
     # DEGRADED：stores 不健康 → attempt_recovery 早退、維持降級態
     pipe._state_machine.evaluate_startup(
-        qdrant_healthy=False,
+        vector_healthy=False,
         postgresql_healthy=False,
         index_state_matches=False,
     )
@@ -366,16 +364,14 @@ def test_rag_health_check_canonical_reports_not_degraded(monkeypatch):
     from types import SimpleNamespace
 
     from core_system.rag.pipeline import CanonicalRagPipeline
-    from core_system.rag.rag_qdrant import RagPipelineConfig
+    from core_system.rag.canonical_vector_runtime import RagPipelineConfig
 
     cfg = RagPipelineConfig(
-        qdrant_url="http://unused",
-        qdrant_api_key=None,
         collection_name="col",
         postgresql_dsn="postgresql://unused",
     )
     pipe = CanonicalRagPipeline(cfg)
-    pipe.qdrant = SimpleNamespace(
+    pipe.vector = SimpleNamespace(
         is_healthy=lambda: True, last_error=None, collection_error=None
     )
 
@@ -388,7 +384,7 @@ def test_rag_health_check_canonical_reports_not_degraded(monkeypatch):
         reconciliation_status=None,
     )
     pipe._state_machine.evaluate_startup(
-        qdrant_healthy=True,
+        vector_healthy=True,
         postgresql_healthy=True,
         index_state_matches=True,
     )

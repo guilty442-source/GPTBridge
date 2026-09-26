@@ -45,21 +45,21 @@ def test_recovery_attempts_counted(tmp_path):
 
 def test_error_recorded_and_cleared_on_ready(tmp_path):
     reg = RuntimeStateRegistry(tmp_path / "state.json")
-    reg.record_error("qdrant", "connection refused")
-    assert reg.get("qdrant").last_error == "connection refused"
-    reg.set_runtime_state("qdrant", "READY")
-    assert reg.get("qdrant").last_error == ""
+    reg.record_error("vector", "connection refused")
+    assert reg.get("vector").last_error == "connection refused"
+    reg.set_runtime_state("vector", "READY")
+    assert reg.get("vector").last_error == ""
 
 
 def test_local_failure_does_not_propagate(tmp_path):
     reg = RuntimeStateRegistry(tmp_path / "state.json")
     reg.set_runtime_state("rag", "READY")
-    reg.set_runtime_state("qdrant", "FAILED", error="crash")
+    reg.set_runtime_state("vector", "FAILED", error="crash")
     agg = reg.aggregate()
     assert agg["module_count"] == 2
     assert agg["by_runtime_state"]["READY"] == 1
     assert agg["by_runtime_state"]["FAILED"] == 1
-    assert agg["failed_modules"] == ["qdrant"]
+    assert agg["failed_modules"] == ["vector"]
     # the healthy module is untouched by the failure
     assert reg.get("rag").runtime_state == "READY"
 

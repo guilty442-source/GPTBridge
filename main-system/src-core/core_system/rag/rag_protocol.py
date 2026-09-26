@@ -36,7 +36,7 @@ from .rag_contracts import (
 class RagIndexBackend(Protocol):
     """Unified index backend interface.
 
-    CanonicalRagBackend: Qdrant (alias) + PostgreSQL + Outbox
+    CanonicalRagBackend: vectord (alias) + PostgreSQL + Outbox
     DegradedRagBackend:  LocalVectorStore + LocalSqliteRagRepository
     """
 
@@ -49,7 +49,7 @@ class RagIndexBackend(Protocol):
     def upsert_resource(self, request: RagIndexRequest) -> RagIndexResult:
         """Index or update a resource atomically.
 
-        Canonical: PostgreSQL transaction (metadata + outbox) + Qdrant upsert
+        Canonical: PostgreSQL transaction (metadata + outbox) + vectord upsert
         Degraded:  LocalVectorStore + LocalSqliteRagRepository
         """
         ...
@@ -58,7 +58,7 @@ class RagIndexBackend(Protocol):
     def delete_resource(self, request: RagDeleteRequest) -> RagDeleteResult:
         """Delete a resource.
 
-        Canonical: PostgreSQL TOMBSTONED → outbox DELETE → Qdrant delete
+        Canonical: PostgreSQL TOMBSTONED → outbox DELETE → vectord delete
         Degraded:  LocalSqliteRagRepository delete
         """
         ...
@@ -67,7 +67,7 @@ class RagIndexBackend(Protocol):
     def search(self, request: RagSearchRequest) -> RagSearchResult:
         """Search vectors.
 
-        Canonical: Qdrant alias search + GenerationBinder verification
+        Canonical: vectord alias search + GenerationBinder verification
         Degraded:  LocalVectorStore search
         """
         ...
@@ -205,7 +205,7 @@ class MetadataAuthority(Protocol):
 
 @runtime_checkable
 class VectorStore(Protocol):
-    """Vector store interface (Qdrant or Local)."""
+    """Vector store interface (vectord or Local)."""
 
     @abstractmethod
     def upsert(self, points: list[Any]) -> bool:

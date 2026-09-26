@@ -3,11 +3,11 @@
 Callers say what they want to find and within which authorized scope;
 they may never name physical storage:
 
-    FORBIDDEN on a command: collection names, raw qdrant filter JSON,
+    FORBIDDEN on a command: collection names, raw vector filter JSON,
     raw SQL, physical paths, point IDs.
 
 Every storage decision stays inside the RAG service (Canonical
-Gateway owns PG/Qdrant translation).
+Gateway owns PG/vectord translation).
 """
 from __future__ import annotations
 

@@ -202,7 +202,7 @@ class FakeCanonicalAdapter:
         self.unhealthy = error
 
     def status(self) -> dict[str, Any]:
-        return {"engine": "canonical-qdrant-postgresql", "ready": self._ready}
+        return {"engine": "canonical-vector-postgresql", "ready": self._ready}
 
     def fetch_document(
         self, *, module_id: str, resource_id: str
@@ -395,7 +395,7 @@ def test_canonical_query_reads_qdrant_and_pg_channels(tmp_path: Path) -> None:
 
     assert result["ok"] is True
     assert result["canonical"] is True
-    assert "canonical-qdrant-dense" in result["retrieval"]
+    assert "canonical-vector-dense" in result["retrieval"]
     assert result["citations"][0]["source"] == "policy"
 
 

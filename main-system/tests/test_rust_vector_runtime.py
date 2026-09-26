@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from core_system.rag.rag_qdrant import RagPipelineConfig
+from core_system.rag.canonical_vector_runtime import RagPipelineConfig
 from core_system.rag.vector_models import (
     FieldCondition,
     Filter,
@@ -29,8 +29,6 @@ from core_system.rag.rust_vector_runtime import (
 
 def _config(**overrides: Any) -> RagPipelineConfig:
     base = dict(
-        qdrant_url="",
-        qdrant_api_key=None,
         collection_name="col",
         postgresql_dsn="",
         embedding_dimension=4,
@@ -58,11 +56,12 @@ def test_select_vector_runtime_defaults_to_rust() -> None:
     assert isinstance(runtime, RustVectorRuntime)
 
 
-def test_select_vector_runtime_migration_window_qdrant() -> None:
-    from core_system.rag.rag_qdrant import QdrantCanonicalRuntime
+def test_select_vector_runtime_retired_backend_fails_closed() -> None:
+    # A611 cutover sealed: any non-rust backend selection fails closed.
+    import pytest
 
-    runtime = select_vector_runtime(_config(vector_backend="qdrant"))
-    assert type(runtime) is QdrantCanonicalRuntime
+    with pytest.raises(ValueError, match="VECTOR_BACKEND_UNSUPPORTED"):
+        select_vector_runtime(_config(vector_backend="qdrant"))
 
 
 def test_non_loopback_vectord_url_blocked() -> None:

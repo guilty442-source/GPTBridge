@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
-from .rag_qdrant import QdrantCanonicalRuntime
+from .canonical_vector_runtime import CanonicalVectorRuntime
 from .rag_metadata import PostgreSQLMetadataAuthority
 
 _logger = logging.getLogger("gptbridge.rag.health")
@@ -26,7 +26,7 @@ class CanonicalState(str, Enum):
     INDEX_MISMATCH = "INDEX_MISMATCH"         # Generation/hash mismatches detected
     EMBEDDING_UNAVAILABLE = "EMBEDDING_UNAVAILABLE"  # Local embedding runtime down
     METADATA_UNAVAILABLE = "METADATA_UNAVAILABLE"    # PostgreSQL unavailable
-    VECTOR_UNAVAILABLE = "VECTOR_UNAVAILABLE"        # Qdrant unavailable
+    VECTOR_UNAVAILABLE = "VECTOR_UNAVAILABLE"        # vectord unavailable
     OUTBOX_BACKLOG = "OUTBOX_BACKLOG"         # Outbox exceeds threshold
     RECONCILIATION_BACKLOG = "RECONCILIATION_BACKLOG"  # Reconciliation queue backed up
     STARTING = "STARTING"                     # Initializing
@@ -76,13 +76,13 @@ class CanonicalHealthGate:
 
     def __init__(
         self,
-        qdrant: QdrantCanonicalRuntime,
+        vector: CanonicalVectorRuntime,
         postgresql: PostgreSQLMetadataAuthority,
         generation_manager: Any = None,  # GenerationManager
         outbox_repo: Any = None,         # OutboxRepository
         embedding_runtime: Any = None,   # Local embedding runtime
     ) -> None:
-        self.qdrant = qdrant
+        self.vector = vector
         self.postgresql = postgresql
         self.generation_manager = generation_manager
         self.outbox_repo = outbox_repo
@@ -92,8 +92,8 @@ class CanonicalHealthGate:
         """Run all health checks and determine canonical state."""
         checks = []
 
-        # 1. Qdrant reachable
-        checks.append(await self._check_qdrant_reachable())
+        # 1. vectord reachable
+        checks.append(await self._check_vector_reachable())
 
         # 2. Expected collection/alias exists
         checks.append(await self._check_collection_exists())
@@ -151,19 +151,19 @@ class CanonicalHealthGate:
             alias_target=alias_target,
         )
 
-    async def _check_qdrant_reachable(self) -> HealthCheck:
+    async def _check_vector_reachable(self) -> HealthCheck:
         try:
-            healthy = self.qdrant.is_healthy()
+            healthy = self.vector.is_healthy()
             if healthy:
-                return HealthCheck("qdrant_reachable", True, "Qdrant HTTP 200", "info")
-            return HealthCheck("qdrant_reachable", False, "Qdrant not healthy", "error")
+                return HealthCheck("vector_reachable", True, "vectord HTTP 200", "info")
+            return HealthCheck("vector_reachable", False, "vectord not healthy", "error")
         except Exception as e:
-            return HealthCheck("qdrant_reachable", False, f"Qdrant error: {e}", "error")
+            return HealthCheck("vector_reachable", False, f"vectord error: {e}", "error")
 
     async def _check_collection_exists(self) -> HealthCheck:
         try:
             # Check alias target exists
-            alias_target = await self.qdrant.get_alias_target(self.qdrant.config.collection_name)
+            alias_target = await self.vector.get_alias_target(self.vector.config.collection_name)
             if alias_target:
                 return HealthCheck(
                     "collection_exists", True,
@@ -171,7 +171,7 @@ class CanonicalHealthGate:
                     {"alias_target": alias_target}
                 )
             # Fallback: check if collection directly exists
-            if self.qdrant.points_count() is not None:
+            if self.vector.points_count() is not None:
                 return HealthCheck("collection_exists", True, "Collection exists (no alias)", "warning")
             return HealthCheck("collection_exists", False, "No collection or alias found", "error")
         except Exception as e:
@@ -179,12 +179,12 @@ class CanonicalHealthGate:
 
     async def _check_dimension_match(self) -> HealthCheck:
         try:
-            alias_target = await self.qdrant.get_alias_target(self.qdrant.config.collection_name)
-            target = alias_target or self.qdrant.config.collection_name
-            info = self.qdrant.client.get_collection(target) if self.qdrant.client else None
+            alias_target = await self.vector.get_alias_target(self.vector.config.collection_name)
+            target = alias_target or self.vector.config.collection_name
+            info = self.vector.client.get_collection(target) if self.vector.client else None
             if info:
                 actual_dim = info.config.params.vectors.size
-                expected_dim = self.qdrant.config.embedding_dimension
+                expected_dim = self.vector.config.embedding_dimension
                 if actual_dim == expected_dim:
                     return HealthCheck(
                         "dimension_match", True,
@@ -209,7 +209,7 @@ class CanonicalHealthGate:
             if not active:
                 return HealthCheck("generation_alias", False, "No ACTIVE generation", "error")
 
-            alias_target = await self.qdrant.get_alias_target(self.qdrant.config.collection_name)
+            alias_target = await self.vector.get_alias_target(self.vector.config.collection_name)
             expected_collection = active.collection_name
 
             if alias_target == expected_collection:
@@ -331,7 +331,7 @@ class CanonicalHealthGate:
         runtime) reports a non-canonical contract instead of crashing the
         whole health evaluation.
         """
-        config = getattr(self.qdrant, "config", None)
+        config = getattr(self.vector, "config", None)
         model = getattr(config, "embedding_model", "")
         dim = int(getattr(config, "embedding_dimension", 0) or 0)
         if model == self.CANONICAL_EMBEDDING_MODEL and dim == self.CANONICAL_EMBEDDING_DIMENSION:
@@ -414,13 +414,13 @@ class CanonicalHealthGate:
 
         if "embedding_runtime" in failed_names:
             return CanonicalState.EMBEDDING_UNAVAILABLE
-        if "embedding_contract" in failed_names and "qdrant_reachable" not in failed_names:
+        if "embedding_contract" in failed_names and "vector_reachable" not in failed_names:
             # A canonical embedding-contract violation (model/dimension) is an
             # index contract mismatch, not a transport-level vector outage.
             return CanonicalState.INDEX_MISMATCH
         if "postgresql_reachable" in failed_names or "schema_version" in failed_names:
             return CanonicalState.METADATA_UNAVAILABLE
-        if "qdrant_reachable" in failed_names or "collection_exists" in failed_names or "dimension_match" in failed_names:
+        if "vector_reachable" in failed_names or "collection_exists" in failed_names or "dimension_match" in failed_names:
             return CanonicalState.VECTOR_UNAVAILABLE
         if "generation_alias" in failed_names or "embedding_contract" in failed_names:
             return CanonicalState.INDEX_MISMATCH

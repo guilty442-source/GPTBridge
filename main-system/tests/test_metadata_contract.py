@@ -158,7 +158,7 @@ def test_resource_metadata_as_tags_all_strings() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Qdrant payload validation
+# vectord payload validation
 # ---------------------------------------------------------------------------
 
 def _valid_qdrant_payload() -> dict:
@@ -299,7 +299,7 @@ def test_data_ownership_contract_exists() -> None:
     assert doc.is_file()
     content = doc.read_text(encoding="utf-8")
     assert "PostgreSQL" in content
-    assert "Qdrant" in content
+    assert "vectord" in content
     assert "SQLite" in content
     # "可重建" = rebuildable in Chinese
     assert "可重建" in content or "rebuildable" in content.lower()

@@ -8,7 +8,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                        資料所有權架構                             │
 ├──────────────────┬──────────────────┬──────────────────────────┤
-│   PostgreSQL     │     Qdrant       │   SQLite / NTFS          │
+│   PostgreSQL     │     vectord       │   SQLite / NTFS          │
 │   中央索引        │     向量索引      │   原始 / 模組私有         │
 ├──────────────────┼──────────────────┼──────────────────────────┤
 │ 中央索引與關聯真相 │ 可重建的向量索引  │ 原始或模組私有資料         │
@@ -29,7 +29,7 @@
 
 | 規則 | 說明 |
 |------|------|
-| **Qdrant 永遠可以重建** | 不可重建的唯一資料絕不能只放在 Qdrant。Qdrant 的向量必須可從 SQLite 原始內容 + 嵌入模型重新生成。 |
+| **vectord 永遠可以重建** | 不可重建的唯一資料絕不能只放在 vectord。vectord 的向量必須可從 SQLite 原始內容 + 嵌入模型重新生成。 |
 | **PostgreSQL 是中央真相** | 當 PostgreSQL 與 SQLite 衝突時，以 PostgreSQL 版本為準（除非 SQLite 有較新版本且 PostgreSQL 曾故障）。 |
 | **SQLite/NTFS 是原始層** | 原始檔案內容、模組私有業務資料存於此。PostgreSQL 中央索引只存元資料 + locator，不存原始內容。 |
 | **不雙向同步** | Reconcile 是單向的：SQLite → PostgreSQL（故障恢復後）。不是雙向亂同步。 |
@@ -39,11 +39,11 @@
 
 ```
 正常運作：
-  SQLite (原始) → PostgreSQL (中央索引) → Qdrant (向量索引)
+  SQLite (原始) → PostgreSQL (中央索引) → vectord (向量索引)
 
 PostgreSQL 故障：
   SQLite (原始) ──繼續運作──→ 標記變更為 pending reconcile
-  Qdrant 繼續服務（使用既有向量）
+  vectord 繼續服務（使用既有向量）
 
 PostgreSQL 恢復：
   ReconcileService.reconcile_module(module_id)
@@ -52,7 +52,7 @@ PostgreSQL 恢復：
     ├─ same version, hash differs → conflict (flag for review)
     └─ same version, same hash → in-sync (no-op)
 
-Qdrant 故障：
+vectord 故障：
   從 SQLite 原始內容 + 嵌入模型重建向量索引
   PostgreSQL 中央索引的 qdrant_point_id 欄位保留映射
 
@@ -77,9 +77,9 @@ SQLite 故障：
 
 Python 模組：`shared_layer.metadata_contract.ResourceMetadata`
 
-## 5. Qdrant Payload 契約
+## 5. vectord Payload 契約
 
-每個 Qdrant point 必須攜帶：
+每個 vectord point 必須攜帶：
 
 | 欄位 | 必填 | 說明 |
 |------|------|------|

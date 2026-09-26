@@ -81,11 +81,11 @@ class MaintenanceCapabilityMixin:
                 or shutil.which("pg_isready") is not None,
                 "reachable": self._probe_service("postgresql"),
             },
-            "qdrant": {
+            "vectord": {
                 "installed": (
-                    root / "Standalone tools" / "local-model" / "runtime" / "qdrant"
-                ).is_dir(),
-                "reachable": self._probe_service("qdrant"),
+                    root / "Standalone tools" / "vectord-rs" / "bin" / "vectord.exe"
+                ).is_file(),
+                "reachable": self._probe_service("vectord"),
             },
             "shared_layer_data": {
                 "installed": (root / "shared-layer" / "data").is_dir()

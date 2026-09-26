@@ -85,7 +85,7 @@ class LocalAiHealthMixin:
             },
             "rag": {
                 "engine": str(rag_status.get("engine") or "local-vector-degraded-cache"),
-                "canonical_engine": "qdrant",
+                "canonical_engine": "vector",
                 "available": bool(rag_status.get("available")),
                 "state": str(rag_status.get("state") or ("READY" if rag_status.get("available") else "DEGRADED")),
             },

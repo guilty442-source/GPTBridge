@@ -1,7 +1,7 @@
 """§10.6 RAG parity sweep tests.
 
 The periodic sweep compares per-resource PostgreSQL authority state
-(index_state + actual chunk rows) against filtered Qdrant point counts and
+(index_state + actual chunk rows) against filtered vectord point counts and
 embedding versions; drifted resources are enqueued into the durable
 reconciliation_queue — never repaired by deleting collections.
 """
@@ -165,7 +165,7 @@ async def test_sweep_qdrant_unverifiable_enqueues_fail_closed():
     report = await audit.sweep()
     assert report["unverifiable"] == 1
     assert report["enqueued"] == 1
-    assert "qdrant-unverifiable" in pg.enqueued[0].payload["parity_reasons"]
+    assert "vector-unverifiable" in pg.enqueued[0].payload["parity_reasons"]
 
 
 @pytest.mark.asyncio

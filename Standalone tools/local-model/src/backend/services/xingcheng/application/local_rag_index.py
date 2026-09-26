@@ -85,7 +85,7 @@ class LocalRagIndexMixin:
         points: list[dict[str, Any]],
         canonical_ready: bool,
     ) -> bool:
-        """A373 write path: prove Qdrant + PostgreSQL are the live stores."""
+        """A373 write path: prove vectord + PostgreSQL are the live stores."""
         if not canonical_ready:
             return False
         canonical_chunks = [
@@ -363,7 +363,7 @@ class LocalRagIndexMixin:
             "errors": errors,
             "embedding_model": embedding_model,
             "retrieval": (
-                "canonical-qdrant-dense+postgresql-fts+index-state"
+                "canonical-vector-dense+postgresql-fts+index-state"
                 if canonical_ready
                 else "local-vector-degraded-cache+local-sqlite3-fts"
             ),

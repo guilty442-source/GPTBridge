@@ -5,7 +5,7 @@ Contextual memory retrieval that combines:
   2. Episodic memory — past interaction episodes
   3. Long-term memory — persistent knowledge base entries
 
-Each memory tier is retrieved from the shared Qdrant + PostgreSQL
+Each memory tier is retrieved from the shared vectord + PostgreSQL
 infrastructure but filtered by memory scope tags in the payload.
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ _logger = logging.getLogger("gptbridge.rag.memory")
 
 MEMORY_RAG_ID = "memory-rag"
 
-# Memory scope tags stored in Qdrant payload / PostgreSQL metadata.
+# Memory scope tags stored in vectord payload / PostgreSQL metadata.
 SCOPE_SESSION = "session"
 SCOPE_EPISODIC = "episodic"
 SCOPE_LONG_TERM = "long-term"

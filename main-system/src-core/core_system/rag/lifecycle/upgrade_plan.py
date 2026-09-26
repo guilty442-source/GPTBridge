@@ -2,7 +2,7 @@
 once:
 
     PHASE 1  Canonical takeover
-    PHASE 2  Hybrid canonicalization (Qdrant + PG FTS + RRF)
+    PHASE 2  Hybrid canonicalization (vectord + PG FTS + RRF)
     PHASE 3  Recovery (outbox + degraded + reconciliation)
     PHASE 4  Specialized RAG (code + memory + agentic)
     PHASE 5  Lifecycle (generation + migration + benchmark + DR)
@@ -27,7 +27,7 @@ PHASE_ORDER: tuple[UpgradePhase, ...] = tuple(UpgradePhase)
 
 PHASE_SCOPE: dict[UpgradePhase, tuple[str, ...]] = {
     UpgradePhase.CANONICAL_TAKEOVER: ("canonical-gateway", "takeover-criteria"),
-    UpgradePhase.HYBRID_CANONICALIZATION: ("qdrant-dense", "pg-fts", "rrf"),
+    UpgradePhase.HYBRID_CANONICALIZATION: ("vector-dense", "pg-fts", "rrf"),
     UpgradePhase.RECOVERY: ("outbox", "degraded-backend", "reconciliation"),
     UpgradePhase.SPECIALIZED_RAG: ("code-rag", "memory-rag", "agentic-rag"),
     UpgradePhase.LIFECYCLE: ("generations", "migrations", "benchmark", "dr"),

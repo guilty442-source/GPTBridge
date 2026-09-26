@@ -4,10 +4,10 @@
         -> Information Channel (RagQueryCommand — intent only)
         -> Permission Sovereign (admission + per-resource)
         -> RagApplicationService (5 entry points)
-        -> Canonical Gateway -> PostgreSQL / Qdrant
+        -> Canonical Gateway -> PostgreSQL / vectord
         -> Retrievers -> Evidence
 
-Qdrant is reachable only through this service's canonical gateway.
+vectord is reachable only through this service's canonical gateway.
 """
 from .admin_commands import (
     AdminCommandSpec,

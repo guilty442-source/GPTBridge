@@ -11,16 +11,14 @@ from __future__ import annotations
 import os
 
 from .pipeline import CanonicalRagPipeline
-from .rag_qdrant import RagPipelineConfig
+from .canonical_vector_runtime import RagPipelineConfig
 
 
 def create_rag_pipeline_from_env() -> CanonicalRagPipeline:
     """Create pipeline from environment variables."""
     config = RagPipelineConfig(
-        qdrant_url=os.environ.get("QDRANT_URL", "http://localhost:6333"),
-        qdrant_api_key=os.environ.get("QDRANT_API_KEY"),
         collection_name=os.environ.get(
-            "QDRANT_COLLECTION", "gptbridge_shared_knowledge"
+            "VECTOR_COLLECTION", "gptbridge_shared_knowledge"
         ),
         postgresql_dsn=os.environ.get("POSTGRESQL_DSN", ""),
         embedding_model=os.environ.get("EMBEDDING_MODEL", "qwen3-embedding:4b"),

@@ -293,7 +293,7 @@ class DiagnosisEngine:
                 cooldown_seconds=0,
                 condition="unexpected PUBLIC grant detected",
             ),
-            # Qdrant Metadata Mismatch
+            # vectord Metadata Mismatch
             DiagnosisRule(
                 rule_id="QDRANT_METADATA_MISMATCH_V1",
                 rule_version="1.0",
@@ -302,9 +302,9 @@ class DiagnosisEngine:
                 inputs=("qdrant_mismatch_count",),
                 thresholds={"qdrant_mismatch_count_gt": 0},
                 cooldown_seconds=60,
-                condition="Qdrant metadata mismatch detected",
+                condition="vectord metadata mismatch detected",
             ),
-            # Qdrant Lag
+            # vectord Lag
             DiagnosisRule(
                 rule_id="QDRANT_LAG_V1",
                 rule_version="1.0",

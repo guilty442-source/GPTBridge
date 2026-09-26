@@ -133,7 +133,7 @@ def generate_point_id() -> str:
 
 @dataclass(frozen=True, slots=True)
 class RagChunk:
-    """Stable chunk definition - content NOT serialized to Qdrant."""
+    """Stable chunk definition - content NOT serialized to vectord."""
     chunk_id: str
     locator_id: str
     sequence: int
@@ -338,7 +338,7 @@ class RagRetrievalResult:
 
 @dataclass(frozen=True, slots=True)
 class CanonicalVectorPoint:
-    """Qdrant point contract - NO content/text/path fields."""
+    """vectord point contract - NO content/text/path fields."""
     point_id: str
     vector: tuple[float, ...]
 

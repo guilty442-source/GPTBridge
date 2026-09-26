@@ -62,7 +62,7 @@ REQUIRED_SECURITY_PROBES: tuple[str, ...] = (
     "unauthorized-retrieval",
     "tombstoned-resource-searchable",
     "physical-path-in-payload",
-    "content-in-qdrant-payload",
+    "content-in-vector-payload",
     "degraded-mismarked-canonical",
 )
 

@@ -36,7 +36,7 @@ class CodeRetrievalResult:
 def retrieve_code(query: str, language: str = "", top_k: int = 10) -> CodeRetrievalResult:
     """Decision-level code retrieval interface.
 
-    Actual retrieval is delegated to the Qdrant governed executor.
+    Actual retrieval is delegated to the vectord governed executor.
     """
     return CodeRetrievalResult(query=query)
 

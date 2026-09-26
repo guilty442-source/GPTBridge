@@ -225,7 +225,7 @@ class RagMetadataDocumentsMixin:
         """Fetch a resource's chunk rows with content for outbox replay.
 
         Content lives in ``chunk.metadata->>'content'`` (PostgreSQL is the
-        content authority; Qdrant payloads never carry it).
+        content authority; vectord payloads never carry it).
 
         Bounded read (P15): fetches at most ``max_chunks + 1`` rows and
         raises ``RuntimeError`` when the resource exceeds the cap — callers
@@ -280,7 +280,7 @@ class RagMetadataDocumentsMixin:
         module_ids: tuple[str, ...],
         point_ids: Sequence[str],
     ) -> dict[str, dict[str, Any]]:
-        """Canonical read barrier + content hydration for Qdrant hits.
+        """Canonical read barrier + content hydration for vectord hits.
 
         Returns chunk records keyed by ``qdrant_point_id`` (text).  Only
         chunks whose resource is not tombstoned/deleted and that carry no

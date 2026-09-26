@@ -2,7 +2,7 @@
 
 Agentic RAG = controlling multi-round retrieval.  The controller may
 only invoke the formal retriever tools — never raw SQL, never direct
-Qdrant, never arbitrary paths:
+vectord, never arbitrary paths:
 
     retrieve_hybrid(query, scope)
     retrieve_code(query, scope)
