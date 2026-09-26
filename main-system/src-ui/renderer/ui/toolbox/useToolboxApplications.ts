@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ToolAction, ToolRuntimeState } from './tools/types'
+import type {
+  ToolAction,
+  ToolCapacityBreakdown,
+  ToolRuntimeState,
+} from './tools/types'
 import {
   createInitialToolboxRuntimeState,
   hydrateToolboxRuntimeStateFromBackend,
@@ -50,6 +54,29 @@ function hasMissingProjectSizes(tools: ToolRuntimeState[]): boolean {
       Boolean(tool.folderPath) &&
       (typeof tool.projectSizeBytes !== 'number' ||
         !Number.isFinite(tool.projectSizeBytes))
+  )
+}
+
+// Perf/low-render: capacity breakdowns are rebuilt as fresh objects on
+// every hydration pass — compare by value so identical scans keep
+// referential equality downstream.
+function sameCapacityBreakdown(
+  a: ToolCapacityBreakdown | undefined,
+  b: ToolCapacityBreakdown | undefined
+): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.program.sizeBytes === b.program.sizeBytes &&
+    a.program.fileCount === b.program.fileCount &&
+    a.runtime.sizeBytes === b.runtime.sizeBytes &&
+    a.runtime.fileCount === b.runtime.fileCount &&
+    a.userData.sizeBytes === b.userData.sizeBytes &&
+    a.userData.fileCount === b.userData.fileCount &&
+    a.cache.sizeBytes === b.cache.sizeBytes &&
+    a.cache.fileCount === b.cache.fileCount &&
+    a.backups.sizeBytes === b.backups.sizeBytes &&
+    a.backups.fileCount === b.backups.fileCount
   )
 }
 
