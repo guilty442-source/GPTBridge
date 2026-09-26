@@ -9,15 +9,23 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import sqlite3
 import time
 from pathlib import Path
 from typing import Any
+
+from shared_layer.local import pg_adapter
 
 from .._base import SovereignBase, SovereignRequest, SovereignOutcome
 from core_system.codex_decision import accepted_outcome, refusal_outcome
 
 _logger = logging.getLogger("gptbridge.sovereign.xingcheng.domain")
+
+# A610/A621: PostgreSQL is the sole structured-data authority; the owned
+# domain's module-private stores live in the ``gptbridge_xingcheng`` schema.
+# ``*.sqlite3`` files under the domain root are retired residue — they are
+# observed/classified only, never opened as live stores.
+PG_SCHEMA = "gptbridge_xingcheng"
+PG_STORE_TARGET = f"postgresql:{PG_SCHEMA}"
 
 
 class XingchengDomainMixin:
@@ -187,50 +195,54 @@ class XingchengDomainMixin:
         if not isinstance(operation, dict):
             return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
         op = str(operation.get("op") or "")
-        target = self._resolve_in_domain(operation.get("path"))
-        if target is None:
-            return refusal_outcome("OUTSIDE_OWNED_DOMAIN", self.verified_basis("A20"))
+        raw_target = str(operation.get("path") or "")
+        # Structured-store ops address the PG store sentinel rather than a
+        # filesystem path; everything else must resolve inside the domain.
+        if raw_target == PG_STORE_TARGET:
+            target = None
+        else:
+            target = self._resolve_in_domain(operation.get("path"))
+            if target is None:
+                return refusal_outcome("OUTSIDE_OWNED_DOMAIN", self.verified_basis("A20"))
 
-        result: dict[str, Any] = {"op": op, "path": str(target)}
+        result: dict[str, Any] = {"op": op, "path": raw_target or str(target)}
         try:
             if op == "mkdir":
+                if target is None:
+                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
                 target.mkdir(parents=True, exist_ok=True)
                 result["created"] = True
             elif op == "db-vacuum":
-                if target.suffix != ".sqlite3" or not target.is_file():
+                if target is not None:
                     return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
-                conn = sqlite3.connect(str(target))
-                try:
+                with pg_adapter.connect(PG_SCHEMA, autocommit=True) as conn:
                     conn.execute("VACUUM")
-                finally:
-                    conn.close()
-                result["vacuumed"] = True
+                result["vacuumed"] = PG_STORE_TARGET
             elif op == "checkpoint-cleanup":
-                if not target.is_file() or "checkpoint" not in target.name:
+                if target is None or not target.is_file() or "checkpoint" not in target.name:
                     return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
                 target.unlink()
                 result["deleted"] = True
             elif op == "db-analyze":
-                if target.suffix != ".sqlite3" or not target.is_file():
+                if target is not None:
                     return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
-                conn = sqlite3.connect(str(target))
-                try:
+                with pg_adapter.connect(PG_SCHEMA) as conn:
                     conn.execute("ANALYZE")
-                finally:
-                    conn.close()
-                result["analyzed"] = True
+                result["analyzed"] = PG_STORE_TARGET
             elif op == "db-integrity-check":
-                if target.suffix != ".sqlite3" or not target.is_file():
+                if target is not None:
                     return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
-                conn = sqlite3.connect(str(target))
-                try:
-                    cursor = conn.execute("PRAGMA integrity_check")
-                    integrity_result = cursor.fetchone()
-                finally:
-                    conn.close()
-                result["integrity_check"] = str(integrity_result) if integrity_result else "unknown"
+                # PG equivalent of the retired PRAGMA integrity_check:
+                # reachability + catalog sanity for the module schema.
+                with pg_adapter.connect(PG_SCHEMA) as conn:
+                    row = conn.execute(
+                        "SELECT COUNT(*) FROM information_schema.tables "
+                        "WHERE table_schema = current_schema()"
+                    ).fetchone()
+                result["integrity_check"] = "ok"
+                result["table_count"] = int(row[0]) if row else 0
             elif op == "model-cache-prune":
-                if not target.is_dir():
+                if target is None or not target.is_dir():
                     return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
                 # Prune old model cache files
                 max_age_hours = operation.get("max_age_hours", 72)
@@ -333,13 +345,30 @@ class XingchengDomainMixin:
             "observed_at": self._iso_now(),
             "domain_root": str(root),
             "exists": root.exists(),
-            "db_size_bytes": sum(
+            "db_size_bytes": self._pg_schema_size_bytes(),
+            "retired_sqlite_residue_bytes": sum(
                 f.stat().st_size for f in root.rglob("*.sqlite3") if f.is_file()
             ),
             "model_dir_size_bytes": sum(
                 f.stat().st_size for f in root.rglob("*") if f.is_file()
             ),
         }
+
+    @staticmethod
+    def _pg_schema_size_bytes() -> int:
+        """Total on-disk size of the owned domain's PostgreSQL schema."""
+        try:
+            with pg_adapter.connect(PG_SCHEMA) as conn:
+                row = conn.execute(
+                    "SELECT COALESCE(SUM(pg_total_relation_size(c.oid)), 0) "
+                    "FROM pg_class c "
+                    "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    "WHERE n.nspname = current_schema()"
+                ).fetchone()
+        except Exception as error:  # noqa: BLE001 — observation must not raise
+            _logger.warning("pg schema size probe failed: %s", type(error).__name__)
+            return 0
+        return int(row[0]) if row else 0
 
     def _analyze_domain(self, snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         """Analyze domain snapshot for anomalies."""
@@ -348,6 +377,16 @@ class XingchengDomainMixin:
         db_size = snapshot.get("db_size_bytes", 0)
         if db_size > 500 * 1024 * 1024:
             anomalies.append({"type": "db-size", "severity": "warning", "detail": f"{db_size} bytes"})
+
+        residue = snapshot.get("retired_sqlite_residue_bytes", 0)
+        if residue:
+            anomalies.append(
+                {
+                    "type": "retired-sqlite-residue",
+                    "severity": "warning",
+                    "detail": f"{residue} bytes of retired *.sqlite3 residue",
+                }
+            )
 
         # Model directory size
         model_dir_size = snapshot.get("model_dir_size_bytes", 0)
@@ -382,20 +421,24 @@ class XingchengDomainMixin:
         actions = []
         root = Path(self._owned_domain_root)
 
-        # Database maintenance
+        # Database maintenance — A610/A621: the structured store is the
+        # PostgreSQL module schema; ANALYZE keeps planner statistics fresh.
+        try:
+            with pg_adapter.connect(PG_SCHEMA) as conn:
+                conn.execute("ANALYZE")
+            actions.append({"action": "analyze", "target": PG_STORE_TARGET, "status": "ok"})
+        except Exception as error:  # noqa: BLE001 — maintenance records, never raises
+            actions.append(
+                {"action": "analyze", "target": PG_STORE_TARGET, "status": f"failed:{type(error).__name__}"}
+            )
+        self._auto_metrics["db_maintenance_runs"] += 1
+
+        # Retired *.sqlite3 residue is evidence, never reopened or deleted.
         for db_file in root.rglob("*.sqlite3"):
             if db_file.is_file():
-                try:
-                    conn = sqlite3.connect(str(db_file))
-                    try:
-                        conn.execute("PRAGMA quick_check")
-                        actions.append({"action": "integrity-check", "target": str(db_file), "status": "ok"})
-                    except sqlite3.Error:
-                        actions.append({"action": "integrity-check", "target": str(db_file), "status": "failed"})
-                    finally:
-                        conn.close()
-                except OSError:
-                    pass
+                actions.append(
+                    {"action": "retired-sqlite-residue", "target": str(db_file), "status": "classification-only"}
+                )
 
         # Model cache pruning (old files)
         model_dirs = [d for d in root.rglob("*") if d.is_dir() and "model" in d.name.lower()]

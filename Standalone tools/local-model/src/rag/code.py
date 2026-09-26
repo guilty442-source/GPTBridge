@@ -2,7 +2,7 @@
 
 Per A52, Code RAG retrieves code snippets, abstract syntax trees, and
 dependency graphs for source-code retrieval.  The shared index backend is
-Qdrant (local-owned, local-only).
+the Rust vector engine (A8/A611: Qdrant is retired; local-owned, local-only).
 """
 
 from __future__ import annotations

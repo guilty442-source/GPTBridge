@@ -2,8 +2,8 @@
 
 Per A52, Memory RAG manages session, long-term, and episodic memory for
 contextual memory retrieval.  It provides continuity across interactions
-and historical context.  The shared index backend is Qdrant (local-owned,
-local-only).
+and historical context.  The shared index backend is the Rust vector engine
+(A8/A611: Qdrant is retired; local-owned, local-only).
 """
 
 from __future__ import annotations
