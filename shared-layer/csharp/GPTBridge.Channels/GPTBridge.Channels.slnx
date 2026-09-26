@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="GPTBridge.Channels/GPTBridge.Channels.csproj" />
+  <Project Path="GPTBridge.Channels.Tests/GPTBridge.Channels.Tests.csproj" />
+</Solution>
