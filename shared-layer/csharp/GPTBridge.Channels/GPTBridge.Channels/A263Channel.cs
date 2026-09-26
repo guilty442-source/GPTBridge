@@ -95,8 +95,15 @@ public sealed class A263Channel
     public ChannelState State => _state;
     public ChannelGeneration Generation => _generation;
 
+    // High-resolution monotonic clock — TickCount64 quantises to ~15.6ms
+    // which makes sub-second heartbeat deadlines nondeterministic;
+    // Python's time.monotonic() is a performance counter too.
+    private static readonly long _monotonicEpoch =
+        System.Diagnostics.Stopwatch.GetTimestamp();
+
     private static double MonotonicNow() =>
-        Environment.TickCount64 / 1000.0;
+        (System.Diagnostics.Stopwatch.GetTimestamp() - _monotonicEpoch)
+        / (double)System.Diagnostics.Stopwatch.Frequency;
 
     // ================================================================
     // callbacks / state

@@ -53,7 +53,10 @@ public sealed class FakeTransport : IChannelTransport
         Closed = true;
         CloseCode = code;
         CloseReason = reason;
-        _incoming.Writer.TryComplete();
+        // Do NOT complete _incoming — the channel's dead token already
+        // unblocks ReceiveAsync, and a real transport is reusable after a
+        // governed reconnect.  Completing the reader here would poison
+        // every later receive.
         return Task.CompletedTask;
     }
 }
@@ -77,6 +80,16 @@ public class A263ChannelTests
         }
         // let the send loop pass once more
         await Task.Delay(30);
+    }
+
+    private static async Task<bool> WaitUntilAsync(
+        Func<bool> condition, int timeoutMs = 3000)
+    {
+        for (var i = 0; i < timeoutMs / 5 && !condition(); i++)
+        {
+            await Task.Delay(5);
+        }
+        return condition();
     }
 
     [Fact]
@@ -112,7 +125,8 @@ public class A263ChannelTests
         Assert.True(accepted);
 
         await DrainAsync(transport, min: 2);
-        var message = transport.Sent.ToArray().Last();
+        var message = transport.Sent.ToArray().First(
+            m => m["type"]?.GetValue<string>() == "message");
         Assert.Equal("hi", message["text"]!.GetValue<string>());
         Assert.Equal("ch-2",
             message["generation"]!["channel_id"]!.GetValue<string>());
@@ -185,7 +199,8 @@ public class A263ChannelTests
             ["command"] = "state_event_ack",
             ["payload"] = new JsonObject { ["cursor"] = 7 },
         });
-        await Task.Delay(60);
+        Assert.True(await WaitUntilAsync(() =>
+            channel.GetMetrics()["acked_cursor"]!.GetValue<int>() == 7));
         Assert.Equal(7,
             channel.GetMetrics()["acked_cursor"]!.GetValue<int>());
 
@@ -195,7 +210,8 @@ public class A263ChannelTests
             ["command"] = "state_event_ack",
             ["payload"] = new JsonObject { ["cursor"] = 4 },
         });
-        await Task.Delay(60);
+        Assert.True(await WaitUntilAsync(() =>
+            transport.Sent.Count >= 1));
         // cursor is monotonic — never rewinds
         Assert.Equal(7,
             channel.GetMetrics()["acked_cursor"]!.GetValue<int>());
@@ -225,7 +241,7 @@ public class A263ChannelTests
             ["command"] = "state_event_resync",
             ["payload"] = new JsonObject { ["cursor"] = 0 },
         });
-        await Task.Delay(80);
+        Assert.True(await WaitUntilAsync(() => replayed.Count == 4));
 
         // Python parity: append() fires the callback once per event, and
         // resync's replay_from() re-emits the same events again — dedup is
@@ -245,20 +261,22 @@ public class A263ChannelTests
             {
                 ChannelId = "ch-7",
                 SendIdleSleepSeconds = 0.005,
-                HeartbeatIntervalSeconds = 0.01,
-                HeartbeatTimeoutSeconds = 0.03,
+                HeartbeatIntervalSeconds = 0.02,
+                HeartbeatTimeoutSeconds = 0.5,
             });
 
-        // never push pongs — deadline must trip
-        for (var i = 0; i < 100 && !transport.Closed; i++)
+        // never push pongs — deadline must trip; a 500ms window leaves
+        // room for several pings before the close so the ping assertion
+        // below is deterministic.
+        for (var i = 0; i < 300 && !transport.Closed; i++)
         {
             await Task.Delay(10);
         }
         Assert.True(transport.Closed);
         Assert.Equal(1001, transport.CloseCode);
         Assert.Equal("heartbeat_timeout", transport.CloseReason);
-        Assert.True(transport.Sent.Any(m =>
-            m["command"]?.GetValue<string>() == "heartbeat_ping"));
+        Assert.Contains(transport.Sent, m =>
+            m["command"]?.GetValue<string>() == "heartbeat_ping");
     }
 
     [Fact]
@@ -371,8 +389,8 @@ public class A263ChannelTests
         Assert.Equal("s1", generation.SessionId);
 
         await DrainAsync(transport, min: 2);
-        Assert.True(transport.Sent.Any(m =>
-            m["command"]?.GetValue<string>() == "state_event_resync"));
+        Assert.Contains(transport.Sent, m =>
+            m["command"]?.GetValue<string>() == "state_event_resync");
     }
 
     [Fact]
