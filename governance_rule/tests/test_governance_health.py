@@ -170,4 +170,9 @@ def test_provision_classification_is_exactly_once() -> None:
             connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
             for table in ("principles", "articles", "edicts", "sovereigns")
         )
+        provision_count += connection.execute(
+            "SELECT COUNT(*) FROM provision_lifecycle_status "
+            "WHERE lifecycle_state='active' AND provision_type IN "
+            "('closure-definition','formal-rule','registry-rule')"
+        ).fetchone()[0]
     assert classification_count == provision_count
