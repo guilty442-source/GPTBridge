@@ -9,7 +9,7 @@ from typing import Any
 class CodingExpertGenerationMixin:
     """Source-code generation methods for StarCodingExpert.
 
-    Covers Python, TypeScript/JavaScript, SQL, and JSON artifact generation.
+    Covers Python, JavaScript-ESM, SQL, and JSON artifact generation.
     """
 
     @classmethod
@@ -238,7 +238,7 @@ def read_item(item_id: int) -> dict[str, object]:
         return default
 
     @classmethod
-    def _script_source(cls, spec: dict[str, Any], prompt: str, language: str) -> str:
+    def _script_source(cls, spec: dict[str, Any], prompt: str) -> str:
         kind = str(spec.get("kind") or "function")
         name = cls._identifier(spec.get("name"))
         requested = spec.get("parameters")
@@ -249,36 +249,19 @@ def read_item(item_id: int) -> dict[str, object]:
         )
         parameters = list(dict.fromkeys(parameters))[:16]
         export = "export " if spec.get("export", True) is not False else ""
-        if language == "typescript":
-            parameter_types = spec.get("parameter_types")
-            type_map = parameter_types if isinstance(parameter_types, dict) else {}
-            if str(spec.get("operation")) in {"average", "sum", "maximum", "minimum", "sort"}:
-                type_map = {**type_map, "values": "number[]"}
-            typed_parameters = ", ".join(
-                f"{parameter}: {cls._script_type(type_map.get(parameter))}"
-                for parameter in parameters
-            )
-            inferred_return = {
-                "average": "number",
-                "sum": "number",
-                "maximum": "number | null",
-                "minimum": "number | null",
-                "count": "number",
-                "sort": "number[]",
-            }.get(str(spec.get("operation")), "unknown")
-            return_type = f": {cls._script_type(spec.get('return_type'), inferred_return)}"
-        else:
-            typed_parameters = ", ".join(parameters)
-            return_type = ""
+        # A348: TypeScript retired — spec normalization already resolved every
+        # request onto the JavaScript-ESM successor, so scripts are emitted
+        # without type annotations.
+        typed_parameters = ", ".join(parameters)
+        return_type = ""
         description = str(spec.get("description") or prompt or "Star generated code").replace("*/", "")[:500]
         if kind == "class":
             field = cls._identifier(spec.get("field"), "value")
-            field_type = ": unknown" if language == "typescript" else ""
             return (
                 f"/** {description} */\n"
                 f"{export}class {name} {{\n"
-                f"  {field}{field_type};\n\n"
-                f"  constructor({field}{field_type}) {{\n"
+                f"  {field};\n\n"
+                f"  constructor({field}) {{\n"
                 f"    this.{field} = {field};\n"
                 "  }\n"
                 "}\n"
@@ -293,10 +276,9 @@ def read_item(item_id: int) -> dict[str, object]:
         if kind != "test":
             return function_source
         subject = cls._identifier(spec.get("subject"), name)
-        test_return_type = ": void" if language == "typescript" else ""
         return (
             f"/** {description} */\n"
-            f"{export}function test_{subject}(){test_return_type} {{\n"
+            f"{export}function test_{subject}() {{\n"
             f"  console.assert(typeof {subject} === 'function');\n"
             "}\n"
         )

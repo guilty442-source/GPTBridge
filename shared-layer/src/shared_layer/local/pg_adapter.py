@@ -57,7 +57,8 @@ _PRAGMA_TABLE_INFO_RE = re.compile(
     re.IGNORECASE,
 )
 _SQLITE_MASTER_RE = re.compile(
-    r"SELECT\s+name\s+FROM\s+sqlite_master\s+WHERE\s+type\s*=\s*'table'",
+    r"SELECT\s+name\s+FROM\s+sqlite_master\s+WHERE\s+type\s*=\s*'table'"
+    r"(?:\s+AND\s+name\s*=\s*'([^']*)')?",
     re.IGNORECASE,
 )
 _BEGIN_RE = re.compile(r"^\s*BEGIN\s+(IMMEDIATE|DEFERRED|EXCLUSIVE)\s*;?\s*$", re.IGNORECASE)
@@ -101,8 +102,15 @@ def translate(statement: str, pk_resolver: Any = None) -> str:
     if _BEGIN_RE.match(stmt):
         return "BEGIN"
     stmt = _SQLITE_MASTER_RE.sub(
-        "SELECT table_name AS name FROM information_schema.tables "
-        "WHERE table_type='BASE TABLE'",
+        lambda m: (
+            "SELECT table_name AS name FROM information_schema.tables "
+            "WHERE table_type='BASE TABLE'"
+            + (
+                f" AND table_name='{m.group(1)}'"
+                if m.group(1) is not None
+                else ""
+            )
+        ),
         stmt,
     )
     stmt = _DATETIME_NOW_RE.sub("now()", stmt)

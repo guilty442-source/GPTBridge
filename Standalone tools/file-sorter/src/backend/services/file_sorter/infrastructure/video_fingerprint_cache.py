@@ -75,7 +75,7 @@ class VideoFingerprintCache:
                 return None
             payload = json.loads(str(row[0]))
             return payload if isinstance(payload, dict) else None
-        except (OSError, Exception, ValueError, TypeError, json.JSONDecodeError):
+        except Exception:
             return None
 
     def put(
@@ -110,5 +110,5 @@ class VideoFingerprintCache:
                         datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     ),
                 )
-        except (OSError, sqlite3.Error, ValueError, TypeError):
+        except Exception:
             return

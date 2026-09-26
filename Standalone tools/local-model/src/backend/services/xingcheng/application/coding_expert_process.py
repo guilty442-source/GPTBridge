@@ -143,7 +143,7 @@ class CodingExpertProcessMixin:
             if language == "python":
                 source = self._python_source(spec, prompt)
             elif language == "javascript":
-                source = self._script_source(spec, prompt, language)
+                source = self._script_source(spec, prompt)
             elif language == "csharp":
                 source = self._csharp_source(spec, prompt)
             else:

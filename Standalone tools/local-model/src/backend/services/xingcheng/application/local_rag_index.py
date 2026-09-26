@@ -91,7 +91,7 @@ class LocalRagIndexMixin:
             {
                 **chunk,
                 "point_id": point["id"],
-                "qdrant_point_id": point["id"],
+                "vector_point_id": point["id"],
                 "payload": point["payload"],
             }
             for chunk, point in zip(prepared, points)

@@ -312,7 +312,9 @@ class LocalSqliteRagRepository:
         # with a SQL-level ceiling; the final keyword re-rank remains in
         # Python because the scoring algorithm is custom, but operates
         # on a bounded result rather than the full table.
-        bounded_limit = max(int(limit) * 4, min(int(limit) * 4, 500))
+        # Perf: bound the SQL candidate ceiling (was a dead
+        # max(x, min(x, 500)) that always evaluated to x — unbounded).
+        bounded_limit = max(int(limit), min(int(limit) * 4, 500))
         arguments: list[Any] = [*module_ids, query.casefold(), bounded_limit]
         with self._connect() as connection:
             rows = connection.execute(  # sql-ok: code-controlled SQL composition
