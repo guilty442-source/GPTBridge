@@ -259,7 +259,7 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "central-index-physical-path-storage-and-disclosure-prohibited",
             "opaque-locator-resolved-only-after-governance-by-owning-module-or-shared-layer",
             "cross-module-data-access-default-deny-at-governance-shared-layer-and-postgresql",
-            "qdrant-semantic-index-is-vector-retrieval-only-with-governed-module-label-filters",
+            "vector-engine-semantic-index-is-vector-retrieval-only-with-governed-module-label-filters",
             "star-global-read-highest-decision-no-external-execution",
             "star-internal-data-read-write-permission-files-read-only",
             "shared-layer-source-write-and-executable-content-prohibited",

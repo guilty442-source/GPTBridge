@@ -1192,7 +1192,7 @@
         "model-dialogue",
         "model-training",
         "ollama",
-        "qdrant",
+        "vectord",
         "xingcheng",
         "xingcheng-assistant",
         "xingcheng-assistant-store",

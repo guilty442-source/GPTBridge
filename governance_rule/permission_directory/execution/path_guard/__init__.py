@@ -15,6 +15,14 @@ def permission_denied() -> PermissionError:
     return PermissionError("PERMISSION_DENIED")
 
 
+# The canonical project root is process-invariant: resolving the same
+# (requested, configured) pair through ``realpath`` on every guarded call
+# re-pays the filesystem cost for an answer that cannot legitimately
+# change mid-process.  Memoize successes only — a transient resolution
+# failure retries on the next call instead of caching a denial.
+_canonical_root_cache: dict[tuple[str, str], Path] = {}
+
+
 def _canonical_project_root(project_root: Path) -> Path:
     try:
         requested = Path(project_root)
@@ -32,6 +40,10 @@ def _canonical_project_root(project_root: Path) -> Path:
         str(configured_absolute)
     ):
         raise permission_denied()
+    cache_key = (str(requested_absolute), str(configured_absolute))
+    root = _canonical_root_cache.get(cache_key)
+    if root is not None:
+        return root
     try:
         root = requested_absolute.resolve()
         configured_root = configured_absolute.resolve()
@@ -39,6 +51,7 @@ def _canonical_project_root(project_root: Path) -> Path:
         raise permission_denied() from exc
     if root != configured_root:
         raise permission_denied()
+    _canonical_root_cache[cache_key] = root
     return root
 
 

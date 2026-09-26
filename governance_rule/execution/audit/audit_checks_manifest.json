@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-26T04:30:26Z",
+  "generated_at": "2026-09-26T05:47:48Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 367,
+    "native_checks": 334,
     "delegated_checks": 29,
     "native_kinds": [
       "file-exists",
@@ -594,16 +594,6 @@
       ]
     },
     {
-      "id": "module-markers:check_sqlite_generation_fence",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/025_sqlite_generation_fence.sql",
-      "markers": [
-        "sqlite_generation",
-        "upsert_sqlite_generation",
-        "stale"
-      ]
-    },
-    {
       "id": "module-markers:check_workload_class",
       "kind": "file-contains",
       "path": "shared-layer/migrations/026_workload_class.sql",
@@ -683,9 +673,6 @@
         "rpo_rto_class",
         "capacity_threshold",
         "postgresql-central",
-        "governance-codex-sqlite",
-        "module-sqlite",
-        "qdrant",
         "warning_level",
         "critical_level",
         "fail_closed_level"
@@ -719,8 +706,6 @@
         "central-query-p95",
         "transport-claim-latency",
         "reconcile-backlog",
-        "sqlite-lock-rate",
-        "qdrant-stale-rate",
         "restore-success"
       ]
     },
@@ -767,34 +752,6 @@
         "hot",
         "archive",
         "long_term"
-      ]
-    },
-    {
-      "id": "module-markers:check_sqlite_per_class_retention",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/053_sqlite_per_class_retention.sql",
-      "markers": [
-        "sqlite_retention_policy",
-        "get_sqlite_retention_for_class",
-        "retention_days",
-        "archive_eligible",
-        "purge_eligible"
-      ]
-    },
-    {
-      "id": "module-markers:check_qdrant_vector_lifecycle",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/054_qdrant_vector_lifecycle.sql",
-      "markers": [
-        "qdrant_vector_lifecycle",
-        "mark_vector_for_resource_state",
-        "confirm_vector_deleted",
-        "get_vectors_pending_deletion",
-        "ACTIVE",
-        "STALE",
-        "RETRIEVAL_FORBIDDEN",
-        "DELETE_PENDING",
-        "VERIFIED_DELETED"
       ]
     },
     {
@@ -971,36 +928,6 @@
       ]
     },
     {
-      "id": "module-markers:check_sqlite_database_digest",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/067_sqlite_database_digest.sql",
-      "markers": [
-        "sqlite_database_digest",
-        "schema_hash",
-        "revision_head",
-        "row_count",
-        "critical_table_digest",
-        "record_sqlite_digest",
-        "verify_sqlite_digest",
-        "get_tampered_sqlite_dbs"
-      ]
-    },
-    {
-      "id": "module-markers:check_qdrant_integrity_mapping",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/068_qdrant_integrity_mapping.sql",
-      "markers": [
-        "qdrant_integrity_map",
-        "chunk_hash",
-        "embedding_version",
-        "qdrant_point_id",
-        "resource_revision",
-        "record_qdrant_integrity",
-        "verify_qdrant_integrity",
-        "get_qdrant_integrity_issues"
-      ]
-    },
-    {
       "id": "module-markers:check_merkle_root",
       "kind": "file-contains",
       "path": "shared-layer/migrations/069_merkle_root.sql",
@@ -1093,9 +1020,6 @@
         "complete_reconcile_batch",
         "record_resource_hash",
         "verify_resource_hash",
-        "record_sqlite_digest",
-        "record_qdrant_integrity",
-        "verify_qdrant_integrity",
         "record_merkle_root",
         "create_integrity_snapshot",
         "record_restore_verification",
@@ -1127,9 +1051,7 @@
         "check_combination_allowed",
         "get_forbidden_combinations",
         "postgresql_version",
-        "psycopg_version",
-        "sqlite_runtime_version",
-        "qdrant_server_version"
+        "psycopg_version"
       ]
     },
     {
@@ -1176,37 +1098,6 @@
         "transport_test",
         "reconcile_test",
         "performance_baseline"
-      ]
-    },
-    {
-      "id": "module-markers:check_sqlite_runtime_compat",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/079_sqlite_runtime_compat.sql",
-      "markers": [
-        "sqlite_runtime_compat",
-        "record_sqlite_runtime_compat",
-        "check_sqlite_runtime_compat",
-        "python_version",
-        "sqlite_library_version",
-        "fts5_available",
-        "wal_mode_available",
-        "json1_available"
-      ]
-    },
-    {
-      "id": "module-markers:check_qdrant_contract_compat",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/080_qdrant_contract_compat.sql",
-      "markers": [
-        "qdrant_contract_compat",
-        "record_qdrant_compat",
-        "is_qdrant_upgrade_safe",
-        "collection_schema",
-        "payload_filter",
-        "snapshot_format",
-        "index_config",
-        "client_api",
-        "point_id_behavior"
       ]
     },
     {
@@ -1288,32 +1179,6 @@
         "component_count",
         "component_hashes",
         "tamper_state"
-      ]
-    },
-    {
-      "id": "module-markers:check_dependency_governor_module",
-      "kind": "file-contains",
-      "path": "shared-layer/src/shared_layer/database/dependency_governor.py",
-      "markers": [
-        "compute_bundle_hash",
-        "lock_version",
-        "get_version_lock",
-        "record_compatibility",
-        "check_combination_allowed",
-        "classify_upgrade",
-        "get_upgrade_class",
-        "record_driver_test",
-        "is_driver_version_verified",
-        "start_pg_rehearsal",
-        "advance_pg_rehearsal",
-        "record_sqlite_runtime_compat",
-        "record_qdrant_compat",
-        "record_sbom_entry",
-        "record_vulnerability",
-        "record_dependency_drift",
-        "register_offline_bundle",
-        "sign_release",
-        "verify_release_signature"
       ]
     },
     {
@@ -1450,43 +1315,6 @@
       ]
     },
     {
-      "id": "module-markers:check_sqlite_fallback_freeze",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/099_sqlite_fallback_freeze.sql",
-      "markers": [
-        "sqlite_fallback_freeze",
-        "transition_fallback_state",
-        "get_fallback_state",
-        "fallback_open",
-        "fallback_draining",
-        "fallback_frozen",
-        "fallback_closed"
-      ]
-    },
-    {
-      "id": "module-markers:check_qdrant_recovery",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/101_qdrant_recovery.sql",
-      "markers": [
-        "qdrant_recovery",
-        "start_qdrant_recovery",
-        "update_qdrant_recovery",
-        "indexing_backlog_count"
-      ]
-    },
-    {
-      "id": "module-markers:check_qdrant_full_rebuild",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/102_qdrant_full_rebuild.sql",
-      "markers": [
-        "qdrant_full_rebuild",
-        "start_qdrant_full_rebuild",
-        "advance_qdrant_rebuild",
-        "collection_generation",
-        "old_collection_retired"
-      ]
-    },
-    {
       "id": "module-markers:check_recovery_checkpoint",
       "kind": "file-contains",
       "path": "shared-layer/migrations/108_recovery_checkpoint.sql",
@@ -1617,8 +1445,7 @@
         "classify_dependency",
         "get_dependency_classification",
         "postgresql",
-        "sqlite_codex",
-        "qdrant"
+        "vector"
       ]
     },
     {
@@ -1682,7 +1509,7 @@
         "evaluate_rag_readiness",
         "is_rag_ready",
         "pg_rag_metadata_ready",
-        "qdrant_ready",
+        "vector_ready",
         "metadata_authority_wired",
         "collection_contract_valid"
       ]
@@ -1696,7 +1523,7 @@
         "STOP_ACCEPTING_NEW_WORK",
         "DRAIN_TRANSPORT",
         "FLUSH_AUDIT",
-        "CLOSE_QDRANT_CLIENT",
+        "CLOSE_VECTOR_CLIENT",
         "CLOSE_SQLITE",
         "CLOSE_POSTGRES_POOLS",
         "get_shutdown_order"
@@ -1726,8 +1553,7 @@
         "mark_unclean_step_done",
         "is_unclean_recovery_complete",
         "transport_lease_recovery",
-        "unknown_commit_verification",
-        "sqlite_wal_verification"
+        "unknown_commit_verification"
       ]
     },
     {
@@ -1897,34 +1723,6 @@
       ]
     },
     {
-      "id": "module-markers:check_sqlite_template_release",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/045_sqlite_template_release.sql",
-      "markers": [
-        "sqlite_template_release",
-        "register_sqlite_template",
-        "get_active_sqlite_template",
-        "can_write_sqlite",
-        "template_version",
-        "minimum_writer_version"
-      ]
-    },
-    {
-      "id": "module-markers:check_qdrant_contract_version",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/046_qdrant_contract_version.sql",
-      "markers": [
-        "qdrant_contract",
-        "register_qdrant_contract",
-        "deprecate_qdrant_contract",
-        "retire_qdrant_contract",
-        "get_active_qdrant_contract",
-        "vector_dimension",
-        "distance_metric",
-        "embedding_model"
-      ]
-    },
-    {
       "id": "module-markers:check_canary_upgrade",
       "kind": "file-contains",
       "path": "shared-layer/migrations/047_canary_upgrade.sql",
@@ -2029,20 +1827,6 @@
       ]
     },
     {
-      "id": "module-markers:check_sqlite_classification",
-      "kind": "file-contains",
-      "path": "shared-layer/migrations/037_sqlite_classification.sql",
-      "markers": [
-        "sqlite_database_class",
-        "upsert_sqlite_class",
-        "synchronous_setting",
-        "backup_frequency_seconds",
-        "integrity_check_frequency_seconds",
-        "retention_days",
-        "reconcile_required"
-      ]
-    },
-    {
       "id": "module-markers:check_incremental_reconcile",
       "kind": "file-contains",
       "path": "shared-layer/migrations/038_incremental_reconcile.sql",
@@ -2076,41 +1860,6 @@
       "markers": [
         "record",
         "get_hot"
-      ]
-    },
-    {
-      "id": "module-markers:check_sqlite_pragma_policy_module",
-      "kind": "file-contains",
-      "path": "shared-layer/src/shared_layer/database/sqlite_pragma_policy.py",
-      "markers": [
-        "apply_pragma",
-        "get_pragma_policy",
-        "journal_mode",
-        "foreign_keys",
-        "busy_timeout",
-        "synchronous"
-      ]
-    },
-    {
-      "id": "module-markers:check_sqlite_classification_module",
-      "kind": "file-contains",
-      "path": "shared-layer/src/shared_layer/database/sqlite_classification.py",
-      "markers": [
-        "register",
-        "get_class",
-        "list_by_class"
-      ]
-    },
-    {
-      "id": "module-markers:check_sqlite_wal_governor_module",
-      "kind": "file-contains",
-      "path": "shared-layer/src/shared_layer/database/sqlite_wal_governor.py",
-      "markers": [
-        "check_and_checkpoint",
-        "get_wal_stats",
-        "PASSIVE",
-        "RESTART",
-        "TRUNCATE"
       ]
     },
     {
@@ -2261,11 +2010,6 @@
       "path": "shared-layer/migrations/024_contract_version_handshake.sql"
     },
     {
-      "id": "dir-filelist:check_sql_migrations:025_sqlite_generation_fence.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/025_sqlite_generation_fence.sql"
-    },
-    {
       "id": "dir-filelist:check_sql_migrations:026_workload_class.sql",
       "kind": "file-exists",
       "path": "shared-layer/migrations/026_workload_class.sql"
@@ -2321,11 +2065,6 @@
       "path": "shared-layer/migrations/036_wal_checkpoint_monitor.sql"
     },
     {
-      "id": "dir-filelist:check_sql_migrations:037_sqlite_classification.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/037_sqlite_classification.sql"
-    },
-    {
       "id": "dir-filelist:check_sql_migrations:038_incremental_reconcile.sql",
       "kind": "file-exists",
       "path": "shared-layer/migrations/038_incremental_reconcile.sql"
@@ -2361,16 +2100,6 @@
       "path": "shared-layer/migrations/044_rls_role_migration.sql"
     },
     {
-      "id": "dir-filelist:check_sql_migrations:045_sqlite_template_release.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/045_sqlite_template_release.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:046_qdrant_contract_version.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/046_qdrant_contract_version.sql"
-    },
-    {
       "id": "dir-filelist:check_sql_migrations:047_canary_upgrade.sql",
       "kind": "file-exists",
       "path": "shared-layer/migrations/047_canary_upgrade.sql"
@@ -2404,16 +2133,6 @@
       "id": "dir-filelist:check_sql_migrations:052_audit_retention_layering.sql",
       "kind": "file-exists",
       "path": "shared-layer/migrations/052_audit_retention_layering.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:053_sqlite_per_class_retention.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/053_sqlite_per_class_retention.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:054_qdrant_vector_lifecycle.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/054_qdrant_vector_lifecycle.sql"
     },
     {
       "id": "dir-filelist:check_sql_migrations:055_purge_queue.sql",
@@ -2471,16 +2190,6 @@
       "path": "shared-layer/migrations/066_resource_content_hash.sql"
     },
     {
-      "id": "dir-filelist:check_sql_migrations:067_sqlite_database_digest.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/067_sqlite_database_digest.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:068_qdrant_integrity_mapping.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/068_qdrant_integrity_mapping.sql"
-    },
-    {
       "id": "dir-filelist:check_sql_migrations:069_merkle_root.sql",
       "kind": "file-exists",
       "path": "shared-layer/migrations/069_merkle_root.sql"
@@ -2529,16 +2238,6 @@
       "id": "dir-filelist:check_sql_migrations:078_pg_major_upgrade_rehearsal.sql",
       "kind": "file-exists",
       "path": "shared-layer/migrations/078_pg_major_upgrade_rehearsal.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:079_sqlite_runtime_compat.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/079_sqlite_runtime_compat.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:080_qdrant_contract_compat.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/080_qdrant_contract_compat.sql"
     },
     {
       "id": "dir-filelist:check_sql_migrations:081_sbom_dependency_inventory.sql",
@@ -2631,34 +2330,9 @@
       "path": "shared-layer/migrations/098_lease_recovery.sql"
     },
     {
-      "id": "dir-filelist:check_sql_migrations:099_sqlite_fallback_freeze.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/099_sqlite_fallback_freeze.sql"
-    },
-    {
       "id": "dir-filelist:check_sql_migrations:100_recovery_priority.sql",
       "kind": "file-exists",
       "path": "shared-layer/migrations/100_recovery_priority.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:101_qdrant_recovery.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/101_qdrant_recovery.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:102_qdrant_full_rebuild.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/102_qdrant_full_rebuild.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:103_sqlite_single_recovery.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/103_sqlite_single_recovery.sql"
-    },
-    {
-      "id": "dir-filelist:check_sql_migrations:104_codex_sqlite_recovery.sql",
-      "kind": "file-exists",
-      "path": "shared-layer/migrations/104_codex_sqlite_recovery.sql"
     },
     {
       "id": "dir-filelist:check_sql_migrations:105_backup_restore_orchestration.sql",
@@ -2783,7 +2457,7 @@
         "FIELD_UPDATED_AT",
         "FIELD_STATUS",
         "ResourceMetadata",
-        "validate_qdrant_payload"
+        "validate_vector_payload"
       ]
     },
     {
@@ -2835,21 +2509,6 @@
       "id": "shared-layer-source-readonly:store.py",
       "kind": "file-readonly",
       "path": "shared-layer/src/shared_layer/store.py"
-    },
-    {
-      "id": "sqlite-template:tables",
-      "kind": "file-contains",
-      "path": "shared-layer/sql/sqlite_module_template.sql",
-      "markers": [
-        "schema_version",
-        "module_metadata",
-        "resource_metadata",
-        "audit_event",
-        "reconcile_state",
-        "authority_class",
-        "executor_id",
-        "correlation_id"
-      ]
     },
     {
       "id": "embedded-browser:no-playwright:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/browser_automation.py",
@@ -2975,9 +2634,7 @@
         "migration_head",
         "rls_version",
         "role_version",
-        "sqlite_template_version",
         "reconcile_contract_version",
-        "qdrant_contract_version",
         "query_contract_version",
         "minimum_runtime_version",
         "compatibility_range",

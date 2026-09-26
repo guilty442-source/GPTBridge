@@ -48,7 +48,7 @@ SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
         "Standalone tools/local-model/tests/test_self_learning_gates.py",
         "Standalone tools/local-model/tests/test_transformer_training_repository.py",
         "Standalone tools/local-model/tests/test_local_rag.py",
-        "Standalone tools/local-model/tests/test_local_sqlite_rag_repository.py",
+        "Standalone tools/local-model/tests/test_local_rag_repository.py",
         "Standalone tools/local-model/tests/test_reading_expert.py",
         "Standalone tools/local-model/tests/test_google_search.py",
         "Standalone tools/local-model/tests/test_capability_composer.py",

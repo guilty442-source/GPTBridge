@@ -88,6 +88,7 @@ class GovernanceAuthenticationService(TokenOperationsMixin):
         self._lock = threading.RLock()
         self._closed = False
         self._process_id = os.getpid()
+        self._last_integrity_verify = 0.0
         self._launcher_key = launcher_key
         self._launcher_key_id = attestation.key_id
         self._launcher_process_id = (
@@ -201,18 +202,36 @@ class GovernanceAuthenticationService(TokenOperationsMixin):
         elif now - current.issued_at >= self._policy.rotation_interval_seconds:
             self._key_ring = _KeyRing(_new_key(self._policy, now), current)
 
-    def verify_runtime_integrity(self) -> None:
+    def verify_runtime_integrity(self, *, wait: bool = False) -> None:
         """Verify that this process is still bound to the current authority files.
 
         Fail-closed (A11/A15): if any protected file digest no longer matches
         the launch-time manifest, raise PermissionError.  The caller must
         handle the failure (typically by restarting the process so a fresh
         manifest is built from the updated files).
+
+        ``wait=False`` (default): a caller from a *different* thread than an
+        in-flight verification returns immediately — the in-flight sweep is
+        the freshest possible check, and status readers must never queue
+        behind filesystem latency.  ``wait=True`` is for the dedicated
+        verifier thread that must land a completed sweep before reporting.
+
+        Same-thread callers (token issue/authenticate inside their own lock
+        hold) always proceed, bounded by a short reuse window that also
+        throttles verification storms.
         """
 
-        with self._lock:
+        if not self._lock.acquire(blocking=wait):
+            return
+        try:
             self._assert_process_binding()
+            now = time.monotonic()
+            if now - self._last_integrity_verify < 2.0:
+                return
             self._integrity.verify()
+            self._last_integrity_verify = now
+        finally:
+            self._lock.release()
 
     def reanchor_runtime_integrity(self) -> None:
         """Re-anchor this process to the live authority files (no restart).

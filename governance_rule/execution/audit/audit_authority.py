@@ -80,14 +80,12 @@ def check_authority_policy(root: Path, errors: list[str]) -> None:
     if (
         responsibilities.git != "system-version-and-development-history"
         or responsibilities.sql != "structured-mutable-official-data-postgresql"
-        or responsibilities.sqlite
-        != "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only"
         or responsibilities.vector_rag != "rust-vector-engine-semantic-knowledge-index"
         or responsibilities.local_vector_fallback
         != "bounded-observable-degraded-cache-only-never-canonical"
         or responsibilities.llm != "understanding-reasoning-and-operations"
         or responsibilities.separation
-        != "git-postgresql-sqlite-rust-vector-engine-rag-and-llm-roles-must-not-replace-one-another"
+        != "git-postgresql-rust-vector-engine-rag-and-llm-roles-must-not-replace-one-another"
         or responsibilities.governed_flow
         != "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
         or responsibilities.management_owner
@@ -143,9 +141,9 @@ def check_third_party_inventory(root: Path, errors: list[str]) -> None:
             dependency.get("formality") or ""
         ).startswith("approved-implementation-"):
             errors.append(f"implementation dependency is incorrectly authoritative: {dependency_id}")
-    local_rag = inventory_tools.get("local-sqlite-rag", {})
+    local_rag = inventory_tools.get("local-rag", {})
     if local_rag.get("formal") is not False or local_rag.get("formality") != "bounded-degraded-fallback":
-        errors.append("local SQLite RAG must remain a non-formal degraded fallback")
+        errors.append("local RAG must remain a non-formal degraded fallback")
 
 
 def check_shared_layer_policy(root: Path, errors: list[str]) -> None:

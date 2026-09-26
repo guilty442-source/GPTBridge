@@ -36,7 +36,11 @@ def admin_dsn() -> str:
 
 @contextmanager
 def readonly_connection() -> Iterator[psycopg.Connection[Any]]:
-    with psycopg.connect(runtime_dsn(), options="-c default_transaction_read_only=on") as connection:
+    with psycopg.connect(
+        runtime_dsn(),
+        connect_timeout=5,
+        options="-c default_transaction_read_only=on",
+    ) as connection:
         connection.execute(sql.SQL("SET LOCAL search_path TO {}, pg_catalog").format(sql.Identifier(CODEX_SCHEMA)))
         yield connection
 

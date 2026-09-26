@@ -193,8 +193,8 @@
       "endpoint": "127.0.0.1:11434"
     },
     {
-      "id": "local-sqlite-rag",
-      "name": "Local SQLite RAG",
+      "id": "local-rag",
+      "name": "Local RAG (PostgreSQL-backed)",
       "category": "rag",
       "formal": false,
       "formality": "bounded-degraded-fallback",
@@ -204,7 +204,7 @@
       "license": "local-owned",
       "status": "active",
       "verified": true,
-      "notes": "local_sqlite_rag_repository (LocalVectorStore bounded fallback)"
+      "notes": "local_rag_repository (LocalVectorStore bounded fallback)"
     }
   ],
   "models": [

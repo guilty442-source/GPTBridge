@@ -262,7 +262,6 @@ class SharedLayerPolicy:
 class SystemResponsibilityPolicy:
     git: str
     sql: str
-    sqlite: str
     vector_rag: str
     local_vector_fallback: str
     llm: str

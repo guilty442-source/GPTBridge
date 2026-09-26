@@ -16,11 +16,9 @@ from governance_rule.execution.codex_repository import (
     load_governance_codex,
 )
 
-
 _TEXT_POLLUTION = re.compile(
     r"\?{2,}|\ufffd|\ufeff|ï»¿|Ã.|Â.|â(?:€|€™|€œ|€\x9d)|[\ue000-\uf8ff]"
 )
-
 
 def _contains_text_pollution(value: object) -> bool:
     """Return whether a nested Codex value contains lossy or invalid text."""
@@ -33,7 +31,6 @@ def _contains_text_pollution(value: object) -> bool:
     if isinstance(value, (list, tuple)):
         return any(_contains_text_pollution(item) for item in value)
     return False
-
 
 def check_codex_consistency(root: Path, errors: list[str]) -> None:
     """Verify the Chinese codex reference is synchronized with the authoritative codex."""
@@ -82,7 +79,6 @@ def check_codex_consistency(root: Path, errors: list[str]) -> None:
         if _contains_text_pollution(content):
             errors.append(f"architecture text contains pollution: {path.name}")
 
-
 def check_git_tiers(root: Path, errors: list[str]) -> None:
     """Verify git tier enforcement layers and hooks exist and are correct."""
     git_tiers_source = root / "governance_rule" / "execution" / "git_tiers" / "__init__.py"
@@ -120,7 +116,6 @@ def check_git_tiers(root: Path, errors: list[str]) -> None:
         if "merge-base" not in hook_text or "refs/tags/" not in hook_text:
             errors.append("pre-push hook does not detect non-fast-forward or tag rewrites")
 
-
 def check_metadata_contract(root: Path, errors: list[str]) -> None:
     """Verify metadata contract module and data ownership document exist."""
     metadata_contract = root / "shared-layer" / "src" / "shared_layer" / "metadata_contract.py"
@@ -130,14 +125,13 @@ def check_metadata_contract(root: Path, errors: list[str]) -> None:
         contract_text = read_text_cached(metadata_contract)
         for required in ("FIELD_MODULE_ID", "FIELD_RESOURCE_ID", "FIELD_LOCATOR_ID",
                          "FIELD_VERSION", "FIELD_CONTENT_HASH", "FIELD_UPDATED_AT",
-                         "FIELD_STATUS", "ResourceMetadata", "validate_qdrant_payload"):
+                         "FIELD_STATUS", "ResourceMetadata", "validate_vector_payload"):
             if required not in contract_text:
                 errors.append(f"metadata contract is missing: {required}")
 
     ownership_doc = root / "shared-layer" / "docs" / "DATA_OWNERSHIP_CONTRACT.md"
     if not ownership_doc.is_file():
         errors.append("data ownership contract document is missing")
-
 
 def check_reconcile_modules(root: Path, errors: list[str]) -> None:
     """Verify reconcile state store and system reconciliation owner exist."""
@@ -165,7 +159,6 @@ def check_reconcile_modules(root: Path, errors: list[str]) -> None:
     elif "class ReconcileService" not in read_text_cached(reconciliation_owner):
         errors.append("system data reconciliation owner lacks decision service")
 
-
 def check_sql_migrations(root: Path, errors: list[str]) -> None:
     """Verify required SQL migration files exist."""
     migrations_dir = root / "shared-layer" / "migrations"
@@ -182,7 +175,6 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "022_schema_ownership_lock.sql",
         "023_ddl_audit.sql",
         "024_contract_version_handshake.sql",
-        "025_sqlite_generation_fence.sql",
         "026_workload_class.sql",
         "027_two_stage_deletion.sql",
         "028_rebuild_certification.sql",
@@ -194,7 +186,6 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "034_transport_hot_path_index.sql",
         "035_audit_hot_history_separation.sql",
         "036_wal_checkpoint_monitor.sql",
-        "037_sqlite_classification.sql",
         "038_incremental_reconcile.sql",
         "039_performance_baseline.sql",
         "040_database_release_manifest.sql",
@@ -202,8 +193,6 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "042_migration_breaking_change.sql",
         "043_query_contract_version.sql",
         "044_rls_role_migration.sql",
-        "045_sqlite_template_release.sql",
-        "046_qdrant_contract_version.sql",
         "047_canary_upgrade.sql",
         "048_release_audit.sql",
         "049_roll_forward.sql",
@@ -211,8 +200,6 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "050_unified_lifecycle_state.sql",
         "051_transport_retention.sql",
         "052_audit_retention_layering.sql",
-        "053_sqlite_per_class_retention.sql",
-        "054_qdrant_vector_lifecycle.sql",
         "055_purge_queue.sql",
         "056_archive_catalog.sql",
         "057_archive_versioning.sql",
@@ -224,8 +211,6 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "064_audit_hash_chain.sql",
         "065_reconcile_batch_digest.sql",
         "066_resource_content_hash.sql",
-        "067_sqlite_database_digest.sql",
-        "068_qdrant_integrity_mapping.sql",
         "069_merkle_root.sql",
         "070_integrity_snapshot.sql",
         "071_restore_verification.sql",
@@ -236,8 +221,6 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "076_upgrade_classification.sql",
         "077_driver_compatibility_test.sql",
         "078_pg_major_upgrade_rehearsal.sql",
-        "079_sqlite_runtime_compat.sql",
-        "080_qdrant_contract_compat.sql",
         "081_sbom_dependency_inventory.sql",
         "082_vulnerability_risk.sql",
         "083_dependency_drift.sql",
@@ -256,12 +239,7 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         "096_transport_recovery.sql",
         "097_unknown_commit_resolution.sql",
         "098_lease_recovery.sql",
-        "099_sqlite_fallback_freeze.sql",
         "100_recovery_priority.sql",
-        "101_qdrant_recovery.sql",
-        "102_qdrant_full_rebuild.sql",
-        "103_sqlite_single_recovery.sql",
-        "104_codex_sqlite_recovery.sql",
         "105_backup_restore_orchestration.sql",
         "106_pitr_boundary.sql",
         "107_recovery_retry_policy.sql",
@@ -288,26 +266,6 @@ def check_sql_migrations(root: Path, errors: list[str]) -> None:
         if not (migrations_dir / migration_name).is_file():
             errors.append(f"SQL migration is missing: {migration_name}")
 
-
-def check_sqlite_template(root: Path, errors: list[str]) -> None:
-    """Verify the SQLite module template contains required tables."""
-    sqlite_template = root / "shared-layer" / "sql" / "sqlite_module_template.sql"
-    if not sqlite_template.is_file():
-        errors.append("SQLite module template is missing")
-    else:
-        template_text = read_text_cached(sqlite_template)
-        for required_table in ("schema_version", "module_metadata",
-                               "resource_metadata", "audit_event", "reconcile_state"):
-            if required_table not in template_text:
-                errors.append(f"SQLite module template is missing table: {required_table}")
-        # Authority marker (migration 019) + write provenance (migration 020)
-        for required_column in ("authority_class", "executor_id", "correlation_id"):
-            if required_column not in template_text:
-                errors.append(
-                    f"SQLite module template is missing column: {required_column}"
-                )
-
-
 def check_data_lineage(root: Path, errors: list[str]) -> None:
     """Verify data lineage migration (018) defines required objects."""
     lineage_migration = root / "shared-layer" / "migrations" / "018_data_lineage.sql"
@@ -326,7 +284,6 @@ def check_data_lineage(root: Path, errors: list[str]) -> None:
                 f"Data lineage migration 018 is missing object: {required_object}"
             )
 
-
 def check_authority_marker(root: Path, errors: list[str]) -> None:
     """Verify authority marker migration (019) defines required columns."""
     authority_migration = root / "shared-layer" / "migrations" / "019_authority_marker.sql"
@@ -344,7 +301,6 @@ def check_authority_marker(root: Path, errors: list[str]) -> None:
             errors.append(
                 f"Authority marker migration 019 is missing token: {required_token}"
             )
-
 
 def check_write_provenance(root: Path, errors: list[str]) -> None:
     """Verify write provenance migration (020) defines required objects."""
@@ -366,7 +322,6 @@ def check_write_provenance(root: Path, errors: list[str]) -> None:
                 f"Write provenance migration 020 is missing object: {required_object}"
             )
 
-
 def check_provenance_helper(root: Path, errors: list[str]) -> None:
     """Verify the runtime provenance helper module exists and exports."""
     helper = root / "shared-layer" / "src" / "shared_layer" / "database" / "provenance.py"
@@ -379,7 +334,6 @@ def check_provenance_helper(root: Path, errors: list[str]) -> None:
             errors.append(
                 f"Provenance helper is missing symbol: {required_symbol}"
             )
-
 
 def check_permission_snapshot(root: Path, errors: list[str]) -> None:
     """Verify permission snapshot migration (021) defines required objects."""
@@ -398,7 +352,6 @@ def check_permission_snapshot(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Permission snapshot migration 021 is missing: {required}")
 
-
 def check_schema_ownership_lock(root: Path, errors: list[str]) -> None:
     """Verify schema ownership lock migration (022) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "022_schema_ownership_lock.sql"
@@ -415,7 +368,6 @@ def check_schema_ownership_lock(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Schema ownership lock migration 022 is missing: {required}")
 
-
 def check_ddl_audit(root: Path, errors: list[str]) -> None:
     """Verify DDL audit migration (023) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "023_ddl_audit.sql"
@@ -431,7 +383,6 @@ def check_ddl_audit(root: Path, errors: list[str]) -> None:
     ):
         if required not in text:
             errors.append(f"DDL audit migration 023 is missing: {required}")
-
 
 def check_contract_handshake(root: Path, errors: list[str]) -> None:
     """Verify contract version handshake migration (024) defines required objects."""
@@ -450,7 +401,6 @@ def check_contract_handshake(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Contract handshake migration 024 is missing: {required}")
 
-
 def check_permission_snapshot_helper(root: Path, errors: list[str]) -> None:
     """Verify the runtime permission snapshot helper exists."""
     helper = root / "shared-layer" / "src" / "shared_layer" / "database" / "permission_snapshot.py"
@@ -460,19 +410,6 @@ def check_permission_snapshot_helper(root: Path, errors: list[str]) -> None:
     text = read_text_cached(helper)
     if "capture_snapshot" not in text:
         errors.append("Permission snapshot helper is missing: capture_snapshot")
-
-
-def check_sqlite_generation_fence(root: Path, errors: list[str]) -> None:
-    """Verify SQLite generation fence migration (025) defines required objects."""
-    migration = root / "shared-layer" / "migrations" / "025_sqlite_generation_fence.sql"
-    if not migration.is_file():
-        errors.append("SQLite generation fence migration 025 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("sqlite_generation", "upsert_sqlite_generation", "stale"):
-        if required not in text:
-            errors.append(f"SQLite generation fence migration 025 is missing: {required}")
-
 
 def check_workload_class(root: Path, errors: list[str]) -> None:
     """Verify workload class migration (026) defines required objects."""
@@ -487,7 +424,6 @@ def check_workload_class(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Workload class migration 026 is missing: {required}")
 
-
 def check_two_stage_deletion(root: Path, errors: list[str]) -> None:
     """Verify two-stage deletion migration (027) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "027_two_stage_deletion.sql"
@@ -501,7 +437,6 @@ def check_two_stage_deletion(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Two-stage deletion migration 027 is missing: {required}")
 
-
 def check_orphan_scanner(root: Path, errors: list[str]) -> None:
     """Verify the runtime orphan scanner module exists."""
     scanner = root / "shared-layer" / "src" / "shared_layer" / "database" / "orphan_scanner.py"
@@ -511,7 +446,6 @@ def check_orphan_scanner(root: Path, errors: list[str]) -> None:
     text = read_text_cached(scanner)
     if "scan_orphans" not in text:
         errors.append("Orphan scanner is missing: scan_orphans")
-
 
 def check_deletion_coordinator(root: Path, errors: list[str]) -> None:
     """Verify the runtime deletion coordinator module exists."""
@@ -524,7 +458,6 @@ def check_deletion_coordinator(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Deletion coordinator is missing: {required}")
 
-
 def check_generation_fence_helper(root: Path, errors: list[str]) -> None:
     """Verify the runtime generation fence helper module exists."""
     helper = root / "shared-layer" / "src" / "shared_layer" / "database" / "generation_fence.py"
@@ -535,7 +468,6 @@ def check_generation_fence_helper(root: Path, errors: list[str]) -> None:
     for required in ("get_current_generation", "bump_generation", "is_connection_stale"):
         if required not in text:
             errors.append(f"Generation fence helper is missing: {required}")
-
 
 def check_rebuild_certification(root: Path, errors: list[str]) -> None:
     """Verify rebuild certification migration (028) defines required objects."""
@@ -549,7 +481,6 @@ def check_rebuild_certification(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Rebuild certification migration 028 is missing: {required}")
 
-
 def check_watchdog_bloat_rpo_rto(root: Path, errors: list[str]) -> None:
     """Verify watchdog/bloat/RPO-RTO/capacity migration (029) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "029_watchdog_bloat_rpo_rto.sql"
@@ -559,12 +490,10 @@ def check_watchdog_bloat_rpo_rto(root: Path, errors: list[str]) -> None:
     text = read_text_cached(migration)
     for required in ("long_transaction_watchdog", "bloat_report",
                      "rpo_rto_class", "capacity_threshold",
-                     "postgresql-central", "governance-codex-sqlite",
-                     "module-sqlite", "qdrant",
+                     "postgresql-central",
                      "warning_level", "critical_level", "fail_closed_level"):
         if required not in text:
             errors.append(f"Watchdog/bloat/RPO-RTO migration 029 is missing: {required}")
-
 
 def check_readonly_domain_startup_cert(root: Path, errors: list[str]) -> None:
     """Verify read-only domain + startup cert migration (030) defines required objects."""
@@ -581,7 +510,6 @@ def check_readonly_domain_startup_cert(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Read-only domain + startup cert migration 030 is missing: {required}")
 
-
 def check_slo_metrics(root: Path, errors: list[str]) -> None:
     """Verify SLO metrics migration (031) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "031_slo_metrics.sql"
@@ -592,11 +520,9 @@ def check_slo_metrics(root: Path, errors: list[str]) -> None:
     for required in ("slo_metric", "slo_observation",
                      "record_slo_observation",
                      "central-query-p95", "transport-claim-latency",
-                     "reconcile-backlog", "sqlite-lock-rate",
-                     "qdrant-stale-rate", "restore-success"):
+                     "reconcile-backlog", "restore-success"):
         if required not in text:
             errors.append(f"SLO metrics migration 031 is missing: {required}")
-
 
 def check_unified_lifecycle_state(root: Path, errors: list[str]) -> None:
     """Verify unified lifecycle state migration (050) defines required objects."""
@@ -612,7 +538,6 @@ def check_unified_lifecycle_state(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Unified lifecycle state migration 050 is missing: {required}")
 
-
 def check_transport_retention(root: Path, errors: list[str]) -> None:
     """Verify transport retention migration (051) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "051_transport_retention.sql"
@@ -627,7 +552,6 @@ def check_transport_retention(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Transport retention migration 051 is missing: {required}")
 
-
 def check_audit_retention_layering(root: Path, errors: list[str]) -> None:
     """Verify audit retention layering migration (052) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "052_audit_retention_layering.sql"
@@ -640,35 +564,6 @@ def check_audit_retention_layering(root: Path, errors: list[str]) -> None:
                      "hot", "archive", "long_term"):
         if required not in text:
             errors.append(f"Audit retention layering migration 052 is missing: {required}")
-
-
-def check_sqlite_per_class_retention(root: Path, errors: list[str]) -> None:
-    """Verify SQLite per-class retention migration (053) defines required objects."""
-    migration = root / "shared-layer" / "migrations" / "053_sqlite_per_class_retention.sql"
-    if not migration.is_file():
-        errors.append("SQLite per-class retention migration 053 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("sqlite_retention_policy", "get_sqlite_retention_for_class",
-                     "retention_days", "archive_eligible", "purge_eligible"):
-        if required not in text:
-            errors.append(f"SQLite per-class retention migration 053 is missing: {required}")
-
-
-def check_qdrant_vector_lifecycle(root: Path, errors: list[str]) -> None:
-    """Verify Qdrant vector lifecycle migration (054) defines required objects."""
-    migration = root / "shared-layer" / "migrations" / "054_qdrant_vector_lifecycle.sql"
-    if not migration.is_file():
-        errors.append("Qdrant vector lifecycle migration 054 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("qdrant_vector_lifecycle", "mark_vector_for_resource_state",
-                     "confirm_vector_deleted", "get_vectors_pending_deletion",
-                     "ACTIVE", "STALE", "RETRIEVAL_FORBIDDEN",
-                     "DELETE_PENDING", "VERIFIED_DELETED"):
-        if required not in text:
-            errors.append(f"Qdrant vector lifecycle migration 054 is missing: {required}")
-
 
 def check_purge_queue(root: Path, errors: list[str]) -> None:
     """Verify purge queue migration (055) defines required objects."""
@@ -683,7 +578,6 @@ def check_purge_queue(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Purge queue migration 055 is missing: {required}")
 
-
 def check_archive_catalog(root: Path, errors: list[str]) -> None:
     """Verify archive catalog migration (056) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "056_archive_catalog.sql"
@@ -697,7 +591,6 @@ def check_archive_catalog(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Archive catalog migration 056 is missing: {required}")
 
-
 def check_archive_versioning(root: Path, errors: list[str]) -> None:
     """Verify archive versioning migration (057) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "057_archive_versioning.sql"
@@ -710,7 +603,6 @@ def check_archive_versioning(root: Path, errors: list[str]) -> None:
                      "encoding", "archive_format_version", "checksum_algorithm"):
         if required not in text:
             errors.append(f"Archive versioning migration 057 is missing: {required}")
-
 
 def check_retention_hold(root: Path, errors: list[str]) -> None:
     """Verify retention hold migration (059) defines required objects."""
@@ -726,7 +618,6 @@ def check_retention_hold(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Retention hold migration 059 is missing: {required}")
 
-
 def check_dependency_check(root: Path, errors: list[str]) -> None:
     """Verify dependency check migration (060) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "060_dependency_check.sql"
@@ -738,7 +629,6 @@ def check_dependency_check(root: Path, errors: list[str]) -> None:
                      "can_purge", "has_dependencies", "dependency_details"):
         if required not in text:
             errors.append(f"Dependency check migration 060 is missing: {required}")
-
 
 def check_archive_restore_test(root: Path, errors: list[str]) -> None:
     """Verify archive restore test migration (061) defines required objects."""
@@ -755,7 +645,6 @@ def check_archive_restore_test(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Archive restore test migration 061 is missing: {required}")
 
-
 def check_capacity_quota(root: Path, errors: list[str]) -> None:
     """Verify capacity quota migration (062) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "062_capacity_quota.sql"
@@ -770,7 +659,6 @@ def check_capacity_quota(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Capacity quota migration 062 is missing: {required}")
 
-
 def check_purge_audit(root: Path, errors: list[str]) -> None:
     """Verify purge audit migration (063) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "063_purge_audit.sql"
@@ -783,7 +671,6 @@ def check_purge_audit(root: Path, errors: list[str]) -> None:
                      "previous_hash", "deleted_from", "audit_hash"):
         if required not in text:
             errors.append(f"Purge audit migration 063 is missing: {required}")
-
 
 def check_lifecycle_manager_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime lifecycle manager module exists."""
@@ -799,7 +686,6 @@ def check_lifecycle_manager_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Lifecycle manager module is missing: {required}")
 
-
 def check_audit_hash_chain(root: Path, errors: list[str]) -> None:
     """Verify audit hash chain migration (064) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "064_audit_hash_chain.sql"
@@ -812,7 +698,6 @@ def check_audit_hash_chain(root: Path, errors: list[str]) -> None:
                      "verify_audit_chain", "get_audit_head_hash"):
         if required not in text:
             errors.append(f"Audit hash chain migration 064 is missing: {required}")
-
 
 def check_reconcile_batch_digest(root: Path, errors: list[str]) -> None:
     """Verify reconcile batch digest migration (065) defines required objects."""
@@ -828,7 +713,6 @@ def check_reconcile_batch_digest(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Reconcile batch digest migration 065 is missing: {required}")
 
-
 def check_resource_content_hash(root: Path, errors: list[str]) -> None:
     """Verify resource content hash migration (066) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "066_resource_content_hash.sql"
@@ -842,37 +726,6 @@ def check_resource_content_hash(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Resource content hash migration 066 is missing: {required}")
 
-
-def check_sqlite_database_digest(root: Path, errors: list[str]) -> None:
-    """Verify SQLite database digest migration (067) defines required objects."""
-    migration = root / "shared-layer" / "migrations" / "067_sqlite_database_digest.sql"
-    if not migration.is_file():
-        errors.append("SQLite database digest migration 067 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("sqlite_database_digest", "schema_hash", "revision_head",
-                     "row_count", "critical_table_digest",
-                     "record_sqlite_digest", "verify_sqlite_digest",
-                     "get_tampered_sqlite_dbs"):
-        if required not in text:
-            errors.append(f"SQLite database digest migration 067 is missing: {required}")
-
-
-def check_qdrant_integrity_mapping(root: Path, errors: list[str]) -> None:
-    """Verify Qdrant integrity mapping migration (068) defines required objects."""
-    migration = root / "shared-layer" / "migrations" / "068_qdrant_integrity_mapping.sql"
-    if not migration.is_file():
-        errors.append("Qdrant integrity mapping migration 068 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("qdrant_integrity_map", "chunk_hash", "embedding_version",
-                     "qdrant_point_id", "resource_revision",
-                     "record_qdrant_integrity", "verify_qdrant_integrity",
-                     "get_qdrant_integrity_issues"):
-        if required not in text:
-            errors.append(f"Qdrant integrity mapping migration 068 is missing: {required}")
-
-
 def check_merkle_root(root: Path, errors: list[str]) -> None:
     """Verify Merkle root migration (069) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "069_merkle_root.sql"
@@ -885,7 +738,6 @@ def check_merkle_root(root: Path, errors: list[str]) -> None:
                      "leaf_count", "leaf_hashes"):
         if required not in text:
             errors.append(f"Merkle root migration 069 is missing: {required}")
-
 
 def check_integrity_snapshot(root: Path, errors: list[str]) -> None:
     """Verify integrity snapshot migration (070) defines required objects."""
@@ -901,7 +753,6 @@ def check_integrity_snapshot(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Integrity snapshot migration 070 is missing: {required}")
 
-
 def check_restore_verification(root: Path, errors: list[str]) -> None:
     """Verify restore verification migration (071) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "071_restore_verification.sql"
@@ -916,7 +767,6 @@ def check_restore_verification(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Restore verification migration 071 is missing: {required}")
 
-
 def check_tamper_state(root: Path, errors: list[str]) -> None:
     """Verify tamper state migration (072) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "072_tamper_state.sql"
@@ -930,7 +780,6 @@ def check_tamper_state(root: Path, errors: list[str]) -> None:
                      "tampered", "incomplete", "rebuild_required"):
         if required not in text:
             errors.append(f"Tamper state migration 072 is missing: {required}")
-
 
 def check_fail_closed(root: Path, errors: list[str]) -> None:
     """Verify fail-closed migration (073) defines required objects."""
@@ -947,7 +796,6 @@ def check_fail_closed(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Fail-closed migration 073 is missing: {required}")
 
-
 def check_integrity_verifier_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime integrity verifier module exists."""
     module = root / "shared-layer" / "src" / "shared_layer" / "database" / "integrity_verifier.py"
@@ -959,14 +807,12 @@ def check_integrity_verifier_module(root: Path, errors: list[str]) -> None:
                      "populate_event_hash_chain", "verify_audit_chain",
                      "get_audit_head_hash", "start_reconcile_batch",
                      "complete_reconcile_batch", "record_resource_hash",
-                     "verify_resource_hash", "record_sqlite_digest",
-                     "record_qdrant_integrity", "verify_qdrant_integrity",
+                     "verify_resource_hash",
                      "record_merkle_root", "create_integrity_snapshot",
                      "record_restore_verification", "record_tamper_state",
                      "trigger_fail_closed", "is_fail_closed_active"):
         if required not in text:
             errors.append(f"Integrity verifier module is missing: {required}")
-
 
 def check_version_lock(root: Path, errors: list[str]) -> None:
     """Verify version lock migration (074) defines required objects."""
@@ -980,7 +826,6 @@ def check_version_lock(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Version lock migration 074 is missing: {required}")
 
-
 def check_compatibility_matrix_ext(root: Path, errors: list[str]) -> None:
     """Verify extended compatibility matrix migration (075)."""
     migration = root / "shared-layer" / "migrations" / "075_compatibility_matrix_ext.sql"
@@ -990,11 +835,9 @@ def check_compatibility_matrix_ext(root: Path, errors: list[str]) -> None:
     text = read_text_cached(migration)
     for required in ("compatibility_matrix_ext", "record_compatibility",
                      "check_combination_allowed", "get_forbidden_combinations",
-                     "postgresql_version", "psycopg_version",
-                     "sqlite_runtime_version", "qdrant_server_version"):
+                     "postgresql_version", "psycopg_version"):
         if required not in text:
             errors.append(f"Compatibility matrix ext migration 075 is missing: {required}")
-
 
 def check_upgrade_classification(root: Path, errors: list[str]) -> None:
     """Verify upgrade classification migration (076)."""
@@ -1008,7 +851,6 @@ def check_upgrade_classification(root: Path, errors: list[str]) -> None:
                      "required_validation", "allows_unattended"):
         if required not in text:
             errors.append(f"Upgrade classification migration 076 is missing: {required}")
-
 
 def check_driver_compatibility_test(root: Path, errors: list[str]) -> None:
     """Verify driver compatibility test migration (077)."""
@@ -1024,7 +866,6 @@ def check_driver_compatibility_test(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Driver compatibility test migration 077 is missing: {required}")
 
-
 def check_pg_major_upgrade_rehearsal(root: Path, errors: list[str]) -> None:
     """Verify PG major upgrade rehearsal migration (078)."""
     migration = root / "shared-layer" / "migrations" / "078_pg_major_upgrade_rehearsal.sql"
@@ -1039,37 +880,6 @@ def check_pg_major_upgrade_rehearsal(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"PG major upgrade rehearsal migration 078 is missing: {required}")
 
-
-def check_sqlite_runtime_compat(root: Path, errors: list[str]) -> None:
-    """Verify SQLite runtime compat migration (079)."""
-    migration = root / "shared-layer" / "migrations" / "079_sqlite_runtime_compat.sql"
-    if not migration.is_file():
-        errors.append("SQLite runtime compat migration 079 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("sqlite_runtime_compat", "record_sqlite_runtime_compat",
-                     "check_sqlite_runtime_compat",
-                     "python_version", "sqlite_library_version",
-                     "fts5_available", "wal_mode_available", "json1_available"):
-        if required not in text:
-            errors.append(f"SQLite runtime compat migration 079 is missing: {required}")
-
-
-def check_qdrant_contract_compat(root: Path, errors: list[str]) -> None:
-    """Verify Qdrant contract compat migration (080)."""
-    migration = root / "shared-layer" / "migrations" / "080_qdrant_contract_compat.sql"
-    if not migration.is_file():
-        errors.append("Qdrant contract compat migration 080 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("qdrant_contract_compat", "record_qdrant_compat",
-                     "is_qdrant_upgrade_safe",
-                     "collection_schema", "payload_filter", "snapshot_format",
-                     "index_config", "client_api", "point_id_behavior"):
-        if required not in text:
-            errors.append(f"Qdrant contract compat migration 080 is missing: {required}")
-
-
 def check_sbom_dependency_inventory(root: Path, errors: list[str]) -> None:
     """Verify SBOM dependency inventory migration (081)."""
     migration = root / "shared-layer" / "migrations" / "081_sbom_dependency_inventory.sql"
@@ -1083,7 +893,6 @@ def check_sbom_dependency_inventory(root: Path, errors: list[str]) -> None:
                      "source", "source_hash", "install_path"):
         if required not in text:
             errors.append(f"SBOM dependency inventory migration 081 is missing: {required}")
-
 
 def check_vulnerability_risk(root: Path, errors: list[str]) -> None:
     """Verify vulnerability risk migration (082)."""
@@ -1100,7 +909,6 @@ def check_vulnerability_risk(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Vulnerability risk migration 082 is missing: {required}")
 
-
 def check_dependency_drift(root: Path, errors: list[str]) -> None:
     """Verify dependency drift migration (083)."""
     migration = root / "shared-layer" / "migrations" / "083_dependency_drift.sql"
@@ -1114,7 +922,6 @@ def check_dependency_drift(root: Path, errors: list[str]) -> None:
                      "expected_version", "installed_version"):
         if required not in text:
             errors.append(f"Dependency drift migration 083 is missing: {required}")
-
 
 def check_offline_bundle(root: Path, errors: list[str]) -> None:
     """Verify offline bundle migration (084)."""
@@ -1130,7 +937,6 @@ def check_offline_bundle(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Offline bundle migration 084 is missing: {required}")
 
-
 def check_release_signature(root: Path, errors: list[str]) -> None:
     """Verify release signature migration (085)."""
     migration = root / "shared-layer" / "migrations" / "085_release_signature.sql"
@@ -1144,27 +950,6 @@ def check_release_signature(root: Path, errors: list[str]) -> None:
                      "tamper_state"):
         if required not in text:
             errors.append(f"Release signature migration 085 is missing: {required}")
-
-
-def check_dependency_governor_module(root: Path, errors: list[str]) -> None:
-    """Verify the runtime dependency governor module exists."""
-    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "dependency_governor.py"
-    if not module.is_file():
-        errors.append("Dependency governor module is missing")
-        return
-    text = read_text_cached(module)
-    for required in ("compute_bundle_hash", "lock_version", "get_version_lock",
-                     "record_compatibility", "check_combination_allowed",
-                     "classify_upgrade", "get_upgrade_class",
-                     "record_driver_test", "is_driver_version_verified",
-                     "start_pg_rehearsal", "advance_pg_rehearsal",
-                     "record_sqlite_runtime_compat", "record_qdrant_compat",
-                     "record_sbom_entry", "record_vulnerability",
-                     "record_dependency_drift", "register_offline_bundle",
-                     "sign_release", "verify_release_signature"):
-        if required not in text:
-            errors.append(f"Dependency governor module is missing: {required}")
-
 
 def check_recovery_plan(root: Path, errors: list[str]) -> None:
     """Verify recovery plan migration (088) defines required objects."""
@@ -1180,7 +965,6 @@ def check_recovery_plan(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Recovery plan migration 088 is missing: {required}")
 
-
 def check_recovery_incident(root: Path, errors: list[str]) -> None:
     """Verify recovery incident migration (089)."""
     migration = root / "shared-layer" / "migrations" / "089_recovery_incident.sql"
@@ -1192,7 +976,6 @@ def check_recovery_incident(root: Path, errors: list[str]) -> None:
                      "advance_incident_status", "get_active_incidents"):
         if required not in text:
             errors.append(f"Recovery incident migration 089 is missing: {required}")
-
 
 def check_recovery_state_machine(root: Path, errors: list[str]) -> None:
     """Verify recovery state machine migration (090)."""
@@ -1207,7 +990,6 @@ def check_recovery_state_machine(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Recovery state machine migration 090 is missing: {required}")
 
-
 def check_pg_offline_recovery(root: Path, errors: list[str]) -> None:
     """Verify PG offline recovery migration (091)."""
     migration = root / "shared-layer" / "migrations" / "091_pg_offline_recovery.sql"
@@ -1219,7 +1001,6 @@ def check_pg_offline_recovery(root: Path, errors: list[str]) -> None:
                      "enter_degraded_mode", "fallback_status"):
         if required not in text:
             errors.append(f"PG offline recovery migration 091 is missing: {required}")
-
 
 def check_pg_recovery_verification(root: Path, errors: list[str]) -> None:
     """Verify PG recovery verification migration (092)."""
@@ -1235,7 +1016,6 @@ def check_pg_recovery_verification(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"PG recovery verification migration 092 is missing: {required}")
 
-
 def check_reconcile_recovery_phase(root: Path, errors: list[str]) -> None:
     """Verify reconcile recovery phase migration (093)."""
     migration = root / "shared-layer" / "migrations" / "093_reconcile_recovery_phase.sql"
@@ -1248,7 +1028,6 @@ def check_reconcile_recovery_phase(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Reconcile recovery phase migration 093 is missing: {required}")
 
-
 def check_recovery_generation(root: Path, errors: list[str]) -> None:
     """Verify recovery generation migration (094)."""
     migration = root / "shared-layer" / "migrations" / "094_recovery_generation.sql"
@@ -1260,7 +1039,6 @@ def check_recovery_generation(root: Path, errors: list[str]) -> None:
                      "get_current_generation", "degraded", "recovered"):
         if required not in text:
             errors.append(f"Recovery generation migration 094 is missing: {required}")
-
 
 def check_recovery_barrier(root: Path, errors: list[str]) -> None:
     """Verify recovery barrier migration (095)."""
@@ -1275,7 +1053,6 @@ def check_recovery_barrier(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Recovery barrier migration 095 is missing: {required}")
 
-
 def check_transport_recovery(root: Path, errors: list[str]) -> None:
     """Verify transport recovery migration (096)."""
     migration = root / "shared-layer" / "migrations" / "096_transport_recovery.sql"
@@ -1288,7 +1065,6 @@ def check_transport_recovery(root: Path, errors: list[str]) -> None:
                      "idempotency_key", "COMMITTED", "NOT_COMMITTED", "UNKNOWN"):
         if required not in text:
             errors.append(f"Transport recovery migration 096 is missing: {required}")
-
 
 def check_lease_recovery(root: Path, errors: list[str]) -> None:
     """Verify lease recovery migration (098)."""
@@ -1303,49 +1079,6 @@ def check_lease_recovery(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Lease recovery migration 098 is missing: {required}")
 
-
-def check_sqlite_fallback_freeze(root: Path, errors: list[str]) -> None:
-    """Verify SQLite fallback freeze migration (099)."""
-    migration = root / "shared-layer" / "migrations" / "099_sqlite_fallback_freeze.sql"
-    if not migration.is_file():
-        errors.append("SQLite fallback freeze migration 099 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("sqlite_fallback_freeze", "transition_fallback_state",
-                     "get_fallback_state",
-                     "fallback_open", "fallback_draining",
-                     "fallback_frozen", "fallback_closed"):
-        if required not in text:
-            errors.append(f"SQLite fallback freeze migration 099 is missing: {required}")
-
-
-def check_qdrant_recovery(root: Path, errors: list[str]) -> None:
-    """Verify Qdrant recovery migration (101)."""
-    migration = root / "shared-layer" / "migrations" / "101_qdrant_recovery.sql"
-    if not migration.is_file():
-        errors.append("Qdrant recovery migration 101 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("qdrant_recovery", "start_qdrant_recovery",
-                     "update_qdrant_recovery", "indexing_backlog_count"):
-        if required not in text:
-            errors.append(f"Qdrant recovery migration 101 is missing: {required}")
-
-
-def check_qdrant_full_rebuild(root: Path, errors: list[str]) -> None:
-    """Verify Qdrant full rebuild migration (102)."""
-    migration = root / "shared-layer" / "migrations" / "102_qdrant_full_rebuild.sql"
-    if not migration.is_file():
-        errors.append("Qdrant full rebuild migration 102 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("qdrant_full_rebuild", "start_qdrant_full_rebuild",
-                     "advance_qdrant_rebuild", "collection_generation",
-                     "old_collection_retired"):
-        if required not in text:
-            errors.append(f"Qdrant full rebuild migration 102 is missing: {required}")
-
-
 def check_recovery_checkpoint(root: Path, errors: list[str]) -> None:
     """Verify recovery checkpoint migration (108)."""
     migration = root / "shared-layer" / "migrations" / "108_recovery_checkpoint.sql"
@@ -1359,7 +1092,6 @@ def check_recovery_checkpoint(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Recovery checkpoint migration 108 is missing: {required}")
 
-
 def check_recovery_idempotency(root: Path, errors: list[str]) -> None:
     """Verify recovery idempotency migration (109)."""
     migration = root / "shared-layer" / "migrations" / "109_recovery_idempotency.sql"
@@ -1371,7 +1103,6 @@ def check_recovery_idempotency(root: Path, errors: list[str]) -> None:
                      "mark_idempotent_complete", "operation_key"):
         if required not in text:
             errors.append(f"Recovery idempotency migration 109 is missing: {required}")
-
 
 def check_recovery_safety_fence(root: Path, errors: list[str]) -> None:
     """Verify recovery safety fence migration (110)."""
@@ -1387,7 +1118,6 @@ def check_recovery_safety_fence(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Recovery safety fence migration 110 is missing: {required}")
 
-
 def check_chaos_drill(root: Path, errors: list[str]) -> None:
     """Verify chaos drill migration (111)."""
     migration = root / "shared-layer" / "migrations" / "111_chaos_drill.sql"
@@ -1402,7 +1132,6 @@ def check_chaos_drill(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Chaos drill migration 111 is missing: {required}")
 
-
 def check_recovery_certification(root: Path, errors: list[str]) -> None:
     """Verify recovery certification migration (112)."""
     migration = root / "shared-layer" / "migrations" / "112_recovery_certification.sql"
@@ -1416,7 +1145,6 @@ def check_recovery_certification(root: Path, errors: list[str]) -> None:
                      "certification_status", "CERTIFIED"):
         if required not in text:
             errors.append(f"Recovery certification migration 112 is missing: {required}")
-
 
 def check_recovery_orchestrator_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime recovery orchestrator module exists."""
@@ -1440,7 +1168,6 @@ def check_recovery_orchestrator_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Recovery orchestrator module is missing: {required}")
 
-
 def check_data_layer_contract(root: Path, errors: list[str]) -> None:
     """Verify data layer contract migration (114)."""
     migration = root / "shared-layer" / "migrations" / "114_data_layer_contract.sql"
@@ -1456,7 +1183,6 @@ def check_data_layer_contract(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Data layer contract migration 114 is missing: {required}")
 
-
 def check_dependency_classification(root: Path, errors: list[str]) -> None:
     """Verify dependency classification migration (115)."""
     migration = root / "shared-layer" / "migrations" / "115_dependency_classification.sql"
@@ -1467,10 +1193,9 @@ def check_dependency_classification(root: Path, errors: list[str]) -> None:
     for required in ("dependency_classification", "authority", "required",
                      "degradable", "optional", "classify_dependency",
                      "get_dependency_classification",
-                     "postgresql", "sqlite_codex", "qdrant"):
+                     "postgresql", "vector"):
         if required not in text:
             errors.append(f"Dependency classification migration 115 is missing: {required}")
-
 
 def check_startup_phase(root: Path, errors: list[str]) -> None:
     """Verify startup phase migration (116)."""
@@ -1487,7 +1212,6 @@ def check_startup_phase(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Startup phase migration 116 is missing: {required}")
 
-
 def check_startup_phase_gate(root: Path, errors: list[str]) -> None:
     """Verify startup phase gate migration (117)."""
     migration = root / "shared-layer" / "migrations" / "117_startup_phase_gate.sql"
@@ -1501,7 +1225,6 @@ def check_startup_phase_gate(root: Path, errors: list[str]) -> None:
                      "security_ready", "authority_ready", "audit_ready"):
         if required not in text:
             errors.append(f"Startup phase gate migration 117 is missing: {required}")
-
 
 def check_schema_readiness(root: Path, errors: list[str]) -> None:
     """Verify schema readiness migration (118)."""
@@ -1518,7 +1241,6 @@ def check_schema_readiness(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Schema readiness migration 118 is missing: {required}")
 
-
 def check_rag_readiness_gate(root: Path, errors: list[str]) -> None:
     """Verify RAG readiness gate migration (119)."""
     migration = root / "shared-layer" / "migrations" / "119_rag_readiness_gate.sql"
@@ -1528,11 +1250,10 @@ def check_rag_readiness_gate(root: Path, errors: list[str]) -> None:
     text = read_text_cached(migration)
     for required in ("rag_readiness_gate", "evaluate_rag_readiness",
                      "is_rag_ready", "pg_rag_metadata_ready",
-                     "qdrant_ready", "metadata_authority_wired",
+                     "vector_ready", "metadata_authority_wired",
                      "collection_contract_valid"):
         if required not in text:
             errors.append(f"RAG readiness gate migration 119 is missing: {required}")
-
 
 def check_shutdown_phase(root: Path, errors: list[str]) -> None:
     """Verify shutdown phase migration (120)."""
@@ -1543,11 +1264,10 @@ def check_shutdown_phase(root: Path, errors: list[str]) -> None:
     text = read_text_cached(migration)
     for required in ("shutdown_phase", "STOP_ACCEPTING_NEW_WORK",
                      "DRAIN_TRANSPORT", "FLUSH_AUDIT",
-                     "CLOSE_QDRANT_CLIENT", "CLOSE_SQLITE",
+                     "CLOSE_VECTOR_CLIENT", "CLOSE_MODULE_PRIVATE_POOLS",
                      "CLOSE_POSTGRES_POOLS", "get_shutdown_order"):
         if required not in text:
             errors.append(f"Shutdown phase migration 120 is missing: {required}")
-
 
 def check_shutdown_audit(root: Path, errors: list[str]) -> None:
     """Verify shutdown audit migration (121)."""
@@ -1563,7 +1283,6 @@ def check_shutdown_audit(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Shutdown audit migration 121 is missing: {required}")
 
-
 def check_unclean_shutdown_detection(root: Path, errors: list[str]) -> None:
     """Verify unclean shutdown detection migration (122)."""
     migration = root / "shared-layer" / "migrations" / "122_unclean_shutdown_detection.sql"
@@ -1575,11 +1294,9 @@ def check_unclean_shutdown_detection(root: Path, errors: list[str]) -> None:
                      "mark_unclean_step_done",
                      "is_unclean_recovery_complete",
                      "transport_lease_recovery",
-                     "unknown_commit_verification",
-                     "sqlite_wal_verification"):
+                     "unknown_commit_verification"):
         if required not in text:
             errors.append(f"Unclean shutdown detection migration 122 is missing: {required}")
-
 
 def check_cache_invalidation_policy(root: Path, errors: list[str]) -> None:
     """Verify cache invalidation policy migration (123)."""
@@ -1594,7 +1311,6 @@ def check_cache_invalidation_policy(root: Path, errors: list[str]) -> None:
                      "check_revision_compatible", "check_ttl_valid"):
         if required not in text:
             errors.append(f"Cache invalidation policy migration 123 is missing: {required}")
-
 
 def check_dependency_graph(root: Path, errors: list[str]) -> None:
     """Verify dependency graph migration (124)."""
@@ -1611,7 +1327,6 @@ def check_dependency_graph(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Dependency graph migration 124 is missing: {required}")
 
-
 def check_integration_rule(root: Path, errors: list[str]) -> None:
     """Verify integration rule migration (125)."""
     migration = root / "shared-layer" / "migrations" / "125_integration_rule.sql"
@@ -1627,7 +1342,6 @@ def check_integration_rule(root: Path, errors: list[str]) -> None:
                      "bounded", "rebuildable"):
         if required not in text:
             errors.append(f"Integration rule migration 125 is missing: {required}")
-
 
 def check_data_layer_contract_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime data layer contract module exists."""
@@ -1653,7 +1367,6 @@ def check_data_layer_contract_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Data layer contract module is missing: {required}")
 
-
 def check_database_release_manifest(root: Path, errors: list[str]) -> None:
     """Verify database release manifest migration (040) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "040_database_release_manifest.sql"
@@ -1668,7 +1381,6 @@ def check_database_release_manifest(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Database release manifest migration 040 is missing: {required}")
 
-
 def check_release_manifest_file(root: Path, errors: list[str]) -> None:
     """Verify the database-release.json manifest file exists."""
     manifest = root / "shared-layer" / "database-release.json"
@@ -1682,13 +1394,12 @@ def check_release_manifest_file(root: Path, errors: list[str]) -> None:
         errors.append(f"database-release.json is invalid: {exc}")
         return
     for key in ("release_id", "schema_version", "migration_head",
-                "rls_version", "role_version", "sqlite_template_version",
-                "reconcile_contract_version", "qdrant_contract_version",
+                "rls_version", "role_version",
+                "reconcile_contract_version",
                 "query_contract_version", "minimum_runtime_version",
                 "compatibility_range", "state"):
         if key not in data:
             errors.append(f"database-release.json is missing key: {key}")
-
 
 def check_release_manifest_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime release manifest module exists."""
@@ -1701,7 +1412,6 @@ def check_release_manifest_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Release manifest module is missing: {required}")
 
-
 def check_compatibility_matrix(root: Path, errors: list[str]) -> None:
     """Verify compatibility matrix migration (041) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "041_compatibility_matrix.sql"
@@ -1713,7 +1423,6 @@ def check_compatibility_matrix(root: Path, errors: list[str]) -> None:
                      "upsert_compatibility", "full", "read-only", "rejected"):
         if required not in text:
             errors.append(f"Compatibility matrix migration 041 is missing: {required}")
-
 
 def check_migration_breaking_change(root: Path, errors: list[str]) -> None:
     """Verify migration breaking change migration (042) defines required objects."""
@@ -1729,7 +1438,6 @@ def check_migration_breaking_change(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Migration breaking change migration 042 is missing: {required}")
 
-
 def check_query_contract_version(root: Path, errors: list[str]) -> None:
     """Verify query contract version migration (043) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "043_query_contract_version.sql"
@@ -1743,7 +1451,6 @@ def check_query_contract_version(root: Path, errors: list[str]) -> None:
                      "active", "deprecated", "retired"):
         if required not in text:
             errors.append(f"Query contract version migration 043 is missing: {required}")
-
 
 def check_rls_role_migration(root: Path, errors: list[str]) -> None:
     """Verify RLS/Role migration migration (044) defines required objects."""
@@ -1759,36 +1466,6 @@ def check_rls_role_migration(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"RLS/Role migration 044 is missing: {required}")
 
-
-def check_sqlite_template_release(root: Path, errors: list[str]) -> None:
-    """Verify SQLite template release migration (045) defines required objects."""
-    migration = root / "shared-layer" / "migrations" / "045_sqlite_template_release.sql"
-    if not migration.is_file():
-        errors.append("SQLite template release migration 045 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("sqlite_template_release", "register_sqlite_template",
-                     "get_active_sqlite_template", "can_write_sqlite",
-                     "template_version", "minimum_writer_version"):
-        if required not in text:
-            errors.append(f"SQLite template release migration 045 is missing: {required}")
-
-
-def check_qdrant_contract_version(root: Path, errors: list[str]) -> None:
-    """Verify Qdrant contract version migration (046) defines required objects."""
-    migration = root / "shared-layer" / "migrations" / "046_qdrant_contract_version.sql"
-    if not migration.is_file():
-        errors.append("Qdrant contract version migration 046 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("qdrant_contract", "register_qdrant_contract",
-                     "deprecate_qdrant_contract", "retire_qdrant_contract",
-                     "get_active_qdrant_contract",
-                     "vector_dimension", "distance_metric", "embedding_model"):
-        if required not in text:
-            errors.append(f"Qdrant contract version migration 046 is missing: {required}")
-
-
 def check_canary_upgrade(root: Path, errors: list[str]) -> None:
     """Verify canary upgrade migration (047) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "047_canary_upgrade.sql"
@@ -1803,7 +1480,6 @@ def check_canary_upgrade(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Canary upgrade migration 047 is missing: {required}")
 
-
 def check_release_audit(root: Path, errors: list[str]) -> None:
     """Verify release audit migration (048) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "048_release_audit.sql"
@@ -1816,7 +1492,6 @@ def check_release_audit(root: Path, errors: list[str]) -> None:
                      "schema_hash", "migration_set"):
         if required not in text:
             errors.append(f"Release audit migration 048 is missing: {required}")
-
 
 def check_roll_forward(root: Path, errors: list[str]) -> None:
     """Verify roll forward migration (049) defines required objects."""
@@ -1831,7 +1506,6 @@ def check_roll_forward(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Roll forward migration 049 is missing: {required}")
 
-
 def check_workload_pool_query_class(root: Path, errors: list[str]) -> None:
     """Verify workload pool + query class migration (032) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "032_workload_pool_query_class.sql"
@@ -1845,7 +1519,6 @@ def check_workload_pool_query_class(root: Path, errors: list[str]) -> None:
                      "reconcile", "migration"):
         if required not in text:
             errors.append(f"Workload pool/query class migration 032 is missing: {required}")
-
 
 _POOL_CALL = re.compile(r"(?:Thread|Process)PoolExecutor\s*\(")
 _MAX_WORKERS_ARG = re.compile(r"max_workers\s*=\s*([^,\)]+)")
@@ -1880,7 +1553,6 @@ _POOL_SKIP_DIRS = {
 }
 _WORKER_POOL_CAP = 5
 
-
 def _bounded_workers_expr(
     expr: str, text: str, consts: dict[str, int], depth: int = 0
 ) -> bool:
@@ -1904,7 +1576,6 @@ def _bounded_workers_expr(
                 assign.group(1), text, consts, depth + 1
             )
     return False
-
 
 def check_bounded_worker_pools(root: Path, errors: list[str]) -> None:
     """Verify every worker pool is bounded inside the five-core budget.
@@ -1975,7 +1646,6 @@ def check_bounded_worker_pools(root: Path, errors: list[str]) -> None:
                             f"five-core budget: max_workers={expr}"
                         )
 
-
 def check_query_fingerprint(root: Path, errors: list[str]) -> None:
     """Verify query fingerprint migration (033) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "033_query_fingerprint.sql"
@@ -1987,7 +1657,6 @@ def check_query_fingerprint(root: Path, errors: list[str]) -> None:
                      "get_hot_queries", "p95_latency_ms"):
         if required not in text:
             errors.append(f"Query fingerprint migration 033 is missing: {required}")
-
 
 def check_transport_hot_path_index(root: Path, errors: list[str]) -> None:
     """Verify transport hot path index migration (034) defines required objects."""
@@ -2001,7 +1670,6 @@ def check_transport_hot_path_index(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Transport hot path index migration 034 is missing: {required}")
 
-
 def check_audit_hot_history_separation(root: Path, errors: list[str]) -> None:
     """Verify audit hot/history separation migration (035) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "035_audit_hot_history_separation.sql"
@@ -2012,7 +1680,6 @@ def check_audit_hot_history_separation(root: Path, errors: list[str]) -> None:
     for required in ("event_history", "archive_audit_events", "partition_threshold"):
         if required not in text:
             errors.append(f"Audit hot/history separation migration 035 is missing: {required}")
-
 
 def check_wal_checkpoint_monitor(root: Path, errors: list[str]) -> None:
     """Verify WAL checkpoint monitor migration (036) defines required objects."""
@@ -2025,22 +1692,6 @@ def check_wal_checkpoint_monitor(root: Path, errors: list[str]) -> None:
                      "checkpoint_duration_ms", "wal_rate_mb_per_min"):
         if required not in text:
             errors.append(f"WAL checkpoint monitor migration 036 is missing: {required}")
-
-
-def check_sqlite_classification(root: Path, errors: list[str]) -> None:
-    """Verify SQLite classification migration (037) defines required objects."""
-    migration = root / "shared-layer" / "migrations" / "037_sqlite_classification.sql"
-    if not migration.is_file():
-        errors.append("SQLite classification migration 037 is missing")
-        return
-    text = read_text_cached(migration)
-    for required in ("sqlite_database_class", "upsert_sqlite_class",
-                     "synchronous_setting", "backup_frequency_seconds",
-                     "integrity_check_frequency_seconds", "retention_days",
-                     "reconcile_required"):
-        if required not in text:
-            errors.append(f"SQLite classification migration 037 is missing: {required}")
-
 
 def check_incremental_reconcile(root: Path, errors: list[str]) -> None:
     """Verify incremental reconcile migration (038) defines required objects."""
@@ -2055,7 +1706,6 @@ def check_incremental_reconcile(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Incremental reconcile migration 038 is missing: {required}")
 
-
 def check_performance_baseline(root: Path, errors: list[str]) -> None:
     """Verify performance baseline migration (039) defines required objects."""
     migration = root / "shared-layer" / "migrations" / "039_performance_baseline.sql"
@@ -2069,7 +1719,6 @@ def check_performance_baseline(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Performance baseline migration 039 is missing: {required}")
 
-
 def check_query_fingerprint_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime query fingerprint module exists."""
     module = root / "shared-layer" / "src" / "shared_layer" / "database" / "query_fingerprint.py"
@@ -2080,45 +1729,6 @@ def check_query_fingerprint_module(root: Path, errors: list[str]) -> None:
     for required in ("record", "get_hot"):
         if required not in text:
             errors.append(f"Query fingerprint module is missing: {required}")
-
-
-def check_sqlite_pragma_policy_module(root: Path, errors: list[str]) -> None:
-    """Verify the runtime SQLite PRAGMA policy module exists."""
-    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "sqlite_pragma_policy.py"
-    if not module.is_file():
-        errors.append("SQLite PRAGMA policy module is missing")
-        return
-    text = read_text_cached(module)
-    for required in ("apply_pragma", "get_pragma_policy", "journal_mode",
-                     "foreign_keys", "busy_timeout", "synchronous"):
-        if required not in text:
-            errors.append(f"SQLite PRAGMA policy module is missing: {required}")
-
-
-def check_sqlite_classification_module(root: Path, errors: list[str]) -> None:
-    """Verify the runtime SQLite classification module exists."""
-    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "sqlite_classification.py"
-    if not module.is_file():
-        errors.append("SQLite classification module is missing")
-        return
-    text = read_text_cached(module)
-    for required in ("register", "get_class", "list_by_class"):
-        if required not in text:
-            errors.append(f"SQLite classification module is missing: {required}")
-
-
-def check_sqlite_wal_governor_module(root: Path, errors: list[str]) -> None:
-    """Verify the runtime SQLite WAL governor module exists."""
-    module = root / "shared-layer" / "src" / "shared_layer" / "database" / "sqlite_wal_governor.py"
-    if not module.is_file():
-        errors.append("SQLite WAL governor module is missing")
-        return
-    text = read_text_cached(module)
-    for required in ("check_and_checkpoint", "get_wal_stats", "PASSIVE",
-                     "RESTART", "TRUNCATE"):
-        if required not in text:
-            errors.append(f"SQLite WAL governor module is missing: {required}")
-
 
 def check_batch_writer_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime batch writer module exists."""
@@ -2131,7 +1741,6 @@ def check_batch_writer_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Batch writer module is missing: {required}")
 
-
 def check_locator_cache_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime locator cache module exists."""
     module = root / "shared-layer" / "src" / "shared_layer" / "database" / "locator_cache.py"
@@ -2142,7 +1751,6 @@ def check_locator_cache_module(root: Path, errors: list[str]) -> None:
     for required in ("LocatorCache", "get", "put", "invalidate", "stats"):
         if required not in text:
             errors.append(f"Locator cache module is missing: {required}")
-
 
 def check_prepared_query_catalog_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime prepared query catalog module exists."""
@@ -2157,7 +1765,6 @@ def check_prepared_query_catalog_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Prepared query catalog module is missing: {required}")
 
-
 def check_performance_baseline_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime performance baseline module exists."""
     module = root / "shared-layer" / "src" / "shared_layer" / "database" / "performance_baseline.py"
@@ -2169,7 +1776,6 @@ def check_performance_baseline_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Performance baseline module is missing: {required}")
 
-
 def check_rebuild_certifier_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime rebuild certifier module exists."""
     module = root / "shared-layer" / "src" / "shared_layer" / "database" / "rebuild_certifier.py"
@@ -2180,7 +1786,6 @@ def check_rebuild_certifier_module(root: Path, errors: list[str]) -> None:
     for required in ("certify", "is_certified"):
         if required not in text:
             errors.append(f"Rebuild certifier is missing: {required}")
-
 
 def check_watchdog_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime watchdog module exists."""
@@ -2194,7 +1799,6 @@ def check_watchdog_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Watchdog module is missing: {required}")
 
-
 def check_startup_certifier_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime startup certifier module exists."""
     module = root / "shared-layer" / "src" / "shared_layer" / "database" / "startup_certifier.py"
@@ -2206,7 +1810,6 @@ def check_startup_certifier_module(root: Path, errors: list[str]) -> None:
         if required not in text:
             errors.append(f"Startup certifier is missing: {required}")
 
-
 def check_readonly_domain_module(root: Path, errors: list[str]) -> None:
     """Verify the runtime read-only domain module exists."""
     module = root / "shared-layer" / "src" / "shared_layer" / "database" / "readonly_domain.py"
@@ -2217,7 +1820,6 @@ def check_readonly_domain_module(root: Path, errors: list[str]) -> None:
     for required in ("set_readonly", "is_readonly"):
         if required not in text:
             errors.append(f"Read-only domain module is missing: {required}")
-
 
 def check_embedded_browser(root: Path, errors: list[str]) -> None:
     """Verify embedded browser enforcement: no Playwright, modules exist."""

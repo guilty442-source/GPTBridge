@@ -39,8 +39,6 @@ from .audit_artifacts import (
     check_schema_ownership_lock,
     check_slo_metrics,
     check_sql_migrations,
-    check_sqlite_template,
-    check_sqlite_generation_fence,
     check_startup_certifier_module,
     check_two_stage_deletion,
     check_watchdog_bloat_rpo_rto,
@@ -58,10 +56,6 @@ from .audit_artifacts import (
     check_prepared_query_catalog_module,
     check_query_fingerprint,
     check_query_fingerprint_module,
-    check_sqlite_classification,
-    check_sqlite_classification_module,
-    check_sqlite_pragma_policy_module,
-    check_sqlite_wal_governor_module,
     check_transport_hot_path_index,
     check_wal_checkpoint_monitor,
     check_workload_pool_query_class,
@@ -70,14 +64,12 @@ from .audit_artifacts import (
     check_compatibility_matrix,
     check_database_release_manifest,
     check_migration_breaking_change,
-    check_qdrant_contract_version,
     check_query_contract_version,
     check_release_audit,
     check_release_manifest_file,
     check_release_manifest_module,
     check_rls_role_migration,
     check_roll_forward,
-    check_sqlite_template_release,
     # Phase G
     check_archive_catalog,
     check_archive_restore_test,
@@ -88,17 +80,13 @@ from .audit_artifacts import (
     check_lifecycle_manager_module,
     check_purge_audit,
     check_purge_queue,
-    check_qdrant_vector_lifecycle,
     check_retention_hold,
-    check_sqlite_per_class_retention,
     check_transport_retention,
     check_unified_lifecycle_state,
     # Phase H
     check_audit_hash_chain,
     check_reconcile_batch_digest,
     check_resource_content_hash,
-    check_sqlite_database_digest,
-    check_qdrant_integrity_mapping,
     check_merkle_root,
     check_integrity_snapshot,
     check_restore_verification,
@@ -111,14 +99,11 @@ from .audit_artifacts import (
     check_upgrade_classification,
     check_driver_compatibility_test,
     check_pg_major_upgrade_rehearsal,
-    check_sqlite_runtime_compat,
-    check_qdrant_contract_compat,
     check_sbom_dependency_inventory,
     check_vulnerability_risk,
     check_dependency_drift,
     check_offline_bundle,
     check_release_signature,
-    check_dependency_governor_module,
     # Phase J
     check_recovery_plan,
     check_recovery_incident,
@@ -130,9 +115,6 @@ from .audit_artifacts import (
     check_recovery_barrier,
     check_transport_recovery,
     check_lease_recovery,
-    check_sqlite_fallback_freeze,
-    check_qdrant_recovery,
-    check_qdrant_full_rebuild,
     check_recovery_checkpoint,
     check_recovery_idempotency,
     check_recovery_safety_fence,
@@ -201,7 +183,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 # governor throttling; relax to 60s to prevent false degraded on reference hardware.
 AUDIT_FLOW_BUDGET_SECONDS: Final[float] = 60.0
 
-
 def audit_flow_budget_error(elapsed_seconds: float) -> str | None:
     """Return the budget violation error for one completed audit flow.
 
@@ -216,7 +197,6 @@ def audit_flow_budget_error(elapsed_seconds: float) -> str | None:
         )
     return None
 
-
 def _audit_workers(check_count: int) -> int:
     """Pick the audit thread count.
 
@@ -229,7 +209,6 @@ def _audit_workers(check_count: int) -> int:
     if override.isdigit() and int(override) > 0:
         return max(1, min(int(override), check_count))
     return max(1, min(4, check_count))
-
 
 def _sweep_stale_temp_files(directory: Path, max_age_seconds: float = 3600.0) -> None:
     """Remove abandoned atomic-write temp files left by crashed audits."""
@@ -247,12 +226,10 @@ def _sweep_stale_temp_files(directory: Path, max_age_seconds: float = 3600.0) ->
         except OSError:
             continue
 
-
 def _collect(check: Callable[[Path, list[str]], None], root: Path) -> list[str]:
     errors: list[str] = []
     check(root, errors)
     return errors
-
 
 def _manifest_pair(root: Path) -> list[str]:
     """Manifest checks are dependent — identity registration needs the
@@ -261,7 +238,6 @@ def _manifest_pair(root: Path) -> list[str]:
     manifest_tool_ids, _ = check_tool_manifests(root, errors)
     check_tool_identity_registration(root, errors, manifest_tool_ids)
     return errors
-
 
 def audit_runtime_governance(
     project_root: Path = PROJECT_ROOT,
@@ -317,7 +293,6 @@ def audit_runtime_governance(
         lambda r: _collect(check_metadata_contract, r),
         lambda r: _collect(check_reconcile_modules, r),
         lambda r: _collect(check_sql_migrations, r),
-        lambda r: _collect(check_sqlite_template, r),
         lambda r: _collect(check_data_lineage, r),
         lambda r: _collect(check_authority_marker, r),
         lambda r: _collect(check_write_provenance, r),
@@ -327,7 +302,6 @@ def audit_runtime_governance(
         lambda r: _collect(check_ddl_audit, r),
         lambda r: _collect(check_contract_handshake, r),
         lambda r: _collect(check_permission_snapshot_helper, r),
-        lambda r: _collect(check_sqlite_generation_fence, r),
         lambda r: _collect(check_workload_class, r),
         lambda r: _collect(check_two_stage_deletion, r),
         lambda r: _collect(check_orphan_scanner, r),
@@ -347,13 +321,9 @@ def audit_runtime_governance(
         lambda r: _collect(check_transport_hot_path_index, r),
         lambda r: _collect(check_audit_hot_history_separation, r),
         lambda r: _collect(check_wal_checkpoint_monitor, r),
-        lambda r: _collect(check_sqlite_classification, r),
         lambda r: _collect(check_incremental_reconcile, r),
         lambda r: _collect(check_performance_baseline, r),
         lambda r: _collect(check_query_fingerprint_module, r),
-        lambda r: _collect(check_sqlite_pragma_policy_module, r),
-        lambda r: _collect(check_sqlite_classification_module, r),
-        lambda r: _collect(check_sqlite_wal_governor_module, r),
         lambda r: _collect(check_batch_writer_module, r),
         lambda r: _collect(check_locator_cache_module, r),
         lambda r: _collect(check_prepared_query_catalog_module, r),
@@ -365,16 +335,12 @@ def audit_runtime_governance(
         lambda r: _collect(check_migration_breaking_change, r),
         lambda r: _collect(check_query_contract_version, r),
         lambda r: _collect(check_rls_role_migration, r),
-        lambda r: _collect(check_sqlite_template_release, r),
-        lambda r: _collect(check_qdrant_contract_version, r),
         lambda r: _collect(check_canary_upgrade, r),
         lambda r: _collect(check_release_audit, r),
         lambda r: _collect(check_roll_forward, r),
         lambda r: _collect(check_unified_lifecycle_state, r),
         lambda r: _collect(check_transport_retention, r),
         lambda r: _collect(check_audit_retention_layering, r),
-        lambda r: _collect(check_sqlite_per_class_retention, r),
-        lambda r: _collect(check_qdrant_vector_lifecycle, r),
         lambda r: _collect(check_purge_queue, r),
         lambda r: _collect(check_archive_catalog, r),
         lambda r: _collect(check_archive_versioning, r),
@@ -387,8 +353,6 @@ def audit_runtime_governance(
         lambda r: _collect(check_audit_hash_chain, r),
         lambda r: _collect(check_reconcile_batch_digest, r),
         lambda r: _collect(check_resource_content_hash, r),
-        lambda r: _collect(check_sqlite_database_digest, r),
-        lambda r: _collect(check_qdrant_integrity_mapping, r),
         lambda r: _collect(check_merkle_root, r),
         lambda r: _collect(check_integrity_snapshot, r),
         lambda r: _collect(check_restore_verification, r),
@@ -400,14 +364,11 @@ def audit_runtime_governance(
         lambda r: _collect(check_upgrade_classification, r),
         lambda r: _collect(check_driver_compatibility_test, r),
         lambda r: _collect(check_pg_major_upgrade_rehearsal, r),
-        lambda r: _collect(check_sqlite_runtime_compat, r),
-        lambda r: _collect(check_qdrant_contract_compat, r),
         lambda r: _collect(check_sbom_dependency_inventory, r),
         lambda r: _collect(check_vulnerability_risk, r),
         lambda r: _collect(check_dependency_drift, r),
         lambda r: _collect(check_offline_bundle, r),
         lambda r: _collect(check_release_signature, r),
-        lambda r: _collect(check_dependency_governor_module, r),
         lambda r: _collect(check_recovery_plan, r),
         lambda r: _collect(check_recovery_incident, r),
         lambda r: _collect(check_recovery_state_machine, r),
@@ -418,9 +379,6 @@ def audit_runtime_governance(
         lambda r: _collect(check_recovery_barrier, r),
         lambda r: _collect(check_transport_recovery, r),
         lambda r: _collect(check_lease_recovery, r),
-        lambda r: _collect(check_sqlite_fallback_freeze, r),
-        lambda r: _collect(check_qdrant_recovery, r),
-        lambda r: _collect(check_qdrant_full_rebuild, r),
         lambda r: _collect(check_recovery_checkpoint, r),
         lambda r: _collect(check_recovery_idempotency, r),
         lambda r: _collect(check_recovery_safety_fence, r),
@@ -468,14 +426,11 @@ def audit_runtime_governance(
 
     return errors
 
-
 def _manifest_pair_into(root: Path, errors: list[str]) -> None:
     errors.extend(_manifest_pair(root))
 
-
 def _source_ownership_into(root: Path, errors: list[str]) -> None:
     errors.extend(source_ownership_errors(root))
-
 
 # Manifest ``delegated`` ids that do not name a top-level ``check_*``
 # callable resolve onto the callable that owns their semantics (G96):
@@ -498,7 +453,6 @@ _DELEGATED_CHECK_ALIASES: Final = {
     "check_tool_identity_registration": _manifest_pair_into,
 }
 
-
 def _collect_guarded(
     check: Callable[[Path, list[str]], None], root: Path
 ) -> list[str]:
@@ -509,7 +463,6 @@ def _collect_guarded(
     except Exception as error:  # noqa: BLE001 — fail-visible
         name = getattr(check, "__name__", repr(check))
         return [f"{name} raised: {error}"]
-
 
 def run_delegated_checks(
     project_root: Path,

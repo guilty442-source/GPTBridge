@@ -63,7 +63,6 @@ _NATIVE_COVERED = frozenset({
     # P0-9 second expansion: static file/marker checks reduced natively.
     "check_metadata_contract",
     "check_shared_layer_structure",
-    "check_sqlite_template",
     "check_embedded_browser",
     "check_orphan_scanner",
     "check_git_tiers",              # classify()==3 semantic stays delegated
@@ -541,7 +540,7 @@ def build_manifest(root: Path) -> dict[str, object]:
         "shared-layer/src/shared_layer/metadata_contract.py",
         ["FIELD_MODULE_ID", "FIELD_RESOURCE_ID", "FIELD_LOCATOR_ID",
          "FIELD_VERSION", "FIELD_CONTENT_HASH", "FIELD_UPDATED_AT",
-         "FIELD_STATUS", "ResourceMetadata", "validate_qdrant_payload"],
+         "FIELD_STATUS", "ResourceMetadata", "validate_vector_payload"],
     )
     checks.append({
         "id": "metadata-contract:ownership-doc",
@@ -570,15 +569,6 @@ def build_manifest(root: Path) -> dict[str, object]:
             "id": f"shared-layer-source-readonly:{name}",
             "kind": "file-readonly", "path": rel,
         })
-
-    # check_sqlite_template
-    contains(
-        "sqlite-template:tables",
-        "shared-layer/sql/sqlite_module_template.sql",
-        ["schema_version", "module_metadata", "resource_metadata",
-         "audit_event", "reconcile_state",
-         "authority_class", "executor_id", "correlation_id"],
-    )
 
     # check_embedded_browser (conditional file scans + required modules)
     for path in (
@@ -645,9 +635,8 @@ def build_manifest(root: Path) -> dict[str, object]:
         "path": "shared-layer/database-release.json",
         "markers": ["release_id", "schema_version", "migration_head",
                     "rls_version", "role_version",
-                    "sqlite_template_version",
                     "reconcile_contract_version",
-                    "qdrant_contract_version", "query_contract_version",
+                    "query_contract_version",
                     "minimum_runtime_version", "compatibility_range",
                     "state"],
     })

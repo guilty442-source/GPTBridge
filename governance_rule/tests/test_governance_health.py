@@ -105,8 +105,7 @@ def test_codex_is_the_enforcement_policy_source() -> None:
 def test_data_roles_and_unknown_git_operations_fail_closed() -> None:
     responsibilities = GOVERNANCE_POLICY.system_responsibilities
     assert responsibilities.sql == "structured-mutable-official-data-postgresql"
-    assert "owner-private" in responsibilities.sqlite
-    assert responsibilities.qdrant_rag == "qdrant-semantic-knowledge-index"
+    assert responsibilities.vector_rag == "rust-vector-engine-semantic-knowledge-index"
     assert "never-canonical" in responsibilities.local_vector_fallback
     assert classify("unknown-governance-operation") == 3
 
