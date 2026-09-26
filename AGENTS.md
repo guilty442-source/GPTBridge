@@ -654,3 +654,28 @@ python -m governance_rule.execution.audit
 - Python venv: `main-system\.venv\Scripts\python.exe`
 - TypeScript: `npx tsc --noEmit` (in `main-system/`)
 - Electron: `npm run build` (in `main-system/`)
+
+## Node/Electron Boundary (staged retirement)
+
+> Normative authority: Codex A35/A348 (TypeScript retired → JavaScript-ESM;
+> `typescript_grandfathered_baseline.json` pins all surviving `.ts`/`.tsx`).
+
+Node.js/Electron are **retired as platform-level dependencies** but remain
+the provisional runtime of the grandfathered UI shell
+(`main-system/src-ui`, tool `src/ui` surfaces, `dist-ui`,
+`node_modules`) until a native frontend host replaces it.
+
+- The C# launcher (`launcher/src/GPTBridge.Bootstrap`) owns UI-runtime
+  provisioning (`npm install` self-heal, `npm run build:app`, electron
+  launch); Python-side probes/repair were retired.
+- Removed at platform level: `node`/`npm` required-tool checks
+  (environment doctor, health, maintenance capability), third-party
+  manager probes/auto-update/fetch, Electron repair chain
+  (`repair_electron_runtime` is a fail-closed stub for legacy callers),
+  and `node`/`npm` entries are `status: "retired"` in
+  `tool_inventory.json`.
+- Do NOT re-add Node checks to platform health/doctor paths; do NOT
+  author new `.ts`/`.tsx` (denied by `check_typescript_retirement`).
+- Deleting `package.json`, `src-ui`, `node_modules`, or `dist-ui`
+  bricks the platform UI — that step waits for the native shell
+  replacement.

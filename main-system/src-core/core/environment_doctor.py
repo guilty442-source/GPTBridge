@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 from collections.abc import Mapping
 from pathlib import Path
@@ -208,53 +207,6 @@ def _probe_optional_modules(
     return optional_results, optional_missing
 
 
-def check_electron_runtime(project_root: Path) -> dict[str, Any]:
-    electron_root = project_root / "node_modules" / "electron"
-    dist_dir = electron_root / "dist"
-    exe_path = dist_dir / "electron.exe"
-    path_txt = electron_root / "path.txt"
-    path_value = ""
-    try:
-        path_value = path_txt.read_text(encoding="utf-8").strip()
-    except OSError:
-        pass
-    return {
-        "ok": exe_path.exists() and path_txt.exists(),
-        "electron_root": str(electron_root),
-        "dist_dir": str(dist_dir),
-        "exe_path": str(exe_path),
-        "exe_exists": exe_path.exists(),
-        "path_txt_exists": path_txt.exists(),
-        "path_value": path_value,
-    }
-
-
-def check_node_environment(project_root: Path) -> dict[str, Any]:
-    electron = check_electron_runtime(project_root)
-    node_available = shutil.which("node") is not None
-    npm_available = (
-        shutil.which("npm.cmd") is not None
-        or shutil.which("npm") is not None
-    )
-    checks = {
-        "node_available": node_available,
-        "npm_available": npm_available,
-        "node_modules_exists": (project_root / "node_modules").exists(),
-        "package_json_exists": (
-            project_root / "package.json"
-        ).exists(),
-        "package_lock_exists": (project_root / "package-lock.json").exists(),
-        "electron_runtime_ready": bool(electron["ok"]),
-    }
-    missing = [name for name, ok in checks.items() if not ok]
-    return {
-        "ok": not missing,
-        "checks": checks,
-        "missing": missing,
-        "electron": electron,
-    }
-
-
 def collect_environment_report(
     project_root: str | os.PathLike[str] | None = None,
     *,
@@ -266,15 +218,14 @@ def collect_environment_report(
     paths = check_project_paths(root)
     requirements = check_requirements_file(root, required_modules)
     python = check_python_modules(root, python_executable, required_modules)
-    node = check_node_environment(root)
     external = check_external_tools()
     independent_tools = check_independent_tools(root.parent)
 
     failures = _collect_failures(
-        paths, requirements, python, node, external, independent_tools
+        paths, requirements, python, external, independent_tools
     )
     recommendations = _collect_recommendations(
-        requirements, python, node, external, independent_tools
+        requirements, python, external, independent_tools
     )
 
     ok = not failures
@@ -285,7 +236,6 @@ def collect_environment_report(
         "paths": paths,
         "requirements": requirements,
         "python": python,
-        "node": node,
         "external_tools": external,
         "independent_tools": independent_tools,
         "failures": failures,
@@ -297,7 +247,6 @@ def _collect_failures(
     paths: dict[str, Any],
     requirements: dict[str, Any],
     python: dict[str, Any],
-    node: dict[str, Any],
     external: dict[str, Any],
     independent_tools: dict[str, Any],
 ) -> list[str]:
@@ -312,8 +261,6 @@ def _collect_failures(
         failures.extend(f"missing python module: {name}" for name in python["missing"])
         if python.get("error"):
             failures.append(f"python probe error: {python['error']}")
-    if not node["ok"]:
-        failures.extend(f"node environment issue: {name}" for name in node["missing"])
     if not external["ok"]:
         failures.extend(f"missing external tool: {name}" for name in external["missing"])
     if not independent_tools["ok"]:
@@ -335,7 +282,6 @@ def _collect_failures(
 def _collect_recommendations(
     requirements: dict[str, Any],
     python: dict[str, Any],
-    node: dict[str, Any],
     external: dict[str, Any],
     independent_tools: dict[str, Any],
 ) -> list[str]:
@@ -344,10 +290,6 @@ def _collect_recommendations(
         recommendations.append("Add missing packages to requirements.txt and reinstall the virtual environment.")
     if python["missing"]:
         recommendations.append("Run .venv\\Scripts\\python.exe -m pip install -r requirements.txt.")
-    if "node_modules_exists" in node["missing"]:
-        recommendations.append("Run npm.cmd ci to restore Node dependencies.")
-    if not node["electron"]["ok"]:
-        recommendations.append("Run npm.cmd run doctor:fix to repair the local Electron runtime.")
     if external["missing"]:
         recommendations.append(
             "Install missing external tools: " + ", ".join(external["missing"])
@@ -370,7 +312,6 @@ def format_environment_report(report: Mapping[str, Any]) -> str:
         f"Project root: {report.get('project_root', '')}",
         "",
         f"Python: {'OK' if report.get('python', {}).get('ok') else 'FAIL'}",
-        f"Node/Electron: {'OK' if report.get('node', {}).get('ok') else 'FAIL'}",
         f"Independent tools: {'OK' if report.get('independent_tools', {}).get('ok') else 'FAIL'}",
     ]
     failures = list(report.get("failures") or [])
@@ -390,8 +331,6 @@ __all__ = [
     "check_project_paths",
     "check_requirements_file",
     "check_python_modules",
-    "check_electron_runtime",
-    "check_node_environment",
     "check_external_tools",
     "check_independent_tools",
     "collect_environment_report",

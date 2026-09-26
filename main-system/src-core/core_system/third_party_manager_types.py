@@ -18,7 +18,7 @@ from .versioning import component_version
 THIRD_PARTY_MANAGER_VERSION = component_version("third-party-manager")
 
 # Tools that can be auto-updated by the manager (safe, self-contained).
-AUTO_UPDATABLE_TOOLS: frozenset[str] = frozenset({"uv", "npm", "ollama", "electron"})
+AUTO_UPDATABLE_TOOLS: frozenset[str] = frozenset({"uv", "ollama"})
 
 # Capabilities that prove a governed approval token before any third-party
 # update may execute.
@@ -30,8 +30,6 @@ THIRD_PARTY_UPDATE_APPROVAL_CAPABILITIES: frozenset[str] = frozenset(
 _PROBE_COMMANDS: dict[str, tuple[str, list[str], str]] = {
     "git": ("git", ["--version"], r"git version (\S+)"),
     "python": ("python", ["--version"], r"Python (\S+)"),
-    "node": ("node", ["--version"], r"v(\S+)"),
-    "npm": ("npm.cmd", ["--version"], r"(\S+)"),
     "uv": ("uv", ["--version"], r"uv (\S+)"),
     "ollama": ("ollama", ["--version"], r"version\s+(?:is\s+)?(\S+)"),
     "postgresql": ("psql", ["--version"], r"psql \(PostgreSQL\) (\S+)"),
@@ -40,7 +38,6 @@ _PROBE_COMMANDS: dict[str, tuple[str, list[str], str]] = {
 # Update commands: tool_id → (command, args)
 _UPDATE_COMMANDS: dict[str, tuple[str, list[str]]] = {
     "uv": ("uv", ["self", "update"]),
-    "npm": ("npm.cmd", ["install", "-g", "npm@latest"]),
     "ollama": ("ollama", ["update"]),
 }
 

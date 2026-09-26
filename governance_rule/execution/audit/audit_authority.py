@@ -135,7 +135,7 @@ def check_third_party_inventory(root: Path, errors: list[str]) -> None:
     except (OSError, KeyError, TypeError, json.JSONDecodeError):
         inventory_tools = {}
         errors.append("third-party implementation inventory is invalid")
-    for dependency_id in ("pybind11", "node", "npm", "uv"):
+    for dependency_id in ("pybind11", "uv"):
         dependency = inventory_tools.get(dependency_id, {})
         if dependency.get("formal") is not False or not str(
             dependency.get("formality") or ""

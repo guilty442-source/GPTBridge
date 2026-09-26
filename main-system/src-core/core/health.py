@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -57,8 +56,6 @@ def check_core_health(project_root: str | Path | None = None) -> dict[str, Any]:
             root / "governance_rule" / "permission_directory"
         ).exists(),
         "python_available": bool(sys.executable),
-        "node_available": shutil.which("node") is not None,
-        "npm_available": shutil.which("npm") is not None or shutil.which("npm.cmd") is not None,
     }
     failed = [name for name, ok in checks.items() if not ok]
     report = {

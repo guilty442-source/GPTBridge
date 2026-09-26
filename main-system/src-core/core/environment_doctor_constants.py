@@ -71,8 +71,6 @@ OPTIONAL_PYTHON_MODULE_GROUPS: dict[str, dict[str, str]] = {
 # maps the tool name to its command-line probe (``shutil.which``).
 REQUIRED_EXTERNAL_TOOLS: dict[str, str] = {
     "git": "git",
-    "node": "node",
-    "npm": "npm.cmd",
     "python": "python",
 }
 

@@ -259,7 +259,7 @@ class PhaseMixin(StartupPhaseExecutionMixin):
                 f"modules_ok={report.get('python', {}).get('ok', '?')} "
                 f"external_missing={','.join(external_missing) or 'none'}"
             )
-            # External tools (git/node/npm) are build-and-runtime deps —
+            # External tools (git) are build-and-runtime deps —
             # surface them as a degradation signal but do not hard-block
             # backend startup on a missing build-time tool.
             degraded = bool(external_missing)

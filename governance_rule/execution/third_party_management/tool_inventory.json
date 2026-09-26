@@ -70,26 +70,26 @@
       "name": "Node.js",
       "category": "runtime",
       "formal": false,
-      "formality": "approved-implementation-runtime",
+      "formality": "retired",
       "implements_language": "typescript",
       "version": "v26.8.1",
       "path": "node",
       "license": "MIT",
-      "status": "active",
+      "status": "retired",
       "verified": true,
-      "notes": "TypeScript interface/governance-checker runtime"
+      "notes": "TypeScript/Electron runtime retired to grandfathered UI shell (A35/A348); not a platform-level dependency"
     },
     {
       "id": "npm",
       "name": "npm",
       "category": "package-manager",
       "formal": false,
-      "formality": "approved-implementation-dependency",
+      "formality": "retired",
       "implements_language": "typescript",
       "version": "11.19.0",
       "path": "npm",
       "license": "Artistic-2.0",
-      "status": "active",
+      "status": "retired",
       "verified": true
     },
     {

@@ -66,11 +66,6 @@ class MaintenanceCapabilityMixin:
 
         components: dict[str, Any] = {
             "python": {"installed": bool(sys.executable)},
-            "node": {"installed": shutil.which("node") is not None},
-            "npm": {
-                "installed": shutil.which("npm") is not None
-                or shutil.which("npm.cmd") is not None
-            },
             "git": {"installed": shutil.which("git") is not None},
             "ollama": {
                 "installed": shutil.which("ollama") is not None,

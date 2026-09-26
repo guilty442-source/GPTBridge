@@ -149,12 +149,8 @@ class ThirdPartyManager(ThirdPartyUpdateMixin):
         try:
             if tool_id == "uv":
                 return self._fetch_latest_uv()
-            if tool_id == "npm":
-                return self._fetch_latest_npm()
             if tool_id == "ollama":
                 return self._fetch_latest_ollama()
-            if tool_id == "electron":
-                return self._fetch_latest_electron()
         except Exception:
             return ""
         return ""
@@ -174,38 +170,8 @@ class ThirdPartyManager(ThirdPartyUpdateMixin):
         except Exception:
             return ""
 
-    def _fetch_latest_npm(self) -> str:
-        try:
-            result = subprocess.run(
-                ["npm.cmd", "view", "npm", "version"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=15,
-                **_background_subprocess_kwargs(),
-            )
-            return result.stdout.strip()
-        except Exception:
-            return ""
-
     def _fetch_latest_ollama(self) -> str:
         return ""
-
-    def _fetch_latest_electron(self) -> str:
-        try:
-            result = subprocess.run(
-                ["npm.cmd", "view", "electron", "version"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=15,
-                **_background_subprocess_kwargs(),
-            )
-            return result.stdout.strip()
-        except Exception:
-            return ""
 
     # ─── Update Execution ──────────────────────────────────────────────
 

@@ -1,7 +1,8 @@
-"""Environment doctor — independent tools and repair.
+"""Environment doctor — independent tools.
 
-Provides the independent tool checks and Electron runtime repair
-functions for the environment doctor.
+Provides the external and independent tool checks for the environment
+doctor.  Node/Electron runtime repair was retired with the Node
+toolchain; the C# launcher owns the UI runtime lifecycle.
 
 Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 """
@@ -11,16 +12,11 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
-import zipfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from utils.archive import safe_extract_zip
-
 from .environment_doctor_constants import (
-    _background_subprocess_kwargs,
     OPTIONAL_EXTERNAL_TOOLS,
     REQUIRED_EXTERNAL_TOOLS,
 )
@@ -177,128 +173,20 @@ def _check_tool(
     )
 
 
-def _safe_extract_zip(zip_path: Path, target_dir: Path) -> None:
-    safe_extract_zip(zip_path, target_dir)
+def repair_electron_runtime(
+    project_root: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Retired stub: Node/Electron repair removed with the Node toolchain.
 
-
-def _electron_cache_roots() -> list[Path]:
-    roots: list[Path] = []
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if local_app_data:
-        roots.append(Path(local_app_data) / "electron" / "Cache")
-    roots.append(Path.home() / ".cache" / "electron")
-    return roots
-
-
-def repair_electron_runtime(project_root: str | os.PathLike[str] | None = None) -> dict[str, Any]:
-    """Attempt to repair the local Electron runtime."""
-    from .environment_doctor_checks import check_electron_runtime
-
-    root = Path(project_root or Path.cwd()).resolve()
-    before = check_electron_runtime(root)
-    if before["ok"]:
-        return {"ok": True, "changed": False, "method": "already_ready", "electron": before}
-
-    electron_root = root / "node_modules" / "electron"
-    result = _repair_electron_via_metadata(root, electron_root, before)
-    if result is not None:
-        return result
-    result = _repair_electron_via_install_script(root)
-    if result is not None:
-        return result
-    result = _repair_electron_via_cache(root, electron_root)
-    if result is not None:
-        return result
-
+    The C# launcher bootstrap owns UI-runtime provisioning; this entry
+    point remains so existing ``doctor --fix-electron`` callers fail
+    closed with an explicit verdict instead of an ImportError.
+    """
     return {
         "ok": False,
         "changed": False,
-        "method": "unresolved",
-        "electron": check_electron_runtime(root),
+        "method": "retired-node-runtime",
     }
-
-
-def _repair_electron_via_metadata(
-    root: Path, electron_root: Path, before: dict[str, Any]
-) -> dict[str, Any] | None:
-    from .environment_doctor_checks import check_electron_runtime
-
-    package_path = electron_root / "package.json"
-    installed_version_path = electron_root / "dist" / "version"
-    try:
-        package_version = str(json.loads(package_path.read_text(encoding="utf-8"))["version"]).lstrip("v")
-        installed_version = installed_version_path.read_text(encoding="utf-8").strip().lstrip("v")
-        if before["exe_exists"] and package_version == installed_version:
-            (electron_root / "path.txt").write_text("electron.exe", encoding="utf-8", newline="\n")
-            after_metadata_repair = check_electron_runtime(root)
-            if after_metadata_repair["ok"]:
-                return {
-                    "ok": True,
-                    "changed": True,
-                    "method": "restore_electron_path_metadata",
-                    "electron": after_metadata_repair,
-                }
-    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
-        pass
-    return None
-
-
-def _repair_electron_via_install_script(root: Path) -> dict[str, Any] | None:
-    from .environment_doctor_checks import check_electron_runtime
-
-    install_script = root / "node_modules" / "electron" / "install.js"
-    if install_script.exists() and shutil.which("node"):
-        completed = subprocess.run(
-            ["node", str(install_script)],
-            cwd=str(root),
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=120,
-            **_background_subprocess_kwargs(),
-        )
-        after_node_install = check_electron_runtime(root)
-        if after_node_install["ok"]:
-            return {
-                "ok": True,
-                "changed": True,
-                "method": "electron_install_script",
-                "output": completed.stdout,
-                "electron": after_node_install,
-            }
-    return None
-
-
-def _repair_electron_via_cache(
-    root: Path, electron_root: Path
-) -> dict[str, Any] | None:
-    from .environment_doctor_checks import check_electron_runtime
-
-    cache_zips: list[Path] = []
-    for cache_root in _electron_cache_roots():
-        if cache_root.exists():
-            cache_zips.extend(cache_root.rglob("electron-v*-win32-x64.zip"))
-    cache_zips.sort(key=lambda item: item.stat().st_mtime, reverse=True)
-
-    dist_dir = electron_root / "dist"
-    for zip_path in cache_zips:
-        try:
-            _safe_extract_zip(zip_path, dist_dir)
-            (electron_root / "path.txt").write_text("electron.exe", encoding="utf-8", newline="\n")
-        except (OSError, RuntimeError, zipfile.BadZipFile):
-            continue
-        after_cache = check_electron_runtime(root)
-        if after_cache["ok"]:
-            return {
-                "ok": True,
-                "changed": True,
-                "method": "electron_cache_zip",
-                "cache_zip": str(zip_path),
-                "electron": after_cache,
-            }
-    return None
 
 
 __all__ = [
