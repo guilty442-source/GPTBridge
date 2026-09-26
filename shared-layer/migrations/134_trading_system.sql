@@ -12,8 +12,8 @@
 -- Codex basis:
 --   A46/E22 — audit: mandatory-ledger (append-only audit_event).
 --   A49/E35 + A44/E30 — RLS + module-scoped writes (008 pattern).
---   A8/E21  — Qdrant canonical semantic index (financial-research
---             collection registered in qdrant_generation; Qdrant never
+--   A8/E21  — vectord canonical semantic index (financial-research
+--             collection registered in the vector engine; vectord never
 --             holds authoritative account/position/trade data).
 
 CREATE SCHEMA IF NOT EXISTS gptbridge_trading;
@@ -336,8 +336,8 @@ CREATE INDEX IF NOT EXISTS audit_event_type_idx
     ON gptbridge_trading.audit_event (type, at DESC);
 
 -- ============================================================================
--- research_document — financial research docs indexed in Qdrant
---   (documents/pointers only — Qdrant never holds account/position data)
+-- research_document — financial research docs indexed in vectord
+--   (documents/pointers only — vectord never holds account/position data)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS gptbridge_trading.research_document (
     document_id    text        NOT NULL,
@@ -345,7 +345,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_trading.research_document (
     kind           text        NOT NULL,           -- report | filing | note | analysis
     title          text,
     source         text,
-    qdrant_point   text,                            -- point id in star-financial-research-v1
+    vector_point   text,                            -- vectord point id in star-financial-research-v1
     payload        jsonb       NOT NULL DEFAULT '{}'::jsonb,
     created_at     timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (document_id)
@@ -440,10 +440,3 @@ END $$;
 GRANT USAGE ON SCHEMA gptbridge_trading TO gptbridge_index_reader;
 GRANT USAGE ON SCHEMA gptbridge_trading TO gptbridge_index_executor;
 
--- ============================================================================
--- Qdrant collection registration — financial research semantic index
--- ============================================================================
-INSERT INTO gptbridge_index.qdrant_generation
-    (collection_name, backend_generation, last_synced_at, stale)
-VALUES ('star-financial-research-v1', 1, now(), false)
-ON CONFLICT (collection_name) DO NOTHING;

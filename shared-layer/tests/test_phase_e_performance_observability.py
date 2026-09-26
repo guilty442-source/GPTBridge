@@ -116,24 +116,6 @@ class TestWalCheckpointMonitorMigration:
         assert "record_wal_checkpoint_snapshot" in text
 
 
-class TestSQLiteClassificationMigration:
-    def test_037_exists(self):
-        assert (_MIGRATIONS_DIR / "037_sqlite_classification.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "037_sqlite_classification.sql").read_text("utf-8")
-        assert "sqlite_database_class" in text
-        assert "synchronous_setting" in text
-        assert "backup_frequency_seconds" in text
-        assert "integrity_check_frequency_seconds" in text
-        assert "retention_days" in text
-        assert "reconcile_required" in text
-
-    def test_defines_function(self):
-        text = (_MIGRATIONS_DIR / "037_sqlite_classification.sql").read_text("utf-8")
-        assert "upsert_sqlite_class" in text
-
-
 class TestIncrementalReconcileMigration:
     def test_038_exists(self):
         assert (_MIGRATIONS_DIR / "038_incremental_reconcile.sql").is_file()
@@ -185,27 +167,6 @@ class TestQueryFingerprintModule:
         from shared_layer.database import record_query_fingerprint, get_hot_queries
         assert callable(record_query_fingerprint)
         assert callable(get_hot_queries)
-
-
-
-class TestSqliteClassificationModule:
-    def test_import_register(self):
-        from shared_layer.database.sqlite_classification import register
-        assert callable(register)
-
-    def test_import_get_class(self):
-        from shared_layer.database.sqlite_classification import get_class
-        assert callable(get_class)
-
-    def test_import_list_by_class(self):
-        from shared_layer.database.sqlite_classification import list_by_class
-        assert callable(list_by_class)
-
-    def test_lazy_export_via_init(self):
-        from shared_layer.database import register_sqlite_class, get_sqlite_class
-        assert callable(register_sqlite_class)
-        assert callable(get_sqlite_class)
-
 
 
 class TestBatchWriterModule:
@@ -356,10 +317,6 @@ class TestQueryAllowlistPhaseE:
 
     def test_wal_checkpoint_query(self):
         assert is_allowlisted("wal_checkpoint.recent")
-
-    def test_sqlite_class_query(self):
-        assert is_allowlisted("sqlite_class.list")
-
     def test_reconcile_queue_query(self):
         assert is_allowlisted("reconcile_queue.pending")
 
@@ -408,12 +365,6 @@ class TestSchemaContractRegistryPhaseE:
         contract = declared_contract()
         table_names = [(t.schema, t.table) for t in contract.tables]
         assert ("gptbridge_index", "wal_checkpoint_snapshot") in table_names
-
-    def test_contract_includes_sqlite_database_class(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "sqlite_database_class") in table_names
-
     def test_contract_includes_reconcile_pending_queue(self):
         contract = declared_contract()
         table_names = [(t.schema, t.table) for t in contract.tables]

@@ -154,63 +154,6 @@ def verify_resource_hash(conn: Any, resource_id: str, expected_hash: str) -> boo
     return bool(row[0]) if row else False
 
 
-def record_sqlite_digest(
-    conn: Any,
-    module_id: str,
-    database_path: str,
-    schema_hash: str,
-    revision_head: int,
-    row_count: int,
-    critical_table_digest: str | None = None,
-    generation: int = 0,
-) -> str:
-    """Record a SQLite database digest."""
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT gptbridge_index.record_sqlite_digest(%s, %s, %s, %s, %s, %s, %s)",
-            (module_id, database_path, schema_hash, revision_head,
-             row_count, critical_table_digest, generation),
-        )
-        row = cur.fetchone()
-    conn.commit()
-    return str(row[0]) if row else ""
-
-
-def record_qdrant_integrity(
-    conn: Any,
-    chunk_id: str,
-    resource_id: str,
-    chunk_hash: str,
-    embedding_version: int,
-    qdrant_point_id: str,
-    resource_revision: int,
-) -> None:
-    """Record PG chunk -> Qdrant point mapping."""
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT gptbridge_index.record_qdrant_integrity(%s, %s, %s, %s, %s, %s)",
-            (chunk_id, resource_id, chunk_hash, embedding_version,
-             qdrant_point_id, resource_revision),
-        )
-    conn.commit()
-
-
-def verify_qdrant_integrity(
-    conn: Any,
-    chunk_id: str,
-    point_exists: bool,
-    hash_match: bool,
-    version_match: bool,
-) -> None:
-    """Verify a single chunk's Qdrant mapping."""
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT gptbridge_index.verify_qdrant_integrity(%s, %s, %s, %s)",
-            (chunk_id, point_exists, hash_match, version_match),
-        )
-    conn.commit()
-
-
 def record_merkle_root(
     conn: Any,
     domain: str,
@@ -346,9 +289,6 @@ __all__ = [
     "complete_reconcile_batch",
     "record_resource_hash",
     "verify_resource_hash",
-    "record_sqlite_digest",
-    "record_qdrant_integrity",
-    "verify_qdrant_integrity",
     "record_merkle_root",
     "create_integrity_snapshot",
     "record_restore_verification",

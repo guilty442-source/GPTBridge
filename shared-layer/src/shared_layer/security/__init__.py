@@ -34,8 +34,8 @@ from .generation import (
     SENSITIVE_WORKLOADS,
     assert_generation_current,
 )
-from .qdrant_scope import (
-    QdrantScopeError,
+from .vector_scope import (
+    VectorScopeError,
     ScopedFilter,
     assert_payload_scoped,
     require_scope,
@@ -92,7 +92,7 @@ __all__ = [
     "GOVERNED_SCHEMAS",
     "GenerationLedger",
     "LeastPrivilegeReport",
-    "QdrantScopeError",
+    "VectorScopeError",
     "RotationError",
     "RotationPhase",
     "RotationPlan",

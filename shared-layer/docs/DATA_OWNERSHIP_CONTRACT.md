@@ -54,7 +54,7 @@ PostgreSQL 恢復：
 
 vectord 故障：
   從 SQLite 原始內容 + 嵌入模型重建向量索引
-  PostgreSQL 中央索引的 qdrant_point_id 欄位保留映射
+  PostgreSQL 中央索引的 vector_point_id 欄位保留映射
 
 SQLite 故障：
   模組私有資料遺失（如果無 NTFS 備份）
@@ -89,7 +89,7 @@ Python 模組：`shared_layer.metadata_contract.ResourceMetadata`
 | `version` | ✅ | 版本綁定 |
 | `locator_id` | ✅ | 中央索引關聯 |
 
-驗證：`shared_layer.metadata_contract.validate_qdrant_payload()`
+驗證：`shared_layer.metadata_contract.validate_vector_payload()`
 
 ## 6. PostgreSQL Role 隔離
 

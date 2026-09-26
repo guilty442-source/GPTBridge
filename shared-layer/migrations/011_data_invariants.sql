@@ -4,7 +4,7 @@
 --
 -- Invariants enforced:
 --   INV-1  resource_id is globally unique (already PK, but add explicit CHECK)
---   INV-2  qdrant_point_id in gptbridge_rag.chunk must correspond to a real
+--   INV-2  vector_point_id in gptbridge_rag.chunk must correspond to a real
 --          index_state row (the resource_id FK already enforces this, but
 --          we add a trigger that rejects chunks whose resource_id has no
 --          index_state with status='indexed' or 'pending')
@@ -89,7 +89,7 @@ CREATE TRIGGER resource_version_guard
     EXECUTE FUNCTION gptbridge_index.enforce_version_monotonic();
 
 -- ============================================================================
--- INV-2: chunk.qdrant_point_id must correspond to an index_state row
+-- INV-2: chunk.vector_point_id must correspond to an index_state row
 -- (checked at INSERT time; the resource_id FK ensures the resource exists,
 --  but we also verify index_state exists for that resource)
 -- ============================================================================

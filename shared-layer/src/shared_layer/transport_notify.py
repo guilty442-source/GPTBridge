@@ -41,7 +41,11 @@ class TransportNotifyListener:
         manager_factory: Callable[[], Any] | None = None,
         min_backoff_s: float = 1.0,
         max_backoff_s: float = 60.0,
-        poll_slice_s: float = 0.5,
+        # Perf/low-CPU: notifies() blocks at socket level; a 1s slice
+        # halves steady-state wakeups vs 0.5s. stop()/subscribe()/
+        # unsubscribe() all set _resubscribe, so responsiveness on
+        # subscribe/stop is unchanged (event-driven, not timeout-bound).
+        poll_slice_s: float = 1.0,
     ) -> None:
         self._manager_factory = manager_factory
         self._min_backoff = max(0.1, float(min_backoff_s))
@@ -158,7 +162,9 @@ class TransportNotifyListener:
             channels = self.subscribed_channels()
             if not channels:
                 # 無訂閱者——等待訂閱或停止（不持連線）。
-                self._resubscribe.wait(timeout=1.0)
+                # Perf/low-CPU: subscribe()/stop() set the event, so the
+                # timeout is a pure fallback — 5s cuts idle wakeups 5x.
+                self._resubscribe.wait(timeout=5.0)
                 self._resubscribe.clear()
                 continue
             try:

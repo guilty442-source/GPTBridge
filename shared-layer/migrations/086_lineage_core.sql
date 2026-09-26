@@ -5,8 +5,8 @@
 --   One central lineage model (gptbridge_lineage) that traces every
 --   content item across engines, producers, and transformations:
 --     * lineage_node          — every oszlop/entity that can hold content:
---                               resource (PG canonical), chunk, Qdrant point,
---                               SQLite record, audit event, model output.
+--                               resource (PG canonical), chunk, vectord point,
+--                               historical-module record, audit event, model output.
 --     * lineage_edge          — directed "A produced B from/of C" arcs.
 --     * transformation        — registry of chunking / embedding / reconcile /
 --                               restore / migration transformations that create edges.
@@ -66,13 +66,13 @@ CREATE TABLE IF NOT EXISTS gptbridge_lineage.transformation (
 CREATE TABLE IF NOT EXISTS gptbridge_lineage.lineage_node (
     node_id text PRIMARY KEY,
     engine text NOT NULL CHECK (engine IN (
-        'postgresql', 'sqlite', 'qdrant', 'transport', 'audit', 'rag', 'file', 'model'
+        'postgresql', 'sqlite', 'vectord', 'transport', 'audit', 'rag', 'file', 'model'
     )),
     node_type text NOT NULL,
     module_id text,
     resource_id text,
     chunk_id text,
-    qdrant_point_id text,
+    vector_point_id text,
     origin_type text,
     origin_locator text,
     origin_revision bigint,
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_lineage.lineage_node (
     metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
     created_at timestamptz NOT NULL DEFAULT now(),
     CHECK (node_id IS NOT NULL AND node_id <> ''),
-    CHECK (engine = 'qdrant' OR qdrant_point_id IS NULL)
+    CHECK (engine = 'vectord' OR vector_point_id IS NULL)
 );
 
 -- ============================================================================
@@ -152,8 +152,8 @@ CREATE INDEX IF NOT EXISTS lineage_node_resource_idx
 CREATE INDEX IF NOT EXISTS lineage_node_chunk_idx
     ON gptbridge_lineage.lineage_node (chunk_id);
 CREATE INDEX IF NOT EXISTS lineage_node_point_idx
-    ON gptbridge_lineage.lineage_node (qdrant_point_id)
-    WHERE qdrant_point_id IS NOT NULL;
+    ON gptbridge_lineage.lineage_node (vector_point_id)
+    WHERE vector_point_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS lineage_node_producer_idx
     ON gptbridge_lineage.lineage_node (producer_type, producer_executor);
 CREATE INDEX IF NOT EXISTS lineage_node_status_idx
@@ -349,7 +349,7 @@ CREATE OR REPLACE FUNCTION gptbridge_lineage.register_node(
     p_module_id text DEFAULT NULL,
     p_resource_id text DEFAULT NULL,
     p_chunk_id text DEFAULT NULL,
-    p_qdrant_point_id text DEFAULT NULL,
+    p_vector_point_id text DEFAULT NULL,
     p_origin_type text DEFAULT NULL,
     p_origin_locator text DEFAULT NULL,
     p_origin_revision bigint DEFAULT NULL,
@@ -368,14 +368,14 @@ CREATE OR REPLACE FUNCTION gptbridge_lineage.register_node(
 BEGIN
     INSERT INTO gptbridge_lineage.lineage_node (
         node_id, engine, node_type, module_id, resource_id, chunk_id,
-        qdrant_point_id, origin_type, origin_locator, origin_revision,
+        vector_point_id, origin_type, origin_locator, origin_revision,
         generation_id, content_hash, producer_actor, producer_executor,
         producer_type, model_id, model_version, confidence, content_status,
         authority_class, metadata
     )
     VALUES (
         p_node_id, p_engine, p_node_type, p_module_id, p_resource_id, p_chunk_id,
-        p_qdrant_point_id, p_origin_type, p_origin_locator, p_origin_revision,
+        p_vector_point_id, p_origin_type, p_origin_locator, p_origin_revision,
         p_generation_id, p_content_hash, p_producer_actor, p_producer_executor,
         p_producer_type, p_model_id, p_model_version, p_confidence, p_content_status,
         p_authority_class, COALESCE(p_metadata, '{}'::jsonb)
@@ -576,7 +576,7 @@ CREATE OR REPLACE FUNCTION gptbridge_lineage.reverse_lookup(
     module_id text,
     resource_id text,
     chunk_id text,
-    qdrant_point_id text,
+    vector_point_id text,
     origin_locator text,
     origin_revision bigint,
     content_hash text,
@@ -587,13 +587,13 @@ CREATE OR REPLACE FUNCTION gptbridge_lineage.reverse_lookup(
     generation_id text
 ) AS $$
 WITH RECURSIVE trace(depth, relation_type, direction, node_id, engine, node_type,
-                     module_id, resource_id, chunk_id, qdrant_point_id,
+                     module_id, resource_id, chunk_id, vector_point_id,
                      origin_locator, origin_revision, content_hash,
                      producer_type, producer_executor, model_id,
                      correlation_id, generation_id, visited) AS (
     SELECT 1, e.relation_type, 'source',
            e.parent_node_id, n.engine, n.node_type, n.module_id,
-           n.resource_id, n.chunk_id, n.qdrant_point_id,
+           n.resource_id, n.chunk_id, n.vector_point_id,
            n.origin_locator, n.origin_revision, n.content_hash,
            n.producer_type, n.producer_executor, n.model_id,
            n.correlation_id, n.generation_id,
@@ -606,7 +606,7 @@ WITH RECURSIVE trace(depth, relation_type, direction, node_id, engine, node_type
     UNION ALL
     SELECT t.depth + 1, e.relation_type, 'source',
            e.parent_node_id, n.engine, n.node_type, n.module_id,
-           n.resource_id, n.chunk_id, n.qdrant_point_id,
+           n.resource_id, n.chunk_id, n.vector_point_id,
            n.origin_locator, n.origin_revision, n.content_hash,
            n.producer_type, n.producer_executor, n.model_id,
            n.correlation_id, n.generation_id,
@@ -621,7 +621,7 @@ WITH RECURSIVE trace(depth, relation_type, direction, node_id, engine, node_type
       AND NOT e.parent_node_id = ANY(t.visited)
 )
 SELECT depth, relation_type, direction, node_id, engine, node_type, module_id,
-       resource_id, chunk_id, qdrant_point_id, origin_locator, origin_revision,
+       resource_id, chunk_id, vector_point_id, origin_locator, origin_revision,
        content_hash, producer_type, producer_executor, model_id,
        correlation_id, generation_id
 FROM trace
@@ -645,7 +645,7 @@ CREATE OR REPLACE FUNCTION gptbridge_lineage.impact(
     module_id text,
     resource_id text,
     chunk_id text,
-    qdrant_point_id text,
+    vector_point_id text,
     origin_locator text,
     origin_revision bigint,
     content_hash text,
@@ -656,13 +656,13 @@ CREATE OR REPLACE FUNCTION gptbridge_lineage.impact(
     generation_id text
 ) AS $$
 WITH RECURSIVE trace(depth, relation_type, direction, node_id, engine, node_type,
-                     module_id, resource_id, chunk_id, qdrant_point_id,
+                     module_id, resource_id, chunk_id, vector_point_id,
                      origin_locator, origin_revision, content_hash,
                      producer_type, producer_executor, model_id,
                      correlation_id, generation_id, visited) AS (
     SELECT 1, e.relation_type, 'derived',
            e.child_node_id, n.engine, n.node_type, n.module_id,
-           n.resource_id, n.chunk_id, n.qdrant_point_id,
+           n.resource_id, n.chunk_id, n.vector_point_id,
            n.origin_locator, n.origin_revision, n.content_hash,
            n.producer_type, n.producer_executor, n.model_id,
            n.correlation_id, n.generation_id,
@@ -675,7 +675,7 @@ WITH RECURSIVE trace(depth, relation_type, direction, node_id, engine, node_type
     UNION ALL
     SELECT t.depth + 1, e.relation_type, 'derived',
            e.child_node_id, n.engine, n.node_type, n.module_id,
-           n.resource_id, n.chunk_id, n.qdrant_point_id,
+           n.resource_id, n.chunk_id, n.vector_point_id,
            n.origin_locator, n.origin_revision, n.content_hash,
            n.producer_type, n.producer_executor, n.model_id,
            n.correlation_id, n.generation_id,
@@ -690,7 +690,7 @@ WITH RECURSIVE trace(depth, relation_type, direction, node_id, engine, node_type
       AND NOT e.child_node_id = ANY(t.visited)
 )
 SELECT depth, relation_type, direction, node_id, engine, node_type, module_id,
-       resource_id, chunk_id, qdrant_point_id, origin_locator, origin_revision,
+       resource_id, chunk_id, vector_point_id, origin_locator, origin_revision,
        content_hash, producer_type, producer_executor, model_id,
        correlation_id, generation_id
 FROM trace
@@ -731,12 +731,12 @@ BEGIN
     FROM gptbridge_lineage.lineage_edge e
     WHERE e.transformation_id IS NULL;
 
-    -- Qdrant points that have not been indexed (no indexed_from edge).
+    -- vectord points that have not been indexed (no indexed_from edge).
     RETURN QUERY
     SELECT 'unindexed_point', 'info', n.node_id,
-           'qdrant node without an indexed_from edge'
+           'vectord node without an indexed_from edge'
     FROM gptbridge_lineage.lineage_node n
-    WHERE n.engine = 'qdrant'
+    WHERE n.engine = 'vectord'
       AND NOT EXISTS (
           SELECT 1 FROM gptbridge_lineage.lineage_edge e
           WHERE e.child_node_id = n.node_id

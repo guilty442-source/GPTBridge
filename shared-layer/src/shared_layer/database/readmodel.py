@@ -57,7 +57,6 @@ from typing import Any, Callable, Optional
 from psycopg import Connection
 
 from shared_layer.database.query_allowlist import get_query
-from shared_layer.database.sqlite_classification import register as register_sqlite_class
 
 _logger = logging.getLogger("gptbridge.readmodel")
 
@@ -694,32 +693,6 @@ class ReadModelMaintainer:
             self._thread = None
 
 
-# ============================================================================
-# mark_sqlite_cache — SQLite Class D (cache) registration
-# ============================================================================
-
-def mark_sqlite_cache(
-    connection: Connection[Any],
-    *,
-    module_id: str,
-    database_path: str,
-    description: str = "auto-registered cache (read-model / SQLite fallback)",
-) -> None:
-    """Register a SQLite database as Class D (cache / fallback).
-
-    The pointer lives in PostgreSQL (``gptbridge_index.sqlite_database_class``)
-    so cache semantics — synchronous, backup, retention — are uniform and
-    observable, never a property of the local .sqlite file alone.
-    """
-    register_sqlite_class(
-        connection,
-        module_id=module_id,
-        database_path=database_path,
-        db_class="D",
-        description=description,
-    )
-
-
 __all__ = [
     "PROJECTIONS",
     "LAG_CURRENT",
@@ -745,5 +718,4 @@ __all__ = [
     "AuthoritativeCache",
     "SecuritySnapshotCache",
     "ReadModelMaintainer",
-    "mark_sqlite_cache",
 ]

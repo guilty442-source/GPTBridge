@@ -23,7 +23,6 @@ class BudgetConfig:
     # Concurrency limits
     max_concurrent_jobs: int = 2
     pg_maintenance_connection_limit: int = 2
-    sqlite_simultaneous_checkpoint_limit: int = 3
     backup_verification_concurrency: int = 1
 
     # Reconcile limits
@@ -50,7 +49,6 @@ class BudgetState:
 
     active_jobs: int = 0
     pg_maintenance_connections: int = 0
-    sqlite_checkpoints_active: int = 0
     backup_verifications_active: int = 0
     reconcile_current_rate: int = 0
     reconcile_current_batch: int = 0
@@ -81,9 +79,6 @@ class MaintenanceBudget:
             if engine == "postgresql":
                 if self._state.pg_maintenance_connections >= self.config.pg_maintenance_connection_limit:
                     return False, f"PG maintenance connection limit ({self.config.pg_maintenance_connection_limit}) reached"
-            elif engine == "sqlite":
-                if self._state.sqlite_checkpoints_active >= self.config.sqlite_simultaneous_checkpoint_limit:
-                    return False, f"SQLite checkpoint limit ({self.config.sqlite_simultaneous_checkpoint_limit}) reached"
             elif engine == "backup":
                 if self._state.backup_verifications_active >= self.config.backup_verification_concurrency:
                     return False, f"Backup verification limit ({self.config.backup_verification_concurrency}) reached"
@@ -98,8 +93,6 @@ class MaintenanceBudget:
 
             if engine == "postgresql":
                 self._state.pg_maintenance_connections += 1
-            elif engine == "sqlite":
-                self._state.sqlite_checkpoints_active += 1
             elif engine == "backup":
                 self._state.backup_verifications_active += 1
 
@@ -111,8 +104,6 @@ class MaintenanceBudget:
 
             if engine == "postgresql":
                 self._state.pg_maintenance_connections = max(0, self._state.pg_maintenance_connections - 1)
-            elif engine == "sqlite":
-                self._state.sqlite_checkpoints_active = max(0, self._state.sqlite_checkpoints_active - 1)
             elif engine == "backup":
                 self._state.backup_verifications_active = max(0, self._state.backup_verifications_active - 1)
 
@@ -169,8 +160,6 @@ class MaintenanceBudget:
                 "max_concurrent_jobs": self.config.max_concurrent_jobs,
                 "pg_maintenance_connections": self._state.pg_maintenance_connections,
                 "pg_maintenance_connection_limit": self.config.pg_maintenance_connection_limit,
-                "sqlite_checkpoints_active": self._state.sqlite_checkpoints_active,
-                "sqlite_simultaneous_checkpoint_limit": self.config.sqlite_simultaneous_checkpoint_limit,
                 "backup_verifications_active": self._state.backup_verifications_active,
                 "backup_verification_concurrency": self.config.backup_verification_concurrency,
                 "reconcile_current_rate": self._state.reconcile_current_rate,

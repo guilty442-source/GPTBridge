@@ -2,7 +2,7 @@
 
 PostgreSQL owns central structured data, shared transport, and audit roles.
 A610/A621: SQLite and Qdrant engine paths are retired; remaining
-sqlite/qdrant-named functions below are PostgreSQL-backed governance
+engine-neutral functions below are PostgreSQL-backed governance
 registries that only record historical artifact metadata.
 Members remain lazy so health inspection does not require an eager connection.
 """
@@ -46,11 +46,6 @@ _LAZY_EXPORTS = {
     "get_current_generation": ("generation_fence", "get_current_generation"),
     "bump_generation": ("generation_fence", "bump_generation"),
     "is_connection_stale": ("generation_fence", "is_connection_stale"),
-    "get_stale_sqlite_databases": ("generation_fence", "get_stale_sqlite_databases"),
-    "upsert_sqlite_generation": ("generation_fence", "upsert_sqlite_generation"),
-    "get_stale_qdrant_collections": ("generation_fence", "get_stale_qdrant_collections"),
-    "upsert_qdrant_generation": ("generation_fence", "upsert_qdrant_generation"),
-    "sync_qdrant_generation": ("generation_fence", "sync_qdrant_generation"),
     "tombstone": ("deletion_coordinator", "tombstone"),
     "advance_stage": ("deletion_coordinator", "advance_stage"),
     "get_purge_eligible": ("deletion_coordinator", "get_purge_eligible"),
@@ -71,9 +66,6 @@ _LAZY_EXPORTS = {
     "is_domain_readonly": ("readonly_domain", "is_readonly"),
     "record_query_fingerprint": ("query_fingerprint", "record"),
     "get_hot_queries": ("query_fingerprint", "get_hot"),
-    "register_sqlite_class": ("sqlite_classification", "register"),
-    "get_sqlite_class": ("sqlite_classification", "get_class"),
-    "list_sqlite_by_class": ("sqlite_classification", "list_by_class"),
     "BatchWriter": ("batch_writer", "BatchWriter"),
     "LocatorCache": ("locator_cache", "LocatorCache"),
     "get_default_locator_cache": ("locator_cache", "get_default_cache"),
@@ -101,9 +93,6 @@ _LAZY_EXPORTS = {
     "complete_reconcile_batch": ("integrity_verifier", "complete_reconcile_batch"),
     "record_resource_content_hash": ("integrity_verifier", "record_resource_hash"),
     "verify_resource_content_hash": ("integrity_verifier", "verify_resource_hash"),
-    "record_sqlite_database_digest": ("integrity_verifier", "record_sqlite_digest"),
-    "record_qdrant_integrity_mapping": ("integrity_verifier", "record_qdrant_integrity"),
-    "verify_qdrant_integrity_mapping": ("integrity_verifier", "verify_qdrant_integrity"),
     "record_merkle_root": ("integrity_verifier", "record_merkle_root"),
     "create_integrity_snapshot": ("integrity_verifier", "create_integrity_snapshot"),
     "record_restore_verification": ("integrity_verifier", "record_restore_verification"),
@@ -111,24 +100,6 @@ _LAZY_EXPORTS = {
     "trigger_fail_closed": ("integrity_verifier", "trigger_fail_closed"),
     "is_fail_closed_active": ("integrity_verifier", "is_fail_closed_active"),
     # Phase I: dependency & version governance
-    "lock_version": ("dependency_governor", "lock_version"),
-    "get_version_lock": ("dependency_governor", "get_version_lock"),
-    "record_compatibility": ("dependency_governor", "record_compatibility"),
-    "check_combination_allowed": ("dependency_governor", "check_combination_allowed"),
-    "classify_upgrade": ("dependency_governor", "classify_upgrade"),
-    "get_upgrade_class": ("dependency_governor", "get_upgrade_class"),
-    "record_driver_test": ("dependency_governor", "record_driver_test"),
-    "is_driver_version_verified": ("dependency_governor", "is_driver_version_verified"),
-    "start_pg_rehearsal": ("dependency_governor", "start_pg_rehearsal"),
-    "advance_pg_rehearsal": ("dependency_governor", "advance_pg_rehearsal"),
-    "record_sqlite_runtime_compat": ("dependency_governor", "record_sqlite_runtime_compat"),
-    "record_qdrant_compat": ("dependency_governor", "record_qdrant_compat"),
-    "record_sbom_entry": ("dependency_governor", "record_sbom_entry"),
-    "record_vulnerability": ("dependency_governor", "record_vulnerability"),
-    "record_dependency_drift": ("dependency_governor", "record_dependency_drift"),
-    "register_offline_bundle": ("dependency_governor", "register_offline_bundle"),
-    "sign_release": ("dependency_governor", "sign_release"),
-    "verify_release_signature": ("dependency_governor", "verify_release_signature"),
     # Central lineage (migration 086)
     "ensure_transformation": ("lineage", "ensure_transformation"),
     "register_lineage_node": ("lineage", "register_node"),
@@ -138,7 +109,7 @@ _LAZY_EXPORTS = {
     "impact": ("lineage", "impact"),
     "health_check_lineage": ("lineage", "health_check"),
     "record_rag_resource": ("lineage", "record_rag_resource"),
-    "record_qdrant_point": ("lineage", "record_qdrant_point"),
+    "record_vector_point": ("lineage", "record_vector_point"),
     "record_reconcile_lineage": ("lineage", "record_reconcile"),
     "record_restore_lineage": ("lineage", "record_restore"),
     # Phase J: recovery orchestration
@@ -216,7 +187,6 @@ _LAZY_EXPORTS = {
     "get_projection_lag_map": ("readmodel", "get_projection_lag_map"),
     "refresh_projections": ("readmodel", "refresh_projections"),
     "read_projection": ("readmodel", "read_projection"),
-    "mark_sqlite_cache": ("readmodel", "mark_sqlite_cache"),
     # RAG capacity governance (migration 088)
     "RagCapacityPolicy": ("rag_capacity", "RagCapacityPolicy"),
     "DEFAULT_CAPACITY_POLICY": ("rag_capacity", "DEFAULT_CAPACITY_POLICY"),
@@ -234,7 +204,7 @@ _LAZY_EXPORTS = {
     "advance_generation": ("rag_capacity", "advance_generation"),
     "list_rag_slo": ("rag_capacity", "list_rag_slo"),
     "admit": ("rag_capacity", "admit"),
-    "build_qdrant_filter": ("rag_capacity", "build_qdrant_filter"),
+    "build_vector_filter": ("rag_capacity", "build_vector_filter"),
     "select_index_profile": ("rag_capacity", "select_index_profile"),
     "reranker_batches": ("rag_capacity", "reranker_batches"),
     "enforce_diversity": ("rag_capacity", "enforce_diversity"),

@@ -58,8 +58,8 @@ class SQLSLOMetrics:
             unit="ratio",
             description="SQLite lock contention rate (lock wait / total ops)",
         ),
-        "qdrant_stale_rate": SLOTarget(
-            name="qdrant_stale_rate",
+        "vector_stale_rate": SLOTarget(
+            name="vector_stale_rate",
             target_value=0.05,
             unit="ratio",
             description="Qdrant index stale rate (behind PG revision / total)",
@@ -103,10 +103,10 @@ class SQLSLOMetrics:
             if waited:
                 self._counters["sqlite_lock_waited"] += 1
 
-    def set_qdrant_stale_rate(self, rate: float) -> None:
+    def set_vector_stale_rate(self, rate: float) -> None:
         """Set Qdrant stale rate."""
         with self._lock:
-            self._gauges["qdrant_stale_rate"] = rate
+            self._gauges["vector_stale_rate"] = rate
 
     def record_restore_result(self, success: bool) -> None:
         """Record restore attempt result."""
@@ -141,8 +141,8 @@ class SQLSLOMetrics:
             total = self._counters.get("sqlite_lock_total", 0)
             waited = self._counters.get("sqlite_lock_waited", 0)
             return waited / total if total > 0 else 0.0
-        if key == "qdrant_stale_rate":
-            return self._gauges.get("qdrant_stale_rate", 0.0)
+        if key == "vector_stale_rate":
+            return self._gauges.get("vector_stale_rate", 0.0)
         if key == "restore_success_rate":
             total = self._counters.get("restore_total", 0)
             success = self._counters.get("restore_success", 0)
@@ -152,7 +152,7 @@ class SQLSLOMetrics:
     def _is_healthy(self, key: str, current: float, target: float) -> bool:
         if key in ("central_query_p95_ms", "transport_claim_latency_p95_ms", "reconcile_backlog_count"):
             return current <= target
-        if key in ("sqlite_lock_rate", "qdrant_stale_rate"):
+        if key in ("sqlite_lock_rate", "vector_stale_rate"):
             return current <= target
         if key == "restore_success_rate":
             return current >= target

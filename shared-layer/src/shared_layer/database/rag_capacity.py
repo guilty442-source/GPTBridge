@@ -21,7 +21,7 @@ bulk reindex — the adaptive admission ladder already maps these classes.
 
 Pure helpers live here (no database) so the pipeline can adopt them
 immediately: reranker batching, context diversity, adjacent-chunk merge,
-no-new-evidence stop, Qdrant payload-filter construction, index-profile
+no-new-evidence stop, vector payload-filter construction, index-profile
 selection, and the two cache kinds (embedding vs retrieval).
 
 Codex basis:
@@ -41,7 +41,7 @@ from typing import Any, Optional, Sequence
 
 from psycopg import Connection
 
-from shared_layer.database.qdrant_capacity import CapacityDecision
+from shared_layer.database.vector_capacity import CapacityDecision
 from shared_layer.database.query_allowlist import get_query
 
 _logger = logging.getLogger("gptbridge.ragcapacity")
@@ -147,7 +147,7 @@ class GenerationBudget:
 
 
 @dataclass(frozen=True)
-class QdrantIndexProfile:
+class VectorIndexProfile:
     """HNSW profile presets — small/medium/large chosen by benchmark, not fiat."""
     name: str
     m: int = 16
@@ -185,10 +185,10 @@ class RagCapacityPolicy:
     retrieval: RetrievalBudget = field(default_factory=RetrievalBudget)
     reranker: RerankerBudget = field(default_factory=RerankerBudget)
     generation: GenerationBudget = field(default_factory=GenerationBudget)
-    qdrant_profiles: tuple[QdrantIndexProfile, ...] = field(default_factory=lambda: (
-        QdrantIndexProfile("small", m=16, ef_construct=100, max_points=100_000),
-        QdrantIndexProfile("medium", m=32, ef_construct=200, max_points=1_000_000),
-        QdrantIndexProfile("large", m=64, ef_construct=400, max_points=10_000_000),
+    vector_profiles: tuple[VectorIndexProfile, ...] = field(default_factory=lambda: (
+        VectorIndexProfile("small", m=16, ef_construct=100, max_points=100_000),
+        VectorIndexProfile("medium", m=32, ef_construct=200, max_points=1_000_000),
+        VectorIndexProfile("large", m=64, ef_construct=400, max_points=10_000_000),
     ))
     cache: CachePolicy = field(default_factory=CachePolicy)
     tier_defaults: TierDefaults = field(default_factory=TierDefaults)
@@ -203,8 +203,8 @@ class RagCapacityPolicy:
             "retrieval": _asdict(self.retrieval),
             "reranker": _asdict(self.reranker),
             "generation": _asdict(self.generation),
-            "qdrant_profiles": {
-                p.name: _asdict(p) for p in self.qdrant_profiles
+            "vector_profiles": {
+                p.name: _asdict(p) for p in self.vector_profiles
             },
             "cache": _asdict(self.cache),
             "tier_defaults": _asdict(self.tier_defaults),
@@ -218,10 +218,10 @@ class RagCapacityPolicy:
         rerank = RerankerBudget(**{**_asdict(RerankerBudget()), **(doc.get("reranker") or {})})
         gen = GenerationBudget(**{**_asdict(GenerationBudget()), **(doc.get("generation") or {})})
         profiles = tuple(
-            QdrantIndexProfile(name=k, **{k2: v for k2, v in p.items() if k2 != "name"})
-            for k, p in (doc.get("qdrant_profiles") or {}).items()
+            VectorIndexProfile(name=k, **{k2: v for k2, v in p.items() if k2 != "name"})
+            for k, p in (doc.get("vector_profiles") or {}).items()
         ) or tuple([
-            p for p in RagCapacityPolicy.__dataclass_fields__["qdrant_profiles"].default
+            p for p in RagCapacityPolicy.__dataclass_fields__["vector_profiles"].default
         ])
         return cls(
             policy_version=str(doc.get("policy_version") or "rag-capacity-v1"),
@@ -230,7 +230,7 @@ class RagCapacityPolicy:
             retrieval=retr,
             reranker=rerank,
             generation=gen,
-            qdrant_profiles=profiles,
+            vector_profiles=profiles,
             cache=CachePolicy(**{**_asdict(CachePolicy()), **(doc.get("cache") or {})}),
             tier_defaults=TierDefaults(
                 **{**{k: v for k, v in _asdict(TierDefaults()).items()}, **(doc.get("tier_defaults") or {})}
@@ -278,7 +278,7 @@ def upsert_capacity_policy(
                 json.dumps(j["retrieval"]),
                 json.dumps(j["reranker"]),
                 json.dumps(j["generation"]),
-                json.dumps(j["qdrant_profiles"]),
+                json.dumps(j["vector_profiles"]),
                 json.dumps(j["cache"]),
                 json.dumps(j["tier_defaults"]),
             ),
@@ -337,7 +337,7 @@ def record_phase_latency(
     phase: str,
     elapsed_ms: float,
 ) -> int:
-    """Record one query phase timing (scope/embed/qdrant/fts/fusion/reranker/
+    """Record one query phase timing (scope/embed/vector/fts/fusion/reranker/
     context/generation).  Throttle callers: one row per phase per request."""
     with connection.cursor() as cur:
         cur.execute(
@@ -404,7 +404,7 @@ def advance_generation(
 ) -> dict[str, Any]:
     """Advance a generation: BUILDING -> VERIFYING -> ACTIVE -> RETIRED/FAILED.
 
-    ACTIVE records the alias-swap intent (the Qdrant client performs the swap
+    ACTIVE records the alias-swap intent (the vector engine performs the swap
     owning the physical collection; this registry is the durable record of it).
     """
     with connection.cursor() as cur:
@@ -436,7 +436,7 @@ def list_generations(
     connection: Connection[Any],
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    """Return recent Qdrant generation registry entries."""
+    """Return recent vector generation registry entries."""
     with connection.cursor() as cur:
         cur.execute(get_query("ragpolicy.generation.list"), (int(limit),))
         columns = [d.name for d in cur.description]
@@ -499,7 +499,7 @@ def admit(
 
 
 # ============================================================================
-# Lifecycle gate — typed admission for Qdrant build / cleanup operations
+# Lifecycle gate — typed admission for vector build / cleanup operations
 # ============================================================================
 
 LIFECYCLE_OPERATIONS: frozenset[str] = frozenset({"build", "cleanup"})
@@ -510,7 +510,7 @@ LIFECYCLE_QUEUE = "rebuild"
 class LifecycleGateDecision:
     """Typed admission verdict for a generation build / cleanup operation.
 
-    Combines the bounded rebuild-queue admission with the Qdrant capacity
+    Combines the bounded rebuild-queue admission with the vector capacity
     verdict.  A missing capacity decision is not silently compliant: it is
     surfaced as ``capacity_verdict=None`` so callers can distinguish
     "checked and allowed" from "not configured".
@@ -539,7 +539,7 @@ def gate_lifecycle_operation(
     queue_threshold: int = 1000,
     capacity: Optional[CapacityDecision] = None,
 ) -> LifecycleGateDecision:
-    """Admit or refuse a Qdrant lifecycle operation (build / cleanup).
+    """Admit or refuse a vector lifecycle operation (build / cleanup).
 
     Refuses when the rebuild queue is not ACCEPTING or when the injected
     capacity decision is not ALLOW.  With no capacity decision the gate
@@ -590,7 +590,7 @@ def gate_lifecycle_operation(
 # Query-engine helpers (pure Python — adopt directly in the pipeline)
 # ============================================================================
 
-def build_qdrant_filter(
+def build_vector_filter(
     *,
     module_ids: Sequence[str],
     generation_id: Optional[str] = None,
@@ -600,8 +600,8 @@ def build_qdrant_filter(
     tier: Optional[str] = None,
     extra: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
-    """Build a Qdrant Filter for payload pre-filtering (down-push, NOT
-    post-filter).  Every must-clause is pushed to Qdrant before ANN.
+    """Build a vector Filter for payload pre-filtering (down-push, NOT
+    post-filter).  Every must-clause is pushed to the vector engine before ANN.
 
     classification_max uses the ordering PUBLIC < INTERNAL < PRIVATE < RESTRICTED.
     """
@@ -625,16 +625,16 @@ def build_qdrant_filter(
 
 
 def select_index_profile(
-    profiles: Sequence[QdrantIndexProfile],
+    profiles: Sequence[VectorIndexProfile],
     points_count: int,
-) -> QdrantIndexProfile:
+) -> VectorIndexProfile:
     """Pick the HNSW profile whose max_points first covers the collection size.
 
     Chosen by data volume now; revisit via benchmark (recall/latency/memory)
     before believing the preset is still right.
     """
     if not profiles:
-        return QdrantIndexProfile("small")
+        return VectorIndexProfile("small")
     candidates = [p for p in profiles if p.max_points >= points_count]
     if candidates:
         return min(candidates, key=lambda p: p.max_points)
@@ -897,7 +897,7 @@ __all__ = [
     "RetrievalBudget",
     "RerankerBudget",
     "GenerationBudget",
-    "QdrantIndexProfile",
+    "VectorIndexProfile",
     "CachePolicy",
     "TierDefaults",
     "RagCapacityPolicy",
@@ -916,7 +916,7 @@ __all__ = [
     "LIFECYCLE_QUEUE",
     "LifecycleGateDecision",
     "gate_lifecycle_operation",
-    "build_qdrant_filter",
+    "build_vector_filter",
     "select_index_profile",
     "reranker_batches",
     "enforce_diversity",

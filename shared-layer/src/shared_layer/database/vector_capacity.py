@@ -14,8 +14,8 @@ the old-generation collection stays queryable (A369: prior-generation
 vectors stay stale-but-available until the successor is verified).
 
 Usage:
-    from shared_layer.database.qdrant_capacity import (
-        QdrantCollectionSpec, estimate_collection_bytes,
+    from shared_layer.database.vector_capacity import (
+        VectorCollectionSpec, estimate_collection_bytes,
         dual_collection_headroom,
     )
 """
@@ -29,7 +29,7 @@ FLOAT32_BYTES = 4
 
 
 @dataclass(frozen=True)
-class QdrantCollectionSpec:
+class VectorCollectionSpec:
     vector_count: int
     dimension: int
     payload_bytes_per_point: int = 512
@@ -44,21 +44,21 @@ class QdrantCollectionSpec:
 
 
 @dataclass(frozen=True)
-class QdrantEstimate:
+class VectorEstimate:
     vector_bytes: int
     payload_bytes: int
     index_bytes: int
     total_bytes: int
 
 
-def estimate_collection_bytes(spec: QdrantCollectionSpec) -> QdrantEstimate:
+def estimate_collection_bytes(spec: VectorCollectionSpec) -> VectorEstimate:
     """Bytes one collection needs under the declared spec."""
     raw_vectors = spec.vector_count * spec.dimension * FLOAT32_BYTES
     vector_bytes = int(raw_vectors * spec.storage_overhead)
     payload_bytes = spec.vector_count * spec.payload_bytes_per_point
     index_bytes = int((vector_bytes + payload_bytes)
                       * (spec.index_overhead - 1.0))
-    return QdrantEstimate(
+    return VectorEstimate(
         vector_bytes=vector_bytes,
         payload_bytes=payload_bytes,
         index_bytes=index_bytes,
@@ -67,7 +67,7 @@ def estimate_collection_bytes(spec: QdrantCollectionSpec) -> QdrantEstimate:
 
 
 def dual_collection_headroom(
-    current: QdrantCollectionSpec, successor: QdrantCollectionSpec
+    current: VectorCollectionSpec, successor: VectorCollectionSpec
 ) -> int:
     """Extra bytes needed while old and new collections coexist.
 
@@ -79,20 +79,20 @@ def dual_collection_headroom(
 
 
 @dataclass(frozen=True)
-class QdrantCapacityReport:
-    current: QdrantEstimate
-    successor: QdrantEstimate | None
+class VectorCapacityReport:
+    current: VectorEstimate
+    successor: VectorEstimate | None
     headroom_required_bytes: int
     fits_in: bool
     available_bytes: int
 
 
 def plan_capacity(
-    current: QdrantCollectionSpec,
+    current: VectorCollectionSpec,
     *,
     available_bytes: int,
-    successor: QdrantCollectionSpec | None = None,
-) -> QdrantCapacityReport:
+    successor: VectorCollectionSpec | None = None,
+) -> VectorCapacityReport:
     """Decide whether current (+ optional successor) fits the budget."""
     current_est = estimate_collection_bytes(current)
     successor_est = (
@@ -101,7 +101,7 @@ def plan_capacity(
     required = current_est.total_bytes + (
         successor_est.total_bytes if successor_est else 0
     )
-    return QdrantCapacityReport(
+    return VectorCapacityReport(
         current=current_est,
         successor=successor_est,
         headroom_required_bytes=required,
@@ -131,7 +131,7 @@ class CapacityDecision:
     required_bytes: Optional[int] = None
     available_bytes: Optional[int] = None
     headroom_bytes: Optional[int] = None
-    report: Optional[QdrantCapacityReport] = None
+    report: Optional[VectorCapacityReport] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -148,8 +148,8 @@ class CapacityDecision:
 def authorize_operation(
     operation: str,
     *,
-    current: QdrantCollectionSpec | None = None,
-    successor: QdrantCollectionSpec | None = None,
+    current: VectorCollectionSpec | None = None,
+    successor: VectorCollectionSpec | None = None,
     available_bytes: int | None,
     safety_margin: float = 0.0,
 ) -> CapacityDecision:
@@ -199,8 +199,8 @@ def authorize_operation(
         if current is not None and successor is not None
         else None
     )
-    report = QdrantCapacityReport(
-        current=current_est or QdrantEstimate(0, 0, 0, 0),
+    report = VectorCapacityReport(
+        current=current_est or VectorEstimate(0, 0, 0, 0),
         successor=successor_est,
         headroom_required_bytes=required,
         fits_in=required <= budget,
@@ -233,9 +233,9 @@ __all__ = [
     "FLOAT32_BYTES",
     "CapacityDecision",
     "CapacityVerdict",
-    "QdrantCapacityReport",
-    "QdrantCollectionSpec",
-    "QdrantEstimate",
+    "VectorCapacityReport",
+    "VectorCollectionSpec",
+    "VectorEstimate",
     "authorize_operation",
     "dual_collection_headroom",
     "estimate_collection_bytes",

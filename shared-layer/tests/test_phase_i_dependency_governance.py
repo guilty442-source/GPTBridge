@@ -48,8 +48,7 @@ class TestCompatibilityMatrixExtMigration:
         assert "compatibility_matrix_ext" in text
         assert "postgresql_version" in text
         assert "psycopg_version" in text
-        assert "sqlite_runtime_version" in text
-        assert "qdrant_server_version" in text
+        assert "vectord_server_version" in text
         assert "status" in text
 
     def test_defines_functions(self):
@@ -117,41 +116,6 @@ class TestPgMajorUpgradeRehearsalMigration:
         assert "start_pg_rehearsal" in text
         assert "advance_pg_rehearsal" in text
         assert "get_rehearsal_summary" in text
-
-class TestSqliteRuntimeCompatMigration:
-    def test_079_exists(self):
-        assert (_MIGRATIONS_DIR / "079_sqlite_runtime_compat.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "079_sqlite_runtime_compat.sql").read_text("utf-8")
-        assert "sqlite_runtime_compat" in text
-        assert "python_version" in text
-        assert "sqlite_library_version" in text
-        assert "fts5_available" in text
-        assert "wal_mode_available" in text
-        assert "json1_available" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "079_sqlite_runtime_compat.sql").read_text("utf-8")
-        assert "record_sqlite_runtime_compat" in text
-        assert "check_sqlite_runtime_compat" in text
-
-class TestQdrantContractCompatMigration:
-    def test_080_exists(self):
-        assert (_MIGRATIONS_DIR / "080_qdrant_contract_compat.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "080_qdrant_contract_compat.sql").read_text("utf-8")
-        assert "qdrant_contract_compat" in text
-        assert "from_version" in text
-        assert "to_version" in text
-        assert "check_category" in text
-        assert "passed" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "080_qdrant_contract_compat.sql").read_text("utf-8")
-        assert "record_qdrant_compat" in text
-        assert "is_qdrant_upgrade_safe" in text
 
 class TestSbomDependencyInventoryMigration:
     def test_081_exists(self):
@@ -255,96 +219,6 @@ class TestReleaseSignatureMigration:
         assert "verify_release_signature" in text
         assert "get_latest_signature" in text
 
-class TestDependencyGovernorModule:
-    def test_import_compute_bundle_hash(self):
-        from shared_layer.database.dependency_governor import compute_bundle_hash
-        assert callable(compute_bundle_hash)
-
-    def test_import_lock_version(self):
-        from shared_layer.database.dependency_governor import lock_version
-        assert callable(lock_version)
-
-    def test_import_get_version_lock(self):
-        from shared_layer.database.dependency_governor import get_version_lock
-        assert callable(get_version_lock)
-
-    def test_import_record_compatibility(self):
-        from shared_layer.database.dependency_governor import record_compatibility
-        assert callable(record_compatibility)
-
-    def test_import_check_combination_allowed(self):
-        from shared_layer.database.dependency_governor import check_combination_allowed
-        assert callable(check_combination_allowed)
-
-    def test_import_classify_upgrade(self):
-        from shared_layer.database.dependency_governor import classify_upgrade
-        assert callable(classify_upgrade)
-
-    def test_import_get_upgrade_class(self):
-        from shared_layer.database.dependency_governor import get_upgrade_class
-        assert callable(get_upgrade_class)
-
-    def test_import_record_driver_test(self):
-        from shared_layer.database.dependency_governor import record_driver_test
-        assert callable(record_driver_test)
-
-    def test_import_is_driver_version_verified(self):
-        from shared_layer.database.dependency_governor import is_driver_version_verified
-        assert callable(is_driver_version_verified)
-
-    def test_import_start_pg_rehearsal(self):
-        from shared_layer.database.dependency_governor import start_pg_rehearsal
-        assert callable(start_pg_rehearsal)
-
-    def test_import_advance_pg_rehearsal(self):
-        from shared_layer.database.dependency_governor import advance_pg_rehearsal
-        assert callable(advance_pg_rehearsal)
-
-    def test_import_record_sqlite_runtime_compat(self):
-        from shared_layer.database.dependency_governor import record_sqlite_runtime_compat
-        assert callable(record_sqlite_runtime_compat)
-
-    def test_import_record_qdrant_compat(self):
-        from shared_layer.database.dependency_governor import record_qdrant_compat
-        assert callable(record_qdrant_compat)
-
-    def test_import_record_sbom_entry(self):
-        from shared_layer.database.dependency_governor import record_sbom_entry
-        assert callable(record_sbom_entry)
-
-    def test_import_record_vulnerability(self):
-        from shared_layer.database.dependency_governor import record_vulnerability
-        assert callable(record_vulnerability)
-
-    def test_import_record_dependency_drift(self):
-        from shared_layer.database.dependency_governor import record_dependency_drift
-        assert callable(record_dependency_drift)
-
-    def test_import_register_offline_bundle(self):
-        from shared_layer.database.dependency_governor import register_offline_bundle
-        assert callable(register_offline_bundle)
-
-    def test_import_sign_release(self):
-        from shared_layer.database.dependency_governor import sign_release
-        assert callable(sign_release)
-
-    def test_import_verify_release_signature(self):
-        from shared_layer.database.dependency_governor import verify_release_signature
-        assert callable(verify_release_signature)
-
-    def test_lazy_export_via_init(self):
-        from shared_layer.database import lock_version, classify_upgrade
-        assert callable(lock_version)
-        assert callable(classify_upgrade)
-
-    def test_compute_bundle_hash_deterministic(self):
-        from shared_layer.database.dependency_governor import compute_bundle_hash
-        components = [{"component": "pg", "hash": "abc"}, {"component": "psycopg", "hash": "def"}]
-        h1 = compute_bundle_hash(components)
-        h2 = compute_bundle_hash(components)
-        assert h1 == h2
-        assert len(h1) == 64  # SHA-256 hex
-
 class TestQueryAllowlistPhaseI:
     def test_version_lock_query(self):
         assert is_allowlisted("version_lock.list")
@@ -361,12 +235,6 @@ class TestQueryAllowlistPhaseI:
 
     def test_pg_rehearsal_query(self):
         assert is_allowlisted("pg_rehearsal.list")
-
-    def test_sqlite_runtime_compat_query(self):
-        assert is_allowlisted("sqlite_runtime_compat.list")
-
-    def test_qdrant_compat_query(self):
-        assert is_allowlisted("qdrant_compat.list")
 
     def test_sbom_query(self):
         assert is_allowlisted("sbom.list")
@@ -414,16 +282,6 @@ class TestSchemaContractRegistryPhaseI:
         contract = declared_contract()
         table_names = [(t.schema, t.table) for t in contract.tables]
         assert ("gptbridge_index", "pg_major_upgrade_rehearsal") in table_names
-
-    def test_contract_includes_sqlite_runtime_compat(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "sqlite_runtime_compat") in table_names
-
-    def test_contract_includes_qdrant_contract_compat(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "qdrant_contract_compat") in table_names
 
     def test_contract_includes_sbom_dependency_inventory(self):
         contract = declared_contract()

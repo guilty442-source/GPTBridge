@@ -1,6 +1,6 @@
 -- 012_cross_engine_consistency.sql
--- Cross-engine consistency contract: every resource across PostgreSQL,
--- SQLite, and Qdrant carries a unified identity tuple:
+-- Cross-engine consistency contract: every resource across PostgreSQL
+-- and the vector engine (vectord) carries a unified identity tuple:
 --   resource_id / revision / generation / hash
 -- Any side whose version is behind is marked 'stale', never silently
 -- overwritten.
@@ -43,12 +43,7 @@ CREATE TRIGGER resource_stale_check
     EXECUTE FUNCTION gptbridge_index.check_resource_stale();
 
 -- ============================================================================
--- SQLite template: add matching columns so the contract is symmetric.
--- (The SQLite template is applied per-module; we update it separately.)
--- ============================================================================
-
--- ============================================================================
--- Qdrant consistency: index_state already has source_revision, content_hash,
+-- Vector consistency: index_state already has source_revision, content_hash,
 -- backend_generation (from migration 009).  We add a trigger to mark
 -- index_state as stale when its source_revision < resource.version.
 -- ============================================================================
@@ -75,7 +70,7 @@ CREATE TRIGGER index_state_stale_check
     EXECUTE FUNCTION gptbridge_rag.check_index_state_stale();
 
 -- ============================================================================
--- Cross-engine consistency view: shows all resources with their PG + Qdrant
+-- Cross-engine consistency view: shows all resources with their PG + vectord
 -- version alignment status.
 -- ============================================================================
 CREATE OR REPLACE VIEW gptbridge_index.resource_consistency AS
@@ -86,12 +81,12 @@ SELECT
     r.content_hash AS pg_hash,
     r.backend_generation,
     r.stale AS pg_stale,
-    COALESCE(s.source_revision, 0) AS qdrant_revision,
-    COALESCE(s.content_hash, '') AS qdrant_hash,
-    COALESCE(s.backend_generation, 1) AS qdrant_generation,
+    COALESCE(s.source_revision, 0) AS vector_revision,
+    COALESCE(s.content_hash, '') AS vector_hash,
+    COALESCE(s.backend_generation, 1) AS vector_generation,
     CASE
-        WHEN s.resource_id IS NULL THEN 'missing-qdrant'
-        WHEN s.source_revision < r.version THEN 'qdrant-behind'
+        WHEN s.resource_id IS NULL THEN 'missing-vector'
+        WHEN s.source_revision < r.version THEN 'vector-behind'
         WHEN s.source_revision > r.version THEN 'pg-behind'
         WHEN s.content_hash != COALESCE(r.content_hash, '') THEN 'hash-mismatch'
         ELSE 'in-sync'

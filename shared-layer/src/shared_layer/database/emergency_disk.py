@@ -58,7 +58,7 @@ class CapabilitySet:
     levels progressively set capabilities to True (shed)."""
 
     background_indexing_shed: bool = False
-    qdrant_reindex_shed: bool = False
+    vector_reindex_shed: bool = False
     reconcile_shed: bool = False
     optional_writes_shed: bool = False
     audit_detail_reduced: bool = False
@@ -68,15 +68,15 @@ class CapabilitySet:
 _LEVEL_SHED = {
     EmergencyLevel.NORMAL: CapabilitySet(),
     EmergencyLevel.WARNING: CapabilitySet(
-        background_indexing_shed=True, qdrant_reindex_shed=True,
+        background_indexing_shed=True, vector_reindex_shed=True,
     ),
     EmergencyLevel.CRITICAL: CapabilitySet(
-        background_indexing_shed=True, qdrant_reindex_shed=True,
+        background_indexing_shed=True, vector_reindex_shed=True,
         reconcile_shed=True, optional_writes_shed=True,
         audit_detail_reduced=True,
     ),
     EmergencyLevel.FAIL_CLOSED: CapabilitySet(
-        background_indexing_shed=True, qdrant_reindex_shed=True,
+        background_indexing_shed=True, vector_reindex_shed=True,
         reconcile_shed=True, optional_writes_shed=True,
         audit_detail_reduced=True, read_only_noncritical=True,
     ),

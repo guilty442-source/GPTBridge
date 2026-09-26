@@ -21,7 +21,7 @@ from typing import Final, Iterable
 
 from .admission import AdmissionController, ModuleUsage, class_for_workload
 from .breakers import DomainBreakerRegistry
-from .budgets import QdrantIndexingBudget, SqliteFallbackBudget
+from .budgets import VectorIndexingBudget
 from .cost_gate import QueryCostGate
 from .maintenance import MaintenanceScheduler
 from .retry_policy import AdaptiveRetryPolicy, RetryDecision
@@ -47,8 +47,7 @@ class AdaptiveDataPlane:
         retry_policy: AdaptiveRetryPolicy | None = None,
         cost_gate: QueryCostGate | None = None,
         maintenance: MaintenanceScheduler | None = None,
-        sqlite_budget: SqliteFallbackBudget | None = None,
-        qdrant_budget: QdrantIndexingBudget | None = None,
+        vector_budget: VectorIndexingBudget | None = None,
     ) -> None:
         self.envelope = envelope or AdaptiveEnvelope()
         self.admission = admission or AdmissionController()
@@ -57,8 +56,7 @@ class AdaptiveDataPlane:
         self.retry_policy = retry_policy or AdaptiveRetryPolicy()
         self.cost_gate = cost_gate or QueryCostGate(self.envelope)
         self.maintenance = maintenance or MaintenanceScheduler(envelope=self.envelope)
-        self.sqlite_budget = sqlite_budget or SqliteFallbackBudget()
-        self.qdrant_budget = qdrant_budget or QdrantIndexingBudget()
+        self.vector_budget = vector_budget or VectorIndexingBudget()
         self._lock = threading.RLock()
         self._signals = LoadSignals()
         self._counters: dict[str, int] = {}
@@ -136,7 +134,13 @@ class AdaptiveDataPlane:
     ) -> Decision:
         current = signals if signals is not None else self._signals
         if current.degraded:
-            decision = self.sqlite_budget.accept_write(current, priority_class)
+            # No fallback storage remains: degraded writes fail closed.
+            # Essential traffic keeps its canonical path (DEGRADE, not an
+            # allowed write), everything else is rejected outright.
+            if priority_class in (PriorityClass.CRITICAL, PriorityClass.INTERACTIVE):
+                decision = Decision(DecisionKind.DEGRADE, "degraded:essential-write")
+            else:
+                decision = Decision(DecisionKind.REJECT, "degraded:no-fallback")
             self._count("degraded-write:" + decision.kind.value)
             return decision
         return self.admit(workload, current, priority_class=priority_class)
@@ -163,7 +167,7 @@ class AdaptiveDataPlane:
         signals: LoadSignals | None = None,
     ) -> tuple[int, float, str]:
         current = signals if signals is not None else self._signals
-        plan = self.qdrant_budget.plan_upserts(
+        plan = self.vector_budget.plan_upserts(
             current,
             metadata_pending=metadata_pending,
             pending_points=pending_points,

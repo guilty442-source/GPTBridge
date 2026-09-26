@@ -8,7 +8,7 @@ Assigns every storage target a four-level watermark:
     fail-closed  — writes denied; only governance/critical transport pass
 
 Monitored targets (one entry each):
-    pg_data, pg_wal, sqlite, sqlite_wal, qdrant, backup, archive
+    pg_data, pg_wal, vector, backup, archive
 
 The layer only *classifies* and *proposes*.  It never deletes,
 purges, or mutates storage — those actions stay governed (A366
@@ -38,9 +38,7 @@ class WatermarkLevel(Enum):
 WATERMARK_TARGETS: tuple[str, ...] = (
     "pg_data",
     "pg_wal",
-    "sqlite",
-    "sqlite_wal",
-    "qdrant",
+    "vector",
     "backup",
     "archive",
 )

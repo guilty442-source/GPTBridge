@@ -7,15 +7,15 @@
 --   degradable — can degrade to fallback
 --   optional   — failure only affects specific capability
 --
--- SQLite sub-classes: codex_authority, module_private, runtime_checkpoint,
---                     fallback_cache
--- Qdrant: semantic canonical index (not central structured authority)
+-- Module-private sub-classes: codex_authority, module_private,
+--                             runtime_checkpoint, fallback_cache
+-- vectord: semantic canonical index (not central structured authority)
 -- LOCAL-VECTOR: bounded fallback, non-canonical
 --
 -- Codex basis:
 --   A8/E21  — PostgreSQL: central-structured-official-data.
 --   A44/E30 — four-functions-local.
---   A52/E38 — RAG: Qdrant canonical semantic index.
+--   A52/E38 — RAG: vectord canonical semantic index.
 
 CREATE TABLE IF NOT EXISTS gptbridge_index.dependency_classification (
     classification_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,9 +24,9 @@ CREATE TABLE IF NOT EXISTS gptbridge_index.dependency_classification (
         'authority', 'required', 'degradable', 'optional'
     )),
     component_category text NOT NULL CHECK (component_category IN (
-        'postgresql', 'sqlite_codex', 'sqlite_module_private',
-        'sqlite_runtime_checkpoint', 'sqlite_fallback_cache',
-        'qdrant', 'local_vector', 'transport', 'audit',
+        'postgresql', 'codex_authority', 'module_private',
+        'runtime_checkpoint', 'fallback_cache',
+        'vectord', 'local_vector', 'transport', 'audit',
         'reconcile', 'rag_metadata', 'read_model', 'cache'
     )),
     failure_effect text NOT NULL CHECK (failure_effect IN (
@@ -74,17 +74,17 @@ INSERT INTO gptbridge_index.dependency_classification (
 ) VALUES
     ('postgresql', 'authority', 'postgresql', 'blocks_startup',
      'core-critical', 'Central structured authority'),
-    ('governance_codex_sqlite', 'authority', 'sqlite_codex', 'blocks_startup',
-     'core-critical', 'Official read-only codex SQLite (special: read-only authority)'),
-    ('identity_directory', 'required', 'sqlite_module_private', 'blocks_startup',
-     'core-critical', 'Identity and permission directory'),
-    ('module_private_sqlite', 'degradable', 'sqlite_module_private', 'degrades_module',
-     'capability-critical', 'Module-private formal state'),
-    ('runtime_checkpoint_sqlite', 'degradable', 'sqlite_runtime_checkpoint',
-     'reset_required', 'optional', 'Runtime/checkpoint SQLite (can reset/recover)'),
-    ('fallback_cache_sqlite', 'optional', 'sqlite_fallback_cache', 'rebuild_required',
-     'optional', 'Fallback/cache SQLite (can rebuild)'),
-    ('qdrant', 'required', 'qdrant', 'blocks_capability',
+    ('governance_codex', 'authority', 'codex_authority', 'blocks_startup',
+     'core-critical', 'Official read-only codex in PostgreSQL (governance-codex://official)'),
+    ('identity_directory', 'required', 'postgresql', 'blocks_startup',
+     'core-critical', 'Identity and permission directory (PostgreSQL)'),
+    ('module_private_state', 'degradable', 'module_private', 'degrades_module',
+     'capability-critical', 'Module-private formal state (module-owned PG schemas)'),
+    ('runtime_checkpoint', 'degradable', 'runtime_checkpoint',
+     'reset_required', 'optional', 'Runtime/checkpoint state (can reset/recover)'),
+    ('fallback_cache', 'optional', 'fallback_cache', 'rebuild_required',
+     'optional', 'Fallback/cache (can rebuild)'),
+    ('vectord', 'required', 'vectord', 'blocks_capability',
      'capability-critical', 'Canonical semantic index (not central structured authority)'),
     ('local_vector', 'optional', 'local_vector', 'ignore',
      'optional', 'Bounded fallback, non-canonical'),
@@ -93,7 +93,7 @@ INSERT INTO gptbridge_index.dependency_classification (
     ('audit', 'required', 'audit', 'blocks_startup',
      'core-critical', 'Central audit ledger'),
     ('reconcile', 'degradable', 'reconcile', 'degrades_module',
-     'capability-critical', 'SQLite to PostgreSQL reconcile'),
+     'capability-critical', 'Module-private to central PostgreSQL reconcile'),
     ('rag_metadata', 'required', 'rag_metadata', 'blocks_capability',
      'capability-critical', 'PostgreSQL RAG metadata authority'),
     ('read_model', 'optional', 'read_model', 'rebuild_required',

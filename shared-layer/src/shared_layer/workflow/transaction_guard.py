@@ -2,7 +2,7 @@
 
 PostgreSQL transactions must stay short.  These patterns are forbidden:
 
-  * waiting on Qdrant inside an open PG transaction,
+  * waiting on the vector engine inside an open PG transaction,
   * running model embedding inside an open PG transaction,
   * large file I/O inside an open PG transaction,
   * waiting on human input inside an open PG transaction.
@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Final
 
 FORBIDDEN_IN_TRANSACTION: Final[tuple[str, ...]] = (
-    "qdrant-io",
+    "vector-io",
     "model-embedding",
     "large-file-io",
     "human-wait",

@@ -51,8 +51,8 @@ class TestDependencyClassificationMigration:
         assert "degradable" in text
         assert "optional" in text
         assert "postgresql" in text
-        assert "sqlite_codex" in text
-        assert "qdrant" in text
+        assert "codex_authority" in text
+        assert "vectord" in text
 
     def test_defines_functions(self):
         text = (_MIGRATIONS_DIR / "115_dependency_classification.sql").read_text("utf-8")
@@ -128,7 +128,7 @@ class TestRagReadinessGateMigration:
         text = (_MIGRATIONS_DIR / "119_rag_readiness_gate.sql").read_text("utf-8")
         assert "rag_readiness_gate" in text
         assert "pg_rag_metadata_ready" in text
-        assert "qdrant_ready" in text
+        assert "vector_ready" in text
         assert "metadata_authority_wired" in text
         assert "collection_contract_valid" in text
 
@@ -147,8 +147,8 @@ class TestShutdownPhaseMigration:
         assert "STOP_ACCEPTING_NEW_WORK" in text
         assert "DRAIN_TRANSPORT" in text
         assert "FLUSH_AUDIT" in text
-        assert "CLOSE_QDRANT_CLIENT" in text
-        assert "CLOSE_SQLITE" in text
+        assert "CLOSE_VECTOR_CLIENT" in text
+        assert "CLOSE_MODULE_PRIVATE_POOLS" in text
         assert "CLOSE_POSTGRES_POOLS" in text
 
     def test_defines_functions(self):
@@ -183,7 +183,6 @@ class TestUncleanShutdownDetectionMigration:
         assert "unclean_shutdown_detection" in text
         assert "transport_lease_recovery" in text
         assert "unknown_commit_verification" in text
-        assert "sqlite_wal_verification" in text
         assert "reconcile_state_verification" in text
         assert "operation_state_recovery" in text
 
@@ -375,50 +374,92 @@ class TestDataLayerContractModule:
         assert callable(is_pg_certified)
         assert callable(get_capability_degradation_matrix)
 
+class _FakeCursor:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def __iter__(self):
+        return iter(self._rows)
+
+    def fetchall(self):
+        return list(self._rows)
+
+
+class _FakeCodexConnection:
+    """Minimal governed-codex connection stub for matrix reader tests."""
+
+    def __init__(self, columns, rows):
+        self._columns = columns
+        self._rows = rows
+
+    def execute(self, statement, parameters=()):
+        if "PRAGMA table_info" in statement:
+            return _FakeCursor(
+                [(idx, name, "TEXT", 0, None, 0)
+                 for idx, name in enumerate(self._columns)]
+            )
+        return _FakeCursor(self._rows)
+
+
+def _fake_codex_connection(columns, rows):
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _factory(*args, **kwargs):
+        yield _FakeCodexConnection(columns, rows)
+
+    return _factory
+
+
 class TestCapabilityDegradationMatrixReader:
-    def test_reads_codex_matrix_table(self, tmp_path):
-        import sqlite3
+    def test_reads_codex_matrix_table(self):
+        from unittest.mock import patch
 
         from shared_layer.database.data_layer_contract import (
             get_capability_degradation_matrix,
         )
 
-        database = tmp_path / "codex.sqlite3"
-        with sqlite3.connect(database) as connection:
-            connection.execute(
-                "CREATE TABLE sql_capability_degradation_matrix ("
-                "capability_code TEXT PRIMARY KEY,"
-                "postgresql_unavailable_action TEXT,"
-                "sqlite_allowed INTEGER)"
-            )
-            connection.execute(
-                "INSERT INTO sql_capability_degradation_matrix VALUES (?, ?, ?)",
-                ("CENTRAL_OFFICIAL_WRITE", "closed", 0),
-            )
-        matrix = get_capability_degradation_matrix(database)
+        columns = ["capability_code", "postgresql_unavailable_action",
+                   "module_private_allowed"]
+        rows = [("CENTRAL_OFFICIAL_WRITE", "closed", 0)]
+        factory = _fake_codex_connection(columns, rows)
+        with patch(
+            "governance_rule.execution.codex_repository."
+            "codex_readonly_connection", factory,
+        ):
+            matrix = get_capability_degradation_matrix()
         assert set(matrix) == {"CENTRAL_OFFICIAL_WRITE"}
         row = matrix["CENTRAL_OFFICIAL_WRITE"]
         assert row["capability_code"] == "CENTRAL_OFFICIAL_WRITE"
         assert row["postgresql_unavailable_action"] == "closed"
 
-    def test_missing_codex_returns_empty(self, tmp_path):
-        from shared_layer.database.data_layer_contract import (
-            get_capability_degradation_matrix,
-        )
-
-        assert get_capability_degradation_matrix(tmp_path / "absent.sqlite3") == {}
-
-    def test_table_absent_returns_empty(self, tmp_path):
-        import sqlite3
+    def test_missing_codex_returns_empty(self):
+        from unittest.mock import patch
 
         from shared_layer.database.data_layer_contract import (
             get_capability_degradation_matrix,
         )
 
-        database = tmp_path / "codex.sqlite3"
-        with sqlite3.connect(database) as connection:
-            connection.execute("CREATE TABLE unrelated (id INTEGER)")
-        assert get_capability_degradation_matrix(database) == {}
+        with patch(
+            "governance_rule.execution.codex_repository."
+            "codex_readonly_connection",
+            side_effect=RuntimeError("codex unavailable"),
+        ):
+            assert get_capability_degradation_matrix() == {}
+
+    def test_table_absent_returns_empty(self):
+        from unittest.mock import patch
+
+        from shared_layer.database.data_layer_contract import (
+            get_capability_degradation_matrix,
+        )
+
+        factory = _fake_codex_connection([], [])
+        with patch(
+            "governance_rule.execution.codex_repository."
+            "codex_readonly_connection", factory,
+        ):
+            assert get_capability_degradation_matrix() == {}
 
     def test_real_codex_declares_active_matrix(self):
         from shared_layer.database.data_layer_contract import (

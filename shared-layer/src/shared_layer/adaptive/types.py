@@ -115,14 +115,11 @@ class LoadSignals:
     lock_contention_pct: float = 0.0
     transport_backlog: int = 0
     reconcile_backlog: int = 0
-    qdrant_backlog: int = 0
-    qdrant_latency_ms: float = 0.0
+    vector_backlog: int = 0
+    vector_latency_ms: float = 0.0
     model_load_pct: float = 0.0
     degraded: bool = False
     degraded_seconds: float = 0.0
-    sqlite_pending_count: int = 0
-    sqlite_db_bytes: int = 0
-    sqlite_wal_bytes: int = 0
 
     def pressure(self, envelope: "AdaptiveEnvelope" | None = None) -> PressureLevel:
         """Coarse pressure level from latency, backlog and system load."""
@@ -183,8 +180,8 @@ class AdaptiveEnvelope:
     batch_max: int = 500
     reconcile_workers_min: int = 1
     reconcile_workers_max: int = 2
-    qdrant_upserts_min_per_second: float = 10.0
-    qdrant_upserts_max_per_second: float = 200.0
+    vector_upserts_min_per_second: float = 10.0
+    vector_upserts_max_per_second: float = 200.0
     max_rows_batch: int = 5_000
     max_rows_background: int = 50_000
     max_rows_hard_reject: int = 500_000
@@ -214,8 +211,8 @@ class AdaptiveEnvelope:
 
     def clamp_upsert_rate(self, value: float) -> float:
         return max(
-            self.qdrant_upserts_min_per_second,
-            min(self.qdrant_upserts_max_per_second, float(value)),
+            self.vector_upserts_min_per_second,
+            min(self.vector_upserts_max_per_second, float(value)),
         )
 
 

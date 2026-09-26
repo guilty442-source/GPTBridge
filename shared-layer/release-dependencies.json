@@ -413,7 +413,7 @@
     ],
     "databases": [
       "postgresql",
-      "qdrant"
+      "vectord"
     ],
     "rule": "release payload must never contain or overwrite persistent data, runtime config or model weights"
   },
@@ -496,7 +496,7 @@
     ],
     "endpoint_references": {
       "postgresql": "GPTBRIDGE_POSTGRES_DSN",
-      "qdrant": "localhost:6333 (shared-layer default; readiness dependency)",
+      "vectord": "http://127.0.0.1:8092 (Rust vector engine; readiness dependency)",
       "ollama": "GPTBRIDGE_OLLAMA_URL or localhost:11434"
     },
     "model_registry": {

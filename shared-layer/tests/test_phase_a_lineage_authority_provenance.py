@@ -73,21 +73,6 @@ class TestMigrationFiles:
         assert "audit_event_provenance_populate" in text
 
 
-class TestSqliteTemplate:
-    def test_template_has_authority_class(self):
-        template = (_PROJECT_ROOT / "shared-layer" / "sql" / "sqlite_module_template.sql").read_text("utf-8")
-        assert "authority_class" in template
-        assert "central-official" in template
-        assert "module-private" in template
-        assert "degraded-copy" in template
-
-    def test_template_has_provenance_columns(self):
-        template = (_PROJECT_ROOT / "shared-layer" / "sql" / "sqlite_module_template.sql").read_text("utf-8")
-        assert "executor_id" in template
-        assert "correlation_id" in template
-        assert "source_revision" in template
-
-
 class TestQueryAllowlist:
     def test_lineage_queries_registered(self):
         assert is_allowlisted("lineage.get_by_resource")
@@ -123,8 +108,7 @@ class TestQueryAllowlist:
         sql = get_query("lineage.resource_lineage_view")
         assert "resource_lineage" in sql
         assert "authority_class" in sql
-        assert "qdrant_consistency" in sql
-
+        assert "vector_consistency" in sql
 
 class TestProvenanceHelper:
     def test_import_set_provenance(self):

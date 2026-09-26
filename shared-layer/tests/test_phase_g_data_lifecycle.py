@@ -86,53 +86,6 @@ class TestAuditRetentionLayeringMigration:
         assert "get_audit_long_term_eligible" in text
 
 
-class TestSqlitePerClassRetentionMigration:
-    def test_053_exists(self):
-        assert (_MIGRATIONS_DIR / "053_sqlite_per_class_retention.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "053_sqlite_per_class_retention.sql").read_text("utf-8")
-        assert "sqlite_retention_policy" in text
-        assert "retention_days" in text
-        assert "archive_eligible" in text
-        assert "purge_eligible" in text
-        assert "version_history_required" in text
-
-    def test_defines_class_policies(self):
-        text = (_MIGRATIONS_DIR / "053_sqlite_per_class_retention.sql").read_text("utf-8")
-        for cls in ("'A'", "'B'", "'C'", "'D'"):
-            assert cls in text
-
-    def test_defines_function(self):
-        text = (_MIGRATIONS_DIR / "053_sqlite_per_class_retention.sql").read_text("utf-8")
-        assert "get_sqlite_retention_for_class" in text
-
-
-class TestQdrantVectorLifecycleMigration:
-    def test_054_exists(self):
-        assert (_MIGRATIONS_DIR / "054_qdrant_vector_lifecycle.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "054_qdrant_vector_lifecycle.sql").read_text("utf-8")
-        assert "qdrant_vector_lifecycle" in text
-        assert "vector_state" in text
-        assert "point_id" in text
-        assert "pg_marked_at" in text
-        assert "pg_confirmed_at" in text
-
-    def test_defines_vector_states(self):
-        text = (_MIGRATIONS_DIR / "054_qdrant_vector_lifecycle.sql").read_text("utf-8")
-        for state in ("ACTIVE", "STALE", "RETRIEVAL_FORBIDDEN",
-                      "DELETE_PENDING", "DELETED", "VERIFIED_DELETED"):
-            assert state in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "054_qdrant_vector_lifecycle.sql").read_text("utf-8")
-        assert "mark_vector_for_resource_state" in text
-        assert "confirm_vector_deleted" in text
-        assert "get_vectors_pending_deletion" in text
-
-
 class TestPurgeQueueMigration:
     def test_055_exists(self):
         assert (_MIGRATIONS_DIR / "055_purge_queue.sql").is_file()
@@ -347,12 +300,6 @@ class TestQueryAllowlistPhaseG:
     def test_audit_retention_query(self):
         assert is_allowlisted("audit_retention.layers")
 
-    def test_sqlite_retention_query(self):
-        assert is_allowlisted("sqlite_retention.by_class")
-
-    def test_qdrant_vector_query(self):
-        assert is_allowlisted("qdrant_vector.pending_deletion")
-
     def test_purge_queue_queries(self):
         assert is_allowlisted("purge_queue.eligible")
         assert is_allowlisted("purge_queue.list")
@@ -397,16 +344,6 @@ class TestSchemaContractRegistryPhaseG:
         contract = declared_contract()
         table_names = [(t.schema, t.table) for t in contract.tables]
         assert ("gptbridge_index", "audit_retention_layer") in table_names
-
-    def test_contract_includes_sqlite_retention_policy(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "sqlite_retention_policy") in table_names
-
-    def test_contract_includes_qdrant_vector_lifecycle(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "qdrant_vector_lifecycle") in table_names
 
     def test_contract_includes_purge_queue(self):
         contract = declared_contract()

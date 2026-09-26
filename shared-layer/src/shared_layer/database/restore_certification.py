@@ -6,7 +6,7 @@ it is marked healthy.  The gate verifies:
   2. RLS is enabled and forced on all protected tables
   3. Resource count is within expected bounds
   4. Audit head matches the pre-restore head (or is documented)
-  5. Qdrant linkage is intact (index_state rows have valid qdrant_point_id)
+  5. Qdrant linkage is intact (index_state rows have valid vector_point_id)
   6. Reconcile state is clean (no pending rows)
   7. Generation fence is bumped
 """
@@ -152,17 +152,17 @@ def certify_restore(
         row = connection.execute(
             """
             SELECT count(*) FROM gptbridge_rag.index_state
-            WHERE qdrant_point_id IS NULL OR qdrant_point_id = ''
+            WHERE vector_point_id IS NULL OR vector_point_id = ''
             """
         ).fetchone()
-        missing_qdrant = int(row[0]) if row else 0
+        missing_vector = int(row[0]) if row else 0
         checks.append(CertificationCheck(
-            name="qdrant_linkage",
-            passed=missing_qdrant == 0,
-            detail=f"missing_qdrant_linkage={missing_qdrant}",
+            name="vector_linkage",
+            passed=missing_vector == 0,
+            detail=f"missing_vector_linkage={missing_vector}",
         ))
     except Exception as exc:
-        checks.append(CertificationCheck("qdrant_linkage", False, str(exc)[:200]))
+        checks.append(CertificationCheck("vector_linkage", False, str(exc)[:200]))
 
     # 6. Reconcile state clean
     try:

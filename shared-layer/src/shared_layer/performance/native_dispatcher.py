@@ -27,14 +27,33 @@ import math
 import re
 from typing import Any, Sequence
 
-try:
-    import numpy as np
-except ImportError:  # pragma: no cover — fallback when numpy unavailable
-    np = None  # type: ignore[assignment]
+# numpy is imported lazily (module __getattr__) so importing this module does
+# not pull the numeric stack into non-dispatch startup paths; numpy itself
+# remains mandatory when a native dispatch call actually converts data.
+_NP_MISSING = object()
+_np_cache: Any = None
+
+
+def __getattr__(name: str) -> Any:  # PEP 562 lazy numpy import
+    global _np_cache
+    if name == "np":
+        if _np_cache is None:
+            try:
+                import numpy as _np_mod
+            except ImportError:  # pragma: no cover — numpy unavailable
+                _np_cache = _NP_MISSING
+            else:
+                _np_cache = _np_mod
+        if _np_cache is _NP_MISSING:
+            raise AttributeError(name)
+        return _np_cache
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 def _as_float64_array(data: Any):  # type: ignore[no-untyped-def]
     """Zero-copy view when already float64 ndarray, otherwise copy once."""
-    if np is None:
+    np = __getattr__("np")
+    if np is _NP_MISSING:
         raise RuntimeError("numpy is required for native dispatch")
     if isinstance(data, np.ndarray) and data.dtype == np.float64:
         return data

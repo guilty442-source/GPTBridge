@@ -5,15 +5,15 @@
 --              FORBID: sqlite-as-central-official-or-shared-audit.
 --   A46/E32 — Audit: mandatory-ledger; write=governed-executor; store=data-governance-sub-sovereign-declared.
 --   A10/E10 — Authorization: explicit-allowlist; deny-by-default; fail-closed.
---   A52/E38 — RAG: gptbridge_rag schema stores Qdrant point/collection *metadata* only;
---              Qdrant remains the canonical semantic index (local-owned, local-only).
+--   A52/E38 — RAG: gptbridge_rag schema stores vectord point/collection *metadata* only;
+--              vectord remains the canonical semantic index (local-owned, local-only).
 --              This schema MUST NOT store vector payloads — that would substitute PostgreSQL
---              for Qdrant's canonical role (A8 FORBID: role-substitution).
+--              for vectord's canonical role (A8 FORBID: role-substitution).
 --   A49/E35 — Formal-tools: implementation-dependencies=approved-inventory-not-role-authority.
 --
 -- Role boundary:
 --   gptbridge_index    — central resource registry (structured metadata).
---   gptbridge_rag      — RAG chunk/index-state metadata pointing to Qdrant canonical vectors.
+--   gptbridge_rag      — RAG chunk/index-state metadata pointing to vectord canonical vectors.
 --   gptbridge_transport— shared tool-request transport channel.
 --   gptbridge_audit    — central shared audit ledger (A46).  Module-private audit (SQLite)
 --                        is bounded operational state only, NEVER a substitute for this schema.
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_rag.chunk (
     sequence integer NOT NULL CHECK (sequence > 0),
     character_start integer NOT NULL CHECK (character_start >= 0),
     character_end integer NOT NULL CHECK (character_end >= character_start),
-    qdrant_point_id uuid NOT NULL UNIQUE,
+    vector_point_id uuid NOT NULL UNIQUE,
     embedding_model text NOT NULL,
     locator_fragment text NOT NULL,
     metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_rag.index_state (
     resource_id text PRIMARY KEY REFERENCES gptbridge_index.resource(resource_id),
     module_id text NOT NULL,
     embedding_model text NOT NULL,
-    qdrant_collection text NOT NULL,
+    vector_collection text NOT NULL,
     chunk_count integer NOT NULL DEFAULT 0,
     status text NOT NULL,
     version bigint NOT NULL DEFAULT 1,

@@ -9,7 +9,7 @@
 --     gptbridge_ragpolicy.capacity_policy         — per-layer upper limits
 --     gptbridge_ragpolicy.queue_state             — bounded backpressure state
 --                                  ACCEPTING / THROTTLED / PAUSED / DRAINING
---     gptbridge_ragpolicy.qdrant_collection_generation
+--     gptbridge_ragpolicy.vector_collection_generation
 --                                  — logical collection ↔ physical generation
 --                                    registry with BUILDING→VERIFYING→ACTIVE
 --                                    alias-swap lifecycle
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_ragpolicy.capacity_policy (
     retrieval jsonb NOT NULL DEFAULT '{}'::jsonb,
     reranker jsonb NOT NULL DEFAULT '{}'::jsonb,
     generation jsonb NOT NULL DEFAULT '{}'::jsonb,
-    qdrant_profiles jsonb NOT NULL DEFAULT '{}'::jsonb,
+    vector_profiles jsonb NOT NULL DEFAULT '{}'::jsonb,
     cache jsonb NOT NULL DEFAULT '{}'::jsonb,
     tier_defaults jsonb NOT NULL DEFAULT '{}'::jsonb,
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -88,18 +88,18 @@ CREATE TABLE IF NOT EXISTS gptbridge_ragpolicy.queue_state (
 );
 
 -- ============================================================================
--- qdrant_collection_generation — logical alias ↔ physical generation.
+-- vector_collection_generation — logical alias ↔ physical generation.
 --   logical_alias:  gptbridge_shared_knowledge
 --   physical_name:  gptbridge_shared_knowledge_g0001 ... g000N
 --   lifecycle:      BUILDING -> VERIFYING -> ACTIVE (+ alias swap intent) ->
 --                   RETIRED; FAILED on aborted build.
---   The alias swap itself is performed by the Qdrant client; this registry is
+--   The alias swap itself is performed by the vectord engine; this registry is
 --   the durable record of intent + verification so a crash before/after swap
 --   is detectable and resumable.
 -- ============================================================================
 CREATE SEQUENCE IF NOT EXISTS gptbridge_ragpolicy.generation_serial_seq START 1;
 
-CREATE TABLE IF NOT EXISTS gptbridge_ragpolicy.qdrant_collection_generation (
+CREATE TABLE IF NOT EXISTS gptbridge_ragpolicy.vector_collection_generation (
     generation_id text PRIMARY KEY,
     logical_alias text NOT NULL,
     physical_name text NOT NULL UNIQUE,
@@ -142,7 +142,7 @@ CREATE INDEX IF NOT EXISTS retrieval_trace_request_idx
     ON gptbridge_ragpolicy.retrieval_trace (request_id, round_no);
 
 -- ============================================================================
--- phase_latency — per-request phase timings (scope/embed/qdrant/fts/fusion/
+-- phase_latency — per-request phase timings (scope/embed/vector/fts/fusion/
 --   reranker/context/generation).  Aggregate per SLO; raw rows are compact.
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS gptbridge_ragpolicy.phase_latency (
@@ -176,7 +176,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_ragpolicy.rag_slo (
 -- ============================================================================
 ALTER TABLE gptbridge_ragpolicy.capacity_policy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gptbridge_ragpolicy.queue_state ENABLE ROW LEVEL SECURITY;
-ALTER TABLE gptbridge_ragpolicy.qdrant_collection_generation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE gptbridge_ragpolicy.vector_collection_generation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gptbridge_ragpolicy.retrieval_trace ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gptbridge_ragpolicy.phase_latency ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gptbridge_ragpolicy.rag_slo ENABLE ROW LEVEL SECURITY;
@@ -197,11 +197,11 @@ CREATE POLICY queue_write ON gptbridge_ragpolicy.queue_state
     FOR ALL USING (current_user LIKE 'gptbridge_%')
     WITH CHECK (current_user LIKE 'gptbridge_%');
 
-DROP POLICY IF EXISTS gen_select ON gptbridge_ragpolicy.qdrant_collection_generation;
-CREATE POLICY gen_select ON gptbridge_ragpolicy.qdrant_collection_generation
+DROP POLICY IF EXISTS gen_select ON gptbridge_ragpolicy.vector_collection_generation;
+CREATE POLICY gen_select ON gptbridge_ragpolicy.vector_collection_generation
     FOR SELECT USING (true);
-DROP POLICY IF EXISTS gen_write ON gptbridge_ragpolicy.qdrant_collection_generation;
-CREATE POLICY gen_write ON gptbridge_ragpolicy.qdrant_collection_generation
+DROP POLICY IF EXISTS gen_write ON gptbridge_ragpolicy.vector_collection_generation;
+CREATE POLICY gen_write ON gptbridge_ragpolicy.vector_collection_generation
     FOR ALL USING (current_user LIKE 'gptbridge_%')
     WITH CHECK (current_user LIKE 'gptbridge_%');
 
@@ -231,20 +231,20 @@ CREATE POLICY slo_write ON gptbridge_ragpolicy.rag_slo
 
 REVOKE ALL ON gptbridge_ragpolicy.capacity_policy FROM PUBLIC;
 REVOKE ALL ON gptbridge_ragpolicy.queue_state FROM PUBLIC;
-REVOKE ALL ON gptbridge_ragpolicy.qdrant_collection_generation FROM PUBLIC;
+REVOKE ALL ON gptbridge_ragpolicy.vector_collection_generation FROM PUBLIC;
 REVOKE ALL ON gptbridge_ragpolicy.retrieval_trace FROM PUBLIC;
 REVOKE ALL ON gptbridge_ragpolicy.phase_latency FROM PUBLIC;
 REVOKE ALL ON gptbridge_ragpolicy.rag_slo FROM PUBLIC;
 
 GRANT SELECT ON gptbridge_ragpolicy.capacity_policy TO gptbridge_index_reader;
 GRANT SELECT ON gptbridge_ragpolicy.queue_state TO gptbridge_index_reader;
-GRANT SELECT ON gptbridge_ragpolicy.qdrant_collection_generation TO gptbridge_index_reader;
+GRANT SELECT ON gptbridge_ragpolicy.vector_collection_generation TO gptbridge_index_reader;
 GRANT SELECT ON gptbridge_ragpolicy.retrieval_trace TO gptbridge_index_reader;
 GRANT SELECT ON gptbridge_ragpolicy.phase_latency TO gptbridge_index_reader;
 GRANT SELECT ON gptbridge_ragpolicy.rag_slo TO gptbridge_index_reader;
 GRANT SELECT ON gptbridge_ragpolicy.capacity_policy TO gptbridge_xingcheng_reader;
 GRANT SELECT ON gptbridge_ragpolicy.queue_state TO gptbridge_xingcheng_reader;
-GRANT SELECT ON gptbridge_ragpolicy.qdrant_collection_generation TO gptbridge_xingcheng_reader;
+GRANT SELECT ON gptbridge_ragpolicy.vector_collection_generation TO gptbridge_xingcheng_reader;
 GRANT SELECT ON gptbridge_ragpolicy.retrieval_trace TO gptbridge_xingcheng_reader;
 GRANT SELECT ON gptbridge_ragpolicy.phase_latency TO gptbridge_xingcheng_reader;
 GRANT SELECT ON gptbridge_ragpolicy.rag_slo TO gptbridge_xingcheng_reader;
@@ -253,7 +253,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON gptbridge_ragpolicy.capacity_policy
     TO gptbridge_index_executor;
 GRANT SELECT, INSERT, UPDATE, DELETE ON gptbridge_ragpolicy.queue_state
     TO gptbridge_index_executor, gptbridge_transport_executor;
-GRANT SELECT, INSERT, UPDATE, DELETE ON gptbridge_ragpolicy.qdrant_collection_generation
+GRANT SELECT, INSERT, UPDATE, DELETE ON gptbridge_ragpolicy.vector_collection_generation
     TO gptbridge_index_executor;
 GRANT SELECT, INSERT, UPDATE, DELETE ON gptbridge_ragpolicy.retrieval_trace
     TO gptbridge_index_executor;
@@ -267,7 +267,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON gptbridge_ragpolicy.rag_slo
 -- ============================================================================
 INSERT INTO gptbridge_ragpolicy.capacity_policy (
     policy_version, active, ingestion, embedding, retrieval, reranker,
-    generation, qdrant_profiles, cache, tier_defaults
+    generation, vector_profiles, cache, tier_defaults
 ) VALUES (
     'rag-capacity-v1', true,
     '{"max_files_per_job": 64, "max_bytes_per_file": 41943040, '
@@ -468,7 +468,7 @@ BEGIN
     SELECT nextval('gptbridge_ragpolicy.generation_serial_seq') INTO v_serial;
     v_generation := 'g' || lpad(v_serial::text, 4, '0');
     v_physical := p_logical_alias || '_' || v_generation;
-    INSERT INTO gptbridge_ragpolicy.qdrant_collection_generation (
+    INSERT INTO gptbridge_ragpolicy.vector_collection_generation (
         generation_id, logical_alias, physical_name, schema_version,
         embedding_model, embedding_dimension, state
     ) VALUES (
@@ -500,25 +500,25 @@ DECLARE
     v_result jsonb;
 BEGIN
     SELECT state, logical_alias INTO v_state, v_alias
-    FROM gptbridge_ragpolicy.qdrant_collection_generation
+    FROM gptbridge_ragpolicy.vector_collection_generation
     WHERE generation_id = p_generation;
     IF v_state IS NULL THEN
         RAISE EXCEPTION 'unknown generation: %', p_generation;
     END IF;
 
     IF v_state = 'BUILDING' AND p_target = 'VERIFYING' THEN
-        UPDATE gptbridge_ragpolicy.qdrant_collection_generation
+        UPDATE gptbridge_ragpolicy.vector_collection_generation
         SET state = 'VERIFYING', updated_at = now()
         WHERE generation_id = p_generation;
         v_result := jsonb_build_object('generation_id', p_generation,
                                        'state', 'VERIFYING');
     ELSIF v_state = 'VERIFYING' AND p_target = 'ACTIVE' THEN
-        UPDATE gptbridge_ragpolicy.qdrant_collection_generation
+        UPDATE gptbridge_ragpolicy.vector_collection_generation
         SET state = 'ACTIVE', verification_result = p_verification,
             alias_swapped_at = now(), updated_at = now()
         WHERE generation_id = p_generation;
         -- Retire the previous ACTIVE generation for the same logical alias.
-        UPDATE gptbridge_ragpolicy.qdrant_collection_generation
+        UPDATE gptbridge_ragpolicy.vector_collection_generation
         SET state = 'RETIRED', updated_at = now()
         WHERE logical_alias = v_alias AND state = 'ACTIVE'
           AND generation_id <> p_generation;
@@ -527,13 +527,13 @@ BEGIN
                                        'alias_swapped_at', now(),
                                        'alias', v_alias);
     ELSIF (v_state IN ('BUILDING','VERIFYING','ACTIVE')) AND p_target = 'RETIRED' THEN
-        UPDATE gptbridge_ragpolicy.qdrant_collection_generation
+        UPDATE gptbridge_ragpolicy.vector_collection_generation
         SET state = 'RETIRED', updated_at = now()
         WHERE generation_id = p_generation;
         v_result := jsonb_build_object('generation_id', p_generation,
                                        'state', 'RETIRED');
     ELSIF v_state IN ('BUILDING','VERIFYING') AND p_target = 'FAILED' THEN
-        UPDATE gptbridge_ragpolicy.qdrant_collection_generation
+        UPDATE gptbridge_ragpolicy.vector_collection_generation
         SET state = 'FAILED', error_message = p_verification ->> 'error',
             updated_at = now()
         WHERE generation_id = p_generation;
@@ -566,7 +566,7 @@ BEGIN
         'retrieval', v_row.retrieval,
         'reranker', v_row.reranker,
         'generation', v_row.generation,
-        'qdrant_profiles', v_row.qdrant_profiles,
+        'vector_profiles', v_row.vector_profiles,
         'cache', v_row.cache,
         'tier_defaults', v_row.tier_defaults,
         'updated_at', to_char(v_row.updated_at, 'YYYY-MM-DD"T"HH24:MI:SSOF')
@@ -594,7 +594,7 @@ BEGIN
     UPDATE gptbridge_ragpolicy.capacity_policy SET active = false;
     INSERT INTO gptbridge_ragpolicy.capacity_policy (
         policy_version, active, ingestion, embedding, retrieval, reranker,
-        generation, qdrant_profiles, cache, tier_defaults
+        generation, vector_profiles, cache, tier_defaults
     ) VALUES (
         p_policy_version, true, p_ingestion, p_embedding, p_retrieval,
         p_reranker, p_generation, p_profiles, p_cache, p_tiers
@@ -606,7 +606,7 @@ BEGIN
         retrieval = EXCLUDED.retrieval,
         reranker = EXCLUDED.reranker,
         generation = EXCLUDED.generation,
-        qdrant_profiles = EXCLUDED.qdrant_profiles,
+        vector_profiles = EXCLUDED.vector_profiles,
         cache = EXCLUDED.cache,
         tier_defaults = EXCLUDED.tier_defaults,
         updated_at = now();

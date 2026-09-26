@@ -8,8 +8,8 @@
 | 引擎 | 最終角色 |
 |------|----------|
 | PostgreSQL | 中央結構化官方資料、共享傳輸、中央 Audit、Identity、RAG metadata、法典 authority（schema `gptbridge_codex`，A107/A173 verified cutover 後唯一權威） |
-| SQLite | 模組私有狀態 + checkpoint + bounded fallback；法典 SQLite 僅為 predecessor/staging/import artifact（非權威） |
-| Qdrant | canonical semantic/vector index |
+| 模組私有 PostgreSQL schema | 模組私有狀態 + checkpoint + bounded fallback（SQLite 已退役，僅為 predecessor/import artifact） |
+| vectord（Rust vector engine） | canonical semantic/vector index |
 | LOCAL-VECTOR | 若保留，只能 bounded non-canonical fallback |
 
 法典唯一權威為本地 PostgreSQL schema `gptbridge_codex`，所有讀取經 `governance-codex://official` 受管入口（A74/A107/A174）。verified cutover 後 SQLite 法典檔為非權威前身/暫存產物，不得作為 live authority。
@@ -18,8 +18,8 @@
 
 - Structured shared truth → PostgreSQL
 - Governance codex truth → PostgreSQL `gptbridge_codex`（唯讀入口 `governance-codex://official`）
-- Semantic/vector truth → Qdrant
-- Module-private operational truth → module-owned SQLite
+- Semantic/vector truth → vectord
+- Module-private operational truth → module-owned PostgreSQL schema
 - Cache / projection → **never authority**
 
 衝突解決順序（**禁止 newest-timestamp-wins**）：
@@ -42,32 +42,32 @@ Identity → Permission → Governed Executor → Authority validation
 ## 4. 跨引擎規則
 
 - 單一 PostgreSQL 操作：ACID transaction。
-- PostgreSQL + SQLite + Qdrant + NTFS：durable operation + transactional
+- PostgreSQL + vectord + NTFS：durable operation + transactional
   outbox + idempotent Saga + verification + reconciliation。
 - **禁止**把所有引擎偽裝成一個 transaction / 2PC / XA。
 - PostgreSQL transaction 必須保持短：禁止在開啟的 PG 交易中等待 embedding、
-  等待 Qdrant、大量檔案 I/O 或人工操作
+  等待 vectord、大量檔案 I/O 或人工操作
   （`shared_layer.workflow.assert_short_transaction`）。
 
 ## 5. 降級規則
 
 任何 fallback 必須同時 `bounded + observable + non-canonical + reconciled`，
-缺一不可。SQLite fallback 必備上限：`max_pending / max_size / max_wal /
-max_duration / reconcile deadline`；PostgreSQL 恢復後單向 SQLite → PostgreSQL reconcile。
+缺一不可。模組私有 fallback 必備上限：`max_pending / max_size /
+max_duration / reconcile deadline`；PostgreSQL 恢復後單向 module-private → central reconcile。
 
 ## 6. RAG 邊界
 
 ```
 Source Resource → PG resource metadata → PG chunk metadata → Embedding
-→ Qdrant point → qdrant_point_id 回 PG → verification → READY
+→ vectord point → vector_point_id 回 PG → verification → READY
 ```
 
-禁止 PostgreSQL 儲存 canonical vector、禁止 Qdrant 變成 structured authority。
+禁止 PostgreSQL 儲存 canonical vector、禁止 vectord 變成 structured authority。
 
 ## 7. 版本治理與 Startup/Shutdown
 
 - Database Release 綁定：`release_id`、PG schema/migration head、role contract、
-  RLS、query contract、SQLite template、reconcile contract、Qdrant contract、
+  RLS、query contract、reconcile contract、vector contract、
   embedding contract、minimum runtime、certification result。
 - 升級必經：Migration → Contract validation → RLS test → Compatibility test →
   Restore rehearsal → Certification → Activation。
@@ -77,28 +77,28 @@ Source Resource → PG resource metadata → PG chunk metadata → Embedding
   （`shared_layer.startup_gate`）。正式寫入要求
   `authority_ready AND security_ready AND audit_ready`，`SELECT 1` 不算 ready。
 - Shutdown：停止收新工作 → drain transport → 停背景 worker → checkpoint Saga →
-  停 reconcile → flush audit/local state → 關 Qdrant → 關 SQLite → 關 PG pool。
+  停 reconcile → flush audit/local state → 關 vectord → 關 PG pool。
   非 graceful shutdown 後的 startup 必須先做 unknown-commit check、lease
-  recovery、SQLite WAL verification、Saga recovery、reconcile verification。
+  recovery、Saga recovery、reconcile verification。
 
 ## 8. 健康與一致性字串（統一詞彙）
 
 - Health：`HEALTHY / DEGRADED / UNAVAILABLE / DRIFTED / RECOVERING /
   QUARANTINED / UNKNOWN` + `reason_code`
   （`PG_POOL_EXHAUSTED`、`SQLITE_WAL_PRESSURE`、`SCHEMA_DRIFT`、`RLS_DRIFT`、
-  `RECONCILE_BACKLOG`、`QDRANT_INDEX_LAG`、`BACKUP_STALE` …）。
+  `RECONCILE_BACKLOG`、`VECTOR_INDEX_LAG`、`BACKUP_STALE` …）。
   各模組不得自創健康字串（`shared_layer.health_states`）。
 - Consistency：`CONSISTENT / PENDING / DEGRADED / RECONCILING / CONFLICT /
   ORPHANED / INVALID`（`shared_layer.workflow.evaluate_consistency`）。
-  PG chunk READY + Qdrant point missing **不得**對外稱 READY。
+  PG chunk READY + vectord point missing **不得**對外稱 READY。
 
 ## 9. 正式禁止事項
 
 1. SQLite 作為共享中央官方 DB
 2. SQLite 作為中央 shared audit
 3. 以退役 SQLite 法典前身/暫存檔作為 live authority（verified cutover 後一律禁止）
-4. PostgreSQL 取代 Qdrant canonical vector role
-5. Qdrant 取代 PostgreSQL structured authority
+4. PostgreSQL 取代 vectord canonical vector role
+5. vectord 取代 PostgreSQL structured authority
 6. LOCAL-VECTOR 升格成 canonical index
 7. 模組自行跨模組直接寫 DB
 8. 模組自行建立 identity / permission
@@ -110,11 +110,11 @@ Source Resource → PG resource metadata → PG chunk metadata → Embedding
 14. Timestamp 作為唯一版本判斷
 15. Timeout 直接視為 transaction failed（必須 lookup + verify）
 16. 跨引擎宣稱 exactly-once
-17. PG transaction 中等待模型 / Qdrant / 大型 I/O
+17. PG transaction 中等待模型 / vectord / 大型 I/O
 18. Cache / projection 成為不可重建資料來源
 19. Audit 被 UPDATE / DELETE
 20. Recovery 未驗證就解除 degraded state
-21. Qdrant offline 就修改 PostgreSQL authority 迎合它
+21. vectord offline 就修改 PostgreSQL authority 迎合它
 22. Schema drift 時偷偷自動 migration
 23. RLS drift 時繼續正常寫入
 24. Fallback 無上限累積
@@ -123,14 +123,14 @@ Source Resource → PG resource metadata → PG chunk metadata → Embedding
 ## 10. Definition of Done（SQL v1）
 
 - [x] PostgreSQL central authority
-- [x] SQLite role boundaries（分類 A–D + ACL/path/scope）
+- [x] module-private store boundaries（SQLite 已退役；分類 A–D + ACL/path/scope 由 module-private PG schema 承繼）
 - [x] governance codex read-only authority（PostgreSQL `gptbridge_codex`，`governance-codex://official`）
-- [x] Qdrant canonical semantic role（強制 module scope）
+- [x] vectord canonical semantic role（強制 module scope）
 - [x] RLS deny-by-default + role layering（`security/roles.py` 認證）
 - [x] central append-only audit（credential audit 只追加）
 - [x] idempotent transport（idempotency_key + lease + reclaim，遷移 114）
-- [x] bounded SQLite fallback（`security` / `workflow` 上限契約）
-- [x] SQLite → PG reconciliation（單向）
+- [x] bounded module-private fallback（`security` / `workflow` 上限契約）
+- [x] module-private → central reconciliation（單向）
 - [x] formal RAG metadata authority（2026-09-21 核實：`PostgreSQLMetadataAuthority` 已由 `rag/pipeline.py:67` 實例化並接入 canonical_backend／generation／health_gate）
 - [x] startup certification 接上 runtime（2026-09-21：`_phase_postgresql` 於 DSN 存在時跑 `certify_startup` 完整檢查（schema/RLS/roles/migration-head/audit/contract）——不再只是 SELECT 1，認證失敗 → `POSTGRESQL_CERTIFICATION_FAILED` ready=False；`phases_execution` 以真實 phase 證據驅動 `StartupGate` 十階梯並寫入報告 `startup_ladder`（嚴格排序，無證據源的 MODULE_PRIVATE/RECOVERY/READ_MODEL/CORE 止步即如實記錄，不偽造）。殘留：TCP-probe 路徑無連線無法認證（記 `skipped:no-dsn`））
 - [x] backup restore certification 接上 scheduler（2026-09-21：`BackupScheduler` 新增 `restore_certifier` 注入點——備份完成→認證→寫入 `gptbridge_index.backup_catalog` 的 `restore_certified`/`restore_certification`；fail-closed：無 certifier 或拋錯皆記 `restore_certified=false` 不偽造；順帶修復原 INSERT 指向不存在的 `gptbridge_audit.backup_catalog` 且欄位不符 migration 016 的缺陷，7 測試綠。殘留：scheduler 本身尚無生產組裝點——部署層議題）

@@ -1,8 +1,8 @@
 -- 040_database_release_manifest.sql
 -- Database Release Manifest + State Machine.
 --
--- Binds PostgreSQL schema, SQLite template, RLS, Role, Migration,
--- Qdrant collection, query contract, reconcile contract, backup format,
+-- Binds PostgreSQL schema, RLS, Role, Migration,
+-- vector contract, query contract, reconcile contract, backup format,
 -- and minimum runtime version into a single Database Release.
 --
 -- State machine: DRAFT → VALIDATED → CERTIFIED → STAGED → ACTIVE
@@ -22,9 +22,8 @@ CREATE TABLE IF NOT EXISTS gptbridge_index.database_release (
     migration_head integer NOT NULL,
     rls_version integer NOT NULL,
     role_version integer NOT NULL,
-    sqlite_template_version integer NOT NULL,
     reconcile_contract_version integer NOT NULL,
-    qdrant_contract_version integer NOT NULL,
+    vector_contract_version integer NOT NULL,
     query_contract_version integer NOT NULL,
     backup_format_version integer NOT NULL DEFAULT 1,
     minimum_runtime_version text NOT NULL,
@@ -122,16 +121,15 @@ RETURNS TABLE (
     migration_head integer,
     rls_version integer,
     role_version integer,
-    sqlite_template_version integer,
-    qdrant_contract_version integer,
+    vector_contract_version integer,
     query_contract_version integer,
     minimum_runtime_version text
 ) AS $$
 BEGIN
     RETURN QUERY
     SELECT release_id, schema_version, migration_head,
-           rls_version, role_version, sqlite_template_version,
-           qdrant_contract_version, query_contract_version,
+           rls_version, role_version,
+           vector_contract_version, query_contract_version,
            minimum_runtime_version
     FROM gptbridge_index.database_release
     WHERE state = 'ACTIVE'

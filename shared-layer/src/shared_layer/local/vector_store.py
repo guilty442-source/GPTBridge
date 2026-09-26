@@ -34,7 +34,7 @@ from .native_kernel import available as _native_available
 from .pg_adapter import PgConnection
 from .pg_adapter import connect as pg_connect
 from .native_kernel import dot_vectors as _native_dot
-from ..security.qdrant_scope import QdrantScopeError
+from ..security.vector_scope import VectorScopeError
 
 COLLECTION: Final[str] = "gptbridge_shared_knowledge"
 DEFAULT_ENDPOINT: Final[str] = "local"
@@ -132,11 +132,13 @@ class LocalVectorStore:
         *,
         dimension: int = _DIMENSION,
         endpoint: str = DEFAULT_ENDPOINT,
+        schema: str = "gptbridge_rag",
     ) -> None:
         self.endpoint = "local" if endpoint in {"", "local"} else str(endpoint).rstrip("/")
         self._dimension = int(dimension)
         self._native = _native_available()
-        self.database_path = Path("postgresql:gptbridge_rag")
+        self._schema = schema
+        self.database_path = Path(f"postgresql:{schema}")
         self.location = str(self.database_path)
         with self._connect() as connection:
             connection.executescript(
@@ -165,7 +167,7 @@ class LocalVectorStore:
 
     @contextmanager
     def _connect(self) -> Iterator[PgConnection]:
-        connection = pg_connect("gptbridge_rag", autocommit=False)
+        connection = pg_connect(self._schema, autocommit=False)
         try:
             yield connection
             connection.commit()
@@ -368,7 +370,7 @@ class LocalVectorStore:
         # discipline as the canonical index — an empty module scope is
         # rejected fail-closed instead of scanning every cached module.
         if not module_ids:
-            raise QdrantScopeError("QDRANT_MODULE_SCOPE_REQUIRED")
+            raise VectorScopeError("VECTOR_MODULE_SCOPE_REQUIRED")
         query_vector = _normalize([float(value) for value in vector])
         # Perf: bound the SQL candidate ceiling (was a dead
         # max(x, min(x, 500)) that always evaluated to x — unbounded).

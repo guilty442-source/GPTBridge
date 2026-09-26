@@ -7,7 +7,7 @@ actually creates:
     peak_storage          — projected data at the release's peak
     migration_temp_space  — copy/rewrite headroom migrations need
     backup_temp_space     — pre-release backup must fit
-    qdrant_rebuild_space  — dual-collection coexistence if the
+    vector_rebuild_space  — dual-collection coexistence if the
                             release rebuilds vectors
     wal_headroom          — WAL burst during the migration window
 
@@ -37,7 +37,7 @@ class CapacityRequirement:
     peak_storage_bytes: int
     migration_temp_bytes: int
     backup_temp_bytes: int
-    qdrant_rebuild_bytes: int
+    vector_rebuild_bytes: int
     wal_headroom_bytes: int
     safety_margin: float = 0.10  # extra fraction required on top
 
@@ -86,7 +86,7 @@ def certify_release_capacity(
          free_bytes + dedicated_migration_bytes),
         ("backup_temp_space", requirement.backup_temp_bytes,
          free_bytes + dedicated_backup_bytes),
-        ("qdrant_rebuild_space", requirement.qdrant_rebuild_bytes,
+        ("vector_rebuild_space", requirement.vector_rebuild_bytes,
          free_bytes),
         ("wal_headroom", requirement.wal_headroom_bytes, free_bytes),
     )

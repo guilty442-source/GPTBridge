@@ -3,7 +3,7 @@
 --
 -- RAG_READY requires:
 --   PostgreSQL rag metadata ready
---   AND Qdrant ready
+--   AND vector ready
 --   AND metadata authority wired
 --   AND collection contract valid
 --
@@ -11,14 +11,14 @@
 -- the formal RAG pipeline.
 --
 -- Codex basis:
---   A52/E38 — RAG: Qdrant canonical semantic index.
+--   A52/E38 — RAG: vector canonical semantic index.
 --   A8/E21  — PostgreSQL: central-structured-official-data.
 
 CREATE TABLE IF NOT EXISTS gptbridge_index.rag_readiness_gate (
     gate_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     checked_at timestamptz NOT NULL DEFAULT now(),
     pg_rag_metadata_ready boolean NOT NULL DEFAULT false,
-    qdrant_ready boolean NOT NULL DEFAULT false,
+    vector_ready boolean NOT NULL DEFAULT false,
     metadata_authority_wired boolean NOT NULL DEFAULT false,
     collection_contract_valid boolean NOT NULL DEFAULT false,
     rag_ready boolean NOT NULL DEFAULT false,
@@ -51,35 +51,35 @@ CREATE OR REPLACE FUNCTION gptbridge_index.evaluate_rag_readiness()
 RETURNS boolean AS $$
 DECLARE
     v_pg_ready boolean;
-    v_qdrant_ready boolean;
+    v_vector_ready boolean;
     v_authority_wired boolean;
     v_contract_valid boolean;
     v_all_pass boolean;
 BEGIN
     v_pg_ready := gptbridge_index.is_schema_ready('gptbridge_rag');
-    -- Qdrant and authority wiring are checked by runtime
+    -- vector and authority wiring are checked by runtime
     SELECT COALESCE(
-        (SELECT qdrant_status = 'verified'
-         FROM gptbridge_index.qdrant_recovery
+        (SELECT vector_status = 'verified'
+         FROM gptbridge_index.vector_recovery
          ORDER BY detected_at DESC LIMIT 1),
         false
-    ) INTO v_qdrant_ready;
+    ) INTO v_vector_ready;
 
     v_authority_wired := v_pg_ready;  -- PG metadata authority is the source
     v_contract_valid := EXISTS (
-        SELECT 1 FROM gptbridge_index.qdrant_contract
+        SELECT 1 FROM gptbridge_index.vector_contract
         WHERE status = 'active'
     );
 
-    v_all_pass := v_pg_ready AND v_qdrant_ready AND
+    v_all_pass := v_pg_ready AND v_vector_ready AND
                   v_authority_wired AND v_contract_valid;
 
     INSERT INTO gptbridge_index.rag_readiness_gate (
-        pg_rag_metadata_ready, qdrant_ready,
+        pg_rag_metadata_ready, vector_ready,
         metadata_authority_wired, collection_contract_valid,
         rag_ready
     )
-    VALUES (v_pg_ready, v_qdrant_ready, v_authority_wired,
+    VALUES (v_pg_ready, v_vector_ready, v_authority_wired,
             v_contract_valid, v_all_pass);
 
     RETURN v_all_pass;

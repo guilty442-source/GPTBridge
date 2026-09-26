@@ -15,7 +15,7 @@ Usage:
     from shared_layer.database.orphan_scanner import scan_orphans
 
     with connection_manager.connection() as conn:
-        report = scan_orphans(conn, qdrant=qdrant_adapter)
+        report = scan_orphans(conn, vector=vector_adapter)
         for orphan in report:
             print(orphan)
         if report.passed:
@@ -41,9 +41,9 @@ _ORPHAN_LOCATOR = (
     "WHERE loc.locator_id IS NULL AND r.deletion_stage = 'active'"
 )
 
-# 2. Qdrant index_state without chunks (stale index)
-_ORPHAN_QDRANT = (
-    "SELECT s.resource_id, s.module_id, s.qdrant_collection "
+# 2. Vector index_state without chunks (stale index)
+_ORPHAN_VECTOR = (
+    "SELECT s.resource_id, s.module_id, s.vector_collection "
     "FROM gptbridge_rag.index_state s "
     "LEFT JOIN gptbridge_rag.chunk c ON c.resource_id = s.resource_id "
     "WHERE c.chunk_id IS NULL AND s.status = 'indexed' "
@@ -140,9 +140,9 @@ def _point_identity(point: Any) -> tuple[
     )
 
 
-def _scan_qdrant(
+def _scan_vector(
     connection: Connection[Any],
-    qdrant: Any,
+    vector: Any,
     limit: int,
     orphans: list[dict[str, Any]],
 ) -> tuple[bool, Optional[str], bool]:
@@ -151,13 +151,13 @@ def _scan_qdrant(
     Returns ``(scanned, reason, truncated)``.  Any failure yields
     ``scanned=False`` — never a silent PASS.
     """
-    scanner = getattr(qdrant, "scan_points", None)
+    scanner = getattr(vector, "scan_points", None)
     if not callable(scanner):
-        return False, "qdrant-scan-points-missing", False
+        return False, "vector-scan-points-missing", False
     try:
         points = list(scanner(limit=limit))
     except Exception as exc:
-        return False, f"qdrant-scan-failed: {exc}", False
+        return False, f"vector-scan-failed: {exc}", False
     try:
         known = {
             str(row[0])
@@ -171,7 +171,7 @@ def _scan_qdrant(
         if resource_id is not None and resource_id in known:
             continue
         orphans.append({
-            "type": "orphan-qdrant-point",
+            "type": "orphan-vector-point",
             "resource_id": resource_id,
             "module_id": module_id,
             "point_id": point_id,
@@ -184,18 +184,18 @@ def _scan_qdrant(
 def scan_orphans(
     connection: Connection[Any],
     *,
-    qdrant: Any = None,
-    qdrant_limit: int = 5000,
+    vector: Any = None,
+    vector_limit: int = 5000,
 ) -> OrphanScanReport:
     """Scan for orphan states across all engines.
 
-    PostgreSQL is always scanned; Qdrant is scanned only when the injected
+    PostgreSQL is always scanned; vectord is scanned only when the injected
     interface provides a callable ``scan_points(limit=...)``.  Each orphan
     record carries a 'type' field:
       'missing-locator'     — PG resource has no locator
-      'orphan-qdrant'      — Qdrant index_state has no chunks
+      'orphan-vector'      — vector index_state has no chunks
       'stale-resource'     — PG resource marked stale
-      'orphan-qdrant-point' — Qdrant point whose resource has no PG chunk
+      'orphan-vector-point' — vectord point whose resource has no PG chunk
     """
     orphans: list[dict[str, Any]] = []
 
@@ -207,13 +207,13 @@ def scan_orphans(
             "module_id": str(row[1]),
         })
 
-    # 2. Orphan Qdrant (index_state indexed but no chunks)
-    for row in connection.execute(_ORPHAN_QDRANT).fetchall():
+    # 2. Orphan vector (index_state indexed but no chunks)
+    for row in connection.execute(_ORPHAN_VECTOR).fetchall():
         orphans.append({
-            "type": "orphan-qdrant",
+            "type": "orphan-vector",
             "resource_id": str(row[0]),
             "module_id": str(row[1]),
-            "qdrant_collection": str(row[2]),
+            "vector_collection": str(row[2]),
         })
 
     # 3. Stale resources
@@ -226,33 +226,33 @@ def scan_orphans(
             "backend_generation": int(row[3]),
         })
 
-    # 4. Optional Qdrant point scan (never assumed — explicit coverage)
-    limit = max(1, int(qdrant_limit))
+    # 4. Optional vectord point scan (never assumed — explicit coverage)
+    limit = max(1, int(vector_limit))
     engines_scanned: list[str] = ["postgresql"]
     engines_unscanned: list[str] = []
     reasons: dict[str, str] = {}
     truncated = False
-    if qdrant is None:
-        engines_unscanned.append("qdrant")
-        reasons["qdrant"] = "qdrant-interface-not-injected"
+    if vector is None:
+        engines_unscanned.append("vector")
+        reasons["vector"] = "vector-interface-not-injected"
     else:
-        scanned, reason, truncated = _scan_qdrant(
-            connection, qdrant, limit, orphans
+        scanned, reason, truncated = _scan_vector(
+            connection, vector, limit, orphans
         )
         if scanned:
-            engines_scanned.append("qdrant")
+            engines_scanned.append("vector")
             if reason is not None:
-                reasons["qdrant"] = reason
+                reasons["vector"] = reason
         else:
-            engines_unscanned.append("qdrant")
-            reasons["qdrant"] = reason or "qdrant-scan-unavailable"
+            engines_unscanned.append("vector")
+            reasons["vector"] = reason or "vector-scan-unavailable"
 
     return OrphanScanReport(
         orphans=tuple(orphans),
         engines_scanned=tuple(engines_scanned),
         engines_unscanned=tuple(engines_unscanned),
         reasons=reasons,
-        bounds={"qdrant_max_points": limit},
+        bounds={"vector_max_points": limit},
         truncated=truncated,
     )
 

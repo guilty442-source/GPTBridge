@@ -15,8 +15,7 @@ from typing import Final
 
 class Engine(Enum):
     POSTGRESQL = "postgresql"
-    SQLITE = "sqlite"
-    QDRANT = "qdrant"
+    VECTOR = "vector"
     FILESYSTEM = "filesystem"
     MODEL = "model"
 

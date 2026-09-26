@@ -251,7 +251,6 @@ def seed_default_registry(registry: DependencyVersionRegistry) -> None:
     python_runtime = [
         ("psutil", ">=6.0,<8", "pypi", "runtime", DependencyClass.OPTIONAL.value),
         ("psycopg", ">=3.2,<4", "pypi", "runtime", DependencyClass.RUNTIME_REQUIRED.value),
-        ("qdrant-client", ">=1.12,<2", "pypi", "runtime", DependencyClass.RUNTIME_REQUIRED.value),
         ("websockets", "==16.1", "pypi", "runtime", DependencyClass.RUNTIME_REQUIRED.value),
     ]
 

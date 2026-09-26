@@ -72,7 +72,7 @@ class PsycopgRestoreDrillAdapter:
     """Restore-drill adapter over one real PostgreSQL connection.
 
     ``required_roles=None`` uses the declared schema contract roles;
-    ``qdrant_point_checker`` is the injection point for a real Qdrant
+    ``vector_point_checker`` is the injection point for a real vectord
     point-existence check (defaults to the PostgreSQL linkage query).
     """
 
@@ -90,7 +90,7 @@ class PsycopgRestoreDrillAdapter:
         required_roles: Sequence[str] | None = None,
         max_reconcile_backlog: int = 0,
         max_transport_backlog: int = 0,
-        qdrant_point_checker: Callable[[Any], tuple[int, int]] | None = None,
+        vector_point_checker: Callable[[Any], tuple[int, int]] | None = None,
     ) -> None:
         self._backup_fn = backup_fn
         self._simulate_loss_fn = simulate_loss_fn
@@ -101,7 +101,7 @@ class PsycopgRestoreDrillAdapter:
         )
         self._max_reconcile_backlog = int(max_reconcile_backlog)
         self._max_transport_backlog = int(max_transport_backlog)
-        self._qdrant_point_checker = qdrant_point_checker
+        self._vector_point_checker = vector_point_checker
         (
             self._connection,
             self.engine_live,
@@ -259,9 +259,9 @@ class PsycopgRestoreDrillAdapter:
         passed = pending <= self._max_reconcile_backlog
         return passed, f"pending={pending} max={self._max_reconcile_backlog}"
 
-    def verify_qdrant_references(self) -> tuple[bool, str]:
-        if self._qdrant_point_checker is not None:
-            checked, missing = self._qdrant_point_checker(
+    def verify_vector_references(self) -> tuple[bool, str]:
+        if self._vector_point_checker is not None:
+            checked, missing = self._vector_point_checker(
                 self._require_live()
             )
             return (
@@ -270,9 +270,9 @@ class PsycopgRestoreDrillAdapter:
             )
         missing = self._scalar(self._row(
             "SELECT count(*) FROM gptbridge_rag.index_state"
-            " WHERE qdrant_point_id IS NULL OR qdrant_point_id = ''"
+            " WHERE vector_point_id IS NULL OR vector_point_id = ''"
         ))
-        return missing == 0, f"missing_qdrant_linkage={missing}"
+        return missing == 0, f"missing_vector_linkage={missing}"
 
     # -- extra evidence for PG recovery verification ------------------------
 

@@ -95,17 +95,17 @@ SELECT
     loc.location_key AS locator_location_key,
     loc.status AS locator_status,
     loc.physical_location IS NOT NULL AS has_physical_location,
-    s.authority_class AS qdrant_authority_class,
-    COALESCE(s.source_revision, 0) AS qdrant_revision,
-    COALESCE(s.content_hash, '') AS qdrant_hash,
-    COALESCE(s.status, 'missing') AS qdrant_index_status,
+    s.authority_class AS vector_authority_class,
+    COALESCE(s.source_revision, 0) AS vector_revision,
+    COALESCE(s.content_hash, '') AS vector_hash,
+    COALESCE(s.status, 'missing') AS vector_index_status,
     CASE
-        WHEN s.resource_id IS NULL THEN 'missing-qdrant'
-        WHEN s.source_revision < r.version THEN 'qdrant-behind'
+        WHEN s.resource_id IS NULL THEN 'missing-vector'
+        WHEN s.source_revision < r.version THEN 'vector-behind'
         WHEN s.source_revision > r.version THEN 'pg-behind'
         WHEN s.content_hash != COALESCE(r.content_hash, '') THEN 'hash-mismatch'
         ELSE 'in-sync'
-    END AS qdrant_consistency
+    END AS vector_consistency
 FROM gptbridge_index.resource r
 LEFT JOIN gptbridge_index.data_lineage dl
     ON dl.resource_id = r.resource_id

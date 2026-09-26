@@ -209,23 +209,6 @@ class TestLeaseRecoveryMigration:
         assert "reclaim_lease" in text
         assert "get_expired_leases" in text
 
-class TestSqliteFallbackFreezeMigration:
-    def test_099_exists(self):
-        assert (_MIGRATIONS_DIR / "099_sqlite_fallback_freeze.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "099_sqlite_fallback_freeze.sql").read_text("utf-8")
-        assert "sqlite_fallback_freeze" in text
-        assert "fallback_open" in text
-        assert "fallback_draining" in text
-        assert "fallback_frozen" in text
-        assert "fallback_closed" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "099_sqlite_fallback_freeze.sql").read_text("utf-8")
-        assert "transition_fallback_state" in text
-        assert "get_fallback_state" in text
-
 class TestRecoveryPriorityMigration:
     def test_100_exists(self):
         assert (_MIGRATIONS_DIR / "100_recovery_priority.sql").is_file()
@@ -242,67 +225,6 @@ class TestRecoveryPriorityMigration:
     def test_defines_functions(self):
         text = (_MIGRATIONS_DIR / "100_recovery_priority.sql").read_text("utf-8")
         assert "get_recovery_priority" in text
-
-class TestQdrantRecoveryMigration:
-    def test_101_exists(self):
-        assert (_MIGRATIONS_DIR / "101_qdrant_recovery.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "101_qdrant_recovery.sql").read_text("utf-8")
-        assert "qdrant_recovery" in text
-        assert "qdrant_status" in text
-        assert "indexing_backlog_count" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "101_qdrant_recovery.sql").read_text("utf-8")
-        assert "start_qdrant_recovery" in text
-        assert "update_qdrant_recovery" in text
-
-class TestQdrantFullRebuildMigration:
-    def test_102_exists(self):
-        assert (_MIGRATIONS_DIR / "102_qdrant_full_rebuild.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "102_qdrant_full_rebuild.sql").read_text("utf-8")
-        assert "qdrant_full_rebuild" in text
-        assert "collection_generation" in text
-        assert "old_collection_retired" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "102_qdrant_full_rebuild.sql").read_text("utf-8")
-        assert "start_qdrant_full_rebuild" in text
-        assert "advance_qdrant_rebuild" in text
-
-class TestSqliteSingleRecoveryMigration:
-    def test_103_exists(self):
-        assert (_MIGRATIONS_DIR / "103_sqlite_single_recovery.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "103_sqlite_single_recovery.sql").read_text("utf-8")
-        assert "sqlite_single_recovery" in text
-        assert "failure_type" in text
-        assert "recovery_action" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "103_sqlite_single_recovery.sql").read_text("utf-8")
-        assert "start_sqlite_recovery" in text
-        assert "complete_sqlite_recovery" in text
-
-class TestCodexSqliteRecoveryMigration:
-    def test_104_exists(self):
-        assert (_MIGRATIONS_DIR / "104_codex_sqlite_recovery.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "104_codex_sqlite_recovery.sql").read_text("utf-8")
-        assert "codex_sqlite_recovery" in text
-        assert "quarantined" in text
-        assert "hash_verified" in text
-        assert "restored_from_source" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "104_codex_sqlite_recovery.sql").read_text("utf-8")
-        assert "start_codex_recovery" in text
-        assert "advance_codex_recovery" in text
 
 class TestBackupRestoreOrchestrationMigration:
     def test_105_exists(self):
@@ -580,15 +502,6 @@ class TestQueryAllowlistPhaseJ:
     def test_lease_recovery_query(self):
         assert is_allowlisted("lease_recovery.expired")
 
-    def test_sqlite_fallback_query(self):
-        assert is_allowlisted("sqlite_fallback.state")
-
-    def test_qdrant_recovery_query(self):
-        assert is_allowlisted("qdrant_recovery.list")
-
-    def test_qdrant_full_rebuild_query(self):
-        assert is_allowlisted("qdrant_full_rebuild.list")
-
     def test_chaos_drill_query(self):
         assert is_allowlisted("chaos_drill.list")
 
@@ -662,35 +575,10 @@ class TestSchemaContractRegistryPhaseJ:
         table_names = [(t.schema, t.table) for t in contract.tables]
         assert ("gptbridge_index", "lease_recovery") in table_names
 
-    def test_contract_includes_sqlite_fallback_freeze(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "sqlite_fallback_freeze") in table_names
-
     def test_contract_includes_recovery_priority(self):
         contract = declared_contract()
         table_names = [(t.schema, t.table) for t in contract.tables]
         assert ("gptbridge_index", "recovery_priority") in table_names
-
-    def test_contract_includes_qdrant_recovery(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "qdrant_recovery") in table_names
-
-    def test_contract_includes_qdrant_full_rebuild(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "qdrant_full_rebuild") in table_names
-
-    def test_contract_includes_sqlite_single_recovery(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "sqlite_single_recovery") in table_names
-
-    def test_contract_includes_codex_sqlite_recovery(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "codex_sqlite_recovery") in table_names
 
     def test_contract_includes_backup_restore_orchestration(self):
         contract = declared_contract()

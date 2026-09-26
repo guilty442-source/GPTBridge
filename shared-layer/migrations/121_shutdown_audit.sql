@@ -27,8 +27,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_index.shutdown_audit (
     security_generation integer,
     active_leases_released integer NOT NULL DEFAULT 0,
     active_leases_expired integer NOT NULL DEFAULT 0,
-    sqlite_checkpoints_done integer NOT NULL DEFAULT 0,
-    qdrant_cursor_saved boolean NOT NULL DEFAULT false,
+    vector_cursor_saved boolean NOT NULL DEFAULT false,
     audit_flushed boolean NOT NULL DEFAULT false,
     notes text
 );
@@ -78,8 +77,7 @@ CREATE OR REPLACE FUNCTION gptbridge_index.complete_shutdown_audit(
     p_reconcile_pending integer DEFAULT 0,
     p_leases_released integer DEFAULT 0,
     p_leases_expired integer DEFAULT 0,
-    p_sqlite_checkpoints integer DEFAULT 0,
-    p_qdrant_cursor_saved boolean DEFAULT false,
+    p_vector_cursor_saved boolean DEFAULT false,
     p_audit_flushed boolean DEFAULT false,
     p_notes text DEFAULT NULL
 ) RETURNS void AS $$
@@ -93,8 +91,7 @@ BEGIN
         reconcile_pending = p_reconcile_pending,
         active_leases_released = p_leases_released,
         active_leases_expired = p_leases_expired,
-        sqlite_checkpoints_done = p_sqlite_checkpoints,
-        qdrant_cursor_saved = p_qdrant_cursor_saved,
+        vector_cursor_saved = p_vector_cursor_saved,
         audit_flushed = p_audit_flushed,
         notes = p_notes
     WHERE shutdown_id = p_shutdown_id;

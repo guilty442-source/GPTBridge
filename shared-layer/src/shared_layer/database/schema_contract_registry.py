@@ -1,6 +1,6 @@
 """Schema Contract Registry (A44/E30 + A8/E21).
 
-Registers every PostgreSQL schema, SQLite template, RLS policy, role, index,
+Registers every PostgreSQL schema, RLS policy, role, index,
 and migration version as a verifiable contract.  At startup, the registry
 compares the declared contract against the actual database state and
 reports drift before the runtime is allowed to serve traffic.
@@ -104,7 +104,7 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         table="chunk",
         columns=(
             "chunk_id", "resource_id", "module_id", "sequence",
-            "character_start", "character_end", "qdrant_point_id",
+            "character_start", "character_end", "vector_point_id",
             "embedding_model", "locator_fragment", "metadata", "created_at",
             "content_tsv",
         ),
@@ -114,10 +114,10 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         schema="gptbridge_rag",
         table="index_state",
         columns=(
-            "resource_id", "module_id", "embedding_model", "qdrant_collection",
+            "resource_id", "module_id", "embedding_model", "vector_collection",
             "chunk_count", "status", "version", "indexed_at", "updated_at",
             "embedding_dimension", "chunk_size", "chunk_overlap", "content_hash",
-            "qdrant_point_id", "postgresql_record_id", "source_revision",
+            "vector_point_id", "postgresql_record_id", "source_revision",
             "tombstone_generation", "embedding_version", "chunking_version",
             "parser_version", "rag_schema_version", "pipeline_version",
             "backend_generation",
@@ -237,24 +237,6 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "contract_name", "current_version", "min_compatible_version",
             "description", "updated_at",
         ),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="sqlite_generation",
-        columns=(
-            "module_id", "database_path", "backend_generation",
-            "last_synced_at", "stale", "updated_at",
-        ),
-        indexes=("sqlite_generation_stale_idx",),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="qdrant_generation",
-        columns=(
-            "collection_name", "backend_generation",
-            "last_synced_at", "stale", "updated_at",
-        ),
-        indexes=("qdrant_generation_stale_idx",),
     ),
     TableContract(
         schema="gptbridge_index",
@@ -419,17 +401,6 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
     ),
     TableContract(
         schema="gptbridge_index",
-        table="sqlite_database_class",
-        columns=(
-            "module_id", "database_path", "db_class",
-            "synchronous_setting", "backup_frequency_seconds",
-            "integrity_check_frequency_seconds", "retention_days",
-            "reconcile_required", "description", "updated_at",
-        ),
-        indexes=("sqlite_class_idx",),
-    ),
-    TableContract(
-        schema="gptbridge_index",
         table="reconcile_pending_queue",
         columns=(
             "queue_id", "module_id", "resource_id", "source_revision",
@@ -455,8 +426,8 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         table="database_release",
         columns=(
             "release_id", "schema_version", "migration_head",
-            "rls_version", "role_version", "sqlite_template_version",
-            "reconcile_contract_version", "qdrant_contract_version",
+            "rls_version", "role_version",
+            "reconcile_contract_version", "vector_contract_version",
             "query_contract_version", "backup_format_version",
             "minimum_runtime_version", "compatibility_range",
             "state", "certification_result", "previous_release_id",
@@ -502,27 +473,6 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "introduced_in_release", "applied_at", "applied_by",
         ),
         indexes=("rls_role_mig_version_idx", "rls_role_mig_type_idx"),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="sqlite_template_release",
-        columns=(
-            "template_version", "schema_version", "minimum_reader_version",
-            "minimum_writer_version", "ddl_hash", "introduced_in_release",
-            "status", "deprecated_at", "retired_at", "description", "updated_at",
-        ),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="qdrant_contract",
-        columns=(
-            "contract_version", "collection_name", "vector_dimension",
-            "distance_metric", "embedding_model", "payload_schema",
-            "required_module_id", "resource_id_format", "chunk_id_format",
-            "revision_field", "introduced_in_release", "status",
-            "deprecated_at", "retired_at", "successor_version",
-            "description", "updated_at",
-        ),
     ),
     TableContract(
         schema="gptbridge_index",
@@ -581,25 +531,6 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "layer_name", "retention_days", "next_layer",
             "compression_enabled", "description", "updated_at",
         ),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="sqlite_retention_policy",
-        columns=(
-            "db_class", "retention_days", "archive_eligible",
-            "archive_after_days", "purge_eligible", "purge_after_days",
-            "version_history_required", "description", "updated_at",
-        ),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="qdrant_vector_lifecycle",
-        columns=(
-            "resource_id", "collection_name", "point_id", "vector_state",
-            "resource_lifecycle_state", "pg_marked_at", "qdrant_deleted_at",
-            "verified_at", "pg_confirmed_at", "deletion_reason", "updated_at",
-        ),
-        indexes=("qdrant_vec_lc_state_idx", "qdrant_vec_lc_collection_idx"),
     ),
     TableContract(
         schema="gptbridge_index",
@@ -707,27 +638,6 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
     ),
     TableContract(
         schema="gptbridge_index",
-        table="sqlite_database_digest",
-        columns=(
-            "digest_id", "module_id", "database_path", "schema_hash",
-            "revision_head", "row_count", "critical_table_digest",
-            "generation", "computed_at", "verified_at", "tamper_state",
-        ),
-        indexes=("sqlite_digest_module_idx", "sqlite_digest_tamper_idx"),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="qdrant_integrity_map",
-        columns=(
-            "chunk_id", "resource_id", "chunk_hash", "embedding_version",
-            "qdrant_point_id", "resource_revision", "pg_recorded_at",
-            "qdrant_verified_at", "qdrant_point_exists", "hash_match",
-            "version_match", "integrity_state", "updated_at",
-        ),
-        indexes=("qdrant_integrity_state_idx", "qdrant_integrity_resource_idx"),
-    ),
-    TableContract(
-        schema="gptbridge_index",
         table="merkle_root",
         columns=(
             "merkle_id", "domain", "domain_id", "leaf_count", "merkle_root",
@@ -741,7 +651,6 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         columns=(
             "snapshot_id", "database_generation", "schema_hash",
             "audit_head_hash", "resource_merkle_root", "migration_head",
-            "sqlite_digest_count", "qdrant_integrity_count",
             "reconcile_batch_count", "release_id", "backup_id",
             "created_at", "verified_at", "tamper_state",
         ),
@@ -800,8 +709,8 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         table="compatibility_matrix_ext",
         columns=(
             "matrix_id", "release_id", "postgresql_version",
-            "psycopg_version", "sqlite_runtime_version",
-            "qdrant_server_version", "qdrant_client_version",
+            "psycopg_version",
+            "vectord_server_version", "vectord_client_version",
             "python_version", "status", "tested_at", "tested_by",
             "test_result", "notes", "updated_at",
         ),
@@ -841,27 +750,6 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "failure_reason", "rehearsal_log",
         ),
         indexes=("pg_rehearsal_status_idx", "pg_rehearsal_version_idx"),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="sqlite_runtime_compat",
-        columns=(
-            "compat_id", "python_version", "sqlite_library_version",
-            "sqlite_source", "fts5_available", "wal_mode_available",
-            "json1_available", "tested_at", "tested_by",
-            "test_result", "notes",
-        ),
-        indexes=("sqlite_rt_compat_py_idx",),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="qdrant_contract_compat",
-        columns=(
-            "compat_id", "from_version", "to_version", "check_category",
-            "passed", "tested_at", "tested_by", "test_details",
-            "failure_reason", "migration_notes",
-        ),
-        indexes=("qdrant_compat_version_idx", "qdrant_compat_passed_idx"),
     ),
     TableContract(
         schema="gptbridge_index",
@@ -1047,68 +935,12 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
     ),
     TableContract(
         schema="gptbridge_index",
-        table="sqlite_fallback_freeze",
-        columns=(
-            "freeze_id", "incident_id", "module_id", "fallback_state",
-            "entered_at", "transitioned_at", "transitioned_by",
-            "pending_count", "drained_count", "notes",
-        ),
-        indexes=("sqlite_fallback_state_idx",),
-    ),
-    TableContract(
-        schema="gptbridge_index",
         table="recovery_priority",
         columns=(
             "priority_id", "priority_class", "priority_level",
             "description", "max_parallel", "timeout_seconds", "created_at",
         ),
         indexes=(),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="qdrant_recovery",
-        columns=(
-            "recovery_id", "incident_id", "detected_at", "detected_by",
-            "qdrant_status", "indexing_backlog_count",
-            "missing_points_count", "stale_points_count",
-            "rebuilt_points_count", "verified_points_count",
-            "recovered_at", "notes",
-        ),
-        indexes=("qdrant_recovery_status_idx",),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="qdrant_full_rebuild",
-        columns=(
-            "rebuild_id", "incident_id", "old_collection_name",
-            "new_collection_name", "collection_generation", "status",
-            "total_chunks", "processed_chunks", "verified_chunks",
-            "started_at", "completed_at", "switched_at",
-            "old_collection_retired", "failure_reason",
-        ),
-        indexes=("qdrant_rebuild_status_idx",),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="sqlite_single_recovery",
-        columns=(
-            "recovery_id", "incident_id", "module_id", "database_path",
-            "database_class", "failure_type", "recovery_action",
-            "started_at", "completed_at", "status",
-            "restored_from_backup_id", "new_generation", "notes",
-        ),
-        indexes=("sqlite_single_rec_module_idx",),
-    ),
-    TableContract(
-        schema="gptbridge_index",
-        table="codex_sqlite_recovery",
-        columns=(
-            "recovery_id", "incident_id", "codex_db_path", "failure_type",
-            "status", "known_hash", "actual_hash", "hash_verified",
-            "restored_from_source", "restored_at", "verified_at",
-            "resumed_at", "started_at", "notes",
-        ),
-        indexes=("codex_sqlite_rec_status_idx",),
     ),
     TableContract(
         schema="gptbridge_index",
@@ -1130,8 +962,8 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "pitr_id", "incident_id", "restore_target",
             "database_generation", "audit_head_hash",
             "transport_cutoff", "reconcile_cutoff",
-            "pg_state_at_target", "sqlite_state_ahead",
-            "qdrant_state_ahead", "cross_engine_reconcile_done",
+            "pg_state_at_target",
+            "vector_state_ahead", "cross_engine_reconcile_done",
             "cross_engine_reconcile_started_at",
             "cross_engine_reconcile_completed_at",
             "started_at", "notes",
@@ -1214,8 +1046,8 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         table="data_layer_contract",
         columns=(
             "contract_id", "contract_version", "database_release_id",
-            "postgresql_schema_version", "sqlite_template_version",
-            "qdrant_contract_version", "security_generation",
+            "postgresql_schema_version",
+            "vector_contract_version", "security_generation",
             "data_generation", "required_capabilities",
             "optional_capabilities", "startup_order", "shutdown_order",
             "degradation_policy", "recovery_policy", "status",
@@ -1272,7 +1104,7 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
         table="rag_readiness_gate",
         columns=(
             "gate_id", "checked_at", "pg_rag_metadata_ready",
-            "qdrant_ready", "metadata_authority_wired",
+            "vector_ready", "metadata_authority_wired",
             "collection_contract_valid", "rag_ready", "failure_reason",
         ),
         indexes=("rag_gate_ready_idx",),
@@ -1295,7 +1127,7 @@ _DECLARED_TABLES: tuple[TableContract, ...] = (
             "pending_transport", "reconcile_pending",
             "database_generation", "security_generation",
             "active_leases_released", "active_leases_expired",
-            "sqlite_checkpoints_done", "qdrant_cursor_saved",
+            "vector_cursor_saved",
             "audit_flushed", "notes",
         ),
         indexes=("shutdown_audit_status_idx",),
@@ -1356,7 +1188,7 @@ _DECLARED_ROLES: tuple[RoleContract, ...] = (
     )),
 )
 
-EXPECTED_MIGRATION_COUNT = 150  # every physical *.sql, including dual-numbered files
+EXPECTED_MIGRATION_COUNT = 133  # every physical *.sql, including dual-numbered files
 
 
 @dataclass

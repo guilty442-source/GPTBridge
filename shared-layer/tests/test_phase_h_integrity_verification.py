@@ -76,45 +76,6 @@ class TestResourceContentHashMigration:
         assert "verify_resource_hash" in text
         assert "get_tampered_resources" in text
 
-class TestSqliteDatabaseDigestMigration:
-    def test_067_exists(self):
-        assert (_MIGRATIONS_DIR / "067_sqlite_database_digest.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "067_sqlite_database_digest.sql").read_text("utf-8")
-        assert "sqlite_database_digest" in text
-        assert "schema_hash" in text
-        assert "revision_head" in text
-        # Additional table items
-        assert "row_count" in text
-        assert "critical_table_digest" in text
-        assert "generation" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "067_sqlite_database_digest.sql").read_text("utf-8")
-        assert "record_sqlite_digest" in text
-        assert "verify_sqlite_digest" in text
-        assert "get_tampered_sqlite_dbs" in text
-
-class TestQdrantIntegrityMappingMigration:
-    def test_068_exists(self):
-        assert (_MIGRATIONS_DIR / "068_qdrant_integrity_mapping.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "068_qdrant_integrity_mapping.sql").read_text("utf-8")
-        assert "qdrant_integrity_map" in text
-        assert "chunk_hash" in text
-        assert "embedding_version" in text
-        # Additional table items
-        assert "qdrant_point_id" in text
-        assert "resource_revision" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "068_qdrant_integrity_mapping.sql").read_text("utf-8")
-        assert "record_qdrant_integrity" in text
-        assert "verify_qdrant_integrity" in text
-        assert "get_qdrant_integrity_issues" in text
-
 class TestMerkleRootMigration:
     def test_069_exists(self):
         assert (_MIGRATIONS_DIR / "069_merkle_root.sql").is_file()
@@ -254,18 +215,6 @@ class TestIntegrityVerifierModule:
         from shared_layer.database.integrity_verifier import verify_resource_hash
         assert callable(verify_resource_hash)
 
-    def test_import_record_sqlite_digest(self):
-        from shared_layer.database.integrity_verifier import record_sqlite_digest
-        assert callable(record_sqlite_digest)
-
-    def test_import_record_qdrant_integrity(self):
-        from shared_layer.database.integrity_verifier import record_qdrant_integrity
-        assert callable(record_qdrant_integrity)
-
-    def test_import_verify_qdrant_integrity(self):
-        from shared_layer.database.integrity_verifier import verify_qdrant_integrity
-        assert callable(verify_qdrant_integrity)
-
     def test_import_record_merkle_root(self):
         from shared_layer.database.integrity_verifier import record_merkle_root
         assert callable(record_merkle_root)
@@ -332,13 +281,6 @@ class TestQueryAllowlistPhaseH:
         assert is_allowlisted("resource_content_hash.list")
         assert is_allowlisted("resource_content_hash.tampered")
 
-    def test_sqlite_digest_queries(self):
-        assert is_allowlisted("sqlite_digest.list")
-        assert is_allowlisted("sqlite_digest.tampered")
-
-    def test_qdrant_integrity_query(self):
-        assert is_allowlisted("qdrant_integrity.issues")
-
     def test_merkle_root_query(self):
         assert is_allowlisted("merkle_root.list")
 
@@ -370,16 +312,6 @@ class TestSchemaContractRegistryPhaseH:
         contract = declared_contract()
         table_names = [(t.schema, t.table) for t in contract.tables]
         assert ("gptbridge_index", "resource_content_hash") in table_names
-
-    def test_contract_includes_sqlite_database_digest(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "sqlite_database_digest") in table_names
-
-    def test_contract_includes_qdrant_integrity_map(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "qdrant_integrity_map") in table_names
 
     def test_contract_includes_merkle_root(self):
         contract = declared_contract()

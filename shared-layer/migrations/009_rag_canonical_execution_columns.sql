@@ -11,7 +11,7 @@ ALTER TABLE gptbridge_rag.index_state
     ADD COLUMN IF NOT EXISTS chunk_size integer NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS chunk_overlap integer NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS content_hash text NOT NULL DEFAULT '',
-    ADD COLUMN IF NOT EXISTS qdrant_point_id text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS vector_point_id text NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS postgresql_record_id text,
     ADD COLUMN IF NOT EXISTS source_revision bigint NOT NULL DEFAULT 1,
     ADD COLUMN IF NOT EXISTS tombstone_generation integer NOT NULL DEFAULT 0,

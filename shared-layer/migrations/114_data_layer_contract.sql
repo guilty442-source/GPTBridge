@@ -1,7 +1,7 @@
 -- 114_data_layer_contract.sql
 -- Data Layer Master Contract.
 --
--- Converges all PostgreSQL, SQLite, Qdrant, Reconcile, RAG, Transport,
+-- Converges all PostgreSQL, vectord, Reconcile, RAG, Transport,
 -- Audit, Cache, Recovery rules into one executable runtime contract.
 --
 -- This contract does NOT replace the codex. It is the runtime data layer
@@ -17,8 +17,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_index.data_layer_contract (
     contract_version integer NOT NULL,
     database_release_id text,  -- links to database_release.release_id
     postgresql_schema_version integer,
-    sqlite_template_version integer,
-    qdrant_contract_version integer,
+    vector_contract_version integer,
     security_generation integer,
     data_generation integer,
     required_capabilities text[] NOT NULL DEFAULT '{}',
@@ -63,8 +62,7 @@ CREATE OR REPLACE FUNCTION gptbridge_index.register_data_layer_contract(
     p_contract_version integer,
     p_database_release_id text DEFAULT NULL,
     p_postgresql_schema_version integer DEFAULT NULL,
-    p_sqlite_template_version integer DEFAULT NULL,
-    p_qdrant_contract_version integer DEFAULT NULL,
+    p_vector_contract_version integer DEFAULT NULL,
     p_security_generation integer DEFAULT NULL,
     p_data_generation integer DEFAULT NULL,
     p_required_capabilities text[] DEFAULT '{}',
@@ -79,16 +77,16 @@ DECLARE
 BEGIN
     INSERT INTO gptbridge_index.data_layer_contract (
         contract_version, database_release_id,
-        postgresql_schema_version, sqlite_template_version,
-        qdrant_contract_version, security_generation, data_generation,
+        postgresql_schema_version,
+        vector_contract_version, security_generation, data_generation,
         required_capabilities, optional_capabilities,
         startup_order, shutdown_order,
         degradation_policy, recovery_policy
     )
     VALUES (
         p_contract_version, p_database_release_id,
-        p_postgresql_schema_version, p_sqlite_template_version,
-        p_qdrant_contract_version, p_security_generation, p_data_generation,
+        p_postgresql_schema_version,
+        p_vector_contract_version, p_security_generation, p_data_generation,
         p_required_capabilities, p_optional_capabilities,
         p_startup_order, p_shutdown_order,
         p_degradation_policy, p_recovery_policy
@@ -116,7 +114,7 @@ CREATE OR REPLACE FUNCTION gptbridge_index.get_active_data_layer_contract()
 RETURNS TABLE (
     contract_id uuid, contract_version integer,
     database_release_id text, postgresql_schema_version integer,
-    sqlite_template_version integer, qdrant_contract_version integer,
+    vector_contract_version integer,
     security_generation integer, data_generation integer,
     required_capabilities text[], optional_capabilities text[],
     startup_order text[], shutdown_order text[]
@@ -124,8 +122,8 @@ RETURNS TABLE (
 BEGIN
     RETURN QUERY
     SELECT contract_id, contract_version, database_release_id,
-           postgresql_schema_version, sqlite_template_version,
-           qdrant_contract_version, security_generation, data_generation,
+           postgresql_schema_version,
+           vector_contract_version, security_generation, data_generation,
            required_capabilities, optional_capabilities,
            startup_order, shutdown_order
     FROM gptbridge_index.data_layer_contract

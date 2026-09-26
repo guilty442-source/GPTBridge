@@ -35,8 +35,7 @@ class TestDatabaseReleaseManifestMigration:
         assert "migration_head" in text
         assert "rls_version" in text
         assert "role_version" in text
-        assert "sqlite_template_version" in text
-        assert "qdrant_contract_version" in text
+        assert "vector_contract_version" in text
         assert "query_contract_version" in text
         assert "minimum_runtime_version" in text
         assert "compatibility_range" in text
@@ -65,8 +64,8 @@ class TestReleaseManifestFile:
     def test_manifest_has_required_keys(self):
         data = json.loads(_MANIFEST_PATH.read_text("utf-8"))
         for key in ("release_id", "schema_version", "migration_head",
-                    "rls_version", "role_version", "sqlite_template_version",
-                    "reconcile_contract_version", "qdrant_contract_version",
+                    "rls_version", "role_version",
+                    "reconcile_contract_version",
                     "query_contract_version", "minimum_runtime_version",
                     "compatibility_range", "state"):
             assert key in data, f"manifest missing key: {key}"
@@ -203,47 +202,6 @@ class TestRlsRoleMigrationMigration:
         assert "get_rls_role_version" in text
 
 
-class TestSqliteTemplateReleaseMigration:
-    def test_045_exists(self):
-        assert (_MIGRATIONS_DIR / "045_sqlite_template_release.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "045_sqlite_template_release.sql").read_text("utf-8")
-        assert "sqlite_template_release" in text
-        assert "template_version" in text
-        assert "schema_version" in text
-        assert "minimum_reader_version" in text
-        assert "minimum_writer_version" in text
-        assert "ddl_hash" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "045_sqlite_template_release.sql").read_text("utf-8")
-        assert "register_sqlite_template" in text
-        assert "get_active_sqlite_template" in text
-        assert "can_write_sqlite" in text
-
-
-class TestQdrantContractVersionMigration:
-    def test_046_exists(self):
-        assert (_MIGRATIONS_DIR / "046_qdrant_contract_version.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "046_qdrant_contract_version.sql").read_text("utf-8")
-        assert "qdrant_contract" in text
-        assert "collection_name" in text
-        assert "vector_dimension" in text
-        assert "distance_metric" in text
-        assert "embedding_model" in text
-        assert "payload_schema" in text
-
-    def test_defines_functions(self):
-        text = (_MIGRATIONS_DIR / "046_qdrant_contract_version.sql").read_text("utf-8")
-        assert "register_qdrant_contract" in text
-        assert "deprecate_qdrant_contract" in text
-        assert "retire_qdrant_contract" in text
-        assert "get_active_qdrant_contract" in text
-
-
 class TestCanaryUpgradeMigration:
     def test_047_exists(self):
         assert (_MIGRATIONS_DIR / "047_canary_upgrade.sql").is_file()
@@ -329,12 +287,6 @@ class TestQueryAllowlistPhaseF:
     def test_rls_role_migration_query(self):
         assert is_allowlisted("rls_role_migration.list")
 
-    def test_sqlite_template_query(self):
-        assert is_allowlisted("sqlite_template.active")
-
-    def test_qdrant_contract_query(self):
-        assert is_allowlisted("qdrant_contract.active")
-
     def test_canary_upgrade_query(self):
         assert is_allowlisted("canary_upgrade.list")
 
@@ -376,16 +328,6 @@ class TestSchemaContractRegistryPhaseF:
         contract = declared_contract()
         table_names = [(t.schema, t.table) for t in contract.tables]
         assert ("gptbridge_index", "rls_role_migration") in table_names
-
-    def test_contract_includes_sqlite_template_release(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "sqlite_template_release") in table_names
-
-    def test_contract_includes_qdrant_contract(self):
-        contract = declared_contract()
-        table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "qdrant_contract") in table_names
 
     def test_contract_includes_canary_upgrade(self):
         contract = declared_contract()

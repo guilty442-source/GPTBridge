@@ -26,7 +26,7 @@ class BoundedAdaptiveTuner:
         self._batch = self.envelope.batch_min
         self._workers = self.envelope.reconcile_workers_min
         self._upsert_rate = self.envelope.clamp_upsert_rate(
-            self.envelope.qdrant_upserts_min_per_second * 4
+            self.envelope.vector_upserts_min_per_second * 4
         )
         self._last_move = 0.0
         # S2: direction hysteresis — after a shrink, growth requires a doubled
@@ -104,7 +104,7 @@ class BoundedAdaptiveTuner:
             "pool_max": self._pool_max,
             "batch_size": self._batch,
             "reconcile_workers": self._workers,
-            "qdrant_upserts_per_second": round(self._upsert_rate, 3),
+            "vector_upserts_per_second": round(self._upsert_rate, 3),
         }
 
     def pool_max(self) -> int:

@@ -48,7 +48,7 @@ class ClassificationEvidence:
 
 # Known runtime-required Python packages
 _PYTHON_RUNTIME_REQUIRED = frozenset({
-    "psycopg", "qdrant_client", "websockets",
+    "psycopg", "websockets",
 })
 
 # Known build-only Python packages

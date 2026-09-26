@@ -116,12 +116,12 @@ XINGCHENG_FORBIDDEN_CLASSIFICATIONS: Final[frozenset[str]] = frozenset({
 # ---------------------------------------------------------------------------
 
 TIER_POSTGRESQL: Final[str] = "postgresql"
-TIER_QDRANT: Final[str] = "qdrant"
+TIER_VECTOR: Final[str] = "vector"
 TIER_SQLITE_NTFS: Final[str] = "sqlite-ntfs"
 
 DATA_OWNERSHIP: Final[dict[str, str]] = {
     TIER_POSTGRESQL: "central-index-and-relation-truth",
-    TIER_QDRANT: "rebuildable-vector-index-never-sole-copy",
+    TIER_VECTOR: "rebuildable-vector-index-never-sole-copy",
     TIER_SQLITE_NTFS: "original-or-module-private-data",
 }
 
@@ -282,7 +282,7 @@ class ResourceMetadata:
 # Vector point payload contract — every vector point MUST carry these tags.
 # ---------------------------------------------------------------------------
 
-QDRANT_REQUIRED_PAYLOAD_FIELDS: Final[tuple[str, ...]] = (
+VECTOR_REQUIRED_PAYLOAD_FIELDS: Final[tuple[str, ...]] = (
     FIELD_MODULE_ID,
     FIELD_RESOURCE_ID,
     "chunk_id",
@@ -291,26 +291,26 @@ QDRANT_REQUIRED_PAYLOAD_FIELDS: Final[tuple[str, ...]] = (
 )
 
 
-def validate_qdrant_payload(payload: dict[str, Any]) -> list[str]:
+def validate_vector_payload(payload: dict[str, Any]) -> list[str]:
     """Validate a vectord point payload against the metadata contract.
 
     Returns a list of violation messages (empty = valid).
     """
     violations: list[str] = []
-    for name in QDRANT_REQUIRED_PAYLOAD_FIELDS:
+    for name in VECTOR_REQUIRED_PAYLOAD_FIELDS:
         if name not in payload or payload[name] in (None, ""):
-            violations.append(f"QDRANT_PAYLOAD_MISSING:{name}")
+            violations.append(f"VECTOR_PAYLOAD_MISSING:{name}")
     # module_id + resource_id must both be present (dual filter requirement)
     if FIELD_MODULE_ID not in payload or FIELD_RESOURCE_ID not in payload:
-        violations.append("QDRANT_PAYLOAD_DUAL_FILTER_REQUIRED")
+        violations.append("VECTOR_PAYLOAD_DUAL_FILTER_REQUIRED")
     # version must be a positive integer
     version = payload.get(FIELD_VERSION)
     if version is not None:
         try:
             if int(version) < 1:
-                violations.append("QDRANT_PAYLOAD_INVALID_VERSION")
+                violations.append("VECTOR_PAYLOAD_INVALID_VERSION")
         except (TypeError, ValueError):
-            violations.append("QDRANT_PAYLOAD_INVALID_VERSION")
+            violations.append("VECTOR_PAYLOAD_INVALID_VERSION")
     return violations
 
 
@@ -342,7 +342,7 @@ __all__ = [
     "FIELD_STATUS",
     "FIELD_UPDATED_AT",
     "FIELD_VERSION",
-    "QDRANT_REQUIRED_PAYLOAD_FIELDS",
+    "VECTOR_REQUIRED_PAYLOAD_FIELDS",
     "REQUIRED_FIELDS",
     "ResourceMetadata",
     "STATUS_ACTIVE",
@@ -355,8 +355,8 @@ __all__ = [
     "STATUS_REFERENCED",
     "STATUS_VALUES",
     "TIER_POSTGRESQL",
-    "TIER_QDRANT",
+    "TIER_VECTOR",
     "TIER_SQLITE_NTFS",
     "XINGCHENG_FORBIDDEN_CLASSIFICATIONS",
-    "validate_qdrant_payload",
+    "validate_vector_payload",
 ]

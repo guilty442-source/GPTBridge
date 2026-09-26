@@ -6,7 +6,6 @@ retention, backup catalog, generation fence, maintenance window.
 from __future__ import annotations
 
 import os
-import sqlite3
 import sys
 import tempfile
 from pathlib import Path
@@ -329,7 +328,7 @@ class TestRestoreCertification:
         result = certify_restore(conn, pre_restore_generation=1)
         assert result.generation_after == 2
 
-    def test_certify_with_missing_qdrant_linkage(self):
+    def test_certify_with_missing_vector_linkage(self):
         conn = MagicMock()
         def mock_execute(sql, params=None):
             mock_cursor = MagicMock()
@@ -357,8 +356,8 @@ class TestRestoreCertification:
             return mock_cursor
         conn.execute.side_effect = mock_execute
         result = certify_restore(conn, pre_restore_generation=1)
-        qdrant_check = next(c for c in result.checks if c.name == "qdrant_linkage")
-        assert qdrant_check.passed is False
+        vector_check = next(c for c in result.checks if c.name == "vector_linkage")
+        assert vector_check.passed is False
 
     def test_certify_to_dict(self):
         conn = MagicMock()
@@ -375,13 +374,11 @@ class TestRestoreCertification:
 
 
 # ============================================================================
-# 7. Dead-Letter Queue (SQLite-level test)
+# 7. Dead-Letter Queue
 # ============================================================================
 
 class TestDeadLetterQueue:
     def test_dead_letter_status_in_template(self):
-        template = Path(__file__).resolve().parents[1] / "sql" / "sqlite_module_template.sql"
-        # The SQLite template doesn't have dead-letter, but PostgreSQL does
         # Check the migration file exists
         migration = Path(__file__).resolve().parents[1] / "migrations" / "013_transport_dead_letter.sql"
         assert migration.is_file()
@@ -408,13 +405,6 @@ class TestReconcileConflictClassification:
             "authorization_changed",
         ):
             assert conflict_type in content
-
-    def test_conflict_type_in_sqlite_template(self):
-        template = Path(__file__).resolve().parents[1] / "sql" / "sqlite_module_template.sql"
-        content = template.read_text(encoding="utf-8")
-        assert "conflict_type" in content
-        assert "revision_conflict" in content
-
 
 # ============================================================================
 # 9. Retention Policy
@@ -489,13 +479,6 @@ class TestCrossEngineConsistency:
         assert "stale" in content
         assert "resource_consistency" in content
         assert "consistency_status" in content
-
-    def test_sqlite_template_has_consistency_columns(self):
-        template = Path(__file__).resolve().parents[1] / "sql" / "sqlite_module_template.sql"
-        content = template.read_text(encoding="utf-8")
-        assert "backend_generation" in content
-        assert "stale" in content
-
 
 # ============================================================================
 # 13. Data Invariants

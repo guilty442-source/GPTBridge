@@ -68,7 +68,7 @@ _TEMPLATES: dict[str, str] = {
     ),
     "resource.consistency_view": (
         "SELECT resource_id, module_id, pg_revision, pg_hash, backend_generation, "
-        "pg_stale, qdrant_revision, qdrant_hash, qdrant_generation, consistency_status "
+        "pg_stale, vector_revision, vector_hash, vector_generation, consistency_status "
         "FROM gptbridge_index.resource_consistency WHERE module_id = %s"
     ),
 
@@ -91,21 +91,21 @@ _TEMPLATES: dict[str, str] = {
         "last_writer_id, last_writer_at, last_writer_actor_id, "
         "last_writer_executor_id, last_writer_decision_id, "
         "last_writer_correlation_id, locator_id, locator_status, "
-        "qdrant_authority_class, qdrant_revision, qdrant_hash, "
-        "qdrant_index_status, qdrant_consistency "
+        "vector_authority_class, vector_revision, vector_hash, "
+        "vector_index_status, vector_consistency "
         "FROM gptbridge_index.resource_lineage WHERE resource_id = %s"
     ),
 
     # --- RAG chunk (gptbridge_rag.chunk) ---
     "rag.chunk.get_by_resource": (
-        "SELECT chunk_id, resource_id, module_id, sequence, qdrant_point_id, "
+        "SELECT chunk_id, resource_id, module_id, sequence, vector_point_id, "
         "embedding_model, locator_fragment, metadata "
         "FROM gptbridge_rag.chunk WHERE resource_id = %s ORDER BY sequence"
     ),
     "rag.chunk.insert": (
         "INSERT INTO gptbridge_rag.chunk "
         "(chunk_id, resource_id, module_id, sequence, character_start, character_end, "
-        "qdrant_point_id, embedding_model, locator_fragment, metadata) "
+        "vector_point_id, embedding_model, locator_fragment, metadata) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
     ),
     "rag.chunk.delete_by_resource": (
@@ -120,20 +120,20 @@ _TEMPLATES: dict[str, str] = {
 
     # --- RAG index_state (gptbridge_rag.index_state) ---
     "rag.index_state.get": (
-        "SELECT resource_id, module_id, embedding_model, qdrant_collection, "
+        "SELECT resource_id, module_id, embedding_model, vector_collection, "
         "chunk_count, status, version, indexed_at, updated_at, "
-        "qdrant_point_id, source_revision, content_hash, backend_generation "
+        "vector_point_id, source_revision, content_hash, backend_generation "
         "FROM gptbridge_rag.index_state WHERE resource_id = %s"
     ),
     "rag.index_state.upsert": (
         "INSERT INTO gptbridge_rag.index_state "
-        "(resource_id, module_id, embedding_model, qdrant_collection, chunk_count, "
-        "status, version, qdrant_point_id, source_revision, content_hash, "
+        "(resource_id, module_id, embedding_model, vector_collection, chunk_count, "
+        "status, version, vector_point_id, source_revision, content_hash, "
         "backend_generation, authority_class) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
         "ON CONFLICT (resource_id) DO UPDATE SET "
         "chunk_count = excluded.chunk_count, status = excluded.status, "
-        "version = excluded.version, qdrant_point_id = excluded.qdrant_point_id, "
+        "version = excluded.version, vector_point_id = excluded.vector_point_id, "
         "source_revision = excluded.source_revision, content_hash = excluded.content_hash, "
         "authority_class = excluded.authority_class, updated_at = now()"
     ),
@@ -325,13 +325,6 @@ _TEMPLATES: dict[str, str] = {
         "FROM gptbridge_index.workload_class ORDER BY class_name"
     ),
 
-    # --- Generation fence (migration 016/025) ---
-    "generation.sqlite_stale": (
-        "SELECT module_id, database_path, backend_generation, last_synced_at "
-        "FROM gptbridge_index.sqlite_generation WHERE stale = true "
-        "ORDER BY updated_at"
-    ),
-
     # --- Two-stage deletion (migration 027) ---
     "deletion.tombstone": (
         "SELECT gptbridge_index.tombstone_resource(%s, %s)"
@@ -465,14 +458,6 @@ _TEMPLATES: dict[str, str] = {
         "ORDER BY collected_at DESC LIMIT %s"
     ),
 
-    # --- SQLite classification (migration 037) ---
-    "sqlite_class.list": (
-        "SELECT module_id, database_path, db_class, synchronous_setting, "
-        "backup_frequency_seconds, integrity_check_frequency_seconds, "
-        "retention_days, reconcile_required "
-        "FROM gptbridge_index.sqlite_database_class ORDER BY module_id, database_path"
-    ),
-
     # --- Reconcile pending queue (migration 038) ---
     "reconcile_queue.pending": (
         "SELECT resource_id, source_revision, enqueued_at, last_reconciled_revision "
@@ -492,7 +477,7 @@ _TEMPLATES: dict[str, str] = {
     # --- Database release manifest (migration 040) ---
     "database_release.active": (
         "SELECT release_id, schema_version, migration_head, rls_version, "
-        "role_version, sqlite_template_version, qdrant_contract_version, "
+        "role_version, vector_contract_version, "
         "query_contract_version, minimum_runtime_version "
         "FROM gptbridge_index.database_release WHERE state = 'ACTIVE' "
         "ORDER BY activated_at DESC LIMIT 1"
@@ -533,22 +518,6 @@ _TEMPLATES: dict[str, str] = {
         "SELECT migration_id, rls_role_version, change_type, target_object, "
         "applied_at, applied_by "
         "FROM gptbridge_index.rls_role_migration ORDER BY applied_at DESC LIMIT %s"
-    ),
-
-    # --- SQLite template release (migration 045) ---
-    "sqlite_template.active": (
-        "SELECT template_version, schema_version, minimum_reader_version, "
-        "minimum_writer_version, ddl_hash "
-        "FROM gptbridge_index.sqlite_template_release "
-        "WHERE status = 'active' ORDER BY template_version DESC LIMIT 1"
-    ),
-
-    # --- Qdrant contract (migration 046) ---
-    "qdrant_contract.active": (
-        "SELECT contract_version, collection_name, vector_dimension, "
-        "distance_metric, embedding_model "
-        "FROM gptbridge_index.qdrant_contract WHERE status = 'active' "
-        "ORDER BY contract_version DESC LIMIT 1"
     ),
 
     # --- Canary upgrade (migration 047) ---
@@ -601,19 +570,6 @@ _TEMPLATES: dict[str, str] = {
     "audit_retention.layers": (
         "SELECT layer_name, retention_days, next_layer, compression_enabled "
         "FROM gptbridge_index.audit_retention_layer ORDER BY retention_days"
-    ),
-
-    # --- SQLite retention (migration 053) ---
-    "sqlite_retention.by_class": (
-        "SELECT db_class, retention_days, archive_eligible, archive_after_days, "
-        "purge_eligible, purge_after_days, version_history_required "
-        "FROM gptbridge_index.sqlite_retention_policy ORDER BY db_class"
-    ),
-
-    # --- Qdrant vector lifecycle (migration 054) ---
-    "qdrant_vector.pending_deletion": (
-        "SELECT resource_id, collection_name, point_id, pg_marked_at "
-        "FROM gptbridge_index.get_vectors_pending_deletion(%s)"
     ),
 
     # --- Purge queue (migration 055) ---
@@ -697,24 +653,6 @@ _TEMPLATES: dict[str, str] = {
         "FROM gptbridge_index.get_tampered_resources(%s)"
     ),
 
-    # --- SQLite database digest (migration 067) ---
-    "sqlite_digest.list": (
-        "SELECT digest_id, module_id, database_path, schema_hash, "
-        "revision_head, row_count, generation, tamper_state, computed_at "
-        "FROM gptbridge_index.sqlite_database_digest "
-        "ORDER BY computed_at DESC LIMIT %s"
-    ),
-    "sqlite_digest.tampered": (
-        "SELECT module_id, database_path, tamper_state, computed_at "
-        "FROM gptbridge_index.get_tampered_sqlite_dbs(%s)"
-    ),
-
-    # --- Qdrant integrity mapping (migration 068) ---
-    "qdrant_integrity.issues": (
-        "SELECT chunk_id, resource_id, integrity_state, qdrant_point_id "
-        "FROM gptbridge_index.get_qdrant_integrity_issues(%s)"
-    ),
-
     # --- Merkle root (migration 069) ---
     "merkle_root.list": (
         "SELECT merkle_id, domain, domain_id, leaf_count, merkle_root, "
@@ -760,13 +698,13 @@ _TEMPLATES: dict[str, str] = {
     # --- Compatibility matrix ext (migration 075) ---
     "compat_matrix_ext.list": (
         "SELECT postgresql_version, psycopg_version, "
-        "sqlite_runtime_version, qdrant_server_version, status, tested_at "
+        "vectord_server_version, status, tested_at "
         "FROM gptbridge_index.compatibility_matrix_ext "
         "WHERE release_id = %s ORDER BY updated_at DESC"
     ),
     "compat_matrix_ext.forbidden": (
         "SELECT postgresql_version, psycopg_version, "
-        "sqlite_runtime_version, qdrant_server_version, notes "
+        "vectord_server_version, notes "
         "FROM gptbridge_index.get_forbidden_combinations()"
     ),
 
@@ -791,21 +729,6 @@ _TEMPLATES: dict[str, str] = {
         "started_at, completed_at "
         "FROM gptbridge_index.pg_major_upgrade_rehearsal "
         "ORDER BY started_at DESC LIMIT %s"
-    ),
-
-    # --- SQLite runtime compat (migration 079) ---
-    "sqlite_runtime_compat.list": (
-        "SELECT python_version, sqlite_library_version, "
-        "fts5_available, wal_mode_available, json1_available, tested_at "
-        "FROM gptbridge_index.sqlite_runtime_compat "
-        "ORDER BY tested_at DESC LIMIT %s"
-    ),
-
-    # --- Qdrant contract compat (migration 080) ---
-    "qdrant_compat.list": (
-        "SELECT from_version, to_version, check_category, passed, "
-        "tested_at FROM gptbridge_index.qdrant_contract_compat "
-        "ORDER BY tested_at DESC LIMIT %s"
     ),
 
     # --- SBOM (migration 081) ---
@@ -906,26 +829,6 @@ _TEMPLATES: dict[str, str] = {
         "FROM gptbridge_index.get_expired_leases(%s)"
     ),
 
-    # --- SQLite fallback freeze (migration 101) ---
-    "sqlite_fallback.state": (
-        "SELECT gptbridge_index.get_fallback_state(%s)"
-    ),
-
-    # --- Qdrant recovery (migration 101) ---
-    "qdrant_recovery.list": (
-        "SELECT recovery_id, qdrant_status, indexing_backlog_count, "
-        "missing_points_count, rebuilt_points_count "
-        "FROM gptbridge_index.qdrant_recovery "
-        "ORDER BY detected_at DESC LIMIT %s"
-    ),
-
-    # --- Qdrant full rebuild (migration 102) ---
-    "qdrant_full_rebuild.list": (
-        "SELECT rebuild_id, status, total_chunks, processed_chunks, "
-        "verified_chunks FROM gptbridge_index.qdrant_full_rebuild "
-        "ORDER BY started_at DESC LIMIT %s"
-    ),
-
     # --- Chaos drill (migration 111) ---
     "chaos_drill.list": (
         "SELECT drill_id, scenario_code, scenario_name, status, overall_passed "
@@ -944,8 +847,8 @@ _TEMPLATES: dict[str, str] = {
     # --- Data layer contract (migration 114) ---
     "data_layer_contract.active": (
         "SELECT contract_id, contract_version, database_release_id, "
-        "postgresql_schema_version, sqlite_template_version, "
-        "qdrant_contract_version, security_generation, data_generation "
+        "postgresql_schema_version, "
+        "vector_contract_version, security_generation, data_generation "
         "FROM gptbridge_index.get_active_data_layer_contract()"
     ),
 
@@ -981,7 +884,7 @@ _TEMPLATES: dict[str, str] = {
 
     # --- RAG readiness gate (migration 119) ---
     "rag_readiness.latest": (
-        "SELECT rag_ready, pg_rag_metadata_ready, qdrant_ready, "
+        "SELECT rag_ready, pg_rag_metadata_ready, vector_ready, "
         "metadata_authority_wired, collection_contract_valid "
         "FROM gptbridge_index.rag_readiness_gate "
         "ORDER BY checked_at DESC LIMIT 1"
@@ -1156,7 +1059,7 @@ _TEMPLATES: dict[str, str] = {
         "SELECT generation_id, logical_alias, physical_name, schema_version, "
         "embedding_model, embedding_dimension, state, initial_points, "
         "verification_result, alias_swapped_at, error_message, created_at, "
-        "updated_at FROM gptbridge_ragpolicy.qdrant_collection_generation "
+        "updated_at FROM gptbridge_ragpolicy.vector_collection_generation "
         "ORDER BY created_at DESC LIMIT %s"
     ),
     "ragpolicy.trace.list": (

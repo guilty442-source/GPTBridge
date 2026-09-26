@@ -28,7 +28,7 @@ class CertificationResult:
 
     postgresql_integrity: Optional[bool] = None
     sqlite_integrity: Optional[bool] = None
-    qdrant_integrity: Optional[bool] = None
+    vector_integrity: Optional[bool] = None
     rls_verified: Optional[bool] = None
     migration_verified: Optional[bool] = None
     reconcile_verified: Optional[bool] = None
@@ -44,7 +44,7 @@ class CertificationResult:
     _VERIFIED_FIELDS = (
         "postgresql_integrity",
         "sqlite_integrity",
-        "qdrant_integrity",
+        "vector_integrity",
         "rls_verified",
         "migration_verified",
         "reconcile_verified",
@@ -74,7 +74,7 @@ class CertificationResult:
             "test_suite_version": self.test_suite_version,
             "postgresql_integrity": self.postgresql_integrity,
             "sqlite_integrity": self.sqlite_integrity,
-            "qdrant_integrity": self.qdrant_integrity,
+            "vector_integrity": self.vector_integrity,
             "rls_verified": self.rls_verified,
             "migration_verified": self.migration_verified,
             "reconcile_verified": self.reconcile_verified,
@@ -115,7 +115,7 @@ def build_certification(
         schema_version=schema_version,
         postgresql_integrity=chaos_ok,
         sqlite_integrity=chaos_ok,
-        qdrant_integrity=chaos_ok,
+        vector_integrity=chaos_ok,
         rls_verified=rls_ok,
         migration_verified=migration_ok,
         reconcile_verified=reconcile_ok,

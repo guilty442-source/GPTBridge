@@ -1,4 +1,4 @@
-"""Qdrant query scoping.
+"""Vector-engine query scoping.
 
 Vector queries must be scoped at the data layer, not by caller discipline:
 
@@ -16,8 +16,8 @@ from typing import Any, Final
 REQUIRED_PAYLOAD_FIELDS: Final[tuple[str, ...]] = ("module_id",)
 
 
-class QdrantScopeError(RuntimeError):
-    """Raised when a Qdrant operation is not properly scoped."""
+class VectorScopeError(RuntimeError):
+    """Raised when a vector operation is not properly scoped."""
 
 
 @dataclass(frozen=True)
@@ -31,10 +31,10 @@ class ScopedFilter:
     def __post_init__(self) -> None:
         cleaned = tuple(str(value).strip() for value in self.module_ids if str(value).strip())
         if not cleaned:
-            raise QdrantScopeError("QDRANT_MODULE_SCOPE_REQUIRED")
+            raise VectorScopeError("VECTOR_MODULE_SCOPE_REQUIRED")
         object.__setattr__(self, "module_ids", cleaned)
 
-    def to_qdrant(self) -> dict[str, Any]:
+    def to_filter(self) -> dict[str, Any]:
         must: list[dict[str, Any]] = [
             {"key": "module_id", "match": {"any": list(self.module_ids)}}
         ]
@@ -54,8 +54,8 @@ class ScopedFilter:
         if not self.classification and not self.revision:
             return
         for field_name in REQUIRED_PAYLOAD_FIELDS:
-            if not any(entry.get("key") == field_name for entry in self.to_qdrant()["must"]):
-                raise QdrantScopeError(f"QDRANT_REQUIRED_FILTER_MISSING:{field_name}")
+            if not any(entry.get("key") == field_name for entry in self.to_filter()["must"]):
+                raise VectorScopeError(f"VECTOR_REQUIRED_FILTER_MISSING:{field_name}")
 
 
 def require_scope(
@@ -68,7 +68,7 @@ def require_scope(
 ) -> ScopedFilter:
     """Fail-closed constructor used by runtime call sites."""
     if not module_ids:
-        raise QdrantScopeError("QDRANT_MODULE_SCOPE_REQUIRED")
+        raise VectorScopeError("VECTOR_MODULE_SCOPE_REQUIRED")
     scope = ScopedFilter(
         module_ids=tuple(module_ids),
         resource_id=resource_id,
@@ -84,12 +84,12 @@ def assert_payload_scoped(payload: dict[str, Any]) -> None:
     """Upserts must carry the mandatory payload fields."""
     missing = [name for name in REQUIRED_PAYLOAD_FIELDS if not str(payload.get(name) or "").strip()]
     if missing:
-        raise QdrantScopeError("QDRANT_PAYLOAD_SCOPE_MISSING:" + ",".join(missing))
+        raise VectorScopeError("VECTOR_PAYLOAD_SCOPE_MISSING:" + ",".join(missing))
 
 
 __all__ = [
     "REQUIRED_PAYLOAD_FIELDS",
-    "QdrantScopeError",
+    "VectorScopeError",
     "ScopedFilter",
     "assert_payload_scoped",
     "require_scope",

@@ -19,7 +19,7 @@ Codex basis:
     A10/E10 — explicit-allowlist.
     A44/E30 — four-functions-local.
     A46/E22 — Audit: mandatory-ledger.
-    A52/E38 — RAG: Qdrant canonical semantic index.
+    A52/E38 — RAG: vectord canonical semantic index.
 """
 from __future__ import annotations
 
@@ -41,8 +41,8 @@ def register_data_layer_contract(
             (contract_version,
              kwargs.get("database_release_id"),
              kwargs.get("postgresql_schema_version"),
-             kwargs.get("sqlite_template_version"),
-             kwargs.get("qdrant_contract_version"),
+             kwargs.get("schema_template_version"),
+             kwargs.get("vector_contract_version"),
              kwargs.get("security_generation"),
              kwargs.get("data_generation"),
              kwargs.get("required_capabilities", []),
@@ -77,7 +77,7 @@ def get_active_data_layer_contract(conn: Any) -> dict | None:
     return {
         "contract_id": row[0], "contract_version": row[1],
         "database_release_id": row[2], "postgresql_schema_version": row[3],
-        "sqlite_template_version": row[4], "qdrant_contract_version": row[5],
+        "schema_template_version": row[4], "vector_contract_version": row[5],
         "security_generation": row[6], "data_generation": row[7],
         "required_capabilities": row[8], "optional_capabilities": row[9],
         "startup_order": row[10], "shutdown_order": row[11],
@@ -235,7 +235,7 @@ def can_enable_business_write(conn: Any) -> bool:
 
 
 def evaluate_rag_readiness(conn: Any) -> bool:
-    """Evaluate RAG readiness (PG metadata + Qdrant + authority + contract)."""
+    """Evaluate RAG readiness (PG metadata + vector engine + authority + contract)."""
     with conn.cursor() as cur:
         cur.execute("SELECT gptbridge_index.evaluate_rag_readiness()")
         row = cur.fetchone()
@@ -274,8 +274,8 @@ def complete_shutdown_audit(
              kwargs.get("reconcile_pending", 0),
              kwargs.get("leases_released", 0),
              kwargs.get("leases_expired", 0),
-             kwargs.get("sqlite_checkpoints", 0),
-             kwargs.get("qdrant_cursor_saved", False),
+             kwargs.get("pg_checkpoints", 0),
+             kwargs.get("vector_cursor_saved", False),
              kwargs.get("audit_flushed", False),
              kwargs.get("notes")),
         )

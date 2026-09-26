@@ -35,7 +35,7 @@ WRITE_SOURCES: tuple[str, ...] = (
     "transport",
     "reconcile",
     "sqlite_wal",
-    "qdrant_reindex",
+    "vector_reindex",
 )
 
 
@@ -87,8 +87,8 @@ DEFAULT_POLICIES: dict[str, WriteSourcePolicy] = {
         "sqlite_wal", rate_bytes_per_second=32 * 1024 * 1024,
         max_batch_bytes=16 * 1024 * 1024,
     ),
-    "qdrant_reindex": WriteSourcePolicy(
-        "qdrant_reindex", rate_bytes_per_second=64 * 1024 * 1024,
+    "vector_reindex": WriteSourcePolicy(
+        "vector_reindex", rate_bytes_per_second=64 * 1024 * 1024,
         max_batch_bytes=64 * 1024 * 1024, exclusion_group="bulk",
     ),
 }

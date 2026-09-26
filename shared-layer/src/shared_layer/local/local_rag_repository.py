@@ -93,7 +93,7 @@ def _chunk_params(
     )
 
 
-class LocalSqliteRagRepository:
+class LocalRagRepository:
     """PostgreSQL source of truth for module-scoped RAG keyword metadata.
 
     Absorbs the retired sqlite ``local-rag-keywords.sqlite3`` store
@@ -406,4 +406,4 @@ class LocalSqliteRagRepository:
         }
 
 
-__all__ = ["LocalSqliteRagRepository"]
+__all__ = ["LocalRagRepository"]

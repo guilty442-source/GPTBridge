@@ -110,8 +110,7 @@ class SagaVisualizer:
 
     ENGINE_COLORS = {
         Engine.POSTGRESQL.value: "#336791",    # PostgreSQL blue
-        Engine.SQLITE.value: "#003b57",        # SQLite dark blue
-        Engine.QDRANT.value: "#f59e0b",        # Qdrant amber
+        Engine.VECTOR.value: "#f59e0b",        # Qdrant amber
         Engine.FILESYSTEM.value: "#6b7280",    # Filesystem gray
         Engine.MODEL.value: "#a855f7",         # Model purple
     }

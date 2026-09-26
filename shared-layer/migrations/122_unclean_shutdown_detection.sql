@@ -4,7 +4,6 @@
 -- If last shutdown was not graceful, startup must do extra:
 --   transport lease recovery
 --   unknown commit verification
---   SQLite WAL verification
 --   reconcile state verification
 --   operation state recovery
 --
@@ -65,7 +64,6 @@ BEGIN
         v_steps := ARRAY[
             'transport_lease_recovery',
             'unknown_commit_verification',
-            'sqlite_wal_verification',
             'reconcile_state_verification',
             'operation_state_recovery'
         ];

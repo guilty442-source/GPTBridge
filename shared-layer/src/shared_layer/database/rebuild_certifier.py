@@ -9,7 +9,7 @@ Usage:
 
     result = certify(
         connection,
-        engine="qdrant",
+        engine="vectord",
         target="gptbridge_shared_knowledge",
         rebuild_reason="rebuild",
         checks=[...],

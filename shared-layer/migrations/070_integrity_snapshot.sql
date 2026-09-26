@@ -19,8 +19,6 @@ CREATE TABLE IF NOT EXISTS gptbridge_index.integrity_snapshot (
     audit_head_hash text,
     resource_merkle_root text,
     migration_head integer NOT NULL,
-    sqlite_digest_count integer DEFAULT 0,
-    qdrant_integrity_count integer DEFAULT 0,
     reconcile_batch_count integer DEFAULT 0,
     release_id text REFERENCES gptbridge_index.database_release(release_id),
     backup_id text,
@@ -70,18 +68,8 @@ CREATE OR REPLACE FUNCTION gptbridge_index.create_integrity_snapshot(
 ) RETURNS uuid AS $$
 DECLARE
     v_id uuid;
-    v_sqlite_count integer;
-    v_qdrant_count integer;
     v_reconcile_count integer;
 BEGIN
-    SELECT count(*) INTO v_sqlite_count
-    FROM gptbridge_index.sqlite_database_digest
-    WHERE tamper_state = 'verified';
-
-    SELECT count(*) INTO v_qdrant_count
-    FROM gptbridge_index.qdrant_integrity_map
-    WHERE integrity_state = 'verified';
-
     SELECT count(*) INTO v_reconcile_count
     FROM gptbridge_index.reconcile_batch_digest
     WHERE status = 'verified';
@@ -89,13 +77,11 @@ BEGIN
     INSERT INTO gptbridge_index.integrity_snapshot (
         database_generation, schema_hash, audit_head_hash,
         resource_merkle_root, migration_head,
-        sqlite_digest_count, qdrant_integrity_count,
         reconcile_batch_count, release_id, backup_id
     )
     VALUES (
         p_database_generation, p_schema_hash, p_audit_head_hash,
         p_resource_merkle_root, p_migration_head,
-        v_sqlite_count, v_qdrant_count,
         v_reconcile_count, p_release_id, p_backup_id
     )
     RETURNING snapshot_id INTO v_id;

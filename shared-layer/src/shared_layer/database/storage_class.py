@@ -39,12 +39,10 @@ DOMAIN_STORAGE_CLASS: dict[str, StorageClass] = {
     "pg_central_index": StorageClass.HOT,
     "pg_transport_hot": StorageClass.HOT,
     "pg_audit_hot": StorageClass.HOT,
-    "sqlite_operational": StorageClass.WARM,
-    "sqlite_checkpoint": StorageClass.WARM,
     "audit_archive": StorageClass.ARCHIVE,
     "transport_archive": StorageClass.ARCHIVE,
     "backup": StorageClass.ARCHIVE,
-    "qdrant_vector": StorageClass.REBUILDABLE,
+    "vector_index": StorageClass.REBUILDABLE,
     "derived_cache": StorageClass.REBUILDABLE,
 }
 

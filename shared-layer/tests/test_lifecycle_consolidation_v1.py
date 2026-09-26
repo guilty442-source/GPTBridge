@@ -221,7 +221,7 @@ class TestCapabilityDeclaration:
 
     def test_optional_with_fallback(self):
         cap = CapabilityDeclaration(
-            identity="qdrant",
+            identity="vectord",
             criticality=CapabilityCriticality.OPTIONAL,
             phase=StartupPhase.OPTIONAL_CAPABILITY_INIT,
             fallback="local_vector",

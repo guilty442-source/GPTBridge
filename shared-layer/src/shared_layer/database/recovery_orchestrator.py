@@ -251,7 +251,7 @@ def verify_pg_recovery_with_drill(
             "resource_count",
             "relation_count",
             "locator_integrity",
-            "qdrant_references",
+            "vector_references",
         )),
         "generation_ok": generation_ok,
     }

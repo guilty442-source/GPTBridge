@@ -4,7 +4,7 @@
 -- Shutdown is the reverse of startup:
 --   STOP ACCEPTING NEW WORK → DRAIN TRANSPORT → STOP BACKGROUND JOBS →
 --   CHECKPOINT WORKFLOWS → FLUSH AUDIT → FLUSH LOCAL STATE →
---   CLOSE QDRANT CLIENT → CLOSE SQLITE → CLOSE POSTGRES POOLS → STOP
+--   CLOSE VECTOR CLIENT → CLOSE MODULE PRIVATE POOLS → CLOSE POSTGRES POOLS → STOP
 --
 -- PG pool closes last because audit/checkpoint/reconcile still need it.
 --
@@ -55,12 +55,12 @@ INSERT INTO gptbridge_index.shutdown_phase (
      ARRAY['persist_workflow_state', 'persist_cursor', 'persist_generation'], 60),
     (5, 'FLUSH_AUDIT', 'Flush all pending audit events to PostgreSQL',
      ARRAY['flush_audit_events', 'verify_audit_chain'], 30),
-    (6, 'FLUSH_LOCAL_STATE', 'Flush SQLite pending state, commit, checkpoint per class policy',
-     ARRAY['flush_sqlite_pending', 'commit_sqlite', 'checkpoint_per_class'], 60),
-    (7, 'CLOSE_QDRANT_CLIENT', 'Save last completed batch, collection generation, cursor',
-     ARRAY['save_qdrant_cursor', 'save_collection_generation', 'close_qdrant_client'], 30),
-    (8, 'CLOSE_SQLITE', 'Close SQLite connections per class (no aggressive TRUNCATE)',
-     ARRAY['close_sqlite_class_a', 'close_sqlite_class_b', 'close_sqlite_class_c', 'close_sqlite_class_d'], 30),
+    (6, 'FLUSH_LOCAL_STATE', 'Flush module-private pending state, commit, checkpoint per scope policy',
+     ARRAY['flush_module_pending', 'commit_module_state', 'checkpoint_per_scope'], 60),
+    (7, 'CLOSE_VECTOR_CLIENT', 'Save last completed batch, collection generation, cursor',
+     ARRAY['save_vector_cursor', 'save_collection_generation', 'close_vector_client'], 30),
+    (8, 'CLOSE_MODULE_PRIVATE_POOLS', 'Close module-private PG connections per scope',
+     ARRAY['close_module_private_pools'], 30),
     (9, 'CLOSE_POSTGRES_POOLS', 'Close PG pools last (audit/checkpoint still needed during shutdown)',
      ARRAY['close_pg_pools'], 30),
     (10, 'STOP', 'Process exit',

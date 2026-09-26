@@ -2,7 +2,7 @@
 -- Extended Compatibility Matrix.
 --
 -- Which combinations are tested, which are forbidden:
---   PostgreSQL 18.x + psycopg 3.x + Qdrant x.y + SQLite z
+--   PostgreSQL 18.x + psycopg 3.x + vectord x.y
 --
 -- Codex basis:
 --   A8/E21  — PostgreSQL: central-structured-official-data.
@@ -16,9 +16,8 @@ CREATE TABLE IF NOT EXISTS gptbridge_index.compatibility_matrix_ext (
     release_id text REFERENCES gptbridge_index.database_release(release_id),
     postgresql_version text NOT NULL,
     psycopg_version text NOT NULL,
-    sqlite_runtime_version text NOT NULL,
-    qdrant_server_version text NOT NULL,
-    qdrant_client_version text,
+    vectord_server_version text NOT NULL,
+    vectord_client_version text,
     python_version text,
     status text NOT NULL DEFAULT 'untested' CHECK (status IN (
         'tested', 'untested', 'forbidden', 'deprecated', 'planned'
@@ -61,11 +60,10 @@ CREATE OR REPLACE FUNCTION gptbridge_index.record_compatibility(
     p_release_id text,
     p_postgresql_version text,
     p_psycopg_version text,
-    p_sqlite_runtime_version text,
-    p_qdrant_server_version text,
+    p_vectord_server_version text,
     p_status text,
     p_tested_by text DEFAULT NULL,
-    p_qdrant_client_version text DEFAULT NULL,
+    p_vectord_client_version text DEFAULT NULL,
     p_python_version text DEFAULT NULL,
     p_test_result jsonb DEFAULT NULL,
     p_notes text DEFAULT NULL
@@ -75,14 +73,14 @@ DECLARE
 BEGIN
     INSERT INTO gptbridge_index.compatibility_matrix_ext (
         release_id, postgresql_version, psycopg_version,
-        sqlite_runtime_version, qdrant_server_version,
-        qdrant_client_version, python_version,
+        vectord_server_version,
+        vectord_client_version, python_version,
         status, tested_at, tested_by, test_result, notes
     )
     VALUES (
         p_release_id, p_postgresql_version, p_psycopg_version,
-        p_sqlite_runtime_version, p_qdrant_server_version,
-        p_qdrant_client_version, p_python_version,
+        p_vectord_server_version,
+        p_vectord_client_version, p_python_version,
         p_status,
         CASE WHEN p_status = 'tested' THEN now() ELSE NULL END,
         p_tested_by, p_test_result, p_notes
@@ -98,8 +96,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, gptbridge_ind
 CREATE OR REPLACE FUNCTION gptbridge_index.check_combination_allowed(
     p_postgresql_version text,
     p_psycopg_version text,
-    p_sqlite_runtime_version text,
-    p_qdrant_server_version text
+    p_vectord_server_version text
 ) RETURNS text AS $$
 DECLARE
     v_status text;
@@ -108,8 +105,7 @@ BEGIN
     FROM gptbridge_index.compatibility_matrix_ext
     WHERE postgresql_version = p_postgresql_version
       AND psycopg_version = p_psycopg_version
-      AND sqlite_runtime_version = p_sqlite_runtime_version
-      AND qdrant_server_version = p_qdrant_server_version
+      AND vectord_server_version = p_vectord_server_version
     ORDER BY updated_at DESC
     LIMIT 1;
 
@@ -127,14 +123,13 @@ CREATE OR REPLACE FUNCTION gptbridge_index.get_forbidden_combinations()
 RETURNS TABLE (
     postgresql_version text,
     psycopg_version text,
-    sqlite_runtime_version text,
-    qdrant_server_version text,
+    vectord_server_version text,
     notes text
 ) AS $$
 BEGIN
     RETURN QUERY
     SELECT postgresql_version, psycopg_version,
-           sqlite_runtime_version, qdrant_server_version, notes
+           vectord_server_version, notes
     FROM gptbridge_index.compatibility_matrix_ext
     WHERE status = 'forbidden'
     ORDER BY updated_at DESC;

@@ -15,7 +15,7 @@ existing rows (append-only).
 Usage:
     from shared_layer.database.provenance import set_provenance
     from shared_layer.database.lineage import (
-        record_rag_resource, record_qdrant_point,
+        record_rag_resource, record_vector_point,
         reverse_lookup, impact, health_check,
     )
 
@@ -29,7 +29,7 @@ Usage:
 RAG ingestion graph (conventions used by the wired call sites):
     pg:{module_id}:{resource_id}  --engine=postgresql  node_type=resource
     rag:chunk:{chunk_id}          --engine=rag          node_type=chunk
-    qdrant:point:{point_id}       --engine=qdrant       node_type=point
+    vector:point:{point_id}       --engine=vector       node_type=point
 
     resource ─chunk_of─▶ chunk ─embedded_from─▶ point
      resource ─indexed_from───────────────▶ point
@@ -67,8 +67,7 @@ RELATION_TYPES: tuple[str, ...] = (
 
 NODE_ENGINES: tuple[str, ...] = (
     "postgresql",
-    "sqlite",
-    "qdrant",
+    "vector",
     "transport",
     "audit",
     "rag",
@@ -105,8 +104,8 @@ def chunk_node_id(chunk_id: str) -> str:
 
 
 def point_node_id(point_id: str) -> str:
-    """Standard node id for a Qdrant point."""
-    return f"qdrant:point:{point_id}"
+    """Standard node id for a vector point."""
+    return f"vector:point:{point_id}"
 
 
 def _query(connection: Connection[Any]) -> "psycopg.Cursor":
@@ -148,7 +147,7 @@ def register_node(
     module_id: Optional[str] = None,
     resource_id: Optional[str] = None,
     chunk_id: Optional[str] = None,
-    qdrant_point_id: Optional[str] = None,
+    vector_point_id: Optional[str] = None,
     origin_type: Optional[str] = None,
     origin_locator: Optional[str] = None,
     origin_revision: Optional[int] = None,
@@ -180,7 +179,7 @@ def register_node(
                 module_id,
                 resource_id,
                 chunk_id,
-                qdrant_point_id,
+                vector_point_id,
                 origin_type,
                 origin_locator,
                 origin_revision,
@@ -469,7 +468,7 @@ def record_rag_resource(
     return {"resource_node": res_node, "chunk_nodes": chunk_nodes}
 
 
-def record_qdrant_point(
+def record_vector_point(
     connection: Connection[Any],
     *,
     point_id: str,
@@ -489,7 +488,7 @@ def record_qdrant_point(
     producer_type: str = "model",
     metadata: Optional[dict[str, Any]] = None,
 ) -> dict[str, str]:
-    """Record an applied Qdrant point and its source arcs.
+    """Record an applied vector point and its source arcs.
 
     point ──embedded_from──▶ chunk ──chunk_of──▶ resource (via reverse links).
     Idempotent: the entry-point edges use a stable run_id so re-application
@@ -510,12 +509,12 @@ def record_qdrant_point(
     register_node(
         connection,
         node_id=point_node,
-        engine="qdrant",
+        engine="vector",
         node_type="point",
         module_id=module_id,
         resource_id=resource_id,
         chunk_id=chunk_id,
-        qdrant_point_id=point_id,
+        vector_point_id=point_id,
         generation_id=generation_id,
         origin_revision=source_version,
         content_hash=content_hash,
@@ -627,7 +626,7 @@ __all__ = [
     "impact",
     "health_check",
     "record_rag_resource",
-    "record_qdrant_point",
+    "record_vector_point",
     "best_effort",
     "lineage_provenance",
 ]

@@ -4,7 +4,7 @@
 -- If PostgreSQL uses PITR, need:
 --   restore_target, database_generation, audit_head,
 --   transport_cutoff, reconcile_cutoff
--- After PITR, SQLite/Qdrant may be at newer state → must redo
+-- After PITR, the vector engine may be at newer state → must redo
 -- cross-engine consistency reconciliation.
 --
 -- Codex basis:
@@ -20,8 +20,7 @@ CREATE TABLE IF NOT EXISTS gptbridge_index.pitr_boundary (
     transport_cutoff timestamptz,
     reconcile_cutoff timestamptz,
     pg_state_at_target text,  -- 'restored_to_target'
-    sqlite_state_ahead boolean NOT NULL DEFAULT false,
-    qdrant_state_ahead boolean NOT NULL DEFAULT false,
+    vector_state_ahead boolean NOT NULL DEFAULT false,
     cross_engine_reconcile_done boolean NOT NULL DEFAULT false,
     cross_engine_reconcile_started_at timestamptz,
     cross_engine_reconcile_completed_at timestamptz,
@@ -77,13 +76,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, gptbridge_ind
 
 CREATE OR REPLACE FUNCTION gptbridge_index.complete_pitr_reconcile(
     p_pitr_id uuid,
-    p_sqlite_ahead boolean,
-    p_qdrant_ahead boolean
+    p_vector_ahead boolean
 ) RETURNS void AS $$
 BEGIN
     UPDATE gptbridge_index.pitr_boundary
-    SET sqlite_state_ahead = p_sqlite_ahead,
-        qdrant_state_ahead = p_qdrant_ahead,
+    SET vector_state_ahead = p_vector_ahead,
         cross_engine_reconcile_started_at = COALESCE(cross_engine_reconcile_started_at, now()),
         cross_engine_reconcile_done = true,
         cross_engine_reconcile_completed_at = now()

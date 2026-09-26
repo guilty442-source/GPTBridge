@@ -93,13 +93,27 @@ def test_python_gateway_is_default_deny_and_xingcheng_read_only() -> None:
     assert allowed.decide(star, "execute", "governance_rule").allowed is False
 
 
+def _vector_schema() -> str:
+    schema = "vect_test_" + uuid.uuid4().hex[:12]
+    import psycopg
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+    with psycopg.connect(resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(
+            f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime'
+        )
+        c.commit()
+    return schema
+
+
 def test_local_vector_store_is_fixed_location(tmp_path: Path) -> None:
-    """The degraded local cache lives at one fixed path and fails closed on drift."""
+    """The degraded local cache reports the PostgreSQL rag schema as its
+    durable home (vectord stays canonical) and fails closed on drift."""
 
     from shared_layer.local.vector_store import LocalVectorStore, embed_vector
 
-    store = LocalVectorStore(tmp_path)
-    assert store.database_path == (tmp_path / "local-rag-vectors.sqlite3").resolve()
+    store = LocalVectorStore(tmp_path, schema=_vector_schema())
+    assert str(store.database_path).startswith("postgresql:")
     assert store.status()["canonical"] is False
     assert store.status()["reconciliation_required"] is True
 
@@ -124,7 +138,7 @@ def test_local_vector_store_dimension_write_guard_and_reconcile(tmp_path: Path) 
 
     from shared_layer.local.vector_store import LocalVectorStore, embed_vector
 
-    store = LocalVectorStore(tmp_path)
+    store = LocalVectorStore(tmp_path, schema=_vector_schema())
     vector = embed_vector("alpha beta")
 
     store.replace_document(
@@ -184,9 +198,9 @@ def test_local_hits_require_module_scope_and_stay_in_scope(tmp_path: Path) -> No
     """Degraded local hits obey the same module-scope discipline as Qdrant."""
 
     from shared_layer.local.vector_store import LocalVectorStore, embed_vector
-    from shared_layer.security.qdrant_scope import QdrantScopeError
+    from shared_layer.security.vector_scope import VectorScopeError
 
-    store = LocalVectorStore(tmp_path)
+    store = LocalVectorStore(tmp_path, schema=_vector_schema())
     store.replace_document(
         "doc-1",
         [{"id": "p1", "text": "alpha beta", "module_id": "vaultly"}],
@@ -196,8 +210,8 @@ def test_local_hits_require_module_scope_and_stay_in_scope(tmp_path: Path) -> No
 
     try:
         store.query(vector, limit=5)
-    except QdrantScopeError as exc:
-        assert "QDRANT_MODULE_SCOPE_REQUIRED" in str(exc)
+    except VectorScopeError as exc:
+        assert "VECTOR_MODULE_SCOPE_REQUIRED" in str(exc)
     else:
         raise AssertionError("empty module scope accepted")
 
