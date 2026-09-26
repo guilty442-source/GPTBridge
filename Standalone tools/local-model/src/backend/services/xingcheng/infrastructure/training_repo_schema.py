@@ -192,12 +192,26 @@ _MIGRATION_SCRIPT = """
                         entity_type, entity_id, sequence DESC
                     );
 
-                CREATE TRIGGER IF NOT EXISTS protect_transformer_dataset_examples_update
-                BEFORE UPDATE ON transformer_training_dataset_example
+                CREATE OR REPLACE FUNCTION transformer_dataset_snapshot_immutable()
+                RETURNS trigger LANGUAGE plpgsql AS $$
                 BEGIN
-                    SELECT RAISE(ABORT, 'TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE');
+                    RAISE EXCEPTION 'TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE';
                 END;
-                CREATE TRIGGER IF NOT EXISTS protect_transformer_dataset_identity_update
+                $$;
+                CREATE OR REPLACE FUNCTION transformer_audit_immutable()
+                RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    RAISE EXCEPTION 'TRANSFORMER_TRAINING_AUDIT_IMMUTABLE';
+                END;
+                $$;
+                DROP TRIGGER IF EXISTS protect_transformer_dataset_examples_update
+                    ON transformer_training_dataset_example;
+                CREATE TRIGGER protect_transformer_dataset_examples_update
+                BEFORE UPDATE ON transformer_training_dataset_example
+                FOR EACH ROW EXECUTE FUNCTION transformer_dataset_snapshot_immutable();
+                DROP TRIGGER IF EXISTS protect_transformer_dataset_identity_update
+                    ON transformer_training_dataset;
+                CREATE TRIGGER protect_transformer_dataset_identity_update
                 BEFORE UPDATE OF
                     dataset_id, content_sha256, format_version, base_model_id,
                     runtime_model_id, example_count, training_example_count,
@@ -205,24 +219,22 @@ _MIGRATION_SCRIPT = """
                     source_manifest_json, snapshot_path, snapshot_sha256,
                     created_by, created_at
                 ON transformer_training_dataset
-                BEGIN
-                    SELECT RAISE(ABORT, 'TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE');
-                END;
-                CREATE TRIGGER IF NOT EXISTS protect_transformer_dataset_examples_delete
+                FOR EACH ROW EXECUTE FUNCTION transformer_dataset_snapshot_immutable();
+                DROP TRIGGER IF EXISTS protect_transformer_dataset_examples_delete
+                    ON transformer_training_dataset_example;
+                CREATE TRIGGER protect_transformer_dataset_examples_delete
                 BEFORE DELETE ON transformer_training_dataset_example
-                BEGIN
-                    SELECT RAISE(ABORT, 'TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE');
-                END;
-                CREATE TRIGGER IF NOT EXISTS protect_transformer_audit_update
+                FOR EACH ROW EXECUTE FUNCTION transformer_dataset_snapshot_immutable();
+                DROP TRIGGER IF EXISTS protect_transformer_audit_update
+                    ON transformer_training_audit_event;
+                CREATE TRIGGER protect_transformer_audit_update
                 BEFORE UPDATE ON transformer_training_audit_event
-                BEGIN
-                    SELECT RAISE(ABORT, 'TRANSFORMER_TRAINING_AUDIT_IMMUTABLE');
-                END;
-                CREATE TRIGGER IF NOT EXISTS protect_transformer_audit_delete
+                FOR EACH ROW EXECUTE FUNCTION transformer_audit_immutable();
+                DROP TRIGGER IF EXISTS protect_transformer_audit_delete
+                    ON transformer_training_audit_event;
+                CREATE TRIGGER protect_transformer_audit_delete
                 BEFORE DELETE ON transformer_training_audit_event
-                BEGIN
-                    SELECT RAISE(ABORT, 'TRANSFORMER_TRAINING_AUDIT_IMMUTABLE');
-                END;
+                FOR EACH ROW EXECUTE FUNCTION transformer_audit_immutable();
                 """
 
 

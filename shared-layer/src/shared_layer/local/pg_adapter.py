@@ -220,7 +220,12 @@ class PgRow(dict):
 
 
 def _pg_row_factory(cursor: Any) -> Any:
-    names = [column.name for column in cursor.description]
+    description = cursor.description
+    if description is None:
+        # Statements without a result set (DDL, DML without RETURNING) still
+        # ask for a factory — return raw tuples for the (empty) results.
+        return tuple
+    names = [column.name for column in description]
 
     def make_row(values: Sequence[Any]) -> PgRow:
         return PgRow(dict(zip(names, values)))

@@ -67,14 +67,44 @@ def _table_columns(conn: sqlite3.Connection, table: str) -> list[tuple]:
     ).fetchall()
 
 
+_ISO_NOW = "to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')"
+
+
+def _pg_default(raw: Any, col_type: str) -> str | None:
+    """Translate a sqlite ``dflt_value`` into a PG DEFAULT expression."""
+    if raw is None:
+        return None
+    value = str(raw).strip()
+    while value.startswith("(") and value.endswith(")"):
+        value = value[1:-1].strip()
+    head = value.upper()
+    if head in {"CURRENT_TIMESTAMP", "CURRENT_DATE", "CURRENT_TIME"} or head.startswith(
+        ("DATETIME('NOW')", "DATETIME('NOW'", "STRFTIME(")
+    ):
+        return _ISO_NOW if col_type == "text" else "now()"
+    if head == "NULL":
+        return None
+    if value.startswith("'") and value.endswith("'"):
+        return value  # quoted literal survives verbatim
+    try:
+        float(value)
+        return value  # numeric literal
+    except ValueError:
+        return None  # unknown expression — safer to drop the default
+
+
 def _ddl(pg_table: str, cols: list[tuple], pk_cols: list[str]) -> str:
     parts = []
-    for _, name, typ, notnull, _, pk in cols:
-        decl = f"{_quote_ident(name)} {_pg_type(typ)}"
+    for _, name, typ, notnull, dflt, pk in cols:
+        col_type = _pg_type(typ)
+        decl = f"{_quote_ident(name)} {col_type}"
         if pk and len(pk_cols) == 1:
             decl += " PRIMARY KEY"
         elif notnull:
             decl += " NOT NULL"
+        default = _pg_default(dflt, col_type)
+        if default is not None:
+            decl += f" DEFAULT {default}"
         parts.append(decl)
     if len(pk_cols) > 1:
         parts.append(
