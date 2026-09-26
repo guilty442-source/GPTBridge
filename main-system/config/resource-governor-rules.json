@@ -100,7 +100,9 @@
     "nvcc.exe": {"exclude": true},
     "cicc.exe": {"exclude": true},
     "ptxas.exe": {"exclude": true},
-    "cudafe++.exe": {"exclude": true}
+    "cudafe++.exe": {"exclude": true},
+    "vectord.exe": {"exclude": true},
+    "searchd.exe": {"exclude": true}
   },
   "auto_mode": true,
   "power_saving_schedule": {

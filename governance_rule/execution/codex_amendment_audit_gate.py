@@ -435,10 +435,17 @@ def build_xingcheng_network_check(
                 "error": "NETWORK_AUDIT_UNAVAILABLE",
             }
         findings: list[str] = []
-        observations: list[Any] = []
-        for query in query_list:
-            result = search(query)
-            observations.append(result)
+        # Queries run concurrently: each governed roundtrip may block up to
+        # the search timeout, and a serial loop multiplies that latency by
+        # the query count — bursting the whole-flow audit deadline even
+        # when every single query succeeds.
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(
+            max_workers=min(len(query_list), 4) or 1
+        ) as pool:
+            observations = list(pool.map(search, query_list))
+        for query, result in zip(query_list, observations):
             if isinstance(result, Mapping):
                 ok = result.get("ok") is not False
                 findings.append(
@@ -694,7 +701,7 @@ class CodexAmendmentAuditGate:
         payload: Mapping[str, Any] = {}
         error = ""
         try:
-            outcome = check()
+            outcome = await asyncio.to_thread(check)
             if inspect.isawaitable(outcome):
                 if self._deadline is not None:
                     outcome = await asyncio.wait_for(outcome, self._deadline)
