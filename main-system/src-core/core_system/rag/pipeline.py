@@ -473,6 +473,28 @@ class CanonicalRagPipeline(
                 tuple(module_ids), [str(hit.get("id")) for hit in hits]
             )
         scope = {str(mid) for mid in module_ids}
+        # Batch the index-state proof: one PostgreSQL round trip per module
+        # instead of one per hit (P15 N+1 remediation).
+        rids_by_module: dict[str, list[str]] = {}
+        for hit in hits:
+            payload = hit.get("payload") or {}
+            mid = str(payload.get("module_id") or "")
+            rid = str(
+                payload.get("document_resource_id") or payload.get("resource_id") or ""
+            )
+            if mid and rid:
+                rids_by_module.setdefault(mid, []).append(rid)
+        index_states: dict[tuple[str, str], Any] = {}
+        get_states = getattr(self.postgresql, "get_index_states", None)
+        for mid, rids in rids_by_module.items():
+            if get_states is not None:
+                for rid, state in (await get_states(mid, rids)).items():
+                    index_states[(mid, str(rid))] = state
+            else:
+                for rid in rids:
+                    state = await self.postgresql.get_index_state(mid, rid)
+                    if state is not None:
+                        index_states[(mid, rid)] = state
         proved: list[dict[str, Any]] = []
         for hit in hits:
             payload = hit.get("payload") or {}
@@ -506,7 +528,7 @@ class CanonicalRagPipeline(
                     trace.drop("missing_metadata")
                 RAG_METRICS.inc("missing_metadata_hit_dropped_total")
                 continue  # canonical metadata conflicts with the vector hit
-            state = await self.postgresql.get_index_state(module_id, document_resource_id)
+            state = index_states.get((module_id, document_resource_id))
             if state is None or str(state.status).lower() not in ("indexed", "active"):
                 if trace is not None:
                     trace.drop("tombstoned")

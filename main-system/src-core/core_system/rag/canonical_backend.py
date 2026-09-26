@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import pickle
@@ -605,6 +606,37 @@ class CanonicalRagBackend:
             verified_hits = []
             dropped = 0
 
+            # Canonical Read Barrier evidence: batch-fetch the latest
+            # resource_versions row per module — one PostgreSQL round trip
+            # per module instead of one per hit (N+1 remediation).
+            ids_by_module: dict[str, set[str]] = {}
+            for hit in hits:
+                payload = hit.get("payload", {})
+                rid = payload.get("resource_id")
+                mid = payload.get("module_id")
+                if rid and mid:
+                    ids_by_module.setdefault(str(mid), set()).add(str(rid))
+
+            meta_map: dict[tuple[str, str], dict] = {}
+            fetch_batch = getattr(self.postgresql, "fetch_resource_versions", None)
+            if fetch_batch is not None:
+                for mid, rids in ids_by_module.items():
+                    batch = fetch_batch(mid, sorted(rids))
+                    if inspect.isawaitable(batch):
+                        batch = await batch
+                    for rid, meta in (batch or {}).items():
+                        meta_map[(mid, str(rid))] = meta
+            else:
+                # Compatibility fallback for stand-in authorities that only
+                # expose the per-resource lookup; never weakens the checks.
+                for mid, rids in ids_by_module.items():
+                    for rid in rids:
+                        meta = self.postgresql.get_resource_metadata(mid, rid)
+                        if inspect.isawaitable(meta):
+                            meta = await meta
+                        if meta is not None:
+                            meta_map[(mid, rid)] = meta
+
             for hit in hits:
                 payload = hit.get("payload", {})
                 resource_id = payload.get("resource_id")
@@ -616,7 +648,7 @@ class CanonicalRagBackend:
                     continue
 
                 # Canonical Read Barrier: verify against PostgreSQL
-                meta = self.postgresql.get_resource_metadata(module_id, resource_id)
+                meta = meta_map.get((str(module_id), str(resource_id)))
                 if meta is None:
                     dropped += 1
                     continue

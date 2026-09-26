@@ -87,6 +87,18 @@ class LocalRagRetrievalMixin:
         """A371/A373: canonical path first; bounded local mirror on failure."""
         if canonical_ready:
             try:
+                parallel = getattr(
+                    self.canonical, "query_vector_and_keyword", None
+                )
+                if callable(parallel):
+                    # Dense + keyword round trips overlap on the pipeline
+                    # loop — wall time is max(dense, keyword), not the sum.
+                    return parallel(
+                        vector,
+                        question,
+                        module_ids=module_ids,
+                        limit=candidate_limit,
+                    )
                 return (
                     self.canonical.query_vector(
                         vector, module_ids=module_ids, limit=candidate_limit

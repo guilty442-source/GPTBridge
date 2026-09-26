@@ -107,8 +107,9 @@ class CagCacheStore:
     ) -> CacheEntry:
         now = self._clock()
         key = self.key_for(request)
+        digest = key.digest()
         entry = CacheEntry(
-            cache_id=f"cag-{key.digest()[:16]}-{request.level.value}",
+            cache_id=f"cag-{digest[:16]}-{request.level.value}",
             key=key,
             level=request.level,
             authority=authority,
@@ -127,7 +128,6 @@ class CagCacheStore:
             validated_at=now,
         )
         bucket = self._entries[request.level]
-        digest = key.digest()
         bucket[digest] = entry
         bucket.move_to_end(digest)
         self._evict(request.level)

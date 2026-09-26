@@ -454,6 +454,47 @@ class PostgreSQLMetadataAuthority(
             _logger.error("PostgreSQLMetadataAuthority: upsert_index_state failed: %s", exc)
             return False
 
+    async def fetch_resource_versions(
+        self, module_id: str, resource_ids: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Batch-fetch the latest ``resource_versions`` row per resource.
+
+        Canonical read-barrier evidence for ``CanonicalRagBackend.search``:
+        returns ``resource_id -> {version, content_hash, generation_id,
+        state, source_version}`` for the highest version of each resource —
+        one round trip per module instead of one per hit.
+        """
+        if not self._healthy or not self._conn or not resource_ids:
+            return {}
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT DISTINCT ON (resource_id)
+                              resource_id, version, content_hash, generation_id,
+                              state, source_version
+                       FROM gptbridge_rag.resource_versions
+                       WHERE module_id = %s AND resource_id = ANY(%s)
+                       ORDER BY resource_id, version DESC""",
+                    (module_id, [str(r) for r in resource_ids]),
+                )
+                rows = await cur.fetchall()
+            return {
+                str(row[0]): {
+                    "version": row[1],
+                    "content_hash": row[2],
+                    "generation_id": row[3],
+                    "state": row[4],
+                    "source_version": row[5],
+                }
+                for row in rows
+            }
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: fetch_resource_versions failed: %s",
+                exc,
+            )
+            return {}
+
     async def fetch_metadata(self, module_id: str, resource_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Batch-fetch metadata for resources (A207 push-down)."""
         if not self._healthy or not self._conn or not resource_ids:

@@ -356,6 +356,44 @@ class CanonicalRagAdapter:
             )
         )
 
+    def query_vector_and_keyword(
+        self,
+        vector: Sequence[float],
+        question: str,
+        *,
+        module_ids: tuple[str, ...],
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Dense + keyword retrieval submitted concurrently on the loop.
+
+        Both coroutines are posted before either result is awaited, so the
+        vectord round trip and the PostgreSQL FTS scan overlap — wall time
+        becomes max(dense, keyword) instead of the serial sum.  Results are
+        identical to calling ``query_vector`` then ``keyword_search``.
+        """
+        self._start()
+        self._init_event.wait(timeout=10.0)
+        if self._loop is None or self._pipeline is None or not self._ready:
+            raise RuntimeError("CANONICAL_RAG_NOT_READY")
+        f_dense = asyncio.run_coroutine_threadsafe(
+            self._pipeline.vector_search(
+                [float(v) for v in vector],
+                module_ids=module_ids,
+                top_k=int(limit),
+            ),
+            self._loop,
+        )
+        f_keyword = asyncio.run_coroutine_threadsafe(
+            self._pipeline.keyword_search(
+                question, module_ids=module_ids, limit=int(limit)
+            ),
+            self._loop,
+        )
+        return (
+            f_dense.result(timeout=_CALL_TIMEOUT_SECONDS),
+            f_keyword.result(timeout=_CALL_TIMEOUT_SECONDS),
+        )
+
     def fetch_document(
         self, *, module_id: str, resource_id: str
     ) -> Optional[dict[str, Any]]:

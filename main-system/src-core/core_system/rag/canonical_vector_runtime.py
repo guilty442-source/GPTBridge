@@ -243,12 +243,13 @@ class CanonicalVectorRuntime:
             return False
         size = int(dimension or self.config.embedding_dimension or 0)
         try:
-            collections = self.client.get_collections()
+            collections = await asyncio.to_thread(self.client.get_collections)
             names = {c.name for c in collections.collections}
             if self.config.collection_name not in names:
                 if size <= 0:
                     return False
-                self.client.create_collection(
+                await asyncio.to_thread(
+                    self.client.create_collection,
                     collection_name=self.config.collection_name,
                     vectors_config=VectorParams(
                         size=size,
@@ -261,7 +262,9 @@ class CanonicalVectorRuntime:
             # mismatch is a hard INDEX_MISMATCH — never overwrite or silently
             # fall back onto an incompatible collection.
             existing_size = _collection_vector_size(
-                self.client.get_collection(self.config.collection_name)
+                await asyncio.to_thread(
+                    self.client.get_collection, self.config.collection_name
+                )
             )
             if size > 0 and existing_size is not None and existing_size != size:
                 self.collection_error = (
@@ -291,7 +294,8 @@ class CanonicalVectorRuntime:
             ]
             for field_name, schema_type in indexes:
                 try:
-                    self.client.create_payload_index(
+                    await asyncio.to_thread(
+                        self.client.create_payload_index,
                         collection_name=self.config.collection_name,
                         field_name=field_name,
                         field_schema=schema_type,
@@ -343,7 +347,10 @@ class CanonicalVectorRuntime:
                     PointStruct(id=point.id, vector=point.vector, payload=cleaned)
                 )
         try:
-            self.client.upsert(
+            # vectord client calls are synchronous loopback HTTP — offload
+            # so a round trip never stalls the whole pipeline event loop.
+            await asyncio.to_thread(
+                self.client.upsert,
                 collection_name=target,
                 points=validated,
                 wait=True,
@@ -394,7 +401,10 @@ class CanonicalVectorRuntime:
             query_filter = Filter(must=must_conditions)
 
             vector_start = time.monotonic()
-            response = self.client.query_points(
+            # Blocking loopback HTTP must not stall the pipeline loop —
+            # offload so parallel keyword/PG work stays concurrent.
+            response = await asyncio.to_thread(
+                self.client.query_points,
                 collection_name=target,
                 query=query_vector,
                 query_filter=query_filter,
@@ -474,12 +484,14 @@ class CanonicalVectorRuntime:
             ],
         )
         try:
-            self.client.delete(
+            await asyncio.to_thread(
+                self.client.delete,
                 collection_name=target,
                 points_selector=resource_selector,
                 wait=True,
             )
-            remaining = self.client.count(
+            remaining = await asyncio.to_thread(
+                self.client.count,
                 collection_name=target,
                 count_filter=resource_selector,
                 exact=True,
@@ -597,7 +609,8 @@ class CanonicalVectorRuntime:
             return False
         try:
             # vectord create_alias will replace existing alias
-            self.client.create_alias(
+            await asyncio.to_thread(
+                self.client.create_alias,
                 alias_name=alias_name,
                 collection_name=collection_name,
             )
@@ -612,7 +625,7 @@ class CanonicalVectorRuntime:
         if not self._healthy or self.client is None:
             return None
         try:
-            aliases = self.client.get_aliases()
+            aliases = await asyncio.to_thread(self.client.get_aliases)
             for alias in aliases.aliases:
                 if alias.alias_name == alias_name:
                     return alias.collection_name
