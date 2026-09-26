@@ -383,10 +383,18 @@ export const useBackendSocket = () => {
             )
           }
 
-          setState((prev) => ({
-            ...prev,
-            lastStatusAt: Date.now(),
-          }))
+          // Perf/low-render: lastStatusAt has no per-packet readers;
+          // 1s granularity avoids a full re-render on every WS packet.
+          setState((prev) => {
+            const now = Date.now()
+            if (
+              typeof prev.lastStatusAt === 'number' &&
+              now - prev.lastStatusAt < 1000
+            ) {
+              return prev
+            }
+            return { ...prev, lastStatusAt: now }
+          })
 
           eventBus.emit('backend_message', payload)
         } catch (error) {
@@ -435,6 +443,8 @@ export const useBackendSocket = () => {
     }
     window.addEventListener('online', reconnectNow)
     document.addEventListener('visibilitychange', reconnectNow)
+    // Perf/low-CPU: stale threshold is 25s; 10s sampling still detects
+    // within ~35s worst case at one-third of the wakeups.
     staleConnectionTimer = window.setInterval(() => {
       const socket = socketRef.current
       if (
@@ -445,7 +455,7 @@ export const useBackendSocket = () => {
         BootLogger.log('WebSocket', 'STALE_CONNECTION_CLOSED', {}, 'warn')
         socket.close(4000, 'stale-connection')
       }
-    }, 3_000)
+    }, 10_000)
     void connect()
 
     return () => {

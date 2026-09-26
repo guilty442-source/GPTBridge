@@ -16,8 +16,10 @@ _CHANS: Final[frozenset[str]] = frozenset({"system", "ai"})
 _MAX_ID: Final[int] = 256
 _MAX_BYTES: Final[int] = 1_048_576
 _QUERY_TIMEOUT: Final[float] = 10.0
+# Pool ceiling aligned with AdaptiveEnvelope(pool 2-8): the static transport
+# pool must never exceed the adaptive plane's tunable maximum.
 _POOL_MIN_CONN: Final[int] = 2
-_POOL_MAX_CONN: Final[int] = 10
+_POOL_MAX_CONN: Final[int] = 8
 _POOL_TIMEOUT: Final[float] = 5.0
 
 

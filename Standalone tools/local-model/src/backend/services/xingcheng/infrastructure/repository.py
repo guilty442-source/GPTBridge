@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
+
+from shared_layer.local.pg_adapter import PgConnection
+from shared_layer.local.pg_adapter import connect as pg_connect
 
 from .local_command_parser import LocalCommandParser
 from .repo_capability import CapabilityMixin
@@ -55,10 +57,9 @@ class LocalAiRepository(
             raise ValueError("a supported isolated model database scope is required")
         self.database_scope = scope
         self.owner_model_id = self.MODEL_ID_BY_SCOPE[scope]
-        self.database_path = (
-            Path(tool_root) / "xingcheng" / "runtime" / "state" / "models" / f"{scope}.sqlite3"
+        self.database_path = Path(
+            f"postgresql:gptbridge_xingcheng_{scope}"
         )
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.command_parser = LocalCommandParser(self.database_path)
         with self._connect() as connection:
             connection.executescript(
@@ -308,11 +309,11 @@ class LocalAiRepository(
             self._enforce_database_scope(connection)
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=5)
+    def _connect(self) -> Iterator[PgConnection]:
+        connection = pg_connect(
+            f"gptbridge_xingcheng_{self.database_scope}", autocommit=False
+        )
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
-            connection.execute("PRAGMA journal_mode = WAL")
             yield connection
             connection.commit()
         except BaseException:
@@ -321,7 +322,7 @@ class LocalAiRepository(
         finally:
             connection.close()
 
-    def _enforce_database_scope(self, connection: sqlite3.Connection) -> None:
+    def _enforce_database_scope(self, connection: PgConnection) -> None:
         if self.database_scope != "main":
             connection.execute("DELETE FROM capability_composition")
         if self.database_scope == "main":
@@ -350,8 +351,15 @@ class LocalAiRepository(
             return self.command_parser.list(connection, limit)
 
     @staticmethod
-    def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
-        return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
+    def _columns(connection: PgConnection, table: str) -> set[str]:
+        return {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = %s",
+                (table,),
+            )
+        }
 
     @staticmethod
     def _request_hash(request: dict[str, Any] | str) -> str:

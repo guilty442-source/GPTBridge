@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -68,7 +67,7 @@ class LocalCommandParser:
         }
         return plan
 
-    def initialize(self, connection: sqlite3.Connection) -> None:
+    def initialize(self, connection: Any) -> None:
         self._adapt_schema(connection)
         now = datetime.now(timezone.utc).isoformat()
         for tag_id, label, description, color in self.DEFAULT_TAGS:
@@ -93,7 +92,7 @@ class LocalCommandParser:
                 )
 
     @staticmethod
-    def _adapt_schema(connection: sqlite3.Connection) -> None:
+    def _adapt_schema(connection: Any) -> None:
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS common_command (
@@ -151,13 +150,18 @@ class LocalCommandParser:
         }
         for table, columns in required_columns.items():
             existing = {
-                str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = %s",
+                    (table,),
+                )
             }
             for column, declaration in columns.items():
                 if column not in existing:
                     connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
 
-    def record(self, connection: sqlite3.Connection, command_text: str, intent: str = "") -> dict[str, Any]:
+    def record(self, connection: Any, command_text: str, intent: str = "") -> dict[str, Any]:
         normalized = self.normalize(command_text)
         if not normalized:
             return {"recorded": False}
@@ -188,10 +192,10 @@ class LocalCommandParser:
                 )
         return {"recorded": True, "command_id": stored_id, "intent": resolved_intent, "usage_count": usage_count}
 
-    def list(self, connection: sqlite3.Connection, limit: int = 20) -> list[dict[str, Any]]:
+    def list(self, connection: Any, limit: int = 20) -> list[dict[str, Any]]:
         rows = connection.execute(
             "SELECT command_id,title,command_text,intent,usage_count,is_default,last_used_at,"
-            "COALESCE((SELECT json_group_array(t.label) FROM common_command_tag ct "
+            "COALESCE((SELECT json_agg(t.label)::text FROM common_command_tag ct "
             "JOIN command_tag t ON t.tag_id=ct.tag_id WHERE ct.command_id=common_command.command_id AND t.enabled=1),'[]') tags_json "
             "FROM common_command WHERE enabled=1 ORDER BY usage_count DESC,is_default DESC,last_used_at DESC LIMIT ?",
             (max(1, min(100, int(limit))),),

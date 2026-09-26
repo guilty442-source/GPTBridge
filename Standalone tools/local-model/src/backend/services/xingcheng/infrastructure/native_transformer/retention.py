@@ -371,7 +371,27 @@ def apply_retention(
                 "deleted": deleted,
                 "deleted_bytes": result["deleted_bytes"],
             }, ensure_ascii=False) + "\n")
+        # Perf/bounded-growth: the audit log itself is excluded from pruning
+        # (it must record every sweep), so cap it to the newest 1000 lines —
+        # otherwise the deletion audit grows without bound.
+        _trim_audit_log(audit, keep_lines=1000, trim_above=1500)
     return result
+
+
+def _trim_audit_log(path: Path, *, keep_lines: int, trim_above: int) -> None:
+    """Keep only the newest ``keep_lines`` of a JSONL audit file.
+
+    Fail-open: any filesystem error leaves the file untouched.
+    """
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            lines = handle.readlines()
+        if len(lines) <= trim_above:
+            return
+        with path.open("w", encoding="utf-8") as handle:
+            handle.writelines(lines[-keep_lines:])
+    except OSError:
+        pass
 
 
 def main(argv: Sequence[str] | None = None) -> int:

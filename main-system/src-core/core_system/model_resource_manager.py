@@ -33,6 +33,22 @@ _logger = logging.getLogger("gptbridge.model_resource")
 
 MANAGER_VERSION = "star-model-resource/v1"
 
+_LEDGER_TRIM_BYTES: int = 1_048_576
+_LEDGER_KEEP_LINES: int = 2000
+
+
+def _maybe_trim_ledger(path: Path) -> None:
+    """Cap a write-only JSONL telemetry ledger (fail-open)."""
+    try:
+        if path.stat().st_size <= _LEDGER_TRIM_BYTES:
+            return
+        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+        if len(lines) <= _LEDGER_KEEP_LINES:
+            return
+        path.write_text("".join(lines[-_LEDGER_KEEP_LINES:]), encoding="utf-8")
+    except OSError:
+        pass
+
 
 class ModelRole(str, Enum):
     XINGCHENG_NATIVE = "xingcheng_native"
@@ -250,6 +266,10 @@ class ModelResourceManager:
         self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
         with self._ledger_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        # Perf/bounded-growth: write-only telemetry with no readers — cap
+        # to the newest 2000 lines once the file exceeds ~1MB. One stat
+        # per append; the trim itself runs only past the threshold.
+        _maybe_trim_ledger(self._ledger_path)
 
 
 _LEDGER_PATH = (

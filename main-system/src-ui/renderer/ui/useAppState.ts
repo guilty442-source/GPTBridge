@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import {
   serviceManager,
   startStartupPipeline,
@@ -26,6 +33,25 @@ export type SystemMetrics = {
 
 function clampUiZoom(value: number): number {
   return Math.max(MIN_UI_ZOOM, Math.min(MAX_UI_ZOOM, value))
+}
+
+// Perf/low-render: backend pushes status every ~2s with a fresh metrics
+// object each time. Skip setState when all fields are identical so the
+// whole App does not re-render on an unchanged sample.
+function sameSystemMetrics(a: SystemMetrics, b: SystemMetrics): boolean {
+  return (
+    a.diskUsagePercent === b.diskUsagePercent &&
+    a.diskTotalBytes === b.diskTotalBytes &&
+    a.diskFreeBytes === b.diskFreeBytes &&
+    a.diskRoot === b.diskRoot
+  )
+}
+
+function setMetricsIfChanged(
+  setMetrics: Dispatch<SetStateAction<SystemMetrics>>,
+  next: SystemMetrics
+): void {
+  setMetrics((prev) => (sameSystemMetrics(prev, next) ? prev : next))
 }
 
 export function useAppState() {
@@ -249,7 +275,8 @@ export function useAppState() {
         if (disposed) return
         const version = String(status?.version ?? '').trim()
         if (version) setAppVersion(version)
-        if (status?.systemMetrics) setSystemMetrics(status.systemMetrics)
+        if (status?.systemMetrics)
+          setMetricsIfChanged(setSystemMetrics, status.systemMetrics)
       } catch {
         // Keep the last successful system sample on a transient IPC failure.
       }
@@ -265,7 +292,7 @@ export function useAppState() {
       const version = String(payload.version ?? '').trim()
       if (version) setAppVersion(version)
       const metrics = payload.systemMetrics as SystemMetrics | undefined
-      if (metrics) setSystemMetrics(metrics)
+      if (metrics) setMetricsIfChanged(setSystemMetrics, metrics)
     }
     window.addEventListener('ipc_event', onStatusPush)
 

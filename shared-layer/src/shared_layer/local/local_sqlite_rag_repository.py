@@ -158,6 +158,8 @@ class LocalSqliteRagRepository:
         connection = sqlite3.connect(self.database_path, timeout=5)
         connection.row_factory = sqlite3.Row
         try:
+            # Perf/low-lock: WAL matches sqlite_store / vector_store.
+            connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("PRAGMA busy_timeout = 5000")
             yield connection
             connection.commit()

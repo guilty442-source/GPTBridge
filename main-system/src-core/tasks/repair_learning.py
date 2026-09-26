@@ -12,20 +12,24 @@ Architecture:
   5. SelfUpgrade: learned recipes are merged into the knowledge base and
      become available for future repair dispatch.
 
-All learning is persisted in the existing automatic-repair SQLite database
-under a dedicated `repair_learning` schema.  The learner never weakens
-governance or safety boundaries — it only adds new *remedy hints* that the
-existing repair pipeline may consult.
+All learning is persisted in the ``gptbridge_repair`` PostgreSQL schema
+(A621: SQLite retired; PostgreSQL is the sole structured-data authority).
+The learner never weakens governance or safety boundaries — it only adds
+new *remedy hints* that the existing repair pipeline may consult.
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Final
 from uuid import uuid4
+
+from psycopg.rows import tuple_row
+
+from shared_layer.local.pg_adapter import PgConnection
+from shared_layer.local.pg_adapter import connect as pg_connect
 
 from .repair_learning_types import (
     REPAIR_LEARNING_VERSION,
@@ -42,40 +46,42 @@ from .repair_learning_types import (
     _SCHEMA_STATEMENTS,
 )
 
+_SCHEMA: Final[str] = "gptbridge_repair"
+
 
 class RepairLearningStore:
-    """SQLite-backed store for error signatures, outcomes, and learned recipes."""
+    """PostgreSQL-backed store for error signatures, outcomes, and learned recipes."""
 
     SCHEMA_VERSION = 1
 
     def __init__(self, database_root: Path) -> None:
         self.database_root = database_root.resolve()
-        self._path = self.database_root / "repair-learning.sqlite3"
 
-    def _connect(self) -> sqlite3.Connection:
-        root = self.database_root
-        if not root.is_dir():
-            root.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(self._path, timeout=10)
+    def _connect(self) -> PgConnection:
+        connection = pg_connect(
+            _SCHEMA, autocommit=False, connect_timeout=10,
+            row_factory=tuple_row,
+        )
         try:
             schema_ready = (
                 connection.execute(
-                    "SELECT 1 FROM sqlite_master"
-                    " WHERE type='table' AND name='error_signatures'"
+                    "SELECT 1 FROM information_schema.tables "
+                    "WHERE table_type='BASE TABLE' "
+                    "AND table_schema='gptbridge_repair' "
+                    "AND table_name='error_signatures'"
                 ).fetchone()
                 is not None
             )
             if not schema_ready:
-                connection.execute("PRAGMA journal_mode=WAL")
-                connection.execute("PRAGMA synchronous=NORMAL")
                 for statement in _SCHEMA_STATEMENTS:
                     connection.execute(statement)
             else:
-                connection.execute("PRAGMA synchronous=NORMAL")
                 columns = {
-                    row[1]
+                    row[0]
                     for row in connection.execute(
-                        "PRAGMA table_info(learned_recipes)"
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_schema='gptbridge_repair' "
+                        "AND table_name='learned_recipes'"
                     ).fetchall()
                 }
                 if columns and "verification" not in columns:
@@ -301,7 +307,7 @@ RECONCILIATION_SOURCE_FIELD: Final[str] = "source_outcome_id"
 
 
 def absorbed_outcome_ids(
-    connection: sqlite3.Connection,
+    connection: PgConnection,
     *,
     remedy: str = NON_ACTIONABLE_REMEDY,
 ) -> set[str]:
@@ -318,7 +324,7 @@ def absorbed_outcome_ids(
             "SELECT detail_json FROM repair_outcomes WHERE remedy = ?",
             (remedy,),
         ).fetchall()
-    except sqlite3.OperationalError:
+    except Exception:  # noqa: BLE001 — store error = no absorbed ids
         return absorbed
     for (detail_json,) in rows:
         try:

@@ -182,8 +182,10 @@ function startMainRendererWatch() {
       })
     }, 500)
   }
+  // Perf/low-CPU: poll-based watch; 2s quarters wakeups vs 500ms.
+  // Rebuilds land on second granularity so responsiveness is unchanged.
   for (const entry of watchedEntries) {
-    fs.watchFile(entry, { interval: 500 }, scheduleReload)
+    fs.watchFile(entry, { interval: 2000 }, scheduleReload)
   }
 }
 
@@ -221,7 +223,8 @@ function startMainBundleWatch() {
       app.exit(0)
     }, 750)
   }
-  fs.watchFile(mainEntry, { interval: 500 }, scheduleRelaunch)
+  // Perf/low-CPU: same 500ms->2s rationale as the renderer watch above.
+  fs.watchFile(mainEntry, { interval: 2000 }, scheduleRelaunch)
 }
 
 function stopMainBundleWatch() {

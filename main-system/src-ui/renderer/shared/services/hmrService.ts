@@ -323,6 +323,8 @@ function setupBackendHotReloadHook(): void {
 
 function setupWatchdog(): void {
   if (watchdogTimer) clearInterval(watchdogTimer)
+  // Perf/low-CPU: recovery timeout is 12s; 5s sampling halves wakeups with
+  // at most +2.5s escalation delay. Early-returns when idle either way.
   watchdogTimer = setInterval(() => {
     if (!snapshot.recoveryPendingSince) return
 
@@ -331,7 +333,7 @@ function setupWatchdog(): void {
         minLevel: Math.min(MAX_LEVEL, snapshot.level + 1),
       })
     }
-  }, 2500)
+  }, 5000)
 }
 
 export const hmrService = {

@@ -8,9 +8,7 @@
       → Transformer (Embedding / Attention / MLP / RMSNorm / Residual / LM Head / Sampling)
       → Tensor Operations (GEMM / Softmax / Reduction / Activation / Gather / Scatter ...)
       → Computation Graph + Autograd (Backward Graph / Gradient / Optimizer)
-      → ATen / Dispatcher / Torch C++ Backend
       → 高效能數學與 Kernel (BLAS / oneDNN / cuBLASLt / cuDNN / FlashAttention)
-      → Triton (自研 GPU Kernel，PyTorch 生態內選項)
       → CPU / NVIDIA GPU (Apple MPS 為未來支線)
 
     （Gluon / CUDA C++ / PTX / SASS 屬後續自研推論引擎範疇，
@@ -18,23 +16,52 @@
 
 設計原則：
   1. 優先使用成熟高效函式庫，不重複造輪子。
-  2. 完整模型以 Python + PyTorch 實作（訓練與推論皆然）；只有實際效能瓶頸
-     時才在 PyTorch 生態內下沉（Triton kernel）。
-  3. Python 負責模型設計與高階控制；PyTorch 負責 Tensor / Autograd / 執行框架；
-     ATen / C++ Backend 與 cuBLASLt / cuDNN / FlashAttention 由 PyTorch 內部
-     調度提供成熟高效數學運算；Triton 為自研 GPU Kernel 選項。
+  2. 訓練主線為 JAX/XLA（jax_backend）；PyTorch 實作保留為 A610
+     python-reduction 窗口內的 migration-only lineage，不為新工作宣告。
+  3. Python 負責模型設計與高階控制；JAX/XLA 負責 Tensor / Autograd /
+     執行框架；高效能數學運算由 XLA 內部調度。
 
-本套件為第一版正式核心，提供可完全本地執行、可訓練、可推理、可量化、
+本套件為正式核心，提供可完全本地執行、可訓練、可推理、可量化、
 可自訂 Kernel 的原生模型實作；C++ 層效能下沉留給後續自研推論引擎。
+
+載入行為（A612）：torch lineage 符號（checkpoint / model / tokenizer）
+一律惰性解析——import 本套件或其 torch-free 子模組（config、
+jax_backend、bpe）不需要 PyTorch；只有在實際存取 torch 系符號時才
+載入 torch，環境缺 torch 時 fail-closed。
 """
 
 from __future__ import annotations
 
-from .bpe import NativeBPETokenizer, train_bpe
-from .checkpoint import FORMAT_VERSION, load_checkpoint, save_checkpoint
-from .config import XingChengConfig
-from .modules.model import XingChengForCausalLM
-from .tokenizer import XingChengTokenizer
+import importlib
+from typing import Any
+
+_LAZY: dict[str, tuple[str, str]] = {
+    "NativeBPETokenizer": (".bpe", "NativeBPETokenizer"),
+    "train_bpe": (".bpe", "train_bpe"),
+    "FORMAT_VERSION": (".checkpoint", "FORMAT_VERSION"),
+    "load_checkpoint": (".checkpoint", "load_checkpoint"),
+    "save_checkpoint": (".checkpoint", "save_checkpoint"),
+    "XingChengConfig": (".config", "XingChengConfig"),
+    "XingChengForCausalLM": (".modules.model", "XingChengForCausalLM"),
+    "XingChengTokenizer": (".tokenizer", "XingChengTokenizer"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    target = _LAZY.get(name)
+    if target is None:
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        )
+    module = importlib.import_module(target[0], __name__)
+    value = getattr(module, target[1])
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(__all__) | set(globals()))
+
 
 __all__ = [
     "FORMAT_VERSION",

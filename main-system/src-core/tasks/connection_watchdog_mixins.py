@@ -15,6 +15,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 from typing import Any
 
 from .connection_watchdog_types import (
@@ -99,9 +100,8 @@ class ConnectionProbeMixin:
                 active = int(data.get("active_connections", 0))
                 updated_at = str(data.get("updated_at", ""))
                 if updated_at:
-                    from datetime import datetime as _dt
                     try:
-                        parsed = _dt.fromisoformat(updated_at.replace("Z", "+00:00"))
+                        parsed = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                         age = (time.time() - parsed.timestamp())
                         if age > 20:
                             return False
@@ -320,12 +320,25 @@ class ConnectionAuditMixin:
             pass  # Reconciliation is best-effort; never break probing.
 
     def _write_state(self) -> None:
-        """Write connection state to the state file for observability."""
+        """Write connection state to the state file for observability.
+
+        Perf/low-IO: probes run every 15-60s but the snapshot rarely
+        changes — skip the tmp-write + replace when the canonical content
+        (excluding the ``updated_at`` stamp) matches the last write.
+        """
         try:
+            snapshot = self.snapshot.as_dict()
+            fingerprint = json.dumps(
+                {"version": CONNECTION_WATCHDOG_VERSION, "snapshot": snapshot},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            if getattr(self, "_last_watchdog_state_json", None) == fingerprint:
+                return
             self._state_file.parent.mkdir(parents=True, exist_ok=True)
             payload = {
                 "version": CONNECTION_WATCHDOG_VERSION,
-                "snapshot": self.snapshot.as_dict(),
+                "snapshot": snapshot,
                 "updated_at": _iso_now(),
             }
             tmp = self._state_file.with_suffix(".tmp")
@@ -334,6 +347,7 @@ class ConnectionAuditMixin:
                 encoding="utf-8",
             )
             os.replace(tmp, self._state_file)
+            self._last_watchdog_state_json = fingerprint
         except OSError:
             pass
 

@@ -1,7 +1,7 @@
 [project]
 name = "gptbridge-runtime"
 version = "0.1.0"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.14"
 dependencies = [
     # Python ONLY for 治相關、決策與模型訓練 (per user)
     # All mechanical work (timer/polling/watcher/queue/scheduler/IPC/SQL/transport/test/audit/cleanup) → C/C++/C# or DB native

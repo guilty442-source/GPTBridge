@@ -50,6 +50,16 @@ class LocalModuleLocatorRepository:
                 self._db_path, timeout=10.0, check_same_thread=False
             )
             connection.row_factory = sqlite3.Row
+            # Perf/low-lock: WAL + busy timeout match sqlite_store /
+            # vector_store so concurrent readers never block writers.
+            try:
+                connection.execute("PRAGMA journal_mode=WAL")
+            except sqlite3.DatabaseError:
+                pass
+            try:
+                connection.execute("PRAGMA busy_timeout=10000")
+            except sqlite3.DatabaseError:
+                pass
             self._connection = connection
         return self._connection
 
