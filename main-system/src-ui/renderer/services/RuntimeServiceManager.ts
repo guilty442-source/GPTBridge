@@ -142,6 +142,10 @@ export class RuntimeServiceManager {
     // A67 FORBID:stale-status — on transient IPC failure we re-fetch fresh
     // status rather than keeping a stale snapshot indefinitely.
     this.heartbeatTimer = setInterval(async () => {
+      // A hidden window cannot display stale status anyway; skip the IPC
+      // wakeup entirely so an idle backgrounded shell costs zero CPU.
+      // Push events still flow, and the first visible tick re-fetches.
+      if (document.visibilityState === 'hidden') return
       const api = window.electron as ElectronApi | undefined
       if (!api?.invoke) return
       try {

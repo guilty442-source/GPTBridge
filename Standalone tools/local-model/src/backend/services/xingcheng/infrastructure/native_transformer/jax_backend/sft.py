@@ -107,16 +107,30 @@ def _build_samples(
     return samples
 
 
+_COLLATE_BUCKET = 64
+
+
 def _collate(
-    batch: Sequence[tuple[list[int], list[int]]], pad_id: int
+    batch: Sequence[tuple[list[int], list[int]]],
+    pad_id: int,
+    max_length: int,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
+    # Pad to a fixed-width bucket, not batch-max: every distinct input
+    # shape triggers a fresh XLA recompilation of the jitted step, so
+    # batch-max padding recompiles the graph once per new sequence
+    # length.  Bucket widths bound the number of compiled shapes to
+    # ceil(max_length / _COLLATE_BUCKET).
     width = max(len(ids) for ids, _ in batch)
+    width = min(
+        max_length,
+        max(_COLLATE_BUCKET, _COLLATE_BUCKET * -(-width // _COLLATE_BUCKET)),
+    )
     inputs = np.full((len(batch), width), pad_id, dtype=np.int32)
     labels = np.full((len(batch), width), pad_id, dtype=np.int32)
     for row, (ids, lab) in enumerate(batch):
         inputs[row, : len(ids)] = ids
         labels[row, : len(lab)] = lab
-    return jnp.asarray(inputs), jnp.asarray(labels)
+    return inputs, labels
 
 
 def _lr_scale(step: int, config: JaxSFTConfig) -> float:
@@ -149,8 +163,13 @@ def _masked_loss(
 
 
 def _adamw_init(params: dict[str, Any]) -> dict[str, Any]:
-    zeros = jax.tree.map(lambda x: jnp.zeros_like(x), params)
-    return {"m": zeros, "v": zeros, "t": jnp.asarray(0, dtype=jnp.int32)}
+    # m and v must own distinct buffers: sharing one zeros pytree makes
+    # donate_argnums hit "donate the same buffer twice" at step time.
+    return {
+        "m": jax.tree.map(lambda x: jnp.zeros_like(x), params),
+        "v": jax.tree.map(lambda x: jnp.zeros_like(x), params),
+        "t": jnp.asarray(0, dtype=jnp.int32),
+    }
 
 
 def _adamw_step(
@@ -167,8 +186,11 @@ def _adamw_step(
     t = state["t"] + 1
     m = jax.tree.map(lambda m_, g: beta1 * m_ + (1 - beta1) * g, state["m"], grads)
     v = jax.tree.map(lambda v_, g: beta2 * v_ + (1 - beta2) * g * g, state["v"], grads)
-    bc1 = 1.0 - beta1 ** int(t)
-    bc2 = 1.0 - beta2 ** int(t)
+    # Traced-power bias correction so the whole step stays inside jit;
+    # int(t) would force a host sync and break tracing.
+    tf = t.astype(jnp.float32)
+    bc1 = 1.0 - jnp.power(beta1, tf)
+    bc2 = 1.0 - jnp.power(beta2, tf)
 
     def update(p: jnp.ndarray, m_: jnp.ndarray, v_: jnp.ndarray) -> jnp.ndarray:
         mhat = m_ / bc1
@@ -212,10 +234,40 @@ def jax_sft_train(
         params = init_params(config, seed=train_config.seed)
     opt_state = _adamw_init(params)
 
-    loss_and_grad = jax.jit(
-        jax.value_and_grad(
-            lambda p, ids, lab: _masked_loss(p, config, ids, lab, pad_id)
+    # One fused jitted step: loss + grads + clip + AdamW update compile
+    # into a single XLA graph instead of dozens of eager dispatches per
+    # micro-batch.  ``lr`` is passed as a traced scalar — baking it into
+    # the closure would force a recompile every step of the lr schedule.
+    def _train_step(params, opt_state, input_ids, labels, lr):
+        loss, grads = jax.value_and_grad(
+            lambda p: _masked_loss(p, config, input_ids, labels, pad_id)
+        )(params)
+        if train_config.grad_clip > 0:
+            norm = jnp.sqrt(
+                sum(
+                    jnp.sum(jnp.square(g))
+                    for g in jax.tree.leaves(grads)
+                    if g is not None
+                )
+            )
+            scale = jnp.minimum(
+                1.0, train_config.grad_clip / (norm + 1e-6)
+            )
+            grads = jax.tree.map(lambda g: g * scale, grads)
+        params, opt_state = _adamw_step(
+            params, grads, opt_state,
+            lr=lr, weight_decay=train_config.weight_decay,
         )
+        return params, opt_state, loss
+
+    # donate_argnums: params/opt_state buffers are donated and reused by
+    # the XLA step instead of freshly allocated every call — halves live
+    # optimizer memory for the resident pytrees.  The loop below never
+    # reads the pre-step references again, which is exactly the donation
+    # contract.
+    train_step = jax.jit(_train_step, donate_argnums=(0, 1))
+    eval_loss = jax.jit(
+        lambda p, ids, lab: _masked_loss(p, config, ids, lab, pad_id)
     )
 
     rng = np.random.default_rng(train_config.seed)
@@ -229,47 +281,48 @@ def jax_sft_train(
 
     while step < train_config.max_steps:
         lr = train_config.lr * _lr_scale(step, train_config)
-        accumulated = 0.0
+        # Keep per-micro-batch losses on device: float(loss) would force
+        # a device→host sync every micro-batch, serializing dispatch.
+        # One sync per outer step instead.
+        micro_losses: list[jnp.ndarray] = []
         for _ in range(max(1, train_config.grad_accum)):
             rng.shuffle(order)
             batch = [samples[i] for i in order[: train_config.batch_size]]
-            input_ids, labels = _collate(batch, pad_id)
-            loss, grads = loss_and_grad(params, input_ids, labels)
-            accumulated += float(loss)
-            if train_config.grad_clip > 0:
-                norm = float(
-                    jnp.sqrt(
-                        sum(
-                            jnp.sum(jnp.square(g))
-                            for g in jax.tree.leaves(grads)
-                            if g is not None
-                        )
-                    )
-                )
-                if norm > train_config.grad_clip:
-                    scale = train_config.grad_clip / (norm + 1e-6)
-                    grads = jax.tree.map(
-                        lambda g: g * scale if g is not None else g, grads
-                    )
-            params, opt_state = _adamw_step(
-                params, grads, opt_state,
-                lr=lr, weight_decay=train_config.weight_decay,
+            input_ids, labels = _collate(
+                batch, pad_id, train_config.max_length
             )
+            params, opt_state, loss = train_step(
+                params, opt_state, input_ids, labels, lr
+            )
+            micro_losses.append(loss)
         step += 1
-        history.append(accumulated / max(1, train_config.grad_accum))
+        history.append(
+            float(jax.device_get(jnp.mean(jnp.stack(micro_losses))))
+        )
 
         if step % train_config.eval_every == 0 and val_samples:
-            val_loss = 0.0
-            seen = 0
+            # Device-side accumulation: one host sync for the whole eval
+            # sweep instead of one sync per batch.
+            eval_losses: list[jnp.ndarray] = []
             for i in range(0, len(val_samples), train_config.batch_size):
+                chunk = list(val_samples[i : i + train_config.batch_size])
+                # Pad a short tail batch to full width with all-pad rows:
+                # the pad mask zeroes their contribution, so val_loss is
+                # bit-identical, while the jitted eval graph keeps a single
+                # [B, T] shape instead of recompiling per tail width.
+                while len(chunk) < train_config.batch_size:
+                    chunk.append(([pad_id], [pad_id]))
                 ids, lab = _collate(
-                    val_samples[i : i + train_config.batch_size], pad_id
+                    chunk,
+                    pad_id,
+                    train_config.max_length,
                 )
-                val_loss += float(
-                    _masked_loss(params, config, ids, lab, pad_id)
+                eval_losses.append(eval_loss(params, ids, lab))
+            last_eval = {
+                "val_loss": float(
+                    jax.device_get(jnp.mean(jnp.stack(eval_losses)))
                 )
-                seen += 1
-            last_eval = {"val_loss": val_loss / max(1, seen)}
+            }
 
         if step % train_config.checkpoint_every == 0:
             ckpt = target / f"step-{step}"

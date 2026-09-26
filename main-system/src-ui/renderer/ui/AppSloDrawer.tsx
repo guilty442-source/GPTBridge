@@ -119,7 +119,11 @@ export function AppSloDrawer({
       }
     }
     void fetchReport()
-    const timer = window.setInterval(fetchReport, POLL_INTERVAL_MS)
+    const timer = window.setInterval(() => {
+      // hidden window → nobody can read the dashboard; defer the IPC poll
+      if (document.visibilityState === 'hidden') return
+      void fetchReport()
+    }, POLL_INTERVAL_MS)
     return () => {
       cancelled = true
       window.clearInterval(timer)

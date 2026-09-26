@@ -19,12 +19,24 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterator
 
-try:
-    import torch
+# torch is imported lazily inside _query_via_torch: a top-level import
+# costs every consumer process ~1-2s (and, once touched, CUDA context
+# initialisation + device memory) even when nvidia-smi answers the query.
+_TORCH = None
+_TORCH_PROBED = False
 
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+
+def _torch():
+    global _TORCH, _TORCH_PROBED
+    if not _TORCH_PROBED:
+        _TORCH_PROBED = True
+        try:
+            import torch as _torch_mod
+
+            _TORCH = _torch_mod
+        except ImportError:
+            _TORCH = None
+    return _TORCH
 
 
 @dataclass(frozen=True)
@@ -36,7 +48,8 @@ class GpuStatus:
 
 
 def _query_via_torch() -> GpuStatus | None:
-    if not HAS_TORCH or not torch.cuda.is_available():
+    torch = _torch()
+    if torch is None or not torch.cuda.is_available():
         return None
     try:
         free, total = torch.cuda.mem_get_info(0)
@@ -67,11 +80,12 @@ def query_gpu() -> GpuStatus | None:
     """雙源查詢。**nvidia-smi 優先**：WDDM 下 torch.cuda.mem_get_info 的
     free/used 不含其他行程佔用（分頁模型），會高估可用 VRAM；nvidia-smi
     反映實體記憶體。torch 僅作為無 nvidia-smi 時的備援。"""
-    s = _query_via_torch()
     n = _query_via_nvidia_smi()
     if n is not None:
         return n
-    return s
+    # torch fallback only when nvidia-smi is absent — probing torch first
+    # would pay CUDA context init in every caller process for nothing.
+    return _query_via_torch()
 
 
 class GpuCoordinator:
