@@ -1,10 +1,14 @@
 // GPTBridgeLauncher.cpp — minimal desktop bootstrap (official main-system startup).
 //
+// bootstrap-entry is registered migrate-csharp (A341/A610): the launch
+// pipeline is owned by launcher/src/GPTBridge.Bootstrap (net10).
+//
 // Intentionally minimal: it only reads the workspace root from
 // %LOCALAPPDATA%\GPTBridgeLauncher\config\root.txt and runs
-// <root>\.venv\Scripts\pythonw.exe <root>\launcher\scripts\start.py hidden.
-// ALL launcher behaviour (environment loading, runtime checks, update and
-// self-refresh logic) lives in launcher/scripts/start.py so it can be
+// <root>\launcher\bin\GPTBridge.Bootstrap.exe hidden.  When the C#
+// bootstrap is not yet installed it falls back to
+// <root>\.venv\Scripts\pythonw.exe <root>\launcher\scripts\start.py.
+// ALL launcher behaviour lives in the bootstrap entry so it can be
 // updated in real time without rebuilding this EXE.  Reinstall with
 // main-system\.venv\Scripts\python.exe launcher\scripts\install.py only when
 // this bootstrap contract itself changes.
@@ -163,13 +167,13 @@ static void ShowError(const std::wstring& message)
 }
 
 static int LaunchHost(const std::wstring& projectRoot,
-                      const std::wstring& interpreter,
-                      const std::wstring& launchScript)
+                      const std::wstring& target,
+                      const std::wstring& arguments)
 {
     SetEnvironmentVariableW(L"ELECTRON_RUN_AS_NODE", nullptr);
 
     std::wstring commandLine =
-        Quote(interpreter) + L" " + Quote(launchScript);
+        Quote(target) + (arguments.empty() ? L"" : L" " + arguments);
 
     STARTUPINFOW startupInfo = {};
     startupInfo.cb = sizeof(STARTUPINFOW);
@@ -214,19 +218,25 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int)
         return 1;
     }
 
+    // Primary: the C# bootstrap entry (migrate-csharp owner).
+    std::wstring bootstrap =
+        projectRoot + L"\\launcher\\bin\\GPTBridge.Bootstrap.exe";
+    if (FileExists(bootstrap.c_str())) {
+        return LaunchHost(projectRoot, bootstrap, L"");
+    }
+
+    // Fallback: the retained Python launcher script via the project venv
+    // interpreter, so the launcher never depends on machine-wide PATH.
     std::wstring launchScript =
         projectRoot + L"\\launcher\\scripts\\start.py";
     if (!FileExists(launchScript.c_str())) {
         ShowError(kMsgMissing);
         return 1;
     }
-
-    // Prefer the project virtual environment interpreter so the launcher
-    // never depends on the machine-wide PATH; fall back to pythonw.exe.
     std::wstring interpreter = projectRoot + L"\\.venv\\Scripts\\pythonw.exe";
     if (!FileExists(interpreter.c_str())) {
         interpreter = L"pythonw.exe";
     }
 
-    return LaunchHost(projectRoot, interpreter, launchScript);
+    return LaunchHost(projectRoot, interpreter, Quote(launchScript));
 }
