@@ -2166,7 +2166,9 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             module_rms->push_back(
                 hidden_rms(attn_out, total_tokens, hidden_size));
         }
-        for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += attn_out[i];
+        axpy_f64(
+            hidden.data(), 1.0, attn_out.data(),
+            static_cast<int64_t>(hidden.size()));
 
         normed = rmsnorm(hidden, total_tokens, hidden_size, layer.post_norm, cfg.rms_norm_eps);
         if (module_rms != nullptr) {
@@ -2306,9 +2308,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                         static_cast<size_t>(r * hidden_size);
                     double* dst = mlp_out.data() + static_cast<size_t>(
                         row_token[static_cast<size_t>(r)] * hidden_size);
-                    for (int64_t d = 0; d < hidden_size; ++d) {
-                        dst[d] += w * src[d];
-                    }
+                    axpy_f64(dst, w, src, hidden_size);
                 }
             }
             // Shared experts (v26): always-on SwiGLU over every token,
@@ -2327,15 +2327,17 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 std::vector<double> sd = linear(
                     sg, total_tokens, shared_inter,
                     layer.shared_down_t[se], hidden_size);
-                for (size_t i = 0; i < mlp_out.size(); ++i) {
-                    mlp_out[i] += sd[i];
-                }
+                axpy_f64(
+                    mlp_out.data(), 1.0, sd.data(),
+                    static_cast<int64_t>(mlp_out.size()));
             }
             if (module_rms != nullptr) {
                 module_rms->push_back(
                     hidden_rms(mlp_out, total_tokens, hidden_size));
             }
-            for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
+            axpy_f64(
+                hidden.data(), 1.0, mlp_out.data(),
+                static_cast<int64_t>(hidden.size()));
         } else {
             std::vector<double> gate = linear(
                 normed, total_tokens, hidden_size, layer.gate_proj_t, cfg.intermediate_size);
@@ -2352,7 +2354,9 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 module_rms->push_back(
                     hidden_rms(mlp_out, total_tokens, hidden_size));
             }
-            for (size_t i = 0; i < hidden.size(); ++i) hidden[i] += mlp_out[i];
+            axpy_f64(
+                hidden.data(), 1.0, mlp_out.data(),
+                static_cast<int64_t>(hidden.size()));
         }
         if (layer_rms != nullptr) {
             layer_rms->push_back(hidden_rms(hidden, total_tokens, hidden_size));
@@ -2409,6 +2413,32 @@ int64_t NativeInferenceEngine::sample_next(
     const std::vector<int64_t>& previous,
     const SamplingConfig& sampling,
     uint64_t& rng_state) const {
+    const bool greedy = !sampling.do_sample || sampling.temperature <= 0.0;
+    if (greedy && sampling.repetition_penalty == 1.0) {
+        // Fast path — argmax over the raw logits, zero per-token copy.
+        return static_cast<int64_t>(std::distance(
+            logits.begin(), std::max_element(logits.begin(), logits.end())));
+    }
+    if (greedy) {
+        // Repetition penalty, greedy: apply the penalty lazily during the
+        // argmax scan — the winner is identical to adjusting a full copy,
+        // without the vocab-size allocation per token.
+        std::unordered_set<int64_t> seen(previous.begin(), previous.end());
+        int64_t best = -1;
+        double best_val = -std::numeric_limits<double>::infinity();
+        for (size_t i = 0; i < logits.size(); ++i) {
+            double v = logits[i];
+            if (seen.count(static_cast<int64_t>(i))) {
+                v = v > 0 ? v / sampling.repetition_penalty
+                          : v * sampling.repetition_penalty;
+            }
+            if (best < 0 || v > best_val) {
+                best = static_cast<int64_t>(i);
+                best_val = v;
+            }
+        }
+        return best;
+    }
     std::vector<double> adjusted = logits;
     if (sampling.repetition_penalty != 1.0) {
         std::unordered_set<int64_t> seen(previous.begin(), previous.end());
@@ -2419,10 +2449,6 @@ int64_t NativeInferenceEngine::sample_next(
                                   : value * sampling.repetition_penalty;
             }
         }
-    }
-    if (!sampling.do_sample || sampling.temperature <= 0.0) {
-        return static_cast<int64_t>(std::distance(
-            adjusted.begin(), std::max_element(adjusted.begin(), adjusted.end())));
     }
     for (double& value : adjusted) value /= sampling.temperature;
     if (sampling.top_k > 0 && sampling.top_k < static_cast<int64_t>(adjusted.size())) {

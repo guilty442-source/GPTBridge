@@ -284,12 +284,10 @@ export function useToolboxApplications({
     }
   }, [mergeLocalProjectSizes])
 
-  useEffect(() => {
-    const reload = () => void refreshToolboxTools()
-    window.addEventListener('gptbridge:global-data-reload', reload)
-    return () => window.removeEventListener('gptbridge:global-data-reload', reload)
-  }, [refreshToolboxTools])
-
+  // NOTE: no 'gptbridge:global-data-reload' listener — that event has no
+  // emitter anywhere in the codebase, and the handler ran a forced full
+  // disk-size rescan per dispatch. Removed as dead background work; the
+  // Connected-gate effect above and post-action refresh cover updates.
   const executeToolboxAction = useCallback(
     async (toolId: string, action: ToolAction) => {
       const target = toolboxToolsRef.current.find((tool) => tool.id === toolId)

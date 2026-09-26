@@ -134,15 +134,27 @@ def _compile_cuda_kernels(
                 f'-c "{src}" -o "{obj}"\r\n',
                 encoding="ascii",
             )
-            proc = subprocess.run(
-                ["cmd", "/c", str(bat)],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=600,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
+            try:
+                proc = subprocess.run(
+                    ["cmd", "/c", str(bat)],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    # nvcc 在受管（BelowNormal）主機上單檔可能逾 10 分鐘；
+                    # 600s 會把慢編譯誤判為失敗。逾時屬建置環境問題而非語法錯。
+                    timeout=1800,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except subprocess.TimeoutExpired:
+                # 逾時不是 toolset 不相容 — 換下一個 toolset 只會再等
+                # 半小時。印出診斷並回傳 []：無 kernel 的擴充仍會建置，
+                # bf16 請求路徑屆時 fail-closed。
+                print(
+                    f"[build_cpp] nvcc timed out for {src.name} "
+                    f"(toolset {toolset}) — kernels omitted"
+                )
+                return []
             if proc.returncode != 0 or not obj.is_file():
                 # Surface the failure: silently omitting the kernels TU
                 # would degrade a broken kernel to "toolchain absent",
@@ -186,9 +198,16 @@ def _extension():
         include_dirs.append(str(cuda_home / "include"))
         define_macros.append(("XINGCHENG_CUDA", "1"))
         print(f"[build_cpp] CUDA bridge enabled ({cuda_home})")
-        kernel_objs = _compile_cuda_kernels(
-            cuda_home, DIST_NATIVE / ".cu-build"
-        )
+        if os.environ.get("XINGCHENG_SKIP_CUDA_KERNELS"):
+            # 受管/低優先級環境的逃生閥：nvcc 單檔可逾 10 分鐘。
+            # bridge(cuBLAS) 仍啟用；bf16/fp8/kv-attention kernel 路徑
+            # fail-closed，與「無相容 toolset」語意一致。
+            print("[build_cpp] XINGCHENG_SKIP_CUDA_KERNELS — kernels omitted")
+            kernel_objs = []
+        else:
+            kernel_objs = _compile_cuda_kernels(
+                cuda_home, DIST_NATIVE / ".cu-build"
+            )
         if kernel_objs:
             extra_objects.extend(str(o) for o in kernel_objs)
             define_macros.append(("XINGCHENG_CUDA_KERNELS", "1"))
@@ -223,6 +242,14 @@ def _extension():
 
 def main() -> int:
     from setuptools import setup
+
+    # cp950 consoles cannot emit UTF-8 replacement chars from compiler
+    # output; replace unencodable characters instead of crashing.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
 
     DIST_NATIVE.mkdir(parents=True, exist_ok=True)
     sys.argv = [
