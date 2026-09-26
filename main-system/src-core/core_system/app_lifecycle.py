@@ -48,11 +48,11 @@ from governance.sovereigns import (
 )
 
 from main_shutdown import GPTBridgeAppShutdownMixin
+from core_system.maintenance_controller_integration import create_maintenance_controller_integration
 # RAG/CAG integrations are imported lazily inside the on-demand helpers
 # below: their module trees pull the vector_models shim (the VectordClient
 # surface over the Rust engine) which is capability-critical, not
 # boot-critical -- see MS1/MS2 lazy loading.
-# capability-critical, not boot-critical — see MS1/MS2 lazy loading.
 
 
 class AppLifecycleMixin:
