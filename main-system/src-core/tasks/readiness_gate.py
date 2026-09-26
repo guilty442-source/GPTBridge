@@ -112,7 +112,7 @@ class CapabilityReadiness:
     probes already performed for the four A67 conditions, the backend
     runtime flag and the governed maintenance gate.  No new probe,
     registry or service is introduced — each capability maps to one
-    canonical single source (postgresql=structured data, qdrant=semantic
+    canonical single source (postgresql=structured data, vectord=semantic
     index, ollama=model runtime, toolbox/back-end=tool runtime,
     maintenance gate=git maintenance).
     """

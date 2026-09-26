@@ -479,7 +479,7 @@ class LocalRagRetrievalMixin:
             "sub_architectures": list(sub_architectures),
             "sub_architecture_valid": arch_valid,
             "codex_basis": "A52/E38+A8/E21+A44/E30+A49/E35+A371-A374",
-            "canonical_vector_database": "qdrant",
+            "canonical_vector_database": "vectord",
             "canonical_pipeline": canonical_status,
             **self._status_governance(canonical_ready),
             "embedding_model": str(self.native_runtime.EMBEDDING_MODEL),
