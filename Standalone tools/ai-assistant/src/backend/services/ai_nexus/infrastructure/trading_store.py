@@ -1,20 +1,23 @@
 """Canonical trading store — ai-assistant business-data owner.
 
 Tool-local authoritative store (manifest ``data_scope:
-tool-database-only``). The legacy analytics database is archived and
-sealed — this is a fresh schema for the rebuilt system. PostgreSQL
-canonical migration is a governed release step tracked separately;
-the repository interface is storage-agnostic so the swap is confined to
-this module.
+tool-database-only``) hosted in PostgreSQL schema
+``gptbridge_ai_nexus`` (A610/A621: PostgreSQL is the sole structured-data
+authority; the retired sqlite store was migrated through the governed
+``sqlite_to_pg`` pipeline with ledger evidence). The repository
+interface is storage-agnostic so the swap is confined to this module.
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Iterable
+
+from shared_layer.local import pg_adapter
+
+PG_SCHEMA = "gptbridge_ai_nexus"
 
 SCHEMA_VERSION = 2
 
@@ -315,17 +318,15 @@ class TradingStore:
 
     def __init__(self, tool_root: Path) -> None:
         self._root = Path(tool_root)
-        self._db_path = self._root / "runtime" / "data" / "trading_system.sqlite3"
-        self._conn: sqlite3.Connection | None = None
+        self._db_path = f"postgresql:{PG_SCHEMA}"
+        self._conn: Any = None
 
     @property
-    def database_path(self) -> Path:
+    def database_path(self) -> str:
         return self._db_path
 
     def open(self) -> None:
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self._db_path))
-        self._conn.row_factory = sqlite3.Row
+        self._conn = pg_adapter.connect(PG_SCHEMA, autocommit=False)
         existing = self._conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'"
         ).fetchone()
@@ -349,7 +350,7 @@ class TradingStore:
             self._conn.close()
             self._conn = None
 
-    def _db(self) -> sqlite3.Connection:
+    def _db(self) -> Any:
         if self._conn is None:
             self.open()
         assert self._conn is not None

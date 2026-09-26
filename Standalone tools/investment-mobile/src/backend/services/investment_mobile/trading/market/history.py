@@ -1,8 +1,10 @@
 """HistoricalMarketDataService — incremental candle store + sync.
 
-Local SQLite cache (private runtime state — the authoritative copy is
+Tool-private runtime cache hosted in PostgreSQL schema
+``gptbridge_investment_mobile`` (A610/A621 — the authoritative copy is
 mirrored into PostgreSQL ``gptbridge_trading.market_candle`` by the
-business layer through the governed channel).
+business layer through the governed channel; this schema is bounded,
+non-canonical cache state).
 
 Guarantees:
 - Incremental: per (source, instrument, timeframe) sync cursor —
@@ -18,11 +20,14 @@ Guarantees:
 
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+
+from shared_layer.local import pg_adapter
+
+PG_SCHEMA = "gptbridge_investment_mobile"
 
 from .calendar import TradingCalendar
 from .contracts import MarketCandle, utcnow
@@ -80,14 +85,15 @@ CREATE TABLE IF NOT EXISTS revision (
 
 
 class CandleStore:
-    def __init__(self, db_path: Path) -> None:
-        self._path = Path(db_path)
-        self._conn: sqlite3.Connection | None = None
+    def __init__(self, db_path: Path | None = None) -> None:
+        # Legacy callers pass a filesystem path; the store now lives in
+        # the tool-private PG schema (A610/A621), so the argument is
+        # accepted for signature parity and ignored.
+        self._path = f"postgresql:{PG_SCHEMA}"
+        self._conn: Any = None
 
     def open(self) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self._path))
-        self._conn.row_factory = sqlite3.Row
+        self._conn = pg_adapter.connect(PG_SCHEMA, autocommit=False)
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
 
@@ -96,7 +102,7 @@ class CandleStore:
             self._conn.close()
             self._conn = None
 
-    def _db(self) -> sqlite3.Connection:
+    def _db(self) -> Any:
         if self._conn is None:
             self.open()
         assert self._conn is not None
@@ -273,10 +279,17 @@ class CandleStore:
     def stats(self) -> dict[str, Any]:
         db = self._db()
         count = db.execute("SELECT COUNT(*) c FROM candle").fetchone()["c"]
+        size_row = db.execute(
+            "SELECT COALESCE(SUM(pg_total_relation_size("
+            "quote_ident(table_schema) || '.' || quote_ident(table_name))), 0) "
+            "FROM information_schema.tables WHERE table_schema = current_schema"
+        ).fetchone()
         return {
             "candles": count,
-            "db_path": str(self._path),
-            "db_size_bytes": self._path.stat().st_size if self._path.exists() else 0,
+            "db_path": self._path,
+            "db_size_bytes": int(size_row[0]) if size_row else 0,
+            "engine": "postgresql",
+            "authority": "tool-private-cache",
         }
 
 

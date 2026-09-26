@@ -1,41 +1,47 @@
-"""SQLite cache for video perceptual fingerprints."""
+"""PostgreSQL cache for video perceptual fingerprints.
+
+A610/A621: PostgreSQL is the sole structured-data authority; this cache
+lives in the bounded, non-canonical ``gptbridge_file_sorter`` schema.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import os
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from shared_layer.local import pg_adapter
+
 from .cleanup_constants import VIDEO_FINGERPRINT_CACHE_SCHEMA
 from .cleanup_utils import _default_state_root
 
+PG_SCHEMA = "gptbridge_file_sorter"
+
 
 class VideoFingerprintCache:
-    """Small SQLite cache keyed by a privacy-preserving canonical-path digest."""
+    """Small cache keyed by a privacy-preserving canonical-path digest."""
 
     def __init__(self, database_path: Path | None = None) -> None:
-        self.database_path = database_path or (_default_state_root() / "video-fingerprints.sqlite3")
+        # Legacy callers pass a filesystem path; accepted for signature
+        # parity and ignored — the store is the tool-private PG schema.
+        self.database_path = f"postgresql:{PG_SCHEMA}"
         self._ready = False
 
-    def _connect(self) -> sqlite3.Connection:
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(self.database_path, timeout=5)
-        connection.execute("PRAGMA journal_mode=WAL")
-        connection.execute("PRAGMA synchronous=NORMAL")
+    def _connect(self) -> Any:
+        connection = pg_adapter.connect(PG_SCHEMA)
         if not self._ready:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS video_fingerprints (
                     path_digest TEXT PRIMARY KEY,
-                    size INTEGER NOT NULL,
-                    mtime_ns INTEGER NOT NULL,
+                    size BIGINT NOT NULL,
+                    mtime_ns BIGINT NOT NULL,
                     schema_version INTEGER NOT NULL,
                     payload_json TEXT NOT NULL,
-                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                    updated_at TEXT NOT NULL
                 )
                 """
             )
@@ -69,7 +75,7 @@ class VideoFingerprintCache:
                 return None
             payload = json.loads(str(row[0]))
             return payload if isinstance(payload, dict) else None
-        except (OSError, sqlite3.Error, ValueError, TypeError, json.JSONDecodeError):
+        except (OSError, Exception, ValueError, TypeError, json.JSONDecodeError):
             return None
 
     def put(

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from typing import Any
 
 from ._helpers import _utc_now
@@ -141,7 +140,7 @@ class PostMixin:
 
     def _post_metrics(
         self,
-        existing: sqlite3.Row | None,
+        existing: Any | None,
         media_items: list[dict[str, Any]] | None,
         scan_status: str,
     ) -> tuple[int, int, str, str]:
@@ -203,7 +202,7 @@ class PostMixin:
 
     def _deactivate_previous_media(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         post_id: str,
         now: str,
     ) -> None:
@@ -245,7 +244,7 @@ class PostMixin:
 
     def _upsert_post_media_item(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         post_id: str,
         media_index: int,
         media: dict[str, Any],
@@ -293,7 +292,7 @@ class PostMixin:
         )
 
     @staticmethod
-    def _media_change_kind(existing_media: sqlite3.Row | None) -> str:
+    def _media_change_kind(existing_media: Any | None) -> str:
         if existing_media is None:
             return "created"
         if not bool(existing_media["is_active"]):
@@ -395,8 +394,8 @@ class PostMixin:
 
     def _media_by_post(
         self,
-        connection: sqlite3.Connection,
-        rows: list[sqlite3.Row],
+        connection: Any,
+        rows: list[Any],
     ) -> dict[str, list[dict[str, Any]]]:
         post_ids = [str(row["post_id"]) for row in rows]
         media_by_post: dict[str, list[dict[str, Any]]] = {
@@ -428,7 +427,7 @@ class PostMixin:
 
     @staticmethod
     def _downloaded_counts(
-        connection: sqlite3.Connection,
+        connection: Any,
     ) -> dict[str, int]:
         history_rows = connection.execute(
             """

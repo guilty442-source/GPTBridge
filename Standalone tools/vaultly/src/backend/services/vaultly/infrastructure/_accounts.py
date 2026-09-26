@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 from typing import Any, Iterable
 
 from ._helpers import _utc_now
@@ -48,7 +47,7 @@ class AccountMixin:
 
     def _upsert_single_account(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         account: dict[str, Any],
         now: str,
     ) -> int:
@@ -100,7 +99,7 @@ class AccountMixin:
         )
 
     @staticmethod
-    def _account_change_kind(existing: sqlite3.Row | None) -> str:
+    def _account_change_kind(existing: Any | None) -> str:
         if existing is None:
             return "created"
         if not bool(existing["is_active"]):
@@ -109,7 +108,7 @@ class AccountMixin:
 
     def _ensure_account_scan_schedule(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         account_id: str,
         platform: str,
         selected: bool,

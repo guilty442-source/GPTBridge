@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from typing import Any
 
 from ._helpers import _utc_now
@@ -123,7 +122,7 @@ class JobMixin:
         return [str(row["job_id"]) for row in rows]
 
     @staticmethod
-    def _job_row(row: sqlite3.Row) -> dict[str, Any]:
+    def _job_row(row: Any) -> dict[str, Any]:
         output = dict(row)
         output["preview_only"] = bool(output["preview_only"])
         for key in ("conditions_json", "account_ids_json"):

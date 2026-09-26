@@ -462,9 +462,9 @@ class TradingEngineService:
         # market-data domain stack
         self.calendar = TradingCalendar(state_dir)
         self.market_engine = MarketDataEngine(state_dir, audit=self.audit)
-        self.candle_store = CandleStore(
-            Path(tool_root) / "runtime" / "data" / "market-data.sqlite3"
-        )
+        # A610/A621: candle cache lives in the tool-private PG schema
+        # (``gptbridge_investment_mobile``); no local file path.
+        self.candle_store = CandleStore()
         self.history = HistoricalMarketDataService(self.candle_store, self.calendar)
         self.corporate = CorporateActionService(state_dir)
         self.fx = CurrencyRateService(state_dir)

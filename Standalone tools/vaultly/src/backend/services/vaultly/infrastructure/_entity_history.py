@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from typing import Any
 
 from ._helpers import _utc_now
@@ -21,11 +20,11 @@ _ENTITY_TABLES = {
 class EntityHistoryMixin:
     @staticmethod
     def _record_row_history(
-        connection: sqlite3.Connection,
+        connection: Any,
         entity_type: str,
         entity_key: str,
         action: str,
-        row: sqlite3.Row | dict[str, Any] | None,
+        row: Any | dict[str, Any] | None,
     ) -> None:
         """Append an immutable snapshot inside the caller's transaction."""
         if row is None:
@@ -59,11 +58,11 @@ class EntityHistoryMixin:
 
     @staticmethod
     def _row_by_key(
-        connection: sqlite3.Connection,
+        connection: Any,
         table: str,
         key_column: str,
         key: str,
-    ) -> sqlite3.Row | None:
+    ) -> Any | None:
         return connection.execute(
             f"SELECT * FROM {table} WHERE {key_column} = ?",
             (key,),
@@ -142,7 +141,7 @@ class EntityHistoryMixin:
 
     @staticmethod
     def _load_history_snapshot(
-        connection: sqlite3.Connection,
+        connection: Any,
         history_id: int,
     ) -> tuple[str, str, dict[str, Any]] | None:
         history = connection.execute(
@@ -168,7 +167,7 @@ class EntityHistoryMixin:
 
     @staticmethod
     def _restore_row(
-        connection: sqlite3.Connection,
+        connection: Any,
         table: str,
         key_column: str,
         allowed_columns: list[str],

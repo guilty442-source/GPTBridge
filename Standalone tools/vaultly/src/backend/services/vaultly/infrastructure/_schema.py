@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
+from typing import Any
+
+from shared_layer.local import pg_adapter
+
+PG_SCHEMA = "gptbridge_vaultly"
 
 
 _SCHEMA_SCRIPT = """
@@ -192,14 +196,15 @@ _INDEXES_SCRIPT = """
 
 class SchemaMixin:
     def __init__(self, project_root: Path) -> None:
-        self.db_path = project_root / "runtime" / "state" / "vaultly.sqlite3"
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # A610/A621: PostgreSQL is the sole structured-data authority; the
+        # retired vaultly.sqlite3 store was migrated into the
+        # ``gptbridge_vaultly`` schema via the governed sqlite_to_pg
+        # pipeline with ledger evidence.
+        self.db_path = f"postgresql:{PG_SCHEMA}"
         self._ensure_schema()
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.db_path)
-        connection.row_factory = sqlite3.Row
-        return connection
+    def _connect(self) -> Any:
+        return pg_adapter.connect(PG_SCHEMA)
 
     def _ensure_schema(self) -> None:
         with self._connect() as connection:
@@ -207,7 +212,7 @@ class SchemaMixin:
             self._ensure_migration_columns(connection)
             connection.executescript(_INDEXES_SCRIPT)
 
-    def _ensure_migration_columns(self, connection: sqlite3.Connection) -> None:
+    def _ensure_migration_columns(self, connection: Any) -> None:
         self._ensure_column(
             connection,
             "vaultly_accounts",
@@ -254,7 +259,7 @@ class SchemaMixin:
 
     @staticmethod
     def _ensure_column(
-        connection: sqlite3.Connection,
+        connection: Any,
         table: str,
         column: str,
         definition: str,

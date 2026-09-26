@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from typing import Any
 
 from ._helpers import _utc_now
@@ -101,7 +100,7 @@ class PostScanJobMixin:
         return [str(row["scan_job_id"]) for row in rows]
 
     @staticmethod
-    def _post_scan_job_row(row: sqlite3.Row) -> dict[str, Any]:
+    def _post_scan_job_row(row: Any) -> dict[str, Any]:
         output = dict(row)
         output["inspect_existing"] = bool(output["inspect_existing"])
         try:
