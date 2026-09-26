@@ -13,3 +13,8 @@ for r in c.execute("""
   from pg_stat_activity where datname='gptbridge' and state<>'idle'
   order by query_start limit 12"""):
     print(r)
+print("---copy progress---")
+for r in c.execute("""
+  select pid, relid::regclass, bytes_processed, bytes_total, tuples_processed
+  from pg_stat_progress_copy"""):
+    print(r)
