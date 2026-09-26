@@ -1,6 +1,6 @@
 """Tests for Phase C: Generation Fence, Workload Class, Two-Stage Deletion, Orphan Scanner.
 
-Tests migration files 025-027, runtime helpers, and query allowlist extensions.
+Tests migration files 026-027, runtime helpers, and query allowlist extensions.
 """
 from __future__ import annotations
 
@@ -19,21 +19,6 @@ from shared_layer.database.schema_contract_registry import (
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MIGRATIONS_DIR = _PROJECT_ROOT / "shared-layer" / "migrations"
-
-
-class TestSqliteGenerationFenceMigration:
-    def test_025_exists(self):
-        assert (_MIGRATIONS_DIR / "025_sqlite_generation_fence.sql").is_file()
-
-    def test_defines_table(self):
-        text = (_MIGRATIONS_DIR / "025_sqlite_generation_fence.sql").read_text("utf-8")
-        assert "gptbridge_index.sqlite_generation" in text
-        assert "backend_generation" in text
-        assert "stale" in text
-
-    def test_defines_upsert_function(self):
-        text = (_MIGRATIONS_DIR / "025_sqlite_generation_fence.sql").read_text("utf-8")
-        assert "upsert_sqlite_generation" in text
 
 
 class TestWorkloadClassMigration:
@@ -137,7 +122,8 @@ class TestQueryAllowlistPhaseC:
         assert is_allowlisted("workload_class.list")
 
     def test_generation_queries(self):
-        assert is_allowlisted("generation.sqlite_stale")
+        assert is_allowlisted("generation.current")
+        assert is_allowlisted("generation.bump")
 
     def test_deletion_queries(self):
         assert is_allowlisted("deletion.tombstone")
@@ -147,16 +133,16 @@ class TestQueryAllowlistPhaseC:
 
 
 class TestSchemaContractRegistryPhaseC:
-    def test_expected_migration_count_is_125(self):
+    def test_expected_migration_count_matches_files(self):
         import pathlib
 
         migrations = pathlib.Path(__file__).resolve().parents[1] / "migrations"
         assert EXPECTED_MIGRATION_COUNT == len(list(migrations.glob("*.sql")))
 
-    def test_contract_includes_sqlite_generation(self):
+    def test_contract_includes_backend_generation_state(self):
         contract = declared_contract()
         table_names = [(t.schema, t.table) for t in contract.tables]
-        assert ("gptbridge_index", "sqlite_generation") in table_names
+        assert ("gptbridge_index", "backend_generation_state") in table_names
 
     def test_contract_includes_workload_class(self):
         contract = declared_contract()
