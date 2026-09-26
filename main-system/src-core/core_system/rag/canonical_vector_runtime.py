@@ -46,8 +46,8 @@ from shared_layer.metadata_contract import (
     FIELD_VERSION,
     STATUS_INDEXED,
 )
-from shared_layer.security.qdrant_scope import (
-    QdrantScopeError,
+from shared_layer.security.vector_scope import (
+    VectorScopeError,
     assert_payload_scoped,
     require_scope,
 )
@@ -55,8 +55,8 @@ from shared_layer.security.qdrant_scope import (
 _logger = logging.getLogger("gptbridge.rag")
 
 
-def _observe_qdrant_latency(latency_ms: float) -> None:
-    """P4 adaptive plane 生產者：canonical 檢索延遲 → ``qdrant_latency_ms``。
+def _observe_vector_latency(latency_ms: float) -> None:
+    """P4 adaptive plane 生產者：canonical 檢索延遲 → ``vector_latency_ms``。
 
     欄位級合併、失敗靜默——量測只是提示，不得影響檢索主流程。
     """
@@ -64,8 +64,8 @@ def _observe_qdrant_latency(latency_ms: float) -> None:
         from shared_layer.adaptive import LoadSignals, get_plane
 
         get_plane().observe_merge(
-            LoadSignals(qdrant_latency_ms=latency_ms),
-            fields=("qdrant_latency_ms",),
+            LoadSignals(vector_latency_ms=latency_ms),
+            fields=("vector_latency_ms",),
         )
     except Exception:
         pass
@@ -139,7 +139,7 @@ class IndexState:
     chunk_overlap: int
     indexed_at_utc: str
     content_hash: str
-    qdrant_point_id: str
+    vector_point_id: str
     postgresql_record_id: Optional[str] = None
     generation_id: Optional[str] = None  # A486: bind to index generation
     status: str = "indexed"  # read barrier: only 'indexed'/'active' may serve
@@ -175,6 +175,9 @@ class RagPipelineConfig:
     # A374 durability: pending_rag_mutation queue + degraded stores must
     # survive restarts; None keeps the in-memory/temp fallbacks for tests.
     queue_db_path: Optional[str] = None
+    # PostgreSQL schema that hosts the durable reconciliation queue;
+    # overridable so tests run on isolated schemas.
+    queue_schema: str = "gptbridge_rag"
     degraded_root: Optional[str] = None
     # A611 cutover sealed: canonical vector runtime is the governed
     # vectord service; Qdrant is retired (no live selection path).
@@ -363,7 +366,7 @@ class CanonicalVectorRuntime:
         """Search vectord for similar vectors (canonical read path).
 
         ``module_id``/``module_ids`` scope is mandatory: a search without a
-        non-empty module scope raises ``QdrantScopeError`` (fail closed) and
+        non-empty module scope raises ``VectorScopeError`` (fail closed) and
         can never turn into a whole-collection scan.  The scope filter is
         always applied, merged with any additional filter conditions.
 
@@ -400,7 +403,7 @@ class CanonicalVectorRuntime:
                 with_payload=True,
                 with_vectors=False,
             )
-            _observe_qdrant_latency((time.monotonic() - vector_start) * 1000.0)
+            _observe_vector_latency((time.monotonic() - vector_start) * 1000.0)
             return [
                 {
                     "id": hit.id,

@@ -1,4 +1,4 @@
-"""Degraded RAG Backend — LocalVectorStore + LocalSqliteRagRepository 實作。
+"""Degraded RAG Backend — LocalVectorStore + LocalRagRepository 實作。
 
 實作 RagIndexBackend 介面，用於 canonical 不可用時的降級模式。
 """
@@ -30,7 +30,7 @@ _logger = logging.getLogger("gptbridge.rag.degraded_backend")
 
 
 class DegradedRagBackend:
-    """Degraded RAG backend: LocalVectorStore + LocalSqliteRagRepository."""
+    """Degraded RAG backend: LocalVectorStore + LocalRagRepository."""
 
     def __init__(
         self,
@@ -91,7 +91,7 @@ class DegradedRagBackend:
                 success=True,
                 new_version=request.source_version,
                 state=LifecycleState.CANONICAL_INDEXED,  # In degraded, this means locally indexed
-                qdrant_point_ids=tuple(chunk.chunk_id for chunk in request.chunks),
+                vector_point_ids=tuple(chunk.chunk_id for chunk in request.chunks),
             )
 
         except Exception as e:
@@ -103,7 +103,7 @@ class DegradedRagBackend:
                 success=False,
                 new_version=0,
                 state=LifecycleState.INDEX_PENDING,
-                qdrant_point_ids=(),
+                vector_point_ids=(),
                 error_message=str(e),
             )
 
@@ -146,10 +146,10 @@ class DegradedRagBackend:
             hits = []
             for r in results:
                 hits.append(RagSearchHit(
-                    point_id=r.index_state.qdrant_point_id,
+                    point_id=r.index_state.vector_point_id,
                     score=r.score,
                     locator_id=f"{r.module_id}:{r.resource_id}",
-                    chunk_id=r.index_state.qdrant_point_id,
+                    chunk_id=r.index_state.vector_point_id,
                     resource_id=r.resource_id,
                     module_id=r.module_id,
                     generation_id=r.index_state.generation_id or "",

@@ -157,7 +157,7 @@ async def test_sweep_missing_hash_and_status_flagged():
 
 
 @pytest.mark.asyncio
-async def test_sweep_qdrant_unverifiable_enqueues_fail_closed():
+async def test_sweep_vector_unverifiable_enqueues_fail_closed():
     pg, qd, audit = _rig()
     pg.details = [_row()]
     pg.chunk_counts = {("mod", "res-1"): 3}

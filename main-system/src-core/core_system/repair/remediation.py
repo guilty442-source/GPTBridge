@@ -330,13 +330,13 @@ class RemediationRegistry:
             RemediationAction(
                 remediation_id="switch_degraded_mode_v1",
                 version="1.0",
-                diagnosis_code=DiagnosisCode.QDRANT_UNAVAILABLE,
+                diagnosis_code=DiagnosisCode.VECTOR_UNAVAILABLE,
                 risk_class=RiskClass.R2_GOVERNED_AUTO,
                 required_permission="repair.mode.degraded",
                 scope_fence={"service": "rag"},
                 preconditions=(
                     RemediationPrecondition(
-                        name="qdrant_unavailable_confirmed",
+                        name="vector_unavailable_confirmed",
                         check=lambda ctx: not ctx.get("vector_healthy", True),
                         description="vectord unavailability must be confirmed",
                     ),

@@ -72,8 +72,8 @@ _FORBIDDEN_NAMES: Final[dict[str, str]] = {
     "postmaster.pid": "postgres-data",
     "global": "postgres-data",
     "base": "postgres-data",
-    "qdrant_storage": "qdrant-index",
-    "qdrant": "qdrant-index",
+    "vectord_storage": "vector-index",
+    "vectord": "vector-index",
     "user-data": "user-data",
     "user_data": "user-data",
     "users": "user-data",
@@ -89,7 +89,7 @@ _FORBIDDEN_SUFFIXES: Final[dict[str, str]] = {
     ".h5": "model-weights",
     ".pgdump": "postgres-data",
     ".dump": "postgres-data",
-    ".qdrant": "qdrant-index",
+    ".vectord": "vector-index",
 }
 
 # Bound the sweep so a runaway tree can never turn the check into a scan of

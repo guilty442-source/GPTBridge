@@ -76,9 +76,9 @@
     "phase_budget_ms": {
       "phase-0-local-preflight": 400,
       "phase-1-minimal-information-bootstrap": 400,
-      "phase-2-read-official-codex": 1000,
-      "phase-3-load-permission-directory": 400,
-      "phase-4-switch-normal-information-mode": 400,
+      "phase-2-read-official-codex": 800,
+      "phase-3-load-permission-directory": 1600,
+      "phase-4-switch-normal-information-mode": 800,
       "phase-5-classify-dependency-dag": 2400,
       "phase-6-activate-core-sovereigns": 5000
     },

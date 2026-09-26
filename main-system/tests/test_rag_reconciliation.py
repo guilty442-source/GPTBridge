@@ -8,11 +8,15 @@ vectors are never replayed into the canonical collection.
 
 from __future__ import annotations
 
-import sqlite3
+import uuid
 from types import SimpleNamespace
 from typing import Any, Optional
 
+import psycopg
 import pytest
+
+from shared_layer.local.pg_adapter import connect as pg_connect
+from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
 
 from core_system.rag.pipeline import CanonicalRagPipeline
 from core_system.rag.canonical_vector_runtime import RagPipelineConfig
@@ -125,6 +129,39 @@ class _FakeDeletionCoordinator:
         )
 
 
+def _fresh_queue_schema() -> str:
+    schema = f"rag_test_{uuid.uuid4().hex[:12]}"
+    with psycopg.connect(
+        resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5
+    ) as conn:
+        conn.execute(f'CREATE SCHEMA "{schema}"')
+        conn.execute(
+            f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime'
+        )
+    return schema
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _drop_queue_schemas():
+    yield
+    try:
+        with psycopg.connect(
+            resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5
+        ) as conn:
+            names = [
+                row[0]
+                for row in conn.execute(
+                    "SELECT schema_name FROM information_schema.schemata "
+                    "WHERE schema_name LIKE 'rag_test_%'"
+                ).fetchall()
+            ]
+            for name in names:
+                conn.execute(f'DROP SCHEMA "{name}" CASCADE')
+            conn.commit()
+    except Exception:
+        pass
+
+
 def _pipeline(
     *,
     content: str,
@@ -134,6 +171,7 @@ def _pipeline(
     cfg = RagPipelineConfig(
                collection_name="gptbridge_shared_knowledge",
         postgresql_dsn="postgresql://unused",
+        queue_schema=_fresh_queue_schema(),
     )
     pipe = CanonicalRagPipeline(
         cfg,
@@ -277,8 +315,7 @@ async def test_deletion_coordinator_runtime_completes_tombstone_replay() -> None
 
 
 def test_queue_item_carries_pending_mutation_fields() -> None:
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
-    conn.row_factory = sqlite3.Row
+    conn = pg_connect(_fresh_queue_schema(), autocommit=False)
     from core_system.rag.runtime_state import (
         RagRuntimeStateMachine,
         ReconciliationQueue,

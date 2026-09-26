@@ -37,7 +37,7 @@ class RagIndexBackend(Protocol):
     """Unified index backend interface.
 
     CanonicalRagBackend: vectord (alias) + PostgreSQL + Outbox
-    DegradedRagBackend:  LocalVectorStore + LocalSqliteRagRepository
+    DegradedRagBackend:  LocalVectorStore + LocalRagRepository
     """
 
     @abstractmethod
@@ -50,7 +50,7 @@ class RagIndexBackend(Protocol):
         """Index or update a resource atomically.
 
         Canonical: PostgreSQL transaction (metadata + outbox) + vectord upsert
-        Degraded:  LocalVectorStore + LocalSqliteRagRepository
+        Degraded:  LocalVectorStore + LocalRagRepository
         """
         ...
 
@@ -59,7 +59,7 @@ class RagIndexBackend(Protocol):
         """Delete a resource.
 
         Canonical: PostgreSQL TOMBSTONED → outbox DELETE → vectord delete
-        Degraded:  LocalSqliteRagRepository delete
+        Degraded:  LocalRagRepository delete
         """
         ...
 

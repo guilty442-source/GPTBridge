@@ -23,7 +23,7 @@ class ReconcileHelpersMixin:
         content_hash: str | None = None,
     ) -> None:
         """Mark a local resource change as pending reconciliation."""
-        self.sqlite.execute(
+        self.local.execute(
             """INSERT INTO reconcile_state
                 (module_id, resource_id, local_version, local_updated_at,
                  local_content_hash, reconcile_status)
@@ -36,7 +36,7 @@ class ReconcileHelpersMixin:
                 reconciled_at = NULL""",
             (module_id, resource_id, version, updated_at, content_hash),
         )
-        self.sqlite.commit()
+        self.local.commit()
 
     def _fetch_central_map(
         self,

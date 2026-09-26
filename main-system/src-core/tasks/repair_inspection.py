@@ -361,8 +361,9 @@ class RepairRunStore:
     ``database_root`` argument is accepted for signature parity.
     """
 
-    def __init__(self, database_root: Path) -> None:
+    def __init__(self, database_root: Path, schema: str = "gptbridge_repair") -> None:
         self.database_root = database_root.resolve()
+        self._schema = schema
         self._connection: Any = None
         self._connection_lock = threading.RLock()
 
@@ -370,7 +371,7 @@ class RepairRunStore:
         from shared_layer.local import pg_adapter
 
         if self._connection is None:
-            connection = pg_adapter.connect("gptbridge_repair", autocommit=False)
+            connection = pg_adapter.connect(self._schema, autocommit=False)
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS repair_runs ("
                 "run_id TEXT PRIMARY KEY, target_tool_id TEXT NOT NULL, "
@@ -380,7 +381,7 @@ class RepairRunStore:
             )
             connection.commit()
             self._connection = connection
-        return self._connection, "postgresql:gptbridge_repair.repair_runs"
+        return self._connection, f"postgresql:{self._schema}.repair_runs"
 
     def record(self, target_id: str, result: dict[str, Any]) -> str:
         with self._connection_lock:

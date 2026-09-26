@@ -24,7 +24,7 @@ class RecoveryTargets:
 
 
 class RebuildStep(str, Enum):
-    DELETE_QDRANT_STORAGE = "delete_qdrant_storage"   # drill only
+    DELETE_VECTOR_STORAGE = "delete_vector_storage"   # drill only
     START_VECTORD = "start_vectord"
     CREATE_GENERATION = "create_generation"
     READ_PG_METADATA = "read_pg_metadata"

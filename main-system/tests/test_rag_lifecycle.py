@@ -191,7 +191,7 @@ def test_tombstone_first_deletion():
     assert rec.state is DeletionState.TOMBSTONED
     assert query_barrier(rec)          # invisible immediately
     rec = advance_deletion(rec, DeletionStep.OUTBOX_EVENT)
-    rec = advance_deletion(rec, DeletionStep.QDRANT_DELETE, ok=False)
+    rec = advance_deletion(rec, DeletionStep.VECTOR_DELETE, ok=False)
     assert rec.state is DeletionState.PURGE_FAILED
     assert query_barrier(rec)          # still safe
 
@@ -199,7 +199,7 @@ def test_tombstone_first_deletion():
 def test_deletion_step_order_enforced():
     rec = DeletionRecord(resource_id="r1", state=DeletionState.REQUESTED)
     with pytest.raises(ValueError):
-        advance_deletion(rec, DeletionStep.QDRANT_DELETE)
+        advance_deletion(rec, DeletionStep.VECTOR_DELETE)
 
 
 def test_full_deletion_reaches_deleted():
@@ -246,7 +246,7 @@ def test_startup_blocked_missing_generation():
     assert verdict is StartupVerdict.BLOCKED
 
 
-def test_startup_degraded_on_qdrant_down():
+def test_startup_degraded_on_vectord_down():
     verdict, reasons = startup_gate(StartupChecks(vector_ok=False))
     assert verdict is StartupVerdict.DEGRADED_READY
     assert "vector-unreachable" in reasons

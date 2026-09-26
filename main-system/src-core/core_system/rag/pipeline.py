@@ -30,7 +30,7 @@ from .canonical_vector_runtime import (
 )
 from .rust_vector_runtime import select_vector_runtime
 from shared_layer.local.pg_adapter import connect as pg_connect
-from shared_layer.security.qdrant_scope import QdrantScopeError
+from shared_layer.security.vector_scope import VectorScopeError
 from .rag_metadata import PostgreSQLMetadataAuthority
 from .pipeline_degraded import DegradedRagPipeline
 from .pipeline_documents import PipelineDocumentsMixin
@@ -86,7 +86,7 @@ class CanonicalRagPipeline(
         # ``gptbridge_rag`` PostgreSQL schema (A610/A621: SQLite retired).
         # The TombstoneGuard is the in-memory authoritative view;
         # PostgreSQL is the durable tombstone store.
-        self._queue_db = pg_connect("gptbridge_rag", autocommit=False)
+        self._queue_db = pg_connect(self.config.queue_schema, autocommit=False)
         self._queue = ReconciliationQueue(self._queue_db)
         self._tombstone = TombstoneGuard()
         self._outbox = CrossStoreOutbox(self._queue, self._tombstone)
@@ -321,7 +321,7 @@ class CanonicalRagPipeline(
             chunk_overlap=self.config.chunk_overlap,
             indexed_at_utc=now_utc,
             content_hash=content_hash,
-            qdrant_point_id=point_id,
+            vector_point_id=point_id,
         )
         await self.postgresql.upsert_index_state(index_state)
         return index_state
@@ -335,7 +335,7 @@ class CanonicalRagPipeline(
     ) -> list[RagQueryResult]:
         """Query through the canonical or degraded RAG path depending on state."""
         if not str(module_id or "").strip():
-            raise QdrantScopeError("QDRANT_MODULE_SCOPE_REQUIRED")
+            raise VectorScopeError("VECTOR_MODULE_SCOPE_REQUIRED")
         if self._blocked_reason:
             raise RuntimeError(self._blocked_reason)
         await self.attempt_recovery()

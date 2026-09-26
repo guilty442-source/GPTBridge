@@ -132,7 +132,7 @@ class GenerationBinder:
                 chunk_overlap=meta.get("chunk_overlap", 0),
                 indexed_at_utc=meta.get("indexed_at_utc", ""),
                 content_hash=meta_content_hash or "",
-                qdrant_point_id=str(hit.get("id") or hit.get("point_id", "")),
+                vector_point_id=str(hit.get("id") or hit.get("point_id", "")),
                 postgresql_record_id=meta.get("id"),
                 generation_id=meta_generation_id,
             )

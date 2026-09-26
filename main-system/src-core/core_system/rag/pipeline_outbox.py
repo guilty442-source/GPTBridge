@@ -135,7 +135,7 @@ class PipelineOutboxMixin:
 
         points = [
             PointStruct(
-                id=str(c.get("qdrant_point_id") or c.get("point_id")),
+                id=str(c.get("vector_point_id") or c.get("point_id")),
                 vector=[float(v) for v in vector],
                 payload=sanitize_payload(
                     {
@@ -174,8 +174,8 @@ class PipelineOutboxMixin:
             chunk_overlap=int(self.config.chunk_overlap),
             indexed_at_utc=datetime.now(timezone.utc).isoformat(),
             content_hash=str(event.get("content_hash") or ""),
-            qdrant_point_id=str(
-                first.get("qdrant_point_id") or first.get("point_id") or ""
+            vector_point_id=str(
+                first.get("vector_point_id") or first.get("point_id") or ""
             ),
             postgresql_record_id=str(event["resource_id"]),
         )

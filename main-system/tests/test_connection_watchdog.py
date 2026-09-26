@@ -7,6 +7,35 @@ sys.path.insert(0, str(ROOT / "shared-layer" / "src"))
 
 from tasks.connection_watchdog import ConnectionWatchdog
 
+import uuid
+
+import psycopg
+import pytest
+
+from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+
+@pytest.fixture()
+def repair_schema():
+    """Isolated PostgreSQL schema per test (A610/A621: no SQLite)."""
+    schema = f"repair_test_{uuid.uuid4().hex[:12]}"
+    with psycopg.connect(resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(
+            f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime'
+        )
+    try:
+        yield schema
+    finally:
+        try:
+            with psycopg.connect(
+                resolve_dsn(DsnPurpose.ADMIN).dsn, connect_timeout=5
+            ) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
+
 
 def test_persistent_unready_runtime_signals_once(tmp_path: Path) -> None:
     watchdog = ConnectionWatchdog(tmp_path, dead_threshold=3)
@@ -41,15 +70,14 @@ def test_recovery_rearms_persistent_fault_signal(tmp_path: Path) -> None:
 
 
 def test_recovery_records_success_outcome_without_connected_error(
-    tmp_path: Path,
+    tmp_path: Path, repair_schema,
 ) -> None:
-    import sqlite3
-
     from tasks.repair_learning import RepairLearningStore
 
     watchdog = ConnectionWatchdog(tmp_path)
     store = RepairLearningStore(
-        tmp_path / "main-system" / "data" / "automatic-repair"
+        tmp_path / "main-system" / "data" / "automatic-repair",
+        schema=repair_schema,
     )
     watchdog.set_learning_store(store)
 
@@ -57,14 +85,7 @@ def test_recovery_records_success_outcome_without_connected_error(
     watchdog._record_event("starting", "disconnected", snapshot)
     watchdog._record_event("disconnected", "connected", snapshot)
 
-    db_path = (
-        tmp_path
-        / "main-system"
-        / "data"
-        / "automatic-repair"
-        / "repair-learning.sqlite3"
-    )
-    with sqlite3.connect(db_path) as connection:
+    with store._connect() as connection:
         failures = dict(
             connection.execute(
                 "SELECT error_class, signature_hash FROM error_signatures"
@@ -80,7 +101,7 @@ def test_recovery_records_success_outcome_without_connected_error(
     assert any(hash_ == fault_hash and ok == 1 for hash_, ok in outcomes)
 
 
-def test_recovery_signature_is_never_promoted(tmp_path: Path) -> None:
+def test_recovery_signature_is_never_promoted(tmp_path: Path, repair_schema) -> None:
     from tasks.repair_learning import (
         ErrorSignature,
         RepairLearner,
@@ -89,7 +110,7 @@ def test_recovery_signature_is_never_promoted(tmp_path: Path) -> None:
         _normalize_error_signature,
     )
 
-    store = RepairLearningStore(tmp_path / "repair")
+    store = RepairLearningStore(tmp_path / "repair", schema=repair_schema)
     learner = RepairLearner(store)
     signature = ErrorSignature(
         signature_hash=_normalize_error_signature(
@@ -115,7 +136,7 @@ def test_recovery_signature_is_never_promoted(tmp_path: Path) -> None:
     assert learner.store.get_learned_recipes() == []
 
 
-def test_low_success_rate_remedy_is_never_promoted(tmp_path: Path) -> None:
+def test_low_success_rate_remedy_is_never_promoted(tmp_path: Path, repair_schema) -> None:
     from tasks.repair_learning import (
         ErrorSignature,
         RepairLearner,
@@ -124,7 +145,7 @@ def test_low_success_rate_remedy_is_never_promoted(tmp_path: Path) -> None:
         _normalize_error_signature,
     )
 
-    store = RepairLearningStore(tmp_path / "repair")
+    store = RepairLearningStore(tmp_path / "repair", schema=repair_schema)
     learner = RepairLearner(store)
     signature = ErrorSignature(
         signature_hash=_normalize_error_signature(
@@ -150,23 +171,12 @@ def test_low_success_rate_remedy_is_never_promoted(tmp_path: Path) -> None:
     assert learner.store.get_learned_recipes() == []
 
 
-def _learning_db_path(root: Path) -> Path:
-    return (
-        root
-        / "main-system"
-        / "data"
-        / "automatic-repair"
-        / "repair-learning.sqlite3"
-    )
-
-
-def test_recovery_absorbs_open_fault_outcome(tmp_path: Path) -> None:
-    import sqlite3
-
+def test_recovery_absorbs_open_fault_outcome(tmp_path: Path, repair_schema) -> None:
     from tasks.repair_learning import RepairLearningStore, absorbed_outcome_ids
 
     store = RepairLearningStore(
-        tmp_path / "main-system" / "data" / "automatic-repair"
+        tmp_path / "main-system" / "data" / "automatic-repair",
+        schema=repair_schema,
     )
     watchdog = ConnectionWatchdog(tmp_path)
     watchdog.set_learning_store(store)
@@ -175,7 +185,7 @@ def test_recovery_absorbs_open_fault_outcome(tmp_path: Path) -> None:
     watchdog._record_event("connected", "degraded", snapshot)
     watchdog._record_event("degraded", "connected", snapshot)
 
-    with sqlite3.connect(_learning_db_path(tmp_path)) as connection:
+    with store._connect() as connection:
         absorbed = absorbed_outcome_ids(connection)
         failure_rows = connection.execute(
             "SELECT outcome_id FROM repair_outcomes WHERE ok = 0"
@@ -192,14 +202,13 @@ def test_recovery_absorbs_open_fault_outcome(tmp_path: Path) -> None:
 
 
 def test_recovery_absorbs_faults_from_previous_generation(
-    tmp_path: Path,
+    tmp_path: Path, repair_schema,
 ) -> None:
-    import sqlite3
-
     from tasks.repair_learning import RepairLearningStore, absorbed_outcome_ids
 
     store = RepairLearningStore(
-        tmp_path / "main-system" / "data" / "automatic-repair"
+        tmp_path / "main-system" / "data" / "automatic-repair",
+        schema=repair_schema,
     )
     first = ConnectionWatchdog(tmp_path)
     first.set_learning_store(store)
@@ -211,7 +220,7 @@ def test_recovery_absorbs_faults_from_previous_generation(
     second.set_learning_store(store)
     second._record_event("unknown", "connected", second.snapshot)
 
-    with sqlite3.connect(_learning_db_path(tmp_path)) as connection:
+    with store._connect() as connection:
         absorbed = absorbed_outcome_ids(connection)
         open_failures = connection.execute(
             "SELECT outcome_id FROM repair_outcomes WHERE ok = 0 "
@@ -222,13 +231,12 @@ def test_recovery_absorbs_faults_from_previous_generation(
     assert {row[0] for row in open_failures} <= absorbed
 
 
-def test_absorption_is_idempotent_across_recoveries(tmp_path: Path) -> None:
-    import sqlite3
-
+def test_absorption_is_idempotent_across_recoveries(tmp_path: Path, repair_schema) -> None:
     from tasks.repair_learning import RepairLearningStore
 
     store = RepairLearningStore(
-        tmp_path / "main-system" / "data" / "automatic-repair"
+        tmp_path / "main-system" / "data" / "automatic-repair",
+        schema=repair_schema,
     )
     watchdog = ConnectionWatchdog(tmp_path)
     watchdog.set_learning_store(store)
@@ -237,7 +245,7 @@ def test_absorption_is_idempotent_across_recoveries(tmp_path: Path) -> None:
     watchdog._record_event("degraded", "connected", watchdog.snapshot)
     watchdog._record_event("degraded", "connected", watchdog.snapshot)
 
-    with sqlite3.connect(_learning_db_path(tmp_path)) as connection:
+    with store._connect() as connection:
         markers = connection.execute(
             "SELECT COUNT(*) FROM repair_outcomes "
             "WHERE remedy = 'no-action-required'"
@@ -246,9 +254,7 @@ def test_absorption_is_idempotent_across_recoveries(tmp_path: Path) -> None:
     assert markers == 1
 
 
-def test_absorption_leaves_other_remedy_failures(tmp_path: Path) -> None:
-    import sqlite3
-
+def test_absorption_leaves_other_remedy_failures(tmp_path: Path, repair_schema) -> None:
     from tasks.repair_learning import (
         RepairLearningStore,
         RepairOutcome,
@@ -256,7 +262,8 @@ def test_absorption_leaves_other_remedy_failures(tmp_path: Path) -> None:
     )
 
     store = RepairLearningStore(
-        tmp_path / "main-system" / "data" / "automatic-repair"
+        tmp_path / "main-system" / "data" / "automatic-repair",
+        schema=repair_schema,
     )
     watchdog = ConnectionWatchdog(tmp_path)
     watchdog.set_learning_store(store)
@@ -273,7 +280,7 @@ def test_absorption_leaves_other_remedy_failures(tmp_path: Path) -> None:
     watchdog._record_event("connected", "degraded", watchdog.snapshot)
     watchdog._record_event("degraded", "connected", watchdog.snapshot)
 
-    with sqlite3.connect(_learning_db_path(tmp_path)) as connection:
+    with store._connect() as connection:
         absorbed = absorbed_outcome_ids(connection)
         other = connection.execute(
             "SELECT outcome_id FROM repair_outcomes "

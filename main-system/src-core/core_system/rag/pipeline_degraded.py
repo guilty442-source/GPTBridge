@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from shared_layer.local.local_sqlite_rag_repository import LocalSqliteRagRepository
+from shared_layer.local.local_rag_repository import LocalRagRepository
 from shared_layer.local.vector_store import LocalVectorStore
 
 from .canonical_vector_runtime import IndexState, RagPipelineConfig, RagQueryResult
@@ -52,7 +52,7 @@ class DegradedRagPipeline:
         degraded_root.mkdir(parents=True, exist_ok=True)
 
         self.vector_store = LocalVectorStore(degraded_root, dimension=config.embedding_dimension)
-        self.repository = LocalSqliteRagRepository(degraded_root)
+        self.repository = LocalRagRepository(degraded_root)
         self.vector_store.ensure_collection(config.embedding_dimension)
 
         _logger.info("DegradedRagPipeline: initialized at %s", degraded_root)
@@ -97,7 +97,7 @@ class DegradedRagPipeline:
             chunk_overlap=self.config.chunk_overlap,
             indexed_at_utc=now_utc,
             content_hash=content_hash,
-            qdrant_point_id=point_id,
+            vector_point_id=point_id,
         )
 
     def _mirror_document(
@@ -212,7 +212,7 @@ class DegradedRagPipeline:
                 chunk_overlap=self.config.chunk_overlap,
                 indexed_at_utc=hit.get("indexed_at_utc", ""),
                 content_hash=hit.get("content_hash", ""),
-                qdrant_point_id=hit.get("point_id", ""),
+                vector_point_id=hit.get("point_id", ""),
             ),
         )
 

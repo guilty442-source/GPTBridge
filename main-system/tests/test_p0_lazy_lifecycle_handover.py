@@ -35,7 +35,7 @@ def test_main_import_does_not_pull_rag_stack() -> None:
     """Importing the composition root must not load vector/rag modules."""
     code = (
         "import sys, main; "
-        "print('QDRANT:' + str('vector_client' in sys.modules)); "
+        "print('VECTOR:' + str('vector_client' in sys.modules)); "
         "print('RAGRT:' + str('core_system.rag_runtime_integration' in sys.modules))"
     )
     proc = subprocess.run(
@@ -46,7 +46,7 @@ def test_main_import_does_not_pull_rag_stack() -> None:
         timeout=60,
     )
     assert proc.returncode == 0, proc.stderr[-2000:]
-    assert "QDRANT:False" in proc.stdout
+    assert "VECTOR:False" in proc.stdout
     assert "RAGRT:False" in proc.stdout
 
 

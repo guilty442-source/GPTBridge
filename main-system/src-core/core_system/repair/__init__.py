@@ -43,7 +43,7 @@ from .runbooks import (
     reconcile_backlog_runbook,
     schema_drift_runbook,
     rls_drift_runbook,
-    qdrant_mismatch_runbook,
+    vector_mismatch_runbook,
 )
 
 __all__ = [
@@ -81,5 +81,5 @@ __all__ = [
     "reconcile_backlog_runbook",
     "schema_drift_runbook",
     "rls_drift_runbook",
-    "qdrant_mismatch_runbook",
+    "vector_mismatch_runbook",
 ]

@@ -247,8 +247,8 @@ def test_pool_wait_success_publishes_wait_ms(tmp_path, monkeypatch):
     assert idle.returned == [idle.conn]  # 連線歸還池
 
 
-def test_qdrant_search_publishes_latency(tmp_path, monkeypatch):
-    """CanonicalVectorRuntime.search → qdrant_latency_ms 注入。"""
+def test_vector_search_publishes_latency(tmp_path, monkeypatch):
+    """CanonicalVectorRuntime.search → vector_latency_ms 注入。"""
     import asyncio
     from types import SimpleNamespace
 
@@ -275,10 +275,10 @@ def test_qdrant_search_publishes_latency(tmp_path, monkeypatch):
         rt.search(query_vector=[0.1, 0.2], module_ids=("mod-1",))
     )
     assert hits == []
-    assert plane.signals.qdrant_latency_ms >= 0.0
+    assert plane.signals.vector_latency_ms >= 0.0
 
 
-def test_qdrant_search_failure_silent_on_plane_error(tmp_path, monkeypatch):
+def test_vector_search_failure_silent_on_plane_error(tmp_path, monkeypatch):
     """plane 拋錯不影響檢索主流程（失敗靜默）。"""
     import asyncio
     from types import SimpleNamespace
@@ -314,7 +314,7 @@ def test_qdrant_search_failure_silent_on_plane_error(tmp_path, monkeypatch):
 
 
 def test_rag_health_check_feeds_backlog_and_degraded(monkeypatch):
-    """CanonicalRagPipeline.health_check → qdrant_backlog/degraded/
+    """CanonicalRagPipeline.health_check → vector_backlog/degraded/
     degraded_seconds 欄位級注入（欄位所有權：不覆寫他人生產者）。"""
     import asyncio
     from types import SimpleNamespace
@@ -352,7 +352,7 @@ def test_rag_health_check_feeds_backlog_and_degraded(monkeypatch):
 
     asyncio.run(pipe.health_check())
 
-    assert plane.signals.qdrant_backlog == 7
+    assert plane.signals.vector_backlog == 7
     assert plane.signals.degraded is True
     assert plane.signals.degraded_seconds >= 0.0
     assert plane.signals.cpu_pct == 50.0  # 不互踩
@@ -394,6 +394,6 @@ def test_rag_health_check_canonical_reports_not_degraded(monkeypatch):
 
     asyncio.run(pipe.health_check())
 
-    assert plane.signals.qdrant_backlog == 0
+    assert plane.signals.vector_backlog == 0
     assert plane.signals.degraded is False
     assert plane.signals.degraded_seconds == 0.0

@@ -76,6 +76,24 @@ class BackendLogSink:
             self._disable(error)
             return False
 
+    def write_lines(self, lines: list[str]) -> bool:
+        """Persist a batch of relay lines with a single flush.
+
+        Identical format/rotation semantics to repeated ``write_line``
+        calls, but batches the filesystem work so a slow destination
+        costs one stall per batch instead of one stall per line.
+        """
+        if self._disabled:
+            return False
+        try:
+            return self._write_batch_locked([str(line) for line in lines])
+        except OSError as error:
+            self._disable(error)
+            return False
+        except Exception as error:  # defensive fail-open
+            self._disable(error)
+            return False
+
     def close(self) -> None:
         with self._lock:
             self._close_handle()
@@ -83,13 +101,21 @@ class BackendLogSink:
     # -- internals ---------------------------------------------------
 
     def _write_locked(self, line: str) -> bool:
+        return self._write_batch_locked([line])
+
+    def _write_batch_locked(self, lines: list[str]) -> bool:
+        if not lines:
+            return True
         with self._lock:
             now = self._now()
             self._ensure_open(now)
             stamp = now.astimezone(timezone.utc).strftime(
                 "%Y-%m-%dT%H:%M:%S.%f"
             )[:-3] + "Z"
-            payload = f"[{stamp}] {line}\n".encode("utf-8", errors="replace")
+            payload = b"".join(
+                f"[{stamp}] {line}\n".encode("utf-8", errors="replace")
+                for line in lines
+            )
             if self._size > 0 and self._size + len(payload) > self.max_bytes:
                 self._rotate()
             handle = self._handle

@@ -7,9 +7,11 @@ and backend readiness waiting for the BootCore supervisor.
 from __future__ import annotations
 
 import os
+import queue
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -107,15 +109,45 @@ class BootCoreLifecycleMixin:
         # pythonw.exe / detached launchers have sys.stdout=None (or a dead
         # pipe).  The relay must keep draining the child's stdout anyway —
         # returning early leaves the pipe full and deadlocks the backend.
+        #
+        # All slow I/O (disk sink flush, own-stdout forward) runs on a
+        # dedicated writer thread behind a bounded queue: a stalling
+        # filesystem must never backpressure this read loop, because a
+        # full child pipe freezes the backend's event loop at print().
         relay_out = getattr(sys.stdout, "buffer", None)
+        work: queue.Queue = queue.Queue(maxsize=8192)
+        dropped = 0
+
+        def _writer() -> None:
+            nonlocal relay_out
+            pending: list[tuple[bytes, str]] = []
+            while True:
+                try:
+                    item = work.get(timeout=0.25)
+                except queue.Empty:
+                    if pending:
+                        relay_out = self._flush_relay_batch(
+                            pending, sink, relay_out
+                        )
+                        pending = []
+                    continue
+                if item is None:
+                    if pending:
+                        self._flush_relay_batch(pending, sink, relay_out)
+                    return
+                pending.append(item)
+                if len(pending) >= 128:
+                    relay_out = self._flush_relay_batch(
+                        pending, sink, relay_out
+                    )
+                    pending = []
+
+        writer = threading.Thread(
+            target=_writer, name="backend-relay-writer", daemon=True
+        )
+        writer.start()
         try:
             for raw in iter(stream.readline, b""):
-                if relay_out is not None:
-                    try:
-                        relay_out.write(raw)
-                        relay_out.flush()
-                    except (BrokenPipeError, OSError):
-                        relay_out = None
                 line = ""
                 try:
                     line = raw.decode("utf-8", errors="replace").rstrip("\n\r")
@@ -127,20 +159,56 @@ class BootCoreLifecycleMixin:
                             del self._child_output[:100]
                 except Exception:
                     pass
-                if sink is not None and not sink.disabled:
-                    try:
-                        if not sink.write_line(line):
-                            # The sink already warned on stderr; surface the
-                            # same warning in the diagnostic buffer only.
-                            self._warn_log_sink_failure(
-                                sink.disabled_reason, emit_stderr=False
-                            )
-                            sink = None
-                    except Exception as error:
-                        self._warn_log_sink_failure(error)
-                        sink = None
+                try:
+                    work.put_nowait((raw, line))
+                except queue.Full:
+                    dropped += 1
+                    if dropped == 1 or dropped % 512 == 0:
+                        self._warn_log_sink_failure(
+                            f"relay queue full — {dropped} backend log "
+                            "line(s) dropped (sink backpressure)",
+                            emit_stderr=False,
+                        )
+            for _ in range(10):
+                if not writer.is_alive():
+                    break
+                try:
+                    work.put(None, timeout=0.5)
+                    break
+                except queue.Full:
+                    continue
+            writer.join(timeout=5.0)
+            if sink is not None and sink.disabled:
+                self._warn_log_sink_failure(
+                    sink.disabled_reason, emit_stderr=False
+                )
         except (ValueError, OSError):
+            try:
+                work.put_nowait(None)
+            except queue.Full:
+                pass
             return
+
+    def _flush_relay_batch(self, pending, sink, relay_out):
+        """Write one relay batch to the disk sink and own stdout.
+
+        Runs on the relay writer thread only; failures here degrade to
+        warnings and must never propagate into the relay read loop.
+        Returns the (possibly cleared) ``relay_out`` for the next call.
+        """
+        raw = b"".join(item[0] for item in pending)
+        if relay_out is not None:
+            try:
+                relay_out.write(raw)
+                relay_out.flush()
+            except (BrokenPipeError, OSError):
+                relay_out = None
+        if sink is not None and not sink.disabled:
+            try:
+                sink.write_lines([item[1] for item in pending])
+            except Exception as error:
+                self._warn_log_sink_failure(error)
+        return relay_out
 
     def _warn_log_sink_failure(
         self, error: object, *, emit_stderr: bool = True

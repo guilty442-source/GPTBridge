@@ -16,7 +16,7 @@ from shared_layer.metadata_contract import (
     FIELD_STATUS,
     FIELD_UPDATED_AT,
     FIELD_VERSION,
-    QDRANT_REQUIRED_PAYLOAD_FIELDS,
+    VECTOR_REQUIRED_PAYLOAD_FIELDS,
     REQUIRED_FIELDS,
     STATUS_ACTIVE,
     STATUS_ARCHIVED,
@@ -27,7 +27,7 @@ from shared_layer.metadata_contract import (
     STATUS_VALUES,
     XINGCHENG_FORBIDDEN_CLASSIFICATIONS,
     ResourceMetadata,
-    validate_qdrant_payload,
+    validate_vector_payload,
 )
 from shared_layer.resource_identity import (
     ResourceIdentity,
@@ -161,7 +161,7 @@ def test_resource_metadata_as_tags_all_strings() -> None:
 # vectord payload validation
 # ---------------------------------------------------------------------------
 
-def _valid_qdrant_payload() -> dict:
+def _valid_vector_payload() -> dict:
     return {
         "module_id": "xingcheng",
         "resource_id": "chunk-abc123-1",
@@ -171,52 +171,52 @@ def _valid_qdrant_payload() -> dict:
     }
 
 
-def test_qdrant_payload_valid() -> None:
-    violations = validate_qdrant_payload(_valid_qdrant_payload())
+def test_vector_payload_valid() -> None:
+    violations = validate_vector_payload(_valid_vector_payload())
     assert violations == []
 
 
-def test_qdrant_payload_missing_module_id() -> None:
-    payload = _valid_qdrant_payload()
+def test_vector_payload_missing_module_id() -> None:
+    payload = _valid_vector_payload()
     del payload["module_id"]
-    violations = validate_qdrant_payload(payload)
+    violations = validate_vector_payload(payload)
     assert any("module_id" in v for v in violations)
 
 
-def test_qdrant_payload_missing_resource_id() -> None:
-    payload = _valid_qdrant_payload()
+def test_vector_payload_missing_resource_id() -> None:
+    payload = _valid_vector_payload()
     del payload["resource_id"]
-    violations = validate_qdrant_payload(payload)
+    violations = validate_vector_payload(payload)
     assert any("resource_id" in v for v in violations)
 
 
-def test_qdrant_payload_missing_chunk_id() -> None:
-    payload = _valid_qdrant_payload()
+def test_vector_payload_missing_chunk_id() -> None:
+    payload = _valid_vector_payload()
     del payload["chunk_id"]
-    violations = validate_qdrant_payload(payload)
+    violations = validate_vector_payload(payload)
     assert any("chunk_id" in v for v in violations)
 
 
-def test_qdrant_payload_missing_version() -> None:
-    payload = _valid_qdrant_payload()
+def test_vector_payload_missing_version() -> None:
+    payload = _valid_vector_payload()
     del payload["version"]
-    violations = validate_qdrant_payload(payload)
+    violations = validate_vector_payload(payload)
     assert any("version" in v for v in violations)
 
 
-def test_qdrant_payload_invalid_version() -> None:
-    payload = _valid_qdrant_payload()
+def test_vector_payload_invalid_version() -> None:
+    payload = _valid_vector_payload()
     payload["version"] = 0
-    violations = validate_qdrant_payload(payload)
+    violations = validate_vector_payload(payload)
     assert any("INVALID_VERSION" in v for v in violations)
 
 
-def test_qdrant_required_payload_fields_contract() -> None:
-    assert "module_id" in QDRANT_REQUIRED_PAYLOAD_FIELDS
-    assert "resource_id" in QDRANT_REQUIRED_PAYLOAD_FIELDS
-    assert "chunk_id" in QDRANT_REQUIRED_PAYLOAD_FIELDS
-    assert "version" in QDRANT_REQUIRED_PAYLOAD_FIELDS
-    assert "locator_id" in QDRANT_REQUIRED_PAYLOAD_FIELDS
+def test_vector_required_payload_fields_contract() -> None:
+    assert "module_id" in VECTOR_REQUIRED_PAYLOAD_FIELDS
+    assert "resource_id" in VECTOR_REQUIRED_PAYLOAD_FIELDS
+    assert "chunk_id" in VECTOR_REQUIRED_PAYLOAD_FIELDS
+    assert "version" in VECTOR_REQUIRED_PAYLOAD_FIELDS
+    assert "locator_id" in VECTOR_REQUIRED_PAYLOAD_FIELDS
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +239,7 @@ def test_xingcheng_forbidden_classifications() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Reconcile service (SQLite-only, no PostgreSQL)
+# Reconcile service (module-private store, no PostgreSQL)
 # ---------------------------------------------------------------------------
 
 def test_reconcile_pending_without_postgresql(tmp_path: Path) -> None:
@@ -281,17 +281,6 @@ def test_migration_files_exist() -> None:
     assert (migrations / "006_audit_append_only_enforcement.sql").is_file()
     assert (migrations / "007_transport_idempotency_key.sql").is_file()
     assert (migrations / "008_rls_role_isolation.sql").is_file()
-
-
-def test_sqlite_module_template_exists() -> None:
-    template = ROOT / "shared-layer" / "sql" / "sqlite_module_template.sql"
-    assert template.is_file()
-    content = template.read_text(encoding="utf-8")
-    assert "schema_version" in content
-    assert "module_metadata" in content
-    assert "resource_metadata" in content
-    assert "audit_event" in content
-    assert "reconcile_state" in content
 
 
 def test_data_ownership_contract_exists() -> None:

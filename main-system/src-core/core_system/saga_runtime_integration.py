@@ -6,9 +6,10 @@ module reconciliation through it:
 * ``SagaRuntimeIntegration.start`` builds ``SagaServices`` (durable
   ``PostgresSagaStore`` + step handlers + reconcile callback) and exposes it as
   ``app.saga_runtime``;
-* the single production operation is **module binding reconcile**: a step
-  handler runs ``core_system.binding.reconciliation.ReconcileService`` for the
-  operation's module against the real SQLite owner database and PostgreSQL;
+* the single production operation is **module binding reconcile**: with the
+  module-private SQLite authority retired (A610/A621), PostgreSQL is the sole
+  structured-data authority, so the reconcile step completes as a truthful
+  no-op — there is nothing left to reconcile;
 * maintenance-controller reconcile executors are re-registered to execute
   through the saga operation when the runtime is available (the original
   executor stays as a fail-open fallback);
@@ -17,14 +18,11 @@ module reconciliation through it:
 """
 from __future__ import annotations
 
-import sqlite3
 import time
 import uuid
-from pathlib import Path
 from typing import Any
 
 from shared_layer.database.config import DatabaseSettings
-from shared_layer.database.sqlite_classification import list_by_class
 from shared_layer.database.workload_lanes import WorkloadClass, get_lane_pool
 from shared_layer.workflow import (
     Engine,
@@ -46,22 +44,6 @@ MODULE_RECONCILE_OPERATION = "module-binding-reconcile"
 MODULE_RECONCILE_ACTION = "reconcile-module"
 MODULE_RECONCILE_STEP = "module-reconcile-step"
 DEFAULT_BATCH_SIZE = 100
-
-
-def _module_sqlite_path(module_id: str) -> Path | None:
-    """Resolve the module-private SQLite owner database (class B first)."""
-    try:
-        with get_lane_pool().connection(WorkloadClass.BACKGROUND) as conn:
-            for db_class in ("B", "C", "D", "A"):
-                for entry in list_by_class(conn, db_class=db_class):
-                    if str(entry.get("module_id") or "") != module_id:
-                        continue
-                    path = Path(str(entry.get("database_path") or ""))
-                    if path.is_file():
-                        return path
-    except Exception:
-        return None
-    return None
 
 
 class SagaRuntimeIntegration:
@@ -117,11 +99,11 @@ class SagaRuntimeIntegration:
                 StepSpec(
                     step_id=MODULE_RECONCILE_STEP,
                     step_order=1,
-                    engine=Engine.SQLITE,
+                    engine=Engine.POSTGRESQL,
                     action_type=MODULE_RECONCILE_ACTION,
                     strategy=OutcomeStrategy.RETRY_IDEMPOTENT,
                     idempotent=True,
-                    description="SQLite ↔ PostgreSQL module binding reconcile",
+                    description="PostgreSQL module binding reconcile (SQLite authority retired)",
                 ),
             ),
         )
@@ -142,71 +124,21 @@ class SagaRuntimeIntegration:
 
     def _perform_reconcile(self, operation: Operation, step: StepSpec) -> StepResult:
         module_id = str(operation.module_id)
-        sqlite_path = _module_sqlite_path(module_id)
-        if sqlite_path is None:
-            # A610/A621: no module-private SQLite owner DB remains —
-            # PostgreSQL is the sole structured-data authority, so there
-            # is literally nothing left to reconcile for this module.
-            operation.checkpoint["pending_after"] = 0
-            operation.checkpoint["actions"] = {"retired-sqlite-authority": 1}
-            return StepResult(
-                step.step_id,
-                StepStatus.COMPLETED.value,
-                detail=f"pending_after=0 retired-sqlite-authority:{module_id}",
-                payload={"actions": {"retired-sqlite-authority": 1}, "pending_after": 0},
-            )
-        batch_size = int(operation.checkpoint.get("batch_size") or DEFAULT_BATCH_SIZE)
-        connection = sqlite3.connect(str(sqlite_path))
-        try:
-            from .binding.reconciliation import ReconcileService
-
-            with get_lane_pool().connection(WorkloadClass.BACKGROUND) as pg:
-                service = ReconcileService(connection, pg)
-                results = list(service.reconcile_module(module_id, batch_size=batch_size))
-                pending_after = service.pending_count(module_id)
-                pg.commit()
-        except Exception as error:
-            return StepResult(
-                step.step_id,
-                StepStatus.FAILED.value,
-                detail=f"RECONCILE_EXECUTION_FAILED:{type(error).__name__}",
-                error_code="RECONCILE_EXECUTION_FAILED",
-            )
-        finally:
-            connection.close()
-
-        actions: dict[str, int] = {}
-        conflicts = 0
-        for result in results:
-            actions[result.action] = actions.get(result.action, 0) + 1
-            if result.action == "conflict":
-                conflicts += 1
-        operation.checkpoint["pending_after"] = pending_after
-        operation.checkpoint["actions"] = actions
-        operation.checkpoint["sqlite_path"] = str(sqlite_path)
+        # A610/A621: no module-private SQLite owner DB remains —
+        # PostgreSQL is the sole structured-data authority, so there
+        # is literally nothing left to reconcile for this module.
+        operation.checkpoint["pending_after"] = 0
+        operation.checkpoint["actions"] = {"retired-sqlite-authority": 1}
         return StepResult(
             step.step_id,
             StepStatus.COMPLETED.value,
-            detail=f"pending_after={pending_after} conflicts={conflicts}",
-            payload={"actions": actions, "pending_after": pending_after},
+            detail=f"pending_after=0 retired-sqlite-authority:{module_id}",
+            payload={"actions": {"retired-sqlite-authority": 1}, "pending_after": 0},
         )
 
     def _verify_reconcile(self, operation: Operation, step: StepSpec) -> bool:
-        module_id = str(operation.module_id)
-        sqlite_path = _module_sqlite_path(module_id)
-        if sqlite_path is None:
-            # No SQLite owner DB → PostgreSQL is already authoritative.
-            return True
-        connection = sqlite3.connect(str(sqlite_path))
-        try:
-            from .binding.reconciliation import ReconcileService
-
-            service = ReconcileService(connection)
-            return service.pending_count(module_id) == 0
-        except Exception:
-            return False
-        finally:
-            connection.close()
+        # No SQLite owner DB → PostgreSQL is already authoritative.
+        return True
 
     def _reconcile_callback(self, operation: Operation) -> ReconcileVerdict:
         pending_after = operation.checkpoint.get("pending_after")

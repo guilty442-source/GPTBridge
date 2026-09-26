@@ -19,7 +19,7 @@ from ..orchestration.evidence import RagArchitecture
 
 # Field names that would leak storage decisions to the caller.
 _FORBIDDEN_KEYS = frozenset({
-    "collection", "collection_name", "qdrant_filter", "filter",
+    "collection", "collection_name", "vector_filter", "filter",
     "sql", "query_sql", "point_id", "point_ids", "scroll",
     "path", "file_path", "physical_path", "payload",
 })

@@ -49,11 +49,22 @@ class CentralRepairService(CentralRepairLearningMixin, CentralRepairOperationsMi
     VERSION = CENTRAL_REPAIR_VERSION
     MANAGEMENT_OWNER = "星澄"
 
-    def __init__(self, project_root: Path, repair_data_root: Path) -> None:
+    def __init__(
+        self,
+        project_root: Path,
+        repair_data_root: Path,
+        repair_schema: str | None = None,
+    ) -> None:
         self.project_root = project_root.resolve()
         self.repair_data_root = repair_data_root.resolve()
-        self.store = RepairRunStore(self.repair_data_root)
-        self.learning_store = RepairLearningStore(self.repair_data_root)
+        self.store = RepairRunStore(
+            self.repair_data_root,
+            **({"schema": repair_schema} if repair_schema else {}),
+        )
+        self.learning_store = RepairLearningStore(
+            self.repair_data_root,
+            **({"schema": repair_schema} if repair_schema else {}),
+        )
         self.learner = RepairLearner(self.learning_store)
         self._recipe_file_cache: tuple[int, int, list[dict[str, Any]]] | None = None
 

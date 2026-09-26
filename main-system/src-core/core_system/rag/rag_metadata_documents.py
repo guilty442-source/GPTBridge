@@ -34,7 +34,7 @@ _RESOURCE_UPSERT_SQL = """INSERT INTO gptbridge_index.resource
 
 _CHUNK_INSERT_SQL = """INSERT INTO gptbridge_rag.chunk
       (chunk_id, resource_id, module_id, sequence,
-       character_start, character_end, qdrant_point_id,
+       character_start, character_end, vector_point_id,
        embedding_model, locator_fragment, metadata)
    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
 
@@ -74,7 +74,7 @@ def _chunk_params(
     embedding_model: str,
 ) -> tuple:
     """INSERT params for gptbridge_rag.chunk."""
-    point_id = chunk.get("qdrant_point_id") or chunk.get("point_id")
+    point_id = chunk.get("vector_point_id") or chunk.get("point_id")
     metadata = {
         "resource_label": chunk.get("resource_label"),
         "source": chunk.get("source"),
@@ -238,7 +238,7 @@ class RagMetadataDocumentsMixin:
         try:
             async with self._conn.cursor() as cur:
                 await cur.execute(
-                    """SELECT chunk_id, qdrant_point_id::text, sequence,
+                    """SELECT chunk_id, vector_point_id::text, sequence,
                               character_start, character_end, metadata
                        FROM gptbridge_rag.chunk
                        WHERE module_id = %s AND resource_id = %s
@@ -264,7 +264,7 @@ class RagMetadataDocumentsMixin:
             meta = row[5] if isinstance(row[5], dict) else {}
             out.append({
                 "chunk_id": str(row[0]),
-                "qdrant_point_id": str(row[1]) if row[1] else None,
+                "vector_point_id": str(row[1]) if row[1] else None,
                 "sequence": int(row[2]),
                 "character_start": int(row[3]),
                 "character_end": int(row[4]),
@@ -282,7 +282,7 @@ class RagMetadataDocumentsMixin:
     ) -> dict[str, dict[str, Any]]:
         """Canonical read barrier + content hydration for vectord hits.
 
-        Returns chunk records keyed by ``qdrant_point_id`` (text).  Only
+        Returns chunk records keyed by ``vector_point_id`` (text).  Only
         chunks whose resource is not tombstoned/deleted and that carry no
         authoritative tombstone row are returned — a hit missing from this
         map can never enter the evidence pool.
@@ -292,7 +292,7 @@ class RagMetadataDocumentsMixin:
         try:
             async with self._conn.cursor() as cur:
                 await cur.execute(
-                    """SELECT chunk.qdrant_point_id::text, chunk.chunk_id,
+                    """SELECT chunk.vector_point_id::text, chunk.chunk_id,
                               chunk.resource_id, chunk.module_id, chunk.sequence,
                               chunk.character_start, chunk.character_end,
                               chunk.metadata AS chunk_metadata,
@@ -302,7 +302,7 @@ class RagMetadataDocumentsMixin:
                        JOIN gptbridge_index.resource AS resource
                          ON resource.resource_id = chunk.resource_id
                        WHERE chunk.module_id = ANY(%s)
-                         AND chunk.qdrant_point_id::text = ANY(%s)
+                         AND chunk.vector_point_id::text = ANY(%s)
                          AND resource.index_status NOT IN
                              ('tombstoned', 'deleted', 'purged')
                          AND NOT EXISTS (

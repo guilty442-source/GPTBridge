@@ -35,7 +35,9 @@ export default defineConfig({
 	build: {
 		outDir: resolve(import.meta.dirname, "dist-ui", "independent-tools", toolId, "renderer"),
 		emptyOutDir: true,
-		minify: false,
+		// Perf: same esbuild minify rationale as the main renderer
+		// (verified) and templates (verified) configs.
+		minify: true,
 		target: "es2022",
 		rollupOptions: { input: { index: entryPath } }
 	}

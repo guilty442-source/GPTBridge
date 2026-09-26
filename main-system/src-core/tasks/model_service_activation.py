@@ -123,6 +123,9 @@ class ModelServiceActivationBroker:
         self._last_release_result: dict[str, Any] = {}
         self._last_written_fingerprint: dict[str, Any] | None = None
         self._last_write_at = 0.0
+        # Perf: _estimate_owner_ram_mb() runs on every pending tick —
+        # cache by settings-file mtime so the steady state is one stat.
+        self._ram_estimate_cache: tuple[float, int | None] | None = None
         # §10.7: governed model-resource admission gate.  Auto-attaches when
         # project_root is given (production always passes it); pass
         # ``resource_manager=None`` explicitly to disable in tests.
@@ -505,6 +508,9 @@ class ModelServiceActivationBroker:
 
         權重無論走 CPU 或 GPU 都必須進 RAM；VRAM 不列入硬性閘門
         （引擎逾時會自行降級 CPU）。無法定位權重 → None（fail-closed）。
+
+        Perf: settings 變更極少 —— 以其 mtime 為鍵快取，穩態每 tick
+        只需一次 stat，省去讀檔＋JSON 解析＋checkpoint stat。
         """
         root = self._project_root
         if root is None:
@@ -512,13 +518,25 @@ class ModelServiceActivationBroker:
         try:
             tool_root = root / "Standalone tools" / "local-model"
             settings = tool_root / "runtime" / "settings" / "native-engine.json"
+            mtime = settings.stat().st_mtime
+        except OSError:
+            return None
+        cached = self._ram_estimate_cache
+        if cached is not None and cached[0] == mtime:
+            return cached[1]
+        try:
             checkpoint = json.loads(settings.read_text(encoding="utf-8"))[
                 "checkpoint"
             ]
             size_mb = (tool_root / checkpoint).stat().st_size / (1024 * 1024)
-            return int(size_mb * self._RAM_HEADROOM) + 1
+            value: int | None = int(size_mb * self._RAM_HEADROOM) + 1
         except Exception:
-            return None
+            value = None
+        # Only cache successful reads: a transient failure must not pin
+        # None across a later checkpoint install (fail-closed per call).
+        if value is not None:
+            self._ram_estimate_cache = (mtime, value)
+        return value
 
     def _release_resource_admission(self) -> None:
         mgr = self._resource_manager

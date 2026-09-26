@@ -37,7 +37,7 @@ _TOMBSTONE_UPSERT_SQL = """INSERT INTO gptbridge_rag.tombstone
 _INDEX_STATE_EXTENDED_UPSERT_SQL = """INSERT INTO gptbridge_rag.index_state
       (resource_id, module_id, embedding_model, embedding_dimension,
        chunk_size, chunk_overlap, indexed_at, content_hash,
-       qdrant_point_id, postgresql_record_id, source_revision,
+       vector_point_id, postgresql_record_id, source_revision,
        tombstone_generation, embedding_version, chunking_version,
        parser_version, rag_schema_version, pipeline_version,
        backend_generation, status)
@@ -50,7 +50,7 @@ _INDEX_STATE_EXTENDED_UPSERT_SQL = """INSERT INTO gptbridge_rag.index_state
        chunk_overlap = EXCLUDED.chunk_overlap,
        indexed_at = EXCLUDED.indexed_at,
        content_hash = EXCLUDED.content_hash,
-       qdrant_point_id = EXCLUDED.qdrant_point_id,
+       vector_point_id = EXCLUDED.vector_point_id,
        postgresql_record_id = EXCLUDED.postgresql_record_id,
        source_revision = EXCLUDED.source_revision,
        tombstone_generation = EXCLUDED.tombstone_generation,
@@ -79,7 +79,7 @@ def _extended_index_state_params(
     return (
         state.resource_id, state.module_id, state.embedding_model,
         state.embedding_dimension, state.chunk_size, state.chunk_overlap,
-        state.indexed_at_utc, state.content_hash, state.qdrant_point_id,
+        state.indexed_at_utc, state.content_hash, state.vector_point_id,
         state.postgresql_record_id, source_revision, tombstone_generation,
         embedding_version, chunking_version, parser_version,
         rag_schema_version, pipeline_version, backend_generation, status,
@@ -299,7 +299,7 @@ class RagMetadataReconciliationMixin:
                 await cur.execute(
                     """SELECT COUNT(*),
                               COALESCE(SUM(chunk_count), 0),
-                              SUM(CASE WHEN qdrant_point_id IS NULL THEN 1 ELSE 0 END),
+                              SUM(CASE WHEN vector_point_id IS NULL THEN 1 ELSE 0 END),
                               SUM(CASE WHEN content_hash IS NULL OR content_hash = '' THEN 1 ELSE 0 END),
                               SUM(CASE WHEN embedding_model IS DISTINCT FROM %s
                                         OR embedding_dimension IS DISTINCT FROM %s

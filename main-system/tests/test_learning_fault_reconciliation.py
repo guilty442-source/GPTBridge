@@ -126,8 +126,6 @@ def test_reconcile_removes_only_non_actionable_messages(tmp_path: Path) -> None:
     assert receipt["remaining"] == 2
     assert all(item["reason"] for item in receipt["learned"])
 
-    store_files = list((tmp_path / "main-system" / "data" / "automatic-repair").glob("*.sqlite3"))
-    assert store_files, "learning store must persist the absorbed evidence"
 
     audit_path = (
         tmp_path

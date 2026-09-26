@@ -5,7 +5,6 @@ Part of A367 binding dependency order Phase 1: RECONCILIATION.
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,24 +26,24 @@ class ReconcileResult:
 
 
 class ReconcileService(ReconcileHelpersMixin):
-    """One-directional SQLite → PostgreSQL reconciliation (A207, A216).
+    """One-directional module-private → PostgreSQL reconciliation (A207, A216).
 
-    When PostgreSQL recovers from downtime, local SQLite stores may have
+    When PostgreSQL recovers from downtime, module-private stores may have
     accumulated changes that need to be pushed to the central index.
     """
 
     def __init__(
         self,
-        sqlite_connection: sqlite3.Connection,
+        local_connection: Any,
         pg_connection: Any | None = None,
     ) -> None:
-        self.sqlite = sqlite_connection
+        self.local = local_connection
         self.pg = pg_connection
         self._ensure_reconcile_schema()
 
     def _ensure_reconcile_schema(self) -> None:
-        """Ensure the SQLite database has the reconcile_state table."""
-        self.sqlite.execute(
+        """Ensure the module-private store has the reconcile_state table."""
+        self.local.execute(
             """CREATE TABLE IF NOT EXISTS reconcile_state (
                 module_id TEXT NOT NULL,
                 resource_id TEXT NOT NULL,
@@ -56,22 +55,22 @@ class ReconcileService(ReconcileHelpersMixin):
                 PRIMARY KEY (module_id, resource_id)
             )"""
         )
-        self.sqlite.execute(
+        self.local.execute(
             "CREATE INDEX IF NOT EXISTS reconcile_state_pending_idx "
             "ON reconcile_state (reconcile_status, local_updated_at) "
             "WHERE reconcile_status = 'pending'"
         )
-        self.sqlite.commit()
+        self.local.commit()
 
     def pending_count(self, module_id: str | None = None) -> int:
         """Count pending reconciliation entries."""
         if module_id:
-            row = self.sqlite.execute(
+            row = self.local.execute(
                 "SELECT COUNT(*) FROM reconcile_state WHERE module_id = ? AND reconcile_status = 'pending'",
                 (module_id,),
             ).fetchone()
         else:
-            row = self.sqlite.execute(
+            row = self.local.execute(
                 "SELECT COUNT(*) FROM reconcile_state WHERE reconcile_status = 'pending'"
             ).fetchone()
         return int(row[0]) if row else 0
@@ -102,7 +101,7 @@ class ReconcileService(ReconcileHelpersMixin):
         batch_size: int,
     ) -> Iterator[ReconcileResult]:
         """Handle reconciliation when PostgreSQL is unavailable."""
-        rows = self.sqlite.execute(
+        rows = self.local.execute(
             """SELECT resource_id, local_version, local_updated_at, local_content_hash
                FROM reconcile_state
                WHERE module_id = ? AND reconcile_status = 'pending'
@@ -126,7 +125,7 @@ class ReconcileService(ReconcileHelpersMixin):
         batch_size: int,
     ) -> list[tuple]:
         """Fetch pending rows from SQLite."""
-        return self.sqlite.execute(
+        return self.local.execute(
             """SELECT resource_id, local_version, local_updated_at, local_content_hash
                FROM reconcile_state
                WHERE module_id = ? AND reconcile_status = 'pending'
@@ -284,7 +283,7 @@ class ReconcileService(ReconcileHelpersMixin):
         row = cur.fetchone()
         if row is None:
             return
-        self.sqlite.execute(
+        self.local.execute(
             """UPDATE resource_metadata SET
                  version = ?, content_hash = ?, updated_at = ?, status = ?
                WHERE module_id = ? AND resource_id = ?""",
@@ -292,7 +291,7 @@ class ReconcileService(ReconcileHelpersMixin):
              str(row[2]), str(row[3]),
              module_id, resource_id),
         )
-        self.sqlite.commit()
+        self.local.commit()
 
     def _mark_reconciled(
         self,
@@ -302,13 +301,13 @@ class ReconcileService(ReconcileHelpersMixin):
         status: str,
     ) -> None:
         """Mark a resource as reconciled."""
-        self.sqlite.execute(
+        self.local.execute(
             """UPDATE reconcile_state SET
                  reconcile_status = ?, reconciled_at = ?
                WHERE module_id = ? AND resource_id = ?""",
             (status, timestamp, module_id, resource_id),
         )
-        self.sqlite.commit()
+        self.local.commit()
 
 
 __all__ = ["ReconcileResult", "ReconcileService"]

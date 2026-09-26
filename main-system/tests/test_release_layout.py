@@ -184,12 +184,12 @@ def test_postgres_data_not_copied(tmp_path: Path) -> None:
     assert any(v.endswith(":postgres-data") for v in result["forbidden"])
 
 
-def test_qdrant_index_not_copied(tmp_path: Path) -> None:
+def test_vector_index_not_copied(tmp_path: Path) -> None:
     root = _valid_bundle(tmp_path / "r")
-    (root / "dependencies" / "qdrant_storage").mkdir()
+    (root / "dependencies" / "vectord_storage").mkdir()
     result = check_release_layout(root)
     assert result["ok"] is False
-    assert any(v.endswith(":qdrant-index") for v in result["forbidden"])
+    assert any(v.endswith(":vector-index") for v in result["forbidden"])
 
 
 def test_user_data_not_copied(tmp_path: Path) -> None:

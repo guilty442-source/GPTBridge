@@ -36,9 +36,9 @@ class DiagnosisCode(str, Enum):
     RLS_MISSING = "RLS_MISSING"
     BYPASSRLS_DETECTED = "BYPASSRLS_DETECTED"
     UNEXPECTED_PUBLIC_GRANT = "UNEXPECTED_PUBLIC_GRANT"
-    QDRANT_METADATA_MISMATCH = "QDRANT_METADATA_MISMATCH"
-    QDRANT_LAG = "QDRANT_LAG"
-    QDRANT_UNAVAILABLE = "QDRANT_UNAVAILABLE"
+    VECTOR_METADATA_MISMATCH = "VECTOR_METADATA_MISMATCH"
+    VECTOR_LAG = "VECTOR_LAG"
+    VECTOR_UNAVAILABLE = "VECTOR_UNAVAILABLE"
     BACKUP_UNVERIFIED = "BACKUP_UNVERIFIED"
     BACKUP_STALE = "BACKUP_STALE"
     AUTHORITY_CONFLICT = "AUTHORITY_CONFLICT"
@@ -295,23 +295,23 @@ class DiagnosisEngine:
             ),
             # vectord Metadata Mismatch
             DiagnosisRule(
-                rule_id="QDRANT_METADATA_MISMATCH_V1",
+                rule_id="VECTOR_METADATA_MISMATCH_V1",
                 rule_version="1.0",
-                diagnosis_code=DiagnosisCode.QDRANT_METADATA_MISMATCH,
+                diagnosis_code=DiagnosisCode.VECTOR_METADATA_MISMATCH,
                 severity=Severity.CRITICAL,
-                inputs=("qdrant_mismatch_count",),
-                thresholds={"qdrant_mismatch_count_gt": 0},
+                inputs=("vector_mismatch_count",),
+                thresholds={"vector_mismatch_count_gt": 0},
                 cooldown_seconds=60,
                 condition="vectord metadata mismatch detected",
             ),
             # vectord Lag
             DiagnosisRule(
-                rule_id="QDRANT_LAG_V1",
+                rule_id="VECTOR_LAG_V1",
                 rule_version="1.0",
-                diagnosis_code=DiagnosisCode.QDRANT_LAG,
+                diagnosis_code=DiagnosisCode.VECTOR_LAG,
                 severity=Severity.WARNING,
-                inputs=("qdrant_replication_lag_seconds",),
-                thresholds={"qdrant_replication_lag_seconds_gt": 30},
+                inputs=("vector_replication_lag_seconds",),
+                thresholds={"vector_replication_lag_seconds_gt": 30},
                 cooldown_seconds=120,
                 condition="replication lag > 30s",
             ),

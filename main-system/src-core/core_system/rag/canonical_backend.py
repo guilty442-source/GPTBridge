@@ -282,7 +282,7 @@ class CanonicalRagBackend:
                 success=True,
                 new_version=new_version,
                 state=LifecycleState.INDEX_PENDING,  # Will become ACTIVE after OutboxWorker
-                qdrant_point_ids=tuple(c.chunk_id for c in request.chunks),
+                vector_point_ids=tuple(c.chunk_id for c in request.chunks),
             )
 
         except Exception as e:
@@ -295,7 +295,7 @@ class CanonicalRagBackend:
                 success=False,
                 new_version=0,
                 state=LifecycleState.INDEX_PENDING,
-                qdrant_point_ids=(),
+                vector_point_ids=(),
                 error_message=str(e),
             )
 
@@ -726,7 +726,7 @@ class CanonicalRagBackend:
                 # Find index_state records that need reconciliation
                 query = """
                     SELECT resource_id, module_id, chunk_id, generation_id,
-                           source_version, content_hash, state, qdrant_point_id
+                           source_version, content_hash, state, vector_point_id
                     FROM gptbridge_rag.index_state
                     WHERE 1=1
                 """
@@ -770,7 +770,7 @@ class CanonicalRagBackend:
 
                 # Check if point exists in vectord
                 vector_has = False
-                if row["qdrant_point_id"]:
+                if row["vector_point_id"]:
                     try:
                         # Quick existence check
                         vector_has = True  # Simplified

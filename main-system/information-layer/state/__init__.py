@@ -1,4 +1,4 @@
-"""STATE_SERVICE — 狀態服務。
+r"""STATE_SERVICE — 狀態服務。
 
 法典依據: architecture_activation_states[STATE_SERVICE]
 目標根目錄: E:\GPTBridge\main-system\information-layer\state

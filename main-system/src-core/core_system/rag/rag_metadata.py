@@ -1,7 +1,7 @@
 """RAG Pipeline — Canonical RAG path implementation (A371-A374).
 
 A371: DEFAULT-PATH: source content > vector dense retrieval > PostgreSQL official metadata/FTS/index_state > Python domain model > typed result
-A374: Binding order: 1 QDRANT_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
+A374: Binding order: 1 VECTOR_CANONICAL_RUNTIME > 2 PostgreSQL metadata/FTS/index_state > 3 Python domain model
 A373: CANONICAL-TAKEOVER: normal read/write must prove vectord dense retrieval and PostgreSQL metadata/FTS/index_state are the live path
 A374: INDEX-STATE: every indexed resource/chunk records embedding_model, embedding_dimension, chunk_size, chunk_overlap, indexed_at_utc
 """
@@ -74,13 +74,13 @@ _INDEX_STATE_DDL = (
         embedding_dimension INT NOT NULL DEFAULT 0,
         chunk_size INT NOT NULL DEFAULT 0,
         chunk_overlap INT NOT NULL DEFAULT 0,
-        qdrant_collection TEXT NOT NULL DEFAULT 'gptbridge_shared_knowledge',
+        vector_collection TEXT NOT NULL DEFAULT 'gptbridge_shared_knowledge',
         chunk_count INT NOT NULL DEFAULT 0,
         version BIGINT NOT NULL DEFAULT 1,
         indexed_at TIMESTAMPTZ,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         content_hash TEXT NOT NULL DEFAULT '',
-        qdrant_point_id TEXT NOT NULL DEFAULT '',
+        vector_point_id TEXT NOT NULL DEFAULT '',
         postgresql_record_id TEXT,
         source_revision BIGINT NOT NULL DEFAULT 1,
         tombstone_generation INT NOT NULL DEFAULT 0,
@@ -99,7 +99,7 @@ _INDEX_STATE_DDL = (
         ADD COLUMN IF NOT EXISTS chunk_size INT NOT NULL DEFAULT 0,
         ADD COLUMN IF NOT EXISTS chunk_overlap INT NOT NULL DEFAULT 0,
         ADD COLUMN IF NOT EXISTS content_hash TEXT NOT NULL DEFAULT '',
-        ADD COLUMN IF NOT EXISTS qdrant_point_id TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS vector_point_id TEXT NOT NULL DEFAULT '',
         ADD COLUMN IF NOT EXISTS postgresql_record_id TEXT,
         ADD COLUMN IF NOT EXISTS source_revision BIGINT NOT NULL DEFAULT 1,
         ADD COLUMN IF NOT EXISTS tombstone_generation INT NOT NULL DEFAULT 0,
@@ -254,8 +254,8 @@ _SAGA_DDL = (
 _INDEX_STATE_UPSERT_SQL = """INSERT INTO gptbridge_rag.index_state
       (resource_id, module_id, embedding_model, embedding_dimension,
        chunk_size, chunk_overlap, indexed_at, content_hash,
-       qdrant_point_id, postgresql_record_id,
-       qdrant_collection, chunk_count, status)
+       vector_point_id, postgresql_record_id,
+       vector_collection, chunk_count, status)
    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'indexed')
    ON CONFLICT (resource_id) DO UPDATE SET
        module_id = EXCLUDED.module_id,
@@ -265,9 +265,9 @@ _INDEX_STATE_UPSERT_SQL = """INSERT INTO gptbridge_rag.index_state
        chunk_overlap = EXCLUDED.chunk_overlap,
        indexed_at = EXCLUDED.indexed_at,
        content_hash = EXCLUDED.content_hash,
-       qdrant_point_id = EXCLUDED.qdrant_point_id,
+       vector_point_id = EXCLUDED.vector_point_id,
        postgresql_record_id = EXCLUDED.postgresql_record_id,
-       qdrant_collection = EXCLUDED.qdrant_collection,
+       vector_collection = EXCLUDED.vector_collection,
        chunk_count = EXCLUDED.chunk_count,
        status = 'indexed',
        updated_at = now()"""
@@ -367,7 +367,7 @@ class PostgreSQLMetadataAuthority(
             chunk_overlap=row[5],
             indexed_at_utc=row[6],
             content_hash=row[7],
-            qdrant_point_id=row[8],
+            vector_point_id=row[8],
             postgresql_record_id=row[9],
             status=str(row[10] or "indexed"),
         )
@@ -381,7 +381,7 @@ class PostgreSQLMetadataAuthority(
                 await cur.execute(
                     """SELECT resource_id, module_id, embedding_model, embedding_dimension,
                           chunk_size, chunk_overlap, indexed_at, content_hash,
-                          qdrant_point_id, postgresql_record_id, status
+                          vector_point_id, postgresql_record_id, status
                        FROM gptbridge_rag.index_state
                        WHERE resource_id = %s AND module_id = %s""",
                     (resource_id, module_id),
@@ -405,7 +405,7 @@ class PostgreSQLMetadataAuthority(
                 await cur.execute(
                     """SELECT resource_id, module_id, embedding_model, embedding_dimension,
                           chunk_size, chunk_overlap, indexed_at, content_hash,
-                          qdrant_point_id, postgresql_record_id, status
+                          vector_point_id, postgresql_record_id, status
                        FROM gptbridge_rag.index_state
                        WHERE module_id = %s AND resource_id = ANY(%s)""",
                     (module_id, [str(r) for r in resource_ids]),
@@ -443,7 +443,7 @@ class PostgreSQLMetadataAuthority(
                         state.chunk_overlap,
                         state.indexed_at_utc,
                         state.content_hash,
-                        state.qdrant_point_id,
+                        state.vector_point_id,
                         state.postgresql_record_id,
                         collection_name,
                         int(chunk_count),

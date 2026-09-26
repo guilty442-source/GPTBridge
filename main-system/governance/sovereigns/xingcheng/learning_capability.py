@@ -406,6 +406,18 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
             return {"applied": 0, "reason": "learner-unavailable"}
         from .repair_curriculum import REPAIR_CURRICULUM
 
+        # Re-emitting identical doctrine through the governed teaching gate
+        # on every arm storms the permission/token path for zero new
+        # knowledge — only recipes absent from the persisted store are new
+        # doctrine worth an example submission.
+        try:
+            existing = {
+                str(r.get("recipe_id") or "")
+                for r in self._learner.store.get_learned_recipes()
+            }
+        except Exception:
+            existing = set()
+
         applied: list[str] = []
         for entry in REPAIR_CURRICULUM:
             result = self._learner.teach_recipe(
@@ -418,8 +430,10 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
                 automatic=bool(entry.get("automatic", True)),
             )
             if result.get("taught"):
-                applied.append(str(result["recipe"]["recipe_id"]))
-                self._emit_repair_teaching_example(result["recipe"])
+                recipe_id = str(result["recipe"]["recipe_id"])
+                applied.append(recipe_id)
+                if recipe_id not in existing:
+                    self._emit_repair_teaching_example(result["recipe"])
         return {"applied": len(applied), "recipe_ids": applied}
 
     def _emit_repair_teaching_example(self, recipe: dict[str, Any]) -> None:

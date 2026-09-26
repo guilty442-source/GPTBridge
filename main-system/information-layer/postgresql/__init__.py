@@ -1,4 +1,4 @@
-"""POSTGRESQL_AUTHORITY — PostgreSQL授權。
+r"""POSTGRESQL_AUTHORITY — PostgreSQL授權。
 
 法典依據: architecture_activation_states[POSTGRESQL_AUTHORITY]
 目標根目錄: E:\GPTBridge\main-system\information-layer\postgresql

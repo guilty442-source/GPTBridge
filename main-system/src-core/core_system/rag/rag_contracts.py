@@ -177,7 +177,7 @@ class RagIndexResult:
     success: bool
     new_version: int
     state: LifecycleState
-    qdrant_point_ids: tuple[str, ...]
+    vector_point_ids: tuple[str, ...]
     error_message: Optional[str] = None
     from_cache: bool = False
 

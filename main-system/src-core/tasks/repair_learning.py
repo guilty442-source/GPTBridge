@@ -54,12 +54,13 @@ class RepairLearningStore:
 
     SCHEMA_VERSION = 1
 
-    def __init__(self, database_root: Path) -> None:
+    def __init__(self, database_root: Path, schema: str = _SCHEMA) -> None:
         self.database_root = database_root.resolve()
+        self._schema = schema
 
     def _connect(self) -> PgConnection:
         connection = pg_connect(
-            _SCHEMA, autocommit=False, connect_timeout=10,
+            self._schema, autocommit=False, connect_timeout=10,
             row_factory=tuple_row,
         )
         try:
@@ -67,8 +68,9 @@ class RepairLearningStore:
                 connection.execute(
                     "SELECT 1 FROM information_schema.tables "
                     "WHERE table_type='BASE TABLE' "
-                    "AND table_schema='gptbridge_repair' "
-                    "AND table_name='error_signatures'"
+                    "AND table_schema=? "
+                    "AND table_name='error_signatures'",
+                    (self._schema,),
                 ).fetchone()
                 is not None
             )
@@ -80,8 +82,9 @@ class RepairLearningStore:
                     row[0]
                     for row in connection.execute(
                         "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_schema='gptbridge_repair' "
-                        "AND table_name='learned_recipes'"
+                        "WHERE table_schema=? "
+                        "AND table_name='learned_recipes'",
+                        (self._schema,),
                     ).fetchall()
                 }
                 if columns and "verification" not in columns:

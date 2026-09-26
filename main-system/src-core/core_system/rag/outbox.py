@@ -23,11 +23,11 @@ import psycopg
 from psycopg.rows import dict_row
 
 try:
-    from shared_layer.database.lineage import record_qdrant_point
-    LINEAGE_AVAILABLE = record_qdrant_point is not None
+    from shared_layer.database.lineage import record_vector_point
+    LINEAGE_AVAILABLE = record_vector_point is not None
 except ImportError:  # pragma: no cover — shared-layer not on this process path
     LINEAGE_AVAILABLE = False
-    record_qdrant_point = None  # type: ignore[assignment]
+    record_vector_point = None  # type: ignore[assignment]
 
 _logger = logging.getLogger("gptbridge.rag.outbox")
 
@@ -395,7 +395,7 @@ class OutboxWorker:
             if not module_id or not resource_id:
                 return
             with psycopg.connect(self.outbox.dsn) as conn:
-                record_qdrant_point(
+                record_vector_point(
                     conn,
                     point_id=str(point.id),
                     chunk_id=chunk_id,

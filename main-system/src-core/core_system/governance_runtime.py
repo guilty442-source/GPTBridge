@@ -5,6 +5,7 @@ import binascii
 import json
 import os
 import secrets
+import threading
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -341,12 +342,32 @@ class MainSystemGovernance:
                 return cached_result
         if now - self._integrity_checked_at < max(0.0, max_age_seconds):
             return self._integrity_ready
-        try:
-            self._authentication.verify_runtime_integrity()
-        except PermissionError:
-            self._integrity_ready = False
-        else:
-            self._integrity_ready = True
+        # Readiness is a status read: the authoritative authority-file
+        # sweep runs on a dedicated verifier thread so a stalling
+        # filesystem can never hold this caller.  Readers always get the
+        # last completed result; only one verifier exists at a time.
+        verifier = getattr(self, "_integrity_verifier", None)
+        if verifier is None or not verifier.is_alive():
+            def _verify() -> None:
+                try:
+                    self._authentication.verify_runtime_integrity(wait=True)
+                except PermissionError:
+                    self._integrity_ready = False
+                except Exception:
+                    self._integrity_ready = False
+                else:
+                    self._integrity_ready = True
+                self._integrity_checked_at = time.monotonic()
+                self._integrity_cache[cache_key] = (
+                    self._integrity_checked_at, self._integrity_ready,
+                )
+
+            verifier = threading.Thread(
+                target=_verify, name="integrity-verify", daemon=True
+            )
+            self._integrity_verifier = verifier
+            verifier.start()
+        return self._integrity_ready
         self._integrity_checked_at = now
         self._integrity_cache[cache_key] = (now, self._integrity_ready)
         return self._integrity_ready

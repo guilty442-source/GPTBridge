@@ -9,7 +9,9 @@ export default defineConfig({
 	build: {
 		outDir: resolve(import.meta.dirname, "dist-ui/main"),
 		emptyOutDir: true,
-		minify: false,
+		// Perf: same esbuild minify rationale as renderer/templates/
+		// platform-tools (all verified); node CJS semantics preserved.
+		minify: true,
 		target: "node18",
 		rollupOptions: {
 			input: {

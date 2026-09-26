@@ -159,14 +159,14 @@ class BindingOrderEnforcer:
 
 # Convenience function for creating enforcer with default services
 async def create_binding_order_enforcer(
-    sqlite_connection: Any,
+    local_connection: Any,
     pg_connection: Any,
 ) -> BindingOrderEnforcer:
     """Create a BindingOrderEnforcer with default service instances."""
     from .reconciliation import ReconcileService
     from .global_id_version import GlobalIdVersionService
 
-    reconciler = ReconcileService(sqlite_connection, pg_connection)
+    reconciler = ReconcileService(local_connection, pg_connection)
     global_id_service = GlobalIdVersionService(pg_connection)
     return BindingOrderEnforcer(reconciler, global_id_service)
 

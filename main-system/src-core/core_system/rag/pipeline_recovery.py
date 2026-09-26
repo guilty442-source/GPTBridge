@@ -380,7 +380,7 @@ class PipelineRecoveryMixin:
                     "source": doc.get("source", ""),
                     "title": doc.get("title", ""),
                     "point_id": point_id,
-                    "qdrant_point_id": point_id,
+                    "vector_point_id": point_id,
                     "locator_fragment": f"#chunk-{sequence}",
                     "payload": {
                         "resource_id": item.resource_id,
@@ -483,7 +483,7 @@ class PipelineRecoveryMixin:
             "active": self._degraded_pipeline is not None,
             "canonical": False,
         }
-        # P4 adaptive plane 生產者：qdrant_backlog / degraded / degraded_seconds。
+        # P4 adaptive plane 生產者：vector_backlog / degraded / degraded_seconds。
         # 欄位級合併、失敗靜默——量測只是提示，不得影響健康檢查主流程。
         try:
             from shared_layer.adaptive import LoadSignals, get_plane
@@ -491,7 +491,7 @@ class PipelineRecoveryMixin:
             is_degraded = state == RagRuntimeState.DEGRADED
             get_plane().observe_merge(
                 LoadSignals(
-                    qdrant_backlog=int(
+                    vector_backlog=int(
                         (result["outbox"] or {}).get("pending") or 0
                     ),
                     degraded=is_degraded,
@@ -501,7 +501,7 @@ class PipelineRecoveryMixin:
                         else 0.0
                     ),
                 ),
-                fields=("qdrant_backlog", "degraded", "degraded_seconds"),
+                fields=("vector_backlog", "degraded", "degraded_seconds"),
             )
         except Exception:
             pass
@@ -569,7 +569,7 @@ class PipelineRecoveryMixin:
                     texts = [str(doc.get("content") or "")]
                     chunks = [{
                         "chunk_id": f"{rid}-rebuilt-0",
-                        "qdrant_point_id": None,
+                        "vector_point_id": None,
                         "sequence": 0,
                         "content": texts[0],
                         "payload": {},
@@ -589,7 +589,7 @@ class PipelineRecoveryMixin:
                 points = [
                     PointStruct(
                         id=str(
-                            c.get("qdrant_point_id")
+                            c.get("vector_point_id")
                             or uuid.uuid5(_POINT_NAMESPACE, c["chunk_id"])
                         ),
                         vector=[float(x) for x in v],

@@ -265,7 +265,7 @@ def _state(resource_id: str, module_id: str = "xingcheng", status: str = "indexe
         chunk_overlap=200,
         indexed_at_utc="2026-01-01T00:00:00Z",
         content_hash="h",
-        qdrant_point_id="pt",
+        vector_point_id="pt",
         status=status,
     )
 
@@ -358,7 +358,7 @@ async def test_vector_search_raises_when_blocked() -> None:
 
 
 @pytest.mark.asyncio
-async def test_qdrant_payload_never_carries_forbidden_fields() -> None:
+async def test_vector_payload_never_carries_forbidden_fields() -> None:
     pipe, vector, pg = _canonical_pipeline()
     document = {
         "module_id": "xingcheng",
@@ -467,7 +467,7 @@ def test_forbidden_payload_fields_cover_codex_contract() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_qdrant_alone_is_never_canonical() -> None:
+def test_vector_alone_is_never_canonical() -> None:
     pipe = CanonicalRagPipeline(_config())
     pipe._initialized = True
     pipe.vector = _FakeQdrant()

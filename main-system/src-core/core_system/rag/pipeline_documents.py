@@ -1,7 +1,7 @@
 """Document-level canonical write path (A371-A374).
 
 Fixed flow: resource → PostgreSQL metadata → chunk → vectord →
-qdrant_point_id 回寫 PostgreSQL.  PostgreSQL is the metadata/chunk/
+vector_point_id 回寫 PostgreSQL.  PostgreSQL is the metadata/chunk/
 index_state authority and never stores vectors; vectord stores dense
 vectors only.  index_state is written back only after vectord confirms
 the upsert.  Any failed or degraded write leaves a durable
@@ -36,7 +36,7 @@ class PipelineDocumentsMixin:
     ) -> bool:
         """Document-level canonical write (A371-A374).
 
-        ``chunks`` carry deterministic ``qdrant_point_id``/``point_id``
+        ``chunks`` carry deterministic ``vector_point_id``/``point_id``
         UUIDs and self-describing payloads.
         """
         if self._blocked_reason:
@@ -132,7 +132,7 @@ class PipelineDocumentsMixin:
                     next_retry_at=datetime.now(timezone.utc).isoformat(),
                 )
             return False
-        # Step 4: outbox SUCCEEDED + qdrant_point_id writeback.
+        # Step 4: outbox SUCCEEDED + vector_point_id writeback.
         mark = getattr(self.postgresql, "mark_outbox", None)
         if mark is not None:
             await mark(event["event_id"], OutboxState.SUCCEEDED.value,
@@ -181,7 +181,7 @@ class PipelineDocumentsMixin:
         """Build vectord PointStructs for a document's chunks."""
         return [
             PointStruct(
-                id=str(chunk.get("qdrant_point_id") or chunk.get("point_id")),
+                id=str(chunk.get("vector_point_id") or chunk.get("point_id")),
                 vector=[float(v) for v in vector],
                 payload=sanitize_payload(
                     {
@@ -206,7 +206,7 @@ class PipelineDocumentsMixin:
         collection_dimension: Optional[int],
     ) -> bool:
         """Step 4: write index_state back to PostgreSQL after vectord confirms."""
-        first_point = str(chunks[0].get("qdrant_point_id") or chunks[0].get("point_id")) if chunks else ""
+        first_point = str(chunks[0].get("vector_point_id") or chunks[0].get("point_id")) if chunks else ""
         state = IndexState(
             resource_id=resource_id,
             module_id=module_id,
@@ -216,7 +216,7 @@ class PipelineDocumentsMixin:
             chunk_overlap=int(self.config.chunk_overlap),
             indexed_at_utc=datetime.now(timezone.utc).isoformat(),
             content_hash=str(document.get("sha256") or document.get("content_hash") or ""),
-            qdrant_point_id=first_point,
+            vector_point_id=first_point,
             postgresql_record_id=resource_id,
         )
         return await self.postgresql.upsert_index_state(

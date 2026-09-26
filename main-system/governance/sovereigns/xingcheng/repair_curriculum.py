@@ -53,7 +53,7 @@ REPAIR_CURRICULUM: Final[tuple[dict[str, Any], ...]] = (
             "SOURCE_RUNTIME_NOT_READY",
             "SOURCE_UI_UNAVAILABLE",
             "SOURCE_RUNTIME_EXITED",
-            "QDRANT_UNAVAILABLE",
+            "VECTOR_UNAVAILABLE",
             "EMBEDDING_UNAVAILABLE",
         ),
         "remedy": "inspect-owned-databases,rebuild-tool-executable",

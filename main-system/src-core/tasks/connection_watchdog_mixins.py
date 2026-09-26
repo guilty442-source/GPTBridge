@@ -236,7 +236,11 @@ class ConnectionAuditMixin:
                 self.project_root / "main-system" / "data" / "automatic-repair"
             )
             repair_root.mkdir(parents=True, exist_ok=True)
-            service = CentralRepairService(self.project_root, repair_root)
+            repair_schema = getattr(self._learning_store, "_schema", None)
+            service = CentralRepairService(
+                self.project_root, repair_root,
+                repair_schema=repair_schema,
+            )
             service.record_connection_outcome(
                 failure_code, from_state, to_state,
                 remedy="connection-watchdog", ok=ok, run_id=run_id,

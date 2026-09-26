@@ -16,7 +16,6 @@ from typing import Any
 
 from shared_layer.database.config import DatabaseSettings
 from shared_layer.database.connection import get_connection_manager
-from shared_layer.database.sqlite_classification import list_by_class
 from .rag.orchestration.orchestrator import RagOrchestrator
 from .cag import (
     CAGConfig,

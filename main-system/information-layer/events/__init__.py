@@ -1,4 +1,4 @@
-"""EVENT_SERVICE — 事件服務。
+r"""EVENT_SERVICE — 事件服務。
 
 法典依據: architecture_activation_states[EVENT_SERVICE]
 目標根目錄: E:\GPTBridge\main-system\information-layer\events

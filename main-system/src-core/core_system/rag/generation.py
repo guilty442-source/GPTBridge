@@ -15,10 +15,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from shared_layer.database.qdrant_capacity import (
+from shared_layer.database.vector_capacity import (
     CapacityDecision,
     CapacityVerdict,
-    QdrantCollectionSpec,
+    VectorCollectionSpec,
     authorize_operation,
     dual_collection_headroom,
 )
@@ -210,14 +210,14 @@ class GenerationManager:
         generation: IndexGeneration,
         *,
         points_estimate: Optional[int] = None,
-    ) -> QdrantCollectionSpec:
+    ) -> VectorCollectionSpec:
         """Estimate one generation's vectord footprint for the capacity gate."""
         points = (
             int(generation.points_count or 0)
             if points_estimate is None
             else int(points_estimate)
         )
-        return QdrantCollectionSpec(
+        return VectorCollectionSpec(
             vector_count=max(0, points),
             dimension=max(1, int(generation.embedding_dimension)),
         )

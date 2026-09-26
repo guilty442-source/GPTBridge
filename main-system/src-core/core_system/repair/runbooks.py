@@ -226,10 +226,10 @@ def rls_drift_runbook(ctx: dict[str, Any]) -> dict[str, Any]:
 
 
 # ============================================================================
-# QDRANT_METADATA_MISMATCH Runbook
+# VECTOR_METADATA_MISMATCH Runbook
 # ============================================================================
 
-def qdrant_mismatch_runbook(ctx: dict[str, Any]) -> dict[str, Any]:
+def vector_mismatch_runbook(ctx: dict[str, Any]) -> dict[str, Any]:
     """vectord mismatch - mark reindex, enqueue rebuild, don't modify PG authority."""
     return {
         "action": "reindex_required",
@@ -238,7 +238,7 @@ def qdrant_mismatch_runbook(ctx: dict[str, Any]) -> dict[str, Any]:
             "enqueue_embedding_rebuild",
             "do_not_modify_pg_authority",
         ],
-        "affected_resources": ctx.get("qdrant_mismatch_resources", []),
+        "affected_resources": ctx.get("vector_mismatch_resources", []),
     }
 
 
@@ -298,10 +298,10 @@ RUNBOOKS: dict["DiagnosisCode", Runbook] = {
         remediate=lambda c, d: rls_drift_runbook(c),
         requires_approval=True,
     ),
-    DiagnosisCode.QDRANT_METADATA_MISMATCH: Runbook(
-        diagnosis_code=DiagnosisCode.QDRANT_METADATA_MISMATCH,
+    DiagnosisCode.VECTOR_METADATA_MISMATCH: Runbook(
+        diagnosis_code=DiagnosisCode.VECTOR_METADATA_MISMATCH,
         diagnose=lambda c: {"mismatch": True},
-        remediate=lambda c, d: qdrant_mismatch_runbook(c),
+        remediate=lambda c, d: vector_mismatch_runbook(c),
         requires_approval=False,
     ),
 }
@@ -323,5 +323,5 @@ __all__ = [
     "reconcile_backlog_runbook",
     "schema_drift_runbook",
     "rls_drift_runbook",
-    "qdrant_mismatch_runbook",
+    "vector_mismatch_runbook",
 ]

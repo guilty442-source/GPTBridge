@@ -22,7 +22,7 @@ class RagSystemManifest:
     embedding_dimension: int
 
     reranker_model: str = ""
-    qdrant_version: str = ""
+    vector_version: str = ""
     collection_alias: str = ""
     postgres_schema_version: int = 0
 
