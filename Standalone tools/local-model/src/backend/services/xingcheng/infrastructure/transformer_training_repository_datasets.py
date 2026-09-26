@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -128,7 +127,7 @@ class TransformerTrainingDatasetsMixin(TransformerTrainingSchemaMixin):
 
     def _insert_dataset_rows(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         insert: Mapping[str, Any],
     ) -> None:
         connection.execute(
@@ -174,7 +173,7 @@ class TransformerTrainingDatasetsMixin(TransformerTrainingSchemaMixin):
 
     def _persist_dataset(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         insert: Mapping[str, Any],
     ) -> tuple[Any, bool]:
         existing = connection.execute(

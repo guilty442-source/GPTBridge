@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import sqlite3
 from typing import Any
 
 from shared_layer.resource_identity import (
@@ -203,7 +202,7 @@ class LocalRagRetrievalMixin:
             ranked = self._retrieve_ranked(
                 question, module_ids, candidate_limit, canonical_ready
             )
-        except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             return self._dependency_error(exc)
         matches, pending_reconciliation = ranked
         route, router = self._route(question, payload)
@@ -228,7 +227,7 @@ class LocalRagRetrievalMixin:
                 "retrieval": (
                     "canonical-vector-dense+postgresql-fts+index-state+rrf"
                     if canonical
-                    else "local-vector-degraded-cache+local-sqlite3-fts+rrf"
+                    else "local-vector-degraded-cache+postgresql-keyword+rrf"
                 ),
                 "canonical": canonical,
                 "canonical_pending_reconciliation": pending_reconciliation,
@@ -355,7 +354,7 @@ class LocalRagRetrievalMixin:
             "retrieval": (
                 "canonical-vector-dense+postgresql-fts+index-state+rrf+qwen3-reranker"
                 if canonical_ready
-                else "local-vector-degraded-cache+local-sqlite3-fts+rrf+qwen3-reranker"
+                else "local-vector-degraded-cache+postgresql-keyword+rrf+qwen3-reranker"
             ),
             "canonical": canonical_ready,
             "canonical_pending_reconciliation": pending_reconciliation,
@@ -417,7 +416,7 @@ class LocalRagRetrievalMixin:
                 max(8, min(48, int(candidate_limit))),
                 canonical_ready,
             )
-        except (OSError, RuntimeError, ValueError, sqlite3.Error):
+        except (OSError, RuntimeError, ValueError):
             return None
         if not matches:
             return None
@@ -433,7 +432,7 @@ class LocalRagRetrievalMixin:
             "retrieval": (
                 "canonical-vector-dense+postgresql-fts+index-state+rrf"
                 if canonical
-                else "local-vector-degraded-cache+local-sqlite3-fts+rrf"
+                else "local-vector-degraded-cache+postgresql-keyword+rrf"
             ),
             "canonical": canonical,
             "authority": (

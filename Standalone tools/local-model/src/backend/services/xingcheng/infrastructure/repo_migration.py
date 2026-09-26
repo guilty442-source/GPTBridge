@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -9,7 +8,7 @@ from typing import Any
 class MigrationMixin:
     """Database schema migration and compaction logic for LocalAiRepository."""
 
-    def _migrate_and_compact(self, connection: sqlite3.Connection) -> dict[str, int]:
+    def _migrate_and_compact(self, connection: Any) -> dict[str, int]:
         before_distribution = int(
             connection.execute("SELECT COUNT(*) FROM distribution_event").fetchone()[0]
         )

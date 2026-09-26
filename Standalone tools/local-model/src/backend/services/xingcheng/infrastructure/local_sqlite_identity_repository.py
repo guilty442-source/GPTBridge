@@ -2,34 +2,32 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from .local_sqlite_pool import LocalSqlitePoolManager, get_pool_manager
+from shared_layer.local.pg_adapter import PgConnection
+from shared_layer.local.pg_adapter import connect as pg_connect
 
 
 class LocalSqliteIdentityRepository:
-    """Local sqlite3 source of truth for the Xingcheng role identity.
+    """PostgreSQL source of truth for the Xingcheng role identity.
 
-    Replaces the retired ``PostgresIdentityRepository`` (``role_data``/``role_history``/
-    ``role_audit`` schemas).  Governs the plaintext personality plus its version
-    history and audit trail on the local store.  At most one personality exists;
-    every mutation records an immutable version and an audit event.  No PostgreSQL/
-    psycopg, no external service (A44/E30).
+    Absorbs the retired sqlite ``identity.sqlite3`` store (A610/A621) into the
+    module-private ``gptbridge_xingcheng`` schema.  Governs the plaintext
+    personality plus its version history and audit trail.  At most one
+    personality exists; every mutation records an immutable version and an
+    audit event.
     """
 
+    SCHEMA = "gptbridge_xingcheng"
     SCHEMAS = ("role_data", "role_history", "role_audit")
 
-    def __init__(self, tool_root: Path, pool_manager: LocalSqlitePoolManager | None = None):
+    def __init__(self, tool_root: Path, pool_manager: Any = None):
         self.tool_root = Path(tool_root).resolve()
-        self._manager = pool_manager or get_pool_manager(self.tool_root)
-        self.database_path = (
-            self.tool_root / "xingcheng" / "runtime" / "state" / "identity.sqlite3"
-        )
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self._manager = pool_manager
+        self.database_path = Path(f"postgresql:{self.SCHEMA}")
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -82,11 +80,9 @@ class LocalSqliteIdentityRepository:
             )
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=5)
-        connection.row_factory = sqlite3.Row
+    def _connect(self) -> Iterator[PgConnection]:
+        connection = pg_connect(self.SCHEMA, autocommit=False)
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             yield connection
             connection.commit()
         except BaseException:
@@ -96,13 +92,13 @@ class LocalSqliteIdentityRepository:
             connection.close()
 
     def _require_identity_db(self) -> None:
-        if not self.database_path.parent.exists():
-            raise RuntimeError("GPTBRIDGE_XINGCHENG_IDENTITY_DB_UNAVAILABLE")
+        return None  # schema availability is enforced fail-closed by pg_connect
 
     def initialized(self) -> bool:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'role_data_personality'"
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_type = 'BASE TABLE' AND table_name = 'role_data_personality'"
             ).fetchone()
         return bool(row)
 
@@ -264,7 +260,7 @@ class LocalSqliteIdentityRepository:
 
     def _append_version(
         self,
-        connection: sqlite3.Connection,
+        connection: PgConnection,
         resource_id: str,
         module_id: str,
         owner_id: str,

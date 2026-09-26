@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from typing import Any
 
 
@@ -87,7 +86,7 @@ class InvestmentMixin:
                 )
         return applied
 
-    def _seed_parameter_definitions(self, connection: sqlite3.Connection) -> None:
+    def _seed_parameter_definitions(self, connection: Any) -> None:
         now = self._utc_now()
         definitions = (
             ("price", "valuation", "市價／淨值", "number", "currency", "最近可驗證的市價或基金淨值"),
@@ -122,7 +121,7 @@ class InvestmentMixin:
             [(*item, now) for item in definitions],
         )
 
-    def _seed_investment_model_definitions(self, connection: sqlite3.Connection) -> None:
+    def _seed_investment_model_definitions(self, connection: Any) -> None:
         now = self._utc_now()
         definitions = (
             (

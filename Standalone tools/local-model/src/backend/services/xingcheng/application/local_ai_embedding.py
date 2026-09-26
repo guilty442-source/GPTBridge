@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import sqlite3
 from typing import Any
 
 from .investment_analysis import analyze_investments
@@ -43,7 +42,7 @@ class LocalAiEmbeddingMixin:
                 )
                 or 0
             )
-        except (OSError, RuntimeError, ValueError, sqlite3.Error):
+        except (OSError, RuntimeError, ValueError):
             document_count = 0
         if document_count <= 0 and not canonical_ready:
             return None

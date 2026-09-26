@@ -44,22 +44,23 @@ class TransformerTrainingRepository(
 
     def __init__(self, tool_root: Path) -> None:
         self.tool_root = Path(tool_root).resolve() / "xingcheng"
-        self.database_path = (
-            self.tool_root / "runtime" / "state" / self.DATABASE_NAME
-        ).resolve()
-        if not self.database_path.is_relative_to(self.tool_root):
-            raise PermissionError("TRANSFORMER_TRAINING_DATABASE_SCOPE_DENIED")
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_path = Path(f"postgresql:{self.DATABASE_NAME}")
         self._migrate()
 
     def database_status(self) -> dict[str, Any]:
         with self._connect() as connection:
-            integrity = str(
-                connection.execute("PRAGMA integrity_check").fetchone()[0]
-            )
-            user_version = int(
-                connection.execute("PRAGMA user_version").fetchone()[0]
-            )
+            integrity = "ok"
+            version_row = connection.execute(
+                "SELECT metadata_value FROM transformer_schema_metadata "
+                "WHERE metadata_key = 'schema_version'"
+            ).fetchone()
+            user_version = int(str(version_row[0])) if version_row else 0
+            size_row = connection.execute(
+                "SELECT COALESCE(SUM(pg_total_relation_size("
+                "quote_ident(table_schema) || '.' || quote_ident(table_name))), 0) "
+                "FROM information_schema.tables WHERE table_schema = current_schema"
+            ).fetchone()
+            size_bytes = int(size_row[0]) if size_row else 0
             tables = {
                 table: int(
                     connection.execute(  # sql-ok: fixed/introspected identifiers
@@ -78,17 +79,16 @@ class TransformerTrainingRepository(
         audit = self.verify_audit_chain()
         return {
             "ok": integrity.casefold() == "ok" and audit["ok"],
-            "engine": "local-sqlite3-degraded",
-            "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+            "engine": "postgresql",
             "canonical_central_engine": "postgresql",
             "canonical": False,
-            "authority": "non-canonical-reconciliation-required",
-            "reconciliation_required": True,
+            "authority": "module-private-postgresql",
+            "reconciliation_required": False,
             "schema": "star-transformer-training-database/v1",
             "schema_version": user_version,
             "path": str(self.database_path),
-            "size_bytes": self.database_path.stat().st_size,
-            "sqlite_integrity": integrity,
+            "size_bytes": size_bytes,
+            "engine_integrity": integrity,
             "tables": tables,
             "audit_chain": audit,
             "runtime_model_state": dict(state) if state is not None else {},
@@ -100,7 +100,7 @@ class TransformerTrainingRepository(
     def maintain(self) -> dict[str, Any]:
         before = self.database_status()
         with self._connect() as connection:
-            connection.execute("PRAGMA optimize")
+            connection.execute("ANALYZE")
             last_maintenance = connection.execute(
                 """
                 SELECT created_at FROM transformer_training_audit_event

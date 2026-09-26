@@ -126,51 +126,39 @@ class HybridRetriever:
             return []
 
     async def _sparse_retrieve(self, query: str, top_k: int) -> list[dict[str, Any]]:
-        """Sparse BM25 keyword search via local SQLite."""
+        """Sparse keyword search over the PostgreSQL keyword store."""
         try:
-            from services.xingcheng.infrastructure.local_sqlite_pool import LocalSqlitePool
-            from pathlib import Path
+            from shared_layer.local.pg_adapter import connect as pg_connect
 
-            # Anchor to the governed tool root, never cwd — under pytest
-            # or foreign launchers cwd is the repo root and the pool would
-            # create stray runtime/state files outside governed roots.
-            _tool_root = Path(__file__).resolve().parents[6]
-            pool = LocalSqlitePool(_tool_root)
-            conn = pool.rag_dsn()
-            import sqlite3
-            conn = sqlite3.connect(conn)
-            conn.row_factory = sqlite3.Row
-
-            # Simple keyword-based search on document chunks
             keywords = query.split()
             if not keywords:
                 return []
 
-            placeholders = ",".join("?" * len(keywords))
+            score_expr = " + ".join(
+                ["(chunk.metadata LIKE %s)::int" for _ in keywords]
+            )
+            where_expr = " OR ".join(["chunk.metadata LIKE %s" for _ in keywords])
             sql = f"""
-                SELECT id, content, metadata,
-                       ({" + ".join(["(content LIKE ?)" for _ in keywords])}) as score
-                FROM rag_chunks
-                WHERE {" OR ".join(["content LIKE ?" for _ in keywords])}
+                SELECT chunk.chunk_id AS id, chunk.metadata,
+                       ({score_expr}) AS score
+                FROM gptbridge_rag_chunk AS chunk
+                WHERE {where_expr}
                 ORDER BY score DESC
-                LIMIT ?
-            """
-            params = []
-            for kw in keywords:
-                params.append(f"%{kw}%")
-            for kw in keywords:
-                params.append(f"%{kw}%")
-            params.append(top_k)
+                LIMIT %s
+            """  # sql-ok: keyword list is parameter-bound; only arity varies
+            params = [f"%{kw}%" for kw in keywords] * 2 + [top_k]
 
-            cursor = conn.execute(sql, params)
-            rows = cursor.fetchall()
-            conn.close()
+            conn = pg_connect("gptbridge_xingcheng", autocommit=True)
+            try:
+                rows = conn.execute(sql, params).fetchall()
+            finally:
+                conn.close()
 
             return [
                 {
                     "id": str(row["id"]),
                     "score": float(row["score"]),
-                    "payload": {"content": row["content"], "metadata": row["metadata"]},
+                    "payload": {"content": row["metadata"]},
                     "source": "sparse",
                 }
                 for row in rows

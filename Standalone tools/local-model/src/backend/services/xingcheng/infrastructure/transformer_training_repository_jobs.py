@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 import uuid
 from typing import Any, Mapping
 
@@ -38,7 +37,7 @@ class TransformerTrainingJobsMixin(TransformerTrainingSchemaMixin):
 
     @staticmethod
     def _require_prepared_dataset(
-        connection: sqlite3.Connection, normalized_dataset_id: str
+        connection: Any, normalized_dataset_id: str
     ) -> None:
         dataset = connection.execute(
             """
@@ -54,7 +53,7 @@ class TransformerTrainingJobsMixin(TransformerTrainingSchemaMixin):
 
     def _insert_training_job(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         *,
         job_id: str,
         normalized_dataset_id: str,
@@ -124,7 +123,7 @@ class TransformerTrainingJobsMixin(TransformerTrainingSchemaMixin):
 
     def _update_training_job(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         *,
         requested_status: str,
         output_path: str,
@@ -149,7 +148,7 @@ class TransformerTrainingJobsMixin(TransformerTrainingSchemaMixin):
 
     def _apply_job_transition(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         row: Any,
         requested_status: str,
         output_path: str,

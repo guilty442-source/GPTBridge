@@ -70,7 +70,7 @@ class CommandChannelsMixin:
                 "self_model_data_exception": "read-write",
                 "git": git_status,
                 "sql": {
-                    "engine": "local-sqlite3-degraded",
+                    "engine": "postgresql",
                     "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
                     "canonical_central_engine": "postgresql",
                     "authority": "non-canonical-reconciliation-required",

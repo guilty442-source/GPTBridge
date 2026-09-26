@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Sequence
 
+from shared_layer.local.pg_adapter import PgConnection
+from shared_layer.local.pg_adapter import connect as pg_connect
 from shared_layer.resource_identity import locator_id_for, point_id_for
 
 
@@ -93,21 +94,16 @@ def _chunk_params(
 
 
 class LocalSqliteRagRepository:
-    """Local sqlite3 source of truth for module-scoped RAG keyword metadata.
+    """PostgreSQL source of truth for module-scoped RAG keyword metadata.
 
-    Local replacement for the retired ``PostgresRagRepository`` that used
-    ``gptbridge_index``/``gptbridge_rag`` PostgreSQL tables.  Operates on the
-    local keyword index under ``tool_root/runtime/state``.  No PostgreSQL/
-    psycopg, no external service (A44/E30).  FTS is a transparent local
-    sqlite LIKE/BM25-style scoring layer over the keyword store.
+    Absorbs the retired sqlite ``local-rag-keywords.sqlite3`` store
+    (A610/A621) into the module-private ``gptbridge_xingcheng`` schema.
+    Keyword scoring is a LIKE/BM25-style layer over the keyword store.
     """
 
     def __init__(self, tool_root: Path) -> None:
         self.project_root = Path(tool_root).resolve().parent
-        self.database_path = (
-            Path(tool_root).resolve() / "runtime" / "state" / "local-rag-keywords.sqlite3"
-        )
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_path = Path("postgresql:gptbridge_xingcheng")
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -154,13 +150,9 @@ class LocalSqliteRagRepository:
             )
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=5)
-        connection.row_factory = sqlite3.Row
+    def _connect(self) -> Iterator[PgConnection]:
+        connection = pg_connect("gptbridge_xingcheng", autocommit=False)
         try:
-            # Perf/low-lock: WAL matches sqlite_store / vector_store.
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute("PRAGMA busy_timeout = 5000")
             yield connection
             connection.commit()
         except BaseException:
@@ -334,7 +326,7 @@ class LocalSqliteRagRepository:
                 JOIN gptbridge_index_resource AS resource
                   ON resource.resource_id = chunk.resource_id
                 WHERE chunk.module_id IN ({placeholders})
-                  AND instr(lower(COALESCE(chunk.metadata, '')), ?) > 0
+                  AND strpos(lower(COALESCE(chunk.metadata, '')), ?) > 0
                 ORDER BY chunk.sequence ASC
                 LIMIT ?
                 """,
@@ -348,7 +340,7 @@ class LocalSqliteRagRepository:
         results.sort(key=lambda item: -float(item["keyword_score"]))
         return results[: max(1, int(limit))]
 
-    def _keyword_row(self, query: str, row: sqlite3.Row) -> dict[str, Any] | None:
+    def _keyword_row(self, query: str, row: Any) -> dict[str, Any] | None:
         """Map one chunk+resource row to a keyword hit, or None if unscored."""
         chunk_metadata = self._loads(row["chunk_metadata"]) if isinstance(row["chunk_metadata"], str) else (row["chunk_metadata"] or {})
         chunk_metadata = chunk_metadata if isinstance(chunk_metadata, dict) else {}
@@ -398,13 +390,13 @@ class LocalSqliteRagRepository:
             except (TypeError, ValueError):
                 pass
         return {
-            "engine": "local-sqlite3-degraded",
-            "schema": "local-rag-keywords",
+            "engine": "postgresql",
+            "schema": "gptbridge_xingcheng.keyword-metadata",
             "canonical_central_engine": "postgresql",
             "canonical": False,
-            "authority": "non-canonical-reconciliation-required",
-            "reconciliation_required": True,
-            "fts_enabled": True,
+            "authority": "module-private-postgresql",
+            "reconciliation_required": False,
+            "fts_enabled": False,
             "content_storage": "excluded-by-architecture",
             "document_count": document_count,
             "chunk_count": chunk_count,

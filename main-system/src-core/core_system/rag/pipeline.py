@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import sqlite3
+
 import time
 import uuid
 from datetime import datetime, timezone
@@ -81,18 +81,11 @@ class CanonicalRagPipeline(
         # vectors are never replayed into the canonical collection.
         self._document_fetcher = document_fetcher
         self._embed_texts = embed_texts
-        # A374: runtime state machine.  The durable queue is backed by a
-        # local SQLite store for the in-process authority; the canonical
-        # PostgreSQL queue is mirrored by PostgreSQLMetadataAuthority when
-        # PostgreSQL is healthy.  The TombstoneGuard is the in-memory
-        # authoritative view; PostgreSQL is the durable tombstone store.
-        queue_path = config.queue_db_path or ":memory:"
-        if queue_path != ":memory:":
-            Path(queue_path).parent.mkdir(parents=True, exist_ok=True)
-        self._queue_db = sqlite3.connect(
-            queue_path, check_same_thread=False
-        )
-        self._queue_db.row_factory = sqlite3.Row
+        # A374: runtime state machine.  The durable queue lives in the
+        # ``gptbridge_rag`` PostgreSQL schema (A610/A621: SQLite retired).
+        # The TombstoneGuard is the in-memory authoritative view;
+        # PostgreSQL is the durable tombstone store.
+        self._queue_db = pg_connect("gptbridge_rag", autocommit=False)
         self._queue = ReconciliationQueue(self._queue_db)
         self._tombstone = TombstoneGuard()
         self._outbox = CrossStoreOutbox(self._queue, self._tombstone)

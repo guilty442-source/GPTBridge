@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
+from shared_layer.local.pg_adapter import PgConnection
+from shared_layer.local.pg_adapter import connect as pg_connect
+
 
 _MIGRATION_SCRIPT = """
-                PRAGMA journal_mode = WAL;
-
                 CREATE TABLE IF NOT EXISTS transformer_schema_metadata (
                     metadata_key TEXT PRIMARY KEY,
                     metadata_value TEXT NOT NULL,
@@ -231,7 +231,7 @@ class TransformerTrainingSchemaMixin:
     transformer training repository."""
 
     SCHEMA_VERSION = 1
-    DATABASE_NAME = "transformer-training.sqlite3"
+    DATABASE_NAME = "gptbridge_xingcheng"
     BASE_MODEL_ID = "xingcheng-native-transformer"
     RUNTIME_MODEL_ID = "xingcheng-native-transformer"
     TRAINING_METHOD = "sft-native-full-parameter"
@@ -261,12 +261,9 @@ class TransformerTrainingSchemaMixin:
     }
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=15)
-        connection.row_factory = sqlite3.Row
+    def _connect(self) -> Iterator[PgConnection]:
+        connection = pg_connect("gptbridge_xingcheng", autocommit=False)
         try:
-            connection.execute("PRAGMA foreign_keys = ON")
-            connection.execute("PRAGMA busy_timeout = 15000")
             yield connection
             connection.commit()
         except Exception:
@@ -308,7 +305,7 @@ class TransformerTrainingSchemaMixin:
                 """,
                 (self.BASE_MODEL_ID, self.RUNTIME_MODEL_ID, now),
             )
-            connection.execute(f"PRAGMA user_version = {self.SCHEMA_VERSION}")
+
 
     @staticmethod
     def _now() -> str:

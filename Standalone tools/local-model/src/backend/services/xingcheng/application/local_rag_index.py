@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -332,7 +331,7 @@ class LocalRagIndexMixin:
                     skipped.append(entry)
                 else:
                     indexed.append(entry)
-        except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             result = self._dependency_error(exc, indexed=indexed)
             result["errors"] = errors
             return result
@@ -365,7 +364,7 @@ class LocalRagIndexMixin:
             "retrieval": (
                 "canonical-vector-dense+postgresql-fts+index-state"
                 if canonical_ready
-                else "local-vector-degraded-cache+local-sqlite3-fts"
+                else "local-vector-degraded-cache+postgresql-keyword"
             ),
             "canonical": canonical_ready,
             "available_to_all_local_models": True,

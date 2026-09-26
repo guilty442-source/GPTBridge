@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import uuid
 from typing import Any, Mapping
 
@@ -44,7 +43,7 @@ class TransformerTrainingAuditMixin(TransformerTrainingSchemaMixin):
 
     def _append_audit(
         self,
-        connection: sqlite3.Connection,
+        connection: Any,
         *,
         event_type: str,
         entity_type: str,

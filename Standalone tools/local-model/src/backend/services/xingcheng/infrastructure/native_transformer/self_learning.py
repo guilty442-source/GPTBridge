@@ -32,7 +32,7 @@ for _p in (
 import argparse
 import json
 import os
-import sqlite3
+from shared_layer.local.pg_adapter import connect as pg_connect
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, time as clock_time, timezone
@@ -255,26 +255,20 @@ def collect_verified_examples(
     tool_root: str | Path, *, min_quality: float = MIN_QUALITY
 ) -> dict[str, list[dict[str, Any]]]:
     """讀取各角色資料庫中已驗證（active、品質達標）的訓練範例。"""
-    models_dir = Path(tool_root) / "xingcheng" / "runtime" / "state" / "models"
     by_scope: dict[str, list[dict[str, Any]]] = {}
-    if not models_dir.is_dir():
-        return by_scope
-    for path in sorted(models_dir.glob("*.sqlite3")):
-        scope = path.stem
-        if scope not in _SCOPE_MAP:
+    for scope in sorted(_SCOPE_MAP):
+        try:
+            connection = pg_connect(f"gptbridge_xingcheng_{scope}", autocommit=False)
+        except Exception:
             continue
         try:
-            connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
-        except sqlite3.Error:
-            continue
-        try:
-            rows = connection.execute(  # sql-ok: one read-only query per scope database file
+            rows = connection.execute(  # sql-ok: one read-only query per scope schema
                 "SELECT revision, example_id, intent, input_text, target_text, "
                 "source_type, quality_score FROM language_training_example "
-                "WHERE active = 1 AND quality_score >= ? ORDER BY revision",
+                "WHERE active = 1 AND quality_score >= %s ORDER BY revision",
                 (float(min_quality),),
             ).fetchall()
-        except sqlite3.Error:
+        except Exception:
             rows = []
         finally:
             connection.close()
@@ -307,26 +301,19 @@ def collect_preference_pairs(tool_root: str | Path) -> list[dict[str, Any]]:
     白名單）；資料表不存在或損毀的資料庫一律略過（fail-closed 視為
     無資料而非錯誤）。回傳值直接餵給
     ``preference_dataset_bridge.build_pairs_snapshot``。"""
-    models_dir = Path(tool_root) / "xingcheng" / "runtime" / "state" / "models"
     pairs: list[dict[str, Any]] = []
-    if not models_dir.is_dir():
-        return pairs
-    for path in sorted(models_dir.glob("*.sqlite3")):
-        if path.stem not in _SCOPE_MAP:
+    for scope in sorted(_SCOPE_MAP):
+        try:
+            connection = pg_connect(f"gptbridge_xingcheng_{scope}", autocommit=False)
+        except Exception:
             continue
         try:
-            connection = sqlite3.connect(
-                f"file:{path.as_posix()}?mode=ro", uri=True
-            )
-        except sqlite3.Error:
-            continue
-        try:
-            rows = connection.execute(  # sql-ok: one read-only query per scope database file
+            rows = connection.execute(  # sql-ok: one read-only query per scope schema
                 "SELECT revision, pair_id, intent, prompt_text, chosen_text,"
                 " rejected_text FROM language_preference_pair"
                 " WHERE paired = 1 ORDER BY revision",
             ).fetchall()
-        except sqlite3.Error:
+        except Exception:
             rows = []
         finally:
             connection.close()
@@ -344,7 +331,7 @@ def collect_preference_pairs(tool_root: str | Path) -> list[dict[str, Any]]:
                     "prompt_text": prompt,
                     "chosen_text": chosen,
                     "rejected_text": rejected,
-                    "scope": path.stem,
+                    "scope": scope,
                 }
             )
     pairs.sort(key=lambda record: (str(record["scope"]), int(record["revision"])))

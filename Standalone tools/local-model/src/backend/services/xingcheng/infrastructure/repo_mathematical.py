@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 from typing import Any
 
 
@@ -8,7 +7,7 @@ class MathematicalMixin:
     """Mathematical capability definitions and catalog for LocalAiRepository."""
 
     def _seed_mathematical_capability_definitions(
-        self, connection: sqlite3.Connection
+        self, connection: Any
     ) -> None:
         now = self._utc_now()
         definitions = (

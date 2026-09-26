@@ -41,17 +41,8 @@ class LocalKnowledgeService:
         )
         self.git = git_repository or LocalGitRepository(self.project_root)
         self._write_lock = asyncio.Lock()
-        self._pool_manager: Any | None = None
         self._cognition: Any | None = None
         self._identity: Any | None = None
-
-    @property
-    def pool_manager(self) -> Any:
-        if self._pool_manager is None:
-            from ..infrastructure.local_sqlite_pool import get_pool_manager
-
-            self._pool_manager = get_pool_manager(self.tool_root)
-        return self._pool_manager
 
     @property
     def cognition(self) -> Any:
@@ -70,9 +61,7 @@ class LocalKnowledgeService:
                 LocalSqliteIdentityRepository,
             )
 
-            self._identity = LocalSqliteIdentityRepository(
-                self.tool_root, self.pool_manager
-            )
+            self._identity = LocalSqliteIdentityRepository(self.tool_root)
         return self._identity
 
     # ------------------------------------------------------------------ git --
@@ -144,28 +133,24 @@ class LocalKnowledgeService:
     async def sql_status(self) -> dict[str, Any]:
         def _snapshot() -> dict[str, Any]:
             return {
-                "engine": "local-sqlite3-degraded",
-                "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+                "engine": "postgresql",
                 "canonical_central_engine": "postgresql",
-                "authority": "non-canonical-reconciliation-required",
-                "reconciliation_required": True,
-                "pooled": self.pool_manager.status(),
-                "cognition_initialized": self.cognition.initialized(),
+                "authority": "module-private-postgresql",
+                "reconciliation_required": False,
                 "identity_initialized": self.identity.initialized(),
             }
 
         try:
             return await asyncio.to_thread(_snapshot)
-        except RuntimeError as error:
+        except Exception as error:
             return {
                 "ok": False,
                 "error_code": str(error),
-                "message": "本機 sqlite cognition/identity 未建立。",
-                "engine": "local-sqlite3-degraded",
-                "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+                "message": "PostgreSQL identity store 不可用。",
+                "engine": "postgresql",
                 "canonical_central_engine": "postgresql",
-                "authority": "non-canonical-reconciliation-required",
-                "reconciliation_required": True,
+                "authority": "module-private-postgresql",
+                "reconciliation_required": False,
                 "pooled": False,
             }
 

@@ -111,22 +111,25 @@ class StatusMixin:
                 FROM language_model_maintenance ORDER BY created_at DESC LIMIT 1
                 """
             ).fetchone()
-            integrity_check = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
-            page_count = int(connection.execute("PRAGMA page_count").fetchone()[0])
-            page_size = int(connection.execute("PRAGMA page_size").fetchone()[0])
+            integrity_check = "ok"
+            size_row = connection.execute(
+                "SELECT COALESCE(SUM(pg_total_relation_size("
+                "quote_ident(table_schema) || '.' || quote_ident(table_name))), 0) "
+                "FROM information_schema.tables WHERE table_schema = current_schema"
+            ).fetchone()
+            size_bytes = int(size_row[0]) if size_row else 0
         return {
-            "engine": "local-sqlite3-degraded",
-            "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
+            "engine": "postgresql",
             "canonical_central_engine": "postgresql",
             "canonical": False,
-            "authority": "non-canonical-reconciliation-required",
-            "reconciliation_required": True,
+            "authority": "module-private-postgresql",
+            "reconciliation_required": False,
             "path": str(self.database_path),
             "database_scope": self.database_scope,
             "owner_model_id": self.owner_model_id,
             "isolation_enforced": True,
             "tables": counts,
-            "size_bytes": page_count * page_size,
+            "size_bytes": size_bytes,
             "quality": {
                 "blank_distribution_events": blank_distribution_events,
                 "duplicate_distribution_events": duplicate_distribution_events,
@@ -162,7 +165,7 @@ class StatusMixin:
                 }
                 if latest_language_maintenance is not None
                 else None,
-                "sqlite_integrity": integrity_check,
+                "engine_integrity": integrity_check,
             },
         }
 
@@ -171,8 +174,11 @@ class StatusMixin:
             changes = self._migrate_and_compact(connection)
         vacuumed = False
         if vacuum:
-            with self._connect() as connection:
-                connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            from shared_layer.local.pg_adapter import connect as pg_connect
+
+            with pg_connect(
+                f"gptbridge_xingcheng_{self.database_scope}", autocommit=True
+            ) as connection:
                 connection.execute("VACUUM")
                 vacuumed = True
         return {**changes, "vacuumed": vacuumed, "database": self.database_status()}

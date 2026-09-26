@@ -12,7 +12,7 @@ from __future__ import annotations
 import enum
 import hashlib
 import json
-import sqlite3
+
 from dataclasses import dataclass, field, asdict
 from typing import Any, Optional
 
@@ -125,9 +125,10 @@ class ReconciliationQueueItem:
         return data
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row | tuple) -> "ReconciliationQueueItem":
-        # Accept both sqlite3.Row and plain tuple in column order below.
-        if isinstance(row, sqlite3.Row):
+    def from_row(cls, row: Any) -> "ReconciliationQueueItem":
+        # Accept both mapping-style rows (DictRow) and plain tuples in
+        # the column order below.
+        if hasattr(row, "keys"):
             available = set(row.keys())
             getter = lambda key: row[key] if key in available else None
         else:

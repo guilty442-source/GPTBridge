@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Sequence
+
+from shared_layer.local.pg_adapter import PgConnection
+from shared_layer.local.pg_adapter import connect as pg_connect
 
 
 # Explicit projection columns — no SELECT * (columns must stay in DDL order).
@@ -40,10 +42,7 @@ class LocalSqliteCognitionRepository:
 
     def __init__(self, tool_root: Path) -> None:
         self.fallback = "local-cognition"
-        self.database_path = (
-            Path(tool_root).resolve() / "runtime" / "state" / "cognition.sqlite3"
-        )
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self.database_path = Path("postgresql:gptbridge_xingcheng")
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -113,11 +112,9 @@ class LocalSqliteCognitionRepository:
 
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        connection = sqlite3.connect(self.database_path, timeout=5)
-        connection.row_factory = sqlite3.Row
+    def _connect(self) -> Iterator[PgConnection]:
+        connection = pg_connect("gptbridge_xingcheng", autocommit=False)
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             yield connection
             connection.commit()
         except BaseException:
@@ -212,7 +209,7 @@ class LocalSqliteCognitionRepository:
         return [self._row_model_data(row) for row in rows]
 
     @staticmethod
-    def _row_model_data(row: sqlite3.Row) -> dict[str, Any]:
+    def _row_model_data(row: Any) -> dict[str, Any]:
         return {
             "model_data_id": str(row["model_data_id"]),
             "platform_id": str(row["platform_id"]),
@@ -289,7 +286,7 @@ class LocalSqliteCognitionRepository:
         return [self._row_knowledge(row) for row in rows]
 
     @staticmethod
-    def _row_knowledge(row: sqlite3.Row) -> dict[str, Any]:
+    def _row_knowledge(row: Any) -> dict[str, Any]:
         return {
             "knowledge_id": str(row["knowledge_id"]),
             "platform_id": str(row["platform_id"]),
@@ -366,7 +363,7 @@ class LocalSqliteCognitionRepository:
         return [self._row_capability(row) for row in rows]
 
     @staticmethod
-    def _row_capability(row: sqlite3.Row) -> dict[str, Any]:
+    def _row_capability(row: Any) -> dict[str, Any]:
         return {
             "capability_id": str(row["capability_id"]),
             "platform_id": str(row["platform_id"]),

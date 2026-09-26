@@ -1,16 +1,15 @@
 """RAG durable stores — A374 tombstone guard, reconciliation queue, outbox.
 
-SQLite-backed local durability for the bounded degraded path; in
-production the PostgreSQL authority is the canonical durable store.
+PostgreSQL-backed durability (A610/A621): the reconciliation queue lives in
+the ``gptbridge_rag`` schema; SQLite is retired.
 """
 from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import threading
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from .runtime_types import (
     CanonicalCheckError,
@@ -150,22 +149,20 @@ class TombstoneGuard:
 
 
 # ---------------------------------------------------------------------------
-# A374: Durable reconciliation queue (SQLite-backed for local authority;
-# PostgreSQL authority is the canonical durable store in production).
+# A374: Durable reconciliation queue (PostgreSQL-backed; sole durable store).
 # ---------------------------------------------------------------------------
 
 
 class ReconciliationQueue:
     """A374: durable queue of degraded mutations awaiting reconciliation.
 
-    The queue is durable: items survive process restarts.  In production the
-    canonical durable store is PostgreSQL; for local testing and for the
-    bounded degraded path a SQLite store is used.  The queue status lifecycle
-    is: pending → leased → reconciling → verified | conflict | failed |
+    The queue is durable: items survive process restarts in the
+    ``gptbridge_rag`` PostgreSQL schema.  The queue status lifecycle is:
+    pending → leased → reconciling → verified | conflict | failed |
     dead_letter.
     """
 
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(self, connection: Any) -> None:
         self.connection = connection
         self._lock = threading.Lock()
         self._ensure_schema()
@@ -208,9 +205,10 @@ class ReconciliationQueue:
                 """
             )
             existing = {
-                str(row[1])
+                str(row[0])
                 for row in self.connection.execute(
-                    "PRAGMA table_info(rag_reconciliation_queue)"
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'rag_reconciliation_queue'"
                 ).fetchall()
             }
             for column in ("degraded_indexed_at", "canonical_synced_at"):
@@ -291,10 +289,7 @@ class ReconciliationQueue:
                 (now, max(1, int(limit))),
             ).fetchall()
             # Single UPDATE for the whole batch — no per-row N+1.
-            ids = [
-                row["operation_id"] if isinstance(row, sqlite3.Row) else row[0]
-                for row in rows
-            ]
+            ids = [row["operation_id"] for row in rows]
             if ids:
                 placeholders = ", ".join("?" for _ in ids)
                 self.connection.execute(
