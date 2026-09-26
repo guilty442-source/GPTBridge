@@ -5,7 +5,7 @@
 //! come back from ANN retrieval).
 
 use std::collections::{HashMap, HashSet};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use hnsw_rs::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -129,11 +129,14 @@ pub fn filter_ok(payload: &Value, filter: &Filter) -> bool {
 pub struct Collection {
     pub dimension: usize,
     hnsw: RwLock<Hnsw<'static, f32, DistCosine>>,
-    forward: HashMap<String, usize>,
-    internal_to_id: HashMap<usize, String>,
+    // Point ids were stored as three owned String copies (forward key,
+    // internal_to_id value, payloads/tombstoned key) — Arc<str> shares one
+    // allocation across every index.
+    forward: HashMap<Arc<str>, usize>,
+    internal_to_id: HashMap<usize, Arc<str>>,
     vectors: HashMap<usize, Vec<f32>>,
-    pub payloads: HashMap<String, Value>,
-    tombstoned: HashSet<String>,
+    pub payloads: HashMap<Arc<str>, Value>,
+    tombstoned: HashSet<Arc<str>>,
     next_internal: usize,
 }
 
@@ -157,7 +160,7 @@ impl Collection {
         }
     }
 
-    pub fn upsert(&mut self, id: &str, vector: &[f32], payload: Value) -> Result<(), String> {
+    pub fn upsert(&mut self, id: &str, vector: Vec<f32>, payload: Value) -> Result<(), String> {
         if vector.len() != self.dimension {
             return Err(format!(
                 "DIMENSION_MISMATCH:point={} got={} want={}",
@@ -166,33 +169,40 @@ impl Collection {
                 self.dimension
             ));
         }
-        if let Some(&internal) = self.forward.get(id) {
-            self.vectors.insert(internal, vector.to_vec());
-            self.tombstoned.remove(id);
-            self.payloads.insert(id.to_string(), payload);
-            let hnsw = self.hnsw.read().unwrap();
-            hnsw.insert((&vector.to_vec(), internal));
-            return Ok(());
-        }
-        let internal = self.next_internal;
-        self.next_internal += 1;
-        self.forward.insert(id.to_string(), internal);
-        self.internal_to_id.insert(internal, id.to_string());
-        self.vectors.insert(internal, vector.to_vec());
-        self.payloads.insert(id.to_string(), payload);
+        let (arc_id, internal) = match self.forward.get_key_value(id) {
+            Some((key, &internal)) => {
+                self.tombstoned.remove(id);
+                (key.clone(), internal)
+            }
+            None => {
+                let internal = self.next_internal;
+                self.next_internal += 1;
+                let arc_id: Arc<str> = Arc::from(id);
+                self.forward.insert(arc_id.clone(), internal);
+                self.internal_to_id.insert(internal, arc_id.clone());
+                (arc_id, internal)
+            }
+        };
+        // One allocation per vector: the stored copy is also the HNSW
+        // insert operand — previously every upsert paid a second
+        // vector.to_vec() just to borrow it.
+        self.vectors.insert(internal, vector);
+        self.payloads.insert(arc_id, payload);
+        let stored = self.vectors.get(&internal).unwrap();
         let hnsw = self.hnsw.read().unwrap();
-        hnsw.insert((&vector.to_vec(), internal));
+        hnsw.insert((stored, internal));
         Ok(())
     }
 
     /// Tombstone the point — the derived index never hard-deletes in place;
     /// a snapshot rebuild drops tombstoned points permanently.
     pub fn delete(&mut self, id: &str) -> bool {
-        if self.forward.contains_key(id) {
-            self.tombstoned.insert(id.to_string());
-            true
-        } else {
-            false
+        match self.forward.get_key_value(id) {
+            Some((key, _)) => {
+                self.tombstoned.insert(key.clone());
+                true
+            }
+            None => false,
         }
     }
 
@@ -221,7 +231,7 @@ impl Collection {
         if live <= EXACT_SCAN_THRESHOLD {
             let mut scored: Vec<(String, f32, Value)> = Vec::with_capacity(top_k);
             for (id, internal) in &self.forward {
-                if self.tombstoned.contains(id) {
+                if self.tombstoned.contains(&**id) {
                     continue;
                 }
                 let payload = self.payloads.get(id).cloned().unwrap_or(Value::Null);
@@ -236,7 +246,7 @@ impl Collection {
                 if score < score_threshold {
                     continue;
                 }
-                scored.push((id.clone(), score, payload));
+                scored.push((id.to_string(), score, payload));
             }
             scored.sort_by(|x, y| y.1.total_cmp(&x.1));
             scored.truncate(top_k);
@@ -253,7 +263,7 @@ impl Collection {
                 Some(id) => id.clone(),
                 None => continue,
             };
-            if self.tombstoned.contains(&id) {
+            if self.tombstoned.contains(&*id) {
                 continue;
             }
             let score = 1.0 - n.distance;
@@ -264,7 +274,7 @@ impl Collection {
             if !filter_ok(&payload, filter) {
                 continue;
             }
-            hits.push((id, score, payload));
+            hits.push((id.to_string(), score, payload));
             if hits.len() >= top_k {
                 break;
             }
@@ -275,7 +285,7 @@ impl Collection {
     pub fn count_where(&self, filter: &Filter) -> usize {
         self.forward
             .keys()
-            .filter(|id| !self.tombstoned.contains(*id))
+            .filter(|id| !self.tombstoned.contains(&**id))
             .filter(|id| {
                 self.payloads
                     .get(*id)
@@ -288,7 +298,7 @@ impl Collection {
     pub fn dump(&self) -> Vec<SnapshotPoint> {
         let mut out = Vec::with_capacity(self.live_count());
         for (id, internal) in &self.forward {
-            if self.tombstoned.contains(id) {
+            if self.tombstoned.contains(&**id) {
                 continue;
             }
             let vector = match self.vectors.get(internal) {
@@ -301,7 +311,7 @@ impl Collection {
                 .map(|p| p.to_string())
                 .unwrap_or_else(|| "null".to_string());
             out.push(SnapshotPoint {
-                id: id.clone(),
+                id: id.to_string(),
                 vector,
                 payload_json: payload,
             });
@@ -314,7 +324,7 @@ impl Collection {
         for point in points {
             let payload: Value =
                 serde_json::from_str(&point.payload_json).unwrap_or(Value::Null);
-            collection.upsert(&point.id, &point.vector, payload)?;
+            collection.upsert(&point.id, point.vector, payload)?;
         }
         Ok(collection)
     }
@@ -416,10 +426,11 @@ impl Store {
         let coll = collections
             .get_mut(&resolved)
             .ok_or_else(|| format!("COLLECTION_MISSING:{}", resolved))?;
-        for (id, vector, payload) in &points {
-            coll.upsert(id, vector, payload.clone())?;
+        let count = points.len();
+        for (id, vector, payload) in points {
+            coll.upsert(&id, vector, payload)?;
         }
-        Ok(points.len())
+        Ok(count)
     }
 
     pub fn search(
@@ -444,7 +455,7 @@ impl Store {
         let coll = collections
             .get_mut(&resolved)
             .ok_or_else(|| format!("COLLECTION_MISSING:{}", resolved))?;
-        let doomed: Vec<String> = coll
+        let doomed: Vec<Arc<str>> = coll
             .payloads
             .iter()
             .filter(|(id, p)| {
