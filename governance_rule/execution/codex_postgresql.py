@@ -6,6 +6,7 @@ import hashlib
 import os
 import re
 import sqlite3
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Final, Iterator
@@ -34,13 +35,28 @@ def admin_dsn() -> str:
     return value
 
 
+_thread_local = threading.local()
+
+
 @contextmanager
 def readonly_connection() -> Iterator[psycopg.Connection[Any]]:
-    with psycopg.connect(
-        runtime_dsn(),
-        connect_timeout=5,
-        options="-c default_transaction_read_only=on",
-    ) as connection:
+    # Adjudication bursts issue several codex reads back-to-back; paying a
+    # fresh psycopg.connect (~250 ms of socket handshake measured on the
+    # event loop) per read starved the backend during startup.  Keep one
+    # read-only connection per thread and wrap each borrow in a real
+    # transaction, preserving the original single-snapshot semantics
+    # (SET LOCAL still scopes search_path to the borrowed transaction).
+    connection = getattr(_thread_local, "readonly_conn", None)
+    if connection is not None and (connection.closed or connection.broken):
+        connection = None
+    if connection is None:
+        connection = psycopg.connect(
+            runtime_dsn(),
+            connect_timeout=5,
+            options="-c default_transaction_read_only=on",
+        )
+        _thread_local.readonly_conn = connection
+    with connection.transaction():
         connection.execute(sql.SQL("SET LOCAL search_path TO {}, pg_catalog").format(sql.Identifier(CODEX_SCHEMA)))
         yield connection
 
