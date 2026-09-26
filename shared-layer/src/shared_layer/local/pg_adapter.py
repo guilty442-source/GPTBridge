@@ -114,6 +114,24 @@ def translate(statement: str, pk_resolver: Any = None) -> str:
         stmt,
     )
     stmt = _DATETIME_NOW_RE.sub("now()", stmt)
+    # COLLATE NOCASE: sqlite's case-insensitive collation has no direct
+    # PG builtin — drop it inside CREATE TABLE (case-sensitive key, as in
+    # the migrated schemas) and lower() the operand in query expressions.
+    if re.match(r"\s*CREATE\s+TABLE", stmt, re.IGNORECASE):
+        stmt = re.sub(r"\s+COLLATE\s+NOCASE", "", stmt, flags=re.IGNORECASE)
+    else:
+        stmt = re.sub(
+            r"([A-Za-z_][\w.]*)\s+COLLATE\s+NOCASE",
+            r"lower(\1)",
+            stmt,
+            flags=re.IGNORECASE,
+        )
+    # sqlite LIKE is ASCII case-insensitive; ILIKE is the faithful match.
+    stmt = re.sub(
+        r"\bLIKE\b(?=\s+(?:\?|'|\())", "ILIKE", stmt, flags=re.IGNORECASE
+    )
+    # sqlite idiom: LIMIT -1 means "no bound" (usually with OFFSET).
+    stmt = re.sub(r"\bLIMIT\s+-1\b", "LIMIT ALL", stmt, flags=re.IGNORECASE)
     # strftime('%Y-%m-%dT%H:%M:%SZ','now') keeps its ISO-8601 text shape;
     # any other format degrades to now() (timestamp).
     stmt = _STRFTIME_NOW_RE.sub(
@@ -190,17 +208,31 @@ def _append_conflict_clause(stmt: str, mode: str, pk_resolver: Any = None) -> st
 
 def _split_script(script: str) -> Iterator[str]:
     """Split a multi-statement script on ``;`` while respecting ``$$``-quoted
-    function bodies (PL/pgSQL) and single-quoted strings."""
+    function bodies (PL/pgSQL), single-quoted strings, ``--`` line comments
+    and ``/* */`` block comments."""
     parts: list[str] = []
     current: list[str] = []
     in_dollar = False
     in_string = False
+    in_line_comment = False
+    in_block_comment = False
     i = 0
     while i < len(script):
         ch = script[i]
-        if in_dollar:
+        nxt = script[i : i + 2]
+        if in_line_comment:
             current.append(ch)
-            if ch == "$" and script[i : i + 2] == "$$":
+            if ch == "\n":
+                in_line_comment = False
+        elif in_block_comment:
+            current.append(ch)
+            if nxt == "*/":
+                current.append("/")
+                in_block_comment = False
+                i += 1
+        elif in_dollar:
+            current.append(ch)
+            if nxt == "$$":
                 current.append("$")
                 in_dollar = False
                 i += 1
@@ -209,7 +241,13 @@ def _split_script(script: str) -> Iterator[str]:
             if ch == "'":
                 in_string = False
         else:
-            if ch == "$" and script[i : i + 2] == "$$":
+            if nxt == "--":
+                in_line_comment = True
+                current.append(ch)
+            elif nxt == "/*":
+                in_block_comment = True
+                current.append(ch)
+            elif nxt == "$$":
                 in_dollar = True
                 current.append(ch)
                 current.append("$")

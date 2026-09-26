@@ -227,16 +227,6 @@ def read_item(item_id: int) -> dict[str, object]:
         candidate = str(spec.get("return_expression") or "null").strip()[:4_000]
         return "null" if candidate in {"", "None"} else candidate
 
-    @staticmethod
-    def _script_type(value: Any, default: str = "unknown") -> str:
-        candidate = str(value or default).strip()[:120]
-        if re.fullmatch(
-            r"[A-Za-z_$][\w$]*(?:\s*<\s*[A-Za-z_$][\w$]*(?:\s*,\s*[A-Za-z_$][\w$]*)*\s*>)?(?:\[\])?",
-            candidate,
-        ):
-            return candidate
-        return default
-
     @classmethod
     def _script_source(cls, spec: dict[str, Any], prompt: str) -> str:
         kind = str(spec.get("kind") or "function")
