@@ -236,13 +236,28 @@ class LocalAiLifecycleMixin:
 
         repo_root = Path(__file__).resolve().parents[7]
         module_dir = repo_root / "Standalone tools" / "searchd-go"
-        go_exe = repo_root / ".tools" / "go" / "go" / "bin" / "go.exe"
-        if not go_exe.is_file() or not (module_dir / "go.mod").is_file():
+        # Toolchain resolution: explicit env > NTFS toolchain (DriveFS stalls
+        # process-image loads for the compiler tools) > repo vendored copy.
+        candidates = [
+            Path(os.environ["GPTBRIDGE_GO_EXE"])
+            if os.environ.get("GPTBRIDGE_GO_EXE")
+            else None,
+            Path(os.environ.get("LOCALAPPDATA", ""))
+            / "GPTBridge" / "tools" / "go" / "bin" / "go.exe",
+            repo_root / ".tools" / "go" / "go" / "bin" / "go.exe",
+        ]
+        go_exe = next((p for p in candidates if p and p.is_file()), None)
+        if go_exe is None or not (module_dir / "go.mod").is_file():
             return False
         env = os.environ.copy()
         env.update(
             {
-                "GOCACHE": str(repo_root / ".tools" / "gocache"),
+                # Build cache must live on a real filesystem — a repo-local
+                # cache under DriveFS stalls compile/link tool I/O.
+                "GOCACHE": str(
+                    Path(os.environ.get("LOCALAPPDATA", "."))
+                    / "GPTBridge" / "gocache"
+                ),
                 "GOFLAGS": "-buildvcs=false",
                 "GOPROXY": "off",
                 "GOSUMDB": "off",

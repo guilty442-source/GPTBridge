@@ -139,11 +139,14 @@ class ServerSingleton:
         return payload if isinstance(payload, dict) else None
 
     def _wait_until_gone(self, pid: int) -> bool:
+        # Perf/low-CPU: commandlines() enumerates every process + per-pid
+        # cmdline; 0.25s granularity is ample for a multi-second kill
+        # timeout (50 scans -> 20 scans over 5s).
         deadline = time.monotonic() + self._kill_timeout_seconds
         while time.monotonic() < deadline:
             if pid not in self._table.commandlines():
                 return True
-            self._table.sleep(0.1)
+            self._table.sleep(0.25)
         return pid not in self._table.commandlines()
 
     def _terminate(self, pid: int, excluded: set[int]) -> bool:

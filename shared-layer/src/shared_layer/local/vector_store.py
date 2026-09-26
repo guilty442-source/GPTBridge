@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, Final, Iterator, Optional
 
 from .native_kernel import available as _native_available
+from .native_kernel import dot_vectors as _native_dot
 from ..security.qdrant_scope import QdrantScopeError
 
 COLLECTION: Final[str] = "gptbridge_shared_knowledge"
@@ -160,6 +161,8 @@ class LocalVectorStore:
                     key TEXT NOT NULL PRIMARY KEY,
                     value TEXT NOT NULL
                 );
+                CREATE INDEX IF NOT EXISTS idx_collection_point_module
+                    ON collection_point (module_id);
                 """
             )
 
@@ -168,7 +171,14 @@ class LocalVectorStore:
         connection = sqlite3.connect(self.database_path, timeout=5)
         connection.row_factory = sqlite3.Row
         try:
+            # Perf/low-IO: WAL + NORMAL sync + larger cache + memory temp
+            # store. WAL persists after first set; the rest are per-connection
+            # and cheap to re-apply.
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("PRAGMA synchronous=NORMAL")
             connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("PRAGMA cache_size=-64000")
+            connection.execute("PRAGMA temp_store=MEMORY")
             yield connection
             connection.commit()
         except BaseException:
@@ -372,14 +382,21 @@ class LocalVectorStore:
         if not module_ids:
             raise QdrantScopeError("QDRANT_MODULE_SCOPE_REQUIRED")
         query_vector = _normalize([float(value) for value in vector])
-        bounded_limit = max(int(limit) * 4, min(int(limit) * 4, 500))
+        # Perf: bound the SQL candidate ceiling (was a dead
+        # max(x, min(x, 500)) that always evaluated to x — unbounded).
+        bounded_limit = max(int(limit), min(int(limit) * 4, 500))
         rows = self._fetch_rows(module_ids, bounded_limit)
         scored: list[tuple[float, dict[str, Any]]] = []
+        qv = query_vector
+        qlen = len(qv)
         for row in rows:
             stored = _unpack_vector(row["vector"])
-            if stored is None or len(stored) != len(query_vector):
+            if stored is None or len(stored) != qlen:
                 continue
-            score = _cosine(query_vector, stored)
+            # Fast path: both sides are L2-normalized at write/query time,
+            # so cosine == dot product — skips 2 sqrt per candidate vs
+            # _cosine() and uses the native kernel when available.
+            score = _native_dot(qv, stored)
             scored.append((score, self._hit_record(row, score)))
         scored.sort(key=lambda item: item[0], reverse=True)
         return [record for score, record in scored[: max(0, int(limit))]]
