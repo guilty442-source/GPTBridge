@@ -559,6 +559,24 @@ class PackageVersionDriver:
             pass
 
     def _write_state(self) -> None:
+        # Perf/low-IO: ticks usually repeat the same decision — skip the
+        # tmp-write + replace when content (excluding ``written_at``)
+        # matches the last write.
+        fingerprint = json.dumps(
+            {
+                "flow": FLOW_ID,
+                "last_decision": self._last_decision,
+                "last_error": self._last_error,
+                "drift": self._last_drift,
+                "upgrades": self._last_upgrades,
+                "pending_upgrade": self._last_pending,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+        )
+        if getattr(self, "_last_state_json", None) == fingerprint:
+            return
         payload = {
             "flow": FLOW_ID,
             "last_decision": self._last_decision,
@@ -576,6 +594,7 @@ class PackageVersionDriver:
                 encoding="utf-8",
             )
             os.replace(tmp, self._state_path)
+            self._last_state_json = fingerprint
         except OSError:
             pass
 

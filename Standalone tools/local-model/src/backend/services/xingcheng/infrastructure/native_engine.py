@@ -170,7 +170,11 @@ def configured_checkpoint_path() -> Path:
     if configured:
         candidate = Path(configured)
         return candidate if candidate.is_absolute() else tool_root() / candidate
-    directory = _native().default_checkpoint_dir()
+    # A612: torch-free path resolution; _native() would pull the retired
+    # torch lineage just to compute a directory.
+    from .native_transformer.config import default_checkpoint_dir
+
+    directory = default_checkpoint_dir()
     candidates = sorted(
         directory.rglob("*.pt"), key=lambda item: item.stat().st_mtime, reverse=True
     ) if directory.is_dir() else []

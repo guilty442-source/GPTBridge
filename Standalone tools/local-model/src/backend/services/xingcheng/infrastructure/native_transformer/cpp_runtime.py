@@ -229,6 +229,24 @@ def load_engine(bundle_dir: str | Path, *, kv_memory_limit: int = 0) -> Any:
     return engine
 
 
+# Perf/bounded-growth: mirrors native_engine._maybe_trim_execution_ledger
+# (kept local to avoid import cycles on the hot inference path).
+_EXECUTION_LEDGER_TRIM_BYTES = 1_048_576
+_EXECUTION_LEDGER_KEEP_LINES = 2000
+
+
+def _maybe_trim_execution_ledger(ledger: Path) -> None:
+    try:
+        if ledger.stat().st_size <= _EXECUTION_LEDGER_TRIM_BYTES:
+            return
+        lines = ledger.read_text(encoding="utf-8").splitlines(keepends=True)
+        if len(lines) <= _EXECUTION_LEDGER_KEEP_LINES:
+            return
+        ledger.write_text("".join(lines[-_EXECUTION_LEDGER_KEEP_LINES:]), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def _ledger_append(entry: dict[str, Any]) -> None:
     from ..native_engine import tool_root as _root
 
@@ -237,6 +255,7 @@ def _ledger_append(entry: dict[str, Any]) -> None:
         ledger.parent.mkdir(parents=True, exist_ok=True)
         with ledger.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        _maybe_trim_execution_ledger(ledger)
     except OSError:
         pass
 

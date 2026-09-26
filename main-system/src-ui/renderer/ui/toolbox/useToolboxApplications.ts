@@ -212,6 +212,19 @@ export function useToolboxApplications({
         current.map((tool) => {
           const sized = sizesById.get(tool.id)
           if (!sized) return tool
+          // Perf/low-render: hydration retries re-run the disk scan with
+          // identical results — keep referential equality when every
+          // field matches so downstream does not recompute per retry.
+          if (
+            tool.folderPath === sized.folderPath &&
+            tool.manifestPath === sized.manifestPath &&
+            tool.codePath === sized.codePath &&
+            tool.projectSizeBytes === sized.projectSizeBytes &&
+            tool.projectFileCount === sized.projectFileCount &&
+            tool.capacityBreakdown === sized.capacityBreakdown
+          ) {
+            return tool
+          }
           return {
             ...tool,
             folderPath: sized.folderPath,

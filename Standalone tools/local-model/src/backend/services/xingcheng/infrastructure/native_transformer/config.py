@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
+from pathlib import Path
 from typing import Any, Mapping
 
 
@@ -273,3 +274,13 @@ def build_model_config(preset: str, tokenizer: Any, block_size: int) -> XingChen
         config.max_position_embeddings, block_size
     )
     return config
+
+
+def default_checkpoint_dir() -> Path:
+    """Torch-free path helper (A612): the checkpoint root must be
+    resolvable without importing the retired torch lineage.
+    ``Standalone tools/local-model/xingcheng/runtime/models/``.
+    """
+    # .../services/xingcheng/infrastructure/native_transformer/config.py
+    local_model_root = Path(__file__).resolve().parents[6]
+    return local_model_root / "xingcheng" / "runtime" / "models"

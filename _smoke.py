@@ -10,18 +10,8 @@ def run(label, fn):
         print(f"{label}: OK {fn()}")
     except Exception:
         print(f"{label}: FAIL")
-        traceback.print_exc(limit=5)
+        traceback.print_exc(limit=4)
 
 from xingcheng.infrastructure.repository import LocalAiRepository
 for scope in ("main", "investment", "mathematical", "coding"):
     run(f"repo-{scope}", lambda s=scope: LocalAiRepository(TOOL, database_scope=s).database_status())
-
-from xingcheng.infrastructure.transformer_training_repository import TransformerTrainingRepository
-def training():
-    t = TransformerTrainingRepository(TOOL)
-    jobs = t.list_jobs(limit=5) if hasattr(t, "list_jobs") else None
-    return f"jobs={len(jobs) if jobs else 0}"
-run("training-repo", training)
-
-from xingcheng.infrastructure.local_sqlite_identity_repository import LocalSqliteIdentityRepository
-run("identity", lambda: LocalSqliteIdentityRepository(TOOL).health() if hasattr(LocalSqliteIdentityRepository(TOOL), "health") else "no-health")

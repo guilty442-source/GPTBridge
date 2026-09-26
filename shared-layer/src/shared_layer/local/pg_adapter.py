@@ -206,9 +206,14 @@ class PgRow(dict):
 
     __slots__ = ("_values",)
 
-    def __init__(self, values: dict[str, Any]) -> None:
+    def __init__(
+        self, values: dict[str, Any], ordered: Sequence[Any] | None = None
+    ) -> None:
         super().__init__(values)
-        self._values = list(values.values())
+        # Unnamed expressions share a column name (e.g. several COALESCE(...)
+        # columns all named "coalesce"); the dict collapses duplicates, so the
+        # positional view must come from the raw value sequence.
+        self._values = list(ordered) if ordered is not None else list(values.values())
 
     def __getitem__(self, key: Any) -> Any:
         if isinstance(key, (int, slice)):
@@ -228,7 +233,7 @@ def _pg_row_factory(cursor: Any) -> Any:
     names = [column.name for column in description]
 
     def make_row(values: Sequence[Any]) -> PgRow:
-        return PgRow(dict(zip(names, values)))
+        return PgRow(dict(zip(names, values)), ordered=values)
 
     return make_row
 

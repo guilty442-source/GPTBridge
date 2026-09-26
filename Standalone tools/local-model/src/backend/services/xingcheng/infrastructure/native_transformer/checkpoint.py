@@ -19,18 +19,11 @@ from typing import Any, Mapping
 
 import torch
 
-from .config import XingChengConfig
+from .config import XingChengConfig, default_checkpoint_dir
 from .modules.model import XingChengForCausalLM
 from .tokenizer import XingChengTokenizer
 
 FORMAT_VERSION = "star-transformer-checkpoint/v1"
-
-
-def default_checkpoint_dir() -> Path:
-    """藍圖預設落點：``Standalone tools/local-model/xingcheng/runtime/models/``。"""
-    # .../services/xingcheng/infrastructure/native_transformer/checkpoint.py
-    local_model_root = Path(__file__).resolve().parents[6]
-    return local_model_root / "xingcheng" / "runtime" / "models"
 
 
 def _iso_now() -> str:
