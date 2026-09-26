@@ -4,21 +4,57 @@ INPUT: typed-errors+repair-outcomes+verification-results
 LEARN: normalized-signature+success-rate+bounded-recipe
 AUTOMATION: verified-repeatable-recipes-only
 EXECUTION: maintenance-governed-executor
+
+A610/A621: PostgreSQL is the sole structured-data authority. The retired
+``auto-repair-learning.sqlite3`` store is superseded by the
+``gptbridge_repair`` schema; chain-learning rows live in
+``chain_repair_outcomes`` / ``chain_learned_recipes`` (the unprefixed
+names belong to ``tasks.repair_learning``).
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from shared_layer.local import pg_adapter
+
 from core_system.auto_repair_chain_types import (
     GovernanceAudit,
     LearnedRecipe,
     VerificationResult,
+)
+
+PG_SCHEMA = "gptbridge_repair"
+
+_SCHEMA_STATEMENTS: tuple[str, ...] = (
+    """CREATE TABLE IF NOT EXISTS chain_repair_outcomes (
+        run_id TEXT PRIMARY KEY,
+        signature_hash TEXT NOT NULL,
+        error_class TEXT NOT NULL,
+        message_pattern TEXT,
+        failure_code TEXT,
+        remedy TEXT NOT NULL,
+        ok INTEGER NOT NULL,
+        verification_result TEXT,
+        detail_json TEXT,
+        created_at TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS chain_learned_recipes (
+        recipe_id TEXT PRIMARY KEY,
+        signature_hash TEXT NOT NULL,
+        error_class TEXT NOT NULL,
+        message_pattern TEXT,
+        remedy TEXT NOT NULL,
+        success_rate REAL NOT NULL,
+        occurrence_count INTEGER NOT NULL,
+        verification_proof_json TEXT NOT NULL,
+        promoted_at TEXT NOT NULL,
+        promoted_by TEXT NOT NULL
+    )""",
 )
 
 
@@ -34,43 +70,13 @@ class RepairLearningStore:
     def __init__(self, repair_root: Path, audit: GovernanceAudit):
         self.repair_root = repair_root
         self.audit = audit
-        self._db_path = repair_root / "auto-repair-learning.sqlite3"
+        self._db_path = f"postgresql:{PG_SCHEMA}"
         self._init_db()
 
     def _init_db(self) -> None:
-        self.repair_root.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self._db_path, timeout=10) as conn:
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA synchronous=NORMAL")
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS repair_outcomes (
-                    run_id TEXT PRIMARY KEY,
-                    signature_hash TEXT NOT NULL,
-                    error_class TEXT NOT NULL,
-                    message_pattern TEXT,
-                    failure_code TEXT,
-                    remedy TEXT NOT NULL,
-                    ok INTEGER NOT NULL,
-                    verification_result TEXT,
-                    detail_json TEXT,
-                    created_at TEXT NOT NULL
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS learned_recipes (
-                    recipe_id TEXT PRIMARY KEY,
-                    signature_hash TEXT NOT NULL,
-                    error_class TEXT NOT NULL,
-                    message_pattern TEXT,
-                    remedy TEXT NOT NULL,
-                    success_rate REAL NOT NULL,
-                    occurrence_count INTEGER NOT NULL,
-                    verification_proof_json TEXT NOT NULL,
-                    promoted_at TEXT NOT NULL,
-                    promoted_by TEXT NOT NULL
-                )
-            """)
-            conn.commit()
+        with pg_adapter.connect(PG_SCHEMA) as conn:
+            for statement in _SCHEMA_STATEMENTS:
+                conn.execute(statement)
 
     def record_outcome(
         self,
@@ -84,9 +90,9 @@ class RepairLearningStore:
         detail: dict[str, Any],
     ) -> None:
         """Record repair outcome for learning."""
-        with sqlite3.connect(self._db_path, timeout=10) as conn:
+        with pg_adapter.connect(PG_SCHEMA) as conn:
             conn.execute("""
-                INSERT OR REPLACE INTO repair_outcomes
+                INSERT OR REPLACE INTO chain_repair_outcomes
                 (run_id, signature_hash, error_class, message_pattern, failure_code, remedy, ok, verification_result, detail_json, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
@@ -101,7 +107,6 @@ class RepairLearningStore:
                 json.dumps(detail, ensure_ascii=False),
                 datetime.now(timezone.utc).isoformat(),
             ))
-            conn.commit()
 
     def analyze_history(self, signature_hash: str | None = None) -> dict[str, Any]:
         """Analyze repair history for promotion candidates.
@@ -114,20 +119,20 @@ class RepairLearningStore:
             SELECT signature_hash, error_class, message_pattern, remedy,
                    COUNT(*) as count,
                    SUM(ok) as successes,
-                   SUM(verification_result = 'passed') as passed_count
-            FROM repair_outcomes
+                   SUM(CASE WHEN verification_result = 'passed' THEN 1 ELSE 0 END) as passed_count
+            FROM chain_repair_outcomes
         """
         params: tuple[Any, ...] = ()
         if signature_hash:
             query += " WHERE signature_hash = ?"
             params = (signature_hash,)
         query += """
-            GROUP BY signature_hash, remedy
-            HAVING count >= 3 AND successes * 1.0 / count >= 0.8
-               AND passed_count > 0
+            GROUP BY signature_hash, error_class, message_pattern, remedy
+            HAVING COUNT(*) >= 3
+               AND SUM(ok) * 1.0 / COUNT(*) >= 0.8
+               AND SUM(CASE WHEN verification_result = 'passed' THEN 1 ELSE 0 END) > 0
         """
-        with sqlite3.connect(self._db_path, timeout=10) as conn:
-            conn.row_factory = sqlite3.Row
+        with pg_adapter.connect(PG_SCHEMA) as conn:
             cursor = conn.execute(query, params)
             candidates = [
                 {
@@ -144,9 +149,9 @@ class RepairLearningStore:
 
     def _existing_recipe_id(self, signature_hash: str, remedy: str) -> Optional[str]:
         """Return the recipe_id already promoted for this signature+remedy."""
-        with sqlite3.connect(self._db_path, timeout=10) as conn:
+        with pg_adapter.connect(PG_SCHEMA) as conn:
             row = conn.execute(
-                "SELECT recipe_id FROM learned_recipes WHERE signature_hash = ? AND remedy = ?",
+                "SELECT recipe_id FROM chain_learned_recipes WHERE signature_hash = ? AND remedy = ?",
                 (signature_hash, remedy),
             ).fetchone()
         return row[0] if row else None
@@ -155,10 +160,10 @@ class RepairLearningStore:
         """Refresh an already-promoted recipe instead of duplicating it."""
         proof = {"promotion_criteria": "success_rate>=0.8,verified=passed,count>=3"}
         promoted_at = datetime.now(timezone.utc).isoformat()
-        with sqlite3.connect(self._db_path, timeout=10) as conn:
+        with pg_adapter.connect(PG_SCHEMA) as conn:
             conn.execute(
                 """
-                UPDATE learned_recipes
+                UPDATE chain_learned_recipes
                 SET success_rate = ?, occurrence_count = ?,
                     verification_proof_json = ?, promoted_at = ?
                 WHERE recipe_id = ?
@@ -171,7 +176,6 @@ class RepairLearningStore:
                     recipe_id,
                 ),
             )
-            conn.commit()
         return LearnedRecipe(
             recipe_id=recipe_id,
             signature_hash=candidate["signature_hash"],
@@ -209,9 +213,9 @@ class RepairLearningStore:
             promoted_at=datetime.now(timezone.utc).isoformat(),
         )
 
-        with sqlite3.connect(self._db_path, timeout=10) as conn:
+        with pg_adapter.connect(PG_SCHEMA) as conn:
             conn.execute("""
-                INSERT OR REPLACE INTO learned_recipes
+                INSERT OR REPLACE INTO chain_learned_recipes
                 (recipe_id, signature_hash, error_class, message_pattern, remedy, success_rate, occurrence_count, verification_proof_json, promoted_at, promoted_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
@@ -226,7 +230,6 @@ class RepairLearningStore:
                 recipe.promoted_at,
                 recipe.promoted_by,
             ))
-            conn.commit()
 
         self.audit.record("recipe_promoted", {
             "recipe_id": recipe.recipe_id,
@@ -238,13 +241,12 @@ class RepairLearningStore:
 
     def get_learned_recipes(self) -> list[dict[str, Any]]:
         """Get all learned recipes."""
-        with sqlite3.connect(self._db_path, timeout=10) as conn:
-            conn.row_factory = sqlite3.Row
+        with pg_adapter.connect(PG_SCHEMA) as conn:
             cursor = conn.execute(
                 "SELECT recipe_id, signature_hash, error_class, message_pattern, "
                 "remedy, success_rate, occurrence_count, verification_proof_json, "
                 "promoted_at, promoted_by "
-                "FROM learned_recipes ORDER BY promoted_at DESC"
+                "FROM chain_learned_recipes ORDER BY promoted_at DESC"
             )
             return [dict(row) for row in cursor]
 

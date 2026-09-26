@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from typing import Any
 
 from .collab_repo_constants import DEFAULT_AGENTS, RETIRED_AGENT_IDS, utc_now
@@ -182,7 +181,7 @@ class CollabRepoSchemaMixin:
                 """
             )
 
-    def _ensure_migration_columns(self, connection: sqlite3.Connection) -> None:
+    def _ensure_migration_columns(self, connection: Any) -> None:
         self._ensure_column(connection, "ai_nexus_agents", "general_url", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_agents", "investment_url", "TEXT NOT NULL DEFAULT ''")
         self._ensure_column(connection, "ai_nexus_agents", "star_training_url", "TEXT NOT NULL DEFAULT ''")
@@ -214,7 +213,7 @@ class CollabRepoSchemaMixin:
 
     @staticmethod
     def _ensure_column(
-        connection: sqlite3.Connection,
+        connection: Any,
         table: str,
         column: str,
         definition: str,
@@ -249,7 +248,7 @@ class CollabRepoSchemaMixin:
 
     @staticmethod
     def _seed_default_agent(
-        connection: sqlite3.Connection,
+        connection: Any,
         agent: dict[str, Any],
         now: str,
     ) -> None:
@@ -297,7 +296,7 @@ class CollabRepoSchemaMixin:
 
     @staticmethod
     def _normalized_stored_capabilities(
-        agent_id: str, row: sqlite3.Row
+        agent_id: str, row: Any
     ) -> list[str]:
         try:
             capabilities = [

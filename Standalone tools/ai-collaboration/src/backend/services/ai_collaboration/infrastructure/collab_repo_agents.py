@@ -3,7 +3,6 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
-import sqlite3
 from typing import Any
 from urllib.parse import urlparse
 
@@ -219,7 +218,7 @@ class CollabRepoAgentsMixin:
         return capabilities
 
     @staticmethod
-    def _agent_row(row: sqlite3.Row) -> dict[str, Any]:
+    def _agent_row(row: Any) -> dict[str, Any]:
         item = dict(row)
         try:
             parsed = json.loads(str(item.pop("business_capabilities_json", "[]")))

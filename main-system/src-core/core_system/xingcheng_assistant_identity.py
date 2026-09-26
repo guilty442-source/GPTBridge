@@ -14,28 +14,30 @@ A592/A604 剝離：助理身分組與其專用資料庫由此模組自行持有�
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 from typing import Any
+
+from shared_layer.local import pg_adapter
 
 
 # 機構身份常量 — 來自 Governance Codex
 XINGCHENG_ASSISTANT_IDENTITY_GROUP = "xingcheng-assistant-identity-group"
 XINGCHENG_ASSISTANT_DISPLAY_NAME = "星澄助理"
 XINGCHENG_ASSISTANT_ENTITY_KIND = "independent-privileged-institution"
+# A610/A621: the assistant identity store lives in the ``gptbridge_xingcheng``
+# PostgreSQL schema; the dedicated sqlite file is retired.
 ASSISTANT_IDENTITY_DATABASE = "xingcheng_assistant_identity"
+PG_SCHEMA = "gptbridge_xingcheng"
 
 
 class XingchengAssistantIdentityStore:
-    """Owns the assistant's dedicated identity database — nothing else."""
+    """Owns the assistant's dedicated identity store — nothing else."""
 
     def __init__(self, project_root: Path) -> None:
-        root = Path(project_root) / "main-system" / "runtime" / "data"
-        self.assistant_path = root / f"{ASSISTANT_IDENTITY_DATABASE}.sqlite3"
+        self.assistant_path = f"postgresql:{PG_SCHEMA}"
 
     def initialize(self) -> None:
-        self.assistant_path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.assistant_path) as connection:
+        with pg_adapter.connect(PG_SCHEMA) as connection:
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS assistant_identity_group ("
                 "group_id TEXT PRIMARY KEY CHECK(group_id = "
@@ -56,7 +58,7 @@ class XingchengAssistantIdentityStore:
 
     def status(self) -> dict[str, Any]:
         return {
-            "assistant_database": self.assistant_path.name,
+            "assistant_database": self.assistant_path,
             "shared_authority": False,
         }
 

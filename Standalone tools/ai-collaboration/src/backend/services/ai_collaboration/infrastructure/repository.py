@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
+from typing import Any
+
+from shared_layer.local import pg_adapter
 
 from .collab_repo_constants import DEFAULT_AGENTS, utc_now
 from .collab_repo_schema import CollabRepoSchemaMixin
@@ -12,6 +14,8 @@ from .collab_repo_collab import CollabRepoTasksMixin
 
 __all__ = ["AiCollaborationRepository", "DEFAULT_AGENTS", "utc_now"]
 
+PG_SCHEMA = "gptbridge_collab"
+
 
 class AiCollaborationRepository(
     CollabRepoSchemaMixin,
@@ -21,12 +25,13 @@ class AiCollaborationRepository(
     CollabRepoTasksMixin,
 ):
     def __init__(self, project_root: Path) -> None:
-        self.db_path = project_root / "runtime" / "state" / "ai_collaboration.sqlite3"
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # A610/A621: PostgreSQL is the sole structured-data authority; the
+        # retired ai_collaboration.sqlite3 store was migrated into the
+        # ``gptbridge_collab`` schema via the governed sqlite_to_pg
+        # pipeline with ledger evidence.
+        self.db_path = f"postgresql:{PG_SCHEMA}"
         self._ensure_schema()
         self._ensure_default_agents()
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.db_path)
-        connection.row_factory = sqlite3.Row
-        return connection
+    def _connect(self) -> Any:
+        return pg_adapter.connect(PG_SCHEMA)
