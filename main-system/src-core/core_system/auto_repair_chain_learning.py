@@ -76,7 +76,7 @@ class RepairLearningStore:
     def _init_db(self) -> None:
         with pg_adapter.connect(PG_SCHEMA) as conn:
             for statement in _SCHEMA_STATEMENTS:
-                conn.execute(statement)
+                conn.execute(statement)  # sql-ok: idempotent DDL bootstrap
 
     def record_outcome(
         self,

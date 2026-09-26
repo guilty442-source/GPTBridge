@@ -1,4 +1,4 @@
-﻿"""E2E stage adapters ??each wraps a REAL primitive so measurements are
+"""E2E stage adapters ??each wraps a REAL primitive so measurements are
 honest, not simulated:
 
 - ts_dispatch / serialization: real json.dumps of the request payload

@@ -1,6 +1,6 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-26T05:47:48Z",
+  "generated_at": "2026-09-26T13:42:22Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
     "native_checks": 334,
@@ -1524,7 +1524,7 @@
         "DRAIN_TRANSPORT",
         "FLUSH_AUDIT",
         "CLOSE_VECTOR_CLIENT",
-        "CLOSE_SQLITE",
+        "CLOSE_MODULE_PRIVATE_POOLS",
         "CLOSE_POSTGRES_POOLS",
         "get_shutdown_order"
       ]

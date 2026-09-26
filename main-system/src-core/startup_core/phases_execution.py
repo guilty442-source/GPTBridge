@@ -48,18 +48,32 @@ def _probe_private_state(state_root: Any) -> dict[str, Any]:
         detail["reason"] = f"adapter-unavailable:{type(error).__name__}"
         return detail
     ok = True
+    # One connection + one query for every expected schema — per-store
+    # connect() inside the loop was connection churn (and, with a pooled
+    # adapter, redundant probes).  Checking information_schema directly is
+    # also stricter: the old ``schema_name = current_schema()`` probe was
+    # always true once any connection succeeded.
+    expected = sorted({schema for _, schema in _PRIVATE_STATE_STORES})
+    try:
+        with pg_adapter.connect(expected[0]) as conn:
+            rows = conn.execute(
+                "SELECT schema_name FROM information_schema.schemata "
+                "WHERE schema_name = ANY(%s)",
+                (expected,),
+            ).fetchall()
+        present = {row["schema_name"] for row in rows}
+    except Exception as error:  # noqa: BLE001 — probe must not raise
+        detail["ready"] = False
+        detail["reason"] = f"probe-fault:{type(error).__name__}: {error}"
+        detail["probed"] = len(_PRIVATE_STATE_STORES)
+        return detail
     for name, schema in _PRIVATE_STATE_STORES:
         detail["probed"] += 1
-        try:
-            with pg_adapter.connect(schema) as conn:
-                conn.execute(
-                    "SELECT 1 FROM information_schema.schemata "
-                    "WHERE schema_name = current_schema()"
-                ).fetchone()
+        if schema in present:
             detail["stores"][name] = f"ok:postgresql:{schema}"
-        except Exception as error:  # noqa: BLE001 — probe must not raise
+        else:
             ok = False
-            detail["stores"][name] = f"fault:{type(error).__name__}: {error}"
+            detail["stores"][name] = f"missing:postgresql:{schema}"
     detail["ready"] = ok and detail["probed"] > 0
     return detail
 
