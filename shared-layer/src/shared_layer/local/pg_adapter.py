@@ -606,9 +606,13 @@ def connect(
             connect_timeout=connect_timeout,
             row_factory=row_factory or _pg_row_factory,
         )
-        conn.execute(
-            "SET search_path TO " + '"' + schema.replace('"', "") + '", public'
-        )
+    # SET lives inside the caller's transaction for autocommit=False
+    # connections — a rollback reverts it.  Re-applying on every checkout
+    # (and fresh connect) keeps pooled connections self-healing instead of
+    # permanently serving the default "$user", public search path.
+    conn.execute(
+        "SET search_path TO " + '"' + schema.replace('"', "") + '", public'
+    )
     return PgConnection(conn, schema, pool_key)
 
 

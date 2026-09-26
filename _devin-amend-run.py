@@ -196,13 +196,51 @@ async def _worker(paths: list[str]) -> int:
             return 2
         print("local-model active", flush=True)
 
+        # The governed request queue is strict FIFO (same priority_class):
+        # stale xingcheng requests queued while the tool was down block any
+        # new search behind them.  Wait for the tool to drain the backlog —
+        # observed drain ~4 rows/s; bounded at 12 min.
+        try:
+            import psycopg
+
+            dsn = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "")
+            drain_deadline = time.monotonic() + 720.0
+            last = -1
+            while time.monotonic() < drain_deadline:
+                try:
+                    with psycopg.connect(dsn) as conn:
+                        count = conn.execute(
+                            "SELECT count(*) FROM gptbridge_transport.tool_request "
+                            "WHERE target_tool_id='xingcheng' AND status='queued'"
+                        ).fetchone()[0]
+                except Exception:
+                    count = -1
+                if count != last:
+                    print(f"queue pending: {count}", flush=True)
+                    last = count
+                if count == 0:
+                    break
+                await asyncio.sleep(2)
+            print("queue drained" if count == 0 else f"queue still {count} — proceeding anyway", flush=True)
+        except Exception as exc:
+            print(f"drain-watch unavailable: {exc}", flush=True)
+
         # Warm the xingcheng_web_search path before the audit: the
         # five-sovereign gate carries a hard 30 s flow deadline and a cold
         # first roundtrip (searchd spin-up inside local-model) blows it.
-        t0 = time.monotonic()
-        warm = await _search_roundtrip(service, sovereign, "codex-audit-warmup")
-        print("warmup search:", round(time.monotonic() - t0, 1), "s ->",
-              json.dumps(warm, ensure_ascii=False)[:400], flush=True)
+        # Retry until the roundtrip returns ok — a stale claimed lease or
+        # slow first poll can eat one window.
+        warm = {}
+        for attempt in range(3):
+            t0 = time.monotonic()
+            warm = await _search_roundtrip(
+                service, sovereign, f"codex-audit-warmup-{attempt}"
+            )
+            print("warmup search:", round(time.monotonic() - t0, 1), "s ->",
+                  json.dumps(warm, ensure_ascii=False)[:400], flush=True)
+            if warm.get("ok") is not False:
+                break
+            await asyncio.sleep(3)
 
         if "--probe-only" in paths:
             return 0
@@ -233,10 +271,9 @@ async def _worker(paths: list[str]) -> int:
                 any_fail = True
         return 1 if any_fail else 0
     finally:
-        try:
-            await service.shutdown_managed_tools()
-        except Exception:
-            pass
+        # Leave managed tools running — the intake owns their lifecycle and
+        # a warm local-model shortens the next governed tick.
+        pass
 
 
 def main() -> int:

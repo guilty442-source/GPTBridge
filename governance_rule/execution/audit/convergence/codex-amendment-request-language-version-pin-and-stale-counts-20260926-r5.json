@@ -1,0 +1,133 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "language-version-pin-and-stale-counts-20260926-r5",
+  "title": "[r5] Pin JAX 0.11.2 + Julia 1.13.0 installed versions; retire stale SQLITE role and six-language titles",
+  "summary": "Governor-directed text convergence: pins JAX=0.11.2 and Julia=1.13.0 (installed toolchain facts) across A35/A211/A264/A343/A348/A604/A615, removes the retired SQLITE role from A8 consistent with A610/A615 cutover declarations, and aligns A208/A209/A210 subjects with the SEVEN-language text their own rules already declare. r2: requester corrected to roster sovereign (r1 rejected UNKNOWN_AMENDMENT_REQUESTER); human-governor directive preserved in origin. r3: resubmit after r2 audit deadline miss (cold tool search); content unchanged.",
+  "requested_by": "decision-sovereign",
+  "origin": "codex language-version audit 2026-09-26: A615 canonical table + env conformance check",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-26T00:30:33Z",
+    "version_identity": "E2:2026-09-26T00:30:33Z",
+    "version_epoch": 2,
+    "history_head": "e20321309ecae4d1741c2cc27b80985f4df5875c790d7278cf64f45dcaa799f0",
+    "revision_sequence": 81
+  },
+  "problem": {
+    "summary": "JAX/Julia declared pending formal lock despite installed toolchains (jax 0.11.2, Julia-1.13.0); A8 still assigns a live role to retired SQLite; A208/A209/A210 titles say six-language while their rules declare seven."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A8"
+      },
+      "field": "rule",
+      "proposed": "GIT:version+history; POSTGRESQL:central-structured-official-data+shared-transport+audit; RUST-VECTOR-ENGINE:canonical-semantic-index; LOCAL-VECTOR:bounded-degraded-cache-only; RAG:hybrid+code+agentic+memory; LLM:understand-reason-operate; OWNERSHIP:local-governed"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A35"
+      },
+      "field": "rule",
+      "proposed": "STACK:c23+cpp23+csharp14+fsharp10+go1.27.1+rust1.98.1+python3.14.7+javascript-esm+julia1.13.0+sql-postgresql18.6 hybrid; PRIMARY-EXECUTION-ORDER:c23>cpp23>csharp14; RUNTIME-PLATFORM:.NET 10 shared GC+unified format+automatic memory management for CSharp and FSharp surfaces; C:runtime core+permission hot paths+deterministic execution+low-level computation; CPP:model inference+native tool runtime+audit engine; RUST:local vector engine+RAG retrieval+native security+target desktop host; GO:xingcheng web search+batch processing+network and file I/O; CSHARP:application+workflow+API+Windows integration+test orchestration; FSHARP:core business logic+data validation+transformation+business state transitions; PYTHON:exactly three domains-governance(necessary sovereign semantics+governance rules+governance thin-wrapper;necessary portions resident)+xingcheng-training(JAX+jaxlib+necessary training packages+NumPy;activated at training time)+development-verification(necessary pytest+governance verification+push gate;activated at development or verification time);all other Python use denied; JAVASCRIPT:React UI+frontend state+desktop interaction (ESM); REACT:19.2.8 frontend views and components; JAX:0.11.2 xingcheng model research+training+automatic differentiation; NUMPY:2.5.3 model data preprocessing+numerical computation+JAX ecosystem; JULIA:1.13.0 statistics+mathematical models+optimization+simulation+scientific computation; POSTGRESQL:18.6 sole official structured data authority; GIT:2.55.0 source version management; TYPESCRIPT:retired-succeeded-by-javascript-esm (existing authored files grandfathered pending migration); OPTIMIZATION-TARGET:high-performance+high-execution-speed+low-consumption+low-resource-footprint+reduced-python-residency; SOLE:allowed-code-architecture"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A208"
+      },
+      "field": "subject",
+      "proposed": "automatic-seven-language-governance-check"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A208"
+      },
+      "field": "prohibition",
+      "proposed": "FORBID:self-reported-pass+disabled-check+language-owner-self-exemption+warning-as-success+changed-file-only-release-check+generated-code-skip-without-generator-check+cache-without-hash+auto-fix-changing-behavior-without-review+check-tool-network-bypass+seven-language-partial-coverage"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A209"
+      },
+      "field": "subject",
+      "proposed": "seven-language-file-conventions"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A210"
+      },
+      "field": "subject",
+      "proposed": "seven-language-test-boundary"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A211"
+      },
+      "field": "rule",
+      "proposed": "SOLE-MAPPING:Python=exactly three domains-governance(necessary sovereign semantics+governance rules+governance thin-wrapper;necessary portions resident)+xingcheng-training(JAX+jaxlib+necessary training packages+NumPy;activated at training time)+development-verification(necessary pytest+governance verification+push gate;activated at development or verification time); JavaScript=React UI presentation/client+frontend state+desktop interaction; C=runtime core+permission hot paths+deterministic execution+low-level computation; C++=model inference+native tool runtime+audit engine; CSharp=application+workflow+API+Windows/.NET integration+sole test orchestration; FSharp=core business logic+data validation+transformation+business state transitions; Go=xingcheng web search+batch processing+network and file I/O; Rust=local vector engine+RAG retrieval+native security+target desktop host; Julia=1.13.0 statistics+mathematical models+optimization+simulation+scientific computation; SQL=set-based data operations within the PostgreSQL 18.6 sole authority; TypeScript=retired lineage succeeded by JavaScript-ESM (existing authored files grandfathered); PYTHON-API>versioned contracts only; NATIVE-TREE:native/{include,bridge,core}; WINDOWS-FLOW:Windows-specific calls>CSharp adapter>C-ABI>C++core>Python; DATA-FLOW:SQL>data reduction>Python orchestration; JAVASCRIPT-FLOW:JavaScript>declared client contracts only; GO-FLOW:Go>versioned service contracts only; RUST-FLOW:Rust>C-ABI or typed service contracts only; FSHARP-FLOW:FSharp>typed analysis contracts only; JULIA-FLOW:Julia>versioned scientific-compute contracts only; JAX-FLOW:JAX>training/research contracts only; OWNERSHIP:one owner one implementation; INTERFACE:language-neutral public interface is C ABI only; PRIORITY:C ABI>C++ private core>CSharp orchestration>Python semantics>SQL reduction>JavaScript presentation; SUPERSEDED:canonical-nine-language-role-map; CHANGE:historical auto-updates reserved"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A264"
+      },
+      "field": "rule",
+      "proposed": "LANGUAGES:C runtime-core+permission hot paths+deterministic execution+low-level computation; C++ model inference+native tool runtime+audit engine; Rust local vector engine+RAG retrieval+native security+desktop host; Go xingcheng web search+batch processing+network and file I/O; CSharp application+workflow+API+Windows integration+test orchestration; FSharp core business logic+data validation+transformation+business state transitions; Python three-domain minimization-governance(necessary sovereign semantics+governance rules+thin-wrapper;necessary portions resident)+xingcheng-training(JAX+jaxlib+necessary packages+NumPy;activated at training time)+development-verification(pytest+governance verification+push gate;activated at dev or verification time); JavaScript React UI+frontend state+desktop interaction; Julia 1.13.0 statistics+math models+optimization+simulation+scientific compute; SQL bounded data operations on PostgreSQL 18.6; TypeScript retired-succeeded-by-JavaScript-ESM grandfathered existing files only; single versioned contract+registered roots/extensions+one owner; changes require language review compatibility tests and certified activation"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A343"
+      },
+      "field": "rule",
+      "proposed": "CORE-ORDER:correctness-first>declared-language-owner>representative reproducible profile>contract and behavior oracle>independent acceptance>certified activation. NEW-FEATURE follows A604: execution modules prefer C/C++ then C#;C23 owns runtime core,permission hot paths,deterministic execution and native tests;C++23 owns model inference,native tool runtime,audit engine and native tests;C#14 on .NET 10 owns application,workflow,API,Windows .NET integration and the sole test orchestrator;F#10 owns core business logic,data validation,transformation and business state transitions;Go 1.27.1 owns xingcheng web search,batch processing and network/file I/O;Rust 1.98.1 owns local vector engine,RAG retrieval,native security and desktop host;JavaScript ESM owns React UI,frontend state and desktop interaction;Julia 1.13.0 owns statistics,mathematical models,optimization,simulation and scientific compute;Python 3.14.7 is limited to exactly three domains-governance(necessary sovereign semantics,governance rules and governance thin-wrapper with necessary portions resident),xingcheng-training(JAX,jaxlib,necessary training packages and NumPy activated at training time) and development-verification(necessary pytest,governance verification and push gate activated at development or verification time);all other Python use is denied;TypeScript is retired-succeeded-by-JavaScript-ESM with existing authored files grandfathered. Go/Rust/JavaScript/Julia activation requires versioned contracts,toolchain evidence,owned tests,resource bounds and failure semantics;none gains governance,permission or business authority. Promotion grants execution only. Missing or stale evidence,contract drift,failed parity or unsupported platform blocks activation and restores the last verified path."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A348"
+      },
+      "field": "rule",
+      "proposed": "GATE-NAME:LANGUAGE BOUNDARY GATE; VERDICT:exactly PASS|WARN|FAIL; TRIGGERS:save>pre-commit>integration>release; CHECKS:language_allowed+extension_valid+primary_format_valid+source_origin_valid+owner_valid+directory_valid+dependency_direction_valid+ABI_valid+API_contract_valid+duplicate_owner_absent+test_present+fallback_present+source_size_valid under A185. ALLOWED-LANGUAGES:c|cpp|csharp|fsharp|go|rust|python|javascript|julia|sql. PRIMARY-FORMAT:one language=one canonical authored-source format: c=.c;cpp=.cpp;csharp=.cs;fsharp=.fs;go=.go;rust=.rs;python=.py;javascript=.js;julia=.jl;sql=.sql. GRANDFATHERED-ALTERNATES:existing files pinned and reviewable but new authored files denied: python=.pyi;typescript=.ts,.tsx,.d.ts retired;javascript=.jsx,.mjs,.cjs;c=.h;cpp=.hpp,.inl;fsharp=.fsx. AUTHORED-DENY:.cc,.cxx,.hh,.hxx,.csx,.vb,.vbs,.coffee,.cts,.mts and undeclared extensions. LANGUAGE-POLICY:immutable allowed-language and extension data must match this article. CHECKER-PIPELINE:scan>classify>compare Codex rules>produce evidence>PASS/WARN/FAIL; checker is read-only. OUTPUT:LANGUAGE BOUNDARY GATE newline PASS|WARN|FAIL newline Allowed languages: 10 plus deterministic typed evidence. GATE-DETAIL:C ABI is the public native boundary;C owns runtime core/permission hot paths/deterministic execution;C++ owns model inference/native tool runtime/audit engine;CSharp owns application/workflow/API/Windows integration and sole test orchestration on .NET 10;FSharp owns core business logic/validation/transformation/state transitions;Go owns xingcheng web search/batch processing/network and file I/O;Rust owns local vector engine/RAG retrieval/native security/desktop host;JavaScript owns React UI/frontend state/desktop interaction;Julia 1.13.0 owns scientific computation;SQL owns set operations on PostgreSQL 18.6;Python owns bounded on-demand governance semantics and is nonresident after request completion. Tests follow the owning language and cross-language parity is mandatory. SEMANTICS:FAIL blocks trigger,WARN requires owner+evidence+expiry and never equals PASS,PASS requires all mandatory checks complete."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A604"
+      },
+      "field": "rule",
+      "proposed": "SUCCESSOR:A604 supersedes A591 and A592 and controls five-core and historical-sub-sovereign responsibility convergence. CURRENT-PEER-CORES:decision-core|permission-core|runtime-core|automation-core|xingcheng-assistant. XINGCHENG native model remains a separate owned model identity and not a core or independent tool. SUB-SOVEREIGN-LAYER:abolished; former identities are retired lineage only. RESPONSIBILITY-NORMALIZATION:policy/architecture+health/maintenance/test+data outcome+priority/change acceptance>decision-core and registered modules;directory+identity+permission+security-audit enforcement>permission-core and registered modules;startup+runtime-state+process lifecycle+governed execution>runtime-core and registered modules;resources+dependencies+channels+release/update+repair scheduling+cleanup/log synchronization>automation-core and registered modules;global alignment review+user permission interface+notification>xingcheng-assistant;self-learning+self-repair proposal+native-model evolution>XINGCHENG owned modules. MODULES execute domain work without independent authority. CORE-LANGUAGE-ASSIGNMENT:decision-core>C+necessary-Python+CSharp for deterministic execution,governance semantics and adjudication flow;permission-core>C+C+++necessary-Python+CSharp for permission hot paths,governance directory,audit and test;runtime-core>C+C+++designated-Rust-components for resources,state,lifecycle and native execution;automation-core>CSharp+FSharp+C+on-demand-Go for workflow orchestration,business rules,task and batch I/O;xingcheng-assistant>JavaScript+Rust+CSharp+FSharp+Go+C++ for desktop interaction,search,tools and inference. LANGUAGE-RESPONSIBILITY:C23 executes runtime core,permission hot paths,deterministic execution and low-level computation;C++23 owns model inference,native tool runtime and audit engine;C#14 on .NET 10 owns application,workflow,API,Windows integration and the sole test orchestration;FSharp10 owns core business logic,data validation,transformation and business state transitions;Go1.27.1 owns xingcheng web search,batch processing and network/file I/O;Rust1.98.1 owns local vector engine,RAG retrieval,native security and desktop host;JavaScript-ESM owns React UI,frontend state and desktop interaction;Julia 1.13.0 owns scientific computation;Python3.14.7 retains exactly three domains-governance(necessary sovereign semantics,governance rules and governance thin-wrapper with necessary portions resident),xingcheng-training(JAX,jaxlib,necessary training packages and NumPy activated at training time) and development-verification(necessary pytest,governance verification and push gate activated at development or verification time);all other Python use is denied;TypeScript is retired-succeeded-by-JavaScript-ESM. OPTIMIZATION-TARGET:new execution work prefers C23/C++23/C#14 for high performance,high execution speed,low consumption and low resource footprint;Python dependency is reduced to its bounded role. Go,Rust,JavaScript and Julia acquire execution ownership only through registered versioned contracts and never acquire governance,permission or business authority. FIVE-CORE-SUITE-AUTONOMY:each core independently adjusts owned suites subject to language rules."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A615"
+      },
+      "field": "rule",
+      "proposed": "LANGUAGE-TABLE:the sole canonical language/version/responsibility table is: C C23 runtime-core+permission-hot-paths; C++ C++23 inference+native-runtime+audit; Rust 1.98.1 vector-engine+RAG+native-security+desktop-host; Go 1.27.1 web-search+batch+network-file-io; C#14 on .NET 10 application+workflow+API+sole-test-orchestration; F#10 domain business-logic on shared .NET 10; Python 3.14.7 governance semantics+JAX 0.11.2 training nonresident with NumPy 2.5.3; JavaScript ESM React 19.2.8 UI+frontend-state+desktop-interaction; Julia 1.13.0 statistics+mathematical-models+optimization+simulation+scientific-compute; SQL PostgreSQL 18.6 sole structured authority; TypeScript retired-grandfathered; RULE_LANGUAGE_TABLE_OFFICIAL_V1 verifies each declared language+version+responsibility fact against this table fail-closed."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A615"
+      },
+      "field": "exception",
+      "proposed": "none"
+    }
+  ],
+  "resubmission_of": "language-version-pin-and-stale-counts-20260926-r4",
+  "resubmission_reason": "AUDIT_FLOW_DEADLINE_EXCEEDED: root cause = stale queued backlog on governed transport (drained, queue now empty) + cold searchd build (binary now present, warm on loopback). Roundtrip verified ok:true."
+}
