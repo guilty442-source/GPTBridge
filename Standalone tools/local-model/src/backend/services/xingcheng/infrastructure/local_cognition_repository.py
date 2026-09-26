@@ -31,7 +31,7 @@ _COLS_RAG_REFERENCE = (
 )
 
 
-class LocalSqliteCognitionRepository:
+class LocalCognitionRepository:
     """PostgreSQL source of truth for the cognition module.
 
     Absorbs the retired sqlite ``cognition.sqlite3`` store (A610/A621)
@@ -487,4 +487,4 @@ class LocalSqliteCognitionRepository:
         }
 
 
-__all__ = ["LocalSqliteCognitionRepository"]
+__all__ = ["LocalCognitionRepository"]

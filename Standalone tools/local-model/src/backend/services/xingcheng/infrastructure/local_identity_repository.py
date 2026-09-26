@@ -11,7 +11,7 @@ from shared_layer.local.pg_adapter import PgConnection
 from shared_layer.local.pg_adapter import connect as pg_connect
 
 
-class LocalSqliteIdentityRepository:
+class LocalIdentityRepository:
     """PostgreSQL source of truth for the Xingcheng role identity.
 
     Absorbs the retired sqlite ``identity.sqlite3`` store (A610/A621) into the
@@ -325,4 +325,4 @@ class LocalSqliteIdentityRepository:
             return value
 
 
-__all__ = ["LocalSqliteIdentityRepository"]
+__all__ = ["LocalIdentityRepository"]

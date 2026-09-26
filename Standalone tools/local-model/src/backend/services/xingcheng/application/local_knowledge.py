@@ -47,21 +47,21 @@ class LocalKnowledgeService:
     @property
     def cognition(self) -> Any:
         if self._cognition is None:
-            from ..infrastructure.local_sqlite_cognition_repository import (
-                LocalSqliteCognitionRepository,
+            from ..infrastructure.local_cognition_repository import (
+                LocalCognitionRepository,
             )
 
-            self._cognition = LocalSqliteCognitionRepository(self.tool_root)
+            self._cognition = LocalCognitionRepository(self.tool_root)
         return self._cognition
 
     @property
     def identity(self) -> Any:
         if self._identity is None:
-            from ..infrastructure.local_sqlite_identity_repository import (
-                LocalSqliteIdentityRepository,
+            from ..infrastructure.local_identity_repository import (
+                LocalIdentityRepository,
             )
 
-            self._identity = LocalSqliteIdentityRepository(self.tool_root)
+            self._identity = LocalIdentityRepository(self.tool_root)
         return self._identity
 
     # ------------------------------------------------------------------ git --
