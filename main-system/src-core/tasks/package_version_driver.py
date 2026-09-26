@@ -81,6 +81,7 @@ class PackageVersionDriver:
         self._last_error = ""
         self._last_drift: list[dict[str, Any]] = []
         self._last_upgrades: list[dict[str, Any]] = []
+        self._last_pending: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------
     # lifecycle — the AutomationCore owns the schedule (§1.1)
@@ -353,6 +354,7 @@ class PackageVersionDriver:
         )
 
         drift: list[dict[str, Any]] = []
+        pending: list[dict[str, Any]] = []
         with codex_readonly_connection() as conn:
             for (pid, field), reflist in refs.items():
                 row = conn.execute(
@@ -409,6 +411,7 @@ class PackageVersionDriver:
                             "touched": touched,
                         }
                     )
+        self._last_pending = pending
         return drift
 
     def _emit_amendment(
@@ -560,6 +563,7 @@ class PackageVersionDriver:
             "last_error": self._last_error,
             "drift": self._last_drift,
             "upgrades": self._last_upgrades,
+            "pending_upgrade": self._last_pending,
             "written_at": _iso_now(),
         }
         try:
