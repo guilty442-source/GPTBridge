@@ -227,7 +227,7 @@ class CanonicalVectorRuntime:
         ``select_vector_runtime``.  Subclasses override this method.
         """
         self.last_error = (
-            "VECTOR_BACKEND_RETIRED: the legacy vectord path is retired; "
+            "VECTOR_BACKEND_RETIRED: the legacy Qdrant path is retired; "
             "use RustVectorRuntime via select_vector_runtime"
         )
         _logger.error("CanonicalVectorRuntime: %s", self.last_error)

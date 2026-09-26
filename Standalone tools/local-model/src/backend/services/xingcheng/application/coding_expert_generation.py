@@ -107,8 +107,8 @@ class CodingExpertGenerationMixin:
     def _python_api(cls, spec: dict[str, Any], prompt: str) -> str:
         """Generate a complete, transaction-safe FastAPI CRUD module.
 
-        The module is emitted but never executed by Star.  It uses only a local
-        SQLite database and converts storage failures into explicit HTTP errors.
+        The module is emitted but never executed by Star.  It uses PostgreSQL
+        through psycopg and converts storage failures into explicit HTTP errors.
         """
 
         resource = cls._identifier(spec.get("resource"), "items").casefold()
@@ -116,18 +116,22 @@ class CodingExpertGenerationMixin:
         title = cls._string_literal(
             spec.get("title") or prompt or "Star generated FastAPI service"
         )
-        database_name = cls._identifier(spec.get("database_name"), "star_api") + ".sqlite3"
+        database_schema = cls._identifier(spec.get("database_name"), "star_api")
         return f'''from __future__ import annotations
 
-import sqlite3
+import os
 from contextlib import contextmanager
 from collections.abc import Iterator
+
+import psycopg
+from psycopg.rows import dict_row
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 
-DATABASE_PATH = {database_name!r}
+DATABASE_DSN = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "")
+DATABASE_SCHEMA = {database_schema!r}
 app = FastAPI(title={title})
 
 
@@ -137,11 +141,12 @@ class ItemInput(BaseModel):
 
 
 @contextmanager
-def database_transaction() -> Iterator[sqlite3.Connection]:
-    connection = sqlite3.connect(DATABASE_PATH)
-    connection.row_factory = sqlite3.Row
+def database_transaction() -> Iterator[psycopg.Connection]:
+    connection = psycopg.connect(DATABASE_DSN, row_factory=dict_row, autocommit=False)
     try:
-        connection.execute("BEGIN")
+        connection.execute(
+            'SET search_path TO "' + DATABASE_SCHEMA.replace('"', "") + '", public'
+        )
         yield connection
         connection.commit()
     except Exception:
@@ -154,9 +159,12 @@ def database_transaction() -> Iterator[sqlite3.Connection]:
 def initialize_database() -> None:
     with database_transaction() as connection:
         connection.execute(
+            'CREATE SCHEMA IF NOT EXISTS "' + DATABASE_SCHEMA + '"'
+        )
+        connection.execute(
             "CREATE TABLE IF NOT EXISTS {table} ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "name TEXT NOT NULL, value REAL NOT NULL)"
+            "id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
+            "name TEXT NOT NULL, value double precision NOT NULL)"
         )
 
 
@@ -169,12 +177,12 @@ def startup() -> None:
 def create_item(payload: ItemInput) -> dict[str, object]:
     try:
         with database_transaction() as connection:
-            cursor = connection.execute(
-                "INSERT INTO {table}(name, value) VALUES(?, ?)",
+            row = connection.execute(
+                "INSERT INTO {table}(name, value) VALUES(%s, %s) RETURNING id",
                 (payload.name, payload.value),
-            )
-            return {{"id": int(cursor.lastrowid), **payload.model_dump()}}
-    except sqlite3.DatabaseError as error:
+            ).fetchone()
+            return {{"id": int(row["id"]), **payload.model_dump()}}
+    except psycopg.Error as error:
         raise HTTPException(status_code=503, detail="database unavailable") from error
 
 
@@ -183,9 +191,9 @@ def read_item(item_id: int) -> dict[str, object]:
     try:
         with database_transaction() as connection:
             row = connection.execute(
-                "SELECT id, name, value FROM {table} WHERE id = ?", (item_id,)
+                "SELECT id, name, value FROM {table} WHERE id = %s", (item_id,)
             ).fetchone()
-    except sqlite3.DatabaseError as error:
+    except psycopg.Error as error:
         raise HTTPException(status_code=503, detail="database unavailable") from error
     if row is None:
         raise HTTPException(status_code=404, detail="item not found")

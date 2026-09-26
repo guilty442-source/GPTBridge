@@ -8,8 +8,9 @@ repair outcomes).  All reads stay read-only and bounded.
 
 from __future__ import annotations
 
+from shared_layer.local.pg_adapter import connect as pg_connect
+
 import re
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -107,11 +108,8 @@ class FaultDiagnosticsAuxMixin:
         coming back; ``repair_outcomes.ok = 0`` marks repairs that ran
         and failed — both distinguish a transient from a chronic fault.
         """
-        path = self.project_root.joinpath(*_REPAIR_LEARNING_RELATIVE)
-        if not path.is_file():
-            return {"available": False}
         try:
-            db = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+            db = pg_connect("gptbridge_repair", autocommit=True)
             try:
                 signatures = self._signature_rows(db)
                 failures = self._failure_rows(db)
@@ -120,7 +118,7 @@ class FaultDiagnosticsAuxMixin:
                 ).fetchone()
             finally:
                 db.close()
-        except sqlite3.Error:
+        except Exception:
             return {"available": False}
         return {
             "available": True,
@@ -130,7 +128,7 @@ class FaultDiagnosticsAuxMixin:
         }
 
     @staticmethod
-    def _signature_rows(db: sqlite3.Connection) -> list[dict[str, Any]]:
+    def _signature_rows(db: Any) -> list[dict[str, Any]]:
         try:
             rows = db.execute(
                 "SELECT failure_code, error_class, occurrence_count, "
@@ -139,7 +137,7 @@ class FaultDiagnosticsAuxMixin:
                 "ORDER BY occurrence_count DESC, last_seen DESC LIMIT ?",
                 (_MAX_ERROR_SIGNATURES,),
             ).fetchall()
-        except sqlite3.Error:
+        except Exception:
             return []
         return [
             {
@@ -154,7 +152,7 @@ class FaultDiagnosticsAuxMixin:
         ]
 
     @staticmethod
-    def _failure_rows(db: sqlite3.Connection) -> list[dict[str, Any]]:
+    def _failure_rows(db: Any) -> list[dict[str, Any]]:
         try:
             rows = db.execute(
                 "SELECT signature_hash, remedy, recorded_at "
@@ -162,7 +160,7 @@ class FaultDiagnosticsAuxMixin:
                 "ORDER BY recorded_at DESC LIMIT ?",
                 (_MAX_RECENT_OUTCOMES,),
             ).fetchall()
-        except sqlite3.Error:
+        except Exception:
             return []
         return [
             {
@@ -280,7 +278,7 @@ class FaultDiagnosticsAuxMixin:
                 or "main-backend"
             )
             add(
-                "repair-learning.sqlite3",
+                "gptbridge_repair",
                 f"recurring {signature.get('failure_code')} x{count}",
                 entity,
                 min(2.0 + 0.5 * count, 6.0),
@@ -288,7 +286,7 @@ class FaultDiagnosticsAuxMixin:
         failures = learning.get("recent_failures") or []
         if failures:
             add(
-                "repair-learning.sqlite3",
+                "gptbridge_repair",
                 f"recent_repair_failures={len(failures)}",
                 "main-backend",
                 min(2.0 + 0.5 * len(failures), 4.0),

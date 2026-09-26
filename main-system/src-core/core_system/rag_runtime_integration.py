@@ -538,7 +538,7 @@ class RagRuntimeIntegration:
                 "VECTOR_COLLECTION", "gptbridge_shared_knowledge"
             ),
             postgresql_dsn=dsn,
-            queue_db_path=str(data_dir / "reconcile-queue.sqlite3"),
+            queue_db_path="postgresql:gptbridge_rag",
             degraded_root=str(data_dir / "degraded"),
         )
 

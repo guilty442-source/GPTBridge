@@ -32,12 +32,10 @@ _COLS_RAG_REFERENCE = (
 
 
 class LocalSqliteCognitionRepository:
-    """Local sqlite3 source of truth for the cognition module.
+    """PostgreSQL source of truth for the cognition module.
 
-    Local replacement for the retired ``PostgresCognitionRepository`` that used
-    the ``cognition`` PostgreSQL schema.  Operates on the local cognition
-    store under ``tool_root/runtime/state``.  No PostgreSQL/psycopg, no
-    external service (A44/E30).
+    Absorbs the retired sqlite ``cognition.sqlite3`` store (A610/A621)
+    into the module-private ``gptbridge_xingcheng`` schema.
     """
 
     def __init__(self, tool_root: Path) -> None:
@@ -475,7 +473,7 @@ class LocalSqliteCognitionRepository:
                 "SELECT COUNT(*) AS c FROM cognition_rag_reference"
             ).fetchone()["c"]
         return {
-            "engine": "local-sqlite3-degraded",
+            "engine": "postgresql",
             "role": "owner-private-state-cache-checkpoint-or-bounded-reconciled-degraded-transport-only",
             "canonical_central_engine": "postgresql",
             "canonical": False,

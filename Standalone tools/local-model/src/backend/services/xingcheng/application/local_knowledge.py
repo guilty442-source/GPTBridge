@@ -19,11 +19,11 @@ class LocalKnowledgeService:
     """Unified governance-secured facade over local Git, SQL and RAG knowledge.
 
     Integration layer that:
-      1. Composes the loopback Git adapter, the local sqlite RAG repository, the
+      1. Composes the loopback Git adapter, the PostgreSQL RAG repository, the
          Xingcheng cognition and identity repositories and the hybrid local RAG
          service under one interface.
       2. Applies a single governance gate to every write operation.
-      3. Exposes cross-domain retrieval (git metadata + local sqlite + RAG).
+      3. Exposes cross-domain retrieval (git metadata + PostgreSQL + RAG).
     """
 
     def __init__(

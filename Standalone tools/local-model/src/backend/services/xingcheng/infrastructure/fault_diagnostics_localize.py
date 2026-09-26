@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +35,7 @@ class FaultDiagnosticsLocalizeMixin:
                 for row in rows
                 if row.get("status") == "active"
             }
-        except (sqlite3.Error, PermissionError, KeyError, TypeError):
+        except (Exception, PermissionError, KeyError, TypeError):
             return {}
 
     def _symptom_entities(self, text: str) -> dict[str, list[str]]:

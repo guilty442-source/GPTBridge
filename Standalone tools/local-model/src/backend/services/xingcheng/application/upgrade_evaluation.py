@@ -60,7 +60,7 @@ def evaluate_star_upgrade(
         all_databases = {"investment-specialist": database}
     isolated_paths: list[str] = []
     databases_isolated = True
-    sqlite_integrity_ok = True
+    engine_integrity_ok = True
     latest_market_observation_at = ""
     total_search_successes = 0
     total_search_failures = 0
@@ -73,8 +73,12 @@ def evaluate_star_upgrade(
             isolated_paths.append(str(path))
         except (OSError, ValueError):
             databases_isolated = False
-        sqlite_integrity_ok = sqlite_integrity_ok and (
-            str(_quality(item).get("sqlite_integrity") or "ok").casefold() == "ok"
+        engine_integrity_ok = engine_integrity_ok and (
+            str(
+                _quality(item).get("engine_integrity")
+                or _quality(item).get("sqlite_integrity")
+                or "ok"
+            ).casefold() == "ok"
         )
         item_quality = _quality(item)
         observed_at = str(item_quality.get("latest_market_observation_at") or "")
@@ -126,7 +130,7 @@ def evaluate_star_upgrade(
     checks = {
         "version_locked_to_1_0": _version_locked_to_1_0(version),
         "tool_databases_isolated": databases_isolated,
-        "sqlite_integrity_verified": sqlite_integrity_ok,
+        "engine_integrity_verified": engine_integrity_ok,
         "investment_parameters_ready": parameter_count >= MINIMUM_INVESTMENT_PARAMETERS,
         "registered_investment_models_executable": model_coverage,
         "mathematical_capabilities_ready": mathematical_capability_count
@@ -207,7 +211,7 @@ def evaluate_star_upgrade(
                 "action": "Restore executable coverage for every registered Star investment model.",
             }
         )
-    if not databases_isolated or not sqlite_integrity_ok:
+    if not databases_isolated or not engine_integrity_ok:
         recommendations.append(
             {
                 "code": "REPAIR_ISOLATED_DATABASES",

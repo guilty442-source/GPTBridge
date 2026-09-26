@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from shared_layer.local.pg_adapter import connect as pg_connect
+
 import json
 import re
-import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -72,7 +73,7 @@ class FaultDiagnosticsEvidenceMixin:
                 }
                 for row in rows
             ]
-        except (sqlite3.Error, PermissionError, KeyError, TypeError):
+        except (Exception, PermissionError, KeyError, TypeError):
             return []
 
     def maintenance_manuals(self) -> list[dict[str, Any]]:
@@ -108,7 +109,7 @@ class FaultDiagnosticsEvidenceMixin:
                 }
                 for row in rows
             ]
-        except (sqlite3.Error, PermissionError, KeyError, TypeError):
+        except (Exception, PermissionError, KeyError, TypeError):
             return []
 
     def match_fault_codes(
@@ -306,18 +307,13 @@ class FaultDiagnosticsEvidenceMixin:
                 for row in rows
             ]
 
-        path = self.state_dir / "state-outbox.sqlite3"
-        if not path.is_file():
-            return []
         try:
-            db = sqlite3.connect(
-                f"file:{path.as_posix()}?mode=ro", uri=True
-            )
+            db = pg_connect("gptbridge_transport", autocommit=True)
             try:
                 rows = db.execute(
                     "SELECT sequence, entity_type, entity_id, operation, "
                     "authoritative_revision, committed_at "
-                    "FROM outbox_events ORDER BY sequence DESC LIMIT ?",
+                    "FROM outbox_event ORDER BY sequence DESC LIMIT %s",
                     (max(1, int(limit)),),
                 ).fetchall()
             finally:
@@ -333,7 +329,7 @@ class FaultDiagnosticsEvidenceMixin:
                 }
                 for row in rows
             ]
-        except sqlite3.Error:
+        except Exception:
             return []
 
     def _evidence_anomalies(

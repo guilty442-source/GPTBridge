@@ -125,7 +125,7 @@ class TransformerTrainingRepository(
                     entity_id=self.DATABASE_NAME,
                     payload={
                         "schema_version": self.SCHEMA_VERSION,
-                        "integrity_before": before["sqlite_integrity"],
+                        "integrity_before": before["engine_integrity"],
                         "audit_chain_before": before["audit_chain"]["ok"],
                     },
                 )

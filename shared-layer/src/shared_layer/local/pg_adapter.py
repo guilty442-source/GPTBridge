@@ -149,15 +149,90 @@ def _append_conflict_clause(stmt: str, mode: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Cursor / connection facade
+# Row / cursor / connection facade
 # ---------------------------------------------------------------------------
+
+
+def _split_script(script: str) -> Iterator[str]:
+    """Split a multi-statement script on ``;`` while respecting ``$$``-quoted
+    function bodies (PL/pgSQL) and single-quoted strings."""
+    parts: list[str] = []
+    current: list[str] = []
+    in_dollar = False
+    in_string = False
+    i = 0
+    while i < len(script):
+        ch = script[i]
+        if in_dollar:
+            current.append(ch)
+            if ch == "$" and script[i : i + 2] == "$$":
+                current.append("$")
+                in_dollar = False
+                i += 1
+        elif in_string:
+            current.append(ch)
+            if ch == "'":
+                in_string = False
+        else:
+            if ch == "$" and script[i : i + 2] == "$$":
+                in_dollar = True
+                current.append(ch)
+                current.append("$")
+                i += 1
+            elif ch == "'":
+                in_string = True
+                current.append(ch)
+            elif ch == ";":
+                statement = "".join(current).strip()
+                if statement:
+                    parts.append(statement)
+                current = []
+            else:
+                current.append(ch)
+        i += 1
+    tail = "".join(current).strip()
+    if tail:
+        parts.append(tail)
+    return iter(parts)
+
+
+class PgRow(dict):
+    """``sqlite3.Row``-compatible row: name access, positional access and
+    value-order unpacking (``for a, b in row`` yields values, not keys).
+
+    ``dict(row)`` still produces ``{column: value}`` because the row *is* a
+    dict; the positional view is materialised once at construction.
+    """
+
+    __slots__ = ("_values",)
+
+    def __init__(self, values: dict[str, Any]) -> None:
+        super().__init__(values)
+        self._values = list(values.values())
+
+    def __getitem__(self, key: Any) -> Any:
+        if isinstance(key, (int, slice)):
+            return self._values[key]
+        return super().__getitem__(key)
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._values)
+
+
+def _pg_row_factory(cursor: Any) -> Any:
+    names = [column.name for column in cursor.description]
+
+    def make_row(values: Sequence[Any]) -> PgRow:
+        return PgRow(dict(zip(names, values)))
+
+    return make_row
 
 
 class PgCursor:
     """Minimal cursor surface: fetchone/fetchall/fetchmany/rowcount.
 
-    Rows behave like ``sqlite3.Row``: index, name and ``keys()`` access.
-    psycopg's ``dict_row`` provides that natively.
+    Rows behave like ``sqlite3.Row``: index, name and ``keys()`` access,
+    plus value-order unpacking, via :class:`PgRow`.
     """
 
     def __init__(self, cursor: Any) -> None:
@@ -221,9 +296,8 @@ class PgConnection:
 
     def executescript(self, script: str) -> PgCursor:
         cur = self.cursor()
-        for statement in script.split(";"):
-            if statement.strip():
-                cur.execute(statement)  # sql-ok: executescript parity — bounded split of caller-owned DDL script
+        for statement in _split_script(script):
+            cur.execute(statement)  # sql-ok: executescript parity — bounded split of caller-owned DDL script
         return cur
 
     def cursor(self) -> PgCursor:
@@ -292,14 +366,13 @@ def connect(
     """
     try:
         import psycopg  # noqa: PLC0415
-        from psycopg.rows import dict_row  # noqa: PLC0415
     except ImportError as exc:
         raise PgUnavailable("psycopg is not importable") from exc
     conn = psycopg.connect(
         dsn or _resolve_dsn(),
         autocommit=autocommit,
         connect_timeout=connect_timeout,
-        row_factory=row_factory or dict_row,
+        row_factory=row_factory or _pg_row_factory,
     )
     conn.execute(
         "SET search_path TO " + '"' + schema.replace('"', "") + '", public'

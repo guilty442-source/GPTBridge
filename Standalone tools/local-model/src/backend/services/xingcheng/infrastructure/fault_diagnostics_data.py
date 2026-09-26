@@ -18,7 +18,6 @@ reports findings and governed remediation steps only.
 from __future__ import annotations
 import json
 import re
-import sqlite3
 from pathlib import Path
 from typing import Any, Final
 
@@ -43,7 +42,7 @@ _MAX_LOG_LINES: Final[int] = 20
 
 _QUARANTINE_DIR_NAME: Final[str] = "tool-crash-quarantine"
 _REPAIR_LEARNING_RELATIVE: Final[tuple[str, ...]] = (
-    "main-system", "data", "automatic-repair", "repair-learning.sqlite3",
+    "postgresql:gptbridge_repair",
 )
 
 # Lines worth surfacing from a raw log tail — explicit severities, Python

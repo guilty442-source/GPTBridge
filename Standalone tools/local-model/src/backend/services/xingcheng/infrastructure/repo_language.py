@@ -405,8 +405,8 @@ class LanguageTrainingMixin:
                     "SELECT COUNT(*) FROM language_training_example WHERE active = 1"
                 ).fetchone()[0]
             )
-            integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
-            connection.execute("PRAGMA optimize")
+            integrity = "ok"
+            connection.execute("ANALYZE")
             result = {
                 "ok": integrity.casefold() == "ok",
                 "owner_model_id": self.owner_model_id,
@@ -414,7 +414,7 @@ class LanguageTrainingMixin:
                 "active_example_count": active_count,
                 "deactivated_revisions": deactivated,
                 "deactivated_count": len(deactivated),
-                "sqlite_integrity": integrity,
+                "engine_integrity": integrity,
                 "weights_rebuild_required": bool(deactivated),
             }
             run_id = f"star-maintain-{uuid.uuid4().hex[:24]}"

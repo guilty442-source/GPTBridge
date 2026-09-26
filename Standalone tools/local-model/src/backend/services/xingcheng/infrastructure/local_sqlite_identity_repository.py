@@ -288,7 +288,7 @@ class LocalSqliteIdentityRepository:
 
     def _append_audit(
         self,
-        connection: sqlite3.Connection,
+        connection: PgConnection,
         resource_id: str,
         module_id: str,
         owner_id: str,
