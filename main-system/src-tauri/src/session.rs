@@ -370,7 +370,7 @@ pub fn resolve_backend_port() -> u16 {
     candidates
         .iter()
         .zip(results.iter())
-        .find(|(_, ok)| *ok)
+        .find(|(_, ok)| **ok)
         .map(|(port, _)| *port)
         .unwrap_or(configured)
 }

@@ -21,7 +21,7 @@ hex = "0.4"
 getrandom = "0.2"
 sysinfo = "0.33"
 walkdir = "2"
-opener = "0.7"
+opener = { version = "0.7", features = ["reveal"] }
 regex = "1"
 
 [target.'cfg(windows)'.dependencies]
