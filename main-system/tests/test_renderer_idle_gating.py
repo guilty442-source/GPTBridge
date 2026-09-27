@@ -116,14 +116,13 @@ def test_all_renderer_intervals_gated_or_marked() -> None:
     bad = []
     for path, lines, lineno in _renderer_interval_sites():
         body_src = "\n".join(lines)
-        match = re.search(
-            r"setInterval\((?:async )?\(\)\s*=>\s*\{", body_src
-        )
         gated = False
-        if match and match.start() < sum(
-            len(l) + 1 for l in lines[:lineno]
-        ) + len(lines[lineno - 1]):
-            # Extract the callback body at this site.
+        # Find the arrow-callback setInterval whose call sits on this line.
+        for match in re.finditer(
+            r"setInterval\((?:async )?\(\)\s*=>\s*\{", body_src
+        ):
+            if body_src.count("\n", 0, match.start()) + 1 != lineno:
+                continue
             start = match.end()
             depth, i = 1, start
             while i < len(body_src) and depth:
@@ -133,6 +132,7 @@ def test_all_renderer_intervals_gated_or_marked() -> None:
                     depth -= 1
                 i += 1
             gated = bool(_HIDDEN_GATE.search(body_src[start:i]))
+            break
         marked = any(
             "idle-ok" in lines[i]
             for i in range(max(0, lineno - 4), lineno)
