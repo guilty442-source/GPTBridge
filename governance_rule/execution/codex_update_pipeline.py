@@ -304,6 +304,34 @@ def _normalize_version(database: Path, version: str | None) -> None:
         connection.close()
 
 
+def architecture_sync_errors() -> list[str]:
+    """A537/A538 architecture-artifact atomicity gate (fail-closed).
+
+    Every successor generation synchronizes the architecture documents
+    atomically: each top-level canonical tool component owns an
+    ``architecture-tool-<id>.md`` document and every document carries a
+    title plus a mermaid diagram.  The pipeline never authors prose — a
+    missing or defective document denies the staged generation so the
+    governor/assistant adds it before publication.  Unreferenced-canonical
+    and stale-identifier findings stay informational (reported by the
+    read-only diagnostic, never a denial) so governed prose is never
+    churned by automation.
+    """
+    project_root = Path(__file__).resolve().parents[2]
+    try:
+        report = architecture_document_report(project_root)
+    except Exception as error:  # noqa: BLE001 — fail closed, type only
+        return [
+            "architecture document report unavailable: "
+            f"{type(error).__name__}"
+        ]
+    errors = [str(error) for error in report.get("errors") or ()]
+    errors.extend(
+        str(gap.get("reason") or gap) for gap in report.get("gaps") or ()
+    )
+    return errors
+
+
 def _validate_and_render(stage: IsolatedStage, version: str | None) -> list[str]:
     errors = list(
         staged_generation_errors(
@@ -312,6 +340,9 @@ def _validate_and_render(stage: IsolatedStage, version: str | None) -> list[str]
             baseline_violations=stage.source_fk_violations,
         )
     )
+    if errors:
+        return errors
+    errors.extend(architecture_sync_errors())
     if errors:
         return errors
     try:
