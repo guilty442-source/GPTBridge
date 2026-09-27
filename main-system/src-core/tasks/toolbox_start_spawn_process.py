@@ -99,7 +99,8 @@ class SpawnProcessMixin:
                 # interpreter prefix arguments.
                 is_native_entry = source_entry.suffix.lower() == ".exe"
                 for _spawn_attempt in range(2):
-                    source_environment = self._source_runtime_environment(
+                    source_environment = await asyncio.to_thread(
+                        self._source_runtime_environment,
                         tool_id, tool_dir, manifest,
                     )
                     if is_native_entry:
@@ -127,6 +128,10 @@ class SpawnProcessMixin:
                         break
                 self._source_runtime_environments[tool_id] = source_environment
             else:
+                environment = await asyncio.to_thread(
+                    self._tool_environment,
+                    tool_id, tool_dir, manifest, start_hidden=background,
+                )
                 process = await asyncio.create_subprocess_exec(
                     str(executable_file), *args,
                     cwd=str(tool_dir),
@@ -134,9 +139,7 @@ class SpawnProcessMixin:
                     stdout=subprocess.DEVNULL,
                     stderr=stderr_target,
                     close_fds=True,
-                    env=self._tool_environment(
-                        tool_id, tool_dir, manifest, start_hidden=background,
-                    ),
+                    env=environment,
                     **_background_subprocess_kwargs(),
                 )
         except Exception as exc:

@@ -129,7 +129,7 @@ class SovereignParallelCore:
         error = ""
         detail: dict[str, Any] = {}
         try:
-            result = check.run()
+            result = await asyncio.to_thread(check.run)
             if inspect.isawaitable(result):
                 if self._deadline is not None:
                     result = await asyncio.wait_for(result, self._deadline)

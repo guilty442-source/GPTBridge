@@ -108,7 +108,7 @@ class HotReloadHealthMixin:
             if governance is not None and hasattr(governance, "_authentication"):
                 auth = governance._authentication
                 if auth is not None and hasattr(auth, "verify_runtime_integrity"):
-                    auth.verify_runtime_integrity()
+                    await asyncio.to_thread(auth.verify_runtime_integrity)
                     self._log({"type": "channel_recovery", "action": "governance_revalidated"})
         except Exception:
             pass

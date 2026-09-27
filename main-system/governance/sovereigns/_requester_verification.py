@@ -33,7 +33,9 @@ async def verify_token_requester(
     """Verify a capability-token-bearing requester (A10/A11/A116)."""
     if not isinstance(token, str) or not token:
         return False
-    claims = await sovereign._authenticate_token_claims(request, token)
+    claims = await asyncio.to_thread(
+        sovereign._authenticate_token_claims, request, token
+    )
     if claims is None:
         return False
     request.payload["_verified_claims"] = {
@@ -95,7 +97,9 @@ async def verify_requester(sovereign: Any, request: Any) -> bool:
         return await verify_token_requester(sovereign, request, token)
     nonce = request.payload.get("_delegation_nonce")
     if isinstance(nonce, str) and nonce:
-        return verify_delegation_nonce(sovereign, request, nonce)
+        return await asyncio.to_thread(
+            verify_delegation_nonce, sovereign, request, nonce
+        )
     if request.requester == sovereign.sovereign_id:
         return True
     if sovereign._claims_sovereign_identity(request.requester):

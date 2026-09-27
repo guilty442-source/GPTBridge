@@ -17,6 +17,7 @@ returns a refusal instead.
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from dataclasses import dataclass
@@ -168,7 +169,9 @@ class SovereignExecutionPipeline:
             "not-executed",
             {"reason": gate},
         )
-        return await self._finalize(ledger, request, _refusal(gate))
+        return await self._finalize(
+            ledger, request, await asyncio.to_thread(_refusal, gate)
+        )
 
     async def _authorization_gate(
         self, request: SovereignRequest
@@ -234,14 +237,20 @@ class SovereignExecutionPipeline:
             verdict_record,
         )
         if not self._publish_audit_tier(ledger, outcome, verdict):
-            return _refusal("AUDIT_PUBLICATION_FAILED", ledger, verdict)
+            return await asyncio.to_thread(
+                _refusal, "AUDIT_PUBLICATION_FAILED", ledger, verdict
+            )
         # A446: require complete receipts, independent verification, and audit publication
         if not outcome.accepted:
             return _with_receipts(outcome, ledger, verdict, verdict_record, metrics)
         if not verdict.verified:
-            return _refusal("INDEPENDENT_VERIFICATION_FAILED", ledger, verdict, metrics)
+            return await asyncio.to_thread(
+                _refusal, "INDEPENDENT_VERIFICATION_FAILED", ledger, verdict, metrics
+            )
         if not ledger.complete():
-            return _refusal("EXECUTION_TIER_INCOMPLETE", ledger, verdict, metrics)
+            return await asyncio.to_thread(
+                _refusal, "EXECUTION_TIER_INCOMPLETE", ledger, verdict, metrics
+            )
 
         # Attach verification proof to the result for independent verification traceability
         # Reuse outcome.result dict when possible to avoid extra allocation

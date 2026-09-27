@@ -12,6 +12,7 @@ from core_system.codex_decision import (
     accepted_outcome,
     refusal_outcome,
     verified_basis,
+    verified_basis_async,
 )
 from core_system.permission_grant_ledger import record_grant
 
@@ -54,21 +55,21 @@ class AuthSupervisionHelpersMixin:
         )
         if review is None:
             return refusal_outcome(
-                "TWO_KEY_REVIEW_UNAVAILABLE", verified_basis(("A319", "A10"))
+                "TWO_KEY_REVIEW_UNAVAILABLE", await verified_basis_async(("A319", "A10"))
             )
         result = review.result if isinstance(review.result, dict) else {}
         finding = result.get("finding", "")
         if finding == "deny-objection":
             return refusal_outcome(
-                "TWO_KEY_REVIEW_DENIED", verified_basis(("A319", "A10"))
+                "TWO_KEY_REVIEW_DENIED", await verified_basis_async(("A319", "A10"))
             )
         if finding == "require-change":
             return refusal_outcome(
-                "TWO_KEY_REVIEW_REQUIRES_CHANGE", verified_basis(("A319",))
+                "TWO_KEY_REVIEW_REQUIRES_CHANGE", await verified_basis_async(("A319",))
             )
         if finding != "pass":
             return refusal_outcome(
-                "TWO_KEY_REVIEW_NOT_PASSED", verified_basis(("A319", "A10"))
+                "TWO_KEY_REVIEW_NOT_PASSED", await verified_basis_async(("A319", "A10"))
             )
         return None  # proceed to authorization
 

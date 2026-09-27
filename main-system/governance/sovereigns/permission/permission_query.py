@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from .._base import SovereignBase, SovereignOutcome, SovereignRequest
-from core_system.codex_decision import accepted_outcome, refusal_outcome, verified_basis
+from core_system.codex_decision import accepted_outcome, refusal_outcome, verified_basis_async
 from governance_rule.permission_directory.directory_authority import (
     directory_authority_snapshot,
 )
@@ -38,7 +38,7 @@ class PermissionQueryMixin:
         target = request.payload.get("target")
         if not capability or not target:
             return refusal_outcome(
-                "INSUFFICIENT_QUERY_PARAMS", verified_basis(("A436", "A10"))
+                "INSUFFICIENT_QUERY_PARAMS", await verified_basis_async(("A436", "A10"))
             )
 
         # Resolve from the sealed directory authority snapshot (read-only).
@@ -55,7 +55,7 @@ class PermissionQueryMixin:
                 "basis": basis_text,
                 "source": "identity-permission-snapshot",
             },
-            verified_basis(("A436", "A10", "A22")),
+            await verified_basis_async(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_directory_verify(
@@ -71,7 +71,7 @@ class PermissionQueryMixin:
                     "sealed": True,
                 },
             },
-            verified_basis(("A7",)),
+            await verified_basis_async(("A7",)),
         )
 
     async def _adjudicate_identity_verify(
@@ -94,5 +94,5 @@ class PermissionQueryMixin:
                     "bound_tool_id": identity.bound_tool_id if verified else None,
                 },
             },
-            verified_basis(("A39",)),
+            await verified_basis_async(("A39",)),
         )

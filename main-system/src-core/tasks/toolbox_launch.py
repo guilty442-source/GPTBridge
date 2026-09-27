@@ -129,7 +129,8 @@ class LaunchMixin:
         expected_runtime_tool_id: str,
         ui_paths: dict[str, Path],
     ) -> Any:
-        environment = self._tool_environment(
+        environment = await asyncio.to_thread(
+            self._tool_environment,
             tool_id, tool_dir, manifest,
             governance_tool_id=expected_runtime_tool_id,
         )
@@ -310,16 +311,18 @@ class LaunchMixin:
         manifest: Dict[str, Any],
     ) -> Dict[str, Any]:
         try:
+            environment = await asyncio.to_thread(
+                self._tool_environment,
+                tool_id,
+                tool_dir,
+                manifest,
+            )
             activation_process = await asyncio.create_subprocess_exec(
                 str(executable_file),
                 cwd=str(tool_dir),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                env=self._tool_environment(
-                    tool_id,
-                    tool_dir,
-                    manifest,
-                ),
+                env=environment,
                 **_background_subprocess_kwargs(),
             )
         except Exception as exc:

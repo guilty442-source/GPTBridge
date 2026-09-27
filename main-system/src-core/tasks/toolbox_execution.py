@@ -89,7 +89,8 @@ class ExecutionMixin(ExecutionVerificationMixin):
 
         channel_tool_id = self._channel_target_tool_id(tool_id)
         try:
-            self.permission_sovereign.submit_tool_execution_request(
+            await asyncio.to_thread(
+                self.permission_sovereign.submit_tool_execution_request,
                 channel_tool_id,
                 request_id,
                 dict(payload),
@@ -307,7 +308,8 @@ class ExecutionMixin(ExecutionVerificationMixin):
             }
 
         try:
-            cancelled = self.permission_sovereign.cancel_tool_execution_request(
+            cancelled = await asyncio.to_thread(
+                self.permission_sovereign.cancel_tool_execution_request,
                 self._channel_target_tool_id(tool_id),
                 requested_id,
             )

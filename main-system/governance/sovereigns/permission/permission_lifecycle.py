@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from .._base import SovereignBase, SovereignOutcome, SovereignRequest
-from core_system.codex_decision import accepted_outcome, refusal_outcome, verified_basis
+from core_system.codex_decision import accepted_outcome, refusal_outcome, verified_basis_async
 from core_system.permission_grant_ledger import (
     current_status,
     record_lifecycle,
@@ -46,15 +46,15 @@ class PermissionLifecycleMixin:
         """Permission termination — decision-only, appends to ledger."""
         permission_id = request.payload.get("permission_id")
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
+            return refusal_outcome("MISSING_PERMISSION_ID", await verified_basis_async(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
+                "PERMISSION_NOT_ISSUED", await verified_basis_async(("A436", "A10"))
             )
         status = current_status(permission_id)
         if status and status.get("status") == "terminated":
             return refusal_outcome(
-                "PERMISSION_ALREADY_TERMINATED", verified_basis(("A436",))
+                "PERMISSION_ALREADY_TERMINATED", await verified_basis_async(("A436",))
             )
         # A319: every permission lifecycle mutation requires a current
         # 星澄 review finding (the two-key boundary is not issue-only).
@@ -83,7 +83,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis(("A436", "A10", "A22")),
+            await verified_basis_async(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_permission_renew(
@@ -92,10 +92,10 @@ class PermissionLifecycleMixin:
         """Permission renewal — decision-only, appends to ledger."""
         permission_id = request.payload.get("permission_id")
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
+            return refusal_outcome("MISSING_PERMISSION_ID", await verified_basis_async(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
+                "PERMISSION_NOT_ISSUED", await verified_basis_async(("A436", "A10"))
             )
         # A319: every permission lifecycle mutation requires a current
         # 星澄 review finding (the two-key boundary is not issue-only).
@@ -124,7 +124,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis(("A436", "A10", "A22")),
+            await verified_basis_async(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_permission_restrict(
@@ -134,10 +134,10 @@ class PermissionLifecycleMixin:
         permission_id = request.payload.get("permission_id")
         restrictions = request.payload.get("restrictions", {})
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
+            return refusal_outcome("MISSING_PERMISSION_ID", await verified_basis_async(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
+                "PERMISSION_NOT_ISSUED", await verified_basis_async(("A436", "A10"))
             )
         # A319: every permission lifecycle mutation requires a current
         # 星澄 review finding (the two-key boundary is not issue-only).
@@ -168,7 +168,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis(("A436", "A10", "A22")),
+            await verified_basis_async(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_permission_suspend(
@@ -177,10 +177,10 @@ class PermissionLifecycleMixin:
         """Permission suspension — decision-only, appends to ledger."""
         permission_id = request.payload.get("permission_id")
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
+            return refusal_outcome("MISSING_PERMISSION_ID", await verified_basis_async(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
+                "PERMISSION_NOT_ISSUED", await verified_basis_async(("A436", "A10"))
             )
         # A319: every permission lifecycle mutation requires a current
         # 星澄 review finding (the two-key boundary is not issue-only).
@@ -209,7 +209,7 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis(("A436", "A10", "A22")),
+            await verified_basis_async(("A436", "A10", "A22")),
         )
 
     async def _adjudicate_permission_revoke(
@@ -218,10 +218,10 @@ class PermissionLifecycleMixin:
         """Permission revocation — decision-only, appends to ledger."""
         permission_id = request.payload.get("permission_id")
         if not permission_id:
-            return refusal_outcome("MISSING_PERMISSION_ID", verified_basis(("A436",)))
+            return refusal_outcome("MISSING_PERMISSION_ID", await verified_basis_async(("A436",)))
         if not was_issued(permission_id):
             return refusal_outcome(
-                "PERMISSION_NOT_ISSUED", verified_basis(("A436", "A10"))
+                "PERMISSION_NOT_ISSUED", await verified_basis_async(("A436", "A10"))
             )
         # A319: every permission lifecycle mutation requires a current
         # 星澄 review finding (the two-key boundary is not issue-only).
@@ -250,5 +250,5 @@ class PermissionLifecycleMixin:
                 "permission_id": permission_id,
                 "execution": "delegated-to-governed-executor",
             },
-            verified_basis(("A436", "A10", "A22")),
+            await verified_basis_async(("A436", "A10", "A22")),
         )

@@ -14,6 +14,7 @@ caused TypeErrors.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from .._base import SovereignBase, SovereignOutcome, SovereignRequest
@@ -22,6 +23,7 @@ from core_system.codex_decision import (
     refusal_outcome,
     decision_basis,
     verified_basis,
+    verified_basis_async,
 )
 from core_system.permission_grant_ledger import record_grant, record_violation
 from .auth_supervision_helpers import AuthSupervisionHelpersMixin
@@ -180,19 +182,19 @@ class PermissionAuthSupervisionMixin(AuthSupervisionHelpersMixin):
         """A10/E4: authorization routing — two-key review then directory decision."""
         governance = self._governance()
         if governance is None:
-            return refusal_outcome("GOVERNANCE_UNAVAILABLE", verified_basis(("A10", "E4")))
+            return refusal_outcome("GOVERNANCE_UNAVAILABLE", await verified_basis_async(("A10", "E4")))
 
         params = self._extract_authorize_params(request)
         if params is None:
             return refusal_outcome(
-                "INSUFFICIENT_AUTHORIZATION_PARAMS", verified_basis(("A10", "E4"))
+                "INSUFFICIENT_AUTHORIZATION_PARAMS", await verified_basis_async(("A10", "E4"))
             )
         # FORBID:self-grant — the permission sovereign may not authorize
         # itself; permission matters touching the sovereign's own identity
         # are denied before any review is requested.
         if str(params["actor"]).strip() == self.sovereign_id:
             return refusal_outcome(
-                "SELF_GRANT_DENIED", verified_basis(("A10", "E4"))
+                "SELF_GRANT_DENIED", await verified_basis_async(("A10", "E4"))
             )
 
         # A319: two-key review gate — fail closed on deny/missing.
@@ -244,15 +246,16 @@ class PermissionAuthSupervisionMixin(AuthSupervisionHelpersMixin):
             )
             if not capability_valid:
                 return refusal_outcome(
-                    "CAPABILITY_MISMATCH", verified_basis(("A10", "E4"))
+                    "CAPABILITY_MISMATCH", await verified_basis_async(("A10", "E4"))
                 )
             if not resource_valid:
                 return refusal_outcome(
-                    "RESOURCE_PATH_VIOLATION", verified_basis(("A10", "E4"))
+                    "RESOURCE_PATH_VIOLATION", await verified_basis_async(("A10", "E4"))
                 )
 
         try:
-            result = governance.authorize(
+            result = await asyncio.to_thread(
+                governance.authorize,
                 capability=params["capability"],
                 action=params["action"],
                 target=params["target"],
@@ -263,7 +266,7 @@ class PermissionAuthSupervisionMixin(AuthSupervisionHelpersMixin):
             )
         except PermissionError:
             return refusal_outcome(
-                "AUTHORIZATION_DENIED", verified_basis(("A10", "E4"))
+                "AUTHORIZATION_DENIED", await verified_basis_async(("A10", "E4"))
             )
         if isinstance(result, dict):
             allowed = bool(result.get("allowed"))
@@ -273,9 +276,9 @@ class PermissionAuthSupervisionMixin(AuthSupervisionHelpersMixin):
             )
         if not allowed:
             return refusal_outcome(
-                "AUTHORIZATION_DENIED", verified_basis(("A10", "E4"))
+                "AUTHORIZATION_DENIED", await verified_basis_async(("A10", "E4"))
             )
-        return self._record_authorized_grant(request, params)
+        return await asyncio.to_thread(self._record_authorized_grant, request, params)
 
 
     # ------------------------------------------------------------------
@@ -288,13 +291,14 @@ class PermissionAuthSupervisionMixin(AuthSupervisionHelpersMixin):
         """A436: execution compliance supervision — read-only surface."""
         governance = self._governance()
         if governance is None:
-            return refusal_outcome("GOVERNANCE_UNAVAILABLE", verified_basis(("A436",)))
+            return refusal_outcome("GOVERNANCE_UNAVAILABLE", await verified_basis_async(("A436",)))
 
         violations = request.payload.get("violations", [])
         if violations:
             try:
                 for violation in violations:
-                    record_violation(
+                    await asyncio.to_thread(
+                        record_violation,
                         sovereign_id=self.sovereign_id,
                         violation=violation,
                         requester=request.requester,
@@ -304,7 +308,7 @@ class PermissionAuthSupervisionMixin(AuthSupervisionHelpersMixin):
                 # An unrecorded violation may not be accepted (A121/A46).
                 return refusal_outcome(
                     "VIOLATION_LEDGER_UNAVAILABLE",
-                    verified_basis(("A436", "A121")),
+                    await verified_basis_async(("A436", "A121")),
                 )
             self._compliance_violations.extend(violations)
 
@@ -314,7 +318,7 @@ class PermissionAuthSupervisionMixin(AuthSupervisionHelpersMixin):
                 "violations_recorded": len(violations),
                 "total_violations": len(self._compliance_violations),
             },
-            verified_basis(("A436",)),
+            await verified_basis_async(("A436",)),
         )
 
     def get_compliance_violations(self) -> list[dict[str, Any]]:
