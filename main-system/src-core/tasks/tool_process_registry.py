@@ -178,11 +178,27 @@ def _snapshot_processes(
     return _snapshot_processes_powershell(names)
 
 
+def sweep_snapshot(*candidate_paths: str) -> list[dict[str, Any]] | None:
+    """Take one native process snapshot shared across a stop/probe pass.
+
+    A close sweep queries four process classes per iteration; letting each
+    query take its own snapshot multiplies the full-process enumeration
+    cost (~0.5s on psutil) by eight and can exceed the A540 close budget.
+    ``None`` means no native backend is available — callers then fall back
+    to the per-query PowerShell path as before.
+    """
+    return _snapshot_processes_native(
+        _snapshot_names({str(p) for p in candidate_paths if str(p or "").strip()})
+    )
+
+
 def _native_process_ids(
     kind: str,
     tool_id: str = "",
     source_runtime_entry: str = "",
     executable_path: str = "",
+    *,
+    snapshot: list[dict[str, Any]] | None = None,
 ) -> list[int] | None:
     """Resolve one process class from the native snapshot.
 
@@ -190,14 +206,15 @@ def _native_process_ids(
     back to the PowerShell/CIM query.  The native pass costs milliseconds, where every CIM
     call costs 1-3 seconds and dominated tool open/close latency.
     """
-    # migrate-csharp: a native runtime entry (.exe) is itself the process
-    # image — widen the snapshot allowlist so it is visible to matching.
-    extra = {
-        os.path.basename(p.strip()).lower()
-        for p in (source_runtime_entry, executable_path)
-        if str(p or "").strip().lower().endswith(".exe")
-    }
-    snapshot = _snapshot_processes_native(_snapshot_names(extra))
+    if snapshot is None:
+        # migrate-csharp: a native runtime entry (.exe) is itself the process
+        # image — widen the snapshot allowlist so it is visible to matching.
+        extra = {
+            os.path.basename(p.strip()).lower()
+            for p in (source_runtime_entry, executable_path)
+            if str(p or "").strip().lower().endswith(".exe")
+        }
+        snapshot = _snapshot_processes_native(_snapshot_names(extra))
     if snapshot is None:
         return None
     process_ids: list[int] = []
@@ -308,11 +325,15 @@ def batch_running_status(
     return result
 
 
-def running_executable_process_ids(executable_file: Path) -> list[int]:
+def running_executable_process_ids(
+    executable_file: Path, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int]:
     if os.name != "nt":
         return []
     native = _native_process_ids(
-        "executable", executable_path=str(executable_file.resolve())
+        "executable",
+        executable_path=str(executable_file.resolve()),
+        snapshot=snapshot,
     )
     if native is not None:
         return native
@@ -329,11 +350,15 @@ def running_executable_process_ids(executable_file: Path) -> list[int]:
     return _powershell_process_ids(command, environment)
 
 
-def running_source_runtime_process_ids(entry_file: Path) -> list[int]:
+def running_source_runtime_process_ids(
+    entry_file: Path, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int]:
     if os.name != "nt":
         return []
     native = _native_process_ids(
-        "source_runtime", source_runtime_entry=str(entry_file.resolve())
+        "source_runtime",
+        source_runtime_entry=str(entry_file.resolve()),
+        snapshot=snapshot,
     )
     if native is not None:
         return native
@@ -361,7 +386,9 @@ def running_source_runtime_process_ids(entry_file: Path) -> list[int]:
     return _powershell_process_ids(command, environment)
 
 
-def _native_packaged_backend_ids(tool_dir: Path) -> list[int] | None:
+def _native_packaged_backend_ids(
+    tool_dir: Path, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int] | None:
     """Resolve packaged-backend PIDs from the native snapshot.
 
     Returns ``None`` when no metrics backend is available so the caller
@@ -369,7 +396,8 @@ def _native_packaged_backend_ids(tool_dir: Path) -> list[int] | None:
     process whose ``ExecutablePath`` is under ``tool_dir`` and whose command
     line contains ``channel_runtime.py``.
     """
-    snapshot = _snapshot_processes_native()
+    if snapshot is None:
+        snapshot = _snapshot_processes_native()
     if snapshot is None:
         return None
     root = os.path.normcase(str(tool_dir.resolve()))
@@ -387,10 +415,12 @@ def _native_packaged_backend_ids(tool_dir: Path) -> list[int] | None:
     return process_ids
 
 
-def running_packaged_backend_process_ids(tool_dir: Path) -> list[int]:
+def running_packaged_backend_process_ids(
+    tool_dir: Path, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int]:
     if os.name != "nt":
         return []
-    native = _native_packaged_backend_ids(tool_dir)
+    native = _native_packaged_backend_ids(tool_dir, snapshot=snapshot)
     if native is not None:
         return native
     environment = os.environ.copy()
@@ -407,10 +437,12 @@ def running_packaged_backend_process_ids(tool_dir: Path) -> list[int]:
     return _powershell_process_ids(command, environment)
 
 
-def running_source_ui_process_ids(tool_id: str) -> list[int]:
+def running_source_ui_process_ids(
+    tool_id: str, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int]:
     if os.name != "nt" or re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", tool_id) is None:
         return []
-    native = _native_process_ids("source_ui", tool_id=tool_id)
+    native = _native_process_ids("source_ui", tool_id=tool_id, snapshot=snapshot)
     if native is not None:
         return native
     environment = os.environ.copy()
@@ -476,8 +508,10 @@ def _force_stop_process_ids(process_ids: list[int]) -> list[int]:
     return process_ids
 
 
-def stop_running_source_ui(tool_id: str) -> list[int]:
-    process_ids = running_source_ui_process_ids(tool_id)
+def stop_running_source_ui(
+    tool_id: str, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int]:
+    process_ids = running_source_ui_process_ids(tool_id, snapshot=snapshot)
     if os.name != "nt" or not process_ids:
         return []
     for process_id in process_ids:
@@ -491,20 +525,33 @@ def stop_running_source_ui(tool_id: str) -> list[int]:
     return process_ids
 
 
-def stop_running_executable(executable_file: Path) -> list[int]:
-    return _force_stop_process_ids(running_executable_process_ids(executable_file))
+def stop_running_executable(
+    executable_file: Path, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int]:
+    return _force_stop_process_ids(
+        running_executable_process_ids(executable_file, snapshot=snapshot)
+    )
 
 
-def stop_running_source_runtime(entry_file: Path) -> list[int]:
-    return _force_stop_process_ids(running_source_runtime_process_ids(entry_file))
+def stop_running_source_runtime(
+    entry_file: Path, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int]:
+    return _force_stop_process_ids(
+        running_source_runtime_process_ids(entry_file, snapshot=snapshot)
+    )
 
 
-def stop_running_packaged_backend(tool_dir: Path) -> list[int]:
-    return _force_stop_process_ids(running_packaged_backend_process_ids(tool_dir))
+def stop_running_packaged_backend(
+    tool_dir: Path, *, snapshot: list[dict[str, Any]] | None = None
+) -> list[int]:
+    return _force_stop_process_ids(
+        running_packaged_backend_process_ids(tool_dir, snapshot=snapshot)
+    )
 
 
 __all__ = (
     "batch_running_status",
+    "sweep_snapshot",
     "running_executable_process_ids",
     "running_packaged_backend_process_ids",
     "running_source_runtime_process_ids",

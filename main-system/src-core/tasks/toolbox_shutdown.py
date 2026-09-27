@@ -111,24 +111,28 @@ class ShutdownMixin(ForceCloseMixin):
         source_entry: Path,
         executable_file: Path,
     ) -> tuple[set[int], list[int]]:
-        # One native process pass (psutil, milliseconds): discovery and each
-        # stop share the same snapshot.  The old two-attempt PowerShell sweep
-        # cost up to sixteen 1-3s CIM calls per close.  Runs via
-        # asyncio.to_thread so it never stalls the backend event loop.
+        # One native process pass (psutil, sub-second): all four process
+        # classes in each stop/probe share the same snapshot.  A fresh
+        # snapshot per pass keeps the post-kill probe honest; when no
+        # metrics backend is available each query falls back to its own
+        # PowerShell/CIM call as before.  Runs via asyncio.to_thread so it
+        # never stalls the backend event loop.
         def probe() -> list[int]:
+            snap = self._sweep_snapshot(str(source_entry), str(executable_file))
             return sorted(
-                set(self._running_source_runtime_process_ids(source_entry))
-                | set(self._running_executable_process_ids(executable_file))
-                | set(self._running_packaged_backend_process_ids(tool_dir))
-                | set(self._running_source_ui_process_ids(tool_id))
+                set(self._running_source_runtime_process_ids(source_entry, snapshot=snap))
+                | set(self._running_executable_process_ids(executable_file, snapshot=snap))
+                | set(self._running_packaged_backend_process_ids(tool_dir, snapshot=snap))
+                | set(self._running_source_ui_process_ids(tool_id, snapshot=snap))
             )
 
         def stop() -> set[int]:
+            snap = self._sweep_snapshot(str(source_entry), str(executable_file))
             out: set[int] = set()
-            out.update(self._stop_running_source_runtime(source_entry))
-            out.update(self._stop_running_executable(executable_file))
-            out.update(self._stop_running_packaged_backend(tool_dir))
-            out.update(self._stop_running_source_ui(tool_id))
+            out.update(self._stop_running_source_runtime(source_entry, snapshot=snap))
+            out.update(self._stop_running_executable(executable_file, snapshot=snap))
+            out.update(self._stop_running_packaged_backend(tool_dir, snapshot=snap))
+            out.update(self._stop_running_source_ui(tool_id, snapshot=snap))
             return out
 
         return self._settled_sweep(stop, probe)
@@ -140,17 +144,19 @@ class ShutdownMixin(ForceCloseMixin):
         executable_file: Path,
     ) -> tuple[set[int], list[int]]:
         def probe() -> list[int]:
+            snap = self._sweep_snapshot(str(executable_file))
             return sorted(
-                set(self._running_executable_process_ids(executable_file))
-                | set(self._running_packaged_backend_process_ids(tool_dir))
-                | set(self._running_source_ui_process_ids(tool_id))
+                set(self._running_executable_process_ids(executable_file, snapshot=snap))
+                | set(self._running_packaged_backend_process_ids(tool_dir, snapshot=snap))
+                | set(self._running_source_ui_process_ids(tool_id, snapshot=snap))
             )
 
         def stop() -> set[int]:
+            snap = self._sweep_snapshot(str(executable_file))
             out: set[int] = set()
-            out.update(self._stop_running_executable(executable_file))
-            out.update(self._stop_running_packaged_backend(tool_dir))
-            out.update(self._stop_running_source_ui(tool_id))
+            out.update(self._stop_running_executable(executable_file, snapshot=snap))
+            out.update(self._stop_running_packaged_backend(tool_dir, snapshot=snap))
+            out.update(self._stop_running_source_ui(tool_id, snapshot=snap))
             return out
 
         return self._settled_sweep(stop, probe)

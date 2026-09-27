@@ -20,6 +20,7 @@ _TOOL_STATUS_TO_RUNTIME_STATE = {
 }
 from .tool_process_registry import (
     batch_running_status,
+    sweep_snapshot,
     running_executable_process_ids,
     running_packaged_backend_process_ids,
     running_source_runtime_process_ids,
@@ -391,6 +392,7 @@ class ManifestMixin(ManifestRecordMixin):
     # Process-registry static-method aliases
     # ------------------------------------------------------------------
 
+    _sweep_snapshot = staticmethod(sweep_snapshot)
     _running_executable_process_ids = staticmethod(running_executable_process_ids)
     _running_source_runtime_process_ids = staticmethod(
         running_source_runtime_process_ids
