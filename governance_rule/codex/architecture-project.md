@@ -1,124 +1,395 @@
-# GPTBridge 全專案架構圖
+# GPTBridge 全專案完整架構圖
+
+本圖是全專案架構的中文投影。機器拓撲仍以 `governance_rule/execution/audit/architecture_registry.json` 為唯一來源；本圖不得建立第二套權威。
+
+## 一、治理、五核心與執行邊界
 
 ```mermaid
 flowchart TB
-  C[Codex] --> P[Permission Sovereign]
-  C --> D[Domain Sovereigns]
-  C --> XA[星澄助理：與主宰同級的獨立特權機構]
-  C --> R[System Runtime Sovereign]
-  P --> I[Information Layer]
-  D --> I
-  R --> M[Main System]
-  I --> M
-  M --> S[Shared Layer]
-  M --> T[Independent Tools]
-  I --> PG[(PostgreSQL)]
-  I --> Q[(Qdrant)]
-  T --> SQ[(Owner-private SQLite)]
-  G[(Git)] --> C
-  G --> M
-  G --> T
-  M --> L[Local Model Runtime]
-  T --> L
-  M --> NCC[native-compute-core：純 C 運算核心]
-  M --> BLC[business-logic-csharp：C# 業務編排]
-  XC --> MT[model-training：星澄訓練模組]
-  I --> HAS[RagApplicationService]
-  HAS --> HDAG[DAG 編排面]
-  HDAG --> HCAG[CAG 加速與上下文重用面]
-  HCAG --> HRAG[RAG canonical retrieval 面]
-  HRAG --> L
-  XA --> XAD[(助理專用資料庫)]
-  XA --> XC[星澄：原生模型]
-  XC --> XP[(人格專用資料庫)]
-  XC --> AR[自動修復模組]
-  XC --> AL[自動學習模組]
-  XA --> GC[垃圾分類稽查]
-  GC --> CS[自動清理排程]
-  CS --> AU[保留期限與審計驗證]
+  U[使用者] --> UI[主系統桌面介面]
+  UI --> IC[Information Channel]
+
+  subgraph GOV[治理平面]
+    CX[Governance Codex<br/>唯一規範權威]
+    DC[裁決核心<br/>治理語意與必要最終裁決]
+    PC[權限核心<br/>身分、範圍、目錄與授權]
+    RC[運行核心<br/>C11 常駐主體與生命週期]
+    AC[自動化核心<br/>C# 流程編排與 C primitive]
+    XA[星澄助理<br/>稽查、通知、單項許可介面]
+    CX --> DC
+    CX --> PC
+    CX --> RC
+    CX --> AC
+    CX --> XA
+  end
+
+  IC --> PC
+  PC -->|允許| DC
+  PC -->|拒絕| DENY[Fail Closed]
+  DC --> RC
+  DC --> AC
+  XA -->|稽查結果與使用者許可| DC
+
+  RC --> MS[Main System Runtime]
+  AC --> FLOW[受管自動化流程]
+  MS --> SL[Shared Layer]
+  FLOW --> SL
+
+  C[C<br/>決定性規則、熱路徑、原生測試] --> RC
+  CPP[C++<br/>原生審計與高效執行] --> RC
+  CS[C#<br/>介面與唯一流程編排] --> AC
+  PY[Python<br/>必要治理語意薄層] --> DC
+  FS[F#<br/>資料分析、機器學習與高正確性計算] --> DC
+  GO[Go<br/>受限網路與並行服務] --> RC
+  RS[Rust<br/>記憶體安全系統元件] --> RC
 ```
 
-全專案統一採用 DAG、CAG、RAG 混合架構。DAG 是查詢、索引與修復工作流的無環編排面，不取代 Application Service；CAG 是安全、有版本、有範圍且非權威的快取增強面，不取代 RAG；RAG 是 canonical knowledge retrieval 面並保留 Hybrid、Code、Memory、Agentic 四子架構。正式路徑固定為 Caller → Information Channel → Permission / Scope → RagApplicationService → DAG Planner / Executor → CAG Gate → RAG Retrieval → Evidence Fusion → Reranker → Context Builder → Local LLM → Citation Validation → Result。Qdrant 與 PostgreSQL canonical 邊界不變，SQLite 只准 degraded fallback。
+核心約束：C、C++、C#、F#、Go、Rust 只能執行其已授權責任；不得自行修改治理規則、建立權限或繞過裁決。Python 僅保留 A35 三域——治理必要語意薄層（必要部分常駐）、JAX 星澄訓練（僅訓練時啟動）、開發驗證（僅開發或驗證時啟動）——不負責大量機械性工作的常駐執行，其餘用途一律禁止。
 
-星澄與星澄助理均不屬於七個獨立工具。星澄助理是與裁決、權限、運行及自動化核心同級的獨立特權機構並使用獨立身分組；星澄是獨立的原生模型身分，星澄人格、自動修復模組與自動學習模組隸屬星澄，不隸屬星澄助理。兩者各用專用資料庫，禁止混用或互相作為權威來源。
+## 二、啟動、運行與關閉
 
-新增登錄元件（2026-09-20）：`native-compute-core`（純 C 運算核心與穩定 C ABI）、`model-training`（星澄訓練模組）、`business-logic-csharp`（C# 業務編排／外部協調）。三者均為單一職責模組，不改變既有權責、資料邊界與 fail-closed。
+```mermaid
+sequenceDiagram
+  actor User as 使用者
+  participant EXE as MAIN_SYSTEM_DESKTOP_EXE
+  participant UI as Main UI
+  participant Start as SYS_GPTBRIDGE_START
+  participant Gov as Governance/Permission
+  participant Run as C11 Runtime
+  participant Info as Information Layer
+  participant Tools as Independent Tools
 
-星澄及其所屬內部模組不適用一般模組有效行數上限；不得僅因超過模組行數門檻要求拆分、阻擋合併或建立分解工作。此豁免只涵蓋模組行數，不解除函式、方法、類別、公開入口、可呼叫項目、權限、安全、測試、審計及可維護性要求。
+  User->>EXE: 啟動
+  EXE->>UI: 建立唯一主畫面
+  UI->>Start: 發出受管啟動要求
+  Start->>Gov: 驗證版本、身分、權限、資料契約
+  Gov-->>Start: 允許或 Fail Closed
+  Start->>Run: 啟動必要常駐核心
+  Run->>Info: 建立正式資訊通道
+  Info-->>UI: READY（20 秒內）
+  User->>UI: 關閉主系統
+  UI->>Run: typed shutdown
+  Run->>Info: 停止主系統後端
+  Note over Tools: 已獨立啟動的工具不因主系統關閉而被強制關閉
+```
 
-自動修復與自動學習均為星澄內部模組，不具主宰、子主宰、獨立工具或獨立權限身分。自動修復的管理權屬於星澄；自動學習按需啟動、完成即釋放且不設使用者開關，但保留受治理的緊急停止機制。星澄具有編程能力，可從已驗證的故障、修復結果與回歸證據分析程式並產生最小修補及測試方案；正式修改仍由受治理執行器依權限、全域開關或單項許可、備份、回復與驗證程序套用。
+- 主系統完整啟動上限：20 秒。
+- 獨立工具啟動與關閉上限：各 5 秒。
+- 強制測試套件上限：20 秒；各自審計流程上限：30 秒。
+- 主系統視窗關閉必須停止其 matching backend；獨立工具依自身生命週期關閉。
 
-對外只存在一個 `central-automatic-repair` 星澄能力，名稱與介紹固定為「自我學習與自動編程」；自動修復與自動學習模組只能作為該能力的內部實作，不得各自註冊公開能力、權限主體或控制面。
-
-星澄除主動學習外，可經 `ai-collaboration` 的受治理網路通道搜尋官方文件、正式問題追蹤與可信技術來源以尋找修復方案。網路結果一律為未驗證候選，必須驗證來源、版本、適用條件、最小修改、回復方法與本機測試後才可交付修復流程；搜尋通道不得直接執行、寫檔、安裝套件或寫入正式資料。
-
-星澄可運用編程、主動學習與網路研究能力，在自身擁有域內自行產生、分析、測試、驗證及處理自我升級更新；此流程由星澄內部生命週期完整承接，不經星澄助理、系統自動更新開關或獨立工具。自我升級不設使用者開關；候選只有在權限有效、獨立驗證通過、回復就緒且受治理發布完成後才能替換現行版本。禁止直接覆蓋現行程式、自行核發發布權或以網路內容直接更新。
-
-故障手冊的學習攝取、更新建議與使用回饋由星澄的自動學習模組處理；故障手冊目錄、故障代碼目錄、故障身分與正式故障分類仍由權限核心持有。自動學習模組只能唯讀攝取正式故障資料並產生學習證據，不得改寫故障身分或自行取得修復執行權。
-
-故障訊息經資訊層內部通道直接告知星澄，由星澄自主發起受治理維修，依序完成可修復性判定、權限檢核、稽核登錄、執行、獨立驗證及學習回饋。星澄助理仍接收並顯示故障與維修結果通知，但通知只具狀態告知效力，不是許可、決策或執行入口，也不得阻擋星澄自主維修。
-
-星澄助理固定顯示兩個彼此獨立的全域開關：系統自動更新與系統自動修復，並同時提供逐項「單項許可／不許可」。全域開關控制相應自動流程；單項選擇只作用於指定項目且不得改變全域開關。自動學習與星澄自我升級不設開關。
-
-系統自動修復的唯一職責擁有者為星澄。星澄助理負責獨立稽查、使用者控制與結果呈現，不得編程、產生修補或執行修復；星澄負責提出修復方案、適用條件、所需權限、前置要求、測試與回復方法。若證據不足或無法確定方案可安全修復，流程必須停止、保留現況並要求補充證據，不得硬性修復、直接覆蓋或以重置冒充修復。
-
-每次修復必須走完整流程審計：星澄助理稽查發現 → 星澄診斷與提出方案／要求 → 適用性、風險、最小變更、備份及回復門檻 → 使用者單項許可或有效自動授權 → 專責模組執行器執行 → 針對性測試與回歸驗證 → 星澄助理獨立稽查結案。每階段須保存狀態、理由與證據；缺少任一門檻即維持 `awaiting-evidence`，不得宣告修復完成。
-
-星澄必須在請求使用者許可之前完成唯讀修復計畫，至少呈現目標、方法、執行步驟、權限範圍、風險、驗證條件與回復方案。產生及展示計畫不構成修改授權；使用者能在看見完整計畫後選擇單項許可或不許可。
-
-## 系統自動更新自動化流程條例
-
-星澄助理提供系統自動更新總開關、候選項目、逐項選擇與結果。自動化核心只管理流程與排程；裁決核心裁決爭議，權限核心執行權限檢核與稽核，運行核心向已登錄的單一職責模組下發執行、驗證及失敗回復命令。任何核心均不得直接執行模組工作，退役子主宰不得再取得 current owner 或路由。全域開關關閉時仍可用當前單項許可執行指定項目；任何門檻失敗均 fail-closed 並保留最後已驗證版本。
-
-## Runtime 規則索引
-
-Runtime 規則索引是由正式法典生成的唯讀、可重建、非權威投影。查詢路徑固定為「法典有效條文與 successor 解析 → 規則正規化 → 緊湊 generation → 精確鍵／倒排集合／位元集合 → Runtime 查詢」，不得把索引內容反向寫回法典或藉索引推導新權限。
-
-索引以 `RUNTIME_RULE_INDEX_V2` 為唯一機器契約，提供 provision、rule code、owner、capability、trigger、phase、severity、effect、deadline、resource、data class、dependency 與 successor 等查詢維度。精確鍵採直接定位，多條件查詢採最小集合優先交集；目前 generation 必須與現行法典版本、有效條文集合及 successor resolution 完全一致，否則整個索引拒絕啟用並回到正式法典查詢。generation 只能完整建置、驗證後原子切換，讀取端不得看見半成品。
-
-模組相關的實作規則由 owning module 在自身邊界內管理，但其 authority class 固定為 `module-derived-non-authoritative`。每條模組規則必須連回 controlling provision、模組契約與版本，不能授權自身、改寫治理邊界或對其他模組產生效力；跨模組規則必須提升為正式共用契約。Runtime 規則索引只收錄正式法典規則，禁止收錄、複製或快取模組規則；模組執行時自行載入本模組規則，發生衝突時只採正式法典及其有效 successor。
-
-模組規則另由權限核心建立唯一集中索引 `MODULE_RULE_INDEX_V1`。owning module 負責規則內容與版本，權限核心只負責登錄、身分解析、範圍檢核、衝突檢查、狀態管理與查詢服務，不得改寫模組規則或將索引升格為權威。模組執行時可向集中索引取得本模組規則，但必須驗證 module identity、controlling provision、契約版本及狀態；索引不可用時，不得改由 Runtime 規則索引代理模組規則。
-
-## 法典分類
-
-法典規範面固定分為五類：`PRINCIPLE`（原則）、`ARTICLE`（條文）、`EDICT`（敕令）、`RESPONSIBILITY`（權責）與 `PROHIBITION`（禁止事項）。原則、條文及敕令是結構主類；權責與禁止事項是可附著於任一結構主類的規範面向。每個 provision 必須恰有一個結構主類，並明確標示是否含權責或禁止事項；分類投影只供查詢與驗證，不改變原條文效力。
-
-法典收斂以「同一規範命題只有一個 controlling provision」為原則。跨原則、條文與敕令的重述保留原始身分及歷史語境，但必須在收斂登錄中指向唯一 controlling provision；Runtime 索引只索引 controlling rule，其他重述只提供補充權責、禁止事項或 lineage，不得形成平行控制來源。共同禁止條款的合法引用及不同客體的模板條文不視為重複。
-
-星澄助理提供逐項「單項許可」與「不許可」按鈕，讓使用者分別決定每一個更新或修復是否執行。單項許可只綁定一個明確 action identity、現行證據摘要、期限與一次性執行權，不得移轉、重播或擴張到其他項目；執行完成、失敗、證據變更或逾期即失效。不許可只終止指定項目，不影響其他項目。自動化主宰仍只負責分工，實際工作仍由受治理模組執行器完成。
-
-主系統及每個獨立工具均採身分隔離的完整關閉契約：使用者關閉該應用程式最後一個視窗時，視窗宿主必須送出具 application identity 與 generation 的受管停止要求，完成 drain、checkpoint、服務 shutdown、子程序樹終止與退出驗證後才宣告關閉成功。主系統關閉只能停止主系統後端；所有已啟動獨立工具及其後端必須保持運行，不得被主系統退出流程、程序樹掃描或清理程序終止。只有關閉某一獨立工具自己的最後視窗，才可停止該工具自己的後端。工具與工具之間亦不得連帶終止。逾時或無法確認退出時必須標示失敗並執行該身分範圍內的受管終止路徑，不得留下該應用程式自身的 detached backend。
-
-Git 管來源與歷史；PostgreSQL 管已宣告的中央正式狀態；Qdrant 僅保存語意候選；SQLite 僅保存 owner 私有狀態與有界降級資料；模型只負責推論。
-
-退役模組必須標示為 `trash`，由星澄助理稽查分類，再交由自動清理排程處理。清理前必須驗證退役狀態、非權威性、保留期限、依賴關係與審計證據；禁止將活躍模組或尚有 current dependency 的資料當作垃圾。
-
-從使用者啟動到主畫面完成就緒不得超過 20 秒；任一強制測試套件必須在 20 秒內完成並產生結果；各自獨立審計流程不得超過 30 秒。任一時限逾期均必須 fail-closed，不得視為通過。
-
-本圖受 A528、A537 與 A538 約束。任何自動法典更新必須在同一受治理交易內同步五份中文法典、machine architecture registry 與全部架構圖；任一目標缺失、失敗或版本不同即回復全部變更並拒絕發布。
-
-七個獨立工具的單次啟動與單次關閉各自不得超過 5 秒；逾時必須終止當次操作、回報明確失敗並保留可驗證狀態，不得宣告成功。同步基線：A540。
-
-本地模型不納入預設啟動。主畫面必須提供本地模型的獨立啟動與關閉開關，只有使用者明確啟動或有效單項許可才可啟動；關閉後不得被預熱、自動復原或其他啟動流程暗中重啟。
-
-模型對話的自動路由預設以星澄為第一候選。僅當星澄未啟動、不可用、能力不符或治理邊界拒絕時，才可依已登錄備援順序轉用其他模型；不得為了啟用優先路由而繞過 A540 的本地模型預設關閉規則。同步基線：A541。
-
-七個獨立工具的操作、流程、UI、資料、修復與業務規範只存於各工具自身實體邊界，由該工具管理版本、相容性、生命週期與驗證。權限核心只保存定位與權限索引；法典只保存平台原則、權責與禁止事項；Runtime 規則索引不得收錄工具規範內容。
-
-## 自適化環境資源架構
+## 三、GPTBridge UI Stack
 
 ```mermaid
 flowchart TB
-  ROOT["E:\\GPTBridge 專案根"] --> SRC[已登錄原始碼與控制檔]
-  ROOT --> ADAPT[".adaptive 唯一受管資源根"]
-  ADAPT --> ENV[Python 執行環境與 venv]
-  ADAPT --> SDK[SDK 與 Toolchain]
-  ADAPT --> PKG[套件與依賴快取]
-  ADAPT --> MODEL[非 Ollama 模型與相關產物]
-  ADAPT --> STAGE[暫存與原子啟用區]
-  WIN[Windows 原生工具] -. 唯一外部例外 .-> ROOT
-  OLLAMA[Ollama 與其受管模型庫] -. 唯一外部例外 .-> ROOT
+  subgraph CORE[Rust 1.98.1]
+    APP[Application Core]
+    STATE[State Core]
+    SECURITY[Security]
+    IPC[IPC]
+    LIFE[Lifecycle]
+    NATIVE[OS Integration]
+  end
+  subgraph TAURI[Tauri]
+    SHELL[Desktop Shell]
+    WEBVIEW[WebView Host]
+    WINDOWS[Window Management]
+    JSB[JS ↔ Rust Bridge]
+  end
+  subgraph ESM[Native JavaScript ESM]
+    GENERAL[General UI]
+    SETTINGS[Settings]
+    DASHBOARD[Dashboard]
+    PANELS[Tool Panels]
+    TABLES[Tables / Forms]
+    STATUS[State Presentation]
+  end
+  subgraph GPUI[GPUI]
+    MODEL[Model Dialogue]
+    CODE[Coding Workspace]
+    STREAM[Streaming Text]
+    TEXT[Large Text / Virtual Lists]
+    PERF[High-performance Native Views]
+  end
+  subgraph EGUI[egui]
+    DIAG[Diagnostics]
+    PROF[Profiling]
+    GOV[Governance Inspector]
+    ENG[Engineering Console]
+    OVERLAY[Debug Overlay]
+  end
+  APP --> SHELL
+  STATE --> SHELL
+  SECURITY --> IPC
+  IPC --> JSB
+  LIFE --> SHELL
+  NATIVE --> GPUI
+  NATIVE --> EGUI
+  SHELL --> WEBVIEW
+  SHELL --> WINDOWS
+  WEBVIEW --> ESM
+  JSB --> ESM
 ```
 
-除 Windows 原生工具及 Ollama 外，所有 GPTBridge 受管執行環境、SDK、Toolchain、套件、依賴快取與模型資源均位於 `E:\GPTBridge\.adaptive` 的分類子目錄；不得直接散落在 `E:\GPTBridge` 頂層。自適化管理只能在該資源根內調整位置、容量與生命週期，不得改變身分、權威、雜湊、擁有者或使用範圍。
+UI 的唯一共用核心是 Rust 1.98.1，負責 UI 核心、應用狀態、生命週期、IPC、安全與 OS 整合。Tauri 負責 Desktop Shell、WebView、Window 管理及 JS↔Rust Bridge；Native JavaScript ESM 負責設定、工具面板、表格、表單與狀態呈現；GPUI 負責模型對話、Coding Workspace、大量文字及虛擬清單；egui 負責系統診斷、效能監控、開發／治理工具及 Debug Overlay。各層不得自行建立權限、狀態或生命週期權威。前端 JavaScript 經 Esbuild／SWC 混合鏈產生；GPUI 與 egui 維持 Rust 原生路徑。
+
+## 四、七個獨立工具
+
+```mermaid
+flowchart LR
+  TB[Toolbox / Information Channel]
+  TB --> T1[投資管家<br/>ai-assistant]
+  TB --> T2[外部協作<br/>ai-collaboration]
+  TB --> T3[自動化檔案管理<br/>file-sorter]
+  TB --> T4[投資管家手機版<br/>investment-mobile]
+  TB --> T5[本地模型<br/>local-model]
+  TB --> T6[影音下載自動化<br/>vaultly]
+  TB --> T7[模型對話<br/>model-dialogue]
+
+  T1 --> PG[(PostgreSQL)]
+  T2 --> WEB[受管瀏覽器與外部 AI]
+  T3 --> FSYS[受管檔案系統]
+  T4 --> T1
+  T5 --> XC[星澄原生模型]
+  T6 --> NET[受管下載通道]
+  T7 --> XC
+```
+
+只有上述七項具有獨立工具身分。星澄、星澄助理、搜尋服務、程序量測、業務邏輯服務、科學運算服務、原生運算核心與內部維護能力均不是獨立工具。
+
+## 五、星澄與星澄助理
+
+```mermaid
+flowchart TB
+  XA[星澄助理<br/>與主宰同級的獨立特權機構]
+  XC[星澄<br/>原生模型]
+  LEARN[自我學習能力]
+  CODE[自動編程能力]
+  REPAIR[系統自動修復能力]
+  UPGRADE[模型內部自我升級]
+  WEB[受管網路搜尋]
+  XADB[(星澄助理專用資料庫)]
+  XCDB[(星澄專用資料庫)]
+
+  XA --> AUDIT[全域合規稽查]
+  XA --> NOTICE[訊息通知]
+  XA --> PERMIT[更新／修復單項許可]
+  XA --> XADB
+
+  AUDIT --> XC
+  PERMIT --> REPAIR
+  XC --> LEARN
+  XC --> CODE
+  XC --> REPAIR
+  XC --> UPGRADE
+  XC --> WEB
+  XC --> XCDB
+  LEARN --> XC
+  WEB --> REPAIR
+  CODE --> REPAIR
+```
+
+星澄提出修復方案並執行已授權修復；無法確認安全修復時必須停止，不得硬修復、直接覆蓋或重置。修復全程受決策、權限、執行與審計約束。星澄與星澄助理使用不同身分組及不同資料庫，禁止混用。
+
+## 六、DAG、CAG、RAG 與模型推論
+
+```mermaid
+flowchart LR
+  CALLER[Caller] --> CH[Information Channel]
+  CH --> SCOPE[Permission / Scope]
+  SCOPE --> APP[RagApplicationService]
+  APP --> PLAN[DAG Planner]
+  PLAN --> EXEC[DAG Executor]
+  EXEC --> CACHE[CAG Gate]
+  CACHE --> RET[RAG Retrieval]
+  RET --> HYB[Hybrid]
+  RET --> CODE[Code]
+  RET --> MEM[Memory]
+  RET --> AG[Agentic]
+  HYB --> FUSE[Evidence Fusion]
+  CODE --> FUSE
+  MEM --> FUSE
+  AG --> FUSE
+  FUSE --> RERANK[Reranker]
+  RERANK --> CTX[Context Builder]
+  CTX --> LLM[Local LLM / 星澄]
+  LLM --> CITE[Citation Validation]
+  CITE --> RESULT[Result]
+
+  PG[(PostgreSQL canonical data)] --> RET
+  VD[(vectord-rs Rust 語義索引)] --> RET
+  CSTORE[(Versioned scoped cache)] --> CACHE
+```
+
+- DAG 是工作流編排平面，不取代 Application Service。
+- CAG 是安全、版本化、有範圍的加速與上下文重用平面，不取代 RAG。
+- RAG 是 canonical knowledge retrieval 平面，保留 Hybrid、Code、Memory、Agentic 四個子架構。
+- PostgreSQL 與 vectord-rs 的 canonical 邊界不變（Qdrant 已退役，非 canonical，A621）；SQLite 不得升格為中央權威。
+
+## 七、Git 架構
+
+```mermaid
+flowchart TB
+  DEV[工作者／開發者] --> WT[受管 Worktree]
+  WT --> STABLE[變更穩定期]
+  STABLE --> COMMIT[工作樹限定自動提交]
+  COMMIT --> BRANCH[Git / Local Model / RAG / UI 分支]
+  BRANCH --> COORD[唯一同步協調器]
+  COORD --> GUARD{合併、索引與鎖定檢查}
+  GUARD -->|衝突| RESOLVE[依 canonical owner 與登記策略自動收斂]
+  GUARD -->|可整合| MERGE[整合至 main]
+  RESOLVE -->|結果可證明| MERGE
+  RESOLVE -->|結果不可證明| QUARANTINE[停止並隔離]
+  MERGE --> AUDIT[治理稽核]
+  AUDIT -->|PASS| FF[乾淨 Worktree Fast-forward]
+  FF --> PUSH[協調器唯一 Push]
+  AUDIT -->|FAIL| CLOSED[禁止 Push]
+
+  HIST[(Git History)] --> COMMIT
+  POLICY[Codex A163 / A375] --> COORD
+  POLICY --> AUDIT
+```
+
+- 每個工作樹只提交自身變更；已有外部 staged 內容時禁止自動納入。
+- 禁止 force-push、刪除 ref、破壞性 reset 與未授權 non-fast-forward。
+- 自動提交只負責 commit；只有同步協調器能在整合與稽核成功後推送 `main`。
+- Git 保存程式碼、遷移與歷史，不承載中央即時資料或權限事實。
+- 生成檔依登記的重建策略處理；真正內容衝突必須依權威來源自動裁定，無可靠裁定時隔離。
+
+## 八、SQL 架構
+
+```mermaid
+flowchart TB
+  CALL[受管呼叫者] --> HELLO[Contract Version Handshake]
+  HELLO --> SESSION[Session Identity<br/>actor / module / request / decision / correlation]
+  SESSION --> AUTH[Permission Decision Artifact]
+  AUTH --> RLS[ACL / RLS / can_read / can_write Projection]
+  RLS --> POOL[Workload-class Pool]
+
+  subgraph CLASSES[工作負載隔離]
+    INT[Interactive]
+    TRANS[Transport]
+    AUD[Audit]
+    REC[Reconciliation]
+    MAINT[Maintenance]
+    MIGR[Migration]
+  end
+  POOL --> INT
+  POOL --> TRANS
+  POOL --> AUD
+  POOL --> REC
+  POOL --> MAINT
+  POOL --> MIGR
+
+  INT --> PG[(PostgreSQL)]
+  TRANS --> PG
+  AUD --> PG
+  REC --> PG
+  MAINT --> PG
+  MIGR --> CHAIN[Immutable Ordered Migration Chain]
+  CHAIN --> EXPECT[Expected Schema Hash]
+  EXPECT --> LIVE[Live Introspection]
+  LIVE --> GATE{Declared = Replayed = Live}
+  GATE -->|是| READY[SQL READY]
+  GATE -->|否| DRIFT[SQL_SCHEMA_DRIFT<br/>FAIL CLOSED]
+
+  PG --> DIR[DIR_DATA_SCHEMA_AUTHORITY<br/>object-level inventory]
+  PG --> DDL[DDL Audit]
+  PG --> TX[Long Transaction Watchdog]
+  PG --> VAC[Bloat / Vacuum Control]
+  PG --> CAP[Capacity Watermarks]
+  PG --> BACKUP[Backup / Restore]
+  BACKUP --> CERT[Rebuild Certification]
+  CERT --> READY
+
+  SQ[(SQLite owner-private state)] --> RECON[Bounded Reconciliation]
+  RECON --> PG
+```
+
+SQL 核心不變式：
+
+- PostgreSQL 是中央結構化正式資料、共享傳輸與中央審計的唯一 SQL 權威。
+- `permission decision → authorization artifact → PostgreSQL projection → enforcement`，資料庫列本身不得創造權限。
+- 每個 schema、table、view、function、trigger、index、RLS policy 與 role 必須有唯一物件身分、owner、資料類別、建立 migration、定義雜湊與生命週期。
+- Migration 必須有序、不可變、連續且可重播；禁止 runtime role 執行 CREATE、ALTER、DROP。
+- Restore、migration 或 role rotation 後提高 connection generation；舊連線不得再寫入。
+- SQLite 只能保存 owner-private、有限期、有限量、必須調和的降級狀態；不得代替權限、共享傳輸或中央審計。
+- PostgreSQL 故障依 capability matrix 分別關閉或有限降級，不得整體暗中切換 SQLite。
+
+## 九、資料、權限與追溯鏈
+
+```mermaid
+flowchart TB
+  MOD[模組／工具] --> CONTRACT[資料契約版本握手]
+  CONTRACT --> AUTHZ[Permission Decision]
+  AUTHZ --> ART[Authorization Artifact]
+  ART --> PROJ[PostgreSQL Security Projection]
+  PROJ --> RW[can_read / can_write Enforcement]
+
+  RW --> PG[(PostgreSQL<br/>中央結構化資料、共享傳輸、中央審計)]
+  PG --> VD[(vectord-rs<br/>Rust 向量索引與檢索投影)]
+  MOD --> SQ[(SQLite<br/>owner-private bounded fallback)]
+  SQ --> REC[Reconciliation]
+  REC --> PG
+
+  MIG[Ordered Immutable Migration Chain] --> SCHEMA[Canonical Schema Registry]
+  SCHEMA --> DRIFT[Live Schema Drift Gate]
+  DRIFT -->|一致| PG
+  DRIFT -->|不一致| CLOSED[FAIL CLOSED]
+```
+
+| 資料層 | 正式角色 | 禁止事項 |
+| --- | --- | --- |
+| PostgreSQL | 中央 structured official data、shared transport、central audit | 不得以 live schema 反向創造法典事實 |
+| vectord-rs（Rust） | 受範圍約束的向量索引與檢索投影 | 不得成為結構化資料或權限權威 |
+| SQLite | 模組私有、有限、可觀測、必須調和的降級狀態 | 不得跨模組授權、承載中央審計或取代 PostgreSQL |
+| Git | 程式碼、遷移與不可變歷史 | 不得代替即時資料權威 |
+
+所有重要寫入必須攜帶 actor、executor、decision、correlation 與 source revision，並保存當下權限決策摘要。DDL 只能由 migration executor 執行；schema drift、權威衝突或完整性異常時，受影響資料域切換為唯讀或 Fail Closed。
+
+## 十、自動維護與故障處理
+
+```mermaid
+flowchart LR
+  OBS[健康、容量、延遲、漂移觀測] --> CLASS[分類]
+  CLASS --> GIT[Git 自動維護]
+  CLASS --> SQL[SQL 自動維護]
+  CLASS --> DAG[DAG 自動維護]
+  CLASS --> CAG[CAG 自動維護]
+  CLASS --> RAG[RAG 自動維護]
+  CLASS --> TRASH[垃圾標籤]
+  TRASH --> CLEAN[自動清理排程]
+
+  GIT --> AUDIT[審計證據]
+  SQL --> AUDIT
+  DAG --> AUDIT
+  CAG --> AUDIT
+  RAG --> AUDIT
+  CLEAN --> AUDIT
+  AUDIT --> XA[星澄助理稽查與通知]
+  XA --> XC[星澄修復方案]
+```
+
+自動維護只能使用現有單一編排器、排程器、權限目錄與資訊通道。生成性衝突依已登記策略自動重建；內容衝突依 canonical owner、版本與優先序自動收斂，無法證明安全結果時停止並隔離。
+
+## 十一、來源、部署與資源邊界
+
+```mermaid
+flowchart TB
+  ROOT[E:\GPTBridge]
+  ROOT --> SRC[專案原始碼]
+  ROOT --> ADAPT[自適化依賴區]
+  ADAPT --> VENV[Python venv]
+  ADAPT --> SDK[SDK / Toolchain]
+  ADAPT --> WEBBUILD[Esbuild + SWC 混合前端建置鏈]
+  ADAPT --> CACHE[套件與依賴快取]
+  ADAPT --> MODELS[非 Ollama 模型]
+  WIN[Windows 原生工具] -.系統管理.-> ROOT
+  OLLAMA[Ollama] -.系統管理.-> ROOT
+```
+
+除 Windows 原生工具與 Ollama 外，Python 執行環境、SDK、Toolchain、套件、依賴快取與模型必須位於 `E:\GPTBridge` 底下的適當子目錄，不得散落於頂層。完整程序樹受五核心資源預算、啟動期限、工作負載分類及自動回收機制約束。
+
+前端建置統一使用 Esbuild／SWC 混合鏈：SWC 負責 JSX 與現代 JavaScript 語法轉換；Esbuild 負責依賴圖、bundle、code splitting、資產、source map、tree shaking 與最終壓縮；Rust Contract Validator 負責 Schema、IPC 與 API 靜態驗證。兩者不得重複轉換或建立平行建置權威。
+
+法源：A8、A30、A35、A77、A82、A116、A163、A193、A201、A232、A245、A281、A341、A343、A375、A448、A452、A477、A487–A498、A500、A528、A534–A538、A544–A557、A586–A609。
