@@ -36,3 +36,12 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# Vendored patch: webview2-com's wait_with_pump used a raw GetMessage loop
+# that never dispatches COM apartment calls — a second
+# CreateCoreWebView2Controller (embedded-browser child webview) deadlocked
+# deterministically once the event loop was running (wry #1665/#583).
+# The vendored copy waits with CoWaitForMultipleHandles(
+# COWAIT_DISPATCH_CALLS | COWAIT_DISPATCH_WINDOW_MESSAGES) instead.
+[patch.crates-io]
+webview2-com = { path = "vendor/webview2-com" }

@@ -54,10 +54,21 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// to finish before starting the main message loop. As long as there are no pending results in `rx`, it
 /// will pump Window messages and check for a result after each message is dispatched.
 ///
-/// `GetMessage` is a blocking call, so if we want to send results from another thread, senders from other
-/// threads should "kick" the message loop after sending the result by calling `PostThreadMessage` with an
-/// ignorable/unhandled message such as `WM_APP`.
+/// GPTBridge patch (wry #1665 / #583): the original implementation used a raw
+/// `GetMessage`/`DispatchMessage` loop.  A raw Win32 pump does NOT dispatch COM
+/// apartment calls, so `CreateCoreWebView2Controller`'s STA completion callback
+/// is never delivered once the event loop is already running — deterministic
+/// deadlock when creating a second WebView2 controller.  We instead use
+/// `CoWaitForMultipleHandles` with `COWAIT_DISPATCH_CALLS | COWAIT_DISPATCH_WINDOW_MESSAGES`,
+/// the COM-sanctioned wait that dispatches both window messages and incoming
+/// COM calls, plus a `PeekMessage` pass to preserve `WM_QUIT` semantics and a
+/// bounded timeout so the result channel is re-checked periodically.
 pub fn wait_with_pump<T>(rx: mpsc::Receiver<T>) -> Result<T> {
+    use windows::Win32::System::Com::{
+        CoWaitForMultipleHandles, COWAIT_DISPATCH_CALLS, COWAIT_DISPATCH_WINDOW_MESSAGES,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{PM_REMOVE, WM_QUIT};
+
     let mut msg = MSG::default();
 
     loop {
@@ -66,16 +77,28 @@ pub fn wait_with_pump<T>(rx: mpsc::Receiver<T>) -> Result<T> {
         }
 
         unsafe {
-            match WindowsAndMessaging::GetMessageA(&mut msg, None, 0, 0).0 {
-                -1 => {
-                    return Err(windows::core::Error::from_thread().into());
+            // Drain any already-queued window messages (keeps the UI thread
+            // responsive) and preserve the original WM_QUIT cancellation
+            // contract.
+            while WindowsAndMessaging::PeekMessageA(&mut msg, None, 0, 0, PM_REMOVE).into() {
+                if msg.message == WM_QUIT {
+                    return Err(Error::TaskCanceled);
                 }
-                0 => return Err(Error::TaskCanceled),
-                _ => {
-                    let _ = WindowsAndMessaging::TranslateMessage(&msg);
-                    WindowsAndMessaging::DispatchMessageA(&msg);
-                }
+                let _ = WindowsAndMessaging::TranslateMessage(&msg);
+                WindowsAndMessaging::DispatchMessageA(&msg);
             }
+
+            let mut index = 0u32;
+            // COM-sanctioned STA wait: dispatches incoming COM calls (which
+            // WebView2 completion handlers require) AND window messages.
+            // Bounded timeout so the result channel is re-checked.
+            let _hr = CoWaitForMultipleHandles(
+                COWAIT_DISPATCH_CALLS | COWAIT_DISPATCH_WINDOW_MESSAGES,
+                50,
+                0,
+                std::ptr::null(),
+                &mut index,
+            );
         }
     }
 }
