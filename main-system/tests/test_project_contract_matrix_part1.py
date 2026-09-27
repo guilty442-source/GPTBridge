@@ -110,11 +110,10 @@ def test_every_tool_keeps_version_one(tool_id: str, manifest_path: Path) -> None
 
 def test_launcher_bootstrap_uses_the_current_governance_authority_version() -> None:
     source = (
-        ROOT / "main-system" / "src-ui" / "main" / "governance-bootstrap.ts"
+        ROOT / "governance_rule" / "execution" / "integrity" / "__init__.py"
     ).read_text("utf-8")
-    assert "function governanceAuthorityVersion" in source
-    assert "authority_version: governanceAuthorityVersion(workspaceRoot)" in source
-
+    assert "authority_version" in source
+    assert "authority_version=policy.authority_version" in source
 
 @pytest.mark.parametrize(("tool_id", "manifest_path"), TOOL_CASES)
 def test_tool_locale_resolves_manifest_keys(tool_id: str, manifest_path: Path) -> None:

@@ -1,51 +1,66 @@
-"""G84 preload channel contract — every allowlisted invoke channel must have a Main handler.
+"""G84 invoke channel contract — every allowlisted channel must have a dispatch arm.
 
-`preload.ts` gates `ipcRenderer.invoke` behind `allowedInvokeChannels`; a channel
-listed there but never registered via `ipcMain.handle` in `src-ui/main/` is a
-drift: renderer calls fail at runtime with no test catching it.
+A621: the Electron preload/ipcMain pair is retired.  The Rust/Tauri shell
+injects a preload shim that routes ``window.electron.invoke`` /
+``window.gptBridge`` calls through the single ``gptbridge_invoke`` command,
+which re-checks the whitelist server-side:
+
+- main window: ``ALLOWED_CHANNELS`` (src-tauri/src/main.rs) dispatched by
+  ``commands::dispatch``;
+- tool window: ``TOOL_ALLOWED_CHANNELS`` (src-tauri/src/tool_dispatch.rs)
+  dispatched by ``tool_dispatch::dispatch``.
+
+A channel listed in a whitelist but missing a ``match`` arm drifts silently:
+renderer calls fail at runtime with no test catching it.
 """
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-MAIN_DIR = Path(__file__).resolve().parents[1] / "src-ui" / "main"
-PRELOAD = MAIN_DIR / "preload.ts"
+SRC_TAURI = (
+    Path(__file__).resolve().parents[1] / "src-tauri" / "src"
+)
 
-_ALLOWLIST_RE = re.compile(r"'([a-z0-9:\-]+)'", re.IGNORECASE)
-_HANDLE_RE = re.compile(r"ipcMain\.handle\s*\(\s*['\"]([a-z0-9:\-]+)['\"]", re.IGNORECASE)
+_ALLOWLIST_RE = re.compile(r'"([a-z0-9:\-]+)"', re.IGNORECASE)
+_ARM_RE = re.compile(r'"([a-z0-9:\-]+)"\s*=>', re.IGNORECASE)
 
 
-def _allowlist() -> set[str]:
-    text = PRELOAD.read_text(encoding="utf-8-sig")
-    block = text.split("allowedInvokeChannels", 1)[1]
-    entries = block.split("])", 1)[0]
+def _allowlist(source: Path, const_name: str) -> set[str]:
+    text = source.read_text(encoding="utf-8-sig")
+    block = text.split(const_name, 1)[1]
+    entries = block.split("];", 1)[0]
     return set(_ALLOWLIST_RE.findall(entries))
 
 
-def _registered_handlers() -> set[str]:
-    channels: set[str] = set()
-    for ts_file in MAIN_DIR.glob("*.ts"):
-        channels.update(_HANDLE_RE.findall(ts_file.read_text(encoding="utf-8-sig")))
-    return channels
+def _dispatch_arms(source: Path) -> set[str]:
+    return set(_ARM_RE.findall(source.read_text(encoding="utf-8-sig")))
 
 
-def test_every_allowlisted_channel_has_main_handler() -> None:
-    missing = _allowlist() - _registered_handlers()
-    assert not missing, f"preload allowlist channels without ipcMain.handle: {sorted(missing)}"
+def test_main_window_allowlist_has_dispatch_arms() -> None:
+    missing = _allowlist(SRC_TAURI / "main.rs", "ALLOWED_CHANNELS") - _dispatch_arms(
+        SRC_TAURI / "commands.rs"
+    )
+    assert not missing, f"ALLOWED_CHANNELS without dispatch arm: {sorted(missing)}"
+
+
+def test_tool_window_allowlist_has_dispatch_arms() -> None:
+    dispatch = SRC_TAURI / "tool_dispatch.rs"
+    missing = _allowlist(dispatch, "TOOL_ALLOWED_CHANNELS") - _dispatch_arms(dispatch)
+    assert not missing, f"TOOL_ALLOWED_CHANNELS without dispatch arm: {sorted(missing)}"
 
 
 def test_gptbridge_surface_uses_registered_channels() -> None:
-    """Channels invoked by the `gptBridge` bridge must also be registered handlers."""
-    text = PRELOAD.read_text(encoding="utf-8-sig")
-    bridge_block = text.split("exposeInMainWorld('gptBridge'", 1)[1]
-    invoked = set(_ALLOWLIST_RE.findall(bridge_block.split("})", 1)[0]))
-    # filter to channel-like tokens (contain ':')
-    invoked = {c for c in invoked if ":" in c}
-    missing = invoked - _registered_handlers()
-    assert not missing, f"gptBridge invokes channels without ipcMain.handle: {sorted(missing)}"
+    """Channels invoked by the `gptBridge` shim must be allowlisted."""
+    text = (SRC_TAURI / "main.rs").read_text(encoding="utf-8-sig")
+    shim = text.split("window.gptBridge", 1)[1]
+    invoked = {c for c in _ALLOWLIST_RE.findall(shim.split("};", 1)[0]) if ":" in c}
+    missing = invoked - _allowlist(SRC_TAURI / "main.rs", "ALLOWED_CHANNELS")
+    assert not missing, f"gptBridge invokes non-allowlisted channels: {sorted(missing)}"
 
 
 def test_no_dangling_backend_only_channel_in_allowlist() -> None:
-    """Backend command-router channels must not sit in the Electron invoke allowlist."""
-    assert "app:get-repair-status" not in _allowlist()
+    """Backend command-router channels must not sit in the invoke allowlist."""
+    assert "app:get-repair-status" not in _allowlist(
+        SRC_TAURI / "main.rs", "ALLOWED_CHANNELS"
+    )

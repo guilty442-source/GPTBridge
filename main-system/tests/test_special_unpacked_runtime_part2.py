@@ -116,7 +116,7 @@ def test_star_is_headless_and_configured_for_governed_default_start() -> None:
     assert manifest["lifecycle"]["startup"] == "on-demand"
 
 
-def test_file_sorter_does_not_start_a_full_electron_ui_in_background() -> None:
+def test_file_sorter_does_not_start_a_full_desktop_ui_in_background() -> None:
     manifest = json.loads(_read_text_cached(str((ROOT / "Standalone tools" / "file-sorter" / "manifest.json"))))
 
     assert manifest["startup"]["auto_start"] is False
@@ -149,16 +149,20 @@ def test_file_sorter_uses_governed_source_without_a_packaged_executable() -> Non
 
 def test_governed_source_ui_host_exposes_authenticated_backend_session() -> None:
     host_source = (
-        ROOT / "main-system" / "scripts" / "source-tool-ui-host" / "main.cjs"
+        ROOT / "main-system" / "src-tauri" / "src" / "tool_window.rs"
+    ).read_text("utf-8")
+    dispatch_source = (
+        ROOT / "main-system" / "src-tauri" / "src" / "tool_dispatch.rs"
     ).read_text("utf-8")
 
-    assert "token: String(backendSessionUrl?.searchParams.get('token') || '')" in host_source
-    assert "/^[a-f0-9]{64}$/i.test(token)" in host_source
-    assert "/^[a-f0-9]{24}$/i.test(instance)" in host_source
+    assert '"token": config.backend_token' in dispatch_source
+    assert "token.len() == 64" in host_source
+    assert "instance.len() == 24" in host_source
     assert "GPTBRIDGE_TOOL_CACHE_ROOT" in host_source
-    assert "app.setPath('userData', userDataRoot)" in host_source
-    assert "app.setPath('sessionData', sessionDataRoot)" in host_source
-    assert "disk-cache-dir" in host_source
+    assert "source-ui-user-data" in host_source
+    assert "session-data" in host_source
+    assert "disk-cache" in host_source
+    assert "WEBVIEW2_USER_DATA_FOLDER" in host_source
 
 
 def test_special_unpacked_mode_requires_governed_request_channel() -> None:

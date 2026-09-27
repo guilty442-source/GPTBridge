@@ -285,28 +285,23 @@ def test_ai_assistant_supports_automatic_dual_runtime() -> None:
         requested_mode="source",
         executable_exists=True,
     ) is True
-    assert (ROOT / "main-system" / "scripts" / "source-tool-ui-host" / "main.cjs").is_file()
+    assert (ROOT / "main-system" / "src-tauri" / "src" / "tool_window.rs").is_file()
 
 
 def test_independent_window_close_policy_covers_source_and_packaged_ui() -> None:
     toolbox_source = (
         ROOT / "main-system" / "src-core" / "tasks" / "toolbox_service.py"
     ).read_text("utf-8")
-    packaged_template = (
-        ROOT
-        / "main-system"
-        / "src-core"
-        / "tasks"
-        / "templates"
-        / "platform-tool-app"
-        / "main.ts"
+    packaged_host = (
+        ROOT / "main-system" / "src-tauri" / "src" / "tool_window.rs"
     ).read_text("utf-8")
 
     assert "independent-tool-window-closed" in toolbox_source
     assert "close_program_on_exit" in toolbox_source
-    assert "shutdownOwnedBackendBeforeExit" in packaged_template
-    assert "backend.shutdownOnWindowClose" in packaged_template
-    assert "app.on('before-quit'" in packaged_template
+    assert "load_packaged_config" in packaged_host
+    assert "spawn_packaged_backend" in packaged_host
+    assert "backend_child_pid" in packaged_host
+    assert "ExitRequested" in packaged_host
 
 
 def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
@@ -323,7 +318,7 @@ def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
         )
     )
     ui_source = (
-        ROOT / "main-system" / "src-ui" / "main" / "index.ts"
+        ROOT / "main-system" / "src-tauri" / "src" / "main.rs"
     ).read_text("utf-8")
 
     assert "DEPENDENCY_MANIFEST" in phases_source
@@ -334,9 +329,9 @@ def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
     assert "CrashRepair" not in boot_source
     boot_repair_source = (ROOT / "main-system" / "src-core" / "boot_core_repair.py").read_text("utf-8")
     assert "signal_only=True" in boot_repair_source
-    before_quit = ui_source.split("app.on('before-quit', (event) =>", 1)[1]
-    assert "shutdownApplication()" in before_quit
-    assert "stopBackend()" in ui_source
+    assert "RunEvent::ExitRequested" in ui_source
+    assert "shutdown_application(app)" in ui_source
+    assert "backend::stop_backend()" in ui_source
     assert "main.ui-shutdown" in ui_source
 
 
@@ -353,7 +348,7 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
         path.read_text("utf-8")
         for path in sorted((root / "src-core" / "core_system").glob("hot_update_service*.py"))
     )
-    backend = (root / "src-ui" / "main" / "python-backend.ts").read_text(
+    backend = (root / "src-tauri" / "src" / "backend.rs").read_text(
         "utf-8"
     )
     boot = "\n".join(
@@ -394,8 +389,8 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
     assert "PENDING_PATHS_CAP" in watcher
     assert 'compile(source, str(file_path), "exec")' in update
     assert "module.__dict__.update(state)" in update
-    assert "probeExistingBackend" in backend
-    assert "requestGracefulBackendShutdown" in backend
+    assert "probe_existing_backend" in backend
+    assert "request_graceful_backend_shutdown" in backend
     assert "GPTBRIDGE_SHUTDOWN_TOKEN" in backend
     boot_health = (root / "src-core" / "boot_core_health.py").read_text("utf-8")
     assert "if healthy:\n                    self._restarts = 0" in boot_health
