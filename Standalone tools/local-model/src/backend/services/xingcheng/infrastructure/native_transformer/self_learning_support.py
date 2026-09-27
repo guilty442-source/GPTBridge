@@ -798,7 +798,7 @@ def run_cycle_impl(
         dataset_id=str(dataset["dataset_id"]),
         configuration={
             "training_kind": "sft",
-            "tokenizer_dir": "runtime/tokenizers/xingcheng-bpe-8k-v1",
+            "tokenizer_dir": "runtime/tokenizers/xingcheng-bpe-8k-20260919-120054",
             "init_checkpoint": active_path.relative_to(repository_root).as_posix(),
             "preset": "base",
             "max_length": int(resolved_policy.max_length),
@@ -909,7 +909,7 @@ def _run_dpo_cycle(
         dataset_id=str(dataset["dataset_id"]),
         configuration={
             "training_kind": "dpo",
-            "tokenizer_dir": "runtime/tokenizers/xingcheng-bpe-8k-v1",
+            "tokenizer_dir": "runtime/tokenizers/xingcheng-bpe-8k-20260919-120054",
             "init_checkpoint": active_path.relative_to(
                 repository_root
             ).as_posix(),

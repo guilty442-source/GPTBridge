@@ -14,8 +14,8 @@
 
 用法：
     python -m xingcheng.infrastructure.chat_foundation_dataset \
-        --corpus xingcheng/runtime/corpus-v1/train.jsonl \
-        --out xingcheng/runtime/sft/chat-foundation-v7-mixed.jsonl
+        --corpus xingcheng/runtime/corpus-20260922-104500/train.jsonl \
+        --out xingcheng/runtime/sft/chat-foundation-mixed-<timestamp>.jsonl
 """
 
 from __future__ import annotations

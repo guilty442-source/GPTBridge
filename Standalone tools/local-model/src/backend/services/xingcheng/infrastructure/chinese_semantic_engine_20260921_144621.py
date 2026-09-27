@@ -1,4 +1,4 @@
-"""Chinese Semantic Engine v2 — Core Module.
+"""Chinese Semantic Engine (timestamped lineage 20260921-144621) — Core Module.
 
 Enhanced Chinese semantic processing engine with extensible architecture.
 Lives inside the xingcheng runtime (local-model tool); all xingcheng internals are in-process imports.
@@ -26,7 +26,7 @@ COMPONENT_ID: Final[str] = "chinese-semantic-engine"
 ARCHITECTURAL_ROLE: Final[str] = "model"
 RUNTIME_FORM: Final[str] = "internal-module"
 OWNER_SOVEREIGN: Final[str] = "xingcheng-domain"
-EXECUTION_IDENTITY: Final[str] = "chinese-semantic-engine-v2"
+EXECUTION_IDENTITY: Final[str] = "chinese-semantic-engine-20260921-144621"
 DEFAULT_CONFIG_PATH: Final[Path] = Path("config/chinese_semantic_engine.json")
 
 

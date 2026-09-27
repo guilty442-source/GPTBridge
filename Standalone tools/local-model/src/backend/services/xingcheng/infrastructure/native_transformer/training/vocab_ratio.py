@@ -13,9 +13,9 @@
 用法::
 
     python -m xingcheng.infrastructure.native_transformer.training.vocab_ratio \
-        --corpus xingcheng/runtime/corpus-v3 \
-        --tokenizer xingcheng/runtime/tokenizers/xingcheng-bpe-32k-v1 \
-        --tokenizer xingcheng/runtime/tokenizers/xingcheng-bpe-64k-mf1-v1 \
+        --corpus xingcheng/runtime/corpus-20260923-100636 \
+        --tokenizer xingcheng/runtime/tokenizers/xingcheng-bpe-32k-20260920-103331 \
+        --tokenizer xingcheng/runtime/tokenizers/xingcheng-bpe-64k-mf1-20260923-052953 \
         --output xingcheng/runtime/logs/vocab-ratio-<ts>.json
 """
 

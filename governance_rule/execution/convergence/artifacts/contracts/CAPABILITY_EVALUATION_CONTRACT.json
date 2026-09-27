@@ -24,7 +24,7 @@
     "probe": {
       "semantics": "probe definition (check + eval_text/prompt)",
       "bound_to": [
-        "Standalone tools/local-model/xingcheng/eval/native-capability-suite-v1.json#check"
+        "Standalone tools/local-model/xingcheng/eval/star-capability-suite-20260920-165854.json#check"
       ]
     },
     "metric": {
@@ -36,7 +36,7 @@
     "threshold": {
       "semantics": "pass threshold per item (max)",
       "bound_to": [
-        "Standalone tools/local-model/xingcheng/eval/native-capability-suite-v1.json#max"
+        "Standalone tools/local-model/xingcheng/eval/star-capability-suite-20260920-165854.json#max"
       ]
     },
     "evidence_schema": {
@@ -49,7 +49,7 @@
   "implementation": {
     "enforcing_modules": [
       "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/capability_eval.py",
-      "Standalone tools/local-model/xingcheng/eval/native-capability-suite-v1.json"
+      "Standalone tools/local-model/xingcheng/eval/star-capability-suite-20260920-165854.json"
     ]
   },
   "evidence_paths": [
