@@ -95,6 +95,52 @@ def _resolve(value: Any) -> Any:
     return outcome[0]
 
 
+async def _as_coro(value: Any) -> Any:
+    if inspect.isawaitable(value):
+        return await value
+    return value
+
+
+async def _gather_pair(first: Any, second: Any) -> tuple[Any, Any]:
+    """Resolve two channel results concurrently, preserving channel-order
+    failure semantics (the first channel's error wins)."""
+    first_result, second_result = await asyncio.gather(
+        _as_coro(first), _as_coro(second), return_exceptions=True
+    )
+    if isinstance(first_result, BaseException):
+        raise first_result
+    if isinstance(second_result, BaseException):
+        raise second_result
+    return first_result, second_result
+
+
+def _resolve_pair(first: Any, second: Any) -> tuple[Any, Any]:
+    """Resolve two channel results through ONE loop — concurrent when
+    both are awaitables (the vectord wait overlaps the FTS query) and
+    cheaper than ``_resolve`` twice (one thread/loop, not two)."""
+    if not inspect.isawaitable(first) and not inspect.isawaitable(second):
+        return first, second
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(_gather_pair(first, second))
+    outcome: list[Any] = []
+    failure: list[BaseException] = []
+
+    def _worker() -> None:
+        try:
+            outcome.append(asyncio.run(_gather_pair(first, second)))
+        except BaseException as exc:  # noqa: BLE001 - propagate to caller
+            failure.append(exc)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    thread.join()
+    if failure:
+        raise failure[0]
+    return outcome[0]
+
+
 def _channel_name(index: int) -> str:
     return {0: "vector", 1: "keyword"}.get(index, f"channel_{index}")
 
@@ -132,22 +178,20 @@ class PipelineRetrievalMixin:
         Each record carries ``vector_rank``, ``keyword_rank``, and
         ``rrf_score`` for observability.
         """
-        # Dense channel (vectord + index_state proof)
-        vector_hits = _resolve(
+        # Dense channel (vectord + index_state proof) and sparse channel
+        # (PostgreSQL FTS) resolve concurrently through one loop.
+        vector_hits, keyword_hits = _resolve_pair(
             self.vector_search(
                 query_embedding,
                 module_ids=module_ids,
                 top_k=candidate_limit,
                 score_threshold=score_threshold,
-            )
-        )
-        # Sparse channel (PostgreSQL FTS)
-        keyword_hits = _resolve(
+            ),
             self.keyword_search(
                 query_text,
                 module_ids=module_ids,
                 limit=candidate_limit,
-            )
+            ),
         )
         fused = reciprocal_rank_fusion(vector_hits, keyword_hits)
         _logger.debug(
