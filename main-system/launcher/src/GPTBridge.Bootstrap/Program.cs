@@ -121,6 +121,7 @@ internal static class Program
         var prepareOnly = args.Contains("--prepare-only");
         var forceBuild = args.Contains("--force-build");
         var projectRoot = ArgValue(args, "--project-root");
+        var uiHost = ArgValue(args, "--ui-host");
         if (string.IsNullOrEmpty(projectRoot))
         {
             projectRoot = ProjectRoot;
@@ -148,7 +149,7 @@ internal static class Program
 
         try
         {
-            return Launch(projectRoot, prepareOnly, forceBuild);
+            return Launch(projectRoot, prepareOnly, forceBuild, uiHost);
         }
         catch (Exception error)
         {
@@ -166,7 +167,8 @@ internal static class Program
     }
 
     private static int Launch(
-        string projectRoot, bool prepareOnly, bool forceBuild)
+        string projectRoot, bool prepareOnly, bool forceBuild,
+        string uiHostArg)
     {
         LoadUserEnvVars();
         Directory.CreateDirectory(StateRoot);
@@ -188,7 +190,18 @@ internal static class Program
             new JsonObject { ["projectRoot"] = projectRoot });
         RefreshDesktopLauncher();
 
-        var electronExe = EnsureNodeRuntime();
+        // A618/A621/A625: the Rust+Tauri desktop host replaces Electron
+        // (MIGRATION_ONLY).  The host is resolved before runtime prep so
+        // the Electron toolchain is skipped entirely on the Tauri path.
+        var uiHost = ResolveUiHost(uiHostArg);
+        WriteStartupJournal("launcher.ui-host.selected",
+            new JsonObject { ["host"] = uiHost });
+
+        var electronExe = "";
+        if (uiHost == "electron")
+        {
+            electronExe = EnsureNodeRuntime();
+        }
         EnsurePythonRuntime();
         EnsureUiBuild(forceBuild);
 
@@ -204,6 +217,15 @@ internal static class Program
             return 0;
         }
 
+        if (uiHost == "tauri")
+        {
+            return LaunchTauriHost();
+        }
+        return LaunchElectronHost(electronExe);
+    }
+
+    private static int LaunchElectronHost(string electronExe)
+    {
         var mainEntry = Path.Combine(
             ProjectRoot, "dist-ui", "main", "index.js");
         if (!File.Exists(mainEntry))
@@ -250,6 +272,121 @@ internal static class Program
 
         WriteLauncherStatus(
             "Main system UI launched; Electron Main is starting "
+            + "the governed backend.");
+        return 0;
+    }
+
+    // ------------------------------------------------------------------
+    // desktop host selection (A618/A621/A625: Electron MIGRATION_ONLY)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Resolve the desktop host for this launch.  Precedence:
+    /// <c>--ui-host</c> arg → <c>GPTBRIDGE_UI_HOST</c> env →
+    /// <c>launcher/state/ui-host.json</c> → default <c>electron</c>.
+    /// The default stays Electron until embedded-browser ops are validated
+    /// on a healthy runtime (launcher note in AGENTS.md); writing
+    /// <c>{"host":"tauri"}</c> to the marker flips every subsequent launch
+    /// without rebuilding the launcher.
+    /// </summary>
+    private static string ResolveUiHost(string uiHostArg)
+    {
+        var normalized = NormalizeUiHost(uiHostArg);
+        if (normalized is not null)
+        {
+            return normalized;
+        }
+        normalized = NormalizeUiHost(
+            Environment.GetEnvironmentVariable("GPTBRIDGE_UI_HOST"));
+        if (normalized is not null)
+        {
+            return normalized;
+        }
+        try
+        {
+            var payload = JsonNode.Parse(
+                File.ReadAllText(
+                    Path.Combine(StateRoot, "ui-host.json")))?.AsObject();
+            normalized = NormalizeUiHost(
+                payload?["host"]?.GetValue<string>());
+            if (normalized is not null)
+            {
+                return normalized;
+            }
+        }
+        catch (Exception)
+        {
+            // Missing/invalid marker — keep the migration default.
+        }
+        return "electron";
+    }
+
+    private static string? NormalizeUiHost(string? value)
+    {
+        var host = (value ?? "").Trim().ToLowerInvariant();
+        return host is "tauri" or "electron" ? host : null;
+    }
+
+    private static int LaunchTauriHost()
+    {
+        var shellExe = Path.Combine(
+            ProjectRoot, "src-tauri", "target", "release",
+            "gptbridge-shell.exe");
+        if (!File.Exists(shellExe))
+        {
+            // The shell binary is a build artifact, not a governed source —
+            // never leave the user without a UI: degrade to the migration
+            // host instead of hard-failing the launch.
+            WriteLauncherStatus(
+                "gptbridge-shell.exe not found; falling back to Electron.");
+            WriteStartupJournal("launcher.ui-host.fallback",
+                new JsonObject { ["missing"] = shellExe });
+            return LaunchElectronHost(EnsureNodeRuntime());
+        }
+
+        Environment.SetEnvironmentVariable("GPTBRIDGE_SOURCE_PRODUCTION", "1");
+        Environment.SetEnvironmentVariable("GPTBRIDGE_MANAGE_BACKEND", "1");
+        Environment.SetEnvironmentVariable(
+            "GPTBRIDGE_WORKSPACE_ROOT", WorkspaceRoot);
+        Environment.SetEnvironmentVariable(
+            "GPTBRIDGE_PROJECT_ROOT", WorkspaceRoot);
+
+        WriteLauncherStatus("Launching Tauri desktop host (gptbridge-shell).");
+        WriteStartupJournal("launcher.phase.tauri.start", null);
+
+        var process = StartHiddenProcess(
+            shellExe, Array.Empty<string>(), ProjectRoot);
+        Thread.Sleep(800);
+
+        if (process.HasExited)
+        {
+            if (process.ExitCode != 0)
+            {
+                WriteStartupJournal("launcher.tauri.exited",
+                    new JsonObject { ["code"] = process.ExitCode });
+                // A dead shell means no UI at all — degrade to the still-
+                // supported migration host rather than a failed launch.
+                WriteLauncherStatus(
+                    $"gptbridge-shell exited ({process.ExitCode}); "
+                    + "falling back to Electron.");
+                WriteStartupJournal("launcher.ui-host.fallback",
+                    new JsonObject { ["exit"] = process.ExitCode });
+                return LaunchElectronHost(EnsureNodeRuntime());
+            }
+            WriteLauncherStatus(
+                "Tauri shell handed off to the running instance.");
+            WriteStartupJournal("launcher.tauri.handoff", null);
+        }
+        else
+        {
+            WriteLauncherStatus(
+                $"Tauri shell startup accepted. PID={process.Id}");
+            WriteStartupJournal("launcher.tauri.accepted",
+                new JsonObject { ["pid"] = process.Id });
+        }
+
+        WriteLauncherStatus(
+            "Main system UI launched; gptbridge-shell is supervising "
             + "the governed backend.");
         return 0;
     }

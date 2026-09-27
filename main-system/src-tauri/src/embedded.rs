@@ -100,6 +100,11 @@ fn content_size() -> &'static Mutex<Option<(f64, f64, f64)>> {
 }
 
 pub fn record_content_size(size: tauri::PhysicalSize<u32>, scale_factor: f64) {
+    // A hidden/not-yet-realised window can report 0x0 — a zero size must
+    // never poison the cache (every bounds clamp would fail-closed-hide).
+    if size.width == 0 || size.height == 0 {
+        return;
+    }
     let logical = size.to_logical::<f64>(scale_factor);
     *content_size().lock().unwrap() = Some((logical.width, logical.height, scale_factor));
 }
@@ -559,7 +564,7 @@ pub fn resize_session(
             worker_hide(&worker);
         }
     }
-    serde_json::json!({"ok": true, "hidden": clamped.is_none()})
+    serde_json::json!({"ok": true, "hidden": clamped.is_none(), "diag": {"content": current_content_size(), "mainWindow": main_window(app).is_some()}})
 }
 
 pub fn show_session(app: &AppHandle, id: &str) -> serde_json::Value {

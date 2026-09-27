@@ -17,6 +17,7 @@ and integrated here as the production decision-layer foundation.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
@@ -101,6 +102,29 @@ def verified_basis(references: Iterable[str]) -> DecisionBasis:
         for reference in tokens:
             session.provision_text(reference)  # raises KeyError if not found
     return DecisionBasis(tuple(tokens))
+
+
+# ---------------------------------------------------------------------------
+# Async wrappers — the governed session open and per-read audits are
+# synchronous PostgreSQL/file work; awaiting them on the event loop starved
+# the IPC server and /health handler (loop-stall evidence).  The session
+# semantics are unchanged: the same open/read/audit/close sequence runs on
+# a worker thread.
+# ---------------------------------------------------------------------------
+
+async def verified_basis_async(references: Iterable[str]) -> DecisionBasis:
+    """Event-loop-safe ``verified_basis`` (identical governed semantics)."""
+    return await asyncio.to_thread(verified_basis, tuple(references))
+
+
+async def codex_edicts_async(area: str) -> list[dict[str, str]]:
+    """Event-loop-safe ``codex_edicts`` (identical governed semantics)."""
+    return await asyncio.to_thread(codex_edicts, area)
+
+
+async def decision_basis_async(area: str) -> dict[str, Any]:
+    """Event-loop-safe ``decision_basis`` (identical governed semantics)."""
+    return await asyncio.to_thread(decision_basis, area)
 
 
 # ---------------------------------------------------------------------------
@@ -211,9 +235,12 @@ __all__ = [
     "SovereignRequest",
     "accepted_outcome",
     "codex_edicts",
+    "codex_edicts_async",
     "decision_basis",
+    "decision_basis_async",
     "is_provision_token",
     "provision_text",
     "refusal_outcome",
     "verified_basis",
+    "verified_basis_async",
 ]

@@ -336,7 +336,14 @@ fn create_main_window(app: &tauri::AppHandle) -> Result<tauri::Window, tauri::Er
         .visible(false)
         .build()?;
 
-    let initial_size = window.inner_size().unwrap_or(tauri::PhysicalSize::new(1400, 900));
+    // A freshly-built hidden window may report a 0x0 inner size — seed the
+    // geometry cache from the requested logical size instead so bounds
+    // clamps have a truthful viewport until the first real Resized event.
+    let initial_size = window
+        .inner_size()
+        .ok()
+        .filter(|s| s.width > 0 && s.height > 0)
+        .unwrap_or(tauri::PhysicalSize::new(1400, 900));
     embedded::record_content_size(initial_size, window.scale_factor().unwrap_or(1.0));
     let _webview = window.add_child(
         tauri::webview::WebviewBuilder::new("main", webview_url)
