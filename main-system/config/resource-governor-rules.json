@@ -122,6 +122,9 @@
     "vectord.exe": {
       "exclude": true
     },
+    "testhost.exe": {
+      "exclude": true
+    },
     "searchd.exe": {
       "exclude": true
     }
