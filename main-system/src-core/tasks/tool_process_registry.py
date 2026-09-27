@@ -62,7 +62,9 @@ def _powershell_process_ids(command: str, environment: dict[str, str]) -> list[i
 # Batched process snapshot (single native pass for all tools)
 # ------------------------------------------------------------------
 
-_SNAPSHOT_PROCESS_NAMES = frozenset({"python.exe", "pythonw.exe", "electron.exe"})
+_SNAPSHOT_PROCESS_NAMES = frozenset(
+    {"python.exe", "pythonw.exe", "gptbridge-shell.exe"}
+)
 
 _EXTRA_NAME_PATTERN = re.compile(r"^[a-z0-9_.-]+\.exe$", re.IGNORECASE)
 
@@ -268,9 +270,9 @@ def _match_process_to_tool(
         and os.path.normcase(exe) == os.path.normcase(executable_path)
     )
     is_ui = bool(
-        name == "electron.exe"
+        name == "gptbridge-shell.exe"
         and cmd
-        and "source-tool-ui-host\\main.cjs".lower() in cmd.lower()
+        and "--tool-window" in cmd.lower()
         and f"--tool-id={tool_id}".lower() in cmd.lower()
     )
     return (is_runtime, is_executable, is_ui)
@@ -450,8 +452,8 @@ def running_source_ui_process_ids(
     command = (
         "$toolId=$env:GPTBRIDGE_SOURCE_UI_TOOL_ID_QUERY;"
         "Get-CimInstance Win32_Process | Where-Object { "
-        "$_.Name -eq 'electron.exe' -and $_.CommandLine -and "
-        "$_.CommandLine.IndexOf('source-tool-ui-host\\main.cjs',"
+        "$_.Name -eq 'gptbridge-shell.exe' -and $_.CommandLine -and "
+        "$_.CommandLine.IndexOf('--tool-window',"
         "[System.StringComparison]::OrdinalIgnoreCase) -ge 0 -and "
         "$_.CommandLine.IndexOf(('--tool-id=' + $toolId),"
         "[System.StringComparison]::OrdinalIgnoreCase) -ge 0 "
