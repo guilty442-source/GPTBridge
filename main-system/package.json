@@ -4,7 +4,6 @@
   "description": "GPTBridge Windows 11 Stable Baseline",
   "private": true,
   "author": "GPTBridge Development Team",
-  "main": "dist-ui/main/index.js",
   "scripts": {
     "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
     "dev": "node scripts/dev.mjs",
@@ -29,17 +28,15 @@
     "check:ui": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" ../governance_rule/execution/typescript/scripts/run-checkers.ts --category ui",
     "check:runtime": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" ../governance_rule/execution/typescript/scripts/run-checkers.ts --category runtime",
     "build:renderer": "vite build",
-    "build:main": "vite build -c vite.main.config.mjs",
     "build:templates": "vite build -c vite.templates.config.mjs",
     "build:native": ".venv\\Scripts\\python.exe src-core/core_system/native/build_native.py",
     "build:platform-renderer": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --build-renderers-only --all",
-    "build:app": "npm.cmd run build:renderer && npm.cmd run build:main && npm.cmd run build:templates && npm.cmd run build:platform-renderer",
+    "build:app": "npm.cmd run build:renderer && npm.cmd run build:templates && npm.cmd run build:platform-renderer",
     "package:tools": "npm.cmd run build:templates && .venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --all",
     "package:tool": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py",
     "package:changed": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --changed",
     "verify:tools": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --verify --all",
     "build": "npm.cmd run version:check && npm.cmd run governance:audit && npm.cmd run governance:check && npm.cmd run check:imports && npm.cmd run check:circular && npm.cmd run check:runtime && npm.cmd run type-check && npm.cmd run build:app",
-    "dist": "npm.cmd run build:templates && npm.cmd run package:tools && npm.cmd run build && electron-builder",
     "test:ipc-client": "ts-node --files --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/test_ipc_client_contract.ts"
   },
   "dependencies": {
@@ -53,118 +50,9 @@
     "@vitejs/plugin-react": "^6.1.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "electron": "^44.4.5",
-    "electron-builder": "^26.15.3",
     "madge": "^8.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.1"
-  },
-  "build": {
-    "appId": "com.gptbridge.auto-agent-ide",
-    "productName": "GPTBridge",
-    "compression": "normal",
-    "directories": {
-      "output": "release"
-    },
-    "extraResources": [
-      {
-        "from": ".venv",
-        "to": ".venv",
-        "filter": [
-          "**/*",
-          "!**/__pycache__",
-          "!**/*.pyc",
-          "!**/.pytest_cache/**",
-          "!**/.ruff_cache/**",
-          "!**/Scripts/black*",
-          "!**/Scripts/mypy*",
-          "!**/Scripts/pytest*",
-          "!**/Scripts/ruff*",
-          "!**/site-packages/hf_xet/**",
-          "!**/site-packages/hf_xet-*.dist-info/**",
-          "!**/site-packages/networkx/**",
-          "!**/site-packages/networkx-*.dist-info/**",
-          "!**/site-packages/scipy/**",
-          "!**/site-packages/scipy-*.dist-info/**",
-          "!**/site-packages/scipy.libs/**",
-          "!**/site-packages/sympy/**",
-          "!**/site-packages/sympy-*.dist-info/**",
-          "!**/site-packages/tokenizers/**",
-          "!**/site-packages/tokenizers-*.dist-info/**",
-          "!**/site-packages/torch/**",
-          "!**/site-packages/torch-*.dist-info/**",
-          "!**/site-packages/torchaudio/**",
-          "!**/site-packages/torchaudio-*.dist-info/**",
-          "!**/site-packages/torchvision/**",
-          "!**/site-packages/torchvision-*.dist-info/**",
-          "!**/site-packages/transformers/**",
-          "!**/site-packages/transformers-*.dist-info/**"
-        ]
-      },
-      {
-        "from": "src-core",
-        "to": "src-core",
-        "filter": [
-          "**/*",
-          "!**/__pycache__",
-          "!**/browser-profile/**",
-          "!**/browser-profiles/**",
-          "!**/edge-profile/**"
-        ]
-      },
-      {
-        "from": "config",
-        "to": "config",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "main-system/governance",
-        "to": "governance",
-        "filter": [
-          "**/*",
-          "!**/__pycache__",
-          "!**/*.pyc"
-        ]
-      },
-      {
-        "from": "governance_rule",
-        "to": "governance_rule",
-        "filter": [
-          "**/*",
-          "!**/__pycache__",
-          "!**/*.pyc"
-        ]
-      },
-      {
-        "from": "shared-layer",
-        "to": "shared-layer",
-        "filter": [
-          "**/*",
-          "!**/__pycache__",
-          "!**/*.pyc"
-        ]
-      }
-    ],
-    "win": {
-      "signAndEditExecutable": true,
-      "target": [
-        "portable",
-        "nsis"
-      ],
-      "legalTrademarks": "GPTBridge"
-    },
-    "portable": {
-      "artifactName": "GPTBridge-${version}-${arch}-portable.${ext}"
-    },
-    "nsis": {
-      "artifactName": "GPTBridge-${version}-${arch}-setup.${ext}"
-    },
-    "files": [
-      "dist-ui/**/*",
-      "package.json"
-    ],
-    "asar": true
   }
 }
