@@ -16,6 +16,7 @@ from typing import Any, Dict
 
 
 from .tool_lifecycle_budget import TOOL_CLOSE_BUDGET_SECONDS, deadline_after
+from .tool_process_registry import sweep_snapshot
 from .toolbox_constants import _background_subprocess_kwargs, _run_hidden_subprocess
 from .toolbox_shutdown_force import ForceCloseMixin
 
@@ -118,7 +119,7 @@ class ShutdownMixin(ForceCloseMixin):
         # PowerShell/CIM call as before.  Runs via asyncio.to_thread so it
         # never stalls the backend event loop.
         def probe() -> list[int]:
-            snap = self._sweep_snapshot(str(source_entry), str(executable_file))
+            snap = sweep_snapshot(str(source_entry), str(executable_file))
             return sorted(
                 set(self._running_source_runtime_process_ids(source_entry, snapshot=snap))
                 | set(self._running_executable_process_ids(executable_file, snapshot=snap))
@@ -127,7 +128,7 @@ class ShutdownMixin(ForceCloseMixin):
             )
 
         def stop() -> set[int]:
-            snap = self._sweep_snapshot(str(source_entry), str(executable_file))
+            snap = sweep_snapshot(str(source_entry), str(executable_file))
             out: set[int] = set()
             out.update(self._stop_running_source_runtime(source_entry, snapshot=snap))
             out.update(self._stop_running_executable(executable_file, snapshot=snap))
@@ -144,7 +145,7 @@ class ShutdownMixin(ForceCloseMixin):
         executable_file: Path,
     ) -> tuple[set[int], list[int]]:
         def probe() -> list[int]:
-            snap = self._sweep_snapshot(str(executable_file))
+            snap = sweep_snapshot(str(executable_file))
             return sorted(
                 set(self._running_executable_process_ids(executable_file, snapshot=snap))
                 | set(self._running_packaged_backend_process_ids(tool_dir, snapshot=snap))
@@ -152,7 +153,7 @@ class ShutdownMixin(ForceCloseMixin):
             )
 
         def stop() -> set[int]:
-            snap = self._sweep_snapshot(str(executable_file))
+            snap = sweep_snapshot(str(executable_file))
             out: set[int] = set()
             out.update(self._stop_running_executable(executable_file, snapshot=snap))
             out.update(self._stop_running_packaged_backend(tool_dir, snapshot=snap))

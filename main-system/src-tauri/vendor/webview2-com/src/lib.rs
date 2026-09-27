@@ -88,16 +88,13 @@ pub fn wait_with_pump<T>(rx: mpsc::Receiver<T>) -> Result<T> {
                 WindowsAndMessaging::DispatchMessageA(&msg);
             }
 
-            let mut index = 0u32;
             // COM-sanctioned STA wait: dispatches incoming COM calls (which
             // WebView2 completion handlers require) AND window messages.
             // Bounded timeout so the result channel is re-checked.
             let _hr = CoWaitForMultipleHandles(
-                COWAIT_DISPATCH_CALLS | COWAIT_DISPATCH_WINDOW_MESSAGES,
+                (COWAIT_DISPATCH_CALLS | COWAIT_DISPATCH_WINDOW_MESSAGES).0 as u32,
                 50,
-                0,
-                std::ptr::null(),
-                &mut index,
+                &[],
             );
         }
     }
