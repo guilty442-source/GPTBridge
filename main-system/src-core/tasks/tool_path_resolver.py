@@ -242,6 +242,25 @@ class ToolPathResolver(ToolPathValidationMixin):
             raise ValueError("Tool has no governed source runtime")
         runtime = manifest.get("runtime")
         request_channel = manifest.get("request_channel")
+        # migrate-csharp: an opt-in `runtime.native_entry` (a tool-root-bound
+        # .exe such as dist/SystemRescue.Host.exe) selects the C# governed
+        # host when present; the declared Python entry remains the fallback
+        # while the artifact is absent (e.g. before publish).
+        if isinstance(runtime, dict):
+            raw_native = str(runtime.get("native_entry") or "").strip()
+            if raw_native:
+                native_path = Path(raw_native)
+                if native_path.is_absolute() or ".." in native_path.parts:
+                    raise ValueError("Native runtime entry is invalid")
+                native_entry = self.validated_tool_path(
+                    tool_dir,
+                    tool_dir / native_path,
+                    label="Native runtime entry",
+                )
+                if native_entry.suffix.lower() != ".exe":
+                    raise ValueError("Native runtime entry must be an .exe")
+                if native_entry.is_file():
+                    return native_entry
         if (
             not isinstance(runtime, dict)
             or runtime.get("type") != "python"

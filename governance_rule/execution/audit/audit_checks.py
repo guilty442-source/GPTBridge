@@ -164,6 +164,7 @@ from .audit_optimization import (
     check_gpu_coordinator_lazy_torch,
     check_jax_sft_retrace_bound,
     check_renderer_idle_gating,
+    check_tool_host_native_boundary,
 )
 from .audit_formal_rules import (
     check_formal_rules,

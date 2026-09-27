@@ -1,0 +1,291 @@
+//! GPTBridge governed desktop shell — Tauri host replacing the retired
+//! Electron runtime (codex A618/A625: Rust/Tauri desktop host; A621:
+//! Electron MIGRATION_ONLY).
+//!
+//! Contract parity with src-ui/main/index.ts:
+//!   - single-instance; a second launch re-focuses and re-checks the managed
+//!     backend instead of starting a duplicate stack
+//!   - window first, backend in the background (boot_core supervises main.py)
+//!   - complete-close: closing the last window stops embedded sessions, the
+//!     loopback bridge, watchers, and the managed backend
+
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod backend;
+mod bridge;
+mod commands;
+mod embedded;
+mod http_util;
+mod metrics;
+mod paths;
+mod session;
+mod sizes;
+mod slo;
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
+use std::time::Duration;
+
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+const SHUTDOWN_DEADLINE_MS: u64 = 15_000;
+
+/// Preload whitelist parity — identical to preload.ts allowedInvokeChannels.
+const ALLOWED_CHANNELS: [&str; 25] = [
+    "app:get-status",
+    "app:get-perf-slo",
+    "app:get-backend-session",
+    "app:restart",
+    "app:restart-backend",
+    "app:ensure-backend-started",
+    "app:get-platform-tool-sizes",
+    "app:reload-window",
+    "app:reload-window-hard",
+    "app:get-ui-zoom",
+    "app:set-ui-zoom",
+    "app:open-path",
+    "dialog:select-folder",
+    "dialog:create-file",
+    "dialog:open-file",
+    "embedded-browser:create",
+    "embedded-browser:navigate",
+    "embedded-browser:execute",
+    "embedded-browser:show",
+    "embedded-browser:hide",
+    "embedded-browser:close",
+    "embedded-browser:resize",
+    "embedded-browser:list",
+    "embedded-browser:url",
+    "embedded-browser:close-module",
+];
+
+fn report(event: &str, payload: serde_json::Value) {
+    println!("[Main System] {event} {payload}");
+}
+
+/// The renderer-visible contract injected into every webview before scripts
+/// run — replaces the Electron preload bridge.  Channel dispatch goes
+/// through the single governed ``gptbridge_invoke`` command which re-checks
+/// the whitelist server-side.
+const PRELOAD_SHIM: &str = r#"
+(function () {
+  'use strict';
+  var invoke = function (channel) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return window.__TAURI__.core.invoke('gptbridge_invoke', {
+      channel: channel,
+      args: args
+    }).then(function (r) { return r; });
+  };
+  window.electron = { invoke: invoke };
+  window.gptBridge = {
+    selectFolder: function () { return invoke('dialog:select-folder'); },
+    createFile: function (defaultPath) {
+      return invoke('dialog:create-file', defaultPath || '');
+    },
+    openFile: function (defaultPath) {
+      return invoke('dialog:open-file', defaultPath || '');
+    },
+    openPath: function (payload) { return invoke('app:open-path', payload); },
+    restartApp: function () { return invoke('app:restart'); },
+    restartBackend: function () { return invoke('app:restart-backend'); },
+    ensureBackendStarted: function () { return invoke('app:ensure-backend-started'); }
+  };
+  // Reload shortcuts (Electron before-input-event parity).
+  window.addEventListener('keydown', function (event) {
+    var key = (event.key || '').toLowerCase();
+    var reload = key === 'f5' || ((event.ctrlKey || event.metaKey) && key === 'r');
+    if (!reload) return;
+    event.preventDefault();
+    invoke(event.shiftKey ? 'app:reload-window-hard' : 'app:reload-window');
+  });
+})();
+"#;
+
+#[tauri::command]
+async fn gptbridge_invoke(
+    app: tauri::AppHandle,
+    channel: String,
+    args: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    if !ALLOWED_CHANNELS.contains(&channel.as_str()) {
+        return Ok(serde_json::json!({
+            "ok": false,
+            "message": format!("Blocked IPC channel: {channel}")
+        }));
+    }
+    // Electron handlers receive the first positional argument as payload;
+    // the shim forwards the full array.
+    let payload = if args.is_array() {
+        args.get(0).cloned().unwrap_or(serde_json::Value::Null)
+    } else {
+        args
+    };
+    Ok(commands::dispatch(app, &channel, payload).await)
+}
+
+fn manage_backend() -> bool {
+    std::env::var("GPTBRIDGE_MANAGE_BACKEND").ok().as_deref() == Some("1")
+}
+
+fn shutdown_complete() -> &'static AtomicBool {
+    static FLAG: OnceLock<AtomicBool> = OnceLock::new();
+    FLAG.get_or_init(|| AtomicBool::new(false))
+}
+
+/// Complete-close contract (index.ts shutdownApplication): close embedded
+/// sessions, stop the bridge, stop watchers, then stop the managed backend —
+/// bounded so a stalled graceful stop never leaves a detached orphan.
+fn shutdown_application(app: &tauri::AppHandle) {
+    if shutdown_complete().swap(true, Ordering::SeqCst) {
+        return;
+    }
+    embedded::close_all_sessions(app);
+    bridge::stop_embedded_browser_bridge();
+    if manage_backend() {
+        // Backend shutdown is awaited but bounded — a stalled graceful stop
+        // must never leave the UI running as a detached orphan.
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        std::thread::spawn(move || {
+            backend::stop_backend();
+            let _ = tx.send(());
+        });
+        let _ = rx.recv_timeout(Duration::from_millis(SHUTDOWN_DEADLINE_MS));
+    }
+    report("main.ui-shutdown", serde_json::json!({}));
+}
+
+/// Renderer hot-reload parity: poll dist-ui entry mtimes every 2 s; a rebuilt
+/// renderer reloads the window in place (the main-bundle relaunch path has no
+/// native equivalent — a rebuilt Rust binary is delivered by the launcher).
+fn start_renderer_watch(app: tauri::AppHandle) {
+    let renderer_html = paths::path_library().renderer_entry_html.clone();
+    std::thread::spawn(move || {
+        let mut last = mtime(&renderer_html);
+        loop {
+            std::thread::sleep(Duration::from_millis(2_000));
+            if shutdown_complete().load(Ordering::SeqCst) {
+                return;
+            }
+            let current = mtime(&renderer_html);
+            if current != last && last != 0 && current != 0 {
+                last = current;
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.eval("window.location.reload()");
+                    report("renderer.hot-reload", serde_json::json!({}));
+                }
+            } else {
+                last = current;
+            }
+        }
+    });
+}
+
+fn mtime(path: &std::path::Path) -> u64 {
+    std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+fn main() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // Second-instance contract: re-check the managed backend and
+            // focus the existing window instead of starting a new stack.
+            if manage_backend() {
+                backend::ensure_backend_started();
+            }
+            if let Some(window) = app.get_webview_window("main") {
+                if window.is_minimized().unwrap_or(false) {
+                    let _ = window.unminimize();
+                }
+                let _ = window.show();
+                let _ = window.set_focus();
+            } else {
+                let _ = create_main_window(app);
+            }
+        }))
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![gptbridge_invoke])
+        .setup(|app| {
+            report(
+                "bootstrap.start",
+                serde_json::json!({
+                    "isPackaged": paths::is_packaged(),
+                    "shouldManageBackend": manage_backend(),
+                    "workspaceRoot": paths::path_library().workspace_root,
+                }),
+            );
+
+            create_main_window(&app.handle())?;
+            start_renderer_watch(app.handle().clone());
+            // The loopback bridge publishes the embedded-browser session
+            // store for tool UIs/backends (A44/E30 + A49/E35).
+            bridge::start_embedded_browser_bridge(&app.handle());
+            report("window.ready", serde_json::json!({}));
+
+            // Backend startup runs in the background and does not block the
+            // UI (A60: the launcher only spawns boot_core; boot_core starts
+            // and supervises main.py per A61 ordering).
+            if manage_backend() {
+                std::thread::spawn(backend::start_backend);
+            }
+            report("bootstrap.ready", serde_json::json!({}));
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            match event {
+                tauri::WindowEvent::Resized(_) => {
+                    embedded::on_window_resized(&window.app_handle());
+                    commands::apply_adaptive_zoom(window);
+                }
+                tauri::WindowEvent::CloseRequested { .. } => {
+                    embedded::close_all_sessions(&window.app_handle());
+                }
+                _ => {}
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("failed to build GPTBridge shell")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                shutdown_application(app);
+            }
+        });
+}
+
+fn create_main_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, tauri::Error> {
+    if let Some(existing) = app.get_webview_window("main") {
+        let _ = existing.set_focus();
+        return Ok(existing);
+    }
+
+    let dev_url = std::env::var("GPTBRIDGE_RENDERER_DEV_URL")
+        .ok()
+        .filter(|v| !v.trim().is_empty());
+    let webview_url = match dev_url {
+        Some(url) => WebviewUrl::External(
+            url.parse().unwrap_or_else(|_| "http://localhost:5173".parse().unwrap()),
+        ),
+        None => WebviewUrl::App("index.html".into()),
+    };
+
+    let builder = WebviewWindowBuilder::new(app, "main", webview_url)
+        .title("GPTBridge")
+        .inner_size(1400.0, 900.0)
+        .min_inner_size(1100.0, 720.0)
+        .visible(false)
+        .background_color(tauri::utils::config::Color(0x1a, 0x1b, 0x1e, 0xff))
+        .initialization_script(PRELUDE_SCRIPT)
+        .title_bar_style(tauri::TitleBarStyle::Overlay);
+    let window = builder.build()?;
+    commands::apply_adaptive_zoom(&window);
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(window)
+}
+
+const PRELUDE_SCRIPT: &str = PRELOAD_SHIM;

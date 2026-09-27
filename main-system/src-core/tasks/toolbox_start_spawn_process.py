@@ -93,13 +93,24 @@ class SpawnProcessMixin:
         try:
             if use_source_runtime and source_entry is not None and python_executable is not None:
                 process = None
+                # migrate-csharp: a native_entry resolves to a tool-root
+                # .exe (e.g. dist/SystemRescue.Host.exe); it is spawned
+                # directly with the same governed environment — no
+                # interpreter prefix arguments.
+                is_native_entry = source_entry.suffix.lower() == ".exe"
                 for _spawn_attempt in range(2):
                     source_environment = self._source_runtime_environment(
                         tool_id, tool_dir, manifest,
                     )
+                    if is_native_entry:
+                        spawn_argv = [str(source_entry), *args]
+                    else:
+                        spawn_argv = [
+                            str(python_executable), "-B", "-s", "-E", "-X",
+                            "utf8", str(source_entry), *args,
+                        ]
                     process = await asyncio.create_subprocess_exec(
-                        str(python_executable), "-B", "-s", "-E", "-X", "utf8",
-                        str(source_entry), *args,
+                        *spawn_argv,
                         cwd=str(tool_dir),
                         stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,

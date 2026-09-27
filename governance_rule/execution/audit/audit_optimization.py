@@ -13,7 +13,11 @@ optimisation work (commits ``d0307ec2`` / ``e0d65d24`` / ``91959d4b``):
 - ``check_bootstrap_native_entry`` — the C# bootstrap entry project must
   exist (A341 orchestration-layer migration target ``bootstrap-entry``);
 - ``check_channel_gateway_csharp`` — the C# A263 channel library and its
-  test project must exist (``information-channel-gateway`` target).
+  test project must exist (``information-channel-gateway`` target);
+- ``check_tool_host_native_boundary`` — the C# governed tool host must
+  keep token issuance / transport-store access in the Python sidecar
+  (E4), and the main-system spawn path must keep the ``native_entry``
+  branch for tool-root ``.exe`` hosts.
 
 All checks are delegated (source/AST scans); none are reducible to the
 native engine's file-kinds.
@@ -21,6 +25,7 @@ native engine's file-kinds.
 from __future__ import annotations
 
 import ast
+import json
 import re
 from pathlib import Path
 
@@ -282,6 +287,102 @@ def check_channel_gateway_csharp(root: Path, errors: list[str]) -> None:
                 )
 
 
+_TOOL_HOST_DIR = "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost"
+_TOOL_HOST_TEST_DIR = (
+    "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost.Tests"
+)
+_TOOL_HOST_SPAWN = "main-system/src-core/tasks/toolbox_start_spawn_process.py"
+_TOOL_HOST_RESOLVER = "main-system/src-core/tasks/tool_path_resolver.py"
+_TOOL_HOST_RESCUE_MANIFEST = "Standalone tools/system-rescue/manifest.json"
+_TOOL_HOST_RESCUE_NATIVE = (
+    "Standalone tools/system-rescue/src-native/Program.cs"
+)
+
+# Token issuance, transport-store access and the governance bootstrap all
+# stay in the Python plane (E4); the native host must never implement them.
+_NATIVE_FORBIDDEN = (
+    "HMACSHA",
+    "issue_token",
+    "launcher_key",
+    "integrity_manifest",
+    "identity_attestation",
+    "gptbridge_transport",
+    "Npgsql",
+    "pg_notify",
+)
+
+
+def check_tool_host_native_boundary(root: Path, errors: list[str]) -> None:
+    """migrate-csharp tool host: governed boundary + spawn-path wiring.
+
+    The C# host may only speak star-governed-transport-proxy/v1 ops to
+    the Python sidecar; it must never embed token-issuance or store
+    access primitives.  The spawn path must branch on a tool-root .exe.
+    """
+    host_dir = root / _TOOL_HOST_DIR
+    if not host_dir.is_dir():
+        errors.append(f"missing {_TOOL_HOST_DIR}")
+        return
+    if not (root / _TOOL_HOST_TEST_DIR).is_dir():
+        errors.append(f"missing {_TOOL_HOST_TEST_DIR}")
+    for path in sorted(host_dir.glob("*.cs")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for marker in _NATIVE_FORBIDDEN:
+            if marker in text:
+                errors.append(
+                    f"{path.relative_to(root).as_posix()}: forbidden "
+                    f"governance primitive {marker!r} in native host — "
+                    "token issuance/store access stays in the sidecar"
+                )
+    # Ops surface must remain the proxy's declared process-side set.
+    client = host_dir / "TransportProxyClient.cs"
+    if client.is_file():
+        text = client.read_text(encoding="utf-8", errors="replace")
+        for op in (
+            '"hello"',
+            '"claim"',
+            '"respond"',
+            '"request_cancelled"',
+            '"notification_stamp"',
+        ):
+            if op not in text:
+                errors.append(
+                    f"TransportProxyClient.cs: proxy op {op} missing"
+                )
+    else:
+        errors.append("missing TransportProxyClient.cs")
+
+    spawn = _read(root, _TOOL_HOST_SPAWN)
+    if spawn is None or 'source_entry.suffix.lower() == ".exe"' not in spawn:
+        errors.append(
+            f"{_TOOL_HOST_SPAWN}: native (.exe) spawn branch missing"
+        )
+    resolver = _read(root, _TOOL_HOST_RESOLVER)
+    if resolver is None or "native_entry" not in resolver:
+        errors.append(
+            f"{_TOOL_HOST_RESOLVER}: runtime.native_entry branch missing"
+        )
+    manifest = _read(root, _TOOL_HOST_RESCUE_MANIFEST)
+    if manifest is None:
+        errors.append(f"missing {_TOOL_HOST_RESCUE_MANIFEST}")
+    else:
+        try:
+            native_entry = json.loads(manifest)["runtime"]["native_entry"]
+        except (ValueError, KeyError, json.JSONDecodeError):
+            native_entry = ""
+        if (
+            not native_entry.endswith(".exe")
+            or native_entry.startswith("/")
+            or ".." in Path(native_entry).parts
+        ):
+            errors.append(
+                f"{_TOOL_HOST_RESCUE_MANIFEST}: native_entry must be a "
+                "tool-root-relative .exe"
+            )
+    if not (root / _TOOL_HOST_RESCUE_NATIVE).is_file():
+        errors.append(f"missing {_TOOL_HOST_RESCUE_NATIVE}")
+
+
 def main() -> int:
     import argparse
 
@@ -299,6 +400,7 @@ def main() -> int:
         check_renderer_idle_gating,
         check_bootstrap_native_entry,
         check_channel_gateway_csharp,
+        check_tool_host_native_boundary,
     ):
         check(args.root, errors)
     for error in errors:

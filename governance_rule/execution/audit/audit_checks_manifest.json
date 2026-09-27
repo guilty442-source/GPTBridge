@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-27T03:58:13Z",
+  "generated_at": "2026-09-27T05:23:35Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
     "native_checks": 334,
-    "delegated_checks": 34,
+    "delegated_checks": 35,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -2912,6 +2912,12 @@
       "kind": "delegated",
       "reason": "python oracle (transition)",
       "python": "check_renderer_idle_gating"
+    },
+    {
+      "id": "python-check:check_tool_host_native_boundary",
+      "kind": "delegated",
+      "reason": "python oracle (transition)",
+      "python": "check_tool_host_native_boundary"
     },
     {
       "id": "python-check:protected-source-semantic",

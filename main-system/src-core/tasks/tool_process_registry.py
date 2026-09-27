@@ -198,9 +198,20 @@ def _match_process_to_tool(
         return (False, False, False)
     is_runtime = bool(
         source_runtime_entry
-        and name in ("python.exe", "pythonw.exe")
-        and cmd
-        and source_runtime_entry.lower() in cmd.lower()
+        and (
+            (
+                name in ("python.exe", "pythonw.exe")
+                and cmd
+                and source_runtime_entry.lower() in cmd.lower()
+            )
+            or (
+                # migrate-csharp: a native runtime entry (.exe) is the
+                # process image itself — match by ExecutablePath.
+                source_runtime_entry.lower().endswith(".exe")
+                and exe
+                and os.path.normcase(exe) == os.path.normcase(source_runtime_entry)
+            )
+        )
     )
     is_executable = bool(
         executable_path
@@ -288,6 +299,18 @@ def running_source_runtime_process_ids(entry_file: Path) -> list[int]:
         return native
     environment = os.environ.copy()
     environment["GPTBRIDGE_SOURCE_RUNTIME_ENTRY"] = str(entry_file.resolve())
+    if str(entry_file).lower().endswith(".exe"):
+        # migrate-csharp: a native runtime entry is the process image —
+        # match ExecutablePath instead of the interpreter name + cmdline.
+        command = (
+            "$target=[System.IO.Path]::GetFullPath($env:GPTBRIDGE_SOURCE_RUNTIME_ENTRY);"
+            "Get-CimInstance Win32_Process | Where-Object { "
+            "$_.ExecutablePath -and "
+            "([System.IO.Path]::GetFullPath($_.ExecutablePath)).Equals("
+            "$target,[System.StringComparison]::OrdinalIgnoreCase) "
+            "} | Select-Object -ExpandProperty ProcessId"
+        )
+        return _powershell_process_ids(command, environment)
     command = (
         "$target=[System.IO.Path]::GetFullPath($env:GPTBRIDGE_SOURCE_RUNTIME_ENTRY);"
         "Get-CimInstance Win32_Process | Where-Object { "

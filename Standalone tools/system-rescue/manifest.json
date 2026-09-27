@@ -22,6 +22,7 @@
   "runtime": {
     "type": "python",
     "entry": "src/main.py",
+    "native_entry": "dist/SystemRescue.Host.exe",
     "workingDirectory": "."
   },
   "distribution": {
