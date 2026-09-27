@@ -325,6 +325,8 @@ function setupWatchdog(): void {
   if (watchdogTimer) clearInterval(watchdogTimer)
   // Perf/low-CPU: recovery timeout is 12s; 5s sampling halves wakeups with
   // at most +2.5s escalation delay. Early-returns when idle either way.
+  // idle-ok: recovery-pending is already the idle gate; running recovery
+  // while hidden leaves the user a healthy session on return.
   watchdogTimer = setInterval(() => {
     if (!snapshot.recoveryPendingSince) return
 

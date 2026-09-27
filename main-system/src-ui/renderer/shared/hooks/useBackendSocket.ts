@@ -445,6 +445,8 @@ export const useBackendSocket = () => {
     document.addEventListener('visibilitychange', reconnectNow)
     // Perf/low-CPU: stale threshold is 25s; 10s sampling still detects
     // within ~35s worst case at one-third of the wakeups.
+    // idle-ok: O(1) local timestamp check with no IPC, and closing a
+    // dead socket while hidden frees the backend connection early.
     staleConnectionTimer = window.setInterval(() => {
       const socket = socketRef.current
       if (

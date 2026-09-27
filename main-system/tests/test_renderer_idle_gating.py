@@ -96,3 +96,64 @@ def test_no_self_rescheduling_timeout_in_heartbeat() -> None:
     source = RSM.read_text(encoding="utf-8")
     heartbeat = source[source.index("startHeartbeat"):source.index("stopHeartbeat")]
     assert "setTimeout" not in heartbeat
+
+
+def _renderer_interval_sites():
+    """(path, lineno) for every setInterval call in the renderer tree."""
+    for path in sorted(SRC_UI.rglob("*.ts")) + sorted(SRC_UI.rglob("*.tsx")):
+        if "node_modules" in path.parts or "dist" in path.parts:
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for lineno, line in enumerate(lines, start=1):
+            if "setInterval(" in line and "typeof setInterval" not in line:
+                yield path, lines, lineno
+
+
+def test_all_renderer_intervals_gated_or_marked() -> None:
+    """Same rule the delegated audit enforces: every renderer interval
+    either carries a hidden-window gate in its callback or an explicit
+    ``idle-ok`` exemption marker."""
+    bad = []
+    for path, lines, lineno in _renderer_interval_sites():
+        body_src = "\n".join(lines)
+        match = re.search(
+            r"setInterval\((?:async )?\(\)\s*=>\s*\{", body_src
+        )
+        gated = False
+        if match and match.start() < sum(
+            len(l) + 1 for l in lines[:lineno]
+        ) + len(lines[lineno - 1]):
+            # Extract the callback body at this site.
+            start = match.end()
+            depth, i = 1, start
+            while i < len(body_src) and depth:
+                if body_src[i] == "{":
+                    depth += 1
+                elif body_src[i] == "}":
+                    depth -= 1
+                i += 1
+            gated = bool(_HIDDEN_GATE.search(body_src[start:i]))
+        marked = any(
+            "idle-ok" in lines[i]
+            for i in range(max(0, lineno - 4), lineno)
+        )
+        if not gated and not marked:
+            bad.append(f"{path.name}:{lineno}")
+    assert not bad, f"ungated renderer intervals: {bad}"
+
+
+def test_idle_ok_exemptions_documented() -> None:
+    """The intentionally-ungated timers must keep their exemption markers
+    so the audit exemption stays auditable."""
+    for rel, reason in (
+        (
+            "shared/hooks/useBackendSocket.ts",
+            "stale sampler is a local O(1) check, no IPC",
+        ),
+        (
+            "shared/services/hmrService.ts",
+            "recovery-pending is already the idle gate",
+        ),
+    ):
+        src = (SRC_UI / rel).read_text(encoding="utf-8")
+        assert "idle-ok" in src, f"{rel} lost its idle-ok marker ({reason})"

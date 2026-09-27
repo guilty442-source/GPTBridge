@@ -132,50 +132,112 @@ def check_jax_sft_retrace_bound(root: Path, errors: list[str]) -> None:
         errors.append(f"{_SFT}: eval loss must be jax.jit-wrapped")
 
 
-def _interval_body(source: str, errors: list[str], rel: str) -> str | None:
-    match = re.search(r"setInterval\((?:async )?\(\)\s*=>\s*\{", source)
-    if not match:
-        errors.append(f"{rel}: no arrow-callback setInterval found")
-        return None
-    start = match.end()
-    depth = 1
-    i = start
-    while i < len(source) and depth:
-        if source[i] == "{":
-            depth += 1
-        elif source[i] == "}":
-            depth -= 1
-        i += 1
-    if depth:
-        errors.append(f"{rel}: unbalanced braces in setInterval callback")
-        return None
-    return source[start:i]
+_INTERVAL_CB = re.compile(r"setInterval\((?:async )?\(\)\s*=>\s*\{")
+
+
+def _interval_bodies(source: str) -> dict[int, str]:
+    """``{lineno_of_setInterval: callback_body}`` for every arrow-body
+    ``setInterval`` in the source."""
+    bodies: dict[int, str] = {}
+    for match in _INTERVAL_CB.finditer(source):
+        start = match.end()
+        depth = 1
+        i = start
+        while i < len(source) and depth:
+            if source[i] == "{":
+                depth += 1
+            elif source[i] == "}":
+                depth -= 1
+            i += 1
+        lineno = source.count("\n", 0, match.start()) + 1
+        if depth:
+            bodies[lineno] = ""
+            continue
+        bodies[lineno] = source[start:i]
+    return bodies
+
+
+_RENDERER_GLOB_ROOT = "main-system/src-ui/renderer"
+_RENDERER_EXTS = (".ts", ".tsx")
+_IDLE_OK = "idle-ok"
+
+
+def _renderer_intervals(root: Path) -> list[tuple[str, str, int]]:
+    """Every ``setInterval`` site under renderer/ as
+    ``(relpath, source, lineno)``."""
+    base = root / _RENDERER_GLOB_ROOT
+    if not base.is_dir():
+        return []
+    sites: list[tuple[str, str, int]] = []
+    for path in sorted(base.rglob("*")):
+        if path.suffix not in _RENDERER_EXTS or not path.is_file():
+            continue
+        if "node_modules" in path.parts or "dist" in path.parts:
+            continue
+        source = path.read_text(encoding="utf-8", errors="replace")
+        rel = path.relative_to(root).as_posix()
+        for lineno, line in enumerate(source.splitlines(), start=1):
+            if "setInterval(" in line and "typeof setInterval" not in line:
+                sites.append((rel, source, lineno))
+    return sites
+
+
+def _idle_ok_marked(source: str, lineno: int) -> bool:
+    """``// idle-ok:`` marker on the setInterval line or the three
+    comment lines above it (same convention as ``# sql-ok``)."""
+    lines = source.splitlines()
+    lo = max(0, lineno - 4)
+    return any(_IDLE_OK in lines[i] for i in range(lo, lineno))
 
 
 def check_renderer_idle_gating(root: Path, errors: list[str]) -> None:
-    """Hidden-window gate must precede the IPC call in both timers."""
-    cases = (
-        (_RSM, "invoke('app:get-status'"),
-        (_SLO, "void fetchReport()"),
-    )
-    for rel, work_marker in cases:
-        source = _read(root, rel)
-        if source is None:
-            errors.append(f"missing {rel}")
-            continue
-        body = _interval_body(source, errors, rel)
+    """Every renderer ``setInterval`` must be hidden-gated or carry an
+    explicit ``idle-ok`` exemption (same auditable-suppression convention
+    as ``sql-ok``).  The two known IPC timers additionally pin the gate
+    BEFORE the IPC call."""
+    gate_before_work = {
+        _RSM: "invoke('app:get-status'",
+        _SLO: "void fetchReport()",
+    }
+    bodies_cache: dict[str, dict[int, str]] = {}
+    for rel, source, lineno in _renderer_intervals(root):
+        if rel not in bodies_cache:
+            bodies_cache[rel] = _interval_bodies(source)
+        bodies = bodies_cache[rel]
+        body = bodies.get(lineno)
         if body is None:
+            # Non arrow-callback form (e.g. function ref) — can still be
+            # exempted by marker but cannot be statically gated.
+            if not _idle_ok_marked(source, lineno):
+                errors.append(
+                    f"{rel}:{lineno} setInterval is not an inline arrow "
+                    "callback — verify idle gating manually or mark "
+                    "// idle-ok: <reason>"
+                )
+            continue
+        if body == "":
+            errors.append(f"{rel}:{lineno} unbalanced setInterval callback")
             continue
         gate = _HIDDEN_GATE.search(body)
-        work = body.find(work_marker)
-        if not gate:
-            errors.append(f"{rel}: timer lost its hidden-window gate")
-        elif work < 0:
-            errors.append(f"{rel}: expected IPC marker {work_marker!r} gone")
-        elif gate.start() > work:
-            errors.append(
-                f"{rel}: visibility check must precede the IPC call"
-            )
+        if gate is None:
+            if not _idle_ok_marked(source, lineno):
+                errors.append(
+                    f"{rel}:{lineno} setInterval lacks a "
+                    "document.visibilityState hidden gate — gate it or "
+                    "mark the site with // idle-ok: <reason>"
+                )
+            continue
+        work_marker = gate_before_work.get(rel)
+        if work_marker is not None:
+            work = body.find(work_marker)
+            if work < 0:
+                errors.append(
+                    f"{rel}: expected IPC marker {work_marker!r} gone"
+                )
+            elif gate.start() > work:
+                errors.append(
+                    f"{rel}: visibility check must precede the IPC call"
+                )
 
 
 def check_bootstrap_native_entry(root: Path, errors: list[str]) -> None:
