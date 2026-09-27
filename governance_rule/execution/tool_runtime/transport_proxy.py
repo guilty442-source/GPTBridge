@@ -30,6 +30,7 @@ import json
 import re
 import sys
 import uuid
+from datetime import date, datetime
 from typing import Any, Callable
 
 AGENT_ID = "star-governed-transport-proxy"
@@ -43,6 +44,16 @@ _VALID_MODES = frozenset({"process", "submit"})
 # Ops dispatch to either _channel(args, side="process") — claim/respond/
 # cancel-poll/notify/stamp/push-ack — or _submit_channel(args) — request/
 # response/cancel/push.  Channel mode is enforced at dispatch time.
+
+
+def _json_default(value: Any) -> Any:
+    """Serialize store-side values that are not plain JSON (lease
+    timestamps arrive as ``datetime`` from the PostgreSQL transport)."""
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return bytes(value).decode("utf-8", errors="replace")
+    return str(value)
 
 
 class ProxyError(Exception):
@@ -120,7 +131,18 @@ class TransportProxyAgent:
         response = self.dispatch(message)
         if response is None:
             return None
-        return json.dumps(response, ensure_ascii=False).encode("utf-8") + b"\n"
+        try:
+            return json.dumps(
+                response, ensure_ascii=False, default=_json_default
+            ).encode("utf-8") + b"\n"
+        except (TypeError, ValueError) as exc:
+            # A single unserializable result must not kill the sidecar —
+            # the request fails closed, the process stays alive.
+            request_id = response.get("id")
+            return json.dumps(self._err(
+                str(request_id or ""), "TRANSPORT_ERROR",
+                f"response serialization failed: {exc}"[:200],
+            )).encode("utf-8") + b"\n"
 
     def dispatch(self, message: dict[str, Any]) -> dict[str, Any] | None:
         if not isinstance(message, dict) or message.get("v") != PROTOCOL_VERSION:
