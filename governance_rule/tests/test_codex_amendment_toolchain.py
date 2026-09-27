@@ -45,6 +45,11 @@ from governance_rule.execution.codex_amendment_lifecycle import (  # noqa: E402
 from governance_rule.execution.codex_successor_builder import (  # noqa: E402
     build_successor,
 )
+from governance_rule.execution import codex_update_pipeline  # noqa: E402
+from governance_rule.execution.codex_update_pipeline import (  # noqa: E402
+    _validate_and_render,
+    architecture_sync_errors,
+)
 
 VERSION = "2026-09-20T00:00:00Z"
 SUCCESSOR = "2026-09-20T01:00:00Z"
@@ -634,3 +639,83 @@ def test_verified_rule_state_without_evidence_fails_closed(
 
     assert result.ok is False
     assert "RULE_PARITY_EVIDENCE_REQUIRED" in ",".join(result.errors)
+
+
+def test_architecture_sync_gate_passes_on_complete_tree() -> None:
+    """A537/A538: the live document set must satisfy the pipeline gate."""
+    assert architecture_sync_errors() == []
+
+
+def test_architecture_sync_gate_denies_missing_documents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A537/A538: a missing architecture-tool doc denies the generation."""
+    monkeypatch.setattr(
+        codex_update_pipeline,
+        "architecture_document_report",
+        lambda _root: {
+            "ok": True,
+            "complete": False,
+            "errors": [],
+            "gaps": [
+                {
+                    "component_id": "searchd-go",
+                    "reason": "missing expected document "
+                    "architecture-tool-searchd-go.md",
+                }
+            ],
+        },
+    )
+    errors = architecture_sync_errors()
+    assert len(errors) == 1
+    assert "architecture-tool-searchd-go.md" in errors[0]
+
+
+def test_architecture_sync_gate_denies_defective_documents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A537/A538: title/mermaid defects deny the generation."""
+    monkeypatch.setattr(
+        codex_update_pipeline,
+        "architecture_document_report",
+        lambda _root: {
+            "ok": False,
+            "complete": False,
+            "errors": ["architecture-tool-x.md: missing mermaid diagram block"],
+            "gaps": [],
+        },
+    )
+    errors = architecture_sync_errors()
+    assert errors == ["architecture-tool-x.md: missing mermaid diagram block"]
+
+
+def test_validate_and_render_rejects_when_architecture_docs_incomplete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The staged generation is rejected before any mirror render."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        codex_update_pipeline,
+        "staged_generation_errors",
+        lambda *args, **kwargs: [],
+    )
+    monkeypatch.setattr(
+        codex_update_pipeline,
+        "architecture_document_report",
+        lambda _root: {
+            "ok": True,
+            "complete": False,
+            "errors": [],
+            "gaps": [{"reason": "missing expected document x.md"}],
+        },
+    )
+    stage = SimpleNamespace(
+        database=tmp_path / "bogus.sqlite3",
+        staging_root=tmp_path / "staging",
+        codex_root=tmp_path / "codex",
+        source_fk_violations=(),
+    )
+    errors = _validate_and_render(stage, None)
+    assert any("missing expected document x.md" in error for error in errors)
+    assert not (tmp_path / "staging").exists()
