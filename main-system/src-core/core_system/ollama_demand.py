@@ -122,10 +122,13 @@ def _spawn_ollama() -> tuple[int | None, str]:
     ollama_root = Path(appdata) / "Programs" / "Ollama"
     app = ollama_root / "ollama app.exe"
     server = ollama_root / "ollama.exe"
+    # Prefer the headless server: the GUI app self-issues /api/generate
+    # warm-up calls (keep_alive=-1 → models stay loaded Forever), tray UI
+    # and update checks — none of which an on-demand daemon may trigger.
     cmd = (
-        [str(app)]
-        if app.is_file()
-        else [str(server), "serve"] if server.is_file() else None
+        [str(server), "serve"]
+        if server.is_file()
+        else [str(app)] if app.is_file() else None
     )
     if cmd is None:
         return None, ""
