@@ -162,6 +162,41 @@ def _bundle_matches_source(bundle_dir: Path, checkpoint_path: Path) -> bool:
         return False
 
 
+def is_bundle_dir(path: str | Path) -> bool:
+    """Whether ``path`` pins a directly servable C++ inference bundle."""
+    return (Path(path) / "manifest.json").is_file()
+
+
+def _verified_bundle_manifest(bundle_dir: Path) -> dict[str, Any]:
+    """Validate a directly pinned bundle; fail-closed on any mismatch.
+
+    Serving contract (A35/A610): production loads the exported
+    ``star-native-inference-bundle/v1`` artifact — the torch-lineage
+    ``.pt`` need not exist at runtime. Integrity is proven by
+    recomputing the weights blob digest against the manifest.
+    """
+    try:
+        manifest = json.loads(
+            (bundle_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+        raise ValueError(f"CPP_RUNTIME_BUNDLE_INVALID:{bundle_dir}") from error
+    if manifest.get("schema_version") != "star-native-inference-bundle/v1":
+        raise ValueError(f"CPP_RUNTIME_BUNDLE_INVALID:{bundle_dir}")
+    weights_name = str(manifest.get("weights_file") or "")
+    weights_path = bundle_dir / weights_name
+    if not weights_name or not weights_path.is_file():
+        raise FileNotFoundError(f"CPP_RUNTIME_BUNDLE_MISSING:{bundle_dir}")
+    digest = hashlib.sha256()
+    with weights_path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    declared = str(manifest.get("weights_sha256") or "")
+    if not declared or digest.hexdigest() != declared:
+        raise ValueError(f"CPP_RUNTIME_BUNDLE_INTEGRITY:{bundle_dir}")
+    return manifest
+
+
 def ensure_bundle(checkpoint_path: str | Path) -> dict[str, Any]:
     """Return a valid C++ bundle for ``checkpoint_path``, exporting on demand.
 
@@ -282,13 +317,22 @@ class CppInferenceEngine:
         kv_memory_limit: int | None = None,
     ) -> None:
         self.checkpoint_path = Path(checkpoint_path)
-        if not self.checkpoint_path.is_file():
-            raise FileNotFoundError(
-                f"CPP_RUNTIME_CHECKPOINT_MISSING:{self.checkpoint_path}"
-            )
-        bundle_info = ensure_bundle(self.checkpoint_path)
-        self.bundle_dir = Path(bundle_info["output_dir"])
-        self.weights_sha256 = str(bundle_info["weights_sha256"])
+        if self.checkpoint_path.is_dir():
+            # Bundle-direct pin: the runtime serves the verified export
+            # artifact; the torch-lineage checkpoint is not required to
+            # exist in production (it only matters to the training-side
+            # export path).
+            manifest = _verified_bundle_manifest(self.checkpoint_path)
+            self.bundle_dir = self.checkpoint_path
+            self.weights_sha256 = str(manifest.get("weights_sha256") or "")
+        else:
+            if not self.checkpoint_path.is_file():
+                raise FileNotFoundError(
+                    f"CPP_RUNTIME_CHECKPOINT_MISSING:{self.checkpoint_path}"
+                )
+            bundle_info = ensure_bundle(self.checkpoint_path)
+            self.bundle_dir = Path(bundle_info["output_dir"])
+            self.weights_sha256 = str(bundle_info["weights_sha256"])
         self._parameter_count = self._manifest_parameter_count()
         limit = (
             kv_memory_limit
