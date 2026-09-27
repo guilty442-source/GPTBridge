@@ -22,6 +22,9 @@ mod paths;
 mod session;
 mod sizes;
 mod slo;
+mod tool_bridge;
+mod tool_dispatch;
+mod tool_window;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
@@ -125,6 +128,15 @@ async fn gptbridge_invoke(
     channel: String,
     args: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
+    // Tool-window mode has its own whitelist and dispatch surface
+    // (source-tool-ui-host contract, tool_dispatch.rs).
+    if tool_window::tool_window_requested() {
+        return tauri::async_runtime::spawn_blocking(move || {
+            tauri::async_runtime::block_on(tool_dispatch::dispatch(app, &channel, args))
+        })
+        .await
+        .map_err(|e| format!("dispatch join failed: {e}"));
+    }
     if !ALLOWED_CHANNELS.contains(&channel.as_str()) {
         return Ok(serde_json::json!({
             "ok": false,
@@ -247,6 +259,12 @@ fn main() {
     // WebView2 reliability contract).
     if let Some(args) = embedded_worker::worker_args() {
         std::process::exit(embedded_worker::run(args));
+    }
+
+    // Tool-window host mode: the governed custom-tool window owner that
+    // replaces the retired Electron source-tool-ui-host (A621).
+    if tool_window::tool_window_requested() {
+        std::process::exit(tool_window::run());
     }
 
     tauri::Builder::default()

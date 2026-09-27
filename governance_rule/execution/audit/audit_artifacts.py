@@ -1848,9 +1848,16 @@ def check_embedded_browser(root: Path, errors: list[str]) -> None:
         if "playwright" in py_text.lower():
             errors.append("main-system/pyproject.toml still depends on playwright")
 
-    embedded_browser = root / "main-system" / "src-ui" / "main" / "embedded-browser.ts"
+    # A621: the embedded-browser module lives in the Rust/Tauri shell;
+    # the Electron src-ui/main/embedded-browser.ts path is retired.
+    embedded_browser = root / "main-system" / "src-tauri" / "src" / "embedded.rs"
     if not embedded_browser.is_file():
         errors.append("embedded browser module is missing")
+    else:
+        embedded_text = read_text_cached(embedded_browser)
+        for required in ("create_session", "close_module_sessions"):
+            if required not in embedded_text:
+                errors.append(f"embedded browser module is missing: {required}")
 
     browser_client = root / "shared-layer" / "src" / "shared_layer" / "embedded_browser_client.py"
     if not browser_client.is_file():

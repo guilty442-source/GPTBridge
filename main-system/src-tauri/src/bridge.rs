@@ -59,7 +59,7 @@ fn publish_state(port: u16, token: &str) {
     let _ = std::fs::write(&target, serde_json::to_string_pretty(&body).unwrap_or_default());
 }
 
-fn iso_now() -> String {
+pub(crate) fn iso_now() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -85,7 +85,11 @@ fn remove_state() {
     let _ = std::fs::remove_file(state_path());
 }
 
-fn respond(stream: &mut std::net::TcpStream, status: u16, payload: serde_json::Value) {
+pub(crate) fn respond(
+    stream: &mut std::net::TcpStream,
+    status: u16,
+    payload: serde_json::Value,
+) {
     let body = serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string());
     let reason = match status {
         200 => "OK",
@@ -102,14 +106,14 @@ fn respond(stream: &mut std::net::TcpStream, status: u16, payload: serde_json::V
     let _ = stream.write_all(body.as_bytes());
 }
 
-struct Request {
-    method: String,
-    path: String,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
+pub(crate) struct Request {
+    pub(crate) method: String,
+    pub(crate) path: String,
+    pub(crate) headers: Vec<(String, String)>,
+    pub(crate) body: Vec<u8>,
 }
 
-fn read_request(stream: &mut std::net::TcpStream) -> Option<Request> {
+pub(crate) fn read_request(stream: &mut std::net::TcpStream) -> Option<Request> {
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
         .ok()?;
@@ -299,7 +303,7 @@ fn handle_connection(app: &AppHandle, mut stream: std::net::TcpStream) {
     respond(&mut stream, 200, result);
 }
 
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
