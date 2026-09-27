@@ -348,10 +348,17 @@ def _run_once_unlocked(
             gate = _governed(repo, ["add", "-A"], actor=actor)
             add_result = gate.execution_result
         if gate.allowed is False or add_result is None or add_result.returncode != 0:
-            detail = (
-                gate.detail if gate.allowed is False
-                else str(add_result.stderr).strip()[:200]
-            )
+            if gate.allowed is False:
+                detail = gate.detail
+            else:
+                stderr = str(add_result.stderr or "").strip()
+                # Prefer the fatal/error tail: `git add` emits CRLF warnings
+                # first, and a head-truncated stderr hides the real cause.
+                fatal = [
+                    line for line in stderr.splitlines()
+                    if line.lstrip().startswith(("fatal:", "error:"))
+                ]
+                detail = "; ".join(fatal)[:200] if fatal else stderr[:200]
             return f"error:add:{detail}"
         if not _porcelain(repo):
             return "nothing-staged"
