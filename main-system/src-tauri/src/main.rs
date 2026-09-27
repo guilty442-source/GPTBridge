@@ -130,7 +130,14 @@ async fn gptbridge_invoke(
     } else {
         args
     };
-    Ok(commands::dispatch(app, &channel, payload).await)
+    // dispatch does sync-only work (worker spawn up to 25s, loopback HTTP
+    // up to 15s) — run it on the blocking pool so a slow embedded-browser
+    // op never occupies an async-runtime thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        tauri::async_runtime::block_on(commands::dispatch(app, &channel, payload))
+    })
+    .await
+    .map_err(|e| format!("dispatch join failed: {e}"))
 }
 
 fn manage_backend() -> bool {
