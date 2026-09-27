@@ -191,6 +191,31 @@ fn start_renderer_watch(app: tauri::AppHandle) {
     });
 }
 
+/// Watchdog: if the main webview never finished its initial navigation
+/// (WebView2 can race UDF contention after a force-killed peer instance and
+/// strand the view on about:blank), reload it once — mirrors Electron's
+/// did-fail-load recovery path.
+fn start_load_watchdog(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(8_000));
+        if shutdown_complete().load(Ordering::SeqCst) {
+            return;
+        }
+        let Some(window) = app.get_window("main") else { return };
+        let Some(webview) = find_webview(&window, "main") else { return };
+        match webview.url() {
+            Ok(url) if url.as_str() == "about:blank" || url.as_str().is_empty() => {
+                report("webview.load-watchdog.reload", serde_json::json!({}));
+                if webview.eval("window.location.reload()").is_err() {
+                    let _ = webview
+                        .navigate("http://tauri.localhost/index.html".parse().unwrap());
+                }
+            }
+            _ => {}
+        }
+    });
+}
+
 fn mtime(path: &std::path::Path) -> u64 {
     std::fs::metadata(path)
         .and_then(|m| m.modified())
@@ -232,6 +257,7 @@ fn main() {
 
             create_main_window(&app.handle())?;
             start_renderer_watch(app.handle().clone());
+            start_load_watchdog(app.handle().clone());
             // The loopback bridge publishes the embedded-browser session
             // store for tool UIs/backends (A44/E30 + A49/E35).
             bridge::start_embedded_browser_bridge(&app.handle());
