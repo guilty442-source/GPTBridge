@@ -46,6 +46,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Final, Mapping
 
+from governance_rule.execution.audit.architecture_docs import (
+    architecture_document_report,
+)
 from governance_rule.execution.chinese_codex_mirror import PART_NAMES
 from governance_rule.execution.codex_mirror_writer import (
     MirrorRenderError,
