@@ -39,6 +39,32 @@
 
 移交一律經版本化契約或治理通道完成；接收方只取得執行權，不取得治理、權限或業務權威（A341／A610）。
 
+### Python 最小化驗收線（A35 三域驗收判準）
+
+Python Source 僅允許落在三個邏輯域，其餘正式 runtime Python 一律為 0：
+
+| 允許域 | 實體位置 | 常駐性 |
+| --- | --- | --- |
+| `governance/` | `governance_rule/`、`main-system/governance/` | 必要最小值常駐（主權語意／治理規則／薄封裝） |
+| `training/` | `Standalone tools/local-model`（星澄訓練管線） | on-demand：spawn → train → exit |
+| `development-verification/` | `tests/`、`governance_rule/execution/` 驗證器 | development-only，production 永不啟動 |
+
+Production runtime 常駐量驗收線——以下各項必須全部為 0：
+
+| 項目 | Production 常駐 |
+| --- | --- |
+| Python 推論 | 0 |
+| Python RAG | 0 |
+| Python Vector | 0 |
+| Python UI | 0 |
+| Python Process Management | 0 |
+| Python File I/O Worker | 0 |
+| Python Network Worker | 0 |
+| Python Business Logic | 0 |
+| Python General Application | 0 |
+
+原則：**Python installed ≠ Python resident**。套件面沿用現行受治理 dependency layout，概念上區分 governance／training／verification 三組；是否物理隔離以 import graph 盤點為準，不得為最小化而另造多套 venv。驗收機器欄位為 `architecture_registry.components[*].python_residency`：僅 `retain-governance`／`retain-bounded` 屬合法常駐，`migrate-*`／`retire`／未標記皆屬未完成缺口。
+
 ## Esbuild 與 SWC 混合建置鏈
 
 ```mermaid
