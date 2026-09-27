@@ -231,6 +231,21 @@ fn main() {
             );
 
             create_main_window(&app.handle())?;
+            // TEMP diagnostic: probe shim/renderer state after load.
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(5_000));
+                    if let Some(w) = handle.get_window("main") {
+                        if let Some(v) = find_webview(&w, "main") {
+                            report("probe.url", serde_json::json!({"url": v.url().map(|u| u.to_string()).unwrap_or_default()}));
+                            let _ = v.eval("try{document.title='SHIM:'+(typeof window.electron)+':'+(typeof window.__TAURI__)+':'+document.readyState}catch(e){document.title='SHIMERR:'+e}");
+                            std::thread::sleep(Duration::from_millis(500));
+                            report("probe.title", serde_json::json!({"title": w.title().unwrap_or_default()}));
+                        }
+                    }
+                });
+            }
             start_renderer_watch(app.handle().clone());
             // The loopback bridge publishes the embedded-browser session
             // store for tool UIs/backends (A44/E30 + A49/E35).
