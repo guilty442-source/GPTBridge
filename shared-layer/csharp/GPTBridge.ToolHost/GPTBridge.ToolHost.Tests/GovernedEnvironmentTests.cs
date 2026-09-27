@@ -84,7 +84,32 @@ public class GovernedEnvironmentTests
         var env = LoadEnv(BaseVars());
         Assert.Equal("system-rescue", env.ToolId);
         Assert.Equal(18233, env.Port);
-        Assert.EndsWith("transport_proxy.py", env.ProxyEntry);
+        // Default sidecar is the governed proxy module (-m form), matching
+        // spec P2 — a script path would break its package-relative imports.
+        Assert.Equal(
+            "governance_rule.execution.tool_runtime.transport_proxy",
+            env.ProxyEntry);
+        Assert.True(env.ProxyIsModule);
+        Assert.Contains(
+            Path.Combine("shared-layer", "src"), env.ProxyPythonPath);
+    }
+
+    [Fact]
+    public void Proxy_entry_override_is_script_mode()
+    {
+        const string key = "GPTBRIDGE_TOOLHOST_PROXY_ENTRY";
+        var previous = Environment.GetEnvironmentVariable(key);
+        Environment.SetEnvironmentVariable(key, "wire-fixture.py");
+        try
+        {
+            var env = LoadEnv(BaseVars());
+            Assert.Equal("wire-fixture.py", env.ProxyEntry);
+            Assert.False(env.ProxyIsModule);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, previous);
+        }
     }
 
     [Fact]

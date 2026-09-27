@@ -30,17 +30,33 @@ public sealed class GovernedEnvironment
     public required string ShutdownToken { get; init; }
     public required string PythonExecutable { get; init; }
     /// <summary>
-    /// Sidecar entry. Default is the governed transport proxy; the
+    /// Sidecar entry. Default is the governed transport proxy module —
+    /// spawned as ``python -m governance_rule.execution.tool_runtime.
+    /// transport_proxy`` so its relative imports resolve (spec P2). The
     /// GPTBRIDGE_TOOLHOST_PROXY_ENTRY override is the wire-fixture seam
-    /// used by interop smoke tests (proxy_wire_agent.py).
+    /// used by interop smoke tests (proxy_wire_agent.py) and is a plain
+    /// script path.
     /// </summary>
     public string ProxyEntry =>
         string.IsNullOrWhiteSpace(
             Environment.GetEnvironmentVariable("GPTBRIDGE_TOOLHOST_PROXY_ENTRY"))
-            ? Path.Combine(ProjectRoot, "governance_rule", "execution",
-                "tool_runtime", "transport_proxy.py")
+            ? "governance_rule.execution.tool_runtime.transport_proxy"
             : Environment.GetEnvironmentVariable(
                 "GPTBRIDGE_TOOLHOST_PROXY_ENTRY")!.Trim();
+
+    /// <summary>True when ProxyEntry is a module name (``-m`` form).</summary>
+    public bool ProxyIsModule =>
+        string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("GPTBRIDGE_TOOLHOST_PROXY_ENTRY"));
+
+    /// <summary>
+    /// Sidecar import roots: project root (``governance_rule``) plus the
+    /// shared-layer src tree (``shared_layer``) — mirrors the path set a
+    /// governed source runtime builds in its entry module.
+    /// </summary>
+    public string ProxyPythonPath =>
+        ProjectRoot + ";" + Path.Combine(
+            ProjectRoot, "shared-layer", "src");
 
     public string WorkspaceInstanceId()
     {

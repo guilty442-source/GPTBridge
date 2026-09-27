@@ -19,6 +19,9 @@ public static class ToolHostProgram
         }
         catch (PermissionDeniedException)
         {
+            Console.Error.WriteLine(
+                "[toolhost] PERMISSION_DENIED: governed environment "
+                + "validation failed");
             return 13; // fail-closed, mirrors python PermissionError exit
         }
 
@@ -33,10 +36,22 @@ public static class ToolHostProgram
         }
         catch (ProxyErrorException exc) when (exc.Code is "PROXY_DISCONNECTED")
         {
-            return 0; // sidecar gone → fail-closed quiet exit
+            // Sidecar gone → fail-closed quiet exit, but keep the proxy's
+            // last stderr bytes in stderr.log so the death is diagnosable.
+            var tail = (host.Transport as TransportProxyClient)?.StderrTail;
+            Console.Error.WriteLine(
+                "[toolhost] PROXY_DISCONNECTED"
+                + (string.IsNullOrWhiteSpace(tail)
+                    ? "" : $" :: sidecar stderr tail: {tail.Trim()}"));
+            return 0;
         }
-        catch (ProxyErrorException)
+        catch (ProxyErrorException exc)
         {
+            var tail = (host.Transport as TransportProxyClient)?.StderrTail;
+            Console.Error.WriteLine(
+                $"[toolhost] proxy error {exc.Code}: {exc.Message}"
+                + (string.IsNullOrWhiteSpace(tail)
+                    ? "" : $" :: sidecar stderr tail: {tail.Trim()}"));
             return 13;
         }
         return 0;

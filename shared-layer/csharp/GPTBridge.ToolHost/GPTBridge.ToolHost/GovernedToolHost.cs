@@ -82,6 +82,8 @@ public sealed class GovernedToolHost
 
     public CancellationToken ShutdownToken => _shutdown.Token;
     public int Port => _env.Port;
+    /// <summary>Bound transport, if the worker loop has started one.</summary>
+    public IToolTransport? Transport => _transport;
     public event Action? Stopped;
 
     public void RequestShutdown() => _shutdown.Cancel();

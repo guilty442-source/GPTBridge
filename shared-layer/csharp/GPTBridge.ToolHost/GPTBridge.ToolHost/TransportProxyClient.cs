@@ -18,13 +18,27 @@ public sealed class TransportProxyClient : IToolTransport
 {
     private const int MaxLineBytes = 2 * 1024 * 1024;
 
+    private const int StderrTailBytes = 4096;
+
     private readonly Process _process;
     private readonly StreamWriter _stdin;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly ConcurrentDictionary<
         string, TaskCompletionSource<JsonNode?>> _pending = new();
     private readonly Task _reader;
+    private readonly StringBuilder _stderrTail = new();
+    private readonly object _stderrLock = new();
     private int _disposed;
+
+    /// <summary>
+    /// Last bytes of sidecar stderr — the only diagnostic surface when the
+    /// proxy dies silently (e.g. import failure, denied authentication).
+    /// Bounded; surfaced in host exit diagnostics.
+    /// </summary>
+    public string StderrTail
+    {
+        get { lock (_stderrLock) { return _stderrTail.ToString(); } }
+    }
 
     public event Action? Disconnected;
 
@@ -53,19 +67,47 @@ public sealed class TransportProxyClient : IToolTransport
         };
         startInfo.ArgumentList.Add("-B");
         startInfo.ArgumentList.Add("-s");
+        if (env.ProxyIsModule)
+        {
+            // Spec P2: the proxy uses package-relative imports, so it must
+            // run as a module with governance_rule/shared_layer importable.
+            startInfo.ArgumentList.Add("-m");
+            startInfo.Environment["PYTHONPATH"] = env.ProxyPythonPath;
+        }
         startInfo.ArgumentList.Add(env.ProxyEntry);
         // Inherit the governed environment verbatim — including
         // GPTBRIDGE_TOOL_GOVERNANCE_BOOTSTRAP, which the sidecar consumes
         // exactly like GovernedToolRuntime.load_authentication.
         var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("sidecar spawn failed");
-        // Drain stderr so the child never blocks on a full pipe.
+        var client = new TransportProxyClient(process);
+        // Drain stderr into a bounded tail so the child never blocks on a
+        // full pipe AND fatal proxy failures remain diagnosable.
         _ = Task.Run(async () =>
         {
-            try { await process.StandardError.ReadToEndAsync(); }
+            try
+            {
+                var buffer = new char[1024];
+                while (true)
+                {
+                    var read = await process.StandardError
+                        .ReadAsync(buffer, 0, buffer.Length)
+                        .ConfigureAwait(false);
+                    if (read <= 0)
+                        break;
+                    lock (client._stderrLock)
+                    {
+                        client._stderrTail.Append(buffer, 0, read);
+                        var excess = client._stderrTail.Length
+                            - StderrTailBytes;
+                        if (excess > 0)
+                            client._stderrTail.Remove(0, excess);
+                    }
+                }
+            }
             catch { /* best-effort drain */ }
         });
-        return new TransportProxyClient(process);
+        return client;
     }
 
     private async Task ReadLoopAsync()
