@@ -40,15 +40,16 @@ class ToolWatcherMixin:
                             "reason": "independent-tool-window-closed",
                         }
                     )
-                finally:
-                    await self.update_status(tool_id, "stopped")
-                return
-            still_running = bool(
-                self._running_source_runtime_process_ids(runtime_path)
-                if source_runtime
-                else self._running_executable_process_ids(runtime_path)
-            )
-            await self.update_status(
-                tool_id,
-                "running" if still_running and not cancelled else "stopped",
-            )
+                except Exception:  # noqa: BLE001 — watcher must not crash; status update below still applies
+                    pass
+                await self.update_status(tool_id, "stopped")
+            else:
+                still_running = bool(
+                    self._running_source_runtime_process_ids(runtime_path)
+                    if source_runtime
+                    else self._running_executable_process_ids(runtime_path)
+                )
+                await self.update_status(
+                    tool_id,
+                    "running" if still_running and not cancelled else "stopped",
+                )

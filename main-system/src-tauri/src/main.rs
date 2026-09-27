@@ -116,7 +116,6 @@ async fn gptbridge_invoke(
     channel: String,
     args: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    report("ipc.invoke", serde_json::json!({"channel": channel, "args": args}));
     if !ALLOWED_CHANNELS.contains(&channel.as_str()) {
         return Ok(serde_json::json!({
             "ok": false,
@@ -232,30 +231,6 @@ fn main() {
             );
 
             create_main_window(&app.handle())?;
-            // TEMP diagnostic: probe shim/renderer state after load.
-            {
-                let handle = app.handle().clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_millis(5_000));
-                    let wins: Vec<String> = handle.windows().keys().cloned().collect();
-                    report("probe.windows", serde_json::json!({"windows": wins}));
-                    if let Some(w) = handle.get_window("main") {
-                        let labels: Vec<String> =
-                            w.webviews().iter().map(|v| v.label().to_string()).collect();
-                        report("probe.webviews", serde_json::json!({"webviews": labels}));
-                        if let Some(v) = find_webview(&w, "main") {
-                            report("probe.url", serde_json::json!({"url": v.url().map(|u| u.to_string()).unwrap_or_default()}));
-                            let _ = v.eval("try{document.title='SHIM:'+(typeof window.electron)+':'+(typeof window.__TAURI__)+':'+document.readyState}catch(e){document.title='SHIMERR:'+e}");
-                            // Real-ticket probe: replicate the renderer's full flow.
-                            let _ = v.eval("try{window.electron.invoke('app:get-backend-session').then(function(d){try{var s=new WebSocket(d.websocketUrl);window.__gbt=s;s.onopen=function(){document.title='WSOPEN'};s.onerror=function(){document.title='WSERR'};s.onclose=function(ev){document.title='WSCLOSE:'+ev.code}}catch(e){document.title='WSTHROW:'+e}}).catch(function(e){document.title='INVERR:'+e})}catch(e){document.title='EVALERR:'+e}");
-                            std::thread::sleep(Duration::from_millis(3_000));
-                            report("probe.title", serde_json::json!({"title": w.title().unwrap_or_default()}));
-                            // title() is the *window* title; pull document.title via nav ping instead.
-                            let _ = v.eval("try{window.__TAURI__.core.invoke('gptbridge_invoke',{channel:'app:get-status',args:['PINGBACK:'+document.title]})}catch(e){}");
-                        }
-                    }
-                });
-            }
             start_renderer_watch(app.handle().clone());
             // The loopback bridge publishes the embedded-browser session
             // store for tool UIs/backends (A44/E30 + A49/E35).
