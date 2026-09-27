@@ -11,8 +11,8 @@
     "launcher:prepare": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1 -PrepareOnly",
     "launcher:start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
     "type-check": "npx.cmd tsc --noEmit",
-    "test:size-breakdown": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/test_platform_tool_size_breakdown.ts",
-    "test:perf-slo": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/test_perf_slo.ts",
+    "test:size-breakdown": "cargo test --manifest-path src-tauri/Cargo.toml -p gptbridge-core native::sizes",
+    "test:perf-slo": "cargo test --manifest-path src-tauri/Cargo.toml -p gptbridge-core state::perf_slo",
     "lint:imports": "cd .. && main-system\\.venv\\Scripts\\python.exe -m governance_rule.execution.audit",
     "governance:audit": "cd .. && main-system\\.venv\\Scripts\\python.exe -m governance_rule.execution.audit",
     "governance:check": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" ../governance_rule/execution/typescript/scripts/run-checkers.ts",
@@ -37,7 +37,7 @@
     "package:changed": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --changed",
     "verify:tools": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --verify --all",
     "build": "npm.cmd run version:check && npm.cmd run governance:audit && npm.cmd run governance:check && npm.cmd run check:imports && npm.cmd run check:circular && npm.cmd run check:runtime && npm.cmd run type-check && npm.cmd run build:app",
-    "test:ipc-client": "ts-node --files --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/test_ipc_client_contract.ts"
+    "test:ipc-client": "node scripts/test_ipc_client_contract.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -52,7 +52,7 @@
     "electron": "^44.4.5",
     "madge": "^8.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^7.0.2",
+    "typescript": "^5.9.3",
     "vite": "^8.3.1"
   }
 }
