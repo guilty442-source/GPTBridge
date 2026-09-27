@@ -246,8 +246,8 @@ fn main() {
                         if let Some(v) = find_webview(&w, "main") {
                             report("probe.url", serde_json::json!({"url": v.url().map(|u| u.to_string()).unwrap_or_default()}));
                             let _ = v.eval("try{document.title='SHIM:'+(typeof window.electron)+':'+(typeof window.__TAURI__)+':'+document.readyState}catch(e){document.title='SHIMERR:'+e}");
-                            // Connectivity probe: raw TCP reachability from the webview.
-                            let _ = v.eval("try{var s=new WebSocket('ws://127.0.0.1:8766/?ticket=x&instance=y');s.onopen=function(){document.title='WSOPEN'};s.onerror=function(){document.title='WSERR'};s.onclose=function(){document.title='WSCLOSE:'+event.code}}catch(e){document.title='WSTHROW:'+e}");
+                            // Real-ticket probe: replicate the renderer's full flow.
+                            let _ = v.eval("try{window.electron.invoke('app:get-backend-session').then(function(d){try{var s=new WebSocket(d.websocketUrl);window.__gbt=s;s.onopen=function(){document.title='WSOPEN'};s.onerror=function(){document.title='WSERR'};s.onclose=function(ev){document.title='WSCLOSE:'+ev.code}}catch(e){document.title='WSTHROW:'+e}}).catch(function(e){document.title='INVERR:'+e})}catch(e){document.title='EVALERR:'+e}");
                             std::thread::sleep(Duration::from_millis(3_000));
                             report("probe.title", serde_json::json!({"title": w.title().unwrap_or_default()}));
                             // title() is the *window* title; pull document.title via nav ping instead.
