@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-27T05:45:47Z",
+  "generated_at": "2026-09-27T11:01:07Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 334,
-    "delegated_checks": 34,
+    "native_checks": 338,
+    "delegated_checks": 35,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -375,6 +375,11 @@
       "path": "governance_rule/codex/architecture-tool-business-logic-csharp.md"
     },
     {
+      "id": "architecture-pollution:architecture-tool-business-logic-fsharp.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-business-logic-fsharp.md"
+    },
+    {
       "id": "architecture-pollution:architecture-tool-file-sorter.md",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/architecture-tool-file-sorter.md"
@@ -385,6 +390,11 @@
       "path": "governance_rule/codex/architecture-tool-investment-mobile.md"
     },
     {
+      "id": "architecture-pollution:architecture-tool-julia-compute.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-julia-compute.md"
+    },
+    {
       "id": "architecture-pollution:architecture-tool-local-model.md",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/architecture-tool-local-model.md"
@@ -393,6 +403,16 @@
       "id": "architecture-pollution:architecture-tool-model-dialogue.md",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/architecture-tool-model-dialogue.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-process-metrics-csharp.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-process-metrics-csharp.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-tool-searchd-go.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-tool-searchd-go.md"
     },
     {
       "id": "architecture-pollution:architecture-tool-system-rescue.md",
@@ -2912,6 +2932,12 @@
       "kind": "delegated",
       "reason": "python oracle (transition)",
       "python": "check_renderer_idle_gating"
+    },
+    {
+      "id": "python-check:check_tool_host_native_boundary",
+      "kind": "delegated",
+      "reason": "python oracle (transition)",
+      "python": "check_tool_host_native_boundary"
     },
     {
       "id": "python-check:protected-source-semantic",
