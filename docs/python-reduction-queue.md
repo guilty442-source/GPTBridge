@@ -13,7 +13,7 @@
 | 1 | `bootstrap-entry` | 4 檔 / 1,089 行 | ✅ **已遷**（`e0d65d24`，C#14/.NET10 `GPTBridge.Bootstrap`，8/8 測試） | — |
 | 2 | `information-channel-gateway` | registry 指 `channel_runtime.py`（65 行 shim）；實際為 `shared-layer/src/` 下 channel 系列模組 | 🔄 **C# 庫已交付**（`shared-layer/csharp/GPTBridge.Channels`，16/16 測試，`91959d4b`） | **受管 C# host 進程 + IPC seam** — Python `channel_runtime` 仍為活路徑 |
 | 3 | `xingcheng-auto-repair-module` | `tasks/central_repair.py`，252 行 | ⏸ 待 host | 屬 main-system 內部 resident task；需 host 邊界決策（子進程或隨 main-system 整體遷移） |
-| 4 | `system-rescue` | 9 檔 / 525 行（實質邏輯 `platform_packager.py` 13KB） | 🔄 **C# host 已交付待接線驗收**（`GPTBridge.ToolHost` + `src-native/SystemRescue.Host.exe`；spawn 分支/registry/audit 已接；E2E wire-fixture 通過；Python `channel_runtime.py` 保留為降級路徑） | 設計：`docs/csharp-tool-host-design.md`（P2 sidecar，E4 不變） |
+| 4 | `system-rescue` | 9 檔 / 525 行（實質邏輯 `platform_packager.py` 13KB） | ✅ **活鏈路已驗證**（`GPTBridge.ToolHost` + `src-native/SystemRescue.Host.exe`；真實 IPC `start_tool`→選中原生 exe、`run_tool`→claim/execute/respond 經 PostgreSQL+proxy+C# host、`list_tools`→`running`（ExecutablePath 比對）、`force_close_tool` 實測 **4,167ms < 5s 預算**；E2E wire-fixture 通過；Python `channel_runtime.py` 保留為降級路徑） | 設計：`docs/csharp-tool-host-design.md`（P2 sidecar，E4 不變）。殘項：新版 registry 模組仍待 A330 standby handover 載入運行中後端（環境性 `standby-readiness-failed`，見第四節注記） |
 | 5 | `investment-mobile` | 191 檔 / 30,384 行 | ⏸ 待 host | 同 #4；規模第二大，建議排最後 |
 | 6 | `self-commit-service` / `integration-plane` / `recovery-plane` | `git_tiers/` 共用 64 檔 / 19,259 行 | ⏸ 待 host | 三元件共用同一路徑；resident 服務，需常駐 C# host（非 per-call 子進程） |
 | 7 | `boot-core` | `src-core` 439 檔 / 97,245 行 | ⏸ 排序最末 | 主系統核心；依賴所有上述 host 基礎設施先就緒 |
@@ -44,3 +44,15 @@
 - 本佇列只反映 registry 既有 disposition；**不新增法典條文、不改 sealed codex**。
 - 任何 host 設計（進程模型、IPC 契約、attestation 傳遞）屬架構決策，需經治理程序而非直接實作。
 - 遷移期 Python 路徑一律保留為 fallback（bootstrap-entry 先例：三處備援）。
+
+## 五、已知環境限制（2026-09-27）
+
+- **A330 standby handover 在本機間歇失敗**：`app:hot-reload-backend` 三次嘗試均於
+  `standby-readiness-failed` / `standby-unhealthy-after-activation` 終止。實測證據：
+  standby 世代於 +4.5s 內完成全部啟動階段（`main_runtime_ready`、綁定 8767），
+  但其 `/health` 在 45s readiness 窗口內 accept-but-never-respond——指向 standby
+  event loop 於啟動爆發期被同步工作餓死，或健康端點的預設 executor 被啟動任務佔滿。
+  屬主系統既有受管子系統缺陷（非本次工具 host 變更引入）；修復層面在
+  `boot_core_handover`/`server_lifecycle`，影響面跨工具範圍，另案處理。
+  過渡期間：後端自然重啟（supervisor respawn）即載入新模組；進程層的
+  `force_close_tool`/`batch_running_status` 新路徑已以同代碼進程內實測驗證。
