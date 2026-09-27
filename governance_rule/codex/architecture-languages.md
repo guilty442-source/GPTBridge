@@ -1,90 +1,220 @@
-# GPTBridge 程式語言架構
+# GPTBridge 全專案程式語言架構圖
 
-本文件是正式法典的架構投影；權責以 PostgreSQL 法典 A35、A341、A343、A348、A604、A605、A610–A621 為準。
+本圖是全專案語言、編譯與建置責任的中文投影；機器拓撲及正式權責仍以法典與 Architecture Registry 為準。
 
-| 技術 | 目標版本 | 正式責任 |
-| ---------- | -------------- | ------------------------------------- |
-| C | C23 | 運行核心、權限熱路徑、決定性執行、純計算 |
-| C++ | C++23 | 模型推論、Native Tool Runtime、Audit Engine |
-| Rust | 1.98.1 | 本地向量引擎、記憶體安全元件、桌面原生整合 |
-| Go | 1.27.1 | 星澄網路搜尋、批次處理、網路與檔案 I/O |
-| C# | C# 14 | Application、API、Workflow、Windows 整合 |
-| F# | F# 10.0 | 核心業務邏輯、資料轉換、驗證、業務狀態轉移 |
-| .NET | .NET 10 | C#／F# 共用執行環境 |
-| Python | 3.14.7 | 僅三個有界域：治理語意／規則／薄封裝、星澄 JAX 訓練、開發驗證 |
-| JAX | 待相容性鎖定 | 星澄模型訓練、自動微分、加速數值計算 |
-| NumPy | 2.5.3 | 資料前處理、統計、陣列計算 |
-| JavaScript | ECMAScript／ESM | React UI、前端狀態、桌面互動 |
-| React | 19.2.8 | UI 元件及畫面 |
-| Julia | 待正式版本鎖定 | 統計、數學模型、最佳化、模擬、科學計算 |
-| TypeScript | 已退役 | 由 JavaScript ESM 繼任；既有 .ts/.tsx/.d.ts 檔案保留至遷移完成（grandfathered-existing-only，A348） |
-| PostgreSQL | 18.6 | 唯一正式結構化資料權威 |
-| Git | 2.55.0 | 原始碼版本管理 |
+## 語言責任
+
+| 語言／平台 | 正式責任 | 邊界 |
+| --- | --- | --- |
+| C | 決定性規則、權限熱路徑、C11 常駐運行核心、原生測試 | 不得修改治理規則或自行授權 |
+| C++ | 原生審計、模型推論、KV／MoE／高效能元件 | 不得接管最終治理裁決 |
+| C# / .NET | 桌面介面、Application、API、唯一流程與測試編排 | 不得繞過裁決核心及權限核心 |
+| F# / .NET | 資料分析、機器學習、高正確性複雜計算 | 結果必須經版本化契約交付 |
+| Go | 受限網路服務、高併發 I/O、批次工作 | 不得建立第二套治理或 IPC |
+| Rust 1.98.1 | Application Core、State Core、Security、IPC、Lifecycle、原生整合及記憶體安全熱路徑 | 不得形成平行權限權威 |
+| Python | 恰好三域（A35）：治理必要語意（主權語意＋治理規則＋治理薄封裝，必要部分常駐）、星澄訓練（JAX／jaxlib／NumPy 與必要訓練套件，僅訓練時啟動）、開發驗證（必要 pytest＋治理驗證＋推送閘，僅開發或驗證時啟動） | 其餘 Python 用途一律禁止；常駐機械性工作與 production 驗證層不得啟動 |
+| Native JavaScript ESM | General UI、Settings、Dashboard、Tool Panels | 不承載治理與資料權威 |
+| Julia | 科學運算與數值研究服務 | 只經版本化契約被呼叫 |
+| PostgreSQL | 中央結構化資料、共享傳輸及中央審計 | 是資料平台，不是應用語言權威 |
+
+### Python 工作責任移交（A35／A341 收斂對應）
+
+現有 Python 常駐與執行工作移交正式 owner；Python 僅保留 A35 三域：
+
+| 原 Python 工作域 | 正式移交對象 |
+| --- | --- |
+| Process / Lifecycle | C 運行核心＋指定 Rust 元件（runtime-core） |
+| API / Application / Workflow | C#（唯一流程編排） |
+| Business logic / validation | F# |
+| RAG Retrieval | Rust |
+| Vector Engine | Rust |
+| File I/O / Batch / Network | Go |
+| 正式模型推論 | C++ |
+| 大量數值／統計 | Julia |
+| UI | Rust＋Tauri＋JavaScript ESM＋GPUI＋egui |
+| SQL orchestration | C#／Rust 經版本化契約交付 PostgreSQL（SQL 層為唯一 relational owner） |
+| 模型訓練 | 保留 Python＋JAX，僅訓練時啟動 |
+| Governance 必要語意 | 保留最薄 Python 層（主權語意／治理規則／治理薄封裝） |
+| pytest／開發驗證 | 保留，僅開發或驗證時啟動，production 不啟動 |
+
+移交一律經版本化契約或治理通道完成；接收方只取得執行權，不取得治理、權限或業務權威（A341／A610）。
+
+### Python 最小化驗收線（A35 三域驗收判準）
+
+Python Source 僅允許落在三個邏輯域，其餘正式 runtime Python 一律為 0：
+
+| 允許域 | 實體位置 | 常駐性 |
+| --- | --- | --- |
+| `governance/` | `governance_rule/`、`main-system/governance/` | 必要最小值常駐（主權語意／治理規則／薄封裝） |
+| `training/` | `Standalone tools/local-model`（星澄訓練管線） | on-demand：spawn → train → exit |
+| `development-verification/` | `tests/`、`governance_rule/execution/` 驗證器 | development-only，production 永不啟動 |
+
+Production runtime 常駐量驗收線——以下各項必須全部為 0：
+
+| 項目 | Production 常駐 |
+| --- | --- |
+| Python 推論 | 0 |
+| Python RAG | 0 |
+| Python Vector | 0 |
+| Python UI | 0 |
+| Python Process Management | 0 |
+| Python File I/O Worker | 0 |
+| Python Network Worker | 0 |
+| Python Business Logic | 0 |
+| Python General Application | 0 |
+
+原則：**Python installed ≠ Python resident**。套件面沿用現行受治理 dependency layout，概念上區分 governance／training／verification 三組；是否物理隔離以 import graph 盤點為準，不得為最小化而另造多套 venv。驗收機器欄位為 `architecture_registry.components[*].python_residency`：僅 `retain-governance`／`retain-bounded` 屬合法常駐，`migrate-*`／`retire`／未標記皆屬未完成缺口。
+
+## Esbuild 與 SWC 混合建置鏈
+
+```mermaid
+flowchart LR
+  SRC[Native JavaScript ESM / JSX]
+  SRC --> CLASSIFY{建置工作分類}
+
+  CLASSIFY -->|JSX 與現代語法轉換| SWC[SWC Transform Plane]
+  CLASSIFY -->|依賴圖、模組解析、Bundle、Code Split、資產與 Source Map| ESB[Esbuild Bundle Plane]
+
+  SWC --> IR[標準 ESM 中間輸出]
+  IR --> ESB
+  ESB --> OPT[Tree Shaking / Chunking / Minification]
+  OPT --> OUT[Renderer / Tool UI / Template Artifacts]
+
+  VALIDATE[Rust Contract Validator] --> TYPECHECK[Schema / IPC / API 靜態驗證]
+  SRC --> VALIDATE
+  TYPECHECK --> GATE{Build Gate}
+  OUT --> GATE
+  GATE -->|PASS| PACKAGE[受管封裝]
+  GATE -->|FAIL| CLOSED[停止發布]
+```
+
+Esbuild 與 SWC 必須混用，但責任不可重疊失控：
+
+- SWC 是主要語法轉換器，負責 JSX、現代 JavaScript 語法轉換及經核准的 compiler transform。
+- Esbuild 是主要 bundle 執行器，負責依賴圖、模組解析、bundle、code splitting、資產載入、source map、tree shaking 與最終壓縮。
+- Rust Contract Validator 保留 Schema、IPC 與 API 靜態驗證；不得因 SWC 快速轉換而取消契約閘。
+- 標準順序是 `Native JavaScript ESM/JSX → SWC transform → ESM → Esbuild bundle → artifact`。
+- 純 JavaScript、無需 SWC transform 的安全輸入，可直接進 Esbuild；此為同一建置鏈的快速分支，不是第二套建置系統。
+- 同一輸出不得由 SWC 與 Esbuild 重複壓縮、重複降階或各自生成互相衝突的 source map。
+- Vite 若作為入口，只能調用此混合鏈，不得另建第三套轉譯／bundle 權威。
+- Esbuild／SWC 僅是編譯與建置工具，不具 runtime、治理、權限或資料權威。
+
+## GPTBridge UI Stack
 
 ```mermaid
 flowchart TB
-  GPTBridge --> ReactJS[React / JavaScript]
-  ReactJS --> TauriRust[Tauri / Rust]
-  TauriRust --> Contract[Versioned Contract]
-  Contract --> CRuntime[C Runtime Core]
-  CRuntime --> CSharpApp[C# Application<br>.NET 10]
-  CRuntime --> CppNative[C++ Native<br>Engine]
-  CRuntime --> PyGov[Python Governance<br>3.14.7]
-  CSharpApp --> FSharpCore[F# Domain Core<br>.NET 10]
-  FSharpCore --> BusinessRules[Business Rules<br>Validation<br>Data Transformation<br>State Transition]
-  CppNative --> Inference[Inference]
-  CppNative --> Audit[Audit]
-  CppNative --> ToolRuntime[Tool Runtime]
-  PyGov --> Decision[Decision]
-  PyGov --> Permission[Permission Policy]
-  PyGov --> GovRules[Governance Rules]
-  FSharpCore --> GoRustLayer[Goberned Tool Layer]
-  GoRustLayer --> Go[Go<br>1.27.1]
-  GoRustLayer --> Rust[Rust<br>1.98.1]
-  Go --> Search[星澄網路搜尋]
-  Go --> Batch[Batch/I/O]
-  Rust --> Vector[Vector Engine]
-  Rust --> NativeSec[Native Security]
-  Vector --> PG[PostgreSQL<br>18.6]
-  NativeSec --> PG
-  Search --> PG
-  Batch --> PG
-
-  subgraph Training[獨立模型訓練環境]
-    PyTrain[Python 3.14.7] --> JAX[JAX / Flax / Optax]
-    JAX --> Numpy[NumPy 2.5.3]
-    Numpy --> Weights[模型權重]
-    Weights --> CppInfer[C++ Inference]
+  subgraph RUST[Rust 1.98.1 Core]
+    APP[Application Core]
+    STATE[State Core]
+    SEC[Security]
+    IPC[IPC]
+    LIFE[Lifecycle]
+    NATIVE[OS / Native Integration]
   end
+
+  subgraph TAURI[Tauri Desktop Layer]
+    SHELL[Desktop Shell]
+    WEBVIEW[WebView Host]
+    WINDOWS[Window Management]
+    BRIDGE[JS ↔ Rust Bridge]
+  end
+
+  subgraph ESM[Native JavaScript ESM]
+    GUI[General UI]
+    SETTINGS[Settings]
+    DASH[Dashboard]
+    PANELS[Tool Panels]
+    TABLES[Tables / Forms]
+    STATUS[State Presentation]
+  end
+
+  subgraph GPUI[GPUI Native Views]
+    DIALOGUE[Model Dialogue]
+    CODING[Coding Workspace]
+    STREAM[Streaming Text]
+    TEXT[Large Text / Virtual Lists]
+    FAST[High-performance Native Views]
+  end
+
+  subgraph EGUI[egui Engineering Views]
+    DIAG[Diagnostics]
+    PROFILE[Profiling]
+    INSPECT[Governance Inspector]
+    CONSOLE[Engineering Console]
+    OVERLAY[Debug Overlay]
+  end
+
+  APP --> SHELL
+  STATE --> SHELL
+  SEC --> IPC
+  IPC --> BRIDGE
+  LIFE --> SHELL
+  NATIVE --> GPUI
+  NATIVE --> EGUI
+  SHELL --> WEBVIEW
+  SHELL --> WINDOWS
+  WEBVIEW --> ESM
+  BRIDGE --> ESM
+  ESM --> GPUI
+  ESM --> EGUI
 ```
 
-- C23 執行已核准的決定性規則，不得自行修改治理規則；以 C23 新標準與 arena 管理實現高效能高穩定低消耗。
-- C++23 擁有原生能力、推論、原生測試及已核准審計熱路徑；以 modules/constexpr 與 RAII 實現高執行速度。
-- Rust 1.98.1 負責本地向量引擎、記憶體安全元件、桌面原生整合。
-- Go 1.27.1 負責星澄網路搜尋、批次處理、網路與檔案 I/O。
-- C#14/.NET 10 負責 Application/API/Workflow/Windows 整合；以 .NET 10 GC 實現自動記憶體管理。
-- F#10.0/.NET 10 負責核心業務邏輯、資料轉換、驗證、業務狀態轉移。
-- Python 3.14.7 僅保留三個有界域（治理語意／規則／薄封裝、星澄 JAX 訓練、開發驗證），預設不常駐（A610）。
-- JAX 待相容性鎖定，負責星澄模型訓練、自動微分、加速數值計算；以 XLA 實現高效能。
-- NumPy 2.5.3 負責資料前處理、統計、陣列計算。
-- JavaScript (ECMAScript/ESM) 與 React 19.2.8 負責 UI 元件、前端狀態及桌面互動。
-- Julia 負責統計、數學模型、最佳化、模擬與科學計算，版本待正式鎖定。
-- TypeScript 已退役並由 JavaScript ESM 繼任；既有檔案在遷移完成前保留為 grandfathered-existing-only（A348）。
-- PostgreSQL 18.6 為唯一正式結構化資料權威；SQLite 已退休。
-- Git 2.55.0 為原始碼版本管理。
+- Rust 1.98.1 是 UI 核心、應用狀態、生命週期、IPC、安全與 OS 整合的正式 owner。
+- Tauri 只負責 Desktop Shell、WebView、Window 管理及受管 JS↔Rust Bridge；不得複製 Application Core。
+- Native JavaScript ESM 負責設定、工具面板、表格、表單與狀態呈現等一般 UI。
+- GPUI 負責模型對話、Coding Workspace、大量文字、虛擬清單與高效能原生工作區。
+- egui 負責系統診斷、效能監控、開發／治理工具及 Debug Overlay，不得混入一般使用者業務介面。
+- WebView、GPUI 與 egui 共用 Rust State Core、Security、IPC 與 Lifecycle，不得各自建立狀態庫、權限模型或後端生命週期。
 
-Go 與 Rust 只取得已登記能力的執行權，不取得治理、權限或業務裁決權。跨語言呼叫必須使用版本化契約；公開原生邊界仍以 C ABI 或正式型別服務契約為準。
+## 全語言交付關係
+
+```mermaid
+flowchart TB
+  UI[Native JavaScript ESM UI]
+  UI --> SWC[SWC]
+  SWC --> ESB[Esbuild]
+  ESB --> ART[前端建置產物]
+  ART --> TAURI[Tauri Desktop Shell]
+  TAURI --> RUST[Rust 1.98.1 Application Core]
+  RUST --> GPUI[GPUI]
+  RUST --> EGUI[egui]
+  RUST --> CS[C# Authorized Workflow / Interface Services]
+
+  CS --> CONTRACT[Versioned Contracts]
+  CONTRACT --> C[C11 Runtime Core]
+  CONTRACT --> CPP[C++ Audit / Inference]
+  CONTRACT --> FS[F# Analysis / ML]
+  CONTRACT --> GO[Go Network / Concurrent I/O]
+  CONTRACT --> RS[Rust Safe Systems]
+  CONTRACT --> PY[Python 三域：治理薄層／JAX 訓練／開發驗證]
+  CONTRACT --> JL[Julia Scientific Compute]
+
+  C --> PG[(PostgreSQL)]
+  CPP --> PG
+  CS --> PG
+  FS --> PG
+  GO --> PG
+  RS --> PG
+  PY --> PG
+  JL --> PG
+```
+
+跨語言互動只允許經版本化 ABI、IPC、資料契約或 Information Channel。任何語言均不得直接複製治理規則、權限目錄或中央資料權威。
+
+## 工具與依賴位置
 
 ```mermaid
 flowchart LR
   ROOT[E:\GPTBridge]
-  ROOT --> ADAPT[自適化子目錄]
-  ADAPT --> PYENV[Python／venv]
-  ADAPT --> SDK[SDK／Toolchain]
-  ADAPT --> DEP[套件與依賴快取]
-  ADAPT --> MODEL[非 Ollama 模型]
-  WIN[Windows 原生工具] -. 允許位於系統安裝位置 .-> ROOT
-  OLLAMA[Ollama] -. 允許位於正式安裝位置 .-> ROOT
+  ROOT --> ADAPT[自適化依賴子目錄]
+  ADAPT --> NPM[Node / npm 快取]
+  ADAPT --> ESBUILD[Esbuild binary / package]
+  ADAPT --> SWCBIN[SWC native binary / package]
+  ADAPT --> SDK[SDK / Toolchain]
+  ADAPT --> PYENV[Python venv]
+  ADAPT --> MODELS[非 Ollama 模型]
 ```
 
-除 Windows 原生工具與 Ollama 外，Python 執行環境、SDK、工具鏈、套件、依賴快取及非 Ollama 模型均須位於 `E:\GPTBridge` 下的自適化子目錄，不集中堆放於專案頂層。
+除 Windows 原生工具與 Ollama 外，Esbuild、SWC、SDK、Toolchain、套件及依賴快取均須位於 `E:\GPTBridge` 下的適當子目錄，不得散落於專案頂層或使用未登記的全域版本。
+
+法源：A35、A341、A343、A348、A604、A605、A610、A621。
