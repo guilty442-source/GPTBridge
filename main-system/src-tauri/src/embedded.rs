@@ -1,9 +1,9 @@
-//! embedded.rs — port of src-ui/main/embedded-browser.ts.
+//! embedded.rs ??port of src-ui/main/embedded-browser.ts.
 //!
 //! In-app browser sessions backed by Tauri child webviews (WebView2) instead
 //! of Electron BrowserView.  Sessions are created hidden, positioned only
 //! after an explicit show with clamped bounds, and detached on window
-//! minimize/hide/resize-boundary events — same screen-pollution contract.
+//! minimize/hide/resize-boundary events ??same screen-pollution contract.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -56,8 +56,8 @@ pub fn embedded_state() -> &'static Mutex<EmbeddedState> {
     STATE.get_or_init(|| Mutex::new(EmbeddedState::new()))
 }
 
-fn main_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
-    app.get_webview_window("main")
+fn main_window(app: &AppHandle) -> Option<tauri::Window> {
+    app.get_window("main")
 }
 
 fn clamp_bounds(
@@ -90,7 +90,7 @@ fn detach_webview(app: &AppHandle, session: &mut EmbeddedSession) {
     }
     if let Some(label) = &session.webview_label {
         if let Some(window) = main_window(app) {
-            if let Some(webview) = window.webviews().iter().find(|w| w.label() == label).cloned() {
+            if let Some(webview) = crate::find_webview(&window, &label) {
                 let _ = webview.hide();
             }
         }
@@ -98,7 +98,7 @@ fn detach_webview(app: &AppHandle, session: &mut EmbeddedSession) {
     session.visible = false;
 }
 
-/// Called on window minimize/hide — detach every visible session.
+/// Called on window minimize/hide ??detach every visible session.
 pub fn hide_all_sessions(app: &AppHandle) {
     let mut state = embedded_state().lock().unwrap();
     for session in state.sessions.values_mut() {
@@ -131,7 +131,7 @@ pub fn on_window_resized(app: &AppHandle) {
         if let Some(label) = &session.webview_label {
             if let Some(window) = main_window(app) {
                 if let Some(webview) =
-                    window.webviews().iter().find(|w| w.label() == label).cloned()
+                    crate::find_webview(&window, &label)
                 {
                     let _ = webview.set_position(LogicalPosition::new(clamped.x, clamped.y));
                     let _ = webview.set_size(LogicalSize::new(clamped.width, clamped.height));
@@ -150,27 +150,25 @@ fn ensure_webview(
     let Some(window) = main_window(app) else {
         return Err("MAIN_WINDOW_NOT_AVAILABLE".to_string());
     };
-    if window
-        .webviews()
-        .iter()
-        .any(|w| w.label() == label.as_str())
-    {
+    if crate::find_webview(&window, &label).is_some() {
         return Ok(Some(label));
     }
     let parsed_url = url
         .parse::<tauri::Url>()
         .map_err(|e| format!("INVALID_URL:{e}"))?;
     // Materialise the child webview immediately (hidden) so navigate/execute
-    // work before any show — mirrors the detached BrowserView contract.
-    let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(parsed_url))
-        .visible(false);
-    let _webview = window
+    // work before any show ??mirrors the detached BrowserView contract.
+    let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(parsed_url));
+    let webview = window
         .add_child(
             builder,
             LogicalPosition::new(0.0, 0.0),
             LogicalSize::new(1.0, 1.0),
         )
         .map_err(|e| format!("WEBVIEW_CREATE_FAILED:{e}"))?;
+    // Sessions materialise detached ??nothing is displayed until an explicit
+    // show with clamped bounds (screen-pollution contract).
+    let _ = webview.hide();
     Ok(Some(label))
 }
 
@@ -194,7 +192,7 @@ pub fn create_session(
         if let Some(label) = existing.webview_label.clone() {
             if let Some(window) = main_window(app) {
                 if let Some(webview) =
-                    window.webviews().iter().find(|w| w.label() == label).cloned()
+                    crate::find_webview(&window, &label)
                 {
                     if let Ok(parsed) = url.parse() {
                         let _ = webview.navigate(parsed);
@@ -251,7 +249,7 @@ pub fn navigate_session(app: &AppHandle, id: &str, url: &str) -> serde_json::Val
     let label = session.webview_label.clone();
     drop(state);
     if let (Some(label), Some(window)) = (label, main_window(app)) {
-        if let Some(webview) = window.webviews().iter().find(|w| w.label() == label).cloned() {
+        if let Some(webview) = crate::find_webview(&window, &label) {
             if let Ok(parsed) = url.parse() {
                 let _ = webview.navigate(parsed);
             }
@@ -265,7 +263,7 @@ pub fn session_url(app: &AppHandle, id: &str) -> Option<String> {
     let session = state.sessions.get(id)?;
     if let Some(label) = &session.webview_label {
         if let Some(window) = main_window(app) {
-            if let Some(webview) = window.webviews().iter().find(|w| w.label() == label) {
+            if let Some(webview) = crate::find_webview(&window, &label) {
                 if let Ok(url) = webview.url() {
                     return Some(url.to_string());
                 }
@@ -278,8 +276,8 @@ pub fn session_url(app: &AppHandle, id: &str) -> Option<String> {
 /// Evaluate a script inside the session webview and return the JSON result.
 ///
 /// ``Webview::eval`` does not return the script value, so the wrapper posts
-/// the result to the loopback bridge (a ``text/plain`` simple request — no
-/// CORS preflight — so the body always reaches the bridge even on
+/// the result to the loopback bridge (a ``text/plain`` simple request ??no
+/// CORS preflight ??so the body always reaches the bridge even on
 /// cross-origin pages).
 pub fn execute_script(
     app: &AppHandle,
@@ -302,7 +300,7 @@ pub fn execute_script(
     let Some(window) = main_window(app) else {
         return Err("MAIN_WINDOW_NOT_AVAILABLE".to_string());
     };
-    let Some(webview) = window.webviews().iter().find(|w| w.label() == label).cloned() else {
+    let Some(webview) = crate::find_webview(&window, &label) else {
         return Err("WEBVIEW_NOT_MATERIALISED".to_string());
     };
 
@@ -389,7 +387,7 @@ pub fn resize_session(
     drop(state);
     if visible {
         if let (Some(label), Some(window)) = (label, main_window(app)) {
-            if let Some(webview) = window.webviews().iter().find(|w| w.label() == label).cloned() {
+            if let Some(webview) = crate::find_webview(&window, &label) {
                 let _ = webview.set_position(LogicalPosition::new(clamped.x, clamped.y));
                 let _ = webview.set_size(LogicalSize::new(clamped.width, clamped.height));
             }
@@ -413,7 +411,7 @@ pub fn show_session(app: &AppHandle, id: &str) -> serde_json::Value {
     let (Some(label), Some(window)) = (label, main_window(app)) else {
         return serde_json::json!({"ok": false, "message": "MAIN_WINDOW_NOT_AVAILABLE"});
     };
-    let Some(webview) = window.webviews().iter().find(|w| w.label() == label).cloned() else {
+    let Some(webview) = crate::find_webview(&window, &label) else {
         return serde_json::json!({"ok": false, "message": "WEBVIEW_NOT_MATERIALISED"});
     };
     let _ = webview.set_position(LogicalPosition::new(bounds.x, bounds.y));
@@ -445,7 +443,7 @@ pub fn close_session(app: &AppHandle, id: &str) -> serde_json::Value {
     };
     drop(state);
     if let (Some(label), Some(window)) = (session.webview_label.clone(), main_window(app)) {
-        if let Some(webview) = window.webviews().iter().find(|w| w.label() == label).cloned() {
+        if let Some(webview) = crate::find_webview(&window, &label) {
             let _ = webview.close();
         }
     }

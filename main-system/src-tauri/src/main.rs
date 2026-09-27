@@ -26,7 +26,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl};
+
+/// Find a child webview inside a window by label.
+pub fn find_webview(window: &tauri::Window, label: &str) -> Option<tauri::Webview> {
+    window
+        .webviews()
+        .into_iter()
+        .find(|w| w.label() == label)
+}
 
 const SHUTDOWN_DEADLINE_MS: u64 = 15_000;
 
@@ -170,9 +178,11 @@ fn start_renderer_watch(app: tauri::AppHandle) {
             let current = mtime(&renderer_html);
             if current != last && last != 0 && current != 0 {
                 last = current;
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.eval("window.location.reload()");
-                    report("renderer.hot-reload", serde_json::json!({}));
+                if let Some(window) = app.get_window("main") {
+                    if let Some(webview) = find_webview(&window, "main") {
+                        let _ = webview.eval("window.location.reload()");
+                        report("renderer.hot-reload", serde_json::json!({}));
+                    }
                 }
             } else {
                 last = current;
@@ -198,7 +208,7 @@ fn main() {
             if manage_backend() {
                 backend::ensure_backend_started();
             }
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = app.get_window("main") {
                 if window.is_minimized().unwrap_or(false) {
                     let _ = window.unminimize();
                 }
@@ -257,8 +267,11 @@ fn main() {
         });
 }
 
-fn create_main_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, tauri::Error> {
-    if let Some(existing) = app.get_webview_window("main") {
+/// Create the main window: a plain Window hosting an auto-resizing "main"
+/// child webview — mirrors the Electron BrowserWindow + preload contract and
+/// leaves room for embedded-browser sibling webviews.
+fn create_main_window(app: &tauri::AppHandle) -> Result<tauri::Window, tauri::Error> {
+    if let Some(existing) = app.get_window("main") {
         let _ = existing.set_focus();
         return Ok(existing);
     }
@@ -273,15 +286,23 @@ fn create_main_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, ta
         None => WebviewUrl::App("index.html".into()),
     };
 
-    let builder = WebviewWindowBuilder::new(app, "main", webview_url)
+    // Electron titleBarStyle:'hidden' + titleBarOverlay has no Windows
+    // equivalent in Tauri — the native caption stays (cosmetic deviation;
+    // the renderer's overlay-height CSS is inert).
+    let window = tauri::window::WindowBuilder::new(app, "main")
         .title("GPTBridge")
         .inner_size(1400.0, 900.0)
         .min_inner_size(1100.0, 720.0)
         .visible(false)
-        .background_color(tauri::utils::config::Color(0x1a, 0x1b, 0x1e, 0xff))
-        .initialization_script(PRELUDE_SCRIPT)
-        .title_bar_style(tauri::TitleBarStyle::Overlay);
-    let window = builder.build()?;
+        .build()?;
+
+    let _webview = window.add_child(
+        tauri::webview::WebviewBuilder::new("main", webview_url)
+            .auto_resize()
+            .initialization_script(PRELUDE_SCRIPT),
+        tauri::LogicalPosition::new(0, 0),
+        window.inner_size().unwrap_or(tauri::PhysicalSize::new(1400, 900)),
+    )?;
     commands::apply_adaptive_zoom(&window);
     let _ = window.show();
     let _ = window.set_focus();

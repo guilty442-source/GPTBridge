@@ -79,7 +79,7 @@ pub fn calculate_adaptive_zoom(
     (effective * 1000.0).round() / 1000.0
 }
 
-pub fn apply_adaptive_zoom(window: &tauri::WebviewWindow) {
+pub fn apply_adaptive_zoom(window: &tauri::Window) {
     let Ok(size) = window.inner_size() else { return };
     let scale = window.scale_factor().unwrap_or(1.0);
     let logical = size.to_logical::<f64>(scale);
@@ -96,7 +96,9 @@ pub fn apply_adaptive_zoom(window: &tauri::WebviewWindow) {
         current_ui_zoom(),
     );
     drop(profile);
-    let _ = window.set_zoom(factor);
+    if let Some(webview) = crate::find_webview(window, "main") {
+        let _ = webview.set_zoom(factor);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -117,8 +119,8 @@ fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-fn main_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
-    app.get_webview_window("main")
+fn main_window(app: &AppHandle) -> Option<tauri::Window> {
+    app.get_window("main")
 }
 
 pub async fn dispatch(
@@ -203,21 +205,21 @@ pub async fn dispatch(
                 "source": "governed-local-folder-inventory",
             })
         }
-        "app:reload-window" => match main_window(&app) {
-            Some(window) => {
-                let _ = window.eval("window.location.reload()");
+        "app:reload-window" => match main_window(&app).and_then(|w| crate::find_webview(&w, "main")) {
+            Some(webview) => {
+                let _ = webview.eval("window.location.reload()");
                 serde_json::json!({"ok": true})
             }
             None => serde_json::json!({"ok": false}),
         },
-        "app:reload-window-hard" => match main_window(&app) {
-            Some(window) => {
+        "app:reload-window-hard" => match main_window(&app).and_then(|w| crate::find_webview(&w, "main")) {
+            Some(webview) => {
                 // Hard reload: bypass caches via a fresh navigation to the
                 // current URL — closest available semantics under WebView2.
-                if let Ok(url) = window.url() {
-                    let _ = window.navigate(url);
+                if let Ok(url) = webview.url() {
+                    let _ = webview.navigate(url);
                 } else {
-                    let _ = window.eval("window.location.reload()");
+                    let _ = webview.eval("window.location.reload()");
                 }
                 serde_json::json!({"ok": true})
             }
