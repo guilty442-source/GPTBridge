@@ -679,3 +679,29 @@ the provisional runtime of the grandfathered UI shell
 - Deleting `package.json`, `src-ui`, `node_modules`, or `dist-ui`
   bricks the platform UI — that step waits for the native shell
   replacement.
+
+## Tauri Desktop Host (Electron replacement — in progress)
+
+> Normative authority: Codex A618/A621/A625 (Rust+Tauri desktop host;
+> Electron is MIGRATION_ONLY). Implementation: `main-system/src-tauri/`
+  (`gptbridge-shell.exe`, tauri 2.12 / wry 0.57).
+
+**Verified working**: single-instance, renderer load + `window.electron`/
+`gptBridge` IPC shim (whitelist-enforced `gptbridge_invoke`), backend
+supervision (boot_core spawn/attach), authenticated WS handshake
+(`http://tauri.localhost` must stay in `TRUSTED_WEBSOCKET_ORIGINS`).
+
+**Embedded-browser**: sessions check out a pool of child webviews
+pre-created in `setup()` (`embedded.rs` `warm_session_pool`,
+`GPTBRIDGE_EMBEDDED_POOL_SIZE`, default 6) — WebView2 controller creation
+AFTER the event loop starts deadlocks in EBW.dll (wry#1665/#583 class).
+Do NOT `webview.hide()` pooled views — `put_IsVisible(false)` stalls
+later EBW calls; park them at 1x1 instead. `webview2-com` is vendored
+(`src-tauri/vendor/`) with a `CoWaitForMultipleHandles` wait_with_pump
+patch for the STA callback delivery bug.
+
+**Known limitation (this dev machine)**: host→WebView2 controller calls
+(navigate/bounds/url/eval) take 5–60 s each here — environment-level
+EBW pathology, not a pool defect. Lifecycle is logically correct
+(create→list→close verified E2E). Launcher still defaults to Electron
+until embedded ops are validated on a healthy runtime.

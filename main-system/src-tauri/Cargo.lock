@@ -1410,6 +1410,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-single-instance",
  "walkdir",
+ "windows 0.62.2",
  "windows-sys 0.59.0",
 ]
 

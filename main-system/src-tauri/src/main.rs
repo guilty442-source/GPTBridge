@@ -15,6 +15,7 @@ mod backend;
 mod bridge;
 mod commands;
 mod embedded;
+mod embedded_worker;
 mod http_util;
 mod metrics;
 mod paths;
@@ -216,31 +217,6 @@ fn start_load_watchdog(app: tauri::AppHandle) {
     });
 }
 
-/// Temporary diagnostic: measure event-loop Task dispatch round-trip every
-/// second; logs when the main loop stops processing queued closures.
-fn start_main_thread_heartbeat(app: tauri::AppHandle) {
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_millis(1_000));
-        if shutdown_complete().load(Ordering::SeqCst) {
-            return;
-        }
-        let (tx, rx) = std::sync::mpsc::channel::<()>();
-        if app
-            .run_on_main_thread(move || {
-                let _ = tx.send(());
-            })
-            .is_err()
-        {
-            eprintln!("[eb-dbg] heartbeat.dispatch-failed");
-            continue;
-        }
-        match rx.recv_timeout(Duration::from_millis(3_000)) {
-            Ok(()) => eprintln!("[eb-dbg] heartbeat.ok"),
-            Err(_) => eprintln!("[eb-dbg] heartbeat.STALLED>3s"),
-        }
-    });
-}
-
 fn mtime(path: &std::path::Path) -> u64 {
     std::fs::metadata(path)
         .and_then(|m| m.modified())
@@ -251,6 +227,13 @@ fn mtime(path: &std::path::Path) -> u64 {
 }
 
 fn main() {
+    // Helper-process mode: a dedicated worker hosting exactly one embedded
+    // browser session (see embedded_worker.rs — first-controller-only
+    // WebView2 reliability contract).
+    if let Some(args) = embedded_worker::worker_args() {
+        std::process::exit(embedded_worker::run(args));
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Second-instance contract: re-check the managed backend and
@@ -283,7 +266,6 @@ fn main() {
             create_main_window(&app.handle())?;
             start_renderer_watch(app.handle().clone());
             start_load_watchdog(app.handle().clone());
-            start_main_thread_heartbeat(app.handle().clone());
             // The loopback bridge publishes the embedded-browser session
             // store for tool UIs/backends (A44/E30 + A49/E35).
             bridge::start_embedded_browser_bridge(&app.handle());
@@ -299,8 +281,14 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // Session windows (embedded-*) share this handler — scope the
+            // main-window contracts to the main window only.
+            if window.label() != "main" {
+                return;
+            }
             match event {
-                tauri::WindowEvent::Resized(_) => {
+                tauri::WindowEvent::Resized(size) => {
+                    embedded::record_content_size(*size, window.scale_factor().unwrap_or(1.0));
                     embedded::on_window_resized(&window.app_handle());
                     commands::apply_adaptive_zoom(window);
                 }
@@ -348,12 +336,14 @@ fn create_main_window(app: &tauri::AppHandle) -> Result<tauri::Window, tauri::Er
         .visible(false)
         .build()?;
 
+    let initial_size = window.inner_size().unwrap_or(tauri::PhysicalSize::new(1400, 900));
+    embedded::record_content_size(initial_size, window.scale_factor().unwrap_or(1.0));
     let _webview = window.add_child(
         tauri::webview::WebviewBuilder::new("main", webview_url)
             .auto_resize()
             .initialization_script(PRELUDE_SCRIPT),
         tauri::LogicalPosition::new(0, 0),
-        window.inner_size().unwrap_or(tauri::PhysicalSize::new(1400, 900)),
+        initial_size,
     )?;
     commands::apply_adaptive_zoom(&window);
     let _ = window.show();

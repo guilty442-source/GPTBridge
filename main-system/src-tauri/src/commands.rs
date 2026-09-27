@@ -80,9 +80,13 @@ pub fn calculate_adaptive_zoom(
 }
 
 pub fn apply_adaptive_zoom(window: &tauri::Window) {
-    let Ok(size) = window.inner_size() else { return };
-    let scale = window.scale_factor().unwrap_or(1.0);
-    let logical = size.to_logical::<f64>(scale);
+    // Use the event-fed content-size cache — querying inner_size/
+    // scale_factor here takes tao's window_state lock, which is an AB-BA
+    // hazard when this runs inside a Resized dispatch.
+    let Some((width, height)) = embedded::current_content_size() else {
+        return;
+    };
+    let logical = tauri::LogicalSize { width, height };
     let mut profile = zoom_profile().lock().unwrap();
     if profile.is_none() {
         *profile = Some((logical.width, logical.height));
