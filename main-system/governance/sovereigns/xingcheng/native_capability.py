@@ -22,6 +22,7 @@ Hardening (A337/A446/A435/A224/A46):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import Any

@@ -6,6 +6,7 @@ Separate and non-transitive from owned-domain powers.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -47,13 +48,15 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         if forbidden:
             return refusal_outcome(
                 "REVIEW_MUST_BE_READ_ONLY",
-                await self.verified_basis_async("A137", "A139"),
+                self.verified_basis("A137", "A139"),
             )
         return None
 
     async def adjudicate_review(self, request: SovereignRequest) -> SovereignOutcome:
         """Route auxiliary review intents."""
-        block = self._verify_review_read_only(request)
+        block = await asyncio.to_thread(
+            self._verify_review_read_only, request
+        )
         if block:
             return block
 

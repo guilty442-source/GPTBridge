@@ -8,6 +8,7 @@ from core_system.codex_decision import (
     SovereignOutcome,
     refusal_outcome,
     verified_basis,
+    verified_basis_async,
 )
 
 from .._delegation import attach_delegation_receipt
@@ -38,7 +39,7 @@ class ExecutionBase:
         """
         return refusal_outcome(
             "EXECUTION_NOT_DELEGATED",
-            self.verified_basis("A446", "A121"),
+            await verified_basis_async(("A446", "A121")),
         )
 
     def _attach_delegation_receipt(
