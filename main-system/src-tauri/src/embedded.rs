@@ -207,6 +207,7 @@ fn spawn_worker(app: &AppHandle, session_id: &str, url: &str) -> Result<WorkerRe
         .arg(&token)
         .arg("--state-file")
         .arg(&state_file)
+        .stderr(stderr_redirect)
         .spawn()
         .map_err(|e| format!("WORKER_SPAWN_FAILED:{e}"))?;
     let child_pid = child.id();
