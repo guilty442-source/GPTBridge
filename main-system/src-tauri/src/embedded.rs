@@ -157,7 +157,7 @@ fn ensure_webview(
         .parse::<tauri::Url>()
         .map_err(|e| format!("INVALID_URL:{e}"))?;
     // Materialise the child webview immediately (hidden) so navigate/execute
-    // work before any show ??mirrors the detached BrowserView contract.
+    // work before any show — mirrors the detached BrowserView contract.
     let builder = WebviewBuilder::new(label.clone(), WebviewUrl::External(parsed_url));
     let webview = window
         .add_child(
@@ -166,7 +166,7 @@ fn ensure_webview(
             LogicalSize::new(1.0, 1.0),
         )
         .map_err(|e| format!("WEBVIEW_CREATE_FAILED:{e}"))?;
-    // Sessions materialise detached ??nothing is displayed until an explicit
+    // Sessions materialise detached — nothing is displayed until an explicit
     // show with clamped bounds (screen-pollution contract).
     let _ = webview.hide();
     Ok(Some(label))
