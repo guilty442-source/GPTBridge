@@ -29,7 +29,12 @@ async def run_startup_sequence(app: Any) -> bool:
     # the governance authority bootstrap precedes the certified phase DAG.
     if app.governance is None:
         from core_system.governance_runtime import MainSystemGovernance
-        app.governance = MainSystemGovernance.from_environment(app.project_root)
+        # Governance construction authenticates and walks the process tree
+        # (Windows snapshot) plus filesystem authority checks — synchronous
+        # work that stalled the event loop during startup; run it off-loop.
+        app.governance = await asyncio.to_thread(
+            MainSystemGovernance.from_environment, app.project_root
+        )
 
     # Check if boot_core has already completed phases 0-5
     startup_state = os.environ.get("GPTBRIDGE_STARTUP_STATE", "")

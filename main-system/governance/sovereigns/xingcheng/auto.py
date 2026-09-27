@@ -104,7 +104,7 @@ class XingchengAutoMixin:
         self._last_snapshot = snapshot
         return accepted_outcome(
             {"action": "auto-observe", "domain": "owned", "snapshot": snapshot},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_auto_analyze(self, request: SovereignRequest) -> SovereignOutcome:
@@ -116,14 +116,14 @@ class XingchengAutoMixin:
             self._auto_metrics["last_anomaly"] = self._iso_now()
         return accepted_outcome(
             {"action": "auto-analyze", "domain": "owned", "anomalies": anomalies},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_auto_manage(self, request: SovereignRequest) -> SovereignOutcome:
         actions = await asyncio.to_thread(self._manage_domain)
         return accepted_outcome(
             {"action": "auto-manage", "domain": "owned", "actions": actions},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_auto_health_check(self, request: SovereignRequest) -> SovereignOutcome:
@@ -137,7 +137,7 @@ class XingchengAutoMixin:
             self._auto_metrics["last_anomaly"] = self._iso_now()
         return accepted_outcome(
             {"action": "auto-health-check", "domain": "owned", "anomalies": anomalies},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     def request_auto_cycle(self, reason: str = "") -> None:

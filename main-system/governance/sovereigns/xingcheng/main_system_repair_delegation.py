@@ -53,7 +53,7 @@ class XingchengMainSystemRepairMixin:
                 "domain": "main-system",
                 "result": result,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _adjudicate_repair_main_system_targeted(
@@ -67,7 +67,7 @@ class XingchengMainSystemRepairMixin:
         if not relative_path:
             return refusal_outcome(
                 "missing relative_path",
-                self.verified_basis("A302"),
+                await self.verified_basis_async("A302"),
             )
 
         # Verify path is within governed source roots
@@ -81,7 +81,7 @@ class XingchengMainSystemRepairMixin:
         ):
             return refusal_outcome(
                 f"path {relative_path} outside governed source roots",
-                self.verified_basis("A302"),
+                await self.verified_basis_async("A302"),
             )
 
         # Create repair service
@@ -105,7 +105,7 @@ class XingchengMainSystemRepairMixin:
                 "target": relative_path,
                 "result": result,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _adjudicate_repair_main_system_tool(
@@ -119,7 +119,7 @@ class XingchengMainSystemRepairMixin:
         if not tool_id:
             return refusal_outcome(
                 "missing tool_id",
-                self.verified_basis("A302"),
+                await self.verified_basis_async("A302"),
             )
 
         # Create repair service
@@ -143,7 +143,7 @@ class XingchengMainSystemRepairMixin:
                 "tool_id": tool_id,
                 "result": result,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _adjudicate_repair_main_system_database(
@@ -168,7 +168,7 @@ class XingchengMainSystemRepairMixin:
                 "domain": "main-system",
                 "result": result,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _adjudicate_repair_main_system_learn(
@@ -194,7 +194,7 @@ class XingchengMainSystemRepairMixin:
         if not error_class or not message_pattern:
             return refusal_outcome(
                 "missing error_class or message_pattern",
-                self.verified_basis("A302"),
+                await self.verified_basis_async("A302"),
             )
 
         root = Path(getattr(self.app, "repair_data_root", "main-system/data/automatic-repair")).resolve()
@@ -223,7 +223,7 @@ class XingchengMainSystemRepairMixin:
                 "remedy": remedy,
                 "success": success,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
 

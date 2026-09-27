@@ -691,17 +691,40 @@ the provisional runtime of the grandfathered UI shell
 supervision (boot_core spawn/attach), authenticated WS handshake
 (`http://tauri.localhost` must stay in `TRUSTED_WEBSOCKET_ORIGINS`).
 
-**Embedded-browser**: sessions check out a pool of child webviews
-pre-created in `setup()` (`embedded.rs` `warm_session_pool`,
-`GPTBRIDGE_EMBEDDED_POOL_SIZE`, default 6) — WebView2 controller creation
-AFTER the event loop starts deadlocks in EBW.dll (wry#1665/#583 class).
-Do NOT `webview.hide()` pooled views — `put_IsVisible(false)` stalls
-later EBW calls; park them at 1x1 instead. `webview2-com` is vendored
-(`src-tauri/vendor/`) with a `CoWaitForMultipleHandles` wait_with_pump
-patch for the STA callback delivery bug.
+**Embedded-browser**: helper-process architecture (`embedded.rs` +
+`embedded_worker.rs`). Each session spawns the same executable with
+`--embedded-worker`; the worker owns exactly one WebView2 controller —
+the reliable first-controller path — because on this machine any
+host→controller call wedges once a process owns more than one
+controller (post-loop creation deadlocks in EBW.dll, wry#1665/#583
+class; even pooled first-N ops stalled 5–60 s). The worker reparents
+its frameless `WebviewWindow` under the main window HWND (WS_CHILD —
+clipped like BrowserView), serves a token-guarded loopback endpoint
+(state file `runtime/state/embedded-worker-<id>.json`), and exits on
+`/close`, parent-PID death, or taskkill backstop. Verified E2E:
+create→list→url→navigate→url→execute→resize→hide→close→list,
+worker + WebView2 tree terminates cleanly, main loop stays responsive.
+`webview2-com` is vendored (`src-tauri/vendor/`) with a
+`CoWaitForMultipleHandles` wait_with_pump patch for the STA callback
+delivery bug. Never hold the session-registry mutex across a worker
+HTTP call or process spawn. A hidden window can report a 0x0 inner
+size — `record_content_size` must never cache it (every bounds clamp
+would fail-closed-hide).
 
-**Known limitation (this dev machine)**: host→WebView2 controller calls
-(navigate/bounds/url/eval) take 5–60 s each here — environment-level
-EBW pathology, not a pool defect. Lifecycle is logically correct
-(create→list→close verified E2E). Launcher still defaults to Electron
-until embedded ops are validated on a healthy runtime.
+**Known limitation (this dev machine)**: worker webview warm-up is
+still EBW-bound — `create`/`execute` can take single-digit seconds on
+first call, then ops run at ~0.1–1.5 s. Launcher still defaults to
+Electron until the full lifecycle is validated on a healthy runtime.
+
+**Launcher host switch** (`GPTBridge.Bootstrap`, `Program.cs`): the
+Tauri branch is wired — host resolves `--ui-host` arg →
+`GPTBRIDGE_UI_HOST` env → `launcher/state/ui-host.json` → default
+`electron`. On the Tauri path the launcher skips `EnsureNodeRuntime`
+entirely, keeps Python/UI-build prep and the same env contract
+(`GPTBRIDGE_MANAGE_BACKEND` etc.), launches
+`src-tauri/target/release/gptbridge-shell.exe`, and falls back to
+Electron if the shell binary is missing or exits non-zero at startup.
+Flip the default by writing `{"host":"tauri"}` to
+`launcher/state/ui-host.json` — no launcher rebuild needed. Journal
+events: `launcher.ui-host.selected`, `.phase.tauri.start`,
+`.tauri.accepted|.handoff|.exited`, `.ui-host.fallback`.

@@ -152,7 +152,7 @@ class DecisionSovereign(
             return await handlers[intent](request)
 
         # Unknown intent: fail-closed
-        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A10", "A12"))
+        return refusal_outcome("UNKNOWN_INTENT", await self.verified_basis_async("A10", "A12"))
 
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
@@ -175,7 +175,7 @@ class DecisionSovereign(
         """A64: mother process delegates startup stack dispatch to decision-sovereign."""
         dependency_state = request.payload.get("dependency_state", "UNKNOWN")
         if dependency_state not in ("READY", "DEGRADED", "RECOVERY"):
-            return refusal_outcome("INVALID_DEPENDENCY_STATE", self.verified_basis("A128", "A130"))
+            return refusal_outcome("INVALID_DEPENDENCY_STATE", await self.verified_basis_async("A128", "A130"))
 
         return accepted_outcome(
             {
@@ -189,40 +189,42 @@ class DecisionSovereign(
                 "dependency_state": dependency_state,
                 "parallelism": "bounded-independent-per-A155",
             },
-            self.verified_basis("A128", "A130", "A155"),
+            await self.verified_basis_async("A128", "A130", "A155"),
         )
 
     async def _adjudicate_repair_decision(self, request: SovereignRequest) -> SovereignOutcome:
         """A152/A154/E127/E128: repair decision chain."""
         classified_signal = request.payload.get("classified_signal")
         if not classified_signal:
-            return refusal_outcome("MISSING_CLASSIFIED_SIGNAL", self.verified_basis("A152"))
+            return refusal_outcome("MISSING_CLASSIFIED_SIGNAL", await self.verified_basis_async("A152"))
 
         if not isinstance(classified_signal, dict):
             return refusal_outcome(
                 "INVALID_CLASSIFIED_SIGNAL",
-                self.verified_basis("A152", "A154"),
+                await self.verified_basis_async("A152", "A154"),
             )
 
         try:
-            result = self._repair_decision_chain.decide_and_route(classified_signal)
+            result = await asyncio.to_thread(
+                self._repair_decision_chain.decide_and_route, classified_signal
+            )
         except Exception as error:
             return refusal_outcome(
                 "REPAIR_CHAIN_ERROR",
-                self.verified_basis("A152", "E128"),
+                await self.verified_basis_async("A152", "E128"),
             )
 
         if not isinstance(result, dict):
             return refusal_outcome(
                 "REPAIR_CHAIN_INVALID_RESULT",
-                self.verified_basis("A152"),
+                await self.verified_basis_async("A152"),
             )
 
         if not result.get("authorized", False):
             reason = result.get("reason", "REPAIR_NOT_AUTHORIZED")
             return refusal_outcome(
                 reason,
-                self.verified_basis("A152", "A154", "E128"),
+                await self.verified_basis_async("A152", "A154", "E128"),
             )
 
         return accepted_outcome(
@@ -233,7 +235,7 @@ class DecisionSovereign(
                 "chain_result": result,
                 "forbidden": "maintenance-owning-non-health-decisions",
             },
-            self.verified_basis("A152", "A154", "E127", "E128"),
+            await self.verified_basis_async("A152", "A154", "E127", "E128"),
         )
 
     def decide_and_route_repair(
@@ -249,7 +251,9 @@ class DecisionSovereign(
 
     async def _adjudicate_certified_update(self, request: SovereignRequest) -> SovereignOutcome:
         """A152/A154/A330: certified update decision."""
-        error, fields = self._validate_certified_update_request(request)
+        error, fields = await asyncio.to_thread(
+            self._validate_certified_update_request, request
+        )
         if error is not None:
             return error
         update_type, update_set, artifact_hashes, operation_id = fields
@@ -267,10 +271,10 @@ class DecisionSovereign(
                         "terminal_status": existing_status,
                         "idempotent_replay": True,
                     },
-                    self.verified_basis("A152", "A154", "A330"),
+                    await self.verified_basis_async("A152", "A154", "A330"),
                 )
             return refusal_outcome(
-                "OPERATION_IN_FLIGHT", self.verified_basis("A152", "A330")
+                "OPERATION_IN_FLIGHT", await self.verified_basis_async("A152", "A330")
             )
 
         # Delegate A330 execution to the automation core (canonical
@@ -331,7 +335,7 @@ class DecisionSovereign(
             ):
                 return refusal_outcome(
                     "AUTOMATION_SOVEREIGN_UNAVAILABLE",
-                    self.verified_basis("A152", "A330", "A301"),
+                    await self.verified_basis_async("A152", "A330", "A301"),
                 )
             return sync_outcome
 
@@ -357,17 +361,17 @@ class DecisionSovereign(
                 "sync_authorization": sync_outcome.result,
                 "forbidden": "decision-sovereign-direct-execution",
             },
-            self.verified_basis("A152", "A154", "A330", "A63", "A64"),
+            await self.verified_basis_async("A152", "A154", "A330", "A63", "A64"),
         )
 
     async def _adjudicate_governance_coordination(self, request: SovereignRequest) -> SovereignOutcome:
         """Governance rule coordination (A63)."""
         from governance.registries import module_assignment_registry
 
-        edicts = self.edicts()
+        edicts = await self.edicts_async()
         governed_modules = sorted(
             row["module_architecture_code"]
-            for row in module_assignment_registry()
+            for row in await asyncio.to_thread(module_assignment_registry)
             if row.get("decision_authority") == self.sovereign_id
         )
         return accepted_outcome(
@@ -377,7 +381,7 @@ class DecisionSovereign(
                 "edict_count": len(edicts),
                 "governed_modules": governed_modules,
             },
-            self.verified_basis("A12", "A128"),
+            await self.verified_basis_async("A12", "A128"),
         )
 
     def status(self) -> dict[str, Any]:

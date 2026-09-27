@@ -114,7 +114,11 @@ class MaintenanceControllerIntegration:
         # private loop; the controller then reports started-but-not-driven.
         core = getattr(self.app, "automation_core", None)
         if core is not None:
-            self.controller.start(spawn_loop=False)
+            # controller.start performs pending-job recovery and opens the
+            # workload-lane pool — synchronous PostgreSQL work that stalled
+            # the event loop during startup (loop-stall evidence); run it on
+            # a worker thread.
+            await asyncio.to_thread(self.controller.start, spawn_loop=False)
 
             async def _driven_tick() -> None:
                 controller = self.controller
@@ -126,7 +130,7 @@ class MaintenanceControllerIntegration:
                 "maintenance-controller", _driven_tick
             )
         else:
-            self.controller.start()
+            await asyncio.to_thread(self.controller.start)
             self._core_driven = None
 
         self._started = True

@@ -35,6 +35,7 @@ from core_system.codex_decision import (
     accepted_outcome,
     refusal_outcome,
     verified_basis,
+    verified_basis_async,
 )
 
 from .parallel_adjudication_mixin import ParallelAdjudicationMixin
@@ -138,7 +139,7 @@ class AutomationSovereign(
         if intent == "sync.decision":
             return await self._adjudicate_sync_decision(request)
 
-        return refusal_outcome("UNKNOWN_INTENT", verified_basis(("A10", "A12")))
+        return refusal_outcome("UNKNOWN_INTENT", await verified_basis_async(("A10", "A12")))
 
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
@@ -165,7 +166,9 @@ class AutomationSovereign(
         # decision-sovereign, which delegates here with a verified
         # single-use nonce. A direct caller (even a governed actor) cannot
         # self-declare certification; the payload flag alone is not proof.
-        error, fields = self._validate_a330_request(request)
+        error, fields = await asyncio.to_thread(
+            self._validate_a330_request, request
+        )
         if error is not None:
             return error
         update_type, update_set, artifact_hashes, operation_id = fields
@@ -183,15 +186,15 @@ class AutomationSovereign(
                         "terminal_status": existing_status,
                         "idempotent_replay": True,
                     },
-                    verified_basis(("A330",)),
+                    await verified_basis_async(("A330",)),
                 )
-            return refusal_outcome("OPERATION_IN_FLIGHT", verified_basis(("A330",)))
+            return refusal_outcome("OPERATION_IN_FLIGHT", await verified_basis_async(("A330",)))
 
         # Execute via governed executor (A330 exception)
         executor = getattr(self.app, "governed_executor", None)
         if executor is None:
             return refusal_outcome(
-                "GOVERNED_EXECUTOR_UNAVAILABLE", verified_basis(("A330", "A69"))
+                "GOVERNED_EXECUTOR_UNAVAILABLE", await verified_basis_async(("A330", "A69"))
             )
 
         # Record operation
@@ -212,7 +215,7 @@ class AutomationSovereign(
                 "execution": "A330-certified-update-exception",
                 "executor": "governed-executor",
             },
-            verified_basis(("A330", "A301", "A446")),
+            await verified_basis_async(("A330", "A301", "A446")),
         )
 
     def _validate_a330_request(
@@ -263,7 +266,7 @@ class AutomationSovereign(
                 "authority": "automation-sovereign",
                 "basis": "A322",
             },
-            verified_basis(("A322", "A301", "A334")),
+            await verified_basis_async(("A322", "A301", "A334")),
         )
 
     def status(self) -> dict[str, Any]:

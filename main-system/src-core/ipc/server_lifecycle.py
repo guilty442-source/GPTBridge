@@ -65,6 +65,7 @@ _install_websockets_handshake_noise_filter()
 
 from core_system.resource_maintenance import IdleMemoryMaintainer
 from .server_tokens import (
+    _get_or_create_ipc_session_token,
     _ipc_port,
     _shutdown_request_authorized,
     _shutdown_request_is_manual,
@@ -188,6 +189,11 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                 return http_response(403, "FORBIDDEN", b"Forbidden")
             return None
 
+        # Warm the session token before the listener accepts connections:
+        # first-touch token materialization runs icacls subprocesses for
+        # ACL hardening, which stalled the event loop inside the websocket
+        # handshake path (loop-stall evidence).
+        await asyncio.to_thread(_get_or_create_ipc_session_token)
         # Start the IPC Server first so health checks pass immediately, preventing UI timeouts
         try:
             websocket_logger = logging.getLogger("gptbridge.websockets.server")

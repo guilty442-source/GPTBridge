@@ -204,7 +204,7 @@ class PermissionSovereign(
         if intent == "permission.supervise":
             return await self._adjudicate_permission_supervise(request)
 
-        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A10", "A12"))
+        return refusal_outcome("UNKNOWN_INTENT", await self.verified_basis_async("A10", "A12"))
 
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest

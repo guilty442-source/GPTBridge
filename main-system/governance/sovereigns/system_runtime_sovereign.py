@@ -125,7 +125,7 @@ class SystemRuntimeSovereign(
         if intent == "runtime.conflict-isolation":
             return await self._adjudicate_conflict_isolation(request)
 
-        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A10", "A12"))
+        return refusal_outcome("UNKNOWN_INTENT", await self.verified_basis_async("A10", "A12"))
 
     async def _delegate_execution(
         self, decision: SovereignOutcome, request: SovereignRequest
@@ -150,19 +150,19 @@ class SystemRuntimeSovereign(
                 "auto_metrics": dict(self._auto_metrics),
                 "readiness": self._load_readiness_state(),
             },
-            self.verified_basis("A28", "A33", "A65"),
+            await self.verified_basis_async("A28", "A33", "A65"),
         )
 
     async def _adjudicate_runtime_action(self, request: SovereignRequest) -> SovereignOutcome:
         """Runtime action adjudication."""
         action = request.payload.get("action")
         if action not in ("start", "stop", "restart", "health-check"):
-            return refusal_outcome("INVALID_ACTION", self.verified_basis("A28"))
+            return refusal_outcome("INVALID_ACTION", await self.verified_basis_async("A28"))
 
         self._auto_metrics["runtime_state_polls"] += 1
         return accepted_outcome(
             {"action": action, "runtime_state": self._runtime_state, "execution": "delegated"},
-            self.verified_basis("A28", "A446"),
+            await self.verified_basis_async("A28", "A446"),
         )
 
     async def _adjudicate_health_coordinate(self, request: SovereignRequest) -> SovereignOutcome:
@@ -170,7 +170,7 @@ class SystemRuntimeSovereign(
         self._auto_metrics["health_coordinations"] += 1
         signal = request.payload.get("health_signal")
         if not signal:
-            return refusal_outcome("MISSING_HEALTH_SIGNAL", self.verified_basis("A152"))
+            return refusal_outcome("MISSING_HEALTH_SIGNAL", await self.verified_basis_async("A152"))
 
         # Route to decision-sovereign's repair decision chain
         return await self.delegate_to(
@@ -189,7 +189,7 @@ class SystemRuntimeSovereign(
         action = request.payload.get("action", "retry")
         return accepted_outcome(
             {"operation_id": operation_id, "action": action, "authority": self.sovereign_id},
-            self.verified_basis("A322", "A28"),
+            await self.verified_basis_async("A322", "A28"),
         )
 
     async def _adjudicate_convergence_acceptance(self, request: SovereignRequest) -> SovereignOutcome:
@@ -198,7 +198,7 @@ class SystemRuntimeSovereign(
         criteria = request.payload.get("criteria", {})
         return accepted_outcome(
             {"target": target, "criteria": criteria, "decision": "accepted", "authority": self.sovereign_id},
-            self.verified_basis("A322", "A28"),
+            await self.verified_basis_async("A322", "A28"),
         )
 
     async def _adjudicate_conflict_isolation(self, request: SovereignRequest) -> SovereignOutcome:
@@ -212,7 +212,7 @@ class SystemRuntimeSovereign(
                 "isolation": "adjudicated",
                 "authority": self.sovereign_id,
             },
-            self.verified_basis("A322", "A28"),
+            await self.verified_basis_async("A322", "A28"),
         )
 
     def status(self) -> dict[str, Any]:

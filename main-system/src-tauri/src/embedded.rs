@@ -236,6 +236,12 @@ fn spawn_worker(app: &AppHandle, session_id: &str, url: &str) -> Result<WorkerRe
         }
         std::thread::sleep(Duration::from_millis(200));
     }
+    // A worker that never published its endpoint received no ops — tree-kill
+    // it so a wedged spawn cannot linger as an orphan webview host.
+    let _ = std::process::Command::new("taskkill")
+        .args(["/PID", &child_pid.to_string(), "/T", "/F"])
+        .output();
+    let _ = std::fs::remove_file(&state_file);
     Err("WORKER_READY_TIMEOUT".to_string())
 }
 
@@ -297,7 +303,9 @@ fn worker_shutdown(worker: &WorkerRef) {
 
 /// Called on window minimize/hide — detach every visible session.  Child
 /// windows also hide automatically with the parent; this keeps the
-/// session `visible` flags truthful.
+/// session `visible` flags truthful.  Runs on the main thread inside the
+/// window-event handler, so the blocking worker calls are handed to a
+/// helper thread — a wedged worker must never stall the event loop.
 pub fn hide_all_sessions(_app: &AppHandle) {
     let workers: Vec<WorkerRef> = {
         let mut state = embedded_state().lock().unwrap();
@@ -312,9 +320,14 @@ pub fn hide_all_sessions(_app: &AppHandle) {
         }
         workers
     };
-    for worker in workers {
-        worker_hide(&worker);
+    if workers.is_empty() {
+        return;
     }
+    std::thread::spawn(move || {
+        for worker in workers {
+            worker_hide(&worker);
+        }
+    });
 }
 
 /// Re-clamp visible sessions after a resize (same contract as the Electron
@@ -358,14 +371,21 @@ pub fn on_window_resized(app: &AppHandle) {
         }
         out
     };
-    for (worker, bounds) in updates {
-        match bounds {
-            Some(b) => {
-                let _ = worker_request(&worker, "POST", "/bounds", &physical_bounds(&b));
-            }
-            None => worker_hide(&worker),
-        }
+    if updates.is_empty() {
+        return;
     }
+    // Blocking worker calls off the main thread — this handler runs inside
+    // the event loop's Resized dispatch and must never stall it.
+    std::thread::spawn(move || {
+        for (worker, bounds) in updates {
+            match bounds {
+                Some(b) => {
+                    let _ = worker_request(&worker, "POST", "/bounds", &physical_bounds(&b));
+                }
+                None => worker_hide(&worker),
+            }
+        }
+    });
 }
 
 pub fn create_session(
@@ -564,7 +584,7 @@ pub fn resize_session(
             worker_hide(&worker);
         }
     }
-    serde_json::json!({"ok": true, "hidden": clamped.is_none(), "diag": {"content": current_content_size(), "mainWindow": main_window(app).is_some()}})
+    serde_json::json!({"ok": true, "hidden": clamped.is_none()})
 }
 
 pub fn show_session(app: &AppHandle, id: &str) -> serde_json::Value {
@@ -678,6 +698,9 @@ pub fn list_sessions() -> serde_json::Value {
 
 /// Close every live session (window close / app shutdown).  Workers are
 /// asked to exit then bounded-killed so a wedged worker never leaks.
+/// Shutdown runs on a helper thread: serial per-worker waits must not
+/// stall the main event loop on the close path, and the worker-side
+/// parent-death watchdog remains the ultimate orphan backstop.
 pub fn close_all_sessions(app: &AppHandle) {
     let workers: Vec<WorkerRef> = {
         let mut state = embedded_state().lock().unwrap();
@@ -693,7 +716,12 @@ pub fn close_all_sessions(app: &AppHandle) {
         workers
     };
     let _ = app;
-    for worker in workers {
-        worker_shutdown(&worker);
+    if workers.is_empty() {
+        return;
     }
+    std::thread::spawn(move || {
+        for worker in workers {
+            worker_shutdown(&worker);
+        }
+    });
 }

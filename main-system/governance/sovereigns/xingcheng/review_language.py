@@ -31,7 +31,7 @@ class XingchengLanguageReviewMixin:
         language = str(request.payload.get("language") or "").lower()
         language = _LANGUAGE_ALIASES.get(language, language)
         if language not in ALLOWED_LANGUAGES:
-            return refusal_outcome("LANGUAGE_NOT_ALLOWED", self.verified_basis("A139"))
+            return refusal_outcome("LANGUAGE_NOT_ALLOWED", await self.verified_basis_async("A139"))
         files = request.payload.get("files") or []
         findings: list[dict[str, Any]] = []
         for entry in files:
@@ -54,7 +54,7 @@ class XingchengLanguageReviewMixin:
                 "file_count": len(files),
                 "findings": findings,
             },
-            self.verified_basis("A139", "A145"),
+            await self.verified_basis_async("A139", "A145"),
         )
 
     def _review_file(self, raw_path: str, language: str) -> list[dict[str, Any]]:
@@ -99,7 +99,7 @@ class XingchengLanguageReviewMixin:
                 "audit": True,
                 "permission_review": "exempt",
             },
-            self.verified_basis("A435", "A144", "A145"),
+            await self.verified_basis_async("A435", "A144", "A145"),
         )
 
 

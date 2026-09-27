@@ -75,7 +75,7 @@ class XingchengInspectMixin:
                 "expiry": payload.get("expiry"),
                 "note": "decision-sovereign may decide only after current 星澄 review",
             },
-            self.verified_basis("A319"),
+            await self.verified_basis_async("A319"),
         )
 
     async def _adjudicate_inspect(self, request: SovereignRequest) -> SovereignOutcome:
@@ -113,7 +113,7 @@ class XingchengInspectMixin:
                 "continuity": "inspection-cannot-interrupt-or-alter-state",
                 "view": view,
             },
-            self.verified_basis("A330"),
+            await self.verified_basis_async("A330"),
         )
 
 

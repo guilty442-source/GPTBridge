@@ -164,7 +164,7 @@ class XingchengSovereign(
         # Owned-domain gate (A20)
         if not self._is_in_owned_domain(request):
             return refusal_outcome(
-                "OUTSIDE_OWNED_DOMAIN", self.verified_basis("A20", "A12"),
+                "OUTSIDE_OWNED_DOMAIN", await self.verified_basis_async("A20", "A12"),
             )
 
         # Owned-domain power intents
@@ -209,7 +209,7 @@ class XingchengSovereign(
         if intent == "repair.main-system.learn":
             return await self._adjudicate_repair_main_system_learn(request)
 
-        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A20", "A12"))
+        return refusal_outcome("UNKNOWN_INTENT", await self.verified_basis_async("A20", "A12"))
 
     # --- Xingcheng Main System Repair Delegation (A302) ---
     # Governed delegation to CentralRepairService for main system repairs
@@ -236,7 +236,7 @@ class XingchengSovereign(
                 "domain": "main-system",
                 "result": result,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _adjudicate_repair_main_system_targeted(
@@ -251,7 +251,7 @@ class XingchengSovereign(
         if not relative_path:
             return refusal_outcome(
                 "missing relative_path",
-                self.verified_basis("A302"),
+                await self.verified_basis_async("A302"),
             )
 
         # Verify path is within governed source roots
@@ -263,7 +263,7 @@ class XingchengSovereign(
         ):
             return refusal_outcome(
                 f"path {relative_path} outside governed source roots",
-                self.verified_basis("A302"),
+                await self.verified_basis_async("A302"),
             )
 
         service = CentralRepairService(
@@ -285,7 +285,7 @@ class XingchengSovereign(
                 "target": relative_path,
                 "result": result,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _adjudicate_repair_main_system_tool(
@@ -299,7 +299,7 @@ class XingchengSovereign(
         if not tool_id:
             return refusal_outcome(
                 "missing tool_id",
-                self.verified_basis("A302"),
+                await self.verified_basis_async("A302"),
             )
 
         service = CentralRepairService(
@@ -321,7 +321,7 @@ class XingchengSovereign(
                 "tool_id": tool_id,
                 "result": result,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _adjudicate_repair_main_system_database(
@@ -346,7 +346,7 @@ class XingchengSovereign(
                 "domain": "main-system",
                 "result": result,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _adjudicate_repair_main_system_learn(
@@ -372,7 +372,7 @@ class XingchengSovereign(
         if not error_class or not message_pattern:
             return refusal_outcome(
                 "missing error_class or message_pattern",
-                self.verified_basis("A302"),
+                await self.verified_basis_async("A302"),
             )
 
         root = Path(getattr(self.app, "repair_data_root", "main-system/data/automatic-repair")).resolve()
@@ -401,7 +401,7 @@ class XingchengSovereign(
                 "remedy": remedy,
                 "success": success,
             },
-            self.verified_basis("A302"),
+            await self.verified_basis_async("A302"),
         )
 
     async def _delegate_execution(
@@ -433,7 +433,7 @@ class XingchengSovereign(
             else:
                 outcome = refusal_outcome(
                     "GOVERNED_EXECUTOR_INVALID_RESULT",
-                    self.verified_basis("A336", "A69"),
+                    await self.verified_basis_async("A336", "A69"),
                 )
             return self._attach_delegation_receipt(
                 outcome, request, "governed-executor"

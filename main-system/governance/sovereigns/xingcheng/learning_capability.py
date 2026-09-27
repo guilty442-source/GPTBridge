@@ -131,7 +131,7 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
         root = Path(getattr(self.app, "project_root", ".")).resolve()
         self._store = RepairLearningStore(root / "main-system" / "data" / "automatic-repair")
         self._learner = RepairLearner(self._store)
-        self._ingest_fault_manual_catalog()
+        await asyncio.to_thread(self._ingest_fault_manual_catalog)
         self._learning_active = True
         # E173: activation returns a light receipt — analyze_history()
         # runs on demand in learning_capability_status(), not on the
@@ -199,7 +199,7 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
         intent = request.intent
         if intent not in _LEARNING_INTENTS:
             return refusal_outcome(
-                "UNKNOWN_INTENT", self.verified_basis("A485")
+                "UNKNOWN_INTENT", await self.verified_basis_async("A485")
             )
         if intent == "learn.auto-start":
             return await self._adjudicate_learn_auto_start(request)
@@ -208,19 +208,30 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
         if intent == "learn.reconcile":
             return await self._adjudicate_learn_reconcile(request)
         if intent == "learn.outcome":
-            return self._adjudicate_learn_outcome(request)
+            return await asyncio.to_thread(
+                self._adjudicate_learn_outcome, request
+            )
         if intent == "learn.evidence":
-            return self._adjudicate_learn_evidence(request)
+            return await asyncio.to_thread(
+                self._adjudicate_learn_evidence, request
+            )
         if intent == "learn.analyze":
-            return self._adjudicate_learn_analyze(request)
+            return await asyncio.to_thread(
+                self._adjudicate_learn_analyze, request
+            )
         if intent == "learn.teach":
-            return self._adjudicate_learn_teach(request)
+            return await asyncio.to_thread(
+                self._adjudicate_learn_teach, request
+            )
         return refusal_outcome(
-            "UNKNOWN_INTENT", self.verified_basis("A485")
+            "UNKNOWN_INTENT", await self.verified_basis_async("A485")
         )
 
     def _learn_basis(self) -> Any:
         return self.verified_basis("A130", "A334", "A485")
+
+    async def _learn_basis_async(self) -> Any:
+        return await self.verified_basis_async("A130", "A334", "A485")
 
     async def _adjudicate_learn_auto_start(self, request: Any) -> Any:
         """Arm the reconcile loop — the only path that enables auto-learning."""
@@ -249,7 +260,7 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
             },
-            self._learn_basis(),
+            await self._learn_basis_async(),
         )
 
     async def _adjudicate_learn_auto_stop(self, request: Any) -> Any:
@@ -263,12 +274,12 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
             },
-            self._learn_basis(),
+            await self._learn_basis_async(),
         )
 
     async def _adjudicate_learn_reconcile(self, request: Any) -> Any:
         """Run one bounded reconciliation pass under owner command."""
-        self._ingest_fault_manual_catalog()
+        await asyncio.to_thread(self._ingest_fault_manual_catalog)
         receipt = await self.reconcile_once()
         return accepted_outcome(
             {
@@ -279,7 +290,7 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
                 "decision": "none",
                 "execution": "delegated-to-governed-executor",
             },
-            self._learn_basis(),
+            await self._learn_basis_async(),
         )
 
     def _adjudicate_learn_outcome(self, request: Any) -> Any:

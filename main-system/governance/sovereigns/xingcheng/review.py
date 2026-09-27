@@ -47,7 +47,7 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         if forbidden:
             return refusal_outcome(
                 "REVIEW_MUST_BE_READ_ONLY",
-                self.verified_basis("A137", "A139"),
+                await self.verified_basis_async("A137", "A139"),
             )
         return None
 
@@ -79,7 +79,7 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         if intent == "star.adjudicate-classification":
             return await self._adjudicate_star_classification(request)
 
-        return refusal_outcome("UNKNOWN_INTENT", self.verified_basis("A139"))
+        return refusal_outcome("UNKNOWN_INTENT", await self.verified_basis_async("A139"))
 
     async def _adjudicate_review_global(self, request: SovereignRequest) -> SovereignOutcome:
         """A139/A145: review filtered global evidence; advisory report."""
@@ -107,7 +107,7 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
                 "anomalies": anomalies,
                 "patterns": patterns,
             },
-            self.verified_basis("A139", "A145", "A140"),
+            await self.verified_basis_async("A139", "A145", "A140"),
         )
 
     def _classify_evidence(self, evidence: dict[str, Any]) -> list[dict[str, Any]]:
@@ -161,7 +161,7 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         }
         return accepted_outcome(
             {"action": "classify-anomaly", "advisory": True, "result": result},
-            self.verified_basis("A139", "A138"),
+            await self.verified_basis_async("A139", "A138"),
         )
 
     async def _adjudicate_notify_user(self, request: SovereignRequest) -> SovereignOutcome:
@@ -179,7 +179,7 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         }
         return accepted_outcome(
             {"action": "notify-user", "advisory": True, "notification": card},
-            self.verified_basis("A139", "A140", "A146"),
+            await self.verified_basis_async("A139", "A140", "A146"),
         )
 
     async def _notify_anomalies(self) -> None:
@@ -247,7 +247,7 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         """A337: deterministic auxiliary classification."""
         kind = request.intent.split(".", 1)[1]
         if kind not in _CLASSIFY_KINDS:
-            return refusal_outcome("UNKNOWN_CLASSIFY_KIND", self.verified_basis("A337"))
+            return refusal_outcome("UNKNOWN_CLASSIFY_KIND", await self.verified_basis_async("A337"))
         item = request.payload.get("item")
         normalized = self._normalize_classification_input(kind, item)
         record = {
@@ -264,7 +264,7 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
                 "classifier": "auxiliary-deterministic",
                 "semantic_judgment": "native-model-exclusive",
             },
-            self.verified_basis("A337"),
+            await self.verified_basis_async("A337"),
         )
 
     def _normalize_classification_input(self, kind: str, item: Any) -> dict[str, Any]:
@@ -309,5 +309,5 @@ class XingchengReviewMixin(XingchengLanguageReviewMixin, XingchengInspectMixin):
         self._reviews[finding["finding_id"]] = {"kind": "star-adjudication", **finding}
         return accepted_outcome(
             {"action": "star-adjudication", "finding": finding},
-            self.verified_basis("A337"),
+            await self.verified_basis_async("A337"),
         )

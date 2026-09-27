@@ -339,7 +339,7 @@ class XingchengCodexDriftMixin:
                 "displayed_on": "xingcheng-auxiliary-surface",
                 **report,
             },
-            self.verified_basis("A139", "A140", "A145"),
+            await self.verified_basis_async("A139", "A140", "A145"),
         )
 
     def drift_status(self) -> dict[str, Any]:

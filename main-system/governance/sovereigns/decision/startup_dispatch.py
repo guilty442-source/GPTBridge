@@ -50,7 +50,7 @@ class DecisionStartupDispatchMixin:
         """A64: mother process delegates startup stack dispatch to decision-sovereign."""
         dependency_state = request.payload.get("dependency_state", "UNKNOWN")
         if dependency_state not in ("READY", "DEGRADED", "RECOVERY"):
-            return refusal_outcome("INVALID_DEPENDENCY_STATE", self.verified_basis("A128", "A130"))
+            return refusal_outcome("INVALID_DEPENDENCY_STATE", await self.verified_basis_async("A128", "A130"))
 
         return accepted_outcome(
             {
@@ -64,7 +64,7 @@ class DecisionStartupDispatchMixin:
                 "dependency_state": dependency_state,
                 "parallelism": "bounded-independent-per-A155",
             },
-            self.verified_basis("A128", "A130", "A155"),
+            await self.verified_basis_async("A128", "A130", "A155"),
         )
 
     async def start_sovereign_stack(self) -> bool:

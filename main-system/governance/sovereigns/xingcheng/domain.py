@@ -118,7 +118,7 @@ class XingchengDomainMixin:
         self._last_snapshot = snapshot
         return accepted_outcome(
             {"action": "observe", "domain": "owned", "snapshot": snapshot},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_analyze(self, request: SovereignRequest) -> SovereignOutcome:
@@ -126,7 +126,7 @@ class XingchengDomainMixin:
         anomalies = await asyncio.to_thread(self._analyze_domain, snapshot)
         return accepted_outcome(
             {"action": "analyze", "domain": "owned", "anomalies": anomalies},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_reason(self, request: SovereignRequest) -> SovereignOutcome:
@@ -147,7 +147,7 @@ class XingchengDomainMixin:
         }
         return accepted_outcome(
             {"action": "reason", "domain": "owned", "reasoning": conclusion},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_decide(self, request: SovereignRequest) -> SovereignOutcome:
@@ -155,21 +155,21 @@ class XingchengDomainMixin:
         decision_id = f"decision-{len(self._pending_anomalies) + 1}"
         return accepted_outcome(
             {"action": "decide", "domain": "owned", "decision_id": decision_id, "decision": decision},
-            self.verified_basis("A20", "A12"),
+            await self.verified_basis_async("A20", "A12"),
         )
 
     async def _adjudicate_manage(self, request: SovereignRequest) -> SovereignOutcome:
         actions = await asyncio.to_thread(self._manage_domain)
         return accepted_outcome(
             {"action": "manage", "domain": "owned", "resource": request.payload.get("resource"), "actions": actions},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_authorize(self, request: SovereignRequest) -> SovereignOutcome:
         """A20 authorize: record domain-internal authorization grant."""
         permission = request.payload.get("permission")
         if not permission:
-            return refusal_outcome("MISSING_PERMISSION", self.verified_basis("A20"))
+            return refusal_outcome("MISSING_PERMISSION", await self.verified_basis_async("A20"))
         grant = {
             "permission": permission,
             "grantee": request.payload.get("grantee") or request.requester,
@@ -183,17 +183,17 @@ class XingchengDomainMixin:
         grant_id = f"grant-{len(grants)}"
         grant["grant_id"] = grant_id
         if not self._write_domain_json(registry, grants[-500:]):
-            return refusal_outcome("EXECUTION_FAILED", self.verified_basis("A20"))
+            return refusal_outcome("EXECUTION_FAILED", await self.verified_basis_async("A20"))
         return accepted_outcome(
             {"action": "authorize", "domain": "owned", "grant_id": grant_id, "grant": grant},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_execute(self, request: SovereignRequest) -> SovereignOutcome:
         """A20 execute: bounded domain operations."""
         operation = request.payload.get("operation") or {}
         if not isinstance(operation, dict):
-            return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+            return refusal_outcome("INVALID_OPERATION", await self.verified_basis_async("A20"))
         op = str(operation.get("op") or "")
         raw_target = str(operation.get("path") or "")
         # Structured-store ops address the PG store sentinel rather than a
@@ -203,35 +203,35 @@ class XingchengDomainMixin:
         else:
             target = self._resolve_in_domain(operation.get("path"))
             if target is None:
-                return refusal_outcome("OUTSIDE_OWNED_DOMAIN", self.verified_basis("A20"))
+                return refusal_outcome("OUTSIDE_OWNED_DOMAIN", await self.verified_basis_async("A20"))
 
         result: dict[str, Any] = {"op": op, "path": raw_target or str(target)}
         try:
             if op == "mkdir":
                 if target is None:
-                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                    return refusal_outcome("INVALID_OPERATION", await self.verified_basis_async("A20"))
                 target.mkdir(parents=True, exist_ok=True)
                 result["created"] = True
             elif op == "db-vacuum":
                 if target is not None:
-                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                    return refusal_outcome("INVALID_OPERATION", await self.verified_basis_async("A20"))
                 with pg_adapter.connect(PG_SCHEMA, autocommit=True) as conn:
                     conn.execute("VACUUM")
                 result["vacuumed"] = PG_STORE_TARGET
             elif op == "checkpoint-cleanup":
                 if target is None or not target.is_file() or "checkpoint" not in target.name:
-                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                    return refusal_outcome("INVALID_OPERATION", await self.verified_basis_async("A20"))
                 target.unlink()
                 result["deleted"] = True
             elif op == "db-analyze":
                 if target is not None:
-                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                    return refusal_outcome("INVALID_OPERATION", await self.verified_basis_async("A20"))
                 with pg_adapter.connect(PG_SCHEMA) as conn:
                     conn.execute("ANALYZE")
                 result["analyzed"] = PG_STORE_TARGET
             elif op == "db-integrity-check":
                 if target is not None:
-                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                    return refusal_outcome("INVALID_OPERATION", await self.verified_basis_async("A20"))
                 # PG equivalent of the retired PRAGMA integrity_check:
                 # reachability + catalog sanity for the module schema.
                 with pg_adapter.connect(PG_SCHEMA) as conn:
@@ -243,7 +243,7 @@ class XingchengDomainMixin:
                 result["table_count"] = int(row[0]) if row else 0
             elif op == "model-cache-prune":
                 if target is None or not target.is_dir():
-                    return refusal_outcome("INVALID_OPERATION", self.verified_basis("A20"))
+                    return refusal_outcome("INVALID_OPERATION", await self.verified_basis_async("A20"))
                 # Prune old model cache files
                 max_age_hours = operation.get("max_age_hours", 72)
                 pruned = 0
@@ -266,12 +266,12 @@ class XingchengDomainMixin:
                 result["health"] = "degraded" if anomalies else "healthy"
                 result["anomalies"] = anomalies
             else:
-                return refusal_outcome("UNKNOWN_OPERATION", self.verified_basis("A20"))
+                return refusal_outcome("UNKNOWN_OPERATION", await self.verified_basis_async("A20"))
         except OSError as e:
-            return refusal_outcome(f"EXECUTION_FAILED: {e}", self.verified_basis("A20"))
+            return refusal_outcome(f"EXECUTION_FAILED: {e}", await self.verified_basis_async("A20"))
         return accepted_outcome(
             {"action": "execute", "domain": "owned", "result": result},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_write(self, request: SovereignRequest) -> SovereignOutcome:
@@ -279,31 +279,31 @@ class XingchengDomainMixin:
         target = self._resolve_in_domain(request.payload.get("path"))
         content = request.payload.get("content")
         if target is None:
-            return refusal_outcome("OUTSIDE_OWNED_DOMAIN", self.verified_basis("A20"))
+            return refusal_outcome("OUTSIDE_OWNED_DOMAIN", await self.verified_basis_async("A20"))
         if content is None:
-            return refusal_outcome("MISSING_CONTENT", self.verified_basis("A20"))
+            return refusal_outcome("MISSING_CONTENT", await self.verified_basis_async("A20"))
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(str(content), encoding="utf-8")
         except OSError:
-            return refusal_outcome("EXECUTION_FAILED", self.verified_basis("A20"))
+            return refusal_outcome("EXECUTION_FAILED", await self.verified_basis_async("A20"))
         return accepted_outcome(
             {"action": "write", "domain": "owned", "path": str(target)},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_delete(self, request: SovereignRequest) -> SovereignOutcome:
         """A20 delete: remove file inside owned domain."""
         target = self._resolve_in_domain(request.payload.get("path"))
         if target is None:
-            return refusal_outcome("OUTSIDE_OWNED_DOMAIN", self.verified_basis("A20"))
+            return refusal_outcome("OUTSIDE_OWNED_DOMAIN", await self.verified_basis_async("A20"))
         try:
             target.unlink(missing_ok=True)
         except OSError:
-            return refusal_outcome("EXECUTION_FAILED", self.verified_basis("A20"))
+            return refusal_outcome("EXECUTION_FAILED", await self.verified_basis_async("A20"))
         return accepted_outcome(
             {"action": "delete", "domain": "owned", "path": str(target)},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_configure(self, request: SovereignRequest) -> SovereignOutcome:
@@ -311,14 +311,14 @@ class XingchengDomainMixin:
         key = request.payload.get("key")
         value = request.payload.get("value")
         if not key:
-            return refusal_outcome("MISSING_KEY", self.verified_basis("A20"))
+            return refusal_outcome("MISSING_KEY", await self.verified_basis_async("A20"))
         config = self._read_domain_json(self._domain_governance_file("domain-config.json"))
         config[key] = value
         if not self._write_domain_json(self._domain_governance_file("domain-config.json"), config):
-            return refusal_outcome("EXECUTION_FAILED", self.verified_basis("A20"))
+            return refusal_outcome("EXECUTION_FAILED", await self.verified_basis_async("A20"))
         return accepted_outcome(
             {"action": "configure", "domain": "owned", "key": key, "value": value},
-            self.verified_basis("A20"),
+            await self.verified_basis_async("A20"),
         )
 
     async def _adjudicate_channel_coordinate(self, request: SovereignRequest) -> SovereignOutcome:
@@ -331,7 +331,7 @@ class XingchengDomainMixin:
         self._auto_metrics["channel_notifications"] += 1
         return accepted_outcome(
             {"action": "channel.coordinate", "domain": "owned", "notified": True},
-            self.verified_basis("A20", "A66"),
+            await self.verified_basis_async("A20", "A66"),
         )
 
     # --- Internal helpers ---

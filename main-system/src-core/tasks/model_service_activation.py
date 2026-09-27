@@ -288,7 +288,7 @@ class ModelServiceActivationBroker:
         """One activation check; returns the decision for observability."""
         decision = await self._ensure_inner()
         self._last_decision = decision
-        self._write_state()
+        await asyncio.to_thread(self._write_state)
         shadow = self._native_shadow
         if shadow is not None:
             try:

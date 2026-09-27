@@ -347,9 +347,13 @@ fn eval_script(script: &str) -> serde_json::Value {
         .insert(request_id.clone(), tx);
     let port = worker_port();
     let token = token_cell().lock().unwrap().clone();
+    // eval() matches Electron executeJavaScript semantics: the completion
+    // value of the program is the result (an IIFE would discard it for
+    // expression scripts like `1+2`); a returned promise is flattened by
+    // Promise.resolve.
     let wrapper = format!(
-        "Promise.resolve().then(function(){{return (function(){{ {script} }})();}}).then(function(r){{try{{var x=new XMLHttpRequest();x.open('POST','http://127.0.0.1:{port}/__result',true);x.setRequestHeader('Content-Type','text/plain');x.send({token_json}+'\\n'+JSON.stringify({{request_id:{rid_json},result:r===undefined?null:r}}));}}catch(e){{}}}}).catch(function(e){{try{{var x=new XMLHttpRequest();x.open('POST','http://127.0.0.1:{port}/__result',true);x.setRequestHeader('Content-Type','text/plain');x.send({token_json}+'\\n'+JSON.stringify({{request_id:{rid_json},error:String(e)}}));}}catch(e2){{}}}});",
-        script = script,
+        "try{{var __r=eval({script_json});Promise.resolve(__r).then(function(r){{try{{var x=new XMLHttpRequest();x.open('POST','http://127.0.0.1:{port}/__result',true);x.setRequestHeader('Content-Type','text/plain');x.send({token_json}+'\\n'+JSON.stringify({{request_id:{rid_json},result:r===undefined?null:r}}));}}catch(e){{}}}}).catch(function(e){{try{{var x=new XMLHttpRequest();x.open('POST','http://127.0.0.1:{port}/__result',true);x.setRequestHeader('Content-Type','text/plain');x.send({token_json}+'\\n'+JSON.stringify({{request_id:{rid_json},error:String(e)}}));}}catch(e2){{}}}});}}catch(e3){{try{{var y=new XMLHttpRequest();y.open('POST','http://127.0.0.1:{port}/__result',true);y.setRequestHeader('Content-Type','text/plain');y.send({token_json}+'\\n'+JSON.stringify({{request_id:{rid_json},error:String(e3)}}));}}catch(e4){{}}}}",
+        script_json = serde_json::to_string(&script).unwrap_or_default(),
         port = port,
         token_json = serde_json::to_string(&token).unwrap_or_default(),
         rid_json = serde_json::to_string(&request_id).unwrap_or_default(),
@@ -454,7 +458,11 @@ pub fn run(args: WorkerArgs) -> i32 {
         .map(|a| a.port())
         .unwrap_or_default();
     WORKER_PORT.store(port, std::sync::atomic::Ordering::SeqCst);
-    publish_state(&args.state_file, port);
+    eprintln!(
+        "[embedded-worker] session={} pid={} port={port}",
+        args.session_id,
+        std::process::id()
+    );
     std::thread::spawn(move || {
         for incoming in listener.incoming() {
             match incoming {
@@ -494,6 +502,10 @@ pub fn run(args: WorkerArgs) -> i32 {
             }
             builder.build()?;
             *app_handle().lock().unwrap() = Some(app.handle().clone());
+            // Publish only once the webview exists and the app handle is
+            // live — a visible state file IS the parent's "fully ready"
+            // signal; publishing earlier raced ops into APP_NOT_READY.
+            publish_state(&args.state_file, port);
             Ok(())
         })
         .build(tauri::generate_context!());

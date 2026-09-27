@@ -288,6 +288,14 @@ fn main() {
             }
             match event {
                 tauri::WindowEvent::Resized(size) => {
+                    if size.width == 0 || size.height == 0 {
+                        // Windows minimize arrives as a 0x0 Resized
+                        // (SIZE_MINIMIZED) — the Electron 'minimize'/'hide'
+                        // contract detaches every visible session so no
+                        // embedded view can linger over unrelated UI.
+                        embedded::hide_all_sessions(&window.app_handle());
+                        return;
+                    }
                     embedded::record_content_size(*size, window.scale_factor().unwrap_or(1.0));
                     embedded::on_window_resized(&window.app_handle());
                     commands::apply_adaptive_zoom(window);
