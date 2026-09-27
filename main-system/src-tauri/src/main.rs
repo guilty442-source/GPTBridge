@@ -116,6 +116,7 @@ async fn gptbridge_invoke(
     channel: String,
     args: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
+    report("ipc.invoke", serde_json::json!({"channel": channel, "args": args}));
     if !ALLOWED_CHANNELS.contains(&channel.as_str()) {
         return Ok(serde_json::json!({
             "ok": false,
@@ -236,7 +237,12 @@ fn main() {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_millis(5_000));
+                    let wins: Vec<String> = handle.windows().keys().cloned().collect();
+                    report("probe.windows", serde_json::json!({"windows": wins}));
                     if let Some(w) = handle.get_window("main") {
+                        let labels: Vec<String> =
+                            w.webviews().iter().map(|v| v.label().to_string()).collect();
+                        report("probe.webviews", serde_json::json!({"webviews": labels}));
                         if let Some(v) = find_webview(&w, "main") {
                             report("probe.url", serde_json::json!({"url": v.url().map(|u| u.to_string()).unwrap_or_default()}));
                             let _ = v.eval("try{document.title='SHIM:'+(typeof window.electron)+':'+(typeof window.__TAURI__)+':'+document.readyState}catch(e){document.title='SHIMERR:'+e}");
