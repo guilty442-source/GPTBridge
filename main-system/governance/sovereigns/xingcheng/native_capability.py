@@ -318,16 +318,26 @@ class XingchengNativeMixin:
             return refusal_outcome("AUTOMATION_AUTHORIZATION_REQUIRED", await self.verified_basis_async("A337"))
         intent = request.intent
         if intent == "automation.decompose":
-            return self._automation_decompose(request)
+            return await asyncio.to_thread(
+                self._automation_decompose, request
+            )
         if intent == "automation.schedule":
-            return self._automation_schedule(request)
+            return await asyncio.to_thread(
+                self._automation_schedule, request
+            )
         if intent == "automation.dispatch":
             return await self._automation_dispatch(request)
         if intent == "automation.converge":
-            return self._automation_converge(request)
+            return await asyncio.to_thread(
+                self._automation_converge, request
+            )
         if intent == "automation.verify-result":
-            return self._automation_verify(request)
-        return self._automation_contain(request)
+            return await asyncio.to_thread(
+                self._automation_verify, request
+            )
+        return await asyncio.to_thread(
+            self._automation_contain, request
+        )
 
     def _automation_decompose(self, request: SovereignRequest) -> SovereignOutcome:
         task_id = str(request.payload.get("task_id") or f"auto-{uuid.uuid4().hex}")
@@ -384,14 +394,14 @@ class XingchengNativeMixin:
                 "steps": len(parsed_steps),
                 "metadata": task["metadata"],
             },
-            await self.verified_basis_async("A337"),
+            self.verified_basis("A337"),
         )
 
     def _automation_task_or_refusal(self, request: SovereignRequest):
         task_id = str(request.payload.get("task_id") or "")
         task = self._automation_tasks.get(task_id)
         if task is None:
-            return refusal_outcome("UNKNOWN_AUTOMATION_TASK", await self.verified_basis_async("A337"))
+            return refusal_outcome("UNKNOWN_AUTOMATION_TASK", self.verified_basis("A337"))
         return task
 
     def _automation_schedule(self, request: SovereignRequest) -> SovereignOutcome:
@@ -426,7 +436,7 @@ class XingchengNativeMixin:
                 "scheduled_steps": len(task["schedule"]),
                 "parallel_groups": len(task["parallel_schedule"]),
             },
-            await self.verified_basis_async("A337"),
+            self.verified_basis("A337"),
         )
 
     def _topological_schedule(self, steps: list[dict]) -> list[dict]:
@@ -593,7 +603,7 @@ class XingchengNativeMixin:
         )
         return accepted_outcome(
             {"task_id": request.payload.get("task_id"), "converged": final_converged, "step_states": states},
-            await self.verified_basis_async("A337"),
+            self.verified_basis("A337"),
         )
 
     def _automation_verify(self, request: SovereignRequest) -> SovereignOutcome:
@@ -603,7 +613,7 @@ class XingchengNativeMixin:
             return task
         evidence = request.payload.get("evidence")
         if not evidence:
-            return refusal_outcome("MISSING_RESULT_EVIDENCE", await self.verified_basis_async("A337"))
+            return refusal_outcome("MISSING_RESULT_EVIDENCE", self.verified_basis("A337"))
         # A446: independent verification — the verifier identity must be
         # distinct from the submitter/requester.  The submitter cannot
         # self-verify by providing arbitrary evidence.
@@ -611,14 +621,14 @@ class XingchengNativeMixin:
         verifier_id = _NATIVE_VERIFIER_ID
         if submitter == verifier_id:
             return refusal_outcome(
-                "SELF_VERIFICATION_FORBIDDEN", await self.verified_basis_async("A446", "A337")
+                "SELF_VERIFICATION_FORBIDDEN", self.verified_basis("A446", "A337")
             )
         # Verify the evidence is structurally valid (not just non-empty).
         evidence_valid, evidence_reason = _verify_evidence_structure(evidence, task)
         if not evidence_valid:
             return refusal_outcome(
                 f"EVIDENCE_INVALID:{evidence_reason}",
-                await self.verified_basis_async("A446", "A337"),
+                self.verified_basis("A446", "A337"),
             )
         task["result_evidence"] = evidence
         task["state"] = "verified"
@@ -635,7 +645,7 @@ class XingchengNativeMixin:
                 "state": "verified",
                 "verifier": verifier_id,
             },
-            await self.verified_basis_async("A337", "A446"),
+            self.verified_basis("A337", "A446"),
         )
 
     def _verify_evidence_structure(
@@ -678,5 +688,5 @@ class XingchengNativeMixin:
         )
         return accepted_outcome(
             {"task_id": request.payload.get("task_id"), "state": "contained", "failure_propagation": "halted"},
-            await self.verified_basis_async("A337"),
+            self.verified_basis("A337"),
         )
