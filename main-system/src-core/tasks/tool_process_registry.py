@@ -64,17 +64,36 @@ def _powershell_process_ids(command: str, environment: dict[str, str]) -> list[i
 
 _SNAPSHOT_PROCESS_NAMES = frozenset({"python.exe", "pythonw.exe", "electron.exe"})
 
-_BATCH_PROCESS_COMMAND = (
-    "Get-CimInstance Win32_Process | "
-    "Where-Object { "
-    "$_.Name -in @('python.exe','pythonw.exe','electron.exe') "
-    "-and ($_.CommandLine -or $_.ExecutablePath) "
-    "} | Select-Object ProcessId,Name,CommandLine,ExecutablePath | "
-    "ConvertTo-Json -Compress -Depth 2"
-)
+_EXTRA_NAME_PATTERN = re.compile(r"^[a-z0-9_.-]+\.exe$", re.IGNORECASE)
 
 
-def _snapshot_processes_native() -> list[dict[str, Any]] | None:
+def _snapshot_names(extra_names: set[str] | None = None) -> frozenset[str]:
+    """Process-name allowlist for snapshotting, widened by tool-declared
+    native runtime entries (migrate-csharp: ``runtime.native_entry`` exes
+    must be visible for liveness matching)."""
+    names = set(_SNAPSHOT_PROCESS_NAMES)
+    for raw in extra_names or ():
+        name = os.path.basename(str(raw or "").strip()).lower()
+        if _EXTRA_NAME_PATTERN.fullmatch(name):
+            names.add(name)
+    return frozenset(names)
+
+
+def _powershell_name_filter(names: frozenset[str]) -> str:
+    quoted = ",".join(f"'{name}'" for name in sorted(names))
+    return (
+        "Get-CimInstance Win32_Process | "
+        "Where-Object { "
+        f"$_.Name -in @({quoted}) "
+        "-and ($_.CommandLine -or $_.ExecutablePath) "
+        "} | Select-Object ProcessId,Name,CommandLine,ExecutablePath | "
+        "ConvertTo-Json -Compress -Depth 2"
+    )
+
+
+def _snapshot_processes_native(
+    names: frozenset[str] | None = None,
+) -> list[dict[str, Any]] | None:
     """Fast process snapshot via the native metrics facade (P24);
     ``None`` when no metrics backend is available.
 
@@ -86,9 +105,10 @@ def _snapshot_processes_native() -> list[dict[str, Any]] | None:
 
     if not process_metrics.metrics_available():
         return None
+    names = names or _SNAPSHOT_PROCESS_NAMES
     snapshot: list[dict[str, Any]] = []
     for pid, name in process_metrics.process_iter_names():
-        if name.lower() not in _SNAPSHOT_PROCESS_NAMES:
+        if name.lower() not in names:
             continue
         snapshot.append(
             {
@@ -101,7 +121,9 @@ def _snapshot_processes_native() -> list[dict[str, Any]] | None:
     return snapshot
 
 
-def _snapshot_processes_powershell() -> list[dict[str, Any]]:
+def _snapshot_processes_powershell(
+    names: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
     try:
         completed = _run_hidden_subprocess(
             [
@@ -111,7 +133,7 @@ def _snapshot_processes_powershell() -> list[dict[str, Any]]:
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                _BATCH_PROCESS_COMMAND,
+                _powershell_name_filter(names or _SNAPSHOT_PROCESS_NAMES),
             ],
             timeout=10,
         )
@@ -143,14 +165,17 @@ def _snapshot_processes_powershell() -> list[dict[str, Any]]:
     return result
 
 
-def _snapshot_processes() -> list[dict[str, Any]]:
-    """Return all python/pythonw/electron processes in a single pass."""
+def _snapshot_processes(
+    extra_names: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Return all tracked-runtime processes in a single pass."""
     if os.name != "nt":
         return []
-    native = _snapshot_processes_native()
+    names = _snapshot_names(extra_names)
+    native = _snapshot_processes_native(names)
     if native is not None:
         return native
-    return _snapshot_processes_powershell()
+    return _snapshot_processes_powershell(names)
 
 
 def _native_process_ids(
@@ -165,7 +190,14 @@ def _native_process_ids(
     back to the PowerShell/CIM query.  The native pass costs milliseconds, where every CIM
     call costs 1-3 seconds and dominated tool open/close latency.
     """
-    snapshot = _snapshot_processes_native()
+    # migrate-csharp: a native runtime entry (.exe) is itself the process
+    # image — widen the snapshot allowlist so it is visible to matching.
+    extra = {
+        os.path.basename(p.strip()).lower()
+        for p in (source_runtime_entry, executable_path)
+        if str(p or "").strip().lower().endswith(".exe")
+    }
+    snapshot = _snapshot_processes_native(_snapshot_names(extra))
     if snapshot is None:
         return None
     process_ids: list[int] = []
@@ -237,7 +269,15 @@ def batch_running_status(
     """
     if os.name != "nt":
         return {}
-    snapshot = _snapshot_processes()
+    # migrate-csharp: include tool-declared native runtime entries (.exe)
+    # in the snapshot so a native host process matches liveness.
+    extra_names = {
+        str(tool.get(key, "")).strip()
+        for tool in tools
+        for key in ("source_runtime_entry", "executable_path")
+        if str(tool.get(key, "")).strip().lower().endswith(".exe")
+    }
+    snapshot = _snapshot_processes(extra_names or None)
     if not snapshot:
         return {}
 
