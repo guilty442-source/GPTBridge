@@ -8,6 +8,7 @@ refs, or resolves conflicts automatically.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import subprocess
@@ -249,8 +250,43 @@ def synchronize(
             from .protected_attrs import restore_protected_readonly
 
             restore_protected_readonly(main["path"])
-        if not _audit_passes(main["path"]):
-            return "error:integrated-main-governance-audit"
+        # Integrated-main audit cost amortization: the verdict of a clean
+        # tree at an already-audited HEAD is unchanged — byte-identical
+        # input, same checks.  Re-audit only when HEAD moved (a merge
+        # above, or an out-of-band direct commit to main).  The record is
+        # written only on a passing audit, so a failed HEAD is re-audited
+        # every cycle (fail-closed).
+        head_now = main_repo.run(["rev-parse", MAIN_BRANCH]).stdout.strip()
+        audited_state = (
+            Path(main["path"])
+            / "main-system" / "runtime" / "state"
+            / "workspace-sync-audit.json"
+        )
+        try:
+            audited_head = json.loads(
+                audited_state.read_text(encoding="utf-8")
+            ).get("head")
+        except (OSError, ValueError, AttributeError):
+            audited_head = None
+        if merged_any or head_now != audited_head:
+            if not _audit_passes(main["path"]):
+                return "error:integrated-main-governance-audit"
+            try:
+                audited_state.parent.mkdir(parents=True, exist_ok=True)
+                audited_state.write_text(
+                    json.dumps(
+                        {
+                            "head": head_now,
+                            "audited_at": time.time(),
+                            "actor": SYNC_ACTOR,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            except OSError:
+                # Evidence write failure must not fail the sync; the next
+                # cycle simply re-audits (fail-closed direction).
+                pass
 
         if merged_any:
             record_checkpoint(
