@@ -179,10 +179,28 @@ $suites = @(
 
 # Concurrent-worker guard: two build.ps1 runs racing on the shared
 # _build.bat / .obj outputs produce spurious failures; serialize on an
-# atomic lock dir (wait ≤ 600 s, then fail closed).
+# atomic lock dir (wait ≤ 600 s, then fail closed). The lock records the
+# owner PID: a killed build's finally never runs, so a dead owner is
+# reclaimed immediately instead of stalling the next build for 600 s.
 $lockDir = Join-Path $out "_build.lock"
 $lockWaited = 0
 while (-not (New-Item -ItemType Directory -Path $lockDir -ErrorAction SilentlyContinue)) {
+    $ownerPidFile = Join-Path $lockDir "owner.pid"
+    if (Test-Path $ownerPidFile) {
+        $ownerPid = 0
+        [void][int]::TryParse(
+            ((Get-Content $ownerPidFile -Raw -ErrorAction SilentlyContinue) -as [string]).Trim(),
+            [ref]$ownerPid
+        )
+        if ($ownerPid -le 0 -or -not (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue)) {
+            Remove-Item $lockDir -Recurse -Force -ErrorAction SilentlyContinue
+            continue
+        }
+    } elseif (((Get-Date) - (Get-Item $lockDir).CreationTime).TotalSeconds -gt 30) {
+        # Lock predates owner tracking or owner died before writing its pid.
+        Remove-Item $lockDir -Recurse -Force -ErrorAction SilentlyContinue
+        continue
+    }
     if ($lockWaited -ge 600) {
         # Stale lock from a crashed run: owner gone → break once.
         if (-not (Get-Process -Name "cl" -ErrorAction SilentlyContinue)) {
@@ -195,6 +213,7 @@ while (-not (New-Item -ItemType Directory -Path $lockDir -ErrorAction SilentlyCo
     Start-Sleep -Seconds 2
     $lockWaited += 2
 }
+Set-Content -Path (Join-Path $lockDir "owner.pid") -Value $PID
 
 try {
 
