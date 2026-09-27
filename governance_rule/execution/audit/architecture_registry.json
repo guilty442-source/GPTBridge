@@ -551,7 +551,7 @@
       "runtime_form": "electron-app",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-assistant-identity-group",
-      "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
+      "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.jsx",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [

@@ -36,8 +36,8 @@ _SFT = (
     "Standalone tools/local-model/src/backend/services/xingcheng/"
     "infrastructure/native_transformer/jax_backend/sft.py"
 )
-_RSM = "main-system/src-ui/renderer/services/RuntimeServiceManager.ts"
-_SLO = "main-system/src-ui/renderer/ui/AppSloDrawer.tsx"
+_RSM = "main-system/src-ui/renderer/services/RuntimeServiceManager.js"
+_SLO = "main-system/src-ui/renderer/ui/AppSloDrawer.jsx"
 _BOOTSTRAP_CSPROJ = (
     "main-system/launcher/src/GPTBridge.Bootstrap/GPTBridge.Bootstrap.csproj"
 )

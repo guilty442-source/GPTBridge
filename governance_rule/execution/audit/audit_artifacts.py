@@ -1848,7 +1848,9 @@ def check_embedded_browser(root: Path, errors: list[str]) -> None:
         if "playwright" in py_text.lower():
             errors.append("main-system/pyproject.toml still depends on playwright")
 
-    embedded_browser = root / "main-system" / "src-ui" / "main" / "embedded-browser.ts"
+    embedded_browser = (
+        root / "main-system" / "src-tauri" / "src" / "webview_host" / "mod.rs"
+    )
     if not embedded_browser.is_file():
         errors.append("embedded browser module is missing")
 

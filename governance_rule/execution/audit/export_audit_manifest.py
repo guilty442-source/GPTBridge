@@ -598,7 +598,7 @@ def build_manifest(root: Path) -> dict[str, object]:
     checks.append({
         "id": "embedded-browser:module",
         "kind": "file-exists",
-        "path": "main-system/src-ui/main/embedded-browser.ts",
+        "path": "main-system/src-tauri/src/webview_host/mod.rs",
     })
     checks.append({
         "id": "embedded-browser:client",
