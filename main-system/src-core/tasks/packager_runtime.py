@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from packager_base import (
-    ELECTRON_DIST_DIR,
     _background_subprocess_kwargs,
+    resolve_shell_exe,
 )
 
 
@@ -286,16 +286,11 @@ def copy_runtime_item(source: Path, target: Path) -> None:
     copy_file_preserving_locked_target(source, target)
 
 
-def copy_electron_runtime(dist_dir: Path, exe_path: Path) -> None:
+def copy_shell_runtime(dist_dir: Path, exe_path: Path) -> None:
+    """Stage the governed Tauri shell binary as the packaged tool's window
+    host (renamed to the tool exe).  The shell is self-contained —
+    WebView2 is a system runtime — so no runtime directory copying is
+    needed (Electron dist parity retired with A621).
+    """
     dist_dir.mkdir(parents=True, exist_ok=True)
-
-    for source in ELECTRON_DIST_DIR.iterdir():
-        target = dist_dir / source.name
-        if source.name == "electron.exe":
-            continue
-        copy_runtime_item(source, target)
-
-    copy_file_preserving_locked_target(ELECTRON_DIST_DIR / "electron.exe", exe_path)
-    leftover_electron = dist_dir / "electron.exe"
-    if leftover_electron.exists():
-        leftover_electron.unlink()
+    copy_file_preserving_locked_target(resolve_shell_exe(), exe_path)

@@ -32,9 +32,8 @@ from governance_rule.execution.integrity.package_integrity import (  # noqa: E40
 
 
 PLATFORM_TOOLS_DIR = PROJECT_ROOT / "Standalone tools"
-ELECTRON_DIST_DIR = MAIN_SYSTEM_ROOT / "node_modules" / "electron" / "dist"
+TAURI_TARGET_DIR = MAIN_SYSTEM_ROOT / "src-tauri" / "target"
 PLATFORM_RENDERER_ROOT = MAIN_SYSTEM_ROOT / "dist-ui" / "independent-tools"
-TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "platform-tool-app"
 TOOL_RUNTIME_CONTRACT_PATH = MAIN_SYSTEM_ROOT / "config" / "tool-runtime-contract.json"
 DEFAULT_BACKEND_PORT = 8765
 STANDALONE_BACKEND_PORT_MIN = 20000
@@ -46,6 +45,18 @@ TOOL_VERSION_PATTERN = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
 def tool_display_version(version: str) -> str:
     parts = version.split(".")
     return ".".join(parts[:2]) if len(parts) >= 2 else ""
+
+
+def resolve_shell_exe() -> Path:
+    """Locate the governed Tauri shell binary used as the packaged tool's
+    window host (A618/A621: Electron retired).  Release is canonical; the
+    debug build is accepted so packaging still works in a development
+    checkout without ``cargo build --release``.
+    """
+    release = TAURI_TARGET_DIR / "release" / "gptbridge-shell.exe"
+    if release.is_file():
+        return release
+    return TAURI_TARGET_DIR / "debug" / "gptbridge-shell.exe"
 
 
 def _background_subprocess_kwargs() -> dict[str, int]:

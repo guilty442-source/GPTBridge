@@ -19,7 +19,6 @@ if str(_TASKS_DIR) not in sys.path:
 # -- packager_base --
 from packager_base import (  # noqa: E402,F401
     DEFAULT_BACKEND_PORT,
-    ELECTRON_DIST_DIR,
     MAIN_SYSTEM_ROOT,
     MAX_COMPLETED_RECOVERY_GENERATIONS,
     PACKAGE_FORMAT_VERSION,
@@ -30,8 +29,8 @@ from packager_base import (  # noqa: E402,F401
     SOURCE_IGNORED_DIRECTORY_NAMES,
     STANDALONE_BACKEND_PORT_COUNT,
     STANDALONE_BACKEND_PORT_MIN,
+    TAURI_TARGET_DIR,
     TOOL_VERSION_PATTERN,
-    TEMPLATE_DIR,
     TOOL_RUNTIME_CONTRACT_PATH,
     PackageOperationBusy,
     PromotionRecoveryRequired,
@@ -40,6 +39,7 @@ from packager_base import (  # noqa: E402,F401
     declared_source_exclusions,
     load_package_metadata,
     load_tool_runtime_contract,
+    resolve_shell_exe,
     run_upgrade_auto_repair,
     snapshot_digest,
     tool_display_version,
@@ -74,7 +74,6 @@ from packager_metadata import (  # noqa: E402,F401
 # -- packager_renderer --
 from packager_renderer import (  # noqa: E402,F401
     build_platform_renderer,
-    copy_app_templates,
     npx_command,
     renderer_output_dir,
 )
@@ -87,8 +86,8 @@ from packager_runtime import (  # noqa: E402,F401
     SENSITIVE_RUNTIME_DIRECTORY_NAMES,
     SENSITIVE_RUNTIME_SUFFIXES,
     TOOL_REQUIRED_RUNTIME_IMPORTS,
-    copy_electron_runtime,
     copy_file_preserving_locked_target,
+    copy_shell_runtime,
     copy_portable_python_runtime,
     copy_runtime_item,
     package_copy_ignore,

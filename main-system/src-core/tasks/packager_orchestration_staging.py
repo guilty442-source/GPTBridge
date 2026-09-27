@@ -20,10 +20,9 @@ from packager_bundle import (
     package_source_excluded_paths,
     package_source_roots,
 )
-from packager_renderer import copy_app_templates
 from packager_runtime import (
-    copy_electron_runtime,
     copy_portable_python_runtime,
+    copy_shell_runtime,
     validate_staged_python_runtime,
 )
 
@@ -64,7 +63,7 @@ def _stage_package(
         excluded_relative_paths=source_excluded_path_set,
     )
     source_digest = snapshot_digest(source_files)
-    copy_electron_runtime(staged_dist, staged_exe)
+    copy_shell_runtime(staged_dist, staged_exe)
 
     app_dir = staged_dist / "resources" / "app"
     app_dir.mkdir(parents=True, exist_ok=True)
@@ -82,7 +81,6 @@ def _stage_package(
         app_dir, tool_id, manifest, backend_entry_relative,
         backend_port, runtime_contract, central_version,
     )
-    copy_app_templates(app_dir)
     validate_staged_python_runtime(
         app_dir,
         tool_id,
