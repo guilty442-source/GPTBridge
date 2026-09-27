@@ -1,1 +1,0 @@
-﻿[PASS] single-authority runtime governance
