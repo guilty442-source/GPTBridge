@@ -90,6 +90,7 @@ def test_project_root_contains_only_governed_modules_and_control_files() -> None
     allowed_directories = allowed_directories | {
         ".kilo",
         ".worktrees",
+        ".tools",
         ".backups",
     }
 
