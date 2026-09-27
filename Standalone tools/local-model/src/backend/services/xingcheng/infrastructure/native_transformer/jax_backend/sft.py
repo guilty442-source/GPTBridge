@@ -50,6 +50,9 @@ class JaxSFTConfig:
     log_every: int = 10
     seed: int = 42
     max_train_seconds: float = 0
+    # Collation bucket granularity; 0 = auto-select from the observed
+    # length distribution under the compile-shape bound.
+    collate_bucket: int = 64
 
 
 def _encode_example(
@@ -114,16 +117,18 @@ def _collate(
     batch: Sequence[tuple[list[int], list[int]]],
     pad_id: int,
     max_length: int,
+    *,
+    bucket: int = _COLLATE_BUCKET,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     # Pad to a fixed-width bucket, not batch-max: every distinct input
     # shape triggers a fresh XLA recompilation of the jitted step, so
     # batch-max padding recompiles the graph once per new sequence
     # length.  Bucket widths bound the number of compiled shapes to
-    # ceil(max_length / _COLLATE_BUCKET).
+    # ceil(max_length / bucket).
     width = max(len(ids) for ids, _ in batch)
     width = min(
         max_length,
-        max(_COLLATE_BUCKET, _COLLATE_BUCKET * -(-width // _COLLATE_BUCKET)),
+        max(bucket, bucket * -(-width // bucket)),
     )
     inputs = np.full((len(batch), width), pad_id, dtype=np.int32)
     labels = np.full((len(batch), width), pad_id, dtype=np.int32)
@@ -131,6 +136,29 @@ def _collate(
         inputs[row, : len(ids)] = ids
         labels[row, : len(lab)] = lab
     return inputs, labels
+
+
+def _choose_bucket(
+    lengths: Sequence[int],
+    max_length: int,
+    *,
+    max_shapes: int = 8,
+) -> int:
+    """Smallest bucket whose distinct-width count over ``lengths`` stays
+    within ``max_shapes``.
+
+    Finer buckets waste less padding compute; coarser buckets bound the
+    number of compiled XLA shapes.  Ascending candidates: the first one
+    meeting the shape bound is the least-waste choice under it.
+    """
+    for bucket in (16, 32, 64, 128, 256):
+        widths = {
+            min(max_length, max(bucket, bucket * -(-n // bucket)))
+            for n in lengths
+        }
+        if len(widths) <= max_shapes:
+            return bucket
+    return 256
 
 
 def _lr_scale(step: int, config: JaxSFTConfig) -> float:
@@ -230,6 +258,17 @@ def jax_sft_train(
         val_records, tokenizer, max_length=train_config.max_length, pad_id=pad_id
     )
 
+    # Adaptive bucket granularity: explicit config wins; ``0`` derives the
+    # least-waste bucket whose distinct-width count stays within the
+    # compile-shape bound (_choose_bucket).  Widths actually used are
+    # recorded below as XLA compile-cache evidence in the summary.
+    bucket = int(train_config.collate_bucket)
+    if bucket <= 0:
+        bucket = _choose_bucket(
+            [len(ids) for ids, _ in samples], train_config.max_length
+        )
+    collate_widths: set[int] = set()
+
     if params is None:
         params = init_params(config, seed=train_config.seed)
     opt_state = _adamw_init(params)
@@ -289,8 +328,9 @@ def jax_sft_train(
             rng.shuffle(order)
             batch = [samples[i] for i in order[: train_config.batch_size]]
             input_ids, labels = _collate(
-                batch, pad_id, train_config.max_length
+                batch, pad_id, train_config.max_length, bucket=bucket
             )
+            collate_widths.add(int(input_ids.shape[1]))
             params, opt_state, loss = train_step(
                 params, opt_state, input_ids, labels, lr
             )
@@ -316,7 +356,9 @@ def jax_sft_train(
                     chunk,
                     pad_id,
                     train_config.max_length,
+                    bucket=bucket,
                 )
+                collate_widths.add(int(ids.shape[1]))
                 eval_losses.append(eval_loss(params, ids, lab))
             last_eval = {
                 "val_loss": float(
@@ -355,6 +397,11 @@ def jax_sft_train(
         "params": count_params(params),
         "stopped_reason": stopped_reason,
         "train_seconds": round(time.time() - started, 3),
+        # Compile-shape evidence: the bucket in effect and the distinct
+        # [B, T] widths the run actually compiled — the metric the
+        # adaptive-bucket policy is measured against.
+        "collate_bucket": bucket,
+        "collate_shapes": sorted(collate_widths),
     }
 
 

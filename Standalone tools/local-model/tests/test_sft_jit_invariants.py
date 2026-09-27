@@ -131,3 +131,69 @@ def test_train_and_eval_steps_are_jitted(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     # Eval path jitted too (the train-step jit plus at least one more).
     assert len(recorded) >= 2
+
+
+def test_choose_bucket_least_waste_within_shape_bound() -> None:
+    # Narrow short corpus (all lengths <= 48): bucket 16 stays within
+    # the 8-shape bound and wastes far less padding than 64.
+    short = [10 + i % 40 for i in range(64)]
+    assert sft._choose_bucket(short, max_length=64) == 16
+    # Wide 512-token corpus: bucket 16 would yield ~32 distinct widths,
+    # so the bound forces a coarser bucket (64 -> exactly 8 widths).
+    wide = [i % 512 + 1 for i in range(512)]
+    chosen = sft._choose_bucket(wide, max_length=512)
+    assert chosen == 64
+
+
+def test_choose_bucket_respects_max_shapes() -> None:
+    lengths = list(range(1, 513))
+    bucket = sft._choose_bucket(lengths, max_length=512, max_shapes=4)
+    widths = {
+        min(512, max(bucket, bucket * -(-n // bucket))) for n in lengths
+    }
+    assert len(widths) <= 4
+
+
+def test_config_explicit_bucket_wins_and_shapes_reported(
+    tmp_path,
+) -> None:
+    config = XingChengConfig(
+        vocab_size=260,
+        hidden_size=64,
+        intermediate_size=128,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=4,
+        max_position_embeddings=128,
+    )
+
+    class _Tok:
+        vocab_size = 260
+        pad_id = 0
+        bos_id = 1
+        eos_id = 2
+
+        def encode(self, text, *, add_bos=True, add_eos=False, max_length=None):
+            ids = ([self.bos_id] if add_bos else []) + [
+                3 + (b % 250) for b in text.encode("utf-8")
+            ]
+            if add_eos:
+                ids.append(self.eos_id)
+            if max_length is not None:
+                ids = ids[:max_length]
+            return ids
+
+    summary = jax_sft_train(
+        config,
+        _Tok(),
+        [{"prompt": f"q{i}", "completion": f"a{i}"} for i in range(8)],
+        [{"prompt": "vq", "completion": "va"}],
+        JaxSFTConfig(
+            max_length=64, batch_size=4, grad_accum=1,
+            max_steps=1, warmup_steps=1, collate_bucket=32,
+        ),
+        output_dir=tmp_path,
+    )
+    assert summary["collate_bucket"] == 32
+    assert summary["collate_shapes"]
+    assert all(w % 32 == 0 or w == 64 for w in summary["collate_shapes"])

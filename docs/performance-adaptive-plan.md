@@ -115,13 +115,13 @@ dotnet test shared-layer\csharp\GPTBridge.Channels\GPTBridge.Channels.Tests
 
 ### 路線圖
 
-| 階段 | 內容 | 依據 |
-| --- | --- | --- |
-| 1 | GPU coordinator 擴為統一資源遙測核：CPU/MEM/GPU 三維合一，供 training gate、engine cache、tool admission 共用 | A239/A116 延伸；需法典修訂程序 |
-| 2 | JS 端 visibility-gating 推廣為 renderer 標準：所有 interval/IPC 輪詢預設 hidden-gated，新增輪詢由 `check_renderer_idle_gating` 類 check 兜底 | 已落地檔案為樣板 |
-| 3 | C# 工具進程依「重啟頻率 × 啟動成本」量測決定 JIT/AOT（目前 launcher 已證明不值得）；gate 託管於 architecture registry disposition | A341 遷移管線 |
-| 4 | Python 常駐預算持續收斂：~1,170 檔 / ~280k 行超預算部分按 registry `migrate-csharp` 等 disposition 排程；`bootstrap-entry` 與 `information-channel-gateway`（C# 庫）已交付，host 接線為下一架構決策 | A610 + architecture_registry |
-| 5 | 訓練管線自適化：依 batch 分佈自動選 bucket 界與 `grad_accum`，以 XLA compile cache 命中率為指標 | A612 框架內 |
+| 階段 | 內容 | 依據 | 執行狀態（2026-09-27） |
+| --- | --- | --- | --- |
+| 1 | GPU coordinator 擴為統一資源遙測核：CPU/MEM/GPU 三維合一，供 training gate、engine cache、tool admission 共用 | A239/A116 延伸；需法典修訂程序 | ⏸ **治理阻塞**：跨越單一模組的資源統一屬架構變更，待法典修訂程序 |
+| 2 | JS 端 visibility-gating 推廣為 renderer 標準：所有 interval/IPC 輪詢預設 hidden-gated，新增輪詢由 `check_renderer_idle_gating` 類 check 兜底 | 已落地檔案為樣板 | ✅ **已執行**：稽核推廣至全 renderer `setInterval` 掃描；刻意豁免者以 `// idle-ok:` 標記（useBackendSocket stale sampler、hmrService watchdog）；contract test 同步推廣（7/7） |
+| 3 | C# 工具進程依「重啟頻率 × 啟動成本」量測決定 JIT/AOT（目前 launcher 已證明不值得）；gate 託管於 architecture registry disposition | A341 遷移管線 | ✅ **已定案**：決策規則 = 僅高頻重啟的小型進程評估 AOT；launcher 實測否決（本節一.4） |
+| 4 | Python 常駐預算持續收斂：~1,170 檔 / ~280k 行超預算部分按 registry `migrate-csharp` 等 disposition 排程；`bootstrap-entry` 與 `information-channel-gateway`（C# 庫）已交付，host 接線為下一架構決策 | A610 + architecture_registry | ✅ **佇列已產出**：`docs/python-reduction-queue.md`；剩餘目標全部卡在「受管 C# host」前置（詳佇列文件第三節） |
+| 5 | 訓練管線自適化：依 batch 分佈自動選 bucket 界與 `grad_accum`，以 XLA compile cache 命中率為指標 | A612 框架內 | ✅ **已執行**：`JaxSFTConfig.collate_bucket`（0=auto）；`_choose_bucket` 在 compile-shape 界內取最小浪費粒度；summary 新增 `collate_bucket`/`collate_shapes` 編譯形狀證據；測試 8/8、稽核已釘住 |
 
 ### 量測紀律
 
