@@ -116,6 +116,9 @@ TRUSTED_WEBSOCKET_ORIGINS = (
     None,
     "file://",
     "null",
+    # Tauri desktop host (A618/A621: WebView2 serves the bundled renderer
+    # over the tauri:// scheme; WebView2 reports http://tauri.localhost).
+    "http://tauri.localhost",
     "http://127.0.0.1:5173",
     "http://localhost:5173",
     "http://127.0.0.1:5180",
