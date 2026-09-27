@@ -29,6 +29,10 @@ public sealed class TransportProxyClient : IToolTransport
     private readonly StringBuilder _stderrTail = new();
     private readonly object _stderrLock = new();
     private int _disposed;
+    private volatile bool _disconnected;
+
+    /// <summary>True once the sidecar stream has terminated.</summary>
+    public bool DisconnectedFlag => _disconnected;
 
     /// <summary>
     /// Last bytes of sidecar stderr — the only diagnostic surface when the
@@ -150,6 +154,7 @@ public sealed class TransportProxyClient : IToolTransport
         }
         finally
         {
+            _disconnected = true;
             var lost = new ProxyErrorException(
                 "PROXY_DISCONNECTED", "transport proxy terminated");
             foreach (var pair in _pending)

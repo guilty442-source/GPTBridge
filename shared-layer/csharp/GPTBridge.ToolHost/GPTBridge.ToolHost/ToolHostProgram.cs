@@ -33,6 +33,17 @@ public static class ToolHostProgram
         try
         {
             await host.RunWorkerAsync().ConfigureAwait(false);
+            // Graceful exit after an unexpected sidecar death still counts
+            // as a failure surface — record the tail for stderr.log.
+            var lostProxy = host.Transport as TransportProxyClient;
+            if (lostProxy?.DisconnectedFlag == true)
+            {
+                var tail = lostProxy.StderrTail;
+                Console.Error.WriteLine(
+                    "[toolhost] exited after proxy disconnect"
+                    + (string.IsNullOrWhiteSpace(tail)
+                        ? "" : $" :: sidecar stderr tail: {tail.Trim()}"));
+            }
         }
         catch (ProxyErrorException exc) when (exc.Code is "PROXY_DISCONNECTED")
         {
