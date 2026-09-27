@@ -13,7 +13,7 @@
 | 1 | `bootstrap-entry` | 4 檔 / 1,089 行 | ✅ **已遷**（`e0d65d24`，C#14/.NET10 `GPTBridge.Bootstrap`，8/8 測試） | — |
 | 2 | `information-channel-gateway` | registry 指 `channel_runtime.py`（65 行 shim）；實際為 `shared-layer/src/` 下 channel 系列模組 | 🔄 **C# 庫已交付**（`shared-layer/csharp/GPTBridge.Channels`，16/16 測試，`91959d4b`） | **受管 C# host 進程 + IPC seam** — Python `channel_runtime` 仍為活路徑 |
 | 3 | `xingcheng-auto-repair-module` | `tasks/central_repair.py`，252 行 | ⏸ 待 host | 屬 main-system 內部 resident task；需 host 邊界決策（子進程或隨 main-system 整體遷移） |
-| 4 | `system-rescue` | 9 檔 / 525 行（實質邏輯 `platform_packager.py` 13KB） | ⏸ 待 host | **受管非 Python 工具 host**：manifest/channel/IPC 契約目前只以 Python tool 形式存在 |
+| 4 | `system-rescue` | 9 檔 / 525 行（實質邏輯 `platform_packager.py` 13KB） | 🔄 **C# host 已交付待接線驗收**（`GPTBridge.ToolHost` + `src-native/SystemRescue.Host.exe`；spawn 分支/registry/audit 已接；E2E wire-fixture 通過；Python `channel_runtime.py` 保留為降級路徑） | 設計：`docs/csharp-tool-host-design.md`（P2 sidecar，E4 不變） |
 | 5 | `investment-mobile` | 191 檔 / 30,384 行 | ⏸ 待 host | 同 #4；規模第二大，建議排最後 |
 | 6 | `self-commit-service` / `integration-plane` / `recovery-plane` | `git_tiers/` 共用 64 檔 / 19,259 行 | ⏸ 待 host | 三元件共用同一路徑；resident 服務，需常駐 C# host（非 per-call 子進程） |
 | 7 | `boot-core` | `src-core` 439 檔 / 97,245 行 | ⏸ 排序最末 | 主系統核心；依賴所有上述 host 基礎設施先就緒 |
@@ -32,6 +32,9 @@
 1. **可執行序由 host 邊界決定，不由檔案大小決定**：`system-rescue` 只有 525 行但卡在同一前置（工具 host）；`central_repair.py` 只有 252 行但卡在同一前置。
 2. **下一步的實質解鎖點是「受管 C# host」**——一次性投資解鎖 #3–#6：
    - 工具 host（on-demand 進程型，對齊現有 tool manifest 契約）→ 解鎖 #4、#5
+     —— **已交付**：`shared-layer/csharp/GPTBridge.ToolHost`（設計
+     `docs/csharp-tool-host-design.md`；`star-governed-transport-proxy/v1`
+     P2 sidecar 形態，原生側不持有 token/傳輸庫）
    - resident service host（長駐型，承接 #6 git_tiers 與 #3 的 task）→ 解鎖 #3、#6
    - channel host（information-channel 邊界）→ 讓 #2 的已交付 C# 庫變成活路徑
 3. `boot-core`/`main-system` 依定義排在所有 host 就緒之後——它們是遷移的終點而非起點。
