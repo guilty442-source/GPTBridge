@@ -119,6 +119,116 @@ class PostgreSQLEvaluator(Evaluator):
         )
 
 
+class ReconcileEvaluator(Evaluator):
+    """Evaluates reconcile maintenance candidates."""
+
+    def evaluate(self, signals: dict[str, Any], context: dict[str, Any]) -> list[MaintenanceCandidate]:
+        candidates = []
+
+        # Throttle adjustment
+        if self._should_throttle(signals, context):
+            action = self.registry.get("reconcile_throttle_v1", 1)
+            if action:
+                # Determine direction
+                pg_latency = signals.get("pg_latency_ms", 0)
+                transport_backlog = signals.get("transport_backlog", 0)
+                pending = signals.get("reconcile_pending", 0)
+
+                if pg_latency > signals.get("pg_latency_threshold_ms", 100) or transport_backlog > 1000:
+                    reason = "RECONCILE_THROTTLED"
+                else:
+                    reason = "RECONCILE_BACKLOG_HIGH"
+
+                candidates.append(MaintenanceCandidate(
+                    action_id=action.action_id,
+                    action_version=action.version,
+                    engine=action.engine,
+                    database_id="primary",
+                    module_id="reconcile",
+                    risk_class=action.risk_class,
+                    priority=20,
+                    reason_code=reason,
+                    trigger_signals={
+                        "pg_latency_ms": pg_latency,
+                        "transport_backlog": transport_backlog,
+                        "reconcile_pending": pending,
+                        "current_rate": signals.get("reconcile_rate", 0),
+                    },
+                ))
+
+        # Health observation
+        health_action = self.registry.get("reconcile_health_observe_v1", 1)
+        if health_action:
+            candidates.append(MaintenanceCandidate(
+                action_id=health_action.action_id,
+                action_version=health_action.version,
+                engine=health_action.engine,
+                database_id="primary",
+                module_id="reconcile",
+                risk_class=health_action.risk_class,
+                priority=10,
+                reason_code="HEALTH_OBSERVE",
+                trigger_signals={
+                    "reconcile_pending": signals.get("reconcile_pending", 0),
+                    "reconcile_rate": signals.get("reconcile_rate", 0),
+                },
+            ))
+
+        return candidates
+
+    def _should_throttle(self, signals: dict[str, Any], context: dict[str, Any]) -> bool:
+        """Determine if reconcile throttle adjustment is needed."""
+        if context.get("recovery_active", False):
+            return False
+
+        pending = signals.get("reconcile_pending", 0)
+        threshold = signals.get("reconcile_throttle_threshold", 100)
+        pg_latency = signals.get("pg_latency_ms", 0)
+        latency_threshold = signals.get("pg_latency_threshold_ms", 100)
+
+        return (
+            pending > threshold
+            or pg_latency > latency_threshold
+        )
+
+
+class BackupEvaluator(Evaluator):
+    """Evaluates backup maintenance candidates."""
+
+    def evaluate(self, signals: dict[str, Any], context: dict[str, Any]) -> list[MaintenanceCandidate]:
+        candidates = []
+
+        # Backup verification
+        if self._should_verify_backup(signals, context):
+            action = self.registry.get("backup_verify_v1", 1)
+            if action:
+                candidates.append(MaintenanceCandidate(
+                    action_id=action.action_id,
+                    action_version=action.version,
+                    engine=action.engine,
+                    database_id=context.get("backup_id", "latest"),
+                    module_id="backup",
+                    risk_class=action.risk_class,
+                    priority=30,
+                    reason_code="BACKUP_STALE",
+                    trigger_signals={
+                        "backup_age_hours": signals.get("backup_age_hours", 0),
+                        "max_age_hours": signals.get("backup_max_age_hours", 24),
+                    },
+                ))
+
+        return candidates
+
+    def _should_verify_backup(self, signals: dict[str, Any], context: dict[str, Any]) -> bool:
+        """Determine if backup verification is needed."""
+        if context.get("recovery_active", False) or context.get("shutdown_draining", False):
+            return False
+
+        backup_age = signals.get("backup_age_hours", 0)
+        max_age = signals.get("backup_max_age_hours", 24)
+
+        return backup_age > max_age
+
 
 def evaluate_candidates(
     signals: dict[str, Any],
@@ -149,7 +259,6 @@ __all__ = [
     "MaintenanceCandidate",
     "Evaluator",
     "PostgreSQLEvaluator",
-    "SQLiteEvaluator",
     "ReconcileEvaluator",
     "BackupEvaluator",
     "evaluate_candidates",
