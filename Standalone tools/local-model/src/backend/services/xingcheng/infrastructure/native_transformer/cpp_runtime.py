@@ -26,7 +26,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .cpp_export import export_checkpoint_for_cpp
+# cpp_export carries the torch checkpoint reader — training-domain only and
+# retired from the runtime environment (A621).  It is imported lazily inside
+# ``ensure_bundle`` so this router module stays torch-free: the governed
+# ``required`` mode must be able to serve inference without the Python
+# engine's heavy lineage ever loading.
 
 CPP_RUNTIME_ENV = "XINGCHENG_CPP_RUNTIME"
 CPP_BUNDLES_DIR = "xingcheng/runtime/models/cpp-bundles"
@@ -178,6 +182,8 @@ def ensure_bundle(checkpoint_path: str | Path) -> dict[str, Any]:
             "reused": True,
         }
     staging = target.with_name(target.name + ".staging")
+    from .cpp_export import export_checkpoint_for_cpp
+
     info = export_checkpoint_for_cpp(checkpoint, staging)
     manifest = json.loads(
         (staging / "manifest.json").read_text(encoding="utf-8")
