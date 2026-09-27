@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
-use crate::paths::is_path_inside;
+use crate::native::paths::is_path_inside;
 
 const CACHE_TTL_MS: u64 = 30_000;
 

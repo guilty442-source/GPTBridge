@@ -1,36 +1,23 @@
-//! session.rs — port of src-ui/main/ipcSession.ts.
+//! token.rs — port of src-ui/main/ipcSession.ts (token half).
 //!
-//! Per-user IPC capability token (file under the IPC state root, hardened to
-//! owner + SYSTEM via icacls), backend port resolution (configured gateway,
-//! boot_core's recorded active port, then +1/+2 generation offsets), and the
-//! HMAC-SHA256 session ticket used by the renderer to open the WebSocket
-//! channel to the backend.
+//! Per-user IPC capability token: a 256-bit hex secret stored under the IPC
+//! state root, hardened to owner + SYSTEM via icacls, created through a
+//! locked atomic-write protocol so concurrent shells share exactly one
+//! token.
 
-use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use crate::http_util;
-use crate::paths;
+use super::random_hex;
+use crate::native::paths;
 
 const TOKEN_FILE_NAME: &str = "session-token";
 const TOKEN_LOCK_NAME: &str = ".session-token.lock";
 const LOCK_WAIT_MS: u64 = 10_000;
 const STALE_LOCK_MS: u64 = 5_000;
-const DEFAULT_GATEWAY_PORT: u16 = 8765;
-const GENERATION_PORT_OFFSETS: [u16; 2] = [1, 2];
-const HEALTH_PROBE_TIMEOUT_MS: u64 = 350;
-pub const LOOPBACK_HOST: &str = "127.0.0.1";
-pub const BACKEND_HEALTH_PATH: &str = "/health?brief=1";
-
-fn random_hex(bytes: usize) -> String {
-    let mut buf = vec![0u8; bytes];
-    let _ = getrandom::getrandom(&mut buf);
-    hex::encode(buf)
-}
 
 fn is_valid_token(token: &str) -> bool {
     token.len() == 64 && token.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
@@ -160,7 +147,7 @@ fn repair_or_create_token(file_path: &std::path::Path) -> Result<String, String>
 
     let lock_path = state_root.join(TOKEN_LOCK_NAME);
     let deadline = std::time::Instant::now() + Duration::from_millis(LOCK_WAIT_MS);
-    let mut owns_lock = false;
+    let owns_lock = false;
     let mut owner_nonce = String::new();
 
     while !owns_lock {
@@ -178,10 +165,7 @@ fn repair_or_create_token(file_path: &std::path::Path) -> Result<String, String>
                         use std::io::Write;
                         f.write_all(format!("{owner_nonce}\n").as_bytes())
                     }) {
-                    Ok(()) => {
-                        owns_lock = true;
-                        break;
-                    }
+                    Ok(()) => break,
                     Err(e) => {
                         let _ = fs::remove_file(lock_path.join("owner"));
                         let _ = fs::remove_dir(&lock_path);
@@ -283,6 +267,8 @@ pub fn backend_session_token() -> Result<String, String> {
         .clone()
 }
 
+/// Stable per-checkout identity — SHA-256 of the normalized workspace root,
+/// truncated to 24 hex chars (parity with ipcSession.ts).
 pub fn workspace_instance_id() -> String {
     let normalized = paths::path_library()
         .workspace_root
@@ -295,130 +281,4 @@ pub fn workspace_instance_id() -> String {
     };
     let digest = Sha256::digest(normalized.as_bytes());
     hex::encode(digest)[..24].to_string()
-}
-
-fn read_configured_gateway_port() -> u16 {
-    let manifest_path = paths::path_library()
-        .workspace_root
-        .join("main-system")
-        .join("config")
-        .join("startup_manifest.json");
-    fs::read_to_string(manifest_path)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-        .and_then(|m| m["ports"]["health_probe"].as_u64())
-        .filter(|p| *p > 0 && *p <= 65535)
-        .map(|p| p as u16)
-        .unwrap_or(DEFAULT_GATEWAY_PORT)
-}
-
-fn read_active_backend_port() -> Option<u16> {
-    let state_path = paths::path_library()
-        .workspace_root
-        .join("main-system")
-        .join("runtime")
-        .join("state")
-        .join("boot-core.json");
-    fs::read_to_string(state_path)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-        .and_then(|s| s["active_backend_port"].as_u64())
-        .filter(|p| *p > 0 && *p <= 65535)
-        .map(|p| p as u16)
-}
-
-fn probe_backend_port(port: u16) -> bool {
-    let Some(response) = http_util::get(
-        LOOPBACK_HOST,
-        port,
-        BACKEND_HEALTH_PATH,
-        &[],
-        Duration::from_millis(HEALTH_PROBE_TIMEOUT_MS),
-    ) else {
-        return false;
-    };
-    serde_json::from_slice::<serde_json::Value>(&response.body)
-        .ok()
-        .and_then(|p| p["workspace_instance_id"].as_str().map(String::from))
-        .map(|id| id == workspace_instance_id())
-        .unwrap_or(false)
-}
-
-/// Resolve the live backend endpoint without assuming a fixed port.
-/// Probes candidates in parallel; falls back to the configured gateway.
-pub fn resolve_backend_port() -> u16 {
-    let configured = read_configured_gateway_port();
-    let mut candidates: Vec<u16> = vec![configured];
-    if let Some(active) = read_active_backend_port() {
-        candidates.push(active);
-    }
-    for offset in GENERATION_PORT_OFFSETS {
-        candidates.push(configured.saturating_add(offset));
-    }
-    candidates.sort_unstable();
-    candidates.dedup();
-
-    let results: Vec<bool> = std::thread::scope(|s| {
-        candidates
-            .iter()
-            .map(|port| s.spawn(move || probe_backend_port(*port)))
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|h| h.join().unwrap_or(false))
-            .collect()
-    });
-    candidates
-        .iter()
-        .zip(results.iter())
-        .find(|(_, ok)| **ok)
-        .map(|(port, _)| *port)
-        .unwrap_or(configured)
-}
-
-/// Probe the configured gateway port for a live boot_core.
-pub fn is_gateway_alive() -> bool {
-    probe_backend_port(read_configured_gateway_port())
-}
-
-fn create_websocket_session_ticket(token: &str, workspace_instance_id: &str) -> String {
-    let expires_at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-        + 30;
-    let nonce = random_hex(16);
-    let payload = format!("{expires_at}.{nonce}.{workspace_instance_id}");
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(token.as_bytes())
-        .expect("HMAC accepts any key size");
-    mac.update(payload.as_bytes());
-    let signature = hex::encode(mac.finalize().into_bytes());
-    format!("{payload}.{signature}")
-}
-
-/// Session descriptor consumed by the renderer to open the authenticated
-/// WebSocket channel to the backend.
-pub fn backend_session_descriptor() -> serde_json::Value {
-    let token = backend_session_token().unwrap_or_default();
-    let instance_id = workspace_instance_id();
-    let port = resolve_backend_port();
-    let ticket = create_websocket_session_ticket(&token, &instance_id);
-    let ticket_enc = url_encode(&ticket);
-    let instance_enc = url_encode(&instance_id);
-    serde_json::json!({
-        "workspaceInstanceId": instance_id,
-        "websocketUrl": format!("ws://{LOOPBACK_HOST}:{port}/?ticket={ticket_enc}&instance={instance_enc}"),
-    })
-}
-
-fn url_encode(input: &str) -> String {
-    input
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || "-._~".contains(c) {
-                c.to_string()
-            } else {
-                format!("%{:02X}", c as u32)
-            }
-        })
-        .collect()
 }

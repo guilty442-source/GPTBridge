@@ -1,0 +1,12 @@
+[package]
+name = "gptbridge-egui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "GPTBridge egui engineering surfaces: diagnostics, profiling, governance inspector, engineering console"
+
+[dependencies]
+gptbridge-core.workspace = true
+eframe = "0.36"
+egui = "0.36"
+serde_json.workspace = true

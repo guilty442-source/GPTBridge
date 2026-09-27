@@ -1,0 +1,21 @@
+[package]
+name = "gptbridge-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "GPTBridge UI-stack Rust core: application core, state core, security, IPC, lifecycle, native integration"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+getrandom.workspace = true
+hex.workspace = true
+sha2 = "0.10"
+hmac = "0.12"
+sysinfo = "0.33"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_System_Threading",
+  "Win32_Foundation",
+] }

@@ -1,6 +1,7 @@
-//! commands.rs — channel dispatch parity with src-ui/main/ipcHandlers.ts +
-//! preload.ts whitelist.  The renderer shim calls the single
-//! ``gptbridge_invoke`` command with the channel name and the argument array.
+//! channels.rs — channel dispatch parity with the retired
+//! src-ui/main/ipcHandlers.ts + preload.ts whitelist.  The renderer shim
+//! calls the single ``gptbridge_invoke`` command with the channel name and
+//! the argument array.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -8,21 +9,16 @@ use std::sync::OnceLock;
 
 use tauri::{AppHandle, Manager};
 
-use crate::backend;
-use crate::embedded;
-use crate::metrics;
-use crate::paths::{self, is_path_inside};
-use crate::session;
-use crate::sizes;
-use crate::slo;
+use gptbridge_core::app::{manage_backend, PRODUCT_VERSION};
+use gptbridge_core::ipc;
+use gptbridge_core::lifecycle;
+use gptbridge_core::native::{metrics, paths, sizes};
+use gptbridge_core::native::paths::is_path_inside;
+use gptbridge_core::state::perf_slo;
 
-const PRODUCT_VERSION: &str = "1.0.0";
+use crate::webview_host;
 const MIN_UI_ZOOM: f64 = 0.85;
 const MAX_UI_ZOOM: f64 = 1.3;
-
-fn manage_backend() -> bool {
-    std::env::var("GPTBRIDGE_MANAGE_BACKEND").ok().as_deref() == Some("1")
-}
 
 /// UI zoom preference — the renderer-visible zoom multiplies this preferred
 /// factor with the adaptive viewport scale (same contract as ipcHandlers).
@@ -83,7 +79,7 @@ pub fn apply_adaptive_zoom(window: &tauri::Window) {
     // Use the event-fed content-size cache — querying inner_size/
     // scale_factor here takes tao's window_state lock, which is an AB-BA
     // hazard when this runs inside a Resized dispatch.
-    let Some((width, height)) = embedded::current_content_size() else {
+    let Some((width, height)) = webview_host::current_content_size() else {
         return;
     };
     let logical = tauri::LogicalSize { width, height };
@@ -100,7 +96,7 @@ pub fn apply_adaptive_zoom(window: &tauri::Window) {
         current_ui_zoom(),
     );
     drop(profile);
-    if let Some(webview) = crate::find_webview(window, "main") {
+    if let Some(webview) = webview_host::find_webview(window, "main") {
         let _ = webview.set_zoom(factor);
     }
 }
@@ -134,7 +130,7 @@ pub async fn dispatch(
 ) -> serde_json::Value {
     match channel {
         "app:get-status" => {
-            let runtime = backend::backend_runtime_info();
+            let runtime = lifecycle::backend_runtime_info();
             let packaged = paths::is_packaged();
             serde_json::json!({
                 "isPackaged": packaged,
@@ -155,36 +151,36 @@ pub async fn dispatch(
                 "systemMetrics": metrics::get_system_metrics(),
             })
         }
-        "app:get-perf-slo" => slo::get_perf_slo(&paths::path_library().workspace_root),
+        "app:get-perf-slo" => perf_slo::get_perf_slo(&paths::path_library().workspace_root),
         "app:ensure-backend-started" => {
             if !manage_backend() {
                 return serde_json::json!({
                     "ok": false,
                     "managed": false,
-                    "backendStatus": backend::get_backend_status().as_str(),
+                    "backendStatus": lifecycle::get_backend_status().as_str(),
                     "message": "backend manager is disabled by GPTBRIDGE_MANAGE_BACKEND=0",
                 });
             }
-            let status = backend::ensure_backend_started();
+            let status = lifecycle::ensure_backend_started();
             serde_json::json!({
-                "ok": status != backend::BackendStatus::Error,
+                "ok": status != lifecycle::BackendStatus::Error,
                 "managed": true,
                 "backendStatus": status.as_str(),
             })
         }
-        "app:get-backend-session" => session::backend_session_descriptor(),
+        "app:get-backend-session" => ipc::backend_session_descriptor(),
         "app:restart-backend" => {
             if !manage_backend() {
                 return serde_json::json!({
                     "ok": false,
                     "managed": false,
-                    "backendStatus": backend::get_backend_status().as_str(),
+                    "backendStatus": lifecycle::get_backend_status().as_str(),
                     "message": "後端目前由外部 dev 腳本管理，無法由桌面 shell 單獨重啟。",
                 });
             }
-            let status = backend::restart_backend();
+            let status = lifecycle::restart_backend();
             serde_json::json!({
-                "ok": status != backend::BackendStatus::Error,
+                "ok": status != lifecycle::BackendStatus::Error,
                 "managed": true,
                 "backendStatus": status.as_str(),
             })
@@ -209,14 +205,14 @@ pub async fn dispatch(
                 "source": "governed-local-folder-inventory",
             })
         }
-        "app:reload-window" => match main_window(&app).and_then(|w| crate::find_webview(&w, "main")) {
+        "app:reload-window" => match main_window(&app).and_then(|w| webview_host::find_webview(&w, "main")) {
             Some(webview) => {
                 let _ = webview.eval("window.location.reload()");
                 serde_json::json!({"ok": true})
             }
             None => serde_json::json!({"ok": false}),
         },
-        "app:reload-window-hard" => match main_window(&app).and_then(|w| crate::find_webview(&w, "main")) {
+        "app:reload-window-hard" => match main_window(&app).and_then(|w| webview_host::find_webview(&w, "main")) {
             Some(webview) => {
                 // Hard reload: bypass caches via a fresh navigation to the
                 // current URL — closest available semantics under WebView2.
@@ -322,13 +318,13 @@ pub async fn dispatch(
             });
             serde_json::Value::String(rx.recv().unwrap_or_default())
         }
-        "embedded-browser:create" => embedded::create_session(
+        "embedded-browser:create" => webview_host::create_session(
             &app,
             str_arg(&args, "id"),
             str_arg(&args, "ownerModule"),
             str_arg(&args, "url"),
             args.get("bounds").and_then(|b| {
-                Some(embedded::BrowserBounds {
+                Some(webview_host::BrowserBounds {
                     x: b.get("x")?.as_f64()?,
                     y: b.get("y")?.as_f64()?,
                     width: b.get("width")?.as_f64()?,
@@ -337,23 +333,23 @@ pub async fn dispatch(
             }),
         ),
         "embedded-browser:navigate" => {
-            embedded::navigate_session(&app, &str_arg(&args, "id"), &str_arg(&args, "url"))
+            webview_host::navigate_session(&app, &str_arg(&args, "id"), &str_arg(&args, "url"))
         }
         "embedded-browser:execute" => {
-            match embedded::execute_script(&app, &str_arg(&args, "id"), &str_arg(&args, "script")) {
+            match webview_host::execute_script(&app, &str_arg(&args, "id"), &str_arg(&args, "script")) {
                 Ok(result) => serde_json::json!({"ok": true, "result": result}),
                 Err(message) => serde_json::json!({"ok": false, "message": message}),
             }
         }
-        "embedded-browser:show" => embedded::show_session(&app, &str_arg(&args, "id")),
-        "embedded-browser:hide" => embedded::hide_session(&app, &str_arg(&args, "id")),
-        "embedded-browser:close" => embedded::close_session(&app, &str_arg(&args, "id")),
+        "embedded-browser:show" => webview_host::show_session(&app, &str_arg(&args, "id")),
+        "embedded-browser:hide" => webview_host::hide_session(&app, &str_arg(&args, "id")),
+        "embedded-browser:close" => webview_host::close_session(&app, &str_arg(&args, "id")),
         "embedded-browser:resize" => {
             let b = args.get("bounds").cloned().unwrap_or_default();
-            embedded::resize_session(
+            webview_host::resize_session(
                 &app,
                 &str_arg(&args, "id"),
-                embedded::BrowserBounds {
+                webview_host::BrowserBounds {
                     x: b["x"].as_f64().unwrap_or(0.0),
                     y: b["y"].as_f64().unwrap_or(0.0),
                     width: b["width"].as_f64().unwrap_or(0.0),
@@ -361,13 +357,13 @@ pub async fn dispatch(
                 },
             )
         }
-        "embedded-browser:list" => embedded::list_sessions(),
+        "embedded-browser:list" => webview_host::list_sessions(),
         "embedded-browser:url" => {
-            let url = embedded::session_url(&app, &str_arg(&args, "id"));
+            let url = webview_host::session_url(&app, &str_arg(&args, "id"));
             serde_json::json!({"ok": url.is_some(), "url": url})
         }
         "embedded-browser:close-module" => serde_json::json!({
-            "closed": embedded::close_module_sessions(&app, &str_arg(&args, "ownerModule"))
+            "closed": webview_host::close_module_sessions(&app, &str_arg(&args, "ownerModule"))
         }),
         _ => serde_json::json!({"ok": false, "message": format!("Blocked IPC channel: {channel}")}),
     }

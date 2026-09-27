@@ -1,0 +1,12 @@
+[package]
+name = "gptbridge-gpui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "GPTBridge GPUI native views: model dialogue, coding workspace, streaming text, high-performance views"
+
+[dependencies]
+gptbridge-core.workspace = true
+gpui = "0.2.2"
+serde.workspace = true
+serde_json.workspace = true

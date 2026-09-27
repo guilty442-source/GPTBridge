@@ -1,4 +1,4 @@
-//! bridge.rs — port of src-ui/main/embedded-browser-bridge.ts.
+//! loopback.rs ??port of the retired src-ui/main/embedded-browser-bridge.ts.
 //!
 //! Token-guarded loopback HTTP endpoint owned by this process so tool UIs and
 //! tool Python backends reach the embedded-browser session store without a
@@ -12,8 +12,11 @@ use std::sync::{Mutex, OnceLock};
 
 use tauri::AppHandle;
 
-use crate::embedded;
-use crate::paths;
+use gptbridge_core::app;
+use gptbridge_core::native::paths;
+use gptbridge_core::security::constant_time_eq;
+
+use crate::webview_host;
 
 const BRIDGE_HOST: &str = "127.0.0.1";
 const TOKEN_HEADER: &str = "x-gptbridge-bridge-token";
@@ -54,31 +57,9 @@ fn publish_state(port: u16, token: &str) {
         "port": port,
         "token": token,
         "pid": std::process::id(),
-        "started_at": iso_now(),
+        "started_at": app::iso_now(),
     });
     let _ = std::fs::write(&target, serde_json::to_string_pretty(&body).unwrap_or_default());
-}
-
-fn iso_now() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
-    // Civil-from-days conversion (Howard Hinnant's algorithm).
-    let days = secs.div_euclid(86_400);
-    let secs_of_day = secs.rem_euclid(86_400);
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    let (h, mi, s) = (secs_of_day / 3600, (secs_of_day % 3600) / 60, secs_of_day % 60);
-    format!("{y:04}-{m:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
 }
 
 fn remove_state() {
@@ -178,13 +159,13 @@ fn dispatch_channel(app: &AppHandle, channel: &str, args: &serde_json::Value) ->
         args.get(key).and_then(|v| v.as_str()).unwrap_or_default().to_string()
     };
     match channel {
-        "embedded-browser:create" => embedded::create_session(
+        "embedded-browser:create" => webview_host::create_session(
             app,
             str_arg("id"),
             str_arg("ownerModule"),
             str_arg("url"),
             args.get("bounds").and_then(|b| {
-                Some(embedded::BrowserBounds {
+                Some(webview_host::BrowserBounds {
                     x: b.get("x")?.as_f64()?,
                     y: b.get("y")?.as_f64()?,
                     width: b.get("width")?.as_f64()?,
@@ -193,7 +174,7 @@ fn dispatch_channel(app: &AppHandle, channel: &str, args: &serde_json::Value) ->
             }),
         ),
         "embedded-browser:navigate" => {
-            embedded::navigate_session(app, &str_arg("id"), &str_arg("url"))
+            webview_host::navigate_session(app, &str_arg("id"), &str_arg("url"))
         }
         // Fail-closed: a backend-driven bridge call must never display a
         // view over the main system window (tool windows host their own).
@@ -202,19 +183,19 @@ fn dispatch_channel(app: &AppHandle, channel: &str, args: &serde_json::Value) ->
             "message": "EMBEDDED_BROWSER_SHOW_REQUIRES_TOOL_WINDOW"
         }),
         "embedded-browser:execute" => {
-            match embedded::execute_script(app, &str_arg("id"), &str_arg("script")) {
+            match webview_host::execute_script(app, &str_arg("id"), &str_arg("script")) {
                 Ok(result) => serde_json::json!({"ok": true, "result": result}),
                 Err(message) => serde_json::json!({"ok": false, "message": message}),
             }
         }
-        "embedded-browser:hide" => embedded::hide_session(app, &str_arg("id")),
-        "embedded-browser:close" => embedded::close_session(app, &str_arg("id")),
+        "embedded-browser:hide" => webview_host::hide_session(app, &str_arg("id")),
+        "embedded-browser:close" => webview_host::close_session(app, &str_arg("id")),
         "embedded-browser:resize" => {
             let b = args.get("bounds").cloned().unwrap_or_default();
-            embedded::resize_session(
+            webview_host::resize_session(
                 app,
                 &str_arg("id"),
-                embedded::BrowserBounds {
+                webview_host::BrowserBounds {
                     x: b["x"].as_f64().unwrap_or(0.0),
                     y: b["y"].as_f64().unwrap_or(0.0),
                     width: b["width"].as_f64().unwrap_or(0.0),
@@ -222,14 +203,14 @@ fn dispatch_channel(app: &AppHandle, channel: &str, args: &serde_json::Value) ->
                 },
             )
         }
-        "embedded-browser:list" => embedded::list_sessions(),
+        "embedded-browser:list" => webview_host::list_sessions(),
         "embedded-browser:url" => {
-            let url = embedded::session_url(app, &str_arg("id"));
+            let url = webview_host::session_url(app, &str_arg("id"));
             serde_json::json!({"ok": url.is_some(), "url": url})
         }
         "embedded-browser:close-module" => serde_json::json!({
             "ok": true,
-            "closed": embedded::close_module_sessions(app, &str_arg("ownerModule"))
+            "closed": webview_host::close_module_sessions(app, &str_arg("ownerModule"))
         }),
         _ => serde_json::json!({"ok": false, "message": "BRIDGE_CHANNEL_UNKNOWN"}),
     }
@@ -253,7 +234,7 @@ fn handle_connection(app: &AppHandle, mut stream: std::net::TcpStream) {
         if token.len() == expected.len() && token == expected {
             if let Ok(payload) = serde_json::from_str::<serde_json::Value>(json_part) {
                 let request_id = payload["request_id"].as_str().unwrap_or_default().to_string();
-                embedded::deliver_exec_result(&request_id, payload);
+                webview_host::deliver_exec_result(&request_id, payload);
             }
         }
         respond(&mut stream, 200, serde_json::json!({"ok": true}));
@@ -297,13 +278,6 @@ fn handle_connection(app: &AppHandle, mut stream: std::net::TcpStream) {
         .unwrap_or_else(|| serde_json::json!({}));
     let result = dispatch_channel(app, &channel, &args);
     respond(&mut stream, 200, result);
-}
-
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
 pub fn start_embedded_browser_bridge(app: &AppHandle) {

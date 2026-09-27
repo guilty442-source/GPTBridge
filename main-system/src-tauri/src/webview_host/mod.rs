@@ -1,4 +1,5 @@
-//! embedded.rs — port of src-ui/main/embedded-browser.ts.
+//! webview_host — Tauri WebView Host layer (port of the retired
+//! src-ui/main/embedded-browser.ts).
 //!
 //! Helper-process architecture: each session is hosted by a dedicated
 //! ``gptbridge-shell.exe --embedded-worker`` process.  This machine's
@@ -8,7 +9,7 @@
 //! 5–60 s).  A worker owns exactly one controller — the reliable
 //! first-controller path — so sessions spawn a worker, and this module
 //! proxies every lifecycle operation to it over a token-guarded loopback
-//! endpoint (``embedded_worker.rs``).
+//! endpoint (``worker.rs`` / ``worker_client.rs``).
 //!
 //! The worker's window is reparented under the main window's HWND
 //! (``parent_raw`` → WS_CHILD), so it is clipped to the parent client area
@@ -22,36 +23,30 @@
 //! a worker HTTP call or process spawn — those block for tens of ms to
 //! seconds while main-thread window-event handlers also take the lock.
 
+pub(crate) mod worker;
+
+mod geometry;
+mod worker_client;
+mod worker_eval;
+mod worker_server;
+
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::OnceLock;
-use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::http_util;
-use crate::paths;
+use geometry::{clamp_bounds, physical_bounds};
+use worker_client::{spawn_worker, worker_hide, worker_request, worker_shutdown, WorkerRef};
 
-const WORKER_TOKEN_HEADER: &str = "x-gptbridge-worker-token";
-const WORKER_READY_TIMEOUT: Duration = Duration::from_secs(25);
-const WORKER_OP_TIMEOUT: Duration = Duration::from_secs(15);
+pub use geometry::{current_content_size, record_content_size, BrowserBounds};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct BrowserBounds {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-}
-
-#[derive(Debug, Clone)]
-pub struct WorkerRef {
-    pub port: u16,
-    pub token: String,
-    pub pid: u32,
-    pub state_file: PathBuf,
+/// Find a child webview inside a window by label.
+pub(crate) fn find_webview(window: &tauri::Window, label: &str) -> Option<tauri::Webview> {
+    window
+        .webviews()
+        .into_iter()
+        .find(|w| w.label() == label)
 }
 
 pub struct EmbeddedSession {
@@ -81,224 +76,13 @@ impl EmbeddedState {
     }
 }
 
-pub fn embedded_state() -> &'static Mutex<EmbeddedState> {
+fn embedded_state() -> &'static Mutex<EmbeddedState> {
     static STATE: OnceLock<Mutex<EmbeddedState>> = OnceLock::new();
     STATE.get_or_init(|| Mutex::new(EmbeddedState::new()))
 }
 
 fn main_window(app: &AppHandle) -> Option<tauri::Window> {
     app.get_window("main")
-}
-
-/// Last logical content size delivered by the main window's Resized events.
-/// Reading ``inner_size``/``scale_factor`` mid-handler touches tao's
-/// per-window ``window_state`` lock — an AB-BA hazard against in-flight
-/// WndProc dispatch — so geometry is cached from the event payload instead.
-fn content_size() -> &'static Mutex<Option<(f64, f64, f64)>> {
-    static SIZE: OnceLock<Mutex<Option<(f64, f64, f64)>>> = OnceLock::new();
-    SIZE.get_or_init(|| Mutex::new(None))
-}
-
-pub fn record_content_size(size: tauri::PhysicalSize<u32>, scale_factor: f64) {
-    // A hidden/not-yet-realised window can report 0x0 — a zero size must
-    // never poison the cache (every bounds clamp would fail-closed-hide).
-    if size.width == 0 || size.height == 0 {
-        return;
-    }
-    let logical = size.to_logical::<f64>(scale_factor);
-    *content_size().lock().unwrap() = Some((logical.width, logical.height, scale_factor));
-}
-
-/// Cached logical content size for callers that must not touch window
-/// state (resize handlers, bridge workers).
-pub fn current_content_size() -> Option<(f64, f64)> {
-    content_size()
-        .lock()
-        .unwrap()
-        .map(|(w, h, _)| (w, h))
-}
-
-fn current_scale_factor() -> f64 {
-    content_size()
-        .lock()
-        .unwrap()
-        .map(|(_, _, s)| s)
-        .unwrap_or(1.0)
-}
-
-fn clamp_bounds(app: &AppHandle, bounds: BrowserBounds) -> Option<BrowserBounds> {
-    if main_window(app).is_none() {
-        return None;
-    }
-    let (content_w, content_h) = current_content_size()?;
-    let x = bounds.x.round().max(0.0).min(content_w);
-    let y = bounds.y.round().max(0.0).min(content_h);
-    let width = bounds.width.round().max(0.0).min(content_w - x);
-    let height = bounds.height.round().max(0.0).min(content_h - y);
-    if width < 1.0 || height < 1.0 {
-        return None;
-    }
-    Some(BrowserBounds { x, y, width, height })
-}
-
-fn sanitize_id(id: &str) -> String {
-    id.chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect()
-}
-
-fn worker_state_path(session_id: &str) -> PathBuf {
-    paths::path_library()
-        .workspace_root
-        .join("main-system")
-        .join("runtime")
-        .join("state")
-        .join(format!("embedded-worker-{}.json", sanitize_id(session_id)))
-}
-
-fn random_token() -> String {
-    let mut buf = [0u8; 32];
-    let _ = getrandom::getrandom(&mut buf);
-    hex::encode(buf)
-}
-
-fn main_window_hwnd(app: &AppHandle) -> isize {
-    main_window(app)
-        .and_then(|w| w.hwnd().ok())
-        .map(|h| h.0 as isize)
-        .unwrap_or(0)
-}
-
-/// Spawn a dedicated worker process and wait (bounded) for its loopback
-/// endpoint to publish.  Called on a worker thread; no registry lock held.
-fn spawn_worker(app: &AppHandle, session_id: &str, url: &str) -> Result<WorkerRef, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("SELF_EXE_UNAVAILABLE:{e}"))?;
-    let state_file = worker_state_path(session_id);
-    let _ = std::fs::remove_file(&state_file);
-    let token = random_token();
-    let parent_hwnd = main_window_hwnd(app);
-    let parent_pid = std::process::id();
-
-    // Worker diagnostics land in a bounded per-session log rather than the
-    // parent's stderr (worker exit codes otherwise surface as opaque
-    // WORKER_UNREACHABLE failures).
-    let log_path = paths::path_library()
-        .workspace_root
-        .join("main-system")
-        .join("runtime")
-        .join("logs")
-        .join(format!("embedded-worker-{}.log", sanitize_id(session_id)));
-    let stderr_redirect = std::fs::File::create(&log_path)
-        .map(std::process::Stdio::from)
-        .unwrap_or_else(|_| std::process::Stdio::inherit());
-
-    let child = std::process::Command::new(exe)
-        .arg("--embedded-worker")
-        .arg("--session-id")
-        .arg(session_id)
-        .arg("--url")
-        .arg(url)
-        .arg("--parent-hwnd")
-        .arg(format!("0x{parent_hwnd:x}"))
-        .arg("--parent-pid")
-        .arg(parent_pid.to_string())
-        .arg("--token")
-        .arg(&token)
-        .arg("--state-file")
-        .arg(&state_file)
-        .stderr(stderr_redirect)
-        .spawn()
-        .map_err(|e| format!("WORKER_SPAWN_FAILED:{e}"))?;
-    let child_pid = child.id();
-    drop(child);
-
-    let deadline = std::time::Instant::now() + WORKER_READY_TIMEOUT;
-    while std::time::Instant::now() < deadline {
-        if let Ok(text) = std::fs::read_to_string(&state_file) {
-            if let Ok(state) = serde_json::from_str::<serde_json::Value>(&text) {
-                if let Some(port) = state["port"].as_u64().map(|p| p as u16) {
-                    if port != 0 {
-                        return Ok(WorkerRef {
-                            port,
-                            token,
-                            pid: child_pid,
-                            state_file,
-                        });
-                    }
-                }
-            }
-        }
-        std::thread::sleep(Duration::from_millis(200));
-    }
-    // A worker that never published its endpoint received no ops — tree-kill
-    // it so a wedged spawn cannot linger as an orphan webview host.
-    let _ = std::process::Command::new("taskkill")
-        .args(["/PID", &child_pid.to_string(), "/T", "/F"])
-        .output();
-    let _ = std::fs::remove_file(&state_file);
-    Err("WORKER_READY_TIMEOUT".to_string())
-}
-
-/// One HTTP round-trip to a session's worker.  Returns the parsed JSON
-/// body or ``None`` on transport failure.
-fn worker_request(
-    worker: &WorkerRef,
-    method: &str,
-    path: &str,
-    body: &serde_json::Value,
-) -> Option<serde_json::Value> {
-    let headers = [(WORKER_TOKEN_HEADER, worker.token.as_str())];
-    let response = if method == "GET" {
-        http_util::get("127.0.0.1", worker.port, path, &headers, WORKER_OP_TIMEOUT)
-    } else {
-        http_util::post(
-            "127.0.0.1",
-            worker.port,
-            path,
-            &headers,
-            body.to_string().as_bytes(),
-            WORKER_OP_TIMEOUT,
-        )
-    }?;
-    if response.status != 200 {
-        return None;
-    }
-    serde_json::from_slice(&response.body).ok()
-}
-
-fn physical_bounds(bounds: &BrowserBounds) -> serde_json::Value {
-    let scale = current_scale_factor();
-    serde_json::json!({
-        "x": bounds.x * scale,
-        "y": bounds.y * scale,
-        "width": bounds.width * scale,
-        "height": bounds.height * scale,
-    })
-}
-
-/// Tell a worker to park itself (1x1 at the parent origin — the hidden
-/// state; child windows also vanish automatically with the parent).
-fn worker_hide(worker: &WorkerRef) {
-    let _ = worker_request(worker, "POST", "/hide", &serde_json::json!({}));
-}
-
-/// Tell a worker to terminate, then bounded-kill the process tree so a
-/// wedged worker never lingers.
-fn worker_shutdown(worker: &WorkerRef) {
-    let _ = worker_request(worker, "POST", "/close", &serde_json::json!({}));
-    std::thread::sleep(Duration::from_millis(400));
-    // Worker exits on its own via /close; taskkill only as a bounded
-    // backstop for a wedged worker (tree kill covers WebView2 children).
-    let _ = std::process::Command::new("taskkill")
-        .args(["/PID", &worker.pid.to_string(), "/T", "/F"])
-        .output();
-    let _ = std::fs::remove_file(&worker.state_file);
 }
 
 /// Called on window minimize/hide — detach every visible session.  Child
