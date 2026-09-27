@@ -17,7 +17,7 @@
 | 5 | `investment-mobile` | 191 檔 / 30,384 行 | ⏸ 待 host | 同 #4；規模第二大，建議排最後 |
 | 6 | `self-commit-service` / `integration-plane` / `recovery-plane` | `git_tiers/` 共用 64 檔 / 19,259 行 | ⏸ 待 host | 三元件共用同一路徑；resident 服務，需常駐 C# host（非 per-call 子進程） |
 | 7 | `boot-core` | `src-core` 439 檔 / 97,245 行 | ⏸ 排序最末 | 主系統核心；依賴所有上述 host 基礎設施先就緒 |
-| 8 | `main-system` | 全樹（量測含 venv-bak 殘留，實際待精算） | ⏸ 排序最末 | 終點工作；其餘全部遷完後才具備條件 |
+| 8 | `main-system` | 504 檔 / 110,166 行（已排除 `.venv-*` 備份與 node_modules） | ⏸ 排序最末 | 終點工作；其餘全部遷完後才具備條件 |
 
 ## 二、已完成 / 非遷移目標
 

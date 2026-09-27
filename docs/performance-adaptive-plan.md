@@ -28,7 +28,9 @@
 | `lr` | 改為 traced scalar 參數 | lr schedule 不再逐步 retrace |
 | `eval_loss` | 改為 `jax.jit` | eval 路徑脫離 eager |
 
-驗證：`test_jax_backend.py` 4/4、新增 `test_sft_jit_invariants.py` 5/5。
+驗證：`test_jax_backend.py` 4/4、`test_sft_jit_invariants.py` 8/8。
+
+**量化證據**（2,000 筆指數分佈長度、batch=8 模擬）：batch-max padding 產生 **208 種編譯形狀**；bucket-64 界為 **8 種**（-96%），代價為 padding 浪費 0.4%→14.7%（XLA 單次編譯以秒計，padding 為廉價矩陣計算，交換有利）；自適化 `_choose_bucket` 在 8-shape 界內自動選最小浪費粒度。
 
 ### 3. JavaScript — 非必要計時器與 IPC
 
@@ -58,13 +60,13 @@
 
 ## 二、測試套件
 
-本輪新增三個測試檔（**16 tests，全部通過**），釘住優化不變量，防止重構時退化：
+本輪新增三個測試檔（**19 tests，全部通過**；renderer 契約檔後擴至 7 tests），釘住優化不變量，防止重構時退化：
 
 | 檔案 | 測試數 | 涵蓋不變量 |
 | --- | --- | --- |
 | `shared-layer/tests/test_gpu_coordinator_lazy.py` | 6 | 子進程 import 不帶入 torch；nvidia-smi 優先序；torch fallback；probe memoize；95% VRAM 上限語意 |
-| `Standalone tools/local-model/tests/test_sft_jit_invariants.py` | 5 | bucket padding 形狀界（1..max_length → `ceil(max_length/64)` 種）；fused step 經 `jax.jit` 且 `donate_argnums=(0,1)`；`lr` 為 traced 參數；eval 亦 jitted |
-| `main-system/tests/test_renderer_idle_gating.py` | 5 | 兩個 interval callback 的 hidden-gate 必須先於 IPC 呼叫；30s 有界 interval + cleanup；禁止 `setTimeout` 自重排鏈 |
+| `Standalone tools/local-model/tests/test_sft_jit_invariants.py` | 8 | bucket padding 形狀界（1..max_length → `ceil(max_length/64)` 種）；fused step 經 `jax.jit` 且 `donate_argnums=(0,1)`；`lr` 為 traced 參數；eval 亦 jitted |
+| `main-system/tests/test_renderer_idle_gating.py` | 7 | 兩個 interval callback 的 hidden-gate 必須先於 IPC 呼叫；30s 有界 interval + cleanup；禁止 `setTimeout` 自重排鏈 |
 
 既有套件（同批驗證範圍）：`GPTBridge.Channels.Tests` 16/16（C# A263 channel port）、`main-system/launcher/tests` 8/8（C# bootstrap 契約）。
 
@@ -135,8 +137,8 @@ dotnet test shared-layer\csharp\GPTBridge.Channels\GPTBridge.Channels.Tests
 ```
 TEST_SUITE:
   test_gpu_coordinator_lazy.py     6/6 PASS (23.4s)
-  test_sft_jit_invariants.py       5/5 PASS (28.4s)
-  test_renderer_idle_gating.py     5/5 PASS (10.7s)
+  test_sft_jit_invariants.py       8/8 PASS
+  test_renderer_idle_gating.py     7/7 PASS
   GPTBridge.Channels.Tests        16/16 PASS（既有，本輪未改）
   launcher/tests                   8/8 PASS（既有，本輪未改）
 

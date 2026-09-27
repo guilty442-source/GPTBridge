@@ -174,7 +174,10 @@ function _objective(name::AbstractString, params)
     return nothing
 end
 
-function nelder_mead(f, x0::Vector{Float64}; max_iter::Int=400, tol::Float64=1e-8)
+# f::F (parametric): Julia specializes the method per concrete objective
+# type — the per-iteration f(...) calls become direct dispatch instead of
+# abstract-Function runtime resolution, and small objectives can inline.
+function nelder_mead(f::F, x0::Vector{Float64}; max_iter::Int=400, tol::Float64=1e-8) where {F}
     n = length(x0)
     simplex = Vector{Vector{Float64}}(undef, n + 1)
     simplex[1] = copy(x0)
