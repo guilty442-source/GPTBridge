@@ -187,12 +187,14 @@ fn ensure_webview(
     let Some(window) = main_window(app) else {
         return Err("MAIN_WINDOW_NOT_AVAILABLE".to_string());
     };
+    eprintln!("[eb-dbg] ensure.find id={session_id}");
     if crate::find_webview(&window, &label).is_some() {
         return Ok(Some(label));
     }
     let parsed_url = url
         .parse::<tauri::Url>()
         .map_err(|e| format!("INVALID_URL:{e}"))?;
+    eprintln!("[eb-dbg] ensure.add_child.dispatch id={session_id}");
     // Materialise the child webview immediately (hidden) so navigate/execute
     // work before any show — mirrors the detached BrowserView contract.
     // ``add_child`` self-dispatches to the main thread; this call must be
@@ -205,6 +207,7 @@ fn ensure_webview(
             LogicalSize::new(1.0, 1.0),
         )
         .map_err(|e| format!("WEBVIEW_CREATE_FAILED:{e}"))?;
+    eprintln!("[eb-dbg] ensure.add_child.done id={session_id}");
     // Sessions materialise detached — nothing is displayed until an explicit
     // show with clamped bounds (screen-pollution contract).
     let _ = webview.hide();
@@ -218,13 +221,16 @@ pub fn create_session(
     url: String,
     bounds: Option<BrowserBounds>,
 ) -> serde_json::Value {
+    eprintln!("[eb-dbg] create.enter id={id}");
     if main_window(app).is_none() {
         return serde_json::json!({"ok": false, "id": id, "url": url, "message": "MAIN_WINDOW_NOT_AVAILABLE"});
     }
+    eprintln!("[eb-dbg] create.window-ok id={id}");
 
     // Clamp outside the lock — it calls into the window (main-thread
     // dispatch) and must never block while the registry is held.
     let clamped = bounds.and_then(|b| clamp_bounds(app, b));
+    eprintln!("[eb-dbg] create.clamped id={id}");
 
     let existing_label = {
         let mut state = embedded_state().lock().unwrap();
@@ -251,6 +257,7 @@ pub fn create_session(
             None
         }
     };
+    eprintln!("[eb-dbg] create.inserted id={id} existing={}", existing_label.is_some());
 
     if let Some(label) = existing_label {
         // Existing session: navigate the live webview.

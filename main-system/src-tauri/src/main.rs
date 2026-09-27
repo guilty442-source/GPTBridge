@@ -216,6 +216,31 @@ fn start_load_watchdog(app: tauri::AppHandle) {
     });
 }
 
+/// Temporary diagnostic: measure event-loop Task dispatch round-trip every
+/// second; logs when the main loop stops processing queued closures.
+fn start_main_thread_heartbeat(app: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_millis(1_000));
+        if shutdown_complete().load(Ordering::SeqCst) {
+            return;
+        }
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        if app
+            .run_on_main_thread(move || {
+                let _ = tx.send(());
+            })
+            .is_err()
+        {
+            eprintln!("[eb-dbg] heartbeat.dispatch-failed");
+            continue;
+        }
+        match rx.recv_timeout(Duration::from_millis(3_000)) {
+            Ok(()) => eprintln!("[eb-dbg] heartbeat.ok"),
+            Err(_) => eprintln!("[eb-dbg] heartbeat.STALLED>3s"),
+        }
+    });
+}
+
 fn mtime(path: &std::path::Path) -> u64 {
     std::fs::metadata(path)
         .and_then(|m| m.modified())
@@ -258,6 +283,7 @@ fn main() {
             create_main_window(&app.handle())?;
             start_renderer_watch(app.handle().clone());
             start_load_watchdog(app.handle().clone());
+            start_main_thread_heartbeat(app.handle().clone());
             // The loopback bridge publishes the embedded-browser session
             // store for tool UIs/backends (A44/E30 + A49/E35).
             bridge::start_embedded_browser_bridge(&app.handle());
