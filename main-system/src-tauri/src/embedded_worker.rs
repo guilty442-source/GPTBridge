@@ -28,6 +28,16 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 const TOKEN_HEADER: &str = "x-gptbridge-worker-token";
 const MAX_BODY_BYTES: usize = 1_048_576;
 
+/// eprintln! panics on a broken stderr handle; worker diagnostics are
+/// best-effort and must never take the process down.
+macro_rules! worker_log {
+    ($($arg:tt)*) => {{
+        use std::io::Write;
+        let _ = writeln!(std::io::stderr().lock(), $($arg)*);
+        let _ = std::io::stderr().flush();
+    }};
+}
+
 pub struct WorkerArgs {
     pub session_id: String,
     pub url: String,
@@ -398,7 +408,7 @@ fn start_parent_watchdog(parent_pid: u32) {
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_secs(2));
         if !parent_alive(parent_pid) {
-            eprintln!("[embedded-worker] PARENT_GONE {parent_pid}");
+            worker_log!("[embedded-worker] PARENT_GONE {parent_pid}");
             std::process::exit(0);
         }
     });
@@ -449,7 +459,7 @@ pub fn run(args: WorkerArgs) -> i32 {
     let listener = match TcpListener::bind("127.0.0.1:0") {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("[embedded-worker] LISTENER_BIND_FAILED {e}");
+            worker_log!("[embedded-worker] LISTENER_BIND_FAILED {e}");
             return 2;
         }
     };
@@ -458,7 +468,7 @@ pub fn run(args: WorkerArgs) -> i32 {
         .map(|a| a.port())
         .unwrap_or_default();
     WORKER_PORT.store(port, std::sync::atomic::Ordering::SeqCst);
-    eprintln!(
+    worker_log!(
         "[embedded-worker] session={} pid={} port={port}",
         args.session_id,
         std::process::id()
@@ -516,7 +526,7 @@ pub fn run(args: WorkerArgs) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("[embedded-worker] TAURI_BUILD_FAILED {e}");
+            worker_log!("[embedded-worker] TAURI_BUILD_FAILED {e}");
             3
         }
     }

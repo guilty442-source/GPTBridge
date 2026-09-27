@@ -6,8 +6,9 @@ The only startup paths are the desktop EXE (official) and source startup
 come up healthy" — MUST go through the desktop EXE so the exact end-user
 launch chain is exercised:
 
-    專案程式庫.exe -> venv pythonw -> launcher/scripts/start.py
-    -> Electron -> boot_core -> backend (ready + UI connected)
+    專案程式庫.exe -> GPTBridgeLauncher shim -> launcher/bin/GPTBridge.Bootstrap.exe
+    -> gptbridge-shell (Tauri) or Electron (migration-only) -> boot_core
+    -> backend (ready + UI connected)
 
 The verifier launches the desktop EXE, waits for the governed readiness
 endpoint (``/health`` with ``runtime_state == "ready"`` and an authenticated

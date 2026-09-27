@@ -101,11 +101,20 @@ pub fn path_library() -> &'static RuntimePathLibrary {
                 .unwrap_or_else(|| packaged_resources_root.clone())
         } else {
             // Source-production contract (matches pathLibrary.ts).
+            // Fallback: walk up from the executable directory looking for
+            // the governed workspace markers — a hardcoded checkout path
+            // silently misroots any moved/renamed checkout.
             std::env::var("GPTBRIDGE_PROJECT_ROOT")
                 .map(PathBuf::from)
                 .ok()
                 .filter(|p| has_workspace_markers(p))
-                .unwrap_or_else(|| PathBuf::from(r"E:\GPTBridge"))
+                .or_else(|| {
+                    executable_dir
+                        .ancestors()
+                        .find(|dir| has_workspace_markers(dir))
+                        .map(|dir| dir.to_path_buf())
+                })
+                .unwrap_or_else(|| executable_dir.clone())
         };
 
         let resources_root = if packaged {

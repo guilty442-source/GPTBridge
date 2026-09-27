@@ -84,8 +84,13 @@ fn monitor_started() -> &'static AtomicBool {
 }
 
 fn report(event: &str, payload: serde_json::Value) {
-    eprintln!("[Main System] {event} {payload}");
-    println!("[Main System] {event} {payload}");
+    // println!/eprintln! panic on broken inherited handles — the shell can
+    // outlive the launcher's stdio, so diagnostics stay best-effort.
+    use std::io::Write;
+    let _ = writeln!(std::io::stderr().lock(), "[Main System] {event} {payload}");
+    let _ = std::io::stderr().flush();
+    let _ = writeln!(std::io::stdout().lock(), "[Main System] {event} {payload}");
+    let _ = std::io::stdout().flush();
 }
 
 pub fn get_backend_status() -> BackendStatus {

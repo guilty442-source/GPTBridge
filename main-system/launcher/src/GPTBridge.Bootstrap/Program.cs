@@ -36,7 +36,8 @@ internal static class Program
 
     // main-system root: the exe installs at launcher/bin/, but builds also
     // run from nested publish dirs — walk up until the root markers appear.
-    private static readonly string ProjectRoot = ResolveProjectRoot();
+    // Not readonly: --project-root overrides these in Main before Launch.
+    private static string ProjectRoot = ResolveProjectRoot();
 
     private static string ResolveProjectRoot()
     {
@@ -53,11 +54,27 @@ internal static class Program
         return Path.GetFullPath(
             Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
     }
-    private static readonly string WorkspaceRoot =
+
+    /// Re-derive every root-dependent path when --project-root overrides
+    /// the auto-detected root; otherwise the flag would only rewrite env
+    /// vars while file resolution silently kept the detected root.
+    private static void ApplyProjectRoot(string root)
+    {
+        ProjectRoot = Path.GetFullPath(root);
+        WorkspaceRoot = Path.GetFullPath(Path.Combine(ProjectRoot, ".."));
+        LauncherRoot = Path.Combine(ProjectRoot, "launcher");
+        StateRoot = Path.Combine(LauncherRoot, "state");
+        UiBuildStampPath = Path.Combine(StateRoot, "ui-build.stamp");
+        JournalPath = Path.Combine(StateRoot, "startup-journal.jsonl");
+        RequirementsStampPath =
+            Path.Combine(StateRoot, "requirements.stamp");
+    }
+
+    private static string WorkspaceRoot =
         Path.GetFullPath(Path.Combine(ProjectRoot, ".."));
-    private static readonly string LauncherRoot =
+    private static string LauncherRoot =
         Path.Combine(ProjectRoot, "launcher");
-    private static readonly string StateRoot =
+    private static string StateRoot =
         Path.Combine(LauncherRoot, "state");
 
     private static readonly string LocalAppData =
@@ -69,11 +86,11 @@ internal static class Program
     private static readonly string RefreshLockPath =
         Path.Combine(InstallRoot, "state", "refresh.lock");
 
-    private static readonly string UiBuildStampPath =
+    private static string UiBuildStampPath =
         Path.Combine(StateRoot, "ui-build.stamp");
-    private static readonly string JournalPath =
+    private static string JournalPath =
         Path.Combine(StateRoot, "startup-journal.jsonl");
-    private static readonly string RequirementsStampPath =
+    private static string RequirementsStampPath =
         Path.Combine(StateRoot, "requirements.stamp");
 
     // Sources feeding the desktop bootstrap refresh fingerprint; keep in
@@ -125,6 +142,10 @@ internal static class Program
         if (string.IsNullOrEmpty(projectRoot))
         {
             projectRoot = ProjectRoot;
+        }
+        else
+        {
+            ApplyProjectRoot(projectRoot);
         }
 
         ApplyRuntimeContextEnvironment();
@@ -246,7 +267,7 @@ internal static class Program
 
         var process = StartHiddenProcess(electronExe, new[] { mainEntry },
             ProjectRoot);
-        Thread.Sleep(800);
+        WaitForEarlyExit(process);
 
         if (process.HasExited)
         {
@@ -356,7 +377,7 @@ internal static class Program
 
         var process = StartHiddenProcess(
             shellExe, Array.Empty<string>(), ProjectRoot);
-        Thread.Sleep(800);
+        WaitForEarlyExit(process);
 
         if (process.HasExited)
         {
@@ -389,6 +410,22 @@ internal static class Program
             "Main system UI launched; gptbridge-shell is supervising "
             + "the governed backend.");
         return 0;
+    }
+
+    /// Poll for an early exit so a host that crashes during startup is
+    /// caught truthfully — returns as soon as the process exits; a healthy
+    /// long-running host waits the full deadline (3 s vs the original
+    /// fixed 800 ms, which missed crashes past that window).
+    private static void WaitForEarlyExit(Process process)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (process.WaitForExit(250))
+            {
+                return;
+            }
+        }
     }
 
     // ------------------------------------------------------------------

@@ -69,7 +69,15 @@ const ALLOWED_CHANNELS: [&str; 25] = [
 ];
 
 fn report(event: &str, payload: serde_json::Value) {
-    println!("[Main System] {event} {payload}");
+    // println! panics on a broken pipe — the shell can outlive the
+    // launcher-provided stdout handle, so a failed write must never be
+    // fatal.  Diagnostics stay best-effort.
+    use std::io::Write;
+    let _ = writeln!(
+        std::io::stdout().lock(),
+        "[Main System] {event} {payload}"
+    );
+    let _ = std::io::stdout().flush();
 }
 
 /// The renderer-visible contract injected into every webview before scripts
