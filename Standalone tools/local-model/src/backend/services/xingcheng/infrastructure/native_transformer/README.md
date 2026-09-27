@@ -1,5 +1,10 @@
 # 星澄原生模型 (XingCheng Native Model)
 
+> **狀態註記（A612 / A621）**：PyTorch 已退役為 migration-only lineage；
+> 訓練主線為 JAX + XLA（`native_transformer/jax_backend`），推論以
+> Native Dispatch（Python / C++）為準。本文件下列以 PyTorch 為主線的
+> 章節屬歷史遷移參考，非當前 canonical 架構。
+
 「星澄」本地原生 AI 模型架構 — 高效能、可擴充、可逐層下沉最佳化的
 PyTorch Transformer 原生實作。
 
