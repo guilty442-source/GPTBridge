@@ -52,13 +52,18 @@ _POWER_SAVING_DEFAULT_MODE = "sleep"
 # UI/CLI selection flips the flag off so the advisor never fights the user.
 # Sleep is the most restrictive tier (CPU 5% strict, RAM 30%, VRAM disabled);
 # used for nightly 22-07 power saving.
-_AUTO_STREAK: int = 3            # consecutive evals before high/medium switch
-_AUTO_COOLDOWN_S: float = 600.0  # min seconds between auto mode changes
+_AUTO_STREAK: int = 3            # consecutive evals before a downgrade switch
+_AUTO_STREAK_UP: int = 2         # consecutive demand evals before high escalation
+_AUTO_COOLDOWN_S: float = 600.0  # min seconds between auto downgrades (relief
+                                 # upgrades are exempt — a cooldown that delays
+                                 # resource relief while demand holds inverts
+                                 # the hysteresis contract)
 _STRAIN_CPU_PCT: float = 85.0    # machine-wide load -> low immediately (sleep only via schedule)
 _STRAIN_MEM_PCT: float = 90.0
 _HEADROOM_CPU_PCT: float = 60.0  # headroom required to allow high
 _HEADROOM_MEM_PCT: float = 75.0
 _DEMAND_FACTOR: float = 0.8      # worker ledger >= 80% of budget = demand
+_TIER_RANK: dict = {"sleep": 0, "low": 1, "medium": 2, "high": 3}
 
 
 def _state() -> dict:
@@ -315,12 +320,16 @@ def auto_adjust_mode() -> dict:
       immediately so 22:00 switches promptly.  Highest priority.
     * ``low``    — responsiveness strained, or machine CPU >= 85 %, or RAM
       >= 90 %; applied immediately (interactivity wins).
-    * ``high``   — worker demand (admission hold or ledger >= 80 % of
-      budget) AND machine headroom (CPU < 60 %, RAM < 75 %); needs
-      ``_AUTO_STREAK`` consecutive evaluations.
-    * ``medium`` — everything else; needs ``_AUTO_STREAK`` evaluations.
+    * ``high``   — worker demand (admission hold, active/pre regulation, or
+      ledger >= 80 % of budget) AND machine headroom (CPU < 60 %, RAM
+      < 75 %); needs ``_AUTO_STREAK_UP`` consecutive evaluations — fast
+      attack so demand bursts are actually relieved.
+    * ``medium`` — everything else.
 
-    A ``_AUTO_COOLDOWN_S`` cooldown bounds oscillation.  Inert unless the
+    Asymmetric hysteresis: upgrades (more permissive tiers) apply after
+    ``_AUTO_STREAK_UP`` evals with no cooldown; downgrades need
+    ``_AUTO_STREAK`` evals plus the ``_AUTO_COOLDOWN_S`` cooldown, which
+    bounds oscillation only where it protects stability.  Inert unless the
     rules file sets ``auto_mode: true`` (預設自動).  The evaluation record
     is always persisted so the control surface can show *why* a mode was
     chosen.
@@ -361,6 +370,8 @@ def auto_adjust_mode() -> dict:
     budget_ram = float(ledger.get("budget_ram_pct") or 0.0)
     demand = (
         state.get("worker_admission_hold") is True
+        or regulation.get("pre") is True
+        or regulation.get("active") is True
         or (budget_cpu > 0 and worker_cpu >= budget_cpu * _DEMAND_FACTOR)
         or (budget_ram > 0 and worker_ram >= budget_ram * _DEMAND_FACTOR)
     )
@@ -422,21 +433,28 @@ def auto_adjust_mode() -> dict:
             "power_saving_active": in_power_saving,
         },
     })
+    upgrade = _TIER_RANK.get(target, 2) > _TIER_RANK.get(
+        current if isinstance(current, str) else "medium", 2
+    )
     if target == current:
         record["reason"] = f"{reason} (already {target})"
         record["streak"] = 0
     elif urgent:
         pass
-    elif streak < _AUTO_STREAK:
+    elif upgrade and streak < _AUTO_STREAK_UP:
+        record["reason"] = f"{reason} (streak {streak}/{_AUTO_STREAK_UP})"
+    elif not upgrade and streak < _AUTO_STREAK:
         record["reason"] = f"{reason} (streak {streak}/{_AUTO_STREAK})"
-    elif time.time() - last_switch < _AUTO_COOLDOWN_S:
+    elif not upgrade and time.time() - last_switch < _AUTO_COOLDOWN_S:
         record["reason"] = f"{reason} (cooldown)"
     else:
         pass
     should_apply = target != current and (
         urgent
+        or (upgrade and streak >= _AUTO_STREAK_UP)
         or (
-            streak >= _AUTO_STREAK
+            not upgrade
+            and streak >= _AUTO_STREAK
             and time.time() - last_switch >= _AUTO_COOLDOWN_S
         )
     )
