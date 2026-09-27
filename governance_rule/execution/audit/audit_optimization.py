@@ -130,6 +130,11 @@ def check_jax_sft_retrace_bound(root: Path, errors: list[str]) -> None:
         )
     if "eval_loss = jax.jit(" not in source:
         errors.append(f"{_SFT}: eval loss must be jax.jit-wrapped")
+    if "collate_bucket" not in source or "def _choose_bucket" not in source:
+        errors.append(
+            f"{_SFT}: adaptive bucket hook missing — JaxSFTConfig."
+            "collate_bucket + _choose_bucket must stay wired"
+        )
 
 
 _INTERVAL_CB = re.compile(r"setInterval\((?:async )?\(\)\s*=>\s*\{")
