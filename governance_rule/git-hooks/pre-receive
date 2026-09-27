@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/e/GPTBridge/main-system/.venv/Scripts/python.exe
 """Governed server-side pre-receive (A53/E39, A375; task §16).
 
 Installed into the central bare repo's ``hooks/`` by
