@@ -60,8 +60,7 @@ OPTIONAL_PYTHON_MODULE_GROUPS: dict[str, dict[str, str]] = {
         "imageio-ffmpeg": "imageio_ffmpeg",
         "numpy": "numpy",
         "pillow": "PIL",
-        "sentence-transformers": "sentence_transformers",
-        "torch": "torch",
+        "jax": "jax",
     },
 }
 
