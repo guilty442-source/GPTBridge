@@ -356,6 +356,16 @@ def publish(staged: StagedGeneration, *, approve: bool = False) -> Path:
     errors = validate_staged(staged)
     if errors:
         raise ConvergenceError("STAGED_INVALID:" + ";".join(errors[:3]))
+    from governance_rule.execution.codex_update_pipeline import (
+        architecture_sync_errors,
+    )
+
+    arch_problems = architecture_sync_errors()
+    if arch_problems:
+        raise ConvergenceError(
+            "PUBLISH_ARCHITECTURE_DOCS_INCOMPLETE:"
+            + ";".join(arch_problems[:3])
+        )
     if staged.authority_source:
         from governance_rule.execution.chinese_codex_mirror import PART_NAMES
         from governance_rule.execution.codex_mirror_writer import (

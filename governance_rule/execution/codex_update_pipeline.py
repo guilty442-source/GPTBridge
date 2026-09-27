@@ -634,6 +634,7 @@ __all__ = [
     "PhaseRecord",
     "UPDATE_FLOW_IDENTITY",
     "UPDATE_PHASES",
+    "architecture_sync_errors",
     "execute_staged_change",
     "frontend_refresh",
     "isolate_generation",
