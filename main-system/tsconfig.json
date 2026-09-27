@@ -6,6 +6,7 @@
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowJs": true,
     "jsx": "react-jsx",
     "strict": true,
     "esModuleInterop": true,
@@ -23,6 +24,8 @@
     }
   },
   "include": [
+    "src-ui/**/*.js",
+    "src-ui/**/*.jsx",
     "src-ui/**/*.ts",
     "src-ui/**/*.tsx",
     "../file-sorter/src/ui/**/*.ts",
