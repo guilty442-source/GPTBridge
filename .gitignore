@@ -115,6 +115,20 @@ governance_rule/execution/audit/codex_entry_state.json
 target/
 Standalone tools/vectord-rs/runtime/
 
+# Worker scratch probes and local env — never source-of-record
+/_*.txt
+/_devin-*.py
+/.env
+
+# Stale native-build lock artifacts (regenerated alongside .pyd)
+**/*.pyd.locked-*
+
+# Runtime-generated stores and append logs (PostgreSQL is authoritative)
+governance_rule/execution/audit/codex_amendment_audit.jsonl
+governance_rule/execution/audit/dev_test_evidence.jsonl
+main-system/runtime/logs/
+main-system/data/automatic-repair/
+
 # .NET build/test artifacts (C# migration; never source-of-record)
 *.obj
 TestResults/
