@@ -91,7 +91,9 @@ def authority_file_digest(paths: list[Path]) -> str:
         digest.update(str(path).encode("utf-8"))
         digest.update(b"\0")
         try:
-            digest.update(path.read_bytes())
+            with path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1 << 20), b""):
+                    digest.update(chunk)
         except OSError:
             digest.update(b"<missing>")
         digest.update(b"\0")

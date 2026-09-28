@@ -556,7 +556,9 @@ class PipelineRecoveryMixin:
             )
             steps.append(RebuildStep.READ_PG_METADATA)
 
-            # RESOLVE_SOURCES + RECHUNK_REEMBED
+            # RESOLVE_SOURCES + RECHUNK_REEMBED — B61/C56: chunks that
+            # carry a canonical embedding are projected as a copy; only
+            # rows missing one are re-embedded and backfilled into PG.
             for mid, rid in resources:
                 chunks = await self.postgresql.fetch_resource_chunks(mid, rid)
                 texts = [str(c.get("content") or "") for c in chunks]
@@ -572,13 +574,26 @@ class PipelineRecoveryMixin:
                         "vector_point_id": None,
                         "sequence": 0,
                         "content": texts[0],
+                        "embedding": None,
                         "payload": {},
                     }]
-                if not chunks or not any(texts) or self._embed_texts is None:
+                vectors: list = [c.get("embedding") for c in chunks]
+                missing = [i for i, v in enumerate(vectors) if v is None]
+                if not chunks or (missing and self._embed_texts is None):
                     continue
-                vectors = await self._call_maybe_async(self._embed_texts, texts)
-                if len(vectors) != len(chunks):
-                    continue
+                if missing:
+                    fresh = await self._call_maybe_async(
+                        self._embed_texts,
+                        [texts[i] for i in missing],
+                    )
+                    if len(fresh) != len(missing):
+                        continue
+                    for i, v in zip(missing, fresh):
+                        vectors[i] = v
+                    await self.postgresql.store_chunk_embeddings(
+                        mid, rid,
+                        {chunks[i]["chunk_id"]: vectors[i] for i in missing},
+                    )
                 for v in vectors:
                     if len(v) != self.config.embedding_dimension:
                         raise CanonicalCheckError(

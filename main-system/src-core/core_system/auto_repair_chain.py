@@ -208,7 +208,7 @@ class AutoRepairOrchestrator:
         for path in grant.path_scope:
             for rel, file in iter_scope_files(self.project_root, path):
                 try:
-                    pre_hashes[rel] = hashlib.sha256(file.read_bytes()).hexdigest()
+                    pre_hashes[rel] = file_sha256(file)
                 except OSError:
                     continue
 

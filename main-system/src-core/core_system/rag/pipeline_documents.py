@@ -101,6 +101,11 @@ class PipelineDocumentsMixin:
                 "chunk_ids": [str(c.get("chunk_id")) for c in chunks],
             },
         )
+        # B61/C56: the canonical PostgreSQL transaction carries the
+        # embedding values themselves — the vectord upsert below is a
+        # derived projection of what PG already holds.
+        for chunk, vector in zip(chunks, vectors):
+            chunk["embedding"] = vector
         write_tx = getattr(self.postgresql, "document_write_tx", None)
         if write_tx is not None:
             if not await write_tx(

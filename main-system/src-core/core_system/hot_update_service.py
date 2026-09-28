@@ -154,7 +154,7 @@ class HotUpdateService(HotUpdateHashMixin, HotUpdateReloadMixin, HotUpdateIdleMi
             try:
                 path = Path(file_path).resolve()
                 relative = path.relative_to(self.project_root).as_posix()
-                protected[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+                protected[relative] = file_sha256(path)
             except (OSError, ValueError):
                 continue
         if not protected:

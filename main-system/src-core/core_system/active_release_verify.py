@@ -7,9 +7,10 @@ and frontend-backend release matching.
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 from typing import Any, Final
+
+from shared_layer.workflow.atomic_file import file_sha256
 
 from core_system.active_release_persistence import (
     ACTIVE_POINTER_PATH,
@@ -61,7 +62,7 @@ def _compute_artifact_digest(relative_path: str) -> str | None:
     if not candidate.is_file():
         return None
     try:
-        return hashlib.sha256(candidate.read_bytes()).hexdigest()
+        return file_sha256(candidate)
     except OSError:
         return None
 

@@ -117,15 +117,28 @@ class PipelineOutboxMixin:
             )
             return False
 
-        if self._embed_texts is None:
-            raise RuntimeError(
-                "outbox replay requires embed_texts — vectors are never "
-                "stored in the outbox payload"
+        # B61/C56: canonical embeddings live on the PostgreSQL chunk row.
+        # Chunks that already carry a stored vector are projected as a
+        # copy; only chunks missing one (rows predating the canonical
+        # embedding column) are re-embedded and backfilled into PG first.
+        vectors: list[list[float] | None] = [c.get("embedding") for c in chunks]
+        missing = [i for i, v in enumerate(vectors) if v is None]
+        if missing:
+            if self._embed_texts is None:
+                raise RuntimeError(
+                    "outbox replay requires embed_texts for chunks "
+                    "missing a canonical embedding"
+                )
+            texts = [str(chunks[i].get("content") or "") for i in missing]
+            fresh = await self._call_maybe_async(self._embed_texts, texts)
+            if len(fresh) != len(missing):
+                return False
+            for i, vector in zip(missing, fresh):
+                vectors[i] = vector
+            await self.postgresql.store_chunk_embeddings(
+                module_id, resource_id,
+                {chunks[i]["chunk_id"]: vectors[i] for i in missing},
             )
-        texts = [str(c.get("content") or "") for c in chunks]
-        vectors = await self._call_maybe_async(self._embed_texts, texts)
-        if len(vectors) != len(texts):
-            return False
         for vector in vectors:
             if len(vector) != self.config.embedding_dimension:
                 raise RuntimeError(

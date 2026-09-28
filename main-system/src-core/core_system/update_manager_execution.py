@@ -251,7 +251,7 @@ class UpdateExecutionMixin:
             ):
                 continue
             try:
-                digest = hashlib.sha256(resolved.read_bytes()).hexdigest()
+                digest = file_sha256(resolved)
             except OSError:
                 continue
             new_hashes[name] = digest

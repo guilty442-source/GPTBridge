@@ -257,7 +257,7 @@ class GovernedExecutor:
         for path in paths:
             full_path = self.project_root / path
             if full_path.exists():
-                hashes[path] = hashlib.sha256(full_path.read_bytes()).hexdigest()
+                hashes[path] = file_sha256(full_path)
         return hashes
 
     def _generate_diff(self, pre: dict[str, str], post: dict[str, str]) -> str:

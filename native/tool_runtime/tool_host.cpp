@@ -7,6 +7,9 @@
  * 此，token/路由/傳輸留 Python 代理（模式 B）。
  * 非 Windows → 全部入口 fail-closed。 */
 
+/* 置頂：_CRT_RAND_S 必須先於首個 stdlib.h 引入（rand_s 宣告），
+   內部標頭負責定義並在 Windows 下拉入 tool_host.h。 */
+#include "tool_host_internal.h"
 #include "tool_host.h"
 
 #ifndef _WIN32

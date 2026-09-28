@@ -99,7 +99,7 @@ def module_source_hash(file_path: str) -> str | None:
             cached_mtime, cached_hash = _file_hash_cache[file_path]
             if cached_mtime == mtime:
                 return cached_hash
-        hash_val = hashlib.sha256(path.read_bytes()).hexdigest()
+        hash_val = file_sha256(path)
         _file_hash_cache[file_path] = (mtime, hash_val)
         return hash_val
     except (OSError, ValueError):

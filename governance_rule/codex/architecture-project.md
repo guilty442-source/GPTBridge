@@ -424,3 +424,7 @@ PostgreSQL＋pgvector 是唯一正式向量與結構化資料權威，保存 emb
 ## 法典版本權威
 
 只有最新正式發布、且與 `current_version` 及 current binding 完全一致的法典版本具權威。新版本發布時，所有舊版立即成為不可變、非權威的 `HISTORICAL_SUPERSEDED`，並記錄 successor、退役時間與原因。舊版只能用於歷史、稽核、比較及回復證據；快取、備份、複本或 restore 不得讓舊版重新取得權威。需要回復舊內容時，必須發布具新版本身分的後繼版本。
+
+## 無 Python 測試與審計架構
+
+所有測試與審計套件完全移除 Python。C# `TestSuiteOrchestrator` 是唯一測試編排器；C/C++ 原生套件執行所有測試；C++ `Audit Engine` 執行所有審計。測試與審計閘不得啟動 Python、匯入 Python 模組、呼叫 pytest 或將不支援檢查委派給 Python。不支援項目只能標記 `BLOCKED` 並拒絕發布，直到原生覆蓋完成。Python 僅保留最薄治理語意介面及按需 JAX 訓練，兩者均不屬測試或審計套件。
