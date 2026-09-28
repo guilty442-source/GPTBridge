@@ -30,8 +30,33 @@ from tasks.repair_learning_types import (
 from tasks.central_repair import CentralRepairService
 
 
-def _learner(tmp_path: Path) -> RepairLearner:
-    return RepairLearner(RepairLearningStore(tmp_path / "repair"))
+@pytest.fixture
+def repair_schema():
+    import uuid
+
+    schema = "rt_test_" + uuid.uuid4().hex[:12]
+    import psycopg
+
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+    dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.commit()
+    try:
+        yield schema
+    finally:
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
+
+
+def _learner(tmp_path: Path, schema: str) -> RepairLearner:
+    return RepairLearner(RepairLearningStore(tmp_path / "repair", schema=schema))
 
 
 def _signature(
@@ -50,8 +75,8 @@ def _signature(
 # ---------------------------------------------------------------------------
 
 
-def test_teach_recipe_stores_doctrine(tmp_path: Path) -> None:
-    learner = _learner(tmp_path)
+def test_teach_recipe_stores_doctrine(tmp_path: Path, repair_schema) -> None:
+    learner = _learner(tmp_path, repair_schema)
     result = learner.teach_recipe(
         name="工具崩潰→重建",
         failure_signatures=("TOOL_RUNTIME_CRASH", "TOOL_START_FAILED"),
@@ -70,8 +95,8 @@ def test_teach_recipe_stores_doctrine(tmp_path: Path) -> None:
     assert stored[0]["verification"] == "rebuilt executable starts"
 
 
-def test_teach_recipe_rejects_mutation_remedy(tmp_path: Path) -> None:
-    learner = _learner(tmp_path)
+def test_teach_recipe_rejects_mutation_remedy(tmp_path: Path, repair_schema) -> None:
+    learner = _learner(tmp_path, repair_schema)
     result = learner.teach_recipe(
         name="bad",
         failure_signatures=("X",),
@@ -82,8 +107,8 @@ def test_teach_recipe_rejects_mutation_remedy(tmp_path: Path) -> None:
     assert learner.store.get_learned_recipes() == []
 
 
-def test_teach_recipe_requires_signature(tmp_path: Path) -> None:
-    learner = _learner(tmp_path)
+def test_teach_recipe_requires_signature(tmp_path: Path, repair_schema) -> None:
+    learner = _learner(tmp_path, repair_schema)
     result = learner.teach_recipe(
         name="empty", failure_signatures=(), remedy="inspect-owned-databases"
     )
@@ -91,8 +116,8 @@ def test_teach_recipe_requires_signature(tmp_path: Path) -> None:
     assert result["reason"] == "failure-signatures-required"
 
 
-def test_teach_recipe_is_idempotent(tmp_path: Path) -> None:
-    learner = _learner(tmp_path)
+def test_teach_recipe_is_idempotent(tmp_path: Path, repair_schema) -> None:
+    learner = _learner(tmp_path, repair_schema)
     kwargs = {
         "name": "工具崩潰→重建",
         "failure_signatures": ("TOOL_RUNTIME_CRASH",),
@@ -111,8 +136,8 @@ def test_teach_recipe_is_idempotent(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_suggest_remedy_falls_back_to_taught(tmp_path: Path) -> None:
-    learner = _learner(tmp_path)
+def test_suggest_remedy_falls_back_to_taught(tmp_path: Path, repair_schema) -> None:
+    learner = _learner(tmp_path, repair_schema)
     learner.teach_recipe(
         name="工具崩潰→重建",
         failure_signatures=("TOOL_RUNTIME_CRASH",),
@@ -125,8 +150,8 @@ def test_suggest_remedy_falls_back_to_taught(tmp_path: Path) -> None:
     assert "rebuild-tool-executable" in suggestion["remedy"]
 
 
-def test_suggest_remedy_prefers_outcome_history(tmp_path: Path) -> None:
-    learner = _learner(tmp_path)
+def test_suggest_remedy_prefers_outcome_history(tmp_path: Path, repair_schema) -> None:
+    learner = _learner(tmp_path, repair_schema)
     learner.teach_recipe(
         name="工具崩潰→重建",
         failure_signatures=("TOOL_RUNTIME_CRASH",),
@@ -152,12 +177,14 @@ def test_suggest_remedy_prefers_outcome_history(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _central_repair(tmp_path: Path) -> CentralRepairService:
-    return CentralRepairService(tmp_path, tmp_path / "automatic-repair")
+def _central_repair(tmp_path: Path, schema: str) -> CentralRepairService:
+    return CentralRepairService(
+        tmp_path, tmp_path / "automatic-repair", repair_schema=schema
+    )
 
 
-def test_taught_recipe_merges_into_known_recipes(tmp_path: Path) -> None:
-    service = _central_repair(tmp_path)
+def test_taught_recipe_merges_into_known_recipes(tmp_path: Path, repair_schema) -> None:
+    service = _central_repair(tmp_path, repair_schema)
     service.learner.teach_recipe(
         name="工具崩潰→重建",
         failure_signatures=("TOOL_RUNTIME_CRASH",),
@@ -176,10 +203,10 @@ def test_taught_recipe_merges_into_known_recipes(tmp_path: Path) -> None:
     ]
 
 
-def test_taught_recipe_plans_repair(tmp_path: Path) -> None:
+def test_taught_recipe_plans_repair(tmp_path: Path, repair_schema) -> None:
     from tasks.repair_planning import plan_repair
 
-    service = _central_repair(tmp_path)
+    service = _central_repair(tmp_path, repair_schema)
     service.learner.teach_recipe(
         name="連線暫態→觀察不修",
         failure_signatures=("CONNECTION_DEGRADED",),
@@ -192,10 +219,10 @@ def test_taught_recipe_plans_repair(tmp_path: Path) -> None:
     assert plan.inspect_databases is True
 
 
-def test_unverified_taught_recipe_does_not_plan(tmp_path: Path) -> None:
+def test_unverified_taught_recipe_does_not_plan(tmp_path: Path, repair_schema) -> None:
     from tasks.repair_planning import plan_repair
 
-    service = _central_repair(tmp_path)
+    service = _central_repair(tmp_path, repair_schema)
     service.learner.teach_recipe(
         name="unverified",
         failure_signatures=("SOME_NEW_FAULT",),
@@ -214,15 +241,15 @@ def test_unverified_taught_recipe_does_not_plan(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _entity(tmp_path: Path) -> Any:
+def _entity(tmp_path: Path, schema: str) -> Any:
     from governance.sovereigns.xingcheng_sovereign import XingchengSovereign
 
-    app = SimpleNamespace(project_root=tmp_path)
+    app = SimpleNamespace(project_root=tmp_path, repair_schema=schema)
     return XingchengSovereign(app)
 
 
-def test_learn_teach_adjudication(tmp_path: Path) -> None:
-    child = _entity(tmp_path)
+def test_learn_teach_adjudication(tmp_path: Path, repair_schema) -> None:
+    child = _entity(tmp_path, repair_schema)
     request = SimpleNamespace(
         payload={
             "signature": {
@@ -242,8 +269,8 @@ def test_learn_teach_adjudication(tmp_path: Path) -> None:
     assert child._learner.store.get_learned_recipes()
 
 
-def test_learn_teach_rejects_unbounded_remedy(tmp_path: Path) -> None:
-    child = _entity(tmp_path)
+def test_learn_teach_rejects_unbounded_remedy(tmp_path: Path, repair_schema) -> None:
+    child = _entity(tmp_path, repair_schema)
     request = SimpleNamespace(
         payload={
             "signature": {"error_class": "X"},
@@ -257,8 +284,8 @@ def test_learn_teach_rejects_unbounded_remedy(tmp_path: Path) -> None:
     )
 
 
-def test_curriculum_applies_on_arm(tmp_path: Path) -> None:
-    child = _entity(tmp_path)
+def test_curriculum_applies_on_arm(tmp_path: Path, repair_schema) -> None:
+    child = _entity(tmp_path, repair_schema)
     child._ensure_learner()
     result = child._apply_repair_curriculum()
     assert result["applied"] > 0
@@ -273,7 +300,7 @@ def test_curriculum_applies_on_arm(tmp_path: Path) -> None:
     assert "CONNECTION_DEGRADED" in signatures
 
 
-def test_bridge_emits_teaching_example(tmp_path: Path) -> None:
+def test_bridge_emits_teaching_example(tmp_path: Path, repair_schema) -> None:
     submitted: list[tuple[str, str, dict[str, Any]]] = []
     permission = SimpleNamespace(
         submit_tool_execution_request=lambda tool, rid, payload: submitted.append(
@@ -283,7 +310,9 @@ def test_bridge_emits_teaching_example(tmp_path: Path) -> None:
     from governance.sovereigns.xingcheng_sovereign import XingchengSovereign
 
     app = SimpleNamespace(
-        project_root=tmp_path, permission_sovereign=permission
+        project_root=tmp_path,
+        permission_sovereign=permission,
+        repair_schema=repair_schema,
     )
     child = XingchengSovereign(app)
     child._ensure_learner()
@@ -306,7 +335,7 @@ def test_bridge_emits_teaching_example(tmp_path: Path) -> None:
     assert payload["recipe_source"] == "taught"
 
 
-def test_bridge_failure_does_not_fail_teach(tmp_path: Path) -> None:
+def test_bridge_failure_does_not_fail_teach(tmp_path: Path, repair_schema) -> None:
     def _explode(tool: str, rid: str, payload: dict[str, Any]) -> None:
         raise RuntimeError("channel down")
 
@@ -314,7 +343,9 @@ def test_bridge_failure_does_not_fail_teach(tmp_path: Path) -> None:
     from governance.sovereigns.xingcheng_sovereign import XingchengSovereign
 
     app = SimpleNamespace(
-        project_root=tmp_path, permission_sovereign=permission
+        project_root=tmp_path,
+        permission_sovereign=permission,
+        repair_schema=repair_schema,
     )
     child = XingchengSovereign(app)
     outcome = child._adjudicate_learn_teach(

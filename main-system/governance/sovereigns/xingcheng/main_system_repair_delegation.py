@@ -198,7 +198,10 @@ class XingchengMainSystemRepairMixin:
             )
 
         root = Path(getattr(self.app, "repair_data_root", "main-system/data/automatic-repair")).resolve()
-        learner = RepairLearner(RepairLearningStore(root))
+        schema = getattr(self.app, "repair_schema", None)
+        learner = RepairLearner(
+            RepairLearningStore(root, **({"schema": schema} if schema else {}))
+        )
 
         signature = ErrorSignature(
             error_class=error_class,
