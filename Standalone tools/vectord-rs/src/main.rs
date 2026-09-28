@@ -6,6 +6,7 @@
 //! scope/revision/tombstone on the candidate IDs this engine returns
 //! (codex A610 DATA-ARCHITECTURE-TARGET / DATA-SAFETY).
 
+mod embed;
 mod requests;
 mod store;
 mod work_stealing;
@@ -43,7 +44,8 @@ const PENDING_CONN_DEADLINE: Duration = Duration::from_millis(2000);
 
 use requests::{
     AliasGetRequest, AliasSetRequest, EnsureRequest, FilteredRequest,
-    InfoRequest, SearchRequest, UpsertRequest,
+    InfoRequest, SearchRequest, SearchTextRequest, UpsertRequest,
+    UpsertTextRequest,
 };
 
 struct App {
@@ -285,6 +287,62 @@ fn route(app: &App, method: &str, path: &str, body: &[u8]) -> Value {
                     app.dirty.store(true, Ordering::Relaxed);
                     ok(json!({"upserted": n}))
                 }
+                Err(e) => err(&e),
+            }
+        }
+        ("POST", "/v1/points/upsert_text") => {
+            // PERF-07: callers send text; the embedding is computed inside
+            // the owning engine — no vector serialisation crosses the wire.
+            let req: UpsertTextRequest = match serde_json::from_slice(body) {
+                Ok(r) => r,
+                Err(_) => return err("INVALID_JSON"),
+            };
+            let dimension = match app.store.collection_info(&req.collection) {
+                Some((_, dim)) => dim,
+                None => return err("COLLECTION_MISSING"),
+            };
+            let points: Vec<(String, Vec<f32>, Value)> = req
+                .points
+                .into_iter()
+                .map(|p| {
+                    let vector = embed::embed(&p.text, dimension);
+                    (p.id, vector, p.payload)
+                })
+                .collect();
+            match app.store.upsert_points(&req.collection, points) {
+                Ok(n) => {
+                    app.dirty.store(true, Ordering::Relaxed);
+                    ok(json!({"upserted": n}))
+                }
+                Err(e) => err(&e),
+            }
+        }
+        ("POST", "/v1/search_text") => {
+            let req: SearchTextRequest = match serde_json::from_slice(body) {
+                Ok(r) => r,
+                Err(_) => return err("INVALID_JSON"),
+            };
+            let dimension = match app.store.collection_info(&req.collection) {
+                Some((_, dim)) => dim,
+                None => return err("COLLECTION_MISSING"),
+            };
+            let query = embed::embed(&req.text, dimension);
+            let top_k = req.top_k.unwrap_or(10).min(256);
+            let threshold = req.score_threshold.unwrap_or(0.0);
+            match app
+                .store
+                .search(&req.collection, &query, top_k, threshold, &req.filter)
+            {
+                Ok(hits) => ok(json!({
+                    "hits": hits
+                        .into_iter()
+                        .map(|(id, score, payload)| json!({
+                            "id": id,
+                            "score": score,
+                            "payload": payload,
+                        }))
+                        .collect::<Vec<_>>()
+                })),
                 Err(e) => err(&e),
             }
         }

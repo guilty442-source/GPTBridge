@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import os
 import re
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Final, Iterator
@@ -37,28 +39,108 @@ def admin_dsn() -> str:
 
 _thread_local = threading.local()
 
+# C59 POOL-ISOLATION: cached codex read connections are bounded two ways —
+# a per-process cap on held slots and an idle TTL that returns idle backends
+# to the server.  Workers that churn threads no longer leak one connection
+# per thread for the process lifetime (observed: every bound executor worker
+# pinned a runtime slot, exhausting non-superuser connections fleet-wide).
+_CODEX_CONN_IDLE_TTL_S: Final[float] = float(
+    os.environ.get("GPTBRIDGE_CODEX_CONN_IDLE_TTL_S", "120")
+)
+_CODEX_CONN_CACHE_MAX: Final[int] = int(
+    os.environ.get("GPTBRIDGE_CODEX_CONN_CACHE_MAX", "4")
+)
+_cached_connections: dict[int, psycopg.Connection[Any]] = {}
+_cached_lock = threading.Lock()
+
+
+def _close_connection(connection: psycopg.Connection[Any]) -> None:
+    try:
+        connection.close()
+    except Exception:
+        pass
+
+
+def _drop_cached(connection: psycopg.Connection[Any]) -> None:
+    with _cached_lock:
+        _cached_connections.pop(id(connection), None)
+
+
+def close_cached_connections() -> None:
+    """Close every cached codex read connection (process teardown/tests)."""
+    with _cached_lock:
+        connections = list(_cached_connections.values())
+        _cached_connections.clear()
+    for connection in connections:
+        _close_connection(connection)
+
+
+atexit.register(close_cached_connections)
+
+
+def _new_readonly_connection() -> psycopg.Connection[Any]:
+    return psycopg.connect(
+        runtime_dsn(),
+        connect_timeout=5,
+        options="-c default_transaction_read_only=on",
+    )
+
 
 @contextmanager
 def readonly_connection() -> Iterator[psycopg.Connection[Any]]:
     # Adjudication bursts issue several codex reads back-to-back; paying a
     # fresh psycopg.connect (~250 ms of socket handshake measured on the
-    # event loop) per read starved the backend during startup.  Keep one
-    # read-only connection per thread and wrap each borrow in a real
+    # event loop) per read starved the backend during startup.  Keep at
+    # most one read-only connection per thread — bounded by the per-process
+    # cache cap and an idle TTL — and wrap each borrow in a real
     # transaction, preserving the original single-snapshot semantics
     # (SET LOCAL still scopes search_path to the borrowed transaction).
-    connection = getattr(_thread_local, "readonly_conn", None)
-    if connection is not None and (connection.closed or connection.broken):
-        connection = None
+    # When the cache cap is reached the borrow falls back to a transient
+    # connection that is closed on exit: callers never observe unbounded
+    # slot growth.
+    connection: psycopg.Connection[Any] | None = None
+    cached = False
+    entry = getattr(_thread_local, "readonly_conn", None)
+    if entry is not None:
+        candidate, last_used = entry
+        if candidate.closed or candidate.broken or (
+            time.monotonic() - last_used > _CODEX_CONN_IDLE_TTL_S
+        ):
+            _drop_cached(candidate)
+            _close_connection(candidate)
+        else:
+            connection = candidate
+            cached = True
     if connection is None:
-        connection = psycopg.connect(
-            runtime_dsn(),
-            connect_timeout=5,
-            options="-c default_transaction_read_only=on",
-        )
-        _thread_local.readonly_conn = connection
-    with connection.transaction():
-        connection.execute(sql.SQL("SET LOCAL search_path TO {}, pg_catalog").format(sql.Identifier(CODEX_SCHEMA)))
-        yield connection
+        with _cached_lock:
+            for key, conn in list(_cached_connections.items()):
+                if conn.closed or conn.broken:
+                    del _cached_connections[key]
+            cached = len(_cached_connections) < _CODEX_CONN_CACHE_MAX
+            if cached:
+                connection = _new_readonly_connection()
+                _cached_connections[id(connection)] = connection
+        if not cached:
+            connection = _new_readonly_connection()
+    assert connection is not None
+    try:
+        with connection.transaction():
+            connection.execute(
+                sql.SQL("SET LOCAL search_path TO {}, pg_catalog").format(
+                    sql.Identifier(CODEX_SCHEMA)
+                )
+            )
+            yield connection
+    finally:
+        if connection.closed or connection.broken:
+            _drop_cached(connection)
+            _close_connection(connection)
+            if getattr(_thread_local, "readonly_conn", (None,))[0] is connection:
+                _thread_local.readonly_conn = None
+        elif cached:
+            _thread_local.readonly_conn = (connection, time.monotonic())
+        else:
+            _close_connection(connection)
 
 
 def _pg_type(declared_type: str, values: list[Any]) -> str:

@@ -36,6 +36,34 @@ pub(crate) struct UpsertRequest {
     pub points: Vec<PointIn>,
 }
 
+/// Text-bearing point: the engine embeds `text` itself so callers never
+/// serialise the vector (PERF-07 — reference/compute at the owner).
+#[derive(Deserialize)]
+pub(crate) struct TextPointIn {
+    pub id: String,
+    pub text: String,
+    #[serde(default)]
+    pub payload: Value,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct UpsertTextRequest {
+    pub collection: String,
+    pub points: Vec<TextPointIn>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct SearchTextRequest {
+    pub collection: String,
+    pub text: String,
+    #[serde(default)]
+    pub top_k: Option<usize>,
+    #[serde(default)]
+    pub score_threshold: Option<f32>,
+    #[serde(default)]
+    pub filter: Filter,
+}
+
 #[derive(Deserialize)]
 pub(crate) struct SearchRequest {
     pub collection: String,
