@@ -4,29 +4,31 @@
  "worker": "devin-cli",
  "type": "adjudication-request",
  "authority": "governance-rule-only",
- "subject": "PYTHON_MINIMIZATION_BASELINE allowed_zones.GOVERNANCE loc drift: 57805 > 57537 (+268 LOC, files 204 unchanged vs adjudicated rev3)",
+ "subject": "PYTHON_MINIMIZATION_BASELINE allowed_zones.GOVERNANCE loc drift: 58142 > 57537 (+605 LOC, files 205 vs 204)",
  "invariant": "main-system/config/python-minimization-baseline.json allowed_zones.GOVERNANCE freezes total LOC; test_allowed_zones_frozen enforces strict > comparison. Policy: ratchet only tightens; growth requires governor adjudication.",
- "measured_at": "2026-09-28T18:55:00+08:00",
+ "measured_at": "2026-09-28T19:00:00+08:00",
  "live_state": {
-  "governance_zone_files": 204,
+  "governance_zone_files": 205,
   "governance_zone_files_baseline": 204,
-  "governance_zone_loc": 57805,
+  "governance_zone_loc": 58142,
   "governance_zone_loc_baseline": 57537,
-  "net_drift_loc": 268,
-  "zero_targets_status": "all nine zero-target buckets at or below baseline; GENERAL_APP tightened to 564 files / 114493 loc after codex_sync_drivers consolidation (was 565 / 114858)"
+  "net_drift_loc": 605,
+  "zero_targets_status": "all nine zero-target buckets at or below baseline; GENERAL_APP tightened to 564 files / 114493 loc after codex_sync_drivers consolidation (was 565 / 114858)",
+  "note": "governance zone is actively growing while this request is filed (B34/B172 in-flight commits); adjudication should re-anchor to measured-at-review value"
  },
  "drift_sources": {
   "scope": "commits since baseline adjudication rev3 (metadata.measured_at = 2026-09-28T10:34:14Z)",
   "contributors": [
    "5e83139d: audit export engine glob-not-contains/glob-absent kinds + 4 delegated checks promoted to native (B172) — export_audit_manifest.py +105 net LOC",
    "legacy_python_verification_adapter.py (+327, uncommitted in-flight): sole legal pytest spawn point per B34 native-runner/Python-retirement transition — DEVELOPMENT-VERIFICATION-only adapter classified in GOVERNANCE bucket by path",
-   "offset by zone-ratchet revert: duplicate B73 file-scan mechanism removed from audit_architecture.py/audit_checks.py (python-minimization-baseline.json contract is the sole ratchet authority)"
+   "offset by zone-ratchet revert: duplicate B73 file-scan mechanism removed from audit_architecture.py/audit_checks.py (python-minimization-baseline.json contract is the sole ratchet authority)",
+   "continued in-flight B34/B172 governance machinery commits during filing (loc 57805->58142 within minutes)"
   ],
   "nature": "codex-mandated machinery growth inside the allowed GOVERNANCE zone (policy: thin-to-minimum, stays-python): native audit-engine kind expansion (B172) and the sole legal pytest spawn point for the B34 test-runner transition"
  },
  "assessment": "The +268 LOC is legitimate codex-mandated growth inside the allowed GOVERNANCE zone. Implementation-side cannot self-authorize an upward baseline adjustment (ratchet direction is tighten-only, authority is governance-rule-only) and will not fabricate shrinkage of governed machinery.",
  "requested_governor_actions": [
-  "adjudicate the +268 LOC drift: either re-anchor allowed_zones.GOVERNANCE.loc to the measured 57805 (contract_revision bump, adjudications entry appended), or direct specific modules for thinning",
+  "adjudicate the +268 LOC drift: either re-anchor allowed_zones.GOVERNANCE.loc to the measured measured-at-review value (~58142 at filing; still moving) (contract_revision bump, adjudications entry appended), or direct specific modules for thinning",
   "optionally re-classify legacy_python_verification_adapter.py into the VERIFICATION measurement zone — it is development-verification-only by design but lands in GOVERNANCE by path rule",
   "if re-anchoring, record the adjudication in metadata.adjudications_revN with this evidence file as reference"
  ],
