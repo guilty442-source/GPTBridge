@@ -43,21 +43,30 @@ def tool_root() -> Path:
     return Path(__file__).resolve().parents[6]
 
 
+# Codex project_architecture_directory: the xingcheng domain has two
+# registered data roots — XINGCHENG_INSTITUTION_ROOT (xingcheng/) and
+# STAR_DIRECTORY (model-dialogue/xingcheng) — both declared
+# "residency XINGCHENG_DOMAIN_ONLY; no external persistence".
+XINGCHENG_DOMAIN_ROOTS = ("xingcheng", "model-dialogue/xingcheng")
+
+
 def xingcheng_root() -> Path:
-    return tool_root() / "xingcheng"
+    return tool_root() / XINGCHENG_DOMAIN_ROOTS[0]
 
 
 def assert_inside_xingcheng(path: str | Path) -> Path:
-    """Data-residency guard: xingcheng-owned data lives only inside
-    ``tool_root()/xingcheng``. Export targets, ledgers, retention victims
-    and the pinned serving artifact resolving outside the boundary are
-    refused fail-closed."""
+    """Data-residency guard: xingcheng-owned data lives only inside the
+    registered xingcheng domain roots. Export targets, ledgers, retention
+    victims and the pinned serving artifact resolving outside the
+    boundary are refused fail-closed."""
     resolved = Path(path).resolve()
-    try:
-        resolved.relative_to(xingcheng_root())
-    except ValueError:
-        raise ValueError(f"XINGCHENG_DATA_BOUNDARY:{resolved}") from None
-    return resolved
+    for rel in XINGCHENG_DOMAIN_ROOTS:
+        try:
+            resolved.relative_to(tool_root() / rel)
+            return resolved
+        except ValueError:
+            continue
+    raise ValueError(f"XINGCHENG_DATA_BOUNDARY:{resolved}") from None
 
 
 def _extension_dir() -> Path:
