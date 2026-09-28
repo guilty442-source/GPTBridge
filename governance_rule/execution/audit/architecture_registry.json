@@ -1006,6 +1006,24 @@
       "block": "BLOCK_TOOLS"
     },
     {
+      "component_id": "resource-governor",
+      "architectural_role": "execution",
+      "runtime_form": "standalone-service",
+      "owner_sovereign": "system-runtime",
+      "execution_identity": "resource-governor",
+      "physical_path": "native/resource_governor",
+      "lifecycle": "resident",
+      "canonical": true,
+      "independent_tool": false,
+      "dependencies": [],
+      "information_channels": [
+        "information-channel"
+      ],
+      "architecture_code": "RESOURCE_GOVERNOR",
+      "unit": "",
+      "block": "BLOCK_TOOLS"
+    },
+    {
       "component_id": "native-compute-core",
       "architectural_role": "execution",
       "runtime_form": "native-library",
