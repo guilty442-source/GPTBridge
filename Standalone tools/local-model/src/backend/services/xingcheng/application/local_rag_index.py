@@ -104,11 +104,16 @@ class LocalRagIndexMixin:
             # re-derives the index vectors in-engine (upsert_text) and PG
             # binds the bytes verbatim; legacy float lists keep the
             # vector-bearing path unchanged.
-            if points and isinstance(
-                points[0].get("vector"), (bytes, bytearray, memoryview)
+            index_text = getattr(self.canonical, "index_document_text", None)
+            if (
+                callable(index_text)
+                and points
+                and isinstance(
+                    points[0].get("vector"), (bytes, bytearray, memoryview)
+                )
             ):
                 return bool(
-                    self.canonical.index_document_text(
+                    index_text(
                         document=document_record,
                         chunks=canonical_chunks,
                         embedding_records=[point["vector"] for point in points],
@@ -146,9 +151,10 @@ class LocalRagIndexMixin:
         # embedding records (binary /v1/embed) — the bytes feed the PG
         # chunk authority and the mirror blob verbatim, so no Python float
         # list is ever materialised.  Degraded keeps the local embed path.
+        embed_bytes = getattr(self.canonical, "embed_bytes", None)
         records = (
-            self.canonical.embed_bytes(chunk_texts)
-            if canonical_ready
+            embed_bytes(chunk_texts)
+            if canonical_ready and callable(embed_bytes)
             else None
         )
         vectors: list[Any] = (

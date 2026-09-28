@@ -60,6 +60,40 @@ A486 世代切換：alias→collection 映射由引擎保存並持久化。
 
 維度不符 → `DIMENSION_MISMATCH`；未知 collection → `COLLECTION_MISSING`。
 
+### `POST /v1/points/upsert_text`（PERF-07）
+
+```json
+{"collection": "…", "points": [{"id": "p1", "text": "chunk content",
+ "payload": {"module_id": "main-system", "resource_id": "r1"}}]}
+```
+
+呼叫方只送文字；向量由引擎內部以已註冊的 deterministic embedder
+（`xingcheng-hashed-embedding-v1` 的 byte-exact Rust port）產生——
+向量 JSON 不跨邊界。payload 消毒與 scope 規則與 `/v1/points/upsert`
+相同；collection 缺失 → `COLLECTION_MISSING`。
+
+### `POST /v1/search_text`（PERF-07）
+
+```json
+{"collection": "…", "text": "query", "top_k": 10,
+ "score_threshold": 0.0, "filter": {…同 /v1/search…}}
+```
+
+引擎內部 embed 查詢文字後走同一條 scoped search；回 `{hits: [...]}`。
+查詢向量不會具體化於 Python 側。
+
+### `POST /v1/embed`（PERF-07，binary）
+
+```json
+{"texts": ["…", "…"], "dimension": 2560}
+```
+
+回 `application/octet-stream`：每筆 text 的 canonical f64-le
+embedding bytes 依序串接（每筆 `dimension * 8` bytes）。輸出與
+PostgreSQL `gptbridge_rag.chunk.embedding` 的 canonical 值 bit-exact，
+呼叫方直接綁入 PG 交易；`dimension` ∈ (0, 65536]，`texts` ≤ 512，
+否則 `INVALID_REQUEST`。
+
 ### `POST /v1/search`
 
 ```json
