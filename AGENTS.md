@@ -819,3 +819,35 @@ work as CPU, IO, DB, VECTOR, MODEL, GPU, or BACKGROUND; size each budget from
 physical cores, connection pools, vector limits, model capacity, VRAM, and
 measured backpressure. Enforce cancellation, queue bounds, memory limits, and
 health evidence at the scheduler boundary.
+
+## Runtime Throughput Patterns
+
+Use a small number of long-lived Rust CPU workers with a bounded global queue,
+worker-local queues, and work stealing for document parsing, hashing, chunking,
+RAG preprocessing, indexing, search verification, and other many-small-task
+workloads. Do not create a thread per task.
+
+Keep models resident by lifecycle state (`HOT`, `WARM`, `COLD`, `EVICTING`,
+`LOADING`) and route requests to already-resident models. Reuse mapped weights,
+tokenizer, KV/cache and allocator resources; use LRU plus VRAM budget for large
+models, and use AutoRelease for cold resources.
+
+RAG retrieval paths run concurrently where independent (keyword, vector,
+metadata), then merge → rerank → PostgreSQL verification → context. Qdrant
+hits must still be verified by PostgreSQL. Batch embeddings, database inserts,
+Qdrant upserts, logs, audit receipts, hashes, metadata lookups, and IPC events;
+do not replace batching with more threads.
+
+Use JSON for control messages, typed/binary structures for high-frequency
+internal messages, and references (`resource_id`, revision, scope, capability,
+hash) for large data. Prefer move over clone, slice/view over copy, mmap over
+read-all, and stream over buffer-all. PostgreSQL stores canonical durable state,
+lineage, registry, metadata, audit, mutations, and governance receipts; runtime
+events use bounded in-memory queues with batched persistence.
+
+Fail fast in the order authentication → scope → capability → schema → quota →
+dispatch. Propagate one cancellation token through Go, Rust, DB, RAG, and model
+generation. Use bounded L1 process cache, L2 shared local cache, and L3
+PostgreSQL/Qdrant authority; cache keys include resource, revision, scope,
+model, and config version. Keep startup minimal: core config → IPC → UI ready →
+DB pool → scheduler → requested lazy service → asynchronous model warm-up.
