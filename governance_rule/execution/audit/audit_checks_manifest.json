@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T17:28:06Z",
+  "generated_at": "2026-09-28T17:33:46Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 1966,
+    "native_checks": 1991,
     "delegated_checks": 0,
     "native_kinds": [
       "file-exists",
@@ -18591,6 +18591,126 @@
       "path": "Standalone tools/file-sorter/src/sorter_v2.py"
     },
     {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_training.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_training.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/training_gate.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/training_gate.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/jax_backend",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/jax_backend"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/__init__.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/__init__.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/budget.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/budget.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/corpus.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/corpus.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/data.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/data.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/dpo.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/dpo.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/optimizer.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/optimizer.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/precision.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/precision.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/pretrain.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/pretrain.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/sft.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/sft.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/trainer.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/trainer.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/upcycle_moe.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/upcycle_moe.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/preference_dataset_bridge.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/preference_dataset_bridge.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/sft_dataset.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/sft_dataset.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_executor.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_executor.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_worker.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_worker.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository_datasets.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository_datasets.py"
+    },
+    {
       "id": "forbidden-source:main-system/scripts/smoke/ai_assistant_visual_smoke.py",
       "kind": "file-not-exists",
       "path": "main-system/scripts/smoke/ai_assistant_visual_smoke.py"
@@ -18599,6 +18719,11 @@
       "id": "forbidden-source:main-system/src-core/managers/provider_monitor.py",
       "kind": "file-not-exists",
       "path": "main-system/src-core/managers/provider_monitor.py"
+    },
+    {
+      "id": "forbidden-source:main-system/src-core/tasks/self_learning_driver.py",
+      "kind": "file-not-exists",
+      "path": "main-system/src-core/tasks/self_learning_driver.py"
     },
     {
       "id": "forbidden-source:shared-layer/src/shared_layer/ai_channel/__init__.py",

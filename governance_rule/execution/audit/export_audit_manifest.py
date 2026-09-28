@@ -1728,12 +1728,10 @@ def build_manifest(root: Path) -> dict[str, object]:
     for _owner, _srcs in _so.REQUIRED_OWNED_SOURCES.items():
         for _rel in sorted(_srcs):
             emit(f"owned-source:{_rel}", "file-exists", _rel)
-    for _rel in sorted(_so.FORBIDDEN_LEGACY_BUSINESS_SOURCES | {
-            "Standalone tools/file-sorter/src/cleanup.py",
-            "Standalone tools/file-sorter/src/sorter_v2.py",
-            "Standalone tools/file-sorter/src/backend/automation_service.py",
-            "main-system/src-core/managers/provider_monitor.py",
-            "main-system/scripts/smoke/ai_assistant_visual_smoke.py"}):
+    _retired = set(json.loads(
+        (root / "governance_rule/execution/audit/retired_sources.json")
+        .read_text(encoding="utf-8"))["paths"])
+    for _rel in sorted(_so.FORBIDDEN_LEGACY_BUSINESS_SOURCES | _retired):
         emit(f"forbidden-source:{_rel}", "file-not-exists", _rel)
     emit("owned-source:visual-smoke", "file-exists", "Standalone tools/ai-assistant/scripts/visual_smoke.py")
     not_contains("main-system:ipc-symbols", "main-system/src-core/ipc/server.py",
