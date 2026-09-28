@@ -276,7 +276,107 @@ int main() {
         NT_CHECK(find(report, "kv8")->status == AuditStatus::FAIL,
                  "unknown array id fails");
         remove_dir(dir);
+        NT_CHECK(find(report, "kv8")->status == AuditStatus::FAIL,
+                 "unknown array id fails");
+        remove_dir(dir);
     } NT_END_TEST("audit_engine_suite", "kind_json_key_value");
+
+    NT_TEST("audit_engine_suite", "kind_json_key_absent") {
+        fs::path dir = make_case_dir("jsonabsent");
+        write_file(dir / "m.json",
+            "{\"name_key\":\"tool.name\",\"window\":{\"title_key\":\"t\"}}");
+        write_file(dir / "bad.json",
+            "{\"name\":\"x\",\"window\":{\"title\":\"t\"}}");
+        write_file(dir / "nullkey.json", "{\"name\":null}");
+        std::vector<AuditCheck> checks = {
+            {"ab1", "json-key-absent", "m.json", "",
+             {"name", "window.title"}, 0, ""},
+            {"ab2", "json-key-absent", "bad.json", "",
+             {"name", "window.title"}, 0, ""},
+            /* null 值視為不存在（對齊 Python get() 缺席語義） */
+            {"ab3", "json-key-absent", "nullkey.json", "",
+             {"name"}, 0, ""},
+            {"ab4", "json-key-absent", "gone.json", "",
+             {"name"}, 0, ""},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "ab1")->status == AuditStatus::PASS,
+                 "keys absent");
+        NT_CHECK(find(report, "ab2")->status == AuditStatus::FAIL,
+                 "forbidden key present");
+        NT_CHECK(find(report, "ab3")->status == AuditStatus::PASS,
+                 "null counts as absent");
+        NT_CHECK(find(report, "ab4")->status == AuditStatus::FAIL,
+                 "unreadable fails closed");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_json_key_absent");
+
+    NT_TEST("audit_engine_suite", "kind_json_key_value_ne") {
+        fs::path dir = make_case_dir("jsonne");
+        write_file(dir / "m.json",
+            "{\"enabled\":false,\"lifecycle\":{\"stoppable\":false},"
+            "\"status\":\"retired\",\"indep\":false}");
+        std::vector<AuditCheck> checks = {
+            /* status != running → PASS（retired） */
+            {"n1", "json-key-value", "m.json", "",
+             {"status!=running"}, 0, ""},
+            /* enabled != true → PASS（false） */
+            {"n2", "json-key-value", "m.json", "",
+             {"enabled!=true"}, 0, ""},
+            /* 缺路徑 → 不可能等值 → PASS */
+            {"n3", "json-key-value", "m.json", "",
+             {"missing.path!=x"}, 0, ""},
+            /* stoppable == false，斷言 !=false → FAIL */
+            {"n4", "json-key-value", "m.json", "",
+             {"lifecycle.stoppable!=false"}, 0, ""},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "n1")->status == AuditStatus::PASS,
+                 "!= on different value");
+        NT_CHECK(find(report, "n2")->status == AuditStatus::PASS,
+                 "!= bool false vs true");
+        NT_CHECK(find(report, "n3")->status == AuditStatus::PASS,
+                 "missing path satisfies !=");
+        NT_CHECK(find(report, "n4")->status == AuditStatus::FAIL,
+                 "!= on equal value fails");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_json_key_value_ne");
+
+    NT_TEST("audit_engine_suite", "kind_file_not_contains_unless") {
+        fs::path dir = make_case_dir("ncunless");
+        write_file(dir / "ok.py",
+            "async_playwright + InProcessEmbeddedBrowser");
+        write_file(dir / "bad.py", "import async_playwright");
+        write_file(dir / "clean.py", "nothing here");
+        std::vector<AuditCheck> checks = {
+            /* 含 marker 且含解禁標記 → PASS */
+            {"u1", "file-not-contains-unless", "ok.py", "",
+             {"async_playwright"}, 0, "", false, false, {},
+             {"InProcessEmbeddedBrowser"}},
+            /* 含 marker 且無解禁標記 → FAIL */
+            {"u2", "file-not-contains-unless", "bad.py", "",
+             {"async_playwright"}, 0, "", false, false, {},
+             {"InProcessEmbeddedBrowser"}},
+            /* 無 marker → PASS */
+            {"u3", "file-not-contains-unless", "clean.py", "",
+             {"async_playwright"}, 0, "", false, false, {},
+             {"InProcessEmbeddedBrowser"}},
+            /* optional 目標缺席 → PASS */
+            {"u4", "file-not-contains-unless", "gone.py", "",
+             {"async_playwright"}, 0, "", true, false, {},
+             {"InProcessEmbeddedBrowser"}},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "u1")->status == AuditStatus::PASS,
+                 "marker relieved by unless");
+        NT_CHECK(find(report, "u2")->status == AuditStatus::FAIL,
+                 "marker without unless fails");
+        NT_CHECK(find(report, "u3")->status == AuditStatus::PASS,
+                 "no marker passes");
+        NT_CHECK(find(report, "u4")->status == AuditStatus::PASS,
+                 "optional missing passes");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_file_not_contains_unless");
 
     NT_TEST("audit_engine_suite", "kind_glob_absent") {
         fs::path dir = make_case_dir("globabs");

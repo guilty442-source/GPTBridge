@@ -78,6 +78,7 @@ _NATIVE_COVERED = frozenset({
     "check_bootstrap_native_entry",    # csproj/Program.cs exists + marker
     "check_channel_gateway_csharp",    # projects + port invariants
     "check_tool_host_native_boundary", # dirs + glob-not-contains + ops
+    "check_tool_manifests",            # per-file json assertions (parity delegated)
     "check_typescript_retirement",     # glob-absent (*.ts/*.tsx/*.d.ts)
     "check_tool_isolation_hardening",  # contains + glob-contains union
     "check_third_party_inventory",     # json-key-value typed assertions
@@ -594,6 +595,16 @@ def build_manifest(root: Path) -> dict[str, object]:
         not_contains(f"embedded-browser:no-playwright:{path}",
                      path, ["from playwright", "import playwright"],
                      optional=True)
+        # async_playwright 僅在 InProcessEmbeddedBrowser 持有者檔內合法
+        # （oracle: ``async_playwright ∧ ¬InProcessEmbeddedBrowser`` → 錯）
+        checks.append({
+            "id": f"embedded-browser:no-async-playwright:{path}",
+            "kind": "file-not-contains-unless",
+            "path": path,
+            "markers": ["async_playwright"],
+            "unless": ["InProcessEmbeddedBrowser"],
+            "optional": True,
+        })
     for path in (
         "main-system/requirements.txt",
         "main-system/pyproject.toml",
@@ -796,23 +807,24 @@ def build_manifest(root: Path) -> dict[str, object]:
               "eval_loss = jax.jit(", "collate_bucket",
               "def _choose_bucket"])
 
-    # Python-retirement transition (B171) — the two required artifacts
-    # exist and parse; schema keys are natively checkable.  Row-level
-    # status transitions stay delegated to the retirement workflow.
-    _adapter = (
+    # Python test-lane retirement (native-test-runner-register /
+    # test-framework-final-ownership) — the forbidden artifacts must
+    # stay absent; the migration worklist must exist and parse.
+    for forbidden in (
         "governance_rule/execution/"
-        "legacy_python_verification_adapter.py")
+        "legacy_python_verification_adapter.py",
+        "pytest.ini",
+        "conftest.py",
+        "native/test_suites/proxy_wire_agent.py",
+        "scripts/devin-cli-p6-test-sla.py",
+    ):
+        checks.append({
+            "id": f"python-retirement:forbidden:{forbidden}",
+            "kind": "file-not-exists", "path": forbidden,
+        })
     _retire = (
         "governance_rule/execution/audit/"
         "pytest_retirement_inventory.json")
-    checks.append({
-        "id": "python-retirement:adapter-exists",
-        "kind": "file-exists", "path": _adapter,
-    })
-    contains("python-retirement:adapter-gates",
-             _adapter,
-             ["LegacyPythonVerificationAdapter", "TEST_RESULT_V1",
-              "inventory_class", "PYTEST_RETIREMENT_INVENTORY"])
     checks.append({
         "id": "python-retirement:inventory-parses",
         "kind": "json-parses", "path": _retire,
@@ -904,6 +916,139 @@ def build_manifest(root: Path) -> dict[str, object]:
                 "markers": markers,
             })
 
+    # check_tool_manifests — 部分歸約：逐 manifest 檔案層級斷言原生。
+    # 列舉規則對齊 oracle 的四層掃描（depth-1/2 頂層、depth-3/4 嵌套）；
+    # manifest 為匯出期讀取的資料來源——跨檔 identity parity、label
+    # regex、retired status casefold 等語義半部仍走 delegated row。
+    from governance_rule.code_rule_directory import (
+        code_rule_directory_snapshot,
+    )
+    _required_locale_keys = sorted(
+        code_rule_directory_snapshot().required_locale_keys)
+    _manifest_artifact_roots = frozenset({"worktrees", "backups"})
+
+    def _manifest_scanned(p: Path) -> bool:
+        parts = p.relative_to(root).parts
+        if parts[:3] in (
+            ("main-system", "runtime", "releases"),
+            ("main-system", "runtime", "temp"),
+        ):
+            return False
+        return (not parts[0].startswith(".")
+                and parts[0] not in _manifest_artifact_roots)
+
+    def _emit_manifest(manifest_path: Path, *, top_level: bool,
+                       expected_owner: str | None) -> None:
+        rel = manifest_path.relative_to(root).as_posix()
+        checks.append({"id": f"tool-manifest:parse:{rel}",
+                       "kind": "json-parses", "path": rel})
+        try:
+            manifest = json.loads(
+                manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        if not isinstance(manifest, dict):
+            return
+        lifecycle = manifest.get("lifecycle")
+        retired = (
+            isinstance(lifecycle, dict)
+            and str(lifecycle.get("status") or "").strip().casefold()
+            == "retired")
+        tool_id = str(manifest.get("id") or "")
+        if retired:
+            checks.append({
+                "id": f"tool-manifest:retired:{rel}",
+                "kind": "json-key-value", "path": rel,
+                "markers": [
+                    "enabled=false",
+                    "lifecycle.stoppable=false",
+                    "status!=running",
+                    "main_system_independent_tool!=true",
+                ],
+            })
+            return
+        markers = ["name_key=tool.name"]
+        absent = ["name"]
+        if isinstance(manifest.get("window"), dict):
+            markers.append("window.title_key=tool.window_title")
+            absent.append("window.title")
+        if top_level:
+            code_scope = (
+                "project-source-excluding-governance-rule"
+                if tool_id == "xingcheng" else "tool-root-only")
+            db_scope = (
+                "opaque-central-index-read-and-xingcheng-internal"
+                "-read-write" if tool_id == "xingcheng"
+                else "none" if tool_id == "governance_rule"
+                else "tool-database-only")
+            markers.append(f"permissions.code_scope={code_scope}")
+            markers.append(f"permissions.database_scope={db_scope}")
+            if tool_id == "governance_rule":
+                markers.extend([
+                    "status=running",
+                    "lifecycle.startup=default-before-main-system",
+                    "lifecycle.directLoad=true",
+                    "lifecycle.encapsulated=false",
+                    "lifecycle.optional=false",
+                    "lifecycle.stoppable=false",
+                    "lifecycle.disableable=false",
+                    "lifecycle.unloadable=false",
+                ])
+                absent.append("executable")
+        else:
+            markers.append(f"physical_owner_root={expected_owner}")
+        checks.append({
+            "id": f"tool-manifest:values:{rel}",
+            "kind": "json-key-value", "path": rel,
+            "markers": markers,
+        })
+        checks.append({
+            "id": f"tool-manifest:absent:{rel}",
+            "kind": "json-key-absent", "path": rel,
+            "markers": absent,
+        })
+        checks.append({
+            "id": f"tool-manifest:dicts:{rel}",
+            "kind": "json-has-keys", "path": rel,
+            "markers": ["permissions", "capabilities"],
+        })
+        locale_rel = (
+            manifest_path.parent / "locales" / "zh-TW.json"
+        ).relative_to(root).as_posix()
+        checks.append({
+            "id": f"tool-locale:exists:{rel}",
+            "kind": "file-exists", "path": locale_rel,
+        })
+        checks.append({
+            "id": f"tool-locale:parse:{rel}",
+            "kind": "json-parses", "path": locale_rel,
+        })
+        checks.append({
+            "id": f"tool-locale:keys:{rel}",
+            "kind": "json-has-keys", "path": locale_rel,
+            "markers": list(_required_locale_keys),
+        })
+
+    _standalone_dir = root / "Standalone tools"
+    for manifest_path in sorted(root.glob("*/manifest.json")):
+        if _manifest_scanned(manifest_path):
+            _emit_manifest(manifest_path, top_level=True,
+                           expected_owner=None)
+    for manifest_path in sorted(
+            _standalone_dir.glob("*/manifest.json")):
+        _emit_manifest(manifest_path, top_level=True,
+                       expected_owner=None)
+    for manifest_path in sorted(
+            _standalone_dir.glob("*/*/manifest.json")):
+        _emit_manifest(manifest_path, top_level=False,
+                       expected_owner=manifest_path.parent.parent.name)
+    for manifest_path in sorted(
+            root.glob("*/*/*/*/manifest.json")):
+        if _manifest_scanned(manifest_path):
+            _emit_manifest(
+                manifest_path, top_level=False,
+                expected_owner=manifest_path.parent.parent.parent.name)
+
     # --- delegated: every Python check not natively covered -----------
 
     # --- delegated: every Python check not natively covered -----------
@@ -944,10 +1089,11 @@ def build_manifest(root: Path) -> dict[str, object]:
         "python": "check_git_tiers",
     })
     checks.append({
-        "id": "python-check:embedded-browser-async-playwright",
+        "id": "python-check:tool-manifests-semantic",
         "kind": "delegated",
-        "reason": "async_playwright ∧ ¬InProcessEmbeddedBrowser 複合條件",
-        "python": "check_embedded_browser",
+        "reason": "cross-manifest identity parity / label regex / "
+                  "capability registry semantics",
+        "python": "check_tool_manifests",
     })
 
     return {
@@ -963,7 +1109,9 @@ def build_manifest(root: Path) -> dict[str, object]:
             "native_kinds": [
                 "file-exists", "file-not-exists", "file-readonly",
                 "dir-exists", "file-contains", "file-not-contains",
+                "file-not-contains-unless",
                 "text-no-pollution", "json-parses", "json-has-keys",
+                "json-key-absent",
                 "glob-min-count", "glob-not-contains", "glob-absent",
                 "glob-contains", "json-key-value",
             ],

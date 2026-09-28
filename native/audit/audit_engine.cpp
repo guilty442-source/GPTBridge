@@ -131,6 +131,48 @@ std::string to_lower(const std::string& s) {
     return out;
 }
 
+/* dotted 路徑解析：逐層走 object；段名可帶 [KEY] 選取 object 陣列中
+ * id==KEY 的元素（對齊 Python {item['id']: item for item in arr}）。
+ * 路徑不可解析時回傳 nullptr。 */
+const JsonValue* resolve_json_path(const JsonValue& doc,
+                                   const std::string& dotted) {
+    const JsonValue* node = &doc;
+    size_t start = 0;
+    while (node != nullptr) {
+        const size_t dot = dotted.find('.', start);
+        std::string key = dotted.substr(
+            start, dot == std::string::npos ? std::string::npos : dot - start);
+        std::string array_key;
+        const size_t bracket = key.find('[');
+        if (bracket != std::string::npos && key.back() == ']') {
+            array_key = key.substr(bracket + 1, key.size() - bracket - 2);
+            key = key.substr(0, bracket);
+        }
+        node = node->get(key);
+        if (node == nullptr) return nullptr;
+        if (!array_key.empty()) {
+            if (node->type != JsonValue::Type::Array) return nullptr;
+            const JsonValue* found_elem = nullptr;
+            for (const auto& elem : node->array) {
+                if (elem.type == JsonValue::Type::Object) {
+                    const JsonValue* idv = elem.get("id");
+                    if (idv != nullptr &&
+                        idv->type == JsonValue::Type::String &&
+                        idv->string == array_key) {
+                        found_elem = &elem;
+                        break;
+                    }
+                }
+            }
+            node = found_elem;
+            if (node == nullptr) return nullptr;
+        }
+        if (dot == std::string::npos) break;
+        start = dot + 1;
+    }
+    return node;
+}
+
 AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
     AuditCheckResult r;
     r.id = check.id;
@@ -219,6 +261,44 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
         r.status = AuditStatus::PASS;
         return r;
     }
+    if (check.kind == "file-not-contains-unless") {
+        /* 條件式禁標：markers 任一命中時，檔案必須同時持有至少一個
+         * unless 解禁標記，否則 FAIL。
+         * 對齊 Python 複合條件「含 A 且不含 B → 錯」。 */
+        std::string content;
+        if (!read_file(target, &content)) {
+            if (check.optional && !fs::exists(target, ec)) {
+                r.status = AuditStatus::PASS;
+                return r;
+            }
+            r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
+            return r;
+        }
+        const std::string haystack =
+            check.ignore_case ? to_lower(content) : content;
+        for (const auto& m : check.markers) {
+            const std::string needle =
+                check.ignore_case ? to_lower(m) : m;
+            if (haystack.find(needle) != std::string::npos) {
+                bool relieved = false;
+                for (const auto& u : check.unless) {
+                    const std::string un =
+                        check.ignore_case ? to_lower(u) : u;
+                    if (haystack.find(un) != std::string::npos) {
+                        relieved = true;
+                        break;
+                    }
+                }
+                if (!relieved) {
+                    r.status = AuditStatus::FAIL;
+                    r.detail = "forbidden marker present: " + m;
+                    return r;
+                }
+            }
+        }
+        r.status = AuditStatus::PASS;
+        return r;
+    }
     if (check.kind == "json-has-keys") {
         std::string content;
         if (!read_file(target, &content)) {
@@ -250,6 +330,7 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
     if (check.kind == "json-key-value") {
         /* markers 格式 "<dotted.path><op><literal>"：
          *   "="  等值（Bool/Number/String 型別比對）
+         *   "!=" 不等值（路徑存在時值必須不同；路徑缺席視為 PASS）
          *   "^=" 字串前綴
          *   ">=" 數值下限
          * 路徑逐層走 object；段名可帶 [KEY] 選取 object 陣列中
@@ -273,7 +354,7 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
         for (const auto& marker : check.markers) {
             size_t op_pos = std::string::npos;
             std::string op;
-            for (const char* cand : {"^=", ">=", "="}) {
+            for (const char* cand : {"!=", "^=", ">=", "="}) {
                 const size_t pos = marker.find(cand);
                 if (pos != std::string::npos) {
                     op_pos = pos; op = cand; break;
@@ -286,79 +367,88 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
             }
             const std::string dotted = marker.substr(0, op_pos);
             const std::string literal = marker.substr(op_pos + op.size());
-            const JsonValue* node = &doc;
-            size_t start = 0;
-            bool resolved = true;
-            while (resolved) {
-                const size_t dot = dotted.find('.', start);
-                std::string key = dotted.substr(
-                    start, dot == std::string::npos
-                               ? std::string::npos : dot - start);
-                /* name[KEY]：選取 object 陣列中 id==KEY 的元素，
-                 * 對齊 Python {item['id']: item for item in arr}。*/
-                std::string array_key;
-                const size_t bracket = key.find('[');
-                if (bracket != std::string::npos &&
-                    key.back() == ']') {
-                    array_key = key.substr(
-                        bracket + 1, key.size() - bracket - 2);
-                    key = key.substr(0, bracket);
-                }
-                node = node->get(key);
-                if (node == nullptr) { resolved = false; break; }
-                if (!array_key.empty()) {
-                    if (node->type != JsonValue::Type::Array) {
-                        resolved = false; break;
-                    }
-                    const JsonValue* found_elem = nullptr;
-                    for (const auto& elem : node->array) {
-                        if (elem.type == JsonValue::Type::Object) {
-                            const JsonValue* idv = elem.get("id");
-                            if (idv != nullptr &&
-                                idv->type == JsonValue::Type::String &&
-                                idv->string == array_key) {
-                                found_elem = &elem;
-                                break;
-                            }
-                        }
-                    }
-                    node = found_elem;
-                    if (node == nullptr) { resolved = false; break; }
-                }
-                if (dot == std::string::npos) break;
-                start = dot + 1;
-            }
-            if (!resolved || node == nullptr) {
-                r.status = AuditStatus::FAIL;
-                r.detail = "missing json path: " + dotted;
-                return r;
-            }
+            const JsonValue* node = resolve_json_path(doc, dotted);
             bool ok = false;
-            if (op == "=") {
-                if (literal == "true" || literal == "false") {
-                    ok = node->type == JsonValue::Type::Bool &&
-                         node->boolean == (literal == "true");
+            if (op == "!=") {
+                /* 不等值斷言：路徑缺席 → 值不可能等於 literal → PASS；
+                 * 路徑存在 → 型別化比對，等值即 FAIL。 */
+                if (node == nullptr) {
+                    ok = true;
+                } else if (literal == "true" || literal == "false") {
+                    ok = !(node->type == JsonValue::Type::Bool &&
+                           node->boolean == (literal == "true"));
                 } else if (node->type == JsonValue::Type::Number) {
                     try {
-                        ok = node->number == std::stod(literal);
+                        ok = node->number != std::stod(literal);
                     } catch (...) { ok = false; }
                 } else if (node->type == JsonValue::Type::String) {
-                    ok = node->string == literal;
+                    ok = node->string != literal;
+                } else {
+                    ok = true;
                 }
-            } else if (op == "^=") {
-                ok = node->type == JsonValue::Type::String &&
-                     node->string.size() >= literal.size() &&
-                     node->string.compare(0, literal.size(), literal) == 0;
-            } else { /* ">=" */
-                if (node->type == JsonValue::Type::Number) {
-                    try {
-                        ok = node->number >= std::stod(literal);
-                    } catch (...) { ok = false; }
+            } else {
+                if (node == nullptr) {
+                    r.status = AuditStatus::FAIL;
+                    r.detail = "missing json path: " + dotted;
+                    return r;
+                }
+                if (op == "=") {
+                    if (literal == "true" || literal == "false") {
+                        ok = node->type == JsonValue::Type::Bool &&
+                             node->boolean == (literal == "true");
+                    } else if (node->type == JsonValue::Type::Number) {
+                        try {
+                            ok = node->number == std::stod(literal);
+                        } catch (...) { ok = false; }
+                    } else if (node->type == JsonValue::Type::String) {
+                        ok = node->string == literal;
+                    }
+                } else if (op == "^=") {
+                    ok = node->type == JsonValue::Type::String &&
+                         node->string.size() >= literal.size() &&
+                         node->string.compare(
+                             0, literal.size(), literal) == 0;
+                } else { /* ">=" */
+                    if (node->type == JsonValue::Type::Number) {
+                        try {
+                            ok = node->number >= std::stod(literal);
+                        } catch (...) { ok = false; }
+                    }
                 }
             }
             if (!ok) {
                 r.status = AuditStatus::FAIL;
                 r.detail = "json path check failed: " + marker;
+                return r;
+            }
+        }
+        r.status = AuditStatus::PASS;
+        return r;
+    }
+    if (check.kind == "json-key-absent") {
+        /* markers 為不得存在的 dotted 路徑（同 json-key-value 的路徑
+         * 語法）；任一路徑可解析 → FAIL。缺席／null 皆視為不存在。*/
+        std::string content;
+        if (!read_file(target, &content)) {
+            if (check.optional && !fs::exists(target, ec)) {
+                r.status = AuditStatus::PASS;
+                return r;
+            }
+            r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
+            return r;
+        }
+        JsonValue doc;
+        try { doc = JsonParser(content).parse(); }
+        catch (const JsonError&) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "invalid json: " + check.path;
+            return r;
+        }
+        for (const auto& marker : check.markers) {
+            const JsonValue* node = resolve_json_path(doc, marker);
+            if (node != nullptr && node->type != JsonValue::Type::Null) {
+                r.status = AuditStatus::FAIL;
+                r.detail = "forbidden json key present: " + marker;
                 return r;
             }
         }
@@ -660,6 +750,11 @@ bool audit_load_manifest(const std::string& manifest_path,
                 for (const auto& m : v->array)
                     if (m.type == JsonValue::Type::String)
                         c.exclude.push_back(m.string);
+        if (const JsonValue* v = item.get("unless"))
+            if (v->type == JsonValue::Type::Array)
+                for (const auto& m : v->array)
+                    if (m.type == JsonValue::Type::String)
+                        c.unless.push_back(m.string);
         if (c.id.empty() || c.kind.empty()) {
             if (out_error) *out_error = "check entry missing id/kind";
             return false;

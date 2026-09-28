@@ -55,6 +55,7 @@ struct AuditCheck {
     bool optional = false;       /* true: 目標缺席 → PASS（條件式檢查） */
     bool ignore_case = false;    /* true: 標記比對不分大小寫 */
     std::vector<std::string> exclude;  /* glob-absent 遞迴掃描排除目錄名 */
+    std::vector<std::string> unless;   /* file-not-contains-unless 解禁標記 */
 };
 
 /* 執行一組檢查；root 為專案根（唯讀）。 */
