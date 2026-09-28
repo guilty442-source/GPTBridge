@@ -258,10 +258,12 @@
    "source_test": "governance_rule/tests/test_global_cleaner_retired.py",
    "inventory_class": "H",
    "replacement_runner": "NativeCppTestRunner",
-   "replacement_test": "",
-   "semantic_equivalence": "unproven",
-   "evidence": [],
-   "status": "PENDING"
+   "replacement_test": "audit-engine checks global-cleaner-retired:identity + global-cleaner-retired:absent",
+   "semantic_equivalence": "proven",
+   "evidence": [
+    "audit_checks_manifest.json global-cleaner-retired:* kinds file-contains/file-not-exists; audit-report.json all PASS; lifecycle= occurs once in identity_groups.py so substring markers bind the asserted object"
+   ],
+   "status": "VERIFIED"
   },
   {
    "source_test": "governance_rule/tests/test_governance_health.py",
@@ -1113,10 +1115,12 @@
    "source_test": "main-system/tests/test_python_minimization_gates.py",
    "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
-   "replacement_test": "",
-   "semantic_equivalence": "unproven",
-   "evidence": [],
-   "status": "PENDING"
+   "replacement_test": "native/test_suites/suite_audit_engine.cpp::kind_py_bucket_budget + audit-engine check python-minimization:bucket-budget",
+   "semantic_equivalence": "proven",
+   "evidence": [
+    "measurement recipe embedded verbatim in baseline json measurement block; native/test_suites/bin/audit_engine_suite.json kind_py_bucket_budget PASS; audit-report.json python-minimization:bucket-budget PASS"
+   ],
+   "status": "VERIFIED"
   },
   {
    "source_test": "main-system/tests/test_rag_canonical_takeover.py",

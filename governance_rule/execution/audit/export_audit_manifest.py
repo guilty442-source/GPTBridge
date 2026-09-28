@@ -15,8 +15,10 @@ Shadow semantics (same dual-track as the E1 execution prototypes):
   ``kind`` (``file-exists`` / ``file-not-exists`` / ``file-readonly`` /
   ``file-contains`` / ``file-not-contains`` / ``text-no-pollution`` /
   ``json-parses`` / ``json-has-keys`` / ``json-key-value`` /
+  ``json-key-absent`` / ``json-array-min-count`` /
   ``glob-min-count`` / ``glob-contains`` / ``glob-not-contains`` /
-  ``glob-absent``) — the engine verifies them directly;
+  ``glob-absent`` / ``file-not-contains-unless`` / ``fail``) —
+  the engine verifies them directly;
 - every Python ``check_*`` function not fully reducible is emitted as a
   ``delegated`` record — explicit, counted, never silently dropped;
 - regenerating after any governance-data change is the cache-invalidation
@@ -438,48 +440,38 @@ def _forbidden_legacy() -> list[str]:
 def build_manifest(root: Path) -> dict[str, object]:
     checks: list[dict[str, object]] = []
 
+    def emit(cid: str, kind: str, path: str = "", **kw: object) -> None:
+        row: dict[str, object] = {"id": cid, "kind": kind}
+        if path:
+            row["path"] = path
+        row.update(kw)
+        checks.append(row)
+
     # --- forbidden legacy paths (native: file-not-exists) -------------
     for relative in _forbidden_legacy():
-        checks.append({
-            "id": f"forbidden-legacy:{relative}",
-            "kind": "file-not-exists",
-            "path": relative,
-        })
+        emit(f"forbidden-legacy:{relative}", "file-not-exists", relative)
 
     # --- protected governance sources (native: exists + readonly) -----
     # Codex amendment codex-readonly-minimization: the read-only attribute
     # applies to the generated zh-TW mirror parts only; all other
     # protected sources keep existence/integrity checks only.
     for relative in _protected_sources(root):
-        checks.append({
-            "id": f"protected-source:{relative}",
-            "kind": "file-exists",
-            "path": relative,
-        })
+        emit(f"protected-source:{relative}", "file-exists", relative)
         if relative.startswith(
             "governance_rule/codex/governance_codex.zh-TW.part-"
         ):
-            checks.append({
-                "id": f"protected-source-readonly:{relative}",
-                "kind": "file-readonly",
-                "path": relative,
-            })
+            emit(f"protected-source-readonly:{relative}",
+                 "file-readonly", relative)
 
     # --- codex / architecture text pollution (native scan) ------------
     codex_root = root / "governance_rule" / "codex"
     if codex_root.is_dir():
         for path in sorted(codex_root.glob("architecture-*.md")):
-            checks.append({
-                "id": f"architecture-pollution:{path.name}",
-                "kind": "text-no-pollution",
-                "path": path.relative_to(root).as_posix(),
-            })
+            emit(f"architecture-pollution:{path.name}",
+                 "text-no-pollution", path.relative_to(root).as_posix())
         for path in sorted(codex_root.glob("*.zh-TW.part-*.txt")):
-            checks.append({
-                "id": f"mirror-part-pollution:{path.name}",
-                "kind": "text-no-pollution",
-                "path": path.relative_to(root).as_posix(),
-            })
+            emit(f"mirror-part-pollution:{path.name}",
+                 "text-no-pollution", path.relative_to(root).as_posix())
 
     # --- governed JSON artifacts parse (native json-parses) -----------
     contracts = (
@@ -846,6 +838,18 @@ def build_manifest(root: Path) -> dict[str, object]:
         "path": "main-system/config/python-minimization-baseline.json",
     })
 
+    # test_global_cleaner_retired.py (inventory H) — native migration.
+    # lifecycle= appears once in identity_groups.py (inside
+    # GLOBAL_CLEANER_IDENTITY); dir-absence covers the retired sources.
+    contains("global-cleaner-retired:identity",
+             "governance_rule/permission_directory/registries/permissions/"
+             "identity_groups.py",
+             ["GLOBAL_CLEANER_IDENTITY", 'bound_tool_id="global-cleaner"',
+              'lifecycle="retired"'])
+    checks.append({"id": "global-cleaner-retired:absent",
+                   "kind": "file-not-exists",
+                   "path": "Standalone tools/global-cleaner"})
+
     # check_tool_isolation_hardening (A266) — isolation controls 與
     # spawn 控制的 marker 檢查；spawn 兩檔 union 語義以 glob-contains
     # 表達（marker 落在任一命中檔即成立）。
@@ -948,10 +952,10 @@ def build_manifest(root: Path) -> dict[str, object]:
                 and parts[0] not in _manifest_artifact_roots)
 
     def _emit_manifest(manifest_path: Path, *, top_level: bool,
-                       expected_owner: str | None) -> None:
+                       expected_owner: str | None,
+                       self_health: bool = False) -> None:
         rel = manifest_path.relative_to(root).as_posix()
-        checks.append({"id": f"tool-manifest:parse:{rel}",
-                       "kind": "json-parses", "path": rel})
+        emit(f"tool-manifest:parse:{rel}", "json-parses", rel)
         try:
             manifest = json.loads(
                 manifest_path.read_text(encoding="utf-8"))
@@ -966,16 +970,13 @@ def build_manifest(root: Path) -> dict[str, object]:
             == "retired")
         tool_id = str(manifest.get("id") or "")
         if retired:
-            checks.append({
-                "id": f"tool-manifest:retired:{rel}",
-                "kind": "json-key-value", "path": rel,
-                "markers": [
-                    "enabled=false",
-                    "lifecycle.stoppable=false",
-                    "status!=running",
-                    "main_system_independent_tool!=true",
-                ],
-            })
+            emit(f"tool-manifest:retired:{rel}", "json-key-value", rel,
+                 markers=[
+                     "enabled=false",
+                     "lifecycle.stoppable=false",
+                     "status!=running",
+                     "main_system_independent_tool!=true",
+                 ])
             return
         markers = ["name_key=tool.name"]
         absent = ["name"]
@@ -1038,20 +1039,64 @@ def build_manifest(root: Path) -> dict[str, object]:
             "kind": "json-has-keys", "path": locale_rel,
             "markers": list(_required_locale_keys),
         })
+        # self-health 覆蓋面（audit_self_health 三層 glob 掃到的
+        # manifest 才走此列；depth-4 嵌套僅 tool-manifests 語義）。
+        # retired / enabled=false 的擁有者不承擔覆蓋宣告屏障。
+        if not self_health or manifest.get("enabled") is False:
+            return
+        tool_root = manifest_path.parent.resolve()
+        targets = manifest.get("test_targets")
+        if not tool_id or not isinstance(targets, list) or not targets:
+            emit(f"self-health:test-targets:{rel}", "fail",
+                 reason="governed tool must declare test_targets")
+            return
+        for index, raw_target in enumerate(targets):
+            target = str(raw_target or "").strip()
+            base = f"self-health:test-target:{tool_id}:{index}"
+            if target.startswith("pending-native:"):
+                # 對齊 oracle 第一方向（PENDING row 位於宣告前綴之下）；
+                # 反方向（宣告巢於 row dir 內）在 tool-root 宣告下不可能。
+                prefix = target.split(":", 1)[1].rstrip("/") + "/"
+                emit(f"{base}:pending-native", "json-array-min-count",
+                     "governance_rule/execution/audit/"
+                     "pytest_retirement_inventory.json",
+                     items="rows", min_count=1,
+                     markers=["status=PENDING", f"source_test^={prefix}"])
+                continue
+            if target.startswith("native-suite:"):
+                emit(f"{base}:native-suite", "file-exists",
+                     f"native/test_suites/suite_{target.split(':', 1)[1]}.cpp")
+                continue
+            candidate = (tool_root / target).resolve()
+            try:
+                rel_target = candidate.relative_to(root).as_posix()
+                candidate.relative_to(tool_root)
+            except ValueError:
+                emit(f"{base}:escaped", "fail",
+                     reason="test target escaped tool root: "
+                            f"{tool_id}: {target}")
+                continue
+            if candidate.suffix.casefold() == ".py":
+                emit(f"{base}:py", "fail",
+                     reason="non-conforming Python test target "
+                            f"(FORBID:pytest): {tool_id}: {target}")
+                continue
+            emit(f"{base}:exists", "file-exists", rel_target)
 
     _standalone_dir = root / "Standalone tools"
     for manifest_path in sorted(root.glob("*/manifest.json")):
         if _manifest_scanned(manifest_path):
             _emit_manifest(manifest_path, top_level=True,
-                           expected_owner=None)
+                           expected_owner=None, self_health=True)
     for manifest_path in sorted(
             _standalone_dir.glob("*/manifest.json")):
         _emit_manifest(manifest_path, top_level=True,
-                       expected_owner=None)
+                       expected_owner=None, self_health=True)
     for manifest_path in sorted(
             _standalone_dir.glob("*/*/manifest.json")):
         _emit_manifest(manifest_path, top_level=False,
-                       expected_owner=manifest_path.parent.parent.name)
+                       expected_owner=manifest_path.parent.parent.name,
+                       self_health=True)
     for manifest_path in sorted(
             root.glob("*/*/*/*/manifest.json")):
         if _manifest_scanned(manifest_path):
@@ -1124,6 +1169,7 @@ def build_manifest(root: Path) -> dict[str, object]:
                 "json-key-absent",
                 "glob-min-count", "glob-not-contains", "glob-absent",
                 "glob-contains", "json-key-value", "py-bucket-budget",
+                "json-array-min-count", "fail",
             ],
         },
         "checks": checks,

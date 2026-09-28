@@ -1,0 +1,42 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v1",
+ "request_id": "python-minimization-baseline-adjudication-20260928-r9",
+ "supersedes": "python-minimization-baseline-adjudication-20260928-r8",
+ "title": "Governor adjudication rev8: GOVERNANCE +83 loc interim re-anchor",
+ "summary": "Increment adjudication on top of sealed rev7 (codex 2026-09-28T13:28:03Z). GOVERNANCE measured 57751 vs adjudicated 57668 (+83): all of it is export_audit_manifest.py growth — Python generator lines expressing NEW NATIVE audit checks (12 new manifest kinds entries by the in-flight native-migration stream, +11 for the test_global_cleaner_retired native migration). Same disposition: authorized interim re-anchor; ratchet resumes only-tighten.",
+ "requested_by": "decision-sovereign",
+ "origin": "human-governor directive 2026-09-28 (execute per codex); gate: native py-bucket-budget audit check",
+ "change_class": "authority-duty",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "predecessor": {
+  "codex_version": "2026-09-28T13:28:03Z",
+  "version_identity": "E2:2026-09-28T13:28:03Z",
+  "version_epoch": 2,
+  "history_head": "ac992a59459e6b9996c9bfbe43c565d66a06d2342b02bbd036fe77e28f641741",
+  "revision_sequence": 146
+ },
+ "problem": {
+  "summary": "GOVERNANCE bucket measured 57751 loc vs rev7-adjudicated 57668 (+83). Source: export_audit_manifest.py only — native audit-check declarations keep costing generator LOC as Python checks migrate native. Two consecutive stable measurements (57751)."
+ },
+ "proposed_successors": [
+  {
+   "registry": "metadata",
+   "action": "insert",
+   "note": "rev8 adjudication record; disposition row already certified at rev3",
+   "rows": [
+    {
+     "key": "adjudications_rev8",
+     "value": "[\"GOVERNANCE loc 57668->57751 (+83): adjudicated interim re-anchor; native-migration stream expresses new manifest kinds in the Python generator (export_audit_manifest.py) — includes test_global_cleaner_retired native migration (+11). Ratchet resumes only-tighten.\"]"
+    }
+   ]
+  }
+ ],
+ "verification": {
+  "requested_at": "2026-09-28T22:05:00Z",
+  "expected_audit_result": "native py-bucket-budget PASS after baseline re-anchor; audit_runtime_governance() 0 findings"
+ }
+}

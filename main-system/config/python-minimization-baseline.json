@@ -5,8 +5,8 @@
   "authority": "governance-rule-only",
   "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
   "metadata": {
-    "contract_revision": 7,
-    "measured_at": "2026-09-28T21:10:00Z",
+    "contract_revision": 8,
+    "measured_at": "2026-09-28T22:08:00+08:00",
     "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
     "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
     "adjudications_rev2": [
@@ -47,6 +47,9 @@
     ],
     "adjudications_rev7": [
       "GOVERNANCE loc 57658->57668 (+10): adjudicated interim re-anchor; codex-mandated audit machinery growth, amendment sealed cert b39d5057 at 2026-09-28T13:28:03Z"
+    ],
+    "adjudications_rev8": [
+      "GOVERNANCE loc 57668->57751 (+83): adjudicated interim re-anchor; native-migration stream expresses new manifest kinds in the Python generator (export_audit_manifest.py), incl. test_global_cleaner_retired native migration; amendment r9 sealed cert 5f89ab07 @ 2026-09-28T14:04:18Z; only-tighten resumes"
     ]
   },
   "zero_targets": {
@@ -90,7 +93,7 @@
   "allowed_zones": {
     "GOVERNANCE": {
       "files": 207,
-      "loc": 57668,
+      "loc": 57751,
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {

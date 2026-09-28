@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T13:47:31Z",
+  "generated_at": "2026-09-28T14:06:32Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 428,
+    "native_checks": 440,
     "delegated_checks": 28,
     "native_kinds": [
       "file-exists",
@@ -22,7 +22,9 @@
       "glob-absent",
       "glob-contains",
       "json-key-value",
-      "py-bucket-budget"
+      "py-bucket-budget",
+      "json-array-min-count",
+      "fail"
     ]
   },
   "checks": [
@@ -2892,6 +2894,21 @@
       "path": "main-system/config/python-minimization-baseline.json"
     },
     {
+      "id": "global-cleaner-retired:identity",
+      "kind": "file-contains",
+      "path": "governance_rule/permission_directory/registries/permissions/identity_groups.py",
+      "markers": [
+        "GLOBAL_CLEANER_IDENTITY",
+        "bound_tool_id=\"global-cleaner\"",
+        "lifecycle=\"retired\""
+      ]
+    },
+    {
+      "id": "global-cleaner-retired:absent",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/global-cleaner"
+    },
+    {
       "id": "tool-isolation:controls",
       "kind": "file-contains",
       "path": "main-system/src-core/core_system/tool_isolation.py",
@@ -3061,6 +3078,17 @@
       ]
     },
     {
+      "id": "self-health:test-target:governance_rule:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=governance_rule/"
+      ]
+    },
+    {
       "id": "tool-manifest:parse:shared-layer/manifest.json",
       "kind": "json-parses",
       "path": "shared-layer/manifest.json"
@@ -3111,6 +3139,17 @@
         "tool.description",
         "tool.name",
         "tool.window_title"
+      ]
+    },
+    {
+      "id": "self-health:test-target:shared-layer:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=shared-layer/"
       ]
     },
     {
@@ -3169,6 +3208,17 @@
       ]
     },
     {
+      "id": "self-health:test-target:ai-assistant:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/ai-assistant/"
+      ]
+    },
+    {
       "id": "tool-manifest:parse:Standalone tools/ai-collaboration/manifest.json",
       "kind": "json-parses",
       "path": "Standalone tools/ai-collaboration/manifest.json"
@@ -3221,6 +3271,17 @@
         "tool.description",
         "tool.name",
         "tool.window_title"
+      ]
+    },
+    {
+      "id": "self-health:test-target:ai-collaboration:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/ai-collaboration/"
       ]
     },
     {
@@ -3279,6 +3340,17 @@
       ]
     },
     {
+      "id": "self-health:test-target:file-sorter:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/file-sorter/"
+      ]
+    },
+    {
       "id": "tool-manifest:parse:Standalone tools/investment-mobile/manifest.json",
       "kind": "json-parses",
       "path": "Standalone tools/investment-mobile/manifest.json"
@@ -3334,6 +3406,17 @@
       ]
     },
     {
+      "id": "self-health:test-target:investment-mobile:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/investment-mobile/"
+      ]
+    },
+    {
       "id": "tool-manifest:parse:Standalone tools/local-model/manifest.json",
       "kind": "json-parses",
       "path": "Standalone tools/local-model/manifest.json"
@@ -3384,6 +3467,17 @@
         "tool.description",
         "tool.name",
         "tool.window_title"
+      ]
+    },
+    {
+      "id": "self-health:test-target:local-model:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/local-model/"
       ]
     },
     {
@@ -3442,6 +3536,17 @@
       ]
     },
     {
+      "id": "self-health:test-target:vaultly:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/vaultly/"
+      ]
+    },
+    {
       "id": "tool-manifest:parse:Standalone tools/local-model/model-dialogue/manifest.json",
       "kind": "json-parses",
       "path": "Standalone tools/local-model/model-dialogue/manifest.json"
@@ -3496,6 +3601,17 @@
       ]
     },
     {
+      "id": "self-health:test-target:model-dialogue:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/local-model/model-dialogue/"
+      ]
+    },
+    {
       "id": "tool-manifest:parse:Standalone tools/local-model/xingcheng/manifest.json",
       "kind": "json-parses",
       "path": "Standalone tools/local-model/xingcheng/manifest.json"
@@ -3547,6 +3663,17 @@
         "tool.description",
         "tool.name",
         "tool.window_title"
+      ]
+    },
+    {
+      "id": "self-health:test-target:xingcheng:0:pending-native",
+      "kind": "json-array-min-count",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "items": "rows",
+      "min_count": 1,
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/local-model/xingcheng/"
       ]
     },
     {
