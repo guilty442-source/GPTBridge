@@ -760,6 +760,71 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
         }
         return r;
     }
+    if (check.kind == "tree-not-contains") {
+        /* glob-not-contains 的遞迴版：check.path 子樹（空字串=專案根）
+         * 內檔名命中 check.glob 的每個檔案都不得含任一 marker。
+         * exclude 目錄名與 dotdir 於任意深度略過（同 glob-absent）。
+         * 子樹缺席 → FAIL（fail-closed），optional 才豁免。*/
+        const fs::path base = check.path.empty()
+            ? fs::u8path(root)
+            : fs::u8path(root) / fs::u8path(check.path);
+        if (!fs::is_directory(base, ec)) {
+            if (check.optional) {
+                r.status = AuditStatus::PASS;
+            } else {
+                r.status = AuditStatus::FAIL;
+                r.detail = "missing subtree: " + check.path;
+            }
+            return r;
+        }
+        auto excluded = [&](const fs::path& p) {
+            const std::string name = u8_bytes(p.filename());
+            if (!name.empty() && name[0] == '.') return true;
+            for (const auto& ex : check.exclude)
+                if (name == ex) return true;
+            return false;
+        };
+        std::string hit_path, hit_marker;
+        std::error_code iec;
+        fs::recursive_directory_iterator it(
+            base, fs::directory_options::skip_permission_denied, iec);
+        const fs::recursive_directory_iterator dend;
+        while (!iec && it != dend && hit_marker.empty()) {
+            std::error_code sec;
+            if (it->is_directory(sec)) {
+                if (excluded(it->path())) it.disable_recursion_pending();
+            } else if (it->is_regular_file(sec)
+                       && wildcard_match(
+                           check.glob, u8_bytes(it->path().filename()))) {
+                std::string content;
+                if (read_file(it->path(), &content)) {
+                    const std::string haystack =
+                        check.ignore_case ? to_lower(content) : content;
+                    for (const auto& m : check.markers) {
+                        const std::string needle =
+                            check.ignore_case ? to_lower(m) : m;
+                        if (haystack.find(needle) != std::string::npos) {
+                            hit_marker = m;
+                            std::error_code rec;
+                            hit_path = u8_bytes(
+                                fs::relative(it->path(), base, rec));
+                            if (rec)
+                                hit_path =
+                                    u8_bytes(it->path().filename());
+                            break;
+                        }
+                    }
+                }
+            }
+            it.increment(iec);
+        }
+        if (hit_marker.empty()) { r.status = AuditStatus::PASS; }
+        else {
+            r.status = AuditStatus::FAIL;
+            r.detail = "forbidden marker in " + hit_path + ": " + hit_marker;
+        }
+        return r;
+    }
     /* 未支援 kind：delegated（顯式移交，不靜默） */
     if (check.kind == "py-bucket-budget") {
         /* Python-minimization ratchet (native replacement for the retired

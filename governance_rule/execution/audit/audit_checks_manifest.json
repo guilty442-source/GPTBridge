@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T15:10:28Z",
+  "generated_at": "2026-09-28T15:21:08Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 1867,
+    "native_checks": 1975,
     "delegated_checks": 0,
     "native_kinds": [
       "file-exists",
@@ -18641,6 +18641,910 @@
       "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
       "markers": [
         "\"ai-connections\""
+      ]
+    },
+    {
+      "id": "owned-source:governance_rule/permission_directory/registries/permissions/source_ownership.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/registries/permissions/source_ownership.py"
+    },
+    {
+      "id": "owned-source:governance_rule/permission_directory/registries/permissions/tool_routes.py",
+      "kind": "file-exists",
+      "path": "governance_rule/permission_directory/registries/permissions/tool_routes.py"
+    },
+    {
+      "id": "owned-source:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/domain/task_protocol.py",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/domain/task_protocol.py"
+    },
+    {
+      "id": "owned-source:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_gateway.py",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_gateway.py"
+    },
+    {
+      "id": "owned-source:Standalone tools/investment-mobile/src/backend/services/investment_mobile/integration/channel_client.py",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/backend/services/investment_mobile/integration/channel_client.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/file-sorter/src/backend/automation_service.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/file-sorter/src/backend/automation_service.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/file-sorter/src/cleanup.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/file-sorter/src/cleanup.py"
+    },
+    {
+      "id": "forbidden-source:Standalone tools/file-sorter/src/sorter_v2.py",
+      "kind": "file-not-exists",
+      "path": "Standalone tools/file-sorter/src/sorter_v2.py"
+    },
+    {
+      "id": "forbidden-source:main-system/scripts/smoke/ai_assistant_visual_smoke.py",
+      "kind": "file-not-exists",
+      "path": "main-system/scripts/smoke/ai_assistant_visual_smoke.py"
+    },
+    {
+      "id": "forbidden-source:main-system/src-core/managers/provider_monitor.py",
+      "kind": "file-not-exists",
+      "path": "main-system/src-core/managers/provider_monitor.py"
+    },
+    {
+      "id": "forbidden-source:shared-layer/src/shared_layer/ai_channel/__init__.py",
+      "kind": "file-not-exists",
+      "path": "shared-layer/src/shared_layer/ai_channel/__init__.py"
+    },
+    {
+      "id": "forbidden-source:shared-layer/src/shared_layer/ai_channel/client.py",
+      "kind": "file-not-exists",
+      "path": "shared-layer/src/shared_layer/ai_channel/client.py"
+    },
+    {
+      "id": "forbidden-source:shared-layer/src/shared_layer/ai_channel/policy.py",
+      "kind": "file-not-exists",
+      "path": "shared-layer/src/shared_layer/ai_channel/policy.py"
+    },
+    {
+      "id": "forbidden-source:shared-layer/src/shared_layer/ai_channel/protocol.py",
+      "kind": "file-not-exists",
+      "path": "shared-layer/src/shared_layer/ai_channel/protocol.py"
+    },
+    {
+      "id": "forbidden-source:shared-layer/src/shared_layer/ai_channel/provider_adapters.py",
+      "kind": "file-not-exists",
+      "path": "shared-layer/src/shared_layer/ai_channel/provider_adapters.py"
+    },
+    {
+      "id": "forbidden-source:shared-layer/src/shared_layer/mobile_channel/__init__.py",
+      "kind": "file-not-exists",
+      "path": "shared-layer/src/shared_layer/mobile_channel/__init__.py"
+    },
+    {
+      "id": "forbidden-source:shared-layer/src/shared_layer/mobile_channel/client.py",
+      "kind": "file-not-exists",
+      "path": "shared-layer/src/shared_layer/mobile_channel/client.py"
+    },
+    {
+      "id": "forbidden-source:shared-layer/src/shared_layer/mobile_channel/policy.py",
+      "kind": "file-not-exists",
+      "path": "shared-layer/src/shared_layer/mobile_channel/policy.py"
+    },
+    {
+      "id": "owned-source:visual-smoke",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-assistant/scripts/visual_smoke.py"
+    },
+    {
+      "id": "main-system:ipc-symbols",
+      "kind": "file-not-contains",
+      "path": "main-system/src-core/ipc/server.py",
+      "markers": [
+        "_investment_watch_result_log_payload",
+        "_INVESTMENT_WATCH_LOG_"
+      ]
+    },
+    {
+      "id": "pkg-layer:Standalone tools/ai-assistant/src/backend/services/ai_nexus:application",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-assistant/src/backend/services/ai_nexus/application/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/ai-assistant/src/backend/services/ai_nexus:domain",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-assistant/src/backend/services/ai_nexus/domain/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/ai-assistant/src/backend/services/ai_nexus:infrastructure",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-assistant/src/backend/services/ai_nexus/infrastructure/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/ai-assistant/src/backend/services/ai_nexus:integration",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-assistant/src/backend/services/ai_nexus/integration/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/local-model/src/backend/services/xingcheng:application",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/local-model/src/backend/services/xingcheng:domain",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/domain/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/local-model/src/backend/services/xingcheng:infrastructure",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/local-model/src/backend/services/xingcheng:integration",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/integration/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration:application",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/application/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration:domain",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/domain/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration:infrastructure",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/infrastructure/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration:integration",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/investment-mobile/src/backend/services/investment_mobile:integration",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/backend/services/investment_mobile/integration/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/investment-mobile/src/backend/services/investment_mobile:trading",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/backend/services/investment_mobile/trading/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/file-sorter/src/backend/services/file_sorter:application",
+      "kind": "file-exists",
+      "path": "Standalone tools/file-sorter/src/backend/services/file_sorter/application/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/file-sorter/src/backend/services/file_sorter:domain",
+      "kind": "file-exists",
+      "path": "Standalone tools/file-sorter/src/backend/services/file_sorter/domain/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/file-sorter/src/backend/services/file_sorter:infrastructure",
+      "kind": "file-exists",
+      "path": "Standalone tools/file-sorter/src/backend/services/file_sorter/infrastructure/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/vaultly/src/backend/services/vaultly:application",
+      "kind": "file-exists",
+      "path": "Standalone tools/vaultly/src/backend/services/vaultly/application/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/vaultly/src/backend/services/vaultly:domain",
+      "kind": "file-exists",
+      "path": "Standalone tools/vaultly/src/backend/services/vaultly/domain/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/vaultly/src/backend/services/vaultly:infrastructure",
+      "kind": "file-exists",
+      "path": "Standalone tools/vaultly/src/backend/services/vaultly/infrastructure/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/vaultly/src/backend/services/vaultly:integration",
+      "kind": "file-exists",
+      "path": "Standalone tools/vaultly/src/backend/services/vaultly/integration/__init__.py"
+    },
+    {
+      "id": "pkg-layer:Standalone tools/local-model/model-dialogue/src/backend/services/star_chat:application",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/model-dialogue/src/backend/services/star_chat/application/__init__.py"
+    },
+    {
+      "id": "cross-import:ai_collaboration:Standalone tools/ai-assistant/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-assistant/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_collaboration:Standalone tools/file-sorter/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/file-sorter/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_collaboration:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/investment-mobile/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_collaboration:Standalone tools/julia-compute/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/julia-compute/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_collaboration:Standalone tools/local-model/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/local-model/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_collaboration:Standalone tools/ragd-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ragd-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_collaboration:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vaultly/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_collaboration:Standalone tools/vectord-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vectord-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_collaboration:shared-layer/src",
+      "kind": "tree-not-contains",
+      "path": "shared-layer/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:Standalone tools/ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-collaboration/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:Standalone tools/file-sorter/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/file-sorter/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/investment-mobile/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:Standalone tools/julia-compute/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/julia-compute/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:Standalone tools/local-model/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/local-model/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:Standalone tools/ragd-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ragd-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vaultly/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:Standalone tools/vectord-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vectord-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:ai_nexus:shared-layer/src",
+      "kind": "tree-not-contains",
+      "path": "shared-layer/src",
+      "glob": "*.py",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:Standalone tools/ai-assistant/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-assistant/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:Standalone tools/ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-collaboration/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/investment-mobile/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:Standalone tools/julia-compute/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/julia-compute/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:Standalone tools/local-model/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/local-model/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:Standalone tools/ragd-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ragd-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vaultly/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:Standalone tools/vectord-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vectord-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:file_sorter:shared-layer/src",
+      "kind": "tree-not-contains",
+      "path": "shared-layer/src",
+      "glob": "*.py",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:Standalone tools/ai-assistant/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-assistant/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:Standalone tools/ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-collaboration/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:Standalone tools/file-sorter/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/file-sorter/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:Standalone tools/julia-compute/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/julia-compute/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:Standalone tools/local-model/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/local-model/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:Standalone tools/ragd-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ragd-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vaultly/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:Standalone tools/vectord-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vectord-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:investment_mobile:shared-layer/src",
+      "kind": "tree-not-contains",
+      "path": "shared-layer/src",
+      "glob": "*.py",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:Standalone tools/ai-assistant/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-assistant/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:Standalone tools/ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-collaboration/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:Standalone tools/file-sorter/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/file-sorter/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/investment-mobile/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:Standalone tools/julia-compute/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/julia-compute/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:Standalone tools/ragd-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ragd-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vaultly/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:Standalone tools/vectord-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vectord-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:xingcheng:shared-layer/src",
+      "kind": "tree-not-contains",
+      "path": "shared-layer/src",
+      "glob": "*.py",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:Standalone tools/ai-assistant/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-assistant/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:Standalone tools/ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-collaboration/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:Standalone tools/file-sorter/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/file-sorter/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/investment-mobile/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:Standalone tools/julia-compute/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/julia-compute/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:Standalone tools/local-model/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/local-model/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:Standalone tools/ragd-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ragd-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:Standalone tools/vectord-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vectord-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:vaultly:shared-layer/src",
+      "kind": "tree-not-contains",
+      "path": "shared-layer/src",
+      "glob": "*.py",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:Standalone tools/ai-assistant/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-assistant/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:Standalone tools/ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-collaboration/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:Standalone tools/file-sorter/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/file-sorter/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/investment-mobile/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:Standalone tools/julia-compute/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/julia-compute/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:Standalone tools/ragd-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ragd-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vaultly/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:Standalone tools/vectord-rs/src",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/vectord-rs/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "cross-import:star_chat:shared-layer/src",
+      "kind": "tree-not-contains",
+      "path": "shared-layer/src",
+      "glob": "*.py",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ]
+    },
+    {
+      "id": "shared-layer:forbidden-terms",
+      "kind": "tree-not-contains",
+      "path": "shared-layer/src",
+      "glob": "*.py",
+      "ignore_case": true,
+      "markers": [
+        "ai-assistant",
+        "ai-collaboration",
+        "chatgpt",
+        "claude",
+        "deepseek",
+        "gemini",
+        "google-search",
+        "grok",
+        "holdings",
+        "investment-mobile",
+        "perplexity",
+        "portfolio"
+      ]
+    },
+    {
+      "id": "main-system:forbidden-business",
+      "kind": "tree-not-contains",
+      "path": "main-system/src-core",
+      "glob": "*.py",
+      "ignore_case": true,
+      "markers": [
+        "ai_nexus",
+        "chatgpt",
+        "claude",
+        "deepseek",
+        "dividend",
+        "gemini",
+        "grok",
+        "holdings",
+        "investment_mobile",
+        "local_ai",
+        "perplexity",
+        "portfolio"
+      ]
+    },
+    {
+      "id": "ai-assistant:forbidden-network",
+      "kind": "tree-not-contains",
+      "path": "Standalone tools/ai-assistant/src/backend/services/ai_nexus",
+      "glob": "*.py",
+      "markers": [
+        "import aiohttp",
+        "import httpx",
+        "import requests",
+        "import smtplib",
+        "from aiohttp",
+        "from httpx",
+        "from requests",
+        "from smtplib",
+        "urllib.request",
+        "urlopen("
       ]
     }
   ]

@@ -1106,11 +1106,9 @@ def build_manifest(root: Path) -> dict[str, object]:
         if entry is None:
             _table_absent(table)
             return
-        emit(cid, "json-array-min-count", entry[0],
-             items=f"tables.{table}", markers=markers, min_count=count)
+        emit(cid, "json-array-min-count", entry[0], items=f"tables.{table}", markers=markers, min_count=count)
 
     def _table_present(table: str) -> None:
-        # Presence rows are keyed by table; multiple callers may demand the
         if table in _seen_present:
             return
         _seen_present.add(table)
@@ -1122,7 +1120,6 @@ def build_manifest(root: Path) -> dict[str, object]:
                  entry[0], items=f"tables.{table}", markers=[],
                  min_count=0)
 
-    # Engine predicates parse the FIRST of ("!=", "^=", ">=", "=") found;
     _MARKER_TOKENS = ("!=", "^=", ">=")
 
     def _bind(field: str, value: object) -> list[str]:
@@ -1136,7 +1133,6 @@ def build_manifest(root: Path) -> dict[str, object]:
             return [f"{field}={text}"]
         return [f"{field}^={text[:first]}"] if first > 0 else []
 
-    # Per-row assertions re-read the mirror part once per check; tables
     _ROW_BIND_CAP = 150
 
     def _rows_or_count(cid_prefix: str, table: str, idcol: str, extra: "object" = None) -> None:
@@ -1164,10 +1160,7 @@ def build_manifest(root: Path) -> dict[str, object]:
         return "." if norm == root.as_posix() else norm
 
     # --- check_contract_axes (G48) ------------------------------------
-    for axis in (
-        "ai-connection", "backend-lifecycle", "data-architecture",
-        "ipc", "sql-schema", "tool-runtime",
-    ):
+    for axis in ( "ai-connection", "backend-lifecycle", "data-architecture", "ipc", "sql-schema", "tool-runtime", ):
         rel_axis = f"main-system/config/{axis}-contract.json"
         emit(f"contract-axis:{axis}:exists", "file-exists", rel_axis)
         emit(f"contract-axis:{axis}:parse", "json-parses", rel_axis)
@@ -1179,10 +1172,8 @@ def build_manifest(root: Path) -> dict[str, object]:
         _min = _axis_doc.get("minimum_supported_contract_version")
         if isinstance(_ver, int):
             bound = _min if isinstance(_min, int) and _min >= 1 else 1
-            emit(f"contract-axis:{axis}:version", "json-key-value",
-                 rel_axis, markers=[f"contract_version>={bound}"])
+            emit(f"contract-axis:{axis}:version", "json-key-value", rel_axis, markers=[f"contract_version>={bound}"])
         else:
-            # version carried by schema="…/vN"
             emit(f"contract-axis:{axis}:schema", "json-has-keys", rel_axis, markers=["schema"])
         if isinstance(_min, int):
             emit(f"contract-axis:{axis}:minimum", "json-key-value",
@@ -1278,15 +1269,11 @@ def build_manifest(root: Path) -> dict[str, object]:
         "OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE",
         "OBL_FORMAL_EVALUATOR_V2_PARITY",
     ):
-        _table_assert(
-            f"obligation:required:{rcode}", "implementation_obligations",
-            [f"obligation_code={rcode}"])
+        _table_assert( f"obligation:required:{rcode}", "implementation_obligations", [f"obligation_code={rcode}"])
 
     # --- authority policy family (registry literal bindings) ----------
     from governance_rule.governance_policy import ( governance_policy_snapshot as _gps, )
-    from governance_rule.permission_directory.directory_authority import (
-        directory_authority_snapshot as _das,
-    )
+    from governance_rule.permission_directory.directory_authority import ( directory_authority_snapshot as _das, )
     from governance_rule.code_rule_directory import ( code_rule_directory_snapshot as _cds, )
     _policy = _gps()
     _directory = _das()
@@ -1295,7 +1282,6 @@ def build_manifest(root: Path) -> dict[str, object]:
     _dir_src = ("governance_rule/permission_directory/" "directory_authority.py")
     _code_src = "governance_rule/code_rule_directory.py"
 
-    # check_authority_policy
     contains("authority-policy:policy", _policy_src, [
         f'authority="{_policy.authority}"',
         f'top_level_rule="{_policy.top_level_rule}"',
@@ -1331,7 +1317,6 @@ def build_manifest(root: Path) -> dict[str, object]:
         "llm_inference_as_source_of_truth=False",
     ])
 
-    # check_shared_layer_policy
     _shared = _directory.shared_layer_access_policy
     _activation = _policy.activation
     contains("shared-layer-policy:directory", _dir_src, [
@@ -1375,12 +1360,9 @@ def build_manifest(root: Path) -> dict[str, object]:
         "governance_disable_permission=False",
         "governance_unload_permission=False",
     ])
-    contains("shared-layer-policy:labels", _policy_src, [
-        "aliases_allowed=False", "category_labels_allowed=False",
-    ])
+    contains("shared-layer-policy:labels", _policy_src, [ "aliases_allowed=False", "category_labels_allowed=False", ])
     not_contains("shared-layer-policy:no-categories", _code_src, ["category_labels=True"])
 
-    # check_repair_policy
     _repair = _policy.automatic_repair
     contains("repair-policy:policy", _policy_src, [
         "backup_assistance_allowed=True",
@@ -1395,7 +1377,6 @@ def build_manifest(root: Path) -> dict[str, object]:
              "permissions/capability_boundaries.py",
              ["automatic-repair"])
 
-    # check_identity_permissions — registry row bindings; the oracle's
     from governance_rule.permission_directory.registries.permissions.identity_groups import (
         identity_group_snapshot as _igs,
     )
@@ -1409,15 +1390,10 @@ def build_manifest(root: Path) -> dict[str, object]:
     _bindings = _ips()
     _cap_bounds, _repair_bounds = _cbs()
     _ig_src = ("governance_rule/permission_directory/registries/" "permissions/identity_groups.py")
-    _ip_src = ("governance_rule/permission_directory/registries/"
-               "permissions/identity_permissions.py")
-    _cb_src = ("governance_rule/permission_directory/registries/"
-               "permissions/capability_boundaries.py")
-    # Identity literals live across several registry modules (groups,
+    _ip_src = ("governance_rule/permission_directory/registries/" "permissions/identity_permissions.py")
+    _cb_src = ("governance_rule/permission_directory/registries/" "permissions/capability_boundaries.py")
     _registry_dir = ( root / "governance_rule" / "permission_directory" / "registries")
-    _registry_files = [
-        p for p in sorted(_registry_dir.rglob("*.py"))
-        if "__pycache__" not in p.parts]
+    _registry_files = [ p for p in sorted(_registry_dir.rglob("*.py")) if "__pycache__" not in p.parts]
 
     def _literal_file(literal: str) -> str | None:
         for reg in _registry_files:
@@ -1455,10 +1431,7 @@ def build_manifest(root: Path) -> dict[str, object]:
     for approved_tool in _code_rules.approved_tool_ids:
         contains(f"approved-tool:{approved_tool}", _code_src, [f'"{approved_tool}"'])
 
-    # check_tool_identity_registration — every enabled independent tool
-    _NON_INDEPENDENT = frozenset({
-        "governance_rule", "shared-layer", "star-chat",
-        "xingcheng-assistant"})
+    _NON_INDEPENDENT = frozenset({ "governance_rule", "shared-layer", "star-chat", "xingcheng-assistant"})
     _retired_ids = {
         i.bound_tool_id for i in _identity_group.identities
         if i.lifecycle == "retired"}
@@ -1480,14 +1453,8 @@ def build_manifest(root: Path) -> dict[str, object]:
 
     # --- check_codex_consistency semantic half -------------------------
     _p1 = "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
-    _mirror_version = ""
-    try:
-        _p1_doc = json.loads((root / _p1).read_text(encoding="utf-8"))
-        _mirror_version = str(_p1_doc.get("codex_version") or "")
-        _mirror_hash = str( _p1_doc.get("assembled_payload_hash") or "")
-    except (OSError, json.JSONDecodeError):
-        _mirror_version = ""
-    # Mirror carries an authoritative version+hash; the release pin is a
+    # Mirror carries the authoritative version+hash; the release pin is
+    # release-cadence and may lag — bind stable fields, not equality.
     emit("codex-consistency:pin-keys", "json-has-keys",
          "shared-layer/release-dependencies.json",
          markers=["governance_references"])
@@ -1507,7 +1474,6 @@ def build_manifest(root: Path) -> dict[str, object]:
         "provision_identities", "provision_lineage",
     ):
         _table_present(required_table)
-    # Per-id identity parity: row count is bound per table (a removed or
     for tbl, key in (("sovereigns", "sovereign_id"),
                      ("principles", "provision_id"),
                      ("articles", "provision_id"),
@@ -1522,7 +1488,6 @@ def build_manifest(root: Path) -> dict[str, object]:
     )
     for table in sorted(_REQ_TABLES):
         _table_present(table)
-    # Catalog coverage: format-contract codes and catalog codes are
     _catalog = _table_rows_for("directory_master_catalog")
     _contract_codes = {
         str(r.get("directory_code"))
@@ -1531,12 +1496,8 @@ def build_manifest(root: Path) -> dict[str, object]:
     _catalog_codes = {
         str(r.get("directory_code")) for r in _catalog}
     for ccode in sorted(_contract_codes | _catalog_codes):
-        _table_assert(f"catalog:contract-has:{ccode}",
-                      "directory_master_catalog",
-                      [f"directory_code={ccode}"])
-        _table_assert(f"catalog:catalog-has:{ccode}",
-                      "directory_format_contract",
-                      [f"directory_code={ccode}"])
+        _table_assert(f"catalog:contract-has:{ccode}", "directory_master_catalog", [f"directory_code={ccode}"])
+        _table_assert(f"catalog:catalog-has:{ccode}", "directory_format_contract", [f"directory_code={ccode}"])
     for crow in _catalog:
         ccode = str(crow.get("directory_code") or "")
         expected_owner = (
@@ -1554,16 +1515,12 @@ def build_manifest(root: Path) -> dict[str, object]:
         _dir_rows = _table_rows_for(table)
         for drow in _dir_rows:
             if drow.get(idcol) is None:
-                emit(f"directory:identity-missing:{table}", "fail",
-                     reason=f"{table} row missing {idcol}")
+                emit(f"directory:identity-missing:{table}", "fail", reason=f"{table} row missing {idcol}")
         _rows_or_count(f"directory:identity:{table}", table, idcol,
                        extra=lambda r, _t=table: _bind( "owner", _DIR_OWNERS[_t]))
-    # Provision classification: row count binds the population; every
     _class_rows = _table_rows_for("provision_law_classification")
     if _class_rows:
-        _table_assert(
-            "provision-class:count", "provision_law_classification",
-            [], count=len(_class_rows))
+        _table_assert( "provision-class:count", "provision_law_classification", [], count=len(_class_rows))
         for law in sorted({ str(r.get("law_code")) for r in _class_rows if r.get("law_code")}):
             _table_assert(f"provision-law:{law}", "law_structure_directory", [f"law_code={law}"])
     # Seal completeness on the current seal row.
@@ -1583,8 +1540,7 @@ def build_manifest(root: Path) -> dict[str, object]:
             + _bind("history_head", _current_seal.get("history_head")))
 
     # --- check_architecture_registry ------------------------------------
-    emit("architecture-registry:parse", "json-parses",
-         "governance_rule/execution/audit/architecture_registry.json")
+    emit("architecture-registry:parse", "json-parses", "governance_rule/execution/audit/architecture_registry.json")
     for rel_mod in ("main-system/governance/sovereigns/__init__.py",):
         emit(f"sovereign-module:{rel_mod}", "file-exists", rel_mod)
     _routes_src = ( "governance_rule/permission_directory/registries/" "permissions/tool_routes.py")
@@ -1618,8 +1574,7 @@ def build_manifest(root: Path) -> dict[str, object]:
 
     # --- check_gpu_coordinator_lazy_torch ------------------------------
     _gpu_src = ("shared-layer/src/shared_layer/adaptive/" "gpu_coordinator.py")
-    contains("gpu-lazy-torch:probe", _gpu_src,
-             ["def _torch()", "_query_via_nvidia_smi", "def query_gpu"])
+    contains("gpu-lazy-torch:probe", _gpu_src, ["def _torch()", "_query_via_nvidia_smi", "def query_gpu"])
     not_contains("gpu-lazy-torch:top-import", _gpu_src,
                  ["\nimport torch\n", "\nimport torch ",
                   "\nimport torch,", "\nimport torch.",
@@ -1654,16 +1609,13 @@ def build_manifest(root: Path) -> dict[str, object]:
                     "kind": "file-not-contains-unless",
                     "path": _rfile.relative_to(root).as_posix(),
                     "markers": ["setInterval("],
-                    "unless": ["visibilityState", "idle-ok",
-                               "navigator.onLine", "visibilitychange"],
+                    "unless": ["visibilityState", "idle-ok", "navigator.onLine", "visibilitychange"],
                 })
 
     # --- check_bounded_worker_pools --------------------------------------
     _pools_src = ("shared-layer/src/shared_layer/performance/" "thread_budget.py")
     contains("worker-pools:budget-module", _pools_src,
-             ["CORE_BUDGET_CAP = 5", "bounded_workers",
-              "bounded_threads", "allocation_within_budget"])
-    # Per-file binding: every production .py containing a PoolExecutor
+             ["CORE_BUDGET_CAP = 5", "bounded_workers", "bounded_threads", "allocation_within_budget"])
     for _pool_root in ("main-system/src-core", "main-system/governance",
                        "shared-layer/src", "governance_rule",
                        "Standalone tools"):
@@ -1688,17 +1640,14 @@ def build_manifest(root: Path) -> dict[str, object]:
                  markers=["max_workers"])
 
     # --- check_sql_anti_patterns ------------------------------------------
-    emit("sql-patterns:baseline-exists", "file-exists",
-         "governance_rule/execution/audit/sql_patterns_baseline.json")
+    emit("sql-patterns:baseline-exists", "file-exists", "governance_rule/execution/audit/sql_patterns_baseline.json")
     emit("sql-patterns:baseline-keys", "json-has-keys",
          "governance_rule/execution/audit/sql_patterns_baseline.json",
          markers=["findings"])
     contains("sql-patterns:scanner-machinery",
              "governance_rule/execution/audit/audit_sql_patterns.py",
              ["collect_finding_keys", "baseline_path", "_SELECT_STAR", "_OFFSET"])
-    from governance_rule.execution.audit.audit_sql_patterns import (
-        collect_finding_keys as _collect_findings,
-    )
+    from governance_rule.execution.audit.audit_sql_patterns import ( collect_finding_keys as _collect_findings, )
     for _violation in sorted(set(_collect_findings(root))):
         emit(f"sql-patterns:finding:{_violation}", "fail",
              reason="sql anti-pattern finding at manifest export: "
@@ -1707,8 +1656,7 @@ def build_manifest(root: Path) -> dict[str, object]:
     # --- protected-source-semantic remainder ------------------------------
     _protected = _protected_sources(root)
     if len(_protected) != len(set(_protected)):
-        emit("protected-source:duplicates", "fail",
-             reason="protected governance sources contain duplicates")
+        emit("protected-source:duplicates", "fail", reason="protected governance sources contain duplicates")
 
     # --- tool-manifests-semantic remainder ------------------------------
     import re as _rem
@@ -1748,8 +1696,7 @@ def build_manifest(root: Path) -> dict[str, object]:
         por = str(mdoc.get("physical_owner_root") or "")
         if len(parts) >= 4:
             if not por or por != parts[1] or por not in _tm_top_roots:
-                emit(f"tm:{mtid}:owner-parity", "fail",
-                     reason=f"nested physical_owner_root invalid: {mrel}")
+                emit(f"tm:{mtid}:owner-parity", "fail", reason=f"nested physical_owner_root invalid: {mrel}")
         elif mtid != mpath.parent.name and por != mpath.parent.name:
             emit(f"tm:{mtid}:dir-parity", "fail", reason=f"tool identity mismatch: {mrel}")
         emit(f"tm:{mtid}:id", "json-key-value", mrel, markers=[f"id={mtid}"])
@@ -1760,18 +1707,12 @@ def build_manifest(root: Path) -> dict[str, object]:
             emit(f"tm:{mtid}:caps", "fail", reason=f"tool capabilities are missing: {mtid}")
         for cname in caps if isinstance(caps, dict) else ():
             if (cname not in _code_rules.approved_capability_names
-                    or _rem.fullmatch(
-                        _policy.identifier_labels.capability_pattern,
-                        cname) is None):
-                emit(f"tm:{mtid}:cap:{cname}", "fail",
-                     reason="capability label not standardized: "
-                            f"{mtid}:{cname}")
+                    or _rem.fullmatch( _policy.identifier_labels.capability_pattern, cname) is None):
+                emit(f"tm:{mtid}:cap:{cname}", "fail", reason="capability label not standardized: " f"{mtid}:{cname}")
             else:
                 contains(f"tm:{mtid}:cap:{cname}", mrel, [f'"{cname}"'])
         try:
-            locale = json.loads(
-                (mpath.parent / "locales" / "zh-TW.json")
-                .read_text(encoding="utf-8"))
+            locale = json.loads( (mpath.parent / "locales" / "zh-TW.json") .read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError):
             continue  # file-exists/json-parses rows fail natively
         if not isinstance(locale, dict) or not all(
@@ -1798,10 +1739,65 @@ def build_manifest(root: Path) -> dict[str, object]:
                         ("manifest", "approved"),
                         ("approved", "manifest")):
         for tid in sorted(_tm_sets[left] - _tm_sets[right]):
-            emit(f"tm-parity:{left}-not-{right}:{tid}", "fail",
-                 reason=f"{left} tool id not in {right} set: {tid}")
+            emit(f"tm-parity:{left}-not-{right}:{tid}", "fail", reason=f"{left} tool id not in {right} set: {tid}")
 
-    # --- delegated: every Python check not natively covered -----------
+    # --- oracle-only: source_ownership_errors -------------------------
+    from governance_rule.permission_directory.registries.permissions import ( source_ownership as _so)
+    for _owner, _srcs in _so.REQUIRED_OWNED_SOURCES.items():
+        for _rel in sorted(_srcs):
+            emit(f"owned-source:{_rel}", "file-exists", _rel)
+    for _rel in sorted(_so.FORBIDDEN_LEGACY_BUSINESS_SOURCES | {
+            "Standalone tools/file-sorter/src/cleanup.py",
+            "Standalone tools/file-sorter/src/sorter_v2.py",
+            "Standalone tools/file-sorter/src/backend/automation_service.py",
+            "main-system/src-core/managers/provider_monitor.py",
+            "main-system/scripts/smoke/ai_assistant_visual_smoke.py"}):
+        emit(f"forbidden-source:{_rel}", "file-not-exists", _rel)
+    emit("owned-source:visual-smoke", "file-exists", "Standalone tools/ai-assistant/scripts/visual_smoke.py")
+    not_contains("main-system:ipc-symbols", "main-system/src-core/ipc/server.py",
+                 ["_investment_watch_result_log_payload", "_INVESTMENT_WATCH_LOG_"])
+    for _pkg, _layers in (
+            (_so.AI_ASSISTANT_PACKAGE_ROOT, _so.AI_ASSISTANT_REQUIRED_LAYERS),
+            (_so.XINGCHENG_PACKAGE_ROOT, _so.XINGCHENG_REQUIRED_LAYERS),
+            (_so.AI_COLLABORATION_PACKAGE_ROOT, _so.AI_COLLABORATION_REQUIRED_LAYERS),
+            (_so.INVESTMENT_MOBILE_PACKAGE_ROOT, _so.INVESTMENT_MOBILE_REQUIRED_LAYERS),
+            (_so.FILE_SORTER_PACKAGE_ROOT, _so.FILE_SORTER_REQUIRED_LAYERS),
+            (_so.VAULTLY_PACKAGE_ROOT, _so.VAULTLY_REQUIRED_LAYERS),
+            (_so.STAR_CHAT_PACKAGE_ROOT, _so.STAR_CHAT_REQUIRED_LAYERS)):
+        for _layer in sorted(_layers):
+            emit(f"pkg-layer:{_pkg}:{_layer}", "file-exists", f"{_pkg}/{_layer}/__init__.py")
+        for _stray in sorted((root / _pkg).glob("*.py")):
+            if _stray.name != "__init__.py":
+                emit(f"pkg-stray:{_stray.relative_to(root).as_posix()}", "fail",
+                     reason="source outside owned layer")
+    _trees = sorted(
+        {p.as_posix() for p in root.glob("*/src") if p.is_dir()}
+        | {p.as_posix() for p in (root / "Standalone tools").glob("*/src") if p.is_dir()})
+    for _prefix, _owner_root in _so.OWNED_IMPORT_PREFIXES.items():
+        for _tree in _trees:
+            _trel = _relativize(_tree)
+            if not _trel.startswith(_owner_root + "/"):
+                emit(f"cross-import:{_prefix}:{_trel}", "tree-not-contains",
+                     _trel, glob="*.py",
+                     markers=[f"import {_prefix}", f"from {_prefix}"])
+    emit("shared-layer:forbidden-terms", "tree-not-contains",
+         "shared-layer/src", glob="*.py", ignore_case=True,
+         markers=sorted(_so.SHARED_LAYER_FORBIDDEN_TERMS))
+    emit("main-system:forbidden-business", "tree-not-contains",
+         "main-system/src-core", glob="*.py", ignore_case=True,
+         markers=sorted(_so.MAIN_SYSTEM_FORBIDDEN_BUSINESS_TERMS))
+    emit("ai-assistant:forbidden-network", "tree-not-contains",
+         _so.AI_ASSISTANT_PACKAGE_ROOT, glob="*.py",
+         markers=[f"{v} {m}" for v in ("import", "from")
+                  for m in ("aiohttp", "httpx", "requests", "smtplib")]
+         + ["urllib.request", "urlopen("])
+    _shared_src = root / _so.SHARED_LAYER_ROOT
+    if _shared_src.is_dir():
+        for _sf in sorted(_shared_src.rglob("*.py")):
+            _srel = _sf.relative_to(_shared_src).as_posix()
+            if (_srel not in _so.SHARED_LAYER_ALLOWED_SOURCES
+                    and not _srel.startswith(_so.SHARED_LAYER_ALLOWED_PREFIXES)):
+                emit(f"unowned-shared:{_srel}", "fail", reason="unowned shared-layer source")
 
     # --- delegated: every Python check not natively covered -----------
     # Each delegated row carries an explicit ``python`` target so the

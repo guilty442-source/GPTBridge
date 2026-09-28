@@ -476,23 +476,28 @@ def run_audit_request(root: Path) -> NativeAuditResult:
                 f"delegated manifest unreadable: {error}"
             )
         else:
-            from .audit_checks import (
-                AUDIT_FLOW_BUDGET_SECONDS,
-                run_delegated_checks,
-            )
+            delegated_rows = [
+                c for c in manifest.get("checks", [])
+                if c.get("kind") == "delegated"
+            ]
+            if delegated_rows:
+                from .audit_checks import (
+                    AUDIT_FLOW_BUDGET_SECONDS,
+                    run_delegated_checks,
+                )
 
-            remaining = max(
-                0.0, AUDIT_FLOW_BUDGET_SECONDS - result.elapsed_s
-            )
-            delegated_errors, executed = run_delegated_checks(
-                root,
-                manifest.get("checks", []),
-                budget_seconds=remaining,
-            )
-            result.delegated_executed = len(executed)
-            if delegated_errors:
-                result.status = "fail"
-                result.errors.extend(delegated_errors)
+                remaining = max(
+                    0.0, AUDIT_FLOW_BUDGET_SECONDS - result.elapsed_s
+                )
+                delegated_errors, executed = run_delegated_checks(
+                    root,
+                    manifest.get("checks", []),
+                    budget_seconds=remaining,
+                )
+                result.delegated_executed = len(executed)
+                if delegated_errors:
+                    result.status = "fail"
+                    result.errors.extend(delegated_errors)
     from .audit_checks import audit_flow_budget_error
 
     budget_error = audit_flow_budget_error(time.monotonic() - started)
