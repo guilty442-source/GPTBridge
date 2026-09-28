@@ -244,7 +244,7 @@ class LocalEmbeddingProvider(EmbeddingProvider):
         # Run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         embeddings = await loop.run_in_executor(None, self._model.encode, texts)
-        return [e.tolist() for e in embeddings]
+        return embeddings.tolist()
 
     async def health_check(self) -> bool:
         try:
