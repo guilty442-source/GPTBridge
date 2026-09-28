@@ -329,6 +329,14 @@
       "enabled": true,
       "description": "架構 artifact registry 收斂：每 tick 對 architecture_diagram_artifact_registry active 列做 byte-level SHA-256 比對檔案；content_hash／source_codex_version 漂移時產生 codex-amendment-request（per-row update）投遞 convergence intake，由 codex-amendment-intake 五主權稽核＋auto_execute 落地；driver 永不直寫權威庫。檔案缺失的 active 列僅記入 state（retire 屬 governor 決策）。kill switch：本 flow enabled=false"
     },
+    "codex-pin-sync": {
+      "owner": "codex-pin-sync-driver（main-system tasks/codex_pin_sync）",
+      "kind": "periodic",
+      "interval_s": 60,
+      "pausable": true,
+      "enabled": true,
+      "description": "Release contract 法典釘定收斂：每 tick 讀 PostgreSQL 權威 authority_state，與 shared-layer/release-dependencies.json 的 governance_references codex_version/codex_sha256 比對，漂移時外科式改寫該兩欄位（實作面檔案，非權威寫入；落盤由 self-commit 收檔）。kill switch：本 flow enabled=false"
+    },
     "codex-amendment-intake": {
       "owner": "codex-amendment-driver（governance_rule/execution/codex_amendment_driver）",
       "kind": "periodic",

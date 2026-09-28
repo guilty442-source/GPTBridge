@@ -300,6 +300,18 @@ class StartupExecutorPhasesMixin:
             )
             await app.architecture_artifact_sync.start()
         _lap("architecture_artifact_sync_ms")
+        if getattr(app, "codex_pin_sync", None) is None:
+            from tasks.codex_pin_sync import CodexPinSyncDriver
+
+            # Release contract 法典釘定收斂——漂移時改寫實作面契約檔
+            # （governance_references pin），不觸碰權威庫。
+            app.codex_pin_sync = CodexPinSyncDriver(
+                app,
+                app.toolbox_service,
+                project_root=app.project_root,
+            )
+            await app.codex_pin_sync.start()
+        _lap("codex_pin_sync_ms")
         if getattr(app, "resource_mode_advisor", None) is None:
             from tasks.resource_mode_advisor import ResourceModeAdvisor
 
