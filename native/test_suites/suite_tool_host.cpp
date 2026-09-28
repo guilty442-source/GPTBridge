@@ -56,6 +56,10 @@ jl::JsonValue jobj(std::initializer_list<
     v.object.assign(items.begin(), items.end());
     return v;
 }
+std::string str_val(const jl::JsonValue* v) {
+    return (v && v->type == jl::JsonValue::Type::String) ? v->string
+                                                       : std::string();
+}
 
 /* 假 proxy：記憶體佇列實作 request/claim/respond/cancel 等 op。 */
 struct FakeProxy {
@@ -681,10 +685,9 @@ int main() {
     }
     NT_END_TEST(SUITE, "notify_stamp_wake");
 
-    /* live P2 sidecar：真實 spawn `python -m transport_proxy`，
+    /* live P2 sidecar：spawn 原生 proxy_wire_agent.exe fixture，
        驗證 CreateProcess 管道＋JSONL codec＋代理 dispatch 端到端。
-       無受管 env（bootstrap/token）故 hello 預期 fail-closed；
-       python 缺失 → BLOCKED（證據不完整，非 PASS）。
+       fixture 缺失 → BLOCKED（證據不完整，非 PASS）。
        手動 record（非 NT_TEST）：BLOCKED 與 PASS/FAIL 只能記一筆。 */
     {
         const char* name = "live_p2_sidecar_smoke";
@@ -696,60 +699,35 @@ int main() {
                 if (!cond) detail = msg;
                 return cond;
             };
-            /* repo root：套件 exe 在 native/test_suites/bin 下執行。 */
-            char cwd[MAX_PATH] = {0};
-            GetCurrentDirectoryA(MAX_PATH, cwd);
-            char root_buf[MAX_PATH] = {0};
-            const char* env_root = std::getenv("GPTBRIDGE_PROJECT_ROOT");
-            if (env_root && env_root[0]) {
-                strncpy_s(root_buf, env_root, MAX_PATH - 1);
-            } else {
-                GetFullPathNameA(
-                    (std::string(cwd) + "\\..\\..\\..").c_str(),
-                    MAX_PATH, root_buf, nullptr);
+            /* fixture 與套件 exe 同目錄（native/test_suites/bin）。 */
+            char exe_buf[MAX_PATH] = {0};
+            GetModuleFileNameA(nullptr, exe_buf, MAX_PATH);
+            std::string fixture = exe_buf;
+            const size_t slash = fixture.find_last_of("\\/");
+            fixture = (slash == std::string::npos)
+                          ? "proxy_wire_agent.exe"
+                          : fixture.substr(0, slash + 1) +
+                                "proxy_wire_agent.exe";
+            if (GetFileAttributesA(fixture.c_str()) ==
+                INVALID_FILE_ATTRIBUTES) {
+                detail = "proxy_wire_agent.exe missing";
+                blocked = true;
+                return true;
             }
-            const std::string root = root_buf;
-            /* transport_proxy import 鏈需要 repo root＋兩個 src 根
-               （shared_layer／tasks 等皆不在 root 頂層）。 */
-            std::string pythonpath =
-                root + ";" + root + "\\shared-layer\\src;" + root +
-                "\\main-system\\src-core";
-            if (const char* pp = std::getenv("PYTHONPATH"); pp && pp[0])
-                pythonpath += ";" + std::string(pp);
-            _putenv_s("PYTHONPATH", pythonpath.c_str());
-
-            std::vector<std::string> candidates;
-            if (const char* p = std::getenv("GPTBRIDGE_TEST_PYTHON");
-                p && p[0])
-                candidates.push_back("\"" + std::string(p) + "\"");
-            candidates.push_back("python");
-            candidates.push_back(
-                "\"" + root +
-                "\\main-system\\.venv\\Scripts\\python.exe\"");
 
             tpx::ProxySidecar sidecar;
             tpx::SidecarError err;
             tpx::ProxyResponse resp;
-            bool live = false;
-            for (const auto& exe : candidates) {
-                if (!sidecar.start(
-                        exe + " -m governance_rule.execution."
-                              "tool_runtime.transport_proxy",
-                        &err))
-                    continue;
-                if (sidecar.call("ping", tpx::args_empty(), &resp,
-                                 &err) &&
-                    resp.ok) {
-                    live = true;
-                    break;
-                }
-                sidecar.stop();
-            }
-            if (!live) {
-                detail = "python unavailable for live sidecar spawn";
+            if (!sidecar.start("\"" + fixture + "\"", &err)) {
+                detail = "fixture spawn failed";
                 blocked = true;
                 return true;
             }
+            if (!check(sidecar.call("ping", tpx::args_empty(), &resp,
+                                    &err) &&
+                           resp.ok,
+                       "ping transport ok"))
+                return false;
             if (!check(resp.valid, "ping response decoded")) return false;
             const jl::JsonValue* pong = resp.result.get("pong");
             if (!check(pong && pong->type == jl::JsonValue::Type::Bool &&
@@ -767,7 +745,7 @@ int main() {
                        "pre-hello claim denied"))
                 return false;
 
-            /* 無受管 env 的 hello → fail-closed（不崩潰、回錯誤）。 */
+            /* fixture hello 無 env 閘 → 綁定成功，channels 回顯。 */
             if (!check(sidecar.call(
                            "hello",
                            tpx::args_hello(
@@ -775,18 +753,39 @@ int main() {
                                {tpx::HelloChannel{"system", "process"}},
                                {}),
                            &resp, &err),
-                       "unauthenticated hello transport ok"))
+                       "hello transport ok"))
                 return false;
-            if (!check(!resp.ok && !resp.error_code.empty(),
-                       "unauthenticated hello fail-closed"))
+            if (!check(resp.ok, "fixture hello bound")) return false;
+            const jl::JsonValue* chans = resp.result.get("channels");
+            if (!check(chans &&
+                           str_val(chans->get("system")) == "process",
+                       "hello channels echoed"))
                 return false;
 
-            /* 代理仍活（錯誤不殺連線）→ ping 再通。 */
+            /* 綁定後 claim → fixture canned 列（無佇列 env）。 */
+            if (!check(sidecar.call("claim", tpx::args_channel("system"),
+                                    &resp, &err) &&
+                           resp.ok,
+                       "post-hello claim ok"))
+                return false;
+            const jl::JsonValue* req = resp.result.get("request");
+            if (!check(req && str_val(req->get("request_id")) ==
+                                  "req-77",
+                       "claim returns canned req-77"))
+                return false;
+
+            /* 未知 op → BAD_ENVELOPE，錯誤不殺連線 → ping 再通。 */
+            if (!check(sidecar.call("bogus_op", tpx::args_empty(),
+                                    &resp, &err) &&
+                           !resp.ok &&
+                           resp.error_code == "BAD_ENVELOPE",
+                       "unknown op -> BAD_ENVELOPE"))
+                return false;
             if (!check(
                     sidecar.call("ping", tpx::args_empty(), &resp,
                                  &err) &&
                         resp.ok,
-                    "sidecar survives hello failure"))
+                    "sidecar survives error envelope"))
                 return false;
 
             sidecar.stop();
@@ -802,12 +801,11 @@ int main() {
                                  native_tests::now_ms() - t0);
     }
 
-    /* live e2e：tool_host 以真實 ProxySidecar spawn 兩支
-       proxy_wire_agent（process＋submit 綁定；檔案佇列共享狀態），
-       WS 命令走真實 TransportProxyAgent dispatch 全程——
+    /* live e2e：tool_host 以真實 ProxySidecar spawn 兩支原生
+       proxy_wire_agent.exe（process＋submit 綁定；檔案佇列共享狀態），
+       WS 命令走 transport-proxy/v1 dispatch 全程——
        request→佇列→claim→execute→respond→waiter 推送＋
-       cancel→request_cancelled→不 respond。python/agent 缺失 →
-       BLOCKED。 */
+       cancel→request_cancelled→不 respond。fixture 缺失 → BLOCKED。 */
     {
         const char* name = "live_sidecar_e2e";
         const double t0 = native_tests::now_ms();
@@ -831,34 +829,18 @@ int main() {
                     MAX_PATH, root_buf, nullptr);
             }
             const fs::path root = root_buf;
-            const fs::path agent =
-                root / "native" / "test_suites" / "proxy_wire_agent.py";
-            if (GetFileAttributesA(agent.generic_string().c_str()) ==
+            /* 原生線協定 fixture：與套件 exe 同目錄（bin/）。 */
+            char exe_buf[MAX_PATH] = {0};
+            GetModuleFileNameA(nullptr, exe_buf, MAX_PATH);
+            std::string agent = exe_buf;
+            const size_t slash = agent.find_last_of("\\/");
+            agent = (slash == std::string::npos)
+                        ? "proxy_wire_agent.exe"
+                        : agent.substr(0, slash + 1) +
+                              "proxy_wire_agent.exe";
+            if (GetFileAttributesA(agent.c_str()) ==
                 INVALID_FILE_ATTRIBUTES) {
-                detail = "wire agent missing";
-                blocked = true;
-                return true;
-            }
-            std::vector<std::string> candidates;
-            if (const char* p = std::getenv("GPTBRIDGE_TEST_PYTHON");
-                p && p[0])
-                candidates.push_back(std::string(p));
-            candidates.push_back(
-                (root / "main-system" / ".venv" / "Scripts" /
-                 "python.exe")
-                    .generic_string());
-            candidates.push_back("python");
-            std::string py;
-            for (const auto& c : candidates) {
-                if (c == "python" ||
-                    GetFileAttributesA(c.c_str()) !=
-                        INVALID_FILE_ATTRIBUTES) {
-                    py = c;
-                    break;
-                }
-            }
-            if (py.empty()) {
-                detail = "python unavailable for live sidecar e2e";
+                detail = "proxy_wire_agent.exe missing";
                 blocked = true;
                 return true;
             }
@@ -886,8 +868,7 @@ int main() {
             char wsid[GPTBRIDGE_GT_INSTANCE_ID_LEN + 1] = {0};
             gptbridge_gt_workspace_instance_id("test-tool", port, wsid);
             cfg.workspace_instance_id = wsid;
-            const std::string cmdline =
-                "\"" + py + "\" \"" + agent.generic_string() + "\"";
+            const std::string cmdline = "\"" + agent + "\"";
             cfg.proxy_command_line = cmdline;
             cfg.proxy_command_line_submit = cmdline;
             cfg.submit_actor = "governance/tool/test-tool";

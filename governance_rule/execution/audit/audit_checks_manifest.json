@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T14:50:52Z",
+  "generated_at": "2026-09-28T15:10:28Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 1842,
-    "delegated_checks": 1,
+    "native_checks": 1867,
+    "delegated_checks": 0,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -5572,520 +5572,520 @@
       "min_count": 0
     },
     {
-      "id": "formal-rule:evaluator:RULE_TOOL_RUNTIME_V1",
+      "id": "formal-rule:evaluator:RULE_TOOL_RUNTIME",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_TOOL_RUNTIME_V1\""
+        "\"RULE_TOOL_RUNTIME\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_TOOL_RUNTIME_V1",
+      "id": "formal-rule:row:RULE_TOOL_RUNTIME",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_TOOL_RUNTIME_V1",
+        "rule_code=RULE_TOOL_RUNTIME",
         "controlling_provision_id=A103",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_GIT_WORKTREE_V1",
+      "id": "formal-rule:evaluator:RULE_GIT_WORKTREE",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_GIT_WORKTREE_V1\""
+        "\"RULE_GIT_WORKTREE\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_GIT_WORKTREE_V1",
+      "id": "formal-rule:row:RULE_GIT_WORKTREE",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_GIT_WORKTREE_V1",
+        "rule_code=RULE_GIT_WORKTREE",
         "controlling_provision_id=A103",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_BACKEND_HANDOFF_V1",
+      "id": "formal-rule:evaluator:RULE_BACKEND_HANDOFF",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_BACKEND_HANDOFF_V1\""
+        "\"RULE_BACKEND_HANDOFF\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_BACKEND_HANDOFF_V1",
+      "id": "formal-rule:row:RULE_BACKEND_HANDOFF",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_BACKEND_HANDOFF_V1",
+        "rule_code=RULE_BACKEND_HANDOFF",
         "controlling_provision_id=A103",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_RAG_PROVENANCE_V1",
+      "id": "formal-rule:evaluator:RULE_RAG_PROVENANCE",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_RAG_PROVENANCE_V1\""
+        "\"RULE_RAG_PROVENANCE\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_RAG_PROVENANCE_V1",
+      "id": "formal-rule:row:RULE_RAG_PROVENANCE",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_RAG_PROVENANCE_V1",
+        "rule_code=RULE_RAG_PROVENANCE",
         "controlling_provision_id=A103",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_NATIVE_PROMOTION_V1",
+      "id": "formal-rule:evaluator:RULE_NATIVE_PROMOTION",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_NATIVE_PROMOTION_V1\""
+        "\"RULE_NATIVE_PROMOTION\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_NATIVE_PROMOTION_V1",
+      "id": "formal-rule:row:RULE_NATIVE_PROMOTION",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_NATIVE_PROMOTION_V1",
+        "rule_code=RULE_NATIVE_PROMOTION",
         "controlling_provision_id=A103",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_MODEL_DIALOGUE_MODE_V1",
+      "id": "formal-rule:evaluator:RULE_MODEL_DIALOGUE_MODE",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_MODEL_DIALOGUE_MODE_V1\""
+        "\"RULE_MODEL_DIALOGUE_MODE\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_MODEL_DIALOGUE_MODE_V1",
+      "id": "formal-rule:row:RULE_MODEL_DIALOGUE_MODE",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_MODEL_DIALOGUE_MODE_V1",
+        "rule_code=RULE_MODEL_DIALOGUE_MODE",
         "controlling_provision_id=A103",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_RUNTIME_AUTHORITY_RESOLUTION_V1",
+      "id": "formal-rule:evaluator:RULE_RUNTIME_AUTHORITY_RESOLUTION",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_RUNTIME_AUTHORITY_RESOLUTION_V1\""
+        "\"RULE_RUNTIME_AUTHORITY_RESOLUTION\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_RUNTIME_AUTHORITY_RESOLUTION_V1",
+      "id": "formal-rule:row:RULE_RUNTIME_AUTHORITY_RESOLUTION",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_RUNTIME_AUTHORITY_RESOLUTION_V1",
+        "rule_code=RULE_RUNTIME_AUTHORITY_RESOLUTION",
         "controlling_provision_id=A103",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_DELEGATION_VALIDATION_V1",
+      "id": "formal-rule:evaluator:RULE_DELEGATION_VALIDATION",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_DELEGATION_VALIDATION_V1\""
+        "\"RULE_DELEGATION_VALIDATION\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_DELEGATION_VALIDATION_V1",
+      "id": "formal-rule:row:RULE_DELEGATION_VALIDATION",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_DELEGATION_VALIDATION_V1",
+        "rule_code=RULE_DELEGATION_VALIDATION",
         "controlling_provision_id=A103",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_RESOURCE_GOVERNOR_CPP23_V1",
+      "id": "formal-rule:evaluator:RULE_RESOURCE_GOVERNOR_CPP23",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_RESOURCE_GOVERNOR_CPP23_V1\""
+        "\"RULE_RESOURCE_GOVERNOR_CPP23\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_RESOURCE_GOVERNOR_CPP23_V1",
+      "id": "formal-rule:row:RULE_RESOURCE_GOVERNOR_CPP23",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_RESOURCE_GOVERNOR_CPP23_V1",
+        "rule_code=RULE_RESOURCE_GOVERNOR_CPP23",
         "controlling_provision_id=A137",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_LANGUAGE_VERSIONS_V1",
+      "id": "formal-rule:evaluator:RULE_LANGUAGE_VERSIONS",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_LANGUAGE_VERSIONS_V1\""
+        "\"RULE_LANGUAGE_VERSIONS\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_LANGUAGE_VERSIONS_V1",
+      "id": "formal-rule:row:RULE_LANGUAGE_VERSIONS",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_LANGUAGE_VERSIONS_V1",
+        "rule_code=RULE_LANGUAGE_VERSIONS",
         "controlling_provision_id=A138",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_FILE_OPERATION_RELIABILITY_V1",
+      "id": "formal-rule:evaluator:RULE_FILE_OPERATION_RELIABILITY",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_FILE_OPERATION_RELIABILITY_V1\""
+        "\"RULE_FILE_OPERATION_RELIABILITY\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_FILE_OPERATION_RELIABILITY_V1",
+      "id": "formal-rule:row:RULE_FILE_OPERATION_RELIABILITY",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_FILE_OPERATION_RELIABILITY_V1",
+        "rule_code=RULE_FILE_OPERATION_RELIABILITY",
         "controlling_provision_id=B106",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_EXECUTION_VERIFICATION_SEPARATION_V1",
+      "id": "formal-rule:evaluator:RULE_EXECUTION_VERIFICATION_SEPARATION",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_EXECUTION_VERIFICATION_SEPARATION_V1\""
+        "\"RULE_EXECUTION_VERIFICATION_SEPARATION\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_EXECUTION_VERIFICATION_SEPARATION_V1",
+      "id": "formal-rule:row:RULE_EXECUTION_VERIFICATION_SEPARATION",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_EXECUTION_VERIFICATION_SEPARATION_V1",
+        "rule_code=RULE_EXECUTION_VERIFICATION_SEPARATION",
         "controlling_provision_id=B106",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_CAPABILITY_DISPATCH_V1",
+      "id": "formal-rule:evaluator:RULE_CAPABILITY_DISPATCH",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_CAPABILITY_DISPATCH_V1\""
+        "\"RULE_CAPABILITY_DISPATCH\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_CAPABILITY_DISPATCH_V1",
+      "id": "formal-rule:row:RULE_CAPABILITY_DISPATCH",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_CAPABILITY_DISPATCH_V1",
+        "rule_code=RULE_CAPABILITY_DISPATCH",
         "controlling_provision_id=B162",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_LANGUAGE_REALLOCATION_V1",
+      "id": "formal-rule:evaluator:RULE_LANGUAGE_REALLOCATION",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_LANGUAGE_REALLOCATION_V1\""
+        "\"RULE_LANGUAGE_REALLOCATION\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_LANGUAGE_REALLOCATION_V1",
+      "id": "formal-rule:row:RULE_LANGUAGE_REALLOCATION",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_LANGUAGE_REALLOCATION_V1",
+        "rule_code=RULE_LANGUAGE_REALLOCATION",
         "controlling_provision_id=B163",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_PYTHON_MINIMIZATION_V1",
+      "id": "formal-rule:evaluator:RULE_PYTHON_MINIMIZATION",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_PYTHON_MINIMIZATION_V1\""
+        "\"RULE_PYTHON_MINIMIZATION\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_PYTHON_MINIMIZATION_V1",
+      "id": "formal-rule:row:RULE_PYTHON_MINIMIZATION",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_PYTHON_MINIMIZATION_V1",
+        "rule_code=RULE_PYTHON_MINIMIZATION",
         "controlling_provision_id=B163",
         "status=proposed"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_NATIVE_COMPUTE_C23_V1",
+      "id": "formal-rule:evaluator:RULE_NATIVE_COMPUTE_C23",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_NATIVE_COMPUTE_C23_V1\""
+        "\"RULE_NATIVE_COMPUTE_C23\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_NATIVE_COMPUTE_C23_V1",
+      "id": "formal-rule:row:RULE_NATIVE_COMPUTE_C23",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_NATIVE_COMPUTE_C23_V1",
+        "rule_code=RULE_NATIVE_COMPUTE_C23",
         "controlling_provision_id=B164",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_MAIN_SYSTEM_CSHARP14_V1",
+      "id": "formal-rule:evaluator:RULE_MAIN_SYSTEM_CSHARP14",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_MAIN_SYSTEM_CSHARP14_V1\""
+        "\"RULE_MAIN_SYSTEM_CSHARP14\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_MAIN_SYSTEM_CSHARP14_V1",
+      "id": "formal-rule:row:RULE_MAIN_SYSTEM_CSHARP14",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_MAIN_SYSTEM_CSHARP14_V1",
+        "rule_code=RULE_MAIN_SYSTEM_CSHARP14",
         "controlling_provision_id=B165",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_INFRA_VERSIONS_V1",
+      "id": "formal-rule:evaluator:RULE_INFRA_VERSIONS",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_INFRA_VERSIONS_V1\""
+        "\"RULE_INFRA_VERSIONS\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_INFRA_VERSIONS_V1",
+      "id": "formal-rule:row:RULE_INFRA_VERSIONS",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_INFRA_VERSIONS_V1",
+        "rule_code=RULE_INFRA_VERSIONS",
         "controlling_provision_id=B166",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_JAX_PYTORCH_V1",
+      "id": "formal-rule:evaluator:RULE_JAX_FRAMEWORK",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_JAX_PYTORCH_V1\""
+        "\"RULE_JAX_FRAMEWORK\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_JAX_PYTORCH_V1",
+      "id": "formal-rule:row:RULE_JAX_FRAMEWORK",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_JAX_PYTORCH_V1",
+        "rule_code=RULE_JAX_FRAMEWORK",
         "controlling_provision_id=B167",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_JS_NATIVE_V1",
+      "id": "formal-rule:evaluator:RULE_JS_NATIVE",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_JS_NATIVE_V1\""
+        "\"RULE_JS_NATIVE\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_JS_NATIVE_V1",
+      "id": "formal-rule:row:RULE_JS_NATIVE",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_JS_NATIVE_V1",
+        "rule_code=RULE_JS_NATIVE",
         "controlling_provision_id=B168",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_GO_RUST_NODE_V1",
+      "id": "formal-rule:evaluator:RULE_GO_RUST_RUNTIME",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_GO_RUST_NODE_V1\""
+        "\"RULE_GO_RUST_RUNTIME\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_GO_RUST_NODE_V1",
+      "id": "formal-rule:row:RULE_GO_RUST_RUNTIME",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_GO_RUST_NODE_V1",
+        "rule_code=RULE_GO_RUST_RUNTIME",
         "controlling_provision_id=B169",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_LANGUAGE_TABLE_OFFICIAL_V1",
+      "id": "formal-rule:evaluator:RULE_LANGUAGE_TABLE_OFFICIAL",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_LANGUAGE_TABLE_OFFICIAL_V1\""
+        "\"RULE_LANGUAGE_TABLE_OFFICIAL\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_LANGUAGE_TABLE_OFFICIAL_V1",
+      "id": "formal-rule:row:RULE_LANGUAGE_TABLE_OFFICIAL",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_LANGUAGE_TABLE_OFFICIAL_V1",
+        "rule_code=RULE_LANGUAGE_TABLE_OFFICIAL",
         "controlling_provision_id=B170",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_TEST_TOOLS_V1",
+      "id": "formal-rule:evaluator:RULE_TEST_TOOLS",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_TEST_TOOLS_V1\""
+        "\"RULE_TEST_TOOLS\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_TEST_TOOLS_V1",
+      "id": "formal-rule:row:RULE_TEST_TOOLS",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_TEST_TOOLS_V1",
+        "rule_code=RULE_TEST_TOOLS",
         "controlling_provision_id=B171",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_FINAL_ARCHITECTURE_V1",
+      "id": "formal-rule:evaluator:RULE_FINAL_ARCHITECTURE",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_FINAL_ARCHITECTURE_V1\""
+        "\"RULE_FINAL_ARCHITECTURE\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_FINAL_ARCHITECTURE_V1",
+      "id": "formal-rule:row:RULE_FINAL_ARCHITECTURE",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_FINAL_ARCHITECTURE_V1",
+        "rule_code=RULE_FINAL_ARCHITECTURE",
         "controlling_provision_id=B172",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_VECTOR_ENGINE_RUST_V1",
+      "id": "formal-rule:evaluator:RULE_VECTOR_ENGINE_RUST",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_VECTOR_ENGINE_RUST_V1\""
+        "\"RULE_VECTOR_ENGINE_RUST\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_VECTOR_ENGINE_RUST_V1",
+      "id": "formal-rule:row:RULE_VECTOR_ENGINE_RUST",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_VECTOR_ENGINE_RUST_V1",
+        "rule_code=RULE_VECTOR_ENGINE_RUST",
         "controlling_provision_id=C115",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_RETIRED_DEPENDENCIES_V1",
+      "id": "formal-rule:evaluator:RULE_RETIRED_DEPENDENCIES",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_RETIRED_DEPENDENCIES_V1\""
+        "\"RULE_RETIRED_DEPENDENCIES\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_RETIRED_DEPENDENCIES_V1",
+      "id": "formal-rule:row:RULE_RETIRED_DEPENDENCIES",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_RETIRED_DEPENDENCIES_V1",
+        "rule_code=RULE_RETIRED_DEPENDENCIES",
         "controlling_provision_id=C116",
         "status=evaluator-parity-verified"
       ],
@@ -6132,120 +6132,120 @@
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_DELEGATED_A498_V1",
+      "id": "formal-rule:evaluator:RULE_DELEGATED_A498",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_DELEGATED_A498_V1\""
+        "\"RULE_DELEGATED_A498\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_DELEGATED_A498_V1",
+      "id": "formal-rule:row:RULE_DELEGATED_A498",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_DELEGATED_A498_V1",
+        "rule_code=RULE_DELEGATED_A498",
         "controlling_provision_id=D125",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_TEST_AUDIT_RESPONSIBILITY_V1",
+      "id": "formal-rule:evaluator:RULE_TEST_AUDIT_RESPONSIBILITY",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_TEST_AUDIT_RESPONSIBILITY_V1\""
+        "\"RULE_TEST_AUDIT_RESPONSIBILITY\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_TEST_AUDIT_RESPONSIBILITY_V1",
+      "id": "formal-rule:row:RULE_TEST_AUDIT_RESPONSIBILITY",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_TEST_AUDIT_RESPONSIBILITY_V1",
+        "rule_code=RULE_TEST_AUDIT_RESPONSIBILITY",
         "controlling_provision_id=D138",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_RUST_TESTS_V1",
+      "id": "formal-rule:evaluator:RULE_RUST_TESTS",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_RUST_TESTS_V1\""
+        "\"RULE_RUST_TESTS\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_RUST_TESTS_V1",
+      "id": "formal-rule:row:RULE_RUST_TESTS",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_RUST_TESTS_V1",
+        "rule_code=RULE_RUST_TESTS",
         "controlling_provision_id=D139",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_JAX_PARITY_V1",
+      "id": "formal-rule:evaluator:RULE_JAX_PARITY",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_JAX_PARITY_V1\""
+        "\"RULE_JAX_PARITY\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_JAX_PARITY_V1",
+      "id": "formal-rule:row:RULE_JAX_PARITY",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_JAX_PARITY_V1",
+        "rule_code=RULE_JAX_PARITY",
         "controlling_provision_id=D140",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_CODEX_CONVERGENCE_V1",
+      "id": "formal-rule:evaluator:RULE_CODEX_CONVERGENCE",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_CODEX_CONVERGENCE_V1\""
+        "\"RULE_CODEX_CONVERGENCE\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_CODEX_CONVERGENCE_V1",
+      "id": "formal-rule:row:RULE_CODEX_CONVERGENCE",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_CODEX_CONVERGENCE_V1",
+        "rule_code=RULE_CODEX_CONVERGENCE",
         "controlling_provision_id=D9",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1
     },
     {
-      "id": "formal-rule:evaluator:RULE_MATURE_CAPABILITY_PRESERVATION_V1",
+      "id": "formal-rule:evaluator:RULE_MATURE_CAPABILITY_PRESERVATION",
       "kind": "file-contains",
       "path": "governance_rule/execution/formal_rules/evaluators.py",
       "markers": [
-        "\"RULE_MATURE_CAPABILITY_PRESERVATION_V1\""
+        "\"RULE_MATURE_CAPABILITY_PRESERVATION\""
       ]
     },
     {
-      "id": "formal-rule:row:RULE_MATURE_CAPABILITY_PRESERVATION_V1",
+      "id": "formal-rule:row:RULE_MATURE_CAPABILITY_PRESERVATION",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
       "items": "tables.formal_rule_registry",
       "markers": [
-        "rule_code=RULE_MATURE_CAPABILITY_PRESERVATION_V1",
+        "rule_code=RULE_MATURE_CAPABILITY_PRESERVATION",
         "controlling_provision_id=D9",
         "status=evaluator-parity-verified"
       ],
@@ -7513,7 +7513,7 @@
       "markers": [
         "obligation_code=FINAL_CONVERGENCE_IMPLEMENTATION_PLAN",
         "implementation_owner=system-runtime-sovereign",
-        "target_state=RULE_CAPABILITY_DISPATCH_V1 governor activation and registry wiring complete; until governor activation the capability dispatch path remains pending and cannot be treated as current authority",
+        "target_state=RULE_CAPABILITY_DISPATCH governor activation and registry wiring complete; until governor activation the capability dispatch path remains pending and cannot be treated as current authority",
         "acceptance_evidence=governor activation receipt|registry parity|retired-identity routing tests|missing-or-ambiguous fail-closed evidence",
         "current_state=mandated"
       ],
@@ -7555,7 +7555,7 @@
       "markers": [
         "obligation_code=OBL_MACHINE_SCHEMA_PARITY",
         "implementation_owner=module-execution-layer",
-        "target_state=all 74 registered machine schemas carry equal evidenced producer,validator,persistence and canonical semantic hashes (SEAL_CANONICAL_V1 descriptor digests)",
+        "target_state=all 74 registered machine schemas carry equal evidenced producer,validator,persistence and canonical semantic hashes (SEAL_CANONICAL descriptor digests)",
         "acceptance_evidence=machine_schema_parity_evidence restamp at codex-generation-convergence-20260925: 74/74 rows PASS, four equal descriptor hashes each",
         "current_state=complete"
       ],
@@ -7570,7 +7570,7 @@
         "obligation_code=OBL_DAG_CAG_RAG_HYBRID",
         "implementation_owner=system-runtime-sovereign|permission-sovereign|decision-sovereign|xingcheng",
         "target_state=all-machine-contract-parity-PASS|mandatory-tests-PASS|zero-cache-leakage|six-scenario-benchmark-PASS|architecture-parity",
-        "acceptance_evidence=machine_schema_parity_evidence|TEST_SUITE_DAG_CAG_RAG_HYBRID|security-zero-leakage evidence|RAG_HYBRID_BENCHMARK_V1 evidence|architecture sync evidence",
+        "acceptance_evidence=machine_schema_parity_evidence|TEST_SUITE_DAG_CAG_RAG_HYBRID|security-zero-leakage evidence|RAG_HYBRID_BENCHMARK evidence|architecture sync evidence",
         "current_state=evidence-submitted"
       ],
       "min_count": 1
@@ -7681,7 +7681,7 @@
       "markers": [
         "obligation_code=OBL_SQL_MIGRATION",
         "implementation_owner=module-execution-layer",
-        "target_state=SQL_MIGRATION_V1 producer,validator,ordered registry and live PostgreSQL schema parity active",
+        "target_state=SQL_MIGRATION producer,validator,ordered registry and live PostgreSQL schema parity active",
         "acceptance_evidence=ordered migration replay+current PostgreSQL catalog hash equality+formal evaluator parity",
         "current_state=mandated"
       ],
@@ -7772,29 +7772,29 @@
       "min_count": 1
     },
     {
-      "id": "obligation:row:OBL_RUNTIME_RULE_INDEX_V2",
+      "id": "obligation:row:OBL_RUNTIME_RULE_INDEX",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
       "items": "tables.implementation_obligations",
       "markers": [
-        "obligation_code=OBL_RUNTIME_RULE_INDEX_V2",
+        "obligation_code=OBL_RUNTIME_RULE_INDEX",
         "implementation_owner=system-runtime-sovereign",
-        "target_state=RUNTIME_RULE_INDEX_V2 producer validator atomic generation loader and benchmark evidence",
+        "target_state=RUNTIME_RULE_INDEX producer validator atomic generation loader and benchmark evidence",
         "acceptance_evidence=published 0fb19aaed92899587b186ddc08baa804e368c5307c408677b5f318fb74cbc5e1; live validator zero errors; PostgreSQL source; atomic generation; budget PASS",
         "current_state=complete"
       ],
       "min_count": 1
     },
     {
-      "id": "obligation:row:OBL_MODULE_RULE_INDEX_V1",
+      "id": "obligation:row:OBL_MODULE_RULE_INDEX",
       "kind": "json-array-min-count",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
       "items": "tables.implementation_obligations",
       "markers": [
-        "obligation_code=OBL_MODULE_RULE_INDEX_V1",
+        "obligation_code=OBL_MODULE_RULE_INDEX",
         "implementation_owner=permission-sovereign",
         "target_state=central module rule index registry validator generation loader and scoped query service",
-        "acceptance_evidence=published 680c1a35112541a3f53c00948dec5d06174b076ba301d52b0d764599a35b2bcc; MODULE_RULE_INDEX_V1; PostgreSQL directory; 45 modules; 0 published module rules; no fabrication; scope denial and fail-closed validation PASS",
+        "acceptance_evidence=published 680c1a35112541a3f53c00948dec5d06174b076ba301d52b0d764599a35b2bcc; MODULE_RULE_INDEX; PostgreSQL directory; 45 modules; 0 published module rules; no fabrication; scope denial and fail-closed validation PASS",
         "current_state=complete"
       ],
       "min_count": 1
@@ -7975,7 +7975,7 @@
       "markers": [
         "obligation_code=OBL_CENTRAL_AUDIT_SQL",
         "implementation_owner=module-execution-layer",
-        "target_state=Central audit is append-only and cannot be silently deleted or modified;actor,operation,target,result,evidence,correlation,sequence and hash chain exactly align with AUDIT_EVENT_V1.",
+        "target_state=Central audit is append-only and cannot be silently deleted or modified;actor,operation,target,result,evidence,correlation,sequence and hash chain exactly align with AUDIT_EVENT.",
         "acceptance_evidence=schema parity,append-only role denial,chain and tamper tests",
         "current_state=mandated"
       ],
@@ -18444,10 +18444,204 @@
       ]
     },
     {
-      "id": "python-check:tool-manifests-semantic",
-      "kind": "delegated",
-      "reason": "cross-manifest identity parity / label regex / capability registry semantics",
-      "python": "check_tool_manifests"
+      "id": "tm:governance_rule:id",
+      "kind": "json-key-value",
+      "path": "governance_rule/manifest.json",
+      "markers": [
+        "id=governance_rule"
+      ]
+    },
+    {
+      "id": "tm:governance_rule:cap:governance",
+      "kind": "file-contains",
+      "path": "governance_rule/manifest.json",
+      "markers": [
+        "\"governance\""
+      ]
+    },
+    {
+      "id": "tm:governance_rule:cap:codex-read-execute",
+      "kind": "file-contains",
+      "path": "governance_rule/manifest.json",
+      "markers": [
+        "\"codex-read-execute\""
+      ]
+    },
+    {
+      "id": "tm:governance_rule:cap:permission-directory-read-execute",
+      "kind": "file-contains",
+      "path": "governance_rule/manifest.json",
+      "markers": [
+        "\"permission-directory-read-execute\""
+      ]
+    },
+    {
+      "id": "tm:shared-layer:id",
+      "kind": "json-key-value",
+      "path": "shared-layer/manifest.json",
+      "markers": [
+        "id=shared-layer"
+      ]
+    },
+    {
+      "id": "tm:shared-layer:cap:authenticated-ipc",
+      "kind": "file-contains",
+      "path": "shared-layer/manifest.json",
+      "markers": [
+        "\"authenticated-ipc\""
+      ]
+    },
+    {
+      "id": "tm:ai-assistant:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/ai-assistant/manifest.json",
+      "markers": [
+        "id=ai-assistant"
+      ]
+    },
+    {
+      "id": "tm:ai-assistant:cap:investment-manager",
+      "kind": "file-contains",
+      "path": "Standalone tools/ai-assistant/manifest.json",
+      "markers": [
+        "\"investment-manager\""
+      ]
+    },
+    {
+      "id": "tm:ai-assistant:cap:ai-connections",
+      "kind": "file-contains",
+      "path": "Standalone tools/ai-assistant/manifest.json",
+      "markers": [
+        "\"ai-connections\""
+      ]
+    },
+    {
+      "id": "tm:ai-collaboration:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/ai-collaboration/manifest.json",
+      "markers": [
+        "id=ai-collaboration"
+      ]
+    },
+    {
+      "id": "tm:ai-collaboration:cap:external-ai",
+      "kind": "file-contains",
+      "path": "Standalone tools/ai-collaboration/manifest.json",
+      "markers": [
+        "\"external-ai\""
+      ]
+    },
+    {
+      "id": "tm:file-sorter:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/file-sorter/manifest.json",
+      "markers": [
+        "id=file-sorter"
+      ]
+    },
+    {
+      "id": "tm:investment-mobile:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/investment-mobile/manifest.json",
+      "markers": [
+        "id=investment-mobile"
+      ]
+    },
+    {
+      "id": "tm:investment-mobile:cap:ai-connections",
+      "kind": "file-contains",
+      "path": "Standalone tools/investment-mobile/manifest.json",
+      "markers": [
+        "\"ai-connections\""
+      ]
+    },
+    {
+      "id": "tm:investment-mobile:cap:investment-analysis",
+      "kind": "file-contains",
+      "path": "Standalone tools/investment-mobile/manifest.json",
+      "markers": [
+        "\"investment-analysis\""
+      ]
+    },
+    {
+      "id": "tm:investment-mobile:cap:investment-manager",
+      "kind": "file-contains",
+      "path": "Standalone tools/investment-mobile/manifest.json",
+      "markers": [
+        "\"investment-manager\""
+      ]
+    },
+    {
+      "id": "tm:investment-mobile:cap:investment-market-search",
+      "kind": "file-contains",
+      "path": "Standalone tools/investment-mobile/manifest.json",
+      "markers": [
+        "\"investment-market-search\""
+      ]
+    },
+    {
+      "id": "tm:local-model:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/local-model/manifest.json",
+      "markers": [
+        "id=local-model"
+      ]
+    },
+    {
+      "id": "tm:local-model:cap:xingcheng",
+      "kind": "file-contains",
+      "path": "Standalone tools/local-model/manifest.json",
+      "markers": [
+        "\"xingcheng\""
+      ]
+    },
+    {
+      "id": "tm:vaultly:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/vaultly/manifest.json",
+      "markers": [
+        "id=vaultly"
+      ]
+    },
+    {
+      "id": "tm:model-dialogue:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/local-model/model-dialogue/manifest.json",
+      "markers": [
+        "id=model-dialogue"
+      ]
+    },
+    {
+      "id": "tm:xingcheng:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/local-model/xingcheng/manifest.json",
+      "markers": [
+        "id=xingcheng"
+      ]
+    },
+    {
+      "id": "tm:xingcheng:cap:ai-connections",
+      "kind": "file-contains",
+      "path": "Standalone tools/local-model/xingcheng/manifest.json",
+      "markers": [
+        "\"ai-connections\""
+      ]
+    },
+    {
+      "id": "tm:star-chat:id",
+      "kind": "json-key-value",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "markers": [
+        "id=star-chat"
+      ]
+    },
+    {
+      "id": "tm:star-chat:cap:ai-connections",
+      "kind": "file-contains",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "markers": [
+        "\"ai-connections\""
+      ]
     }
   ]
 }

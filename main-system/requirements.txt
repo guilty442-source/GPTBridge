@@ -3,11 +3,9 @@
 psycopg[binary,pool]>=3.2,<4
 websockets>=12,<17
 
-# Test dependencies (pytest.ini addopts requires xdist + timeout)
-pytest==9.1.1
-pytest-asyncio==1.4.0
-pytest-xdist==3.8.0
-pytest-timeout==2.4.0
+# Test dependencies — retired: pytest/Python-test forbidden (codex
+# python-final-minimum-responsibility + test-framework-final-ownership).
+# Formal testing is native-runner only under TestSuiteOrchestrator.
 
 # Build dependencies
 pybind11>=2.13,<3

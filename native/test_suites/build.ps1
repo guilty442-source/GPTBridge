@@ -334,6 +334,13 @@ $sidecarSrc = Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"
 $driverObj = Join-Path $out "obj\proxy_client_driver"
 New-Item -ItemType Directory -Force -Path $driverObj | Out-Null
 Add-BuildJob "proxy_client_driver" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$driverExe`" /Fo:$driverObj\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" /link /LTCG >nul || exit /b 1")
+# transport-proxy/v1 線協定 fixture（原生）：live sidecar 案例的受管對端，
+# 取代已退役的 Python fixture（D7/B171：測試車道無 Python）。
+$wireExe = Join-Path $out "proxy_wire_agent.exe"
+$wireSrc = Join-Path $PSScriptRoot "proxy_wire_agent.cpp"
+$wireObj = Join-Path $out "obj\proxy_wire_agent"
+New-Item -ItemType Directory -Force -Path $wireObj | Out-Null
+Add-BuildJob "proxy_wire_agent" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$wireExe`" /Fo:$wireObj\ `"$wireSrc`" /link /LTCG >nul || exit /b 1")
 
 $bq = [System.Collections.Generic.Queue[object]]::new()
 foreach ($j in $buildJobs) { $bq.Enqueue($j) }

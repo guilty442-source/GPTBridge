@@ -276,9 +276,6 @@ int main() {
         NT_CHECK(find(report, "kv8")->status == AuditStatus::FAIL,
                  "unknown array id fails");
         remove_dir(dir);
-        NT_CHECK(find(report, "kv8")->status == AuditStatus::FAIL,
-                 "unknown array id fails");
-        remove_dir(dir);
     } NT_END_TEST("audit_engine_suite", "kind_json_key_value");
 
     NT_TEST("audit_engine_suite", "kind_json_key_absent") {
@@ -411,6 +408,49 @@ int main() {
         remove_dir(dir);
     } NT_END_TEST("audit_engine_suite", "kind_glob_absent");
 
+    NT_TEST("audit_engine_suite", "kind_tree_not_contains") {
+        fs::path dir = make_case_dir("treenc");
+        write_file(dir / "pkg" / "a.py", "clean");
+        write_file(dir / "pkg" / "sub" / "deep.py", "import forbidden_mod");
+        write_file(dir / "pkg" / "sub" / "skip.txt", "import forbidden_mod");
+        write_file(dir / "pkg" / "node_modules" / "x.py",
+                   "import forbidden_mod");
+        std::vector<AuditCheck> checks = {
+            /* 遞迴命中深層檔案；.txt 不命中 pattern；node_modules 略過 */
+            {"t1", "tree-not-contains", "pkg", "*.py",
+             {"forbidden_mod"}, 0, "", false, false,
+             {"node_modules"}},
+            /* 乾淨子樹 PASS */
+            {"t2", "tree-not-contains", "pkg", "*.py",
+             {"never_present"}, 0, "", false, false, {}},
+            /* 子樹缺席 → FAIL（fail-closed） */
+            {"t3", "tree-not-contains", "nope", "*.py",
+             {"x"}, 0, "", false, false, {}},
+            /* optional 缺席 → PASS */
+            {"t4", "tree-not-contains", "nope", "*.py",
+             {"x"}, 0, "", true, false, {}},
+            /* 大小寫不敏感 */
+            {"t5", "tree-not-contains", "pkg", "*.py",
+             {"FORBIDDEN_MOD"}, 0, "", false, true,
+             {"node_modules"}},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "t1")->status == AuditStatus::FAIL,
+                 "deep forbidden marker detected");
+        NT_CHECK(find(report, "t1")->detail.find("deep.py")
+                     != std::string::npos,
+                 "hit detail names the file");
+        NT_CHECK(find(report, "t2")->status == AuditStatus::PASS,
+                 "clean subtree passes");
+        NT_CHECK(find(report, "t3")->status == AuditStatus::FAIL,
+                 "missing subtree fails closed");
+        NT_CHECK(find(report, "t4")->status == AuditStatus::PASS,
+                 "optional missing subtree passes");
+        NT_CHECK(find(report, "t5")->status == AuditStatus::FAIL,
+                 "ignore_case match detected");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_tree_not_contains");
+
     NT_TEST("audit_engine_suite", "kind_file_not_contains") {
         fs::path dir = make_case_dir("notcontains");
         write_file(dir / "m.py", "clean source");
@@ -537,6 +577,59 @@ int main() {
                  "missing baseline fails closed");
         remove_dir(dir);
     } NT_END_TEST("audit_engine_suite", "kind_py_bucket_budget");
+
+    NT_TEST("audit_engine_suite", "kind_json_array_min_count") {
+        fs::path dir = make_case_dir("arrmin");
+        write_file(dir / "inv.json",
+            "{\"rows\":["
+            "{\"source_test\":\"tools/a/tests/t1.py\",\"status\":\"PENDING\"},"
+            "{\"source_test\":\"tools/b/tests/t2.py\",\"status\":\"MIGRATED\"},"
+            "{\"source_test\":\"tools/a/tests/t3.py\",\"status\":\"PENDING\"}"
+            "]}");
+        AuditCheck c;
+        c.id = "amc1"; c.kind = "json-array-min-count";
+        c.path = "inv.json"; c.items = "rows";
+        c.markers = {"status=PENDING", "source_test^=tools/a/"};
+        c.min_count = 2;
+        auto report = gptbridge::audit_run({c}, native_tests::u8path(dir));
+        NT_CHECK(find(report, "amc1")->status == AuditStatus::PASS,
+                 "two PENDING rows under tools/a/ match");
+        c.min_count = 3;
+        report = gptbridge::audit_run({c}, native_tests::u8path(dir));
+        NT_CHECK(find(report, "amc1")->status == AuditStatus::FAIL,
+                 "count below min_count fails");
+        NT_CHECK(find(report, "amc1")->detail.find("matched 2") !=
+                     std::string::npos, "detail reports matched count");
+        c.min_count = 1;
+        c.markers = {"status=PENDING", "source_test^=tools/b/"};
+        report = gptbridge::audit_run({c}, native_tests::u8path(dir));
+        NT_CHECK(find(report, "amc1")->status == AuditStatus::FAIL,
+                 "PENDING under tools/b absent fails");
+        c.markers = {"status=MIGRATED", "source_test^=tools/b/"};
+        report = gptbridge::audit_run({c}, native_tests::u8path(dir));
+        NT_CHECK(find(report, "amc1")->status == AuditStatus::PASS,
+                 "MIGRATED row under tools/b matches");
+        c.items = "absent_arr"; c.markers = {"status=PENDING"};
+        report = gptbridge::audit_run({c}, native_tests::u8path(dir));
+        NT_CHECK(find(report, "amc1")->status == AuditStatus::FAIL,
+                 "missing array path fails closed");
+        c.items = "rows"; c.path = "absent.json"; c.optional = true;
+        report = gptbridge::audit_run({c}, native_tests::u8path(dir));
+        NT_CHECK(find(report, "amc1")->status == AuditStatus::PASS,
+                 "optional missing file passes");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_json_array_min_count");
+
+    NT_TEST("audit_engine_suite", "kind_fail") {
+        AuditCheck c;
+        c.id = "f1"; c.kind = "fail"; c.reason = "non-conforming target";
+        auto report = gptbridge::audit_run({c}, ".");
+        const auto* res = find(report, "f1");
+        NT_CHECK(res->status == AuditStatus::FAIL,
+                 "fail kind always fails");
+        NT_CHECK(res->detail == "non-conforming target",
+                 "fail detail carries reason");
+    } NT_END_TEST("audit_engine_suite", "kind_fail");
 
     return native_tests::report("audit_engine_suite.json");
 }

@@ -658,9 +658,10 @@ automation flow. Package candidates without explicit permission use
 # Python syntax check
 python -c "import ast; ast.parse(open('file.py', encoding='utf-8').read())"
 
-# Full test suite (bounded workers from pytest.ini keep local load low;
-# cache is written to the managed main-system temp directory)
-main-system\.venv\Scripts\python.exe -m pytest -q
+# Native test suite fleet (MSVC build + bounded parallel run;
+# emits native/test_suites/bin/native-report.json). pytest is retired —
+# Python tests must never be added or executed (codex: PYTHON:none).
+powershell -ExecutionPolicy Bypass -File native/test_suites/build.ps1
 
 # Governance audit
 python -m governance_rule.execution.audit
