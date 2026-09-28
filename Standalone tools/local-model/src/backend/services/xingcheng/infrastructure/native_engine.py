@@ -881,7 +881,12 @@ def native_engine_for(
                 idle_s = int(settings.get("auto_release_idle_seconds") or 300)
                 mgr = get_manager()
                 mgr.idle = idle_s
-                mgr.register(key, engine, _release_engine)
+                mgr.register(
+                    key,
+                    engine,
+                    _release_engine,
+                    size_mb=required_mb,
+                )
             except Exception:
                 pass  # auto-release 失效不影響引擎可用性
         else:

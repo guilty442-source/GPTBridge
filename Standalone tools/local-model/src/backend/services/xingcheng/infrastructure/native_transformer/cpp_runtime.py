@@ -892,11 +892,26 @@ def cpp_engine_for(checkpoint_path: str | Path) -> CppInferenceEngine:
         engine = _engine_cache.get(key)
         if engine is None:
             try:
+                from ..native_engine import load_settings
                 from .execution.auto_release import get_manager
                 residency = get_manager()
+                settings = load_settings()
+                size_bytes = sum(
+                    item.stat().st_size
+                    for item in path.rglob("*")
+                    if item.is_file()
+                )
+                required_mb = max(256.0, size_bytes * 1.5 / (1024.0 * 1024.0))
+                if not residency.ensure_budget(
+                    key, required_mb, float(settings.get("vram_budget_mb") or 0)
+                ):
+                    raise RuntimeError("CPP_RESIDENCY_BUDGET_EXHAUSTED")
                 residency.begin_load(key)
+            except RuntimeError:
+                raise
             except Exception:
                 residency = None
+                required_mb = 0.0
             try:
                 engine = CppInferenceEngine(path)
             except Exception:
@@ -912,7 +927,12 @@ def cpp_engine_for(checkpoint_path: str | Path) -> CppInferenceEngine:
                 mgr.idle = int(
                     load_settings().get("auto_release_idle_seconds") or 300
                 )
-                mgr.register(key, engine, _release_engine)
+                mgr.register(
+                    key,
+                    engine,
+                    _release_engine,
+                    size_mb=required_mb,
+                )
             except Exception:
                 pass
         else:
