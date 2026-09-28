@@ -317,9 +317,13 @@ def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
             (ROOT / "main-system" / "src-core").glob("boot_core*.py")
         )
     )
-    ui_source = (
-        ROOT / "main-system" / "src-tauri" / "src" / "main.rs"
-    ).read_text("utf-8")
+    ui_source = "\n".join(
+        path.read_text("utf-8")
+        for path in (
+            ROOT / "main-system" / "src-tauri" / "src" / "main.rs",
+            ROOT / "main-system" / "src-tauri" / "src" / "desktop_shell.rs",
+        )
+    )
 
     assert "DEPENDENCY_MANIFEST" in phases_source
     assert "DependencyDeclaration(**entry)" in phases_source
@@ -331,7 +335,7 @@ def test_main_startup_follows_declared_dag_and_detaches_ui() -> None:
     assert "signal_only=True" in boot_repair_source
     assert "RunEvent::ExitRequested" in ui_source
     assert "shutdown_application(app)" in ui_source
-    assert "backend::stop_backend()" in ui_source
+    assert "lifecycle::stop_backend()" in ui_source
     assert "main.ui-shutdown" in ui_source
 
 
@@ -348,9 +352,15 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
         path.read_text("utf-8")
         for path in sorted((root / "src-core" / "core_system").glob("hot_update_service*.py"))
     )
-    backend = (root / "src-tauri" / "src" / "backend.rs").read_text(
-        "utf-8"
-    )
+    backend = (
+        root
+        / "src-tauri"
+        / "crates"
+        / "gptbridge-core"
+        / "src"
+        / "lifecycle"
+        / "backend.rs"
+    ).read_text("utf-8")
     boot = "\n".join(
         path.read_text("utf-8")
         for path in sorted((root / "src-core").glob("boot_core*.py"))
