@@ -327,9 +327,18 @@ def apply_retention(
         "snapshots": _plan_snapshots(root, resolved_policy),
         "retired_weights": _plan_retired_weights(root, protected),
     }
+    boundary = (root / "xingcheng").resolve()
     deleted: list[dict[str, Any]] = []
+    boundary_skipped = 0
     for category, paths in plans.items():
         for path in paths:
+            try:
+                path.resolve().relative_to(boundary)
+            except ValueError:
+                # Data-residency: retention may never touch anything outside
+                # ``xingcheng/`` — refuse rather than prune a foreign path.
+                boundary_skipped += 1
+                continue
             if category in ("logs", "retired_weights") and _is_protected(
                 path, protected
             ):
@@ -360,6 +369,7 @@ def apply_retention(
         "protected_paths": len(protected),
         "deleted": deleted,
         "deleted_bytes": sum(item["bytes"] for item in deleted),
+        "boundary_skipped": boundary_skipped,
         "checked_at": _utcnow(),
     }
     if not dry_run:

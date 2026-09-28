@@ -322,6 +322,32 @@ schedule; `retention.json` `enabled=false` stops deletion. Manual:
 
 Implementation: `native_transformer/retention.py` (`apply_retention`).
 
+## 星澄 Data Residency (`xingcheng-internal`)
+
+> Human-governor directive 2026-09-28: 星澄資料只能保留在星澄內部。
+
+All xingcheng-owned data — weights, cpp-bundles, corpora, checkpoints,
+lifecycle snapshots, self-learning pools/reports, ledgers, eval output,
+and any recovery or scratch artifacts — resolves inside
+`Standalone tools/local-model/xingcheng/` only. Copies under
+`main-system/runtime/`, other tools, other drives, or ad-hoc scratch
+dirs are violations and must be moved in or deleted, never left behind.
+
+Enforcement is fail-closed in code:
+
+- `native_transformer/cpp_runtime.py::assert_inside_xingcheng` refuses any
+  path outside `tool_root()/xingcheng` with `XINGCHENG_DATA_BOUNDARY`.
+  Applied to bundle export/staging targets, the execution ledger, and the
+  pinned serving artifact at `generate_via_cpp_engine` (an out-of-boundary
+  pin refuses to serve).
+- `native_transformer/retention.py::apply_retention` re-checks every delete
+  victim against the same boundary and skips (counted as
+  `boundary_skipped` in the audit entry) rather than touching a foreign
+  path.
+
+Operational test/fixture bundles and probe scripts live under
+`xingcheng/runtime/devin/` so scratch work also stays in-boundary.
+
 ## 星澄 Training GPU Gate & Auto-Release
 
 > Normative authority: Codex B44/B16。

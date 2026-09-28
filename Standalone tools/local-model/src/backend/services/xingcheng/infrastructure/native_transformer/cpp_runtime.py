@@ -43,6 +43,23 @@ def tool_root() -> Path:
     return Path(__file__).resolve().parents[6]
 
 
+def xingcheng_root() -> Path:
+    return tool_root() / "xingcheng"
+
+
+def assert_inside_xingcheng(path: str | Path) -> Path:
+    """Data-residency guard: xingcheng-owned data lives only inside
+    ``tool_root()/xingcheng``. Export targets, ledgers, retention victims
+    and the pinned serving artifact resolving outside the boundary are
+    refused fail-closed."""
+    resolved = Path(path).resolve()
+    try:
+        resolved.relative_to(xingcheng_root())
+    except ValueError:
+        raise ValueError(f"XINGCHENG_DATA_BOUNDARY:{resolved}") from None
+    return resolved
+
+
 def _extension_dir() -> Path:
     return tool_root() / "dist-native"
 
@@ -205,7 +222,7 @@ def ensure_bundle(checkpoint_path: str | Path) -> dict[str, Any]:
     directory so a partial export is never visible to readers.
     """
     checkpoint = Path(checkpoint_path)
-    target = bundle_dir_for(checkpoint)
+    target = assert_inside_xingcheng(bundle_dir_for(checkpoint))
     if _bundle_matches_source(target, checkpoint):
         manifest = json.loads(
             (target / "manifest.json").read_text(encoding="utf-8")
@@ -216,7 +233,7 @@ def ensure_bundle(checkpoint_path: str | Path) -> dict[str, Any]:
             "weights_sha256": str(manifest.get("weights_sha256") or ""),
             "reused": True,
         }
-    staging = target.with_name(target.name + ".staging")
+    staging = assert_inside_xingcheng(target.with_name(target.name + ".staging"))
     from .cpp_export import export_checkpoint_for_cpp
 
     info = export_checkpoint_for_cpp(checkpoint, staging)
@@ -292,7 +309,7 @@ def _ledger_append(entry: dict[str, Any]) -> None:
     from ..native_engine import tool_root as _root
 
     try:
-        ledger = _root() / EXECUTION_LEDGER
+        ledger = assert_inside_xingcheng(_root() / EXECUTION_LEDGER)
         ledger.parent.mkdir(parents=True, exist_ok=True)
         with ledger.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -915,11 +932,21 @@ def generate_via_cpp_engine(request: dict[str, Any]) -> dict[str, Any]:
     from ..native_engine import configured_checkpoint_path
 
     try:
-        engine = cpp_engine_for(configured_checkpoint_path())
+        engine = cpp_engine_for(
+            assert_inside_xingcheng(configured_checkpoint_path())
+        )
     except FileNotFoundError as error:
         return {
             "ok": False,
             "error_code": "CPP_RUNTIME_BUNDLE_UNAVAILABLE",
+            "message": str(error),
+            "fallback_required": False,
+        }
+    except ValueError as error:
+        boundary = str(error).startswith("XINGCHENG_DATA_BOUNDARY")
+        return {
+            "ok": False,
+            "error_code": "XINGCHENG_DATA_BOUNDARY" if boundary else "CPP_RUNTIME_LOAD_FAILED",
             "message": str(error),
             "fallback_required": False,
         }
