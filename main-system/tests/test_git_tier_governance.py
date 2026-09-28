@@ -236,8 +236,20 @@ def test_pre_push_hook_exists_and_enforces_force_push_blocking() -> None:
     hook = worktree_hook if worktree_hook.is_file() else main_hook
     assert hook.is_file(), ".git/hooks/pre-push must exist (in worktree or main)"
     text = hook.read_text(encoding="utf-8")
+    # A thin shim may delegate execution to the governed hook script —
+    # follow one level of `exec .../git-hooks/pre-push` delegation so the
+    # enforcement contract is verified where it actually lives.
+    if "GOVERNANCE_AUTHORITY_APPROVAL" not in text:
+        import re
+
+        match = re.search(r'["\']([^"\']*git-hooks[/\\]pre-push)["\']', text)
+        assert match, "pre-push hook neither enforces nor delegates enforcement"
+        delegated = Path(match.group(1))
+        assert delegated.is_file(), f"delegated hook missing: {delegated}"
+        text = delegated.read_text(encoding="utf-8")
     assert "GOVERNANCE_AUTHORITY_APPROVAL" in text
-    assert "force" in text.lower()
+    # force-push blocking is enforced as a merge-base non-fast-forward check
+    assert "non-fast-forward" in text.lower()
 
 
 def test_audit_ledger_exists() -> None:

@@ -31,6 +31,31 @@ if str(CORE) not in sys.path:
     sys.path.insert(0, str(CORE))
 
 
+@pytest.fixture
+def repair_schema():
+    import uuid
+
+    schema = "cwc_test_" + uuid.uuid4().hex[:12]
+    import psycopg
+
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+    dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.commit()
+    try:
+        yield schema
+    finally:
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +190,12 @@ def test_watchdog_stop_terminates_cleanly(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_watchdog_records_to_learning_store(tmp_path: Path) -> None:
+def test_watchdog_records_to_learning_store(
+    tmp_path: Path, repair_schema: str
+) -> None:
     from tasks.repair_learning import RepairLearningStore
 
-    store = RepairLearningStore(tmp_path / "repair")
+    store = RepairLearningStore(tmp_path / "repair", schema=repair_schema)
     wd = ConnectionWatchdog(tmp_path, health_port=99999, dead_threshold=1)
     wd.set_learning_store(store)
     # Trigger a probe that will record an event.

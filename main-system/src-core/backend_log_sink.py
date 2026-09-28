@@ -54,6 +54,14 @@ class BackendLogSink:
         self._size = 0
         self._disabled = False
         self._disabled_reason = ""
+        # Eager first-open: an unusable destination disables the sink at
+        # construction so callers can warn before their data lines — a
+        # deferred failure would append the diagnostic after relayed
+        # payload and corrupt the ordering contract.
+        try:
+            self._ensure_open(self._now())
+        except Exception as error:  # defensive fail-open
+            self._disable(error)
 
     @property
     def disabled(self) -> bool:
