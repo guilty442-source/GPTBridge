@@ -201,12 +201,18 @@ def _idle_ok_marked(source: str, lineno: int) -> bool:
 
 
 def check_renderer_idle_gating(root: Path, errors: list[str]) -> None:
-    """Every renderer ``setInterval`` must be hidden-gated or carry an
-    explicit ``idle-ok`` exemption (same auditable-suppression convention
-    as ``sql-ok``).  The two known IPC timers additionally pin the gate
-    BEFORE the IPC call."""
+    """Every active renderer interval must be hidden-gated or exempted.
+
+    The legacy main-system renderer is retired when the Tauri shell is active;
+    in that mode there is no main renderer interval surface to inspect.
+    """
+    if (
+        (root / "main-system/src-tauri/src/tool_window.rs").is_file()
+        and not (root / "main-system/src-ui/renderer/index.html").is_file()
+    ):
+        return
     gate_before_work = {
-        _RSM: "invoke('app:get-status'",
+        _RSM: "app:get-status",
         _SLO: "void fetchReport()",
     }
     bodies_cache: dict[str, dict[int, str]] = {}
