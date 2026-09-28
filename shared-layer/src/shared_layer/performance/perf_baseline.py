@@ -7,7 +7,7 @@ Performance Budget & Regression Control V1:
     - p50/p95/p99, throughput, CPU
     - peak/retained memory
     - SQL query/row/byte count
-    - TypeScript<->Python / Python<->native / Python<->C# boundary crossings
+    - JavaScript<->Python / Python<->native / Python<->C# boundary crossings
     - serialization bytes
     - native copy/allocation
     - queue/model wait
@@ -135,7 +135,7 @@ class FullMetrics:
     sql_row_count: int
     sql_byte_count: int
     # Boundary crossings
-    ts_python_crossings: int    # TypeScript<->Python
+    js_python_crossings: int    # JavaScript<->Python
     python_native_crossings: int # Python<->native (pybind11/C ABI)
     python_csharp_crossings: int # Python<->C#
     # Serialization

@@ -36,7 +36,7 @@ PathFn = Callable[[TraceContext, PathContext], Any]
 
 
 def ui_to_python(ctx: TraceContext, services: PathContext) -> Any:
-    body = stages.ts_dispatch(ctx, {"echo": "ping", "n": 1})
+    body = stages.js_dispatch(ctx, {"echo": "ping", "n": 1})
     stages.http_transport(ctx, body, services.http_endpoint)
     decoded = stages.python_validation(ctx, body)
     payload = stages.python_orchestration(ctx, decoded)
@@ -44,7 +44,7 @@ def ui_to_python(ctx: TraceContext, services: PathContext) -> Any:
 
 
 def ui_to_python_sql(ctx: TraceContext, services: PathContext) -> Any:
-    body = stages.ts_dispatch(ctx, {"echo": "sql", "n": 1})
+    body = stages.js_dispatch(ctx, {"echo": "sql", "n": 1})
     stages.http_transport(ctx, body, services.http_endpoint)
     decoded = stages.python_validation(ctx, body)
     payload = stages.python_orchestration(ctx, decoded)
@@ -53,7 +53,7 @@ def ui_to_python_sql(ctx: TraceContext, services: PathContext) -> Any:
 
 
 def ui_to_python_native(ctx: TraceContext, services: PathContext) -> Any:
-    body = stages.ts_dispatch(ctx, {"echo": "native", "n": 1})
+    body = stages.js_dispatch(ctx, {"echo": "native", "n": 1})
     stages.http_transport(ctx, body, services.http_endpoint)
     decoded = stages.python_validation(ctx, body)
     payload = stages.python_orchestration(ctx, decoded)
@@ -65,7 +65,7 @@ def ui_to_python_native(ctx: TraceContext, services: PathContext) -> Any:
 
 
 def ui_to_python_sql_native(ctx: TraceContext, services: PathContext) -> Any:
-    body = stages.ts_dispatch(ctx, {"echo": "sql+native", "n": 1})
+    body = stages.js_dispatch(ctx, {"echo": "sql+native", "n": 1})
     stages.http_transport(ctx, body, services.http_endpoint)
     decoded = stages.python_validation(ctx, body)
     payload = stages.python_orchestration(ctx, decoded)
@@ -78,7 +78,7 @@ def ui_to_python_sql_native(ctx: TraceContext, services: PathContext) -> Any:
 
 
 def model_wait(ctx: TraceContext, services: PathContext) -> Any:
-    body = stages.ts_dispatch(ctx, {"echo": "model", "n": 1})
+    body = stages.js_dispatch(ctx, {"echo": "model", "n": 1})
     stages.http_transport(ctx, body, services.http_endpoint)
     decoded = stages.python_validation(ctx, body)
     payload = stages.python_orchestration(ctx, decoded)
@@ -87,7 +87,7 @@ def model_wait(ctx: TraceContext, services: PathContext) -> Any:
 
 
 def csharp_adapter(ctx: TraceContext, services: PathContext) -> Any:
-    body = stages.ts_dispatch(ctx, {"echo": "csharp", "n": 1})
+    body = stages.js_dispatch(ctx, {"echo": "csharp", "n": 1})
     stages.http_transport(ctx, body, services.http_endpoint)
     decoded = stages.python_validation(ctx, body)
     payload = stages.python_orchestration(ctx, decoded)

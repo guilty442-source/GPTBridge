@@ -76,21 +76,15 @@ _NATIVE_TOOLCHAIN = frozenset({
     "pybind11",  # Also build-only, but specifically native toolchain
 })
 
-# Known TypeScript runtime packages
-_TS_RUNTIME_REQUIRED = frozenset({
+# Known JavaScript runtime packages
+_JS_RUNTIME_REQUIRED = frozenset({
     "react", "react-dom",
 })
 
-# Known TypeScript build-only packages
-_TS_BUILD_ONLY = frozenset({
+# Known JavaScript build-only packages
+_JS_BUILD_ONLY = frozenset({
     "electron", "electron-builder", "vite",
-    "@vitejs/plugin-react", "typescript",
-    "ts-node", "madge",
-})
-
-# Known TypeScript type-only packages
-_TS_TEST_ONLY = frozenset({
-    "@types/node", "@types/react", "@types/react-dom",
+    "@vitejs/plugin-react", "madge",
 })
 
 
@@ -111,8 +105,8 @@ def classify_dependency(
 
     if node.language == NodeLanguage.PYTHON:
         return _classify_python(node, consumers, profile_evidence, reasons)
-    elif node.language == NodeLanguage.TYPESCRIPT:
-        return _classify_typescript(node, consumers, reasons)
+    elif node.language == NodeLanguage.JAVASCRIPT:
+        return _classify_javascript(node, consumers, reasons)
     elif node.language in (NodeLanguage.C, NodeLanguage.CPP):
         return _classify_cc(node, consumers, reasons)
     elif node.language == NodeLanguage.SQL:
@@ -225,15 +219,15 @@ def _classify_python(
     )
 
 
-def _classify_typescript(
+def _classify_javascript(
     node: DepNode,
     consumers: tuple[str, ...],
     reasons: list[str],
 ) -> ClassificationEvidence:
-    """Classify a TypeScript dependency."""
+    """Classify a JavaScript dependency."""
     name = node.name
 
-    if name in _TS_RUNTIME_REQUIRED:
+    if name in _JS_RUNTIME_REQUIRED:
         reasons.append("known runtime-required package")
         return ClassificationEvidence(
             dependency_id=node.node_id,
@@ -242,20 +236,11 @@ def _classify_typescript(
             consumers=consumers,
             has_profile_evidence=False,
         )
-    if name in _TS_BUILD_ONLY:
+    if name in _JS_BUILD_ONLY:
         reasons.append("known build-only package")
         return ClassificationEvidence(
             dependency_id=node.node_id,
             dependency_class=DependencyClass.BUILD_ONLY,
-            reasons=tuple(reasons),
-            consumers=consumers,
-            has_profile_evidence=False,
-        )
-    if name in _TS_TEST_ONLY:
-        reasons.append("type definition / test-only package")
-        return ClassificationEvidence(
-            dependency_id=node.node_id,
-            dependency_class=DependencyClass.TEST_ONLY,
             reasons=tuple(reasons),
             consumers=consumers,
             has_profile_evidence=False,

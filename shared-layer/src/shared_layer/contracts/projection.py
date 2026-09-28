@@ -4,7 +4,7 @@ form + Python-side validator.
 Six targets, all derived from the same TypeSpec:
 
     python      runtime model types (int/str/bytes/datetime/…)
-    typescript  TS types; i64/u64 → bigint + decimal-string wire
+    javascript  TS types; i64/u64 → bigint + decimal-string wire
     c           C ABI types — fixed-width only, never ``long``
     cpp         C++ private impl types — ``std::`` fixed-width, no ``bool``
     csharp      C# adapter types (UTF-16 string internal only)
@@ -34,95 +34,95 @@ FORBIDDEN_CPP_TYPES = ("bool", "std::string_view*", "long")
 
 _KIND_PROJECTIONS: dict[CanonicalKind, dict[str, str]] = {
     CanonicalKind.I32: {
-        "python": "int", "typescript": "number",
+        "python": "int", "javascript": "number",
         "c": "int32_t", "cpp": "std::int32_t", "csharp": "int",
         "sql": "INTEGER",
     },
     CanonicalKind.U32: {
-        "python": "int", "typescript": "number",
+        "python": "int", "javascript": "number",
         "c": "uint32_t", "cpp": "std::uint32_t", "csharp": "uint",
         "sql": "INTEGER",
     },
     CanonicalKind.I64: {
         # number is deliberately absent — the full range is not JS-safe.
-        "python": "int", "typescript": "bigint",
+        "python": "int", "javascript": "bigint",
         "c": "int64_t", "cpp": "std::int64_t", "csharp": "long",
         "sql": "BIGINT",
     },
     CanonicalKind.U64: {
-        "python": "int", "typescript": "bigint",
+        "python": "int", "javascript": "bigint",
         "c": "uint64_t", "cpp": "std::uint64_t", "csharp": "ulong",
         "sql": "NUMERIC(20,0)",  # u64 exceeds signed BIGINT
     },
     CanonicalKind.F32: {
-        "python": "float", "typescript": "number",
+        "python": "float", "javascript": "number",
         "c": "float", "cpp": "float", "csharp": "float",
         "sql": "REAL",
     },
     CanonicalKind.F64: {
-        "python": "float", "typescript": "number",
+        "python": "float", "javascript": "number",
         "c": "double", "cpp": "double", "csharp": "double",
         "sql": "DOUBLE PRECISION",
     },
     CanonicalKind.BOOL: {
         # C ABI uses uint8_t — C++ bool is not a boundary type.
-        "python": "bool", "typescript": "boolean",
+        "python": "bool", "javascript": "boolean",
         "c": "uint8_t", "cpp": "std::uint8_t", "csharp": "bool",
         "sql": "BOOLEAN",
     },
     CanonicalKind.STRING: {
         # UTF-8 on the wire; UTF-16 lives only inside the C# adapter.
-        "python": "str", "typescript": "string",
+        "python": "str", "javascript": "string",
         "c": "const char *", "cpp": "std::string_view", "csharp": "string",
         "sql": "TEXT",
     },
     CanonicalKind.BYTES: {
-        "python": "bytes", "typescript": "Uint8Array",
+        "python": "bytes", "javascript": "Uint8Array",
         "c": "const uint8_t *", "cpp": "std::span<const std::uint8_t>",
         "csharp": "byte[]", "sql": "BYTEA",
     },
     CanonicalKind.TIMESTAMP_UTC: {
-        "python": "datetime", "typescript": "string",  # ISO-8601 UTC
+        "python": "datetime", "javascript": "string",  # ISO-8601 UTC
         "c": "int64_t", "cpp": "std::int64_t",  # epoch microseconds
         "csharp": "DateTimeOffset", "sql": "TIMESTAMPTZ",
     },
     CanonicalKind.DURATION: {
         # monotonic elapsed — i64 nanoseconds everywhere
-        "python": "int", "typescript": "bigint",
+        "python": "int", "javascript": "bigint",
         "c": "int64_t", "cpp": "std::int64_t", "csharp": "long",
         "sql": "BIGINT",
     },
     CanonicalKind.DEADLINE: {
         # monotonic instant — f64 seconds from a monotonic clock
-        "python": "float", "typescript": "number",
+        "python": "float", "javascript": "number",
         "c": "double", "cpp": "double", "csharp": "double",
         "sql": "DOUBLE PRECISION",
     },
     CanonicalKind.ENUM: {
-        "python": "int", "typescript": "number",
+        "python": "int", "javascript": "number",
         "c": "int32_t", "cpp": "std::int32_t", "csharp": "int",
         "sql": "INTEGER",
     },
     CanonicalKind.IDENTIFIER: {
-        "python": "str", "typescript": "string",
+        "python": "str", "javascript": "string",
         "c": "const char *", "cpp": "std::string_view",
         "csharp": "string", "sql": "TEXT",
     },
     CanonicalKind.LIST: {
-        "python": "list", "typescript": "unknown[]",
+        "python": "list", "javascript": "unknown[]",
         "c": "/* framed list */ const void *",
         "cpp": "std::span<const std::byte>",
         "csharp": "IReadOnlyList<object>", "sql": "JSONB",
     },
     CanonicalKind.OBJECT: {
-        "python": "dict", "typescript": "Record<string, unknown>",
+        "python": "dict", "javascript": "Record<string, unknown>",
         "c": "/* framed object */ const void *",
         "cpp": "std::span<const std::byte>",
         "csharp": "IReadOnlyDictionary<string, object>", "sql": "JSONB",
     },
     CanonicalKind.TYPED_BUFFER: {
         # bounded binary frame — never a JSON number array
-        "python": "memoryview", "typescript": "Uint8Array",
+        "python": "memoryview", "javascript": "Uint8Array",
         "c": "const uint8_t *", "cpp": "std::span<const std::uint8_t>",
         "csharp": "byte[]", "sql": "BYTEA",
     },
@@ -131,24 +131,20 @@ _KIND_PROJECTIONS: dict[CanonicalKind, dict[str, str]] = {
 
 def project(spec: TypeSpec, language: str) -> str:
     """Return the type expression for ``language`` honouring presence."""
-    # TypeScript is retired (A211/A348): JavaScript-ESM succeeds it on the
-    # client, so "javascript" resolves onto the same wire-type names, which
-    # remain valid in JSDoc positions for the successor language.
-    if language == "javascript":
-        language = "typescript"
+    # JavaScript-ESM is the canonical frontend contract language (A348).
     try:
         base = _KIND_PROJECTIONS[spec.kind][language]
     except KeyError:
         raise ContractError(f"no {language} projection for {spec.kind}")
 
-    # i64/u64 guard: TypeScript must never project to ``number``.
-    if language == "typescript" and spec.kind in {
+    # i64/u64 guard: JavaScript must never project to ``number``.
+    if language == "javascript" and spec.kind in {
         CanonicalKind.I64, CanonicalKind.U64,
     }:
         if base == "number":
-            raise ContractError("i64/u64 may not project to TS number")
+            raise ContractError("i64/u64 may not project to JavaScript number")
 
-    if language == "typescript" and spec.presence is Presence.NULLABLE:
+    if language == "javascript" and spec.presence is Presence.NULLABLE:
         return f"{base} | null"
     if language == "csharp" and spec.presence is Presence.NULLABLE:
         return f"{base}?"
@@ -308,8 +304,8 @@ def wire_encode(spec: TypeSpec, value: Any) -> Any:
     return value
 
 
-def ts_wire_safe(spec: TypeSpec, value: Any) -> bool:
-    """True iff the wire form survives a TypeScript round-trip losslessly."""
+def js_wire_safe(spec: TypeSpec, value: Any) -> bool:
+    """True iff the wire form survives a JavaScript round-trip losslessly."""
     encoded = wire_encode(spec, value)
     if spec.kind in (CanonicalKind.I64, CanonicalKind.U64):
         # decimal string round-trips losslessly through JSON
@@ -324,7 +320,7 @@ __all__ = [
     "project",
     "validate",
     "wire_encode",
-    "ts_wire_safe",
+    "js_wire_safe",
     "check_no_forbidden_types",
     "FORBIDDEN_C_TYPES",
     "FORBIDDEN_CPP_TYPES",

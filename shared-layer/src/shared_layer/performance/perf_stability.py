@@ -4,7 +4,7 @@ An operation is marked PERFORMANCE_STABLE when ALL of the following
 budgets are met:
     - E2E latency (wall_p50, wall_p95, wall_p99)
     - memory (peak_memory_p50, retained_memory_p50)
-    - boundary crossings (python_native_crossings, ts_python_crossings)
+    - boundary crossings (python_native_crossings, js_python_crossings)
     - SQL round-trip (sql_query_count)
     - resource budget (cpu_p50, allocation_count)
 
@@ -37,7 +37,7 @@ STABILITY_BUDGETS: dict[str, dict[str, float]] = {
     "retained_memory_p50": {"max": 50 * 1024 * 1024, "description": "Retained memory"},
     # Boundary crossing budgets
     "python_native_crossings": {"max": 100, "description": "Python-native crossings"},
-    "ts_python_crossings": {"max": 50, "description": "TS-Python crossings"},
+    "js_python_crossings": {"max": 50, "description": "TS-Python crossings"},
     # SQL round-trip budget
     "sql_query_count": {"max": 20, "description": "SQL queries per op"},
     # Resource budgets

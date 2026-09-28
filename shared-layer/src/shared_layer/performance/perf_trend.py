@@ -123,7 +123,7 @@ METRIC_BOUNDARY_MAP: dict[str, str] = {
     "sql_query_count": "sql",
     "sql_row_count": "sql",
     "sql_byte_count": "sql",
-    "ts_python_crossings": "ts_python",
+    "js_python_crossings": "javascript",
     "python_native_crossings": "native",
     "python_csharp_crossings": "csharp",
     "serialization_bytes": "python",

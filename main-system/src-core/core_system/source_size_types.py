@@ -25,7 +25,7 @@ WARNING_THRESHOLD: Final[float] = 0.80
 
 # A430: FILE-TYPES — source file extensions subject to size limits
 SOURCE_FILE_EXTENSIONS: Final[frozenset[str]] = frozenset({
-    ".py", ".pyi", ".ts", ".tsx", ".d.ts", ".js", ".jsx", ".mjs", ".cjs",
+    ".py", ".pyi", ".js", ".jsx", ".mjs", ".cjs",
     ".jl", ".c", ".h", ".cpp", ".hpp", ".inl", ".cs", ".fs",
     ".go", ".rs", ".sql",
 })

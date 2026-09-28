@@ -661,16 +661,15 @@ python -m governance_rule.execution.audit
 ## Build Commands
 
 - Python venv: `main-system\.venv\Scripts\python.exe`
-- TypeScript: `npx tsc --noEmit` (in `main-system/`)
-- Electron: `npm run build` (in `main-system/`)
+- JavaScript-ESM: `npm run build` (in `main-system/`)
 
 ## Node/Electron Boundary (staged retirement)
 
-> Normative authority: Codex A35/A348 (TypeScript retired → JavaScript-ESM;
-> `typescript_grandfathered_baseline.json` pins all surviving `.ts`/`.tsx`).
+> Normative authority: Codex A35/A348 (TypeScript fully retired;
+> authored frontend and governance JavaScript use JavaScript-ESM).
 
 Node.js/Electron are **retired as platform-level dependencies** but remain
-the provisional runtime of the grandfathered UI shell
+the provisional runtime of the JavaScript-ESM UI shell
 (`main-system/src-ui`, tool `src/ui` surfaces, `dist-ui`,
 `node_modules`) until a native frontend host replaces it.
 

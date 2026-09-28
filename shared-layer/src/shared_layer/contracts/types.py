@@ -7,7 +7,7 @@ repr, and the per-language projection rules enforced by parity tests.
 Hard rules encoded here:
 - No platform-dependent types at any boundary (C ``long``, ``size_t``,
   raw Windows types are forbidden contract forms).
-- i64/u64 cross TypeScript as ``bigint`` with a decimal-string wire form
+- i64/u64 cross JavaScript as ``bigint`` with a decimal-string wire form
   (JS ``number`` cannot represent the full range).
 - bool crosses as ``uint8_t``/``BOOLEAN`` — never C++ ``bool`` at the ABI.
 - Text is UTF-8 canonical; UTF-16 exists only inside the C# adapter.

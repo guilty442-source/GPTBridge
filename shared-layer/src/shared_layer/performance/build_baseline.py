@@ -2,7 +2,7 @@
 
 Records build times for:
     - Python startup/import
-    - TypeScript typecheck/bundle
+    - JavaScript-ESM bundle
     - C/C++ compile/link
     - C# compile/publish (none in current codebase)
     - SQL migration validation
@@ -38,7 +38,7 @@ BUILD_BASELINE_VERSION = "1.0"
 class BuildStepResult:
     """Result of timing one build step."""
     step_name: str
-    language: str          # "python", "typescript", "cpp", "csharp", "sql"
+    language: str          # "python", "javascript", "cpp", "csharp", "sql"
     build_type: str        # "clean" or "incremental"
     wall_seconds: float
     cpu_seconds: float
@@ -203,19 +203,6 @@ def run_python_import_baseline(
     )
 
 
-def run_typescript_typecheck_baseline(
-    npm_cmd: str = "npx",
-    *,
-    cwd: Path | None = None,
-    build_type: str = "clean",
-) -> BuildStepResult:
-    """Time TypeScript type checking."""
-    cmd = [npm_cmd, "tsc", "--noEmit"]
-    return _time_step(
-        "ts_typecheck", "typescript", build_type, cmd, cwd=cwd,
-    )
-
-
 def run_cc_compile_baseline(
     venv_python: Path,
     build_script: Path,
@@ -265,26 +252,17 @@ def run_full_build_baseline(
     venv_python: Path,
     *,
     build_type: str = "clean",
-    include_ts: bool = False,
     include_cc: bool = True,
     include_sql: bool = True,
 ) -> BuildBaselineRecord:
     """Run the full build baseline suite.
 
-    By default, runs Python import + C/C++ compile + SQL validation.
-    TypeScript is optional (requires npm install to have been run).
+    Runs Python import + C/C++ compile + SQL validation.
     """
     steps: list[BuildStepResult] = []
 
     # Python import
     steps.append(run_python_import_baseline(venv_python, build_type=build_type))
-
-    # TypeScript typecheck (optional)
-    if include_ts:
-        npm = "npx.cmd" if platform.system() == "Windows" else "npx"
-        steps.append(run_typescript_typecheck_baseline(
-            npm, cwd=project_root / "main-system", build_type=build_type,
-        ))
 
     # C/C++ compile
     if include_cc:
@@ -327,7 +305,6 @@ __all__ = [
     "BuildBaselineRecord",
     "BuildBaselineStore",
     "run_python_import_baseline",
-    "run_typescript_typecheck_baseline",
     "run_cc_compile_baseline",
     "run_sql_migration_validation_baseline",
     "run_full_build_baseline",

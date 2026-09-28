@@ -168,7 +168,7 @@ def _interval_bodies(source: str) -> dict[int, str]:
 
 
 _RENDERER_GLOB_ROOT = "main-system/src-ui/renderer"
-_RENDERER_EXTS = (".ts", ".tsx")
+_RENDERER_EXTS = (".js", ".jsx", ".mjs")
 _IDLE_OK = "idle-ok"
 
 
@@ -261,7 +261,7 @@ def check_bootstrap_native_entry(root: Path, errors: list[str]) -> None:
         errors.append(f"missing {program.relative_to(root).as_posix()}")
         return
     source = program.read_text(encoding="utf-8", errors="replace")
-    for marker in ("--prepare-only", "electron"):
+    for marker in ("--prepare-only",):
         if marker not in source:
             errors.append(
                 f"{program.name}: bootstrap contract marker "

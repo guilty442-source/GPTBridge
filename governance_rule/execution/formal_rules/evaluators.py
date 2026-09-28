@@ -938,7 +938,6 @@ def _sql_governance_closure(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
             "migration_chain_hash": facts.get("migration_chain_hash"),
             "live_schema_hash": facts.get("live_schema_hash"),
             "security_projection_hash": facts.get("security_projection_hash"),
-            "sqlite_scope_hash": facts.get("sqlite_scope_hash"),
             "reconciliation_hash": facts.get("reconciliation_hash"),
             "audit_contract_hash": facts.get("audit_contract_hash"),
             "transport_contract_hash": facts.get("transport_contract_hash"),
@@ -1241,13 +1240,10 @@ def _language_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 @register_rule("RULE_VECTOR_ENGINE_RUST_V1")
 def _vector_engine_rust(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate (A611): Rust Vector Engine 1.98.1 + SQLite retired."""
+    """Predicate (A611): Rust Vector Engine 1.98.1."""
     engine = str(facts.get("vector_engine") or facts.get("engine") or "").lower()
     if engine and "rust" not in engine:
         return False, "FAIL_CLOSED", f"vector engine must be rust-vector-engine, got {engine!r}"
-    sqlite = str(facts.get("sqlite") or facts.get("sqlite_status") or "").lower()
-    if sqlite and "retired" not in sqlite and "disabled" not in sqlite:
-        return False, "FAIL_CLOSED", "sqlite must be retired/disabled"
     return True, "PASS", "vector engine validated"
 
 
@@ -1262,7 +1258,7 @@ def _jax_pytorch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 @register_rule("RULE_JS_NATIVE_V1")
 def _js_native(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate (A613): Native JavaScript replaces TypeScript."""
+    """Predicate (A613): Native JavaScript is the canonical frontend."""
     lang = str(facts.get("language_id") or facts.get("language") or "").lower()
     if lang and "javascript" not in lang and "js" not in lang:
         return False, "FAIL_CLOSED", f"frontend language must be javascript, got {lang!r}"
@@ -1271,7 +1267,7 @@ def _js_native(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 @register_rule("RULE_GO_RUST_NODE_V1")
 def _go_rust_node(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate (A614): Go/Rust replace Node.js."""
+    """Predicate (A614): Go/Rust replace Node.js (Node retired)."""
     runtime = str(facts.get("runtime") or facts.get("language_id") or "").lower()
     if runtime and not any(x in runtime for x in ("go", "rust", "golang")):
         return False, "FAIL_CLOSED", f"runtime must be go/rust, got {runtime!r}"
@@ -1280,13 +1276,10 @@ def _go_rust_node(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 @register_rule("RULE_INFRA_VERSIONS_V1")
 def _infra_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """Predicate (A610): PostgreSQL18.6/SQLite disabled/TypeScript7.0.2/Electron44.4.5/Git2.55.0."""
+    """Predicate (A610): PostgreSQL18.6/Git2.55.0."""
     pg = str(facts.get("postgres_version") or facts.get("postgresql") or "").strip()
     if pg and pg not in ("18.6", "18.6.0", "postgresql18.6"):
         return False, "FAIL_CLOSED", f"postgres_version must be 18.6, got {pg!r}"
-    sqlite = str(facts.get("sqlite") or facts.get("sqlite_usage") or "").lower()
-    if sqlite and "disabled" not in sqlite and "no" not in sqlite:
-        return False, "FAIL_CLOSED", "sqlite must be disabled"
     git = str(facts.get("git_version") or facts.get("git") or "").strip()
     if git and git not in ("2.55.0", "2.55", "git2.55.0"):
         # Allow windows suffix

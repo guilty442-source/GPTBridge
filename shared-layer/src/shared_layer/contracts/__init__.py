@@ -8,7 +8,7 @@ from .projection import (
     MISSING,
     check_no_forbidden_types,
     project,
-    ts_wire_safe,
+    js_wire_safe,
     validate,
     wire_encode,
 )
@@ -59,7 +59,7 @@ __all__ = [
     "project",
     "read_cell",
     "row_presence",
-    "ts_wire_safe",
+    "js_wire_safe",
     "validate",
     "wire_encode",
 ]

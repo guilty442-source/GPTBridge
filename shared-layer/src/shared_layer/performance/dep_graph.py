@@ -2,7 +2,7 @@
 
 Builds dependency graphs for all GPTBridge languages:
     - Python: import graph (stdlib, third-party, intra-package)
-    - TypeScript: package/bundle graph (package.json deps, imports)
+    - JavaScript: package/bundle graph (package.json deps, imports)
     - C/C++: include/link graph (#include, link targets)
     - C#: project/NuGet reference graph (none in current codebase)
     - SQL: migration/schema dependency graph (migration ordering, FK refs)
@@ -46,7 +46,7 @@ class DependencyType(str, Enum):
 
 class NodeLanguage(str, Enum):
     PYTHON = "python"
-    TYPESCRIPT = "typescript"
+    JAVASCRIPT = "javascript"
     C = "c"
     CPP = "cpp"
     CSHARP = "csharp"
@@ -318,13 +318,13 @@ def _add_python_import_edge(
 
 
 # ---------------------------------------------------------------------------
-# TypeScript Package Graph
+# JavaScript Package Graph
 # ---------------------------------------------------------------------------
 
-def build_typescript_package_graph(
+def build_javascript_package_graph(
     package_json_path: Path,
 ) -> DependencyGraph:
-    """Build a TypeScript package graph from package.json.
+    """Build a JavaScript package graph from package.json.
 
     Parses dependencies and devDependencies, creating nodes for each
     package and edges from the project root to each dependency.
@@ -337,11 +337,11 @@ def build_typescript_package_graph(
     data = json.loads(package_json_path.read_text(encoding="utf-8"))
 
     # Root node
-    root_id = "ts:project"
+    root_id = "js:project"
     graph.add_node(DepNode(
         node_id=root_id,
         name=data.get("name", "unknown"),
-        language=NodeLanguage.TYPESCRIPT,
+        language=NodeLanguage.JAVASCRIPT,
         is_third_party=False,
         is_stdlib=False,
         path=str(package_json_path),
@@ -351,11 +351,11 @@ def build_typescript_package_graph(
     dev_deps = data.get("devDependencies", {})
 
     for pkg_name, version_spec in deps.items():
-        node_id = f"ts:pkg:{pkg_name}"
+        node_id = f"js:pkg:{pkg_name}"
         graph.add_node(DepNode(
             node_id=node_id,
             name=pkg_name,
-            language=NodeLanguage.TYPESCRIPT,
+            language=NodeLanguage.JAVASCRIPT,
             is_third_party=True,
             is_stdlib=False,
         ))
@@ -366,11 +366,11 @@ def build_typescript_package_graph(
         ))
 
     for pkg_name, version_spec in dev_deps.items():
-        node_id = f"ts:pkg:{pkg_name}"
+        node_id = f"js:pkg:{pkg_name}"
         graph.add_node(DepNode(
             node_id=node_id,
             name=pkg_name,
-            language=NodeLanguage.TYPESCRIPT,
+            language=NodeLanguage.JAVASCRIPT,
             is_third_party=True,
             is_stdlib=False,
         ))
@@ -634,7 +634,7 @@ def build_cross_language_build_graph(
 
     Combines per-language graphs and adds cross-language build edges:
     - Python → C++ (pybind11 binding depends on native core)
-    - TypeScript → Python (Electron main calls Python)
+    - JavaScript → Python (desktop UI calls Python through governed channels)
     - SQL → Python (Python database layer depends on SQL schema)
     """
     combined = DependencyGraph()
@@ -674,7 +674,7 @@ def build_all_dependency_graphs(
 
     Returns a dict mapping graph name to DependencyGraph:
         - "python": Python import graph
-        - "typescript": TypeScript package graph
+        - "javascript": JavaScript package graph
         - "cc": C/C++ include graph
         - "csharp": C# project graph
         - "sql": SQL migration graph
@@ -689,9 +689,9 @@ def build_all_dependency_graphs(
         project_root, local_packages=local_packages,
     )
 
-    # TypeScript package graph
-    ts_pkg = project_root / "main-system" / "package.json"
-    graphs["typescript"] = build_typescript_package_graph(ts_pkg)
+    # JavaScript package graph
+    js_pkg = project_root / "main-system" / "package.json"
+    graphs["javascript"] = build_javascript_package_graph(js_pkg)
 
     # C/C++ include graph
     native_root = project_root / "native"
@@ -723,7 +723,7 @@ __all__ = [
     "DepEdge",
     "DependencyGraph",
     "build_python_import_graph",
-    "build_typescript_package_graph",
+    "build_javascript_package_graph",
     "build_cc_include_graph",
     "build_csharp_project_graph",
     "build_sql_migration_graph",

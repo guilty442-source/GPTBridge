@@ -22,12 +22,11 @@ _CLASSIFY_KINDS = (
 )
 
 # Language-review capability (transferred from abolished language-review-sub-sovereign)
-# A35/A348 final-language-division: javascript-esm+julia admitted; typescript
-# retired (grandfathered files stay reviewable, new-authored .ts is denied).
-ALLOWED_LANGUAGES = ("python", "typescript", "javascript", "julia", "cpp", "c", "csharp", "fsharp", "go", "rust", "sql")
+# A35/A348 final-language-division: JavaScript-ESM is the sole frontend
+# language; TypeScript is fully retired.
+ALLOWED_LANGUAGES = ("python", "javascript", "julia", "cpp", "c", "csharp", "fsharp", "go", "rust", "sql")
 _LANGUAGE_EXTENSIONS = {
     "python": {".py"},
-    "typescript": {".ts", ".tsx", ".d.ts"},
     "javascript": {".js", ".jsx", ".mjs", ".cjs"},
     "julia": {".jl"},
     "cpp": {".cpp", ".hpp", ".inl"},
@@ -50,7 +49,6 @@ _LANGUAGE_ALIASES = {
     "js": "javascript",
     "jsx": "javascript",
     "jl": "julia",
-    "ts": "typescript",
 }
 _FILE_LINE_WARNING_THRESHOLD = 1000
 

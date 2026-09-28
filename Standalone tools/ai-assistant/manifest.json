@@ -168,9 +168,9 @@
   "physical_owner_root": "ai-assistant",
   "product": "星澄 AI 投資管理與自動操盤系統（業務層）",
   "ui": {
-    "framework": "react+typescript",
+    "framework": "react+javascript-esm",
     "root": "src/ui/workspace",
-    "shell": "shell.tsx",
+    "shell": "shell.jsx",
     "pages": [
       "AssetAllocationPage",
       "AutoTradingDashboard",
@@ -187,6 +187,6 @@
       "TaiwanEquityPage",
       "USEquityPage"
     ],
-    "legacy_ui": "retired — AiAssistantWindowApp.tsx renders InvestmentWorkspace"
+    "legacy_ui": "retired — AiAssistantWindowApp.jsx renders InvestmentWorkspace"
   }
 }

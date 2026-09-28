@@ -55,15 +55,13 @@ Electron main process
 ## 品質檢查
 
 ```powershell
-npm run type-check
-npm run governance:check
-npm run check:circular
 npm run governance:audit
+npm run build:renderer
 npm run doctor -- --json
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-CI 會阻擋型別、治理、循環依賴、依賴安裝與 Python 測試失敗。
+CI 會阻擋 JavaScript 建置、治理、依賴安裝與 Python 測試失敗。
 
 ## 執行期資料
 

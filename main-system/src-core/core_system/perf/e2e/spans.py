@@ -1,5 +1,5 @@
 """E2E span model — one request_id/correlation_id/operation_id across
-TypeScript → information layer → Python → SQL/native/C# → back.
+JavaScript → information layer → Python → SQL/native/C# → back.
 
 Two collection modes:
 
@@ -25,7 +25,7 @@ from typing import Any, Iterator, Optional
 
 
 class Phase(str, Enum):
-    TS_DISPATCH = "ts_dispatch"                 # TypeScript-side dispatch
+    JS_DISPATCH = "ts_dispatch"                 # JavaScript-side dispatch
     SERIALIZATION = "serialization"             # JSON/codec both directions
     TRANSPORT = "transport"                     # loopback HTTP / IPC wire
     PY_VALIDATION = "py_validation"             # request validation

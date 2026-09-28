@@ -1,8 +1,8 @@
 """E2E stage adapters ??each wraps a REAL primitive so measurements are
 honest, not simulated:
 
-- ts_dispatch / serialization: real json.dumps of the request payload
-  (the same bytes a TypeScript client would produce) + one boundary mark.
+- js_dispatch / serialization: real json.dumps of the request payload
+  (the same bytes a JavaScript client would produce) + one boundary mark.
 - transport: real loopback HTTP round-trip against an in-process
   ``http.server`` bound to 127.0.0.1 (the same shape as ipcSession).
 - py_validation / py_orchestration: real json.loads + command routing.
@@ -34,7 +34,7 @@ from .spans import Phase, TraceContext
 _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
-def ts_dispatch(ctx: TraceContext, payload: dict[str, Any]) -> bytes:
+def js_dispatch(ctx: TraceContext, payload: dict[str, Any]) -> bytes:
     """TS-side dispatch: real serialization + boundary crossing mark."""
     with ctx.span(Phase.TS_DISPATCH) as span:
         body = json.dumps(
@@ -174,7 +174,7 @@ def model_wait(
 def result_processing(
     ctx: TraceContext, payload: dict[str, Any]
 ) -> bytes:
-    """Response build + serialize back toward TypeScript."""
+    """Response build + serialize back toward JavaScript."""
     with ctx.span(Phase.RESULT_PROCESSING) as span:
         body = json.dumps(
             {"ok": True, "request_id": ctx.request_id, "result": payload},
@@ -186,7 +186,7 @@ def result_processing(
 
 
 __all__ = [
-    "ts_dispatch",
+    "js_dispatch",
     "http_transport",
     "python_validation",
     "python_orchestration",

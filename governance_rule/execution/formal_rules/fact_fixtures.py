@@ -201,7 +201,6 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
             "migration_chain_hash": "h",
             "live_schema_hash": "h",
             "security_projection_hash": "h",
-            "sqlite_scope_hash": "h",
             "reconciliation_hash": "h",
             "audit_contract_hash": "h",
             "transport_contract_hash": "h",
@@ -314,19 +313,15 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "python_version": "3.14.7",
         "numpy_version": "2.5.3",
     },
-    # A610: infrastructure versions — PostgreSQL 18.6, SQLite disabled,
-    # Git 2.55.0 (real pass path: all three checks exercised).
+    # A610: infrastructure versions — PostgreSQL 18.6,
+    # Git 2.55.0 (real pass path: all checks exercised).
     "RULE_INFRA_VERSIONS_V1": {
         "postgres_version": "18.6",
-        "sqlite": "disabled",
         "git_version": "2.55.0",
-        "typescript_version": "7.0.2",
-        "electron_version": "44.4.5",
     },
-    # A611: Rust vector engine + SQLite retired — both checks exercised.
+    # A611: Rust vector engine — check exercised.
     "RULE_VECTOR_ENGINE_RUST_V1": {
         "vector_engine": "rust-vector-engine",
-        "sqlite": "retired",
     },
     # A612: JAX replaces PyTorch — framework check exercised.
     "RULE_JAX_PYTORCH_V1": {
@@ -336,7 +331,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     "RULE_JS_NATIVE_V1": {
         "language_id": "javascript",
     },
-    # A614: Go/Rust replace Node.js — runtime check exercised.
+    # A614: Go/Rust replace Node.js — runtime check exercised (Node retired).
     "RULE_GO_RUST_NODE_V1": {
         "runtime": "go",
     },

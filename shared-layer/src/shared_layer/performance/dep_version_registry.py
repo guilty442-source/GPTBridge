@@ -34,9 +34,9 @@ REGISTRY_VERSION = "1.0"
 @dataclass(frozen=True)
 class ApprovedDependency:
     """One approved third-party dependency."""
-    dependency_id: str        # e.g. "python:psycopg" or "ts:react"
+    dependency_id: str        # e.g. "python:psycopg" or "javascript:react"
     name: str                  # package name
-    language: str              # "python", "typescript", "c", "cpp", "sql"
+    language: str              # "python", "javascript", "c", "cpp", "sql"
     approved_version: str      # approved version (exact or range)
     version_spec: str          # version spec from requirements/package.json
     source: str                # "pypi", "npm", "system", "local"
@@ -279,33 +279,24 @@ def seed_default_registry(registry: DependencyVersionRegistry) -> None:
         ("httpx", "", "pypi", "optional", DependencyClass.OPTIONAL.value),
     ]
 
-    # TypeScript runtime
-    ts_runtime = [
+    # JavaScript runtime
+    javascript_runtime = [
         ("react", "^19.2.0", "npm", "runtime", DependencyClass.RUNTIME_REQUIRED.value),
         ("react-dom", "^19.2.0", "npm", "runtime", DependencyClass.RUNTIME_REQUIRED.value),
     ]
 
-    # TypeScript build
-    ts_build = [
+    # JavaScript build
+    javascript_build = [
         ("electron", "^39.2.4", "npm", "build", DependencyClass.BUILD_ONLY.value),
         ("electron-builder", "^26.15.3", "npm", "build", DependencyClass.BUILD_ONLY.value),
         ("vite", "^7.3.3", "npm", "build", DependencyClass.BUILD_ONLY.value),
         ("@vitejs/plugin-react", "^5.1.1", "npm", "build", DependencyClass.BUILD_ONLY.value),
-        ("typescript", "^5.9.3", "npm", "build", DependencyClass.BUILD_ONLY.value),
-        ("ts-node", "^10.9.2", "npm", "build", DependencyClass.BUILD_ONLY.value),
         ("madge", "^8.0.0", "npm", "build", DependencyClass.BUILD_ONLY.value),
-    ]
-
-    # TypeScript type-only
-    ts_types = [
-        ("@types/node", "^22.7.7", "npm", "test", DependencyClass.TEST_ONLY.value),
-        ("@types/react", "^19.2.7", "npm", "test", DependencyClass.TEST_ONLY.value),
-        ("@types/react-dom", "^19.2.3", "npm", "test", DependencyClass.TEST_ONLY.value),
     ]
 
     all_deps = (
         [("python:" + name, name, "python", v, s, c) for name, v, s, _, c in python_runtime + python_build + python_test + python_optional]
-        + [("typescript:" + name, name, "typescript", v, s, c) for name, v, s, _, c in ts_runtime + ts_build + ts_types]
+        + [("javascript:" + name, name, "javascript", v, s, c) for name, v, s, _, c in javascript_runtime + javascript_build]
     )
 
     for dep_id, name, lang, version_spec, source, classification in all_deps:

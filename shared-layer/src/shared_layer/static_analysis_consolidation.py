@@ -7,9 +7,7 @@ canonical model:
         C       — C17
         C++     — C++20
         Python  — strict typing on public/cross-language/database/native/C# boundary
-        TypeScript — strict, strictNullChecks, noImplicitAny, noImplicitReturns,
-                     noFallthroughCasesInSwitch (baseline);
-                     noUncheckedIndexedAccess/exactOptionalPropertyTypes (phased)
+        JavaScript-ESM — boundary-contract and runtime safety checks
         C#      — nullable analysis, C ABI/Win32 interop width/layout/convention
         SQL     — PostgreSQL/SQLite dialect: parameterization, NULL, unbounded query,
                   migration/schema dependency
@@ -71,7 +69,6 @@ class LanguageStandard(str, Enum):
     C = "C17"
     CPP = "C++20"
     PYTHON = "strict-typing-boundary"
-    TYPESCRIPT = "strict"
     JAVASCRIPT = "esm"
     CSHARP = "nullable-analysis"
     SQL = "dialect-aware"
@@ -100,15 +97,6 @@ LANGUAGE_ANALYSIS_FOCUS: dict[str, tuple[str, ...]] = {
         "optional_checking",
         "type_safety",
         "boundary_contract",
-    ),
-    "typescript": (
-        "strict_mode",
-        "strict_null_checks",
-        "no_implicit_any",
-        "no_implicit_returns",
-        "no_fallthrough_cases",
-        "no_unchecked_indexed_access",  # phased
-        "exact_optional_property_types",  # phased
     ),
     "javascript": (
         "boundary_contract",
@@ -181,10 +169,6 @@ class FindingCategory(str, Enum):
     TYPE_SAFETY = "type_safety"
     OPTIONAL_CHECKING = "optional_checking"
     BOUNDARY_CONTRACT = "boundary_contract"
-    # TypeScript categories
-    STRICT_MODE = "strict_mode"
-    NULL_SAFETY = "null_safety"
-    IMPLICIT_ANY = "implicit_any"
     # C# categories
     NULLABLE_ANALYSIS = "nullable_analysis"
     INTEROP_WIDTH = "interop_width"
@@ -215,10 +199,6 @@ _CATEGORY_SEVERITY: dict[FindingCategory, Severity] = {
     FindingCategory.TYPE_SAFETY: Severity.HIGH,
     FindingCategory.OPTIONAL_CHECKING: Severity.MEDIUM,
     FindingCategory.BOUNDARY_CONTRACT: Severity.CRITICAL,
-    # TypeScript — medium/high
-    FindingCategory.STRICT_MODE: Severity.HIGH,
-    FindingCategory.NULL_SAFETY: Severity.HIGH,
-    FindingCategory.IMPLICIT_ANY: Severity.MEDIUM,
     # C# — high/critical
     FindingCategory.NULLABLE_ANALYSIS: Severity.HIGH,
     FindingCategory.INTEROP_WIDTH: Severity.CRITICAL,
@@ -253,7 +233,7 @@ class StaticFinding:
     Every finding from every language/tool is mapped to this schema.
     This is the only finding representation shared across languages.
     """
-    language: str           # "c", "cpp", "python", "typescript", "csharp", "sql"
+    language: str           # "c", "cpp", "python", "javascript", "csharp", "sql"
     rule: str               # rule identifier (e.g., "cpp:integer_overflow")
     severity: Severity
     category: FindingCategory
@@ -690,22 +670,6 @@ LANGUAGE_BASELINES: dict[str, LanguageBaseline] = {
         linter_config={
             "esm_only": True,
             "no_backend_surface": True,
-        },
-    ),
-    "typescript": LanguageBaseline(
-        language="typescript",
-        standard=LanguageStandard.TYPESCRIPT,
-        analysis_focus=LANGUAGE_ANALYSIS_FOCUS["typescript"],
-        linter_config={
-            "retired": True,  # A348: grandfathered files only; JS-ESM owns UI
-            "grandfathered_only": True,
-            "strict": True,
-            "strictNullChecks": True,
-            "noImplicitAny": True,
-            "noImplicitReturns": True,
-            "noFallthroughCasesInSwitch": True,
-            "noUncheckedIndexedAccess": "phased",
-            "exactOptionalPropertyTypes": "phased",
         },
     ),
     "csharp": LanguageBaseline(

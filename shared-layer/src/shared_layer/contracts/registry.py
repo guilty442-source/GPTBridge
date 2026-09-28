@@ -32,7 +32,7 @@ def _t(kind: CanonicalKind, **kw) -> TypeSpec:
 # ---------------------------------------------------------------------------
 
 _CANONICAL: dict[str, TypeSpec] = {
-    # Fixed-width integers — i64/u64 cross TypeScript as bigint with a
+    # Fixed-width integers — i64/u64 cross JavaScript as bigint with a
     # decimal-string wire form (JS number is lossy beyond 2**53).
     "i32": _t(CanonicalKind.I32, wire=WireRepr.NUMBER),
     "u32": _t(CanonicalKind.U32, wire=WireRepr.NUMBER),

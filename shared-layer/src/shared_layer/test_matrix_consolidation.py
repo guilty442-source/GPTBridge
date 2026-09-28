@@ -5,7 +5,7 @@ A210 (six-language-test-boundary):
 
     Test frameworks (fixed by A210):
         Python      — pytest
-        TypeScript  — Vitest
+        JavaScript  — Vitest
         C++         — GoogleTest
         C           — native unit test / CTest runner
         C#          — xUnit
@@ -23,7 +23,7 @@ A210 (six-language-test-boundary):
             integration test
 
     Boundary test matrix:
-        TypeScript↔Python contract
+        JavaScript↔Python contract
         Python↔SQL
         Python↔pybind11
         pybind11/C ABI
@@ -75,7 +75,7 @@ TEST_MATRIX_VERSION = "1.0"
 class TestFramework(str, Enum):
     """Canonical test framework per language (A210)."""
     PYTEST = "pytest"               # Python
-    VITEST = "vitest"               # TypeScript
+    VITEST = "vitest"               # JavaScript
     GOTEST = "googletest"           # C++
     CTEST = "native-or-ctest"       # C
     XUNIT = "xunit"                # C#
