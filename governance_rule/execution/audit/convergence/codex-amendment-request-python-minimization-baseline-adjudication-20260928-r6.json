@@ -1,0 +1,42 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v1",
+ "request_id": "python-minimization-baseline-adjudication-20260928-r6",
+ "supersedes": "python-minimization-baseline-adjudication-20260928-r5",
+ "title": "Governor adjudication rev6: GOVERNANCE +4 files / +199 loc interim re-anchor",
+ "summary": "Increment adjudication on top of sealed rev5 (codex 2026-09-28T12:02:41Z). Governance-machinery growth in the same codex-mandated stream: codex_postgresql export/import split, native_audit_gate + audit_self_health, export_audit_manifest, source_ownership/protected_attrs - lands GOVERNANCE ~209 files / ~58.5k loc vs adjudicated 205/58293. Same disposition: authorized interim re-anchor; ratchet resumes only-tighten.",
+ "requested_by": "decision-sovereign",
+ "origin": "human-governor directive 2026-09-28 (execute per codex); gate: test_allowed_zones_frozen",
+ "change_class": "authority-duty",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "predecessor": {
+  "codex_version": "2026-09-28T12:02:41Z",
+  "version_identity": "E2:2026-09-28T12:02:41Z",
+  "version_epoch": 2,
+  "history_head": "9970cd5a72cb9d42f7b9bddd527bd465a55f62150c6825df5ea4b00fe1ecace1",
+  "revision_sequence": 140
+ },
+ "problem": {
+  "summary": "GOVERNANCE bucket grew past rev4-adjudicated baseline (files 209>205, loc ~58492>58293) via codex-mandated audit/export machinery; requires adjudication per only-tighten ratchet."
+ },
+ "proposed_successors": [
+  {
+   "registry": "metadata",
+   "action": "insert",
+   "note": "rev6 adjudication record; disposition row already certified at rev3",
+   "rows": [
+    {
+     "key": "adjudications_rev6",
+     "value": "[\"GOVERNANCE files 205->~209 loc 58293->~58492: adjudicated interim re-anchor; codex_postgresql export/import split, native_audit_gate, audit_self_health, export_audit_manifest, source_ownership/protected_attrs = codex-mandated governance machinery in the same work stream as adjudications_rev3/rev4\"]"
+    }
+   ]
+  }
+ ],
+ "verification": {
+  "requested_at": "2026-09-28T20:15:00Z",
+  "expected_audit_result": "audit_runtime_governance() 0 findings; python minimization gates green after baseline re-anchor"
+ }
+}

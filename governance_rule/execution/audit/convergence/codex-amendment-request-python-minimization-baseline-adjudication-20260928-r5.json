@@ -1,0 +1,42 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v1",
+ "request_id": "python-minimization-baseline-adjudication-20260928-r5",
+ "supersedes": "python-minimization-baseline-adjudication-20260928-r3",
+ "title": "Governor adjudication rev5: GENERAL_APP +9 files / +138 loc interim re-anchor",
+ "summary": "Increment adjudication on top of the sealed rev4 disposition (codex 2026-09-28T11:50:06Z). Ongoing codex-mandated shared-layer modularization (pg_adapter split into pg_adapter_connection/translate/cursor/rows/pool, store_async split into store_async_push/request, connection_acquire) lands GENERAL_APP at ~567 files / ~113.7k loc vs the adjudicated 558/113560. Same disposition: authorized interim re-anchor; ratchet resumes and continues only-tighten.",
+ "requested_by": "decision-sovereign",
+ "origin": "human-governor directive 2026-09-28 (execute per codex); gate: test_zero_targets_only_shrink",
+ "change_class": "authority-duty",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "predecessor": {
+  "codex_version": "2026-09-28T11:50:06Z",
+  "version_identity": "E2:2026-09-28T11:50:06Z",
+  "version_epoch": 2,
+  "history_head": "741f99bf5eef15cddc5e32de45fc779e67d068fbe344166f1d1d7b7fd544470e",
+  "revision_sequence": 139
+ },
+ "problem": {
+  "summary": "GENERAL_APP bucket grew past the rev3-adjudicated baseline (files 567>558, loc ~113.7k>113560) via codex-mandated shared-layer modularization work; requires adjudication per the only-tighten ratchet."
+ },
+ "proposed_successors": [
+  {
+   "registry": "metadata",
+   "action": "insert",
+   "note": "rev5 adjudication record; disposition row already certified at rev3",
+   "rows": [
+    {
+     "key": "adjudications_rev5",
+     "value": "[\"GENERAL_APP files 558->~567 loc 113560->~113700: adjudicated interim re-anchor; shared-layer modularization split (pg_adapter_*, store_async_*, connection_acquire, store_*_ops) = codex-mandated single-responsibility growth under the same work stream as adjudications_rev3/rev4\"]"
+    }
+   ]
+  }
+ ],
+ "verification": {
+  "requested_at": "2026-09-28T20:05:00Z",
+  "expected_audit_result": "audit_runtime_governance() 0 findings; python minimization gates green after baseline re-anchor"
+ }
+}
