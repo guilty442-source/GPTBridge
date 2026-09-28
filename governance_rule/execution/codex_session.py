@@ -293,19 +293,45 @@ class CodexReadSession:
         return found
 
     @staticmethod
-    def _find_provision(codex: GovernanceCodex, reference: str) -> str | None:
-        kind = reference[:1]
-        if kind == "A":
-            pool = ((a.id, a.rule) for a in codex.articles)
-        elif kind == "E":
-            pool = ((e.id, e.edict) for e in codex.edicts)
-        elif kind == "P":
-            pool = ((p.id, p.statement) for p in codex.principles)
-        else:
-            return None
-        for provision_id, text in pool:
-            if provision_id == reference:
-                return text
+    def _pools(codex: GovernanceCodex):
+        return (
+            (a.id, a.rule) for a in codex.articles
+        ), (
+            (e.id, e.edict) for e in codex.edicts
+        ), (
+            (p.id, p.statement) for p in codex.principles
+        )
+
+    @classmethod
+    def _lookup(cls, codex: GovernanceCodex, reference: str) -> str | None:
+        for pool in cls._pools(codex):
+            for provision_id, text in pool:
+                if provision_id == reference:
+                    return text
+        return None
+
+    @classmethod
+    def _find_provision(cls, codex: GovernanceCodex, reference: str) -> str | None:
+        # Renumbered provisions keep their current identity in the pools;
+        # historical ids resolve through the renumbering registry
+        # (HISTORICAL_ALIAS_ONLY) to the same provision's live text.
+        found = cls._lookup(codex, reference)
+        if found is not None:
+            return found
+        aliases = {
+            row.get("old_provision_id"): row.get("new_provision_id")
+            for row in codex.registries.get("provision_renumbering_registry", ())
+        }
+        seen = {reference}
+        target = reference
+        for _ in range(8):
+            target = aliases.get(target)
+            if not target or target in seen:
+                return None
+            seen.add(target)
+            found = cls._lookup(codex, target)
+            if found is not None:
+                return found
         return None
 
     def edicts(self, area: str) -> list[dict[str, str]]:

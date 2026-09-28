@@ -428,3 +428,7 @@ PostgreSQL＋pgvector 是唯一正式向量與結構化資料權威，保存 emb
 ## 無 Python 測試與審計架構
 
 所有測試與審計套件完全移除 Python。C# `TestSuiteOrchestrator` 是唯一測試編排器；C/C++ 原生套件執行所有測試；C++ `Audit Engine` 執行所有審計。測試與審計閘不得啟動 Python、匯入 Python 模組、呼叫 pytest 或將不支援檢查委派給 Python。不支援項目只能標記 `BLOCKED` 並拒絕發布，直到原生覆蓋完成。Python 僅保留最薄治理語意介面及按需 JAX 訓練，兩者均不屬測試或審計套件。
+
+## 測試與審計原生化邊界
+
+Production 測試、審計、驗證、release 與 push 路徑的 Python 行程固定為零。C#/.NET 10 是唯一測試編排器，各語言使用原生 runner，Rust＋C 執行治理與契約驗證，C++23 執行審計，所有結果分別正規化為 `TEST_RESULT_V1` 與 `AUDIT_RESULT_V1`。遷移期間只允許一個 development-only `LegacyPythonVerificationAdapter` 按需執行尚未遷移的治理語意驗證，產生證據後立即退出；不得常駐、排程、裁定、發布、推送或修改法典。pytest 在零有效消費者及所有替代證據完成前標記 `MIGRATION_ONLY`，不得宣稱已完全退役。
