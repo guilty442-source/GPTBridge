@@ -70,16 +70,20 @@ def test_star_models_have_four_isolated_databases(tmp_path: Path) -> None:
         LocalAiRepository(tmp_path, database_scope=profile.database_scope)
         for profile in profiles
     ]
-    paths = [repository.database_path.resolve() for repository in repositories]
+    # A621: PostgreSQL is the sole structured-data authority — each scope
+    # owns a distinct schema (tests inject throwaway schema names via
+    # XINGCHENG_<SCOPE>_PG_SCHEMA; production uses gptbridge_xingcheng_*).
+    paths = [repository.database_path for repository in repositories]
     assert len(set(paths)) == 4
-    assert {path.name for path in paths} == {
-        "main.sqlite3",
-        "investment.sqlite3",
-        "mathematical.sqlite3",
-        "coding.sqlite3",
+    scopes = {r.database_scope for r in repositories}
+    assert scopes == {"main", "investment", "mathematical", "coding"}
+    names = {str(p).removeprefix("postgresql:") for p in map(str, paths)}
+    expected = {
+        __import__("os").environ.get(f"XINGCHENG_{s.upper()}_PG_SCHEMA")
+        or f"gptbridge_xingcheng_{s}"
+        for s in scopes
     }
-    assert all(path.is_relative_to(tmp_path.resolve()) for path in paths)
-    assert all(path.is_file() for path in paths)
+    assert names == expected
 
 
 def test_specialist_network_and_database_policies_are_fixed() -> None:

@@ -15,9 +15,10 @@ import weakref
 from contextlib import contextmanager
 from typing import Any, Callable, Iterator
 
-import torch
-
-from .memory import device_memory_info, memory_pressure
+try:
+    import torch
+except ImportError:  # torch is an on-demand dep — the manager must still
+    torch = None  # type: ignore[assignment]  # import without it (A57)
 
 DEFAULT_IDLE_SECONDS = 300  # 5 分鐘閒置自動卸載
 DEFAULT_CHECK_INTERVAL = 60  # 每 60s 檢查
@@ -79,12 +80,18 @@ class AutoReleaseManager:
         """定時檢查：閒置或壓力釋放。"""
         try:
             now = time.time()
-            pressure = memory_pressure()
+            try:
+                from .memory import device_memory_info, memory_pressure
+
+                pressure = memory_pressure()
+            except ImportError:
+                pressure = 0.0  # torch absent → no memory telemetry
+                device_memory_info = None
             # 查詢 VRAM
             vram_pressure = 0.0
             try:
-                info = device_memory_info("cuda")
-                if info["total_gb"] > 0:
+                info = device_memory_info("cuda") if device_memory_info else {}
+                if info.get("total_gb", 0) > 0:
                     vram_pressure = info["used_gb"] / info["total_gb"]
             except Exception:
                 pass
@@ -132,7 +139,7 @@ def auto_release_context(key: str, obj: Any, release_fn: Callable[[Any], None], 
         pass
 
 # 便捷釋放函式
-def release_model(model: torch.nn.Module) -> None:
+def release_model(model: Any) -> None:
     """釋放模型：移至 CPU 並清空 CUDA cache（正確性：權重仍在 checkpoint）。"""
     try:
         model.to("cpu")
@@ -140,7 +147,7 @@ def release_model(model: torch.nn.Module) -> None:
         for p in model.parameters():
             if p.grad is not None:
                 p.grad = None
-        if torch.cuda.is_available():
+        if torch is not None and torch.cuda.is_available():
             torch.cuda.empty_cache()
     except Exception:
         pass
@@ -149,7 +156,7 @@ def release_kv_cache(cache: Any) -> None:
     """釋放 KV cache：重置並歸還池。"""
     try:
         cache.reset()
-        if torch.cuda.is_available():
+        if torch is not None and torch.cuda.is_available():
             torch.cuda.empty_cache()
     except Exception:
         pass

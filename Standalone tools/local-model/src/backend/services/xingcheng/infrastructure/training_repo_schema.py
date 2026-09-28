@@ -299,9 +299,17 @@ class TransformerTrainingSchemaMixin:
         "cancelled": frozenset(),
     }
 
+    @staticmethod
+    def _schema() -> str:
+        # A621: tests/sandboxes inject a throwaway schema via env;
+        # production default stays gptbridge_xingcheng.
+        import os
+
+        return os.environ.get("XINGCHENG_SHARED_PG_SCHEMA") or "gptbridge_xingcheng"
+
     @contextmanager
     def _connect(self) -> Iterator[PgConnection]:
-        connection = pg_connect("gptbridge_xingcheng", autocommit=False)
+        connection = pg_connect(self._schema(), autocommit=False)
         try:
             yield connection
             connection.commit()

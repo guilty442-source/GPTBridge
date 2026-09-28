@@ -386,6 +386,7 @@ void process_sample(CycleEnv& env, ProcSample sample) {
     const ProgramRule* rule = find_rule(env, name_lower, exe_lower);
     const Pool pool = classify_pool(name_lower, exe_lower, cmdline_lower, plane,
                                     env.rules, rule);
+    record.pool = pool;
     record_row(env, sample, plane, pool, record);
 
     if (rule != nullptr && rule->exclude) return;

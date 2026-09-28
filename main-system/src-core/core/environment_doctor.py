@@ -11,9 +11,11 @@ Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -95,6 +97,11 @@ def check_python_modules(
             "error": "python executable not found",
         }
 
+    if _is_current_interpreter(executable):
+        # Same-interpreter fast path: find_spec in-process (~µs) instead of
+        # spawning a second interpreter (~150ms) to ask the identical question.
+        return _check_modules_in_process(executable, project_root, required_modules)
+
     probe = (
         "import importlib.util,json;"
         f"modules=json.loads({json.dumps(json.dumps(list(required_modules.values())))});"
@@ -128,6 +135,65 @@ def check_python_modules(
         "optional_modules": optional_results,
         "optional_missing": optional_missing,
         "error": completed.stderr.strip() or decode_error,
+    }
+
+
+def _is_current_interpreter(executable: Path) -> bool:
+    """True when the probe target is this process's own interpreter."""
+    try:
+        return Path(executable).resolve() == Path(sys.executable).resolve()
+    except OSError:
+        return False
+
+
+def _check_modules_in_process(
+    executable: Path,
+    project_root: Path,
+    required_modules: Mapping[str, str],
+) -> dict[str, Any]:
+    """In-process variant of the module probes (same-interpreter only).
+
+    Mirrors ``python -c`` semantics by resolving against ``project_root``
+    (the subprocess probe runs with ``cwd=project_root``).
+    """
+    root_str = os.fspath(project_root)
+    inserted = root_str not in sys.path
+    if inserted:
+        sys.path.insert(0, root_str)
+    try:
+        module_results = {
+            requirement: importlib.util.find_spec(import_name) is not None
+            for requirement, import_name in required_modules.items()
+        }
+        optional_results: dict[str, dict[str, bool]] = {
+            group: {
+                name: importlib.util.find_spec(import_name) is not None
+                for name, import_name in modules.items()
+            }
+            for group, modules in OPTIONAL_PYTHON_MODULE_GROUPS.items()
+        }
+    finally:
+        if inserted:
+            try:
+                sys.path.remove(root_str)
+            except ValueError:
+                pass
+    missing = sorted(
+        requirement for requirement, present in module_results.items() if not present
+    )
+    optional_missing = {
+        group: sorted(req for req, present in modules.items() if not present)
+        for group, modules in optional_results.items()
+    }
+    return {
+        "ok": not missing,
+        "executable": str(executable),
+        "exists": True,
+        "missing": missing,
+        "modules": module_results,
+        "optional_modules": optional_results,
+        "optional_missing": optional_missing,
+        "error": "",
     }
 
 

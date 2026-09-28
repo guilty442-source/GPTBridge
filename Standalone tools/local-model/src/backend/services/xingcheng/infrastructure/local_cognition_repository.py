@@ -38,9 +38,16 @@ class LocalCognitionRepository:
     into the module-private ``gptbridge_xingcheng`` schema.
     """
 
+    def _schema(self) -> str:
+        # A621: tests/sandboxes inject a throwaway schema via env;
+        # production default stays gptbridge_xingcheng.
+        import os
+
+        return os.environ.get("XINGCHENG_SHARED_PG_SCHEMA") or "gptbridge_xingcheng"
+
     def __init__(self, tool_root: Path) -> None:
         self.fallback = "local-cognition"
-        self.database_path = Path("postgresql:gptbridge_xingcheng")
+        self.database_path = Path(f"postgresql:{self._schema()}")
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -111,7 +118,7 @@ class LocalCognitionRepository:
 
     @contextmanager
     def _connect(self) -> Iterator[PgConnection]:
-        connection = pg_connect("gptbridge_xingcheng", autocommit=False)
+        connection = pg_connect(self._schema(), autocommit=False)
         try:
             yield connection
             connection.commit()

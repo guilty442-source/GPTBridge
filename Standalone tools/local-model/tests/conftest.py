@@ -91,3 +91,71 @@ def _isolate_vector_store_schema(monkeypatch):
                 c.commit()
         except Exception:
             pass
+
+
+_XINGCHENG_SCOPES = ("main", "investment", "mathematical", "coding")
+
+
+def _terminate_schema_locks(dsn: str, schema: str) -> None:
+    import psycopg
+
+    with psycopg.connect(dsn, connect_timeout=5) as c:
+        c.execute("SET lock_timeout = '10s'")
+        c.execute(
+            "SELECT pg_terminate_backend(l.pid) FROM pg_locks l "
+            "WHERE l.pid <> pg_backend_pid() AND ("
+            "  (l.locktype = 'relation' AND l.relation IN ("
+            "    SELECT c2.oid FROM pg_class c2 "
+            "    JOIN pg_namespace n ON c2.relnamespace = n.oid "
+            "    WHERE n.nspname = %s))"
+            "  OR (l.locktype = 'object' AND l.classid = 'pg_namespace'::regclass"
+            "      AND l.objid = (SELECT oid FROM pg_namespace WHERE nspname = %s))"
+            ")",
+            (schema, schema),
+        )
+        c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+        c.commit()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_xingcheng_repo_schemas(monkeypatch):
+    """A621: LocalAiRepository writes per-scope schemas — tests get throwaway
+    schemas per scope so live ``gptbridge_xingcheng_*`` tables (legacy DDL,
+    accumulated rows) never leak into assertions."""
+    import uuid
+
+    suffix = uuid.uuid4().hex[:10]
+    schemas = {s: f"xc_test_{s}_{suffix}" for s in _XINGCHENG_SCOPES}
+    schemas["shared"] = f"xc_test_shared_{suffix}"
+    try:
+        import psycopg
+
+        from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+        dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+        with psycopg.connect(dsn, connect_timeout=5) as c:
+            for name in schemas.values():
+                c.execute(f'CREATE SCHEMA "{name}"')
+                c.execute(
+                    f'GRANT USAGE, CREATE ON SCHEMA "{name}" TO gptbridge_runtime'
+                )
+            c.commit()
+    except Exception:
+        yield {}
+        return
+    for scope, name in schemas.items():
+        monkeypatch.setenv(f"XINGCHENG_{scope.upper()}_PG_SCHEMA", name)
+    try:
+        yield schemas
+    finally:
+        try:
+            from shared_layer.local import pg_adapter
+
+            pg_adapter.close_pool()
+        except Exception:
+            pass
+        for name in schemas.values():
+            try:
+                _terminate_schema_locks(dsn, name)
+            except Exception:
+                pass

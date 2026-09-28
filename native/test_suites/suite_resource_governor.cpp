@@ -443,11 +443,11 @@ int main() {
         engine.procs = {worker_proc(810, 5.0), worker_proc(811, 5.0)};
         gov::govern_once(config, empty_rules(), engine, records, regulation, ctx,
                          logs);
-        NT_CHECK(count_calls(engine.calls, "limit:") == 2, "both join once");
-        NT_CHECK(has_call(engine.calls, "limit:810:10"), "aggregate budget rate");
+        NT_CHECK(count_calls(engine.calls, "job:") == 2, "both join once");
+        NT_CHECK(has_call(engine.calls, "job:-1:810:10"), "aggregate budget rate");
         gov::govern_once(config, empty_rules(), engine, records, regulation, ctx,
                          logs);
-        NT_CHECK(count_calls(engine.calls, "limit:") == 2, "no repeat joins");
+        NT_CHECK(count_calls(engine.calls, "job:") == 2, "no repeat joins");
 
         config.worker_job_cap = false;
         engine.calls.clear();
@@ -455,7 +455,7 @@ int main() {
         engine.procs = {worker_proc(820, 95.0)};
         gov::govern_once(config, empty_rules(), engine, records, regulation, ctx,
                          logs);
-        NT_CHECK(!has_call(engine.calls, "limit:"), "explicit opt-out wins");
+        NT_CHECK(!has_call(engine.calls, "job:"), "explicit opt-out wins");
 
         config.worker_job_cap = true;
         config.worker_job_percent = 7.5;
@@ -464,7 +464,7 @@ int main() {
         engine.procs = {worker_proc(830, 5.0)};
         gov::govern_once(config, empty_rules(), engine, records, regulation, ctx,
                          logs);
-        NT_CHECK(has_call(engine.calls, "limit:830:7.5"), "percent override");
+        NT_CHECK(has_call(engine.calls, "job:-1:830:7.5"), "percent override");
 
         engine.calls.clear();
         records.clear();

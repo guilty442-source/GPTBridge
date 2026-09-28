@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
@@ -22,12 +23,19 @@ class LocalIdentityRepository:
     """
 
     SCHEMA = "gptbridge_xingcheng"
+    SCHEMA_ENV = "XINGCHENG_SHARED_PG_SCHEMA"
     SCHEMAS = ("role_data", "role_history", "role_audit")
+
+    @classmethod
+    def _schema(cls) -> str:
+        # A621: tests/sandboxes inject a throwaway schema via the env var;
+        # production default stays gptbridge_xingcheng.
+        return os.environ.get(cls.SCHEMA_ENV) or cls.SCHEMA
 
     def __init__(self, tool_root: Path, pool_manager: Any = None):
         self.tool_root = Path(tool_root).resolve()
         self._manager = pool_manager
-        self.database_path = Path(f"postgresql:{self.SCHEMA}")
+        self.database_path = Path(f"postgresql:{self._schema()}")
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -81,7 +89,7 @@ class LocalIdentityRepository:
 
     @contextmanager
     def _connect(self) -> Iterator[PgConnection]:
-        connection = pg_connect(self.SCHEMA, autocommit=False)
+        connection = pg_connect(self._schema(), autocommit=False)
         try:
             yield connection
             connection.commit()

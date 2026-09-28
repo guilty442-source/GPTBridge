@@ -44,7 +44,7 @@ class TransformerTrainingRepository(
 
     def __init__(self, tool_root: Path) -> None:
         self.tool_root = Path(tool_root).resolve() / "xingcheng"
-        self.database_path = Path(f"postgresql:{self.DATABASE_NAME}")
+        self.database_path = Path(f"postgresql:{self._schema()}")
         self._migrate()
 
     def database_status(self) -> dict[str, Any]:
