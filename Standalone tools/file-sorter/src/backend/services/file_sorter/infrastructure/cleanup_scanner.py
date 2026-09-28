@@ -357,7 +357,9 @@ class CleanupScanner(VideoFingerprintMixin, VideoSimilarityMixin, MediaProcessin
     def _create_executor(self) -> concurrent.futures.ThreadPoolExecutor | None:
         if not self.parallel_analysis:
             return None
-        workers = min(2, max(1, os.cpu_count() or 1))
+        from shared_layer.performance.thread_budget import bounded_workers
+
+        workers = bounded_workers(2)
         if workers <= 1:
             return None
         return concurrent.futures.ThreadPoolExecutor(
