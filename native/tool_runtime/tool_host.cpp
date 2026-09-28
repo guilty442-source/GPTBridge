@@ -604,18 +604,32 @@ int ToolHost::run() {
     while (!impl_->stop_flag.load()) Sleep(20);
     if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
     if (impl_->claim_thread.joinable()) impl_->claim_thread.join();
+    drain_connections();
+    if (impl_->sidecar) impl_->sidecar->stop();
+    if (impl_->submit_sidecar) impl_->submit_sidecar->stop();
+    WSACleanup();
+    return 0;
+}
+
+/* 排空（bounded-concurrency/v1）：關 pending 佇列的未受理連線＋
+   關活動 conns（recv 即返回）→ notify 全池 → join conn workers。
+   歸零前不得釋放 impl_／WSACleanup（UAF 防線）。 */
+void ToolHost::drain_connections() {
+    {
+        std::lock_guard<std::mutex> lk(impl_->pending_mu);
+        for (SOCKET s : impl_->pending_conns) closesocket(s);
+        impl_->pending_conns.clear();
+    }
+    impl_->pending_cv.notify_all();
     {
         std::lock_guard<std::mutex> lk(impl_->conn_mu);
         for (SOCKET s : impl_->conns) closesocket(s);
         impl_->conns.clear();
     }
-    /* detached conn 執行緒收尾（conns 已關 → recv/send 即返回）；
-       歸零前不得釋放 impl_／WSACleanup（UAF 防線）。 */
+    for (std::thread& w : impl_->conn_pool)
+        if (w.joinable()) w.join();
+    impl_->conn_pool.clear();
     while (impl_->active_conns.load() > 0) Sleep(1);
-    if (impl_->sidecar) impl_->sidecar->stop();
-    if (impl_->submit_sidecar) impl_->submit_sidecar->stop();
-    WSACleanup();
-    return 0;
 }
 
 ToolHost::ToolHost() = default;
@@ -625,17 +639,13 @@ ToolHost::~ToolHost() {
         request_stop();
         if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
         if (impl_->claim_thread.joinable()) impl_->claim_thread.join();
-        {
-            std::lock_guard<std::mutex> lk(impl_->conn_mu);
-            for (SOCKET s : impl_->conns) closesocket(s);
-            impl_->conns.clear();
-        }
+        drain_connections();
         if (impl_->sidecar) impl_->sidecar->stop();
         if (impl_->submit_sidecar) impl_->submit_sidecar->stop();
         WSACleanup();
     }
     if (impl_) {
-        /* 同 run()：detached conn 執行緒歸零後才可釋放 impl_。 */
+        /* 同 run()：conn pool 排空後才可釋放 impl_。 */
         while (impl_->active_conns.load() > 0) Sleep(1);
     }
 }
