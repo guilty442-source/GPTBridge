@@ -1,14 +1,15 @@
 import sys
 sys.path.insert(0, r"E:\GPTBridge\governance_rule")
-from governance_rule.execution.codex_repository import codex_readonly_connection
+from governance_rule.execution.codex_postgresql import readonly_connection
 
-with codex_readonly_connection() as conn:
-    cur = conn.execute(
-        "SELECT table_name FROM information_schema.tables "
-        "WHERE table_schema='public' ORDER BY table_name"
-    )
-    names = [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in cur.fetchall()]
-    print(len(names), "tables")
-    for n in names:
-        if any(k in n for k in ("version", "meta", "article", "rule", "prov")):
-            print(" ", n)
+with readonly_connection() as conn:
+    for pid in ("B157", "B172", "B166", "D141", "B141"):
+        rows = conn.execute(
+            "SELECT provision_id, subject, rule, prohibition, exception "
+            "FROM articles WHERE provision_id=%s", (pid,)).fetchall()
+        for r in rows:
+            print(f"===== {r[0]} | {r[1]} =====")
+            print("RULE:", r[2])
+            print("PROHIBITION:", r[3])
+            print("EXCEPTION:", r[4])
+            print()

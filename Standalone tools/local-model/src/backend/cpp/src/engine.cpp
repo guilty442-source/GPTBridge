@@ -536,6 +536,51 @@ std::vector<double> transpose_matrix(const TensorView& matrix) {
     return out;
 }
 
+// Column-concatenation of transposed [k x n_part] weights: one fused GEMM
+// produces [part0|part1|...] per input row. Each output column keeps the
+// identical k-length dot product it had in the unfused weights; the win is
+// fewer GEMM dispatches (and, on the CUDA path, fewer host→device round
+// trips) per forward pass.
+std::vector<double> hcat_weights(
+    const std::vector<std::pair<const std::vector<double>*, int64_t>>& parts,
+    int64_t k) {
+    int64_t n_total = 0;
+    for (const auto& part : parts) n_total += part.second;
+    std::vector<double> out(static_cast<size_t>(k * n_total));
+    for (int64_t r = 0; r < k; ++r) {
+        double* dst = out.data() + static_cast<size_t>(r * n_total);
+        for (const auto& part : parts) {
+            std::copy_n(
+                part.first->data() + static_cast<size_t>(r * part.second),
+                part.second, dst);
+            dst += part.second;
+        }
+    }
+    return out;
+}
+
+// Inverse of hcat_weights on an activation matrix [rows x n_total]:
+// each column block is copied into its own [rows x n_part] buffer.
+void split_columns(
+    const std::vector<double>& fused,
+    int64_t rows,
+    const std::vector<std::pair<int64_t, std::vector<double>*>>& parts) {
+    int64_t n_total = 0;
+    for (const auto& part : parts) {
+        n_total += part.first;
+        part.second->assign(static_cast<size_t>(rows * part.first), 0.0);
+    }
+    for (int64_t r = 0; r < rows; ++r) {
+        const double* src = fused.data() + static_cast<size_t>(r * n_total);
+        for (const auto& part : parts) {
+            std::copy_n(
+                src, part.first,
+                part.second->data() + static_cast<size_t>(r * part.first));
+            src += part.first;
+        }
+    }
+}
+
 void checked_c_call(int rc, const char* operation) {
     if (rc != 0) {
         throw InferenceError(std::string("C_ABI_CALL_FAILED:") + operation);
@@ -1446,8 +1491,7 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
             layer.expert_gate.reserve(static_cast<size_t>(experts));
             layer.expert_up.reserve(static_cast<size_t>(experts));
             layer.expert_down.reserve(static_cast<size_t>(experts));
-            layer.expert_gate_t.reserve(static_cast<size_t>(experts));
-            layer.expert_up_t.reserve(static_cast<size_t>(experts));
+            layer.expert_gate_up_t.reserve(static_cast<size_t>(experts));
             layer.expert_down_t.reserve(static_cast<size_t>(experts));
             for (int64_t e = 0; e < experts; ++e) {
                 const std::string ep =
@@ -1458,10 +1502,14 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
                     bundle_->tensor(ep + "up_proj.weight"));
                 layer.expert_down.push_back(
                     bundle_->tensor(ep + "down_proj.weight"));
-                layer.expert_gate_t.push_back(
-                    transpose_matrix(layer.expert_gate.back()));
-                layer.expert_up_t.push_back(
-                    transpose_matrix(layer.expert_up.back()));
+                const std::vector<double> gate_t =
+                    transpose_matrix(layer.expert_gate.back());
+                const std::vector<double> up_t =
+                    transpose_matrix(layer.expert_up.back());
+                layer.expert_gate_up_t.push_back(hcat_weights(
+                    {{&gate_t, cfg.moe_expert_intermediate_size},
+                     {&up_t, cfg.moe_expert_intermediate_size}},
+                    cfg.hidden_size));
                 layer.expert_down_t.push_back(
                     transpose_matrix(layer.expert_down.back()));
             }
@@ -1471,8 +1519,7 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
             layer.shared_gate.reserve(static_cast<size_t>(shared));
             layer.shared_up.reserve(static_cast<size_t>(shared));
             layer.shared_down.reserve(static_cast<size_t>(shared));
-            layer.shared_gate_t.reserve(static_cast<size_t>(shared));
-            layer.shared_up_t.reserve(static_cast<size_t>(shared));
+            layer.shared_gate_up_t.reserve(static_cast<size_t>(shared));
             layer.shared_down_t.reserve(static_cast<size_t>(shared));
             for (int64_t e = 0; e < shared; ++e) {
                 const std::string sp =
@@ -1484,10 +1531,14 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
                     bundle_->tensor(sp + "up_proj.weight"));
                 layer.shared_down.push_back(
                     bundle_->tensor(sp + "down_proj.weight"));
-                layer.shared_gate_t.push_back(
-                    transpose_matrix(layer.shared_gate.back()));
-                layer.shared_up_t.push_back(
-                    transpose_matrix(layer.shared_up.back()));
+                const std::vector<double> gate_t =
+                    transpose_matrix(layer.shared_gate.back());
+                const std::vector<double> up_t =
+                    transpose_matrix(layer.shared_up.back());
+                layer.shared_gate_up_t.push_back(hcat_weights(
+                    {{&gate_t, cfg.moe_shared_intermediate_size},
+                     {&up_t, cfg.moe_shared_intermediate_size}},
+                    cfg.hidden_size));
                 layer.shared_down_t.push_back(
                     transpose_matrix(layer.shared_down.back()));
             }
@@ -1495,13 +1546,24 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
             layer.gate_proj = bundle_->tensor(prefix + "mlp.gate_proj.weight");
             layer.up_proj = bundle_->tensor(prefix + "mlp.up_proj.weight");
             layer.down_proj = bundle_->tensor(prefix + "mlp.down_proj.weight");
-            layer.gate_proj_t = transpose_matrix(layer.gate_proj);
-            layer.up_proj_t = transpose_matrix(layer.up_proj);
+            const std::vector<double> gate_t =
+                transpose_matrix(layer.gate_proj);
+            const std::vector<double> up_t =
+                transpose_matrix(layer.up_proj);
+            layer.gate_up_t = hcat_weights(
+                {{&gate_t, cfg.intermediate_size},
+                 {&up_t, cfg.intermediate_size}},
+                cfg.hidden_size);
             layer.down_proj_t = transpose_matrix(layer.down_proj);
         }
-        layer.q_proj_t = transpose_matrix(layer.q_proj);
-        layer.k_proj_t = transpose_matrix(layer.k_proj);
-        layer.v_proj_t = transpose_matrix(layer.v_proj);
+        const std::vector<double> q_t = transpose_matrix(layer.q_proj);
+        const std::vector<double> k_t = transpose_matrix(layer.k_proj);
+        const std::vector<double> v_t = transpose_matrix(layer.v_proj);
+        layer.qkv_t = hcat_weights(
+            {{&q_t, cfg.num_attention_heads * cfg.head_dim},
+             {&k_t, cfg.num_key_value_heads * cfg.head_dim},
+             {&v_t, cfg.num_key_value_heads * cfg.head_dim}},
+            cfg.hidden_size);
         layer.o_proj_t = transpose_matrix(layer.o_proj);
     }
 
@@ -1973,12 +2035,17 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         int64_t rope_q_count = 0;
         // Projections and FFN are token-wise: the packed rows of all spans
         // share one GEMM — that sharing is the R9 throughput win.
-        std::vector<double> q_flat = linear(
-            normed, total_tokens, hidden_size, layer.q_proj_t, q_dim);
-        std::vector<double> k_flat = linear(
-            normed, total_tokens, hidden_size, layer.k_proj_t, kv_dim);
-        std::vector<double> v_flat = linear(
-            normed, total_tokens, hidden_size, layer.v_proj_t, kv_dim);
+        std::vector<double> q_flat;
+        std::vector<double> k_flat;
+        std::vector<double> v_flat;
+        {
+            std::vector<double> qkv_flat = linear(
+                normed, total_tokens, hidden_size, layer.qkv_t,
+                q_dim + 2 * kv_dim);
+            split_columns(
+                qkv_flat, total_tokens,
+                {{q_dim, &q_flat}, {kv_dim, &k_flat}, {kv_dim, &v_flat}});
+        }
 
         std::vector<double> attn_flat(static_cast<size_t>(total_tokens * q_dim), 0.0);
         const int64_t head_ratio = cfg.num_attention_heads / cfg.num_key_value_heads;
@@ -2285,34 +2352,37 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 }
             }
             std::vector<int64_t> group_rows;
-            std::vector<const double*> gate_list;
-            std::vector<const double*> up_list;
+            std::vector<const double*> gate_up_list;
             std::vector<const double*> down_list;
             group_rows.reserve(static_cast<size_t>(experts));
             for (int64_t e = 0; e < experts; ++e) {
                 if (group_count[static_cast<size_t>(e)] == 0) continue;
                 group_rows.push_back(group_count[static_cast<size_t>(e)]);
-                gate_list.push_back(
-                    layer.expert_gate_t[static_cast<size_t>(e)].data());
-                up_list.push_back(
-                    layer.expert_up_t[static_cast<size_t>(e)].data());
+                gate_up_list.push_back(
+                    layer.expert_gate_up_t[static_cast<size_t>(e)].data());
                 down_list.push_back(
                     layer.expert_down_t[static_cast<size_t>(e)].data());
             }
             std::vector<double> mlp_out(
                 static_cast<size_t>(total_tokens * hidden_size), 0.0);
             if (!group_rows.empty()) {
-                std::vector<double> gate = matmul_grouped(
-                    grouped_in, group_rows, gate_list, hidden_size,
-                    expert_inter);
-                std::vector<double> up = matmul_grouped(
-                    grouped_in, group_rows, up_list, hidden_size,
-                    expert_inter);
+                // Fused [gate|up] grouped GEMM: each row carries gate in
+                // columns [0, inter) and up in [inter, 2*inter).
+                std::vector<double> gate_up = matmul_grouped(
+                    grouped_in, group_rows, gate_up_list, hidden_size,
+                    2 * expert_inter);
                 std::vector<double> act(
                     static_cast<size_t>(grouped_rows * expert_inter));
-                for (size_t i = 0; i < act.size(); ++i) {
-                    const double g = gate[i];
-                    act[i] = (g / (1.0 + std::exp(-g))) * up[i];
+                for (int64_t r = 0; r < grouped_rows; ++r) {
+                    const double* fused_row = gate_up.data() +
+                        static_cast<size_t>(r * 2 * expert_inter);
+                    double* act_row = act.data() +
+                        static_cast<size_t>(r * expert_inter);
+                    for (int64_t j = 0; j < expert_inter; ++j) {
+                        const double g = fused_row[j];
+                        act_row[j] =
+                            (g / (1.0 + std::exp(-g))) * fused_row[expert_inter + j];
+                    }
                 }
                 std::vector<double> grouped_out = matmul_grouped(
                     act, group_rows, down_list, expert_inter,
@@ -2329,15 +2399,21 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             // Shared experts (v26): always-on SwiGLU over every token,
             // weight 1.0 — mirrors modules/moe.py `output + shared(x)`.
             for (size_t se = 0; se < layer.shared_gate.size(); ++se) {
-                std::vector<double> sg = linear(
+                std::vector<double> sgu = linear(
                     normed, total_tokens, hidden_size,
-                    layer.shared_gate_t[se], shared_inter);
-                std::vector<double> su = linear(
-                    normed, total_tokens, hidden_size,
-                    layer.shared_up_t[se], shared_inter);
-                for (size_t i = 0; i < sg.size(); ++i) {
-                    const double g = sg[i];
-                    sg[i] = (g / (1.0 + std::exp(-g))) * su[i];
+                    layer.shared_gate_up_t[se], 2 * shared_inter);
+                std::vector<double> sg(
+                    static_cast<size_t>(total_tokens * shared_inter));
+                for (int64_t r = 0; r < total_tokens; ++r) {
+                    const double* fused_row = sgu.data() +
+                        static_cast<size_t>(r * 2 * shared_inter);
+                    double* sg_row = sg.data() +
+                        static_cast<size_t>(r * shared_inter);
+                    for (int64_t j = 0; j < shared_inter; ++j) {
+                        const double g = fused_row[j];
+                        sg_row[j] =
+                            (g / (1.0 + std::exp(-g))) * fused_row[shared_inter + j];
+                    }
                 }
                 std::vector<double> sd = linear(
                     sg, total_tokens, shared_inter,
@@ -2354,14 +2430,22 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 hidden.data(), 1.0, mlp_out.data(),
                 static_cast<int64_t>(hidden.size()));
         } else {
-            std::vector<double> gate = linear(
-                normed, total_tokens, hidden_size, layer.gate_proj_t, cfg.intermediate_size);
-            std::vector<double> up = linear(
-                normed, total_tokens, hidden_size, layer.up_proj_t, cfg.intermediate_size);
-            std::vector<double> mlp_in(static_cast<size_t>(total_tokens * cfg.intermediate_size));
-            for (size_t i = 0; i < mlp_in.size(); ++i) {
-                const double g = gate[i];
-                mlp_in[i] = (g / (1.0 + std::exp(-g))) * up[i];
+            const int64_t inter = cfg.intermediate_size;
+            std::vector<double> gate_up = linear(
+                normed, total_tokens, hidden_size, layer.gate_up_t,
+                2 * inter);
+            std::vector<double> mlp_in(
+                static_cast<size_t>(total_tokens * inter));
+            for (int64_t r = 0; r < total_tokens; ++r) {
+                const double* fused_row = gate_up.data() +
+                    static_cast<size_t>(r * 2 * inter);
+                double* out_row = mlp_in.data() +
+                    static_cast<size_t>(r * inter);
+                for (int64_t j = 0; j < inter; ++j) {
+                    const double g = fused_row[j];
+                    out_row[j] =
+                        (g / (1.0 + std::exp(-g))) * fused_row[inter + j];
+                }
             }
             std::vector<double> mlp_out = linear(
                 mlp_in, total_tokens, cfg.intermediate_size, layer.down_proj_t, hidden_size);

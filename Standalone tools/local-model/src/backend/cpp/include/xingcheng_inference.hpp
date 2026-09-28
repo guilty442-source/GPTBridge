@@ -218,23 +218,22 @@ private:
         std::vector<TensorView> expert_up;
         std::vector<TensorView> expert_down;
         std::vector<double> router_t;
-        std::vector<std::vector<double>> expert_gate_t;
-        std::vector<std::vector<double>> expert_up_t;
+        // Column-fused transposed weights: one GEMM produces [gate|up]
+        // (or [q|k|v]) per input row. Every output column keeps the exact
+        // same k-length dot product as the unfused weights; the win is
+        // fewer host→device round trips per forward pass.
+        std::vector<std::vector<double>> expert_gate_up_t;
         std::vector<std::vector<double>> expert_down_t;
         // Always-on shared experts (DeepSeek-MoE): weight-1.0
         // contribution on every token, mirroring modules/moe.py.
         std::vector<TensorView> shared_gate;
         std::vector<TensorView> shared_up;
         std::vector<TensorView> shared_down;
-        std::vector<std::vector<double>> shared_gate_t;
-        std::vector<std::vector<double>> shared_up_t;
+        std::vector<std::vector<double>> shared_gate_up_t;
         std::vector<std::vector<double>> shared_down_t;
-        std::vector<double> q_proj_t;
-        std::vector<double> k_proj_t;
-        std::vector<double> v_proj_t;
+        std::vector<double> qkv_t;
         std::vector<double> o_proj_t;
-        std::vector<double> gate_proj_t;
-        std::vector<double> up_proj_t;
+        std::vector<double> gate_up_t;
         std::vector<double> down_proj_t;
     };
 
