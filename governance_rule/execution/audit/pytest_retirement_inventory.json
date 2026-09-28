@@ -472,7 +472,7 @@
   },
   {
    "source_test": "main-system/tests/test_audit_integration.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -481,7 +481,7 @@
   },
   {
    "source_test": "main-system/tests/test_authority_reanchor.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -589,7 +589,7 @@
   },
   {
    "source_test": "main-system/tests/test_codex_amendment_intake_driver.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -598,7 +598,7 @@
   },
   {
    "source_test": "main-system/tests/test_codex_official_entry.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -715,7 +715,7 @@
   },
   {
    "source_test": "main-system/tests/test_git_tier_governance.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -724,7 +724,7 @@
   },
   {
    "source_test": "main-system/tests/test_governance_authentication.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -733,7 +733,7 @@
   },
   {
    "source_test": "main-system/tests/test_governance_path_guard.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1039,7 +1039,7 @@
   },
   {
    "source_test": "main-system/tests/test_permission_compliance_integrity.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1048,7 +1048,7 @@
   },
   {
    "source_test": "main-system/tests/test_permission_execution_contracts.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1111,7 +1111,7 @@
   },
   {
    "source_test": "main-system/tests/test_python_minimization_gates.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1183,7 +1183,7 @@
   },
   {
    "source_test": "main-system/tests/test_rag_parity_audit.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "CargoTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1633,7 +1633,7 @@
   },
   {
    "source_test": "main-system/tests/test_xingcheng_codex_drift.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1687,7 +1687,7 @@
   },
   {
    "source_test": "shared-layer/tests/test_capacity_governance.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1723,7 +1723,7 @@
   },
   {
    "source_test": "shared-layer/tests/test_data_platform_governance.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1732,7 +1732,7 @@
   },
   {
    "source_test": "shared-layer/tests/test_dep_consolidation_v1.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1813,7 +1813,7 @@
   },
   {
    "source_test": "shared-layer/tests/test_phase_a_lineage_authority_provenance.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1822,7 +1822,7 @@
   },
   {
    "source_test": "shared-layer/tests/test_phase_b_permission_schema_ddl_contract.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1876,7 +1876,7 @@
   },
   {
    "source_test": "shared-layer/tests/test_phase_h_integrity_verification.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -1885,7 +1885,7 @@
   },
   {
    "source_test": "shared-layer/tests/test_phase_i_dependency_governance.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
@@ -2578,7 +2578,7 @@
   },
   {
    "source_test": "Standalone tools/local-model/tests/test_external_zero_authority.py",
-   "inventory_class": "module",
+   "inventory_class": "H",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
    "semantic_equivalence": "unproven",
