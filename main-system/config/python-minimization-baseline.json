@@ -5,8 +5,8 @@
   "authority": "governance-rule-only",
   "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
   "metadata": {
-    "contract_revision": 8,
-    "measured_at": "2026-09-28T21:05:00Z",
+    "contract_revision": 7,
+    "measured_at": "2026-09-28T21:10:00Z",
     "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
     "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
     "adjudications_rev2": [
@@ -30,7 +30,8 @@
     "tightenings": [
       "rev4 tighten: GENERAL_APP 565/114858 -> 564/114493 (codex_pin_sync + architecture_artifact_sync consolidated into tasks/codex_sync_drivers.py, shared _SyncDriverBase; -1 file -365 loc). Downward-only, no adjudication needed.",
       "rev5 tighten: GENERAL_APP 564/114493 -> 558/113560 (-6 files -933 loc): retired-sovereign dead mixin cluster removed (maintenance_status/lifecycle/learning/capability/identity, zero refs post-A592/A604 retirement) + concurrent worker deletion. Downward-only.",
-      "rev6 tighten: GENERAL_APP 567/113698 -> 562/112797 (-5 files -901 loc): orphan A369 draft modules in shared_layer/database removed (bloat_budget, capacity_certification, capacity_governor, pg_drill_adapter, write_governor — zero imports, zero lazy-exports, zero registry/test/doc refs; live capabilities served by watchdog.py/rag_capacity.py/restore_drill.py/recovery_orchestrator.py). GOVERNANCE 209/58492 -> 208/58383 (-1 file -109 loc): git_concurrency.py dead lock-scope helper removed (zero refs; baseline rebind via build_baseline toolchain). Downward-only, no adjudication needed."
+      "rev6 tighten: GENERAL_APP 567/113698 -> 562/112797 (-5 files -901 loc): orphan A369 draft modules in shared_layer/database removed (bloat_budget, capacity_certification, capacity_governor, pg_drill_adapter, write_governor — zero imports, zero lazy-exports, zero registry/test/doc refs; live capabilities served by watchdog.py/rag_capacity.py/restore_drill.py/recovery_orchestrator.py). GOVERNANCE 209/58492 -> 208/58383 (-1 file -109 loc): git_concurrency.py dead lock-scope helper removed (zero refs; baseline rebind via build_baseline toolchain). Downward-only, no adjudication needed.",
+      "rev7 tighten (measured): GENERAL_APP 538/108822 -> 533/107330 (-5f/-1492): orphan dead code removed - maintenance_update+maintenance_repair_chain (retired maintenance-sovereign mixin pair, zero composers), contract_validator (zero callers; audit_artifacts check_compatibility_matrix is the live surface), batch_api (zero refs), chinese_semantic_engine_20260921_144621 (dated snapshot beside live engine). RAG 91/25407 -> 90/25259 (-148): subarchitectures.py orphan adapter registry never imported so adapters never registered. TRAINING 26/9412 -> 26->26... 9412->8972 (-2f/-440): tool_call_dataset (duplicate TOOL_COMMAND_MAP; live map in native_tool_orchestrator.py) + vocab_ratio (zero refs). a549_benchmark.py also deleted (excluded from measurement by benchmark substr). execution_lease.py restored - bound by EXECUTION_LEASE_CONTRACT.json contract artifact. Downward-only."
     ],
     "adjudications_rev4": [
       "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev4, amendment python-minimization-baseline-adjudication-20260928-r3, sealed-governed-certification)",
@@ -54,8 +55,8 @@
       "loc": 12716
     },
     "RAG": {
-      "files": 91,
-      "loc": 25407
+      "files": 90,
+      "loc": 25259
     },
     "VECTOR": {
       "files": 1,
@@ -82,8 +83,8 @@
       "loc": 41155
     },
     "GENERAL_APP": {
-      "files": 538,
-      "loc": 108822
+      "files": 533,
+      "loc": 107330
     }
   },
   "allowed_zones": {
@@ -93,8 +94,8 @@
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {
-      "files": 28,
-      "loc": 9412,
+      "files": 26,
+      "loc": 8972,
       "policy": "on-demand"
     },
     "VERIFICATION": {
