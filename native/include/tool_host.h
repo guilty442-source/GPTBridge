@@ -69,6 +69,15 @@ struct ToolHostConfig {
        並行時置 true；primary 切換後應為 false。僅觀測語意，稽核
        可據此拒絕「假 primary」申報。 */
     bool dual_track = false;
+    /* bounded-concurrency/v1：連線 admission 由「有界 pending 佇列＋
+       固定 conn worker 池」承接，不再有 per-connection detached
+       thread。conn_workers_min/max 為模組宣告 envelope；有效 worker
+       數＝governor network 類配額（concurrency-budget/v1）clamp 於
+       此區間，讀不到 → fail-open 用 max。pending_conn_capacity 為
+       佇列容量，滿 → 立即拒絕（HTTP 503，drop/reject policy）。 */
+    int conn_workers_min = 2;
+    int conn_workers_max = 8;
+    int pending_conn_capacity = 64;
 };
 
 /* proxy 呼叫抽象：`op`+args_json → ProxyResponse；回 false＝傳輸層失敗。 */
@@ -134,6 +143,7 @@ public:
 
 private:
     void accept_loop();
+    void conn_worker();   /* bounded-concurrency/v1：固定池工作緒 */
     void conn_loop(intptr_t sock);
     void ws_loop(intptr_t sock, std::string pending);
     void handle_ws_message(intptr_t sock, const std::string& text);

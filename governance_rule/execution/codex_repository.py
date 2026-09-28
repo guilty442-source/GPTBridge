@@ -259,6 +259,12 @@ def _load_codex_tables(
     registries; registries (``*_registry``) are the machine authority for
     hierarchy/assignment/supersession bindings (A334).  Both are registered
     non-content identity/status/binding data — never written here.
+
+    Column lists come from the process-local catalog cache
+    (:data:`_TABLE_COLUMNS_CACHE`): ``information_schema`` reflection costs
+    milliseconds per table while the schema only changes through a governed
+    import, which rekeys (and clears) the codex cache — the column cache is
+    cleared at the same point, so amendment visibility is unchanged.
     """
     tables = [
         row[0]
@@ -271,14 +277,7 @@ def _load_codex_tables(
     ]
     directories: dict[str, tuple[CodexDirectoryRow, ...]] = {}
     for table in tables:
-        column_names = [
-            column[0]
-            for column in connection.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_schema=%s AND table_name=%s ORDER BY ordinal_position",
-                (CODEX_SCHEMA, table),
-            )
-        ]
+        column_names = _cached_table_columns(connection, table)
         rows: list[CodexDirectoryRow] = []
         for row in connection.execute(
             f"SELECT {', '.join(column_names)} FROM {table} ORDER BY 1"
@@ -289,6 +288,22 @@ def _load_codex_tables(
             rows.append(CodexDirectoryRow(fields))
         directories[table] = tuple(rows)
     return directories
+
+
+def _cached_table_columns(connection, table: str) -> list[str]:
+    """Column names for one codex table, cached per process generation."""
+    cached = _TABLE_COLUMNS_CACHE.get(table)
+    if cached is None:
+        cached = [
+            column[0]
+            for column in connection.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema=%s AND table_name=%s ORDER BY ordinal_position",
+                (CODEX_SCHEMA, table),
+            )
+        ]
+        _TABLE_COLUMNS_CACHE[table] = cached
+    return list(cached)
 
 
 def _load_codex_directories(
@@ -304,6 +319,7 @@ def _load_codex_registries(
 
 
 _codex_cache: dict[tuple[str, int, int], GovernanceCodex] = {}
+_TABLE_COLUMNS_CACHE: dict[str, list[str]] = {}
 _resolved_codex_paths: dict[str, str] = {}
 
 
@@ -346,6 +362,7 @@ def load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
     codex = _load_governance_codex()
     if key is not None:
         _codex_cache.clear()
+        _TABLE_COLUMNS_CACHE.clear()
         _codex_cache[key] = codex
     return codex
 
@@ -364,6 +381,23 @@ def _normalized_codex_schema(schema: str, codex_version: int) -> str:
     return f"{base}-v{format_codex_version(codex_version)}"
 
 
+def _bulk_sovereign_list(
+    connection, table: str, sovereign_ids: list[str]
+) -> dict[str, tuple[str, ...]]:
+    """One ordered read per list table, grouped per sovereign in-process.
+
+    Returns exactly what the former per-sovereign queries returned: every
+    id in ``sovereign_ids`` maps to its ``value`` tuple in ``position``
+    order (missing ids map to ``()``).
+    """
+    grouped: dict[str, list[str]] = {}
+    for sovereign_id, value in connection.execute(
+        f"SELECT sovereign_id, value FROM {table} ORDER BY sovereign_id, position"
+    ):
+        grouped.setdefault(sovereign_id, []).append(value)
+    return {sid: tuple(grouped.get(sid, ())) for sid in sovereign_ids}
+
+
 def _dict_rows(connection, statement: str):
     with connection.cursor(row_factory=dict_row) as cursor:
         return tuple(cursor.execute(statement).fetchall())
@@ -376,14 +410,13 @@ def _load_governance_codex(path: Path = CODEX_DATABASE_PATH) -> GovernanceCodex:
         with connection.cursor(row_factory=dict_row) as cursor:
             preamble = cursor.execute("SELECT * FROM preamble WHERE id=1").fetchone()
             savings = cursor.execute("SELECT * FROM savings WHERE id=1").fetchone()
+        sovereign_ids = [
+            key for key, in connection.execute("SELECT sovereign_id FROM sovereigns")
+        ]
+        # One bulk read per list table instead of one query per sovereign
+        # (N+1): identical rows, identical order, far fewer round-trips.
         lists = {
-            table: {
-                key: tuple(row[0] for row in connection.execute(
-                    f"SELECT value FROM {table} WHERE sovereign_id=%s ORDER BY position",
-                    (key,),
-                ))
-                for key, in connection.execute("SELECT sovereign_id FROM sovereigns")
-            }
+            table: _bulk_sovereign_list(connection, table, sovereign_ids)
             for table in ("sovereign_duties", "sovereign_powers", "sovereign_prohibitions")
         }
         codex_version = codex_version_units(metadata["codex_version"])

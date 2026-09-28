@@ -38,8 +38,10 @@ ToolHost::~ToolHost() = default;
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <ctime>
+#include <deque>
 #include <fstream>
 #include <map>
 #include <mutex>
@@ -147,6 +149,55 @@ std::string http_event_frame(const std::string& event,
                                  {"payload", payload}})));
 }
 
+/* concurrency-budget/v1 讀側：governor 於
+   <project_root>/main-system/runtime/state/resource-governor.json
+   發佈 classes.<work_class>.quota。讀不到/契約不符 → -1
+   （fail-open：呼叫方用模組宣告 envelope 上限，絕不因此死鎖）。 */
+int governor_class_quota(const std::string& project_root,
+                         const std::string& work_class) {
+    if (project_root.empty()) return -1;
+    const std::string path = project_root +
+        "\\main-system\\runtime\\state\\resource-governor.json";
+    std::ifstream in(path);
+    if (!in) return -1;
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    jl::JsonValue state;
+    try {
+        state = jl::JsonParser(ss.str()).parse();
+    } catch (const jl::JsonError&) {
+        return -1;
+    }
+    if (const jl::JsonValue* d = state.get("disabled")) {
+        if (d->type == jl::JsonValue::Type::Bool && d->boolean)
+            return -1;
+    }
+    const jl::JsonValue* budget = state.get("concurrency_budget");
+    if (!budget) return -1;
+    const jl::JsonValue* contract = budget->get("contract");
+    if (!contract || contract->type != jl::JsonValue::Type::String ||
+        contract->string != "concurrency-budget/v1")
+        return -1;
+    const jl::JsonValue* classes = budget->get("classes");
+    if (!classes) return -1;
+    const jl::JsonValue* entry = classes->get(work_class);
+    if (!entry) return -1;
+    const jl::JsonValue* quota = entry->get("quota");
+    if (!quota || quota->type != jl::JsonValue::Type::Number)
+        return -1;
+    return static_cast<int>(quota->number);
+}
+
+/* 503（queue-full reject）：jsonlite 無狀態碼助手，最小明文案
+   保持 Connection: close 讓用戶端立即知道被拒絕。 */
+const char kHttp503[] =
+    "HTTP/1.1 503 Service Unavailable\r\n"
+    "Content-Type: text/plain\r\n"
+    "Content-Length: 15\r\n"
+    "Connection: close\r\n"
+    "\r\n"
+    "capacity-exhaust";
+
 } // namespace
 
 struct ToolHost::Impl {
@@ -162,6 +213,16 @@ struct ToolHost::Impl {
     std::thread claim_thread;
     std::mutex conn_mu;
     std::set<SOCKET> conns;
+    /* bounded-concurrency/v1：conn worker 池從有界 pending 佇列
+       取連線；佇列滿 → accept 端 503 拒絕（capacity＋backpressure
+       ＋drop/reject）。worker 數於 start() 由 governor network
+       配額決定（clamp 於 cfg envelope）。 */
+    std::mutex pending_mu;
+    std::condition_variable pending_cv;
+    std::deque<SOCKET> pending_conns;
+    std::vector<std::thread> conn_pool;
+    int conn_workers = 0;
+    std::atomic<int64_t> n_conn_rejected{0};
     /* 活動 conn 執行緒數（detached）：run() 必須等其歸零才釋放
        impl_/WSACleanup，否則 conn 收尾路徑對已釋放 impl_ UAF。 */
     std::atomic<int> active_conns{0};
@@ -506,6 +567,20 @@ bool ToolHost::start(const ToolHostConfig& config, ToolHostHooks hooks,
     }
     impl_->listen_sock = s;
     impl_->started_ms = impl_->now_ms();
+    /* bounded-concurrency/v1：worker 數＝governor network 配額 clamp
+       於宣告 envelope；讀不到 → fail-open 用 max。 */
+    {
+        const int quota = governor_class_quota(
+            impl_->cfg.project_root, "network");
+        int workers = quota > 0 ? quota : impl_->cfg.conn_workers_max;
+        workers = (std::max)(impl_->cfg.conn_workers_min,
+                             (std::min)(impl_->cfg.conn_workers_max,
+                                        workers));
+        impl_->conn_workers = workers;
+        impl_->conn_pool.reserve(static_cast<size_t>(workers));
+        for (int i = 0; i < workers; ++i)
+            impl_->conn_pool.emplace_back([this] { conn_worker(); });
+    }
     impl_->accept_thread =
         std::thread([this] { accept_loop(); });
     if (impl_->cfg.claim_loop)
@@ -733,14 +808,47 @@ void ToolHost::accept_loop() {
             continue;
         }
         impl_->n_connections.fetch_add(1);
+        /* capacity + drop/reject：pending 佇列滿 → 立即 503 關閉，
+           絕不為新連線再生產執行緒。 */
         {
-            /* active_conns 與 conns 同鎖入帳：執行緒排程前就計數，
-               run() 排空才不會在「已建立未啟動」窗口漏數。 */
+            std::lock_guard<std::mutex> lk(impl_->pending_mu);
+            const size_t cap = static_cast<size_t>(
+                (std::max)(1, impl_->cfg.pending_conn_capacity));
+            if (impl_->pending_conns.size() >= cap) {
+                impl_->n_conn_rejected.fetch_add(1);
+                send_all(c, kHttp503);
+                closesocket(c);
+                continue;
+            }
+            impl_->pending_conns.push_back(c);
+        }
+        impl_->pending_cv.notify_one();
+    }
+}
+
+/* 固定池工作緒：從有界 pending 佇列取連線，跑完整 conn_loop 生命
+   週期。stop_flag＋佇列空 → 收操（run() 排空後 join）。 */
+void ToolHost::conn_worker() {
+    for (;;) {
+        SOCKET c = INVALID_SOCKET;
+        {
+            std::unique_lock<std::mutex> lk(impl_->pending_mu);
+            impl_->pending_cv.wait(lk, [&] {
+                return impl_->stop_flag.load() ||
+                       !impl_->pending_conns.empty();
+            });
+            if (impl_->pending_conns.empty()) return;
+            c = impl_->pending_conns.front();
+            impl_->pending_conns.pop_front();
+        }
+        {
+            /* active_conns 與 conns 同鎖入帳：在 conn_loop 前排程
+               就計數，run() 排空才不會在「已出列未啟動」窗口漏數。 */
             std::lock_guard<std::mutex> lk(impl_->conn_mu);
             impl_->conns.insert(c);
             impl_->active_conns.fetch_add(1);
         }
-        std::thread([this, c] { conn_loop(c); }).detach();
+        conn_loop(c);
     }
 }
 

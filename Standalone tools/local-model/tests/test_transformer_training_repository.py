@@ -143,14 +143,21 @@ def _create_dataset(
     )
 
 
-def test_training_database_is_isolated_and_initialized(tmp_path: Path) -> None:
+def test_training_database_is_isolated_and_initialized(
+    tmp_path: Path, _isolate_xingcheng_repo_schemas: dict,
+) -> None:
     repository = TransformerTrainingRepository(tmp_path)
     status = repository.database_status()
 
     assert status["ok"] is True
     assert status["schema_version"] == 1
     assert status["engine"] == "postgresql"
-    assert status["path"] == "postgresql:gptbridge_xingcheng"
+    # A621: the store resolves the shared xingcheng schema — injected as a
+    # throwaway schema here; production default is gptbridge_xingcheng.
+    expected = (
+        _isolate_xingcheng_repo_schemas.get("shared") or "gptbridge_xingcheng"
+    )
+    assert status["path"] == f"postgresql:{expected}"
     assert status["tables"]["transformer_runtime_model_state"] == 1
     assert status["base_weights_immutable"] is True
     assert status["automatic_weight_replacement"] is False
