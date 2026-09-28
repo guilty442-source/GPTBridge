@@ -1146,10 +1146,12 @@ static py::str sr_verify_archive_name(bool file_exists,
 }
 
 static py::str sr_sha256_hex(const py::bytes& data) {
-    const std::string bytes = data.cast<std::string>();
+    // Zero-copy: hash the bytes object's buffer in place (A213 — borrowed
+    // read-only view; the bytes object outlives the call, no ownership move).
     char hex[65];
     if (!gptbridge_sr_sha256_hex(
-            reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(),
+            reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(data.ptr())),
+            static_cast<size_t>(PyBytes_GET_SIZE(data.ptr())),
             hex)) {
         throw std::runtime_error("sha256 failed");
     }
