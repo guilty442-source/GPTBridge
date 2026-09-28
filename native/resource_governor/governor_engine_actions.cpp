@@ -95,8 +95,8 @@ bool WindowsEngine::ecoqos(int pid, bool enable) {
                                    &state, sizeof(state)) != 0;
 }
 
+/* 負 pid sentinel 皆為共享 Job（-1 worker、-10..-13 各池）；其餘為逐行程 Job。 */
 HANDLE WindowsEngine::job_for(const ProcKey& key) {
-    if (key.pid == -1) return shared_job_;
     auto it = jobs_.find(key);
     return it != jobs_.end() ? it->second : nullptr;
 }
@@ -147,7 +147,7 @@ void WindowsEngine::apply_shared_limits(HANDLE job, long long job_memory_bytes,
 
 bool WindowsEngine::cpu_limit(const ProcKey& key, int pid, double percent,
                               long long job_memory_bytes, int job_process_limit) {
-    const bool shared = (key.pid == -1);
+    const bool shared = (key.pid < 0);
     HANDLE job = job_for(key);
     bool created = false;
     if (job == nullptr) {
@@ -177,12 +177,7 @@ bool WindowsEngine::cpu_limit(const ProcKey& key, int pid, double percent,
         if (created) ::CloseHandle(job);
         return false;
     }
-    if (created) {
-        if (shared)
-            shared_job_ = job;
-        else
-            jobs_.emplace(key, job);
-    }
+    if (created) jobs_.emplace(key, job);
     return true;
 }
 

@@ -94,6 +94,18 @@ std::expected<RulesDoc, std::string> parse_rules(std::string_view text) {
                 }
                 rule.background = json_is_true(entry.get("background"));
                 rule.ecoqos = json_is_true(entry.get("ecoqos"));
+                if (const JsonValue* pool_value = entry.get("pool");
+                    pool_value != nullptr && pool_value->type == T::String &&
+                    !pool_value->string.empty()) {
+                    std::optional<Pool> parsed_pool =
+                        pool_from_name(pool_value->string);
+                    if (!parsed_pool.has_value()) {
+                        doc.error = key + ": unknown pool '" +
+                                    pool_value->string + "'";
+                        return doc;
+                    }
+                    rule.pool = *parsed_pool;
+                }
             } catch (...) {
                 doc.error = key + ": invalid rule entry";
                 return doc;
@@ -101,7 +113,91 @@ std::expected<RulesDoc, std::string> parse_rules(std::string_view text) {
             doc.programs.emplace(to_lower(key), std::move(rule));
         }
     }
+    /* "pools" 區塊：各池信封與成員子串表；異形 fail-closed。 */
+    if (const JsonValue* raw_pools = root.get("pools");
+        raw_pools != nullptr) {
+        if (raw_pools->type != T::Object) {
+            doc.error = "pools must be an object";
+            return doc;
+        }
+        if (const JsonValue* enabled = raw_pools->get("enabled");
+            enabled != nullptr && enabled->type == T::Bool &&
+            !enabled->boolean) {
+            return doc; /* pools.enabled=false：整層關閉 */
+        }
+        for (const auto& [key, entry] : raw_pools->object) {
+            if (key.empty() || key == "enabled" || key == "description" ||
+                entry.type != T::Object) {
+                continue;
+            }
+            std::optional<Pool> pool = pool_from_name(key);
+            if (!pool.has_value()) {
+                doc.error = "unknown pool '" + key + "'";
+                return doc;
+            }
+            PoolPolicy policy;
+            try {
+                if (const JsonValue* cpu = entry.get("cpu_limit_percent");
+                    cpu != nullptr && cpu->type == T::Number && cpu->number > 0)
+                    policy.cpu_limit_percent =
+                        std::clamp(cpu->number, kLimiterMinPercent,
+                                   kLimiterMaxPercent);
+                if (const JsonValue* mpct = entry.get("memory_percent");
+                    mpct != nullptr && mpct->type == T::Number &&
+                    mpct->number > 0)
+                    policy.memory_percent = std::min(mpct->number, 100.0);
+                if (const JsonValue* mmb = entry.get("memory_mb");
+                    mmb != nullptr && mmb->type == T::Number && mmb->number > 0)
+                    policy.memory_mb = static_cast<long long>(mmb->number);
+                if (const JsonValue* plimit = entry.get("process_limit");
+                    plimit != nullptr && plimit->type == T::Number &&
+                    plimit->number > 0)
+                    policy.process_limit = static_cast<int>(plimit->number);
+                if (const JsonValue* prio = entry.get("priority");
+                    prio != nullptr && prio->type == T::String &&
+                    !prio->string.empty())
+                    policy.priority_class = parse_priority_name(prio->string);
+                policy.background = json_is_true(entry.get("background"));
+                policy.ecoqos = json_is_true(entry.get("ecoqos"));
+                if (const JsonValue* members = entry.get("members");
+                    members != nullptr && members->type == T::Array) {
+                    for (const JsonValue& item : members->array) {
+                        if (item.type != T::String || item.string.empty()) {
+                            doc.error = key + ": invalid pool member";
+                            return doc;
+                        }
+                        policy.members.push_back(to_lower(item.string));
+                    }
+                }
+            } catch (...) {
+                doc.error = key + ": invalid pool entry";
+                return doc;
+            }
+            doc.pools[*pool] = std::move(policy);
+        }
+        doc.pools_enabled = !doc.pools.empty();
+    }
     return doc;
+}
+
+Pool classify_pool(std::string_view name_lower, std::string_view exe_lower,
+                   std::string_view cmdline_lower, Plane plane,
+                   const RulesDoc& rules, const ProgramRule* rule) {
+    if (!rules.pools_enabled || plane == Plane::Governance) return Pool::None;
+    if (rule != nullptr && rule->pool.has_value()) return *rule->pool;
+    std::string joined;
+    joined.reserve(exe_lower.size() + cmdline_lower.size() + 2);
+    joined.append(exe_lower);
+    joined.push_back(' ');
+    joined.append(cmdline_lower);
+    for (const auto& [pool, policy] : rules.pools) {
+        for (const std::string& member : policy.members) {
+            if (joined.find(member) != std::string::npos ||
+                name_lower.find(member) != std::string::npos)
+                return pool;
+        }
+    }
+    return Pool::None;
 }
 
 Features resolve_features(

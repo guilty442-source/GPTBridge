@@ -73,6 +73,48 @@ inline Plane classify_plane(std::string_view exe_lower, std::string_view cmdline
 }
 
 /* ------------------------------------------------------------------ */
+/* 資源池（Pool）：Plane 之外的第二歸因軸。                             */
+/* 池由規則檔宣告（"pools" 區塊），成員歸屬由 program rule 的           */
+/* "pool" 鍵顯式指定，或由 pools.<name>.members 子串表比對              */
+/* exe 基名／cmdline。未歸屬行程 → Pool::None（不進池，無池約束）。     */
+/* 治理平面永不進池（保護語義優先）。                                   */
+/* ------------------------------------------------------------------ */
+enum class Pool { None, Interactive, Compute, Io, Background };
+
+inline std::string pool_name(Pool pool) {
+    switch (pool) {
+        case Pool::Interactive: return "interactive";
+        case Pool::Compute: return "compute";
+        case Pool::Io: return "io";
+        case Pool::Background: return "background";
+        case Pool::None: return "none";
+    }
+    return "none";
+}
+
+inline std::optional<Pool> pool_from_name(std::string_view text) {
+    const std::string lowered = to_lower(text);
+    if (lowered == "interactive") return Pool::Interactive;
+    if (lowered == "compute") return Pool::Compute;
+    if (lowered == "io") return Pool::Io;
+    if (lowered == "background") return Pool::Background;
+    return std::nullopt;
+}
+
+/* 各池信封（共享 Job Object 硬上限＋一次性靜態屬性；皆為有界值）。 */
+struct PoolPolicy {
+    bool enabled = true;
+    double cpu_limit_percent = 0.0;   /* 0 = 不設 CPU 上限 */
+    double memory_percent = 0.0;      /* 0 = 不設記憶體上限 */
+    long long memory_mb = 0;
+    int process_limit = 0;
+    std::optional<int> priority_class;
+    bool background = false;
+    bool ecoqos = false;
+    std::vector<std::string> members; /* 已轉小寫子串 */
+};
+
+/* ------------------------------------------------------------------ */
 /* Rules 檔（Process Lasso 式常駐規則）                                 */
 /* ------------------------------------------------------------------ */
 struct ProgramRule {
@@ -82,15 +124,24 @@ struct ProgramRule {
     double cpu_limit_percent = 0.0;
     bool background = false;
     bool ecoqos = false;
+    std::optional<Pool> pool;
 };
 
 struct RulesDoc {
     std::map<std::string, jsonlite::JsonValue> defaults;
     std::map<std::string, ProgramRule> programs;
+    std::map<Pool, PoolPolicy> pools;
+    bool pools_enabled = false;
     std::string error;
     std::string mode;
     bool has_mode = false;
 };
+
+/* 池歸因：program rule 顯式 pool > pools.members 子串比對 > None。
+ * 輸入皆須為小寫；Governance 平面永不進池。 */
+Pool classify_pool(std::string_view name_lower, std::string_view exe_lower,
+                   std::string_view cmdline_lower, Plane plane,
+                   const RulesDoc& rules, const ProgramRule* rule);
 
 inline std::optional<int> parse_priority_name(std::string_view text) {
     const std::string lowered = to_lower(text);
