@@ -15,6 +15,8 @@ import time
 from dataclasses import replace
 from typing import Any, Callable, Mapping
 
+from shared_layer.performance.thread_budget import bounded_workers
+
 from .contracts import (
     REGISTERED_NODE_CATALOG,
     TERMINAL_STATES,
@@ -252,7 +254,9 @@ class RagDagExecutor:
 
     def _get_pool(self) -> concurrent.futures.ThreadPoolExecutor:
         if self._pool is None:
-            self._pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+            self._pool = concurrent.futures.ThreadPoolExecutor(
+                max_workers=bounded_workers(2)
+            )
         return self._pool
 
     def _discard_pool(self) -> None:
