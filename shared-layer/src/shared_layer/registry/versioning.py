@@ -1,7 +1,7 @@
 """Shared-layer version resolver — mechanical part of the version registry.
 
-Reads the product version from ``main-system/package.json`` and derives
-per-component versions.  This module is deliberately dependency-free:
+Reads the product version from ``main-system/src-tauri/tauri.conf.json``
+(host runtime manifest; package.json retired per C116).  This module is deliberately dependency-free:
 it lives in the platform layer so ``shared_layer`` never imports
 ``core_system`` (P10 unit-boundary fix — previously
 ``channel_runtime.py`` imported ``core_system.versioning`` upward).
@@ -21,17 +21,17 @@ from pathlib import Path
 APPLICATION_VERSION_PATTERN = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
 
 # Default project root: workspace root (parents: registry → shared_layer →
-# src → shared-layer → workspace).  ``package.json`` lives under
-# main-system/.
+# src → shared-layer → workspace).  The version manifest lives under
+# main-system/src-tauri/.
 _DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
 
 def application_version(project_root: Path | str | None = None) -> str:
-    """Return the central GPTBridge product version from ``package.json``."""
+    """Return the central GPTBridge product version from the host manifest."""
     root = Path(project_root) if project_root is not None else _DEFAULT_PROJECT_ROOT
-    package_path = root / "package.json"
+    package_path = root / "src-tauri" / "tauri.conf.json"
     if not package_path.is_file():
-        package_path = root / "main-system" / "package.json"
+        package_path = root / "main-system" / "src-tauri" / "tauri.conf.json"
     try:
         version = str(
             json.loads(package_path.read_text(encoding="utf-8")).get("version") or ""

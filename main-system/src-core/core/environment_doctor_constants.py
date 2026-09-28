@@ -23,8 +23,8 @@ def _background_subprocess_kwargs() -> dict[str, int]:
 
 
 REQUIRED_PROJECT_PATHS: tuple[str, ...] = (
-    "package.json",
-    "package-lock.json",
+    "src-tauri/tauri.conf.json",
+    "src-tauri/Cargo.toml",
     "requirements.txt",
     "src-core/main.py",
     "src-core/ipc/server.py",
