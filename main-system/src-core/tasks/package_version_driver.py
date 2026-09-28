@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -200,6 +201,9 @@ class PackageVersionDriver:
     def _resolve(self, arg: str) -> str:
         p = Path(arg)
         if not p.is_absolute():
+            on_path = shutil.which(arg)
+            if on_path:
+                return on_path
             p = self._project_root / arg
         return str(p)
 
