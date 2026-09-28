@@ -25,7 +25,7 @@ from typing import Any, Iterator, Optional
 
 
 class Phase(str, Enum):
-    JS_DISPATCH = "ts_dispatch"                 # JavaScript-side dispatch
+    JS_DISPATCH = "js_dispatch"                 # JavaScript-side dispatch
     SERIALIZATION = "serialization"             # JSON/codec both directions
     TRANSPORT = "transport"                     # loopback HTTP / IPC wire
     PY_VALIDATION = "py_validation"             # request validation

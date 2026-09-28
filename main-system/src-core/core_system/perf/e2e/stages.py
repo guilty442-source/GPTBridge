@@ -36,7 +36,7 @@ _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 def js_dispatch(ctx: TraceContext, payload: dict[str, Any]) -> bytes:
     """TS-side dispatch: real serialization + boundary crossing mark."""
-    with ctx.span(Phase.TS_DISPATCH) as span:
+    with ctx.span(Phase.JS_DISPATCH) as span:
         body = json.dumps(
             {
                 "command": "perf.echo",

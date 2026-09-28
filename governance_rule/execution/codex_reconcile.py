@@ -29,15 +29,15 @@ from governance_rule.execution.codex_session import (
 _reconciled_declarations: dict[tuple[str, str], bool] = {}
 
 # A604 codex-first switch (2026-09-23): the assignment registry ``status``
-# column now carries the A604 dispatch-binding class instead of the legacy
+# column now carries the dispatch-binding class instead of the legacy
 # lifecycle word.  ``active`` (pre-switch rows) and the two bound dispatch
 # classes denote registered assignments; any other status fails closed.
-BOUND_MODULE_ASSIGNMENT_STATUSES = frozenset(
-    {
-        "active",
-        "active-modular-dispatch-A604",
-        "legacy-modular-dispatch-A604",
-    }
+# The dispatch suffix is the governing provision identity -- it renumberes
+# with the codex (A604 -> B162), so matching is by class prefix.
+BOUND_MODULE_ASSIGNMENT_STATUSES = frozenset({"active"})
+_DISPATCH_STATUS_PREFIXES = (
+    "active-modular-dispatch-",
+    "legacy-modular-dispatch-",
 )
 
 # A604 managing-authority sentinel: the sub-sovereign layer is retired, so
@@ -48,7 +48,10 @@ MODULAR_DISPATCH_MANAGING = "none-single-purpose-module-dispatch"
 
 def is_bound_module_assignment(row: Mapping[str, Any]) -> bool:
     """True when a ``module_assignment_registry`` row is a bound assignment."""
-    return str(row.get("status") or "") in BOUND_MODULE_ASSIGNMENT_STATUSES
+    status = str(row.get("status") or "")
+    return status in BOUND_MODULE_ASSIGNMENT_STATUSES or status.startswith(
+        _DISPATCH_STATUS_PREFIXES
+    )
 
 
 def bounded_lookup(

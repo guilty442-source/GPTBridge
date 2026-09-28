@@ -197,9 +197,21 @@ def all_parents() -> dict[str, str]:
 # plain ``active`` marker with per-mechanism dispatch states — both mean the
 # module is enrolled and dispatchable (legacy = legacy dispatcher, active =
 # A604 dispatcher); retired identities live in ``supersession_registry``.
-_DISPATCHABLE_STATUSES = frozenset(
-    {"active", "active-modular-dispatch-A604", "legacy-modular-dispatch-A604"}
+_DISPATCHABLE_STATUSES = frozenset({"active"})
+_DISPATCH_STATUS_PREFIXES = (
+    "active-modular-dispatch-",
+    "legacy-modular-dispatch-",
 )
+
+
+def _is_dispatchable_status(status: object) -> bool:
+    """The dispatch suffix carries the governing provision identity, which
+    renumbers with the codex (A604 -> B162) — match the dispatch class by
+    prefix, never the pinned id."""
+    text = str(status or "")
+    return text in _DISPATCHABLE_STATUSES or text.startswith(
+        _DISPATCH_STATUS_PREFIXES
+    )
 
 
 def module_assignment(module_architecture_code: str) -> dict[str, str] | None:
@@ -207,7 +219,7 @@ def module_assignment(module_architecture_code: str) -> dict[str, str] | None:
     for row in module_assignment_registry():
         if (
             row.get("module_architecture_code") == module_architecture_code
-            and row.get("status") in _DISPATCHABLE_STATUSES
+            and _is_dispatchable_status(row.get("status"))
         ):
             return row
     return None

@@ -80,7 +80,12 @@ def check_tool_manifests(root: Path, errors: list[str]) -> tuple[set[str], set[s
         first = relative_parts[0]
         # Release manifests are release-layout contracts, not tool manifests;
         # they are validated by release_layout/active_release_verify instead.
-        if relative_parts[:3] == ("main-system", "runtime", "releases"):
+        # ``runtime/temp`` is scratch space — probe bundles dropped there are
+        # not tool manifests either.
+        if relative_parts[:3] in (
+            ("main-system", "runtime", "releases"),
+            ("main-system", "runtime", "temp"),
+        ):
             return False
         return not first.startswith(".") and first not in artifact_roots
 
