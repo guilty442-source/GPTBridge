@@ -27,6 +27,13 @@ const MAX_BODY_BYTES: usize = 64 * 1024 * 1024;
 const MAX_HEADER_BYTES: usize = 16 * 1024;
 const SNAPSHOT_NAME: &str = "vectord-snapshot.bin";
 const SNAPSHOT_INTERVAL: Duration = Duration::from_secs(2);
+// bounded-concurrency/v1: declared envelope — the effective worker
+// count is the governor "rag" class quota (concurrency-budget/v1)
+// clamped into [MIN_CONN_WORKERS, MAX_CONN_WORKERS]; unreadable state
+// fails open to available_parallelism clamped into the same envelope.
+const MIN_CONN_WORKERS: usize = 2;
+const MAX_CONN_WORKERS: usize = 16;
+const PENDING_CONN_CAPACITY: usize = 64;
 
 #[derive(Deserialize)]
 struct EnsureRequest {

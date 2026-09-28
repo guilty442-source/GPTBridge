@@ -651,7 +651,7 @@ class CppInferenceEngine:
                 "output_sha256": _digest(text),
                 "eval_count": len(out_ids),
                 "latency_ms": latency_ms,
-                "device": "cpu",
+                "device": "cuda" if self._engine.cuda_active() else "cpu",
                 "kv_memory_bytes": describe.get("kv_memory_bytes", 0),
                 "third_party_foundation_weights": False,
                 "loopback_runtime_used": False,
@@ -671,7 +671,7 @@ class CppInferenceEngine:
             "parameter_class": "native-self-trained",
             "parameter_count": self._parameter_count,
             "quantization": "none",
-            "device": "cpu",
+            "device": "cuda" if self._engine.cuda_active() else "cpu",
             "cpp_runtime": True,
             "sampling": {
                 "do_sample": bool(do_sample),
@@ -821,7 +821,7 @@ class CppInferenceEngine:
                 "output_sha256": [_digest(t) for t in texts],
                 "eval_count": sum(len(ids) for ids in batch_out),
                 "latency_ms": latency_ms,
-                "device": "cpu",
+                "device": "cuda" if self._engine.cuda_active() else "cpu",
                 "third_party_foundation_weights": False,
                 "loopback_runtime_used": False,
             }
