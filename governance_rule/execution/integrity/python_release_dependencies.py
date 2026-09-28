@@ -873,7 +873,7 @@ def validate_ipc_contract(
             import sys as _sys
 
             for candidate in (
-                Path(__file__).resolve().parents[3] / "main-system" / "src-core" / "tasks",
+                Path(__file__).resolve().parents[3] / "main-system" / "scripts" / "packager",
                 Path(__file__).resolve().parents[3] / "main-system" / "src-core",
             ):
                 if str(candidate) not in _sys.path:

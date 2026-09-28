@@ -27,8 +27,8 @@ class ToolPackageRebuilder:
         self.tool_root = tool_root.resolve()
         self.package_script = (
             self.tool_root
-            / "src-core"
-            / "tasks"
+            / "scripts"
+            / "packager"
             / "platform_packager.py"
         ).resolve()
 
@@ -67,8 +67,8 @@ class ToolPackageRebuilder:
             return {"ok": False, "error_code": "INVALID_TOOL_ID"}
         expected_script = (
             self.tool_root
-            / "src-core"
-            / "tasks"
+            / "scripts"
+            / "packager"
             / "platform_packager.py"
         )
         if (
