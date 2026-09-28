@@ -18,6 +18,7 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#include <cstring>
 #include <mutex>
 #include <unordered_map>
 
@@ -31,6 +32,49 @@ namespace {
 std::mutex g_mu;
 std::unordered_map<const void*, void*> g_dev_weights;
 cublasHandle_t g_handle = nullptr;
+
+// Transient activation buffers, pooled engine-lifetime-wide. cudaMalloc/
+// cudaFree per GEMM call was the dominant per-token overhead (cudaFree also
+// implies a device sync); grow-on-demand keeps allocation off the hot path.
+struct DevBuf {
+    void* ptr = nullptr;
+    size_t cap = 0;
+};
+DevBuf g_dev_a, g_dev_c;
+
+void* dev_get(DevBuf& buf, size_t bytes) {
+    if (buf.cap >= bytes) return buf.ptr;
+    void* next = nullptr;
+    if (cudaMalloc(&next, bytes) != cudaSuccess) return nullptr;
+    if (buf.ptr) cudaFree(buf.ptr);
+    buf.ptr = next;
+    buf.cap = bytes;
+    return buf.ptr;
+}
+
+// Pinned host staging: pageable H2D/D2H copies are staged through a driver
+// bounce buffer; pinned memory makes both directions direct (still
+// synchronous — no behaviour change). Optional: a failed pinned alloc falls
+// back to the direct pageable copy below.
+struct HostBuf {
+    double* ptr = nullptr;
+    size_t cap = 0;  // elements
+};
+HostBuf g_pin_a, g_pin_c;
+
+double* host_get(HostBuf& buf, size_t elems) {
+    if (buf.cap >= elems) return buf.ptr;
+    double* next = nullptr;
+    if (cudaHostAlloc(
+            reinterpret_cast<void**>(&next), elems * sizeof(double),
+            cudaHostAllocDefault) != cudaSuccess) {
+        return nullptr;
+    }
+    if (buf.ptr) cudaFreeHost(buf.ptr);
+    buf.ptr = next;
+    buf.cap = elems;
+    return buf.ptr;
+}
 
 cublasHandle_t get_handle() {
     if (g_handle == nullptr &&
@@ -112,6 +156,14 @@ int xcuda_release_weights() {
     std::lock_guard<std::mutex> lk(g_mu);
     for (auto& kv : g_dev_weights) cudaFree(kv.second);
     g_dev_weights.clear();
+    if (g_dev_a.ptr) cudaFree(g_dev_a.ptr);
+    if (g_dev_c.ptr) cudaFree(g_dev_c.ptr);
+    g_dev_a = DevBuf{};
+    g_dev_c = DevBuf{};
+    if (g_pin_a.ptr) cudaFreeHost(g_pin_a.ptr);
+    if (g_pin_c.ptr) cudaFreeHost(g_pin_c.ptr);
+    g_pin_a = HostBuf{};
+    g_pin_c = HostBuf{};
     if (g_handle != nullptr) {
         cublasDestroy(g_handle);
         g_handle = nullptr;
@@ -166,19 +218,34 @@ int xcuda_matmul_f64(
     const size_t a_bytes = static_cast<size_t>(m) * k * sizeof(double);
     const size_t b_bytes = static_cast<size_t>(k) * n * sizeof(double);
     const size_t c_bytes = static_cast<size_t>(m) * n * sizeof(double);
+    const size_t a_elems = static_cast<size_t>(m) * k;
+    const size_t c_elems = static_cast<size_t>(m) * n;
 
-    double *da = nullptr, *dc = nullptr;
     int rc = 3;
 
     {
         std::lock_guard<std::mutex> lk(g_mu);
         double* db = static_cast<double*>(device_weight(b, b_bytes));
         cublasHandle_t handle = get_handle();
-        if (db == nullptr || handle == nullptr) return 3;
-        if (cudaMalloc(&da, a_bytes) != cudaSuccess) goto done;
-        if (cudaMalloc(&dc, c_bytes) != cudaSuccess) goto done;
-        if (cudaMemcpy(da, a, a_bytes, cudaMemcpyHostToDevice) != cudaSuccess)
-            goto done;
+        double* da = static_cast<double*>(dev_get(g_dev_a, a_bytes));
+        double* dc = static_cast<double*>(dev_get(g_dev_c, c_bytes));
+        if (db == nullptr || handle == nullptr ||
+            da == nullptr || dc == nullptr) {
+            return 3;
+        }
+        double* ha = host_get(g_pin_a, a_elems);
+        double* hc = host_get(g_pin_c, c_elems);
+        if (ha != nullptr) {
+            std::memcpy(ha, a, a_bytes);
+            if (cudaMemcpy(da, ha, a_bytes, cudaMemcpyHostToDevice) !=
+                cudaSuccess) {
+                return 3;
+            }
+        } else if (
+            cudaMemcpy(da, a, a_bytes, cudaMemcpyHostToDevice) !=
+            cudaSuccess) {
+            return 3;
+        }
         {
             const double alpha = 1.0;
             const double beta = 0.0;
@@ -189,18 +256,22 @@ int xcuda_matmul_f64(
                     &alpha, db, static_cast<int>(n),
                     da, static_cast<int>(k), &beta,
                     dc, static_cast<int>(n)) != CUBLAS_STATUS_SUCCESS) {
-                goto done;
+                return 3;
             }
         }
-        if (cudaMemcpy(out, dc, c_bytes, cudaMemcpyDeviceToHost) !=
+        if (hc != nullptr) {
+            if (cudaMemcpy(hc, dc, c_bytes, cudaMemcpyDeviceToHost) !=
+                cudaSuccess) {
+                return 3;
+            }
+            std::memcpy(out, hc, c_bytes);
+        } else if (
+            cudaMemcpy(out, dc, c_bytes, cudaMemcpyDeviceToHost) !=
             cudaSuccess) {
-            goto done;
+            return 3;
         }
         rc = 0;
-done:;
     }
-    if (da) cudaFree(da);
-    if (dc) cudaFree(dc);
     return rc;
 }
 
