@@ -3,10 +3,51 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from shared_layer.adaptive.bounded_executor import (
+    AdmissionRejected,
+    OverflowPolicy,
+    PoolPaused,
+    PoolPolicy,
+    WorkExpired,
+    pool_for,
+)
+from shared_layer.adaptive.types import PriorityClass
 from shared_layer.resource_identity import (
     XINGCHENG_MODULE_ID,
     canonical_identifier,
 )
+
+# A116 envelope declaration: bounds are module-declared; the effective
+# worker count is the governor's "rag" class quota (concurrency-budget/v1).
+_RAG_RETRIEVAL_POLICY = PoolPolicy(
+    pool="rag.retrieval",
+    work_class="rag",
+    min_workers=1,
+    max_workers=8,
+    queue_capacity=128,
+    deadline_ms=30_000,
+    overflow=OverflowPolicy.REJECT,
+    backpressure_wait_ms=2_000,
+)
+
+
+def _rag_admission_error(exc: BaseException) -> dict[str, Any]:
+    """Map bounded-queue admission failures onto the service error contract."""
+    code = (
+        "RAG_POOL_PAUSED"
+        if isinstance(exc, PoolPaused)
+        else "RAG_DEADLINE_EXCEEDED"
+        if isinstance(exc, WorkExpired)
+        else "RAG_ADMISSION_REJECTED"
+    )
+    return {
+        "ok": False,
+        "error_code": code,
+        "message": "檢索佇列已滿或暫停，請稍後再試。",
+        "citations": [],
+        "retrieved_count": 0,
+        "reconciliation_required": False,
+    }
 
 # A52/E38 — Validate against the declarative RAG four-sub-architecture package.
 # This execution implementation MUST acknowledge all four sub-architectures
@@ -204,6 +245,22 @@ class LocalRagRetrievalMixin:
         return (XINGCHENG_MODULE_ID,)
 
     def query(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Bounded admission: queued onto the governor-sized rag pool."""
+        executor = pool_for(_RAG_RETRIEVAL_POLICY)
+        future = executor.submit(
+            self._query_governed,
+            payload,
+            priority=PriorityClass.INTERACTIVE,
+            wait_ms=_RAG_RETRIEVAL_POLICY.backpressure_wait_ms,
+        )
+        try:
+            return future.result(
+                timeout=_RAG_RETRIEVAL_POLICY.deadline_ms / 1000.0 + 5.0
+            )
+        except (AdmissionRejected, PoolPaused, WorkExpired) as exc:
+            return _rag_admission_error(exc)
+
+    def _query_governed(self, payload: dict[str, Any]) -> dict[str, Any]:
         module_ids = self._module_scope(payload)
         question = str(payload.get("question") or payload.get("prompt") or "").strip()
         if not question:
@@ -414,7 +471,37 @@ class LocalRagRetrievalMixin:
         mirror serves — matching the degraded-cache role. Skips the LLM
         router and answer generation; returns citations only. Any
         retrieval failure returns None so inference is never blocked.
+
+        Admission is bounded through the governor-sized ``rag`` pool
+        (concurrency-budget/v1): a full queue or paused class degrades to
+        None instead of spawning unbounded retrieval contexts.
         """
+        question = str(question or "").strip()
+        if not question:
+            return None
+        executor = pool_for(_RAG_RETRIEVAL_POLICY)
+        future = executor.submit(
+            self._infer_context_governed,
+            question,
+            top_k=top_k,
+            candidate_limit=candidate_limit,
+            priority=PriorityClass.INTERACTIVE,
+            wait_ms=1_000,
+        )
+        try:
+            return future.result(
+                timeout=_RAG_RETRIEVAL_POLICY.deadline_ms / 1000.0 + 5.0
+            )
+        except BaseException:
+            return None
+
+    def _infer_context_governed(
+        self,
+        question: str,
+        *,
+        top_k: int = 4,
+        candidate_limit: int = 12,
+    ) -> dict[str, Any] | None:
         question = str(question or "").strip()
         if not question:
             return None

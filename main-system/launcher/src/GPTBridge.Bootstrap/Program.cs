@@ -110,7 +110,6 @@ internal static class Program
     {
         "vite.config.mjs",
         "vite.platform-tools.config.mjs",
-        "tsconfig.json",
         "package.json",
         "package-lock.json",
     };

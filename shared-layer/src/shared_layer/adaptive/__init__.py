@@ -20,7 +20,18 @@ from .admission import (
     SHED_LADDER,
     class_for_workload,
 )
+from .bounded_executor import (
+    AdmissionRejected,
+    BoundedExecutor,
+    OverflowPolicy,
+    PoolPaused,
+    PoolPolicy,
+    WorkExpired,
+    pool_for,
+)
+from .bounded_executor_async import AsyncBoundedExecutor
 from .breakers import DOMAINS, DomainBreakerRegistry
+from .budget_source import ClassQuota, class_quota, read_budget
 from .budgets import VectorIndexingBudget
 from .cost_gate import QueryCost, QueryCostGate
 from .maintenance import DEFAULT_TASKS, MaintenanceScheduler, MaintenanceTask
@@ -46,7 +57,11 @@ __all__ = [
     "AdaptiveEnvelope",
     "AdaptiveRetryPolicy",
     "AdmissionController",
+    "AdmissionRejected",
+    "AsyncBoundedExecutor",
+    "BoundedExecutor",
     "BoundedAdaptiveTuner",
+    "ClassQuota",
     "DEFAULT_ENVELOPE",
     "DEFAULT_TASKS",
     "DOMAINS",
@@ -57,7 +72,10 @@ __all__ = [
     "MaintenanceScheduler",
     "MaintenanceTask",
     "ModuleUsage",
+    "OverflowPolicy",
     "PRIORITY_CLASS_ORDER",
+    "PoolPaused",
+    "PoolPolicy",
     "PROTECTED_WORKLOADS",
     "PressureLevel",
     "PriorityClass",
@@ -68,6 +86,10 @@ __all__ = [
     "RetryKind",
     "SHED_LADDER",
     "VectorIndexingBudget",
+    "WorkExpired",
     "class_for_workload",
+    "class_quota",
     "get_plane",
+    "pool_for",
+    "read_budget",
 ]

@@ -81,7 +81,7 @@ class MemoryMixin:
                 ON CONFLICT(content_hash) DO UPDATE SET
                     title = excluded.title,
                     content = excluded.content,
-                    confidence = MAX(model_memory.confidence, excluded.confidence),
+                    confidence = GREATEST(model_memory.confidence, excluded.confidence),
                     expires_at = excluded.expires_at,
                     review_status = CASE
                         WHEN model_memory.review_status = 'approved' THEN 'approved'

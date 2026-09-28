@@ -183,7 +183,8 @@ $suites = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
-            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp")
+            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp")
         )
     },
     @{
@@ -193,7 +194,8 @@ $suites = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
-            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp")
+            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp")
         )
     }
 )
