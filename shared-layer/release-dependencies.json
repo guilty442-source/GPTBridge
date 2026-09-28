@@ -283,8 +283,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-09-28T07:22:56Z",
-    "codex_sha256": "dfb1aacc237540b88b0ac55adb7b643d063ece907d417e86ac72185a078b5e22",
+    "codex_version": "2026-09-28T07:54:05Z",
+    "codex_sha256": "dc3a1cbeef95b9575d0238c6c478062f7a9d5996838aab370b420661bd533e58",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -354,6 +354,24 @@
       "frontend_surface_version": "c7b5af574186845ee615cae054c863e51b7471ecdd76978fab2f896f4168bd4b",
       "backend_surface_version": "71bba81daaeb9d3383ea5f1281674830ede8408a015a599eb7b32fb2bb61ea4d",
       "rule": "frontend-sends-subset-of-backend-commands; backend-features-subset-of-frontend-support"
+    }
+  },
+  "release_manifest": {
+    "release_identity": "2efc178adca73332ca189f4884737e7a422c112c9453e470941080f7cfa897f0",
+    "host_runtime": {
+      "kind": "tauri-rust-shell",
+      "identifier": "ai.gptbridge.shell",
+      "version": "1.0.0",
+      "config": "main-system/src-tauri/tauri.conf.json",
+      "note": "Electron runtime retired (C116); the Rust Tauri shell hosts all tool windows"
+    },
+    "hashes": {
+      "renderer": "2efc178adca73332ca189f4884737e7a422c112c9453e470941080f7cfa897f0",
+      "shell": "98e0da4539656dbcea96812e0ee1aa402e7aec69a6a2dc5808b7075511039d6f"
+    },
+    "compatible_backend_contract_range": {
+      "min_ipc_contract_version": 1,
+      "max_ipc_contract_version": 1
     }
   },
   "persistent_data_isolation": {
@@ -437,7 +455,7 @@
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "388f304da1a8549aa08a9dc88061658bee9507f9291fa671b1f3c48dd0287d3e",
-      "Standalone tools/local-model/runtime/settings/native-engine.json": "115809d8970a16bd2b26acaf1949070f2d3d284ce054977e5696df48e0e49f1d"
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "370eaf7a3b5e6b2c63b582d598804aea95007f5cbae42ea6b0f490cc67178f05"
     },
     "database_schema": {
       "manifest": "shared-layer/database-release.json",
