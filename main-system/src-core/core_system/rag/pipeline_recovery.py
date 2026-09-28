@@ -260,9 +260,22 @@ class PipelineRecoveryMixin:
         document, chunks, vectors = await self._rebuild_document(
             item, module_id
         )
-        if not await self.index_document(
-            document=document, chunks=chunks, vectors=vectors
+        # PERF-07: engine-produced f64-le records take the text write —
+        # vectord re-derives the projection vector in-engine; float lists
+        # keep the legacy vector path (capability fallback).
+        if vectors and isinstance(
+            vectors[0], (bytes, bytearray, memoryview)
         ):
+            written = await self.index_document_text(
+                document=document,
+                chunks=chunks,
+                embedding_records=vectors,
+            )
+        else:
+            written = await self.index_document(
+                document=document, chunks=chunks, vectors=vectors
+            )
+        if not written:
             raise CanonicalCheckError(
                 f"canonical rewrite rejected for {module_id}:{item.resource_id}"
             )
