@@ -71,10 +71,10 @@ def check_protected_sources(root: Path, errors: list[str]) -> None:
                 raise ValueError("unsupported protected source type")
         except (OSError, SyntaxError, UnicodeError, ValueError) as error:
             errors.append(f"protected governance source is invalid: {relative}: {error}")
-        # Codex C4/D11/E62: OS-readonly protection applies to codex
-        # artifacts only; other protected sources keep the integrity
-        # (exists+parse) gate without the attribute requirement.
-        if relative.startswith("governance_rule/codex/") and not _is_operating_system_read_only(source):
+        # Codex amendment codex-readonly-minimization: OS-readonly applies
+        # only to the generated confidential zh-TW mirror parts; other
+        # protected sources keep the integrity (exists+parse) gate.
+        if relative.startswith("governance_rule/codex/governance_codex.zh-TW.part-") and not _is_operating_system_read_only(source):
             errors.append(f"protected governance source is not read-only: {relative}")
 
 

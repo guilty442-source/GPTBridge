@@ -444,15 +444,18 @@ def build_manifest(root: Path) -> dict[str, object]:
         })
 
     # --- protected governance sources (native: exists + readonly) -----
-    # Codex C4/D11/E62 scope the read-only attribute to codex artifacts;
-    # all other protected sources keep existence/integrity checks only.
+    # Codex amendment codex-readonly-minimization: the read-only attribute
+    # applies to the generated zh-TW mirror parts only; all other
+    # protected sources keep existence/integrity checks only.
     for relative in _protected_sources(root):
         checks.append({
             "id": f"protected-source:{relative}",
             "kind": "file-exists",
             "path": relative,
         })
-        if relative.startswith("governance_rule/codex/"):
+        if relative.startswith(
+            "governance_rule/codex/governance_codex.zh-TW.part-"
+        ):
             checks.append({
                 "id": f"protected-source-readonly:{relative}",
                 "kind": "file-readonly",

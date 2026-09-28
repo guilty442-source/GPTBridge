@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T10:41:56Z",
+  "generated_at": "2026-09-28T11:44:04Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 329,
+    "native_checks": 328,
     "delegated_checks": 31,
     "native_kinds": [
       "file-exists",
@@ -54,11 +54,6 @@
     {
       "id": "protected-source:governance_rule/codex/__init__.py",
       "kind": "file-exists",
-      "path": "governance_rule/codex/__init__.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/codex/__init__.py",
-      "kind": "file-readonly",
       "path": "governance_rule/codex/__init__.py"
     },
     {

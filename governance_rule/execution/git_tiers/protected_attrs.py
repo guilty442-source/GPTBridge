@@ -32,15 +32,18 @@ def protected_source_paths() -> tuple[str, ...]:
 
     policy = governance_policy_snapshot()
     directory = directory_authority_snapshot()
-    # Codex C4/D11/E62 scope OS-readonly protection to codex artifacts;
-    # other protected sources carry the integrity check only.
+    # Codex amendment codex-readonly-minimization: OS-readonly applies
+    # only to the generated confidential zh-TW mirror parts; other
+    # protected sources carry the integrity check only.
     return tuple(
         relative
         for relative in (
             *policy.authority_files,
             *directory.managed_read_only_registry_paths,
         )
-        if relative.startswith("governance_rule/codex/")
+        if relative.startswith(
+            "governance_rule/codex/governance_codex.zh-TW.part-"
+        )
     )
 
 
