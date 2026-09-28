@@ -86,6 +86,8 @@ from .server_lifecycle_health import _handle_health_request, _parse_request_path
 from tasks.state_change_notifier import StateChangeNotifier
 from tasks.state_outbox import OutboxPublisher
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
 
 # ------------------------------------------------------------------
 # Logging noise filter
@@ -172,6 +174,26 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
             is_busy=lambda: bool(getattr(app_instance, "_command_tasks", set())),
         )
 
+        # bounded-concurrency/v1: websocket connection cap — the
+        # effective limit is the governor "interactive" class quota
+        # scaled into the declared envelope; unreadable state fails
+        # open to the static cap (never deadlock on a dead governor).
+        _WS_CONN_MIN, _WS_CONN_MAX = 16, 128
+        _governor_state = (
+            _PROJECT_ROOT / "runtime" / "state" / "resource-governor.json"
+        )
+
+        def _ws_conn_cap() -> int:
+            try:
+                from shared_layer.adaptive.budget_source import class_quota
+
+                quota = class_quota("interactive", _governor_state)
+            except Exception:
+                quota = None
+            if quota is None:
+                return _WS_CONN_MAX
+            return max(_WS_CONN_MIN, min(_WS_CONN_MAX, quota.quota * 8))
+
         async def process_request_with_shutdown(_connection, request):
             parsed_request = _parse_request_path(request)
             request_path = parsed_request.path
@@ -187,6 +209,14 @@ async def run_server(app_instance, auto_kill_backend_port: bool = False):
                 return http_response(200, "OK", b"OK")
             if not _websocket_request_authorized(request):
                 return http_response(403, "FORBIDDEN", b"Forbidden")
+            # capacity + reject: a full IPC listener refuses the
+            # upgrade instead of growing per-connection tasks.
+            if getattr(
+                app_instance, "_active_ws_connections", 0
+            ) >= _ws_conn_cap():
+                return http_response(
+                    503, "SERVICE_UNAVAILABLE", b"capacity-exhausted"
+                )
             return None
 
         # Warm the session token before the listener accepts connections:

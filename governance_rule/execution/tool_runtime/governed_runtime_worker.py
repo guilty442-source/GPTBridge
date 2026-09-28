@@ -73,7 +73,13 @@ class GovernedRuntimeWorkerMixin:
                     continue
                 while connection.notifies():
                     notify = connection.notifies.pop(0)
-                    notify_queue.put_nowait(notify.payload)
+                    # bounded-concurrency/v1: notifications are
+                    # idempotent wake hints — a full queue drops them
+                    # (a pending wake already suffices).
+                    try:
+                        notify_queue.put_nowait(notify.payload)
+                    except asyncio.QueueFull:
+                        break
         finally:
             with contextlib.suppress(Exception):
                 connection.close()
@@ -91,7 +97,7 @@ class GovernedRuntimeWorkerMixin:
 
     async def _worker(self) -> None:
         idle_poll_seconds = 0.25
-        notify_queue: asyncio.Queue[str] = asyncio.Queue()
+        notify_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=256)
         listener_task: asyncio.Task[Any] | None = None
         try:
             listener_task = asyncio.create_task(
