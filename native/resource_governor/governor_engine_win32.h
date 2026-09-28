@@ -100,8 +100,7 @@ class WindowsEngine : public IEngine {
     unsigned long long sys_idle_ = 0;
     unsigned long long sys_kernel_ = 0;
     unsigned long long sys_user_ = 0;
-    std::map<ProcKey, HANDLE> jobs_;
-    HANDLE shared_job_ = nullptr;
+    std::map<ProcKey, HANDLE> jobs_; /* 負 pid sentinel → 共享 Job（worker/各池） */
 
     static unsigned long long now_100ns() {
         FILETIME ft{};

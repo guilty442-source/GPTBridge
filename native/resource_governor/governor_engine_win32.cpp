@@ -281,11 +281,6 @@ WindowsEngine::~WindowsEngine() {
         ::CloseHandle(job);
     }
     jobs_.clear();
-    if (shared_job_ != nullptr) {
-        reset_rate(shared_job_);
-        ::CloseHandle(shared_job_);
-        shared_job_ = nullptr;
-    }
 }
 
 std::unique_ptr<IEngine> make_windows_engine() {

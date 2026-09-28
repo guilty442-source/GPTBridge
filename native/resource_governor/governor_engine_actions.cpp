@@ -188,17 +188,10 @@ void WindowsEngine::reset_rate(HANDLE job) {
 }
 
 bool WindowsEngine::cpu_limit_clear(const ProcKey& key) {
-    HANDLE job = nullptr;
-    if (key.pid == -1) {
-        job = shared_job_;
-        shared_job_ = nullptr;
-    } else {
-        auto it = jobs_.find(key);
-        if (it == jobs_.end()) return false;
-        job = it->second;
-        jobs_.erase(it);
-    }
-    if (job == nullptr) return false;
+    auto it = jobs_.find(key);
+    if (it == jobs_.end() || it->second == nullptr) return false;
+    HANDLE job = it->second;
+    jobs_.erase(it);
     reset_rate(job);
     ::CloseHandle(job);
     return true;

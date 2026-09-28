@@ -194,10 +194,10 @@ jsonlite::JsonValue budget_to_json(const ConcurrencyBudget& budget) {
         const char* state = cls.paused ? "paused"
                             : cls.quota < cls.base ? "throttled"
                                                    : "normal";
-        classes.object[std::string(work_class_name(
-            static_cast<WorkClass>(i)))] = bjobj(
-            {{"quota", bjint(cls.quota)},
-             {"state", bjstr(state)}});
+        classes.object.emplace_back(
+            std::string(work_class_name(static_cast<WorkClass>(i))),
+            bjobj({{"quota", bjint(cls.quota)},
+                   {"state", bjstr(state)}}));
     }
     jsonlite::JsonValue shed = bjarr({});
     for (WorkClass cls : kShedOrder) {

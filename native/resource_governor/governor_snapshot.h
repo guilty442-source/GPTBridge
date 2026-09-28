@@ -43,6 +43,8 @@ struct ProcessRecord {
     std::optional<int> rule_priority;
     bool rule_aff_set = false;
     bool job_member = false;
+    Pool pool = Pool::None;
+    bool pool_member = false;
 };
 
 using RecordMap = std::map<ProcKey, ProcessRecord>;
@@ -56,9 +58,21 @@ struct ProcRow {
     double cpu = 0.0;
     double mem_mb = 0.0;
     std::string plane;
+    std::string pool;
     double io_read_mb = 0.0;
     double io_write_mb = 0.0;
     std::vector<std::string> flags;
+};
+
+/* 池聚合帳本（snapshot "pools" 區塊）。 */
+struct PoolLedger {
+    int processes = 0;
+    double cpu_pct = 0.0;      /* 整機 % */
+    double ram_mb = 0.0;
+    double ram_pct = 0.0;
+    double cpu_budget_pct = 0.0;
+    double ram_budget_pct = 0.0;
+    bool over_budget = false;
 };
 
 struct Snapshot {
