@@ -394,7 +394,7 @@ class PipelineOutboxMixin:
                     store, "delete_resource", None
                 )
                 if deleter is not None:
-                    deleter(resource_id=resource_id, module_id=module_id)
+                    deleter(resource_id, module_id=module_id)
             except Exception as exc:
                 _logger.warning(
                     "PipelineOutbox: degraded delete failed for %s:%s: %s",

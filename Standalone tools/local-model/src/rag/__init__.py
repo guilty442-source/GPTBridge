@@ -18,8 +18,8 @@ Declaration vs execution (A2/A5):
   implementation lives in the governed executor:
     local-model/src/backend/services/xingcheng/application/local_rag.py
   That implementation operates in A44 degraded-fallback mode (bounded +
-  observable + reconciled + non-canonical) using LocalVectorStore (SQLite
-  cache) and SQLite FTS, while the Rust vectord engine is the canonical semantic index
+  observable + reconciled + non-canonical) using LocalVectorStore (degraded
+  vectord client) and SQLite FTS, while the Rust vectord engine is the canonical semantic index
   (A8/A611: Qdrant is retired; vectord is canonical).  The execution layer imports
   SUB_ARCHITECTURES and validate_architecture from this package to verify
   all four sub-architectures are acknowledged at runtime (A52 prohibition).

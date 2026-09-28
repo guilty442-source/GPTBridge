@@ -1,0 +1,65 @@
+{
+ "checks": [
+  {
+   "name": "ensure_collection",
+   "ok": true,
+   "detail": "collection ensured on 127.0.0.1:8093"
+  },
+  {
+   "name": "dimension_invalid_rejected",
+   "ok": true,
+   "detail": "RAG_VECTOR_DIMENSION_INVALID"
+  },
+  {
+   "name": "replace_document",
+   "ok": true,
+   "detail": "text + vector upsert paths"
+  },
+  {
+   "name": "scoped_similarity_query",
+   "ok": true,
+   "detail": "[{'document_id': 'doc-b', 'module_id': 'mod-y', 'tag': 't', 'id': 'p-b1', 'point_id': 'p-b1', 'score': 1.0, 'vector_score': 1.0}]"
+  },
+  {
+   "name": "scope_fence_failclosed",
+   "ok": true,
+   "detail": "VECTOR_MODULE_SCOPE_REQUIRED"
+  },
+  {
+   "name": "module_isolation",
+   "ok": true,
+   "detail": "[{'document_id': 'doc-a', 'module_id': 'mod-x', 'id': 'p-a1', 'point_id': 'p-a1', 'score': 0.0, 'vector_score': 0.0}]"
+  },
+  {
+   "name": "query_text",
+   "ok": true,
+   "detail": "[{'document_id': 'doc-a', 'module_id': 'mod-x', 'id': 'p-a1', 'point_id': 'p-a1', 'score': 0.7071067690849304, 'vector_score': 0.7071067690849304}]"
+  },
+  {
+   "name": "delete_resource",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "name": "status",
+   "ok": true,
+   "detail": "{\"engine\": \"rust-vectord-degraded\", \"canonical\": false, \"points\": 1}"
+  },
+  {
+   "name": "snapshot_persisted",
+   "ok": true,
+   "detail": "C:\\Users\\guilt\\AppData\\Local\\Temp\\degraded-parity-ofn1mvjt\\vectord-store\\vectord-snapshot.bin"
+  },
+  {
+   "name": "reload_visibility",
+   "ok": true,
+   "detail": "[{'document_id': 'doc-a', 'module_id': 'mod-x', 'id': 'p-a1', 'point_id': 'p-a1', 'score': 0.7071067690849304, 'vector_score': 0.7071067690849304}]"
+  }
+ ],
+ "endpoint": "http://127.0.0.1:8093",
+ "passed": 11,
+ "total": 11,
+ "all_ok": true,
+ "evidence_type": "native-degraded-store parity smoke (adjudication rev10)",
+ "engine": "vectord-rs (Rust); persistence/filtering/ranking/snapshots Rust-owned"
+}
