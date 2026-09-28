@@ -4,7 +4,11 @@ from governance_rule.execution.codex_repository import codex_readonly_connection
 
 with codex_readonly_connection() as conn:
     cur = conn.execute(
-        "SELECT version, created_at FROM codex_versions ORDER BY created_at DESC LIMIT 6"
+        "SELECT table_name FROM information_schema.tables "
+        "WHERE table_schema='public' ORDER BY table_name"
     )
-    for row in cur.fetchall():
-        print(dict(row) if isinstance(row, dict) else row)
+    names = [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in cur.fetchall()]
+    print(len(names), "tables")
+    for n in names:
+        if any(k in n for k in ("version", "meta", "article", "rule", "prov")):
+            print(" ", n)
