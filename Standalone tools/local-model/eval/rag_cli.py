@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
-from backend.services.xingcheng.application.local_rag import LocalRagService
-from backend.services.xingcheng.infrastructure.native_runtime import (
+_WSROOT = Path(__file__).resolve().parents[3]
+_LMSRC = _WSROOT / "Standalone tools" / "local-model" / "src"
+_SHARED = _WSROOT / "shared-layer" / "src"
+for _p in (_LMSRC, _SHARED, _WSROOT):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+del _LMSRC, _SHARED, _WSROOT, _p
+
+from backend.services.xingcheng.application.local_rag import LocalRagService  # noqa: E402
+from backend.services.xingcheng.infrastructure.native_runtime import (  # noqa: E402
     StarNativeRuntime,
 )
 

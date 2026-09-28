@@ -32,15 +32,16 @@ import sys
 import time
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parents[2]
+_LMROOT = Path(__file__).resolve().parents[1]
+_ROOT = _LMROOT / "src" / "backend" / "services" / "xingcheng" / "infrastructure"
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-_WSROOT = Path(__file__).resolve().parents[9]
+_WSROOT = Path(__file__).resolve().parents[3]
 _SHARED = _WSROOT / "shared-layer" / "src"
 for _p in (_WSROOT, _SHARED):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
-del _ROOT, _SHARED, _WSROOT, _p
+del _ROOT, _SHARED, _WSROOT, _LMROOT, _p
 
 from native_transformer import cpp_runtime  # noqa: E402
 

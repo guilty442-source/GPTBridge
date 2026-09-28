@@ -4,23 +4,32 @@
 Prefill 耗時、Decode 耗時、Tokens per Second、KV Cache RAM 佔用。
 CPU 可跑；CUDA 可用時附 VRAM。報告落 `runtime/logs/kv-matrix-*.json`。
 
-    python -m xingcheng.infrastructure.native_transformer.kv_matrix \
+    python eval/kv_matrix.py \
         --tool-root "Standalone tools/local-model" [--device cpu] [--save]
 """
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import torch
+_INFRA = (
+    Path(__file__).resolve().parents[1]
+    / "src" / "backend" / "services" / "xingcheng" / "infrastructure"
+)
+if str(_INFRA) not in sys.path:
+    sys.path.insert(0, str(_INFRA))
+del _INFRA
 
-from .config import XingChengConfig
-from .modules.model import XingChengForCausalLM
-from .inference.generate import Generator
-from .inference.kv_cache import KVCache
+import torch  # noqa: E402
+
+from native_transformer.config import XingChengConfig  # noqa: E402
+from native_transformer.modules.model import XingChengForCausalLM  # noqa: E402
+from native_transformer.inference.generate import Generator  # noqa: E402
+from native_transformer.inference.kv_cache import KVCache  # noqa: E402
 
 SCENARIOS = [
     ("short", 8, 16),

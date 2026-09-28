@@ -37,11 +37,11 @@ vectord-rs 監聽 `127.0.0.1:8092`，資料存在其 `runtime` 儲存目錄。�
 在 `E:\GPTBridge` 執行：
 
 ```powershell
-python xingcheng\src\rag_cli.py status
-python xingcheng\src\rag_cli.py index xingcheng\README.md xingcheng\RAG.md
-python xingcheng\src\rag_cli.py query "本地 RAG 使用哪個 embedding 引擎？"
-python xingcheng\src\rag_cli.py query "快速檢索這份資料庫的內容" --mode fast
-python xingcheng\src\rag_cli.py query "哪些資源可刪除" --retrieve-only
+python eval\rag_cli.py status
+python eval\rag_cli.py index xingcheng\README.md xingcheng\RAG.md
+python eval\rag_cli.py query "本地 RAG 使用哪個 embedding 引擎？"
+python eval\rag_cli.py query "快速檢索這份資料庫的內容" --mode fast
+python eval\rag_cli.py query "哪些資源可刪除" --retrieve-only
 ```
 
 支援 TXT、Markdown、RST、CSV、TSV、JSON、JSONL、HTML、XML、YAML、TOML、主要程式碼與 DOCX。不得覆寫 `E:\GPTBridge`、稽核目標或 `governance_rule`。

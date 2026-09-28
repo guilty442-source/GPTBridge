@@ -5,22 +5,31 @@ Dense vs MoE 對照矩陣（實測，非估算）：
 - 訓練 step 耗時／推論逐 token 耗時／吞吐
 - Router 健康（entropy／load balance／collapse）
 
-    python -m xingcheng.infrastructure.native_transformer.moe_qc \
+    python eval/moe_qc.py \
         --tool-root "Standalone tools/local-model" [--save]
 """
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import torch
-from torch.profiler import ProfilerActivity, profile
+_INFRA = (
+    Path(__file__).resolve().parents[1]
+    / "src" / "backend" / "services" / "xingcheng" / "infrastructure"
+)
+if str(_INFRA) not in sys.path:
+    sys.path.insert(0, str(_INFRA))
+del _INFRA
 
-from .config import XingChengConfig
-from .modules.model import XingChengForCausalLM
+import torch  # noqa: E402
+from torch.profiler import ProfilerActivity, profile  # noqa: E402
+
+from native_transformer.config import XingChengConfig  # noqa: E402
+from native_transformer.modules.model import XingChengForCausalLM  # noqa: E402
 
 REPORT_FORMAT = "star-moe-qc/v1"
 

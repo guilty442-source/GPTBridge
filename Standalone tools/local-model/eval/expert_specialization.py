@@ -17,7 +17,7 @@
 報告不判定好壞，只產生觀測值與初步結論旗標；閘門語意屬
 ``capability_eval`` 的 ``expert_routing`` 類別。
 
-    python -m xingcheng.infrastructure.native_transformer.expert_specialization \
+    python eval/expert_specialization.py \
         --checkpoint <final.pt> [--suite <suite.json>] \
         [--device cpu] [--save]
 """
@@ -27,13 +27,22 @@ import argparse
 import hashlib
 import json
 import math
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-import torch
+_INFRA = (
+    Path(__file__).resolve().parents[1]
+    / "src" / "backend" / "services" / "xingcheng" / "infrastructure"
+)
+if str(_INFRA) not in sys.path:
+    sys.path.insert(0, str(_INFRA))
+del _INFRA
 
-from .checkpoint import load_checkpoint
+import torch  # noqa: E402
+
+from native_transformer.checkpoint import load_checkpoint  # noqa: E402
 
 REPORT_FORMAT = "star-expert-specialization/v1"
 
