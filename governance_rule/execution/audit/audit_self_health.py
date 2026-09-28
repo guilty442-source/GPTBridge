@@ -532,6 +532,12 @@ def _collect_one_batch(
     Returns ``None`` when the run cannot be attributed (timeout or an
     aborted interpreter).
     """
+    # B171 chokepoint marker: this batch is a governed self-health
+    # collection probe inside the audit boundary, not an arbitrary
+    # Python test runner — the root conftest refuses collection
+    # without the marker.
+    env = dict(os.environ)
+    env["GPTBRIDGE_LEGACY_VERIFICATION_ADAPTER"] = "1"
     try:
         completed = subprocess.run(
             [
@@ -551,6 +557,7 @@ def _collect_one_batch(
             capture_output=True,
             text=True,
             timeout=300,
+            env=env,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except subprocess.TimeoutExpired:

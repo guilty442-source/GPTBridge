@@ -2998,6 +2998,66 @@
    "semantic_equivalence": "unproven",
    "evidence": [],
    "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/information-layer/events/tests/test_events_service.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING",
+   "note": "orphan: outside pytest.ini testpaths and adapter roots; dead residue pending native replacement"
+  },
+  {
+   "source_test": "main-system/information-layer/ipc/tests/test_ipc_service.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING",
+   "note": "orphan: outside pytest.ini testpaths and adapter roots; dead residue pending native replacement"
+  },
+  {
+   "source_test": "main-system/information-layer/postgresql/tests/test_postgresql_service.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING",
+   "note": "orphan: outside pytest.ini testpaths and adapter roots; dead residue pending native replacement"
+  },
+  {
+   "source_test": "main-system/information-layer/state/tests/test_state_service.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING",
+   "note": "orphan: outside pytest.ini testpaths and adapter roots; dead residue pending native replacement"
+  },
+  {
+   "source_test": "main-system/launcher/tests/test_launcher.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING",
+   "note": "orphan: outside pytest.ini testpaths and adapter roots; dead residue pending native replacement"
+  },
+  {
+   "source_test": "shared-layer/src/shared_layer/test_matrix_consolidation.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING",
+   "note": "orphan: outside pytest.ini testpaths and adapter roots; dead residue pending native replacement"
   }
  ],
  "fixtures": [
@@ -3035,6 +3095,13 @@
    "consumer": "scripts/devin-cli-p6-test-sla.py",
    "role": "SLA measurement evidence; routed through LegacyPythonVerificationAdapter",
    "replacement_runner": "adapter-routed (compliant transition)",
+   "status": "PENDING",
+   "note": "module-class test_targets now fail-closed through the adapter (adapter executes class-H governance tests only); each target reports ERROR evidence until its native replacement exists"
+  },
+  {
+   "consumer": "main-system/src-core/core_system/auto_repair_chain_verify.py::_verify_tests",
+   "role": "auto-repair tests-pass criterion; adapter-routed; module-class scopes fail-closed to False",
+   "replacement_runner": "adapter-routed (compliant); native replacement for module scopes",
    "status": "VERIFIED"
   }
  ]

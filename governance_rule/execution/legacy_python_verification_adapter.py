@@ -11,6 +11,9 @@ python-minimum-three-domain-transition):
 - Scope is fail-closed against PYTEST_RETIREMENT_INVENTORY: a test file
   absent from the inventory is a *new* Python test (FORBID) and the run
   returns ERROR instead of executing it.
+- Only ``inventory_class == "H"`` (genuine governance semantic) rows may
+  execute.  Module-class rows are migration sources pending native
+  replacement — they have no legal Python executor and fail closed.
 
 CLI:
 
@@ -127,14 +130,27 @@ def _resolve_scope_files(scopes: list[str]) -> tuple[list[str], list[str]]:
     return files, rejected
 
 
-def _inventory_gate(files: list[str], inventory: dict[str, Any]) -> list[str]:
-    """Return source files absent from PYTEST_RETIREMENT_INVENTORY."""
-    registered = {
-        str(row.get("source_test"))
+def _inventory_gate(
+    files: list[str], inventory: dict[str, Any]
+) -> tuple[list[str], list[str]]:
+    """Return (unregistered, non_governance_class) source files.
+
+    Codex limits the adapter to inventory-class-H genuine governance
+    semantic tests; every other row is a migration-only source with no
+    legal Python executor.
+    """
+    rows = {
+        str(row.get("source_test")): row
         for row in inventory.get("rows", [])
         if isinstance(row, dict)
     }
-    return [f for f in files if f not in registered]
+    unregistered = [f for f in files if f not in rows]
+    non_governance = [
+        f
+        for f in files
+        if f in rows and rows[f].get("inventory_class") != "H"
+    ]
+    return unregistered, non_governance
 
 
 def _parse_junit(junit_path: Path) -> list[dict[str, Any]]:
@@ -194,7 +210,7 @@ def run(
 
     files, rejected = _resolve_scope_files(scopes)
     inventory = _load_inventory()
-    unregistered = _inventory_gate(files, inventory)
+    unregistered, non_governance = _inventory_gate(files, inventory)
 
     def _finish(
         verdict: str,
@@ -212,6 +228,7 @@ def run(
             "files": files,
             "rejected_scope": rejected,
             "unregistered_files": unregistered,
+            "non_governance_files": non_governance,
             "totals": {
                 "cases": len(cases),
                 "pass": sum(1 for c in cases if c["status"] == "PASS"),
@@ -239,15 +256,16 @@ def run(
         result["evidence_path"] = str(evidence_path)
         return result
 
-    if rejected or unregistered:
+    if rejected or unregistered or non_governance:
         return _finish(
             "ERROR",
             [],
             detail=(
-                "scope rejected: unregistered or out-of-roots test "
-                f"files {sorted(set(rejected + unregistered))} — "
-                "new Python tests are forbidden (FORBID:new-Python-test); "
-                "register migration rows in PYTEST_RETIREMENT_INVENTORY"
+                "scope rejected: unregistered/out-of-roots "
+                f"{sorted(set(rejected + unregistered))} or non-class-H "
+                f"{sorted(non_governance)} — only inventory-class-H "
+                "governance semantic tests may execute through this "
+                "adapter; module-class rows await native replacement"
             ),
         )
     if not files:
@@ -267,6 +285,9 @@ def run(
     ]
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"  # no __pycache__ residue
+    # Session chokepoint marker: root conftest.py refuses collection
+    # unless the run was spawned through this adapter.
+    env["GPTBRIDGE_LEGACY_VERIFICATION_ADAPTER"] = "1"
     try:
         proc = subprocess.run(
             command,
