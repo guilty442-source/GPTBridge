@@ -291,6 +291,16 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "memory_strategy": "raii",
         "format_contract": "clang-tidy",
     },
+    # A605: Python minimization acceptance line — the evaluator's real
+    # pass path (allowed zones declared) and fail-closed path (an
+    # offender zone is rejected).
+    "RULE_PYTHON_MINIMIZATION_V1": {
+        "production_python_zones": [
+            "governance",
+            "training",
+            "development-verification",
+        ],
+    },
     # A609: unified language version set — the evaluator's real pass path
     # (version facts present and within the declared set).
     "RULE_LANGUAGE_VERSIONS_V1": {
