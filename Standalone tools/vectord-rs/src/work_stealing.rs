@@ -96,7 +96,6 @@ impl WorkStealingPool {
         Self {
             sender: Mutex::new(Some(sender)),
             stop,
-            queues,
             metrics,
             workers: Mutex::new(handles),
         }
@@ -107,8 +106,13 @@ impl WorkStealingPool {
         F: FnOnce() + Send + 'static,
     {
         let cancel = Arc::new(AtomicBool::new(false));
-        let handle = TaskHandle { cancel: cancel.clone() };
-        let item = Task { cancel, run: Some(Box::new(task)) };
+        let handle = TaskHandle {
+            cancel: cancel.clone(),
+        };
+        let item = Task {
+            cancel,
+            run: Some(Box::new(task)),
+        };
         let sender = self.sender.lock().map_err(|_| ())?;
         let Some(sender) = sender.as_ref() else {
             self.metrics.rejected.fetch_add(1, Ordering::Relaxed);
@@ -227,9 +231,11 @@ mod tests {
         let completed = Arc::new(AtomicUsize::new(0));
         for _ in 0..4 {
             let completed = completed.clone();
-            assert!(pool.submit(move || {
-                completed.fetch_add(1, Ordering::Relaxed);
-            }).is_ok());
+            assert!(pool
+                .submit(move || {
+                    completed.fetch_add(1, Ordering::Relaxed);
+                })
+                .is_ok());
         }
         for _ in 0..100 {
             if completed.load(Ordering::Relaxed) == 4 {
@@ -251,14 +257,17 @@ mod tests {
         pool.submit(move || {
             first_gate.store(1, Ordering::Release);
             std::thread::sleep(std::time::Duration::from_millis(40));
-        }).unwrap();
+        })
+        .unwrap();
         while gate.load(Ordering::Acquire) == 0 {
             std::thread::yield_now();
         }
         let ran_clone = ran.clone();
-        let handle = pool.submit(move || {
-            ran_clone.fetch_add(1, Ordering::Relaxed);
-        }).unwrap();
+        let handle = pool
+            .submit(move || {
+                ran_clone.fetch_add(1, Ordering::Relaxed);
+            })
+            .unwrap();
         handle.cancel();
         std::thread::sleep(std::time::Duration::from_millis(60));
         assert_eq!(ran.load(Ordering::Relaxed), 0);
