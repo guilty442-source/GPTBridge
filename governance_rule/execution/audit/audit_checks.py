@@ -154,7 +154,6 @@ from .audit_authority import (
 from .audit_activation import check_activation_states
 from .audit_architecture import (
     check_architecture_registry,
-    check_python_zone_ratchet,
     check_typescript_retirement,
 )
 from .audit_directories import check_directory_audit
@@ -294,7 +293,6 @@ def audit_runtime_governance(
         lambda r: _collect(check_codex_mirror_quality, r),
         lambda r: _collect(check_architecture_registry, r),
         lambda r: _collect(check_typescript_retirement, r),
-        lambda r: _collect(check_python_zone_ratchet, r),
         lambda r: _collect(check_directory_audit, r),
         lambda r: _collect(check_activation_states, r),
         lambda r: _collect(check_formal_rules, r),

@@ -322,7 +322,7 @@
       "description": "A624 套件版本收斂：每 tick 偵測已安裝工具鏈／套件版本（vendored go、venv python+pip、rustc、dotnet SDK、PostgreSQL、git、manifest 宣告）→ mode=upgrade 的技術執行其套件管理器升級（bounded timeout、env 政策；離線/vendored fail-closed 記帳，不走網路）→ 偵測值與法典條文宣告值漂移時產生 codex-amendment-request 投遞 convergence intake，由既有管線五主權稽核＋auto_execute 落地；driver 永不直寫權威庫。kill switch：本 flow enabled=false 或 config/package-version-sync.json enabled=false"
     },
     "architecture-artifact-sync": {
-      "owner": "architecture-artifact-sync-driver（main-system tasks/architecture_artifact_sync）",
+      "owner": "architecture-artifact-sync-driver（main-system tasks/codex_sync_drivers）",
       "kind": "periodic",
       "interval_s": 600,
       "pausable": true,
@@ -330,7 +330,7 @@
       "description": "架構 artifact registry 收斂：每 tick 對 architecture_diagram_artifact_registry active 列做 byte-level SHA-256 比對檔案；content_hash／source_codex_version 漂移時產生 codex-amendment-request（per-row update）投遞 convergence intake，由 codex-amendment-intake 五主權稽核＋auto_execute 落地；driver 永不直寫權威庫。檔案缺失的 active 列僅記入 state（retire 屬 governor 決策）。kill switch：本 flow enabled=false"
     },
     "codex-pin-sync": {
-      "owner": "codex-pin-sync-driver（main-system tasks/codex_pin_sync）",
+      "owner": "codex-pin-sync-driver（main-system tasks/codex_sync_drivers）",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,

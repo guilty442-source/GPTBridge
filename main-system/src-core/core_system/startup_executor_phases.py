@@ -286,7 +286,7 @@ class StartupExecutorPhasesMixin:
             await app.package_version_driver.start()
         _lap("package_version_driver_ms")
         if getattr(app, "architecture_artifact_sync", None) is None:
-            from tasks.architecture_artifact_sync import (
+            from tasks.codex_sync_drivers import (
                 ArchitectureArtifactSyncDriver,
             )
 
@@ -301,7 +301,7 @@ class StartupExecutorPhasesMixin:
             await app.architecture_artifact_sync.start()
         _lap("architecture_artifact_sync_ms")
         if getattr(app, "codex_pin_sync", None) is None:
-            from tasks.codex_pin_sync import CodexPinSyncDriver
+            from tasks.codex_sync_drivers import CodexPinSyncDriver
 
             # Release contract 法典釘定收斂——漂移時改寫實作面契約檔
             # （governance_references pin），不觸碰權威庫。
