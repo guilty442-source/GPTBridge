@@ -135,7 +135,7 @@
       "interval_s": 20,
       "pausable": false,
       "enabled": true,
-      "description": "§10.64 資源管制：scripts/resource-governor.py 獨立行程（Windows 工作排程／登入啟動）。監督面正確歸屬：管制對象含主系統本身，管制者必須活得比被管制者久（A170 監督邊界），非待遷移項。kill switch 只停動作不停觀測"
+      "description": "§10.64 資源管制：native/resource_governor/bin/resource-governor.exe 獨立行程（C++23，Windows 工作排程／登入啟動）。監督面正確歸屬：管制對象含主系統本身，管制者必須活得比被管制者久（A170 監督邊界），非待遷移項。kill switch 只停動作不停觀測"
     },
     "update-manager": {
       "owner": "update-manager",
