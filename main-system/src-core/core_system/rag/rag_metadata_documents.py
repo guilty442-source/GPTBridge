@@ -9,36 +9,32 @@ managed connection.
 
 from __future__ import annotations
 
-import array
 import json
 import logging
-import sys
 import uuid
 from typing import Any, Optional, Sequence
 
 _logger = logging.getLogger("gptbridge.rag")
 
 
-def pack_embedding(vector: Sequence[float]) -> bytes:
-    """Canonical embedding bytes: float64 little-endian packed array."""
-    buf = array.array("d", (float(v) for v in vector))
-    if sys.byteorder == "big":  # pragma: no cover - governed host is LE
-        buf.byteswap()
-    return buf.tobytes()
+def pack_embedding(vector: Sequence[float]) -> str:
+    """Canonical embedding literal in pgvector text form ``[f,f,…]``."""
+    return "[" + ",".join(repr(float(v)) for v in vector) + "]"
 
 
 def unpack_embedding(raw: Any) -> Optional[list[float]]:
-    """Decode canonical embedding bytes; None when absent/malformed."""
-    if not isinstance(raw, (bytes, bytearray, memoryview)):
+    """Decode a pgvector value ('[f,f,…]' text or parsed list)."""
+    if raw is None:
         return None
-    blob = bytes(raw)
-    if not blob or len(blob) % 8:
+    if isinstance(raw, (list, tuple)):
+        return [float(v) for v in raw]
+    text = str(raw).strip()
+    if not (text.startswith("[") and text.endswith("]")):
         return None
-    buf = array.array("d")
-    buf.frombytes(blob)
-    if sys.byteorder == "big":  # pragma: no cover - governed host is LE
-        buf.byteswap()
-    return list(buf)
+    try:
+        return [float(v) for v in json.loads(text)]
+    except (TypeError, ValueError):
+        return None
 
 
 _RESOURCE_UPSERT_SQL = """INSERT INTO gptbridge_index.resource
@@ -60,7 +56,7 @@ _CHUNK_INSERT_SQL = """INSERT INTO gptbridge_rag.chunk
       (chunk_id, resource_id, module_id, sequence,
        character_start, character_end, vector_point_id,
        embedding_model, locator_fragment, metadata, embedding)
-   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::vector)"""
 
 
 def _resource_params(document: dict[str, Any]) -> tuple:
@@ -324,7 +320,7 @@ class RagMetadataDocumentsMixin:
             async with self._conn.cursor() as cur:
                 await cur.executemany(
                     """UPDATE gptbridge_rag.chunk
-                       SET embedding = %s
+                       SET embedding = %s::vector
                        WHERE module_id = %s AND resource_id = %s
                          AND chunk_id = %s""",
                     [

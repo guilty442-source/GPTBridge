@@ -161,15 +161,25 @@ fn normalize(text: &str) -> String {
 /// Deterministic hash embedding — byte-exact port of
 /// `xingcheng-hashed-embedding-v1`.
 pub(crate) fn embed(text: &str, dimension: usize) -> Vec<f32> {
+    embed_f64(text, dimension)
+        .into_iter()
+        .map(|v| v as f32)
+        .collect()
+}
+
+/// Full-precision variant — f64 values identical to the Python
+/// implementation's output, used to emit the canonical f64-le bytes the
+/// PostgreSQL chunk authority stores (`pack_embedding` wire format).
+pub(crate) fn embed_f64(text: &str, dimension: usize) -> Vec<f64> {
     let mut vector = vec![0.0f64; dimension];
     let normalized = normalize(text);
     if normalized.is_empty() {
-        return vec![0.0f32; dimension];
+        return vec![0.0f64; dimension];
     }
 
     let cjk: Vec<char> = normalized.chars().filter(|c| is_cjk(*c)).collect();
 
-    let mut hash_into = |feature: &str, vector: &mut [f64]| {
+    let hash_into = |feature: &str, vector: &mut [f64]| {
         let digest = blake2b_8(feature.as_bytes());
         let bucket =
             (u32::from_le_bytes(digest[..4].try_into().unwrap()) as usize) % dimension;
@@ -213,9 +223,9 @@ pub(crate) fn embed(text: &str, dimension: usize) -> Vec<f32> {
 
     let norm = vector.iter().map(|v| v * v).sum::<f64>().sqrt();
     if norm <= 0.0 {
-        return vec![0.0f32; dimension];
+        return vec![0.0f64; dimension];
     }
-    vector.iter().map(|v| (v / norm) as f32).collect()
+    vector.iter().map(|v| v / norm).collect()
 }
 
 #[cfg(test)]

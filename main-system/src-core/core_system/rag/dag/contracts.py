@@ -252,6 +252,7 @@ class RagDagExecutionContext:
     budgets: RagDagBudgets
     created_at: float
     cancel_requested: bool = False
+    cancel_event: Any | None = field(default=None, repr=False, compare=False)
 
     def to_record(self) -> dict[str, Any]:
         return {

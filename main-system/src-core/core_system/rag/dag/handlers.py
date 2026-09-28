@@ -35,6 +35,26 @@ _ARCH_BY_NAME.update(
 )
 
 
+def _cancelled(context: RagDagExecutionContext) -> bool:
+    if context.cancel_requested:
+        return True
+    event = context.cancel_event
+    if event is None:
+        return False
+    try:
+        return bool(event.is_set())
+    except AttributeError:
+        return bool(event)
+
+
+def _cancelled_result() -> Mapping[str, Any]:
+    return {
+        "ok": False,
+        "error": "execution-cancelled",
+        "evidence": {"cancelled": True},
+    }
+
+
 def _resolve(ref: Any, upstream: Mapping[str, Mapping[str, Any]]) -> Any:
     """Resolve a ``"<node_id>.<key>"`` evidence reference; anything else
     is returned as-is (literals pass through)."""
@@ -76,6 +96,8 @@ def retrieval_chain_handlers(
         context: RagDagExecutionContext,
         upstream: Mapping[str, Mapping[str, Any]],
     ) -> Mapping[str, Any]:
+        if _cancelled(context):
+            return _cancelled_result()
         names = node.inputs.get("rag_types") or ("hybrid",)
         archs = tuple(
             arch
@@ -84,7 +106,10 @@ def retrieval_chain_handlers(
         ) or (RagArchitecture.HYBRID,)
         call_scope = dict(scope)
         call_scope["module_ids"] = tuple(context.module_ids)
+        call_scope["_cancel_event"] = context.cancel_event
         pools = orchestrator.dispatch(archs, query, call_scope)
+        if _cancelled(context):
+            return _cancelled_result()
         candidates: list[RagEvidence] = [
             evidence for pool in pools.values() for evidence in pool
         ]
@@ -104,6 +129,8 @@ def retrieval_chain_handlers(
         context: RagDagExecutionContext,
         upstream: Mapping[str, Mapping[str, Any]],
     ) -> Mapping[str, Any]:
+        if _cancelled(context):
+            return _cancelled_result()
         candidates = _resolve_many(node.inputs.get("candidate_sets"), upstream)
         pools: dict[RagArchitecture, list[RagEvidence]] = {}
         for evidence in candidates:
@@ -123,6 +150,8 @@ def retrieval_chain_handlers(
         context: RagDagExecutionContext,
         upstream: Mapping[str, Mapping[str, Any]],
     ) -> Mapping[str, Any]:
+        if _cancelled(context):
+            return _cancelled_result()
         fused = list(_resolve(node.inputs.get("fused_candidates"), upstream) or [])
         if reranker is not None and fused:
             ranked = list(reranker(query, fused))
@@ -142,6 +171,8 @@ def retrieval_chain_handlers(
         context: RagDagExecutionContext,
         upstream: Mapping[str, Mapping[str, Any]],
     ) -> Mapping[str, Any]:
+        if _cancelled(context):
+            return _cancelled_result()
         ranked = list(
             _resolve(node.inputs.get("reranked_candidates"), upstream) or []
         )

@@ -75,10 +75,14 @@ class RagDagExecutor:
         compensations: dict[str, Any] = {}
         execution_state = RagDagState.SUCCEEDED
         succeeded_side_effects: list[RagDagNode] = []
+        execution_context = replace(
+            plan.context,
+            cancel_event=cancel_event,
+        )
 
         order = self._topological_order(plan)
         for node in order:
-            if self._cancelled(plan.context, cancel_event):
+            if self._cancelled(execution_context, cancel_event):
                 execution_state = RagDagState.CANCELLED
                 failure_reasons.append("execution-cancelled")
                 break
@@ -118,9 +122,23 @@ class RagDagExecutor:
 
             node_started = time.monotonic()
             outcome, error, attempts = self._run_with_retries(
-                handler, node, plan.context, upstream
+                handler, node, execution_context, upstream
             )
             latency_ms = int((time.monotonic() - node_started) * 1000)
+            if self._cancelled(execution_context, cancel_event):
+                results.append(
+                    RagDagNodeResult(
+                        node_id=node.node_id,
+                        node_type=node.node_type,
+                        state=RagDagState.CANCELLED,
+                        attempts=attempts,
+                        latency_ms=latency_ms,
+                        error="execution-cancelled",
+                    )
+                )
+                execution_state = RagDagState.CANCELLED
+                failure_reasons.append(f"execution-cancelled:{node.node_id}")
+                break
             # §10.11: feed per-stage latency into the RAG metrics surface
             # consumed by the perf-baseline snapshot.
             RAG_METRICS.observe_stage(node.node_type.value, latency_ms)

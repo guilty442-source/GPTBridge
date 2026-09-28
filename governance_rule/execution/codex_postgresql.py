@@ -50,7 +50,11 @@ _CODEX_CONN_IDLE_TTL_S: Final[float] = float(
 _CODEX_CONN_CACHE_MAX: Final[int] = int(
     os.environ.get("GPTBRIDGE_CODEX_CONN_CACHE_MAX", "4")
 )
-_cached_connections: dict[int, psycopg.Connection[Any]] = {}
+# Registry: id(conn) -> (conn, owner_thread_ident, last_used_monotonic).
+# A conn whose owning thread has exited is an orphan — it would hold a
+# backend slot for the rest of the process lifetime, which is exactly how
+# the slot exhaustion was observed.  Every borrow sweeps orphans.
+_cached_connections: dict[int, tuple[psycopg.Connection[Any], int | None, float]] = {}
 _cached_lock = threading.Lock()
 
 
@@ -66,10 +70,19 @@ def _drop_cached(connection: psycopg.Connection[Any]) -> None:
         _cached_connections.pop(id(connection), None)
 
 
+def _sweep_cached() -> None:
+    """Close orphaned/dead entries; must be called with _cached_lock held."""
+    alive = {thread.ident for thread in threading.enumerate()}
+    for key, (conn, owner, _last_used) in list(_cached_connections.items()):
+        if conn.closed or conn.broken or owner not in alive:
+            del _cached_connections[key]
+            _close_connection(conn)
+
+
 def close_cached_connections() -> None:
     """Close every cached codex read connection (process teardown/tests)."""
     with _cached_lock:
-        connections = list(_cached_connections.values())
+        connections = [entry[0] for entry in _cached_connections.values()]
         _cached_connections.clear()
     for connection in connections:
         _close_connection(connection)
@@ -112,16 +125,18 @@ def readonly_connection() -> Iterator[psycopg.Connection[Any]]:
             connection = candidate
             cached = True
     if connection is None:
+        # Connect outside the lock (~250 ms handshake must not serialize
+        # first-time borrowers); the cap is enforced on registration.
+        connection = _new_readonly_connection()
         with _cached_lock:
-            for key, conn in list(_cached_connections.items()):
-                if conn.closed or conn.broken:
-                    del _cached_connections[key]
+            _sweep_cached()
             cached = len(_cached_connections) < _CODEX_CONN_CACHE_MAX
             if cached:
-                connection = _new_readonly_connection()
-                _cached_connections[id(connection)] = connection
-        if not cached:
-            connection = _new_readonly_connection()
+                _cached_connections[id(connection)] = (
+                    connection,
+                    threading.get_ident(),
+                    time.monotonic(),
+                )
     assert connection is not None
     try:
         with connection.transaction():

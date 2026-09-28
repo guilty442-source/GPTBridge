@@ -43,9 +43,9 @@ const PENDING_CONN_CAPACITY: usize = 64;
 const PENDING_CONN_DEADLINE: Duration = Duration::from_millis(2000);
 
 use requests::{
-    AliasGetRequest, AliasSetRequest, EnsureRequest, FilteredRequest,
-    InfoRequest, SearchRequest, SearchTextRequest, UpsertRequest,
-    UpsertTextRequest,
+    AliasGetRequest, AliasSetRequest, EmbedRequest, EnsureRequest,
+    FilteredRequest, InfoRequest, SearchRequest, SearchTextRequest,
+    UpsertRequest, UpsertTextRequest,
 };
 
 struct App {
@@ -106,14 +106,18 @@ fn reject_over_capacity(mut stream: TcpStream) {
 }
 
 fn send_response(stream: &mut TcpStream, status: &str, body: &Value) {
-    let payload = body.to_string();
+    send_bytes(stream, status, "application/json", body.to_string().as_bytes());
+}
+
+fn send_bytes(stream: &mut TcpStream, status: &str, content_type: &str, body: &[u8]) {
     let response = format!(
-        "HTTP/1.1 {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         status,
-        payload.len()
+        content_type,
+        body.len()
     );
     let _ = stream.write_all(response.as_bytes());
-    let _ = stream.write_all(payload.as_bytes());
+    let _ = stream.write_all(body);
     let _ = stream.flush();
 }
 
@@ -421,9 +425,40 @@ fn load_snapshot(dir: &PathBuf, capacity_hint: usize) -> Option<Store> {
     Store::load(dump, capacity_hint).ok()
 }
 
+/// `/v1/embed` — batch text -> concatenated canonical f64-le embedding
+/// bytes (application/octet-stream).  The bytes equal
+/// `pack_embedding(vector)` per text, so callers persist them straight
+/// into the PostgreSQL chunk authority (B61/C56) without ever
+/// materialising a float list; vectord re-derives the identical f32
+/// vector at upsert_text/search_text time.
+fn handle_embed(stream: &mut TcpStream, body: &[u8]) {
+    let req: EmbedRequest = match serde_json::from_slice(body) {
+        Ok(r) => r,
+        Err(_) => {
+            send_response(stream, "200 OK", &err("INVALID_JSON"));
+            return;
+        }
+    };
+    if req.dimension == 0 || req.dimension > 65536 || req.texts.len() > 512 {
+        send_response(stream, "200 OK", &err("INVALID_REQUEST"));
+        return;
+    }
+    let mut out = Vec::with_capacity(req.texts.len() * req.dimension * 8);
+    for text in &req.texts {
+        for value in embed::embed_f64(text, req.dimension) {
+            out.extend_from_slice(&value.to_le_bytes());
+        }
+    }
+    send_bytes(stream, "200 OK", "application/octet-stream", &out);
+}
+
 fn handle_connection(mut stream: TcpStream, app: Arc<App>) {
     match read_request(&mut stream) {
         Ok((method, path, body)) => {
+            if method == "POST" && path == "/v1/embed" {
+                handle_embed(&mut stream, &body);
+                return;
+            }
             let response = route(&app, &method, &path, &body);
             send_response(&mut stream, "200 OK", &response);
         }

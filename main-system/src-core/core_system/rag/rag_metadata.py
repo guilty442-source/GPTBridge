@@ -111,8 +111,11 @@ _INDEX_STATE_DDL = (
         ADD COLUMN IF NOT EXISTS backend_generation INT NOT NULL DEFAULT 1
     """,
     """
+    CREATE EXTENSION IF NOT EXISTS vector
+    """,
+    """
     ALTER TABLE gptbridge_rag.chunk
-        ADD COLUMN IF NOT EXISTS embedding BYTEA
+        ADD COLUMN IF NOT EXISTS embedding vector
     """,
     """
     ALTER TABLE gptbridge_rag.chunk

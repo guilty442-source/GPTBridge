@@ -76,6 +76,15 @@ pub(crate) struct SearchRequest {
     pub filter: Filter,
 }
 
+/// Batch embed: texts in, concatenated f64-le canonical embedding bytes
+/// out (application/octet-stream) — the exact bytes the PostgreSQL chunk
+/// authority stores, so no float list is ever materialised by the caller.
+#[derive(Deserialize)]
+pub(crate) struct EmbedRequest {
+    pub texts: Vec<String>,
+    pub dimension: usize,
+}
+
 #[derive(Deserialize)]
 pub(crate) struct FilteredRequest {
     pub collection: String,
