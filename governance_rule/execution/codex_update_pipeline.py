@@ -332,14 +332,19 @@ def architecture_sync_errors() -> list[str]:
     return errors
 
 
-def _validate_and_render(stage: IsolatedStage, version: str | None) -> list[str]:
-    errors = list(
+def _staged_errors(stage: IsolatedStage, version: str | None) -> list[str]:
+    """Basic generation integrity for the staged database (shared gate)."""
+    return list(
         staged_generation_errors(
             stage.database.as_posix(),
             version=str(version).strip() if version else None,
             baseline_violations=stage.source_fk_violations,
         )
     )
+
+
+def _validate_and_render(stage: IsolatedStage, version: str | None) -> list[str]:
+    errors = _staged_errors(stage, version)
     if errors:
         return errors
     errors.extend(architecture_sync_errors())
@@ -359,6 +364,25 @@ def _validate_and_render(stage: IsolatedStage, version: str | None) -> list[str]
     return errors
 
 
+def _rebind_projections(
+    stage: IsolatedStage, bookkeeping: Mapping[str, str] | None
+) -> tuple[dict[str, Any], list[str]]:
+    """Rebind a prepared successor's derived projections to the staged
+    codex_version (version axis, revision chain, seal/epoch manifests,
+    search index, module manifest, normative surface).  Rebuild failures
+    return as rejection evidence — never an uncaught exception."""
+    from governance_rule.execution.codex_generation_projections import (
+        rebuild_generation_bookkeeping,
+    )
+
+    try:
+        return rebuild_generation_bookkeeping(
+            stage.database, **dict(bookkeeping or {})
+        ), []
+    except (OSError, ValueError, KeyError, sqlite3.Error) as error:
+        return {}, [f"generation bookkeeping rebuild failed: {error}"]
+
+
 def execute_staged_change(
     stage: IsolatedStage,
     *,
@@ -376,20 +400,23 @@ def execute_staged_change(
         _set_read_only(stage.database, False)
         shutil.copyfile(prepared, stage.database)
     _normalize_version(stage.database, version)
+    errors: list[str] = []
     bookkeeping_evidence: dict[str, Any] = {}
     if prepared_database is not None:
-        # A prepared successor is a new generation: rebind every derived
-        # projection (version axis, revision chain, seal/epoch manifests,
-        # search index, module manifest, normative surface) to the staged
-        # codex_version before validation and publication.
-        from governance_rule.execution.codex_generation_projections import (
-            rebuild_generation_bookkeeping,
-        )
-
-        bookkeeping_evidence = rebuild_generation_bookkeeping(
-            stage.database, **dict(bookkeeping or {})
-        )
-    errors = _validate_and_render(stage, version)
+        # A prepared successor must pass basic generation integrity before
+        # any derived projection is rebound onto it; a corrupted successor
+        # is rejected here instead of crashing the rebuild mid-write.
+        errors = _staged_errors(stage, version)
+        if not errors:
+            # A prepared successor is a new generation: rebind every derived
+            # projection to the staged codex_version before validation and
+            # publication; a failed rebind rejects the phase fail-closed.
+            bookkeeping_evidence, rebind_errors = _rebind_projections(
+                stage, bookkeeping
+            )
+            errors.extend(rebind_errors)
+    if not errors:
+        errors = _validate_and_render(stage, version)
     return PhaseRecord(
         phase="execute-change",
         ok=not errors,
