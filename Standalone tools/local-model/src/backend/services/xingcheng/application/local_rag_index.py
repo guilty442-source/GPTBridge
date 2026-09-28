@@ -100,6 +100,20 @@ class LocalRagIndexMixin:
             for chunk, point in zip(prepared, points)
         ]
         try:
+            # PERF-07: f64-le records take the text-mode write — vectord
+            # re-derives the index vectors in-engine (upsert_text) and PG
+            # binds the bytes verbatim; legacy float lists keep the
+            # vector-bearing path unchanged.
+            if points and isinstance(
+                points[0].get("vector"), (bytes, bytearray, memoryview)
+            ):
+                return bool(
+                    self.canonical.index_document_text(
+                        document=document_record,
+                        chunks=canonical_chunks,
+                        embedding_records=[point["vector"] for point in points],
+                    )
+                )
             return bool(
                 self.canonical.index_document(
                     document=document_record,
@@ -127,10 +141,28 @@ class LocalRagIndexMixin:
         if unchanged is not None:
             return unchanged
         chunks = self._chunks(document["text"])
-        vectors = self._embed([chunk["content"] for chunk in chunks])
+        chunk_texts = [chunk["content"] for chunk in chunks]
+        # PERF-07: canonical-ready asks the owning engine for f64-le
+        # embedding records (binary /v1/embed) — the bytes feed the PG
+        # chunk authority and the mirror blob verbatim, so no Python float
+        # list is ever materialised.  Degraded keeps the local embed path.
+        records = (
+            self.canonical.embed_bytes(chunk_texts)
+            if canonical_ready
+            else None
+        )
+        vectors: list[Any] = (
+            list(records) if records else self._embed(chunk_texts)
+        )
         if not vectors or not vectors[0]:
             raise RuntimeError("RAG_EMBEDDING_EMPTY")
-        self.vector_store.ensure_collection(len(vectors[0]))
+        first = vectors[0]
+        dimension = (
+            len(first) // 8
+            if isinstance(first, (bytes, bytearray, memoryview))
+            else len(first)
+        )
+        self.vector_store.ensure_collection(dimension)
         identity = ResourceIdentity(
             module_id=module_id,
             data_category="business",

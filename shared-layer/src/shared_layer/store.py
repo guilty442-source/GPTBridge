@@ -69,6 +69,7 @@ class _ConnectionPool:
         self._timeout = timeout
         self._pool: list[tuple[Any, float]] = []
         self._in_use: set[int] = set()
+        self._creating = 0
         self._lock = threading.Lock()
         self._closed = False
         import psycopg
@@ -129,54 +130,76 @@ class _ConnectionPool:
             return conn
         return None
 
-    @contextmanager
-    def acquire(self):
-        conn = None
+    def _acquire_one(self) -> Any:
+        """Bounded acquisition: idle reuse, in-cap create, else timed wait.
+
+        The connect() handshake and the caller's borrow both run *outside*
+        the pool lock — the previous shape yielded inside ``_lock`` which
+        serialized every borrow and made the timeout path unreachable.
+        ``_creating`` reserves a slot so racing creators cannot overshoot
+        ``max``.
+        """
+        deadline = time.monotonic() + self._timeout
+        reserved = False
         try:
-            with self._lock:
-                if self._closed:
-                    raise RuntimeError("pool closed")
-                conn = self._checkout_idle()
-                if conn is None and len(self._in_use) + len(self._pool) < self._max:
-                    conn = self._new_conn()
-                if conn is not None:
-                    self._in_use.add(id(conn))
-                    yield conn
-                    return
-            # Wait for a connection (low-CPU: 50ms granularity is ample
-            # for a multi-second pool timeout; avoids 100Hz spin).
-            start = time.monotonic()
-            while time.monotonic() - start < self._timeout:
+            while True:
                 with self._lock:
+                    if self._closed:
+                        raise RuntimeError("pool closed")
                     conn = self._checkout_idle()
                     if conn is not None:
                         self._in_use.add(id(conn))
-                        yield conn
-                        return
+                        return conn
+                    if not reserved and (
+                        len(self._in_use) + len(self._pool) + self._creating
+                        < self._max
+                    ):
+                        self._creating += 1
+                        reserved = True
+                    elif not reserved and time.monotonic() >= deadline:
+                        raise TimeoutError("connection pool exhausted")
+                if reserved:
+                    conn = self._new_conn()
+                    with self._lock:
+                        self._creating -= 1
+                        reserved = False
+                        self._in_use.add(id(conn))
+                    return conn
+                # Low-CPU: 50ms granularity is ample for a multi-second
+                # pool timeout; avoids 100Hz spin.
                 time.sleep(0.05)
-            raise TimeoutError("connection pool exhausted")
-        finally:
-            if conn is not None:
-                # Deterministic session reset (C59): a conn returned with an
-                # open/aborted transaction must never leak INTRANS state to
-                # the next borrower.
-                try:
-                    if not conn.closed and conn.info.transaction_status.name != "IDLE":
-                        conn.rollback()
-                except Exception:
-                    pass
+        except BaseException:
+            if reserved:
                 with self._lock:
-                    self._in_use.discard(id(conn))
-                    # Perf: retain up to max (not min) to avoid
-                    # close/reconnect churn under bursty concurrency; the
-                    # idle reaper still bounds slot hold time.
-                    if not self._closed and len(self._pool) < self._max and not conn.closed:
-                        self._pool.append((conn, time.monotonic()))
-                    else:
-                        try:
-                            conn.close()
-                        except Exception:
-                            pass
+                    self._creating -= 1
+            raise
+
+    @contextmanager
+    def acquire(self):
+        conn = self._acquire_one()
+        try:
+            yield conn
+        finally:
+            # Deterministic session reset (C59): a conn returned with an
+            # open/aborted transaction must never leak INTRANS state to
+            # the next borrower.
+            try:
+                if not conn.closed and conn.info.transaction_status.name != "IDLE":
+                    conn.rollback()
+            except Exception:
+                pass
+            with self._lock:
+                self._in_use.discard(id(conn))
+                # Perf: retain up to max (not min) to avoid
+                # close/reconnect churn under bursty concurrency; the
+                # idle reaper still bounds slot hold time.
+                if not self._closed and len(self._pool) < self._max and not conn.closed:
+                    self._pool.append((conn, time.monotonic()))
+                else:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
 
     def close_all(self) -> None:
         with self._lock:

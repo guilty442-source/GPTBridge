@@ -352,13 +352,24 @@ class LocalVectorStore:
         if not point_id:
             raise ValueError("RAG_POINT_ID_REQUIRED")
         raw_vector = point.get("vector")
-        if isinstance(raw_vector, (list, tuple)) and raw_vector:
-            vector = [float(value) for value in raw_vector]
-        elif str(point.get("text") or "").strip():
-            vector = _token_vector(str(point["text"]), self._dimension)
+        if isinstance(raw_vector, (bytes, bytearray, memoryview)):
+            # Canonical f64-le record from the owning engine (PERF-07):
+            # the engine output is already L2-normalized, so the blob is
+            # stored verbatim — no float list is ever materialised.
+            vector_blob = bytes(raw_vector)
+            if not vector_blob or len(vector_blob) % 8:
+                raise ValueError("RAG_POINT_VECTOR_BYTES_INVALID")
+            vector_size = len(vector_blob) // 8
         else:
-            raise ValueError("RAG_POINT_VECTOR_OR_TEXT_REQUIRED")
-        vector = _normalize(vector)
+            if isinstance(raw_vector, (list, tuple)) and raw_vector:
+                vector = [float(value) for value in raw_vector]
+            elif str(point.get("text") or "").strip():
+                vector = _token_vector(str(point["text"]), self._dimension)
+            else:
+                raise ValueError("RAG_POINT_VECTOR_OR_TEXT_REQUIRED")
+            vector = _normalize(vector)
+            vector_blob = bytes(struct.pack(f"<{len(vector)}d", *vector))
+            vector_size = len(vector)
         point_module = str(point.get("module_id") or resolved_module)
         payload = dict(point.get("payload") or {})
         payload["module_id"] = str(payload.get("module_id") or point_module)
@@ -367,10 +378,10 @@ class LocalVectorStore:
             point_id,
             document_id,
             point_module,
-            bytes(struct.pack(f"<{len(vector)}d", *vector)),
+            vector_blob,
             json.dumps(payload, ensure_ascii=False),
         )
-        return row, len(vector)
+        return row, vector_size
 
     def query(
         self,

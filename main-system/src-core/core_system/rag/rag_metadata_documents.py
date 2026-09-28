@@ -11,14 +11,25 @@ from __future__ import annotations
 
 import json
 import logging
+import struct
 import uuid
 from typing import Any, Optional, Sequence
 
 _logger = logging.getLogger("gptbridge.rag")
 
 
-def pack_embedding(vector: Sequence[float]) -> str:
-    """Canonical embedding literal in pgvector text form ``[f,f,…]``."""
+def pack_embedding(vector: Any) -> str:
+    """Canonical embedding literal in pgvector text form ``[f,f,…]``.
+
+    Accepts a float sequence or a canonical f64-le byte record produced by
+    the owning engine (vectord ``/v1/embed``, PERF-07): bytes are decoded
+    straight into the literal — no Python float list is materialised.
+    """
+    if isinstance(vector, (bytes, bytearray, memoryview)):
+        blob = bytes(vector)
+        return "[" + ",".join(
+            repr(value) for (value,) in struct.iter_unpack("<d", blob)
+        ) + "]"
     return "[" + ",".join(repr(float(v)) for v in vector) + "]"
 
 
@@ -113,7 +124,8 @@ def _chunk_params(
         embedding_model,
         str(chunk.get("locator_fragment") or f"#chunk-{chunk['sequence']}"),
         json.dumps(metadata, ensure_ascii=False),
-        pack_embedding(embedding) if isinstance(embedding, (list, tuple))
+        pack_embedding(embedding)
+        if isinstance(embedding, (list, tuple, bytes, bytearray, memoryview))
         else (str(embedding) if embedding else None),
     )
 

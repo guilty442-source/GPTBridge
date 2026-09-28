@@ -394,6 +394,64 @@ class CanonicalRagAdapter:
             f_keyword.result(timeout=_CALL_TIMEOUT_SECONDS),
         )
 
+    def query_text(
+        self,
+        question: str,
+        *,
+        module_ids: tuple[str, ...],
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Canonical dense retrieval by raw text (PERF-07): vectord embeds
+        the query internally — no vector crosses the Python boundary."""
+        return self._submit(
+            self._pipeline.text_search(
+                str(question), module_ids=module_ids, top_k=int(limit)
+            )
+        )
+
+    def query_text_and_keyword(
+        self,
+        question: str,
+        *,
+        module_ids: tuple[str, ...],
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Text dense + keyword retrieval submitted concurrently (PERF-07):
+        the query vector never materialises on the Python side."""
+        self._start()
+        self._init_event.wait(timeout=10.0)
+        if self._loop is None or self._pipeline is None or not self._ready:
+            raise RuntimeError("CANONICAL_RAG_NOT_READY")
+        f_dense = asyncio.run_coroutine_threadsafe(
+            self._pipeline.text_search(
+                str(question), module_ids=module_ids, top_k=int(limit)
+            ),
+            self._loop,
+        )
+        f_keyword = asyncio.run_coroutine_threadsafe(
+            self._pipeline.keyword_search(
+                str(question), module_ids=module_ids, limit=int(limit)
+            ),
+            self._loop,
+        )
+        return (
+            f_dense.result(timeout=_CALL_TIMEOUT_SECONDS),
+            f_keyword.result(timeout=_CALL_TIMEOUT_SECONDS),
+        )
+
+    def embed_bytes(self, texts: Sequence[str]) -> Optional[list[Any]]:
+        """Canonical f64-le embedding records from vectord ``/v1/embed``
+        (binary response, ``memoryview`` slices).  ``None`` when the engine
+        lacks the capability — callers keep the local embed path."""
+        if not self._enabled:
+            return None
+        try:
+            return self._submit(
+                self._pipeline.vector.embed_texts([str(t) for t in texts])
+            )
+        except RuntimeError:
+            return None
+
     def fetch_document(
         self, *, module_id: str, resource_id: str
     ) -> Optional[dict[str, Any]]:
@@ -422,6 +480,29 @@ class CanonicalRagAdapter:
                     document=document,
                     chunks=chunks,
                     vectors=vectors,
+                    collection_dimension=dimension,
+                ),
+                timeout=max(_CALL_TIMEOUT_SECONDS, 5.0 * len(chunks)),
+            )
+        )
+
+    def index_document_text(
+        self,
+        *,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        embedding_records: list[Any],
+    ) -> bool:
+        """Text-mode canonical write (PERF-07): PG binds the canonical
+        f64-le embedding bytes; vectord re-derives the index vectors from
+        chunk content — no float list or vector JSON crosses the wire."""
+        dimension = len(embedding_records[0]) // 8 if embedding_records else 0
+        return bool(
+            self._submit(
+                self._pipeline.index_document_text(
+                    document=document,
+                    chunks=chunks,
+                    embedding_records=embedding_records,
                     collection_dimension=dimension,
                 ),
                 timeout=max(_CALL_TIMEOUT_SECONDS, 5.0 * len(chunks)),

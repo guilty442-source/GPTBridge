@@ -109,21 +109,35 @@ class LocalRagRetrievalMixin:
 
     def _retrieve(
         self,
-        vector: list[float],
         question: str,
         module_ids: tuple[str, ...],
         candidate_limit: int,
         canonical_ready: bool,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        """A371/A373: canonical path first; bounded local mirror on failure."""
+        """A371/A373: canonical text path first; bounded mirror on failure.
+
+        PERF-07: the canonical read embeds the question inside vectord —
+        the query vector never materialises on the Python side.  Only the
+        degraded mirror path pays for a local embedding.
+        """
         if canonical_ready:
             try:
                 parallel = getattr(
-                    self.canonical, "query_vector_and_keyword", None
+                    self.canonical, "query_text_and_keyword", None
                 )
                 if callable(parallel):
                     # Dense + keyword round trips overlap on the pipeline
                     # loop — wall time is max(dense, keyword), not the sum.
+                    return parallel(
+                        question,
+                        module_ids=module_ids,
+                        limit=candidate_limit,
+                    )
+                vector = self._embed([question])[0]
+                parallel = getattr(
+                    self.canonical, "query_vector_and_keyword", None
+                )
+                if callable(parallel):
                     return parallel(
                         vector,
                         question,
@@ -140,6 +154,7 @@ class LocalRagRetrievalMixin:
                 )
             except (OSError, RuntimeError, ValueError) as exc:
                 self.canonical.mark_unhealthy(str(exc))
+        vector = self._embed([question])[0]
         return (
             self.vector_store.query(vector, limit=candidate_limit, module_ids=module_ids),
             self.repository.keyword_search(
@@ -154,17 +169,17 @@ class LocalRagRetrievalMixin:
         candidate_limit: int,
         canonical_ready: bool,
     ) -> tuple[list[dict[str, Any]], bool]:
-        """Embed + canonical/degraded retrieval + RRF; returns (hybrid, pending)."""
-        vectors = self._embed([question])
+        """Canonical/degraded retrieval + RRF; returns (hybrid, pending)."""
         vector_results, keyword_results = self._retrieve(
-            vectors[0], question, module_ids, candidate_limit, canonical_ready
+            question, module_ids, candidate_limit, canonical_ready
         )
         hybrid = self._hybrid_rrf(vector_results, keyword_results)
         if canonical_ready and not hybrid:
             # Canonical takeover proved live but holds no data yet; serve the
             # unreconciled local mirror once and flag it (A44 degraded read).
+            vector = self._embed([question])[0]
             return self._degraded_rrf(
-                vectors[0], question, module_ids, candidate_limit
+                vector, question, module_ids, candidate_limit
             )
         return hybrid, False
 

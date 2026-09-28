@@ -70,6 +70,145 @@ class PipelineDocumentsMixin:
             return False
         return True
 
+    async def index_document_text(
+        self,
+        *,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        embedding_records: list[Any],
+        collection_dimension: Optional[int] = None,
+    ) -> bool:
+        """Text-mode canonical write (PERF-07).
+
+        ``embedding_records`` are canonical f64-le byte records produced by
+        the owning engine's ``/v1/embed`` — they are bound straight into the
+        PostgreSQL chunk authority (B61/C56) without materialising a float
+        list, and vectord re-derives the identical vectors from the chunk
+        ``content`` for its derived projection.  ``None``-capable clients
+        fall back to :meth:`index_document` at the caller.
+        """
+        if self._blocked_reason:
+            raise RuntimeError(self._blocked_reason)
+        await self.attempt_recovery()
+        module_id = str(document["module_id"])
+        resource_id = str(document["resource_id"])
+        if self.state == RagRuntimeState.DEGRADED:
+            await self._enqueue_document_mutation(document, chunks)
+            return False
+        if not self.is_ready():
+            raise RuntimeError("RAG pipeline not ready")
+        if collection_dimension:
+            self.config.embedding_dimension = int(collection_dimension)
+        if len(embedding_records) != len(chunks):
+            raise RuntimeError("RAG_EMBEDDING_COUNT_MISMATCH")
+
+        if await self._tombstoned(module_id, resource_id):
+            return False
+
+        embedding_model = str(
+            document.get("embedding_model") or self.config.embedding_model
+        )
+        if not await self._canonical_document_write_text(
+            document, chunks, embedding_records, resource_id, module_id,
+            embedding_model, collection_dimension,
+        ):
+            await self._enqueue_document_mutation(document, chunks)
+            return False
+        return True
+
+    async def _canonical_document_write_text(
+        self,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        embedding_records: list[Any],
+        resource_id: str,
+        module_id: str,
+        embedding_model: str,
+        collection_dimension: Optional[int],
+    ) -> bool:
+        """Text-mode twin of :meth:`_canonical_document_write`: PG tx binds
+        the canonical embedding bytes; the vectord upsert is text-bearing so
+        the engine embeds in-process (no vector JSON on the wire)."""
+        event = self._new_outbox_event(
+            operation=OutboxOperation.UPSERT_RESOURCE,
+            module_id=module_id,
+            resource_id=resource_id,
+            source_version=int(document.get("version") or 0),
+            content_hash=str(
+                document.get("sha256") or document.get("content_hash") or ""
+            ),
+            generation_id=str(document.get("generation_id") or ""),
+            request_id=str(document.get("request_id") or "") or None,
+            payload={
+                "chunk_ids": [str(c.get("chunk_id")) for c in chunks],
+            },
+        )
+        # B61/C56: canonical PG transaction carries the embedding bytes.
+        for chunk, record in zip(chunks, embedding_records):
+            chunk["embedding"] = record
+        write_tx = getattr(self.postgresql, "document_write_tx", None)
+        if write_tx is not None:
+            if not await write_tx(
+                document=document,
+                chunks=chunks,
+                embedding_model=embedding_model,
+                outbox_event=event,
+            ):
+                return False
+        else:
+            if not await self._pg_document_writes(
+                document, chunks, resource_id, module_id, embedding_model
+            ):
+                return False
+            insert = getattr(self.postgresql, "insert_outbox_event", None)
+            if insert is not None:
+                await insert(event)
+        if not await self.vector.ensure_collection(collection_dimension):
+            return False
+        points = self._document_text_points(document, chunks, module_id, resource_id)
+        if not (points and await self.vector.upsert_text_points(points)):
+            mark = getattr(self.postgresql, "mark_outbox", None)
+            if mark is not None:
+                await mark(
+                    event["event_id"], OutboxState.RETRY.value,
+                    error="vector upsert pending",
+                    next_retry_at=datetime.now(timezone.utc).isoformat(),
+                )
+            return False
+        mark = getattr(self.postgresql, "mark_outbox", None)
+        if mark is not None:
+            await mark(event["event_id"], OutboxState.SUCCEEDED.value,
+                       terminal=True)
+        return await self._writeback_index_state(
+            document, chunks, resource_id, module_id, embedding_model,
+            collection_dimension,
+        )
+
+    def _document_text_points(
+        self,
+        document: dict[str, Any],
+        chunks: list[dict[str, Any]],
+        module_id: str,
+        resource_id: str,
+    ) -> list[dict[str, Any]]:
+        """Text-bearing vectord points — the engine embeds ``text`` itself."""
+        return [
+            {
+                "id": str(chunk.get("vector_point_id") or chunk.get("point_id")),
+                "text": str(chunk.get("content") or ""),
+                "payload": sanitize_payload(
+                    {
+                        "module_id": module_id,
+                        "document_resource_id": resource_id,
+                        "document_id": document.get("document_id"),
+                        "indexed_at_utc": datetime.now(timezone.utc).isoformat(),
+                        **(chunk.get("payload") or {}),
+                    }
+                ),
+            }
+            for chunk in chunks
+        ]
+
     async def _canonical_document_write(
         self,
         document: dict[str, Any],

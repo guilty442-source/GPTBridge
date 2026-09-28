@@ -458,6 +458,59 @@ class CanonicalRagPipeline(
                 (time.perf_counter() - started) * 1000
             )
             raise
+        return await self._prove_vector_hits(hits, module_ids, trace, started)
+
+    async def text_search(
+        self,
+        query_text: str,
+        *,
+        module_ids: tuple[str, ...],
+        top_k: int,
+        score_threshold: Optional[float] = None,
+    ) -> list[dict[str, Any]]:
+        """Canonical dense retrieval by raw text (PERF-07).
+
+        The owning engine embeds ``query_text`` internally — no vector is
+        serialised across the Python↔vectord boundary.  The PostgreSQL
+        index_state proof barrier below is identical to
+        :meth:`vector_search`.
+        """
+        if self._blocked_reason:
+            raise RuntimeError(self._blocked_reason)
+        await self.attempt_recovery()
+        if not self.is_ready():
+            raise RuntimeError("RAG pipeline not ready")
+        from .observability import RAG_METRICS, current_trace, timed_stage
+        RAG_METRICS.inc("rag_query_total")
+        RAG_METRICS.inc("canonical_query_total")
+        trace = current_trace()
+        started = time.perf_counter()
+        try:
+            with timed_stage("vector"):
+                hits = await self.vector.search_text(
+                    query_text,
+                    module_ids=module_ids,
+                    top_k=top_k,
+                    score_threshold=score_threshold,
+                )
+        except Exception:
+            RAG_METRICS.inc("rag_query_failed_total")
+            RAG_METRICS.inc("vector_error_total")
+            RAG_METRICS.observe_latency(
+                (time.perf_counter() - started) * 1000
+            )
+            raise
+        return await self._prove_vector_hits(hits, module_ids, trace, started)
+
+    async def _prove_vector_hits(
+        self,
+        hits: list[dict[str, Any]],
+        module_ids: tuple[str, ...],
+        trace: Any,
+        started: float,
+    ) -> list[dict[str, Any]]:
+        """Shared canonical read barrier for vector/text searches."""
+        from .observability import RAG_METRICS, timed_stage
         if not hits:
             RAG_METRICS.inc("retrieval_zero_result_total")
             RAG_METRICS.observe_latency(
