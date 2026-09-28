@@ -736,3 +736,14 @@ Flip the default by writing `{"host":"tauri"}` to
 `launcher/state/ui-host.json` — no launcher rebuild needed. Journal
 events: `launcher.ui-host.selected`, `.phase.tauri.start`,
 `.tauri.accepted|.handoff|.exited`, `.ui-host.fallback`.
+
+## Bounded Parallelism
+
+Parallelize only independent work units with explicit bounds: RAG candidate
+search branches, embedding batches, file scans, network requests, independent
+SQL reads, independent audit checks, model preprocessing, tool health probes,
+and independent build/test units. Keep dependent stages ordered at the merge
+boundary (for example dense/sparse/code retrieval → fuse → rerank), and do not
+split tiny functions, frequent cross-language calls, small JSON conversions,
+shared-cache-line state, or lock-heavy work. Retrieval ownership remains the
+Rust `vectord-rs` path; parallel retrieval must remain bounded and governed.
