@@ -189,11 +189,10 @@ def _passing_checks() -> dict[str, object]:
         },
         "xingcheng": lambda: {
             "ok": True,
-            "method": "xingcheng-web-search",
-            "network_search": True,
+            "method": "xingcheng-assistant-core-audit",
             "evidence": {
-                "network_search": {"queries": 1, "responses": 1},
-                "source_classification": ["xingcheng-web-search"],
+                "assistant_core_review": "deterministic-standard-charter",
+                "scope_classification": ["registry:formal_rule_registry"],
                 "redaction_check": "metadata-only",
             },
         },
