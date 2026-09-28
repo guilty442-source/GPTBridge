@@ -21,9 +21,23 @@ for _p in (str(SERVICES), str(SHARED_SRC), str(ROOT)):
         sys.path.insert(0, _p)
 del _p
 
+import importlib
+
+
+def _v2_module():
+    """Resolve the A627 timestamped v2 artifact module — the name is date-
+    stamped, not fixed, so glob instead of hard-coding the date."""
+    infra = SERVICES / "xingcheng" / "infrastructure"
+    cands = sorted(infra.glob("chinese_semantic_engine_*.py"))
+    assert len(cands) == 1, (
+        f"expected one timestamped v2 module, got {[c.name for c in cands]}"
+    )
+    return importlib.import_module(
+        f"xingcheng.infrastructure.{cands[0].stem}")
+
 
 def test_package_import_surface() -> None:
-    from xingcheng.infrastructure import chinese_semantic_engine_v2 as mod
+    mod = _v2_module()
 
     for name in (
         "ChineseSemanticEngineV2", "XingchengSemanticProcessor",
@@ -37,7 +51,7 @@ def test_package_import_surface() -> None:
 
 def test_module_identity_is_internal() -> None:
     """v2 是 xingcheng 的內部模組，不再是 standalone-service。"""
-    from xingcheng.infrastructure import chinese_semantic_engine_v2 as mod
+    mod = _v2_module()
 
     assert mod.COMPONENT_ID == "chinese-semantic-engine"
     assert mod.OWNER_SOVEREIGN == "xingcheng-domain"
@@ -45,10 +59,9 @@ def test_module_identity_is_internal() -> None:
 
 
 def test_engine_construction_and_defaults() -> None:
-    from xingcheng.infrastructure.chinese_semantic_engine_v2 import (
-        SemanticConfig,
-        create_engine,
-    )
+    mod = _v2_module()
+    SemanticConfig = mod.SemanticConfig
+    create_engine = mod.create_engine
 
     engine = create_engine()
     cfg = engine.config
@@ -60,10 +73,9 @@ def test_engine_construction_and_defaults() -> None:
 
 
 def test_request_response_dataclass_contract() -> None:
-    from xingcheng.infrastructure.chinese_semantic_engine_v2 import (
-        SemanticRequest,
-        SemanticResponse,
-    )
+    mod = _v2_module()
+    SemanticRequest = mod.SemanticRequest
+    SemanticResponse = mod.SemanticResponse
 
     req = SemanticRequest(text="測試文本", operation="analyze")
     assert req.priority_class == "interactive"
@@ -74,9 +86,7 @@ def test_request_response_dataclass_contract() -> None:
 
 
 def test_hook_registration_validation() -> None:
-    from xingcheng.infrastructure.chinese_semantic_engine_v2 import create_engine
-
-    engine = create_engine()
+    engine = _v2_module().create_engine()
     with pytest.raises(ValueError):
         engine.register_hook("not_a_hook", lambda r: r)
 
@@ -87,32 +97,22 @@ def test_hook_registration_validation() -> None:
 
 
 def test_unknown_operation_fail_closed() -> None:
-    from xingcheng.infrastructure.chinese_semantic_engine_v2 import (
-        SemanticValidationError,
-        create_engine,
-    )
-
-    engine = create_engine()
-    with pytest.raises(SemanticValidationError):
+    mod = _v2_module()
+    engine = mod.create_engine()
+    with pytest.raises(mod.SemanticValidationError):
         asyncio.run(engine.process("文本", operation="bogus"))
 
 
 def test_missing_processor_fail_closed() -> None:
     """未注入 processor 時 analyze 必須 fail-closed，不允許靜默降級。"""
-    from xingcheng.infrastructure.chinese_semantic_engine_v2 import (
-        SemanticModelUnavailable,
-        create_engine,
-    )
-
-    engine = create_engine()
-    with pytest.raises(SemanticModelUnavailable):
+    mod = _v2_module()
+    engine = mod.create_engine()
+    with pytest.raises(mod.SemanticModelUnavailable):
         asyncio.run(engine.process("文本", operation="analyze"))
 
 
 def test_health_check_structure() -> None:
-    from xingcheng.infrastructure.chinese_semantic_engine_v2 import create_engine
-
-    engine = create_engine()
+    engine = _v2_module().create_engine()
     health = asyncio.run(engine.health_check())
     assert health["component"] == "chinese-semantic-engine"
     assert health["version"]
@@ -124,17 +124,12 @@ def test_health_check_structure() -> None:
 
 def test_analyze_roundtrip_with_native_processor() -> None:
     """注入 XingchengSemanticProcessor 後 analyze 走星澄 v1 引擎。"""
-    from xingcheng.infrastructure.chinese_semantic_engine_v2 import (
-        SemanticRequest,
-        XingchengSemanticProcessor,
-        SemanticConfig,
-        create_engine,
-    )
-
-    engine = create_engine(processor=XingchengSemanticProcessor(SemanticConfig()))
+    mod = _v2_module()
+    engine = mod.create_engine(
+        processor=mod.XingchengSemanticProcessor(mod.SemanticConfig()))
     asyncio.run(engine.initialize())
     resp = asyncio.run(
-        engine.analyze(SemanticRequest(text="請幫我查詢明天天氣", operation="analyze"))
+        engine.analyze(mod.SemanticRequest(text="請幫我查詢明天天氣", operation="analyze"))
     )
     assert resp.result  # star-semantic-plan/v1 投影
     assert resp.metadata["model"] == "xingcheng-native"

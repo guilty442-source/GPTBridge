@@ -10,6 +10,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
+
+#include "governor_budget.h"
 
 namespace gptbridge {
 namespace governor {
@@ -187,6 +190,39 @@ void fill_snapshot_state(CycleEnv& env) {
     env.snap.actions = std::move(env.actions);
 }
 
+/* A590/A593/A598：全域 concurrency 配額 — 由 worker 預算滯回、回應探針與
+ * 整機過載推得壓力層級，發佈 8 類 quota；配額變動才遞增 generation 並在
+ * 日誌留下變更證據（A622 generation 綁定＋before/after 簽章）。 */
+void fill_concurrency_budget(CycleEnv& env) {
+    const BudgetPolicy policy = resolve_budget_policy(env.rules.defaults);
+    if (!policy.enabled) return;
+    const bool machine_hot =
+        env.sys.cpu_load_machine > kGlobalCpuLimitPct ||
+        env.sys.mem_used_pct > kGlobalRamLimitPct;
+    PressureTier tier = PressureTier::None;
+    if (env.regulation.active || env.strained) {
+        tier = PressureTier::Active;
+    } else if (env.regulation.pre || machine_hot) {
+        tier = PressureTier::Pre;
+    }
+    ConcurrencyBudget budget = compute_budget(
+        policy, env.logical, tier, env.regulation.budget_generation);
+    const std::string sig = budget_signature(budget);
+    if (sig != env.regulation.budget_signature) {
+        budget.generation = env.regulation.budget_generation + 1;
+        env.regulation.budget_generation = budget.generation;
+        env.logs.push_back(
+            jobj({{"action", jstr("concurrency-budget")},
+                  {"generation", jint(budget.generation)},
+                  {"pressure", jstr(pressure_name(tier))},
+                  {"total_quota", jint(budget.total_quota)},
+                  {"from", jstr(env.regulation.budget_signature)},
+                  {"to", jstr(sig)}}));
+        env.regulation.budget_signature = sig;
+    }
+    env.snap.concurrency_budget = budget;
+}
+
 void maybe_log_sample(CycleEnv& env) {
     if (!env.config.log_samples) return;
     env.logs.push_back(jobj(
@@ -224,6 +260,7 @@ Snapshot govern_once(const GovernorConfig& config, const RulesDoc& rules,
     sweep_dead_records(env);
     probalance_pass(env);
     const RegUpdate update = finalize_ledger(env);
+    fill_concurrency_budget(env);
     fill_snapshot_core(env, update);
     fill_snapshot_state(env);
     maybe_log_sample(env);

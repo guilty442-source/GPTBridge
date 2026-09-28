@@ -9,6 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _xingcheng_test_support  # noqa: F401,E402
 
+import pytest  # noqa: E402
+
 try:
     from test_training_job_executor import _fake_train_fn, _queued_job  # noqa: E402
     from xingcheng.infrastructure.native_transformer.execution.auto_release import (  # noqa: E402
@@ -18,10 +20,12 @@ except ModuleNotFoundError as _exc:
     if _exc.name != "torch":
         raise
     _fake_train_fn = _queued_job = get_manager = None  # type: ignore[assignment]
+except pytest.skip.Exception:
+    # A612: test_training_job_executor guards torch with importorskip, which
+    # raises Skipped during import; absent helpers must not abort collection.
+    _fake_train_fn = _queued_job = get_manager = None  # type: ignore[assignment]
 
-import pytest  # noqa: E402
-
-pytestmark = pytest.mark.skipif(
+_needs_torch_helpers = pytest.mark.skipif(
     _queued_job is None,
     reason="A612: torch lineage retired; test_training_job_executor helpers unavailable",
 )
@@ -33,6 +37,7 @@ from xingcheng.infrastructure.transformer_training_repository import (  # noqa: 
 )
 
 
+@_needs_torch_helpers
 def test_training_state_releases_inference_resources(tmp_path: Path):
     repository = TransformerTrainingRepository(tmp_path)
     job = _queued_job(repository, tmp_path, max_steps=4)
@@ -117,6 +122,7 @@ def test_default_trainer_runs_in_subprocess(tmp_path: Path):
     assert not (tmp_path / "job3" / "train-error.json").exists()
 
 
+@_needs_torch_helpers
 def test_non_training_state_writes_no_ledger(tmp_path: Path):
     repository = TransformerTrainingRepository(tmp_path)
     executor = TrainingJobExecutor(repository, train_fn=_fake_train_fn)

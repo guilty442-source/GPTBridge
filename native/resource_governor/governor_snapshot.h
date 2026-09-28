@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "governor_budget.h"
 #include "governor_engine.h"
 #include "governor_json_utils.h"
 #include "governor_rules.h"
@@ -103,6 +104,9 @@ struct Snapshot {
     bool rules_loaded = false;
     std::string rules_error;
     bool worker_admission_hold = false;
+    /* A590/A593：全域 concurrency 配額（concurrency-budget/v1；
+     * rules 關閉 concurrency_budget 時為 nullopt → JSON null）。 */
+    std::optional<ConcurrencyBudget> concurrency_budget;
     std::vector<jsonlite::JsonValue> actions;
     std::vector<ProcRow> top_cpu;
     std::vector<ProcRow> top_mem;
@@ -235,6 +239,9 @@ inline jsonlite::JsonValue snapshot_to_json(const Snapshot& snap) {
                {"rules_error", snap.rules_error.empty() ? jnull()
                                                         : jstr(snap.rules_error)}})},
         {"worker_admission_hold", jbool(snap.worker_admission_hold)},
+        {"concurrency_budget", snap.concurrency_budget
+                                   ? budget_to_json(*snap.concurrency_budget)
+                                   : jnull()},
         {"actions", jarr(snap.actions)},
         {"top_cpu", jarr(std::move(top_cpu))},
         {"top_mem", jarr(std::move(top_mem))},

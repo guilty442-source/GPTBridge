@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import hashlib
 import math
+import os
 import re
 import struct
 from contextlib import contextmanager
@@ -132,12 +133,18 @@ class LocalVectorStore:
         *,
         dimension: int = _DIMENSION,
         endpoint: str = DEFAULT_ENDPOINT,
-        schema: str = "gptbridge_rag",
+        schema: str = "",
     ) -> None:
         self.endpoint = "local" if endpoint in {"", "local"} else str(endpoint).rstrip("/")
         self._dimension = int(dimension)
         self._native = _native_available()
-        self._schema = schema
+        # A621: production default is gptbridge_rag; tests/sandboxes inject a
+        # throwaway schema via LOCAL_VECTOR_STORE_PG_SCHEMA.
+        self._schema = (
+            schema
+            or os.environ.get("LOCAL_VECTOR_STORE_PG_SCHEMA")
+            or "gptbridge_rag"
+        )
         self.database_path = Path(f"postgresql:{schema}")
         self.location = str(self.database_path)
         with self._connect() as connection:

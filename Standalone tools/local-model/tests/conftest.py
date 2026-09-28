@@ -37,3 +37,57 @@ def _isolate_native_engine_settings(monkeypatch, tmp_path_factory):
         env_name = getattr(module, name, "")
         if env_name:
             monkeypatch.delenv(env_name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_vector_store_schema(monkeypatch):
+    """A621: LocalVectorStore persists to PostgreSQL — tests get a throwaway
+    schema instead of touching live ``gptbridge_rag`` (whose persisted
+    collection_state dimension would mismatch and contaminate)."""
+    import uuid
+
+    schema = "vs_test_" + uuid.uuid4().hex[:12]
+    try:
+        import psycopg
+
+        from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+        dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+        with psycopg.connect(dsn, connect_timeout=5) as c:
+            c.execute(f'CREATE SCHEMA "{schema}"')
+            c.execute(
+                f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime'
+            )
+            c.commit()
+    except Exception:
+        yield ""
+        return
+    monkeypatch.setenv("LOCAL_VECTOR_STORE_PG_SCHEMA", schema)
+    try:
+        yield schema
+    finally:
+        try:
+            from shared_layer.local import pg_adapter
+
+            pg_adapter.close_pool()
+        except Exception:
+            pass
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute("SET lock_timeout = '10s'")
+                c.execute(
+                    "SELECT pg_terminate_backend(l.pid) FROM pg_locks l "
+                    "WHERE l.pid <> pg_backend_pid() AND ("
+                    "  (l.locktype = 'relation' AND l.relation IN ("
+                    "    SELECT c2.oid FROM pg_class c2 "
+                    "    JOIN pg_namespace n ON c2.relnamespace = n.oid "
+                    "    WHERE n.nspname = %s))"
+                    "  OR (l.locktype = 'object' AND l.classid = 'pg_namespace'::regclass"
+                    "      AND l.objid = (SELECT oid FROM pg_namespace WHERE nspname = %s))"
+                    ")",
+                    (schema, schema),
+                )
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass

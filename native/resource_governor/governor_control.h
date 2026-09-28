@@ -33,6 +33,9 @@ struct RegState {
     bool strained = false;
     double resp_ratio_out = 1.0;
     std::string rules_error;
+    /* A590/A622：concurrency-budget 世代綁定（跨 watch 週期持續）。 */
+    long long budget_generation = 0;
+    std::string budget_signature;
 };
 
 enum class RegEvent { PreEntered, Entered, Released, PreReleased };
