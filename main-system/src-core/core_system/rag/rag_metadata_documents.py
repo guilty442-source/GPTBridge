@@ -267,7 +267,8 @@ class RagMetadataDocumentsMixin:
             async with self._conn.cursor() as cur:
                 await cur.execute(
                     """SELECT chunk_id, vector_point_id::text, sequence,
-                              character_start, character_end, metadata
+                              character_start, character_end, metadata,
+                              embedding
                        FROM gptbridge_rag.chunk
                        WHERE module_id = %s AND resource_id = %s
                        ORDER BY sequence
@@ -297,11 +298,52 @@ class RagMetadataDocumentsMixin:
                 "character_start": int(row[3]),
                 "character_end": int(row[4]),
                 "content": str(meta.get("content") or ""),
+                "embedding": unpack_embedding(row[6]),
                 "payload": {
                     "content_hash": str(meta.get("content_hash") or ""),
                 },
             })
         return out
+
+    async def store_chunk_embeddings(
+        self,
+        module_id: str,
+        resource_id: str,
+        embeddings: dict[str, Sequence[float]],
+    ) -> bool:
+        """Persist canonical embedding bytes onto existing chunk rows.
+
+        Backfill path (B61/C56): replay or rebuild computes an embedding
+        for a canonical chunk that predates column 148 — the vector is
+        written back to the PostgreSQL authority row so every subsequent
+        projection rebuild is a copy, never a re-derivation.
+        """
+        if not self._healthy or not self._conn or not embeddings:
+            return False
+        try:
+            async with self._conn.cursor() as cur:
+                await cur.executemany(
+                    """UPDATE gptbridge_rag.chunk
+                       SET embedding = %s
+                       WHERE module_id = %s AND resource_id = %s
+                         AND chunk_id = %s""",
+                    [
+                        (
+                            pack_embedding(vector),
+                            module_id,
+                            resource_id,
+                            str(chunk_id),
+                        )
+                        for chunk_id, vector in embeddings.items()
+                    ],
+                )
+            return True
+        except Exception as exc:
+            _logger.error(
+                "PostgreSQLMetadataAuthority: store_chunk_embeddings failed: %s",
+                exc,
+            )
+            return False
 
     async def fetch_chunks_for_points(
         self,
