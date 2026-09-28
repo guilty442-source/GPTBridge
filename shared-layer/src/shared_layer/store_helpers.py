@@ -1,13 +1,13 @@
 """Shared helpers for store.py and store_async.py (A185 split).
 
 Kept here to avoid circular imports between store.py and store_async.py.
+Serialization helpers (``now_iso``/``decode``/``encode_json``) live in
+``store_codec`` per the source-size contract.
 """
 from __future__ import annotations
 
-import json
 import os
-from datetime import datetime, timezone
-from typing import Any, Final
+from typing import Final
 
 from governance_rule.permission_directory.execution.path_guard import (
     permission_denied,
@@ -27,35 +27,6 @@ _POOL_TIMEOUT: Final[float] = 5.0
 _POOL_IDLE_TTL_S: Final[float] = float(
     os.environ.get("GPTBRIDGE_STORE_POOL_IDLE_TTL_S", "120")
 )
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def decode(value: str | None) -> Any:
-    if value is None:
-        return None
-    try:
-        return json.loads(value)
-    except (TypeError, ValueError):
-        return value
-
-
-def encode_json(value: Any) -> str:
-    try:
-        encoded = json.dumps(
-            value,
-            ensure_ascii=False,
-            allow_nan=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
-    except (TypeError, ValueError) as exc:
-        raise permission_denied() from exc
-    if len(encoded.encode("utf-8")) > _MAX_BYTES:
-        raise permission_denied()
-    return encoded
 
 
 def normalize_id(value: str) -> str:
@@ -96,9 +67,6 @@ __all__ = [
     "_POOL_IDLE_TTL_S",
     "_PRIORITY_VALUES",
     "_normalize_priority_class",
-    "now_iso",
-    "decode",
-    "encode_json",
     "normalize_id",
     "normalize_priority_class",
 ]

@@ -10,11 +10,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from .store_codec import decode as _decode, encode_json as _json
 from .store_helpers import (
     _PRIORITY_VALUES,
     _normalize_priority_class,
-    decode as _decode,
-    encode_json as _json,
     normalize_id as _id,
 )
 

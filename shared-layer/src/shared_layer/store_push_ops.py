@@ -8,11 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .store_helpers import (
-    decode as _decode,
-    encode_json as _json,
-    normalize_id as _id,
-)
+from .store_codec import decode as _decode, encode_json as _json
+from .store_helpers import normalize_id as _id
 
 
 class PostgresStorePushMixin:

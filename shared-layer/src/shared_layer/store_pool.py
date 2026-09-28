@@ -14,9 +14,23 @@ from __future__ import annotations
 import threading
 import time
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Iterator
 
+from .database.generation_fence import set_provenance
 from .store_helpers import _POOL_IDLE_TTL_S, _QUERY_TIMEOUT
+
+
+@contextmanager
+def _governed_connection(pool) -> Iterator[Any]:
+    """Pooled connection with the backend generation declared (A8/E21).
+
+    The migration-016 fence only rejects stale writers when the connection
+    declares its generation; every transport write path acquires connections
+    through this helper so an unset declaration can never mean "allow".
+    """
+    with pool.acquire() as connection:
+        set_provenance(connection)
+        yield connection
 
 
 class PgConnectionPool:
