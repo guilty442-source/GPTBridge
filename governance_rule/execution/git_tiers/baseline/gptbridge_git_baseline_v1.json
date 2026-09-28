@@ -313,12 +313,6 @@
           "lines": 92
         },
         {
-          "module": "git_concurrency.py",
-          "functions": 7,
-          "classes": 1,
-          "lines": 109
-        },
-        {
           "module": "git_control_plane.py",
           "functions": 54,
           "classes": 13,
@@ -512,10 +506,10 @@
         }
       ],
       "totals": {
-        "modules": 57,
-        "functions": 706,
-        "classes": 92,
-        "lines": 17442
+        "modules": 56,
+        "functions": 699,
+        "classes": 91,
+        "lines": 17333
       }
     }
   },
@@ -1228,7 +1222,7 @@
   },
   "integrity": {
     "algorithm": "sha256",
-    "digest": "468476897f72e64a9bf34f350b3c08ee17835a35768fb7bb7591ce5e86679cd0",
+    "digest": "acce1eac7d8a46f40885f5071535adf060436fc2a6ec5d2419204c76c05b3de8",
     "scope": "canonical-json-without-integrity-and-baseline"
   }
 }
