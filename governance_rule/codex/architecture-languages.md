@@ -86,6 +86,8 @@ flowchart LR
 
 Python 不得控制正式 inference runtime；PyTorch reference／fallback 與 Triton→PyTorch fallback 不得成為 Production 推論路徑。Python CLI 只可服務訓練或開發驗證，不得成為正式模型生命週期入口。
 
+全專案自適化由各能力的正式語言 owner 與 C++23 `resource-governor` 執行，並同時最佳化高效能、高速執行與低資源消耗；任何單項改善不得造成其他必要指標、正確性、安全或穩定性退化。Python 不得因自適化新增常駐 scheduler、watcher、controller、worker、RAG、SQL、I/O、程序管理或 fallback。治理最薄層只能判讀不可等價移出的治理語意，JAX 訓練按需啟動，pytest 僅開發驗證。
+
 ## GPTBridge UI Stack
 
 ```mermaid
