@@ -548,7 +548,7 @@ class TradingStore:
         self._db().commit()
 
     def market_quote(self, instrument_id: str) -> dict[str, Any] | None:
-        row = self._db().execute(
+        row = self._db().execute(  # sql-ok: fixed-schema row materialized to dict
             "SELECT * FROM market_quotes WHERE instrument_id=?",
             (str(instrument_id),),
         ).fetchone()

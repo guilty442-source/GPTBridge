@@ -221,7 +221,7 @@ class CandleStore:
     def latest(self, instrument_id: str,
                timeframe: str = "1d") -> MarketCandle | None:
         """Most recent candle for an instrument, any adjustment type."""
-        row = self._db().execute(
+        row = self._db().execute(  # sql-ok: fixed-schema row materialized to MarketCandle
             "SELECT * FROM candle WHERE instrument_id=? AND timeframe=?"
             " ORDER BY candle_start DESC LIMIT 1",
             (instrument_id, timeframe)).fetchone()
@@ -276,19 +276,20 @@ class CandleStore:
 
     def sync_states(self) -> list[dict[str, Any]]:
         return [
-            dict(r) for r in self._db().execute(
+            dict(r) for r in self._db().execute(  # sql-ok: fixed-schema row materialized to dict
                 "SELECT * FROM sync_state ORDER BY instrument_id"
             ).fetchall()
         ]
 
     def revisions(self, instrument_id: str | None = None) -> list[dict[str, Any]]:
         if instrument_id:
-            rows = self._db().execute(
+            rows = self._db().execute(  # sql-ok: fixed-schema row materialized to dict
                 "SELECT * FROM revision WHERE instrument_id=? ORDER BY at",
                 (instrument_id,),
             )
         else:
-            rows = self._db().execute("SELECT * FROM revision ORDER BY at")
+            rows = self._db().execute(  # sql-ok: fixed-schema row materialized to dict
+                "SELECT * FROM revision ORDER BY at")
         return [dict(r) for r in rows.fetchall()]
 
     def stats(self) -> dict[str, Any]:
