@@ -851,3 +851,23 @@ generation. Use bounded L1 process cache, L2 shared local cache, and L3
 PostgreSQL/Qdrant authority; cache keys include resource, revision, scope,
 model, and config version. Keep startup minimal: core config → IPC → UI ready →
 DB pool → scheduler → requested lazy service → asynchronous model warm-up.
+
+## Performance Contracts
+
+The following PERF contracts are mandatory:
+
+- `PERF-01` no unnecessary Python hop on critical paths.
+- `PERF-02` CPU-bound work prefers Rust; `PERF-03` high-concurrency I/O prefers Go.
+- `PERF-04` all concurrency is bounded; `PERF-05` no unbounded queue, thread,
+  goroutine, or task.
+- `PERF-06` bulk operations use batching; `PERF-07` large payloads use
+  references, streams, or zero-copy paths.
+- `PERF-08` models remain resident while hot and never reload per request.
+- `PERF-09` independent RAG stages run in parallel; `PERF-10` cancellation is
+  end-to-end.
+- `PERF-11` caches are bounded, revision-aware, and non-canonical.
+- `PERF-12` nonessential services initialize lazily.
+- `PERF-13` observability cannot block the critical path; `PERF-14` canonical
+  writes are separated from runtime telemetry.
+- `PERF-15` optimization decisions require measured p50/p95/p99, CPU, RAM, VRAM,
+  context switches, queue depth, and DB round-trip evidence.
