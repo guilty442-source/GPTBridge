@@ -95,6 +95,7 @@ struct Snapshot {
     double budget_ram_pct = kWorkerRamBudgetPct;
     bool over_budget = false;
     std::map<std::string, int> planes;
+    std::map<std::string, PoolLedger> pools;
     bool reg_active = false;
     bool reg_pre = false;
     int reg_over = 0;
@@ -175,6 +176,7 @@ inline jsonlite::JsonValue row_json(const ProcRow& row) {
                  {"cpu", jnum(row.cpu)},
                  {"mem_mb", jnum(row.mem_mb)},
                  {"plane", jstr(row.plane)},
+                 {"pool", jstr(row.pool)},
                  {"io_read_mb", jnum(row.io_read_mb)},
                  {"io_write_mb", jnum(row.io_write_mb)},
                  {"flags", jarr(std::move(flags))}});
@@ -190,6 +192,16 @@ inline jsonlite::JsonValue snapshot_to_json(const Snapshot& snap) {
     std::vector<std::pair<std::string, jsonlite::JsonValue>> plane_fields;
     for (const auto& [name, count] : snap.planes)
         plane_fields.emplace_back(name, jint(count));
+    std::vector<std::pair<std::string, jsonlite::JsonValue>> pool_fields;
+    for (const auto& [name, ledger] : snap.pools)
+        pool_fields.emplace_back(
+            name, jobj({{"processes", jint(ledger.processes)},
+                        {"cpu_pct", jnum(ledger.cpu_pct)},
+                        {"ram_mb", jnum(ledger.ram_mb)},
+                        {"ram_pct", jnum(ledger.ram_pct)},
+                        {"budget_cpu_pct", jnum(ledger.cpu_budget_pct)},
+                        {"budget_ram_pct", jnum(ledger.ram_budget_pct)},
+                        {"over_budget", jbool(ledger.over_budget)}}));
     return jobj({
         {"interval", jnum(snap.interval)},
         {"mode", snap.has_mode ? jstr(snap.mode) : jnull()},
@@ -211,6 +223,7 @@ inline jsonlite::JsonValue snapshot_to_json(const Snapshot& snap) {
                {"budget_ram_pct", jnum(snap.budget_ram_pct)},
                {"over_budget", jbool(snap.over_budget)},
                {"planes", jobj(std::move(plane_fields))}})},
+        {"pools", jobj(std::move(pool_fields))},
         {"regulation",
          jobj({{"active", jbool(snap.reg_active)},
                {"pre", jbool(snap.reg_pre)},

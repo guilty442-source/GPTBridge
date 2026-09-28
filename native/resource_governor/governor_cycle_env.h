@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include <map>
 #include <set>
 #include <vector>
 
@@ -44,6 +45,9 @@ struct CycleEnv {
 
     double worker_cpu_sum = 0.0;
     double worker_rss_mb = 0.0;
+    std::map<Pool, double> pool_cpu_sum;
+    std::map<Pool, double> pool_rss_mb;
+    std::map<Pool, int> pool_count;
     std::vector<jsonlite::JsonValue> actions;
     std::vector<ProcRow> rows;
     std::set<ProcKey> seen;
