@@ -1,50 +1,27 @@
 {
  "schema": "star-package-version-sync/v1",
- "comment": "A624: automation core owns package version reconciliation — detect installed toolchain/package versions, run governed upgrades where a package manager exists, then emit codex amendment requests so declared versions converge to actual. enabled=false is the kill switch; per-ecosystem mode=off|detect|upgrade. System/toolchain packages upgrade through winget (single governed package channel); vendored toolchains (A622: go) and language-ecosystem deps (npm/pip/cargo/go) stay detect-only or on their own managers — winget cannot manage library graphs.",
+ "comment": "A624: automation core owns package version reconciliation — detect installed toolchain/package versions, run governed upgrades where a package manager exists, then emit codex amendment requests so declared versions converge to actual. enabled=false is the kill switch; per-ecosystem mode=off|detect|upgrade. PACKAGE-LIST: this technologies table is the sole registered package inventory; no entry may be added, removed or have its mode changed without an explicit permission artifact. Downloads use exactly Visual Studio Installer and Winget; language package managers (cargo/go modules/nuget/npm/pip) never perform a network download and stay detect-only over vendored or already-registered artifacts. Python and Node are forbidden.",
  "enabled": true,
  "intake_dir": "governance_rule/execution/audit/convergence",
  "state_file": "runtime/state/package-version-sync.json",
  "audit_log": "runtime/logs/package-version-sync.jsonl",
  "upgrade_timeout_s": 600,
  "detect_timeout_s": 30,
+ "registry_policy": {
+  "authoritative": true,
+  "additions": "explicit-permission-artifact-required",
+  "removals_and_mode_changes": "governed-amendment-required",
+  "download_channels": [
+   "visual-studio-installer",
+   "winget"
+  ],
+  "language_managers": "no-network-download|detect-only",
+  "forbidden": [
+   "python",
+   "node"
+  ]
+ },
  "technologies": {
-  "python-runtime": {
-   "mode": "upgrade",
-   "detect": {
-    "kind": "command",
-    "argv": [
-     "main-system/.venv/Scripts/python.exe",
-     "--version"
-    ],
-    "pattern": "Python (\\d+\\.\\d+\\.\\d+)"
-   },
-   "codex_refs": [
-    {
-     "provision_id": "B170",
-     "field": "rule",
-     "pattern": "Python (\\d+\\.\\d+\\.\\d+)"
-    },
-    {
-     "provision_id": "B4",
-     "field": "rule",
-     "pattern": "python(\\d+\\.\\d+\\.\\d+)"
-    }
-   ],
-   "upgrade": {
-    "cwd": ".",
-    "argv": [
-     "winget",
-     "upgrade",
-     "--id",
-     "Python.Python.3.14",
-     "-e",
-     "--silent",
-     "--accept-source-agreements",
-     "--accept-package-agreements",
-     "--disable-interactivity"
-    ]
-   }
-  },
   "go-toolchain": {
    "mode": "detect",
    "detect": {
@@ -60,11 +37,6 @@
      "provision_id": "B170",
      "field": "rule",
      "pattern": "Go (\\d+\\.\\d+\\.\\d+)"
-    },
-    {
-     "provision_id": "B4",
-     "field": "rule",
-     "pattern": "go(\\d+\\.\\d+\\.\\d+)"
     }
    ]
   },
@@ -83,11 +55,6 @@
      "provision_id": "B170",
      "field": "rule",
      "pattern": "Rust (\\d+\\.\\d+\\.\\d+)"
-    },
-    {
-     "provision_id": "B4",
-     "field": "rule",
-     "pattern": "rust(\\d+\\.\\d+\\.\\d+)"
     }
    ],
    "upgrade": {
@@ -128,12 +95,6 @@
      "field": "rule",
      "pattern": "\\.NET (\\d+)",
      "render": ".NET {v}"
-    },
-    {
-     "provision_id": "B4",
-     "field": "rule",
-     "pattern": "\\.NET (\\d+)",
-     "render": ".NET {v}"
     }
    ],
    "upgrade": {
@@ -169,12 +130,6 @@
      "field": "rule",
      "pattern": "PostgreSQL=(\\d+\\.\\d+)",
      "render": "PostgreSQL={v}"
-    },
-    {
-     "provision_id": "B4",
-     "field": "rule",
-     "pattern": "sql-postgresql(\\d+\\.\\d+)",
-     "render": "sql-postgresql{v}"
     }
    ],
    "upgrade": {
@@ -225,102 +180,18 @@
     ]
    }
   },
-  "react": {
-   "mode": "upgrade",
-   "manifest": {
-    "kind": "package-json",
-    "path": "main-system/package.json",
-    "dep": "react"
-   },
-   "detect": {
-    "kind": "manifest-json",
-    "path": "main-system/package.json",
-    "field": "dependencies.react",
-    "pattern": "(\\d+\\.\\d+\\.\\d+)"
-   },
-   "upgrade": {
-    "cwd": "main-system",
-    "argv": [
-     "npm",
-     "update",
-     "react"
-    ]
-   },
-   "codex_refs": [
-    {
-     "provision_id": "B170",
-     "field": "rule",
-     "pattern": "React (\\d+\\.\\d+\\.\\d+)"
-    },
-    {
-     "provision_id": "B166",
-     "field": "rule",
-     "pattern": "React=(\\d+\\.\\d+\\.\\d+)",
-     "render": "React={v}"
-    }
-   ]
-  },
-  "numpy": {
-   "mode": "upgrade",
-   "detect": {
-    "kind": "pip",
-    "package": "numpy",
-    "pattern": "(\\d+\\.\\d+\\.\\d+)"
-   },
-   "upgrade": {
-    "cwd": ".",
-    "argv": [
-     "main-system/.venv/Scripts/python.exe",
-     "-m",
-     "pip",
-     "install",
-     "--upgrade",
-     "numpy"
-    ]
-   },
-   "codex_refs": [
-    {
-     "provision_id": "B170",
-     "field": "rule",
-     "pattern": "NumPy (\\d+\\.\\d+\\.\\d+)"
-    }
-   ]
-  },
   "cargo-deps": {
-   "mode": "upgrade",
+   "mode": "detect",
    "manifest": {
     "kind": "cargo-toml",
     "path": "Standalone tools/vectord-rs/Cargo.toml"
-   },
-   "upgrade": {
-    "cwd": "Standalone tools/vectord-rs",
-    "argv": [
-     "cargo",
-     "update"
-    ]
    }
   },
   "go-deps": {
-   "mode": "upgrade",
+   "mode": "detect",
    "manifest": {
     "kind": "go-mod",
     "path": "Standalone tools/searchd-go/go.mod"
-   },
-   "upgrade": {
-    "cwd": "Standalone tools/searchd-go",
-    "argv": [
-     ".tools/go/go/bin/go.exe",
-     "get",
-     "-u",
-     "./..."
-    ],
-    "env": {
-     "GOPROXY": "off",
-     "GOSUMDB": "off",
-     "GOTOOLCHAIN": "local",
-     "GOWORK": "off",
-     "GOFLAGS": "-buildvcs=false"
-    }
    }
   },
   "julia-deps": {
