@@ -15,6 +15,8 @@ topology source of truth.
 
 from __future__ import annotations
 
+import fnmatch
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -104,6 +106,80 @@ _TS_RETIREMENT_TOOL_NOISE = frozenset({
 })
 
 
+_PY_ZONE_TOOL_NOISE = frozenset({
+    "venv", "node_modules", "__pycache__", "site-packages",
+    "dist", "dist-ui", "build", "release", "releases", "out", "target", "temp",
+})
+
+_PY_ZONE_REGISTRY = Path(__file__).resolve().parent / "python_zone_registry.json"
+
+
+def _python_zone(relative: str, rules: list[dict[str, Any]]) -> str:
+    """First-match zone classification (registry order is significant)."""
+    name = relative.rsplit("/", 1)[-1]
+    slashed = "/" + relative
+    for rule in rules:
+        match = rule.get("match") or {}
+        if "prefix" in match and relative.startswith(str(match["prefix"])):
+            return str(rule["zone"])
+        if "contains" in match and str(match["contains"]) in slashed:
+            return str(rule["zone"])
+        if "name_glob" in match and fnmatch.fnmatch(name, str(match["name_glob"])):
+            return str(rule["zone"])
+    return "production"
+
+
+def check_python_zone_ratchet(root: Path, errors: list[str]) -> None:
+    """B4/B73 Python minimization ratchet.
+
+    Every ``.py`` classifies into an allowed zone (governance, training,
+    development-verification) or the production fallback.  Production-zone
+    files must already exist in the registry ``production_baseline`` — a
+    new production Python source fails closed; baseline entries may only
+    shrink as migration retires them.  The registry itself is data
+    (``python_zone_registry.json``), not Python.
+    """
+    root = Path(root)
+    try:
+        registry = json.loads(_PY_ZONE_REGISTRY.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        errors.append(f"python zone registry is unreadable: {error}")
+        return
+    rules = registry.get("zone_rules")
+    baseline = registry.get("production_baseline")
+    allowed = registry.get("allowed_zones")
+    if not isinstance(rules, list) or not isinstance(baseline, list) \
+            or not isinstance(allowed, list):
+        errors.append("python zone registry is malformed")
+        return
+    baseline_set = {str(item) for item in baseline}
+    allowed_set = {str(item) for item in allowed}
+
+    new_offenders: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if d not in _PY_ZONE_TOOL_NOISE and not d.startswith(".")
+        ]
+        for name in filenames:
+            if not name.endswith(".py"):
+                continue
+            relative = (Path(dirpath) / name).relative_to(root).as_posix()
+            zone = _python_zone(relative, rules)
+            if zone in allowed_set:
+                continue
+            if relative not in baseline_set:
+                new_offenders.append(relative)
+    if new_offenders:
+        shown = ", ".join(sorted(new_offenders)[:20])
+        errors.append(
+            "new production Python source outside B73 allowed zones "
+            f"(not in baseline): {shown}"
+            + (f" ... +{len(new_offenders) - 20} more" if len(new_offenders) > 20 else "")
+        )
+
+
 def check_typescript_retirement(root: Path, errors: list[str]) -> None:
     """A348: TypeScript is fully retired in favor of JavaScript-ESM."""
     root = Path(root)
@@ -126,4 +202,8 @@ def check_typescript_retirement(root: Path, errors: list[str]) -> None:
         )
 
 
-__all__ = ["check_architecture_registry", "check_typescript_retirement"]
+__all__ = [
+    "check_architecture_registry",
+    "check_python_zone_ratchet",
+    "check_typescript_retirement",
+]
