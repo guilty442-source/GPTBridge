@@ -174,6 +174,13 @@ $suites = @(
         extra = @(
             (Join-Path $coreDir "scheduler.c")
         )
+    },
+    @{
+        src = "suite_resource_governor.cpp"; exe = "resource_governor_suite.exe"
+        # A608: resource-governor C++23 控制律等價（假引擎，零 OS 副作用）
+        extra = @(
+            (Join-Path $nativeRoot "resource_governor\resource_governor.cpp")
+        )
     }
 )
 
@@ -279,6 +286,13 @@ $auditSrc = Join-Path $auditDir "audit_engine.cpp"
 $auditObj = Join-Path $out "obj\audit-engine"
 New-Item -ItemType Directory -Force -Path $auditObj | Out-Null
 Add-BuildJob "audit-engine" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe`"$auditExe`" /Fo:$auditObj\ `"$auditSrc`" /link /LTCG >nul || exit /b 1")
+# A608 資源管制器主程式（C++23）：監督面常駐行程，與 Python 版同狀態契約
+$govRoot = Join-Path $nativeRoot "resource_governor"
+$govExe = Join-Path $govRoot "bin\resource-governor.exe"
+$govObj = Join-Path $out "obj\resource-governor"
+New-Item -ItemType Directory -Force -Path (Split-Path $govExe -Parent) | Out-Null
+New-Item -ItemType Directory -Force -Path $govObj | Out-Null
+Add-BuildJob "resource-governor" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$govExe`" /Fo:$govObj\ `"$govRoot\resource_governor.cpp`" `"$govRoot\main.cpp`" /link /LTCG >nul || exit /b 1")
 # M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
