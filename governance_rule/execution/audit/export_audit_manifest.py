@@ -434,9 +434,8 @@ def _iter_reducible_marker_checks() -> dict[str, tuple[str, list[str]]]:
     return reducible
 
 
-def _protected_sources(root: Path) -> list[str]:
+def _protected_sources() -> list[str]:
     """Live protected-source list from the governed snapshots."""
-    sys.path.insert(0, str(root))
     from governance_rule.permission_directory.directory_authority import (
         directory_authority_snapshot,
     )
@@ -462,6 +461,7 @@ def _forbidden_legacy() -> list[str]:
 
 
 def build_manifest(root: Path) -> dict[str, object]:
+    sys.path.insert(0, str(root))
     checks: list[dict[str, object]] = []
 
     def emit(cid: str, kind: str, path: str = "", **kw: object) -> None:
@@ -479,7 +479,7 @@ def build_manifest(root: Path) -> dict[str, object]:
     # Codex amendment codex-readonly-minimization: the read-only attribute
     # applies to the generated zh-TW mirror parts only; all other
     # protected sources keep existence/integrity checks only.
-    for relative in _protected_sources(root):
+    for relative in _protected_sources():
         emit(f"protected-source:{relative}", "file-exists", relative)
         if relative.startswith(
             "governance_rule/codex/governance_codex.zh-TW.part-"
@@ -558,7 +558,6 @@ def build_manifest(root: Path) -> dict[str, object]:
          "shared-layer/docs/DATA_OWNERSHIP_CONTRACT.md")
 
     # check_shared_layer_structure (dirs physical, sources readonly)
-    sys.path.insert(0, str(root))
     from governance_rule.governance_policy import governance_policy_snapshot
     shared = governance_policy_snapshot().shared_layer
     for relative in (shared.module_root, shared.source_root,
@@ -1637,7 +1636,7 @@ def build_manifest(root: Path) -> dict[str, object]:
                     f"{_violation}")
 
     # --- protected-source-semantic remainder ------------------------------
-    _protected = _protected_sources(root)
+    _protected = _protected_sources()
     if len(_protected) != len(set(_protected)):
         emit("protected-source:duplicates", "fail", reason="protected governance sources contain duplicates")
 
