@@ -5,8 +5,8 @@
   "authority": "governance-rule-only",
   "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
   "metadata": {
-    "contract_revision": 8,
-    "measured_at": "2026-09-28T22:08:00+08:00",
+    "contract_revision": 10,
+    "measured_at": "2026-09-28T22:50:00+08:00",
     "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
     "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
     "adjudications_rev2": [
@@ -31,7 +31,8 @@
       "rev4 tighten: GENERAL_APP 565/114858 -> 564/114493 (codex_pin_sync + architecture_artifact_sync consolidated into tasks/codex_sync_drivers.py, shared _SyncDriverBase; -1 file -365 loc). Downward-only, no adjudication needed.",
       "rev5 tighten: GENERAL_APP 564/114493 -> 558/113560 (-6 files -933 loc): retired-sovereign dead mixin cluster removed (maintenance_status/lifecycle/learning/capability/identity, zero refs post-A592/A604 retirement) + concurrent worker deletion. Downward-only.",
       "rev6 tighten: GENERAL_APP 567/113698 -> 562/112797 (-5 files -901 loc): orphan A369 draft modules in shared_layer/database removed (bloat_budget, capacity_certification, capacity_governor, pg_drill_adapter, write_governor — zero imports, zero lazy-exports, zero registry/test/doc refs; live capabilities served by watchdog.py/rag_capacity.py/restore_drill.py/recovery_orchestrator.py). GOVERNANCE 209/58492 -> 208/58383 (-1 file -109 loc): git_concurrency.py dead lock-scope helper removed (zero refs; baseline rebind via build_baseline toolchain). Downward-only, no adjudication needed.",
-      "rev7 tighten (measured): GENERAL_APP 538/108822 -> 533/107330 (-5f/-1492): orphan dead code removed - maintenance_update+maintenance_repair_chain (retired maintenance-sovereign mixin pair, zero composers), contract_validator (zero callers; audit_artifacts check_compatibility_matrix is the live surface), batch_api (zero refs), chinese_semantic_engine_20260921_144621 (dated snapshot beside live engine). RAG 91/25407 -> 90/25259 (-148): subarchitectures.py orphan adapter registry never imported so adapters never registered. TRAINING 26/9412 -> 26->26... 9412->8972 (-2f/-440): tool_call_dataset (duplicate TOOL_COMMAND_MAP; live map in native_tool_orchestrator.py) + vocab_ratio (zero refs). a549_benchmark.py also deleted (excluded from measurement by benchmark substr). execution_lease.py restored - bound by EXECUTION_LEASE_CONTRACT.json contract artifact. Downward-only."
+      "rev7 tighten (measured): GENERAL_APP 538/108822 -> 533/107330 (-5f/-1492): orphan dead code removed - maintenance_update+maintenance_repair_chain (retired maintenance-sovereign mixin pair, zero composers), contract_validator (zero callers; audit_artifacts check_compatibility_matrix is the live surface), batch_api (zero refs), chinese_semantic_engine_20260921_144621 (dated snapshot beside live engine). RAG 91/25407 -> 90/25259 (-148): subarchitectures.py orphan adapter registry never imported so adapters never registered. TRAINING 26/9412 -> 26->26... 9412->8972 (-2f/-440): tool_call_dataset (duplicate TOOL_COMMAND_MAP; live map in native_tool_orchestrator.py) + vocab_ratio (zero refs). a549_benchmark.py also deleted (excluded from measurement by benchmark substr). execution_lease.py restored - bound by EXECUTION_LEASE_CONTRACT.json contract artifact. Downward-only.",
+      "rev8 tighten: GENERAL_APP 533/107330 -> 525/106291 (-8f/-1039: perf/e2e suite deleted + orphan sweep); GOVERNANCE 57751 -> 57665 (-86: emit() dedup refactor in export_audit_manifest.py more than absorbed new native-check declarations). Downward-only, no adjudication needed."
     ],
     "adjudications_rev4": [
       "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev4, amendment python-minimization-baseline-adjudication-20260928-r3, sealed-governed-certification)",
@@ -50,6 +51,9 @@
     ],
     "adjudications_rev8": [
       "GOVERNANCE loc 57668->57751 (+83): adjudicated interim re-anchor; native-migration stream expresses new manifest kinds in the Python generator (export_audit_manifest.py), incl. test_global_cleaner_retired native migration; amendment r9 sealed cert 5f89ab07 @ 2026-09-28T14:04:18Z; only-tighten resumes"
+    ],
+    "adjudications_rev9": [
+      "measurement-correction (sealed r10, cert 14e2e522, codex 2026-09-28): scan_roots += main-system/governance, main-system/information-layer, main-system/run.py, local-model-hub/src; re-anchor GOVERNANCE 207/57665->246/66392 (+39f/+8727 sovereign tree), GENERAL_APP 525/106291->539/108070 (+14f/+1779, incl. main-system/run.py via new file-level scan root), PROC_MGMT 56/15619->59/15986 (+3f/+367). Coverage correction, not new code; only-tighten resumes on the wider surface."
     ]
   },
   "zero_targets": {
@@ -70,8 +74,8 @@
       "loc": 1034
     },
     "PROC_MGMT": {
-      "files": 56,
-      "loc": 15619
+      "files": 59,
+      "loc": 15986
     },
     "FILE_IO": {
       "files": 98,
@@ -86,14 +90,14 @@
       "loc": 41155
     },
     "GENERAL_APP": {
-      "files": 533,
-      "loc": 107330
+      "files": 539,
+      "loc": 108070
     }
   },
   "allowed_zones": {
     "GOVERNANCE": {
-      "files": 207,
-      "loc": 57751,
+      "files": 246,
+      "loc": 66392,
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {
@@ -216,7 +220,11 @@
       "Standalone tools/vaultly/src",
       "Standalone tools/ai-assistant/src",
       "Standalone tools/ai-collaboration/src",
-      "Standalone tools/investment-mobile/src"
+      "Standalone tools/investment-mobile/src",
+      "main-system/governance",
+      "main-system/information-layer",
+      "main-system/run.py",
+      "Standalone tools/local-model/local-model-hub/src"
     ],
     "exclude_dirs": [
       "__pycache__",

@@ -186,6 +186,13 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
         r.detail = check.reason;
         return r;
     }
+    if (check.kind == "fail") {
+        /* 匯出期已確認的違規（如 self-health 非法 test_targets）——
+         * 確定性 FAIL，reason 攜帶人讀原因。 */
+        r.status = AuditStatus::FAIL;
+        r.detail = check.reason.empty() ? "declared fail row" : check.reason;
+        return r;
+    }
     if (check.kind == "file-exists") {
         if (fs::is_regular_file(target, ec)) { r.status = AuditStatus::PASS; }
         else { r.status = AuditStatus::FAIL; r.detail = "missing: " + check.path; }
@@ -456,6 +463,115 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
         r.status = AuditStatus::PASS;
         return r;
     }
+    if (check.kind == "json-array-min-count") {
+        /* items 指定陣列路徑（空 → 文件根即陣列）；每個 object 元素以
+         * markers 逐條作「欄位<op>literal」謂詞過濾（op 同
+         * json-key-value：!= ^= >= =；欄位缺席時 != 視為成立）。
+         * 全部謂詞成立者計 1；計數 >= min_count → PASS。 */
+        std::string content;
+        if (!read_file(target, &content)) {
+            if (check.optional && !fs::exists(target, ec)) {
+                r.status = AuditStatus::PASS;
+                return r;
+            }
+            r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
+            return r;
+        }
+        JsonValue doc;
+        try { doc = JsonParser(content).parse(); }
+        catch (const JsonError&) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "invalid json: " + check.path;
+            return r;
+        }
+        const JsonValue* arr =
+            check.items.empty() ? &doc : resolve_json_path(doc, check.items);
+        if (arr == nullptr || arr->type != JsonValue::Type::Array) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "missing json array: " +
+                (check.items.empty() ? std::string("<root>") : check.items);
+            return r;
+        }
+        std::int64_t count = 0;
+        for (const auto& elem : arr->array) {
+            if (elem.type != JsonValue::Type::Object) continue;
+            bool match = true;
+            for (const auto& marker : check.markers) {
+                size_t op_pos = std::string::npos;
+                std::string op;
+                for (const char* cand : {"!=", "^=", ">=", "="}) {
+                    const size_t pos = marker.find(cand);
+                    if (pos != std::string::npos) {
+                        op_pos = pos; op = cand; break;
+                    }
+                }
+                if (op_pos == std::string::npos || op_pos == 0) {
+                    r.status = AuditStatus::FAIL;
+                    r.detail = "malformed array predicate: " + marker;
+                    return r;
+                }
+                const JsonValue* fv = resolve_json_path(
+                    elem, marker.substr(0, op_pos));
+                const std::string literal =
+                    marker.substr(op_pos + op.size());
+                bool ok;
+                if (op == "!=") {
+                    if (fv == nullptr ||
+                        fv->type == JsonValue::Type::Null) {
+                        ok = true;
+                    } else if (literal == "true" || literal == "false") {
+                        ok = !(fv->type == JsonValue::Type::Bool &&
+                               fv->boolean == (literal == "true"));
+                    } else if (fv->type == JsonValue::Type::Number) {
+                        try { ok = fv->number != std::stod(literal); }
+                        catch (...) { ok = false; }
+                    } else if (fv->type == JsonValue::Type::String) {
+                        ok = fv->string != literal;
+                    } else {
+                        ok = true;
+                    }
+                } else if (op == "^=") {
+                    ok = fv != nullptr &&
+                         fv->type == JsonValue::Type::String &&
+                         fv->string.size() >= literal.size() &&
+                         fv->string.compare(
+                             0, literal.size(), literal) == 0;
+                } else if (op == ">=") {
+                    ok = fv != nullptr &&
+                         fv->type == JsonValue::Type::Number;
+                    if (ok) {
+                        try { ok = fv->number >= std::stod(literal); }
+                        catch (...) { ok = false; }
+                    }
+                } else { /* "=" */
+                    if (fv == nullptr) {
+                        ok = false;
+                    } else if (literal == "true" || literal == "false") {
+                        ok = fv->type == JsonValue::Type::Bool &&
+                             fv->boolean == (literal == "true");
+                    } else if (fv->type == JsonValue::Type::Number) {
+                        try { ok = fv->number == std::stod(literal); }
+                        catch (...) { ok = false; }
+                    } else {
+                        ok = fv->type == JsonValue::Type::String &&
+                             fv->string == literal;
+                    }
+                }
+                if (!ok) { match = false; break; }
+            }
+            if (match) ++count;
+        }
+        if (count >= check.min_count) {
+            r.status = AuditStatus::PASS;
+        } else {
+            r.status = AuditStatus::FAIL;
+            r.detail = "array " +
+                (check.items.empty() ? std::string("<root>") : check.items) +
+                " matched " + std::to_string(count) +
+                " < min_count " + std::to_string(check.min_count);
+        }
+        return r;
+    }
     if (check.kind == "text-no-pollution") {
         std::string content;
         if (!read_file(target, &content)) {
@@ -702,8 +818,48 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
                 ? fbv->string : "GENERAL_APP";
 
         std::map<std::string, std::pair<long long, long long>> actual;
+        auto count_file = [&](const fs::path& fp) {
+            /* 單一檔案歸類計數：exclude_file_substr 與 rules first-match
+             * 語義與目錄掃描一致。 */
+            if (fp.extension() != ".py") return;
+            std::error_code rec;
+            std::string rel = u8_bytes(fs::relative(fp, fs::u8path(root), rec));
+            if (rec) return;
+            for (auto& ch : rel)
+                if (ch == '\\') ch = '/';
+            rel = to_lower(rel);
+            for (const auto& sub : ex_sub)
+                if (rel.find(to_lower(sub)) != std::string::npos) return;
+            std::string bucket = fallback;
+            for (const auto& kv : rules->object) {
+                bool hit = false;
+                if (kv.second.type == JsonValue::Type::Array) {
+                    for (const auto& pv : kv.second.array) {
+                        if (pv.type == JsonValue::Type::String &&
+                            rel.find(pv.string) != std::string::npos) {
+                            hit = true; break;
+                        }
+                    }
+                }
+                if (hit) { bucket = kv.first; break; }
+            }
+            std::string fsrc;
+            if (!read_file(fp, &fsrc)) return;
+            const long long loc =
+                static_cast<long long>(
+                    std::count(fsrc.begin(), fsrc.end(), '\n')) +
+                ((!fsrc.empty() && fsrc.back() != '\n') ? 1 : 0);
+            auto& slot = actual[bucket];
+            slot.first += 1;
+            slot.second += loc;
+        };
         for (const auto& rr : roots) {
             const fs::path base = fs::u8path(root) / fs::u8path(rr);
+            if (fs::is_regular_file(base, ec)) {
+                /* 檔案級 root（如 main-system/run.py）直接計量。 */
+                count_file(base);
+                continue;
+            }
             if (!fs::is_directory(base, ec)) continue;
             std::error_code iec;
             fs::recursive_directory_iterator it(
@@ -719,49 +875,7 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
                             break;
                         }
                 } else if (it->is_regular_file(sec)) {
-                    if (it->path().extension() != ".py") {
-                        it.increment(iec);
-                        continue;
-                    }
-                    std::error_code rec;
-                    std::string rel = u8_bytes(
-                        fs::relative(it->path(), fs::u8path(root), rec));
-                    if (rec) { it.increment(iec); continue; }
-                    for (auto& ch : rel)
-                        if (ch == '\\') ch = '/';
-                    rel = to_lower(rel);
-                    bool skip = false;
-                    for (const auto& sub : ex_sub)
-                        if (rel.find(to_lower(sub)) != std::string::npos) {
-                            skip = true; break;
-                        }
-                    if (skip) { it.increment(iec); continue; }
-                    std::string bucket = fallback;
-                    for (const auto& kv : rules->object) {
-                        bool hit = false;
-                        if (kv.second.type == JsonValue::Type::Array) {
-                            for (const auto& pv : kv.second.array) {
-                                if (pv.type == JsonValue::Type::String &&
-                                    rel.find(pv.string) !=
-                                        std::string::npos) {
-                                    hit = true; break;
-                                }
-                            }
-                        }
-                        if (hit) { bucket = kv.first; break; }
-                    }
-                    std::string fsrc;
-                    if (!read_file(it->path(), &fsrc)) {
-                        it.increment(iec);
-                        continue;
-                    }
-                    const long long loc =
-                        static_cast<long long>(
-                            std::count(fsrc.begin(), fsrc.end(), '\n')) +
-                        ((!fsrc.empty() && fsrc.back() != '\n') ? 1 : 0);
-                    auto& slot = actual[bucket];
-                    slot.first += 1;
-                    slot.second += loc;
+                    count_file(it->path());
                 }
                 it.increment(iec);
             }
@@ -890,6 +1004,7 @@ bool audit_load_manifest(const std::string& manifest_path,
         c.path = get_str("path");
         c.glob = get_str("glob");
         c.reason = get_str("reason");
+        c.items = get_str("items");
         if (const JsonValue* v = item.get("min_count"))
             if (v->type == JsonValue::Type::Number)
                 c.min_count = static_cast<std::int64_t>(v->number);
