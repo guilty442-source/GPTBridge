@@ -442,14 +442,31 @@ class CanonicalRagAdapter:
     def embed_bytes(self, texts: Sequence[str]) -> Optional[list[Any]]:
         """Canonical f64-le embedding records from vectord ``/v1/embed``
         (binary response, ``memoryview`` slices).  ``None`` when the engine
-        lacks the capability — callers keep the local embed path."""
+        lacks the capability — callers keep the local embed path.
+
+        Tries the managed pipeline first; when the pipeline is degraded but
+        vectord itself still answers, a direct loopback call keeps the
+        degraded mirror byte-identical to the canonical embedding."""
         if not self._enabled:
             return None
+        items = [str(t) for t in texts]
         try:
             return self._submit(
-                self._pipeline.vector.embed_texts([str(t) for t in texts])
+                self._pipeline.vector.embed_texts(items)
             )
         except RuntimeError:
+            pass
+        try:
+            _ensure_import_paths(_resolve_project_root(self._tool_root))
+            from core_system.rag.rust_vector_runtime import VectordClient
+
+            dimension = int(
+                getattr(self._native_runtime, "EMBEDDING_DIMENSION", 1024)
+            )
+            return VectordClient(
+                os.environ.get("VECTORD_URL", _DEFAULT_VECTORD_URL)
+            ).embed_texts(items, dimension)
+        except Exception:
             return None
 
     def fetch_document(
