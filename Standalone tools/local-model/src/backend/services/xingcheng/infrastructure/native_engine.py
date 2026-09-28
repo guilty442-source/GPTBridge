@@ -848,9 +848,20 @@ def native_engine_for(
         if engine is None:
             if not path.is_file():
                 raise FileNotFoundError(f"NATIVE_CHECKPOINT_MISSING:{path}")
-            engine = NativeTransformerEngine(
-                path, quantize=quantize, device=device
-            )
+            try:
+                from .native_transformer.execution.auto_release import get_manager
+                residency = get_manager()
+                residency.begin_load(key)
+            except Exception:
+                residency = None
+            try:
+                engine = NativeTransformerEngine(
+                    path, quantize=quantize, device=device
+                )
+            except Exception:
+                if residency is not None:
+                    residency.load_failed(key)
+                raise
             _engine_cache[key] = engine
             # P4：註冊自動釋放——閒置逾時或記憶體壓力時從快取卸載。
             # release_fn 只移除快取項；進行中的 generate 持有強參照不受影響，

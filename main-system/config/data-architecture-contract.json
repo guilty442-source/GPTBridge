@@ -4,7 +4,7 @@
   "systems_of_record": {
     "git": "system-version-development-history-code-schema-configuration",
     "sql": "structured-mutable-official-data-postgresql",
-    "rag": "semantic-knowledge-vector-index-vectord",
+    "rag": "semantic-index-serving-vectord-derived-from-postgresql-canonical-embeddings",
     "ollama": "local-model-understanding-reasoning-operations"
   },
   "architecture_responsibilities": {

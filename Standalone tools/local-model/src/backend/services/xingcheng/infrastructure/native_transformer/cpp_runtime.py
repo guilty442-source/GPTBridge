@@ -865,7 +865,18 @@ def cpp_engine_for(checkpoint_path: str | Path) -> CppInferenceEngine:
     with _engine_lock:
         engine = _engine_cache.get(key)
         if engine is None:
-            engine = CppInferenceEngine(path)
+            try:
+                from .execution.auto_release import get_manager
+                residency = get_manager()
+                residency.begin_load(key)
+            except Exception:
+                residency = None
+            try:
+                engine = CppInferenceEngine(path)
+            except Exception:
+                if residency is not None:
+                    residency.load_failed(key)
+                raise
             _engine_cache[key] = engine
             try:
                 from ..native_engine import load_settings

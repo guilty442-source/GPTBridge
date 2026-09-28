@@ -562,7 +562,11 @@ class PipelineRecoveryMixin:
             for mid, rid in resources:
                 chunks = await self.postgresql.fetch_resource_chunks(mid, rid)
                 texts = [str(c.get("content") or "") for c in chunks]
-                if not any(texts) and self._document_fetcher is not None:
+                if (
+                    not any(texts)
+                    and not all(c.get("embedding") for c in chunks)
+                    and self._document_fetcher is not None
+                ):
                     doc = await self._call_maybe_async(
                         self._document_fetcher, mid, rid
                     )

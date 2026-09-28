@@ -23,12 +23,24 @@ except ImportError:  # torch is an on-demand dep — the manager must still
 DEFAULT_IDLE_SECONDS = 300  # 5 分鐘閒置自動卸載
 DEFAULT_CHECK_INTERVAL = 60  # 每 60s 檢查
 
+
+class ResidencyState:
+    """Bounded model resource lifecycle states (PERF-08)."""
+
+    HOT = "HOT"
+    WARM = "WARM"
+    COLD = "COLD"
+    EVICTING = "EVICTING"
+    LOADING = "LOADING"
+
+
 class AutoReleaseManager:
     """追蹤可釋放資源，閒置或壓力時自動釋放。"""
 
     def __init__(self, idle_seconds: int = DEFAULT_IDLE_SECONDS):
         self.idle = idle_seconds
         self._resources: dict[str, dict[str, Any]] = {}  # id -> {obj_ref, last_used, release_fn, size_mb}
+        self._states: dict[str, str] = {}
         self._lock = threading.Lock()
         self._timer: threading.Timer | None = None
         self._start_timer()
@@ -55,25 +67,50 @@ class AutoReleaseManager:
                 "release_fn": release_fn,
                 "size_mb": size_mb,
             }
+            self._states[key] = ResidencyState.HOT
+
+    def begin_load(self, key: str) -> None:
+        """Mark a resource as loading before expensive model construction."""
+        with self._lock:
+            self._states[key] = ResidencyState.LOADING
+
+    def load_failed(self, key: str) -> None:
+        """Remove a failed load without leaving a phantom resident entry."""
+        with self._lock:
+            self._states.pop(key, None)
+
+    def state(self, key: str) -> str | None:
+        with self._lock:
+            return self._states.get(key)
 
     def touch(self, key: str) -> None:
-        """更新最後使用時間（每次推論後調用）。"""
+        """Mark a resource HOT when it is actively requested."""
         with self._lock:
             if key in self._resources:
                 self._resources[key]["last_used"] = time.time()
+                self._states[key] = ResidencyState.HOT
+
+    def mark_warm(self, key: str) -> None:
+        """Mark a loaded resource reusable but not actively executing."""
+        with self._lock:
+            if key in self._resources:
+                self._states[key] = ResidencyState.WARM
 
     def release(self, key: str) -> bool:
         """顯式釋放。"""
         with self._lock:
             info = self._resources.pop(key, None)
             if info is None:
+                self._states.pop(key, None)
                 return False
+            self._states[key] = ResidencyState.EVICTING
             obj = info["ref"]()
             if obj is not None:
                 try:
                     info["release_fn"](obj)
                 except Exception:
                     pass
+            self._states.pop(key, None)
             return True
 
     def _check(self) -> None:
@@ -102,6 +139,7 @@ class AutoReleaseManager:
                     idle = now - v["last_used"]
                     # 閒置超時 或 壓力 >80% (RAM) / 95% (VRAM) 立即釋放
                     if idle > self.idle or pressure > 0.8 or vram_pressure > 0.95:
+                        self._states[k] = ResidencyState.COLD
                         to_release.append(k)
 
             for k in to_release:
@@ -133,7 +171,7 @@ def auto_release_context(key: str, obj: Any, release_fn: Callable[[Any], None], 
     mgr.register(key, obj, release_fn, size_mb)
     try:
         yield
-        mgr.touch(key)
+        mgr.mark_warm(key)
     finally:
         # 不立即釋放，靠閒置檢查；若需立即釋放，調用 mgr.release(key)
         pass
@@ -161,4 +199,4 @@ def release_kv_cache(cache: Any) -> None:
     except Exception:
         pass
 
-__all__ = ["AutoReleaseManager", "get_manager", "auto_release_context", "release_model", "release_kv_cache"]
+__all__ = ["ResidencyState", "AutoReleaseManager", "get_manager", "auto_release_context", "release_model", "release_kv_cache"]
