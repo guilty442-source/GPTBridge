@@ -63,7 +63,16 @@ from .native_dispatcher import (
     native_rmsnorm,
     native_rope,
     native_scaled_dot_product_attention,
+    native_matmul_array,
+    native_softmax_array,
+    native_rmsnorm_array,
+    native_rope_array,
 )
+
+try:
+    import numpy as _np
+except ImportError:  # pragma: no cover - numpy is a shared-layer dependency
+    _np = None
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
@@ -305,6 +314,21 @@ def benchmark_transformer() -> dict[str, Any]:
             results[f"parity_mm_{size_name}"] = _check_parity(
                 python_matmul, native_matmul, a, b, tolerance=1e-9,
             )
+            if _np is not None:
+                # D67: measure the production ndarray-boundary shape on the
+                # same inputs so the list-API boundary copy is visible, not
+                # silently absorbed into the recorded conversion cost.
+                nat_mm_arr = _benchmark_callable(
+                    f"transformer.native_arr.mm.{size_name}",
+                    native_matmul_array,
+                    _np.asarray(a, dtype=_np.float64),
+                    _np.asarray(b, dtype=_np.float64),
+                )
+                results[f"native_arr_mm_{size_name}"] = nat_mm_arr
+                results[f"list_boundary_overhead_mm_{size_name}"] = round(
+                    nat_mm["wall_p50_ms"] / nat_mm_arr["wall_p50_ms"]
+                    if nat_mm_arr["wall_p50_ms"] > 0 else 0, 3
+                )
 
         # Softmax
         py_sm = _benchmark_callable(f"transformer.python.sm.{size_name}", python_softmax, a)
@@ -320,6 +344,17 @@ def benchmark_transformer() -> dict[str, Any]:
             results[f"parity_sm_{size_name}"] = _check_parity(
                 python_softmax, native_softmax, a, tolerance=1e-9,
             )
+            if _np is not None:
+                nat_sm_arr = _benchmark_callable(
+                    f"transformer.native_arr.sm.{size_name}",
+                    native_softmax_array,
+                    _np.asarray(a, dtype=_np.float64),
+                )
+                results[f"native_arr_sm_{size_name}"] = nat_sm_arr
+                results[f"list_boundary_overhead_sm_{size_name}"] = round(
+                    nat_sm["wall_p50_ms"] / nat_sm_arr["wall_p50_ms"]
+                    if nat_sm_arr["wall_p50_ms"] > 0 else 0, 3
+                )
 
         # RMSNorm
         weight = [1.0 + (i % 7) * 0.01 for i in range(cols)]
@@ -336,6 +371,19 @@ def benchmark_transformer() -> dict[str, Any]:
             results[f"parity_rn_{size_name}"] = _check_parity(
                 python_rmsnorm, native_rmsnorm, a, weight, 1e-5, tolerance=1e-9,
             )
+            if _np is not None:
+                nat_rn_arr = _benchmark_callable(
+                    f"transformer.native_arr.rn.{size_name}",
+                    native_rmsnorm_array,
+                    _np.asarray(a, dtype=_np.float64),
+                    _np.asarray(weight, dtype=_np.float64),
+                    1e-5,
+                )
+                results[f"native_arr_rn_{size_name}"] = nat_rn_arr
+                results[f"list_boundary_overhead_rn_{size_name}"] = round(
+                    nat_rn["wall_p50_ms"] / nat_rn_arr["wall_p50_ms"]
+                    if nat_rn_arr["wall_p50_ms"] > 0 else 0, 3
+                )
 
         # RoPE ([B=1, H=2, S=rows, D=cols] with gathered [B,S,D] tables)
         rope_input = [[a for _ in range(2)]]
@@ -361,6 +409,19 @@ def benchmark_transformer() -> dict[str, Any]:
                 python_rope, native_rope, rope_input, cos_table, sin_table,
                 tolerance=1e-9,
             )
+            if _np is not None:
+                nat_rope_arr = _benchmark_callable(
+                    f"transformer.native_arr.rope.{size_name}",
+                    native_rope_array,
+                    _np.asarray(rope_input, dtype=_np.float64),
+                    _np.asarray(cos_table, dtype=_np.float64),
+                    _np.asarray(sin_table, dtype=_np.float64),
+                )
+                results[f"native_arr_rope_{size_name}"] = nat_rope_arr
+                results[f"list_boundary_overhead_rope_{size_name}"] = round(
+                    nat_rope["wall_p50_ms"] / nat_rope_arr["wall_p50_ms"]
+                    if nat_rope_arr["wall_p50_ms"] > 0 else 0, 3
+                )
 
         # Scaled dot-product attention
         q = _make_matrix(rows, cols)
