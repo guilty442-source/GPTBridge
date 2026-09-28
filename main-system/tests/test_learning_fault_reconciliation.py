@@ -31,9 +31,35 @@ from core_system.auto_action_policy import (  # noqa: E402
 )
 
 
+@pytest.fixture
+def repair_schema():
+    import uuid
+
+    schema = "lfr_test_" + uuid.uuid4().hex[:12]
+    import psycopg
+
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+    dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.commit()
+    try:
+        yield schema
+    finally:
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
+
+
 class _App:
-    def __init__(self, project_root: Path) -> None:
+    def __init__(self, project_root: Path, repair_schema: str | None = None) -> None:
         self.project_root = project_root
+        self.repair_schema = repair_schema
 
 
 def _pending_path(root: Path) -> Path:
@@ -97,7 +123,9 @@ def _actionable_action(action_id: str) -> dict:
     }
 
 
-def test_reconcile_removes_only_non_actionable_messages(tmp_path: Path) -> None:
+def test_reconcile_removes_only_non_actionable_messages(
+    tmp_path: Path, repair_schema: str
+) -> None:
     past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     _write_actions(
@@ -109,7 +137,7 @@ def test_reconcile_removes_only_non_actionable_messages(tmp_path: Path) -> None:
             {**_fallback_action("repair-confirmed"), "status": "confirmed"},
         ],
     )
-    sovereign = XingchengSovereign(_App(tmp_path))
+    sovereign = XingchengSovereign(_App(tmp_path, repair_schema))
 
     receipt = sovereign.reconcile_pending_fault_messages()
 
@@ -146,9 +174,9 @@ def test_reconcile_removes_only_non_actionable_messages(tmp_path: Path) -> None:
     assert entry["pending_before"] == 4 and entry["pending_after"] == 2
 
 
-def test_reconcile_is_idempotent(tmp_path: Path) -> None:
+def test_reconcile_is_idempotent(tmp_path: Path, repair_schema: str) -> None:
     _write_actions(tmp_path, [_fallback_action("repair-fallback")])
-    sovereign = XingchengSovereign(_App(tmp_path))
+    sovereign = XingchengSovereign(_App(tmp_path, repair_schema))
 
     first = sovereign.reconcile_pending_fault_messages()
     second = sovereign.reconcile_pending_fault_messages()
@@ -159,7 +187,7 @@ def test_reconcile_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_non_actionable_outcomes_never_become_successful_remedies(
-    tmp_path: Path,
+    tmp_path: Path, repair_schema: str
 ) -> None:
     from tasks.repair_learning import (
         ErrorSignature,
@@ -168,7 +196,7 @@ def test_non_actionable_outcomes_never_become_successful_remedies(
         _normalize_error_signature,
     )
 
-    store = RepairLearningStore(tmp_path / "learning")
+    store = RepairLearningStore(tmp_path / "learning", schema=repair_schema)
     learner = RepairLearner(store)
     signature_hash = _normalize_error_signature("STARTUP_CRASH", "STARTUP_CRASH (unknown)")
     signature = ErrorSignature(
@@ -200,12 +228,12 @@ def test_remove_pending_actions_rejects_non_pending_items(tmp_path: Path) -> Non
 
 @pytest.mark.asyncio
 async def test_reconcile_loop_eliminates_messages_automatically(
-    tmp_path: Path,
+    tmp_path: Path, repair_schema: str
 ) -> None:
     _write_actions(tmp_path, [_fallback_action("repair-fallback-auto")])
     # A485: the child never self-arms — 星澄 commands auto-learning via
     # the governed delegation path (learn.auto-start).
-    app = _App(tmp_path)
+    app = _App(tmp_path, repair_schema)
     parent = XingchengSovereign(app)
     app.xingcheng_sovereign = parent
     parent._reconcile_interval = 0.5
