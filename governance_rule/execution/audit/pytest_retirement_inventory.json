@@ -2448,11 +2448,17 @@
   {
    "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_kv_cache_matrix.py",
    "inventory_class": "module",
-   "replacement_runner": "DotNetTestRunner",
-   "replacement_test": "",
-   "semantic_equivalence": "unproven",
-   "evidence": [],
-   "status": "PENDING"
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "native/test_suites/suite_kv_engine.cpp (links real engine.cpp + transformer.c + kv_pool.c)",
+   "semantic_equivalence": "proven",
+   "evidence": [
+    "kv_stepwise_logits_match_full_forward -> prefill_decode_matches_full_forward (stepwise decode logits == full-forward logits)",
+    "kv_int8_error_within_independent_threshold -> int8_kv_prefill_agreement_and_memory_saving (per-token INT8 bound)",
+    "kv_context_overflow_is_bounded -> sequence_overflow_failclosed (prompt beyond max_position_embeddings refused)",
+    "kv_cache_memory_layout_preallocated -> pool_alloc_release_reuse_zeroed + engine_kv_initialized_gqa_rope_config (preallocated zeroed pool, GQA layout init)",
+    "executed: kv_engine_suite.exe 11/11 PASS 2026-09-28T22:20 (XINGCHENG_BUNDLE_DIR=runtime/devin/synth-bundle); report kv_engine_suite.json"
+   ],
+   "status": "VERIFIED"
   },
   {
    "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_model.py",

@@ -490,11 +490,7 @@ def build_manifest(root: Path) -> dict[str, object]:
         "main-system/config/automation-flows.json",
     )
     for relative in contracts:
-        checks.append({
-            "id": f"contract-parse:{relative}",
-            "kind": "json-parses",
-            "path": relative,
-        })
+        emit(f"contract-parse:{relative}", "json-parses", relative)
 
     # --- reducible marker checks (native: file-contains) --------------
     # Every ``check_*`` whose body is exactly "file exists + required
@@ -503,12 +499,8 @@ def build_manifest(root: Path) -> dict[str, object]:
     # semantics stay delegated.
     reducible = _iter_reducible_marker_checks()
     for name, (relative, markers) in reducible.items():
-        checks.append({
-            "id": f"module-markers:{name}",
-            "kind": "file-contains",
-            "path": relative,
-            "markers": markers,
-        })
+        emit(f"module-markers:{name}", "file-contains", relative,
+             markers=markers)
 
     # --- reducible directory-filelist checks (native: file-exists) ------
     # ``for name in (literal tuple): if not (dir/name).is_file(): fail``
@@ -516,32 +508,19 @@ def build_manifest(root: Path) -> dict[str, object]:
     filelist = _iter_reducible_filelist_checks()
     for name, (dir_relative, names) in filelist.items():
         for filename in names:
-            checks.append({
-                "id": f"dir-filelist:{name}:{filename}",
-                "kind": "file-exists",
-                "path": f"{dir_relative}/{filename}",
-            })
+            emit(f"dir-filelist:{name}:{filename}", "file-exists",
+                 f"{dir_relative}/{filename}")
 
     # --- static contract / structure checks (native reducible) ---------
     def contains(check_id: str, path: str, markers: list[str],
                  optional: bool = False) -> None:
-        entry: dict[str, object] = {
-            "id": check_id, "kind": "file-contains",
-            "path": path, "markers": markers,
-        }
-        if optional:
-            entry["optional"] = True
-        checks.append(entry)
+        emit(check_id, "file-contains", path, markers=markers,
+             **({"optional": True} if optional else {}))
 
     def not_contains(check_id: str, path: str, markers: list[str],
                      optional: bool = False) -> None:
-        entry = {
-            "id": check_id, "kind": "file-not-contains",
-            "path": path, "markers": markers,
-        }
-        if optional:
-            entry["optional"] = True
-        checks.append(entry)
+        emit(check_id, "file-not-contains", path, markers=markers,
+             **({"optional": True} if optional else {}))
 
     # check_metadata_contract
     contains(
@@ -551,11 +530,8 @@ def build_manifest(root: Path) -> dict[str, object]:
          "FIELD_VERSION", "FIELD_CONTENT_HASH", "FIELD_UPDATED_AT",
          "FIELD_STATUS", "ResourceMetadata", "validate_vector_payload"],
     )
-    checks.append({
-        "id": "metadata-contract:ownership-doc",
-        "kind": "file-exists",
-        "path": "shared-layer/docs/DATA_OWNERSHIP_CONTRACT.md",
-    })
+    emit("metadata-contract:ownership-doc", "file-exists",
+         "shared-layer/docs/DATA_OWNERSHIP_CONTRACT.md")
 
     # check_shared_layer_structure (dirs physical, sources readonly)
     sys.path.insert(0, str(root))
@@ -563,17 +539,10 @@ def build_manifest(root: Path) -> dict[str, object]:
     shared = governance_policy_snapshot().shared_layer
     for relative in (shared.module_root, shared.source_root,
                      shared.data_root):
-        checks.append({
-            "id": f"shared-layer-dir:{relative}",
-            "kind": "dir-exists",
-            "path": relative,
-        })
+        emit(f"shared-layer-dir:{relative}", "dir-exists", relative)
     for name in ("__init__.py", "channel.py", "store.py"):
-        rel = f"{shared.source_root}/shared_layer/{name}"
-        checks.append({
-            "id": f"shared-layer-source:{name}",
-            "kind": "file-exists", "path": rel,
-        })
+        emit(f"shared-layer-source:{name}", "file-exists",
+             f"{shared.source_root}/shared_layer/{name}")
 
     # check_embedded_browser (conditional file scans + required modules)
     for path in (
@@ -664,7 +633,7 @@ def build_manifest(root: Path) -> dict[str, object]:
              ["POSTGRESQL_CANONICAL: bool = True"])
     contains("architecture:local-vector-degraded",
              "shared-layer/src/shared_layer/local/vector_store.py",
-             ['"engine": "local-vector-degraded-cache"',
+             ['"engine": "rust-vectord-degraded"',
               '"canonical": False'])
     for name in ("market_data.py", "xingcheng_tools/search/searchd.py"):
         path = ("Standalone tools/local-model/src/backend/services/"
@@ -1008,37 +977,19 @@ def build_manifest(root: Path) -> dict[str, object]:
                 absent.append("executable")
         else:
             markers.append(f"physical_owner_root={expected_owner}")
-        checks.append({
-            "id": f"tool-manifest:values:{rel}",
-            "kind": "json-key-value", "path": rel,
-            "markers": markers,
-        })
-        checks.append({
-            "id": f"tool-manifest:absent:{rel}",
-            "kind": "json-key-absent", "path": rel,
-            "markers": absent,
-        })
-        checks.append({
-            "id": f"tool-manifest:dicts:{rel}",
-            "kind": "json-has-keys", "path": rel,
-            "markers": ["permissions", "capabilities"],
-        })
+        emit(f"tool-manifest:values:{rel}", "json-key-value", rel,
+             markers=markers)
+        emit(f"tool-manifest:absent:{rel}", "json-key-absent", rel,
+             markers=absent)
+        emit(f"tool-manifest:dicts:{rel}", "json-has-keys", rel,
+             markers=["permissions", "capabilities"])
         locale_rel = (
             manifest_path.parent / "locales" / "zh-TW.json"
         ).relative_to(root).as_posix()
-        checks.append({
-            "id": f"tool-locale:exists:{rel}",
-            "kind": "file-exists", "path": locale_rel,
-        })
-        checks.append({
-            "id": f"tool-locale:parse:{rel}",
-            "kind": "json-parses", "path": locale_rel,
-        })
-        checks.append({
-            "id": f"tool-locale:keys:{rel}",
-            "kind": "json-has-keys", "path": locale_rel,
-            "markers": list(_required_locale_keys),
-        })
+        emit(f"tool-locale:exists:{rel}", "file-exists", locale_rel)
+        emit(f"tool-locale:parse:{rel}", "json-parses", locale_rel)
+        emit(f"tool-locale:keys:{rel}", "json-has-keys", locale_rel,
+             markers=list(_required_locale_keys))
         # self-health 覆蓋面（audit_self_health 三層 glob 掃到的
         # manifest 才走此列；depth-4 嵌套僅 tool-manifests 語義）。
         # retired / enabled=false 的擁有者不承擔覆蓋宣告屏障。
