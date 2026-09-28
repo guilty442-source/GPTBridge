@@ -293,6 +293,97 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
         }
         return r;
     }
+    if (check.kind == "glob-not-contains") {
+        /* 平層 glob（parent 目錄 + 檔名 pattern）：每個命中檔案都不得
+         * 含任一 marker。目錄缺席 → FAIL（fail-closed），optional 才豁免。*/
+        const fs::path g = fs::u8path(check.glob);
+        const fs::path dir = fs::u8path(root) / g.parent_path();
+        const std::string pattern = u8_bytes(g.filename());
+        if (!fs::is_directory(dir, ec)) {
+            if (check.optional) {
+                r.status = AuditStatus::PASS;
+            } else {
+                r.status = AuditStatus::FAIL;
+                r.detail = "missing dir for glob: " + check.glob;
+            }
+            return r;
+        }
+        std::string hit_path, hit_marker;
+        for (const auto& entry : fs::directory_iterator(dir, ec)) {
+            if (!entry.is_regular_file(ec) ||
+                !wildcard_match(pattern, u8_bytes(entry.path().filename())))
+                continue;
+            std::string content;
+            if (!read_file(entry.path(), &content)) continue;
+            const std::string haystack =
+                check.ignore_case ? to_lower(content) : content;
+            for (const auto& m : check.markers) {
+                const std::string needle =
+                    check.ignore_case ? to_lower(m) : m;
+                if (haystack.find(needle) != std::string::npos) {
+                    hit_marker = m;
+                    std::error_code rec;
+                    hit_path = u8_bytes(
+                        fs::relative(entry.path(), root, rec));
+                    if (rec) hit_path = u8_bytes(entry.path().filename());
+                    break;
+                }
+            }
+            if (!hit_marker.empty()) break;
+        }
+        if (hit_marker.empty()) { r.status = AuditStatus::PASS; }
+        else {
+            r.status = AuditStatus::FAIL;
+            r.detail = "forbidden marker '" + hit_marker + "' in " +
+                       hit_path;
+        }
+        return r;
+    }
+    if (check.kind == "glob-absent") {
+        /* 遞迴掃描 check.path 子樹（空字串 = 專案根）：檔名命中 check.glob
+         * wildcard 即 FAIL。exclude 目錄名與 dotdir 於任意深度略過，
+         * 對齊 Python os.walk + dirnames 修剪語義。*/
+        const fs::path base = check.path.empty()
+            ? fs::u8path(root)
+            : fs::u8path(root) / fs::u8path(check.path);
+        if (!fs::is_directory(base, ec)) {
+            r.status = AuditStatus::PASS;   /* 無子樹 → 無命中 */
+            return r;
+        }
+        auto excluded = [&](const fs::path& p) {
+            const std::string name = u8_bytes(p.filename());
+            if (!name.empty() && name[0] == '.') return true;
+            for (const auto& ex : check.exclude)
+                if (name == ex) return true;
+            return false;
+        };
+        std::string hit;
+        std::error_code iec;
+        fs::recursive_directory_iterator it(
+            base, fs::directory_options::skip_permission_denied, iec);
+        const fs::recursive_directory_iterator dend;
+        while (!iec && it != dend) {
+            std::error_code sec;
+            if (it->is_directory(sec)) {
+                if (excluded(it->path())) it.disable_recursion_pending();
+            } else if (it->is_regular_file(sec)) {
+                if (wildcard_match(check.glob,
+                                   u8_bytes(it->path().filename()))) {
+                    std::error_code rec;
+                    hit = u8_bytes(fs::relative(it->path(), base, rec));
+                    if (rec) hit = u8_bytes(it->path().filename());
+                    break;
+                }
+            }
+            it.increment(iec);
+        }
+        if (hit.empty()) { r.status = AuditStatus::PASS; }
+        else {
+            r.status = AuditStatus::FAIL;
+            r.detail = "forbidden file present: " + hit;
+        }
+        return r;
+    }
     /* 未支援 kind：delegated（顯式移交，不靜默） */
     r.status = AuditStatus::DELEGATED;
     r.detail = "unsupported kind";
@@ -395,6 +486,11 @@ bool audit_load_manifest(const std::string& manifest_path,
                 for (const auto& m : v->array)
                     if (m.type == JsonValue::Type::String)
                         c.markers.push_back(m.string);
+        if (const JsonValue* v = item.get("exclude"))
+            if (v->type == JsonValue::Type::Array)
+                for (const auto& m : v->array)
+                    if (m.type == JsonValue::Type::String)
+                        c.exclude.push_back(m.string);
         if (c.id.empty() || c.kind.empty()) {
             if (out_error) *out_error = "check entry missing id/kind";
             return false;

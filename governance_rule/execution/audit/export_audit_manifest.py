@@ -13,8 +13,10 @@ Shadow semantics (same dual-track as the E1 execution prototypes):
 
 - checks reducible to static file operations are emitted with native
   ``kind`` (``file-exists`` / ``file-not-exists`` / ``file-readonly`` /
-  ``file-contains`` / ``text-no-pollution`` / ``json-parses`` /
-  ``glob-min-count``) — the engine verifies them directly;
+  ``file-contains`` / ``file-not-contains`` / ``text-no-pollution`` /
+  ``json-parses`` / ``json-has-keys`` / ``glob-min-count`` /
+  ``glob-not-contains`` / ``glob-absent``) — the engine verifies them
+  directly;
 - every Python ``check_*`` function not fully reducible is emitted as a
   ``delegated`` record — explicit, counted, never silently dropped;
 - regenerating after any governance-data change is the cache-invalidation
@@ -72,6 +74,11 @@ _NATIVE_COVERED = frozenset({
     "check_architecture_sources",
     "check_main_system_source",
     "check_reconcile_modules",      # state-store contains + forbidden + owner
+    # Audit-suite convergence: fully reducible to native kinds.
+    "check_bootstrap_native_entry",    # csproj/Program.cs exists + marker
+    "check_channel_gateway_csharp",    # projects + port invariants
+    "check_tool_host_native_boundary", # dirs + glob-not-contains + ops
+    "check_typescript_retirement",     # glob-absent (*.ts/*.tsx/*.d.ts)
 })
 
 
@@ -686,6 +693,104 @@ def build_manifest(root: Path) -> dict[str, object]:
              "main-system/src-core/core_system/governance_runtime.py",
              ['if tool_id == "governance_rule"'])
 
+    # check_bootstrap_native_entry — csproj + Program.cs + contract marker.
+    _bootstrap_dir = "main-system/launcher/src/GPTBridge.Bootstrap"
+    checks.append({
+        "id": "bootstrap-entry:csproj", "kind": "file-exists",
+        "path": f"{_bootstrap_dir}/GPTBridge.Bootstrap.csproj",
+    })
+    checks.append({
+        "id": "bootstrap-entry:program", "kind": "file-exists",
+        "path": f"{_bootstrap_dir}/Program.cs",
+    })
+    contains("bootstrap-entry:contract-marker",
+             f"{_bootstrap_dir}/Program.cs", ["--prepare-only"])
+
+    # check_channel_gateway_csharp — library + test project + invariants.
+    _channel_lib = (
+        "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels")
+    for rel in (
+        f"{_channel_lib}/GPTBridge.Channels.csproj",
+        "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels.Tests/"
+        "GPTBridge.Channels.Tests.csproj",
+        f"{_channel_lib}/A263Channel.cs",
+    ):
+        checks.append({
+            "id": f"channel-gateway:{rel.rsplit('/', 1)[-1]}",
+            "kind": "file-exists", "path": rel,
+        })
+    contains("channel-gateway:port-invariants",
+             f"{_channel_lib}/A263Channel.cs",
+             ["Stopwatch.GetTimestamp", "ReconnectAsync"])
+
+    # check_tool_host_native_boundary — host/test dirs, forbidden
+    # governance primitives over *.cs, proxy ops surface, spawn wiring.
+    _tool_host = "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost"
+    for rel in (_tool_host, f"{_tool_host}.Tests"):
+        checks.append({
+            "id": f"tool-host:dir:{rel.rsplit('/', 1)[-1]}",
+            "kind": "dir-exists", "path": rel,
+        })
+    for marker in (
+        "HMACSHA", "issue_token", "launcher_key", "integrity_manifest",
+        "identity_attestation", "gptbridge_transport", "Npgsql",
+        "pg_notify",
+    ):
+        checks.append({
+            "id": f"tool-host:forbidden:{marker}",
+            "kind": "glob-not-contains",
+            "glob": f"{_tool_host}/*.cs", "markers": [marker],
+        })
+    checks.append({
+        "id": "tool-host:proxy-client", "kind": "file-exists",
+        "path": f"{_tool_host}/TransportProxyClient.cs",
+    })
+    contains("tool-host:proxy-ops",
+             f"{_tool_host}/TransportProxyClient.cs",
+             ['"hello"', '"claim"', '"respond"', '"request_cancelled"',
+              '"notification_stamp"'])
+    contains("tool-host:spawn-exe-branch",
+             "main-system/src-core/tasks/toolbox_start_spawn_process.py",
+             ['source_entry.suffix.lower() == ".exe"'])
+    contains("tool-host:resolver-native-entry",
+             "main-system/src-core/tasks/tool_path_resolver.py",
+             ["native_entry"])
+
+    # check_typescript_retirement (A348) — no authored .ts/.tsx/.d.ts
+    # outside the noise/exclusion set; dotdirs skipped implicitly.
+    _ts_exclude = [
+        "venv", "node_modules", "__pycache__", "dist", "dist-ui",
+        "build", "release", "releases", "runtime", "out",
+    ]
+    for pattern in ("*.ts", "*.tsx", "*.d.ts"):
+        checks.append({
+            "id": f"typescript-retirement:{pattern}",
+            "kind": "glob-absent", "path": "", "glob": pattern,
+            "exclude": _ts_exclude,
+        })
+
+    # check_gpu_coordinator_lazy_torch — 部分歸約：lazy probe 與
+    # nvidia-smi/torch 兩探針的 marker 存在性原生檢查；AST 頂層
+    # import 判定與 query_gpu 內部呼叫順序語義留 delegated。
+    contains("gpu-coordinator:lazy-probe-markers",
+             "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py",
+             ["def _torch()", "_query_via_nvidia_smi",
+              "_query_via_torch"])
+
+    # check_jax_sft_retrace_bound — 部分歸約：fused step / bucketed
+    # collation / traced-lr 簽名的 literal markers 原生檢查；
+    # _COLLATE_BUCKET 數值 regex 與 donate_argnums 鄰近視窗語義留
+    # delegated。
+    _sft = (
+        "Standalone tools/local-model/src/backend/services/xingcheng/"
+        "infrastructure/native_transformer/jax_backend/sft.py")
+    contains("jax-sft:fused-step-markers", _sft,
+             ["_COLLATE_BUCKET", "train_step = jax.jit(",
+              "donate_argnums",
+              "def _train_step(params, opt_state, input_ids, labels, lr)",
+              "eval_loss = jax.jit(", "collate_bucket",
+              "def _choose_bucket"])
+
     # --- delegated: every Python check not natively covered -----------
     # Each delegated row carries an explicit ``python`` target so the
     # delegated lane (same-request execution, G96) can resolve it without
@@ -744,7 +849,7 @@ def build_manifest(root: Path) -> dict[str, object]:
                 "file-exists", "file-not-exists", "file-readonly",
                 "dir-exists", "file-contains", "file-not-contains",
                 "text-no-pollution", "json-parses", "json-has-keys",
-                "glob-min-count",
+                "glob-min-count", "glob-not-contains", "glob-absent",
             ],
         },
         "checks": checks,

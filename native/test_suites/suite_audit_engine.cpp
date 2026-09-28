@@ -179,6 +179,66 @@ int main() {
         remove_dir(dir);
     } NT_END_TEST("audit_engine_suite", "kind_glob_and_delegated");
 
+    NT_TEST("audit_engine_suite", "kind_glob_not_contains") {
+        fs::path dir = make_case_dir("globnc");
+        write_file(dir / "host" / "clean.cs", "public class A {}");
+        write_file(dir / "host" / "bad.cs", "uses HMACSHA256");
+        write_file(dir / "host" / "note.txt", "HMACSHA256 in text");
+        std::vector<AuditCheck> checks = {
+            {"nc1", "glob-not-contains", "", "host/*.cs",
+             {"HMACSHA"}, 0, "", false, false},
+            {"nc2", "glob-not-contains", "", "host/*.cs",
+             {"Npgsql"}, 0, "", false, false},
+            {"nc3", "glob-not-contains", "", "absent/*.cs",
+             {"x"}, 0, "", false, false},
+            {"nc4", "glob-not-contains", "", "absent/*.cs",
+             {"x"}, 0, "", true, false},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "nc1")->status == AuditStatus::FAIL,
+                 "forbidden marker in matched file");
+        NT_CHECK(find(report, "nc2")->status == AuditStatus::PASS,
+                 "clean glob passes");
+        NT_CHECK(find(report, "nc3")->status == AuditStatus::FAIL,
+                 "missing dir fails closed");
+        NT_CHECK(find(report, "nc4")->status == AuditStatus::PASS,
+                 "optional missing dir passes");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_glob_not_contains");
+
+    NT_TEST("audit_engine_suite", "kind_glob_absent") {
+        fs::path dir = make_case_dir("globabs");
+        write_file(dir / "src" / "app.js", "x");
+        write_file(dir / "src" / "deep" / "old.ts", "x");
+        write_file(dir / "node_modules" / "dep" / "lib.ts", "x");
+        write_file(dir / ".hidden" / "x.ts", "x");
+        std::vector<AuditCheck> checks = {
+            {"a1", "glob-absent", "", "*.ts", {}, 0, "", false, false,
+             {"node_modules"}},
+            {"a2", "glob-absent", "", "*.tsx", {}, 0, "", false, false,
+             {"node_modules"}},
+            /* 子樹掃描：src/ 底下的 .ts 仍命中 */
+            {"a3", "glob-absent", "src", "*.ts", {}, 0, "", false, false,
+             {}},
+            /* 子樹不存在 → 無命中 PASS */
+            {"a4", "glob-absent", "nope", "*.ts", {}, 0, "", false, false,
+             {}},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "a1")->status == AuditStatus::FAIL,
+                 "deep .ts found (excluded + dotdir hits ignored)");
+        NT_CHECK(find(report, "a2")->status == AuditStatus::PASS,
+                 "no .tsx anywhere");
+        NT_CHECK(find(report, "a3")->status == AuditStatus::FAIL,
+                 "subtree hit reported");
+        NT_CHECK(find(report, "a4")->status == AuditStatus::PASS,
+                 "absent subtree passes");
+        NT_CHECK(find(report, "a1")->detail.find("old.ts")
+                     != std::string::npos,
+                 "hit detail names the file");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_glob_absent");
+
     NT_TEST("audit_engine_suite", "kind_file_not_contains") {
         fs::path dir = make_case_dir("notcontains");
         write_file(dir / "m.py", "clean source");
