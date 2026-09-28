@@ -83,6 +83,11 @@ pub(crate) async fn gptbridge_invoke(
     channel: String,
     args: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
+    let envelope = gptbridge_core::ipc::RequestEnvelope::from_legacy(
+        channel.clone(),
+        args.clone(),
+    );
+    envelope.validate()?;
     // Tool-window mode has its own whitelist and dispatch surface
     // (source-tool-ui-host contract, tool_dispatch.rs).
     if crate::tool_window::tool_window_requested() {
