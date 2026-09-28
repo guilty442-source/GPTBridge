@@ -1,484 +1,67 @@
-"""PostgreSQL authority and one-way SQLite predecessor import for the Codex."""
+"""PostgreSQL authority and one-way SQLite predecessor import for the Codex.
+
+Compatibility entrypoint (source-size split): the implementation lives in
+``codex_postgresql_dsn`` / ``codex_postgresql_pool`` /
+``codex_postgresql_import`` / ``codex_postgresql_export``; every public
+name below re-exports unchanged for the wide existing caller surface.
+"""
 
 from __future__ import annotations
 
-import atexit
-import hashlib
-import os
-import re
-import sqlite3
-import threading
-import time
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Final, Iterator
-
-import psycopg
-from psycopg import sql
-from psycopg.rows import dict_row
-
-
-CODEX_SCHEMA: Final[str] = "gptbridge_codex"
-CODEX_AUTHORITY_URI: Final[str] = "postgresql://local/gptbridge_codex"
-_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-
-def runtime_dsn() -> str:
-    value = os.environ.get("GPTBRIDGE_POSTGRES_DSN", "").strip()
-    if not value:
-        raise RuntimeError("GPTBRIDGE_POSTGRES_DSN_REQUIRED")
-    return value
-
-
-def admin_dsn() -> str:
-    value = os.environ.get("GPTBRIDGE_POSTGRES_ADMIN_DSN", "").strip()
-    if not value:
-        raise RuntimeError("GPTBRIDGE_POSTGRES_ADMIN_DSN_REQUIRED")
-    return value
-
-
-_thread_local = threading.local()
-
-# C59 POOL-ISOLATION: cached codex read connections are bounded two ways —
-# a per-process cap on held slots and an idle TTL that returns idle backends
-# to the server.  Workers that churn threads no longer leak one connection
-# per thread for the process lifetime (observed: every bound executor worker
-# pinned a runtime slot, exhausting non-superuser connections fleet-wide).
-_CODEX_CONN_IDLE_TTL_S: Final[float] = float(
-    os.environ.get("GPTBRIDGE_CODEX_CONN_IDLE_TTL_S", "120")
-)
-_CODEX_CONN_CACHE_MAX: Final[int] = int(
-    os.environ.get("GPTBRIDGE_CODEX_CONN_CACHE_MAX", "4")
-)
-# Registry: id(conn) -> (conn, owner_thread_ident, last_used_monotonic).
-# A conn whose owning thread has exited is an orphan — it would hold a
-# backend slot for the rest of the process lifetime, which is exactly how
-# the slot exhaustion was observed.  Every borrow sweeps orphans.
-_cached_connections: dict[int, tuple[psycopg.Connection[Any], int | None, float]] = {}
-_cached_lock = threading.Lock()
-
-
-def _close_connection(connection: psycopg.Connection[Any]) -> None:
-    try:
-        connection.close()
-    except Exception:
-        pass
-
-
-def _drop_cached(connection: psycopg.Connection[Any]) -> None:
-    with _cached_lock:
-        _cached_connections.pop(id(connection), None)
-
-
-def _sweep_cached() -> None:
-    """Close orphaned/dead entries; must be called with _cached_lock held."""
-    alive = {thread.ident for thread in threading.enumerate()}
-    for key, (conn, owner, _last_used) in list(_cached_connections.items()):
-        if conn.closed or conn.broken or owner not in alive:
-            del _cached_connections[key]
-            _close_connection(conn)
-
-
-def close_cached_connections() -> None:
-    """Close every cached codex read connection (process teardown/tests)."""
-    with _cached_lock:
-        connections = [entry[0] for entry in _cached_connections.values()]
-        _cached_connections.clear()
-    for connection in connections:
-        _close_connection(connection)
-
-
-atexit.register(close_cached_connections)
-
-
-def _new_readonly_connection() -> psycopg.Connection[Any]:
-    return psycopg.connect(
-        runtime_dsn(),
-        connect_timeout=5,
-        options="-c default_transaction_read_only=on",
+try:
+    from .codex_postgresql_dsn import (
+        _IDENTIFIER,
+        CODEX_AUTHORITY_URI,
+        CODEX_SCHEMA,
+        admin_dsn,
+        runtime_dsn,
+    )
+    from .codex_postgresql_export import (
+        export_postgresql_codex,
+        verify_sqlite_parity,
+    )
+    from .codex_postgresql_import import (
+        _version_regresses,
+        _version_units,
+        import_sqlite_predecessor,
+    )
+    from .codex_postgresql_pool import (
+        authority_state,
+        close_cached_connections,
+        readonly_connection,
+    )
+except ImportError:  # flat script import (execution/ on sys.path)
+    from codex_postgresql_dsn import (
+        _IDENTIFIER,
+        CODEX_AUTHORITY_URI,
+        CODEX_SCHEMA,
+        admin_dsn,
+        runtime_dsn,
+    )
+    from codex_postgresql_export import (
+        export_postgresql_codex,
+        verify_sqlite_parity,
+    )
+    from codex_postgresql_import import (
+        _version_regresses,
+        _version_units,
+        import_sqlite_predecessor,
+    )
+    from codex_postgresql_pool import (
+        authority_state,
+        close_cached_connections,
+        readonly_connection,
     )
 
-
-@contextmanager
-def readonly_connection() -> Iterator[psycopg.Connection[Any]]:
-    # Adjudication bursts issue several codex reads back-to-back; paying a
-    # fresh psycopg.connect (~250 ms of socket handshake measured on the
-    # event loop) per read starved the backend during startup.  Keep at
-    # most one read-only connection per thread — bounded by the per-process
-    # cache cap and an idle TTL — and wrap each borrow in a real
-    # transaction, preserving the original single-snapshot semantics
-    # (SET LOCAL still scopes search_path to the borrowed transaction).
-    # When the cache cap is reached the borrow falls back to a transient
-    # connection that is closed on exit: callers never observe unbounded
-    # slot growth.
-    connection: psycopg.Connection[Any] | None = None
-    cached = False
-    entry = getattr(_thread_local, "readonly_conn", None)
-    if entry is not None:
-        candidate, last_used = entry
-        if candidate.closed or candidate.broken or (
-            time.monotonic() - last_used > _CODEX_CONN_IDLE_TTL_S
-        ):
-            _drop_cached(candidate)
-            _close_connection(candidate)
-        else:
-            connection = candidate
-            cached = True
-    if connection is None:
-        # Connect outside the lock (~250 ms handshake must not serialize
-        # first-time borrowers); the cap is enforced on registration.
-        connection = _new_readonly_connection()
-        with _cached_lock:
-            _sweep_cached()
-            cached = len(_cached_connections) < _CODEX_CONN_CACHE_MAX
-            if cached:
-                _cached_connections[id(connection)] = (
-                    connection,
-                    threading.get_ident(),
-                    time.monotonic(),
-                )
-    assert connection is not None
-    try:
-        with connection.transaction():
-            connection.execute(
-                sql.SQL("SET LOCAL search_path TO {}, pg_catalog").format(
-                    sql.Identifier(CODEX_SCHEMA)
-                )
-            )
-            yield connection
-    finally:
-        if connection.closed or connection.broken:
-            _drop_cached(connection)
-            _close_connection(connection)
-            if getattr(_thread_local, "readonly_conn", (None,))[0] is connection:
-                _thread_local.readonly_conn = None
-        elif cached:
-            _thread_local.readonly_conn = (connection, time.monotonic())
-        else:
-            _close_connection(connection)
-
-
-def _pg_type(declared_type: str, values: list[Any]) -> str:
-    value = declared_type.upper()
-    populated = [item for item in values if item is not None]
-    if "INT" in value and all(isinstance(item, int) and not isinstance(item, bool) for item in populated):
-        return "BIGINT"
-    if any(token in value for token in ("REAL", "FLOA", "DOUB")) and all(
-        isinstance(item, (int, float)) and not isinstance(item, bool) for item in populated
-    ):
-        return "DOUBLE PRECISION"
-    if "BLOB" in value:
-        return "BYTEA"
-    return "TEXT"
-
-
-def _source_hash(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _version_units(value: str) -> int | None:
-    """Orderable units for legacy ``x.yyyyy`` or ISO-8601 UTC versions."""
-    text = str(value or "").strip()
-    whole, sep, fraction = text.partition(".")
-    if sep and whole.isdigit() and fraction.isdigit() and len(fraction) == 5:
-        return int(whole) * 100_000 + int(fraction)
-    try:
-        from datetime import datetime, timezone
-
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return int(parsed.timestamp())
-    except (TypeError, ValueError):
-        return None
-
-
-def _version_regresses(source_version: str, current_version: str) -> bool:
-    """True when the source is provably older than the live authority."""
-    source_units = _version_units(source_version)
-    current_units = _version_units(current_version)
-    if source_units is None or current_units is None:
-        return True
-    return source_units < current_units
-
-
-def import_sqlite_predecessor(source: Path) -> dict[str, Any]:
-    """Atomically replace the PostgreSQL Codex schema from the sealed predecessor."""
-    source = Path(source).resolve()
-    sqlite_connection = sqlite3.connect(f"file:{source.as_posix()}?mode=ro&immutable=1", uri=True)
-    try:
-        tables = [
-            str(row[0])
-            for row in sqlite_connection.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' "
-                "AND name NOT LIKE 'sqlite_%' ORDER BY name"
-            )
-        ]
-        if not tables or "metadata" not in tables:
-            raise RuntimeError("CODEX_SQLITE_PREDECESSOR_INVALID")
-        metadata = dict(sqlite_connection.execute("SELECT key, value FROM metadata"))
-        source_digest = _source_hash(source)
-        source_version = str(metadata.get("codex_version", ""))
-        total_rows = 0
-        with psycopg.connect(admin_dsn()) as target:
-            # Serialize concurrent publishers: two governed executors racing
-            # the shared authority must not interleave DROP/CREATE (duplicate
-            # -table race observed 2026-09-25 when a service tick and a CLI
-            # run executed the same request).  The xact-scoped lock releases
-            # automatically on commit/abort.
-            target.execute(
-                "SELECT pg_advisory_xact_lock(hashtext('gptbridge.codex.import'))"
-            )
-            # Monotonic-version guard (fail-closed): the authority never
-            # regresses.  A source older than the live codex version is a
-            # stale/fixture import and must be refused before any DROP.
-            try:
-                row = target.execute(
-                    sql.SQL(
-                        "SELECT codex_version FROM {}.codex_authority_state"
-                    ).format(sql.Identifier(CODEX_SCHEMA))
-                ).fetchone()
-            except psycopg.errors.Error:
-                # Authority state unreadable (fresh init, missing
-                # schema/table): nothing to regress against.
-                row = None
-                target.rollback()
-            if row is not None:
-                current_version = str(row[0])
-                if _version_regresses(source_version, current_version):
-                    raise RuntimeError(
-                        "CODEX_VERSION_REGRESSION:"
-                        f"{source_version}<{current_version}"
-                    )
-            target.execute(sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(CODEX_SCHEMA)))
-            target.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(CODEX_SCHEMA)))
-            target.execute(sql.SQL("REVOKE CREATE ON SCHEMA {} FROM PUBLIC").format(sql.Identifier(CODEX_SCHEMA)))
-
-            for table in tables:
-                if not _IDENTIFIER.fullmatch(table):
-                    raise RuntimeError(f"CODEX_TABLE_IDENTIFIER_INVALID:{table}")
-                columns = list(sqlite_connection.execute(f'PRAGMA table_info("{table}")'))
-                if not columns:
-                    raise RuntimeError(f"CODEX_TABLE_SCHEMA_MISSING:{table}")
-                rows = list(sqlite_connection.execute(f'SELECT * FROM "{table}"'))
-                definitions: list[sql.Composable] = []
-                pg_types: list[str] = []
-                primary = sorted(((int(row[5]), str(row[1])) for row in columns if int(row[5])), key=lambda item: item[0])
-                for column_index, (_, name, declared_type, not_null, _default, _pk) in enumerate(columns):
-                    values = [row[column_index] for row in rows]
-                    pg_type = _pg_type(str(declared_type), values)
-                    pg_types.append(pg_type)
-                    definition = sql.SQL("{} {}").format(
-                        sql.Identifier(str(name)), sql.SQL(pg_type)
-                    )
-                    if int(not_null):
-                        definition += sql.SQL(" NOT NULL")
-                    definitions.append(definition)
-                if primary:
-                    definitions.append(
-                        sql.SQL("PRIMARY KEY ({})").format(
-                            sql.SQL(", ").join(sql.Identifier(name) for _, name in primary)
-                        )
-                    )
-                target.execute(
-                    sql.SQL("CREATE TABLE {}.{} ({})").format(
-                        sql.Identifier(CODEX_SCHEMA), sql.Identifier(table), sql.SQL(", ").join(definitions)
-                    )
-                )
-                names = [str(row[1]) for row in columns]
-                total_rows += len(rows)
-                if rows:
-                    converted_rows = [
-                        tuple(
-                            None if value is None else str(value) if pg_types[index] == "TEXT" else value
-                            for index, value in enumerate(row)
-                        )
-                        for row in rows
-                    ]
-                    statement = sql.SQL("INSERT INTO {}.{} ({}) VALUES ({})").format(
-                        sql.Identifier(CODEX_SCHEMA),
-                        sql.Identifier(table),
-                        sql.SQL(", ").join(sql.Identifier(name) for name in names),
-                        sql.SQL(", ").join(sql.Placeholder() for _ in names),
-                    )
-                    with target.cursor() as cursor:
-                        cursor.executemany(statement, converted_rows)
-
-            target.execute(
-                sql.SQL(
-                    "CREATE TABLE {}.codex_authority_state ("
-                    "authority_uri TEXT PRIMARY KEY, codex_version TEXT NOT NULL, "
-                    "source_sha256 TEXT NOT NULL, table_count BIGINT NOT NULL, "
-                    "row_count BIGINT NOT NULL, imported_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)"
-                ).format(sql.Identifier(CODEX_SCHEMA))
-            )
-            target.execute(
-                sql.SQL("INSERT INTO {}.codex_authority_state "
-                        "(authority_uri,codex_version,source_sha256,table_count,row_count) VALUES (%s,%s,%s,%s,%s)").format(
-                    sql.Identifier(CODEX_SCHEMA)
-                ),
-                (CODEX_AUTHORITY_URI, str(metadata.get("codex_version", "")), source_digest, len(tables), total_rows),
-            )
-            target.execute(sql.SQL("GRANT USAGE ON SCHEMA {} TO gptbridge_runtime").format(sql.Identifier(CODEX_SCHEMA)))
-            target.execute(sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA {} TO gptbridge_runtime").format(sql.Identifier(CODEX_SCHEMA)))
-            target.execute(sql.SQL("ALTER DEFAULT PRIVILEGES IN SCHEMA {} GRANT SELECT ON TABLES TO gptbridge_runtime").format(sql.Identifier(CODEX_SCHEMA)))
-        return {
-            "codex_version": str(metadata.get("codex_version", "")),
-            "source_sha256": source_digest,
-            "table_count": len(tables),
-            "row_count": total_rows,
-        }
-    finally:
-        sqlite_connection.close()
-
-
-def authority_state() -> dict[str, Any]:
-    with readonly_connection() as connection:
-        with connection.cursor(row_factory=dict_row) as cursor:
-            row = cursor.execute(
-                sql.SQL("SELECT * FROM {}.codex_authority_state").format(sql.Identifier(CODEX_SCHEMA))
-            ).fetchone()
-    if row is None:
-        raise RuntimeError("POSTGRESQL_CODEX_AUTHORITY_NOT_INITIALIZED")
-    return dict(row)
-
-
-def _sqlite_decl(pg_type: str) -> str:
-    """Map a PostgreSQL column type back to a SQLite storage class."""
-    value = pg_type.upper()
-    if "INT" in value:
-        return "INTEGER"
-    if any(token in value for token in ("DOUBLE", "REAL", "FLOAT")):
-        return "REAL"
-    if "BYTEA" in value or "BLOB" in value:
-        return "BLOB"
-    return "TEXT"
-
-
-def export_postgresql_codex(target: Path) -> Path:
-    """Export the live PostgreSQL codex authority to a SQLite scratch copy.
-
-    The export is a non-authoritative working copy (A173): staged-generation
-    tooling (amendment pipeline, mirror renderers, validation) operates on it
-    without touching the authority, and the governed wire phase re-imports
-    the staged file through :func:`import_sqlite_predecessor`.
-    """
-    target = Path(target)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(str(target))
-    try:
-        with readonly_connection() as source:
-            tables = [
-                str(row[0])
-                for row in source.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema=%s AND table_type='BASE TABLE' "
-                    "AND table_name<>'codex_authority_state' ORDER BY table_name",
-                    (CODEX_SCHEMA,),
-                )
-            ]
-            for table in tables:
-                if not _IDENTIFIER.fullmatch(table):
-                    raise RuntimeError(f"CODEX_TABLE_IDENTIFIER_INVALID:{table}")
-                columns = list(
-                    source.execute(
-                        "SELECT column_name, data_type, is_nullable "
-                        "FROM information_schema.columns WHERE table_schema=%s "
-                        "AND table_name=%s ORDER BY ordinal_position",
-                        (CODEX_SCHEMA, table),
-                    )
-                )
-                names = [str(column[0]) for column in columns]
-                definitions = []
-                for name, pg_type, nullable in columns:
-                    definition = f'"{name}" {_sqlite_decl(str(pg_type))}'
-                    if str(nullable) == "NO":
-                        definition += " NOT NULL"
-                    definitions.append(definition)
-                connection.execute(
-                    f'CREATE TABLE "{table}" ({", ".join(definitions)})'
-                )
-                rows = list(
-                    source.execute(
-                        sql.SQL("SELECT {} FROM {}.{}").format(
-                            sql.SQL(", ").join(
-                                sql.Identifier(name) for name in names
-                            ),
-                            sql.Identifier(CODEX_SCHEMA),
-                            sql.Identifier(table),
-                        )
-                    )
-                )
-                if rows:
-                    converted = [
-                        tuple(
-                            bytes(value) if isinstance(value, memoryview) else value
-                            for value in row
-                        )
-                        for row in rows
-                    ]
-                    connection.executemany(
-                        f'INSERT INTO "{table}" ({", ".join(names)}) '
-                        f'VALUES ({", ".join("?" for _ in names)})',
-                        converted,
-                    )
-            connection.commit()
-    finally:
-        connection.close()
-    return target
-
-
-def verify_sqlite_parity(source: Path) -> dict[str, Any]:
-    """Compare every predecessor table and cell with the live PostgreSQL authority."""
-    source = Path(source).resolve()
-    sqlite_connection = sqlite3.connect(f"file:{source.as_posix()}?mode=ro&immutable=1", uri=True)
-    mismatches: list[str] = []
-    checked_rows = 0
-    try:
-        sqlite_tables = [
-            str(row[0])
-            for row in sqlite_connection.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' "
-                "AND name NOT LIKE 'sqlite_%' ORDER BY name"
-            )
-        ]
-        with readonly_connection() as target:
-            pg_tables = [
-                str(row[0])
-                for row in target.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema=%s AND table_type='BASE TABLE' "
-                    "AND table_name<>'codex_authority_state' ORDER BY table_name",
-                    (CODEX_SCHEMA,),
-                )
-            ]
-            if sqlite_tables != pg_tables:
-                mismatches.append("table-set")
-            for table in sqlite_tables:
-                columns = [str(row[1]) for row in sqlite_connection.execute(f'PRAGMA table_info("{table}")')]
-                sqlite_rows = list(sqlite_connection.execute(f'SELECT * FROM "{table}"'))
-                pg_rows = list(
-                    target.execute(
-                        sql.SQL("SELECT {} FROM {}.{}").format(
-                            sql.SQL(", ").join(sql.Identifier(name) for name in columns),
-                            sql.Identifier(CODEX_SCHEMA),
-                            sql.Identifier(table),
-                        )
-                    )
-                )
-                checked_rows += len(sqlite_rows)
-                normalize = lambda row: tuple(None if value is None else bytes(value) if isinstance(value, memoryview) else str(value) for value in row)
-                if sorted(map(normalize, sqlite_rows), key=repr) != sorted(map(normalize, pg_rows), key=repr):
-                    mismatches.append(table)
-        return {
-            "result": "PASS" if not mismatches else "FAIL",
-            "table_count": len(sqlite_tables),
-            "row_count": checked_rows,
-            "mismatches": mismatches,
-        }
-    finally:
-        sqlite_connection.close()
+__all__ = [
+    "CODEX_AUTHORITY_URI",
+    "CODEX_SCHEMA",
+    "admin_dsn",
+    "authority_state",
+    "close_cached_connections",
+    "export_postgresql_codex",
+    "import_sqlite_predecessor",
+    "readonly_connection",
+    "runtime_dsn",
+    "verify_sqlite_parity",
+]

@@ -12,7 +12,7 @@ import threading
 
 import pytest
 
-from governance_rule.execution import codex_postgresql as cp
+from governance_rule.execution import codex_postgresql_pool as cp
 
 
 class _FakeTransaction:
