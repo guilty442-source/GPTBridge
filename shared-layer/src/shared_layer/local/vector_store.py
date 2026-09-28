@@ -18,12 +18,14 @@ No numpy/scipy/third-party (A37/E23).  An optional native kernel hook
 
 from __future__ import annotations
 
+import array
 import json
 import hashlib
 import math
 import os
 import re
 import struct
+import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -94,14 +96,23 @@ def _cosine(left: list[float], right: list[float]) -> float:
     return sum(a * b for a, b in zip(left, right)) / (left_norm * right_norm)
 
 
-def _unpack_vector(raw: Any) -> list[float] | None:
+def _unpack_vector(raw: Any) -> Any:
     """Decode a stored vector — BLOB (float64 LE, new writes) or legacy JSON
-    text (rows written before W8)."""
+    text (rows written before W8).
+
+    BLOB rows decode into ``array.array("d")`` — a single copy out of the
+    SQLite buffer that also satisfies the buffer protocol, so the native dot
+    kernel can borrow it without a second copy.
+    """
     if isinstance(raw, (bytes, bytearray, memoryview)):
         blob = bytes(raw)
         if not blob or len(blob) % 8:
             return None
-        return list(struct.unpack(f"<{len(blob) // 8}d", blob))
+        vector = array.array("d")
+        vector.frombytes(blob)
+        if sys.byteorder == "big":  # pragma: no cover - governed host is LE
+            vector.byteswap()
+        return vector
     try:
         value = json.loads(raw) if isinstance(raw, str) else raw
     except (TypeError, ValueError):
