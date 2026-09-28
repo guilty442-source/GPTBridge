@@ -760,3 +760,14 @@ from the application to the native owner rather than chains such as Rust → C#
 
 Python may be installed for governed, on-demand training or verification, but
 must not remain resident after the request completes.
+
+## Model Runtime Residency
+
+Model runtime residency is resource-selective, not service-selective. While a
+model is hot, reuse one C++ inference process with the mapped weights,
+reusable tokenizer, bounded KV-cache pool, allocator arena, scratch buffers,
+and bounded request queue. Do not reload weights, allocate large buffers, or
+reinitialize/destroy the runtime for every request. When the model has no active
+use, the existing `AutoRelease` policy must reclaim cold resources. The target
+is hot-resource reuse with cold-resource recovery, not unconditional residency
+and not unconditional reconstruction.
