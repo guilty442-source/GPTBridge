@@ -13,8 +13,11 @@
   "flow": "D75/D118-non-disruptive-amendment-flow",
   "not_executed": true,
   "predecessor": {
-    "codex_version": "resolved by executor from the live authority",
-    "note": "post-renumbering generation; history head and revision sequence are resolved by the executor from the live authority"
+    "codex_version": "2026-09-28T07:31:18Z",
+    "version_identity": "E2:2026-09-28T07:31:18Z",
+    "version_epoch": 2,
+    "history_head": "aac19087201d954d4dc6166c1573a4fe057f0f6d3b4ca3f7d41c31f8670e",
+    "revision_sequence": 123
   },
   "renumbering_map": {
     "A610": "B166", "A611": "C115", "A612": "B167", "A613": "B168",
