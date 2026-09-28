@@ -1,0 +1,75 @@
+{
+ "id": "vector-degraded-store-migration-decision-20260928",
+ "date": "2026-09-28",
+ "worker": "devin-cli",
+ "type": "adjudication-request",
+ "authority": "governance-rule-only",
+ "subject": "PYTHON_MINIMIZATION_BASELINE zero_targets.VECTOR: migration path for shared_layer/local/vector_store.py (535 LOC, sole file in the VECTOR bucket)",
+ "invariant": "main-system/config/python-minimization-baseline.json zero_targets.VECTOR = 1 file / 535 LOC; test_zero_targets_only_shrink enforces tighten-only. Codex B4/B131: production VECTOR responsibility belongs to the Rust engine (vectord). Implementation-side cannot delete the governed degraded path unilaterally: the degraded-mode cache contract (canonical:false, reconciliation_required:true, pending-mutation replay) is authority-shaped behavior requiring governor adjudication.",
+ "measured_at": "2026-09-28T20:30:00+08:00",
+ "target_file": {
+  "path": "shared-layer/src/shared_layer/local/vector_store.py",
+  "loc": 535,
+  "class": "LocalVectorStore",
+  "storage": "PostgreSQL schema gptbridge_rag via pg_adapter (3 tables: collection_meta, collection_point, collection_state)",
+  "public_surface": [
+   "ensure_collection(vector_size) — declares dimension; mismatch raises RAG_VECTOR_DIMENSION_MISMATCH",
+   "reconcile_dimension(vector_size, index_version) — explicit cache rebuild, epoch++ (never implicit)",
+   "replace_document(document_id, points, module_id) — delete+insert; f64-LE BLOB vectors; text points embedded via blake2b 3-gram hashing (_token_vector, dim 256)",
+   "query(vector, limit, module_ids) — module-scoped SQL candidate ceiling + cosine scoring (native_kernel .pyd optional accel)",
+   "reindex = replace_document alias",
+   "delete(document_id) — removes points + meta",
+   "status() — dict {available, engine:'local-vector-degraded-cache', canonical:False, reconciliation_required:True, points, epoch, index_version, ...}"
+  ]
+ },
+ "consumers": [
+  "main-system/src-core/core_system/rag/pipeline_degraded.py — DegradedRagPipeline (ensure_collection/replace_document/query/status)",
+  "main-system/src-core/core_system/rag/degraded_backend.py — DegradedRagBackend (wraps pipeline; calls vector_store.delete_resource — see latent_defect)",
+  "main-system/src-core/core_system/rag/rag_protocol.py — protocol surface docs",
+  "Standalone tools/local-model/.../xingcheng/application/local_rag_index.py, local_rag_retrieval.py, local_rag_answer.py, local_rag_constants.py",
+  "Standalone tools/local-model/.../xingcheng/infrastructure/rag/hybrid.py",
+  "shared-layer/tests/test_shared_layer.py"
+ ],
+ "architectural_constraint": "Degraded mode exists when canonical vectord/PostgreSQL RAG is unavailable. LocalVectorStore persists into PostgreSQL (schema gptbridge_rag), so the degraded path already requires PG. Hosting the degraded cache inside vectord is NOT viable (vectord is the very thing that may be down); vectord-rs file persistence (persist_snapshot/load_snapshot in main.rs/store.rs) only covers vectord's own derived index.",
+ "latent_defect": {
+  "location": "main-system/src-core/core_system/rag/degraded_backend.py:116-118",
+  "defect": "degraded delete_resource is entirely non-functional: (a) line 117 calls self.pipeline.repository.delete_resource(request.resource_id) — LocalRagRepository has NO delete method at all (only existing_document/document_source/replace_document/keyword_search/status), so the call raises AttributeError; (b) line 118 calls self.pipeline.vector_store.delete_resource(...) — LocalVectorStore has only delete(document_id). The first AttributeError is swallowed by the surrounding try/except and returns success=False, so EVERY degraded delete silently fails: document rows, chunk rows, index-state rows and cached vectors of deleted documents all linger (stale-hit surface in a non-canonical store).",
+  "implication": "the degraded store pair has never actually deleted anything in production — both the vector layer and the repository lack working delete; this is additional evidence the degraded path should be redesigned (lexical repository + a real delete_document), not preserved as-is",
+  "loc_equilibrium_note": "all nine zero_target buckets sit exactly at baseline (ratchet is strict-greater-than); any fix that adds Python LOC outside allowed zones must be offset by equal-or-greater deletion in the same change — the retire-vector-layer option provides -535 LOC of headroom, comfortably covering the ~15 LOC needed for LocalRagRepository.delete_document + the consumer migrations"
+ },
+ "options": [
+  {
+   "id": "retire-vector-layer",
+   "action": "Retire the degraded vector cache entirely: degraded retrieval falls back to bounded lexical search over LocalRagRepository.keyword_search (already exists, already PG-backed, already holds the degraded documents with reassembled content). Add LocalRagRepository.delete_document (~15 LOC: DELETE on the 3 tables) so degraded delete actually works; rewrite DegradedRagBackend.delete_resource onto it; point pipeline_degraded.query at keyword_search. Remove vector_store.py (-535 LOC, VECTOR bucket -> 0 files / 0 LOC). Pending-mutation ledger semantics unchanged; reconciliation replays canonically on recovery as today. Net bucket delta: ~-520 LOC across VECTOR(-535)/RAG(+15).",
+   "python_delta": "-535 LOC (bucket zeroed)",
+   "behavior_delta": "degraded query results become lexical-ranked instead of embedding-similarity-ranked; stale-vector-cache failure mode eliminated",
+   "requires": "governor adjudication that degraded-mode similarity ranking is non-essential (cache was non-authoritative by contract)"
+  },
+  {
+   "id": "native-degraded-store",
+   "action": "Implement the degraded vector store natively (C ABI or vectord-side embedded store) with the same ensure/replace/query/delete/status surface and PG or file persistence; Python LocalVectorStore deleted after parity evidence lands.",
+   "python_delta": "-535 LOC (bucket zeroed)",
+   "behavior_delta": "none (parity required)",
+   "requires": "new native artifact + parity suite; heavier; only justified if governor rules similarity ranking IS required in degraded mode"
+  },
+  {
+   "id": "keep-python-degraded",
+   "action": "Reclassify the file out of VECTOR into an allowed zone, or accept it as permanent governed Python (contradicts B4/B131 direction; ratchet stays at 535)",
+   "python_delta": "0",
+   "requires": "governor override of bucket classification"
+  }
+ ],
+ "recommended_option": "retire-vector-layer",
+ "rationale": "The store is explicitly non-canonical ('must not be treated as cross-module semantic authority'), every mutation is already replayed through pending_rag_mutation on recovery, the deleted-resource path is already silently broken (latent_defect), and lexical retrieval over LocalRagRepository preserves bounded degraded-mode functionality with zero similarity-ranking authority. It is the only option that both zeroes the VECTOR bucket and removes a failure mode rather than relocating it.",
+ "requested_governor_actions": [
+  "adjudicate whether degraded-mode embedding-similarity retrieval is required (drives retire-vector-layer vs native-degraded-store)",
+  "if retire-vector-layer: authorize removal of vector_store.py + the delete_resource call-site fix and the consumer migrations (pipeline_degraded lexical query, local-model RAG fallback)",
+  "record adjudication so python-minimization baseline zero_targets.VECTOR can be tightened to 0/0"
+ ],
+ "evidence": {
+  "vector_store_surface": "shared-layer/src/shared_layer/local/vector_store.py (read in full, 535 LOC)",
+  "vectord_surface": "Standalone tools/vectord-rs/src/main.rs routes: /v1/collections/{ensure,info,list,delete}, /v1/aliases/*, /v1/points/{upsert,upsert_text,delete,count}, /v1/search{,_text}, /v1/snapshot, /v1/embed; file persistence via persist_snapshot/load_snapshot",
+  "degraded_contract": "pipeline_degraded.py lines 1-66: state=DEGRADED when canonical vectord/PostgreSQL unavailable; A374 durable pending_rag_mutation ledger",
+  "latent_defect_ref": "degraded_backend.py:118 calls nonexistent LocalVectorStore.delete_resource"
+ }
+}
