@@ -71,6 +71,8 @@ def _toolbox_result_log_payload(payload: Any) -> dict[str, Any]:
 
     stdout = str(payload.get("stdout") or "")
     stderr = str(payload.get("stderr") or "")
+    stdout_bytes = stdout.encode("utf-8", errors="replace")
+    stderr_bytes = stderr.encode("utf-8", errors="replace")
     error = payload.get("error")
     error_code = payload.get("error_code")
     if not error_code and isinstance(error, dict):
@@ -84,14 +86,10 @@ def _toolbox_result_log_payload(payload: Any) -> dict[str, Any]:
         "cancelled": bool(payload.get("cancelled")),
         "timed_out": bool(payload.get("timed_out")),
         "error_code": str(error_code or ""),
-        "stdout_bytes": len(stdout.encode("utf-8", errors="replace")),
-        "stderr_bytes": len(stderr.encode("utf-8", errors="replace")),
-        "stdout_sha256": hashlib.sha256(
-            stdout.encode("utf-8", errors="replace")
-        ).hexdigest() if stdout else "",
-        "stderr_sha256": hashlib.sha256(
-            stderr.encode("utf-8", errors="replace")
-        ).hexdigest() if stderr else "",
+        "stdout_bytes": len(stdout_bytes),
+        "stderr_bytes": len(stderr_bytes),
+        "stdout_sha256": hashlib.sha256(stdout_bytes).hexdigest() if stdout else "",
+        "stderr_sha256": hashlib.sha256(stderr_bytes).hexdigest() if stderr else "",
         "stdout_truncated": bool(payload.get("stdout_truncated")),
         "stderr_truncated": bool(payload.get("stderr_truncated")),
     }
