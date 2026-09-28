@@ -90,7 +90,11 @@
       "affinity": true
     }
   },
-  "defaults": {},
+  "defaults": {
+    "concurrency_budget": true,
+    "concurrency_interactive_share": 0.25,
+    "concurrency_interactive_min": 2
+  },
   "programs": {
     "cl.exe": {
       "exclude": true
@@ -140,21 +144,39 @@
       "cpu_limit_percent": 40.0,
       "memory_percent": 25.0,
       "process_limit": 64,
-      "members": ["gptbridge-shell", "gptbridge.exe", "msedgewebview2", "webview", "tool-window"]
+      "members": [
+        "gptbridge-shell",
+        "gptbridge.exe",
+        "msedgewebview2",
+        "webview",
+        "tool-window"
+      ]
     },
     "compute": {
       "description": "C++/Rust heavy compute: inference, vector, audit, native compute.",
       "cpu_limit_percent": 50.0,
       "memory_percent": 45.0,
       "process_limit": 32,
-      "members": ["xingcheng", "local-model", "inference", "vector", "native_transformer"]
+      "members": [
+        "xingcheng",
+        "local-model",
+        "inference",
+        "vector",
+        "native_transformer"
+      ]
     },
     "io": {
       "description": "Go/Rust IO-bound work: network, file I/O, download, batch.",
       "cpu_limit_percent": 15.0,
       "memory_percent": 15.0,
       "process_limit": 32,
-      "members": ["searchd", "download", "filewatch", "network", "batch"]
+      "members": [
+        "searchd",
+        "download",
+        "filewatch",
+        "network",
+        "batch"
+      ]
     },
     "background": {
       "description": "C#/F#/Julia workflow and analysis; deprioritized but never starved (bounded floor via job, not zero).",
@@ -163,7 +185,13 @@
       "process_limit": 16,
       "background": true,
       "ecoqos": true,
-      "members": ["dotnet", "julia", "fsharp", "workflow", "analysis"]
+      "members": [
+        "dotnet",
+        "julia",
+        "fsharp",
+        "workflow",
+        "analysis"
+      ]
     }
   },
   "auto_mode": true,

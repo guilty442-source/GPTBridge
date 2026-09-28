@@ -188,6 +188,17 @@ $suites = @(
         )
     },
     @{
+        src = "suite_resource_governor_budget.cpp"; exe = "resource_governor_budget_suite.exe"
+        # A590/A593/A598: 全域 concurrency 配額控制律（8 工作類別）。
+        extra = @(
+            (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp")
+        )
+    },
+    @{
         src = "suite_resource_governor_pools.cpp"; exe = "resource_governor_pools_suite.exe"
         # Pool layer: Pool 歸因／pools 規則解析／per-pool 共享 Job envelope。
         extra = @(
