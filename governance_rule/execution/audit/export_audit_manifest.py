@@ -836,6 +836,16 @@ def build_manifest(root: Path) -> dict[str, object]:
                     "rows", "fixtures", "bounded_consumers"],
     })
 
+    # Python-minimization ratchet — native replacement for the retired
+    # pytest gate (test_python_minimization_gates.py, inventory class H).
+    # The baseline JSON carries the embedded measurement recipe; the
+    # engine scans/classifies/counts and fails on any over-budget bucket.
+    checks.append({
+        "id": "python-minimization:bucket-budget",
+        "kind": "py-bucket-budget",
+        "path": "main-system/config/python-minimization-baseline.json",
+    })
+
     # check_tool_isolation_hardening (A266) — isolation controls 與
     # spawn 控制的 marker 檢查；spawn 兩檔 union 語義以 glob-contains
     # 表達（marker 落在任一命中檔即成立）。
@@ -1113,7 +1123,7 @@ def build_manifest(root: Path) -> dict[str, object]:
                 "text-no-pollution", "json-parses", "json-has-keys",
                 "json-key-absent",
                 "glob-min-count", "glob-not-contains", "glob-absent",
-                "glob-contains", "json-key-value",
+                "glob-contains", "json-key-value", "py-bucket-budget",
             ],
         },
         "checks": checks,

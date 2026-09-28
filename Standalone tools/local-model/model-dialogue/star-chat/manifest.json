@@ -87,6 +87,6 @@
   },
   "has_custom_ui": false,
   "test_targets": [
-    "tests/test_star_chat.py"
+    "pending-native:Standalone tools/local-model/model-dialogue/star-chat"
   ]
 }

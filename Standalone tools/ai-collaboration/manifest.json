@@ -124,8 +124,7 @@
   },
   "has_custom_ui": true,
   "test_targets": [
-    "tests/test_ai_collaboration_routing.py",
-    "tests/test_ai_collaboration_workflows.py"
+    "pending-native:Standalone tools/ai-collaboration"
   ],
   "window": {
     "width": 1280,

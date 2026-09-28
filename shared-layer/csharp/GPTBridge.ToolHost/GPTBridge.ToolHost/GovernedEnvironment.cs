@@ -34,8 +34,7 @@ public sealed class GovernedEnvironment
     /// spawned as ``python -m governance_rule.execution.tool_runtime.
     /// transport_proxy`` so its relative imports resolve (spec P2). The
     /// GPTBRIDGE_TOOLHOST_PROXY_ENTRY override is the wire-fixture seam
-    /// used by interop smoke tests (proxy_wire_agent.py) and is a plain
-    /// script path.
+    /// used by interop smoke tests and is a plain script path.
     /// </summary>
     public string ProxyEntry =>
         string.IsNullOrWhiteSpace(

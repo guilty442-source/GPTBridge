@@ -54,7 +54,7 @@
     "allow": []
   },
   "test_targets": [
-    "tests/test_vaultly.py"
+    "pending-native:Standalone tools/vaultly"
   ],
   "window": {
     "width": 1280,

@@ -62,6 +62,6 @@
   },
   "has_custom_ui": false,
   "test_targets": [
-    "tests/test_shared_layer.py"
+    "pending-native:shared-layer"
   ]
 }

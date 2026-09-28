@@ -97,6 +97,6 @@
     "title_key": "tool.window_title"
   },
   "test_targets": [
-    "tests/test_star_chat_reexport.py"
+    "pending-native:Standalone tools/local-model/xingcheng"
   ]
 }

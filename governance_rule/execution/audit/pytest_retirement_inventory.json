@@ -1,15 +1,15 @@
 {
- "registry": "PYTEST_RETIREMENT_INVENTORY",
- "contract": "test-runner-register-and-python-retirement-transition",
- "codex_version": "2026-09-28T10:38:59Z",
- "generated_at_utc": "2026-09-28T10:47:16.113798+00:00",
+ "registry": "NATIVE_TEST_MIGRATION_WORKLIST",
+ "contract": "native-test-runner-register + test-framework-final-ownership",
+ "codex_version": "2026-09-28T12:48:10Z",
+ "generated_at_utc": "2026-09-28T13:44:26.099838+00:00",
  "status_enum": [
   "PENDING",
   "MIGRATED",
   "VERIFIED",
   "RETIRE_READY"
  ],
- "delete_gate": "active pytest consumers=0 AND all rows RETIRE_READY, then a later Codex successor removes the third domain",
+ "delete_gate": "source files deleted under SOURCE-VALIDITY (python-final-minimum-responsibility); rows remain as the native-replacement tracking worklist until all rows are VERIFIED against an executed native suite",
  "rows": [
   {
    "source_test": "governance_rule/tests/test_architecture_registry.py",
@@ -3063,9 +3063,9 @@
  "fixtures": [
   {
    "source": "native/test_suites/proxy_wire_agent.py",
-   "role": "stdio-JSONL wire-interop fixture spawned by suite_tool_host.cpp; produces no verdict (verdict stays in the native tier)",
+   "role": "retired Python wire fixture; suite_tool_host.cpp reports BLOCKED on absence (fail-closed)",
    "replacement_runner": "NativeCppTestRunner",
-   "status": "PENDING"
+   "status": "RETIRE_READY"
   }
  ],
  "bounded_consumers": [
@@ -3092,17 +3092,11 @@
    "note": "production python-push-gate=0 end-state requires native replacement; bounded spawn permitted during transition"
   },
   {
-   "consumer": "scripts/devin-cli-p6-test-sla.py",
-   "role": "SLA measurement evidence; routed through LegacyPythonVerificationAdapter",
-   "replacement_runner": "adapter-routed (compliant transition)",
-   "status": "PENDING",
-   "note": "module-class test_targets now fail-closed through the adapter (adapter executes class-H governance tests only); each target reports ERROR evidence until its native replacement exists"
-  },
-  {
    "consumer": "main-system/src-core/core_system/auto_repair_chain_verify.py::_verify_tests",
    "role": "auto-repair tests-pass criterion; adapter-routed; module-class scopes fail-closed to False",
    "replacement_runner": "adapter-routed (compliant); native replacement for module scopes",
-   "status": "VERIFIED"
+   "status": "VERIFIED",
+   "note": "pytest spawn removed; scope containing .py tests fails closed (non-conforming source)"
   }
  ]
 }

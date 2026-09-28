@@ -6,8 +6,6 @@ Verification uses: compile-ok, tests-pass, governance-audit, stability.
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -142,28 +140,12 @@ class IndependentVerifier:
                     test_files.append(rel)
         if not test_files:
             return True
-        test_files = sorted(set(test_files))[:50]
-        # Python-runner-outside-adapter is forbidden: route the bounded
-        # scope through LegacyPythonVerificationAdapter (fail-closed on
-        # unregistered scopes).
-        cmd = [
-            sys.executable,
-            "-m",
-            "governance_rule.execution.legacy_python_verification_adapter",
-        ]
-        for rel in test_files:
-            cmd += ["--scope", rel]
-        try:
-            result = subprocess.run(
-                cmd,
-                cwd=str(self.project_root),
-                capture_output=True,
-                timeout=180,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-            return result.returncode == 0
-        except (OSError, subprocess.SubprocessError):
-            return False
+        # pytest is forbidden (native-test-runner-register /
+        # python-final-minimum-responsibility): Python test files are
+        # non-conforming source and can never produce verification
+        # evidence.  A scope that still contains them fails closed —
+        # missing evidence is never a PASS.
+        return False
 
     def _verify_governance_audit(self) -> bool:
         """Run governance audit to verify no governance violations."""

@@ -153,9 +153,7 @@
     ]
   },
   "test_targets": [
-    "tests/test_ai_assistant_core.py",
-    "tests/test_trading_domains.py",
-    "tests/test_ui_workspace_contract.py"
+    "pending-native:Standalone tools/ai-assistant"
   ],
   "window": {
     "width": 1440,

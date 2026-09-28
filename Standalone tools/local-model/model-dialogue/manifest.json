@@ -73,7 +73,7 @@
     "title_key": "tool.window_title"
   },
   "test_targets": [
-    "tests/test_model_dialogue_reexport.py"
+    "pending-native:Standalone tools/local-model/model-dialogue"
   ],
   "companion_tools": []
 }
