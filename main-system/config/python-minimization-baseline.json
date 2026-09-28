@@ -5,8 +5,8 @@
   "authority": "governance-rule-only",
   "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
   "metadata": {
-    "contract_revision": 10,
-    "measured_at": "2026-09-28T22:50:00+08:00",
+    "contract_revision": 11,
+    "measured_at": "2026-09-28T23:10:00+08:00",
     "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
     "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
     "adjudications_rev2": [
@@ -54,6 +54,12 @@
     ],
     "adjudications_rev9": [
       "measurement-correction (sealed r10, cert 14e2e522, codex 2026-09-28): scan_roots += main-system/governance, main-system/information-layer, main-system/run.py, local-model-hub/src; re-anchor GOVERNANCE 207/57665->246/66392 (+39f/+8727 sovereign tree), GENERAL_APP 525/106291->539/108070 (+14f/+1779, incl. main-system/run.py via new file-level scan root), PROC_MGMT 56/15619->59/15986 (+3f/+367). Coverage correction, not new code; only-tighten resumes on the wider surface."
+    ],
+    "adjudications_rev10": [
+      "VECTOR migration adjudicated (operator-governor, request vector-degraded-store-migration-decision-20260928 -> native-degraded-store): vector_store.py rewritten in place as thin loopback client over governed vectord instance (127.0.0.1:8093, own --store-dir snapshot, lazy _ensure_daemon); all persistence/filtering/similarity ranking now Rust-owned. VECTOR 535->133 (-402, floor = thin client until RAG bucket's own P3 migration). Parity evidence: live smoke vs real vectord binary (ensure/replace/query/query_text/scope-fence/delete_resource/status all verified incl. similarity ordering).",
+      "RAG loc 25259->25268 (+9): LocalRagRepository.delete_document added — repairs latent defect where DegradedRagBackend.delete_resource called nonexistent methods on both layers (degraded delete never actually deleted). Adjudicated part of native-degraded-store disposition.",
+      "GOVERNANCE loc 66392->66398 (+6): worker-stream audit machinery churn; adjudicated interim re-anchor (operator), consistent with r7/r8 precedent.",
+      "GENERAL_APP 539/108070 -> 531/106733 (-8f/-1337): worker-stream orphan sweep (shared_layer/database backup_budget/capacity_watermark et al). Downward-only."
     ]
   },
   "zero_targets": {
@@ -63,11 +69,11 @@
     },
     "RAG": {
       "files": 90,
-      "loc": 25259
+      "loc": 25268
     },
     "VECTOR": {
       "files": 1,
-      "loc": 535
+      "loc": 133
     },
     "UI": {
       "files": 9,
@@ -90,14 +96,14 @@
       "loc": 41155
     },
     "GENERAL_APP": {
-      "files": 539,
-      "loc": 108070
+      "files": 531,
+      "loc": 106733
     }
   },
   "allowed_zones": {
     "GOVERNANCE": {
       "files": 246,
-      "loc": 66392,
+      "loc": 66398,
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {

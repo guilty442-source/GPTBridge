@@ -295,6 +295,16 @@ class LocalRagRepository:
                 ),
             )
 
+    def delete_document(self, resource_id: str) -> bool:
+        """Delete a resource's document, chunks and index-state rows."""
+        with self._connect() as connection:
+            for table in ("gptbridge_rag_chunk", "gptbridge_rag_index_state", "gptbridge_index_resource"):
+                connection.execute(  # sql-ok: code-controlled SQL composition
+                    f"DELETE FROM {table} WHERE resource_id = ?",
+                    (resource_id,),
+                )
+        return True
+
     def _keyword_score(self, query: str, content: str) -> float:
         tokens = [token for token in query.casefold().split() if token]
         if not tokens:

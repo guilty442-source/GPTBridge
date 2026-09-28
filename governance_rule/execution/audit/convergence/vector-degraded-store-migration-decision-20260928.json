@@ -60,6 +60,13 @@
   }
  ],
  "recommended_option": "retire-vector-layer",
+ "adjudication": {
+  "state": "adjudicated",
+  "decision": "native-degraded-store",
+  "decided_by": "operator-governor",
+  "decided_at": "2026-09-28",
+  "note": "Governor adjudicated that degraded-mode similarity ranking IS required; degraded vector store must be re-implemented natively (C ABI or vectord-side embedded store) with the same ensure/replace/query/delete/status surface and PG or file persistence. Python LocalVectorStore is deleted only after native parity evidence lands. retire-vector-layer (lexical fallback) REJECTED. Implementation proceeds under this disposition; VECTOR bucket zeroes when vector_store.py is removed."
+ },
  "rationale": "The store is explicitly non-canonical ('must not be treated as cross-module semantic authority'), every mutation is already replayed through pending_rag_mutation on recovery, the deleted-resource path is already silently broken (latent_defect), and lexical retrieval over LocalRagRepository preserves bounded degraded-mode functionality with zero similarity-ranking authority. It is the only option that both zeroes the VECTOR bucket and removes a failure mode rather than relocating it.",
  "requested_governor_actions": [
   "adjudicate whether degraded-mode embedding-similarity retrieval is required (drives retire-vector-layer vs native-degraded-store)",

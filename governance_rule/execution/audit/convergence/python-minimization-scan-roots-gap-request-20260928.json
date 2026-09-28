@@ -44,6 +44,11 @@
   "if added: re-anchor allowed_zones.GOVERNANCE and affected zero_targets to measured values (measurement correction disposition, same class as r3-r6 interim re-anchors)",
   "decide whether local-model-hub is a distinct governed tool needing its own manifest/test-coverage declaration"
  ],
+ "adjudication": {
+  "state": "superseded-by-sealed-amendment",
+  "note": "Sealed amendment r10 (cert 14e2e522, codex 2026-09-28, recorded in baseline adjudications_rev9, working-copy rev10) already executed the 'add roots + re-anchor' disposition: scan_roots += main-system/governance, main-system/information-layer, main-system/run.py, local-model-hub/src; GOVERNANCE re-anchored 207/57665->246/66392, GENERAL_APP ->538/108002, PROC_MGMT ->59/15986. Operator initially expressed 'declare intentional exclusion'; on being shown the sealed direction the operator ACCEPTED the sealed disposition. Closed — no further action.",
+  "operator_preference": "accepted-sealed-direction"
+ },
  "evidence": {
   "measurement_recipe": "python-minimization-baseline.json measurement.scan_roots (10 roots; main-system/governance and local-model-hub absent)",
   "verification": "manual re-implementation of the recipe confirms all current buckets equal baseline exactly (rev7); gap confirmed by direct os.walk diff",

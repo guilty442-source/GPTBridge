@@ -113,8 +113,7 @@ class DegradedRagBackend:
     def delete_resource(self, request: RagDeleteRequest) -> RagDeleteResult:
         """Delete resource from local stores."""
         try:
-            # DegradedRagPipeline doesn't have explicit delete, use repository
-            self.pipeline.repository.delete_resource(request.resource_id)
+            self.pipeline.repository.delete_document(request.resource_id)
             self.pipeline.vector_store.delete_resource(request.resource_id)
 
             return RagDeleteResult(
