@@ -206,6 +206,78 @@ int main() {
         remove_dir(dir);
     } NT_END_TEST("audit_engine_suite", "kind_glob_not_contains");
 
+    NT_TEST("audit_engine_suite", "kind_glob_contains") {
+        fs::path dir = make_case_dir("globc");
+        write_file(dir / "sp" / "a.py", "stdin=subprocess.DEVNULL");
+        write_file(dir / "sp" / "b.py", "close_fds=True");
+        std::vector<AuditCheck> checks = {
+            /* union 語義：兩 marker 分散於不同檔仍 PASS */
+            {"gc1", "glob-contains", "", "sp/*.py",
+             {"stdin=subprocess.DEVNULL", "close_fds=True"},
+             0, "", false, false},
+            {"gc2", "glob-contains", "", "sp/*.py",
+             {"stdin=subprocess.DEVNULL", "missing-marker"},
+             0, "", false, false},
+            {"gc3", "glob-contains", "", "absent/*.py",
+             {"x"}, 0, "", false, false},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "gc1")->status == AuditStatus::PASS,
+                 "markers split across files still found");
+        NT_CHECK(find(report, "gc2")->status == AuditStatus::FAIL,
+                 "absent marker fails");
+        NT_CHECK(find(report, "gc3")->status == AuditStatus::FAIL,
+                 "missing dir fails closed");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_glob_contains");
+
+    NT_TEST("audit_engine_suite", "kind_json_key_value") {
+        fs::path dir = make_case_dir("jsonkv");
+        write_file(dir / "inv.json",
+            "{\"tools\":{\"a\":{\"formal\":false,"
+            "\"formality\":\"approved-implementation-x\"},"
+            "\"b\":{\"formal\":false,\"formality\":\"bounded\"}},"
+            "\"items\":[{\"id\":\"x\",\"formal\":false},"
+            "{\"id\":\"y\",\"formal\":true}]}");
+        std::vector<AuditCheck> checks = {
+            {"kv1", "json-key-value", "inv.json", "",
+             {"tools.a.formal=false"}, 0, ""},
+            {"kv2", "json-key-value", "inv.json", "",
+             {"tools.a.formality^=approved-implementation-"}, 0, ""},
+            {"kv3", "json-key-value", "inv.json", "",
+             {"tools.b.formality=bounded"}, 0, ""},
+            {"kv4", "json-key-value", "inv.json", "",
+             {"tools.a.formal=true"}, 0, ""},
+            {"kv5", "json-key-value", "inv.json", "",
+             {"tools.c.formal=false"}, 0, ""},
+            {"kv6", "json-key-value", "inv.json", "",
+             {"tools.a.formality=approved-implementation-x"}, 0, ""},
+            /* 陣列元素以 id 選取（Python dict-comp by id 對齊） */
+            {"kv7", "json-key-value", "inv.json", "",
+             {"items[x].formal=false"}, 0, ""},
+            {"kv8", "json-key-value", "inv.json", "",
+             {"items[z].formal=false"}, 0, ""},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "kv1")->status == AuditStatus::PASS,
+                 "bool equality");
+        NT_CHECK(find(report, "kv2")->status == AuditStatus::PASS,
+                 "string prefix");
+        NT_CHECK(find(report, "kv3")->status == AuditStatus::PASS,
+                 "string equality");
+        NT_CHECK(find(report, "kv4")->status == AuditStatus::FAIL,
+                 "wrong bool fails");
+        NT_CHECK(find(report, "kv5")->status == AuditStatus::FAIL,
+                 "missing path fails");
+        NT_CHECK(find(report, "kv6")->status == AuditStatus::PASS,
+                 "full string equality");
+        NT_CHECK(find(report, "kv7")->status == AuditStatus::PASS,
+                 "array element by id");
+        NT_CHECK(find(report, "kv8")->status == AuditStatus::FAIL,
+                 "unknown array id fails");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_json_key_value");
+
     NT_TEST("audit_engine_suite", "kind_glob_absent") {
         fs::path dir = make_case_dir("globabs");
         write_file(dir / "src" / "app.js", "x");

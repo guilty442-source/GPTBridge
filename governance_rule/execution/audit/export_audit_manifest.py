@@ -14,9 +14,9 @@ Shadow semantics (same dual-track as the E1 execution prototypes):
 - checks reducible to static file operations are emitted with native
   ``kind`` (``file-exists`` / ``file-not-exists`` / ``file-readonly`` /
   ``file-contains`` / ``file-not-contains`` / ``text-no-pollution`` /
-  ``json-parses`` / ``json-has-keys`` / ``glob-min-count`` /
-  ``glob-not-contains`` / ``glob-absent``) — the engine verifies them
-  directly;
+  ``json-parses`` / ``json-has-keys`` / ``json-key-value`` /
+  ``glob-min-count`` / ``glob-contains`` / ``glob-not-contains`` /
+  ``glob-absent``) — the engine verifies them directly;
 - every Python ``check_*`` function not fully reducible is emitted as a
   ``delegated`` record — explicit, counted, never silently dropped;
 - regenerating after any governance-data change is the cache-invalidation
@@ -79,6 +79,8 @@ _NATIVE_COVERED = frozenset({
     "check_channel_gateway_csharp",    # projects + port invariants
     "check_tool_host_native_boundary", # dirs + glob-not-contains + ops
     "check_typescript_retirement",     # glob-absent (*.ts/*.tsx/*.d.ts)
+    "check_tool_isolation_hardening",  # contains + glob-contains union
+    "check_third_party_inventory",     # json-key-value typed assertions
 })
 
 
@@ -794,6 +796,116 @@ def build_manifest(root: Path) -> dict[str, object]:
               "eval_loss = jax.jit(", "collate_bucket",
               "def _choose_bucket"])
 
+    # Python-retirement transition (B171) — the two required artifacts
+    # exist and parse; schema keys are natively checkable.  Row-level
+    # status transitions stay delegated to the retirement workflow.
+    _adapter = (
+        "governance_rule/execution/"
+        "legacy_python_verification_adapter.py")
+    _retire = (
+        "governance_rule/execution/audit/"
+        "pytest_retirement_inventory.json")
+    checks.append({
+        "id": "python-retirement:adapter-exists",
+        "kind": "file-exists", "path": _adapter,
+    })
+    contains("python-retirement:adapter-gates",
+             _adapter,
+             ["LegacyPythonVerificationAdapter", "TEST_RESULT_V1",
+              "inventory_class", "PYTEST_RETIREMENT_INVENTORY"])
+    checks.append({
+        "id": "python-retirement:inventory-parses",
+        "kind": "json-parses", "path": _retire,
+    })
+    checks.append({
+        "id": "python-retirement:inventory-keys",
+        "kind": "json-has-keys", "path": _retire,
+        "markers": ["registry", "status_enum", "delete_gate",
+                    "rows", "fixtures", "bounded_consumers"],
+    })
+
+    # check_tool_isolation_hardening (A266) — isolation controls 與
+    # spawn 控制的 marker 檢查；spawn 兩檔 union 語義以 glob-contains
+    # 表達（marker 落在任一命中檔即成立）。
+    contains("tool-isolation:controls",
+             "main-system/src-core/core_system/tool_isolation.py",
+             ["_record_isolation_audit", "job_assigned",
+              "job-assignment-failed"])
+    for marker in ("stdin=subprocess.DEVNULL", "close_fds=True"):
+        checks.append({
+            "id": f"tool-isolation:spawn:{marker.split('=')[-1]}",
+            "kind": "glob-contains",
+            "glob": "main-system/src-core/tasks/toolbox_start_spawn*.py",
+            "markers": [marker],
+        })
+
+    # check_third_party_inventory — inventory JSON 的型別化值檢查；
+    # formal=false 以 bool 等值、formality 前綴／等值以字串算子表達，
+    # 與 Python ``is not False``/startswith/== 斷言逐一對齊。
+    _inventory = (
+        "governance_rule/execution/third_party_management/"
+        "tool_inventory.json")
+    checks.append({
+        "id": "third-party-inventory:parse",
+        "kind": "json-parses", "path": _inventory,
+    })
+    checks.append({
+        "id": "third-party-inventory:dependency-formality",
+        "kind": "json-key-value", "path": _inventory,
+        # tools 為 id-keyed 陣列（Python dict-comp keyed by id）；
+        # name[KEY] 選取 id==KEY 的元素。
+        "markers": [
+            "tools[pybind11].formal=false",
+            "tools[pybind11].formality^=approved-implementation-",
+            "tools[uv].formal=false",
+            "tools[uv].formality^=approved-implementation-",
+            "tools[local-rag].formal=false",
+            "tools[local-rag].formality=bounded-degraded-fallback",
+        ],
+    })
+
+    # check_bounded_worker_pools — 部分歸約：thread_budget 模組存在與
+    # 必要入口 markers 原生；executor 邊界掃描（AST/regex）留 delegated。
+    contains("worker-pools:thread-budget-module",
+             "shared-layer/src/shared_layer/performance/thread_budget.py",
+             ["CORE_BUDGET_CAP = 5", "bounded_workers",
+              "bounded_threads", "allocation_within_budget"])
+
+    # check_contract_axes — 部分歸約：各軸 contract_version>=1 與
+    # minimum_supported>=0 原生；min<=version 跨鍵比較、schema
+    # fallback 解析與非整數檢查留 delegated。Markers 依匯出當下檔案
+    # 內容產生——鍵不存在時 Python 側本就略過，不憑空加嚴。
+    for axis in ("ai-connection", "backend-lifecycle",
+                 "data-architecture", "ipc", "sql-schema",
+                 "tool-runtime"):
+        path = f"main-system/config/{axis}-contract.json"
+        markers: list[str] = []
+        try:
+            axis_data = json.loads(
+                (root / path).read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 — 交給引擎 unreadable FAIL
+            axis_data = None
+        if isinstance(axis_data, dict):
+            if axis_data.get("contract_version") is not None:
+                markers.append("contract_version>=1")
+            if axis_data.get(
+                    "minimum_supported_contract_version") is not None:
+                markers.append(
+                    "minimum_supported_contract_version>=0")
+            schema = axis_data.get("schema")
+            if axis_data.get("contract_version") is None and isinstance(
+                    schema, str) and "/v" in schema:
+                markers.append(
+                    f"schema^={schema.rsplit('/v', 1)[0]}/v")
+        if markers:
+            checks.append({
+                "id": f"contract-axis:version:{axis}",
+                "kind": "json-key-value", "path": path,
+                "markers": markers,
+            })
+
+    # --- delegated: every Python check not natively covered -----------
+
     # --- delegated: every Python check not natively covered -----------
     # Each delegated row carries an explicit ``python`` target so the
     # delegated lane (same-request execution, G96) can resolve it without
@@ -853,6 +965,7 @@ def build_manifest(root: Path) -> dict[str, object]:
                 "dir-exists", "file-contains", "file-not-contains",
                 "text-no-pollution", "json-parses", "json-has-keys",
                 "glob-min-count", "glob-not-contains", "glob-absent",
+                "glob-contains", "json-key-value",
             ],
         },
         "checks": checks,

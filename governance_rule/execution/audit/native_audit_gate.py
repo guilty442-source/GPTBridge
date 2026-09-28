@@ -200,9 +200,12 @@ def _refresh_manifest_if_stale(root: Path) -> str | None:
             stale = codex_mtime > manifest_mtime
         if not stale:
             # Check-module edits change the delegated set even when the
-            # codex is untouched — regenerate on source drift too.
+            # codex is untouched — regenerate on source drift too.  All
+            # *.py in the audit dir count: export_audit_manifest.py and
+            # native_audit_gate.py are not audit_*-named but their edits
+            # change the emitted manifest/verdict just the same.
             audit_dir = root / "governance_rule" / "execution" / "audit"
-            for module in audit_dir.glob("audit_*.py"):
+            for module in audit_dir.glob("*.py"):
                 if module.stat().st_mtime > manifest_mtime:
                     stale = True
                     break

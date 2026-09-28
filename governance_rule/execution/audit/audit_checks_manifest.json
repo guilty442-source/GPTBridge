@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T11:44:04Z",
+  "generated_at": "2026-09-28T12:06:55Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 328,
-    "delegated_checks": 31,
+    "native_checks": 344,
+    "delegated_checks": 29,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -17,7 +17,9 @@
       "json-has-keys",
       "glob-min-count",
       "glob-not-contains",
-      "glob-absent"
+      "glob-absent",
+      "glob-contains",
+      "json-key-value"
     ]
   },
   "checks": [
@@ -2803,6 +2805,147 @@
       ]
     },
     {
+      "id": "python-retirement:adapter-exists",
+      "kind": "file-exists",
+      "path": "governance_rule/execution/legacy_python_verification_adapter.py"
+    },
+    {
+      "id": "python-retirement:adapter-gates",
+      "kind": "file-contains",
+      "path": "governance_rule/execution/legacy_python_verification_adapter.py",
+      "markers": [
+        "LegacyPythonVerificationAdapter",
+        "TEST_RESULT_V1",
+        "inventory_class",
+        "PYTEST_RETIREMENT_INVENTORY"
+      ]
+    },
+    {
+      "id": "python-retirement:inventory-parses",
+      "kind": "json-parses",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
+    },
+    {
+      "id": "python-retirement:inventory-keys",
+      "kind": "json-has-keys",
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json",
+      "markers": [
+        "registry",
+        "status_enum",
+        "delete_gate",
+        "rows",
+        "fixtures",
+        "bounded_consumers"
+      ]
+    },
+    {
+      "id": "tool-isolation:controls",
+      "kind": "file-contains",
+      "path": "main-system/src-core/core_system/tool_isolation.py",
+      "markers": [
+        "_record_isolation_audit",
+        "job_assigned",
+        "job-assignment-failed"
+      ]
+    },
+    {
+      "id": "tool-isolation:spawn:subprocess.DEVNULL",
+      "kind": "glob-contains",
+      "glob": "main-system/src-core/tasks/toolbox_start_spawn*.py",
+      "markers": [
+        "stdin=subprocess.DEVNULL"
+      ]
+    },
+    {
+      "id": "tool-isolation:spawn:True",
+      "kind": "glob-contains",
+      "glob": "main-system/src-core/tasks/toolbox_start_spawn*.py",
+      "markers": [
+        "close_fds=True"
+      ]
+    },
+    {
+      "id": "third-party-inventory:parse",
+      "kind": "json-parses",
+      "path": "governance_rule/execution/third_party_management/tool_inventory.json"
+    },
+    {
+      "id": "third-party-inventory:dependency-formality",
+      "kind": "json-key-value",
+      "path": "governance_rule/execution/third_party_management/tool_inventory.json",
+      "markers": [
+        "tools[pybind11].formal=false",
+        "tools[pybind11].formality^=approved-implementation-",
+        "tools[uv].formal=false",
+        "tools[uv].formality^=approved-implementation-",
+        "tools[local-rag].formal=false",
+        "tools[local-rag].formality=bounded-degraded-fallback"
+      ]
+    },
+    {
+      "id": "worker-pools:thread-budget-module",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/performance/thread_budget.py",
+      "markers": [
+        "CORE_BUDGET_CAP = 5",
+        "bounded_workers",
+        "bounded_threads",
+        "allocation_within_budget"
+      ]
+    },
+    {
+      "id": "contract-axis:version:ai-connection",
+      "kind": "json-key-value",
+      "path": "main-system/config/ai-connection-contract.json",
+      "markers": [
+        "contract_version>=1"
+      ]
+    },
+    {
+      "id": "contract-axis:version:backend-lifecycle",
+      "kind": "json-key-value",
+      "path": "main-system/config/backend-lifecycle-contract.json",
+      "markers": [
+        "contract_version>=1",
+        "minimum_supported_contract_version>=0"
+      ]
+    },
+    {
+      "id": "contract-axis:version:data-architecture",
+      "kind": "json-key-value",
+      "path": "main-system/config/data-architecture-contract.json",
+      "markers": [
+        "schema^=gptbridge-data-architecture/v"
+      ]
+    },
+    {
+      "id": "contract-axis:version:ipc",
+      "kind": "json-key-value",
+      "path": "main-system/config/ipc-contract.json",
+      "markers": [
+        "contract_version>=1",
+        "minimum_supported_contract_version>=0"
+      ]
+    },
+    {
+      "id": "contract-axis:version:sql-schema",
+      "kind": "json-key-value",
+      "path": "main-system/config/sql-schema-contract.json",
+      "markers": [
+        "contract_version>=1",
+        "minimum_supported_contract_version>=0"
+      ]
+    },
+    {
+      "id": "contract-axis:version:tool-runtime",
+      "kind": "json-key-value",
+      "path": "main-system/config/tool-runtime-contract.json",
+      "markers": [
+        "contract_version>=1",
+        "minimum_supported_contract_version>=0"
+      ]
+    },
+    {
       "id": "python-check:check_bounded_worker_pools",
       "kind": "delegated",
       "reason": "python oracle (transition)",
@@ -2837,18 +2980,6 @@
       "kind": "delegated",
       "reason": "python oracle (transition)",
       "python": "check_shared_layer_policy"
-    },
-    {
-      "id": "python-check:check_third_party_inventory",
-      "kind": "delegated",
-      "reason": "python oracle (transition)",
-      "python": "check_third_party_inventory"
-    },
-    {
-      "id": "python-check:check_tool_isolation_hardening",
-      "kind": "delegated",
-      "reason": "python oracle (transition)",
-      "python": "check_tool_isolation_hardening"
     },
     {
       "id": "python-check:check_activation_states",
