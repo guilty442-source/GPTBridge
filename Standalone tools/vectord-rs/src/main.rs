@@ -554,3 +554,4 @@ fn main() {
             Err(e) => eprintln!("vectord: accept failed: {}", e),
         }
     }
+}
