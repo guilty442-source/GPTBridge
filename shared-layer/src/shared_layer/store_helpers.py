@@ -5,6 +5,7 @@ Kept here to avoid circular imports between store.py and store_async.py.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from typing import Any, Final
 
@@ -21,6 +22,11 @@ _QUERY_TIMEOUT: Final[float] = 10.0
 _POOL_MIN_CONN: Final[int] = 2
 _POOL_MAX_CONN: Final[int] = 8
 _POOL_TIMEOUT: Final[float] = 5.0
+# C59 POOL-ISOLATION: pooled connections idle beyond this TTL are closed so
+# a quiet process does not pin backend slots it will never use again.
+_POOL_IDLE_TTL_S: Final[float] = float(
+    os.environ.get("GPTBRIDGE_STORE_POOL_IDLE_TTL_S", "120")
+)
 
 
 def now_iso() -> str:
@@ -87,6 +93,7 @@ __all__ = [
     "_POOL_MIN_CONN",
     "_POOL_MAX_CONN",
     "_POOL_TIMEOUT",
+    "_POOL_IDLE_TTL_S",
     "_PRIORITY_VALUES",
     "_normalize_priority_class",
     "now_iso",

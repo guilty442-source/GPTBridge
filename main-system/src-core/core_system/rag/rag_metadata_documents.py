@@ -113,9 +113,8 @@ def _chunk_params(
         embedding_model,
         str(chunk.get("locator_fragment") or f"#chunk-{chunk['sequence']}"),
         json.dumps(metadata, ensure_ascii=False),
-        embedding if isinstance(embedding, (bytes, bytearray, memoryview))
-        else (pack_embedding(embedding) if isinstance(embedding, (list, tuple))
-              else None),
+        pack_embedding(embedding) if isinstance(embedding, (list, tuple))
+        else (str(embedding) if embedding else None),
     )
 
 

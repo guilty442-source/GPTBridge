@@ -40,6 +40,7 @@ import logging
 import os
 import re
 import threading
+import time
 from collections import OrderedDict
 from typing import Any, Iterable, Iterator, Sequence
 
@@ -63,8 +64,12 @@ _logger = logging.getLogger("gptbridge.pg_adapter")
 # ---------------------------------------------------------------------------
 
 _POOL_MAX_SIZE = 4
+# C59 POOL-ISOLATION: a pooled backend idle beyond this TTL is closed on
+# checkout instead of being probed — quiet processes must not pin
+# server-side slots indefinitely.
+_POOL_IDLE_TTL_S = float(os.environ.get("GPTBRIDGE_PG_ADAPTER_IDLE_TTL_S", "120"))
 _pool_lock = threading.Lock()
-_pool: dict[tuple[Any, ...], list[Any]] = {}
+_pool: dict[tuple[Any, ...], list[tuple[Any, float]]] = {}
 
 
 def _pool_enabled() -> bool:
@@ -75,10 +80,13 @@ def _pool_checkout(key: tuple[Any, ...]) -> Any | None:
     while True:
         with _pool_lock:
             entries = _pool.get(key)
-            conn = entries.pop() if entries else None
-        if conn is None:
+            entry = entries.pop() if entries else None
+        if entry is None:
             return None
+        conn, since = entry
         try:
+            if time.monotonic() - since > _POOL_IDLE_TTL_S:
+                raise TimeoutError("idle pool entry expired")
             conn.execute("SELECT 1")  # loopback liveness probe
         except Exception:
             try:
@@ -102,7 +110,7 @@ def _pool_release(key: tuple[Any, ...], conn: Any) -> None:
     with _pool_lock:
         entries = _pool.setdefault(key, [])
         if len(entries) < _POOL_MAX_SIZE:
-            entries.append(conn)
+            entries.append((conn, time.monotonic()))
             conn = None
     if conn is not None:
         try:
@@ -114,7 +122,7 @@ def _pool_release(key: tuple[Any, ...], conn: Any) -> None:
 def close_pool() -> None:
     """Drop every pooled backend (process teardown / test isolation)."""
     with _pool_lock:
-        entries = [conn for conns in _pool.values() for conn in conns]
+        entries = [conn for conns in _pool.values() for conn, _since in conns]
         _pool.clear()
     for conn in entries:
         try:

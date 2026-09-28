@@ -8,7 +8,9 @@ dense ANN 檢索職責。它是 `rust-component` 層的受管 loopback 服務，
 ## 權限邊界（DATA-SAFETY，法典 A610）
 
 - vectord 只保存**可重建的衍生資料**（向量 + 最小 metadata payload），
-  絕不取代 PostgreSQL 的正式資料權威。
+  絕不取代 PostgreSQL 的正式資料權威。向量本體是 PostgreSQL
+  `gptbridge_rag.chunk.embedding`（pgvector）的投影副本；rebuild 以
+  複製正式向量為主，僅缺值列重新嵌入並回填 PostgreSQL。
 - scope／revision／tombstone 的正式裁決仍在 PostgreSQL：vectord 回傳
   candidate IDs，由 PostgreSQL 端完成正式驗證。
 - payload 不得含內容本文或實體路徑（延續 A371 禁欄位：content、text、

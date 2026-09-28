@@ -16,7 +16,7 @@
     "sql": {
       "engine": "postgresql",
       "role": "structured-mutable-official-data",
-      "stores": ["official-business-records", "relations", "status", "audit", "rag-document-chunk-mapping", "canonical-chunk-embeddings"],
+      "stores": ["official-business-records", "relations", "status", "audit", "rag-document-chunk-mapping", "canonical-chunk-embeddings-pgvector"],
       "authority": "official-structured-data-source-of-truth-and-canonical-vector-values"
     },
     "rag": {

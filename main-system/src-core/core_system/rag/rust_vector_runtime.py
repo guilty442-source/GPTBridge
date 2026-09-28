@@ -162,6 +162,63 @@ class VectordClient:
             )
         self._call("/v1/points/upsert", {"collection": collection_name, "points": items})
 
+    def upsert_texts(self, collection_name: str, points: Any, wait: bool = True, **_: Any) -> None:
+        """Text-bearing upsert — vectord embeds `text` itself (PERF-07)."""
+        del wait
+        items = [
+            {
+                "id": str(point["id"]),
+                "text": str(point["text"]),
+                "payload": point.get("payload") or {},
+            }
+            for point in points
+        ]
+        self._call("/v1/points/upsert_text", {"collection": collection_name, "points": items})
+
+    def embed_texts(self, texts: Any, dimension: int, **_: Any) -> list:
+        """Batch text -> canonical f64-le embedding bytes (memoryview slices)."""
+        items = [str(t) for t in texts]
+        data = json.dumps({"texts": items, "dimension": int(dimension)}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{self._url}/v1/embed",
+            data=data,
+            method="POST",
+            headers={"Content-Type": "application/json", "Accept": "application/octet-stream"},
+        )
+        with urllib.request.urlopen(req, timeout=30.0) as resp:
+            blob = resp.read()
+        record = int(dimension) * 8
+        if len(blob) != record * len(items):
+            raise RuntimeError("VECTORD_EMBED_SIZE_MISMATCH")
+        view = memoryview(blob)
+        return [view[i * record : (i + 1) * record] for i in range(len(items))]
+
+    def query_text(
+        self,
+        collection_name: str,
+        text: str,
+        query_filter: Any = None,
+        limit: int = 10,
+        score_threshold: Optional[float] = None,
+        **_: Any,
+    ) -> Any:
+        """Text query — vectord embeds internally; no vector crosses the wire."""
+        body = self._call(
+            "/v1/search_text",
+            {
+                "collection": collection_name,
+                "text": str(text),
+                "top_k": int(limit),
+                "score_threshold": float(score_threshold or 0.0),
+                "filter": _filter_to_json(query_filter),
+            },
+        )
+        hits = [
+            SimpleNamespace(id=h["id"], score=h["score"], payload=h.get("payload"))
+            for h in (body.get("hits") or [])
+        ]
+        return SimpleNamespace(points=hits)
+
     def query_points(
         self,
         collection_name: str,

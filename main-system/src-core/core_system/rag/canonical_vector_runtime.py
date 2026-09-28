@@ -361,6 +361,117 @@ class CanonicalVectorRuntime:
             _logger.error("CanonicalVectorRuntime: upsert to %s failed: %s", target, exc)
             return False
 
+    async def upsert_text_points(
+        self,
+        points: list[dict[str, Any]],
+        generation_id: Optional[str] = None,
+    ) -> bool:
+        """Text-bearing upsert — the owning engine embeds each ``text`` itself
+        (PERF-07: compute at the owner; no vector serialisation crosses the
+        boundary).  Same sanitisation/scope gate as :meth:`upsert_points`.
+        """
+        if not self._healthy or self.client is None:
+            return False
+        upsert_texts = getattr(self.client, "upsert_texts", None)
+        if upsert_texts is None:
+            return False
+        target = self._get_target_collection(generation_id)
+        validated: list[dict[str, Any]] = []
+        for point in points:
+            payload = dict(point.get("payload") or {})
+            cleaned = sanitize_payload(payload)
+            assert_payload_scoped(cleaned)
+            validated.append(
+                {"id": point["id"], "text": str(point.get("text") or ""), "payload": cleaned}
+            )
+        try:
+            await asyncio.to_thread(
+                upsert_texts,
+                collection_name=target,
+                points=validated,
+                wait=True,
+            )
+            return True
+        except Exception as exc:
+            _logger.error("CanonicalVectorRuntime: text upsert to %s failed: %s", target, exc)
+            return False
+
+    async def embed_texts(self, texts: list[str]) -> Optional[list[Any]]:
+        """Canonical f64-le embedding bytes per text from the owning engine
+        (binary response; ``memoryview`` records — no Python float list is
+        ever materialised).  ``None`` when the client lacks the capability.
+        """
+        embed = getattr(self.client, "embed_texts", None)
+        if not self._healthy or embed is None:
+            return None
+        try:
+            return await asyncio.to_thread(
+                embed, texts=texts, dimension=int(self.config.embedding_dimension)
+            )
+        except Exception as exc:
+            _logger.error("CanonicalVectorRuntime: embed_texts failed: %s", exc)
+            return None
+
+    async def search_text(
+        self,
+        query_text: str,
+        module_id: Optional[str] = None,
+        module_ids: Optional[tuple[str, ...]] = None,
+        top_k: Optional[int] = None,
+        score_threshold: Optional[float] = None,
+        generation_id: Optional[str] = None,
+        additional_filter: Optional[Filter] = None,
+    ) -> list[dict[str, Any]]:
+        """Text query — the engine embeds ``query_text`` internally, so no
+        vector ever crosses the Python↔vectord boundary (PERF-07).  Same
+        mandatory module-scope gate as :meth:`search`.
+        """
+        scope_modules = [str(m).strip() for m in (module_ids or ()) if str(m).strip()]
+        if not scope_modules and module_id:
+            scope_modules = [str(module_id)]
+        scope = require_scope(scope_modules)
+        if not self._healthy or self.client is None:
+            return []
+        query_text_fn = getattr(self.client, "query_text", None)
+        if query_text_fn is None:
+            return []
+        target = self._get_target_collection(generation_id)
+        try:
+            must_conditions: list[Any] = [
+                FieldCondition(
+                    key="module_id", match=MatchAny(any=list(scope.module_ids))
+                )
+            ]
+            if additional_filter is not None and getattr(
+                additional_filter, "must", None
+            ):
+                must_conditions.extend(additional_filter.must)
+
+            query_filter = Filter(must=must_conditions)
+
+            vector_start = time.monotonic()
+            response = await asyncio.to_thread(
+                query_text_fn,
+                collection_name=target,
+                text=str(query_text),
+                query_filter=query_filter,
+                limit=top_k or self.config.top_k,
+                score_threshold=score_threshold or self.config.score_threshold,
+            )
+            _observe_vector_latency((time.monotonic() - vector_start) * 1000.0)
+            return [
+                {
+                    "id": hit.id,
+                    "score": hit.score,
+                    "payload": hit.payload,
+                    "point_id": hit.id,
+                }
+                for hit in response.points
+            ]
+        except Exception as exc:
+            _logger.error("CanonicalVectorRuntime: text search on %s failed: %s", target, exc)
+            return []
+
     async def search(
         self,
         query_vector: list[float],

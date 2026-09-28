@@ -35,6 +35,7 @@ from .store_helpers import (
     _CHANS,
     _MAX_BYTES,
     _MAX_ID,
+    _POOL_IDLE_TTL_S,
     _POOL_MAX_CONN,
     _POOL_MIN_CONN,
     _POOL_TIMEOUT,
@@ -52,19 +53,27 @@ _logger = logging.getLogger("gptbridge.shared_layer.store")
 
 
 class _ConnectionPool:
-    """Thread-safe psycopg connection pool."""
+    """Thread-safe psycopg connection pool.
+
+    C59 pool accounting: checked-out conns are tracked in ``_in_use``;
+    idle conns carry an ``idle_since`` stamp so a daemon reaper can close
+    backends a quiet process no longer needs.  The server-side slot count
+    a process can hold is therefore bounded by ``max`` under load and
+    decays to zero when idle.
+    """
 
     def __init__(self, dsn: str, min_conn: int, max_conn: int, timeout: float) -> None:
         self._dsn = dsn
         self._min = min_conn
         self._max = max_conn
         self._timeout = timeout
-        self._pool: list[Any] = []
+        self._pool: list[tuple[Any, float]] = []
         self._in_use: set[int] = set()
         self._lock = threading.Lock()
         self._closed = False
         import psycopg
         # Pre-create minimum connections
+        now = time.monotonic()
         for _ in range(min_conn):
             conn = psycopg.connect(
                 dsn,
@@ -72,7 +81,53 @@ class _ConnectionPool:
                 connect_timeout=_QUERY_TIMEOUT,
                 autocommit=False,
             )
-            self._pool.append(conn)
+            self._pool.append((conn, now))
+        self._reaper = threading.Thread(
+            target=self._reap_idle,
+            name="pg-store-pool-reaper",
+            daemon=True,
+        )
+        self._reaper.start()
+
+    def _new_conn(self) -> Any:
+        import psycopg
+        return psycopg.connect(
+            self._dsn,
+            row_factory=psycopg.rows.dict_row,
+            connect_timeout=_QUERY_TIMEOUT,
+            autocommit=False,
+        )
+
+    def _reap_idle(self) -> None:
+        # Low-CPU: wake at half the TTL; stale entries are closed while the
+        # lock is not held.  A stale idle conn still counts toward ``max``
+        # only until the next wake — bounded by construction.
+        while True:
+            time.sleep(max(5.0, _POOL_IDLE_TTL_S / 2.0))
+            cutoff = time.monotonic() - _POOL_IDLE_TTL_S
+            with self._lock:
+                if self._closed:
+                    return
+                stale = [c for c, since in self._pool if since < cutoff]
+                self._pool = [e for e in self._pool if e[1] >= cutoff]
+            for conn in stale:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    def _checkout_idle(self) -> Any | None:
+        """Pop the newest idle conn, discarding closed/stale entries."""
+        while self._pool:
+            conn, since = self._pool.pop()
+            if conn.closed or conn.broken or time.monotonic() - since > _POOL_IDLE_TTL_S:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                continue
+            return conn
+        return None
 
     @contextmanager
     def acquire(self):
@@ -81,19 +136,9 @@ class _ConnectionPool:
             with self._lock:
                 if self._closed:
                     raise RuntimeError("pool closed")
-                if self._pool:
-                    conn = self._pool.pop()
-                elif len(self._in_use) < self._max:
-                    import psycopg
-                    conn = psycopg.connect(
-                        self._dsn,
-                        row_factory=psycopg.rows.dict_row,
-                        connect_timeout=_QUERY_TIMEOUT,
-                        autocommit=False,
-                    )
-                else:
-                    # Wait for a connection to be released
-                    pass
+                conn = self._checkout_idle()
+                if conn is None and len(self._in_use) + len(self._pool) < self._max:
+                    conn = self._new_conn()
                 if conn is not None:
                     self._in_use.add(id(conn))
                     yield conn
@@ -103,8 +148,8 @@ class _ConnectionPool:
             start = time.monotonic()
             while time.monotonic() - start < self._timeout:
                 with self._lock:
-                    if self._pool:
-                        conn = self._pool.pop()
+                    conn = self._checkout_idle()
+                    if conn is not None:
                         self._in_use.add(id(conn))
                         yield conn
                         return
@@ -112,12 +157,21 @@ class _ConnectionPool:
             raise TimeoutError("connection pool exhausted")
         finally:
             if conn is not None:
+                # Deterministic session reset (C59): a conn returned with an
+                # open/aborted transaction must never leak INTRANS state to
+                # the next borrower.
+                try:
+                    if not conn.closed and conn.info.transaction_status.name != "IDLE":
+                        conn.rollback()
+                except Exception:
+                    pass
                 with self._lock:
                     self._in_use.discard(id(conn))
                     # Perf: retain up to max (not min) to avoid
-                    # close/reconnect churn under bursty concurrency.
-                    if not self._closed and len(self._pool) < self._max:
-                        self._pool.append(conn)
+                    # close/reconnect churn under bursty concurrency; the
+                    # idle reaper still bounds slot hold time.
+                    if not self._closed and len(self._pool) < self._max and not conn.closed:
+                        self._pool.append((conn, time.monotonic()))
                     else:
                         try:
                             conn.close()
@@ -127,13 +181,14 @@ class _ConnectionPool:
     def close_all(self) -> None:
         with self._lock:
             self._closed = True
-            for conn in self._pool:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-            self._pool.clear()
+            entries = self._pool
+            self._pool = []
             self._in_use.clear()
+        for conn, _since in entries:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 class PostgresSharedLayerStore(PostgresStoreAsyncMixin):

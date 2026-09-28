@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from contextlib import contextmanager
 from queue import Empty, Full, LifoQueue
@@ -18,6 +19,10 @@ from ..security.dsn_policy import (
 from .config import DatabaseSettings
 
 _logger = logging.getLogger("gptbridge.shared_layer.connection")
+
+# C59 POOL-ISOLATION: idle pooled backends past this TTL are closed on
+# checkout so a quiet process does not hold server-side slots forever.
+_IDLE_TTL_S = float(os.environ.get("GPTBRIDGE_CONN_POOL_IDLE_TTL_S", "120"))
 
 
 def database_dsn(admin_dsn: str, database: str) -> str:
@@ -60,7 +65,7 @@ class ConnectionManager:
         self._dsn = database_dsn(runtime_dsn, settings.database)
         self._min_size = min_size
         self._max_size = max_size
-        self._idle: LifoQueue[Connection[dict[str, Any]]] = LifoQueue(max_size)
+        self._idle: LifoQueue[tuple[Connection[dict[str, Any]], float]] = LifoQueue(max_size)
         self._lock = Lock()
         self._connection_count = 0
         self._dedicated_count = 0
@@ -97,7 +102,7 @@ class ConnectionManager:
                     connection.close()
                 raise
             for connection in created:
-                self._idle.put_nowait(connection)
+                self._idle.put_nowait((connection, time.monotonic()))
             self._connection_count = len(created)
             self._opened = True
 
@@ -135,7 +140,7 @@ class ConnectionManager:
             self._opened = False
             while True:
                 try:
-                    connection = self._idle.get_nowait()
+                    connection, _since = self._idle.get_nowait()
                 except Empty:
                     break
                 connection.close()
@@ -163,24 +168,54 @@ class ConnectionManager:
             with self._lock:
                 self._dedicated_count -= 1
 
+    def _retire(self, connection: Connection[dict[str, Any]]) -> None:
+        try:
+            connection.close()
+        except Exception:
+            pass
+        with self._lock:
+            self._connection_count -= 1
+
+    def _take_idle(self, timeout: float = 0.0) -> Connection[dict[str, Any]] | None:
+        """Pop a live idle conn; stale/dead entries are retired (C59)."""
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                entry = (
+                    self._idle.get_nowait()
+                    if timeout <= 0.0
+                    else self._idle.get(timeout=max(0.0, deadline - time.monotonic()))
+                )
+            except Empty:
+                return None
+            connection, since = entry
+            if (
+                connection.closed
+                or connection.broken
+                or time.monotonic() - since > _IDLE_TTL_S
+            ):
+                self._retire(connection)
+                if timeout > 0.0 and time.monotonic() >= deadline:
+                    return None
+                continue
+            return connection
+
     @contextmanager
     def connection(self) -> Iterator[Connection[dict[str, Any]]]:
         if not self._opened:
             raise RuntimeError("CONNECTION_POOL_NOT_OPEN")
-        try:
-            connection = self._idle.get_nowait()
-        except Empty:
+        connection = self._take_idle()
+        if connection is None:
             with self._lock:
                 at_cap = self._connection_count >= self._max_size
             if at_cap:
                 start = time.monotonic()
-                try:
-                    connection = self._idle.get(timeout=10)
-                except Empty:
+                connection = self._take_idle(timeout=10)
+                if connection is None:
                     with self._lock:
                         self._pool_wait_timeouts += 1
                     self._observe_plane_wait((time.monotonic() - start) * 1000.0)
-                    raise
+                    raise Empty("connection pool exhausted")
                 self._observe_plane_wait((time.monotonic() - start) * 1000.0)
             else:
                 with self._lock:
@@ -203,7 +238,7 @@ class ConnectionManager:
                         self._connection_count -= 1
                 else:
                     try:
-                        self._idle.put_nowait(connection)
+                        self._idle.put_nowait((connection, time.monotonic()))
                     except Full:
                         connection.close()
                         with self._lock:
