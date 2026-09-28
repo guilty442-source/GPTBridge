@@ -871,3 +871,22 @@ The following PERF contracts are mandatory:
   writes are separated from runtime telemetry.
 - `PERF-15` optimization decisions require measured p50/p95/p99, CPU, RAM, VRAM,
   context switches, queue depth, and DB round-trip evidence.
+
+## Performance Convergence Order
+
+Do not add unrelated features while performance convergence is in progress.
+Execute optimization in this order:
+
+1. remove Python from critical paths through Go/Rust ownership;
+2. establish the Global Scheduler, bounded concurrency, and backpressure;
+3. implement model residency and switching management;
+4. batch and parallelize RAG, SQL, and Git pipelines;
+5. optimize zero-copy, serialization, and allocations;
+6. add lazy startup and cache hierarchy;
+7. apply the final 10–20% only from profiling evidence.
+
+Stages 1–4 have priority. Avoid premature SIMD, handwritten memory pools, and
+complex lock-free structures when profiling has not demonstrated a bottleneck.
+The convergence slogan is: Go manages concurrency, Rust runs the core, Python
+runs AI, PostgreSQL owns truth, Qdrant owns vectors, and every operation is
+bounded, batched, cancellable, parallelizable, and model-resident when hot.
