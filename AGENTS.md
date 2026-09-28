@@ -747,3 +747,16 @@ boundary (for example dense/sparse/code retrieval → fuse → rerank), and do n
 split tiny functions, frequent cross-language calls, small JSON conversions,
 shared-cache-line state, or lock-heavy work. Retrieval ownership remains the
 Rust `vectord-rs` path; parallel retrieval must remain bounded and governed.
+
+## Cross-Language Round-Trip Budget
+
+Minimize cross-language round-trips on hot paths. Prefer one contract boundary
+from the application to the native owner rather than chains such as Rust → C#
+→ Python → Rust → C++. The canonical flows are:
+
+- inference: Rust model service → C++ inference → Rust;
+- RAG: application → Rust RAG / `vectord-rs` → result;
+- training: Rust/C# scheduler → Python + JAX → artifact → process exit.
+
+Python may be installed for governed, on-demand training or verification, but
+must not remain resident after the request completes.
