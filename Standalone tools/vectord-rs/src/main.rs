@@ -6,6 +6,7 @@
 //! scope/revision/tombstone on the candidate IDs this engine returns
 //! (codex A610 DATA-ARCHITECTURE-TARGET / DATA-SAFETY).
 
+mod requests;
 mod store;
 mod work_stealing;
 
@@ -17,9 +18,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use serde::Deserialize;
 use serde_json::{json, Value};
-use store::{Filter, SnapshotFile, Store};
+use store::{SnapshotFile, Store};
 use work_stealing::WorkStealingPool;
 
 const CONTRACT: &str = "vectord/v1";
@@ -36,61 +36,15 @@ const SNAPSHOT_INTERVAL: Duration = Duration::from_secs(2);
 const MIN_CONN_WORKERS: usize = 2;
 const MAX_CONN_WORKERS: usize = 16;
 const PENDING_CONN_CAPACITY: usize = 64;
+// Declared latency envelope (B16): a connection still queued after
+// this budget has almost certainly been abandoned by its client —
+// expire it instead of serving stale work.
+const PENDING_CONN_DEADLINE: Duration = Duration::from_millis(2000);
 
-#[derive(Deserialize)]
-struct EnsureRequest {
-    name: String,
-    dimension: usize,
-}
-
-#[derive(Deserialize)]
-struct AliasSetRequest {
-    alias: String,
-    collection: String,
-}
-
-#[derive(Deserialize)]
-struct AliasGetRequest {
-    alias: String,
-}
-
-#[derive(Deserialize)]
-struct PointIn {
-    id: String,
-    vector: Vec<f32>,
-    #[serde(default)]
-    payload: Value,
-}
-
-#[derive(Deserialize)]
-struct UpsertRequest {
-    collection: String,
-    points: Vec<PointIn>,
-}
-
-#[derive(Deserialize)]
-struct SearchRequest {
-    collection: String,
-    vector: Vec<f32>,
-    #[serde(default)]
-    top_k: Option<usize>,
-    #[serde(default)]
-    score_threshold: Option<f32>,
-    #[serde(default)]
-    filter: Filter,
-}
-
-#[derive(Deserialize)]
-struct FilteredRequest {
-    collection: String,
-    #[serde(default)]
-    filter: Filter,
-}
-
-#[derive(Deserialize)]
-struct InfoRequest {
-    name: String,
-}
+use requests::{
+    AliasGetRequest, AliasSetRequest, EnsureRequest, FilteredRequest,
+    InfoRequest, SearchRequest, UpsertRequest,
+};
 
 struct App {
     store: Arc<Store>,
@@ -535,7 +489,13 @@ fn main() {
                 };
                 let app = app.clone();
                 if pool
-                    .submit(move || handle_connection(task_stream, app))
+                    .submit_opts(
+                        move || handle_connection(task_stream, app),
+                        work_stealing::TaskOpts {
+                            deadline: Some(PENDING_CONN_DEADLINE),
+                            ..work_stealing::TaskOpts::default()
+                        },
+                    )
                     .is_err()
                 {
                     reject_over_capacity(stream);
