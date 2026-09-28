@@ -46,12 +46,47 @@ def _review(scope: tuple[str, ...]) -> CodexReadSession:
 # ---------------------------------------------------------------------------
 
 def is_provision_token(value: str) -> bool:
-    """Check if ``value`` is a codex provision token (A/E/P + digits)."""
+    """Check if ``value`` is a codex provision token (letter + digits)."""
     if not value:
         return False
     head = value[0]
     body = value[1:]
-    return head in ("A", "E", "P") and body.isdigit()
+    return head.isalpha() and head.isupper() and body.isdigit()
+
+
+def _resolved_provision_id(aliases: Mapping[str, str], reference: str) -> str:
+    """Follow renumbering aliases to the current provision identity."""
+    seen = {reference}
+    target = reference
+    for _ in range(8):
+        nxt = aliases.get(target)
+        if not nxt or nxt in seen:
+            return target
+        seen.add(nxt)
+        target = nxt
+    return target
+
+
+_BASIS_SCOPE = ("articles:*", "principles:*", "registry:provision_renumbering_registry")
+
+
+def _codex_provision_texts(session: CodexReadSession):
+    """Article/principle text lookup + renumbering aliases (review scope).
+
+    The renumbered codex gives articles lettered identities (A/B/C/D);
+    ``session.provision_text`` dispatches on the legacy first-letter kind,
+    so article/principle verification reads the typed collections directly
+    and resolves historical ids through ``provision_renumbering_registry``.
+    Edict ids (E*) were never renumbered and keep working through
+    ``session.provision_text``.
+    """
+    texts: dict[str, str] = {a.id: a.rule for a in session.articles()}
+    texts.update({p.id: p.statement for p in session.principles()})
+    aliases = {
+        row.get("old_provision_id"): row.get("new_provision_id")
+        for row in session.registry("provision_renumbering_registry")
+    }
+    return texts, aliases
 
 
 def provision_text(reference: str) -> str:
@@ -62,8 +97,15 @@ def provision_text(reference: str) -> str:
     """
     if not is_provision_token(reference):
         raise ValueError(f"invalid provision token {reference!r}")
-    with _review((f"provision:{reference}",)) as session:
-        return session.provision_text(reference)
+    with _review(_BASIS_SCOPE + (f"provision:{reference}",)) as session:
+        if reference.startswith("E"):
+            return session.provision_text(reference)
+        texts, aliases = _codex_provision_texts(session)
+        resolved = _resolved_provision_id(aliases, reference)
+        found = texts.get(resolved)
+        if found is None:
+            raise KeyError(f"unknown provision {reference!r}")
+        return found
 
 
 @dataclass(frozen=True)
@@ -98,9 +140,16 @@ def verified_basis(references: Iterable[str]) -> DecisionBasis:
         if not is_provision_token(reference):
             raise ValueError(f"non-token basis: {reference!r}")
         tokens.append(reference)
-    with _review(tuple(f"provision:{r}" for r in tokens)) as session:
+    scope = _BASIS_SCOPE + tuple(
+        f"provision:{r}" for r in tokens if r.startswith("E")
+    )
+    with _review(scope) as session:
+        texts, aliases = _codex_provision_texts(session)
         for reference in tokens:
-            session.provision_text(reference)  # raises KeyError if not found
+            if reference.startswith("E"):
+                session.provision_text(reference)  # raises KeyError if missing
+            elif texts.get(_resolved_provision_id(aliases, reference)) is None:
+                raise KeyError(f"unknown provision {reference!r}")
     return DecisionBasis(tuple(tokens))
 
 
