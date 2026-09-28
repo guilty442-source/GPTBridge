@@ -12,14 +12,14 @@
 | F# / .NET | 資料分析、機器學習、高正確性複雜計算 | 結果必須經版本化契約交付 |
 | Go | 受限網路服務、高併發 I/O、批次工作 | 不得建立第二套治理或 IPC |
 | Rust 1.98.1 | Application Core、State Core、Security、IPC、Lifecycle、原生整合及記憶體安全熱路徑 | 不得形成平行權限權威 |
-| Python | 恰好三域（A35）：治理必要語意（主權語意＋治理規則＋治理薄封裝，必要部分常駐）、星澄訓練（JAX／jaxlib／NumPy 與必要訓練套件，僅訓練時啟動）、開發驗證（必要 pytest＋治理驗證＋推送閘，僅開發或驗證時啟動） | 其餘 Python 用途一律禁止；常駐機械性工作與 production 驗證層不得啟動 |
+| Python | 恰好三域（B4）：治理必要語意（主權語意＋治理規則＋治理薄封裝，必要部分常駐）、星澄訓練（JAX／jaxlib／NumPy 與必要訓練套件，僅訓練時啟動）、開發驗證（必要 pytest＋治理驗證＋推送閘，僅開發或驗證時啟動） | 其餘 Python 用途一律禁止；常駐機械性工作與 production 驗證層不得啟動 |
 | Native JavaScript ESM | General UI、Settings、Dashboard、Tool Panels | 不承載治理與資料權威 |
 | Julia | 科學運算與數值研究服務 | 只經版本化契約被呼叫 |
 | PostgreSQL | 中央結構化資料、共享傳輸及中央審計 | 是資料平台，不是應用語言權威 |
 
-### Python 工作責任移交（A35／A341 收斂對應）
+### Python 工作責任移交（B4／B72 收斂對應）
 
-現有 Python 常駐與執行工作移交正式 owner；Python 僅保留 A35 三域：
+現有 Python 常駐與執行工作移交正式 owner；Python 僅保留 B4 三域：
 
 | 原 Python 工作域 | 正式移交對象 |
 | --- | --- |
@@ -37,9 +37,9 @@
 | Governance 必要語意 | 保留最薄 Python 層（主權語意／治理規則／治理薄封裝） |
 | pytest／開發驗證 | 保留，僅開發或驗證時啟動，production 不啟動 |
 
-移交一律經版本化契約或治理通道完成；接收方只取得執行權，不取得治理、權限或業務權威（A341／A610）。
+移交一律經版本化契約或治理通道完成；接收方只取得執行權，不取得治理、權限或業務權威（B72／B166）。
 
-### Python 最小化驗收線（A35 三域驗收判準）
+### Python 最小化驗收線（B4 三域驗收判準）
 
 Python Source 僅允許落在三個邏輯域，其餘正式 runtime Python 一律為 0：
 
@@ -217,4 +217,9 @@ flowchart LR
 
 除 Windows 原生工具與 Ollama 外，Esbuild、SWC、SDK、Toolchain、套件及依賴快取均須位於 `E:\GPTBridge` 下的適當子目錄，不得散落於專案頂層或使用未登記的全域版本。
 
-法源：A35、A341、A343、A348、A604、A605、A610、A621。
+法源：B4、B72、B74、D62、B162、B163、B166、C116。
+
+
+## ABCD 責任分類
+
+A 為治理與權威；B 為系統架構與執行；C 為資料、自動化與營運；D 為驗證、發布與保證。條文依各類責任連續編號，舊 A 編號僅能透過 `provision_renumbering_registry` 作歷史查詢。

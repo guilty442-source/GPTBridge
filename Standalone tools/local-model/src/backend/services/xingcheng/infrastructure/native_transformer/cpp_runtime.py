@@ -384,6 +384,15 @@ class CppInferenceEngine:
                 (self.bundle_dir / "manifest.json").read_text(encoding="utf-8")
             )
             weights_bytes = int(manifest.get("weights_bytes") or 0)
+            if weights_bytes <= 0:
+                # Bundles manifest the payload as ``weights_file`` (no
+                # weights_bytes key); stat the blob so the coordinator
+                # admission reflects the real device footprint.
+                weights_file = str(manifest.get("weights_file") or "")
+                if weights_file:
+                    weights_bytes = int(
+                        (self.bundle_dir / weights_file).stat().st_size
+                    )
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             weights_bytes = 0
         return max(256.0, weights_bytes * 1.5 / (1024**2))

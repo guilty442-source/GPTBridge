@@ -44,7 +44,7 @@ flowchart TB
   RS[Rust<br/>記憶體安全系統元件] --> RC
 ```
 
-核心約束：C、C++、C#、F#、Go、Rust 只能執行其已授權責任；不得自行修改治理規則、建立權限或繞過裁決。Python 僅保留 A35 三域——治理必要語意薄層（必要部分常駐）、JAX 星澄訓練（僅訓練時啟動）、開發驗證（僅開發或驗證時啟動）——不負責大量機械性工作的常駐執行，其餘用途一律禁止。
+核心約束：C、C++、C#、F#、Go、Rust 只能執行其已授權責任；不得自行修改治理規則、建立權限或繞過裁決。Python 僅保留 B4 三域——治理必要語意薄層（必要部分常駐）、JAX 星澄訓練（僅訓練時啟動）、開發驗證（僅開發或驗證時啟動）——不負責大量機械性工作的常駐執行，其餘用途一律禁止。
 
 ## 二、啟動、運行與關閉
 
@@ -224,7 +224,7 @@ flowchart LR
 - DAG 是工作流編排平面，不取代 Application Service。
 - CAG 是安全、版本化、有範圍的加速與上下文重用平面，不取代 RAG。
 - RAG 是 canonical knowledge retrieval 平面，保留 Hybrid、Code、Memory、Agentic 四個子架構。
-- PostgreSQL 與 vectord-rs 的 canonical 邊界不變（Qdrant 已退役，非 canonical，A621）；SQLite 不得升格為中央權威。
+- PostgreSQL 與 vectord-rs 的 canonical 邊界不變（Qdrant 已退役，非 canonical，C116）；SQLite 不得升格為中央權威。
 
 ## 七、Git 架構
 
@@ -246,7 +246,7 @@ flowchart TB
   AUDIT -->|FAIL| CLOSED[禁止 Push]
 
   HIST[(Git History)] --> COMMIT
-  POLICY[Codex A163 / A375] --> COORD
+  POLICY[Codex C22 / C66] --> COORD
   POLICY --> AUDIT
 ```
 
@@ -392,4 +392,9 @@ flowchart TB
 
 前端建置統一使用 Esbuild／SWC 混合鏈：SWC 負責 JSX 與現代 JavaScript 語法轉換；Esbuild 負責依賴圖、bundle、code splitting、資產、source map、tree shaking 與最終壓縮；Rust Contract Validator 負責 Schema、IPC 與 API 靜態驗證。兩者不得重複轉換或建立平行建置權威。
 
-法源：A8、A30、A35、A77、A82、A116、A163、A193、A201、A232、A245、A281、A341、A343、A375、A448、A452、A477、A487–A498、A500、A528、A534–A538、A544–A557、A586–A609。
+法源：C2、B3、B4、D9、D11、B16、C22、B27、C31、C35、C37、C45、B72、B74、C66、D99、C17、A29、D117–D125、D126、B118、B123–C102、C103–B135、B154–D24。
+
+
+## ABCD 責任分類
+
+A 為治理與權威；B 為系統架構與執行；C 為資料、自動化與營運；D 為驗證、發布與保證。條文依各類責任連續編號，舊 A 編號僅能透過 `provision_renumbering_registry` 作歷史查詢。
