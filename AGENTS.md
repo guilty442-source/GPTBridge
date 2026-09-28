@@ -781,3 +781,14 @@ coalesced into small bounded updates before GPUI redraws; batch size and time
 window are benchmark parameters, not assumed constants such as 16, 32, or 64.
 GPUI is the formal core view for model dialogue, streaming text, and virtual
 lists; Rust/Tauri and JavaScript-ESM integrate through governed state events.
+
+## Hot-Path Allocation Policy
+
+Reduce allocation churn on profiled hot paths: avoid repeated `malloc/free`,
+`new/delete`, unreserved `Vec` growth, `String` reallocation, temporary DTOs,
+and temporary JSON. Prefer capacity reservation, bounded buffer pools, object
+reuse, arena/scratch allocation, stack values, small fixed structs, and
+span/slice/view interfaces. Prioritize RAG queries, token decode, IPC frames,
+audit records, and network buffers. Do not build a project-wide custom
+allocator; introduce pooling or arena strategies only where profiling proves
+allocation is a bottleneck, with bounded lifetime and ownership evidence.
