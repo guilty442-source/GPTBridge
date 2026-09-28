@@ -27,9 +27,8 @@ advances nothing.
 
 The five sovereign checks supplied here are deterministic standard-charter
 verifications (the same duties every amendment receives).  Xingcheng's
-receipt additionally requires a governed web-search callable; when none is
-wired the check denies fail-closed (``NETWORK_AUDIT_UNAVAILABLE``) rather
-than inventing external evidence.
+receipt uses the assistant core charter over immutable request metadata; it
+does not require a web-search callable or external evidence.
 
 CLI::
 
@@ -59,7 +58,7 @@ from governance_rule.execution.codex_amendment import (
 )
 from governance_rule.execution.codex_amendment_audit_gate import (
     AUDIT_LEDGER_PATH,
-    build_xingcheng_network_check,
+    build_xingcheng_assistant_core_check,
 )
 from governance_rule.execution.codex_amendment_audit_runner import (
     run_five_sovereign_audit,
@@ -524,9 +523,9 @@ def default_sovereign_checks(
 ) -> dict[str, Callable[[], Mapping[str, Any]]]:
     """The standard five-sovereign check callables for one request.
 
-    The four governance checks are deterministic verifications of the
-    staged request/candidate.  Xingcheng's check requires a governed
-    web-search callable; ``search=None`` denies that receipt fail-closed.
+    All five checks are deterministic standard-charter verifications of the
+    staged request/candidate.  The Xingcheng assistant check reviews only
+    immutable request metadata and never requires external web search.
     """
     request_path = Path(request_path)
     source = Path(source_database) if source_database else None
@@ -550,17 +549,21 @@ def default_sovereign_checks(
     )
     if candidate is not None and not str(candidate).endswith(".sqlite3"):
         candidate = None
-    resolved_queries = (
-        [str(query) for query in queries]
-        if queries
-        else _default_queries(request_path)
-    )
+    try:
+        request = load_amendment_request(request_path)
+        request_id = request.request_id
+        request_scope = request.scope
+    except AmendmentLifecycleError:
+        request_id = ""
+        request_scope = ()
     return {
         "decision-sovereign": _decision_check(request_path, ledger),
         "permission-sovereign": _permission_check(request_path, source),
         "system-runtime-sovereign": _runtime_check(request_path, source),
         "automation-sovereign": _automation_check(manifest, candidate, ledger),
-        "xingcheng": build_xingcheng_network_check(search, resolved_queries),
+        "xingcheng": build_xingcheng_assistant_core_check(
+            request_id, request_scope
+        ),
     }
 
 
@@ -882,26 +885,12 @@ async def advance_request(
                 error="AUTHORITY_EXPORT_UNAVAILABLE",
             )
             return result
-        if search is None:
-            # Xingcheng's receipt requires the governed web-search path.
-            # Running the gate without it would permanently REJECT the
-            # request for a transient tool outage — defer instead: the
-            # request stays ``successor-built`` until the search callable
-            # is wired (fail-closed, non-destructive).
-            result.update(
-                ok=False,
-                stage="audit",
-                state=STATE_SUCCESSOR_BUILT,
-                error="XINGCHENG_SEARCH_UNAVAILABLE",
-            )
-            return result
         manifest = _manifest_path_for(ledger, request_id)
         checks = default_sovereign_checks(
             request_path,
             ledger=ledger,
             manifest_path=manifest,
             source_database=source,
-            search=search,
         )
         run = await run_five_sovereign_audit(
             request_path,
