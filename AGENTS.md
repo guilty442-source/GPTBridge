@@ -56,7 +56,11 @@ git commit -m "Your message" -- <your-file-1> <your-file-2>
 Path-scoped commits ignore the index for every other path, so externally
 staged work can never be swept in (incident 2026-09-20: `4914cf07` swept a
 staged `pretrain.py` CUDA-graphs fix under a blueprint message because the
-whole index was committed after the listing was noticed).
+whole index was committed after the listing was noticed). Recurrence
+2026-09-28: `808a9895` swept another worker's 14 staged
+`native/resource_governor` A185-split files under a release-fixtures
+message while their own files landed in `717aa5fa`; attribution was
+corrected non-destructively via `git notes` on `808a9895`.
 
 ### Other PowerShell Notes
 
