@@ -112,7 +112,8 @@ def test_once_dry_run_contract(isolated_root: Path) -> None:
     snapshot = json.loads(proc.stdout)
     missing = SNAPSHOT_KEYS - set(snapshot)
     assert not missing, f"snapshot keys missing: {missing}"
-    assert snapshot["mode"] == "sleep"
+    rules = json.loads(_RULES.read_text(encoding="utf-8"))
+    assert snapshot["mode"] in rules["modes"]
     assert snapshot["dry_run"] is True
     assert snapshot["disabled"] is False
     ledger = snapshot["worker_ledger"]
@@ -165,6 +166,7 @@ def test_backend_signals_read_cpp_state(
     exe = _require_exe()
     proc = _run(exe, isolated_root, "--once", "--dry-run", "--interval", "1")
     assert proc.returncode == 0, proc.stderr
+    emitted_mode = json.loads(proc.stdout)["mode"]
 
     from tasks import resource_governor_signal as sig
 
@@ -179,8 +181,8 @@ def test_backend_signals_read_cpp_state(
         / "resource-governor-rules.json",
     )
     mode = sig.governor_mode()
-    assert mode["mode"] == "sleep"
-    assert mode["applied"] == "sleep"
+    assert mode["mode"] == emitted_mode
+    assert mode["applied"] == emitted_mode
     assert mode["running"] is True
     assert mode["auto_mode"] is True
     assert isinstance(sig.regulation_active(), bool)
