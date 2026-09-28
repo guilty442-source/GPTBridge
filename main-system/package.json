@@ -6,7 +6,6 @@
   "author": "GPTBridge Development Team",
   "scripts": {
     "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
-    "dev": "node scripts/dev.mjs",
     "launcher:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/install.ps1",
     "launcher:prepare": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1 -PrepareOnly",
     "launcher:start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File launcher/scripts/start.ps1",
@@ -19,7 +18,7 @@
     "governance:fix": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" ../governance_rule/execution/typescript/scripts/run-fixers.ts",
     "governance:report": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" ../governance_rule/execution/typescript/scripts/generate-report.ts",
     "doctor": ".venv\\Scripts\\python.exe scripts/doctor_environment.py --strict",
-    "doctor:fix": ".venv\\Scripts\\python.exe scripts/doctor_environment.py --fix-electron --strict",
+    "doctor:fix": ".venv\\Scripts\\python.exe scripts/doctor_environment.py --strict",
     "version:sync": ".venv\\Scripts\\python.exe scripts/sync_version.py sync",
     "version:check": ".venv\\Scripts\\python.exe scripts/sync_version.py check",
     "version:set": ".venv\\Scripts\\python.exe scripts/sync_version.py set",
@@ -28,11 +27,10 @@
     "check:ui": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" ../governance_rule/execution/typescript/scripts/run-checkers.ts --category ui",
     "check:runtime": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" ../governance_rule/execution/typescript/scripts/run-checkers.ts --category runtime",
     "build:renderer": "vite build",
-    "build:templates": "vite build -c vite.templates.config.mjs",
     "build:native": ".venv\\Scripts\\python.exe src-core/core_system/native/build_native.py",
     "build:platform-renderer": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --build-renderers-only --all",
-    "build:app": "npm.cmd run build:renderer && npm.cmd run build:templates && npm.cmd run build:platform-renderer",
-    "package:tools": "npm.cmd run build:templates && .venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --all",
+    "build:app": "npm.cmd run build:renderer && npm.cmd run build:platform-renderer",
+    "package:tools": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --all",
     "package:tool": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py",
     "package:changed": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --changed",
     "verify:tools": ".venv\\Scripts\\python.exe src-core/tasks/platform_packager.py --verify --all",
@@ -49,10 +47,9 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "babel-plugin-react-compiler": "^1.0.0",
-    "electron": "^44.4.5",
     "madge": "^8.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vite": "^8.3.1"
   }
 }
