@@ -437,17 +437,20 @@ def build_manifest(root: Path) -> dict[str, object]:
         })
 
     # --- protected governance sources (native: exists + readonly) -----
+    # Codex C4/D11/E62 scope the read-only attribute to codex artifacts;
+    # all other protected sources keep existence/integrity checks only.
     for relative in _protected_sources(root):
         checks.append({
             "id": f"protected-source:{relative}",
             "kind": "file-exists",
             "path": relative,
         })
-        checks.append({
-            "id": f"protected-source-readonly:{relative}",
-            "kind": "file-readonly",
-            "path": relative,
-        })
+        if relative.startswith("governance_rule/codex/"):
+            checks.append({
+                "id": f"protected-source-readonly:{relative}",
+                "kind": "file-readonly",
+                "path": relative,
+            })
 
     # --- codex / architecture text pollution (native scan) ------------
     codex_root = root / "governance_rule" / "codex"
@@ -565,10 +568,6 @@ def build_manifest(root: Path) -> dict[str, object]:
         checks.append({
             "id": f"shared-layer-source:{name}",
             "kind": "file-exists", "path": rel,
-        })
-        checks.append({
-            "id": f"shared-layer-source-readonly:{name}",
-            "kind": "file-readonly", "path": rel,
         })
 
     # check_embedded_browser (conditional file scans + required modules)

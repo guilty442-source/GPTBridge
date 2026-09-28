@@ -290,9 +290,7 @@ def check_main_system_source(root: Path, errors: list[str]) -> None:
 
 
 def check_shared_layer_structure(root: Path, errors: list[str]) -> None:
-    """Verify shared layer directory structure and readonly sources."""
-    from .audit_protected import _is_operating_system_read_only
-
+    """Verify shared layer directory structure and entry sources."""
     policy = governance_policy_snapshot()
     shared_root = root / policy.shared_layer.module_root
     shared_source = root / policy.shared_layer.source_root
@@ -308,11 +306,11 @@ def check_shared_layer_structure(root: Path, errors: list[str]) -> None:
             shared_source / "shared_layer" / "channel.py",
             shared_source / "shared_layer" / "store.py",
         )
+        # Codex C4/D11/E62 scope OS-readonly to codex artifacts; shared-layer
+        # sources keep the existence check without the attribute requirement.
         for source in required_shared_sources:
             if not source.is_file():
                 errors.append(f"shared layer source is missing: {source.name}")
-            elif not _is_operating_system_read_only(source):
-                errors.append(f"shared layer source is not read-only: {source.name}")
 
 
 def check_tool_isolation_hardening(root: Path, errors: list[str]) -> None:

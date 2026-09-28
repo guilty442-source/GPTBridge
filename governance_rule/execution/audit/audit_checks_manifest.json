@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T10:09:23Z",
+  "generated_at": "2026-09-28T10:31:03Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 329,
+    "native_checks": 303,
     "delegated_checks": 35,
     "native_kinds": [
       "file-exists",
@@ -47,11 +47,6 @@
     {
       "id": "protected-source:governance_rule/governance_policy.py",
       "kind": "file-exists",
-      "path": "governance_rule/governance_policy.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/governance_policy.py",
-      "kind": "file-readonly",
       "path": "governance_rule/governance_policy.py"
     },
     {
@@ -120,18 +115,8 @@
       "path": "governance_rule/execution/chinese_codex_mirror.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/execution/chinese_codex_mirror.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/execution/chinese_codex_mirror.py"
-    },
-    {
       "id": "protected-source:governance_rule/execution/codex_postgresql.py",
       "kind": "file-exists",
-      "path": "governance_rule/execution/codex_postgresql.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/execution/codex_postgresql.py",
-      "kind": "file-readonly",
       "path": "governance_rule/execution/codex_postgresql.py"
     },
     {
@@ -140,18 +125,8 @@
       "path": "governance_rule/execution/codex_repository.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/execution/codex_repository.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/execution/codex_repository.py"
-    },
-    {
       "id": "protected-source:governance_rule/code_rule_directory.py",
       "kind": "file-exists",
-      "path": "governance_rule/code_rule_directory.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/code_rule_directory.py",
-      "kind": "file-readonly",
       "path": "governance_rule/code_rule_directory.py"
     },
     {
@@ -160,18 +135,8 @@
       "path": "governance_rule/permission_directory/directory_authority.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/permission_directory/directory_authority.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/permission_directory/directory_authority.py"
-    },
-    {
       "id": "protected-source:governance_rule/execution/authentication/__init__.py",
       "kind": "file-exists",
-      "path": "governance_rule/execution/authentication/__init__.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/execution/authentication/__init__.py",
-      "kind": "file-readonly",
       "path": "governance_rule/execution/authentication/__init__.py"
     },
     {
@@ -180,18 +145,8 @@
       "path": "governance_rule/execution/integrity/__init__.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/execution/integrity/__init__.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/execution/integrity/__init__.py"
-    },
-    {
       "id": "protected-source:governance_rule/execution/versioning/__init__.py",
       "kind": "file-exists",
-      "path": "governance_rule/execution/versioning/__init__.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/execution/versioning/__init__.py",
-      "kind": "file-readonly",
       "path": "governance_rule/execution/versioning/__init__.py"
     },
     {
@@ -200,18 +155,8 @@
       "path": "governance_rule/permission_directory/execution/identity_registry/__init__.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/permission_directory/execution/identity_registry/__init__.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/permission_directory/execution/identity_registry/__init__.py"
-    },
-    {
       "id": "protected-source:governance_rule/permission_directory/execution/path_guard/__init__.py",
       "kind": "file-exists",
-      "path": "governance_rule/permission_directory/execution/path_guard/__init__.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/permission_directory/execution/path_guard/__init__.py",
-      "kind": "file-readonly",
       "path": "governance_rule/permission_directory/execution/path_guard/__init__.py"
     },
     {
@@ -220,18 +165,8 @@
       "path": "main-system/src-core/core_system/governance_runtime.py"
     },
     {
-      "id": "protected-source-readonly:main-system/src-core/core_system/governance_runtime.py",
-      "kind": "file-readonly",
-      "path": "main-system/src-core/core_system/governance_runtime.py"
-    },
-    {
       "id": "protected-source:governance_rule/execution/tool_runtime/__init__.py",
       "kind": "file-exists",
-      "path": "governance_rule/execution/tool_runtime/__init__.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/__init__.py",
-      "kind": "file-readonly",
       "path": "governance_rule/execution/tool_runtime/__init__.py"
     },
     {
@@ -240,18 +175,8 @@
       "path": "governance_rule/execution/tool_runtime/governed_runtime.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/governed_runtime.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/execution/tool_runtime/governed_runtime.py"
-    },
-    {
       "id": "protected-source:governance_rule/execution/tool_runtime/tool_self_repair.py",
       "kind": "file-exists",
-      "path": "governance_rule/execution/tool_runtime/tool_self_repair.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/tool_self_repair.py",
-      "kind": "file-readonly",
       "path": "governance_rule/execution/tool_runtime/tool_self_repair.py"
     },
     {
@@ -260,18 +185,8 @@
       "path": "governance_rule/execution/tool_runtime/tool_local_cleanup.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/tool_local_cleanup.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/execution/tool_runtime/tool_local_cleanup.py"
-    },
-    {
       "id": "protected-source:governance_rule/execution/tool_runtime/sub_sovereign.py",
       "kind": "file-exists",
-      "path": "governance_rule/execution/tool_runtime/sub_sovereign.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/execution/tool_runtime/sub_sovereign.py",
-      "kind": "file-readonly",
       "path": "governance_rule/execution/tool_runtime/sub_sovereign.py"
     },
     {
@@ -280,18 +195,8 @@
       "path": "governance_rule/execution/git_tiers/__init__.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/execution/git_tiers/__init__.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/execution/git_tiers/__init__.py"
-    },
-    {
       "id": "protected-source:governance_rule/permission_directory/registries/permissions/identity_groups.py",
       "kind": "file-exists",
-      "path": "governance_rule/permission_directory/registries/permissions/identity_groups.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/identity_groups.py",
-      "kind": "file-readonly",
       "path": "governance_rule/permission_directory/registries/permissions/identity_groups.py"
     },
     {
@@ -300,18 +205,8 @@
       "path": "governance_rule/permission_directory/registries/permissions/identity_permissions.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/identity_permissions.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/permission_directory/registries/permissions/identity_permissions.py"
-    },
-    {
       "id": "protected-source:governance_rule/permission_directory/registries/permissions/capability_boundaries.py",
       "kind": "file-exists",
-      "path": "governance_rule/permission_directory/registries/permissions/capability_boundaries.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/capability_boundaries.py",
-      "kind": "file-readonly",
       "path": "governance_rule/permission_directory/registries/permissions/capability_boundaries.py"
     },
     {
@@ -320,18 +215,8 @@
       "path": "governance_rule/permission_directory/registries/permissions/tool_routes.py"
     },
     {
-      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/tool_routes.py",
-      "kind": "file-readonly",
-      "path": "governance_rule/permission_directory/registries/permissions/tool_routes.py"
-    },
-    {
       "id": "protected-source:governance_rule/permission_directory/registries/permissions/source_ownership.py",
       "kind": "file-exists",
-      "path": "governance_rule/permission_directory/registries/permissions/source_ownership.py"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/permission_directory/registries/permissions/source_ownership.py",
-      "kind": "file-readonly",
       "path": "governance_rule/permission_directory/registries/permissions/source_ownership.py"
     },
     {
@@ -2461,28 +2346,13 @@
       "path": "shared-layer/src/shared_layer/__init__.py"
     },
     {
-      "id": "shared-layer-source-readonly:__init__.py",
-      "kind": "file-readonly",
-      "path": "shared-layer/src/shared_layer/__init__.py"
-    },
-    {
       "id": "shared-layer-source:channel.py",
       "kind": "file-exists",
       "path": "shared-layer/src/shared_layer/channel.py"
     },
     {
-      "id": "shared-layer-source-readonly:channel.py",
-      "kind": "file-readonly",
-      "path": "shared-layer/src/shared_layer/channel.py"
-    },
-    {
       "id": "shared-layer-source:store.py",
       "kind": "file-exists",
-      "path": "shared-layer/src/shared_layer/store.py"
-    },
-    {
-      "id": "shared-layer-source-readonly:store.py",
-      "kind": "file-readonly",
       "path": "shared-layer/src/shared_layer/store.py"
     },
     {
