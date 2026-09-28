@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from shared_layer.performance.thread_budget import bounded_workers
 from typing import Any, AsyncIterator, Iterable, Optional
 
 from urllib.parse import urlparse
@@ -574,7 +575,7 @@ class CanonicalVectorRuntime:
         results: dict[str, Optional[int]] = {rid: None for rid in rids}
         if not rids or not self._healthy or self.client is None:
             return results
-        workers = max(1, min(int(max_workers or 4), len(rids)))
+        workers = bounded_workers(min(int(max_workers or 4), len(rids)))
         with ThreadPoolExecutor(
             max_workers=workers, thread_name_prefix="rag-parity-count"
         ) as pool:
