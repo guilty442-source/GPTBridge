@@ -196,7 +196,7 @@ def build_index(db: sqlite3.Connection) -> dict[str, Any]:
     for r in _rows(
         db,
         "select predecessor_type, predecessor_id, successor_type, successor_id "
-        "from provision_supersession_edges where status='current'",
+        "from provision_supersession_edges where status in ('current','active','effective')",
     ):
         edges[f"{r['predecessor_type']}:{r['predecessor_id']}"] = (
             f"{r['successor_type']}:{r['successor_id']}"
