@@ -18,6 +18,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod desktop_shell;
+mod governor_budget;
 mod js_bridge;
 mod tool_bridge;
 mod tool_dispatch;

@@ -21,6 +21,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Emitter};
 
+use crate::governor_budget;
 use crate::js_bridge::loopback::{read_request, respond, Request};
 use crate::tool_window;
 use crate::webview_host as embedded;
@@ -253,13 +254,35 @@ pub fn start_tool_bridge(app: &AppHandle) {
     BRIDGE_PORT.store(port, Ordering::SeqCst);
     publish_state(port, &token);
 
-    let app = app.clone();
+    // bounded-concurrency/v1: a governor-sized worker pool drains a
+    // bounded pending queue; a full queue rejects with HTTP 503 —
+    // never a thread per connection.
+    let workers = governor_budget::resolve_workers("network", 2, 8);
+    let pending = governor_budget::bounded_conn_pool(
+        workers,
+        32,
+        app.clone(),
+        |app, stream| handle_connection(app, stream),
+    );
     std::thread::spawn(move || {
         for incoming in listener.incoming() {
             match incoming {
                 Ok(stream) => {
-                    let app = app.clone();
-                    std::thread::spawn(move || handle_connection(&app, stream));
+                    use std::sync::mpsc::TrySendError;
+                    match pending.try_send(stream) {
+                        Ok(()) => {}
+                        Err(TrySendError::Full(mut s))
+                        | Err(TrySendError::Disconnected(mut s)) => {
+                            respond(
+                                &mut s,
+                                503,
+                                serde_json::json!({
+                                    "ok": false,
+                                    "message": "BRIDGE_CAPACITY_EXHAUSTED",
+                                }),
+                            );
+                        }
+                    }
                 }
                 Err(_) => std::thread::sleep(Duration::from_millis(50)),
             }
