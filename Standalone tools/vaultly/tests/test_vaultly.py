@@ -9,20 +9,20 @@ import os
 import sys
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[3]
 for _p in (
     str(_ROOT),
     str(_ROOT / "shared-layer" / "src"),
     str(_ROOT / "main-system" / "src-core"),
     str(_ROOT / "main-system"),
     str(_ROOT / "main-system" / "src" / "backend" / "services"),
-    str(_ROOT / "local-model" / "src" / "backend" / "services"),
-    str(_ROOT / "ai-assistant" / "src"),
-    str(_ROOT / "ai-assistant" / "src" / "backend" / "services"),
-    str(_ROOT / "ai-collaboration" / "src" / "backend" / "services"),
-    str(_ROOT / "file-sorter" / "src" / "backend" / "services"),
-    str(_ROOT / "investment-mobile" / "src" / "backend" / "services"),
-    str(_ROOT / "vaultly" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "local-model" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "ai-assistant" / "src"),
+    str(_ROOT / "Standalone tools" / "ai-assistant" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "ai-collaboration" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "file-sorter" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "investment-mobile" / "src" / "backend" / "services"),
+    str(_ROOT / "Standalone tools" / "vaultly" / "src" / "backend" / "services"),
 ):
     if _p not in sys.path:
         sys.path.insert(0, _p)

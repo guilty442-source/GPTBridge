@@ -8,7 +8,9 @@ import pytest
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 FILE_SORTER_SERVICES = WORKSPACE_ROOT / "Standalone tools" / "file-sorter" / "src" / "backend" / "services"
+SHARED_SRC = WORKSPACE_ROOT / "shared-layer" / "src"
 sys.path.insert(0, str(FILE_SORTER_SERVICES))
+sys.path.insert(0, str(SHARED_SRC))
 
 
 @pytest.fixture
