@@ -1,0 +1,68 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "a610-a617-normative-classification-20260928",
+  "title": "Register normative classification rows for live articles A610-A617",
+  "summary": "Live codex generation 2026-09-28T03:42:00Z carries articles A610-A617 in provision_lifecycle_status (active) and provision_law_classification, but eight A608/A609 classification registries were not populated: provision_normative_category has zero rows for A610-A617 and provision_normativity_classification has none for A610-A617 (and for language-family siblings A551/A588/A618-A623/A626). test_five_category_parity_passes_on_live_codex fails closed on the eight unclassified provisions and RUNTIME_RULE_INDEX_V2 denies the build with UNKNOWN_CONTROLLING_PROVISION for verified rules (e.g. RULE_JAX_PYTORCH_V1 controlling A612). Same omission class as the executed A626/A627 law-classification repair and the A610 repair recorded in codex-amendment-request-delegated-identity-classification-20260925.json.",
+  "requested_by": "decision-sovereign",
+  "origin": "test-suite compliance run 2026-09-28: governance_rule/tests/test_normative_classification.py and test_runtime_rule_index_v2.py fail closed on unclassified A610-A617",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T03:42:00Z",
+    "version_identity": "E2:2026-09-28T03:42:00Z",
+    "version_epoch": 2,
+    "note": "history head and revision sequence are resolved by the executor from the live authority"
+  },
+  "problem": {
+    "summary": "articles.A610-A617 are active but carry no provision_normative_category row (parity gate: every principle/article/edict must be classified) and no provision_normativity_classification row; formal_rule_registry rows controlling A610-A617 (RULE_INFRA_VERSIONS_V1, RULE_VECTOR_ENGINE_RUST_V1, RULE_JAX_PYTORCH_V1, RULE_JS_NATIVE_V1, RULE_GO_RUST_NODE_V1, RULE_LANGUAGE_TABLE_OFFICIAL_V1, RULE_TEST_AUDIT_RESPONSIBILITY_V1, RULE_TEST_TOOLS_V1) cannot resolve their controlling provision, so the runtime index build denies fail-closed"
+  },
+  "proposed_successors": [
+    {
+      "registry": "provision_normative_category",
+      "action": "insert",
+      "note": "structural_category ARTICLE per A608 type mapping; has_prohibition=1 for all eight (each carries a FORBID clause); has_responsibility proposals flag provisions whose rule assigns named responsibility facets, pending five-sovereign adjudication; version_identity and content_hash stamped by the canonical toolchain",
+      "rows": [
+        {"provision_type": "article", "provision_id": "A610", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "authority_basis": "PRIMARY language responsibility reallocation assigns named ownership"},
+        {"provision_type": "article", "provision_id": "A611", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "authority_basis": "VECTOR-ENGINE assigns Rust ownership of vector/RAG/security domains"},
+        {"provision_type": "article", "provision_id": "A612", "structural_category": "ARTICLE", "has_responsibility": 0, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "authority_basis": "framework designation boundary (cf. A203/A264 boundary provisions)"},
+        {"provision_type": "article", "provision_id": "A613", "structural_category": "ARTICLE", "has_responsibility": 0, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "authority_basis": "frontend language ownership map (cf. A211 role-map)"},
+        {"provision_type": "article", "provision_id": "A614", "structural_category": "ARTICLE", "has_responsibility": 0, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "authority_basis": "runtime ownership map"},
+        {"provision_type": "article", "provision_id": "A615", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "authority_basis": "official language-version-responsibility table"},
+        {"provision_type": "article", "provision_id": "A616", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "authority_basis": "TEST-RESPONSIBILITY + audit-gate assignment"},
+        {"provision_type": "article", "provision_id": "A617", "structural_category": "ARTICLE", "has_responsibility": 0, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "authority_basis": "per-language test tool register (conventions-class)"}
+      ]
+    },
+    {
+      "registry": "provision_normativity_classification",
+      "action": "insert",
+      "note": "primary_class NORMATIVE_MANUAL + verifier 星澄 + manual-review-evidence-v1 matches every classified sibling under CODEX_LANGUAGE_SOURCE_NATIVE_SPECIAL_LAW; A610 itself sits under CODEX_MAIN; release_blocking=0 pending sovereign adjudication; version_identity stamped by the canonical toolchain",
+      "rows": [
+        {"provision_type": "article", "provision_id": "A610", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A611", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A612", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A613", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A614", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A615", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A616", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A617", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A551", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A588", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A618", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A619", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A620", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A621", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A622", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A623", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"},
+        {"provision_type": "article", "provision_id": "A626", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "status": "active"}
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T03:53:00Z",
+    "expected_audit_result": "governance_rule/tests/test_normative_classification.py::test_five_category_parity_passes_on_live_codex PASS; governance_rule/tests/test_runtime_rule_index_v2.py 8/8 PASS"
+  }
+}
