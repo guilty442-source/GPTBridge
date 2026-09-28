@@ -430,14 +430,14 @@ def native_scaled_dot_product_attention(
     return result.tolist()
 
 
-def native_matmul_array(a: Any, b: Any):  # type: ignore[no-untyped-def]
-    """Matmul returning a float64 ndarray.
+# Array-returning variants (ownership per A213): inputs are borrowed
+# read-only views — contiguous float64 ndarrays cross the boundary with zero
+# copies — and each result is a fresh array allocated by the native core and
+# owned by the caller, so ``torch.from_numpy`` may wrap it without copying.
 
-    Ownership (A213): inputs are borrowed read-only views — contiguous
-    float64 ndarrays cross the boundary with zero copies. The returned
-    array is freshly allocated by the native core and owned by the
-    caller; it may be wrapped with ``torch.from_numpy`` without copying.
-    """
+
+def native_matmul_array(a: Any, b: Any):  # type: ignore[no-untyped-def]
+    """Matmul returning a float64 ndarray."""
     np = __getattr__("np")
     if np is _NP_MISSING:
         raise RuntimeError("numpy is required for native dispatch")
@@ -451,8 +451,7 @@ def native_matmul_array(a: Any, b: Any):  # type: ignore[no-untyped-def]
 
 
 def native_softmax_array(input_2d: Any):  # type: ignore[no-untyped-def]
-    """Softmax returning a float64 ndarray. Same ownership contract as
-    ``native_matmul_array``."""
+    """Softmax returning a float64 ndarray."""
     np = __getattr__("np")
     if np is _NP_MISSING:
         raise RuntimeError("numpy is required for native dispatch")
@@ -463,8 +462,7 @@ def native_softmax_array(input_2d: Any):  # type: ignore[no-untyped-def]
 
 
 def native_rmsnorm_array(input_2d: Any, weight: Any, eps: float):  # type: ignore[no-untyped-def]
-    """RMSNorm returning a float64 ndarray. Same ownership contract as
-    ``native_matmul_array``."""
+    """RMSNorm returning a float64 ndarray."""
     np = __getattr__("np")
     if np is _NP_MISSING:
         raise RuntimeError("numpy is required for native dispatch")
@@ -479,8 +477,7 @@ def native_rmsnorm_array(input_2d: Any, weight: Any, eps: float):  # type: ignor
 
 
 def native_rope_array(input_4d: Any, cos_table: Any, sin_table: Any):  # type: ignore[no-untyped-def]
-    """RoPE returning a float64 ndarray. Same ownership contract as
-    ``native_matmul_array``."""
+    """RoPE returning a float64 ndarray."""
     np = __getattr__("np")
     if np is _NP_MISSING:
         raise RuntimeError("numpy is required for native dispatch")
