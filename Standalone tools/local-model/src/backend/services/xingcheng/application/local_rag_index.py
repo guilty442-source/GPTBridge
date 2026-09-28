@@ -27,7 +27,10 @@ class LocalRagIndexMixin:
                 raise RuntimeError(f"RAG_EMBEDDING:{exc}") from exc
             if len(embedded) != len(batch):
                 raise RuntimeError("RAG_EMBEDDING_COUNT_MISMATCH")
-            vectors.extend([[float(value) for value in vector] for vector in embedded])
+            vectors.extend(
+                vector if type(vector) is list else [float(value) for value in vector]
+                for vector in embedded
+            )
         return vectors
 
     @staticmethod
