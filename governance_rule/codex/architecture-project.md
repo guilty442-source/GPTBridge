@@ -396,6 +396,12 @@ flowchart TB
 
 全專案唯一資源管制器為 `native/resource_governor` 的 C++23 `resource-governor`，其受管身分為 `system-administrator`。系統管理員權限嚴格限於資源觀測與管制，不得修改法典、產生權限、讀取未授權資料或作成業務決策。其他語言與模組只能透過版本化契約提供量測訊號、接收限制結果或執行已核准動作，不得保留平行管制器、監看程序、sidecar 或 fallback。
 
+全專案所有正式元件都必須自適化，唯一綜合目標為「高效能＋高速執行＋低資源消耗」：依 CPU、RAM、GPU／VRAM、磁碟、延遲、吞吐、佇列、錯誤率、容量、連線及使用者互動負載，在已登記的上下限內自動調整並行度、batch、pool、cache、模型駐留、索引／查詢策略、維護節奏、背壓與降級狀態。三項目標必須共同量測，不得只提高單一指標而造成其餘指標、正確性、品質、安全或穩定性退化。調整必須可觀測、可逆、世代綁定並留下 before／after evidence；不得改變權威、權限、資料契約、安全界線、硬性期限或資源上限。缺少訊號、超出 envelope、任一必要指標惡化或狀態衝突時回復最後已驗證設定或 Fail Closed。
+
 前端建置統一使用 Esbuild／SWC 混合鏈：SWC 負責 JSX 與現代 JavaScript 語法轉換；Esbuild 負責依賴圖、bundle、code splitting、資產、source map、tree shaking 與最終壓縮；Rust Contract Validator 負責 Schema、IPC 與 API 靜態驗證。兩者不得重複轉換或建立平行建置權威。
+
+套件、SDK、Toolchain、Runtime 與第三方依賴採全自動更新。一般最新版自上游正式發布時間起必須等待完整 14 天觀察期，確認來源、簽章、SBOM、授權、漏洞、API／ABI、契約、建置及測試證據後才能分批啟用。若現行版本出現重大相容性故障、已確認重大／關鍵安全問題、供應鏈撤回或正式停止支援，可免除 14 天等待並立即採用已驗證的修正版、降級版或替代版；緊急更新仍必須鎖定精確版本、隔離 staging、通過相容性／安全／回滾閘門並保留上一個可用版本。不得追蹤 `latest` 浮動標籤，也不得由套件管理器在 Runtime 自行更新。
+
+全自動更新只適用於已登記套件的版本演進；更新偵測每 24 小時執行一次，安全公告可用受管事件立即觸發額外檢查。任何新套件、新直接／傳遞依賴、新套件來源或新增 Runtime 均須先取得明確許可並完成用途、owner、替代方案、授權、安全、資源及依賴圖登記，未獲許可不得下載、安裝、鎖定或執行。版本切換成功後，舊版依序進入 `SUPERSEDED → ROLLBACK_ONLY → RETENTION_EXPIRED → PURGE_READY → PURGED`；自 `SUPERSEDED` 起必須帶有退役標籤，包含套件身分、舊版、替代版本、目前狀態、原因、零消費進度、回滾期限及預定刪除時間。完成穩定觀察、零 active consumer、零 lock／manifest／runtime reference、資料與設定遷移、回滾窗口到期及刪除前證據後，自動刪除 binary、package、cache、舊環境與相關可重建 artifact；`PURGED` 後只保留不可執行的審計 receipt。正式依賴區最終只能保留目前 active 版本及尚在有效回滾窗口內的唯一上一版。
 
 法源：A8、A30、A35、A77、A82、A116、A163、A193、A201、A232、A245、A281、A341、A343、A375、A448、A452、A477、A487–A498、A500、A528、A534–A538、A544–A557、A586–A609。
