@@ -143,9 +143,19 @@ class IndependentVerifier:
         if not test_files:
             return True
         test_files = sorted(set(test_files))[:50]
+        # Python-runner-outside-adapter is forbidden: route the bounded
+        # scope through LegacyPythonVerificationAdapter (fail-closed on
+        # unregistered scopes).
+        cmd = [
+            sys.executable,
+            "-m",
+            "governance_rule.execution.legacy_python_verification_adapter",
+        ]
+        for rel in test_files:
+            cmd += ["--scope", rel]
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", "-q", "-x", *test_files],
+                cmd,
                 cwd=str(self.project_root),
                 capture_output=True,
                 timeout=180,

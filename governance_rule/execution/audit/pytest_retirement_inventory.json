@@ -1,0 +1,3041 @@
+{
+ "registry": "PYTEST_RETIREMENT_INVENTORY",
+ "contract": "test-runner-register-and-python-retirement-transition",
+ "codex_version": "2026-09-28T10:38:59Z",
+ "generated_at_utc": "2026-09-28T10:47:16.113798+00:00",
+ "status_enum": [
+  "PENDING",
+  "MIGRATED",
+  "VERIFIED",
+  "RETIRE_READY"
+ ],
+ "delete_gate": "active pytest consumers=0 AND all rows RETIRE_READY, then a later Codex successor removes the third domain",
+ "rows": [
+  {
+   "source_test": "governance_rule/tests/test_architecture_registry.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_audit_hook_versioning.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_audit_lazy_entry.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_audit_self_health_batching.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_bounded_worker_pools.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_capability.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_codex_amendment_audit_gate.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_codex_amendment_driver.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_codex_amendment_intake.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_codex_amendment_toolchain.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_codex_postgresql_pool.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_codex_update_pipeline.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_config_classification.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_config_contract.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_convergence_framework.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_dead_code_scan.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_delegated_audit_gate.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_dev_test_evidence.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_formal_rules.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_frontend_release_isolation.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_g48_contract_axis_separation.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_git_api_contract_v1.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_git_baseline_manifest.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_git_final_gates.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_git_governance_manifest.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_git_runtime_architecture.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_git_static_architecture_gate.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_global_cleaner_retired.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_governance_health.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_ipc_surface_pairing.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_normative_classification.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_python_release_dependencies.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_registry_migration.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_release_compatibility_gates.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_release_runtime_environment.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_runtime_rule_index_v2.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/tests/test_sla_contracts.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_automation_supervisor.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_contract_check.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_disaster_recovery.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_fault_injection.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_generation_snapshot.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_git_control_plane.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_git_governance_extensions.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_self_commit.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_tier_enforcement.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_worker_pool.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "governance_rule/execution/git_tiers/tests/test_worktree.py",
+   "inventory_class": "H",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_a549_benchmark.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_activation_broker_native_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_adaptive_plane_merge.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_audit_integration.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_authority_reanchor.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_auto_action_policy.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_auto_repair_chain.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_auto_repair_e2e.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_automation_core.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_autonomous_repair.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_backend_lifecycle.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_backend_log_rotation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_blue_green_orchestrator.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_cag_gate.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_cag_refresh_flow.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_citation_validation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_codex_amendment_intake_driver.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_codex_official_entry.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_connection_watchdog.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_connection_watchdog_consolidated.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_connection_watchdog_history_reconciliation.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_contract_validator.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_cross_language_contract.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_daily_global_cleaner_service.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_data_platform_wiring.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_execution_lease.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_execution_receipts_a69.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_g52_state_outbox.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_g85_websocket_handshake.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_g85_websocket_ticket.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_git_tier_governance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_governance_authentication.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_governance_path_guard.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_hidden_python_resolution.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_independent_tool_stability_g82.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_int10_24h_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_ipc_transport_native_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_julia_compute.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_learning_fault_reconciliation.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_maintenance_retry_policy.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_maintenance_shadow_wiring.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_metadata_contract.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_model_resource_manager.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_model_service_activation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_module_automation_registry.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_e1_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_e2_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_e3_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_m1_investment_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_m1_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_m2_a263_parity.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_memory.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_outbox_shadow_wiring.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_parallel.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_proxy_wire.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_shadow_wiring.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_tool_host_e2e.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_native_tool_host_spawn.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_ollama_demand.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_p0_lazy_lifecycle_handover.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_packager_runtime_preservation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_parallel_core.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_perf_baseline_job.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_perf_baseline_snapshot.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_perf_e2e.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_periodic_scheduler.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_permission_compliance_integrity.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_permission_execution_contracts.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_preload_channel_contract.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_process_registry.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_project_10000_matrix.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_project_contract_matrix_part1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_project_contract_matrix_part2.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_push_gate.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_python_minimization_gates.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_canonical_takeover.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_dag_contracts.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_final_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_generation_vector_lifecycle.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_lifecycle.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_maintenance.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_orchestration.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_parity_audit.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_query_service.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_reconciliation.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_retrievers.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_runtime_integration.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_runtime_state.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_service_boundary.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_subarchitectures.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rag_takeover_phase2.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_readiness_capabilities.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_release_layout.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_release_manifest_g56.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_release_retention.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_renderer_idle_gating.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_repair_inspection_z4.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_repair_learning.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_repair_teaching.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_request_registry.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_request_registry_g62.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_request_registry_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_resident_core.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_resource_governor.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_runtime_state_registry.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_runtime_state_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_rust_vector_runtime.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_scheduler_native_shadow.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_self_learning_driver.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_server_singleton.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_sleep_policy.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_source_tool_ui_host_embedded_browser.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_sovereign_delegation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_sovereign_mro.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_sovereign_utils.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_special_unpacked_runtime_part1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_special_unpacked_runtime_part2.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_startup_gate_deadline.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_startup_ladder_evidence.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_task_lifecycle.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_task_lifecycle_g54.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_terminal_fault_surface.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_third_party_manager.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_thread_budget_policy.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_tool_caps_enforcement.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_tool_lifecycle_budget.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_tool_start_lease_fencing.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_toolbox_registry_monitor.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_transport_notify.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_update_ownership.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_w1_blue_green_zero_downtime.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_websockets_noise_filter.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_xingcheng_codex_drift.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_xingcheng_learning_command.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "main-system/tests/test_xingcheng_runtime_control.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_adaptive_control.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_backup_scheduler_certification.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_bounded_executor.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_capacity_governance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_channel_runtime.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_connection_pool_tuning_s7.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_credential_store.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_data_platform_governance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_dep_consolidation_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_failure_taxonomy_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_gpu_coordinator_lazy.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_health_startup.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_information_channel.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_lifecycle_consolidation_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_native_core_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_perf_regression_control_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_performance_baseline_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_a_lineage_authority_provenance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_b_permission_schema_ddl_contract.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_c_fence_workload_deletion_orphan.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_d_cert_watchdog_rpo_slo.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_e_performance_observability.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_f_database_release.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_g_data_lifecycle.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_h_integrity_verification.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_i_dependency_governance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_j_recovery_orchestration.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_phase_k_data_layer_contract.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_rag_lifecycle_capacity_wiring.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_resilient_store.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_runtime_optimization_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_security_control.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_shared_layer.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_shared_layer_sub_sovereign.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_static_analysis_consolidation_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_test_matrix_consolidation_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_thread_budget.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_transport_proxy.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_type_contract_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_workflow_consistency.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_workflow_runtime.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "shared-layer/tests/test_workload_lanes.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-assistant/tests/test_ai_assistant_core.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-assistant/tests/test_investment_analytics.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-assistant/tests/test_investment_manager.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-assistant/tests/test_investment_v3.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-assistant/tests/test_shared_mobile_runtime.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-assistant/tests/test_trading_domains.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-assistant/tests/test_ui_workspace_contract.py",
+   "inventory_class": "module",
+   "replacement_runner": "JavaScriptTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-collaboration/tests/test_ai_collaboration_auto_memory.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-collaboration/tests/test_ai_collaboration_browser_flow.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-collaboration/tests/test_ai_collaboration_channel_wiring.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-collaboration/tests/test_ai_collaboration_failure_isolation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-collaboration/tests/test_ai_collaboration_orchestrator.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-collaboration/tests/test_ai_collaboration_routing.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-collaboration/tests/test_ai_collaboration_session_verification.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/ai-collaboration/tests/test_ai_collaboration_workflows.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/file-sorter/tests/test_file_sorter.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/file-sorter/tests/test_file_sorter_automation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/file-sorter/tests/test_file_sorter_cleanup.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/file-sorter/tests/test_file_sorter_metadata_v2.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/file-sorter/tests/test_file_sorter_ui.py",
+   "inventory_class": "module",
+   "replacement_runner": "JavaScriptTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/file-sorter/tests/test_file_sorter_v2.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_asset_management_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_autotrade_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_e2e_v1.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_fund_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_intelligence_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_investment_mobile_reexport.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_live_trading_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_market_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_monitoring_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_offline_broker_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_runtime_perf_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_simulation_acceptance.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_strategy_backtest.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/investment-mobile/tests/test_trading_engines.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/model-dialogue/star-chat/tests/test_star_chat.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/model-dialogue/tests/test_generation_controls.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/model-dialogue/tests/test_model_dialogue_contracts.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/model-dialogue/tests/test_model_dialogue_reexport.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_batch_generate.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_bf16_matmul.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_fp8_matmul.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_kv_device.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_longrun.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_dialogue_roles.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_kv_cache_matrix.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_model.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_ntp_correctness.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_prefix_cache.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_weight_evolution.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_capability_composer.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_capability_evaluation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_chat_format.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_chinese_semantic_engine.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_chinese_semantic_engine_v2.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_coding_expert_1000_matrix.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_corpus_security.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_cpp_inference.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_dpo.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_dpo_executor_bridge.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_external_zero_authority.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_fault_diagnostics.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_google_search.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_governed_rollback_gate.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_infer_tool_loop.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_int4_packing.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_jax_backend.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_lifecycle_resource_actions.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_local_model_reexport.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_local_rag.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_local_rag_repository.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_model_service_http.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_model_service_lifecycle_owner.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_moe_quality.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_native_engine.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_native_eval_suite.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_native_transformer.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase3_sft_adapters.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase4_inference.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase7_kv_cache.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase_inference_engine.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase_native_dialogue_route.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase_native_dispatch.py",
+   "inventory_class": "module",
+   "replacement_runner": "NativeCppTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase_persona_conversation.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase_self_learning.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase_sft_job.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_phase_sft_trainer.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_prefix_cache_chat_session.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_rag_takeover.py",
+   "inventory_class": "module",
+   "replacement_runner": "CargoTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_reading_expert.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_retention_evidence_protection.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_retention_watcher_path.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_retention_weight_retirement.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_searchd_provider.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_self_learning_gates.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_self_learning_quiet_hours.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_self_learning_watch.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_sft_jit_invariants.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_status_cache.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_tensor_ops.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_tool_bridge_e2e.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_training_job_executor.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_transformer_training_repository.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_xingcheng_layering.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/tests/test_xingcheng_shell.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/local-model/xingcheng/tests/test_star_chat_reexport.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  },
+  {
+   "source_test": "Standalone tools/vaultly/tests/test_vaultly.py",
+   "inventory_class": "module",
+   "replacement_runner": "DotNetTestRunner",
+   "replacement_test": "",
+   "semantic_equivalence": "unproven",
+   "evidence": [],
+   "status": "PENDING"
+  }
+ ],
+ "fixtures": [
+  {
+   "source": "native/test_suites/proxy_wire_agent.py",
+   "role": "stdio-JSONL wire-interop fixture spawned by suite_tool_host.cpp; produces no verdict (verdict stays in the native tier)",
+   "replacement_runner": "NativeCppTestRunner",
+   "status": "PENDING"
+  }
+ ],
+ "bounded_consumers": [
+  {
+   "consumer": "governance_rule/git-hooks/pre-commit",
+   "role": "git push-gate: whitespace check + audit snapshot; spawn-and-exit, no residency",
+   "replacement_runner": "native git hook binary",
+   "status": "PENDING",
+   "owner_domain": "git-infrastructure"
+  },
+  {
+   "consumer": "governance_rule/git-hooks/pre-merge-commit",
+   "role": "git push-gate: same contract as pre-commit",
+   "replacement_runner": "native git hook binary",
+   "status": "PENDING",
+   "owner_domain": "git-infrastructure"
+  },
+  {
+   "consumer": "governance_rule/git-hooks/pre-push",
+   "role": "git push-gate: force-push/ref-delete/non-ffw block; spawn-and-exit",
+   "replacement_runner": "native git hook binary",
+   "status": "PENDING",
+   "owner_domain": "git-infrastructure",
+   "note": "production python-push-gate=0 end-state requires native replacement; bounded spawn permitted during transition"
+  },
+  {
+   "consumer": "scripts/devin-cli-p6-test-sla.py",
+   "role": "SLA measurement evidence; routed through LegacyPythonVerificationAdapter",
+   "replacement_runner": "adapter-routed (compliant transition)",
+   "status": "VERIFIED"
+  }
+ ]
+}

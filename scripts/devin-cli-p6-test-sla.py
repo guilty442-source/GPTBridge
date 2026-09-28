@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -64,19 +66,24 @@ def _measure(args: argparse.Namespace) -> dict:
         target_rows: list[dict] = []
         tool_started = time.monotonic()
         for target in targets:
+            # Python-runner-outside-adapter is forbidden: route through the
+            # bounded LegacyPythonVerificationAdapter (transition law).
+            scope = (tool_dir.relative_to(ROOT).as_posix() + "/" + target)
+            evidence_dir = Path(tempfile.mkdtemp(prefix="sla-evidence-"))
             command = [
                 str(VENV_PY),
                 "-m",
-                "pytest",
-                "-q",
-                "--no-header",
-                target,
+                "governance_rule.execution.legacy_python_verification_adapter",
+                "--scope",
+                scope,
+                "--evidence-dir",
+                str(evidence_dir),
             ]
             started = time.monotonic()
             try:
                 completed = subprocess.run(
                     command,
-                    cwd=str(tool_dir),
+                    cwd=str(ROOT),
                     capture_output=True,
                     text=True,
                     timeout=args.timeout,
@@ -105,6 +112,8 @@ def _measure(args: argparse.Namespace) -> dict:
                         "error": f"timeout>{args.timeout}s",
                     }
                 )
+            finally:
+                shutil.rmtree(evidence_dir, ignore_errors=True)
         tools.append(
             {
                 "tool_id": tool_id,
