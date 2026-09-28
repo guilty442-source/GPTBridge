@@ -25,6 +25,8 @@ from concurrent.futures import (
 )
 from typing import Any, Callable
 
+from .performance.thread_budget import bounded_workers
+
 _logger = logging.getLogger("gptbridge.transport_notify")
 
 _CHANNEL_RE = re.compile(r"^[a-z0-9_]+$")
@@ -207,7 +209,8 @@ class TransportNotifyListener:
             callbacks = list(self._subscribers.get(channel, ()))
         if self._dispatch_executor is None:
             self._dispatch_executor = ThreadPoolExecutor(
-                max_workers=2, thread_name_prefix="transport-notify-cb"
+                max_workers=bounded_workers(2),
+                thread_name_prefix="transport-notify-cb",
             )
         for callback in callbacks:
             if self._dispatch_inflight >= self._DISPATCH_INFLIGHT_CAP:
