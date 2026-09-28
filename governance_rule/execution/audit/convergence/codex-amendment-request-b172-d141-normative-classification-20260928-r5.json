@@ -1,0 +1,58 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "b172-d141-normative-classification-20260928-r5",
+  "supersedes": "b166-d141-normative-classification-20260928-r3",
+  "title": "Complete normative classification for sibling provisions B172-B174/C116/C117/D139-D141",
+  "summary": "Follow-up to the executed b166-d141-r3 amendment: the five-category parity gate still fails on eight more active renumbered provisions that carry no provision_normative_category row (B172, B173, B174, C116, C117, D139, D140, D141), and RUNTIME_RULE_INDEX_V2 denies with UNKNOWN_CONTROLLING_PROVISION:RULE_RETIRED_DEPENDENCIES_V1:C116. r3 registered the eight core provisions (B166-B171/C115/C116/D138 -> provision_normative_category plus normativity rows for the full sibling set); this revision completes the category coverage for the remaining siblings and adds the missing normativity row for C117 (A624).",
+  "requested_by": "decision-sovereign",
+  "origin": "test-suite compliance run 2026-09-28 (post r3 execution): parity gate lists unclassified [B172, B173, B174, C116, C117, D139, D140, D141]; rule index denies on C116",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T08:00:35Z",
+    "version_identity": "E2:2026-09-28T08:00:35Z",
+    "version_epoch": 2,
+    "history_head": "6944cafc72897f396acb06c34c3af1aeb65a8f76f17f3d038601c2cdb7a376c7",
+    "revision_sequence": 126
+  },
+  "renumbering_map": {
+    "A618": "D139", "A619": "D140", "A620": "B172", "A621": "C116",
+    "A622": "B173", "A623": "B174", "A624": "C117", "A625": "D141"
+  },
+  "problem": {
+    "summary": "B172 (final three-layer architecture), B173 (project-wide adaptation/toolchain sharing), B174 (shared .NET 10 runtime), C116 (retired dependency register), C117 (automation-core package reconciliation), D139 (vector platform test coverage), D140 (JAX parity evidence), D141 (test-audit responsibility division) are lifecycle_state=active with no provision_normative_category row; C117 additionally lacks a provision_normativity_classification row"
+  },
+  "proposed_successors": [
+    {
+      "registry": "provision_normative_category",
+      "action": "insert",
+      "note": "structural_category ARTICLE per A137 type mapping; has_prohibition=1 for all (each carries a FORBID clause); has_responsibility=1 where the provision assigns named ownership (architecture layers, shared runtime, automation-core flow, coverage/evidence/audit duties); C116 is prohibition-class (retired-status boundary) so responsibility=0",
+      "rows": [
+        {"provision_type": "article", "provision_id": "B172", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "version_identity": "<successor-version>"},
+        {"provision_type": "article", "provision_id": "B173", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "version_identity": "<successor-version>"},
+        {"provision_type": "article", "provision_id": "B174", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "version_identity": "<successor-version>"},
+        {"provision_type": "article", "provision_id": "C116", "structural_category": "ARTICLE", "has_responsibility": 0, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "version_identity": "<successor-version>"},
+        {"provision_type": "article", "provision_id": "C117", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "version_identity": "<successor-version>"},
+        {"provision_type": "article", "provision_id": "D139", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "version_identity": "<successor-version>"},
+        {"provision_type": "article", "provision_id": "D140", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "version_identity": "<successor-version>"},
+        {"provision_type": "article", "provision_id": "D141", "structural_category": "ARTICLE", "has_responsibility": 1, "has_prohibition": 1, "lifecycle_state": "active", "current_successor": "", "status": "current", "version_identity": "<successor-version>"}
+      ]
+    },
+    {
+      "registry": "provision_normativity_classification",
+      "action": "insert",
+      "note": "C117 (A624) was the only sibling omitted from r3's normativity rows; same canonical shape as every classified sibling",
+      "rows": [
+        {"provision_type": "article", "provision_id": "C117", "primary_class": "NORMATIVE_MANUAL", "verifier": "星澄", "evidence_schema": "manual-review-evidence-v1", "release_blocking": 0, "version_identity": "<successor-version>", "status": "active"}
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T16:10:00Z",
+    "expected_audit_result": "governance_rule/tests/test_normative_classification.py::test_five_category_parity_passes_on_live_codex PASS; governance_rule/tests/test_runtime_rule_index_v2.py 8/8 PASS"
+  }
+}

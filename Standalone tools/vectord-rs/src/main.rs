@@ -7,6 +7,7 @@
 //! (codex A610 DATA-ARCHITECTURE-TARGET / DATA-SAFETY).
 
 mod store;
+mod work_stealing;
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -19,6 +20,7 @@ use std::time::{Duration, Instant};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use store::{Filter, SnapshotFile, Store};
+use work_stealing::WorkStealingPool;
 
 const CONTRACT: &str = "vectord/v1";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -515,28 +517,7 @@ fn main() {
             candidate.exists().then_some(candidate)
         });
     let workers = resolve_conn_workers(governor_state.as_deref());
-    let (tx, rx) = std::sync::mpsc::sync_channel::<TcpStream>(PENDING_CONN_CAPACITY);
-    let rx = Arc::new(std::sync::Mutex::new(rx));
-    for i in 0..workers {
-        let rx = rx.clone();
-        let app = app.clone();
-        thread::Builder::new()
-            .name(format!("vectord-conn-{}", i))
-            .spawn(move || loop {
-                let stream = {
-                    let guard = match rx.lock() {
-                        Ok(g) => g,
-                        Err(_) => return,
-                    };
-                    match guard.recv() {
-                        Ok(s) => s,
-                        Err(_) => return,
-                    }
-                };
-                handle_connection(stream, app.clone());
-            })
-            .expect("vectord conn worker spawn");
-    }
+    let pool = Arc::new(WorkStealingPool::new(workers, PENDING_CONN_CAPACITY));
     eprintln!(
         "vectord: listening on {} (contract {}, conn_workers={}, pending_cap={})",
         bind, CONTRACT, workers, PENDING_CONN_CAPACITY
@@ -544,13 +525,22 @@ fn main() {
 
     for connection in listener.incoming() {
         match connection {
-            Ok(stream) => match tx.try_send(stream) {
-                Ok(_) => {}
-                Err(std::sync::mpsc::TrySendError::Full(s))
-                | Err(std::sync::mpsc::TrySendError::Disconnected(s)) => {
-                    reject_over_capacity(s);
+            Ok(stream) => {
+                let task_stream = match stream.try_clone() {
+                    Ok(clone) => clone,
+                    Err(_) => {
+                        reject_over_capacity(stream);
+                        continue;
+                    }
+                };
+                let app = app.clone();
+                if pool
+                    .submit(move || handle_connection(task_stream, app))
+                    .is_err()
+                {
+                    reject_over_capacity(stream);
                 }
-            },
+            }
             Err(e) => eprintln!("vectord: accept failed: {}", e),
         }
     }
