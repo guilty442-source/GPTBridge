@@ -9,7 +9,7 @@ namespace {
 const char* SUITE = "STAR_DIALOGUE_SUITE";
 const char* SPEC_REL =
     "Standalone tools/local-model/xingcheng/eval/"
-    "star-native-eval-dialogue-v1.json";
+    "star-native-eval-dialogue-20260921-125054.json";
 /* 截斷上限由規格 eval_token_cap 提供（預設 128；§3.1 ~30s 預算） */
 
 suite_model::xc::NativeInferenceEngine g_engine;
@@ -37,7 +37,7 @@ int main() {
         NT_CHECK(suite_model::load_eval_spec(root / SPEC_REL,
                                              &g_spec, &err),
                  "dialogue spec");
-        NT_CHECK(g_spec.suite_id == "star-native-eval-dialogue-v1",
+        NT_CHECK(g_spec.suite_id == "star-native-eval-dialogue-20260921-125054",
                  "suite_id");
         NT_CHECK(g_spec.sanity_prompt == "你好", "sanity prompt");
     }
