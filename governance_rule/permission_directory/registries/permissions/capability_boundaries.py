@@ -64,12 +64,12 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
             CapabilityGrant(
                 "read", "audit-records", "none",
                 path_match="within",
-                path_roots=("Standalone tools/system-rescue/data/audit",),
+                path_roots=("main-system/runtime/logs",),
             ),
             CapabilityGrant(
                 "read", "runtime-logs", "none",
                 path_match="within",
-                path_roots=("Standalone tools/system-rescue/data/logs",),
+                path_roots=("main-system/runtime/logs",),
             ),
         ), False, False,
     ),
@@ -354,9 +354,9 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
     CapabilityAuthority(
         # E14 retirement: global-cleanup grant removed with the retired
         # global-cleaner; cleanup runs in-process via the internal service.
-        "managed-backup", "tool:system-rescue",
+        "managed-backup", "main-system:automation",
         "per-owner-backup-archive-custody-and-governed-extract-only",
-        "system-rescue-backup-archive-and-shared-extract-staging-only",
+        "main-system-recovery-archive-and-shared-extract-staging-only",
         (
             CapabilityGrant(
                 "read-source", "backup-owner-source", "global-read-only",
@@ -366,12 +366,12 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
             CapabilityGrant(
                 "create-backup", "managed-backup-root", "owner-scoped-backup",
                 path_match="within",
-                path_roots=("Standalone tools/system-rescue/data/business/backups",),
+                path_roots=("main-system/data/recovery/backups",),
             ),
             CapabilityGrant(
                 "delete-excess", "managed-backup-root", "owner-scoped-backup",
                 path_match="within",
-                path_roots=("Standalone tools/system-rescue/data/business/backups",),
+                path_roots=("main-system/data/recovery/backups",),
             ),
             CapabilityGrant(
                 "extract-backup", "backup-extract-staging", "backup-extract",
@@ -383,9 +383,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        # A592: global-cleaner retired; ownership moved to the active
-        # system-rescue tool (which already requires this capability).
-        "system-health-check", "tool:system-rescue",
+        "system-health-check", "institution:xingcheng-assistant",
         "gptbridge-global-system-health-read-only", "none",
         (
             CapabilityGrant(
@@ -395,7 +393,7 @@ CAPABILITY_AUTHORITIES: Final[tuple[CapabilityAuthority, ...]] = (
         ), False, False,
     ),
     CapabilityAuthority(
-        "central-automatic-repair", "tool:system-rescue",
+        "central-automatic-repair", "tool:xingcheng",
         "gptbridge-central-automatic-repair-only", "none",
         (
             CapabilityGrant(

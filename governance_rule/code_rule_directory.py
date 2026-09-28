@@ -74,7 +74,6 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "model-dialogue",
             "xingcheng",
             "shared-layer",
-            "system-rescue",
             "vaultly",
         ),
         approved_actor_names=(
@@ -90,7 +89,6 @@ CODE_RULE_DIRECTORY: Final[CodeRuleDirectorySnapshot] = (
             "governance/tool/xingcheng",
             "governance/tool/xingcheng-assistant",
             "governance/tool/shared-layer",
-            "governance/tool/system-rescue",
             "governance/tool/vaultly",
         ),
         approved_capability_names=(

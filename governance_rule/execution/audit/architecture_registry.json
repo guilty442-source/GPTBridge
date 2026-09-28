@@ -15,9 +15,10 @@
   ],
   "runtime_forms": [
     "python-process",
-    "electron-app",
+    "tauri-app",
+    "native-javascript-esm",
+    "rust-native-view",
     "standalone-service",
-    "node-runtime",
     "database",
     "external-service",
     "build-tooling",
@@ -229,7 +230,7 @@
     {
       "component_id": "launcher-ui",
       "architectural_role": "startup",
-      "runtime_form": "electron-app",
+      "runtime_form": "tauri-app",
       "owner_sovereign": "system-runtime",
       "execution_identity": "launcher-ui",
       "physical_path": "main-system/launcher",
@@ -427,6 +428,7 @@
       "physical_path": "Standalone tools/julia-compute",
       "lifecycle": "on-demand",
       "canonical": true,
+      "independent_tool": false,
       "dependencies": [],
       "information_channels": [],
       "architecture_code": "STANDALONE_TOOLS",
@@ -548,7 +550,7 @@
     {
       "component_id": "xingcheng-assistant",
       "architectural_role": "decision",
-      "runtime_form": "electron-app",
+      "runtime_form": "native-javascript-esm",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-assistant-identity-group",
       "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.tsx",
@@ -564,8 +566,8 @@
       "architecture_code": "MAIN_SYSTEM",
       "unit": "UNIT_RUNTIME",
       "block": "BLOCK_CORE",
-      "implementation_language": "javascript-esm",
-      "formal_responsibility": "React UI presentation+frontend state+desktop interaction (A35/A348; TypeScript retired, grandfathered sources migrate via ts_to_esm)"
+      "implementation_language": "javascript-esm-jsdoc",
+      "formal_responsibility": "Native JavaScript ESM with JSDoc for settings, tool panels, tables, forms, and state presentation through the Rust/Tauri security and IPC boundary"
     },
     {
       "component_id": "xingcheng-assistant-store",
@@ -755,26 +757,6 @@
       "block": ""
     },
     {
-      "component_id": "system-rescue",
-      "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
-      "owner_sovereign": "system-runtime",
-      "execution_identity": "main-system:system-rescue",
-      "physical_path": "Standalone tools/system-rescue",
-      "lifecycle": "on-demand",
-      "canonical": true,
-      "dependencies": [
-        "shared-layer"
-      ],
-      "information_channels": [
-        "information-channel"
-      ],
-      "architecture_code": "SYSTEM_RESCUE",
-      "unit": "",
-      "block": "BLOCK_TOOLS",
-      "python_residency": "migrate-csharp"
-    },
-    {
       "component_id": "vaultly",
       "architectural_role": "execution",
       "runtime_form": "standalone-service",
@@ -943,6 +925,7 @@
       "physical_path": "Standalone tools/business-logic-csharp",
       "lifecycle": "on-demand",
       "canonical": true,
+      "independent_tool": false,
       "dependencies": [
         "local-model",
         "shared-layer"
@@ -963,6 +946,7 @@
       "physical_path": "Standalone tools/business-logic-fsharp",
       "lifecycle": "on-demand",
       "canonical": true,
+      "independent_tool": false,
       "dependencies": [],
       "information_channels": [],
       "architecture_code": "BUSINESS_LOGIC_FSHARP",
@@ -972,12 +956,13 @@
     {
       "component_id": "process-metrics-csharp",
       "architectural_role": "execution",
-      "runtime_form": "standalone-service",
+      "runtime_form": "internal-service",
       "owner_sovereign": "system-runtime",
       "execution_identity": "process-metrics-csharp",
       "physical_path": "Standalone tools/process-metrics-csharp",
       "lifecycle": "on-demand",
       "canonical": true,
+      "independent_tool": false,
       "dependencies": [
         "shared-layer"
       ],
@@ -997,6 +982,7 @@
       "physical_path": "Standalone tools/searchd-go",
       "lifecycle": "on-demand",
       "canonical": true,
+      "independent_tool": false,
       "dependencies": [],
       "information_channels": [
         "information-channel"
@@ -1011,6 +997,9 @@
       "runtime_form": "standalone-service",
       "owner_sovereign": "system-runtime",
       "execution_identity": "resource-governor",
+      "implementation_language": "cpp23",
+      "system_identity_class": "system-administrator",
+      "privilege_scope": "resource-observation-and-regulation-only",
       "physical_path": "native/resource_governor",
       "lifecycle": "resident",
       "canonical": true,
@@ -1164,7 +1153,6 @@
         "postgresql",
         "process-metrics-csharp",
         "shared-layer",
-        "system-rescue",
         "system-runtime-sovereign",
         "vaultly"
       ],

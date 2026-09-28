@@ -73,7 +73,6 @@ SELF_HEALTH_MANAGED_TEST_FILES = frozenset(
         "Standalone tools/file-sorter/tests/test_file_sorter_ui.py",
         "Standalone tools/file-sorter/tests/test_file_sorter_v2.py",
         # ── system-rescue (central repair + packaging) ───────────────
-        "Standalone tools/system-rescue/tests/test_system_rescue.py",
         # ── investment-mobile (mobile channel) ───────────────────────
         "Standalone tools/investment-mobile/tests/test_investment_mobile_reexport.py",
     }

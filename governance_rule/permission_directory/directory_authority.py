@@ -253,7 +253,6 @@ IDENTITY_GROUP_XINGCHENG: Final[str] = "identity-group-X00001"
 # (名稱固定: one name for the institution everywhere).
 IDENTITY_GROUP_XINGCHENG_ASSISTANT: Final[str] = "xingcheng-assistant-identity-group"
 IDENTITY_GROUP_VAULTLY: Final[str] = "identity-group-V00001"
-IDENTITY_GROUP_SYSTEM_RESCUE: Final[str] = "identity-group-R00001"
 IDENTITY_GROUP_LOCAL_MODEL: Final[str] = "identity-group-L00001"
 IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE: Final[str] = "identity-group-D00001"
 IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT: Final[str] = "identity-group-D00002"
@@ -269,7 +268,6 @@ ACTIVE_IDENTITY_GROUP_IDS: Final[tuple[str, ...]] = (
     IDENTITY_GROUP_XINGCHENG,
     IDENTITY_GROUP_XINGCHENG_ASSISTANT,
     IDENTITY_GROUP_VAULTLY,
-    IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_LOCAL_MODEL,
     IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE,
     IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT,

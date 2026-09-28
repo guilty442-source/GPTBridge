@@ -157,6 +157,7 @@ def architecture_document_report(root: str | Path) -> dict[str, Any]:
             len(parts) == 2
             and parts[0] == "Standalone tools"
             and parts[1] == identifier
+            and component.get("independent_tool") is not False
         )
         if not top_level_tool:
             continue

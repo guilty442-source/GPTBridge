@@ -15,7 +15,6 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT,
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
-    IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
     IDENTITY_GROUP_XINGCHENG_ASSISTANT,
@@ -287,31 +286,6 @@ STAR_CHAT_IDENTITY: Final[CapabilityIdentity] = _business_tool_identity(
 )
 del _business_tool_identity
 
-SYSTEM_RESCUE_IDENTITY: Final[CapabilityIdentity] = CapabilityIdentity(
-    group_id=IDENTITY_GROUP_SYSTEM_RESCUE,
-    actor="governance/tool/system-rescue",
-    bound_tool_id="system-rescue",
-    bound_roots=("Standalone tools/system-rescue",),
-    manifest_binding=ManifestBinding(
-        required=True,
-        path_template="Standalone tools/system-rescue/manifest.json",
-        tool_id_field="id",
-        maximum_bytes=1_048_576,
-        required_capabilities=(
-            "system-health-check",
-            "central-automatic-repair",
-        ),
-        requirements=(
-            ManifestRequirement(("permissions", "code_scope"), "tool-root-only"),
-            ManifestRequirement(("permissions", "database_scope"), "tool-database-only"),
-        ),
-    ),
-    authentication="governance-policy-issued-capability-token",
-    identity_code="R00001",
-    language_name="system_rescue",
-    codename="RESCUE",
-)
-
 CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     MAIN_SYSTEM_IDENTITY,
     GOVERNANCE_RULE_IDENTITY,
@@ -324,7 +298,6 @@ CAPABILITY_IDENTITIES: Final[tuple[CapabilityIdentity, ...]] = (
     XINGCHENG_IDENTITY,
     XINGCHENG_ASSISTANT_IDENTITY,
     VAULTLY_IDENTITY,
-    SYSTEM_RESCUE_IDENTITY,
     LOCAL_MODEL_IDENTITY,
     MODEL_DIALOGUE_IDENTITY,
     STAR_CHAT_IDENTITY,

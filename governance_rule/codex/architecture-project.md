@@ -38,13 +38,13 @@ flowchart TB
   C[C<br/>決定性規則、熱路徑、原生測試] --> RC
   CPP[C++<br/>原生審計與高效執行] --> RC
   CS[C#<br/>介面與唯一流程編排] --> AC
-  PY[Python<br/>必要治理語意薄層] --> DC
+  PY[Python<br/>治理最薄層／JAX 訓練／開發驗證] --> DC
   FS[F#<br/>資料分析、機器學習與高正確性計算] --> DC
   GO[Go<br/>受限網路與並行服務] --> RC
   RS[Rust<br/>記憶體安全系統元件] --> RC
 ```
 
-核心約束：C、C++、C#、F#、Go、Rust 只能執行其已授權責任；不得自行修改治理規則、建立權限或繞過裁決。Python 僅保留 A35 三域——治理必要語意薄層（必要部分常駐）、JAX 星澄訓練（僅訓練時啟動）、開發驗證（僅開發或驗證時啟動）——不負責大量機械性工作的常駐執行，其餘用途一律禁止。
+核心約束：C、C++、C#、F#、Go、Rust 只能執行其已授權責任；不得自行修改治理規則、建立權限或繞過裁決。Python 僅保留治理必要語意最薄層、按需 Python＋JAX 訓練、development-only pytest／驗證三域；除治理必要部分外，Production idle Python process count 必須為 0，Python 不得控制正式推論 Runtime。
 
 ## 二、啟動、運行與關閉
 
@@ -96,7 +96,7 @@ flowchart TB
     WINDOWS[Window Management]
     JSB[JS ↔ Rust Bridge]
   end
-  subgraph ESM[Native JavaScript ESM]
+  subgraph ESM[Native JavaScript ESM + JSDoc]
     GENERAL[General UI]
     SETTINGS[Settings]
     DASHBOARD[Dashboard]
@@ -131,7 +131,7 @@ flowchart TB
   JSB --> ESM
 ```
 
-UI 的唯一共用核心是 Rust 1.98.1，負責 UI 核心、應用狀態、生命週期、IPC、安全與 OS 整合。Tauri 負責 Desktop Shell、WebView、Window 管理及 JS↔Rust Bridge；Native JavaScript ESM 負責設定、工具面板、表格、表單與狀態呈現；GPUI 負責模型對話、Coding Workspace、大量文字及虛擬清單；egui 負責系統診斷、效能監控、開發／治理工具及 Debug Overlay。各層不得自行建立權限、狀態或生命週期權威。前端 JavaScript 經 Esbuild／SWC 混合鏈產生；GPUI 與 egui 維持 Rust 原生路徑。
+UI 的唯一共用核心是 Rust 1.98.1，負責 UI 核心、應用狀態、生命週期、IPC、安全與 OS 整合。Tauri 負責 Desktop Shell、WebView、Window 管理及 JS↔Rust Bridge；原生 JavaScript ESM 搭配 JSDoc，負責設定、工具面板、表格、表單與狀態呈現；GPUI 負責模型對話、Coding Workspace、大量文字及虛擬清單；egui 負責系統診斷、效能監控、開發／治理工具及 Debug Overlay。各層不得自行建立權限、狀態或生命週期權威。前端 JavaScript 經 Esbuild／SWC 混合鏈產生；GPUI 與 egui 維持 Rust 原生路徑。
 
 ## 四、七個獨立工具
 
@@ -224,7 +224,7 @@ flowchart LR
 - DAG 是工作流編排平面，不取代 Application Service。
 - CAG 是安全、版本化、有範圍的加速與上下文重用平面，不取代 RAG。
 - RAG 是 canonical knowledge retrieval 平面，保留 Hybrid、Code、Memory、Agentic 四個子架構。
-- PostgreSQL 與 vectord-rs 的 canonical 邊界不變（Qdrant 已退役，非 canonical，A621）；SQLite 不得升格為中央權威。
+- PostgreSQL 與 vectord-rs 的 canonical 邊界不變；Qdrant 與 SQLite 均依 A621 退役且必須維持零 active consumer。
 
 ## 七、Git 架構
 
@@ -255,6 +255,8 @@ flowchart TB
 - 自動提交只負責 commit；只有同步協調器能在整合與稽核成功後推送 `main`。
 - Git 保存程式碼、遷移與歷史，不承載中央即時資料或權限事實。
 - 生成檔依登記的重建策略處理；真正內容衝突必須依權威來源自動裁定，無可靠裁定時隔離。
+- Git 追蹤採明確 allowlist：正式來源、法典與契約、SQL migration、必要設定、不可重建的測試／審計證據及人工文件。Runtime state、logs、cache、temp、build/dist、套件、模型、資料庫實例、coverage、重建索引與其他可再生產物一律不追蹤。
+- 全流程由既有 `GitAutomationService` 與唯一同步協調器事件驅動完成：穩定偵測、路徑限定 staging、commit、整合、衝突分類、稽核、fast-forward 與 push；不得建立第二套 watcher、scheduler 或 coordinator。
 
 ## 八、SQL 架構
 
@@ -302,8 +304,6 @@ flowchart TB
   BACKUP --> CERT[Rebuild Certification]
   CERT --> READY
 
-  SQ[(SQLite owner-private state)] --> RECON[Bounded Reconciliation]
-  RECON --> PG
 ```
 
 SQL 核心不變式：
@@ -313,8 +313,7 @@ SQL 核心不變式：
 - 每個 schema、table、view、function、trigger、index、RLS policy 與 role 必須有唯一物件身分、owner、資料類別、建立 migration、定義雜湊與生命週期。
 - Migration 必須有序、不可變、連續且可重播；禁止 runtime role 執行 CREATE、ALTER、DROP。
 - Restore、migration 或 role rotation 後提高 connection generation；舊連線不得再寫入。
-- SQLite 只能保存 owner-private、有限期、有限量、必須調和的降級狀態；不得代替權限、共享傳輸或中央審計。
-- PostgreSQL 故障依 capability matrix 分別關閉或有限降級，不得整體暗中切換 SQLite。
+- PostgreSQL 故障依 capability matrix 分別關閉或切換唯讀；不得轉移至已退役 SQL 引擎或建立替代權威。
 
 ## 九、資料、權限與追溯鏈
 
@@ -328,9 +327,7 @@ flowchart TB
 
   RW --> PG[(PostgreSQL<br/>中央結構化資料、共享傳輸、中央審計)]
   PG --> VD[(vectord-rs<br/>Rust 向量索引與檢索投影)]
-  MOD --> SQ[(SQLite<br/>owner-private bounded fallback)]
-  SQ --> REC[Reconciliation]
-  REC --> PG
+  MOD --> PG
 
   MIG[Ordered Immutable Migration Chain] --> SCHEMA[Canonical Schema Registry]
   SCHEMA --> DRIFT[Live Schema Drift Gate]
@@ -342,10 +339,11 @@ flowchart TB
 | --- | --- | --- |
 | PostgreSQL | 中央 structured official data、shared transport、central audit | 不得以 live schema 反向創造法典事實 |
 | vectord-rs（Rust） | 受範圍約束的向量索引與檢索投影 | 不得成為結構化資料或權限權威 |
-| SQLite | 模組私有、有限、可觀測、必須調和的降級狀態 | 不得跨模組授權、承載中央審計或取代 PostgreSQL |
 | Git | 程式碼、遷移與不可變歷史 | 不得代替即時資料權威 |
 
 所有重要寫入必須攜帶 actor、executor、decision、correlation 與 source revision，並保存當下權限決策摘要。DDL 只能由 migration executor 執行；schema drift、權威衝突或完整性異常時，受影響資料域切換為唯讀或 Fail Closed。
+
+權限核發、啟用、續期、限制、暫停、撤銷及終止採事件驅動全自動化：受管請求、身分／角色／範圍／風險／期限／世代變化觸發權限核心依唯一目錄作成決定，DirectoryAuthority 只執行確定性交易並回傳 receipt。期限到期、身分撤銷、範圍失效、世代提高或安全事件會自動停止權限；缺資料、衝突或無法證明最小權限時一律拒絕。資料庫 ACL／RLS 仍只是 enforcement projection，不得自行核發權限。
 
 ## 十、自動維護與故障處理
 
@@ -370,7 +368,13 @@ flowchart LR
   XA --> XC[星澄修復方案]
 ```
 
-自動維護只能使用現有單一編排器、排程器、權限目錄與資訊通道。生成性衝突依已登記策略自動重建；內容衝突依 canonical owner、版本與優先序自動收斂，無法證明安全結果時停止並隔離。
+RAG、CAG、DAG 與 SQL 維護採全自動事件驅動：來源、權限、契約、schema、migration、索引、快取、模型或刪除狀態改變時，自動判定受影響範圍並執行增量重建、失效、調和、漂移檢查、回收與證據發布；低頻完整掃描只作安全補償。`GAG` 不建立新平面，統一解析為既有 `DAG` 編排平面。
+
+自動維護只能使用現有單一編排器、排程器、權限目錄與資訊通道。安全且可逆的生成性結果依 canonical inputs 自動重建；SQL DDL 只經 ordered migration executor；未知影響、無法驗證的 destructive change 或權威衝突必須 Fail Closed 並隔離，不得以人工確認作為正常維護路徑，也不得建立第二套 scheduler、planner、executor、cache authority、retrieval authority 或 SQL authority。
+
+測試套件採事件驅動全自動化：正式來源、契約、ABI／IPC、migration、schema、設定、依賴、工具鏈或法典變更後，由唯一 C# `TestSuiteOrchestrator` 依影響圖選取必要套件並以有界並行執行。測試由被測能力的正式語言 owner 執行；Python pytest 只服務治理、JAX 訓練與開發邊界驗證，Production 不常駐。每個強制套件必須在 20 秒內產生版本、來源與 artifact 綁定的 typed evidence；FAIL、BLOCKED、timeout、缺證據或程序異常均不得視為 PASS。
+
+審計套件同樣事件驅動全自動化：Canonical Audit Manifest 是唯一檢查清單；C++ Audit Engine 自動執行所有已核准且原生支援的 check，只有 manifest 明確標示 unsupported／delegated 的治理語意檢查才可按需交給 Python Thin Semantic Adapter。每個獨立審計流程必須在 30 秒內完成 finding、severity、evidence、failure classification、technical status 與 certification status；unsupported、timeout、損毀或缺證據不得 silent-pass。Python 不得成為常駐審計迴圈或第二套 Audit Engine。
 
 ## 十一、來源、部署與資源邊界
 
@@ -389,6 +393,8 @@ flowchart TB
 ```
 
 除 Windows 原生工具與 Ollama 外，Python 執行環境、SDK、Toolchain、套件、依賴快取與模型必須位於 `E:\GPTBridge` 底下的適當子目錄，不得散落於頂層。完整程序樹受五核心資源預算、啟動期限、工作負載分類及自動回收機制約束。
+
+全專案唯一資源管制器為 `native/resource_governor` 的 C++23 `resource-governor`，其受管身分為 `system-administrator`。系統管理員權限嚴格限於資源觀測與管制，不得修改法典、產生權限、讀取未授權資料或作成業務決策。其他語言與模組只能透過版本化契約提供量測訊號、接收限制結果或執行已核准動作，不得保留平行管制器、監看程序、sidecar 或 fallback。
 
 前端建置統一使用 Esbuild／SWC 混合鏈：SWC 負責 JSX 與現代 JavaScript 語法轉換；Esbuild 負責依賴圖、bundle、code splitting、資產、source map、tree shaking 與最終壓縮；Rust Contract Validator 負責 Schema、IPC 與 API 靜態驗證。兩者不得重複轉換或建立平行建置權威。
 

@@ -93,9 +93,9 @@ public class GovernedToolHostTests
 {
     private static GovernedEnvironment Env() => new()
     {
-        ToolId = "system-rescue",
+        ToolId = "vaultly",
         ProjectRoot = @"E:\GPTBridge",
-        ToolRoot = @"E:\GPTBridge\Standalone tools\system-rescue",
+        ToolRoot = @"E:\GPTBridge\Standalone tools\vaultly",
         SessionToken = new string('a', 64),
         Port = 0,
         ShutdownToken = "shtok",
@@ -214,7 +214,7 @@ public class GovernedToolHostTests
         var health = host.HealthSnapshot();
         Assert.True(health["ok"]!.GetValue<bool>());
         Assert.True(health["governance_ready"]!.GetValue<bool>());
-        Assert.Equal("system-rescue", health["tool_id"]!.GetValue<string>());
+        Assert.Equal("vaultly", health["tool_id"]!.GetValue<string>());
         Assert.Equal("independent-tool",
             health["runtime_scope"]!.GetValue<string>());
         Assert.Equal(24,

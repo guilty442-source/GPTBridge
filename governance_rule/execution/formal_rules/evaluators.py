@@ -1199,6 +1199,37 @@ def _resource_governor_cpp23(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "resource-governor C++23 validated"
 
 
+ALLOWED_PYTHON_ZONES = frozenset(
+    {"governance", "training", "development-verification"}
+)
+
+
+@register_rule("RULE_PYTHON_MINIMIZATION_V1")
+def _python_minimization(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
+    """Predicate (A605): Python minimization acceptance line.
+
+    Production Python source is restricted to governance/, training/ and
+    development-verification/; Python inference, RAG, vector, UI, process
+    management, file I/O workers, network workers, business logic and
+    general application are zero. Facts declare the zones a component's
+    production Python occupies; any zone outside the allowed set fails
+    closed. Absent zone facts pass (authority is the registry lookup,
+    not the fixture).
+    """
+    zones = facts.get("production_python_zones")
+    if zones is None:
+        return True, "PASS", "python minimization validated"
+    items = [str(item).strip().lower() for item in zones]
+    offenders = sorted({item for item in items if item not in ALLOWED_PYTHON_ZONES})
+    if offenders:
+        return (
+            False,
+            "FAIL_CLOSED",
+            "production Python outside allowed zones: " + ",".join(offenders),
+        )
+    return True, "PASS", "python minimization validated"
+
+
 @register_rule("RULE_LANGUAGE_VERSIONS_V1")
 def _language_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A609): language versions unified to C23/C++23/C#14/.NET10/F#10/Rust1.98.1/Go1.27.1/Python3.14.7/NumPy2.5.3."""

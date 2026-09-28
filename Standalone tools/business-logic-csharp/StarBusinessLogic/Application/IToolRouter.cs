@@ -28,7 +28,9 @@ public interface IToolExecutor
 public sealed class DefaultToolRouter : IToolRouter
 {
     private readonly IReadOnlyDictionary<string, IToolExecutor> _executors;
-    private static readonly HashSet<string> Allowed = new(new[] { "rag_query", "web_search", "market_data", "calculation", "coding_expert", "reasoning", "context_builder" },
+    // 唯一工具集合由 F# PlanRules.supportedTools 擁有；C# 不得另行手寫
+    // （SAME_RUNTIME_TYPED_CALL：同 .NET runtime typed 直連）。
+    private static readonly HashSet<string> Allowed = new(PlanRules.supportedTools,
         StringComparer.OrdinalIgnoreCase);
 
     public DefaultToolRouter(IEnumerable<IToolExecutor> executors)

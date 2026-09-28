@@ -47,7 +47,6 @@ Electron main process
 - `<tool-id>`: 數量可動態增減的直屬獨立工具
 - `governance_rule`: 唯一的治理與權限權威
 - `shared-layer`: 只承載受治理的系統通道與 AI 通道
-- `system-rescue`: 集中修復、封裝器、封裝模板與修復資料
 - `tests`: Python 單元與整合測試
 - `runtime`: 執行期狀態；不納入版本控制
 
