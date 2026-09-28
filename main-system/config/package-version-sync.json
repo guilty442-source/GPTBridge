@@ -68,24 +68,6 @@
     }
    ]
   },
-  "nodejs-toolchain": {
-   "mode": "detect",
-   "detect": {
-    "kind": "command",
-    "argv": [
-     ".tools/node/node.exe",
-     "--version"
-    ],
-    "pattern": "v(\\d+\\.\\d+\\.\\d+)"
-   },
-   "codex_refs": [
-    {
-     "provision_id": "A621",
-     "field": "rule",
-     "pattern": "Node\\.js[= ](\\d+\\.\\d+\\.\\d+)"
-    }
-   ]
-  },
   "rust-toolchain": {
    "mode": "upgrade",
    "detect": {
