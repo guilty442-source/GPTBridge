@@ -9,12 +9,36 @@ managed connection.
 
 from __future__ import annotations
 
+import array
 import json
 import logging
+import sys
 import uuid
 from typing import Any, Optional, Sequence
 
 _logger = logging.getLogger("gptbridge.rag")
+
+
+def pack_embedding(vector: Sequence[float]) -> bytes:
+    """Canonical embedding bytes: float64 little-endian packed array."""
+    buf = array.array("d", (float(v) for v in vector))
+    if sys.byteorder == "big":  # pragma: no cover - governed host is LE
+        buf.byteswap()
+    return buf.tobytes()
+
+
+def unpack_embedding(raw: Any) -> Optional[list[float]]:
+    """Decode canonical embedding bytes; None when absent/malformed."""
+    if not isinstance(raw, (bytes, bytearray, memoryview)):
+        return None
+    blob = bytes(raw)
+    if not blob or len(blob) % 8:
+        return None
+    buf = array.array("d")
+    buf.frombytes(blob)
+    if sys.byteorder == "big":  # pragma: no cover - governed host is LE
+        buf.byteswap()
+    return list(buf)
 
 
 _RESOURCE_UPSERT_SQL = """INSERT INTO gptbridge_index.resource
@@ -35,8 +59,8 @@ _RESOURCE_UPSERT_SQL = """INSERT INTO gptbridge_index.resource
 _CHUNK_INSERT_SQL = """INSERT INTO gptbridge_rag.chunk
       (chunk_id, resource_id, module_id, sequence,
        character_start, character_end, vector_point_id,
-       embedding_model, locator_fragment, metadata)
-   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+       embedding_model, locator_fragment, metadata, embedding)
+   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
 
 
 def _resource_params(document: dict[str, Any]) -> tuple:
@@ -75,6 +99,7 @@ def _chunk_params(
 ) -> tuple:
     """INSERT params for gptbridge_rag.chunk."""
     point_id = chunk.get("vector_point_id") or chunk.get("point_id")
+    embedding = chunk.get("embedding")
     metadata = {
         "resource_label": chunk.get("resource_label"),
         "source": chunk.get("source"),
@@ -92,6 +117,9 @@ def _chunk_params(
         embedding_model,
         str(chunk.get("locator_fragment") or f"#chunk-{chunk['sequence']}"),
         json.dumps(metadata, ensure_ascii=False),
+        embedding if isinstance(embedding, (bytes, bytearray, memoryview))
+        else (pack_embedding(embedding) if isinstance(embedding, (list, tuple))
+              else None),
     )
 
 

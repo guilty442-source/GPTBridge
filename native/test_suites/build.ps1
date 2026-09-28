@@ -92,6 +92,9 @@ $suites = @(
         # M1 工具體骨架：loopback HTTP/WS＋claim/execute/respond 端到端
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\tool_host.cpp"),
+            (Join-Path $nativeRoot "tool_runtime\tool_host_conn.cpp"),
+            (Join-Path $nativeRoot "tool_runtime\tool_host_claims.cpp"),
+            (Join-Path $nativeRoot "tool_runtime\tool_host_observe.cpp"),
             (Join-Path $nativeRoot "tool_runtime\governed_tool_ws.cpp"),
             (Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"),
             (Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"),

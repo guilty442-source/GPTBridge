@@ -283,8 +283,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-09-28T07:54:05Z",
-    "codex_sha256": "dc3a1cbeef95b9575d0238c6c478062f7a9d5996838aab370b420661bd533e58",
+    "codex_version": "2026-09-28T08:03:01Z",
+    "codex_sha256": "826eeec72ac58d962b31de96da71f17c8eba1707c7c7d5c9670debe602824b93",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
