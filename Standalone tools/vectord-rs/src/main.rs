@@ -105,6 +105,48 @@ fn is_loopback_bind(bind: &str) -> bool {
     matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]")
 }
 
+/// concurrency-budget/v1 read side: extract `classes.<work_class>.quota`
+/// from the resource-governor state file. Returns None when the file is
+/// missing, unparsable, the governor is disabled, or the section/class is
+/// absent — callers fall back to the static envelope (fail-open).
+fn governor_class_quota(state_path: &std::path::Path, work_class: &str) -> Option<usize> {
+    let text = std::fs::read_to_string(state_path).ok()?;
+    let state: Value = serde_json::from_str(&text).ok()?;
+    if state.get("disabled").and_then(Value::as_bool) == Some(true) {
+        return None;
+    }
+    let budget = state.get("concurrency_budget")?;
+    if budget.get("contract").and_then(Value::as_str) != Some("concurrency-budget/v1") {
+        return None;
+    }
+    let quota = budget
+        .get("classes")?
+        .get(work_class)?
+        .get("quota")?
+        .as_u64()?;
+    Some(quota as usize)
+}
+
+fn resolve_conn_workers(governor_state: Option<&std::path::Path>) -> usize {
+    let quota = governor_state
+        .and_then(|p| governor_class_quota(p, "rag"))
+        .filter(|q| *q > 0);
+    let fallback = thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(MAX_CONN_WORKERS);
+    quota
+        .unwrap_or(fallback)
+        .clamp(MIN_CONN_WORKERS, MAX_CONN_WORKERS)
+}
+
+fn reject_over_capacity(mut stream: TcpStream) {
+    send_response(
+        &mut stream,
+        "503 Service Unavailable",
+        &json!({"error": "capacity-exhausted", "contract": CONTRACT}),
+    );
+}
+
 fn send_response(stream: &mut TcpStream, status: &str, body: &Value) {
     let payload = body.to_string();
     let response = format!(
@@ -453,15 +495,62 @@ fn main() {
             std::process::exit(3);
         }
     };
-    eprintln!("vectord: listening on {} (contract {})", bind, CONTRACT);
+
+    // bounded-concurrency/v1: connections are admitted into a bounded
+    // pending channel drained by a fixed worker pool (rag-class quota).
+    // A full queue rejects with HTTP 503 — never a thread per conn.
+    let governor_state = std::env::var("GPTBRIDGE_GOVERNOR_STATE")
+        .ok()
+        .map(PathBuf::from)
+        .or_else(|| {
+            let mut p = store_dir.clone();
+            p.pop(); // runtime/
+            p.pop(); // tool root
+            let candidate = p
+                .join("..")
+                .join("main-system")
+                .join("runtime")
+                .join("state")
+                .join("resource-governor.json");
+            candidate.exists().then_some(candidate)
+        });
+    let workers = resolve_conn_workers(governor_state.as_deref());
+    let (tx, rx) = std::sync::mpsc::sync_channel::<TcpStream>(PENDING_CONN_CAPACITY);
+    let rx = Arc::new(std::sync::Mutex::new(rx));
+    for i in 0..workers {
+        let rx = rx.clone();
+        let app = app.clone();
+        thread::Builder::new()
+            .name(format!("vectord-conn-{}", i))
+            .spawn(move || loop {
+                let stream = {
+                    let guard = match rx.lock() {
+                        Ok(g) => g,
+                        Err(_) => return,
+                    };
+                    match guard.recv() {
+                        Ok(s) => s,
+                        Err(_) => return,
+                    }
+                };
+                handle_connection(stream, app.clone());
+            })
+            .expect("vectord conn worker spawn");
+    }
+    eprintln!(
+        "vectord: listening on {} (contract {}, conn_workers={}, pending_cap={})",
+        bind, CONTRACT, workers, PENDING_CONN_CAPACITY
+    );
 
     for connection in listener.incoming() {
         match connection {
-            Ok(stream) => {
-                let app = app.clone();
-                thread::spawn(move || handle_connection(stream, app));
-            }
+            Ok(stream) => match tx.try_send(stream) {
+                Ok(_) => {}
+                Err(std::sync::mpsc::TrySendError::Full(s))
+                | Err(std::sync::mpsc::TrySendError::Disconnected(s)) => {
+                    reject_over_capacity(s);
+                }
+            },
             Err(e) => eprintln!("vectord: accept failed: {}", e),
         }
     }
-}
