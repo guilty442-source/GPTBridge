@@ -1,0 +1,42 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v1",
+ "request_id": "python-minimization-baseline-adjudication-20260928-r7",
+ "supersedes": "python-minimization-baseline-adjudication-20260928-r6",
+ "title": "Governor adjudication rev7: GOVERNANCE +10 loc interim re-anchor",
+ "summary": "Increment adjudication on top of sealed rev6 (codex 2026-09-28T12:04:53Z). Same codex-mandated governance-machinery stream added +10 loc (GOVERNANCE 57658->57668) since the last re-anchor. Same disposition: authorized interim re-anchor; ratchet resumes only-tighten.",
+ "requested_by": "decision-sovereign",
+ "origin": "human-governor directive 2026-09-28 (execute per codex); gate: native py-bucket-budget audit check",
+ "change_class": "authority-duty",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "predecessor": {
+  "codex_version": "2026-09-28T12:04:53Z",
+  "version_identity": "E2:2026-09-28T12:04:53Z",
+  "version_epoch": 2,
+  "history_head": "2bc7103e5d5e7aebf8079811f801165a2830819c2495abc29e3c0200fef11850",
+  "revision_sequence": 141
+ },
+ "problem": {
+  "summary": "GOVERNANCE bucket measured 57668 loc vs rev6-adjudicated 57658 (+10) from in-flight codex-mandated audit machinery; requires adjudication per only-tighten ratchet."
+ },
+ "proposed_successors": [
+  {
+   "registry": "metadata",
+   "action": "insert",
+   "note": "rev7 adjudication record; disposition row already certified at rev3",
+   "rows": [
+    {
+     "key": "adjudications_rev7",
+     "value": "[\"GOVERNANCE loc 57658->57668 (+10): adjudicated interim re-anchor; continued codex-mandated audit/export machinery growth in the same work stream as adjudications_rev3/rev4/rev6\"]"
+    }
+   ]
+  }
+ ],
+ "verification": {
+  "requested_at": "2026-09-28T21:20:00Z",
+  "expected_audit_result": "native py-bucket-budget PASS after baseline re-anchor; audit_runtime_governance() 0 findings"
+ }
+}

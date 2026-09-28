@@ -13,6 +13,7 @@ manifest（star-audit-manifest/v1）由 Python 受管工具產生；本引擎執
 #include <filesystem>
 #include <fstream>
 #include <future>
+#include <map>
 #include <mutex>
 #include <sstream>
 #include <thread>
@@ -644,6 +645,164 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
         return r;
     }
     /* 未支援 kind：delegated（顯式移交，不靜默） */
+    if (check.kind == "py-bucket-budget") {
+        /* Python-minimization ratchet (native replacement for the retired
+         * pytest gate).  check.path = baseline JSON carrying the embedded
+         * "measurement" recipe: scan_roots / exclude_dirs /
+         * exclude_file_substr / rules (ordered first-match substring map)
+         * / fallback_bucket, plus the zero_targets + allowed_zones budgets.
+         * Any bucket measuring above its budget -> FAIL (only-tighten). */
+        std::string content;
+        if (!read_file(target, &content)) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "unreadable: " + check.path;
+            return r;
+        }
+        JsonValue doc;
+        try { doc = JsonParser(content).parse(); }
+        catch (const JsonError&) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "invalid json: " + check.path;
+            return r;
+        }
+        const JsonValue* meas = doc.get("measurement");
+        const JsonValue* zero = doc.get("zero_targets");
+        const JsonValue* allowed = doc.get("allowed_zones");
+        if (meas == nullptr || meas->type != JsonValue::Type::Object ||
+            zero == nullptr || zero->type != JsonValue::Type::Object ||
+            allowed == nullptr || allowed->type != JsonValue::Type::Object) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "baseline lacks measurement/budgets: " + check.path;
+            return r;
+        }
+        auto str_list = [](const JsonValue* node) {
+            std::vector<std::string> out;
+            if (node != nullptr && node->type == JsonValue::Type::Array)
+                for (const auto& e : node->array)
+                    if (e.type == JsonValue::Type::String)
+                        out.push_back(e.string);
+            return out;
+        };
+        const std::vector<std::string> roots =
+            str_list(meas->get("scan_roots"));
+        const std::vector<std::string> ex_dirs =
+            str_list(meas->get("exclude_dirs"));
+        const std::vector<std::string> ex_sub =
+            str_list(meas->get("exclude_file_substr"));
+        const JsonValue* rules = meas->get("rules");
+        if (roots.empty() || rules == nullptr ||
+            rules->type != JsonValue::Type::Object) {
+            r.status = AuditStatus::FAIL;
+            r.detail = "baseline measurement recipe incomplete";
+            return r;
+        }
+        const JsonValue* fbv = meas->get("fallback_bucket");
+        const std::string fallback =
+            (fbv != nullptr && fbv->type == JsonValue::Type::String)
+                ? fbv->string : "GENERAL_APP";
+
+        std::map<std::string, std::pair<long long, long long>> actual;
+        for (const auto& rr : roots) {
+            const fs::path base = fs::u8path(root) / fs::u8path(rr);
+            if (!fs::is_directory(base, ec)) continue;
+            std::error_code iec;
+            fs::recursive_directory_iterator it(
+                base, fs::directory_options::skip_permission_denied, iec);
+            const fs::recursive_directory_iterator dend;
+            while (!iec && it != dend) {
+                std::error_code sec;
+                if (it->is_directory(sec)) {
+                    const std::string dn = u8_bytes(it->path().filename());
+                    for (const auto& ex : ex_dirs)
+                        if (dn == ex) {
+                            it.disable_recursion_pending();
+                            break;
+                        }
+                } else if (it->is_regular_file(sec)) {
+                    if (it->path().extension() != ".py") {
+                        it.increment(iec);
+                        continue;
+                    }
+                    std::error_code rec;
+                    std::string rel = u8_bytes(
+                        fs::relative(it->path(), fs::u8path(root), rec));
+                    if (rec) { it.increment(iec); continue; }
+                    for (auto& ch : rel)
+                        if (ch == '\\') ch = '/';
+                    rel = to_lower(rel);
+                    bool skip = false;
+                    for (const auto& sub : ex_sub)
+                        if (rel.find(to_lower(sub)) != std::string::npos) {
+                            skip = true; break;
+                        }
+                    if (skip) { it.increment(iec); continue; }
+                    std::string bucket = fallback;
+                    for (const auto& kv : rules->object) {
+                        bool hit = false;
+                        if (kv.second.type == JsonValue::Type::Array) {
+                            for (const auto& pv : kv.second.array) {
+                                if (pv.type == JsonValue::Type::String &&
+                                    rel.find(pv.string) !=
+                                        std::string::npos) {
+                                    hit = true; break;
+                                }
+                            }
+                        }
+                        if (hit) { bucket = kv.first; break; }
+                    }
+                    std::string fsrc;
+                    if (!read_file(it->path(), &fsrc)) {
+                        it.increment(iec);
+                        continue;
+                    }
+                    const long long loc =
+                        static_cast<long long>(
+                            std::count(fsrc.begin(), fsrc.end(), '\n')) +
+                        ((!fsrc.empty() && fsrc.back() != '\n') ? 1 : 0);
+                    auto& slot = actual[bucket];
+                    slot.first += 1;
+                    slot.second += loc;
+                }
+                it.increment(iec);
+            }
+        }
+        std::string viol;
+        auto check_budget = [&](const JsonValue& budgets) {
+            for (const auto& kv : budgets.object) {
+                if (kv.second.type != JsonValue::Type::Object) continue;
+                const JsonValue* bf = kv.second.get("files");
+                const JsonValue* bl = kv.second.get("loc");
+                const long long bf_v =
+                    (bf && bf->type == JsonValue::Type::Number)
+                        ? (long long)bf->number : -1;
+                const long long bl_v =
+                    (bl && bl->type == JsonValue::Type::Number)
+                        ? (long long)bl->number : -1;
+                const auto got = actual.find(kv.first);
+                const long long af =
+                    got == actual.end() ? 0 : got->second.first;
+                const long long al =
+                    got == actual.end() ? 0 : got->second.second;
+                if (af > bf_v)
+                    viol += " " + kv.first + " files " +
+                            std::to_string(af) + ">" +
+                            std::to_string(bf_v) + ";";
+                if (al > bl_v)
+                    viol += " " + kv.first + " loc " +
+                            std::to_string(al) + ">" +
+                            std::to_string(bl_v) + ";";
+            }
+        };
+        check_budget(*zero);
+        check_budget(*allowed);
+        if (viol.empty()) {
+            r.status = AuditStatus::PASS;
+        } else {
+            r.status = AuditStatus::FAIL;
+            r.detail = "python-minimization ratchet violated:" + viol;
+        }
+        return r;
+    }
     r.status = AuditStatus::DELEGATED;
     r.detail = "unsupported kind";
     return r;

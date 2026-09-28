@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T13:08:10Z",
+  "generated_at": "2026-09-28T13:29:46Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 427,
+    "native_checks": 428,
     "delegated_checks": 28,
     "native_kinds": [
       "file-exists",
@@ -21,7 +21,8 @@
       "glob-not-contains",
       "glob-absent",
       "glob-contains",
-      "json-key-value"
+      "json-key-value",
+      "py-bucket-budget"
     ]
   },
   "checks": [
@@ -2884,6 +2885,11 @@
         "fixtures",
         "bounded_consumers"
       ]
+    },
+    {
+      "id": "python-minimization:bucket-budget",
+      "kind": "py-bucket-budget",
+      "path": "main-system/config/python-minimization-baseline.json"
     },
     {
       "id": "tool-isolation:controls",

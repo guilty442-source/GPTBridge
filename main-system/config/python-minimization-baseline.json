@@ -5,9 +5,9 @@
   "authority": "governance-rule-only",
   "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
   "metadata": {
-    "contract_revision": 6,
-    "measured_at": "2026-09-28T20:45:00Z",
-    "method": "path-pattern first-match buckets (pybucket.py)",
+    "contract_revision": 8,
+    "measured_at": "2026-09-28T21:05:00Z",
+    "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
     "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
     "adjudications_rev2": [
       "vector_scope.py -> GOVERNANCE (permission scoping semantics, zero vector ops)",
@@ -43,12 +43,15 @@
     "adjudications_rev6": [
       "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev6, amendment python-minimization-baseline-adjudication-20260928-r6, sealed-governed-certification certificate 2e4b530d)",
       "GOVERNANCE files 205->209 loc 58293->58492: codex_postgresql export/import split, native_audit_gate, audit_self_health, export_audit_manifest, source_ownership/protected_attrs - codex-mandated governance machinery"
+    ],
+    "adjudications_rev7": [
+      "GOVERNANCE loc 57658->57668 (+10): adjudicated interim re-anchor; codex-mandated audit machinery growth, amendment sealed cert b39d5057 at 2026-09-28T13:28:03Z"
     ]
   },
   "zero_targets": {
     "INFERENCE": {
-      "files": 54,
-      "loc": 13663
+      "files": 48,
+      "loc": 12716
     },
     "RAG": {
       "files": 91,
@@ -63,8 +66,8 @@
       "loc": 1034
     },
     "PROC_MGMT": {
-      "files": 57,
-      "loc": 15773
+      "files": 56,
+      "loc": 15619
     },
     "FILE_IO": {
       "files": 98,
@@ -75,18 +78,18 @@
       "loc": 4285
     },
     "BUSINESS": {
-      "files": 232,
-      "loc": 42016
+      "files": 229,
+      "loc": 41155
     },
     "GENERAL_APP": {
-      "files": 562,
-      "loc": 112797
+      "files": 538,
+      "loc": 108822
     }
   },
   "allowed_zones": {
     "GOVERNANCE": {
-      "files": 208,
-      "loc": 58383,
+      "files": 207,
+      "loc": 57668,
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {
@@ -95,8 +98,8 @@
       "policy": "on-demand"
     },
     "VERIFICATION": {
-      "files": 371,
-      "loc": 94352,
+      "files": 0,
+      "loc": 0,
       "policy": "development-only"
     }
   },
@@ -195,5 +198,195 @@
       ],
       "note": "semantics stay Python; mechanical layers move out"
     }
+  },
+  "measurement": {
+    "recipe": "py-bucket-budget/v1",
+    "note": "production runtime .py only; tests/eval/scripts/build/acceptance/migration/provision/rehearsal/cache excluded; first-match substring classification over the '/'-normalized lowercase repo-relative path; unmatched -> GENERAL_APP",
+    "scan_roots": [
+      "Standalone tools/local-model/src",
+      "Standalone tools/local-model/model-dialogue/src",
+      "main-system/src-core",
+      "shared-layer/src",
+      "governance_rule",
+      "Standalone tools/file-sorter/src",
+      "Standalone tools/vaultly/src",
+      "Standalone tools/ai-assistant/src",
+      "Standalone tools/ai-collaboration/src",
+      "Standalone tools/investment-mobile/src"
+    ],
+    "exclude_dirs": [
+      "__pycache__",
+      ".venv",
+      "node_modules",
+      ".git",
+      "dist-ui",
+      "target",
+      "bin",
+      "obj",
+      ".kilo",
+      ".worktrees"
+    ],
+    "exclude_file_substr": [
+      "test_",
+      "_test",
+      "conftest",
+      "/tests/",
+      "/eval/",
+      "benchmark",
+      "/scripts/",
+      "build_",
+      "setup.py",
+      "_stage_e2e",
+      "acceptance",
+      "migration",
+      "provision",
+      "rehearsal"
+    ],
+    "rules": {
+      "TRAINING": [
+        "native_transformer/training",
+        "jax_backend",
+        "training/corpus",
+        "chat_foundation_dataset",
+        "self_learning",
+        "maturity.py",
+        "pretrain",
+        "/sft",
+        "dpo",
+        "distillation",
+        "corpus.py",
+        "tokenizer",
+        "bpe.py",
+        "dataset"
+      ],
+      "INFERENCE": [
+        "native_engine.py",
+        "native_runtime.py",
+        "native_inference.py",
+        "cpp_runtime.py",
+        "native_transformer/inference",
+        "native_transformer/modules",
+        "native_transformer/execution",
+        "infer_transformer",
+        "infer_planning",
+        "infer_handle",
+        "model_service_http",
+        "cpp_export",
+        "native_constants",
+        "cuda",
+        "kv_cache",
+        "transformer",
+        "generate.py"
+      ],
+      "RAG": [
+        "local_rag_retrieval",
+        "core_system/rag",
+        "local/local_rag",
+        "rag_capacity",
+        "rag_contracts",
+        "rag_metadata",
+        "retrieval",
+        "hybrid.py",
+        "rerank",
+        "context_builder",
+        "evidence",
+        "cag_",
+        "local_ai_embedding"
+      ],
+      "VECTOR": [
+        "canonical_vector_runtime",
+        "local/vector_store",
+        "vector_store",
+        "hnsw"
+      ],
+      "UI": [
+        "model-dialogue/src",
+        "star_chat",
+        "backendSocket",
+        "toolWindow",
+        "ui_backend",
+        "presenters",
+        "views",
+        "pages"
+      ],
+      "PROC_MGMT": [
+        "tool_process_registry",
+        "toolbox_",
+        "tool_isolation",
+        "model_service_activation",
+        "activation_broker",
+        "lifecycle",
+        "launcher/scripts",
+        "process_registry",
+        "worker_pool",
+        "automation_supervisor"
+      ],
+      "FILE_IO": [
+        "file_sorter",
+        "sorter_",
+        "cleanup_scanner",
+        "file_watcher",
+        "vaultly",
+        "download",
+        "scan",
+        "organize",
+        "undo.py"
+      ],
+      "NETWORK": [
+        "browser_automation",
+        "provider_session",
+        "browser_session",
+        "searchd",
+        "web_search",
+        "searxng",
+        "fetcher",
+        "crawler",
+        "http_client",
+        "websocket",
+        "socket",
+        "ipc/server",
+        "channel_runtime",
+        "transport_proxy"
+      ],
+      "BUSINESS": [
+        "investment_mobile/trading",
+        "ai_nexus",
+        "trading_store",
+        "market",
+        "fund",
+        "backtest",
+        "simulation",
+        "portfolio",
+        "oms",
+        "broker",
+        "order",
+        "risk.py",
+        "strategy",
+        "xingcheng_commands",
+        "command_parser",
+        "command_channels",
+        "intent",
+        "grounding",
+        "plan",
+        "collab_"
+      ],
+      "GOVERNANCE": [
+        "governance_rule",
+        "permission",
+        "sovereigns",
+        "audit",
+        "codex",
+        "fault_",
+        "policy",
+        "decision",
+        "auth",
+        "secrets",
+        "generation.py",
+        "session_identity",
+        "vector_scope",
+        "vectord_backend"
+      ]
+    },
+    "fallback_bucket": "GENERAL_APP"
   }
 }

@@ -490,5 +490,53 @@ int main() {
                  "total serialized");
     } NT_END_TEST("audit_engine_suite", "report_json_shape");
 
+    NT_TEST("audit_engine_suite", "kind_py_bucket_budget") {
+        fs::path dir = make_case_dir("pybudget");
+        /* recipe: scan_roots=["src"], exclude_dirs=["__pycache__"],
+         * exclude_file_substr=["/tests/"], rules GOV->"gov/" first-match,
+         * fallback GENERAL_APP.  budgets: GOV 1/10, GENERAL_APP 2/40. */
+        write_file(dir / "src" / "gov" / "a.py", "x\ny\n");
+        write_file(dir / "src" / "misc" / "b.py", "x\n");
+        write_file(dir / "src" / "misc" / "c.py", "x\nz\n");
+        write_file(dir / "src" / "tests" / "t.py", "ignored\n");
+        write_file(dir / "src" / "__pycache__" / "d.py", "ignored\n");
+        const std::string baseline =
+            "{\"measurement\":{"
+            "\"scan_roots\":[\"src\"],"
+            "\"exclude_dirs\":[\"__pycache__\"],"
+            "\"exclude_file_substr\":[\"/tests/\"],"
+            "\"rules\":{\"GOV\":[\"gov/\"]},"
+            "\"fallback_bucket\":\"GENERAL_APP\"},"
+            "\"zero_targets\":{\"GENERAL_APP\":{\"files\":2,\"loc\":40}},"
+            "\"allowed_zones\":{\"GOV\":{\"files\":1,\"loc\":10}}}";
+        write_file(dir / "baseline.json", baseline);
+        std::vector<AuditCheck> checks = {
+            {"pb1", "py-bucket-budget", "baseline.json", "", {}, 0, ""},
+        };
+        auto report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "pb1")->status == AuditStatus::PASS,
+                 "all buckets within budget");
+        /* over-budget GOVERNANCE fails */
+        const std::string tight =
+            "{\"measurement\":{"
+            "\"scan_roots\":[\"src\"],"
+            "\"exclude_dirs\":[\"__pycache__\"],"
+            "\"exclude_file_substr\":[\"/tests/\"],"
+            "\"rules\":{\"GOV\":[\"gov/\"]},"
+            "\"fallback_bucket\":\"GENERAL_APP\"},"
+            "\"zero_targets\":{\"GENERAL_APP\":{\"files\":2,\"loc\":40}},"
+            "\"allowed_zones\":{\"GOV\":{\"files\":0,\"loc\":10}}}";
+        write_file(dir / "baseline.json", tight);
+        report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "pb1")->status == AuditStatus::FAIL,
+                 "over-budget allowed zone fails");
+        /* unreadable baseline fails closed */
+        checks[0].path = "absent.json";
+        report = gptbridge::audit_run(checks, native_tests::u8path(dir));
+        NT_CHECK(find(report, "pb1")->status == AuditStatus::FAIL,
+                 "missing baseline fails closed");
+        remove_dir(dir);
+    } NT_END_TEST("audit_engine_suite", "kind_py_bucket_budget");
+
     return native_tests::report("audit_engine_suite.json");
 }
