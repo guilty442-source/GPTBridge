@@ -215,7 +215,7 @@
       "mechanism": "Tauri typed command whitelist plus events; single Rust state projected",
       "owner": "system-runtime",
       "contract_ref": "UI_BRIDGE_CONTRACT",
-      "files": ["main-system/src-tauri/src/main.rs", "main-system/src-tauri/src/commands.rs"]
+      "files": ["main-system/src-tauri/src/main.rs", "main-system/src-tauri/src/tool_dispatch.rs"]
     },
     {
       "id": "ws-ipc",
@@ -235,7 +235,7 @@
       "mechanism": "token-guarded loopback HTTP parent to worker process",
       "owner": "system-runtime",
       "contract_ref": "UI_BRIDGE_CONTRACT",
-      "files": ["main-system/src-tauri/src/embedded.rs", "main-system/src-tauri/src/embedded_worker.rs"]
+      "files": ["main-system/src-tauri/src/webview_host/mod.rs", "main-system/src-tauri/src/webview_host/worker_server.rs"]
     },
     {
       "id": "julia-spawn",
