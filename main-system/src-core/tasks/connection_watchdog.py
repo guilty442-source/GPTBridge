@@ -139,7 +139,8 @@ class ConnectionWatchdog(
         # is bounded at one worker, and every stall is counted + reported.
         self.tick_deadline_s = max(30.0, min(600.0, probe_timeout * 10))
         self._tick_executor = ThreadPoolExecutor(
-            max_workers=bounded_workers(1), thread_name_prefix="connwd-tick"
+            max_workers=bounded_workers(1, workload="maintenance"),
+            thread_name_prefix="connwd-tick",
         )
         self._tick_future: Any = None
         self._tick_stalls = 0

@@ -450,8 +450,22 @@ std::vector<unsigned char> read_binary(const std::filesystem::path& path, int64_
 }
 
 std::string read_text(const std::filesystem::path& path, int64_t max_bytes) {
-    const std::vector<unsigned char> bytes = read_binary(path, max_bytes);
-    return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    // One copy: read directly into the string's buffer instead of
+    // vector -> string (whole-file copy, e.g. multi-MB tokenizer.json).
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) {
+        throw InferenceError("BUNDLE_FILE_UNREADABLE:" + path.string());
+    }
+    const std::streamoff size = input.tellg();
+    if (size < 0 || size > max_bytes) {
+        throw InferenceError("BUNDLE_FILE_TOO_LARGE");
+    }
+    std::string data(static_cast<size_t>(size), '\0');
+    input.seekg(0, std::ios::beg);
+    if (size > 0 && !input.read(data.data(), size)) {
+        throw InferenceError("BUNDLE_FILE_READ_FAILED");
+    }
+    return data;
 }
 
 std::string sha256_hex(const unsigned char* data, size_t size) {

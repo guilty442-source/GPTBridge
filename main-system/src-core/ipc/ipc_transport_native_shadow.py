@@ -154,19 +154,17 @@ class IpcTransportNativeShadow:
                 )
                 return
             if native_payload != text:
-                oversized = (
-                    len(text.encode("utf-8", "replace")) > _SLOT_PAYLOAD_BYTES
-                )
+                python_bytes = len(text.encode("utf-8", "replace"))
                 self._emit(
                     {
                         "kind": "divergence",
                         "op": (
                             "transport-truncated"
-                            if oversized
+                            if python_bytes > _SLOT_PAYLOAD_BYTES
                             else "transport-mismatch"
                         ),
                         "seq": seq,
-                        "python": {"payload_bytes": len(text.encode("utf-8", "replace"))},
+                        "python": {"payload_bytes": python_bytes},
                         "native": {"payload_bytes": len(native_payload.encode("utf-8", "replace"))},
                     }
                 )

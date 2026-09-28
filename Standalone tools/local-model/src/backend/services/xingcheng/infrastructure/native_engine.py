@@ -233,9 +233,9 @@ def cpu_thread_budget() -> int:
     except (TypeError, ValueError):
         configured = 0
     if configured > 0:
-        return bounded_threads(configured, 1)
+        return bounded_threads(configured, 1, workload="model")
     cores = os.cpu_count() or 8
-    return bounded_threads(max(1, min(4, cores // 4)), 1)
+    return bounded_threads(max(1, min(4, cores // 4)), 1, workload="model")
 
 
 def cpu_generation_cap() -> int:

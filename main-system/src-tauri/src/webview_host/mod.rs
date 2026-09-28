@@ -206,18 +206,57 @@ pub fn on_window_resized(app: &AppHandle) {
     if updates.is_empty() {
         return;
     }
-    // Blocking worker calls off the main thread — this handler runs inside
-    // the event loop's Resized dispatch and must never stall it.
-    std::thread::spawn(move || {
-        for (worker, bounds) in updates {
-            match bounds {
-                Some(b) => {
-                    let _ = worker_request(&worker, "POST", "/bounds", &physical_bounds(&b));
+    // bounded-concurrency/v1: blocking worker calls drain through one
+    // bounded queue + single dispatcher — this handler runs inside the
+    // event loop's Resized dispatch and must never stall it, and a
+    // resize storm must never spawn a thread per event.  Queue full →
+    // drop-oldest (a superseded resize batch is stale by definition).
+    enqueue_resize(updates);
+}
+
+/// Serialized resize-job queue: one dispatcher thread, bounded capacity,
+/// drop-oldest overflow.
+const RESIZE_QUEUE_CAPACITY: usize = 32;
+type ResizeBatch = Vec<(WorkerRef, Option<BrowserBounds>)>;
+static RESIZE_QUEUE: Mutex<std::collections::VecDeque<ResizeBatch>> =
+    Mutex::new(std::collections::VecDeque::new());
+static RESIZE_CV: std::sync::Condvar = std::sync::Condvar::new();
+static RESIZE_STARTED: OnceLock<()> = OnceLock::new();
+
+fn enqueue_resize(updates: ResizeBatch) {
+    RESIZE_STARTED.get_or_init(|| {
+        std::thread::Builder::new()
+            .name("webview-resize-dispatch".into())
+            .spawn(|| loop {
+                let batch = {
+                    let mut q = RESIZE_QUEUE.lock().unwrap();
+                    loop {
+                        if let Some(b) = q.pop_front() {
+                            break b;
+                        }
+                        q = RESIZE_CV.wait(q).unwrap();
+                    }
+                };
+                for (worker, bounds) in batch {
+                    match bounds {
+                        Some(b) => {
+                            let _ =
+                                worker_request(&worker, "POST", "/bounds", &physical_bounds(&b));
+                        }
+                        None => worker_hide(&worker),
+                    }
                 }
-                None => worker_hide(&worker),
-            }
-        }
+            })
+            .ok();
     });
+    {
+        let mut q = RESIZE_QUEUE.lock().unwrap();
+        while q.len() >= RESIZE_QUEUE_CAPACITY {
+            q.pop_front(); // drop-oldest
+        }
+        q.push_back(updates);
+    }
+    RESIZE_CV.notify_one();
 }
 
 pub fn create_session(

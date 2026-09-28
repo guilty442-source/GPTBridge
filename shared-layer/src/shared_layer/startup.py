@@ -142,7 +142,9 @@ class SharedLayerStartup:
             except Exception as exc:
                 return {"available": False, "last_error": str(exc)[:300]}
 
-        with ThreadPoolExecutor(max_workers=bounded_workers(2)) as pool:
+        with ThreadPoolExecutor(
+            max_workers=bounded_workers(2, workload="interactive")
+        ) as pool:
             vectord = pool.submit(_probe_vectord).result()
             ollama = pool.submit(_probe_ollama).result()
 

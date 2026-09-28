@@ -624,7 +624,7 @@ class ToolIsolationHealthMixin:
         tick_deadline = max(30.0, min(600.0, float(interval) * 5))
         if self._monitor_executor is None:
             self._monitor_executor = ThreadPoolExecutor(
-                max_workers=bounded_workers(1),
+                max_workers=bounded_workers(1, workload="maintenance"),
                 thread_name_prefix="tool-isolation-tick",
             )
         while not self._stop_event.is_set():

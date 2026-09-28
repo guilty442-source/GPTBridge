@@ -255,7 +255,7 @@ class RagDagExecutor:
     def _get_pool(self) -> concurrent.futures.ThreadPoolExecutor:
         if self._pool is None:
             self._pool = concurrent.futures.ThreadPoolExecutor(
-                max_workers=bounded_workers(2)
+                max_workers=bounded_workers(2, workload="rag")
             )
         return self._pool
 

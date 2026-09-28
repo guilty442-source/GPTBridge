@@ -38,7 +38,7 @@ git commit -m "Single-line commit message"
 
 **Scope every commit to explicit paths** so externally staged work is never
 swept into your commit (incident 2026-09-20: `ef58c9cc` carried another
-worker's pre-staged P0 changes under a blueprint message):
+worker's pre-staged P0 changes under an unrelated commit message):
 
 ```powershell
 git add <your files>; git diff --cached --name-only   # verify only your files
@@ -55,10 +55,10 @@ git commit -m "Your message" -- <your-file-1> <your-file-2>
 
 Path-scoped commits ignore the index for every other path, so externally
 staged work can never be swept in (incident 2026-09-20: `4914cf07` swept a
-staged `pretrain.py` CUDA-graphs fix under a blueprint message because the
+staged `pretrain.py` CUDA-graphs fix under an unrelated planning message because the
 whole index was committed after the listing was noticed). Recurrence
 2026-09-28: `808a9895` swept another worker's 14 staged
-`native/resource_governor` A185-split files under a release-fixtures
+`native/resource_governor` split files under a release-fixtures
 message while their own files landed in `717aa5fa`; attribution was
 corrected non-destructively via `git notes` on `808a9895`.
 
@@ -72,7 +72,7 @@ corrected non-destructively via `git notes` on `808a9895`.
 
 ## Git Hooks
 
-> Normative authority: Codex A53/A245/A375（A375 為 Git 流程單一控制條）。本節為操作手冊，數值與規則以法典為準。
+> Normative authority: Codex C11/C37/C66（C66 為 Git 流程單一控制條）。本節為操作手冊，數值與規則以法典為準。
 
 - **pre-commit**: runs `git diff --cached --check` (whitespace check) + audit log
 - **pre-push**: blocks force-push / ref deletion / non-fast-forward unless `GOVERNANCE_AUTHORITY_APPROVAL=1`
@@ -94,7 +94,7 @@ Worktrees share the same `.git` directory. Hooks, config, and objects are common
 
 ## Automatic Self-Commit (per worktree)
 
-> Normative authority: Codex A163/A375。
+> Normative authority: Codex C22/C66。
 
 Each worktree can automatically commit the changes made inside its own checkout.
 The service only commits — it **never pushes**.
@@ -121,7 +121,7 @@ operation `auto-commit`. Implementation:
 
 ## Automatic Worktree Synchronization
 
-> Normative authority: Codex A163/A375。
+> Normative authority: Codex C22/C66。
 
 Commit each checkout, merge worker branches into `main`, audit the integrated
 result, then fast-forward all clean worktrees. Conflicts stop the cycle. Only
@@ -143,7 +143,7 @@ must never push directly.
 
 ## Git Automation (main-system task)
 
-> Normative authority: Codex A163/A375。
+> Normative authority: Codex C22/C66。
 > Tunables single source: `main-system/config/automation-flows.json`（`git-automation` flow）。
 
 The old `automation_supervisor` process fleet (one watcher process per
@@ -153,7 +153,7 @@ task: `GitAutomationService`
 executor in the normal-information phase (`app.git_automation`).
 
 - **Commit sweep** every 60 s: runs `self_commit.run_once` per registered
-  worktree, but only after the dirty fingerprint has been stable for a
+  worktree, but only after the dirty-state marker has been stable for a
   60 s debounce — same stability contract as the old watchers, zero extra
   processes. A worktree whose index already holds staged-but-uncommitted
   changes is **skipped** (`staged-index-present`) so a human/agent mid-commit
@@ -179,7 +179,7 @@ longer the default path — prefer the in-process task.
 
 ## 星澄 Self-Learning & Automatic Upgrade
 
-> Normative authority: Codex A554。
+> Normative authority: Codex D131。
 > Tunables single source: `Standalone tools/local-model/runtime/settings/self-learning.json`。
 
 The native model learns from its own verified data and can upgrade itself
@@ -257,7 +257,7 @@ Implementation: `native_transformer/self_learning.py` +
 
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 
-> Normative authority: Codex A556/A557。
+> Normative authority: Codex B134/B135。
 
 Unified maturity ladder; the certified level is decided **only by executed
 tests** — parameter count is recorded as evidence, never a criterion.
@@ -293,7 +293,7 @@ Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
 
 ## 星澄 Data Retention (`star-retention-policy/v1`)
 
-> Normative authority: Codex A113/A114。
+> Normative authority: Codex C17/C18。
 > Tunables single source: `Standalone tools/local-model/runtime/settings/retention.json`。
 
 Bounds local-model runtime growth: old governed job dirs, logs, maturity /
@@ -324,7 +324,7 @@ Implementation: `native_transformer/retention.py` (`apply_retention`).
 
 ## 星澄 Training GPU Gate & Auto-Release
 
-> Normative authority: Codex A239/A116。
+> Normative authority: Codex B44/B16。
 > Tunables single source: `Standalone tools/local-model/runtime/settings/native-engine.json`＋bounded config keys（`gpu_required_mb`／`gpu_acquire_timeout_s`／`auto_release_idle_seconds`）。
 
 - `TrainingJobExecutor.run_job` gates CUDA training through
@@ -355,7 +355,7 @@ Implementation: `native_transformer/retention.py` (`apply_retention`).
 
 ## Lazy RAG/CAG (MS1/MS2)
 
-> Normative authority: Codex A586/A587。
+> Normative authority: Codex B154/B155。
 
 RAG + CAG are capability-critical, not boot-critical. By default the
 composition root does NOT import or construct them — measured import
@@ -406,7 +406,7 @@ go test ./...
 
 ## On-Demand Model Activation (Lazy 星澄)
 
-> Normative authority: Codex A586。
+> Normative authority: Codex B154。
 > Tunables single source: `main-system/config/tool-isolation-policy.json`＋`sleep-policy.json`。
 
 `model-dialogue` opens without the local model (governor directive 2026-09-17).
@@ -440,7 +440,7 @@ identity `xingcheng`) is not running:
 
 ## Resource Governor
 
-> Normative authority: Codex A30/A116/A593。
+> Normative authority: Codex B3/B16/B159。
 
 Adaptive CPU/memory governor that watches every process owned by the current
 user and lowers resource pressure automatically: sustained CPU hogs get
@@ -471,7 +471,7 @@ Tunables: `--interval` (default 20s), `--cpu-busy` (50% of one core),
 `main-system/runtime/logs/resource-governor.jsonl`; the latest cycle snapshot
 is in `main-system/runtime/state/resource-governor.json`.
 
-Implementation: `native/resource_governor/` (C++23, A608) — the Python
+Implementation: `native/resource_governor/` (C++23, Codex A137) — the Python
 `scripts/resource-governor.py` was retired on migration; the state/log JSON
 contract is unchanged.
 
@@ -479,8 +479,9 @@ contract is unchanged.
 
 `shared-layer/src/shared_layer/adaptive/` is the bounded, pre-approved control
 layer for the local data platform (admission control, dynamic pool/batch,
-retry, per-domain breakers, maintenance scheduling, cost gate, SQLite
-fallback and Qdrant budgets).  Every adaptive parameter moves only inside
+retry, per-domain breakers, maintenance scheduling, cost gate and Qdrant
+budgets). PostgreSQL is the only SQL authority; no embedded SQL fallback is allowed.
+Every adaptive parameter moves only inside
 `AdaptiveEnvelope` (pool 2–8, batch 50–500, reconcile workers 1–2).
 
 Transport priority queue: submissions declare `priority_class`
@@ -520,16 +521,15 @@ credential, session, permission, rotation and revocation:
   transaction-locally via bound `set_config`.
 - Credential metadata only in PostgreSQL (`gptbridge_security.credential`,
   migration `087_security_identity_control.sql`); plaintext is rejected by
-  `assert_metadata_only`; fingerprints are HMAC-SHA256.
+  `assert_metadata_only`; stored credential verifiers use HMAC-SHA256.
 - Rotation with grace period (create → verify → switch → grace → revoke) and
   strict emergency revocation (disable → terminate → rotate → raise
   generation → audit).
 - Security generation fence: sensitive writes fail closed under a stale
   `gptbridge.security_generation`; raise via
   `gptbridge_security.raise_security_generation(reason, actor)`.
-- SQLite boundaries (path allowlist + process identity + locator scope +
-  owner-only ACL) and mandatory Qdrant scoping (`require_scope`, module_id
-  always required).
+- Mandatory Qdrant scoping (`require_scope`, module_id always required);
+  retired embedded SQL storage must have zero active consumers.
 - Least-privilege certification: `least_privilege_report()` +
   `certification_errors()` (no SUPERUSER/CREATEDB/CREATEROLE/BYPASSRLS,
   no PUBLIC grants).
@@ -538,7 +538,7 @@ credential, session, permission, rotation and revocation:
 ## Cross-Engine Workflow (Saga)
 
 `shared-layer/src/shared_layer/workflow/` makes one business operation across
-PostgreSQL + SQLite + Qdrant + NTFS recoverable, re-runnable and verifiable —
+PostgreSQL + Qdrant + NTFS recoverable, re-runnable and verifiable —
 without distributed transactions / 2PC:
 
 - Single-engine work stays in an ACID transaction; multi-engine work runs as
@@ -554,20 +554,19 @@ without distributed transactions / 2PC:
   worker does not leave `RUNNING` forever; long steps heartbeat, short SQL
   steps do not.
 - Transactional outbox + inbox dedup (at-least-once + idempotent execution;
-  never exactly-once claims). Central transport stays PostgreSQL; SQLite
-  keeps only a module-private fallback that can never declare central
-  completion.
+  never exactly-once claims). Central transport and durable operation state
+  stay in PostgreSQL; no local SQL store may declare completion.
 - Publish barrier: `PREPARING → INDEXING → VERIFYING → READY`; only `READY`
   is readable, and cross-engine verdicts degrade to `DEGRADED` / `CONFLICT`
   instead of pretending success.
 - Atomic file writes (`temp → fsync → hash → rename`), tombstone deletes,
-  operation fingerprints (Python/SQL parity), and a guard that forbids
+  operation identity digests (native/PostgreSQL parity), and a guard that forbids
   cross-engine work inside an open PostgreSQL transaction.
   Tests: `shared-layer/tests/test_workflow_consistency.py`.
 
 ## Architecture Registry (single source of truth)
 
-> Normative authority: Codex A201/A232/A281。
+> Normative authority: Codex C31/C35/C45。
 
 `governance_rule/execution/audit/architecture_registry.json` is the one
 machine-readable topology authority: every component declares
@@ -577,13 +576,11 @@ canonical / dependencies / information_channels`.
 
 - `architectural_role` (governance / startup / decision / information / data /
   execution / model / development-maintenance …) is deliberately separate
-  from `runtime_form` (python-process / electron-app / standalone-service /
+  from `runtime_form` (native-process / desktop-shell / standalone-service /
   database / external-service …), so "directory", "tool", "module",
   "service" and "layer" can no longer conflict.
-- Active sovereigns are `decision / permission / system-runtime /
-  synchronization / xingcheng-domain`; retired ones (`maintenance`,
-  `automation`) exist only as compatibility shims and may never own a
-  component.
+- Current ownership follows only the five-core responsibility model recorded
+  by the Codex; historical ownership layers are never active owners.
 - The governance audit runs `check_architecture_registry`: Codex == registry
   == permission-directory routes == module manifests == sovereign ownership
   == physical directories, in one pass.  Drift is a failure, not a warning.
@@ -592,55 +589,36 @@ canonical / dependencies / information_channels`.
 
 Tests: `governance_rule/tests/test_architecture_registry.py`.
 
-## Planning documents
+## Work authority
 
-Blueprint planning files are retired. Do not create or restore blueprint,
-roadmap, phased-plan, flow-plan, or equivalent planning documents. Current
-work is governed directly by the Codex, registered contracts, and explicit
-user instructions.
+Do not create separate planning authorities. Work is governed directly by the
+PostgreSQL Codex, registered contracts, and explicit user instructions.
 
-## Codex Amendment Pipeline (A382/A488)
+## Codex update pipeline
 
-> Normative authority: Codex A382/A488/A537/A538。
-> Tunables single source: `main-system/config/automation-flows.json`（`codex-amendment-intake` flow）。
+> Normative authority: Codex D75/D118/B124/C102.
 
-Staged request artifacts (`artifact=codex-amendment-request`, `authority=request-only`)
-in the canonical intake dirs — `main-system/runtime/state/` and
-`governance_rule/execution/audit/convergence/` (`codex-amendment-request-*.json`) —
-are advanced by the periodic AutomationCore flow `codex-amendment-intake`
-(`main-system/src-core/tasks/codex_amendment_intake.py`, interval 300 s):
+PostgreSQL is the sole Codex authority. A change uses an isolated, non-authority
+candidate artifact, rebuilds current bindings and all projections, synchronizes
+the five-part Chinese mirror and architecture documents, runs the governance
+checks, and atomically publishes one newer version. The published
+`current_version`, active binding version, revision history and seal generation
+must agree. Temporary candidate formats never acquire authority.
 
-```
-scan → ledger.begin (lineage lock, one active request per predecessor)
-     → build_successor (PG authority export → candidate sqlite + manifest)
-     → run_five_sovereign_audit (unanimous receipts + certificate)
-     → ready-for-governor   ← stop line; publication stays governor-invoked
-```
-
-- Xingcheng's receipt requires the governed web-search path: the driver
-  submits `xingcheng_web_search` to a running `local-model` via
-  `ToolboxService.request_tool_execution` (sync callable bridged through
-  `run_coroutine_threadsafe`). When the tool is cold the audit **defers**
-  (`successor-built`) — it never wakes the tool just to audit and never
-  permanently rejects a request for a transient outage.
-- Crashed audits (record stuck at `auditing`) are rewound to
-  `successor-built` — a certificate only exists after a unanimous pass.
-- Publication: `governance_rule/execution/codex_amendment_executor.py
-  --request <req.json> --prepared <candidate.sqlite3> --staging <dir>
-  --audit-result <audit.json> --apply` (governor only).
-- CLI: `python -m governance_rule.execution.codex_amendment_driver
-  --scan | --request <path> | --all`.
-
-Tests: `governance_rule/tests/test_codex_amendment_driver.py`,
-`main-system/tests/test_codex_amendment_intake_driver.py`.
+Unavailable prerequisites are `DEFERRED`, not PASS or rejection. Deferred work
+records its reason and next evaluation time and resumes through the existing
+automation flow. Package candidates without explicit permission use
+`DEFERRED_AWAITING_PERMISSION`; normal releases younger than 14 days use
+`DEFERRED_OBSERVATION_WINDOW`; the update detector runs every 24 hours.
 
 ## Governance
 
-- Codex files (`governance_rule/codex/*.py`) are **read-only** — do not modify without explicit user approval.
+- PostgreSQL is the official Codex; generated mirrors and architecture documents
+  are synchronized projections and must not diverge from it.
 - Governance audit must pass before commits: `python -m governance_rule.execution.audit`
 - **Implementation precedence**: preserve a verified superior implementation
-  and converge the Codex or registered contract through its governed process;
-  never roll back superior tested behavior to match retired planning text.
+  and converge the Codex or registered contract; never roll back superior
+  behavior to match retired text.
 - Model core must remain separate from network functionality.
 - All external network access must go through governed tool paths.
 
@@ -660,82 +638,22 @@ python -m governance_rule.execution.audit
 
 ## Build Commands
 
-- Python venv: `main-system\.venv\Scripts\python.exe`
-- JavaScript-ESM: `npm run build` (in `main-system/`)
+- Native production runtime: C/C++23, Rust, C#, F#, Go and Julia according to
+  the language ownership contract.
+- UI: Rust + Tauri + Native JavaScript ESM with JSDoc + GPUI + egui; Esbuild
+  and SWC may be combined as governed build tools.
+- Python: only the thinnest necessary governance semantics, on-demand JAX
+  training, and development verification; production must not start pytest,
+  Python inference, RAG, UI, process management, file or network workers.
 
-## Node/Electron Boundary (staged retirement)
+## Native UI stack
 
-> Normative authority: Codex A35/A348 (TypeScript fully retired;
-> authored frontend and governance JavaScript use JavaScript-ESM).
-
-Node.js/Electron are **retired as platform-level dependencies** but remain
-the provisional runtime of the JavaScript-ESM UI shell
-(`main-system/src-ui`, tool `src/ui` surfaces, `dist-ui`,
-`node_modules`) until a native frontend host replaces it.
-
-- The C# launcher (`launcher/src/GPTBridge.Bootstrap`) owns UI-runtime
-  provisioning (`npm install` self-heal, `npm run build:app`, electron
-  launch); Python-side probes/repair were retired.
-- Removed at platform level: `node`/`npm` required-tool checks
-  (environment doctor, health, maintenance capability), third-party
-  manager probes/auto-update/fetch, Electron repair chain
-  (`repair_electron_runtime` is a fail-closed stub for legacy callers),
-  and `node`/`npm` entries are `status: "retired"` in
-  `tool_inventory.json`.
-- Do NOT re-add Node checks to platform health/doctor paths; do NOT
-  author new `.ts`/`.tsx` (denied by `check_typescript_retirement`).
-- Deleting `package.json`, `src-ui`, `node_modules`, or `dist-ui`
-  bricks the platform UI — that step waits for the native shell
-  replacement.
-
-## Tauri Desktop Host (Electron replacement — in progress)
-
-> Normative authority: Codex A618/A621/A625 (Rust+Tauri desktop host;
-> Electron is MIGRATION_ONLY). Implementation: `main-system/src-tauri/`
-  (`gptbridge-shell.exe`, tauri 2.12 / wry 0.57).
-
-**Verified working**: single-instance, renderer load + `window.electron`/
-`gptBridge` IPC shim (whitelist-enforced `gptbridge_invoke`), backend
-supervision (boot_core spawn/attach), authenticated WS handshake
-(`http://tauri.localhost` must stay in `TRUSTED_WEBSOCKET_ORIGINS`).
-
-**Embedded-browser**: helper-process architecture (`embedded.rs` +
-`embedded_worker.rs`). Each session spawns the same executable with
-`--embedded-worker`; the worker owns exactly one WebView2 controller —
-the reliable first-controller path — because on this machine any
-host→controller call wedges once a process owns more than one
-controller (post-loop creation deadlocks in EBW.dll, wry#1665/#583
-class; even pooled first-N ops stalled 5–60 s). The worker reparents
-its frameless `WebviewWindow` under the main window HWND (WS_CHILD —
-clipped like BrowserView), serves a token-guarded loopback endpoint
-(state file `runtime/state/embedded-worker-<id>.json`), and exits on
-`/close`, parent-PID death, or taskkill backstop. Verified E2E:
-create→list→url→navigate→url→execute→resize→hide→close→list,
-worker + WebView2 tree terminates cleanly, main loop stays responsive.
-`webview2-com` is vendored (`src-tauri/vendor/`) with a
-`CoWaitForMultipleHandles` wait_with_pump patch for the STA callback
-delivery bug. Never hold the session-registry mutex across a worker
-HTTP call or process spawn. A hidden window can report a 0x0 inner
-size — `record_content_size` must never cache it (every bounds clamp
-would fail-closed-hide).
-
-**Known limitation (this dev machine)**: worker webview warm-up is
-still EBW-bound — `create`/`execute` can take single-digit seconds on
-first call, then ops run at ~0.1–1.5 s. Launcher still defaults to
-Electron until the full lifecycle is validated on a healthy runtime.
-
-**Launcher host switch** (`GPTBridge.Bootstrap`, `Program.cs`): the
-Tauri branch is wired — host resolves `--ui-host` arg →
-`GPTBRIDGE_UI_HOST` env → `launcher/state/ui-host.json` → default
-`electron`. On the Tauri path the launcher skips `EnsureNodeRuntime`
-entirely, keeps Python/UI-build prep and the same env contract
-(`GPTBRIDGE_MANAGE_BACKEND` etc.), launches
-`src-tauri/target/release/gptbridge-shell.exe`, and falls back to
-Electron if the shell binary is missing or exits non-zero at startup.
-Flip the default by writing `{"host":"tauri"}` to
-`launcher/state/ui-host.json` — no launcher rebuild needed. Journal
-events: `launcher.ui-host.selected`, `.phase.tauri.start`,
-`.tauri.accepted|.handoff|.exited`, `.ui-host.fallback`.
+The only current UI architecture is Rust 1.98.1 application/state/security,
+IPC, lifecycle and native integration; Tauri desktop shell and WebView host;
+Native JavaScript ESM with JSDoc for general UI; GPUI for model dialogue,
+coding and high-volume native views; and egui for diagnostics, profiling and
+governance inspection. Retired UI stacks must not be restored as runtime
+dependencies or fallback hosts.
 
 ## Bounded Parallelism
 
@@ -795,21 +713,22 @@ allocation is a bottleneck, with bounded lifetime and ownership evidence.
 
 ## Execution Plane Ownership
 
-Keep language count separate from performance ownership. Rust owns the
-highest-frequency, lowest-latency execution core; Go owns high-concurrency I/O,
-IPC, networking, and worker orchestration; Python is limited to JAX/NumPy,
-AI glue, and irreducible scientific or Python-only algorithms; C/C++ owns SIMD,
-model runtime, and extreme hotspots; Julia is for research and numerical
-algorithms outside the main hot path; JavaScript-ESM is renderer/UI only.
-PostgreSQL remains the sole structured-data authority, Qdrant is the semantic
-index, and SQLite is bounded private local state.
+Keep language count separate from ownership. C and C++23 own approved
+deterministic execution, native tests, inference and audit hot paths. C# owns
+interfaces and the single authorized workflow/test orchestration surface. Rust
+owns the UI application/state/security/IPC/lifecycle core and native RAG
+retrieval. Go owns high-concurrency file, batch and network work. F# owns data
+analysis, machine learning and correctness-sensitive complex calculations.
+Julia owns specialized numerical research. Native JavaScript ESM with JSDoc is
+UI-only. Python is limited to irreducible governance semantics, on-demand JAX
+training and development verification, and may not continuously execute bulk
+mechanical work. PostgreSQL is the sole structured-data authority and Qdrant is
+the scoped semantic index; no embedded database may act as authority or fallback.
 
-The canonical three-plane flow is UI → Go control plane (IPC, WebSocket,
-scheduler, worker pool, cancellation, backpressure, health) → Rust execution
-plane (routing, parsing, validation, file I/O, hashing, cache, search
-preprocessing, serialization, CPU-heavy jobs) → specialized runtime (LLM,
-JAX/Python, PostgreSQL, Qdrant, Git). Python must not be a request-critical
-system backbone when Rust or Go can own the path.
+The canonical runtime path uses the shortest governed native boundary and
+avoids Python on request-critical paths. C/C++ execution does not create or
+change governance rules; C# orchestration cannot bypass decision or permission
+checks.
 
 ## Global Work Scheduler
 
@@ -887,6 +806,6 @@ Execute optimization in this order:
 
 Stages 1–4 have priority. Avoid premature SIMD, handwritten memory pools, and
 complex lock-free structures when profiling has not demonstrated a bottleneck.
-The convergence slogan is: Go manages concurrency, Rust runs the core, Python
-runs AI, PostgreSQL owns truth, Qdrant owns vectors, and every operation is
-bounded, batched, cancellable, parallelizable, and model-resident when hot.
+The convergence rule is: native owners execute bounded work, PostgreSQL owns
+structured truth, Qdrant owns scoped vectors, Python stays minimal and
+on-demand, and every operation remains cancellable, observable and governed.

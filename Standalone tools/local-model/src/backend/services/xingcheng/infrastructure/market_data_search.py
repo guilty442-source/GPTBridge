@@ -36,7 +36,9 @@ class MarketDataSearchMixin:
         # 統一執行緒策略入口（§10.30／A590）：worker 數受五核預算收斂。
         from shared_layer.performance.thread_budget import bounded_workers
 
-        workers = bounded_workers(int(payload.get("max_workers") or 4))
+        workers = bounded_workers(
+            int(payload.get("max_workers") or 4), workload="network"
+        )
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
                 executor.submit(

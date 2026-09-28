@@ -88,7 +88,7 @@ class E2EBenchmark:
             for _ in range(warmup):
                 self._run_once(path_name, fn)
             with ThreadPoolExecutor(
-                max_workers=bounded_workers(concurrency),
+                max_workers=bounded_workers(concurrency, workload="verification"),
                 thread_name_prefix="e2e-bench",
             ) as pool:
                 reports = list(

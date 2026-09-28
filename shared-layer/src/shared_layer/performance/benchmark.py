@@ -119,7 +119,9 @@ class BenchmarkSuite:
                     correctness = False
         else:
             with concurrent.futures.ThreadPoolExecutor(
-                max_workers=bounded_workers(config.concurrency),
+                max_workers=bounded_workers(
+                    config.concurrency, workload="verification"
+                ),
             ) as pool:
                 futures = [
                     pool.submit(_one)

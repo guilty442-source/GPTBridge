@@ -359,7 +359,7 @@ class CleanupScanner(VideoFingerprintMixin, VideoSimilarityMixin, MediaProcessin
             return None
         from shared_layer.performance.thread_budget import bounded_workers
 
-        workers = bounded_workers(2)
+        workers = bounded_workers(2, workload="maintenance")
         if workers <= 1:
             return None
         return concurrent.futures.ThreadPoolExecutor(

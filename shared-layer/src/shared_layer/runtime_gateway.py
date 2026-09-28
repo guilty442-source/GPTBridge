@@ -91,6 +91,8 @@ class InformationChannelGateway:
         rate_capacity: int = 30,
         rate_refill_per_sec: float = 10.0,
         contract_resolver: CommandContractResolver | None = None,
+        queue_capacity: int = 256,
+        queue_deadline_ms: int = 30_000,
     ) -> None:
         if not callable(handler):
             raise TypeError("route handler is required")
@@ -101,9 +103,18 @@ class InformationChannelGateway:
         self._contract = contract_resolver or (
             CommandContractResolver(project_root) if project_root else None
         )
+        # bounded-concurrency/v1: the dispatch queue is capacity-bounded
+        # with a queue deadline — rate limiting gates rate, capacity
+        # gates depth.  Full → audited GATEWAY_QUEUE_FULL rejection;
+        # deadline-expired items are shed at dequeue (drop policy).
+        self._queue_deadline_ms = max(1, queue_deadline_ms)
         self._queue: asyncio.Queue[
-            tuple[GovernedCommandEnvelope, asyncio.Future[tuple[str, dict[str, Any]]]]
-        ] = asyncio.Queue()
+            tuple[
+                GovernedCommandEnvelope,
+                asyncio.Future[tuple[str, dict[str, Any]]],
+                float,
+            ]
+        ] = asyncio.Queue(maxsize=max(1, queue_capacity))
         self._worker: asyncio.Task[None] | None = None
         self._metrics = GatewayMetrics()
 
@@ -154,7 +165,16 @@ class InformationChannelGateway:
 
         loop = asyncio.get_running_loop()
         future: asyncio.Future[tuple[str, dict[str, Any]]] = loop.create_future()
-        await self._queue.put((envelope, future))
+        expires = loop.time() + self._queue_deadline_ms / 1000.0
+        try:
+            self._queue.put_nowait((envelope, future, expires))
+        except asyncio.QueueFull:
+            self._metrics.record_denied("capacity")
+            return self._deny(
+                envelope,
+                "GATEWAY_QUEUE_FULL",
+                "Information channel queue is at capacity",
+            )
         if self._worker is None or self._worker.done():
             self._worker = asyncio.create_task(self._run(), name="information-channel")
         result = await future
@@ -191,9 +211,22 @@ class InformationChannelGateway:
         )
 
     async def _run(self) -> None:
+        loop = asyncio.get_running_loop()
         while not self._queue.empty():
-            envelope, future = await self._queue.get()
+            envelope, future, expires = await self._queue.get()
             try:
+                if loop.time() > expires:
+                    # deadline: shed expired work instead of running it.
+                    self._metrics.record_denied("deadline")
+                    self._resolve(
+                        future,
+                        self._deny_payload(
+                            envelope,
+                            "GATEWAY_DEADLINE_EXPIRED",
+                            "Command exceeded its queue deadline",
+                        ),
+                    )
+                    continue
                 result = await self._handler(envelope.command, envelope.payload)
                 self._deliver(envelope, future, result)
             except Exception as error:

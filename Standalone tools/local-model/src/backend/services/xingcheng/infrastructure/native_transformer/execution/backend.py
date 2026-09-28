@@ -223,7 +223,7 @@ def apply_cpu_thread_budget(
     budget = cpu_thread_budget(
         role, configured=configured, parallel_workers=parallel_workers
     )
-    apply_thread_env(budget, parallel_workers)
+    apply_thread_env(budget, parallel_workers, workload="model")
     torch.set_num_threads(budget)
     try:
         torch.set_num_interop_threads(1)

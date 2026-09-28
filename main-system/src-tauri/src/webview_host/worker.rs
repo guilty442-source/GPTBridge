@@ -149,9 +149,42 @@ pub(crate) fn nav_record(url: &str) {
     nav.cursor = nav.history.len() - 1;
 }
 
+/// bounded-concurrency/v1: events funnel through one bounded channel
+/// into a single dispatcher thread — a stalled bridge must never block
+/// the webview thread, and an event storm must never spawn a thread
+/// per event.  Queue full → drop (telemetry drop/reject policy).
+const EVENT_QUEUE_CAPACITY: usize = 256;
+
+fn event_tx() -> &'static std::sync::mpsc::SyncSender<(u16, String, String)> {
+    static TX: OnceLock<std::sync::mpsc::SyncSender<(u16, String, String)>> =
+        OnceLock::new();
+    TX.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<(u16, String, String)>(
+            EVENT_QUEUE_CAPACITY,
+        );
+        std::thread::Builder::new()
+            .name("webview-event-dispatch".into())
+            .spawn(move || {
+                while let Ok((port, token, payload)) = rx.recv() {
+                    let _ = gptbridge_core::ipc::http::post(
+                        "127.0.0.1",
+                        port,
+                        "/event",
+                        &[("x-gptbridge-bridge-token", token.as_str())],
+                        payload.as_bytes(),
+                        Duration::from_secs(5),
+                    );
+                }
+            })
+            .ok();
+        tx
+    })
+}
+
 /// Push an embedded-browser event to the parent tool bridge (which emits
-/// ``embedded-browser:event`` into the tool renderer).  Fire-and-forget on
-/// a helper thread — a stalled bridge must never block the webview thread.
+/// ``embedded-browser:event`` into the tool renderer).  Fire-and-forget
+/// through the bounded dispatch queue — a stalled bridge must never
+/// block the webview thread, and a full queue drops the event.
 pub(crate) fn push_event(event_type: &str, url: &str, detail: serde_json::Value) {
     let (port, token) = event_channel().lock().unwrap().clone();
     if port == 0 || token.is_empty() {
@@ -167,17 +200,7 @@ pub(crate) fn push_event(event_type: &str, url: &str, detail: serde_json::Value)
             obj.insert(k.clone(), v.clone());
         }
     }
-    let payload = body.to_string();
-    std::thread::spawn(move || {
-        let _ = gptbridge_core::ipc::http::post(
-            "127.0.0.1",
-            port,
-            "/event",
-            &[("x-gptbridge-bridge-token", token.as_str())],
-            payload.as_bytes(),
-            Duration::from_secs(5),
-        );
-    });
+    let _ = event_tx().try_send((port, token, body.to_string()));
 }
 
 pub(crate) fn pending_cell(
@@ -324,11 +347,22 @@ pub fn run(args: WorkerArgs) -> i32 {
         args.session_id,
         std::process::id()
     );
+    // bounded-concurrency/v1: governor-sized worker pool + bounded
+    // pending queue; a full queue closes the connection — never a
+    // thread per connection.
+    let workers = crate::governor_budget::resolve_workers("network", 2, 8);
+    let pending = crate::governor_budget::bounded_conn_pool(
+        workers,
+        32,
+        (),
+        |_, stream| worker_server::handle_connection(stream),
+    );
     std::thread::spawn(move || {
         for incoming in listener.incoming() {
             match incoming {
                 Ok(stream) => {
-                    std::thread::spawn(move || worker_server::handle_connection(stream));
+                    // Reject: close immediately (IPC callers retry).
+                    let _ = pending.try_send(stream);
                 }
                 Err(_) => std::thread::sleep(Duration::from_millis(50)),
             }

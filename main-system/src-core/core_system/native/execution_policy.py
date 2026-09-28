@@ -116,7 +116,7 @@ def with_workers(
 
     from shared_layer.performance.thread_budget import bounded_workers
 
-    workers = bounded_workers(workers)
+    workers = bounded_workers(workers, workload="model")
     return dataclasses.replace(policy, max_workers=workers)
 
 

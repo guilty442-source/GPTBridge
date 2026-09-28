@@ -304,7 +304,7 @@ class DatabaseRecoveryInspector:
         ]
         from shared_layer.performance.thread_budget import bounded_workers
 
-        max_workers = bounded_workers(len(databases))
+        max_workers = bounded_workers(len(databases), workload="maintenance")
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             results = list(
                 executor.map(

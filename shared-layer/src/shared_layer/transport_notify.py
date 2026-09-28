@@ -209,7 +209,7 @@ class TransportNotifyListener:
             callbacks = list(self._subscribers.get(channel, ()))
         if self._dispatch_executor is None:
             self._dispatch_executor = ThreadPoolExecutor(
-                max_workers=bounded_workers(2),
+                max_workers=bounded_workers(2, workload="network"),
                 thread_name_prefix="transport-notify-cb",
             )
         for callback in callbacks:

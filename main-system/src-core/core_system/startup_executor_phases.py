@@ -153,7 +153,8 @@ class StartupExecutorPhasesMixin:
 
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor(
-            max_workers=bounded_workers(2), thread_name_prefix="perm-snapshot"
+            max_workers=bounded_workers(2, workload="maintenance"),
+            thread_name_prefix="perm-snapshot",
         ) as executor:
             code_rule_future = loop.run_in_executor(executor, code_rule_directory_snapshot)
             dir_auth_future = loop.run_in_executor(executor, directory_authority_snapshot)

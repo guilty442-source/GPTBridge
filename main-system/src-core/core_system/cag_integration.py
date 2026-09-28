@@ -323,7 +323,9 @@ class CAGIntegration:
         )
 
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=bounded_workers(len(self.PRELOAD_MODULE_GROUPS)),
+            max_workers=bounded_workers(
+                len(self.PRELOAD_MODULE_GROUPS), workload="rag"
+            ),
             thread_name_prefix="cag-preload",
         ) as pool:
             contexts = list(pool.map(_load, self.PRELOAD_MODULE_GROUPS))

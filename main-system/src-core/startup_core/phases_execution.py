@@ -198,7 +198,8 @@ class StartupPhaseExecutionMixin:
                 min(
                     STARTUP_PHASE_MAX_WORKERS,
                     len(BOOTSTRAP_PHASES) + len(declarations),
-                )
+                ),
+                workload="interactive",
             )
             ordered_deps = _dependency_start_order(declarations)
             with ThreadPoolExecutor(

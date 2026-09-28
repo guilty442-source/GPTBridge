@@ -111,7 +111,7 @@ class RagOrchestrator:
 
         pools: dict[RagArchitecture, list[RagEvidence]] = {}
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=bounded_workers(len(lanes)),
+            max_workers=bounded_workers(len(lanes), workload="rag"),
             thread_name_prefix="rag-dispatch",
         ) as pool:
             futures = {
