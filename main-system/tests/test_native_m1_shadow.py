@@ -30,6 +30,9 @@ SRV = (
     / "backend"
     / "services"
 )
+if not SRV.exists():
+    pytest.skip("system-rescue tool is retired; M1 shadow parity tests are obsolete", allow_module_level=True)
+
 sys.path.insert(0, str(SRC_CORE))
 sys.path.insert(0, str(SRV))
 

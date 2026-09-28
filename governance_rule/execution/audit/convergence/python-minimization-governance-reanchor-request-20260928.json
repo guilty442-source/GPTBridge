@@ -1,0 +1,41 @@
+{
+  "id": "python-minimization-governance-zone-reanchor-request-20260928",
+  "date": "2026-09-28",
+  "worker": "devin-cli",
+  "type": "adjudication-request",
+  "authority": "governance-rule-only",
+  "subject": "PYTHON_MINIMIZATION_BASELINE allowed_zones.GOVERNANCE loc drift: 57051 > 56985 (+66 LOC, files unchanged at 203)",
+  "invariant": "main-system/config/python-minimization-baseline.json allowed_zones.GOVERNANCE freezes total LOC; test_allowed_zones_frozen enforces strict > comparison. Policy: ratchet only tightens; growth requires governor adjudication.",
+  "measured_at": "2026-09-28T12:00:00+08:00",
+  "live_state": {
+    "governance_zone_files": 203,
+    "governance_zone_files_baseline": 203,
+    "governance_zone_loc": 57051,
+    "governance_zone_loc_baseline": 56985,
+    "net_drift_loc": 66,
+    "zero_targets_status": "all nine zero-target buckets at or below baseline (no violation)"
+  },
+  "drift_sources": {
+    "scope": "commits since baseline measurement (baseline metadata.measured_at = 2026-09-28T00:00:00Z)",
+    "files_touched_today": [
+      "governance_rule/execution/audit/audit_artifacts.py",
+      "governance_rule/execution/audit/export_audit_manifest.py",
+      "governance_rule/execution/codex_amendment_audit_gate.py",
+      "governance_rule/execution/codex_amendment_driver.py",
+      "governance_rule/execution/codex_generation_projections.py",
+      "governance_rule/execution/codex_update_pipeline.py",
+      "governance_rule/execution/formal_rules/evaluators.py",
+      "governance_rule/execution/formal_rules/fact_fixtures.py"
+    ],
+    "nature": "hardening of the governed codex-amendment toolchain (fail-closed generation integrity, projection rebind tolerance, network-free amendment audits, Xingcheng assistant charter coverage) mandated by live codex provisions; no new files, no zone leakage"
+  },
+  "assessment": "The +66 LOC is legitimate, codex-mandated growth inside the allowed GOVERNANCE zone (policy: thin-to-minimum, stays-python). GOVERNANCE is a permitted Python zone; the freeze is a pending-ratchet marker, not a hard ceiling. Implementation-side cannot self-authorize an upward baseline adjustment (ratchet direction is tighten-only, authority is governance-rule-only) and will not fabricate shrinkage of governed machinery.",
+  "requested_governor_actions": [
+    "adjudicate the +66 LOC drift: either re-anchor allowed_zones.GOVERNANCE.loc to the measured 57051 (contract_revision bump, adjudications entry appended), or direct specific modules for thinning",
+    "if re-anchoring, record the adjudication in metadata.adjudications_rev3 with this evidence file as reference"
+  ],
+  "evidence": {
+    "test": "main-system/tests/test_python_minimization_gates.py::test_allowed_zones_frozen",
+    "measurement_source": "test_python_minimization_gates._measure() path-pattern first-match buckets, same recipe as baseline (pybucket.py)"
+  }
+}

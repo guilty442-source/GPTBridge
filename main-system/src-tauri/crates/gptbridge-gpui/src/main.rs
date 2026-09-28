@@ -17,7 +17,7 @@ mod model_dialogue;
 mod native_views;
 mod streaming_text;
 
-use gpui::{AppContext, Application, Bounds, WindowBounds, WindowOptions, px, size};
+use gpui::{px, size, AppContext, Application, Bounds, WindowBounds, WindowOptions};
 
 use coding_workspace::CodingWorkspaceView;
 use model_dialogue::ModelDialogueView;

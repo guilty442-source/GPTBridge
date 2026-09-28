@@ -103,6 +103,12 @@
       "criticality": "release-critical",
       "surfaces": ["data-integrity"]
     },
+    "resource_governor_suite": {
+      "affected_capability": "resource governor control law (A608)",
+      "release_impact": "governor regulation/actions unverified",
+      "criticality": "release-critical",
+      "surfaces": ["fail-closed"]
+    },
     "runtime_core_suite": {
       "affected_capability": "C11 resident runtime core",
       "release_impact": "resident core lifecycle unverified",

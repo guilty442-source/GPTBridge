@@ -81,6 +81,12 @@ AUDIT_TOOL_ROOT = NATIVE_ROOT / "audit"
 # core or the pybind extension; declared so the validator can exclude
 # this layer while keeping it auditable.
 TOOL_RUNTIME_ROOT = NATIVE_ROOT / "tool_runtime"
+# C++23 resource-governor layer: native/resource_governor hosts the A185
+# standalone governor (control law + Win32 engine + host) compiled by its own
+# build.ps1 into bin/resource-governor.exe. NOT part of the pure-C core or
+# the pybind extension; declared so the validator can exclude this layer
+# while keeping it auditable.
+RESOURCE_GOVERNOR_ROOT = NATIVE_ROOT / "resource_governor"
 
 
 def _relative(path: pathlib.Path) -> str:
@@ -99,6 +105,7 @@ def native_build_manifest() -> dict[str, Any]:
         "test_suite_layer": _relative(TEST_SUITE_ROOT),
         "audit_tool_layer": _relative(AUDIT_TOOL_ROOT),
         "tool_runtime_layer": _relative(TOOL_RUNTIME_ROOT),
+        "resource_governor_layer": _relative(RESOURCE_GOVERNOR_ROOT),
         "output_root": _relative(DIST_NATIVE),
         "link_language": "c++",
     }
@@ -122,6 +129,7 @@ def validate_layering() -> dict[str, Any]:
         and TEST_SUITE_ROOT not in path.parents
         and AUDIT_TOOL_ROOT not in path.parents
         and TOOL_RUNTIME_ROOT not in path.parents
+        and RESOURCE_GOVERNOR_ROOT not in path.parents
     )
     for path in cpp_files:
         errors.append(f"C++ source inside pure-C native root: {_relative(path)}")

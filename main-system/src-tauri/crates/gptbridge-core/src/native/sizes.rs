@@ -16,13 +16,31 @@ const CACHE_TTL_MS: u64 = 30_000;
 
 const MAIN_SYSTEM_DEPENDENCY_DIRECTORIES: [&str; 2] = [".venv", "node_modules"];
 
-const TOOL_RUNTIME_ROOTS: [&str; 7] =
-    [".venv", "build", "dist", "env", "node_modules", "release", "venv"];
+const TOOL_RUNTIME_ROOTS: [&str; 7] = [
+    ".venv",
+    "build",
+    "dist",
+    "env",
+    "node_modules",
+    "release",
+    "venv",
+];
 
 const TOOL_CACHE_SEGMENTS: [&str; 14] = [
-    ".cache", ".pytest_cache", ".ruff_cache", "__pycache__", "browser-profile",
-    "browser-profiles", "cache", "caches", "code cache", "edge-profile",
-    "electron-user-data", "gpu cache", "temp", "tmp",
+    ".cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "browser-profile",
+    "browser-profiles",
+    "cache",
+    "caches",
+    "code cache",
+    "edge-profile",
+    "electron-user-data",
+    "gpu cache",
+    "temp",
+    "tmp",
 ];
 
 const TOOL_USER_DATA_RUNTIME_ROOTS: [&str; 4] = ["data", "recovery", "settings", "state"];
@@ -44,9 +62,7 @@ struct ToolSizeBreakdown {
 
 impl ToolSizeBreakdown {
     fn to_json(&self) -> serde_json::Value {
-        let cat = |c: &CategorySize| {
-            serde_json::json!({"size_bytes": c.size_bytes, "file_count": c.file_count})
-        };
+        let cat = |c: &CategorySize| serde_json::json!({"size_bytes": c.size_bytes, "file_count": c.file_count});
         serde_json::json!({
             "program": cat(&self.program),
             "runtime": cat(&self.runtime),
@@ -104,12 +120,18 @@ struct FolderSize {
     breakdown: Option<ToolSizeBreakdown>,
 }
 
-fn folder_size(folder: &Path, excluded_root_dirs: &HashSet<String>, with_breakdown: bool) -> FolderSize {
+fn folder_size(
+    folder: &Path,
+    excluded_root_dirs: &HashSet<String>,
+    with_breakdown: bool,
+) -> FolderSize {
     let mut result = FolderSize::default();
     if with_breakdown {
         result.breakdown = Some(ToolSizeBreakdown::default());
     }
-    let resolved_root = folder.canonicalize().unwrap_or_else(|_| folder.to_path_buf());
+    let resolved_root = folder
+        .canonicalize()
+        .unwrap_or_else(|_| folder.to_path_buf());
     let mut pending = vec![folder.to_path_buf()];
 
     while let Some(current) = pending.pop() {
@@ -258,7 +280,11 @@ fn build_inventory(resolved_root: &Path) -> Vec<serde_json::Value> {
         if !declares_independent_tool_card(&manifest) {
             continue;
         }
-        let id = manifest["id"].as_str().unwrap_or_default().trim().to_string();
+        let id = manifest["id"]
+            .as_str()
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         let folder_name = folder
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -307,8 +333,7 @@ pub fn platform_tool_sizes(workspace_root: &Path, force_refresh: bool) -> serde_
     {
         let cache = size_cache().lock().unwrap();
         if !force_refresh {
-            if let (Some((expires, tools)), Some(root)) =
-                (&cache.inventory, &cache.inventory_root)
+            if let (Some((expires, tools)), Some(root)) = (&cache.inventory, &cache.inventory_root)
             {
                 if *expires > now && *root == resolved_root {
                     return tools.clone();
@@ -412,15 +437,16 @@ pub fn workspace_size(
         }
     }
     let mut measured_roots: Vec<(PathBuf, u64, u64)> = Vec::new();
-    let push_root = |roots: &mut Vec<(PathBuf, u64, u64)>, value: &serde_json::Value, bytes_key: &str| {
-        if let Some(p) = value["folder_path"].as_str() {
-            roots.push((
-                PathBuf::from(p),
-                value[bytes_key].as_u64().unwrap_or(0),
-                value["file_count"].as_u64().unwrap_or(0),
-            ));
-        }
-    };
+    let push_root =
+        |roots: &mut Vec<(PathBuf, u64, u64)>, value: &serde_json::Value, bytes_key: &str| {
+            if let Some(p) = value["folder_path"].as_str() {
+                roots.push((
+                    PathBuf::from(p),
+                    value[bytes_key].as_u64().unwrap_or(0),
+                    value["file_count"].as_u64().unwrap_or(0),
+                ));
+            }
+        };
     push_root(&mut measured_roots, main_system, "total_size_bytes");
     push_root(&mut measured_roots, shared_layer, "project_size_bytes");
     if let Some(list) = tools.as_array() {
@@ -524,10 +550,8 @@ mod tests {
 
     #[test]
     fn platform_tool_sizes_breakdown_and_cache() {
-        let workspace_root = std::env::temp_dir().join(format!(
-            "gptbridge-size-breakdown-{}",
-            std::process::id()
-        ));
+        let workspace_root =
+            std::env::temp_dir().join(format!("gptbridge-size-breakdown-{}", std::process::id()));
         let _ = fs::remove_dir_all(&workspace_root);
         let tool_root = workspace_root.join("sample-tool");
 
@@ -594,11 +618,13 @@ mod tests {
             .values()
             .map(|category| category["file_count"].as_u64().unwrap())
             .sum();
-        assert_eq!(breakdown_bytes, tool["project_size_bytes"].as_u64().unwrap());
+        assert_eq!(
+            breakdown_bytes,
+            tool["project_size_bytes"].as_u64().unwrap()
+        );
         assert_eq!(breakdown_files, tool["file_count"].as_u64().unwrap());
 
-        let added_bytes =
-            write_fixture_file(&tool_root, "runtime/state/new.sqlite3", "new-state");
+        let added_bytes = write_fixture_file(&tool_root, "runtime/state/new.sqlite3", "new-state");
         let cached = platform_tool_sizes(&workspace_root, false);
         assert_eq!(
             cached[0]["project_size_bytes"].as_u64().unwrap(),

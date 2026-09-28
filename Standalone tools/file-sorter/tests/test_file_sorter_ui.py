@@ -26,19 +26,14 @@ def test_ui_exposes_explicit_safe_automation_controls() -> None:
     source_host = (
         WORKSPACE_ROOT
         / "main-system"
-        / "scripts"
-        / "source-tool-ui-host"
-        / "main.cjs"
+        / "src-tauri"
+        / "src"
+        / "tool_dispatch.rs"
     ).read_text(encoding="utf-8")
-    source_preload = (
-        WORKSPACE_ROOT
-        / "main-system"
-        / "scripts"
-        / "source-tool-ui-host"
-        / "preload.cjs"
-    ).read_text(encoding="utf-8")
-    assert "ipcMain.handle('dialog:validate-folder'" in source_host
-    assert "'dialog:validate-folder'" in source_preload
+    assert '"dialog:validate-folder"' in source_host
+    assert '"dialog:select-folder"' in source_host
+    assert '"dialog:create-file"' in source_host
+    assert "dialog:validate-folder\" =>" in source_host
     assert "window.localStorage.setItem(LAST_TARGET_DIR_STORAGE_KEY, value)" in source
     assert "if (!backendConnected)" in source
     assert "scanDestinationFolders(target, abortController.signal)" in source

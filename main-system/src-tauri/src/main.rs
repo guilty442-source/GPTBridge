@@ -19,6 +19,9 @@
 
 mod desktop_shell;
 mod js_bridge;
+mod tool_bridge;
+mod tool_dispatch;
+mod tool_window;
 mod webview_host;
 
 fn main() {
@@ -27,6 +30,12 @@ fn main() {
     // WebView2 reliability contract).
     if let Some(args) = webview_host::worker::worker_args() {
         std::process::exit(webview_host::worker::run(args));
+    }
+
+    // Source-tool UI host mode (replaces the retired Electron
+    // source-tool-ui-host main.cjs).
+    if tool_window::tool_window_requested() {
+        std::process::exit(tool_window::run());
     }
 
     desktop_shell::run();

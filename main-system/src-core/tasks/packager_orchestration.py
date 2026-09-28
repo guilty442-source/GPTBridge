@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from packager_base import (
-    ELECTRON_DIST_DIR,
     PACKAGE_FORMAT_VERSION,
     PACKAGE_METADATA_NAME,
     PROJECT_ROOT,
@@ -19,6 +18,7 @@ from packager_base import (
     snapshot_digest,
     verify_packaged_app,
     load_tool_runtime_contract,
+    resolve_shell_exe,
 )
 from packager_bundle import (
     copy_backend_source_bundle,
@@ -40,9 +40,9 @@ from packager_processes import (
     stop_verified_packaged_backend,
 )
 from packager_recovery import prune_completed_recovery_roots
-from packager_renderer import build_platform_renderer, copy_app_templates
+from packager_renderer import build_platform_renderer
 from packager_runtime import (
-    copy_electron_runtime,
+    copy_shell_runtime,
     copy_portable_python_runtime,
     validate_staged_python_runtime,
 )
@@ -103,12 +103,15 @@ def _package_tool_locked(
             "message": f"Python runtime entry not found: {entry}",
         }
 
-    electron_exe = ELECTRON_DIST_DIR / "electron.exe"
-    if not electron_exe.exists():
+    shell_exe = resolve_shell_exe()
+    if not shell_exe.exists():
         return {
             "ok": False,
             "tool_id": tool_id,
-            "message": f"Electron runtime not found: {electron_exe}",
+            "message": (
+                f"Governed shell binary not found: {shell_exe} "
+                "(rebuild src-tauri; Electron is retired)"
+            ),
         }
 
     renderer_result = build_platform_renderer(tool_id)

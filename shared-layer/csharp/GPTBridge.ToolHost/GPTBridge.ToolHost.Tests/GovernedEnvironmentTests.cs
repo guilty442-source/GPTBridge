@@ -10,9 +10,9 @@ public class GovernedEnvironmentTests
 
     private static GovernedEnvironment LoadEnv(
         Dictionary<string, string> vars,
-        string toolId = "system-rescue",
+        string toolId = "vaultly",
         string root = @"E:\GPTBridge",
-        string toolDir = @"E:\GPTBridge\Standalone tools\system-rescue")
+        string toolDir = @"E:\GPTBridge\Standalone tools\vaultly")
     {
         var files = new Dictionary<string, string>
         {
@@ -29,11 +29,11 @@ public class GovernedEnvironmentTests
     }
 
     private static Dictionary<string, string> BaseVars(
-        string toolDir = @"E:\GPTBridge\Standalone tools\system-rescue")
+        string toolDir = @"E:\GPTBridge\Standalone tools\vaultly")
         => new()
         {
             ["GPTBRIDGE_GOVERNANCE_PROJECT_ROOT"] = @"E:\GPTBridge",
-            ["GPTBRIDGE_GOVERNED_RUNTIME_TOOL_ID"] = "system-rescue",
+            ["GPTBRIDGE_GOVERNED_RUNTIME_TOOL_ID"] = "vaultly",
             ["GPTBRIDGE_TOOL_DIR"] = toolDir,
             ["GPTBRIDGE_IPC_SESSION_TOKEN"] = Token(),
             ["GPTBRIDGE_IPC_PORT"] = "18233",
@@ -66,7 +66,7 @@ public class GovernedEnvironmentTests
     [Fact]
     public void Load_tool_root_outside_root_denied()
     {
-        var vars = BaseVars(toolDir: @"D:\elsewhere\system-rescue");
+        var vars = BaseVars(toolDir: @"D:\elsewhere\vaultly");
         Assert.Throws<PermissionDeniedException>(() => LoadEnv(vars));
     }
 
@@ -82,7 +82,7 @@ public class GovernedEnvironmentTests
     public void Load_happy_path()
     {
         var env = LoadEnv(BaseVars());
-        Assert.Equal("system-rescue", env.ToolId);
+        Assert.Equal("vaultly", env.ToolId);
         Assert.Equal(18233, env.Port);
         // Default sidecar is the governed proxy module (-m form), matching
         // spec P2 — a script path would break its package-relative imports.

@@ -212,9 +212,7 @@ pub(crate) fn start_backend_inner(force_replacement: bool) {
 
     let lib = paths::path_library();
 
-    if !force_replacement
-        && monitor::probe_existing_backend()
-        && monitor::has_live_supervisor(lib)
+    if !force_replacement && monitor::probe_existing_backend() && monitor::has_live_supervisor(lib)
     {
         let mut s = state().lock().unwrap();
         s.status = BackendStatus::Running;

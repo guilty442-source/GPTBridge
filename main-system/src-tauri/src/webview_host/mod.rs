@@ -31,10 +31,13 @@ mod worker_eval;
 mod worker_server;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
 use tauri::{AppHandle, Manager};
+
+use gptbridge_core::native::paths;
 
 use geometry::{clamp_bounds, physical_bounds};
 use worker_client::{spawn_worker, worker_hide, worker_request, worker_shutdown, WorkerRef};
@@ -43,10 +46,7 @@ pub use geometry::{current_content_size, record_content_size, BrowserBounds};
 
 /// Find a child webview inside a window by label.
 pub(crate) fn find_webview(window: &tauri::Window, label: &str) -> Option<tauri::Webview> {
-    window
-        .webviews()
-        .into_iter()
-        .find(|w| w.label() == label)
+    window.webviews().into_iter().find(|w| w.label() == label)
 }
 
 pub struct EmbeddedSession {
@@ -81,8 +81,56 @@ fn embedded_state() -> &'static Mutex<EmbeddedState> {
     STATE.get_or_init(|| Mutex::new(EmbeddedState::new()))
 }
 
-fn main_window(app: &AppHandle) -> Option<tauri::Window> {
-    app.get_window("main")
+/// Which window hosts embedded sessions plus where worker state/log files
+/// live.  The main shell uses the "main" window and main-system runtime
+/// dirs; a ``--tool-window`` process retargets both to its own window and
+/// the tool's runtime directories (the Electron host kept tool sessions
+/// inside the tool window — BrowserView-equivalent containment).
+pub struct HostConfig {
+    pub window_label: &'static str,
+    pub state_dir: PathBuf,
+    pub log_dir: PathBuf,
+    /// Per-session WebView2 user-data root — each worker must get its own
+    /// folder because a shared UDF is locked ERROR_BUSY (0x800700AA) by
+    /// whichever process opens it first.
+    pub worker_data_root: PathBuf,
+    /// When set, workers are told to push navigation events to this
+    /// loopback endpoint (the tool-window bridge /event channel).
+    pub worker_events: bool,
+}
+
+fn default_host() -> HostConfig {
+    let runtime_root = paths::path_library()
+        .workspace_root
+        .join("main-system")
+        .join("runtime");
+    HostConfig {
+        window_label: "main",
+        state_dir: runtime_root.join("state"),
+        log_dir: runtime_root.join("logs"),
+        worker_data_root: runtime_root.join("embedded-webview"),
+        worker_events: false,
+    }
+}
+
+static HOST_SLOT: OnceLock<Mutex<HostConfig>> = OnceLock::new();
+
+pub(crate) fn host() -> std::sync::MutexGuard<'static, HostConfig> {
+    HOST_SLOT
+        .get_or_init(|| Mutex::new(default_host()))
+        .lock()
+        .unwrap()
+}
+
+/// Install the host context before any session op runs (tool-window mode
+/// calls this during startup; the main shell keeps the defaults).
+pub fn configure_host(config: HostConfig) {
+    *host() = config;
+}
+
+fn host_window(app: &AppHandle) -> Option<tauri::Window> {
+    let label = host().window_label;
+    app.get_window(label)
 }
 
 /// Called on window minimize/hide — detach every visible session.  Child
@@ -179,7 +227,10 @@ pub fn create_session(
     url: String,
     bounds: Option<BrowserBounds>,
 ) -> serde_json::Value {
-    if main_window(app).is_none() {
+    if id.trim().is_empty() {
+        return serde_json::json!({"ok": false, "id": id, "url": url, "message": "SESSION_ID_REQUIRED"});
+    }
+    if host_window(app).is_none() {
         return serde_json::json!({"ok": false, "id": id, "url": url, "message": "MAIN_WINDOW_NOT_AVAILABLE"});
     }
 
@@ -308,7 +359,10 @@ pub fn execute_script(
     )
     .ok_or_else(|| "WORKER_UNREACHABLE".to_string())?;
     if response["ok"] == serde_json::Value::Bool(true) {
-        Ok(response.get("result").cloned().unwrap_or(serde_json::Value::Null))
+        Ok(response
+            .get("result")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null))
     } else {
         Err(response["message"]
             .as_str()
@@ -334,11 +388,7 @@ pub fn deliver_exec_result(request_id: &str, payload: serde_json::Value) -> bool
     }
 }
 
-pub fn resize_session(
-    app: &AppHandle,
-    id: &str,
-    bounds: BrowserBounds,
-) -> serde_json::Value {
+pub fn resize_session(app: &AppHandle, id: &str, bounds: BrowserBounds) -> serde_json::Value {
     // Clamp before locking (window interaction must not run under the lock).
     let clamped = clamp_bounds(app, bounds);
     let (worker, visible) = {
@@ -478,6 +528,95 @@ pub fn list_sessions() -> serde_json::Value {
         })
         .collect();
     serde_json::json!({"ok": true, "sessions": items})
+}
+
+/// Reload the session webview (Electron ``webContents.reload()`` parity —
+/// the worker evaluates ``location.reload()``).
+pub fn reload_session(_app: &AppHandle, id: &str) -> serde_json::Value {
+    let worker = {
+        let state = embedded_state().lock().unwrap();
+        let Some(session) = state.sessions.get(id) else {
+            return serde_json::json!({"ok": false, "message": "SESSION_NOT_FOUND"});
+        };
+        session.worker.clone()
+    };
+    let Some(worker) = worker else {
+        return serde_json::json!({"ok": false, "message": "WEBVIEW_NOT_MATERIALISED"});
+    };
+    match worker_request(&worker, "POST", "/reload", &serde_json::json!({})) {
+        Some(v) => v,
+        None => serde_json::json!({"ok": false, "message": "WORKER_UNREACHABLE"}),
+    }
+}
+
+/// Navigate back in the session's history (Electron
+/// ``navigationHistory.goBack()`` parity — the worker tracks the stack).
+pub fn go_back_session(_app: &AppHandle, id: &str) -> serde_json::Value {
+    let worker = {
+        let state = embedded_state().lock().unwrap();
+        let Some(session) = state.sessions.get(id) else {
+            return serde_json::json!({"ok": false, "message": "SESSION_NOT_FOUND"});
+        };
+        session.worker.clone()
+    };
+    let Some(worker) = worker else {
+        return serde_json::json!({"ok": false, "message": "WEBVIEW_NOT_MATERIALISED"});
+    };
+    match worker_request(&worker, "POST", "/back", &serde_json::json!({})) {
+        Some(v) => v,
+        None => serde_json::json!({"ok": false, "message": "WORKER_UNREACHABLE"}),
+    }
+}
+
+/// Navigate forward in the session's history.
+pub fn go_forward_session(_app: &AppHandle, id: &str) -> serde_json::Value {
+    let worker = {
+        let state = embedded_state().lock().unwrap();
+        let Some(session) = state.sessions.get(id) else {
+            return serde_json::json!({"ok": false, "message": "SESSION_NOT_FOUND"});
+        };
+        session.worker.clone()
+    };
+    let Some(worker) = worker else {
+        return serde_json::json!({"ok": false, "message": "WEBVIEW_NOT_MATERIALISED"});
+    };
+    match worker_request(&worker, "POST", "/forward", &serde_json::json!({})) {
+        Some(v) => v,
+        None => serde_json::json!({"ok": false, "message": "WORKER_UNREACHABLE"}),
+    }
+}
+
+/// Live session state: url/title/loading/history from the worker, merged
+/// with the registry's visibility flag (Electron ``browserSessionState``
+/// parity).
+pub fn session_state(_app: &AppHandle, id: &str) -> serde_json::Value {
+    let (worker, visible, registered_url) = {
+        let state = embedded_state().lock().unwrap();
+        let Some(session) = state.sessions.get(id) else {
+            return serde_json::json!({"ok": false, "message": "SESSION_NOT_FOUND"});
+        };
+        (session.worker.clone(), session.visible, session.url.clone())
+    };
+    let Some(worker) = worker else {
+        return serde_json::json!({
+            "ok": true,
+            "id": id,
+            "url": registered_url,
+            "title": "",
+            "loading": false,
+            "canGoBack": false,
+            "canGoForward": false,
+            "visible": visible,
+        });
+    };
+    match worker_request(&worker, "GET", "/state", &serde_json::json!({})) {
+        Some(mut v) if v["ok"] == serde_json::Value::Bool(true) => {
+            v["id"] = serde_json::json!(id);
+            v["visible"] = serde_json::json!(visible);
+            v
+        }
+        Some(_) | None => serde_json::json!({"ok": false, "message": "WORKER_UNREACHABLE"}),
+    }
 }
 
 /// Close every live session (window close / app shutdown).  Workers are

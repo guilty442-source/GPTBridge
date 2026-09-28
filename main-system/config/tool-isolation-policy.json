@@ -180,15 +180,6 @@
       "network_policy": "loopback-only",
       "filesystem_policy": "tool-scoped"
     },
-    "system-rescue": {
-      "memory_limit_mb": 512,
-      "cpu_percent_limit": 50,
-      "network_policy": "loopback-only",
-      "filesystem_policy": "tool-scoped",
-      "restart_on_crash": false,
-      "max_restart_attempts": 0,
-      "restart_backoff_seconds": []
-    },
     "vaultly": {
       "memory_limit_mb": 512,
       "cpu_percent_limit": 50,

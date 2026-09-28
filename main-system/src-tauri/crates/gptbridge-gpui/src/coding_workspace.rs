@@ -7,7 +7,7 @@
 
 use std::path::PathBuf;
 
-use gpui::{Context, IntoElement, Render, ScrollHandle, Window, div, prelude::*, px, rgb};
+use gpui::{div, prelude::*, px, rgb, Context, IntoElement, Render, ScrollHandle, Window};
 
 pub struct CodingWorkspaceView {
     root: PathBuf,
@@ -20,7 +20,9 @@ pub struct CodingWorkspaceView {
 
 impl CodingWorkspaceView {
     pub fn new(_window: &mut Window, _cx: &mut Context<Self>) -> Self {
-        let root = gptbridge_core::native::paths::path_library().workspace_root.clone();
+        let root = gptbridge_core::native::paths::path_library()
+            .workspace_root
+            .clone();
         let mut entries = Vec::new();
         // Bounded listing: top-level dirs only, capped — this is a
         // navigation aid, not a filesystem index.
@@ -70,7 +72,10 @@ impl Render for CodingWorkspaceView {
                     .border_color(rgb(0x2a3140))
                     .text_sm()
                     .text_color(rgb(0xaeb7c6))
-                    .child(format!("GPTBridge · Coding Workspace — {}", self.root.display())),
+                    .child(format!(
+                        "GPTBridge · Coding Workspace — {}",
+                        self.root.display()
+                    )),
             )
             .child(
                 div()

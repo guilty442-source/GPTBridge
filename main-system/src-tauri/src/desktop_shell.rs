@@ -84,14 +84,17 @@ fn start_load_watchdog(app: tauri::AppHandle) {
         if shutdown_complete().load(Ordering::SeqCst) {
             return;
         }
-        let Some(window) = app.get_window("main") else { return };
-        let Some(webview) = webview_host::find_webview(&window, "main") else { return };
+        let Some(window) = app.get_window("main") else {
+            return;
+        };
+        let Some(webview) = webview_host::find_webview(&window, "main") else {
+            return;
+        };
         match webview.url() {
             Ok(url) if url.as_str() == "about:blank" || url.as_str().is_empty() => {
                 app::report("webview.load-watchdog.reload", serde_json::json!({}));
                 if webview.eval("window.location.reload()").is_err() {
-                    let _ = webview
-                        .navigate("http://tauri.localhost/index.html".parse().unwrap());
+                    let _ = webview.navigate("http://tauri.localhost/index.html".parse().unwrap());
                 }
             }
             _ => {}
@@ -122,7 +125,8 @@ fn create_main_window(app: &tauri::AppHandle) -> Result<tauri::Window, tauri::Er
         .filter(|v| !v.trim().is_empty());
     let webview_url = match dev_url {
         Some(url) => WebviewUrl::External(
-            url.parse().unwrap_or_else(|_| "http://localhost:5173".parse().unwrap()),
+            url.parse()
+                .unwrap_or_else(|_| "http://localhost:5173".parse().unwrap()),
         ),
         None => WebviewUrl::App("index.html".into()),
     };

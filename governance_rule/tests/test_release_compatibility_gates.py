@@ -42,12 +42,18 @@ def _write_package(root: Path, name: str) -> Path:
 
 
 def _contract(modules: list[dict[str, object]]) -> dict[str, object]:
+    running = sys.version_info
     return {
         "contract_version": 1,
         "classes": dict(release_manifest.DEPENDENCY_CLASSES),
         "modules": modules,
         "runtime_environment": {
-            "python": {"version_range": {"min": [3, 11], "max_exclusive": [3, 12]}},
+            "python": {
+                "version_range": {
+                    "min": [running.major, running.minor],
+                    "max_exclusive": [running.major, running.minor + 1],
+                }
+            },
             "venv": {
                 "required": True,
                 "include_system_site_packages": False,

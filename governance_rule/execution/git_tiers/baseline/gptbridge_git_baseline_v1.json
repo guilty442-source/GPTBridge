@@ -2,12 +2,23 @@
   "baseline_id": "GPTBridgeGitBaselineV1",
   "baseline_version": 1,
   "kind": "golden-manifest",
-  "verdict": "GIT_BASELINE_FROZEN",
-  "blockers": [],
+  "verdict": "GIT_BASELINE_NOT_FROZEN",
+  "blockers": [
+    "worker_queue_main_invariants:UNVERIFIED",
+    "audit_chain_pass:UNVERIFIED",
+    "hooks_integrity_pass:UNVERIFIED",
+    "capability_tests_pass:UNVERIFIED",
+    "stress_50_workers_pass:UNVERIFIED",
+    "chaos_pass:UNVERIFIED",
+    "dr_pass:UNVERIFIED",
+    "rolling_upgrade_pass:UNVERIFIED",
+    "performance_regression_gate_pass:UNVERIFIED",
+    "architecture_tests_pass:UNVERIFIED"
+  ],
   "architecture_version": {
     "version": "gptbridge-git-architecture-v1",
     "article": "A535",
-    "status": "ACTIVE"
+    "status": "CANDIDATE"
   },
   "governance_version": "2.0.0",
   "governance_manifest": {
@@ -44,30 +55,30 @@
       "pre-commit": {
         "version": 1,
         "expected_version": 1,
-        "digest": "15fc97b533f53724555d7622bccad8b987f0246dfc0ed0d3e20fc560fe37d45e",
+        "digest": "b58401bee41e1505be21cd4e1dc8bd0a1eef2283cb523646ed8fd7a666490bad",
         "ok": true
       },
       "pre-merge-commit": {
         "version": 1,
         "expected_version": 1,
-        "digest": "2b1fc489fef2674fda40417579cb0bcf36f2af75449d229d2c8863588365d302",
+        "digest": "5456224d206480082ebf2e1000612a6aa439d2076393e7c059c6054e56196984",
         "ok": true
       },
       "pre-push": {
         "version": 1,
         "expected_version": 1,
-        "digest": "5796ba8a9bf7995d61e29f2fe2273225a1e6e03e9466949297e54b287ce74158",
+        "digest": "2b024a00179463ec7d575ccafde32f11dc8b986f7ccd39b6a9c0916b511044ca",
         "ok": true
       },
       "pre-receive": {
         "version": 1,
         "expected_version": 1,
-        "digest": "c9b3206ad682aade0fa0edd7d4277aeb80bb09ed760f7c7f7bf24c9f71f7bcc2",
+        "digest": "45bf59043c77ce740ab5f796e8088148a743174603f11afa1d809bffdd7a4ad7",
         "ok": true
       }
     },
     "templates_ok": true,
-    "live_generation": "hook-gen-dfe9fed329b91386dd39617b0ab60101868964afe5deacc2b1d1b4390671dba0"
+    "live_generation": "hook-gen-efc12e0b69f4df867a6a442e1294e851c1b4ae765164dbb9a3714b53ac29c9a0"
   },
   "schema_versions": {
     "manifest_schema_version": "1.0.0",
@@ -165,15 +176,15 @@
         },
         {
           "module": "audit_chain.py",
-          "functions": 24,
+          "functions": 28,
           "classes": 0,
-          "lines": 538
+          "lines": 606
         },
         {
           "module": "audit_records.py",
-          "functions": 31,
+          "functions": 35,
           "classes": 4,
-          "lines": 490
+          "lines": 565
         },
         {
           "module": "automation_supervisor.py",
@@ -185,7 +196,7 @@
           "module": "automation_supervisor_loop.py",
           "functions": 15,
           "classes": 1,
-          "lines": 544
+          "lines": 539
         },
         {
           "module": "automation_supervisor_persistence.py",
@@ -197,13 +208,13 @@
           "module": "automation_supervisor_state.py",
           "functions": 10,
           "classes": 0,
-          "lines": 178
+          "lines": 181
         },
         {
           "module": "branch_policy.py",
           "functions": 11,
           "classes": 0,
-          "lines": 157
+          "lines": 159
         },
         {
           "module": "branch_reconcile.py",
@@ -231,9 +242,9 @@
         },
         {
           "module": "capability_ledger.py",
-          "functions": 13,
+          "functions": 16,
           "classes": 1,
-          "lines": 164
+          "lines": 317
         },
         {
           "module": "capability_time.py",
@@ -272,22 +283,28 @@
           "lines": 434
         },
         {
-          "module": "coordinator.py",
-          "functions": 17,
-          "classes": 3,
-          "lines": 521
+          "module": "contract_check.py",
+          "functions": 5,
+          "classes": 0,
+          "lines": 104
         },
         {
           "module": "disaster_recovery.py",
           "functions": 46,
           "classes": 8,
-          "lines": 1002
+          "lines": 987
         },
         {
           "module": "fault_injection.py",
-          "functions": 35,
+          "functions": 33,
           "classes": 4,
-          "lines": 676
+          "lines": 655
+        },
+        {
+          "module": "generation_snapshot.py",
+          "functions": 8,
+          "classes": 1,
+          "lines": 282
         },
         {
           "module": "git_cache.py",
@@ -305,7 +322,7 @@
           "module": "git_control_plane.py",
           "functions": 54,
           "classes": 13,
-          "lines": 1238
+          "lines": 1222
         },
         {
           "module": "git_maintenance.py",
@@ -323,7 +340,7 @@
           "module": "git_repository.py",
           "functions": 21,
           "classes": 1,
-          "lines": 472
+          "lines": 479
         },
         {
           "module": "governance_manifest.py",
@@ -356,6 +373,12 @@
           "lines": 302
         },
         {
+          "module": "paths.py",
+          "functions": 1,
+          "classes": 1,
+          "lines": 48
+        },
+        {
           "module": "pool_metrics.py",
           "functions": 1,
           "classes": 3,
@@ -369,15 +392,27 @@
         },
         {
           "module": "process_lock.py",
-          "functions": 6,
+          "functions": 8,
           "classes": 2,
-          "lines": 76
+          "lines": 139
+        },
+        {
+          "module": "protected_attrs.py",
+          "functions": 3,
+          "classes": 0,
+          "lines": 87
+        },
+        {
+          "module": "push_gate.py",
+          "functions": 22,
+          "classes": 0,
+          "lines": 843
         },
         {
           "module": "recovery.py",
           "functions": 3,
           "classes": 0,
-          "lines": 96
+          "lines": 100
         },
         {
           "module": "registry_migration_engine.py",
@@ -389,25 +424,25 @@
           "module": "release_checkpoint.py",
           "functions": 3,
           "classes": 0,
-          "lines": 115
+          "lines": 114
         },
         {
           "module": "repo_sync.py",
           "functions": 5,
           "classes": 0,
-          "lines": 170
+          "lines": 192
         },
         {
           "module": "report.py",
-          "functions": 3,
+          "functions": 4,
           "classes": 0,
-          "lines": 145
+          "lines": 157
         },
         {
           "module": "self_commit.py",
-          "functions": 13,
+          "functions": 18,
           "classes": 0,
-          "lines": 423
+          "lines": 606
         },
         {
           "module": "snapshot.py",
@@ -431,7 +466,7 @@
           "module": "worker_pool.py",
           "functions": 30,
           "classes": 1,
-          "lines": 561
+          "lines": 573
         },
         {
           "module": "worker_pool_types.py",
@@ -461,7 +496,7 @@
           "module": "workspace_sync.py",
           "functions": 8,
           "classes": 0,
-          "lines": 239
+          "lines": 387
         },
         {
           "module": "worktree_manager.py",
@@ -477,10 +512,10 @@
         }
       ],
       "totals": {
-        "modules": 53,
-        "functions": 667,
-        "classes": 93,
-        "lines": 15905
+        "modules": 57,
+        "functions": 706,
+        "classes": 92,
+        "lines": 17442
       }
     }
   },
@@ -960,205 +995,7 @@
     }
   ],
   "test_suite": {
-    "gates": {
-      "stress_50_workers": {
-        "result": "PASS",
-        "evidence": [
-          "test_git_final_gates.py::test_final_stress_50_workers PASS (temp fixture seed=524)",
-          "allocated=50, duplicate_watchers=0, duplicate_branches=0",
-          "double_merges=0, merged=50, retired=50",
-          "registry_corruption=0, audit_corruption=0, audit_records=502",
-          "registry_corruption=0, audit_corruption=0, audit_records=502",
-          "worker allocation/retirement writes now run through SYSTEM_SAFE capabilities"
-        ],
-        "measurements": {
-          "allocated": 50,
-          "duplicate_watchers": 0,
-          "duplicate_branches": 0,
-          "double_merges": 0,
-          "merged": 50,
-          "retired": 50,
-          "registry_corruption": 0,
-          "audit_corruption": 0,
-          "audit_records": 502
-        }
-      },
-      "chaos": {
-        "result": "PASS",
-        "evidence": [
-          "test_git_final_gates.py::test_final_chaos_gate PASS (temp fixture seed=525)",
-          "watcher_crash PASS, supervisor_crash PASS, merge_conflict_abort PASS",
-          "audit_tail_corruption UNVERIFIABLE_DETECTED (torn tail never silently verified)",
-          "registry_corruption_fallback PASS, lock_contention PASS",
-          "origin_unavailable PASS, git_timeout PASS, source_sha_drift PASS",
-          "assert_git_invariants violations=0 after every scenario"
-        ],
-        "measurements": {
-          "scenarios": {
-            "audit_tail_corruption": "UNVERIFIABLE_DETECTED",
-            "git_timeout": "PASS",
-            "lock_contention": "PASS",
-            "merge_conflict_abort": "PASS",
-            "registry_corruption_fallback": "PASS",
-            "source_sha_drift": "PASS",
-            "supervisor_crash": "PASS",
-            "watcher_crash": "PASS",
-            "origin_unavailable": "PASS"
-          },
-          "violations": 0
-        }
-      },
-      "dr": {
-        "result": "PASS",
-        "evidence": [
-          "test_disaster_recovery.py 21/21 PASS (temp repositories only)",
-          "worktree inspection now routes through the GitRepository gateway (no direct subprocess git)",
-          "recovery refs / bundles execute through SYSTEM_SAFE capabilities (update-ref, bundle create)",
-          "tier-3 denied (reset --hard / force-push / ref-delete / aggressive prune / reflog expire)"
-        ],
-        "measurements": {
-          "tests_passed": 21,
-          "tests_failed": 0
-        }
-      },
-      "rolling_upgrade": {
-        "result": "PASS",
-        "evidence": [
-          "test_git_final_gates.py::test_final_rolling_upgrade_gate PASS (24 workers, temp fixture seed=527)",
-          "migration_steps: registry-v1-to-v2, registry-v2-to-v3, queue-v1-to-v2, queue-v2-to-v3",
-          "lost_commits=0, duplicate_watchers=0, queue_duplication=0, history_rewrites=0",
-          "canary_ok=True, restore_on_failure=True, second migrate() = noop"
-        ],
-        "measurements": {
-          "workers": 24,
-          "migration_steps": [
-            "registry-v1-to-v2",
-            "registry-v2-to-v3",
-            "queue-v1-to-v2",
-            "queue-v2-to-v3"
-          ],
-          "lost_commits": 0,
-          "duplicate_watchers": 0,
-          "queue_duplication": 0,
-          "history_rewrites": 0,
-          "canary_ok": true,
-          "restore_on_failure": true
-        }
-      },
-      "performance": {
-        "result": "PASS",
-        "evidence": [
-          "test_git_final_gates.py::test_final_performance_gate PASS (regressions=[])",
-          "absolute budgets met: status<=1000, commit<=5000, audit<=500, queue_wait<=2000, merge_preparation<=10000 ms",
-          "merge-tree preflight now issues a capability per call; p95 well inside the 10s budget"
-        ],
-        "measurements": {
-          "regressions": [],
-          "candidate_p95_ms": {
-            "audit_append": 3.34,
-            "commit": 227.65,
-            "merge_preparation": 165.62,
-            "queue_wait": 382.9,
-            "status": 75.91
-          },
-          "absolute_budget_ms": {
-            "audit_append_p95_ms": 500.0,
-            "commit_p95_ms": 5000.0,
-            "merge_preparation_p95_ms": 10000.0,
-            "queue_wait_p95_ms": 2000.0,
-            "status_p95_ms": 1000.0
-          }
-        }
-      },
-      "architecture": {
-        "result": "PASS",
-        "evidence": [
-          "test_git_runtime_architecture.py 14/14 PASS (single executor, no legacy env reads, zero confirmed-bool sites, capability migration tests)",
-          "test_architecture_registry.py 19/19 PASS",
-          "static architecture gate: illegal direct git 3 -> 0, legacy env 9 -> 0, confirmed bool 31 -> 0"
-        ],
-        "measurements": {
-          "runtime_architecture_tests": 14,
-          "architecture_registry_tests": 19,
-          "confirmed_bool": 0,
-          "legacy_env": 0,
-          "illegal_direct_git": 0
-        }
-      },
-      "capability": {
-        "result": "PASS",
-        "evidence": [
-          "test_capability.py 41/41 PASS (binding, single-use, replay, expiry, mutation, AI self-issue denial)",
-          "test_git_runtime_architecture.py capability migration tests: tier-2 SYSTEM_SAFE issue+execute, tier-2 non-whitelist refusal, tier-3 automation refusal, DEPRECATED_COMPATIBILITY legacy audit",
-          "gateway deprecated boolean adapter records LEGACY_CONFIRM capability-ledger evidence"
-        ],
-        "measurements": {
-          "capability_tests": 41,
-          "migration_tests": 5,
-          "system_safe_operations": [
-            "add",
-            "branch",
-            "branch create",
-            "bundle create",
-            "commit",
-            "commit-graph write",
-            "fetch",
-            "gc",
-            "init",
-            "merge",
-            "merge-tree",
-            "multi-pack-index write",
-            "mv",
-            "push",
-            "remote add",
-            "remote set-url",
-            "restore",
-            "stash",
-            "stash apply",
-            "stash pop",
-            "stash push",
-            "switch --create",
-            "switch -c",
-            "tag --annotate",
-            "tag create",
-            "update-ref",
-            "worktree add",
-            "worktree lock",
-            "worktree prune",
-            "worktree unlock"
-          ]
-        }
-      },
-      "audit_chain": {
-        "result": "PASS",
-        "evidence": [
-          "audit_chain.chain_health(): chain_valid=True, audit_record_count=56132, epoch=2",
-          "test_audit_hook_versioning.py 20/20 PASS",
-          "stress gate: 502 chain records valid after 50-worker run, 0 corruption"
-        ],
-        "measurements": {
-          "chain_valid": true,
-          "audit_record_count": 56132,
-          "epoch": 2
-        }
-      },
-      "hooks_integrity": {
-        "result": "PASS",
-        "evidence": [
-          "hook_versioning.verify_governed_templates(): ok=True",
-          "live hook generation hook-gen-dfe9fed329b91386dd39617b0ab60101868964afe5deacc2b1d1b4390671dba0",
-          "rolling upgrade: hook replace verifies digest/version; failure restores previous hook"
-        ],
-        "measurements": {}
-      },
-      "documentation": {
-        "result": "PASS",
-        "evidence": [
-          "baseline._documentation_scan(): no stale markers in docs/worktree-architecture.md, docs/module-topology.md, AGENTS.md"
-        ],
-        "measurements": {}
-      }
-    },
+    "gates": {},
     "freeze_conditions": [
       {
         "condition": "all_git_writes_via_gateway",
@@ -1197,117 +1034,87 @@
       {
         "condition": "worker_queue_main_invariants",
         "zh": "worker/queue/main invariants PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
-          "stress_50_workers: PASS",
-          "test_git_final_gates.py::test_final_stress_50_workers PASS (temp fixture seed=524)",
-          "allocated=50, duplicate_watchers=0, duplicate_branches=0",
-          "double_merges=0, merged=50, retired=50",
-          "chaos: PASS",
-          "test_git_final_gates.py::test_final_chaos_gate PASS (temp fixture seed=525)",
-          "watcher_crash PASS, supervisor_crash PASS, merge_conflict_abort PASS",
-          "audit_tail_corruption UNVERIFIABLE_DETECTED (torn tail never silently verified)"
+          "stress_50_workers: UNVERIFIED",
+          "no evidence recorded for gate 'stress_50_workers'",
+          "chaos: UNVERIFIED",
+          "no evidence recorded for gate 'chaos'"
         ]
       },
       {
         "condition": "audit_chain_pass",
         "zh": "audit chain PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
           "chain_health.chain_valid=True",
-          "audit_chain.chain_health(): chain_valid=True, audit_record_count=56132, epoch=2",
-          "test_audit_hook_versioning.py 20/20 PASS",
-          "stress gate: 502 chain records valid after 50-worker run, 0 corruption"
+          "no evidence recorded for gate 'audit_chain'"
         ]
       },
       {
         "condition": "hooks_integrity_pass",
         "zh": "hooks integrity PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
           "governed templates ok=True",
-          "generation=hook-gen-dfe9fed329b913",
-          "hook_versioning.verify_governed_templates(): ok=True",
-          "live hook generation hook-gen-dfe9fed329b91386dd39617b0ab60101868964afe5deacc2b1d1b4390671dba0",
-          "rolling upgrade: hook replace verifies digest/version; failure restores previous hook"
+          "generation=hook-gen-efc12e0b69f4df",
+          "no evidence recorded for gate 'hooks_integrity'"
         ]
       },
       {
         "condition": "capability_tests_pass",
         "zh": "capability tests PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
-          "test_capability.py 41/41 PASS (binding, single-use, replay, expiry, mutation, AI self-issue denial)",
-          "test_git_runtime_architecture.py capability migration tests: tier-2 SYSTEM_SAFE issue+execute, tier-2 non-whitelist refusal, tier-3 automation refusal, DEPRECATED_COMPATIBILITY legacy audit",
-          "gateway deprecated boolean adapter records LEGACY_CONFIRM capability-ledger evidence"
+          "no evidence recorded for gate 'capability'"
         ]
       },
       {
         "condition": "stress_50_workers_pass",
         "zh": "50 worker stress PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
-          "test_git_final_gates.py::test_final_stress_50_workers PASS (temp fixture seed=524)",
-          "allocated=50, duplicate_watchers=0, duplicate_branches=0",
-          "double_merges=0, merged=50, retired=50",
-          "registry_corruption=0, audit_corruption=0, audit_records=502",
-          "registry_corruption=0, audit_corruption=0, audit_records=502",
-          "worker allocation/retirement writes now run through SYSTEM_SAFE capabilities"
+          "no evidence recorded for gate 'stress_50_workers'"
         ]
       },
       {
         "condition": "chaos_pass",
         "zh": "chaos PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
-          "test_git_final_gates.py::test_final_chaos_gate PASS (temp fixture seed=525)",
-          "watcher_crash PASS, supervisor_crash PASS, merge_conflict_abort PASS",
-          "audit_tail_corruption UNVERIFIABLE_DETECTED (torn tail never silently verified)",
-          "registry_corruption_fallback PASS, lock_contention PASS",
-          "origin_unavailable PASS, git_timeout PASS, source_sha_drift PASS",
-          "assert_git_invariants violations=0 after every scenario"
+          "no evidence recorded for gate 'chaos'"
         ]
       },
       {
         "condition": "dr_pass",
         "zh": "DR PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
-          "test_disaster_recovery.py 21/21 PASS (temp repositories only)",
-          "worktree inspection now routes through the GitRepository gateway (no direct subprocess git)",
-          "recovery refs / bundles execute through SYSTEM_SAFE capabilities (update-ref, bundle create)",
-          "tier-3 denied (reset --hard / force-push / ref-delete / aggressive prune / reflog expire)"
+          "no evidence recorded for gate 'dr'"
         ]
       },
       {
         "condition": "rolling_upgrade_pass",
         "zh": "rolling upgrade PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
-          "test_git_final_gates.py::test_final_rolling_upgrade_gate PASS (24 workers, temp fixture seed=527)",
-          "migration_steps: registry-v1-to-v2, registry-v2-to-v3, queue-v1-to-v2, queue-v2-to-v3",
-          "lost_commits=0, duplicate_watchers=0, queue_duplication=0, history_rewrites=0",
-          "canary_ok=True, restore_on_failure=True, second migrate() = noop"
+          "no evidence recorded for gate 'rolling_upgrade'"
         ]
       },
       {
         "condition": "performance_regression_gate_pass",
         "zh": "performance regression gate PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
-          "test_git_final_gates.py::test_final_performance_gate PASS (regressions=[])",
-          "absolute budgets met: status<=1000, commit<=5000, audit<=500, queue_wait<=2000, merge_preparation<=10000 ms",
-          "merge-tree preflight now issues a capability per call; p95 well inside the 10s budget"
+          "no evidence recorded for gate 'performance'"
         ]
       },
       {
         "condition": "architecture_tests_pass",
         "zh": "architecture tests PASS",
-        "status": "PASS",
+        "status": "UNVERIFIED",
         "evidence": [
-          "test_git_runtime_architecture.py 14/14 PASS (single executor, no legacy env reads, zero confirmed-bool sites, capability migration tests)",
-          "test_architecture_registry.py 19/19 PASS",
-          "static architecture gate: illegal direct git 3 -> 0, legacy env 9 -> 0, confirmed bool 31 -> 0"
+          "no evidence recorded for gate 'architecture'"
         ]
       },
       {
@@ -1316,32 +1123,11 @@
         "status": "PASS",
         "evidence": [
           "stale findings: 0",
-          "baseline._documentation_scan(): no stale markers in docs/worktree-architecture.md, docs/module-topology.md, AGENTS.md"
+          "no evidence recorded for gate 'documentation'"
         ]
       }
     ],
-    "evidence_meta": {
-      "runner": "opencode / governance_rule pytest suites (post capability migration)",
-      "python": "3.11.9",
-      "platform": "Windows-10-10.0.26200-SP0",
-      "git_version": "git version 2.55.0.windows.1",
-      "repository_head": "02848dd55ca705a83ed099578e09fca534d909e3",
-      "real_repository_untouched": true,
-      "fixtures": "pytest tmp_path / fault_injection.create_test_repository",
-      "suite_results": {
-        "governance_rule/tests/test_git_final_gates.py": "4 passed (stress/chaos/rolling/performance)",
-        "governance_rule/execution/git_tiers/tests": "254 passed",
-        "governance_rule/tests/test_capability.py": "41 passed",
-        "governance_rule/tests/test_git_runtime_architecture.py": "14 passed",
-        "governance_rule/tests/test_architecture_registry.py": "19 passed",
-        "governance_rule/tests/test_audit_hook_versioning.py": "20 passed",
-        "governance_rule/execution/git_tiers/tests/test_disaster_recovery.py": "21 passed",
-        "governance_rule/execution/git_tiers/tests/test_tier_enforcement.py": "109 passed",
-        "governance_rule/execution/git_tiers/tests/test_fault_injection.py": "31 passed",
-        "governance_rule/execution/git_tiers/tests/test_git_governance_extensions.py": "18 passed",
-        "governance_rule/tests/test_git_api_contract_v1.py": "22 passed"
-      }
-    }
+    "evidence_meta": {}
   },
   "static_allowlist": {
     "direct_git": [],
@@ -1352,7 +1138,7 @@
     "duplicate_parsers": [],
     "duplicate_locks": [],
     "dependency_direction": [
-      "main-system/src-core/core_system/third_party_manager_updates.py:79"
+      "main-system/src-core/core_system/third_party_manager_updates.py:90"
     ]
   },
   "static_counts": {
@@ -1380,7 +1166,7 @@
       "runtime_components": 6,
       "runtime_components_implemented_as_named_class": 2,
       "git_drivers": 1,
-      "git_driver_modules_executing_git": 2,
+      "git_driver_modules_executing_git": 1,
       "status_parsers": 1,
       "audit_writers": 1,
       "queue_owners": 1,
@@ -1390,14 +1176,13 @@
       "public_apis": 21
     },
     "git_driver_modules": [
-      "governance_rule/execution/git_tiers/fault_injection.py",
-      "governance_rule/execution/git_tiers/git_repository.py"
+      "governance_rule/execution/git_tiers/fault_injection.py"
     ],
     "modules": {
-      "modules": 53,
-      "functions": 667,
-      "classes": 93,
-      "lines": 15905
+      "modules": 57,
+      "functions": 706,
+      "classes": 92,
+      "lines": 17442
     },
     "static_counts": {
       "direct_git": 0,
@@ -1416,9 +1201,9 @@
       "lock_models=1 canonical (process_lock); coordinator.py and audit_chain.py carry private byte-range locks"
     ]
   },
-  "baseline_commit": "02848dd55ca705a83ed099578e09fca534d909e3",
+  "baseline_commit": "1999f42cd8b6a0026193c6746a291b9a853e3151",
   "worktree_dirty_at_capture": true,
-  "captured_at_utc": "2026-09-16T23:44:21Z",
+  "captured_at_utc": "2026-09-28T03:47:50Z",
   "post_freeze_policy": {
     "allowed": [
       "BUGFIX",
@@ -1443,7 +1228,7 @@
   },
   "integrity": {
     "algorithm": "sha256",
-    "digest": "f16ae929bb0fd0d8749270c1c88bffdfba421e864b4fa94ea067d1b00610a358",
+    "digest": "468476897f72e64a9bf34f350b3c08ee17835a35768fb7bb7591ce5e86679cd0",
     "scope": "canonical-json-without-integrity-and-baseline"
   }
 }

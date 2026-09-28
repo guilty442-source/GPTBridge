@@ -30,8 +30,16 @@ impl EngineeringConsolePanel {
             .default_open(true)
             .show(ui, |ui| {
                 Self::row(ui, "mode", lib.mode.to_string());
-                Self::row(ui, "workspace_root", lib.workspace_root.display().to_string());
-                Self::row(ui, "resources_root", lib.resources_root.display().to_string());
+                Self::row(
+                    ui,
+                    "workspace_root",
+                    lib.workspace_root.display().to_string(),
+                );
+                Self::row(
+                    ui,
+                    "resources_root",
+                    lib.resources_root.display().to_string(),
+                );
                 Self::row(ui, "app_root", lib.app_root.display().to_string());
                 Self::row(
                     ui,
@@ -54,12 +62,12 @@ impl EngineeringConsolePanel {
         egui::CollapsingHeader::new("Identity")
             .default_open(true)
             .show(ui, |ui| {
+                Self::row(ui, "workspace_instance_id", token::workspace_instance_id());
                 Self::row(
                     ui,
-                    "workspace_instance_id",
-                    token::workspace_instance_id(),
+                    "ipc_state_root",
+                    token::ipc_state_root().display().to_string(),
                 );
-                Self::row(ui, "ipc_state_root", token::ipc_state_root().display().to_string());
                 Self::row(
                     ui,
                     "session token",

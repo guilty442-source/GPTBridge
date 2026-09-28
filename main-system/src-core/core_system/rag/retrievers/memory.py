@@ -85,18 +85,30 @@ class MemoryRetriever:
 
     def retrieve(self, request: MemoryRetrievalRequest) -> MemoryRetrievalResult:
         """Execute memory retrieval through the canonical pipeline."""
-        # Dense + keyword hybrid search
-        vector_hits = self._pipeline.vector_search(
-            request.query_embedding,
-            module_ids=request.module_ids,
-            top_k=request.candidate_limit,
-            score_threshold=request.score_threshold,
-        )
-        keyword_hits = self._pipeline.keyword_search(
-            request.query_text,
-            module_ids=request.module_ids,
-            limit=request.candidate_limit,
-        )
+        # Dense + keyword channels — one concurrent trip when the host
+        # surface provides it, sequential fallback otherwise.  The probe
+        # goes through the class so mock pipelines without the method
+        # stay on the sequential path.
+        if getattr(type(self._pipeline), "vector_and_keyword", None) is not None:
+            vector_hits, keyword_hits = self._pipeline.vector_and_keyword(
+                request.query_embedding,
+                request.query_text,
+                module_ids=request.module_ids,
+                candidate_limit=request.candidate_limit,
+                score_threshold=request.score_threshold,
+            )
+        else:
+            vector_hits = self._pipeline.vector_search(
+                request.query_embedding,
+                module_ids=request.module_ids,
+                top_k=request.candidate_limit,
+                score_threshold=request.score_threshold,
+            )
+            keyword_hits = self._pipeline.keyword_search(
+                request.query_text,
+                module_ids=request.module_ids,
+                limit=request.candidate_limit,
+            )
         fused = reciprocal_rank_fusion(vector_hits, keyword_hits)
         # Filter by memory scope
         scoped = self._filter_by_scope(fused, request.scopes, request.session_id)

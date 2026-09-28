@@ -1,8 +1,8 @@
 """§10.64 — resource governor state signals for backend consumers.
 
-The standalone ``scripts/resource-governor.py`` writes
-``runtime/state/resource-governor.json`` every cycle with the worker
-aggregate ledger, the hysteresis regulation state and the
+The standalone ``native/resource_governor/bin/resource-governor.exe`` (C++23,
+A608) writes ``runtime/state/resource-governor.json`` every cycle with the
+worker aggregate ledger, the hysteresis regulation state and the
 ``worker_admission_hold`` flag.  These helpers let backend tasks consult
 that state cheaply (one small JSON read per call, caller-chosen
 cadence).

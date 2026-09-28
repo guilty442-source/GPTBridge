@@ -59,14 +59,17 @@ fn publish_state(port: u16, token: &str) {
         "pid": std::process::id(),
         "started_at": app::iso_now(),
     });
-    let _ = std::fs::write(&target, serde_json::to_string_pretty(&body).unwrap_or_default());
+    let _ = std::fs::write(
+        &target,
+        serde_json::to_string_pretty(&body).unwrap_or_default(),
+    );
 }
 
 fn remove_state() {
     let _ = std::fs::remove_file(state_path());
 }
 
-fn respond(stream: &mut std::net::TcpStream, status: u16, payload: serde_json::Value) {
+pub(crate) fn respond(stream: &mut std::net::TcpStream, status: u16, payload: serde_json::Value) {
     let body = serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string());
     let reason = match status {
         200 => "OK",
@@ -83,14 +86,14 @@ fn respond(stream: &mut std::net::TcpStream, status: u16, payload: serde_json::V
     let _ = stream.write_all(body.as_bytes());
 }
 
-struct Request {
-    method: String,
-    path: String,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
+pub(crate) struct Request {
+    pub(crate) method: String,
+    pub(crate) path: String,
+    pub(crate) headers: Vec<(String, String)>,
+    pub(crate) body: Vec<u8>,
 }
 
-fn read_request(stream: &mut std::net::TcpStream) -> Option<Request> {
+pub(crate) fn read_request(stream: &mut std::net::TcpStream) -> Option<Request> {
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
         .ok()?;
@@ -108,10 +111,7 @@ fn read_request(stream: &mut std::net::TcpStream) -> Option<Request> {
             }
             Err(_) => return None,
         }
-        if let Some(pos) = raw
-            .windows(4)
-            .position(|w| w == b"\r\n\r\n")
-        {
+        if let Some(pos) = raw.windows(4).position(|w| w == b"\r\n\r\n") {
             header_end = pos;
             break;
         }
@@ -156,7 +156,10 @@ fn read_request(stream: &mut std::net::TcpStream) -> Option<Request> {
 
 fn dispatch_channel(app: &AppHandle, channel: &str, args: &serde_json::Value) -> serde_json::Value {
     let str_arg = |key: &str| -> String {
-        args.get(key).and_then(|v| v.as_str()).unwrap_or_default().to_string()
+        args.get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
     };
     match channel {
         "embedded-browser:create" => webview_host::create_session(
@@ -218,7 +221,11 @@ fn dispatch_channel(app: &AppHandle, channel: &str, args: &serde_json::Value) ->
 
 fn handle_connection(app: &AppHandle, mut stream: std::net::TcpStream) {
     let Some(request) = read_request(&mut stream) else {
-        respond(&mut stream, 400, serde_json::json!({"ok": false, "message": "BRIDGE_REQUEST_INVALID"}));
+        respond(
+            &mut stream,
+            400,
+            serde_json::json!({"ok": false, "message": "BRIDGE_REQUEST_INVALID"}),
+        );
         return;
     };
 
@@ -233,7 +240,10 @@ fn handle_connection(app: &AppHandle, mut stream: std::net::TcpStream) {
         let expected = bridge_token();
         if token.len() == expected.len() && token == expected {
             if let Ok(payload) = serde_json::from_str::<serde_json::Value>(json_part) {
-                let request_id = payload["request_id"].as_str().unwrap_or_default().to_string();
+                let request_id = payload["request_id"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string();
                 webview_host::deliver_exec_result(&request_id, payload);
             }
         }
@@ -242,7 +252,11 @@ fn handle_connection(app: &AppHandle, mut stream: std::net::TcpStream) {
     }
 
     if request.method != "POST" || request.path != "/invoke" {
-        respond(&mut stream, 404, serde_json::json!({"ok": false, "message": "NOT_FOUND"}));
+        respond(
+            &mut stream,
+            404,
+            serde_json::json!({"ok": false, "message": "NOT_FOUND"}),
+        );
         return;
     }
     let provided = request
@@ -256,19 +270,31 @@ fn handle_connection(app: &AppHandle, mut stream: std::net::TcpStream) {
         && provided.len() == expected.len()
         && constant_time_eq(provided.as_bytes(), expected.as_bytes());
     if !authorized {
-        respond(&mut stream, 403, serde_json::json!({"ok": false, "message": "BRIDGE_TOKEN_INVALID"}));
+        respond(
+            &mut stream,
+            403,
+            serde_json::json!({"ok": false, "message": "BRIDGE_TOKEN_INVALID"}),
+        );
         return;
     }
     let payload: serde_json::Value = match serde_json::from_slice(&request.body) {
         Ok(v) => v,
         Err(_) => {
-            respond(&mut stream, 400, serde_json::json!({"ok": false, "message": "BRIDGE_BODY_INVALID"}));
+            respond(
+                &mut stream,
+                400,
+                serde_json::json!({"ok": false, "message": "BRIDGE_BODY_INVALID"}),
+            );
             return;
         }
     };
     let channel = payload["channel"].as_str().unwrap_or_default().to_string();
     if channel.is_empty() {
-        respond(&mut stream, 404, serde_json::json!({"ok": false, "message": "BRIDGE_CHANNEL_UNKNOWN"}));
+        respond(
+            &mut stream,
+            404,
+            serde_json::json!({"ok": false, "message": "BRIDGE_CHANNEL_UNKNOWN"}),
+        );
         return;
     }
     let args = payload

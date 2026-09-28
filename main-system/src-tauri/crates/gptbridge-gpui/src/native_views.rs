@@ -4,7 +4,7 @@
 //! counter, and governed runtime facts (system metrics via gptbridge-core)
 //! to prove the native path end-to-end.
 
-use gpui::{Context, IntoElement, Render, Window, div, prelude::*, px, rgb};
+use gpui::{div, prelude::*, px, rgb, Context, IntoElement, Render, Window};
 
 pub struct NativeViewsGallery {
     ticks: u64,
@@ -13,16 +13,14 @@ pub struct NativeViewsGallery {
 impl NativeViewsGallery {
     pub fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
         // 1 Hz tick — proves the view invalidates on the native event loop.
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(std::time::Duration::from_secs(1))
-                    .await;
-                let _ = this.update(&mut *cx, |v, cx| {
-                    v.ticks += 1;
-                    cx.notify();
-                });
-            }
+        cx.spawn(async move |this, cx| loop {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(1))
+                .await;
+            let _ = this.update(&mut *cx, |v, cx| {
+                v.ticks += 1;
+                cx.notify();
+            });
         })
         .detach();
         Self { ticks: 0 }
@@ -73,27 +71,33 @@ impl Render for NativeViewsGallery {
                     .gap_3()
                     .p_4()
                     .child(self.cell("event ticks", format!("{}", self.ticks)))
-                    .child(self.cell(
-                        "cpu %",
-                        metrics["cpuUsagePercent"]
-                            .as_f64()
-                            .map(|v| format!("{v:.1}"))
-                            .unwrap_or_else(|| "n/a".to_string()),
-                    ))
-                    .child(self.cell(
-                        "ram %",
-                        metrics["ramUsagePercent"]
-                            .as_f64()
-                            .map(|v| format!("{v:.1}"))
-                            .unwrap_or_else(|| "n/a".to_string()),
-                    ))
-                    .child(self.cell(
-                        "disk %",
-                        metrics["diskUsagePercent"]
-                            .as_f64()
-                            .map(|v| format!("{v:.1}"))
-                            .unwrap_or_else(|| "n/a".to_string()),
-                    ))
+                    .child(
+                        self.cell(
+                            "cpu %",
+                            metrics["cpuUsagePercent"]
+                                .as_f64()
+                                .map(|v| format!("{v:.1}"))
+                                .unwrap_or_else(|| "n/a".to_string()),
+                        ),
+                    )
+                    .child(
+                        self.cell(
+                            "ram %",
+                            metrics["ramUsagePercent"]
+                                .as_f64()
+                                .map(|v| format!("{v:.1}"))
+                                .unwrap_or_else(|| "n/a".to_string()),
+                        ),
+                    )
+                    .child(
+                        self.cell(
+                            "disk %",
+                            metrics["diskUsagePercent"]
+                                .as_f64()
+                                .map(|v| format!("{v:.1}"))
+                                .unwrap_or_else(|| "n/a".to_string()),
+                        ),
+                    )
                     .child(self.cell(
                         "backend gateway",
                         if gateway { "live" } else { "down" }.to_string(),

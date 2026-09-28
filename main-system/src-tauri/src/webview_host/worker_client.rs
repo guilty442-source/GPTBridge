@@ -14,7 +14,6 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 use gptbridge_core::ipc::http;
-use gptbridge_core::native::paths;
 use gptbridge_core::security::sanitize_id;
 
 const WORKER_TOKEN_HEADER: &str = "x-gptbridge-worker-token";
@@ -30,11 +29,8 @@ pub struct WorkerRef {
 }
 
 fn worker_state_path(session_id: &str) -> PathBuf {
-    paths::path_library()
-        .workspace_root
-        .join("main-system")
-        .join("runtime")
-        .join("state")
+    super::host()
+        .state_dir
         .join(format!("embedded-worker-{}.json", sanitize_id(session_id)))
 }
 
@@ -44,8 +40,8 @@ fn random_token() -> String {
     hex::encode(buf)
 }
 
-fn main_window_hwnd(app: &AppHandle) -> isize {
-    app.get_window("main")
+fn host_window_hwnd(app: &AppHandle) -> isize {
+    app.get_window(super::host().window_label)
         .and_then(|w| w.hwnd().ok())
         .map(|h| h.0 as isize)
         .unwrap_or(0)
@@ -62,23 +58,34 @@ pub(crate) fn spawn_worker(
     let state_file = worker_state_path(session_id);
     let _ = std::fs::remove_file(&state_file);
     let token = random_token();
-    let parent_hwnd = main_window_hwnd(app);
+    let parent_hwnd = host_window_hwnd(app);
     let parent_pid = std::process::id();
 
     // Worker diagnostics land in a bounded per-session log rather than the
     // parent's stderr (worker exit codes otherwise surface as opaque
     // WORKER_UNREACHABLE failures).
-    let log_path = paths::path_library()
-        .workspace_root
-        .join("main-system")
-        .join("runtime")
-        .join("logs")
+    let log_path = super::host()
+        .log_dir
         .join(format!("embedded-worker-{}.log", sanitize_id(session_id)));
+    if let Some(parent) = log_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
     let stderr_redirect = std::fs::File::create(&log_path)
         .map(std::process::Stdio::from)
         .unwrap_or_else(|_| std::process::Stdio::inherit());
 
-    let child = std::process::Command::new(exe)
+    // Per-session WebView2 user-data folder: a shared UDF is locked
+    // ERROR_BUSY by the first process to open it, which wedges every
+    // other worker's webview (and the host window's own webview holds the
+    // configured/default UDF already).
+    let worker_data_dir = {
+        let host = super::host();
+        host.worker_data_root.join(sanitize_id(session_id))
+    };
+    let _ = std::fs::create_dir_all(&worker_data_dir);
+
+    let mut command = std::process::Command::new(exe);
+    command
         .arg("--embedded-worker")
         .arg("--session-id")
         .arg(session_id)
@@ -92,7 +99,25 @@ pub(crate) fn spawn_worker(
         .arg(&token)
         .arg("--state-file")
         .arg(&state_file)
-        .stderr(stderr_redirect)
+        .arg("--user-data-folder")
+        .arg(&worker_data_dir)
+        .stderr(stderr_redirect);
+    // Tool-window sessions forward navigation events to their tool bridge
+    // so the renderer receives embedded-browser:event notifications
+    // (Electron main.cjs emitted these from the BrowserView itself).
+    if super::host().worker_events {
+        let event_port = crate::tool_bridge::bridge_port();
+        let event_token = crate::tool_bridge::bridge_token();
+        if event_port != 0 && !event_token.is_empty() {
+            command
+                .arg("--event-port")
+                .arg(event_port.to_string())
+                .arg("--event-token")
+                .arg(event_token);
+        }
+    }
+
+    let child = command
         .spawn()
         .map_err(|e| format!("WORKER_SPAWN_FAILED:{e}"))?;
     let child_pid = child.id();

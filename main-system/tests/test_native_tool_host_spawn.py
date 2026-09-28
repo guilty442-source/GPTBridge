@@ -1,4 +1,4 @@
-﻿"""Contract tests for the migrate-csharp native tool-host spawn path.
+"""Contract tests for the migrate-csharp native tool-host spawn path.
 
 Pins the design contract in docs/csharp-tool-host-design.md:
 - manifest ``runtime.native_entry`` selects a tool-root .exe host,
@@ -23,6 +23,7 @@ def _resolver():
     return ToolPathResolver(WORKSPACE_ROOT)
 
 
+@pytest.mark.skipif(not TOOL_DIR.exists(), reason="system-rescue tool retired")
 def test_system_rescue_manifest_declares_native_entry():
     manifest = json.loads((TOOL_DIR / "manifest.json").read_text("utf-8"))
     native = manifest["runtime"].get("native_entry")
@@ -32,6 +33,7 @@ def test_system_rescue_manifest_declares_native_entry():
     assert manifest["runtime"]["entry"] == "src/main.py"
 
 
+@pytest.mark.skipif(not TOOL_DIR.exists(), reason="system-rescue tool retired")
 def test_resolver_prefers_native_exe_when_present():
     manifest = json.loads((TOOL_DIR / "manifest.json").read_text("utf-8"))
     resolver = _resolver()

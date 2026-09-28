@@ -56,7 +56,11 @@ git commit -m "Your message" -- <your-file-1> <your-file-2>
 Path-scoped commits ignore the index for every other path, so externally
 staged work can never be swept in (incident 2026-09-20: `4914cf07` swept a
 staged `pretrain.py` CUDA-graphs fix under a blueprint message because the
-whole index was committed after the listing was noticed).
+whole index was committed after the listing was noticed). Recurrence
+2026-09-28: `808a9895` swept another worker's 14 staged
+`native/resource_governor` A185-split files under a release-fixtures
+message while their own files landed in `717aa5fa`; attribution was
+corrected non-destructively via `git notes` on `808a9895`.
 
 ### Other PowerShell Notes
 
@@ -189,8 +193,8 @@ through the same governed pipeline used for manual training:
 3. queue and run a governed SFT job initialised from the lifecycle's active
    weights,
 4. evaluate the resulting artifact against the policy's eval suites
-   (`star-native-eval-dialogue-v1` perplexity/tps gate **plus**
-   `star-capability-suite-v2` per-category regression gate — zh-TW/en/
+   (`star-native-eval-dialogue-20260921-125054` perplexity/tps gate **plus**
+   `star-capability-suite-20260925-084920` per-category regression gate — zh-TW/en/
    math/code/reading/multi_turn/context_tracking/instruction/
    tool_call_format/expert_routing; any category pass-rate drop vs the
    active weights fails the candidate) with the current active weights
@@ -447,15 +451,18 @@ Windows system processes, security software (including the user's antivirus)
 and the governor itself.
 
 ```powershell
+# build
+powershell -NoProfile -ExecutionPolicy Bypass -File native\resource_governor\build.ps1
+
 # status / one-shot (dry-run first) / start / stop
-& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --status
-& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --once --dry-run
-& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --start
-& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --stop
+& native\resource_governor\bin\resource-governor.exe --status
+& native\resource_governor\bin\resource-governor.exe --once --dry-run
+& native\resource_governor\bin\resource-governor.exe --start
+& native\resource_governor\bin\resource-governor.exe --stop
 
 # cross-reboot persistence (per-user Run key: no elevation needed)
-& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --install-logon
-& main-system\.venv\Scripts\python.exe scripts\resource-governor.py --uninstall-logon
+& native\resource_governor\bin\resource-governor.exe --install-logon
+& native\resource_governor\bin\resource-governor.exe --uninstall-logon
 ```
 
 Tunables: `--interval` (default 20s), `--cpu-busy` (50% of one core),
@@ -464,7 +471,9 @@ Tunables: `--interval` (default 20s), `--cpu-busy` (50% of one core),
 `main-system/runtime/logs/resource-governor.jsonl`; the latest cycle snapshot
 is in `main-system/runtime/state/resource-governor.json`.
 
-Implementation: `scripts/resource-governor.py`.
+Implementation: `native/resource_governor/` (C++23, A608) — the Python
+`scripts/resource-governor.py` was retired on migration; the state/log JSON
+contract is unchanged.
 
 ## Adaptive SQL Layer
 

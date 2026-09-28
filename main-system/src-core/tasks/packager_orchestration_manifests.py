@@ -58,7 +58,12 @@ def _write_app_manifests(
     runtime_contract: dict[str, Any],
     central_version: str,
 ) -> None:
-    """Write the app manifest.json and package.json."""
+    """Write the app manifest.json.
+
+    The packaged exe is the governed Tauri shell in ``--tool-window``
+    packaged mode — it reads ``manifest.json``/``standalone`` directly
+    (the Electron ``package.json#main.cjs`` convention is retired).
+    """
     app_manifest = dict(manifest)
     app_manifest["id"] = tool_id
     app_manifest["version"] = str(manifest.get("version") or central_version)
@@ -74,19 +79,6 @@ def _write_app_manifests(
     }
     (app_dir / "manifest.json").write_text(
         json.dumps(app_manifest, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    (app_dir / "package.json").write_text(
-        json.dumps(
-            {
-                "name": f"gptbridge-tool-{tool_id}",
-                "version": str(manifest.get("version") or central_version),
-                "main": "main.cjs",
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-        + "\n",
         encoding="utf-8",
     )
 

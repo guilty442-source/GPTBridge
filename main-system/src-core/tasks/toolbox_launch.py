@@ -141,8 +141,8 @@ class LaunchMixin:
             self._workspace_instance_id(),
         )
         return await asyncio.create_subprocess_exec(
-            str(ui_paths["electron"]),
-            str(ui_paths["host_entry"]),
+            str(ui_paths["shell"]),
+            "--tool-window",
             f"--tool-id={tool_id}",
             cwd=str(self.project_root / "main-system"),
             stdout=subprocess.DEVNULL,
@@ -174,7 +174,7 @@ class LaunchMixin:
     def _checked_source_ui_paths(
         self, tool_id: str, started: float
     ) -> tuple[dict[str, Path] | None, dict[str, Any] | None]:
-        """Resolve the host/renderer/electron files or an error verdict."""
+        """Resolve the shell/renderer files or an error verdict."""
         ui_paths = _resolve_source_ui_paths(self.project_root, tool_id)
         if all(path.is_file() for path in ui_paths.values()):
             return ui_paths, None

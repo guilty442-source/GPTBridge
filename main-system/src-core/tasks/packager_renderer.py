@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -10,7 +9,6 @@ from typing import Any
 from packager_base import (
     MAIN_SYSTEM_ROOT,
     PLATFORM_RENDERER_ROOT,
-    TEMPLATE_DIR,
     _background_subprocess_kwargs,
 )
 
@@ -73,17 +71,3 @@ def build_platform_renderer(
         "exit_code": completed.returncode,
         "output": completed.stdout,
     }
-
-
-def copy_app_templates(app_dir: Path) -> None:
-    # A215/E180: template source is .ts, compiled to .cjs via vite.
-    # Copy from the build output (dist-ui/templates/).
-    build_dir = MAIN_SYSTEM_ROOT / "dist-ui" / "templates"
-    for filename in ("main.cjs", "preload.cjs"):
-        compiled = build_dir / filename
-        if not compiled.exists():
-            raise FileNotFoundError(
-                f"Compiled template not found: {compiled}. "
-                "Run 'npm run build:templates' before packaging."
-            )
-        shutil.copy2(compiled, app_dir / filename)

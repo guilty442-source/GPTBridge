@@ -14,7 +14,6 @@ from governance_rule.permission_directory.directory_authority import (
     IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT,
     IDENTITY_GROUP_MAIN_SYSTEM,
     IDENTITY_GROUP_SHARED_LAYER,
-    IDENTITY_GROUP_SYSTEM_RESCUE,
     IDENTITY_GROUP_VAULTLY,
     IDENTITY_GROUP_XINGCHENG,
     IDENTITY_GROUP_XINGCHENG_ASSISTANT,
@@ -36,6 +35,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "system-channel-request-submit",
             "hot-update",
             "frontend-backend-connection-stability",
+            "managed-backup",
         ),
     ),
     IdentityPermissionBinding(
@@ -139,6 +139,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "system-channel-request-process",
             "ai-channel-request-submit",
             "ai-channel-request-process",
+            "central-automatic-repair",
         ),
     ),
     # 星澄助理 — auxiliary system / independent privileged institution
@@ -153,6 +154,7 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "xingcheng-governance-source-read",
             "xingcheng-fault-analysis-read",
             "star-global-data-read",
+            "system-health-check",
         ),
     ),
     IdentityPermissionBinding(
@@ -164,20 +166,6 @@ IDENTITY_PERMISSION_BINDINGS: Final[
             "independent-tool-business-storage",
             "system-channel-request-submit",
             "system-channel-request-process",
-        ),
-    ),
-    IdentityPermissionBinding(
-        group_id=IDENTITY_GROUP_SYSTEM_RESCUE,
-        actor="governance/tool/system-rescue",
-        capabilities=(
-            "independent-tool-business-logic",
-            "independent-tool-user-settings",
-            "independent-tool-business-storage",
-            "system-channel-request-submit",
-            "system-channel-request-process",
-            "system-health-check",
-            "central-automatic-repair",
-            "managed-backup",
         ),
     ),
     IdentityPermissionBinding(

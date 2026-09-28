@@ -174,15 +174,44 @@ $suites = @(
         extra = @(
             (Join-Path $coreDir "scheduler.c")
         )
+    },
+    @{
+        src = "suite_resource_governor.cpp"; exe = "resource_governor_suite.exe"
+        # A608: resource-governor C++23 控制律等價（假引擎，零 OS 副作用）。
+        # A185 split: control-law units only (no Win32 engine / host layer).
+        extra = @(
+            (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp")
+        )
     }
 )
 
 # Concurrent-worker guard: two build.ps1 runs racing on the shared
 # _build.bat / .obj outputs produce spurious failures; serialize on an
-# atomic lock dir (wait ≤ 600 s, then fail closed).
+# atomic lock dir (wait ≤ 600 s, then fail closed). The lock records the
+# owner PID: a killed build's finally never runs, so a dead owner is
+# reclaimed immediately instead of stalling the next build for 600 s.
 $lockDir = Join-Path $out "_build.lock"
 $lockWaited = 0
 while (-not (New-Item -ItemType Directory -Path $lockDir -ErrorAction SilentlyContinue)) {
+    $ownerPidFile = Join-Path $lockDir "owner.pid"
+    if (Test-Path $ownerPidFile) {
+        $ownerPid = 0
+        [void][int]::TryParse(
+            ((Get-Content $ownerPidFile -Raw -ErrorAction SilentlyContinue) -as [string]).Trim(),
+            [ref]$ownerPid
+        )
+        if ($ownerPid -le 0 -or -not (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue)) {
+            Remove-Item $lockDir -Recurse -Force -ErrorAction SilentlyContinue
+            continue
+        }
+    } elseif (((Get-Date) - (Get-Item $lockDir).CreationTime).TotalSeconds -gt 30) {
+        # Lock predates owner tracking or owner died before writing its pid.
+        Remove-Item $lockDir -Recurse -Force -ErrorAction SilentlyContinue
+        continue
+    }
     if ($lockWaited -ge 600) {
         # Stale lock from a crashed run: owner gone → break once.
         if (-not (Get-Process -Name "cl" -ErrorAction SilentlyContinue)) {
@@ -195,6 +224,7 @@ while (-not (New-Item -ItemType Directory -Path $lockDir -ErrorAction SilentlyCo
     Start-Sleep -Seconds 2
     $lockWaited += 2
 }
+Set-Content -Path (Join-Path $lockDir "owner.pid") -Value $PID
 
 try {
 
@@ -260,6 +290,16 @@ $auditSrc = Join-Path $auditDir "audit_engine.cpp"
 $auditObj = Join-Path $out "obj\audit-engine"
 New-Item -ItemType Directory -Force -Path $auditObj | Out-Null
 Add-BuildJob "audit-engine" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe`"$auditExe`" /Fo:$auditObj\ `"$auditSrc`" /link /LTCG >nul || exit /b 1")
+# A608 資源管制器主程式（C++23）：監督面常駐行程，與 Python 版同狀態契約
+$govRoot = Join-Path $nativeRoot "resource_governor"
+$govExe = Join-Path $govRoot "bin\resource-governor.exe"
+$govObj = Join-Path $out "obj\resource-governor"
+New-Item -ItemType Directory -Force -Path (Split-Path $govExe -Parent) | Out-Null
+New-Item -ItemType Directory -Force -Path $govObj | Out-Null
+# A185 split: compile+link every implementation unit in resource_governor/.
+$govSrcFiles = Get-ChildItem -Path $govRoot -Filter "*.cpp" -File | Sort-Object Name
+$govSources = (@($govSrcFiles | ForEach-Object { '"' + $_.FullName + '"' })) -join " "
+Add-BuildJob "resource-governor" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$govExe`" /Fo:$govObj\ $govSources /link /LTCG >nul || exit /b 1")
 # M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"

@@ -20,7 +20,10 @@ const LOCK_WAIT_MS: u64 = 10_000;
 const STALE_LOCK_MS: u64 = 5_000;
 
 fn is_valid_token(token: &str) -> bool {
-    token.len() == 64 && token.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    token.len() == 64
+        && token
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
 }
 
 pub fn ipc_state_root() -> PathBuf {
@@ -99,7 +102,9 @@ fn break_stale_lock(lock_path: &std::path::Path) {
     let Ok(meta) = fs::metadata(lock_path) else {
         return;
     };
-    let Ok(modified) = meta.modified() else { return };
+    let Ok(modified) = meta.modified() else {
+        return;
+    };
     let age = std::time::SystemTime::now()
         .duration_since(modified)
         .unwrap_or_default();
@@ -219,7 +224,8 @@ fn repair_or_create_token(file_path: &std::path::Path) -> Result<String, String>
         let generated = random_hex(32);
         write_token_atomically(file_path, &generated).map_err(|e| e.to_string())?;
         harden_private_path(file_path, false);
-        read_token(file_path).ok_or_else(|| "IPC session token write verification failed".to_string())
+        read_token(file_path)
+            .ok_or_else(|| "IPC session token write verification failed".to_string())
     })();
 
     if still_owns_lock(&lock_path, &owner_nonce) {

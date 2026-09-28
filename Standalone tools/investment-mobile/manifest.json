@@ -189,7 +189,7 @@
    ],
    "sources": "replaceable adapters; verified-only realtime; simulated/manual for tests",
    "live_quotes": "pending official source verification",
-   "storage": "SQLite runtime cache + PostgreSQL gptbridge_trading market_* (migration 135)"
+   "storage": "PostgreSQL gptbridge_trading market_* (migration 135)"
   },
   "fund_system": {
    "engine": "MutualFundEngine (trading/fund/) — identity, NAV, distribution, fee, performance, comparison, exposure, transactions, cost basis, recurring, recommendations, strategies",

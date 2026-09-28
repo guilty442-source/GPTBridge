@@ -1,0 +1,46 @@
+{
+  "contract": "PYTHON_MINIMIZATION_BASELINE",
+  "contract_version": 1,
+  "minimum_supported_contract_version": 1,
+  "authority": "governance-rule-only",
+  "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
+  "metadata": {
+    "contract_revision": 2,
+    "measured_at": "2026-09-28T00:00:00Z",
+    "method": "path-pattern first-match buckets (pybucket.py)",
+    "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
+    "adjudications_rev2": [
+      "vector_scope.py -> GOVERNANCE (permission scoping semantics, zero vector ops)",
+      "vectord_backend.py -> GOVERNANCE (decision-level ownership declaration, zero vector ops)",
+      "local_ai_embedding.py -> RAG (RAG-grounding mixin for inference)"
+    ]
+  },
+  "zero_targets": {
+    "INFERENCE": {"files": 54, "loc": 13453},
+    "RAG": {"files": 91, "loc": 24840},
+    "VECTOR": {"files": 1, "loc": 506},
+    "UI": {"files": 9, "loc": 1034},
+    "PROC_MGMT": {"files": 57, "loc": 15731},
+    "FILE_IO": {"files": 98, "loc": 18209},
+    "NETWORK": {"files": 19, "loc": 4287},
+    "BUSINESS": {"files": 232, "loc": 41819},
+    "GENERAL_APP": {"files": 557, "loc": 112829}
+  },
+  "allowed_zones": {
+    "GOVERNANCE": {"files": 203, "loc": 56985, "policy": "thin-to-minimum, stays-python"},
+    "TRAINING": {"files": 28, "loc": 9412, "policy": "on-demand"},
+    "VERIFICATION": {"files": 371, "loc": 94352, "policy": "development-only"}
+  },
+  "migration_plan": {
+    "INFERENCE": {"phase": 3, "target": "cpp", "entry": ["native_engine.generate_via_native_engine", "model_service_http"], "note": "C# native-abi primary, then delete Python path"},
+    "RAG": {"phase": 3, "target": "rust", "entry": ["core_system/rag", "local_rag_retrieval"], "note": "orchestration to Rust; vectord ready"},
+    "VECTOR": {"phase": 3, "target": "rust", "entry": ["shared_layer/local/vector_store"], "note": "rides RAG degraded pipeline; degraded math into vectord or delete-if-always-available decision"},
+    "UI": {"phase": 3, "target": "csharp", "entry": ["model-dialogue star_chat service"], "note": "TS UI stays; Python service to C#"},
+    "PROC_MGMT": {"phase": 4, "target": "csharp+rust+c", "entry": ["toolbox", "isolation", "activation", "worker_pool"], "note": "orchestration C#, lifecycle Rust, hot path C"},
+    "FILE_IO": {"phase": 4, "target": "rust+go", "entry": ["file-sorter", "vaultly workers"], "note": "file service boundary"},
+    "NETWORK": {"phase": 4, "target": "go+rust", "entry": ["browser_automation (rides collab/P4)", "ipc server (rides backend hosting)", "searchd.py (rides RAG/P3)", "transport_proxy (C# parity exists)"], "note": "split by owner phase; no standalone move"},
+    "BUSINESS": {"phase": 4, "target": "csharp+fsharp", "entry": ["investment trading", "xingcheng commands", "collab"], "note": "C# Application + F# Domain Core"},
+    "GENERAL_APP": {"phase": 5, "target": "per-module", "entry": ["MS:tasks->csharp", "MS:ipc->rust", "SL:database->decision-needed", "SL:workflow->tbd"], "note": "largest bucket; per-module parity migration; psycopg exclusivity needs governor decision"},
+    "GOVERNANCE": {"phase": 5, "target": "thin-in-place", "entry": ["audit/git/codex machinery candidates for csharp/rust/c"], "note": "semantics stay Python; mechanical layers move out"}
+  }
+}

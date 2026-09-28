@@ -5,9 +5,7 @@
 //! through the governed backend channel (gptbridge-core session
 //! descriptor); this view renders the projection only.
 
-use gpui::{
-    Context, IntoElement, Render, ScrollHandle, Window, div, prelude::*, rgb,
-};
+use gpui::{div, prelude::*, rgb, Context, IntoElement, Render, ScrollHandle, Window};
 
 use crate::streaming_text::StreamingBuffer;
 

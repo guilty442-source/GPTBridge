@@ -1,9 +1,9 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T04:06:58Z",
+  "generated_at": "2026-09-28T04:26:34Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 338,
+    "native_checks": 329,
     "delegated_checks": 35,
     "native_kinds": [
       "file-exists",
@@ -335,11 +335,6 @@
       "path": "governance_rule/permission_directory/registries/permissions/source_ownership.py"
     },
     {
-      "id": "architecture-pollution:architecture-git.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-git.md"
-    },
-    {
       "id": "architecture-pollution:architecture-languages.md",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/architecture-languages.md"
@@ -348,16 +343,6 @@
       "id": "architecture-pollution:architecture-project.md",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/architecture-project.md"
-    },
-    {
-      "id": "architecture-pollution:architecture-rag.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-rag.md"
-    },
-    {
-      "id": "architecture-pollution:architecture-sql.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-sql.md"
     },
     {
       "id": "architecture-pollution:architecture-tool-ai-assistant.md",
@@ -370,16 +355,6 @@
       "path": "governance_rule/codex/architecture-tool-ai-collaboration.md"
     },
     {
-      "id": "architecture-pollution:architecture-tool-business-logic-csharp.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-tool-business-logic-csharp.md"
-    },
-    {
-      "id": "architecture-pollution:architecture-tool-business-logic-fsharp.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-tool-business-logic-fsharp.md"
-    },
-    {
       "id": "architecture-pollution:architecture-tool-file-sorter.md",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/architecture-tool-file-sorter.md"
@@ -390,11 +365,6 @@
       "path": "governance_rule/codex/architecture-tool-investment-mobile.md"
     },
     {
-      "id": "architecture-pollution:architecture-tool-julia-compute.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-tool-julia-compute.md"
-    },
-    {
       "id": "architecture-pollution:architecture-tool-local-model.md",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/architecture-tool-local-model.md"
@@ -403,21 +373,6 @@
       "id": "architecture-pollution:architecture-tool-model-dialogue.md",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/architecture-tool-model-dialogue.md"
-    },
-    {
-      "id": "architecture-pollution:architecture-tool-process-metrics-csharp.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-tool-process-metrics-csharp.md"
-    },
-    {
-      "id": "architecture-pollution:architecture-tool-searchd-go.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-tool-searchd-go.md"
-    },
-    {
-      "id": "architecture-pollution:architecture-tool-system-rescue.md",
-      "kind": "text-no-pollution",
-      "path": "governance_rule/codex/architecture-tool-system-rescue.md"
     },
     {
       "id": "architecture-pollution:architecture-tool-vaultly.md",

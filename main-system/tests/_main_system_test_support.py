@@ -122,17 +122,17 @@ BACKGROUND_PROCESS_CALLS = {
 }
 VISIBLE_PROCESS_CALLS = {
     (
-        "main-system/src-core/tasks/toolbox_service.py",
-        "_launch_source_ui",
-        "str(electron)",
+        "main-system/src-core/tasks/toolbox_launch.py",
+        "_spawn_source_ui_host",
+        'str(ui_paths["shell"])',
     ),
     (
-        "main-system/src-core/tasks/toolbox_service.py",
+        "main-system/src-core/tasks/toolbox_launch.py",
         "_activate_existing_tool_window",
         "str(executable_file)",
     ),
     (
-        "main-system/src-core/tasks/toolbox_service.py",
+        "main-system/src-core/tasks/toolbox_start_spawn_process.py",
         "start_tool",
         "str(executable_file)",
     ),

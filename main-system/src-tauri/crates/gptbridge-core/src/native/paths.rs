@@ -159,8 +159,8 @@ pub fn path_library() -> &'static RuntimePathLibrary {
             }
         }
 
-        let mut python_executable = first_existing(&python_candidates)
-            .unwrap_or_else(|| python_candidates[0].clone());
+        let mut python_executable =
+            first_existing(&python_candidates).unwrap_or_else(|| python_candidates[0].clone());
         if cfg!(windows) {
             let lower = python_executable.to_string_lossy().to_lowercase();
             if lower.ends_with("\\python.exe") {
@@ -194,10 +194,22 @@ pub fn path_library() -> &'static RuntimePathLibrary {
         .unwrap_or_else(|| python_entry.clone());
 
         let source_repair_entry = [
-            resources_root.join("src-core").join("tasks").join("source_repair.py"),
-            unpacked_root.join("src-core").join("tasks").join("source_repair.py"),
-            app_root.join("src-core").join("tasks").join("source_repair.py"),
-            workspace_root.join("src-core").join("tasks").join("source_repair.py"),
+            resources_root
+                .join("src-core")
+                .join("tasks")
+                .join("source_repair.py"),
+            unpacked_root
+                .join("src-core")
+                .join("tasks")
+                .join("source_repair.py"),
+            app_root
+                .join("src-core")
+                .join("tasks")
+                .join("source_repair.py"),
+            workspace_root
+                .join("src-core")
+                .join("tasks")
+                .join("source_repair.py"),
         ]
         .iter()
         .find(|p| p.exists())
@@ -222,7 +234,11 @@ pub fn path_library() -> &'static RuntimePathLibrary {
             .join("preload.js");
 
         RuntimePathLibrary {
-            mode: if packaged { "packaged" } else { "source-production" },
+            mode: if packaged {
+                "packaged"
+            } else {
+                "source-production"
+            },
             executable_dir,
             workspace_root,
             resources_root,

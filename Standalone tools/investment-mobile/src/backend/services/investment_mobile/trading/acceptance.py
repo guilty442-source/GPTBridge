@@ -365,7 +365,7 @@ def build_matrix() -> InvestmentAcceptanceMatrix:
     R("fund.paper", "基金 PAPER 申贖結算模型", "mutual-fund",
       "trading/simulation/fund_settlement.py",
       "NAV-cycle settle; sim-only journal; probe runs full cycle",
-      ["_stage_e2e_v1.py"], "codex:mutual-fund",
+       ["_stage_e2e.py"], "codex:mutual-fund",
       _fund_paper_probe)
     R("ui.control_route", "ai-assistant→engine 控制路由", "autotrading",
       "governance route registry", "submit-only channel",

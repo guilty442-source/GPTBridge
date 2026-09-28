@@ -22,7 +22,6 @@ TOOL_CODENAMES: Final[dict[str, str]] = {
     "xingcheng": "NEBULA",
     "investment-mobile": "MOBILE",
     "vaultly": "VAULT",
-    "system-rescue": "RESCUE",
 }
 
 

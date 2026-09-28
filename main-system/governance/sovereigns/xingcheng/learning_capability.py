@@ -129,7 +129,11 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
         from tasks.repair_learning import RepairLearner, RepairLearningStore
 
         root = Path(getattr(self.app, "project_root", ".")).resolve()
-        self._store = RepairLearningStore(root / "main-system" / "data" / "automatic-repair")
+        schema = getattr(self.app, "repair_schema", None)
+        self._store = RepairLearningStore(
+            root / "main-system" / "data" / "automatic-repair",
+            **({"schema": schema} if schema else {}),
+        )
         self._learner = RepairLearner(self._store)
         await asyncio.to_thread(self._ingest_fault_manual_catalog)
         self._learning_active = True
@@ -570,8 +574,10 @@ class XingchengLearningCapabilityMixin(LearningReconciliationMixin):
             from tasks.repair_learning import RepairLearner, RepairLearningStore
 
             root = self._project_root
+            schema = getattr(self.app, "repair_schema", None)
             self._store = RepairLearningStore(
-                root / "main-system" / "data" / "automatic-repair"
+                root / "main-system" / "data" / "automatic-repair",
+                **({"schema": schema} if schema else {}),
             )
             self._learner = RepairLearner(self._store)
         except Exception:

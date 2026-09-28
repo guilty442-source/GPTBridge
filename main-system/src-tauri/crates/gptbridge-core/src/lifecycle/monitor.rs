@@ -156,13 +156,12 @@ fn monitor_loop() {
         if Instant::now() < next_attached_probe {
             continue;
         }
-        next_attached_probe =
-            Instant::now() + Duration::from_millis(ATTACHED_MONITOR_INTERVAL_MS);
+        next_attached_probe = Instant::now() + Duration::from_millis(ATTACHED_MONITOR_INTERVAL_MS);
         drop(s);
         // Attached mode: re-check the attach invariant (healthy backend +
         // live supervisor); a sustained loss routes through auto-restart.
-        let alive = probe_existing_backend()
-            && has_live_supervisor(crate::native::paths::path_library());
+        let alive =
+            probe_existing_backend() && has_live_supervisor(crate::native::paths::path_library());
         let mut s = backend::state().lock().unwrap();
         if s.child.is_some() || s.status != BackendStatus::Running {
             attached_failures = 0;

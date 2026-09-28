@@ -38,10 +38,7 @@ pub fn record_content_size(size: tauri::PhysicalSize<u32>, scale_factor: f64) {
 /// Cached logical content size for callers that must not touch window
 /// state (resize handlers, bridge workers).
 pub fn current_content_size() -> Option<(f64, f64)> {
-    content_size()
-        .lock()
-        .unwrap()
-        .map(|(w, h, _)| (w, h))
+    content_size().lock().unwrap().map(|(w, h, _)| (w, h))
 }
 
 fn current_scale_factor() -> f64 {
@@ -53,7 +50,7 @@ fn current_scale_factor() -> f64 {
 }
 
 pub(crate) fn clamp_bounds(app: &AppHandle, bounds: BrowserBounds) -> Option<BrowserBounds> {
-    if app.get_window("main").is_none() {
+    if app.get_window(super::host().window_label).is_none() {
         return None;
     }
     let (content_w, content_h) = current_content_size()?;
@@ -64,7 +61,12 @@ pub(crate) fn clamp_bounds(app: &AppHandle, bounds: BrowserBounds) -> Option<Bro
     if width < 1.0 || height < 1.0 {
         return None;
     }
-    Some(BrowserBounds { x, y, width, height })
+    Some(BrowserBounds {
+        x,
+        y,
+        width,
+        height,
+    })
 }
 
 /// Logical → physical bounds for the worker-side ``set_position``/``set_size``

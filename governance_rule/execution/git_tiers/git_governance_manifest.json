@@ -3,10 +3,10 @@
   "baseline": {
     "baseline_id": "GPTBridgeGitBaselineV1",
     "baseline_version": 1,
-    "digest": "f16ae929bb0fd0d8749270c1c88bffdfba421e864b4fa94ea067d1b00610a358",
+    "digest": "468476897f72e64a9bf34f350b3c08ee17835a35768fb7bb7591ce5e86679cd0",
     "manifest_schema_version": "1.0.0",
     "path": "baseline/gptbridge_git_baseline_v1.json",
-    "verdict": "GIT_BASELINE_FROZEN"
+    "verdict": "GIT_BASELINE_NOT_FROZEN"
   },
   "control_plane_version": "1.0.0",
   "governance_version": "2.0.0",

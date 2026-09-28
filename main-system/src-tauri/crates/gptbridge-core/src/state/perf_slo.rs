@@ -25,12 +25,7 @@ fn budget_status(value: Option<f64>, budget: Option<f64>) -> &'static str {
     }
 }
 
-fn metric(
-    key: &str,
-    value: Option<f64>,
-    unit: &str,
-    budget: Option<f64>,
-) -> serde_json::Value {
+fn metric(key: &str, value: Option<f64>, unit: &str, budget: Option<f64>) -> serde_json::Value {
     serde_json::json!({
         "key": key,
         "value": value,
@@ -81,7 +76,12 @@ pub fn evaluate_baseline(snapshot: &serde_json::Value, now_ms: i64) -> serde_jso
             "MB",
             Some(SLO_BUDGET_BACKEND_RSS_MB),
         ),
-        metric("cpu_percent", as_number(&proc["cpu_percent"]), "percent", None),
+        metric(
+            "cpu_percent",
+            as_number(&proc["cpu_percent"]),
+            "percent",
+            None,
+        ),
         metric(
             "gpu_vram_used_mb",
             as_number(&gpu["used_mb"]),
@@ -233,7 +233,10 @@ mod tests {
             json!(SLO_BUDGET_BACKEND_RSS_MB)
         );
         assert_eq!(metric_of(&report, "ipc_p95_ms")["value"], json!(12.4));
-        assert_eq!(metric_of(&report, "ipc_p95_ms")["status"], json!("measured"));
+        assert_eq!(
+            metric_of(&report, "ipc_p95_ms")["status"],
+            json!("measured")
+        );
         let per_command = report["ipcPerCommand"].as_array().unwrap();
         assert_eq!(per_command[0]["command"], json!("status.get")); // sorted desc
         assert_eq!(per_command[1]["command"], json!("tools.list"));
@@ -253,7 +256,10 @@ mod tests {
 
     #[test]
     fn invalid_snapshots_fail_closed() {
-        assert_eq!(evaluate_baseline(&json!(null), 0)["available"], json!(false));
+        assert_eq!(
+            evaluate_baseline(&json!(null), 0)["available"],
+            json!(false)
+        );
         assert_eq!(evaluate_baseline(&json!("x"), 0)["available"], json!(false));
         let empty = evaluate_baseline(&json!({}), 0);
         assert_eq!(empty["available"], json!(false));
@@ -262,10 +268,8 @@ mod tests {
 
     #[test]
     fn get_perf_slo_missing_malformed_and_fixture() {
-        let workspace_root = std::env::temp_dir().join(format!(
-            "gptbridge-perf-slo-{}",
-            std::process::id()
-        ));
+        let workspace_root =
+            std::env::temp_dir().join(format!("gptbridge-perf-slo-{}", std::process::id()));
         let _ = fs::remove_dir_all(&workspace_root);
         fs::create_dir_all(&workspace_root).unwrap();
 

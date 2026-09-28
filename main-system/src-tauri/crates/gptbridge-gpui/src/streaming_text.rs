@@ -4,7 +4,7 @@
 //! surface reuses (model tokens arrive as deltas).  ``StreamingTextView``
 //! is the standalone visual-verification surface for it.
 
-use gpui::{Context, IntoElement, Render, ScrollHandle, Window, div, prelude::*, rgb};
+use gpui::{div, prelude::*, rgb, Context, IntoElement, Render, ScrollHandle, Window};
 
 /// Incremental UTF-8 text accumulator for token-at-a-time stream delivery.
 /// Bounded: keeps the newest ``CAPACITY`` bytes so a runaway stream cannot

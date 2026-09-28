@@ -138,7 +138,9 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
                     f"embedding load denied by resource gate: {decision.reason}"
                 )
             self._admitted_model_id = model_id
-        if ollama_demand.probe_ollama():
+        # The probe is a blocking socket check (up to the probe timeout);
+        # keep it off the loop so a dead backend cannot stall RAG work.
+        if await asyncio.to_thread(ollama_demand.probe_ollama):
             return
         started = time.monotonic()
         ready = await asyncio.to_thread(

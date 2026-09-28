@@ -32,7 +32,7 @@ def main() -> int:
     parser.add_argument(
         "--build-renderers-only",
         action="store_true",
-        help="Only build per-tool renderer bundles without assembling Electron EXEs.",
+        help="Only build per-tool renderer bundles without assembling tool EXEs.",
     )
     parser.add_argument(
         "--verify",

@@ -25,9 +25,9 @@ public class ToolHostServerTests
         var port = FreePort();
         var env = new GovernedEnvironment
         {
-            ToolId = "system-rescue",
+            ToolId = "vaultly",
             ProjectRoot = @"E:\GPTBridge",
-            ToolRoot = @"E:\GPTBridge\Standalone tools\system-rescue",
+            ToolRoot = @"E:\GPTBridge\Standalone tools\vaultly",
             SessionToken = new string('b', 64),
             Port = port,
             ShutdownToken = "shutdown-secret",
@@ -63,7 +63,7 @@ public class ToolHostServerTests
         var json = JsonNode.Parse(body)!.AsObject();
         Assert.True(json["ok"]!.GetValue<bool>());
         Assert.True(json["governance_ready"]!.GetValue<bool>());
-        Assert.Equal("system-rescue", json["tool_id"]!.GetValue<string>());
+        Assert.Equal("vaultly", json["tool_id"]!.GetValue<string>());
         Assert.Equal(
             host.WorkspaceInstanceId,
             json["workspace_instance_id"]!.GetValue<string>());
@@ -152,7 +152,7 @@ public class ToolHostServerTests
         var payload = reply["payload"]!.AsObject();
         // req-x is not in flight → cancelled=false
         Assert.False(payload["cancelled"]!.GetValue<bool>());
-        Assert.Equal("system-rescue",
+        Assert.Equal("vaultly",
             payload["tool_id"]!.GetValue<string>());
     }
 

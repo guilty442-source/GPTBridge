@@ -20,11 +20,12 @@ _SCHEMA = "gptbridge_xingcheng"
 class XingchengIdentityStore:
     """Owns the 星澄 personality identity database only."""
 
-    def __init__(self, project_root: Path) -> None:
+    def __init__(self, project_root: Path, schema: str = _SCHEMA) -> None:
         self._project_root = Path(project_root)
+        self._schema = schema
 
     def initialize(self) -> None:
-        with pg_connect(_SCHEMA) as connection:
+        with pg_connect(self._schema) as connection:
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS personality_identity ("
                 "identity_id text PRIMARY KEY CHECK(identity_id = '星澄'), "
@@ -40,7 +41,7 @@ class XingchengIdentityStore:
 
     def status(self) -> dict[str, Any]:
         return {
-            "personality_database": f"{_SCHEMA}.personality_identity",
+            "personality_database": f"{self._schema}.personality_identity",
             "shared_authority": False,
         }
 

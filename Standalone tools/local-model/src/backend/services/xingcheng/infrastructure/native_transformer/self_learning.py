@@ -55,7 +55,7 @@ class SelfLearningPolicy:
     enabled: bool = True
     min_new_examples: int = 24
     auto_activate: bool = True
-    suites: tuple[str, ...] = ("star-native-eval-dialogue-v1",)
+    suites: tuple[str, ...] = ("star-native-eval-dialogue-20260921-125054",)
     max_steps: int = 400
     batch_size: int = 8
     grad_accum: int = 2
@@ -100,7 +100,7 @@ class SelfLearningPolicy:
     # 的 baseline_metrics 量測現役權重；退化即降門檻觸發訓練。
     # 探針量測失敗 fail-closed＝不觸發（錯誤記錄於循環結果與狀態）。
     degradation_probe_enabled: bool = False
-    degradation_probe_suite: str = "star-native-eval-dialogue-v1"
+    degradation_probe_suite: str = "star-native-eval-dialogue-20260921-125054"
     # 退化觸發時仍要求的最少新範例數（預設 1；0 新例無課程可訓）
     degradation_min_examples: int = 1
     # §2.7-2 資料就緒閘：去重與汙染排除（預設開啟——資料安全屬性）

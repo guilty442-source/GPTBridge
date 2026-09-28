@@ -257,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--suite",
-        default="xingcheng/eval/star-semantic-plan-probes-v1.json",
+        default="xingcheng/eval/star-semantic-plan-probes-20260922-091905.json",
     )
     parser.add_argument(
         "--tool-root",

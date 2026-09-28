@@ -82,11 +82,7 @@ impl DiagnosticsPanel {
             .default_open(true)
             .show(ui, |ui| {
                 Self::metric_row(ui, "alive", ipc::is_gateway_alive().to_string());
-                Self::metric_row(
-                    ui,
-                    "resolved port",
-                    ipc::resolve_backend_port().to_string(),
-                );
+                Self::metric_row(ui, "resolved port", ipc::resolve_backend_port().to_string());
             });
     }
 }

@@ -24,6 +24,14 @@ module PlanRules =
         |> Dictionary
         :> IReadOnlyDictionary<StarIntent, string[]>
 
+    /// F# 擁有的唯一工具集合（C# 路由器的允許清單以此為準，不得在 C# 另行手寫）。
+    let supportedTools : string[] =
+        toolMap.Values
+        |> Seq.concat
+        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.toArray
+
     let build (intent: IntentResult) (context: string) : ExecutionPlan =
         let tools =
             match toolMap.TryGetValue(intent.Primary) with

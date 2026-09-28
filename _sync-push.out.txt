@@ -1,2 +1,0 @@
-[self-commit] E:\GPTBridge: 7e5f79b47575159282367c80b4cd4cbbef141829 on main (1 file(s))
-[workspace-sync] error:push-test-gate

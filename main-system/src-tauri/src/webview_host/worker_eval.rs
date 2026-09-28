@@ -28,14 +28,12 @@ pub(super) fn eval_script(script: &str) -> serde_json::Value {
         token_json = serde_json::to_string(&token).unwrap_or_default(),
         rid_json = serde_json::to_string(&request_id).unwrap_or_default(),
     );
-    let dispatched = on_main(move |app| {
-        match app.get_webview_window("session") {
-            Some(w) => match w.eval(&wrapper) {
-                Ok(()) => serde_json::json!({"ok": true}),
-                Err(e) => serde_json::json!({"ok": false, "message": format!("EVAL_FAILED:{e}")}),
-            },
-            None => serde_json::json!({"ok": false, "message": "WINDOW_NOT_FOUND"}),
-        }
+    let dispatched = on_main(move |app| match app.get_webview_window("session") {
+        Some(w) => match w.eval(&wrapper) {
+            Ok(()) => serde_json::json!({"ok": true}),
+            Err(e) => serde_json::json!({"ok": false, "message": format!("EVAL_FAILED:{e}")}),
+        },
+        None => serde_json::json!({"ok": false, "message": "WINDOW_NOT_FOUND"}),
     });
     if dispatched.get("ok") != Some(&serde_json::Value::Bool(true)) {
         worker::pending_cell().lock().unwrap().remove(&request_id);

@@ -63,7 +63,13 @@ _SURFACE_LAYERS = {
 }
 
 
+def _has_table(connection: sqlite3.Connection, table: str) -> bool:
+    return bool(_columns(connection, table))
+
+
 def _rows(connection: sqlite3.Connection, table: str, order_by: str = "") -> list[list]:
+    if not _has_table(connection, table):
+        return []
     sql = f'SELECT * FROM "{table}"'
     if order_by:
         sql += f" ORDER BY {order_by}"
@@ -75,6 +81,16 @@ def _columns(connection: sqlite3.Connection, table: str) -> list[str]:
         str(row[1])
         for row in connection.execute(f'PRAGMA table_info("{table}")')
     ]
+
+
+def _count(connection: sqlite3.Connection, table: str) -> int:
+    if not _has_table(connection, table):
+        return 0
+    return int(
+        connection.execute(  # sql-ok: identifier from the fixed projection-table set; name is schema-internal
+            f'SELECT COUNT(*) FROM "{table}"'
+        ).fetchone()[0]
+    )
 
 
 def _read_version(connection: sqlite3.Connection) -> str:
@@ -117,34 +133,38 @@ def _restamp_binding_versions(connection: sqlite3.Connection, version: str) -> N
 def _provision_text_maps(connection: sqlite3.Connection) -> dict[str, dict]:
     """Load governing text for every lifecycle-registered provision."""
     maps: dict[str, dict] = {}
-    for row in connection.execute(
-        "SELECT provision_id, subject, rule, prohibition, exception FROM articles"
-    ):
-        maps[("article", str(row[0]))] = {
-            "subject": str(row[1]),
-            "content": f"{row[1]}\n{row[2]}\n{row[3]}\n{row[4]}",
-        }
-    for row in connection.execute(
-        "SELECT provision_id, statement, binding FROM principles"
-    ):
-        maps[("principle", str(row[0]))] = {
-            "subject": str(row[0]),
-            "content": f"{row[1]} {row[2]}",
-        }
-    for row in connection.execute(
-        "SELECT provision_id, area, edict, immutability FROM edicts"
-    ):
-        maps[("edict", str(row[0]))] = {
-            "subject": str(row[1]),
-            "content": f"{row[1]} {row[2]} {row[3]}",
-        }
-    for row in connection.execute(
-        "SELECT sovereign_id, area, rank, basis FROM sovereigns"
-    ):
-        maps[("sovereign", str(row[0]))] = {
-            "subject": str(row[0]),
-            "content": f"{row[0]} {row[1]} {row[2]} {row[3]}",
-        }
+    if _has_table(connection, "articles"):
+        for row in connection.execute(
+            "SELECT provision_id, subject, rule, prohibition, exception FROM articles"
+        ):
+            maps[("article", str(row[0]))] = {
+                "subject": str(row[1]),
+                "content": f"{row[1]}\n{row[2]}\n{row[3]}\n{row[4]}",
+            }
+    if _has_table(connection, "principles"):
+        for row in connection.execute(
+            "SELECT provision_id, statement, binding FROM principles"
+        ):
+            maps[("principle", str(row[0]))] = {
+                "subject": str(row[0]),
+                "content": f"{row[1]} {row[2]}",
+            }
+    if _has_table(connection, "edicts"):
+        for row in connection.execute(
+            "SELECT provision_id, area, edict, immutability FROM edicts"
+        ):
+            maps[("edict", str(row[0]))] = {
+                "subject": str(row[1]),
+                "content": f"{row[1]} {row[2]} {row[3]}",
+            }
+    if _has_table(connection, "sovereigns"):
+        for row in connection.execute(
+            "SELECT sovereign_id, area, rank, basis FROM sovereigns"
+        ):
+            maps[("sovereign", str(row[0]))] = {
+                "subject": str(row[0]),
+                "content": f"{row[0]} {row[1]} {row[2]} {row[3]}",
+            }
     return maps
 
 
@@ -157,6 +177,11 @@ def _rebuild_search_documents(connection: sqlite3.Connection, version: str) -> i
     synthetic document shape.  Stale snapshots of superseded text are replaced
     — the document store mirrors this generation, not history.
     """
+    if not (
+        _has_table(connection, "provision_lifecycle_status")
+        and _has_table(connection, "codex_search_document")
+    ):
+        return 0
     text_maps = _provision_text_maps(connection)
     modules = {
         (str(row[0]), str(row[1])): str(row[2])
@@ -164,14 +189,14 @@ def _rebuild_search_documents(connection: sqlite3.Connection, version: str) -> i
             "SELECT provision_type, provision_id, module_code "
             "FROM codex_internal_module_membership"
         )
-    }
+    } if _has_table(connection, "codex_internal_module_membership") else {}
     laws = {
         (str(row[0]), str(row[1])): str(row[2])
         for row in connection.execute(
             "SELECT provision_type, provision_id, law_code "
             "FROM provision_law_classification"
         )
-    }
+    } if _has_table(connection, "provision_law_classification") else {}
     # law_code is NOT NULL; provisions without a classification row keep the
     # law recorded by the previous generation, falling back to CODEX_MAIN.
     prior_law = {
@@ -243,6 +268,11 @@ def _rebuild_fts(connection: sqlite3.Connection) -> int:
     store; the index internals are reproduced deterministically by building a
     real FTS5 index in a scratch database and copying its storage rows.
     """
+    if not (
+        _has_table(connection, "codex_search_fts")
+        and _has_table(connection, "codex_search_document")
+    ):
+        return 0
     docs = connection.execute(
         "SELECT provision_type, provision_id, module_code, law_code, subject, "
         "content FROM codex_search_document WHERE lifecycle_state='active' "
@@ -302,6 +332,11 @@ def _rebuild_fts(connection: sqlite3.Connection) -> int:
 
 def _rebuild_module_manifest(connection: sqlite3.Connection, version: str) -> None:
     """Recompute each module manifest row from live membership and text."""
+    if not (
+        _has_table(connection, "codex_internal_module_manifest")
+        and _has_table(connection, "codex_internal_module_membership")
+    ):
+        return
     modules = [
         str(row[0])
         for row in connection.execute(
@@ -315,13 +350,11 @@ def _rebuild_module_manifest(connection: sqlite3.Connection, version: str) -> No
             "SELECT provision_type, provision_id, lifecycle_state "
             "FROM provision_lifecycle_status"
         )
-    }
+    } if _has_table(connection, "provision_lifecycle_status") else {}
     all_membership = _rows(connection, "codex_internal_module_membership")
     all_docs = _rows(connection, "codex_search_document")
     all_deps = _rows(connection, "codex_internal_module_dependency")
     all_lifecycle = _rows(connection, "provision_lifecycle_status")
-    all_classification = _rows(connection, "provision_law_classification")
-    all_resolution = _rows(connection, "provision_reference_resolution_v2")
     connection.execute("DELETE FROM codex_internal_module_manifest")
     staged: list[tuple] = []
     for module in modules:
@@ -338,12 +371,6 @@ def _rebuild_module_manifest(connection: sqlite3.Connection, version: str) -> No
         deps = [row for row in all_deps if row[0] == module or row[1] == module]
         lifecycle_rows = [
             r for r in all_lifecycle if (str(r[0]), str(r[1])) in member_keys
-        ]
-        classification_rows = [
-            r for r in all_classification if (str(r[0]), str(r[1])) in member_keys
-        ]
-        resolution_rows = [
-            r for r in all_resolution if str(r[1]) in member_ids
         ]
         classification_rows = [
             r
@@ -391,6 +418,8 @@ def _rebuild_search_manifest(
     connection: sqlite3.Connection, version: str, fts_count: int, doc_count: int
 ) -> None:
     """Restamp the search index manifest with digests of this generation."""
+    if not _has_table(connection, "codex_search_index_manifest"):
+        return
     docs = _rows(connection, "codex_search_document")
     fts = _rows(connection, "codex_search_fts")
     alias = _rows(connection, "codex_search_alias")
@@ -427,13 +456,15 @@ def _sync_normative_surface(connection: sqlite3.Connection, version: str) -> Non
     the surface are appended under the registry-declared layer (articles and
     other unmapped types under ``UNKNOWN``).
     """
+    if not _has_table(connection, "current_normative_surface"):
+        return
     lifecycle = {
         (str(row[0]), str(row[1])): str(row[2])
         for row in connection.execute(
             "SELECT provision_type, provision_id, lifecycle_state "
             "FROM provision_lifecycle_status"
         )
-    }
+    } if _has_table(connection, "provision_lifecycle_status") else {}
     surface = connection.execute(
         "SELECT surface_entry_id, object_type, object_identity "
         "FROM current_normative_surface"
@@ -481,9 +512,13 @@ def _sync_normative_surface(connection: sqlite3.Connection, version: str) -> Non
     )
     # Formal rules registered without a lifecycle row still belong on the
     # surface: they are current normative objects of this generation.
-    rules = connection.execute(
-        "SELECT rule_code FROM formal_rule_registry WHERE status<>'withdrawn'"
-    ).fetchall()
+    rules = (
+        connection.execute(
+            "SELECT rule_code FROM formal_rule_registry WHERE status<>'withdrawn'"
+        ).fetchall()
+        if _has_table(connection, "formal_rule_registry")
+        else []
+    )
     rule_keys = {("formal-rule", str(r[0])) for r in rules}
     connection.executemany(
         insert_sql,
@@ -503,6 +538,8 @@ def to_add_keys(to_add):
 
 def _append_revision(connection: sqlite3.Connection, version: str, epoch: int,
                      change_id: str, change_scope: str, summary: str) -> str:
+    if not _has_table(connection, "revision_history"):
+        return "0" * 64
     row = connection.execute(
         "SELECT sequence, entry_hash FROM revision_history "
         "ORDER BY sequence DESC LIMIT 1"
@@ -545,16 +582,15 @@ def _append_seal_rows(
     history_head: str,
 ) -> None:
     """Seal rows certify the generation as built before they are appended."""
+    if not (
+        _has_table(connection, "seal_manifest")
+        and _has_table(connection, "epoch_seal_manifest")
+    ):
+        return
     preview = compute_seal_preview(database)
-    provision_count = connection.execute(
-        "SELECT COUNT(*) FROM provision_lifecycle_status"
-    ).fetchone()[0]
-    identity_count = connection.execute(
-        "SELECT COUNT(*) FROM provision_identities"
-    ).fetchone()[0]
-    lineage_count = connection.execute(
-        "SELECT COUNT(*) FROM provision_lineage"
-    ).fetchone()[0]
+    provision_count = _count(connection, "provision_lifecycle_status")
+    identity_count = _count(connection, "provision_identities")
+    lineage_count = _count(connection, "provision_lineage")
     certification = "sealed-governed-certification"
     connection.execute(
         "INSERT INTO seal_manifest (version, history_head, provision_count, "

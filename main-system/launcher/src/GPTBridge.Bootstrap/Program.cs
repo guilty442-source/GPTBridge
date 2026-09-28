@@ -108,9 +108,8 @@ internal static class Program
     private static readonly string[] UiBuildInputRoots = { "src-ui" };
     private static readonly string[] UiBuildInputFiles =
     {
-        "vite.config.ts",
-        "vite.main.config.ts",
-        "vite.templates.config.ts",
+        "vite.config.mjs",
+        "vite.platform-tools.config.mjs",
         "tsconfig.json",
         "package.json",
         "package-lock.json",
@@ -127,10 +126,7 @@ internal static class Program
     };
     private static readonly string[] UiBuildOutputPaths =
     {
-        "dist-ui/main/index.js",
-        "dist-ui/main/preload.js",
         "dist-ui/renderer/index.html",
-        "dist-ui/templates/main.cjs",
     };
 
     private static int Main(string[] args)
@@ -211,18 +207,14 @@ internal static class Program
             new JsonObject { ["projectRoot"] = projectRoot });
         RefreshDesktopLauncher();
 
-        // A618/A621/A625: the Rust+Tauri desktop host replaces Electron
-        // (MIGRATION_ONLY).  The host is resolved before runtime prep so
-        // the Electron toolchain is skipped entirely on the Tauri path.
+        // A618/A621/A625: the Rust+Tauri desktop host is the only host —
+        // Electron is retired.  The --ui-host/GPTBRIDGE_UI_HOST/marker
+        // chain is still honoured for compatibility, but any non-"tauri"
+        // value resolves to the Tauri host.
         var uiHost = ResolveUiHost(uiHostArg);
         WriteStartupJournal("launcher.ui-host.selected",
             new JsonObject { ["host"] = uiHost });
 
-        var electronExe = "";
-        if (uiHost == "electron")
-        {
-            electronExe = EnsureNodeRuntime();
-        }
         EnsurePythonRuntime();
         EnsureUiBuild(forceBuild);
 
@@ -238,114 +230,52 @@ internal static class Program
             return 0;
         }
 
-        if (uiHost == "tauri")
-        {
-            return LaunchTauriHost();
-        }
-        return LaunchElectronHost(electronExe);
-    }
-
-    private static int LaunchElectronHost(string electronExe)
-    {
-        var mainEntry = Path.Combine(
-            ProjectRoot, "dist-ui", "main", "index.js");
-        if (!File.Exists(mainEntry))
-        {
-            throw new InvalidOperationException(
-                $"Production main entry is missing: {mainEntry}");
-        }
-
-        Environment.SetEnvironmentVariable("GPTBRIDGE_SOURCE_PRODUCTION", "1");
-        Environment.SetEnvironmentVariable("GPTBRIDGE_MANAGE_BACKEND", "1");
-        Environment.SetEnvironmentVariable(
-            "GPTBRIDGE_WORKSPACE_ROOT", WorkspaceRoot);
-        Environment.SetEnvironmentVariable(
-            "GPTBRIDGE_PROJECT_ROOT", WorkspaceRoot);
-
-        WriteLauncherStatus("Launching source-production Electron runtime.");
-        WriteStartupJournal("launcher.phase.electron.start", null);
-
-        var process = StartHiddenProcess(electronExe, new[] { mainEntry },
-            ProjectRoot);
-        WaitForEarlyExit(process);
-
-        if (process.HasExited)
-        {
-            if (process.ExitCode != 0)
-            {
-                WriteStartupJournal("launcher.electron.exited",
-                    new JsonObject { ["code"] = process.ExitCode });
-                throw new InvalidOperationException(
-                    "Electron exited during startup with code "
-                    + process.ExitCode + ".");
-            }
-            WriteLauncherStatus(
-                "Electron handed off to the running instance.");
-            WriteStartupJournal("launcher.electron.handoff", null);
-        }
-        else
-        {
-            WriteLauncherStatus(
-                $"Electron startup accepted. PID={process.Id}");
-            WriteStartupJournal("launcher.electron.accepted",
-                new JsonObject { ["pid"] = process.Id });
-        }
-
-        WriteLauncherStatus(
-            "Main system UI launched; Electron Main is starting "
-            + "the governed backend.");
-        return 0;
+        return LaunchTauriHost();
     }
 
     // ------------------------------------------------------------------
-    // desktop host selection (A618/A621/A625: Electron MIGRATION_ONLY)
+    // desktop host selection (A618/A621/A625: Electron retired)
     // ------------------------------------------------------------------
 
     /// <summary>
     /// Resolve the desktop host for this launch.  Precedence:
     /// <c>--ui-host</c> arg → <c>GPTBRIDGE_UI_HOST</c> env →
-    /// <c>launcher/state/ui-host.json</c> → default <c>electron</c>.
-    /// The default stays Electron until embedded-browser ops are validated
-    /// on a healthy runtime (launcher note in AGENTS.md); writing
-    /// <c>{"host":"tauri"}</c> to the marker flips every subsequent launch
-    /// without rebuilding the launcher.
+    /// <c>launcher/state/ui-host.json</c>.  Tauri is the only remaining
+    /// host — a stale "electron" marker or any other value resolves to
+    /// "tauri" and is journaled as a coercion.
     /// </summary>
     private static string ResolveUiHost(string uiHostArg)
     {
-        var normalized = NormalizeUiHost(uiHostArg);
-        if (normalized is not null)
+        var raw = uiHostArg;
+        if (string.IsNullOrWhiteSpace(raw))
         {
-            return normalized;
+            raw = Environment.GetEnvironmentVariable("GPTBRIDGE_UI_HOST");
         }
-        normalized = NormalizeUiHost(
-            Environment.GetEnvironmentVariable("GPTBRIDGE_UI_HOST"));
-        if (normalized is not null)
+        if (string.IsNullOrWhiteSpace(raw))
         {
-            return normalized;
-        }
-        try
-        {
-            var payload = JsonNode.Parse(
-                File.ReadAllText(
-                    Path.Combine(StateRoot, "ui-host.json")))?.AsObject();
-            normalized = NormalizeUiHost(
-                payload?["host"]?.GetValue<string>());
-            if (normalized is not null)
+            try
             {
-                return normalized;
+                var payload = JsonNode.Parse(
+                    File.ReadAllText(
+                        Path.Combine(StateRoot, "ui-host.json")))?.AsObject();
+                raw = payload?["host"]?.GetValue<string>();
+            }
+            catch (Exception)
+            {
+                // Missing/invalid marker — the Tauri default applies.
             }
         }
-        catch (Exception)
+        var host = (raw ?? "").Trim().ToLowerInvariant();
+        if (host != "tauri")
         {
-            // Missing/invalid marker — keep the migration default.
+            if (!string.IsNullOrEmpty(host))
+            {
+                WriteStartupJournal("launcher.ui-host.coerced",
+                    new JsonObject { ["requested"] = host });
+            }
+            host = "tauri";
         }
-        return "electron";
-    }
-
-    private static string? NormalizeUiHost(string? value)
-    {
-        var host = (value ?? "").Trim().ToLowerInvariant();
-        return host is "tauri" or "electron" ? host : null;
+        return host;
     }
 
     private static int LaunchTauriHost()
@@ -355,14 +285,15 @@ internal static class Program
             "gptbridge-shell.exe");
         if (!File.Exists(shellExe))
         {
-            // The shell binary is a build artifact, not a governed source —
-            // never leave the user without a UI: degrade to the migration
-            // host instead of hard-failing the launch.
+            // Electron is retired — there is no fallback host.  Fail
+            // honestly: the shell binary must be rebuilt
+            // (cargo build --release in src-tauri).
             WriteLauncherStatus(
-                "gptbridge-shell.exe not found; falling back to Electron.");
-            WriteStartupJournal("launcher.ui-host.fallback",
+                "gptbridge-shell.exe not found; no fallback host remains "
+                + "(Electron retired). Rebuild src-tauri first.");
+            WriteStartupJournal("launcher.tauri.missing",
                 new JsonObject { ["missing"] = shellExe });
-            return LaunchElectronHost(EnsureNodeRuntime());
+            return 1;
         }
 
         Environment.SetEnvironmentVariable("GPTBRIDGE_SOURCE_PRODUCTION", "1");
@@ -385,14 +316,12 @@ internal static class Program
             {
                 WriteStartupJournal("launcher.tauri.exited",
                     new JsonObject { ["code"] = process.ExitCode });
-                // A dead shell means no UI at all — degrade to the still-
-                // supported migration host rather than a failed launch.
+                // A dead shell means no UI at all — there is no fallback
+                // host (Electron retired); report the failure honestly.
                 WriteLauncherStatus(
                     $"gptbridge-shell exited ({process.ExitCode}); "
-                    + "falling back to Electron.");
-                WriteStartupJournal("launcher.ui-host.fallback",
-                    new JsonObject { ["exit"] = process.ExitCode });
-                return LaunchElectronHost(EnsureNodeRuntime());
+                    + "no fallback host remains (Electron retired).");
+                return process.ExitCode != 0 ? process.ExitCode : 1;
             }
             WriteLauncherStatus(
                 "Tauri shell handed off to the running instance.");
@@ -849,34 +778,6 @@ internal static class Program
     // ------------------------------------------------------------------
     // runtimes + frontend freshness
     // ------------------------------------------------------------------
-
-    private static string EnsureNodeRuntime()
-    {
-        var electronExe = Path.Combine(
-            ProjectRoot, "node_modules", "electron", "dist", "electron.exe");
-        var nodeLock = Path.Combine(
-            ProjectRoot, "node_modules", ".package-lock.json");
-        var projectLock = Path.Combine(ProjectRoot, "package-lock.json");
-
-        var needsInstall = !File.Exists(electronExe)
-            || !File.Exists(nodeLock)
-            || (File.Exists(projectLock)
-                && File.GetLastWriteTimeUtc(projectLock)
-                    > File.GetLastWriteTimeUtc(nodeLock));
-
-        if (needsInstall)
-        {
-            var npm = Which("npm.cmd", "npm")
-                ?? throw new InvalidOperationException("npm not found in PATH");
-            InvokeLauncherCommand(npm, new[] { "install" }, ProjectRoot);
-        }
-        if (!File.Exists(electronExe))
-        {
-            throw new InvalidOperationException(
-                "Electron runtime is missing after npm install.");
-        }
-        return electronExe;
-    }
 
     private static string EnsurePythonRuntime()
     {

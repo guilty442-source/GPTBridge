@@ -59,12 +59,6 @@ STAR_CHAT_PACKAGE_ROOT: Final[str] = (
 STAR_CHAT_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
     {"application"}
 )
-SYSTEM_RESCUE_PACKAGE_ROOT: Final[str] = (
-    "Standalone tools/system-rescue/src/backend/services/system_rescue"
-)
-SYSTEM_RESCUE_REQUIRED_LAYERS: Final[frozenset[str]] = frozenset(
-    {"integration"}
-)
 SHARED_LAYER_ALLOWED_SOURCES: Final[frozenset[str]] = frozenset(
     {
         "__init__.py",
@@ -204,7 +198,6 @@ OWNED_IMPORT_PREFIXES: Final[dict[str, str]] = {
     "xingcheng": "Standalone tools/local-model",
     "vaultly": "Standalone tools/vaultly",
     "star_chat": "Standalone tools/local-model",
-    "system_rescue": "Standalone tools/system-rescue",
 }
 
 
@@ -314,10 +307,6 @@ def source_ownership_errors(project_root: Path) -> list[str]:
         root, STAR_CHAT_PACKAGE_ROOT, STAR_CHAT_REQUIRED_LAYERS,
         "star-chat", errors,
     )
-    _check_package_layers(
-        root, SYSTEM_RESCUE_PACKAGE_ROOT, SYSTEM_RESCUE_REQUIRED_LAYERS,
-        "system-rescue", errors,
-    )
 
     errors.extend(business_errors)
 
@@ -342,8 +331,6 @@ __all__ = (
     "VAULTLY_REQUIRED_LAYERS",
     "STAR_CHAT_PACKAGE_ROOT",
     "STAR_CHAT_REQUIRED_LAYERS",
-    "SYSTEM_RESCUE_PACKAGE_ROOT",
-    "SYSTEM_RESCUE_REQUIRED_LAYERS",
     "FORBIDDEN_LEGACY_BUSINESS_SOURCES",
     "OWNED_IMPORT_PREFIXES",
     "REQUIRED_OWNED_SOURCES",

@@ -118,6 +118,48 @@ class _RagLoop:
             pass
 
 
+async def _vector_and_keyword_async(
+    pipeline: CanonicalRagPipeline,
+    query_embedding: list[float],
+    query_text: str,
+    *,
+    module_ids: tuple[str, ...],
+    candidate_limit: int,
+    score_threshold: Optional[float],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Dense + FTS channels concurrently on the worker loop.
+
+    Both channels share the psycopg AsyncConnection, which serializes
+    statements internally — the win is overlapping the vectord HTTP
+    wait (offloaded via to_thread) with the PostgreSQL FTS query.  The
+    recovery transition is gated once up front so two channels cannot
+    race ``begin_reconciliation`` inside ``attempt_recovery``.
+    """
+    attempt_recovery = getattr(pipeline, "attempt_recovery", None)
+    if attempt_recovery is not None:
+        await attempt_recovery()
+    vector_result, keyword_result = await asyncio.gather(
+        pipeline.vector_search(
+            query_embedding,
+            module_ids=module_ids,
+            top_k=candidate_limit,
+            score_threshold=score_threshold,
+        ),
+        pipeline.keyword_search(
+            query_text, module_ids=module_ids, limit=candidate_limit
+        ),
+        return_exceptions=True,
+    )
+    # Preserve channel-order failure semantics: a dense-channel failure
+    # wins over a keyword failure, matching the historical sequential
+    # order (vector first, then keyword).
+    if isinstance(vector_result, BaseException):
+        raise vector_result
+    if isinstance(keyword_result, BaseException):
+        raise keyword_result
+    return vector_result, keyword_result
+
+
 async def _hybrid_search_async(
     pipeline: CanonicalRagPipeline,
     query_embedding: list[float],
@@ -130,14 +172,13 @@ async def _hybrid_search_async(
     """Dense + FTS + RRF inside the worker loop — the psycopg
     connection is affine to this loop, so the channels must await
     here rather than through the mixin's ad-hoc-loop ``_resolve``."""
-    vector_hits = await pipeline.vector_search(
+    vector_hits, keyword_hits = await _vector_and_keyword_async(
+        pipeline,
         query_embedding,
+        query_text,
         module_ids=module_ids,
-        top_k=candidate_limit,
+        candidate_limit=candidate_limit,
         score_threshold=score_threshold,
-    )
-    keyword_hits = await pipeline.keyword_search(
-        query_text, module_ids=module_ids, limit=candidate_limit
     )
     return reciprocal_rank_fusion(vector_hits, keyword_hits)
 
@@ -227,6 +268,21 @@ class _SyncRetrievalSurface:
         self._await_init()
         return self._worker.run(
             self._pipeline.keyword_search(query, **kwargs)
+        )
+
+    def vector_and_keyword(self, query_embedding, query_text, **kwargs):
+        """One worker-loop trip returning both channels concurrently —
+        used by code/memory retrievers that fuse the lists themselves."""
+        self._await_init()
+        return self._worker.run(
+            _vector_and_keyword_async(
+                self._pipeline,
+                query_embedding,
+                query_text,
+                module_ids=tuple(kwargs.get("module_ids") or ()),
+                candidate_limit=int(kwargs.get("candidate_limit") or 24),
+                score_threshold=kwargs.get("score_threshold"),
+            )
         )
 
     def hybrid_search(
@@ -764,13 +820,18 @@ class RagRuntimeIntegration:
         if not chunks:
             return {"ok": False, "error": "index:no-chunks"}
 
+        # Batch embedding: one /api/embed call carries the whole chunk
+        # list — per-chunk round trips dominated the write path.
+        vectors = self._loop_worker.run(
+            self._embedder.embed([c.content for c in chunks]),
+            timeout=max(60.0, 5.0 * len(chunks)),
+        )
+        if len(vectors) < len(chunks):
+            return {"ok": False, "error": "index:empty-embedding"}
         indexed = 0
         last_hash = ""
-        for chunk in chunks:
-            vectors = self._loop_worker.run(
-                self._embedder.embed([chunk.content]), timeout=60
-            )
-            embedding = list(vectors[0]) if vectors else []
+        for chunk, raw_embedding in zip(chunks, vectors):
+            embedding = list(raw_embedding) if raw_embedding else []
             if not embedding:
                 return {"ok": False, "error": "index:empty-embedding"}
             state = self._loop_worker.run(

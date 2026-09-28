@@ -115,12 +115,17 @@ class ModelResourceManager:
         ram_free_fn: Optional[Callable[[], Optional[float]]] = None,
         interactive_headroom_mb: int = 1024,
         policies: Optional[dict[ModelRole, RolePolicy]] = None,
+        sleep_gate_fn: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._ledger_path = Path(ledger_path)
         self._gpu_free_fn = gpu_free_fn
         self._ram_free_fn = ram_free_fn
         self._interactive_headroom_mb = interactive_headroom_mb
         self._policies = dict(policies or DEFAULT_POLICIES)
+        # Sleep-mode VRAM gate: injectable for deterministic tests; the
+        # production shared manager leaves it unset so the live governor
+        # signal is read.
+        self._sleep_gate_fn = sleep_gate_fn
         self._loaded: dict[str, LoadedModel] = {}
 
     # -- admission ----------------------------------------------------------
@@ -166,9 +171,15 @@ class ModelResourceManager:
     ) -> AdmitDecision:
         """資源閘門：通過才登錄為 loaded；失敗 fail-closed。"""
         # Sleep 模式 VRAM 禁用 — 先於遙測檢查
-        if vram_mb and self._is_sleep_blocking_vram():
-            cls_tmp = role if isinstance(role, ModelRole) else ModelRole(str(role))
-            return AdmitDecision(False, "sleep-mode-vram-disabled: sleep forbids GPU/VRAM (CPU-only)", cls_tmp.value, model_id)
+        if vram_mb:
+            sleep_blocking = (
+                self._sleep_gate_fn()
+                if self._sleep_gate_fn is not None
+                else self._is_sleep_blocking_vram()
+            )
+            if sleep_blocking:
+                cls_tmp = role if isinstance(role, ModelRole) else ModelRole(str(role))
+                return AdmitDecision(False, "sleep-mode-vram-disabled: sleep forbids GPU/VRAM (CPU-only)", cls_tmp.value, model_id)
         cls = role if isinstance(role, ModelRole) else ModelRole(str(role))
         policy = self._policies[cls]
 

@@ -28,7 +28,10 @@ fn system_disk_root() -> String {
     if cfg!(windows) {
         let configured = std::env::var("SystemDrive").unwrap_or_default();
         let trimmed = configured.trim();
-        if trimmed.len() == 2 && trimmed.ends_with(':') && trimmed.chars().next().unwrap().is_ascii_alphabetic() {
+        if trimmed.len() == 2
+            && trimmed.ends_with(':')
+            && trimmed.chars().next().unwrap().is_ascii_alphabetic()
+        {
             return format!("{trimmed}\\");
         }
         if !trimmed.is_empty() {

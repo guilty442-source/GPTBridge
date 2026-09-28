@@ -270,6 +270,13 @@ class ModelLifecycle:
         self.history[-1]["gate"] = "star-rollback-gate/v1"
         return entry
 
+    def record_event(self, event: str, **fields: Any) -> None:
+        """Append a free-form lineage/audit event (recovery notes, pin
+        changes). Mirrors the existing ``history`` entry shape."""
+        entry = {"at": _utcnow(), "event": str(event)}
+        entry.update(fields)
+        self.history.append(entry)
+
     def active_weights(self) -> dict[str, Any] | None:
         for entry in self.artifacts.get("weights", {}).get("versions", []):
             if int(entry["version"]) == self.active_weights_version:

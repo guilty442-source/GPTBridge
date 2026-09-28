@@ -51,9 +51,15 @@ def _resolve_source_ui_paths(
     project_root: Path,
     tool_id: str,
 ) -> dict[str, Path]:
-    """Resolve the renderer entry, host entry, and electron paths.
+    """Resolve the renderer entry and the governed shell binary path.
 
-    Returns a dict with keys: renderer_entry, host_entry, electron.
+    Returns a dict with keys: renderer_entry, shell.
+
+    A618/A621/A625: the Rust/Tauri shell (``gptbridge-shell.exe
+    --tool-window``) replaces the retired Electron host; the release build
+    is canonical and the debug build is accepted as a development
+    fallback so a source checkout without ``--release`` still opens tool
+    windows.
     """
     renderer_entry = (
         project_root
@@ -64,25 +70,16 @@ def _resolve_source_ui_paths(
         / "renderer"
         / "index.html"
     ).resolve()
-    host_entry = (
-        project_root
-        / "main-system"
-        / "scripts"
-        / "source-tool-ui-host"
-        / "main.cjs"
-    ).resolve()
-    electron = (
-        project_root
-        / "main-system"
-        / "node_modules"
-        / "electron"
-        / "dist"
-        / "electron.exe"
-    ).resolve()
+    tauri_target = (
+        project_root / "main-system" / "src-tauri" / "target"
+    )
+    shell = tauri_target / "release" / "gptbridge-shell.exe"
+    if not shell.is_file():
+        shell = tauri_target / "debug" / "gptbridge-shell.exe"
+    shell = shell.resolve()
     return {
         "renderer_entry": renderer_entry,
-        "host_entry": host_entry,
-        "electron": electron,
+        "shell": shell,
     }
 
 

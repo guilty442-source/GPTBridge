@@ -3339,6 +3339,7 @@ dependencies = [
  "gptbridge-core",
  "hex",
  "opener",
+ "regex",
  "serde",
  "serde_json",
  "tauri",

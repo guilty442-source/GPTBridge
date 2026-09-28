@@ -83,6 +83,15 @@ pub(crate) async fn gptbridge_invoke(
     channel: String,
     args: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
+    // Tool-window mode has its own whitelist and dispatch surface
+    // (source-tool-ui-host contract, tool_dispatch.rs).
+    if crate::tool_window::tool_window_requested() {
+        return tauri::async_runtime::spawn_blocking(move || {
+            tauri::async_runtime::block_on(crate::tool_dispatch::dispatch(app, &channel, args))
+        })
+        .await
+        .map_err(|e| format!("dispatch join failed: {e}"));
+    }
     if !ALLOWED_CHANNELS.contains(&channel.as_str()) {
         return Ok(serde_json::json!({
             "ok": false,

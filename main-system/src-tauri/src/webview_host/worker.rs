@@ -43,6 +43,16 @@ pub struct WorkerArgs {
     pub parent_pid: u32,
     pub token: String,
     pub state_file: std::path::PathBuf,
+    /// Tool-window mode: the parent tool bridge's loopback endpoint that
+    /// receives embedded-browser:event notifications (Electron emitted
+    /// these from the BrowserView itself; a worker process must push them
+    /// over HTTP).
+    pub event_port: u16,
+    pub event_token: String,
+    /// Per-session WebView2 user-data folder — overrides any inherited
+    /// WEBVIEW2_USER_DATA_FOLDER so a worker never collides (ERROR_BUSY)
+    /// with the parent window's profile or another session.
+    pub user_data_folder: std::path::PathBuf,
 }
 
 /// Parse ``--embedded-worker`` argv.  Returns ``None`` when the flag is not
@@ -78,6 +88,9 @@ pub fn worker_args() -> Option<WorkerArgs> {
         parent_pid: get("--parent-pid").parse::<u32>().unwrap_or(0),
         token: get("--token"),
         state_file: std::path::PathBuf::from(get("--state-file")),
+        event_port: get("--event-port").parse::<u16>().unwrap_or(0),
+        event_token: get("--event-token"),
+        user_data_folder: std::path::PathBuf::from(get("--user-data-folder")),
     })
 }
 
@@ -86,9 +99,92 @@ pub(crate) fn token_cell() -> &'static Mutex<String> {
     TOKEN.get_or_init(|| Mutex::new(String::new()))
 }
 
-pub(crate) fn pending_cell() -> &'static Mutex<std::collections::HashMap<String, std::sync::mpsc::Sender<serde_json::Value>>> {
-    static P: OnceLock<Mutex<std::collections::HashMap<String, std::sync::mpsc::Sender<serde_json::Value>>>> =
-        OnceLock::new();
+/// Optional parent tool-bridge event channel (--event-port/--event-token).
+pub(crate) fn event_channel() -> &'static Mutex<(u16, String)> {
+    static CH: OnceLock<Mutex<(u16, String)>> = OnceLock::new();
+    CH.get_or_init(|| Mutex::new((0, String::new())))
+}
+
+pub(crate) fn session_id_cell() -> &'static Mutex<String> {
+    static ID: OnceLock<Mutex<String>> = OnceLock::new();
+    ID.get_or_init(|| Mutex::new(String::new()))
+}
+
+/// Last reported document title (``on_document_title_changed`` feed).
+pub(crate) fn title_cell() -> &'static Mutex<String> {
+    static TITLE: OnceLock<Mutex<String>> = OnceLock::new();
+    TITLE.get_or_init(|| Mutex::new(String::new()))
+}
+
+/// Navigation/history tracking — Electron ``navigationHistory`` parity.
+/// wry exposes no history object, so the worker records the URL stack and
+/// drives ``history.back()/forward()`` in the page; renderer-initiated
+/// navigations are captured through the ``on_navigation`` callback.
+pub(crate) struct NavState {
+    pub(crate) history: Vec<String>,
+    pub(crate) cursor: usize,
+    pub(crate) loading: bool,
+}
+
+pub(crate) fn nav_state() -> &'static Mutex<NavState> {
+    static NAV: OnceLock<Mutex<NavState>> = OnceLock::new();
+    NAV.get_or_init(|| {
+        Mutex::new(NavState {
+            history: Vec::new(),
+            cursor: 0,
+            loading: false,
+        })
+    })
+}
+
+pub(crate) fn nav_record(url: &str) {
+    let mut nav = nav_state().lock().unwrap();
+    if nav.history.get(nav.cursor).map(String::as_str) == Some(url) {
+        return;
+    }
+    // A fresh navigation truncates any forward entries (browser parity).
+    let end = nav.cursor + 1;
+    nav.history.truncate(end);
+    nav.history.push(url.to_string());
+    nav.cursor = nav.history.len() - 1;
+}
+
+/// Push an embedded-browser event to the parent tool bridge (which emits
+/// ``embedded-browser:event`` into the tool renderer).  Fire-and-forget on
+/// a helper thread — a stalled bridge must never block the webview thread.
+pub(crate) fn push_event(event_type: &str, url: &str, detail: serde_json::Value) {
+    let (port, token) = event_channel().lock().unwrap().clone();
+    if port == 0 || token.is_empty() {
+        return;
+    }
+    let mut body = serde_json::json!({
+        "id": session_id_cell().lock().unwrap().clone(),
+        "type": event_type,
+        "url": url,
+    });
+    if let (Some(obj), Some(extra)) = (body.as_object_mut(), detail.as_object()) {
+        for (k, v) in extra {
+            obj.insert(k.clone(), v.clone());
+        }
+    }
+    let payload = body.to_string();
+    std::thread::spawn(move || {
+        let _ = gptbridge_core::ipc::http::post(
+            "127.0.0.1",
+            port,
+            "/event",
+            &[("x-gptbridge-bridge-token", token.as_str())],
+            payload.as_bytes(),
+            Duration::from_secs(5),
+        );
+    });
+}
+
+pub(crate) fn pending_cell(
+) -> &'static Mutex<std::collections::HashMap<String, std::sync::mpsc::Sender<serde_json::Value>>> {
+    static P: OnceLock<
+        Mutex<std::collections::HashMap<String, std::sync::mpsc::Sender<serde_json::Value>>>,
+    > = OnceLock::new();
     P.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
 }
 
@@ -106,7 +202,10 @@ fn publish_state(path: &std::path::Path, port: u16) {
         "port": port,
         "pid": std::process::id(),
     });
-    let _ = std::fs::write(path, serde_json::to_string_pretty(&body).unwrap_or_default());
+    let _ = std::fs::write(
+        path,
+        serde_json::to_string_pretty(&body).unwrap_or_default(),
+    );
 }
 
 /// Dispatch a closure to the worker's own event loop and wait (bounded) for
@@ -183,7 +282,9 @@ fn parent_handle(raw: isize) -> Option<windows::Win32::Foundation::HWND> {
     if raw == 0 {
         None
     } else {
-        Some(windows::Win32::Foundation::HWND(raw as *mut std::ffi::c_void))
+        Some(windows::Win32::Foundation::HWND(
+            raw as *mut std::ffi::c_void,
+        ))
     }
 }
 
@@ -191,7 +292,21 @@ fn parent_handle(raw: isize) -> Option<windows::Win32::Foundation::HWND> {
 /// never returns to the normal shell path.
 pub fn run(args: WorkerArgs) -> i32 {
     *token_cell().lock().unwrap() = args.token.clone();
+    *session_id_cell().lock().unwrap() = args.session_id.clone();
+    *event_channel().lock().unwrap() = (args.event_port, args.event_token.clone());
+    nav_state().lock().unwrap().history.push(args.url.clone());
     start_parent_watchdog(args.parent_pid);
+
+    // Isolate the session profile: an inherited WEBVIEW2_USER_DATA_FOLDER
+    // would collide with the host window's own webview (ERROR_BUSY) and
+    // kill this worker's webview outright.  Must be set before any
+    // webview initialises.
+    if !args.user_data_folder.as_os_str().is_empty() {
+        std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", &args.user_data_folder);
+    } else {
+        std::env::remove_var("WEBVIEW2_USER_DATA_FOLDER");
+    }
+    std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
 
     // Loopback listener first so the parent can poll the state file as soon
     // as it lands — the webview may still be warming up.
@@ -202,10 +317,7 @@ pub fn run(args: WorkerArgs) -> i32 {
             return 2;
         }
     };
-    let port = listener
-        .local_addr()
-        .map(|a| a.port())
-        .unwrap_or_default();
+    let port = listener.local_addr().map(|a| a.port()).unwrap_or_default();
     WORKER_PORT.store(port, std::sync::atomic::Ordering::SeqCst);
     worker_log!(
         "[embedded-worker] session={} pid={} port={port}",
@@ -230,19 +342,44 @@ pub fn run(args: WorkerArgs) -> i32 {
             let parsed: tauri::Url = url
                 .parse()
                 .unwrap_or_else(|_| "about:blank".parse().unwrap());
-            let mut builder = WebviewWindowBuilder::new(app, "session", WebviewUrl::External(parsed))
-                .title("embedded-browser")
-                .visible(false)
-                .decorations(false)
-                .resizable(false)
-                .minimizable(false)
-                .maximizable(false)
-                .skip_taskbar(true)
-                .shadow(false)
-                .focused(false)
-                .always_on_top(false)
-                .inner_size(1.0, 1.0)
-                .position(0.0, 0.0);
+            let mut builder =
+                WebviewWindowBuilder::new(app, "session", WebviewUrl::External(parsed))
+                    .title("embedded-browser")
+                    .visible(false)
+                    .decorations(false)
+                    .resizable(false)
+                    .minimizable(false)
+                    .maximizable(false)
+                    .skip_taskbar(true)
+                    .shadow(false)
+                    .focused(false)
+                    .always_on_top(false)
+                    .inner_size(1.0, 1.0)
+                    .position(0.0, 0.0)
+                    // Tool-window parity: renderer-initiated navigations update
+                    // the recorded stack and push events to the parent bridge.
+                    .on_navigation(|url| {
+                        let url = url.to_string();
+                        nav_record(&url);
+                        push_event("navigate", &url, serde_json::json!({"url": url}));
+                        true
+                    })
+                    .on_document_title_changed(|_webview, title| {
+                        *title_cell().lock().unwrap() = title;
+                    })
+                    .on_page_load(|_webview, payload| {
+                        let url = payload.url().to_string();
+                        match payload.event() {
+                            tauri::webview::PageLoadEvent::Started => {
+                                nav_state().lock().unwrap().loading = true;
+                                push_event("loading-start", &url, serde_json::json!({}));
+                            }
+                            tauri::webview::PageLoadEvent::Finished => {
+                                nav_state().lock().unwrap().loading = false;
+                                push_event("loading-stop", &url, serde_json::json!({}));
+                            }
+                        }
+                    });
             #[cfg(windows)]
             {
                 if let Some(parent) = parent_handle(parent_hwnd) {

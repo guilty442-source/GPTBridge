@@ -293,10 +293,6 @@ _TOOL_HOST_TEST_DIR = (
 )
 _TOOL_HOST_SPAWN = "main-system/src-core/tasks/toolbox_start_spawn_process.py"
 _TOOL_HOST_RESOLVER = "main-system/src-core/tasks/tool_path_resolver.py"
-_TOOL_HOST_RESCUE_MANIFEST = "Standalone tools/system-rescue/manifest.json"
-_TOOL_HOST_RESCUE_NATIVE = (
-    "Standalone tools/system-rescue/src-native/Program.cs"
-)
 
 # Token issuance, transport-store access and the governance bootstrap all
 # stay in the Python plane (E4); the native host must never implement them.
@@ -362,27 +358,6 @@ def check_tool_host_native_boundary(root: Path, errors: list[str]) -> None:
         errors.append(
             f"{_TOOL_HOST_RESOLVER}: runtime.native_entry branch missing"
         )
-    manifest = _read(root, _TOOL_HOST_RESCUE_MANIFEST)
-    if manifest is None:
-        errors.append(f"missing {_TOOL_HOST_RESCUE_MANIFEST}")
-    else:
-        try:
-            native_entry = json.loads(manifest)["runtime"]["native_entry"]
-        except (ValueError, KeyError, json.JSONDecodeError):
-            native_entry = ""
-        if (
-            not native_entry.endswith(".exe")
-            or native_entry.startswith("/")
-            or ".." in Path(native_entry).parts
-        ):
-            errors.append(
-                f"{_TOOL_HOST_RESCUE_MANIFEST}: native_entry must be a "
-                "tool-root-relative .exe"
-            )
-    if not (root / _TOOL_HOST_RESCUE_NATIVE).is_file():
-        errors.append(f"missing {_TOOL_HOST_RESCUE_NATIVE}")
-
-
 def main() -> int:
     import argparse
 

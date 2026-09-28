@@ -20,8 +20,8 @@ pub fn create_websocket_session_ticket(token: &str, workspace_instance_id: &str)
         + 30;
     let nonce = random_hex(16);
     let payload = format!("{expires_at}.{nonce}.{workspace_instance_id}");
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(token.as_bytes())
-        .expect("HMAC accepts any key size");
+    let mut mac =
+        <Hmac<Sha256> as Mac>::new_from_slice(token.as_bytes()).expect("HMAC accepts any key size");
     mac.update(payload.as_bytes());
     let signature = hex::encode(mac.finalize().into_bytes());
     format!("{payload}.{signature}")

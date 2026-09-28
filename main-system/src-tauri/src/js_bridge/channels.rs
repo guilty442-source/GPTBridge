@@ -12,8 +12,8 @@ use tauri::{AppHandle, Manager};
 use gptbridge_core::app::{manage_backend, PRODUCT_VERSION};
 use gptbridge_core::ipc;
 use gptbridge_core::lifecycle;
-use gptbridge_core::native::{metrics, paths, sizes};
 use gptbridge_core::native::paths::is_path_inside;
+use gptbridge_core::native::{metrics, paths, sizes};
 use gptbridge_core::state::perf_slo;
 
 use crate::webview_host;
@@ -69,8 +69,9 @@ pub fn calculate_adaptive_zoom(
     } else {
         1.0
     };
-    let viewport_scale =
-        (width / reference_width).min(height / reference_height).clamp(MIN_VIEWPORT_SCALE, MAX_VIEWPORT_SCALE);
+    let viewport_scale = (width / reference_width)
+        .min(height / reference_height)
+        .clamp(MIN_VIEWPORT_SCALE, MAX_VIEWPORT_SCALE);
     let effective = (viewport_scale * preferred).clamp(MIN_EFFECTIVE_ZOOM, MAX_EFFECTIVE_ZOOM);
     (effective * 1000.0).round() / 1000.0
 }
@@ -123,11 +124,7 @@ fn main_window(app: &AppHandle) -> Option<tauri::Window> {
     app.get_window("main")
 }
 
-pub async fn dispatch(
-    app: AppHandle,
-    channel: &str,
-    args: serde_json::Value,
-) -> serde_json::Value {
+pub async fn dispatch(app: AppHandle, channel: &str, args: serde_json::Value) -> serde_json::Value {
     match channel {
         "app:get-status" => {
             let runtime = lifecycle::backend_runtime_info();
@@ -205,26 +202,30 @@ pub async fn dispatch(
                 "source": "governed-local-folder-inventory",
             })
         }
-        "app:reload-window" => match main_window(&app).and_then(|w| webview_host::find_webview(&w, "main")) {
-            Some(webview) => {
-                let _ = webview.eval("window.location.reload()");
-                serde_json::json!({"ok": true})
-            }
-            None => serde_json::json!({"ok": false}),
-        },
-        "app:reload-window-hard" => match main_window(&app).and_then(|w| webview_host::find_webview(&w, "main")) {
-            Some(webview) => {
-                // Hard reload: bypass caches via a fresh navigation to the
-                // current URL — closest available semantics under WebView2.
-                if let Ok(url) = webview.url() {
-                    let _ = webview.navigate(url);
-                } else {
+        "app:reload-window" => {
+            match main_window(&app).and_then(|w| webview_host::find_webview(&w, "main")) {
+                Some(webview) => {
                     let _ = webview.eval("window.location.reload()");
+                    serde_json::json!({"ok": true})
                 }
-                serde_json::json!({"ok": true})
+                None => serde_json::json!({"ok": false}),
             }
-            None => serde_json::json!({"ok": false}),
-        },
+        }
+        "app:reload-window-hard" => {
+            match main_window(&app).and_then(|w| webview_host::find_webview(&w, "main")) {
+                Some(webview) => {
+                    // Hard reload: bypass caches via a fresh navigation to the
+                    // current URL — closest available semantics under WebView2.
+                    if let Ok(url) = webview.url() {
+                        let _ = webview.navigate(url);
+                    } else {
+                        let _ = webview.eval("window.location.reload()");
+                    }
+                    serde_json::json!({"ok": true})
+                }
+                None => serde_json::json!({"ok": false}),
+            }
+        }
         "app:get-ui-zoom" => serde_json::json!({"ok": true, "factor": current_ui_zoom()}),
         "app:set-ui-zoom" => {
             let factor = args["factor"].as_f64().unwrap_or(1.0);
@@ -336,7 +337,11 @@ pub async fn dispatch(
             webview_host::navigate_session(&app, &str_arg(&args, "id"), &str_arg(&args, "url"))
         }
         "embedded-browser:execute" => {
-            match webview_host::execute_script(&app, &str_arg(&args, "id"), &str_arg(&args, "script")) {
+            match webview_host::execute_script(
+                &app,
+                &str_arg(&args, "id"),
+                &str_arg(&args, "script"),
+            ) {
                 Ok(result) => serde_json::json!({"ok": true, "result": result}),
                 Err(message) => serde_json::json!({"ok": false, "message": message}),
             }
