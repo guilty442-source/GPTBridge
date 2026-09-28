@@ -5,8 +5,8 @@
  "authority": "governance-rule-only",
  "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
  "metadata": {
-  "contract_revision": 4,
-  "measured_at": "2026-09-28T18:55:00+08:00",
+  "contract_revision": 5,
+  "measured_at": "2026-09-28T19:15:00+08:00",
   "method": "path-pattern first-match buckets (pybucket.py)",
   "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
   "adjudications_rev2": [
@@ -28,7 +28,8 @@
    "VERIFICATION row kept (inert: current classifiers measure 0); re-key deferred to next phase adjudication"
   ],
   "tightenings": [
-   "rev4 tighten: GENERAL_APP 565/114858 -> 564/114493 (codex_pin_sync + architecture_artifact_sync consolidated into tasks/codex_sync_drivers.py, shared _SyncDriverBase; -1 file -365 loc). Downward-only, no adjudication needed."
+   "rev4 tighten: GENERAL_APP 565/114858 -> 564/114493 (codex_pin_sync + architecture_artifact_sync consolidated into tasks/codex_sync_drivers.py, shared _SyncDriverBase; -1 file -365 loc). Downward-only, no adjudication needed.",
+   "rev5 tighten: GENERAL_APP 564/114493 -> 558/113560 (-6 files -933 loc): retired-sovereign dead mixin cluster removed (maintenance_status/lifecycle/learning/capability/identity, zero refs post-A592/A604 retirement) + concurrent worker deletion. Downward-only."
   ]
  },
  "zero_targets": {
@@ -65,8 +66,8 @@
    "loc": 42016
   },
   "GENERAL_APP": {
-   "files": 564,
-   "loc": 114493
+   "files": 558,
+   "loc": 113560
   }
  },
  "allowed_zones": {
