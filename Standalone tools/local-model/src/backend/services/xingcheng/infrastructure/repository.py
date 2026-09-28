@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,9 +58,7 @@ class LocalAiRepository(
             raise ValueError("a supported isolated model database scope is required")
         self.database_scope = scope
         self.owner_model_id = self.MODEL_ID_BY_SCOPE[scope]
-        self.database_path = Path(
-            f"postgresql:gptbridge_xingcheng_{scope}"
-        )
+        self.database_path = Path(f"postgresql:{self._schema_name()}")
         self.command_parser = LocalCommandParser(self.database_path)
         with self._connect() as connection:
             connection.executescript(
@@ -308,11 +307,17 @@ class LocalAiRepository(
                 self._seed_mathematical_capability_definitions(connection)
             self._enforce_database_scope(connection)
 
+    def _schema_name(self) -> str:
+        # A621: production default is gptbridge_xingcheng_<scope>; tests and
+        # sandboxes inject a throwaway schema via XINGCHENG_<SCOPE>_PG_SCHEMA.
+        return (
+            os.environ.get(f"XINGCHENG_{self.database_scope.upper()}_PG_SCHEMA")
+            or f"gptbridge_xingcheng_{self.database_scope}"
+        )
+
     @contextmanager
     def _connect(self) -> Iterator[PgConnection]:
-        connection = pg_connect(
-            f"gptbridge_xingcheng_{self.database_scope}", autocommit=False
-        )
+        connection = pg_connect(self._schema_name(), autocommit=False)
         try:
             yield connection
             connection.commit()

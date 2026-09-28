@@ -120,13 +120,50 @@
       "exclude": true
     },
     "vectord.exe": {
-      "exclude": true
+      "exclude": true,
+      "pool": "compute"
     },
     "testhost.exe": {
-      "exclude": true
+      "exclude": true,
+      "pool": "background"
     },
     "searchd.exe": {
-      "exclude": true
+      "exclude": true,
+      "pool": "io"
+    }
+  },
+  "pools": {
+    "enabled": true,
+    "description": "Pool lanes under the sole governor (second attribution axis beside plane). Members join a per-pool shared Job Object with bounded cpu/memory/process envelopes; 'members' are lowercase substrings matched against exe path + cmdline. Governance plane is never pooled; excluded programs keep pool attribution for telemetry but join no job. Pool members supersede the generic worker-plane job (a process may hold only one Job).",
+    "interactive": {
+      "description": "Rust/C/C++ interactive work: UI IPC, RAG query, commands, control.",
+      "cpu_limit_percent": 40.0,
+      "memory_percent": 25.0,
+      "process_limit": 64,
+      "members": ["gptbridge-shell", "gptbridge.exe", "msedgewebview2", "webview", "tool-window"]
+    },
+    "compute": {
+      "description": "C++/Rust heavy compute: inference, vector, audit, native compute.",
+      "cpu_limit_percent": 50.0,
+      "memory_percent": 45.0,
+      "process_limit": 32,
+      "members": ["xingcheng", "local-model", "inference", "vector", "native_transformer"]
+    },
+    "io": {
+      "description": "Go/Rust IO-bound work: network, file I/O, download, batch.",
+      "cpu_limit_percent": 15.0,
+      "memory_percent": 15.0,
+      "process_limit": 32,
+      "members": ["searchd", "download", "filewatch", "network", "batch"]
+    },
+    "background": {
+      "description": "C#/F#/Julia workflow and analysis; deprioritized but never starved (bounded floor via job, not zero).",
+      "cpu_limit_percent": 8.0,
+      "memory_percent": 15.0,
+      "process_limit": 16,
+      "background": true,
+      "ecoqos": true,
+      "members": ["dotnet", "julia", "fsharp", "workflow", "analysis"]
     }
   },
   "auto_mode": true,

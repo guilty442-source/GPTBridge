@@ -430,6 +430,70 @@ def native_scaled_dot_product_attention(
     return result.tolist()
 
 
+def native_matmul_array(a: Any, b: Any):  # type: ignore[no-untyped-def]
+    """Matmul returning a float64 ndarray.
+
+    Ownership (A213): inputs are borrowed read-only views — contiguous
+    float64 ndarrays cross the boundary with zero copies. The returned
+    array is freshly allocated by the native core and owned by the
+    caller; it may be wrapped with ``torch.from_numpy`` without copying.
+    """
+    np = __getattr__("np")
+    if np is _NP_MISSING:
+        raise RuntimeError("numpy is required for native dispatch")
+    n = _load_native()
+    if n is None:
+        return np.asarray(python_matmul(a, b), dtype=np.float64)
+    return n.transformer_matmul(
+        _as_float64_array(a),
+        _as_float64_array(b),
+    )
+
+
+def native_softmax_array(input_2d: Any):  # type: ignore[no-untyped-def]
+    """Softmax returning a float64 ndarray. Same ownership contract as
+    ``native_matmul_array``."""
+    np = __getattr__("np")
+    if np is _NP_MISSING:
+        raise RuntimeError("numpy is required for native dispatch")
+    n = _load_native()
+    if n is None:
+        return np.asarray(python_softmax(input_2d), dtype=np.float64)
+    return n.transformer_softmax(_as_float64_array(input_2d))
+
+
+def native_rmsnorm_array(input_2d: Any, weight: Any, eps: float):  # type: ignore[no-untyped-def]
+    """RMSNorm returning a float64 ndarray. Same ownership contract as
+    ``native_matmul_array``."""
+    np = __getattr__("np")
+    if np is _NP_MISSING:
+        raise RuntimeError("numpy is required for native dispatch")
+    n = _load_native()
+    if n is None:
+        return np.asarray(python_rmsnorm(input_2d, weight, eps), dtype=np.float64)
+    return n.transformer_rmsnorm(
+        _as_float64_array(input_2d),
+        _as_float64_array(weight),
+        float(eps),
+    )
+
+
+def native_rope_array(input_4d: Any, cos_table: Any, sin_table: Any):  # type: ignore[no-untyped-def]
+    """RoPE returning a float64 ndarray. Same ownership contract as
+    ``native_matmul_array``."""
+    np = __getattr__("np")
+    if np is _NP_MISSING:
+        raise RuntimeError("numpy is required for native dispatch")
+    n = _load_native()
+    if n is None:
+        return np.asarray(python_rope(input_4d, cos_table, sin_table), dtype=np.float64)
+    return n.transformer_rope(
+        _as_float64_array(input_4d),
+        _as_float64_array(cos_table),
+        _as_float64_array(sin_table),
+    )
+
+
 def matmul(a: Sequence[Sequence[float]], b: Sequence[Sequence[float]]) -> list[list[float]]:
     """Dispatch matmul to native or Python fallback."""
     m = len(a)
@@ -518,6 +582,10 @@ __all__ = [
     "native_rmsnorm",
     "native_rope",
     "native_scaled_dot_product_attention",
+    "native_matmul_array",
+    "native_softmax_array",
+    "native_rmsnorm_array",
+    "native_rope_array",
     "rmsnorm",
     "rope",
 ]

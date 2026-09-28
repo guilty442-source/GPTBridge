@@ -77,8 +77,10 @@ def _rmsnorm_via_native(
         cols = int(hidden_states.size(-1))
         x = hidden_states.detach().to(torch.float64).reshape(rows, cols).contiguous()
         w = weight.detach().to(torch.float64).contiguous()
-        result = module.rmsnorm(x.tolist(), w.tolist(), float(eps))
-        return torch.tensor(result, dtype=torch.float64).reshape(hidden_states.shape)
+        # numpy() 為零拷貝 view（唯讀借用）；回傳的 ndarray 由 torch.from_numpy
+        # 直接接管為輸出 tensor 的底層 buffer，全程不經 Python list。
+        result = module.native_rmsnorm_array(x.numpy(), w.numpy(), float(eps))
+        return torch.from_numpy(result).reshape(hidden_states.shape)
     except Exception:  # pragma: no cover - 任何 ABI 問題都回退
         return None
 
@@ -151,8 +153,8 @@ def _rope_via_native(
 ) -> torch.Tensor | None:
     try:
         x64 = x.detach().to(torch.float64).contiguous()
-        result = module.rope(x64.tolist(), cos.tolist(), sin.tolist())
-        return torch.tensor(result, dtype=torch.float64).reshape(x.shape)
+        result = module.native_rope_array(x64.numpy(), cos.numpy(), sin.numpy())
+        return torch.from_numpy(result).reshape(x.shape)
     except Exception:  # pragma: no cover - 任何 ABI 問題都回退
         return None
 
@@ -247,21 +249,24 @@ def _causal_via_native(
     causal = torch.ones(q_len, k_len, dtype=torch.bool).tril()
     # 遮罩值必須有限：C++ softmax 以指數計算，-inf 會產生 NaN
     masked_value = -1.0e30
+    # numpy() view 進、from_numpy 接管出：每個 head 的三次 native 呼叫
+    # 不再物化 Python list（原先每元素都經歷 list↔array 兩次拷貝）。
+    q_np = q.contiguous().numpy()
+    kt_np = k_t.numpy()
+    v_np = v.contiguous().numpy()
     rows: list[torch.Tensor] = []
     try:
         for index in range(batch * heads):
-            scores = torch.tensor(
-                module.matmul(q[index].tolist(), k_t[index].tolist()),
-                dtype=torch.float64,
+            scores = torch.from_numpy(
+                module.native_matmul_array(q_np[index], kt_np[index])
             )
             scores = scores * float(scale)
             scores = scores.masked_fill(~causal, masked_value)
-            weights = torch.tensor(
-                module.softmax(scores.tolist()), dtype=torch.float64
+            weights = torch.from_numpy(
+                module.native_softmax_array(scores.numpy())
             )
-            out = torch.tensor(
-                module.matmul(weights.tolist(), v[index].tolist()),
-                dtype=torch.float64,
+            out = torch.from_numpy(
+                module.native_matmul_array(weights.numpy(), v_np[index])
             )
             rows.append(out)
     except Exception:  # pragma: no cover - 任何 ABI 問題都回退

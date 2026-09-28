@@ -55,9 +55,15 @@ struct FakeEngine : gov::IEngine {
                         (enable ? "1" : "0"));
         return true;
     }
-    bool cpu_limit(const gov::ProcKey&, int pid, double percent, long long,
+    bool cpu_limit(const gov::ProcKey& key, int pid, double percent, long long,
                    int) override {
-        calls.push_back("limit:" + std::to_string(pid) + ":" + std::to_string(percent));
+        if (key.pid < 0) {
+            calls.push_back("job:" + std::to_string(key.pid) + ":" +
+                            std::to_string(pid) + ":" + std::to_string(percent));
+        } else {
+            calls.push_back("limit:" + std::to_string(pid) + ":" +
+                            std::to_string(percent));
+        }
         return true;
     }
     bool cpu_limit_clear(const gov::ProcKey& key) override {

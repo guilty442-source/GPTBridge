@@ -161,6 +161,36 @@ void fill_snapshot_core(CycleEnv& env, const RegUpdate& update) {
     env.snap.budget_ram_pct = env.thr.worker_ram_budget;
     env.snap.over_budget = update.over_budget;
     for (const auto& row : env.rows) env.snap.planes[row.plane] += 1;
+    /* 池帳本：逐池聚合＋envelope 預算對照（Job 為硬上限，over_budget 為證據旗標）。 */
+    for (const auto& [pool, cpu_sum] : env.pool_cpu_sum) {
+        PoolLedger ledger;
+        ledger.processes = env.pool_count[pool];
+        ledger.cpu_pct = round1(cpu_sum / std::max(1, env.logical));
+        ledger.ram_mb = round1(env.pool_rss_mb[pool]);
+        ledger.ram_pct = env.sys.total_ram_mb > 0
+                             ? round2(env.pool_rss_mb[pool] / env.sys.total_ram_mb *
+                                      100.0)
+                             : 0.0;
+        auto it = env.rules.pools.find(pool);
+        if (it != env.rules.pools.end()) {
+            const PoolPolicy& policy = it->second;
+            ledger.cpu_budget_pct = policy.cpu_limit_percent;
+            ledger.ram_budget_pct = policy.memory_percent > 0
+                                        ? policy.memory_percent
+                                        : (policy.memory_mb > 0 &&
+                                                   env.sys.total_ram_mb > 0
+                                               ? round2(policy.memory_mb /
+                                                        env.sys.total_ram_mb *
+                                                        100.0)
+                                               : 0.0);
+            ledger.over_budget =
+                (policy.cpu_limit_percent > 0 &&
+                 ledger.cpu_pct > policy.cpu_limit_percent) ||
+                (ledger.ram_budget_pct > 0 &&
+                 ledger.ram_pct > ledger.ram_budget_pct);
+        }
+        env.snap.pools[pool_name(pool)] = ledger;
+    }
     env.snap.top_cpu.assign(by_cpu.begin(),
                             by_cpu.begin() + std::min<std::size_t>(5, by_cpu.size()));
     env.snap.top_mem.assign(by_mem.begin(),
