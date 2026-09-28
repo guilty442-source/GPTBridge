@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+import time
 import pytest
 from queue import Empty
 from pathlib import Path
@@ -162,6 +163,7 @@ class _FakeInfo:
 
 class _FakeConn:
     closed = False
+    broken = False
     info = _FakeInfo()
 
     def rollback(self):
@@ -196,7 +198,7 @@ class _EmptyThenConn:
         raise Empty
 
     def get(self, timeout=0):
-        return self.conn
+        return (self.conn, time.monotonic())
 
     def put_nowait(self, item):
         self.returned.append(item)
@@ -246,7 +248,9 @@ def test_pool_wait_success_publishes_wait_ms(tmp_path, monkeypatch):
         assert conn is idle.conn
     assert plane.signals.pool_wait_timeouts == 0
     assert plane.signals.pg_wait_ms >= 0.0
-    assert idle.returned == [idle.conn]  # 連線歸還池
+    # Idle entries are (conn, checkout-monotonic) tuples — the conn is
+    # element 0.
+    assert [c for c, _since in idle.returned] == [idle.conn]
 
 
 def test_vector_search_publishes_latency(tmp_path, monkeypatch):
