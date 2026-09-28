@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T10:37:27Z",
+  "generated_at": "2026-09-28T10:41:56Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 303,
-    "delegated_checks": 36,
+    "native_checks": 329,
+    "delegated_checks": 31,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -15,7 +15,9 @@
       "text-no-pollution",
       "json-parses",
       "json-has-keys",
-      "glob-min-count"
+      "glob-min-count",
+      "glob-not-contains",
+      "glob-absent"
     ]
   },
   "checks": [
@@ -2579,6 +2581,233 @@
       ]
     },
     {
+      "id": "bootstrap-entry:csproj",
+      "kind": "file-exists",
+      "path": "main-system/launcher/src/GPTBridge.Bootstrap/GPTBridge.Bootstrap.csproj"
+    },
+    {
+      "id": "bootstrap-entry:program",
+      "kind": "file-exists",
+      "path": "main-system/launcher/src/GPTBridge.Bootstrap/Program.cs"
+    },
+    {
+      "id": "bootstrap-entry:contract-marker",
+      "kind": "file-contains",
+      "path": "main-system/launcher/src/GPTBridge.Bootstrap/Program.cs",
+      "markers": [
+        "--prepare-only"
+      ]
+    },
+    {
+      "id": "channel-gateway:GPTBridge.Channels.csproj",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels/GPTBridge.Channels.csproj"
+    },
+    {
+      "id": "channel-gateway:GPTBridge.Channels.Tests.csproj",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels.Tests/GPTBridge.Channels.Tests.csproj"
+    },
+    {
+      "id": "channel-gateway:A263Channel.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels/A263Channel.cs"
+    },
+    {
+      "id": "channel-gateway:port-invariants",
+      "kind": "file-contains",
+      "path": "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels/A263Channel.cs",
+      "markers": [
+        "Stopwatch.GetTimestamp",
+        "ReconnectAsync"
+      ]
+    },
+    {
+      "id": "tool-host:dir:GPTBridge.ToolHost",
+      "kind": "dir-exists",
+      "path": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost"
+    },
+    {
+      "id": "tool-host:dir:GPTBridge.ToolHost.Tests",
+      "kind": "dir-exists",
+      "path": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost.Tests"
+    },
+    {
+      "id": "tool-host:forbidden:HMACSHA",
+      "kind": "glob-not-contains",
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/*.cs",
+      "markers": [
+        "HMACSHA"
+      ]
+    },
+    {
+      "id": "tool-host:forbidden:issue_token",
+      "kind": "glob-not-contains",
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/*.cs",
+      "markers": [
+        "issue_token"
+      ]
+    },
+    {
+      "id": "tool-host:forbidden:launcher_key",
+      "kind": "glob-not-contains",
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/*.cs",
+      "markers": [
+        "launcher_key"
+      ]
+    },
+    {
+      "id": "tool-host:forbidden:integrity_manifest",
+      "kind": "glob-not-contains",
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/*.cs",
+      "markers": [
+        "integrity_manifest"
+      ]
+    },
+    {
+      "id": "tool-host:forbidden:identity_attestation",
+      "kind": "glob-not-contains",
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/*.cs",
+      "markers": [
+        "identity_attestation"
+      ]
+    },
+    {
+      "id": "tool-host:forbidden:gptbridge_transport",
+      "kind": "glob-not-contains",
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/*.cs",
+      "markers": [
+        "gptbridge_transport"
+      ]
+    },
+    {
+      "id": "tool-host:forbidden:Npgsql",
+      "kind": "glob-not-contains",
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/*.cs",
+      "markers": [
+        "Npgsql"
+      ]
+    },
+    {
+      "id": "tool-host:forbidden:pg_notify",
+      "kind": "glob-not-contains",
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/*.cs",
+      "markers": [
+        "pg_notify"
+      ]
+    },
+    {
+      "id": "tool-host:proxy-client",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs"
+    },
+    {
+      "id": "tool-host:proxy-ops",
+      "kind": "file-contains",
+      "path": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs",
+      "markers": [
+        "\"hello\"",
+        "\"claim\"",
+        "\"respond\"",
+        "\"request_cancelled\"",
+        "\"notification_stamp\""
+      ]
+    },
+    {
+      "id": "tool-host:spawn-exe-branch",
+      "kind": "file-contains",
+      "path": "main-system/src-core/tasks/toolbox_start_spawn_process.py",
+      "markers": [
+        "source_entry.suffix.lower() == \".exe\""
+      ]
+    },
+    {
+      "id": "tool-host:resolver-native-entry",
+      "kind": "file-contains",
+      "path": "main-system/src-core/tasks/tool_path_resolver.py",
+      "markers": [
+        "native_entry"
+      ]
+    },
+    {
+      "id": "typescript-retirement:*.ts",
+      "kind": "glob-absent",
+      "path": "",
+      "glob": "*.ts",
+      "exclude": [
+        "venv",
+        "node_modules",
+        "__pycache__",
+        "dist",
+        "dist-ui",
+        "build",
+        "release",
+        "releases",
+        "runtime",
+        "out"
+      ]
+    },
+    {
+      "id": "typescript-retirement:*.tsx",
+      "kind": "glob-absent",
+      "path": "",
+      "glob": "*.tsx",
+      "exclude": [
+        "venv",
+        "node_modules",
+        "__pycache__",
+        "dist",
+        "dist-ui",
+        "build",
+        "release",
+        "releases",
+        "runtime",
+        "out"
+      ]
+    },
+    {
+      "id": "typescript-retirement:*.d.ts",
+      "kind": "glob-absent",
+      "path": "",
+      "glob": "*.d.ts",
+      "exclude": [
+        "venv",
+        "node_modules",
+        "__pycache__",
+        "dist",
+        "dist-ui",
+        "build",
+        "release",
+        "releases",
+        "runtime",
+        "out"
+      ]
+    },
+    {
+      "id": "gpu-coordinator:lazy-probe-markers",
+      "kind": "file-contains",
+      "path": "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py",
+      "markers": [
+        "def _torch()",
+        "_query_via_nvidia_smi",
+        "_query_via_torch"
+      ]
+    },
+    {
+      "id": "jax-sft:fused-step-markers",
+      "kind": "file-contains",
+      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/jax_backend/sft.py",
+      "markers": [
+        "_COLLATE_BUCKET",
+        "train_step = jax.jit(",
+        "donate_argnums",
+        "def _train_step(params, opt_state, input_ids, labels, lr)",
+        "eval_loss = jax.jit(",
+        "collate_bucket",
+        "def _choose_bucket"
+      ]
+    },
+    {
       "id": "python-check:check_bounded_worker_pools",
       "kind": "delegated",
       "reason": "python oracle (transition)",
@@ -2637,18 +2866,6 @@
       "kind": "delegated",
       "reason": "python oracle (transition)",
       "python": "check_architecture_registry"
-    },
-    {
-      "id": "python-check:check_python_zone_ratchet",
-      "kind": "delegated",
-      "reason": "python oracle (transition)",
-      "python": "check_python_zone_ratchet"
-    },
-    {
-      "id": "python-check:check_typescript_retirement",
-      "kind": "delegated",
-      "reason": "python oracle (transition)",
-      "python": "check_typescript_retirement"
     },
     {
       "id": "python-check:check_directory_audit",
@@ -2735,18 +2952,6 @@
       "python": "check_sql_anti_patterns"
     },
     {
-      "id": "python-check:check_bootstrap_native_entry",
-      "kind": "delegated",
-      "reason": "python oracle (transition)",
-      "python": "check_bootstrap_native_entry"
-    },
-    {
-      "id": "python-check:check_channel_gateway_csharp",
-      "kind": "delegated",
-      "reason": "python oracle (transition)",
-      "python": "check_channel_gateway_csharp"
-    },
-    {
       "id": "python-check:check_gpu_coordinator_lazy_torch",
       "kind": "delegated",
       "reason": "python oracle (transition)",
@@ -2763,12 +2968,6 @@
       "kind": "delegated",
       "reason": "python oracle (transition)",
       "python": "check_renderer_idle_gating"
-    },
-    {
-      "id": "python-check:check_tool_host_native_boundary",
-      "kind": "delegated",
-      "reason": "python oracle (transition)",
-      "python": "check_tool_host_native_boundary"
     },
     {
       "id": "python-check:protected-source-semantic",
