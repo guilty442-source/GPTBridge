@@ -771,3 +771,13 @@ reinitialize/destroy the runtime for every request. When the model has no active
 use, the existing `AutoRelease` policy must reclaim cold resources. The target
 is hot-resource reuse with cold-resource recovery, not unconditional residency
 and not unconditional reconstruction.
+
+## Event-Driven UI State
+
+UI surfaces are fully event-driven across Backend → Rust State Core → GPUI,
+JavaScript-ESM, or egui. Publish changed state only; do not poll the backend
+from the UI on a fixed interval such as 100 ms. Streaming model output must be
+coalesced into small bounded updates before GPUI redraws; batch size and time
+window are benchmark parameters, not assumed constants such as 16, 32, or 64.
+GPUI is the formal core view for model dialogue, streaming text, and virtual
+lists; Rust/Tauri and JavaScript-ESM integrate through governed state events.
