@@ -41,6 +41,10 @@ from core_system.task_lifecycle import (
 )
 
 _REQUEST_TERMINAL = {COMPLETED, FAILED, CANCELLED, TIMED_OUT}
+# bounded-concurrency/v1: registry retention cap — terminal records are
+# evicted oldest-first past the cap; in-flight records are never
+# evicted (tracking integrity is fail-closed).
+_MAX_RECORDS = 4096
 _VALID_REQUEST_TRANSITIONS = {
     "CREATED": {"RUNNING", "QUEUED", "CANCELLED", "TIMED_OUT", "FAILED", "INTERRUPTED"},
     "QUEUED": {"RUNNING", "CANCELLED", "TIMED_OUT", "FAILED", "INTERRUPTED"},
@@ -194,6 +198,22 @@ class RequestRegistry:
                 pass
             raise
 
+    def _evict_terminal(self) -> None:
+        """Drop-oldest eviction: terminal records only, newest request wins."""
+        if len(self._records) < _MAX_RECORDS:
+            return
+        terminal = sorted(
+            (
+                record
+                for record in self._records.values()
+                if record.status in _REQUEST_TERMINAL
+            ),
+            key=lambda record: record.completed_at or record.created_at,
+        )
+        excess = len(self._records) - _MAX_RECORDS + 1
+        for record in terminal[:excess]:
+            del self._records[record.request_id]
+
     # -- create / track --------------------------------------------------------
 
     def upsert(
@@ -250,6 +270,7 @@ class RequestRegistry:
             return RequestResult(False, "request-id-required")
         existing = self._records.get(request_id)
         if existing is None:
+            self._evict_terminal()
             existing = RequestRecord(
                 request_id=request_id,
                 session_id=session_id,

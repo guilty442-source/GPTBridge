@@ -71,35 +71,35 @@ class MarketDataSearchMixin:
             )
             futures[future] = holding
         for future in as_completed(futures):
-                holding = futures[future]
-                try:
-                    result = future.result()
-                    if result.get("ok"):
-                        results.append(result)
-                    else:
-                        errors.append(
-                            {
-                                "symbol": str(holding.get("symbol") or ""),
-                                "name": str(holding.get("name") or ""),
-                                "market": str(holding.get("market") or ""),
-                                "asset_type": str(holding.get("asset_type") or ""),
-                                "message": str(result.get("message") or "找不到可驗證資料"),
-                                "recognition_status": str(
-                                    (holding.get("recognition") or {}).get("status") or ""
-                                ),
-                            }
-                        )
-                except Exception as error:
+            holding = futures[future]
+            try:
+                result = future.result()
+                if result.get("ok"):
+                    results.append(result)
+                else:
                     errors.append(
                         {
                             "symbol": str(holding.get("symbol") or ""),
                             "name": str(holding.get("name") or ""),
                             "market": str(holding.get("market") or ""),
                             "asset_type": str(holding.get("asset_type") or ""),
-                            "message": f"{type(error).__name__}: {error}",
-                            "recognition_status": "failed",
+                            "message": str(result.get("message") or "找不到可驗證資料"),
+                            "recognition_status": str(
+                                (holding.get("recognition") or {}).get("status") or ""
+                            ),
                         }
                     )
+            except Exception as error:
+                errors.append(
+                    {
+                        "symbol": str(holding.get("symbol") or ""),
+                        "name": str(holding.get("name") or ""),
+                        "market": str(holding.get("market") or ""),
+                        "asset_type": str(holding.get("asset_type") or ""),
+                        "message": f"{type(error).__name__}: {error}",
+                        "recognition_status": "failed",
+                    }
+                )
         results.sort(key=lambda item: (str(item.get("market")), str(item.get("requested_symbol"))))
         return {
             "ok": bool(results) and not (payload.get("require_all") and errors),

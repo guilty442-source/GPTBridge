@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading.Channels;
 
 namespace GPTBridge.ToolHost;
 
@@ -16,6 +17,16 @@ public sealed class ToolHostServer : IAsyncDisposable
     private readonly HttpListener _listener = new();
     private readonly CancellationTokenSource _cts = new();
     private Task? _acceptLoop;
+    private Task[] _workers = [];
+    // bounded-concurrency/v1: declared envelope; the effective worker
+    // count is the governor "network" class quota (concurrency-budget/v1)
+    // clamped into [MinWorkers, MaxWorkers]; unreadable state fails open
+    // to MaxWorkers — a dead governor never deadlocks the host.
+    private const int MinWorkers = 2;
+    private const int MaxWorkers = 8;
+    private const int PendingCapacity = 64;
+    private Channel<HttpListenerContext>? _pending;
+    private long _rejected;
 
     public ToolHostServer(GovernedToolHost host)
     {
@@ -23,10 +34,73 @@ public sealed class ToolHostServer : IAsyncDisposable
         _listener.Prefixes.Add($"http://127.0.0.1:{host.Port}/");
     }
 
+    /// <summary>Rejected-over-capacity connection count (drop metric).</summary>
+    public long RejectedConnections => Interlocked.Read(ref _rejected);
+
+    /// <summary>`concurrency-budget/v1` read side: classes.network.quota
+    /// from the governor state file; fail-open to MaxWorkers.</summary>
+    private static int ResolveConnWorkers()
+    {
+        try
+        {
+            var path = Environment.GetEnvironmentVariable(
+                "GPTBRIDGE_GOVERNOR_STATE");
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                return MaxWorkers;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var root = doc.RootElement;
+            if (root.TryGetProperty("disabled", out var d)
+                && d.ValueKind == JsonValueKind.True)
+                return MaxWorkers;
+            if (!root.TryGetProperty("concurrency_budget", out var budget)
+                || budget.GetProperty("contract").GetString()
+                    != "concurrency-budget/v1")
+                return MaxWorkers;
+            var quota = budget.GetProperty("classes")
+                .GetProperty("network").GetProperty("quota").GetInt32();
+            return Math.Clamp(quota > 0 ? quota : MinWorkers,
+                              MinWorkers, MaxWorkers);
+        }
+        catch
+        {
+            return MaxWorkers;
+        }
+    }
+
     public void Start()
     {
         _listener.Start();
+        // bounded queue + fixed worker pool — never a Task per request.
+        _pending = Channel.CreateBounded<HttpListenerContext>(
+            new BoundedChannelOptions(PendingCapacity)
+            {
+                FullMode = BoundedChannelFullMode.Wait,
+                SingleReader = false,
+                SingleWriter = true,
+            });
+        var workers = ResolveConnWorkers();
+        _workers = new Task[workers];
+        for (var i = 0; i < workers; i++)
+            _workers[i] = Task.Run(WorkerLoopAsync);
         _acceptLoop = Task.Run(AcceptLoopAsync);
+    }
+
+    private async Task WorkerLoopAsync()
+    {
+        var reader = _pending!.Reader;
+        try
+        {
+            while (await reader.WaitToReadAsync(_cts.Token)
+                       .ConfigureAwait(false))
+            {
+                while (reader.TryRead(out var context))
+                    await HandleContextAsync(context).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            /* shutdown: queued-but-unclaimed contexts are dropped */
+        }
     }
 
     private static bool FixedTimeEquals(string a, string b) =>
@@ -51,7 +125,28 @@ public sealed class ToolHostServer : IAsyncDisposable
             {
                 break;
             }
-            _ = Task.Run(() => HandleContextAsync(context));
+            // backpressure + drop/reject: wait briefly for queue room,
+            // then reject with 503 — the accepted socket is never
+            // handed to a new Task per request.
+            try
+            {
+                using var admission = CancellationTokenSource
+                    .CreateLinkedTokenSource(_cts.Token);
+                admission.CancelAfter(TimeSpan.FromSeconds(2));
+                await _pending!.Writer
+                    .WriteAsync(context, admission.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (!_cts.IsCancellationRequested)
+            {
+                Interlocked.Increment(ref _rejected);
+                WriteText(context.Response, 503, "capacity-exhausted");
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
     }
 
@@ -266,6 +361,7 @@ public sealed class ToolHostServer : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _cts.Cancel();
+        _pending?.Writer.TryComplete();
         try { _listener.Stop(); }
         catch { /* not started */ }
         if (_acceptLoop is not null)
@@ -273,6 +369,8 @@ public sealed class ToolHostServer : IAsyncDisposable
             try { await _acceptLoop.ConfigureAwait(false); }
             catch { /* shutdown */ }
         }
+        try { await Task.WhenAll(_workers).ConfigureAwait(false); }
+        catch { /* shutdown */ }
         _listener.Close();
         _cts.Dispose();
     }

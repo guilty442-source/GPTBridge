@@ -4,10 +4,21 @@ from __future__ import annotations
 
 import socket
 import threading
+import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final
 
 _BUFFER_SIZE: Final[int] = 64 * 1024
+# bounded-concurrency/v1 (A116): declared envelope for concurrent
+# bridged connections; the effective cap is the governor "network" class
+# quota clamped into [_CONN_MIN, _CONN_MAX], fail-open to _CONN_MAX.
+_CONN_MIN: Final[int] = 8
+_CONN_MAX: Final[int] = 64
+_GOVERNOR_STATE: Final[Path] = (
+    Path(__file__).resolve().parents[1]
+    / "runtime" / "state" / "resource-governor.json"
+)
 
 
 @dataclass(frozen=True)
@@ -24,7 +35,10 @@ class BackendGateway:
     drain against the old generation and may be closed after a bounded grace.
     """
 
-    def __init__(self, public_port: int, host: str = "127.0.0.1") -> None:
+    def __init__(
+        self, public_port: int, host: str = "127.0.0.1", *,
+        max_connections: int | None = None,
+    ) -> None:
         self.host = host
         self.public_port = public_port
         self._target: BackendTarget | None = None
@@ -34,6 +48,11 @@ class BackendGateway:
         self._stop = threading.Event()
         self._listener: socket.socket | None = None
         self._thread: threading.Thread | None = None
+        # bounded-concurrency/v1: capacity = governor network quota,
+        # refreshed lazily (≤5 s stale) so a dead governor never stalls
+        # the accept loop.
+        self._max_connections = max_connections
+        self._quota_checked = 0.0
 
     @property
     def active_target(self) -> BackendTarget | None:
@@ -136,12 +155,35 @@ class BackendGateway:
             if target is None:
                 client.close()
                 continue
+            # bounded-concurrency/v1 (capacity + reject): a full gateway
+            # closes the connection instead of growing the bridge fleet.
+            with self._connections_lock:
+                active = sum(len(s) for s in self._connections.values()) // 2
+            if active >= self._connection_cap():
+                client.close()
+                continue
             threading.Thread(
                 target=self._bridge,
                 args=(client, target),
                 name=f"backend-gateway-{target.generation}",
                 daemon=True,
             ).start()
+
+    def _connection_cap(self) -> int:
+        if self._max_connections is not None:
+            return max(1, self._max_connections)
+        now = time.monotonic()
+        if now - self._quota_checked < 5.0:
+            return _CONN_MAX
+        self._quota_checked = now
+        try:
+            from shared_layer.adaptive.budget_source import class_quota
+        except ImportError:
+            return _CONN_MAX
+        quota = class_quota("network", _GOVERNOR_STATE)
+        if quota is None:
+            return _CONN_MAX
+        return max(_CONN_MIN, min(_CONN_MAX, quota.quota * 8))
 
     def _bridge(self, client: socket.socket, target: BackendTarget) -> None:
         upstream: socket.socket | None = None
