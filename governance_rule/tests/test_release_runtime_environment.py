@@ -64,12 +64,18 @@ def _fake_pe(path: Path, machine: int = 0x8664) -> Path:
 
 
 def _base_contract(modules: list[dict[str, object]]) -> dict[str, object]:
+    running = sys.version_info
     return {
         "contract_version": 1,
         "classes": dict(release_manifest.DEPENDENCY_CLASSES),
         "modules": modules,
         "runtime_environment": {
-            "python": {"version_range": {"min": [3, 11], "max_exclusive": [3, 12]}},
+            "python": {
+                "version_range": {
+                    "min": [running.major, running.minor],
+                    "max_exclusive": [running.major, running.minor + 1],
+                }
+            },
             "venv": {
                 "required": True,
                 "include_system_site_packages": False,
@@ -124,7 +130,8 @@ def test_correct_runtime_loads(tmp_path: Path) -> None:
     )
     result = _validate(contract, release_root=release, extra_paths=[release])
     assert result["ok"] is True, result["errors"]
-    assert result["python"]["version"].startswith("3.11")
+    expected = ".".join(str(part) for part in sys.version_info[:3])
+    assert result["python"]["version"] == expected
 
 
 def test_dev_package_update_does_not_affect_release(tmp_path: Path) -> None:
@@ -305,7 +312,7 @@ def test_pythonpath_pollution_detected(tmp_path: Path) -> None:
 def test_user_site_pollution_detected(tmp_path: Path) -> None:
     contract = _base_contract([])
     polluted = {
-        "version": [3, 11, 9],
+        "version": list(sys.version_info[:3]),
         "arch": "AMD64",
         "bits": 64,
         "user_site_enabled": True,

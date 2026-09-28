@@ -18,45 +18,48 @@
     "release_identity": {
       "semantics": "release id",
       "bound_to": [
-        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#release_id"
+        "main-system/src-core/core_system/active_release_verify.py#release_id",
+        "shared-layer/release-dependencies.json#release_identity"
       ]
     },
     "build_hash": {
       "semantics": "per-component build hashes",
       "bound_to": [
-        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#build_hashes"
+        "main-system/src-core/core_system/active_release_verify.py#build_hash",
+        "shared-layer/release-dependencies.json#hashes"
       ]
     },
     "dependency_lock": {
       "semantics": "locked dependency identity + entries",
       "bound_to": [
-        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#dependency_lock"
+        "shared-layer/release-dependencies.json#dependency_lock"
       ]
     },
     "compatibility_checks": {
       "semantics": "governance compatibility block verified at activation",
       "bound_to": [
-        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#governance_compatibility",
-        "main-system/src-core/core_system/active_release_verify.py"
+        "main-system/src-core/core_system/active_release_verify.py",
+        "shared-layer/release-dependencies.json#compatible_backend_contract_range"
       ]
     },
     "codex_reference": {
       "semantics": "codex version + sha256 pinned in manifest",
       "bound_to": [
-        "main-system/runtime/releases/rc-2026-09-22/release-manifest.json#codex_version"
+        "shared-layer/release-dependencies.json#codex_version",
+        "main-system/src-core/core_system/active_release_verify.py#codex_version"
       ]
     }
   },
   "implementation": {
     "enforcing_modules": [
       "main-system/src-core/core_system/active_release_verify.py",
-      "main-system/runtime/releases/rc-2026-09-22/release-manifest.json"
+      "governance_rule/execution/integrity/python_release_dependencies.py"
     ]
   },
   "evidence_paths": [
     "main-system/tests/test_release_manifest_g56.py",
     "main-system/tests/test_release_layout.py",
-    "main-system/runtime/releases/rc-2026-09-22/acceptance-report.json"
+    "governance_rule/tests/test_release_runtime_environment.py"
   ],
   "gaps": []
 }
