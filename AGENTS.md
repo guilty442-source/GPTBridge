@@ -792,3 +792,30 @@ span/slice/view interfaces. Prioritize RAG queries, token decode, IPC frames,
 audit records, and network buffers. Do not build a project-wide custom
 allocator; introduce pooling or arena strategies only where profiling proves
 allocation is a bottleneck, with bounded lifetime and ownership evidence.
+
+## Execution Plane Ownership
+
+Keep language count separate from performance ownership. Rust owns the
+highest-frequency, lowest-latency execution core; Go owns high-concurrency I/O,
+IPC, networking, and worker orchestration; Python is limited to JAX/NumPy,
+AI glue, and irreducible scientific or Python-only algorithms; C/C++ owns SIMD,
+model runtime, and extreme hotspots; Julia is for research and numerical
+algorithms outside the main hot path; JavaScript-ESM is renderer/UI only.
+PostgreSQL remains the sole structured-data authority, Qdrant is the semantic
+index, and SQLite is bounded private local state.
+
+The canonical three-plane flow is UI → Go control plane (IPC, WebSocket,
+scheduler, worker pool, cancellation, backpressure, health) → Rust execution
+plane (routing, parsing, validation, file I/O, hashing, cache, search
+preprocessing, serialization, CPU-heavy jobs) → specialized runtime (LLM,
+JAX/Python, PostgreSQL, Qdrant, Git). Python must not be a request-critical
+system backbone when Rust or Go can own the path.
+
+## Global Work Scheduler
+
+All asynchronous work must use bounded class budgets rather than independent
+unlimited task/thread/process/goroutine/rayon/model-request growth. Classify
+work as CPU, IO, DB, VECTOR, MODEL, GPU, or BACKGROUND; size each budget from
+physical cores, connection pools, vector limits, model capacity, VRAM, and
+measured backpressure. Enforce cancellation, queue bounds, memory limits, and
+health evidence at the scheduler boundary.
