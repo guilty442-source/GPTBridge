@@ -117,7 +117,13 @@ def check_architecture_sources(root: Path, errors: list[str]) -> None:
     if "POSTGRESQL_CANONICAL: bool = True" not in architecture_text["shared_database"]:
         errors.append("PostgreSQL must remain the canonical central structured data engine")
     if (
-        '"engine": "local-vector-degraded-cache"' not in architecture_text["local_vector"]
+        not any(
+            marker in architecture_text["local_vector"]
+            for marker in (
+                '"engine": "local-vector-degraded-cache"',
+                '"engine": "rust-vectord-degraded"',
+            )
+        )
         or '"canonical": False' not in architecture_text["local_vector"]
     ):
         errors.append("local vector storage must be declared as a non-canonical degraded cache")

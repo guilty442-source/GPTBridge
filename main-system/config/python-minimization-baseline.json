@@ -5,8 +5,8 @@
   "authority": "governance-rule-only",
   "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
   "metadata": {
-    "contract_revision": 11,
-    "measured_at": "2026-09-28T23:10:00+08:00",
+    "contract_revision": 12,
+    "measured_at": "2026-09-28T23:45:00+08:00",
     "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
     "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
     "adjudications_rev2": [
@@ -60,6 +60,9 @@
       "RAG loc 25259->25268 (+9): LocalRagRepository.delete_document added — repairs latent defect where DegradedRagBackend.delete_resource called nonexistent methods on both layers (degraded delete never actually deleted). Adjudicated part of native-degraded-store disposition.",
       "GOVERNANCE loc 66392->66398 (+6): worker-stream audit machinery churn; adjudicated interim re-anchor (operator), consistent with r7/r8 precedent.",
       "GENERAL_APP 539/108070 -> 531/106733 (-8f/-1337): worker-stream orphan sweep (shared_layer/database backup_budget/capacity_watermark et al). Downward-only."
+    ],
+    "adjudications_rev11": [
+      "GOVERNANCE loc 66398->67125 (+727): operator-governor directed interim re-anchor; export_audit_manifest.py native-migration check-emission growth — codex-mandated audit machinery, same class as adjudications_rev6/rev8; only-tighten resumes"
     ]
   },
   "zero_targets": {
@@ -103,7 +106,7 @@
   "allowed_zones": {
     "GOVERNANCE": {
       "files": 246,
-      "loc": 66398,
+      "loc": 67125,
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {

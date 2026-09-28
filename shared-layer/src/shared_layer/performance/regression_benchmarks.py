@@ -157,7 +157,7 @@ def _benchmark_encode_json_optimization() -> dict[str, Any]:
     _p = str(_PROJECT_ROOT / "shared-layer" / "src")
     if _p not in sys.path:
         sys.path.insert(0, _p)
-    from shared_layer.store_helpers import encode_json
+    from shared_layer.store_codec import encode_json
 
     # Typical payload
     payload = {"request_id": "req-123", "tool_id": "tool-456",

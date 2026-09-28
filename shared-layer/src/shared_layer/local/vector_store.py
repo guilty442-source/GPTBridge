@@ -1,535 +1,133 @@
-"""Bounded local vector cache for degraded RAG operation.
+"""Rust vectord-backed degraded vector store.
 
-The Rust vectord engine remains the canonical semantic index. Vectors persisted to PostgreSQL
-provide an observable tool-private cache while vectord is unavailable and must
-not be treated as cross-module semantic authority. Two point styles are accepted:
-
-* external vectors — points carry ``vector`` (e.g. an Ollama embedding model,
-  the retained local official service); vectors are stored as given, cosine
-  scoring is normalized at query time;
-* text embeddings — points carry ``text`` (backward compatible with the old
-  in-memory store); they are embedded locally through hashing-based character
-  n-gram vectors via ``embed_vector`` / ``_token_vector``.
-
-No numpy/scipy/third-party (A37/E23).  An optional native kernel hook
-(``local.native_kernel``) may accelerate the hot vector math when the compiled
-``.pyd`` exists; when it does not, a pure Python fallback is used.
+The degraded store is a rebuildable, non-canonical projection. PostgreSQL
+remains authoritative; Rust owns persistence, filtering, ANN/scoring, and
+snapshot recovery. This compatibility surface exists so callers can migrate
+without retaining a Python vector implementation.
 """
-
 from __future__ import annotations
 
-import array
 import json
-import hashlib
-import math
 import os
-import re
-import struct
-import sys
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from functools import lru_cache
+import subprocess
+import time
+import urllib.request
 from pathlib import Path
-from typing import Any, Final, Iterator, Optional
+from typing import Any
 
-from .native_kernel import available as _native_available
-from .pg_adapter import PgConnection
-from .pg_adapter import connect as pg_connect
-from .native_kernel import dot_vectors as _native_dot
-from ..security.vector_scope import VectorScopeError
-
-COLLECTION: Final[str] = "gptbridge_shared_knowledge"
-DEFAULT_ENDPOINT: Final[str] = "local"
-
-_TOKENS: Final[re.Pattern[str]] = re.compile(r"[a-z0-9\u4e00-\u9fff]+")
-_DIMENSION: Final[int] = 256
-_NGRAM: Final[int] = 3
-_MAX_POINTS: Final[int] = 100_000
-
-
-@dataclass(frozen=True)
-class _Point:
-    id: str
-    document_id: str
-    module_id: str
-    vector: tuple[float, ...]
-    payload: dict[str, Any]
-
-
-@lru_cache(maxsize=8192)
-def _gram_digest(gram: str) -> tuple[int, float]:
-    """3-gram → (bucket_index_base, weight)；gram 在語料中高度重複，快取雜湊結果。
-
-    備註：hasher 無法跨不同輸入重用（`update()` 是累加語意），
-    正確做法是把「gram → digest」記憶化而非共享單一 hasher。
-    回傳未取模的 32-bit 值與權重，維度在呼叫端取模（快取與維度無關）。
-    """
-    digest = hashlib.blake2b(gram.encode("utf-8"), digest_size=8).digest()
-    index_base = int.from_bytes(digest[:4], "little")
-    weight = float(int.from_bytes(digest[4:], "little")) / float(2**64 - 1) + 1.0
-    return index_base, weight
-
-
-def _token_vector(text: str, dimension: int = _DIMENSION) -> list[float]:
-    vector = [0.0] * dimension
-    for token in _TOKENS.findall(str(text).lower()):
-        for end in range(_NGRAM, len(token) + 1):
-            gram = token[end - _NGRAM:end]
-            index_base, weight = _gram_digest(gram)
-            vector[index_base % dimension] += weight
-    return vector
-
-
-def _normalize(vector: list[float]) -> list[float]:
-    norm = math.sqrt(sum(value * value for value in vector))
-    if norm <= 0.0 or not math.isfinite(norm):
-        return [0.0] * len(vector)
-    return [value / norm for value in vector]
-
-
-def _cosine(left: list[float], right: list[float]) -> float:
-    left_norm = math.sqrt(sum(value * value for value in left))
-    right_norm = math.sqrt(sum(value * value for value in right))
-    if left_norm <= 0.0 or right_norm <= 0.0:
-        return 0.0
-    return sum(a * b for a, b in zip(left, right)) / (left_norm * right_norm)
-
-
-def _unpack_vector(raw: Any) -> Any:
-    """Decode a stored vector — BLOB (float64 LE, new writes) or legacy JSON
-    text (rows written before W8).
-
-    BLOB rows decode into ``array.array("d")`` — a single copy out of the
-    SQLite buffer that also satisfies the buffer protocol, so the native dot
-    kernel can borrow it without a second copy.
-    """
-    if isinstance(raw, (bytes, bytearray, memoryview)):
-        blob = bytes(raw)
-        if not blob or len(blob) % 8:
-            return None
-        vector = array.array("d")
-        vector.frombytes(blob)
-        if sys.byteorder == "big":  # pragma: no cover - governed host is LE
-            vector.byteswap()
-        return vector
-    try:
-        value = json.loads(raw) if isinstance(raw, str) else raw
-    except (TypeError, ValueError):
-        return None
-    if isinstance(value, list) and all(isinstance(v, (int, float)) for v in value):
-        return [float(v) for v in value]
-    return None
-
-
-def embed_vector(text: str, dimension: int = _DIMENSION) -> list[float]:
-    """Local hashing n-gram embedding; normalized, stdlib-only."""
-    return _normalize(_token_vector(text, dimension))
+COLLECTION = "gptbridge_shared_knowledge"
+DEFAULT_ENDPOINT = "http://127.0.0.1:8093"
 
 
 class LocalVectorStore:
-    """Tool-private PostgreSQL vector cache for bounded degraded retrieval.
-
-    vectord remains canonical. Modules may cache embeddings locally for
-    continuity, but these candidates are non-authoritative and must be
-    reconciled through the governed RAG path before canonical use.
-    """
-
-    DEFAULT_ENDPOINT = DEFAULT_ENDPOINT
     COLLECTION = COLLECTION
+    DEFAULT_ENDPOINT = DEFAULT_ENDPOINT
 
-    def __init__(
-        self,
-        root: Path | str,
-        *,
-        dimension: int = _DIMENSION,
-        endpoint: str = DEFAULT_ENDPOINT,
-        schema: str = "",
-    ) -> None:
-        self.endpoint = "local" if endpoint in {"", "local"} else str(endpoint).rstrip("/")
+    def __init__(self, root: Path | str, *, dimension: int = 256, endpoint: str | None = None, schema: str = "") -> None:
+        self.root = Path(root).resolve()
+        self.endpoint = str(endpoint or os.environ.get("GPTBRIDGE_DEGRADED_VECTORD_URL", DEFAULT_ENDPOINT)).rstrip("/")
+        if not self.endpoint.startswith(("http://127.0.0.1:", "http://localhost:")):
+            raise ValueError("DEGRADED_VECTORD_URL_NOT_LOOPBACK")
         self._dimension = int(dimension)
-        self._native = _native_available()
-        # A621: production default is gptbridge_rag; tests/sandboxes inject a
-        # throwaway schema via LOCAL_VECTOR_STORE_PG_SCHEMA.
-        self._schema = (
-            schema
-            or os.environ.get("LOCAL_VECTOR_STORE_PG_SCHEMA")
-            or "gptbridge_rag"
-        )
-        self.database_path = Path(f"postgresql:{schema}")
+        self.database_path = Path(f"vectord:{self.root}")
         self.location = str(self.database_path)
-        with self._connect() as connection:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS collection_meta (
-                    document_id TEXT NOT NULL PRIMARY KEY,
-                    module_id TEXT NOT NULL,
-                    vector_size INTEGER NOT NULL,
-                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-                );
-                CREATE TABLE IF NOT EXISTS collection_point (
-                    point_id TEXT NOT NULL PRIMARY KEY,
-                    document_id TEXT NOT NULL,
-                    module_id TEXT NOT NULL,
-                    vector BYTEA NOT NULL,
-                    payload TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS collection_state (
-                    key TEXT NOT NULL PRIMARY KEY,
-                    value TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_collection_point_module
-                    ON collection_point (module_id);
-                """
-            )
+        self._process: subprocess.Popen[Any] | None = None
 
-    @contextmanager
-    def _connect(self) -> Iterator[PgConnection]:
-        connection = pg_connect(self._schema, autocommit=False)
+    def _call(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        data = None if payload is None else json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(f"{self.endpoint}{path}", data=data, headers={"Content-Type": "application/json"}, method="POST" if payload is not None else "GET")
+        with urllib.request.urlopen(request, timeout=5.0) as response:
+            body = json.loads(response.read().decode("utf-8"))
+        if body.get("ok") is not True:
+            raise RuntimeError(str(body.get("error") or "DEGRADED_VECTORD_ERROR"))
+        return body
+
+    def _ensure_daemon(self) -> bool:
         try:
-            yield connection
-            connection.commit()
-        except BaseException:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
-
-    @staticmethod
-    def _loads(value: Any) -> Any:
-        if isinstance(value, (dict, list)):
-            return value
+            self._call("/healthz")
+            return True
+        except Exception:
+            pass
+        binary = Path(__file__).resolve().parents[4] / "Standalone tools" / "vectord-rs" / "bin" / "vectord.exe"
+        if not binary.is_file():
+            return False
+        host_port = self.endpoint.removeprefix("http://")
+        store_dir = self.root / "vectord-store"
+        store_dir.mkdir(parents=True, exist_ok=True)
         try:
-            return json.loads(value)
-        except (TypeError, ValueError):
-            return value
-
-    @staticmethod
-    def _declared_dimension(connection: PgConnection) -> Optional[int]:
-        """Declared collection dimension: collection_state first, then the
-        legacy MAX(collection_meta.vector_size) for databases predating the
-        state table."""
-        row = connection.execute(
-            "SELECT value FROM collection_state WHERE key = 'vector_size'"
-        ).fetchone()
-        if row is not None:
-            return int(row["value"])
-        row = connection.execute(
-            "SELECT MAX(vector_size) AS size FROM collection_meta"
-        ).fetchone()
-        if row is not None and row["size"] is not None:
-            return int(row["size"])
-        return None
+            self._process = subprocess.Popen([str(binary), "--bind", host_port, "--store-dir", str(store_dir)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except OSError:
+            return False
+        for _ in range(30):
+            try:
+                self._call("/healthz")
+                return True
+            except Exception:
+                time.sleep(0.1)
+        return False
 
     def ensure_collection(self, vector_size: int) -> None:
-        with self._connect() as connection:
-            existing = self._declared_dimension(connection)
-            if existing is None:
-                connection.execute(
-                    "INSERT OR REPLACE INTO collection_state (key, value)"
-                    " VALUES ('vector_size', ?)",
-                    (str(int(vector_size)),),
-                )
-                return
-        if int(vector_size) != existing:
-            raise RuntimeError(
-                f"RAG_VECTOR_DIMENSION_MISMATCH: existing={existing},"
-                f" requested={vector_size}; a deliberate dimension/index-version"
-                " change must go through reconcile_dimension()"
-            )
+        if int(vector_size) <= 0:
+            raise ValueError("RAG_VECTOR_DIMENSION_INVALID")
+        if not self._ensure_daemon():
+            raise RuntimeError("DEGRADED_VECTORD_UNAVAILABLE")
+        self._call("/v1/collections/ensure", {"name": COLLECTION, "dimension": int(vector_size)})
+        self._dimension = int(vector_size)
 
-    def reconcile_dimension(
-        self, vector_size: int, *, index_version: Optional[str] = None
-    ) -> str:
-        """Apply a deliberate embedding dimension / index-version change.
-
-        This store is the degraded cache (``canonical: False``); its points
-        are re-embeddable from the canonical source, so a dimension change
-        is implemented as an explicit cache rebuild: all cached points and
-        document meta are dropped and a new collection epoch is recorded.
-        Returns ``'unchanged'`` when the declared dimension already matches,
-        ``'rebuilt'`` after a rebuild.  Never invoked implicitly — callers
-        must opt in after ``ensure_collection`` reports a mismatch.
-        """
-        with self._connect() as connection:
-            existing = self._declared_dimension(connection)
-            if existing == int(vector_size):
-                return "unchanged"
-            connection.execute("DELETE FROM collection_point")
-            connection.execute("DELETE FROM collection_meta")
-            row = connection.execute(
-                "SELECT value FROM collection_state WHERE key = 'epoch'"
-            ).fetchone()
-            epoch = (int(row["value"]) if row is not None else 0) + 1
-            state = {
-                "vector_size": str(int(vector_size)),
-                "epoch": str(epoch),
-                "reconciled_at": datetime.now(timezone.utc).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
-            }
-            if index_version is not None:
-                state["index_version"] = str(index_version)
-            connection.executemany(
-                "INSERT OR REPLACE INTO collection_state (key, value)"
-                " VALUES (?, ?)",
-                list(state.items()),
-            )
-        return "rebuilt"
-
-    def replace_document(
-        self,
-        document_id: str,
-        points: list[dict[str, Any]],
-        *,
-        module_id: str | None = None,
-    ) -> None:
-        resolved_module = str(module_id or "")
-        with self._connect() as connection:
-            connection.execute(
-                "DELETE FROM collection_point WHERE document_id = ?",
-                (document_id,),
-            )
-            connection.execute(
-                "DELETE FROM collection_meta WHERE document_id = ?",
-                (document_id,),
-            )
-            if not points:
-                return
-            prepared: list[tuple[str, str, str, str, str]] = []
-            vector_size = 0
-            for point in points[: _MAX_POINTS]:
-                row, size = self._prepare_point(point, document_id, resolved_module)
-                if not vector_size:
-                    vector_size = size
-                elif size != vector_size:
-                    raise ValueError(
-                        f"RAG_POINT_DIMENSION_INCONSISTENT:"
-                        f" point={row[0]} size={size} expected={vector_size}"
-                    )
-                prepared.append(row)
-            declared = self._declared_dimension(connection)
-            if declared is None:
-                connection.execute(
-                    "INSERT OR REPLACE INTO collection_state (key, value)"
-                    " VALUES ('vector_size', ?)",
-                    (str(vector_size),),
-                )
-            elif vector_size != declared:
-                raise RuntimeError(
-                    f"RAG_VECTOR_DIMENSION_MISMATCH: existing={declared},"
-                    f" requested={vector_size}; a deliberate dimension/index-version"
-                    " change must go through reconcile_dimension()"
-                )
-            connection.execute(
-                """
-                INSERT INTO collection_meta (
-                    document_id, module_id, vector_size
-                ) VALUES (?, ?, ?)
-                ON CONFLICT (document_id) DO UPDATE SET
-                    module_id = excluded.module_id,
-                    vector_size = excluded.vector_size
-                """,
-                (document_id, resolved_module or str(points[0].get("module_id") or ""), vector_size),
-            )
-            connection.executemany(
-                """
-                INSERT INTO collection_point (
-                    point_id, document_id, module_id, vector, payload
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                prepared,
-            )
-
-    def _prepare_point(
-        self,
-        point: dict[str, Any],
-        document_id: str,
-        resolved_module: str,
-    ) -> tuple[tuple[str, str, str, str, str], int]:
-        """Normalize one point into a collection_point row + vector size."""
-        point_id = str(point.get("id") or point.get("point_id") or "")
-        if not point_id:
-            raise ValueError("RAG_POINT_ID_REQUIRED")
-        raw_vector = point.get("vector")
-        if isinstance(raw_vector, (bytes, bytearray, memoryview)):
-            # Canonical f64-le record from the owning engine (PERF-07):
-            # the engine output is already L2-normalized, so the blob is
-            # stored verbatim — no float list is ever materialised.
-            vector_blob = bytes(raw_vector)
-            if not vector_blob or len(vector_blob) % 8:
-                raise ValueError("RAG_POINT_VECTOR_BYTES_INVALID")
-            vector_size = len(vector_blob) // 8
-        else:
-            if isinstance(raw_vector, (list, tuple)) and raw_vector:
-                vector = [float(value) for value in raw_vector]
-            elif str(point.get("text") or "").strip():
-                vector = _token_vector(str(point["text"]), self._dimension)
+    def replace_document(self, document_id: str, points: list[dict[str, Any]], *, module_id: str | None = None) -> None:
+        self.delete(document_id, module_id=module_id)
+        items = []
+        for point in points:
+            point_id = str(point.get("id") or point.get("point_id") or "")
+            if not point_id:
+                raise ValueError("RAG_POINT_ID_REQUIRED")
+            payload = dict(point.get("payload") or {})
+            payload.update({"document_id": document_id, "module_id": str(module_id or payload.get("module_id") or "")})
+            if point.get("text") is not None:
+                items.append({"id": point_id, "text": str(point["text"]), "payload": payload})
             else:
-                raise ValueError("RAG_POINT_VECTOR_OR_TEXT_REQUIRED")
-            vector = _normalize(vector)
-            vector_blob = bytes(struct.pack(f"<{len(vector)}d", *vector))
-            vector_size = len(vector)
-        point_module = str(point.get("module_id") or resolved_module)
-        payload = dict(point.get("payload") or {})
-        payload["module_id"] = str(payload.get("module_id") or point_module)
-        payload["document_id"] = str(payload.get("document_id") or document_id)
-        row = (
-            point_id,
-            document_id,
-            point_module,
-            vector_blob,
-            json.dumps(payload, ensure_ascii=False),
-        )
-        return row, vector_size
+                items.append({"id": point_id, "vector": [float(v) for v in point.get("vector") or []], "payload": payload})
+        if items:
+            self._call("/v1/points/upsert_text" if "text" in items[0] else "/v1/points/upsert", {"collection": COLLECTION, "points": items})
 
-    def query(
-        self,
-        vector: list[float],
-        *,
-        limit: int,
-        module_ids: tuple[str, ...] = (),
-    ) -> list[dict[str, Any]]:
-        # A207: push down WHERE filter and LIMIT into SQL; cosine scoring
-        # remains in Python because the cache stores raw vectors,
-        # but we bound the candidate set with a SQL-level ceiling so the
-        # application-side sort operates on a bounded result, not the full
-        # table.
-        # A52 module-scope: the degraded local cache obeys the same scope
-        # discipline as the canonical index — an empty module scope is
-        # rejected fail-closed instead of scanning every cached module.
+    def query(self, vector: list[float], *, limit: int, module_ids: tuple[str, ...] = ()) -> list[dict[str, Any]]:
         if not module_ids:
-            raise VectorScopeError("VECTOR_MODULE_SCOPE_REQUIRED")
-        query_vector = _normalize([float(value) for value in vector])
-        # Perf: bound the SQL candidate ceiling (was a dead
-        # max(x, min(x, 500)) that always evaluated to x — unbounded).
-        bounded_limit = max(int(limit), min(int(limit) * 4, 500))
-        rows = self._fetch_rows(module_ids, bounded_limit)
-        scored: list[tuple[float, dict[str, Any]]] = []
-        qv = query_vector
-        qlen = len(qv)
-        for row in rows:
-            stored = _unpack_vector(row["vector"])
-            if stored is None or len(stored) != qlen:
-                continue
-            # Fast path: both sides are L2-normalized at write/query time,
-            # so cosine == dot product — skips 2 sqrt per candidate vs
-            # _cosine() and uses the native kernel when available.
-            score = _native_dot(qv, stored)
-            scored.append((score, self._hit_record(row, score)))
-        scored.sort(key=lambda item: item[0], reverse=True)
-        return [record for score, record in scored[: max(0, int(limit))]]
+            raise ValueError("VECTOR_MODULE_SCOPE_REQUIRED")
+        body = self._call("/v1/search", {"collection": COLLECTION, "vector": vector, "top_k": int(limit), "filter": {"must": [{"key": "module_id", "match": {"any": list(module_ids)}}]}})
+        return [self._hit(hit) for hit in body.get("hits", [])]
 
-    def _fetch_rows(
-        self, module_ids: tuple[str, ...], bounded_limit: int
-    ) -> list[Any]:
-        """Bounded candidate fetch with SQL-level module filter + ceiling."""
-        with self._connect() as connection:
-            if module_ids:
-                placeholders = ", ".join("?" for _ in module_ids)
-                return connection.execute(  # sql-ok: generated ? placeholder list
-                    f"""
-                    SELECT point_id, document_id, module_id, vector, payload
-                    FROM collection_point
-                    WHERE module_id IN ({placeholders})
-                    LIMIT ?
-                    """,
-                    (*module_ids, bounded_limit),
-                ).fetchall()
-            return connection.execute(
-                """
-                SELECT point_id, document_id, module_id, vector, payload
-                FROM collection_point
-                LIMIT ?
-                """,
-                (bounded_limit,),
-            ).fetchall()
+    def query_text(self, text: str, *, limit: int, module_ids: tuple[str, ...] = ()) -> list[dict[str, Any]]:
+        if not module_ids:
+            raise ValueError("VECTOR_MODULE_SCOPE_REQUIRED")
+        body = self._call("/v1/search_text", {"collection": COLLECTION, "text": text, "top_k": int(limit), "filter": {"must": [{"key": "module_id", "match": {"any": list(module_ids)}}]}})
+        return [self._hit(hit) for hit in body.get("hits", [])]
 
-    def _hit_record(self, row: Any, score: float) -> dict[str, Any]:
-        """Flatten a stored payload + row keys into a query hit record."""
-        payload = self._loads(row["payload"])
-        payload = payload if isinstance(payload, dict) else {}
-        return {
-            **payload,
-            "point_id": str(row["point_id"]),
-            "document_id": str(row["document_id"]),
-            "module_id": str(row["module_id"]),
-            "vector_score": round(score, 6),
-            "id": str(row["point_id"]),
-            "score": round(score, 6),
-        }
+    @staticmethod
+    def _hit(hit: dict[str, Any]) -> dict[str, Any]:
+        score = hit.get("score")
+        return {**(hit.get("payload") or {}), "id": hit.get("id"), "point_id": hit.get("id"), "score": score, "vector_score": score}
+
+    def delete(self, document_id: str, *, module_id: str | None = None) -> None:
+        must = [{"key": "document_id", "match": {"value": document_id}}]
+        if module_id:
+            must.append({"key": "module_id", "match": {"value": module_id}})
+        self._call("/v1/points/delete", {"collection": COLLECTION, "filter": {"must": must}})
+
+    def delete_resource(self, resource_id: str, module_id: str | None = None, **_: Any) -> bool:
+        self.delete(resource_id, module_id=module_id)
+        return True
+
+    def reindex(self, document_id: str, points: list[dict[str, Any]], *, module_id: str | None = None) -> None:
+        self.replace_document(document_id, points, module_id=module_id)
 
     def status(self) -> dict[str, Any]:
         try:
-            with self._connect() as connection:
-                point_row = connection.execute(
-                    "SELECT COUNT(*) AS count FROM collection_point"
-                ).fetchone()
-                meta_row = connection.execute(
-                    "SELECT COUNT(*) AS docs, MAX(vector_size) AS size FROM collection_meta"
-                ).fetchone()
-                state_rows = connection.execute(
-                    "SELECT key, value FROM collection_state"
-                ).fetchall()
-            collection_state = {str(r["key"]): r["value"] for r in state_rows}
-            point_count = int(point_row["count"])
-            return {
-                "available": True,
-                "engine": "local-vector-degraded-cache",
-                "canonical": False,
-                "reconciliation_required": True,
-                "native": self._native,
-                "dimension": self._dimension,
-                "points": point_count,
-                "collection_exists": point_count > 0,
-                "endpoint": self.endpoint,
-                "collection": self.COLLECTION,
-                "point_count": point_count,
-                "document_count": int(meta_row["docs"]),
-                "vector_size": int(meta_row["size"]) if meta_row["size"] is not None else None,
-                "collection_epoch": int(collection_state.get("epoch", "0") or 0),
-                "declared_vector_size": (
-                    int(collection_state["vector_size"])
-                    if collection_state.get("vector_size")
-                    else None
-                ),
-                "index_version": collection_state.get("index_version"),
-                "location": self.location,
-            }
-        except (OSError, ValueError, Exception) as exc:
-            return {
-                "available": False,
-                "engine": "local-vector-degraded-cache",
-                "canonical": False,
-                "reconciliation_required": True,
-                "native": self._native,
-                "dimension": self._dimension,
-                "points": 0,
-                "collection_exists": False,
-                "endpoint": self.endpoint,
-                "collection": self.COLLECTION,
-                "point_count": 0,
-                "document_count": 0,
-                "vector_size": None,
-                "location": self.location,
-                "last_error": str(exc)[:500],
-            }
-
-    def reindex(
-        self, document_id: str, points: list[dict[str, Any]], *, module_id: str | None = None
-    ) -> None:
-        self.replace_document(document_id, points, module_id=module_id)
-
-    def delete(self, document_id: str) -> None:
-        with self._connect() as connection:
-            connection.execute(
-                "DELETE FROM collection_point WHERE document_id = ?",
-                (document_id,),
-            )
-            connection.execute(
-                "DELETE FROM collection_meta WHERE document_id = ?",
-                (document_id,),
-            )
+            self._ensure_daemon()
+            health = self._call("/healthz")
+            info = self._call("/v1/collections/info", {"name": COLLECTION})
+            return {"available": True, "engine": "rust-vectord-degraded", "canonical": False, "reconciliation_required": True, "endpoint": self.endpoint, "collection": COLLECTION, "points": int(info.get("points_count") or 0), "dimension": int(info.get("dimension") or self._dimension), "collections": health.get("collections"), "location": self.location}
+        except Exception as error:
+            return {"available": False, "engine": "rust-vectord-degraded", "canonical": False, "reconciliation_required": True, "endpoint": self.endpoint, "collection": COLLECTION, "points": 0, "dimension": self._dimension, "location": self.location, "last_error": str(error)[:500]}
 
 
-__all__ = ["LocalVectorStore", "embed_vector"]
+__all__ = ["LocalVectorStore"]

@@ -420,6 +420,28 @@
       "data_classification": "rebuildable-derived-only"
     },
     {
+      "component_id": "ragd",
+      "architectural_role": "execution",
+      "runtime_form": "standalone-service",
+      "owner_sovereign": "system-runtime",
+      "execution_identity": "gptbridge-ragd",
+      "physical_path": "Standalone tools/ragd-rs",
+      "lifecycle": "on-demand",
+      "canonical": false,
+      "dependencies": [
+        "vectord",
+        "postgresql"
+      ],
+      "information_channels": [
+        "semantic-index"
+      ],
+      "architecture_code": "STANDALONE_TOOLS",
+      "unit": "UNIT_PLATFORM",
+      "block": "BLOCK_SHARED",
+      "implementation_language": "rust",
+      "formal_responsibility": "rag-orchestration (A610 PYTHON-WORK-TRANSFER RAG→rust); read barrier resolves PostgreSQL authority, never owns it"
+    },
+    {
       "component_id": "julia-compute",
       "architectural_role": "execution",
       "runtime_form": "standalone-service",
