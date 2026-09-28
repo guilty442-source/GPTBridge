@@ -9,6 +9,7 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 use tauri::AppHandle;
 
@@ -332,9 +333,12 @@ pub fn start_embedded_browser_bridge(app: &AppHandle) {
     // pending queue; a full queue rejects with HTTP 503 — never a
     // thread per connection.
     let workers = governor_budget::resolve_workers("network", 2, 8);
+    // Declared B16 latency envelope for a queued connection.
+    const PENDING_DEADLINE: Duration = Duration::from_millis(2000);
     let pending = governor_budget::bounded_conn_pool(
         workers,
         32,
+        PENDING_DEADLINE,
         app.clone(),
         |app, stream| handle_connection(app, stream),
     );
@@ -343,10 +347,10 @@ pub fn start_embedded_browser_bridge(app: &AppHandle) {
             match incoming {
                 Ok(stream) => {
                     use std::sync::mpsc::TrySendError;
-                    match pending.try_send(stream) {
+                    match pending.try_send((stream, std::time::Instant::now())) {
                         Ok(()) => {}
-                        Err(TrySendError::Full(mut s))
-                        | Err(TrySendError::Disconnected(mut s)) => {
+                        Err(TrySendError::Full((mut s, _)))
+                        | Err(TrySendError::Disconnected((mut s, _))) => {
                             respond(
                                 &mut s,
                                 503,

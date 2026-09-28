@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 /// Locate the governor state file: `GPTBRIDGE_GOVERNOR_STATE` env
 /// override first, then the repo-canonical path derived from the crate
@@ -72,9 +73,17 @@ pub fn resolve_workers(work_class: &str, min: usize, max: usize) -> usize {
 }
 
 /// Spawn a fixed connection worker pool draining `rx`.  Workers exit
-/// when the sender side is dropped (listener stopped).
-fn spawn_pool<C, H>(rx: Arc<Mutex<Receiver<TcpStream>>>, workers: usize, ctx: C, handler: H)
-where
+/// when the sender side is dropped (listener stopped).  `queue_deadline`
+/// is the pending-item TTL: a connection still queued past it is
+/// dropped instead of served stale (deadline property of the queue
+/// contract).
+fn spawn_pool<C, H>(
+    rx: Arc<Mutex<Receiver<(TcpStream, Instant)>>>,
+    workers: usize,
+    queue_deadline: Duration,
+    ctx: C,
+    handler: H,
+) where
     C: Send + Sync + 'static + Clone,
     H: Fn(&C, TcpStream) + Send + Sync + 'static,
 {
@@ -86,16 +95,20 @@ where
         let _ = thread::Builder::new()
             .name(format!("conn-pool-{}", i))
             .spawn(move || loop {
-                let stream = {
+                let (stream, enqueued) = {
                     let guard = match rx.lock() {
                         Ok(g) => g,
                         Err(_) => return,
                     };
                     match guard.recv() {
-                        Ok(s) => s,
+                        Ok(item) => item,
                         Err(_) => return,
                     }
                 };
+                if enqueued.elapsed() > queue_deadline {
+                    drop(stream); // stale admission — client already gone
+                    continue;
+                }
                 handler(&ctx, stream);
             });
     }
@@ -105,7 +118,9 @@ where
 /// accept loop via `try_send`.  On `Full`/`Disconnected` the caller
 /// applies its drop/reject policy inline (`reject` passed here is for
 /// shutdown-time draining; admission rejection is the caller's job —
-/// e.g. `respond(503)` then drop).
+/// e.g. `respond(503)` then drop).  `queue_deadline` expires queued
+/// connections (drop policy) — declared per module's B16 latency
+/// envelope, never tuned globally.
 ///
 /// ```text
 /// match tx.try_send(stream) {
@@ -116,14 +131,15 @@ where
 pub fn bounded_conn_pool<C, H>(
     workers: usize,
     pending_capacity: usize,
+    queue_deadline: Duration,
     ctx: C,
     handler: H,
-) -> SyncSender<TcpStream>
+) -> SyncSender<(TcpStream, Instant)>
 where
     C: Send + Sync + 'static + Clone,
     H: Fn(&C, TcpStream) + Send + Sync + 'static,
 {
-    let (tx, rx) = sync_channel::<TcpStream>(pending_capacity.max(1));
-    spawn_pool(Arc::new(Mutex::new(rx)), workers.max(1), ctx, handler);
+    let (tx, rx) = sync_channel::<(TcpStream, Instant)>(pending_capacity.max(1));
+    spawn_pool(Arc::new(Mutex::new(rx)), workers.max(1), queue_deadline, ctx, handler);
     tx
 }

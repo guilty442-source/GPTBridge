@@ -351,9 +351,13 @@ pub fn run(args: WorkerArgs) -> i32 {
     // pending queue; a full queue closes the connection — never a
     // thread per connection.
     let workers = crate::governor_budget::resolve_workers("network", 2, 8);
+    // Declared B16 latency envelope for a queued connection.
+    const PENDING_DEADLINE: std::time::Duration =
+        std::time::Duration::from_millis(2000);
     let pending = crate::governor_budget::bounded_conn_pool(
         workers,
         32,
+        PENDING_DEADLINE,
         (),
         |_, stream| worker_server::handle_connection(stream),
     );
@@ -362,7 +366,7 @@ pub fn run(args: WorkerArgs) -> i32 {
             match incoming {
                 Ok(stream) => {
                     // Reject: close immediately (IPC callers retry).
-                    let _ = pending.try_send(stream);
+                    let _ = pending.try_send((stream, std::time::Instant::now()));
                 }
                 Err(_) => std::thread::sleep(Duration::from_millis(50)),
             }
