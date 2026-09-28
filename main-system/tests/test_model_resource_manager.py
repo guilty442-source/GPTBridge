@@ -18,6 +18,7 @@ def _manager(tmp_path, gpu_free=6000.0, ram_free=16000.0):
         gpu_free_fn=lambda: gpu_free,
         ram_free_fn=lambda: ram_free,
         interactive_headroom_mb=1024,
+        sleep_gate_fn=lambda: False,
     )
 
 
@@ -54,7 +55,10 @@ def test_interactive_role_exempt_from_headroom(tmp_path):
 
 
 def test_fail_closed_when_telemetry_missing(tmp_path):
-    mgr = ModelResourceManager(ledger_path=tmp_path / "l.jsonl")  # no probes
+    mgr = ModelResourceManager(
+        ledger_path=tmp_path / "l.jsonl",
+        sleep_gate_fn=lambda: False,
+    )  # no probes
     d = mgr.request_load(ModelRole.CODING_LARGE, "coding-30b", vram_mb=4000)
     assert not d.admitted
     assert d.reason == "gpu-telemetry-unavailable"

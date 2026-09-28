@@ -88,6 +88,7 @@ def _mgr(tmp_path, gpu_free=None, ram_free=None):
         gpu_free_fn=(lambda: gpu_free) if gpu_free is not None else None,
         ram_free_fn=(lambda: ram_free) if ram_free is not None else None,
         interactive_headroom_mb=0,
+        sleep_gate_fn=lambda: False,
     )
 
 
@@ -137,6 +138,7 @@ def test_resource_manager_vram_share(tmp_path, monkeypatch):
         gpu_free_fn=lambda: gpu_free[0],
         ram_free_fn=lambda: 8000.0,
         interactive_headroom_mb=0,
+        sleep_gate_fn=lambda: False,
     )
     d = mgr.request_load("fast_chat", "chat-8b", vram_mb=4000, ram_mb=2000)
     assert d.admitted
