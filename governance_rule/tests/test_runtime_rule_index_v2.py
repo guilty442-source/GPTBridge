@@ -49,8 +49,8 @@ def test_restatements_never_indexed(document, live_db):
 
 def test_superseded_controllers_resolve(document):
     resolved = {e["declared_provision"]: e["provision_identity"] for e in document["rules"]}
-    assert resolved.get("article:A591") == "article:A604"
-    assert resolved.get("article:A592") == "article:A604"
+    assert resolved.get("article:A132") == "article:B162"
+    assert resolved.get("article:B158") == "article:B162"
 
 
 def test_unresolved_successor_denies_build():

@@ -112,6 +112,10 @@ _INDEX_STATE_DDL = (
     """,
     """
     ALTER TABLE gptbridge_rag.chunk
+        ADD COLUMN IF NOT EXISTS embedding BYTEA
+    """,
+    """
+    ALTER TABLE gptbridge_rag.chunk
         ADD COLUMN IF NOT EXISTS content_tsv tsvector
         GENERATED ALWAYS AS (
             to_tsvector('simple', coalesce(metadata ->> 'content', ''))
