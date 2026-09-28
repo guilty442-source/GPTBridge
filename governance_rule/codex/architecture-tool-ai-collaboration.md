@@ -1,33 +1,15 @@
-# AI Collaboration 完整架構圖
+# AI Collaboration／外部協作完整架構圖
 
 ```mermaid
-flowchart TB
-  ENTRY[AI Collaboration Entry] --> APP[Collaboration Domain]
-  ENTRY --> UI[Two-column UI]
-  UI --> TOP[Integrated compact top card: AI list, browser controls and collaboration input]
-  UI --> LEFT[Left 1/4: AI responses without request cards]
-  UI --> RIGHT[Right 3/4: embedded browser webpage]
-  APP --> AUTO_MEMORY[Automatic collaboration memory recording]
-  APP --> AUTH[Identity and Permission Check]
-  AUTH --> INFO[Information Layer]
-  INFO --> EXT[Registered External Collaboration Boundary]
-  EXT --> RESEARCH[Xingcheng governed research channel]
-  RESEARCH --> CANDIDATES[(Unverified candidates only)]
-  APP --> STATE[(AI Collaboration-owned State)]
-  APP --> PROC[Independent Process Tree]
-  PROC --> SUP[Dedicated Supervisor and Watchdog]
-  PROC --> AUDIT[Correlation and Audit Reference]
-  PROC --> FAULT[Isolated Failure Boundary]
+flowchart LR
+  UI[Left 1/4 Unified Input and AI Selector] --> ROUTE[Selected AI Route]
+  ROUTE --> BROWSER[Right 3/4 Governed Browser]
+  BROWSER --> WEB[Approved External AI Site]
+  ROUTE --> MEMORY[Automatic Scoped Conversation Record]
+  ROUTE --> INFO[Information Channel]
+  INFO --> AUDIT[Audit and Notification]
 ```
 
-所有外部協作必須經已登錄通道；外部回應不會自動取得專案權威。
+`ai-collaboration` 是獨立工具。左側整合輸入與 AI 選擇，右側為受治理瀏覽器；AI 清單直接控制內建瀏覽器路由。需求卡片、共享記憶卡片、整體狀態卡片與重複瀏覽器狀態提示不得存在。對話以 scope、correlation、source 與 revision 自動記錄。
 
-同步基線：B118、B124、C102、B125、C103、B129；最上方單一整合卡片承載網址工具列、內建 AI 名單與協作輸入，AI 操作直接控制右側內建瀏覽器。左側 1/4 只顯示各 AI 回覆且不建立任何需求卡片，右側 3/4 為瀏覽器網頁區。獨立 AI 名單、共享記憶與診斷狀態卡全部取消；協作內容與回覆由工具自動記錄。
-
-星澄可經此受治理網路通道搜尋官方文件、正式問題追蹤與可信技術來源以尋找修復方案；網路結果一律為未驗證候選，必須先驗證來源、版本、適用條件、最小修改、回復方法與本機測試後才可交付修復流程。搜尋通道不得直接執行、寫檔、安裝套件或寫入正式資料；通道拒絕或逾時一律 fail-closed。
-
-本工具規範只存於本工具邊界；中央僅保存定位與權限索引，不複製規範內容。
-
-## 法典檔案保護
-
-檔案唯讀只作為最小必要的完整性保護，不代表權威。保留目前五份機器產生的中文法典鏡像、已註冊治理套件入口及已註冊共享層執法來源為唯讀；架構圖及其他非鏡像工作區檔案均採受管可寫，由 PostgreSQL 權限、交易、版本、current binding、同步證據與稽核維持完整性。發布程序可暫時解除鏡像唯讀，但完成驗證後必須恢復。
+外部網路只能經已登錄瀏覽器與目的地政策。搜尋或外部回答都是未驗證候選，不得直接寫入正式資料、執行程式、安裝套件或取得權威。視窗關閉須在 5 秒內停止自身後端。

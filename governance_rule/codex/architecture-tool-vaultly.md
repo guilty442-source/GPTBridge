@@ -1,28 +1,15 @@
-# Vaultly 完整架構圖
+# Vaultly／影音下載自動化完整架構圖
 
 ```mermaid
-flowchart TB
-  ENTRY[Vaultly Request] --> AUTH[Identity Permission and Network Policy]
-  AUTH --> DOWNLOAD[Registered Video Download Executor]
-  DOWNLOAD --> MEDIA[(Vaultly-owned Media State)]
-  DOWNLOAD --> CRED[(Credential Storage Authority)]
-  CRED --> META[Credential metadata only in PostgreSQL]
-  CRED --> ROTATE[Rotation with grace / emergency revocation]
-  DOWNLOAD --> RECEIPT[Result and Audit Reference]
-  DOWNLOAD --> INFO[Information Layer]
-  DOWNLOAD --> PROC[Independent Process Tree]
-  PROC --> SUP[Supervisor and Watchdog]
-  PROC --> FAULT[Isolated Failure Boundary]
+flowchart LR
+  UI[UI or CLI] --> REQUEST[Typed Download Request]
+  REQUEST --> POLICY[URL, Permission and Destination Policy]
+  POLICY --> GO[Go Network and File Pipeline]
+  GO --> TEMP[Managed Temporary Artifact]
+  TEMP --> VERIFY[Size, Type and Integrity Validation]
+  VERIFY --> MOVE[Atomic Final Placement]
+  MOVE --> PG[(PostgreSQL Operation State)]
+  MOVE --> RECEIPT[Typed Receipt and Audit]
 ```
 
-外部網路存取必須走受治理路徑；憑證與下載狀態不得跨工具暴露。
-
-同步基線：B118、B124、C102、B125；獨立工具啟動與關閉各自上限 5 秒，逾時 fail-closed。
-
-憑證存放於 PostgreSQL `gptbridge_security.credential`（migration `087_security_identity_control.sql`），只允許中繼資料並以 HMAC-SHA256 驗證摘要識別；明文一律拒絕（`assert_metadata_only`）。輪替流程為 create → verify → switch → grace → revoke，並支援嚴格緊急撤銷（disable → terminate → rotate → 提升 generation → 稽核）；提升 generation 後，未跟上世代之敏感寫入 fail-closed。Vaultly 下載狀態與媒體屬自身域，不得跨工具暴露或作為他工具權威。
-
-本工具規範只存於本工具邊界；中央僅保存定位與權限索引，不複製規範內容。
-
-## 法典檔案保護
-
-檔案唯讀只作為最小必要的完整性保護，不代表權威。保留目前五份機器產生的中文法典鏡像、已註冊治理套件入口及已註冊共享層執法來源為唯讀；架構圖及其他非鏡像工作區檔案均採受管可寫，由 PostgreSQL 權限、交易、版本、current binding、同步證據與稽核維持完整性。發布程序可暫時解除鏡像唯讀，但完成驗證後必須恢復。
+`vaultly` 是獨立工具。Go 負責有界網路、串流、分塊與檔案 I/O；下載前驗證目的地、來源、配額、檔案型別與空間，完成後驗證內容並原子移入正式位置。臨時檔、佇列、重試、頻寬、並行及保留期均須有界。不得下載未授權來源、執行下載內容、繞過網路政策或保存未登錄憑證。視窗關閉須在 5 秒內停止自身後端。
