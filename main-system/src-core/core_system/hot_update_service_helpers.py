@@ -5,11 +5,12 @@ and its mixin modules, kept here to avoid circular imports.
 """
 from __future__ import annotations
 
-import hashlib
 import logging
 import types
 from pathlib import Path
 from typing import Any, Final
+
+from shared_layer.workflow.atomic_file import file_sha256
 
 _logger = logging.getLogger("gptbridge.hot_update")
 

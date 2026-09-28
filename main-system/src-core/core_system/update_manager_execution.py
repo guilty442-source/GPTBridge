@@ -6,13 +6,14 @@ _detect_source_changes methods extracted from UpdateManager.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import sys
 import time
 import types
 from pathlib import Path
 from typing import Optional
+
+from shared_layer.workflow.atomic_file import file_sha256
 
 from core_system.active_release import resolve_active_pointer
 from core_system.update_manager_types import (

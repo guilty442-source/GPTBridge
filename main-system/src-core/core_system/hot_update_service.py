@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -11,6 +10,8 @@ import types
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from shared_layer.workflow.atomic_file import file_sha256
 
 from startup_core.feature_flags import get_flags
 from core_system.circuit_breaker import CircuitBreaker, CircuitOpenError

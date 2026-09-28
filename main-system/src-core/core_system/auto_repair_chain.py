@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from governance_rule.execution.authentication import GovernanceAuthenticationService
+from shared_layer.workflow.atomic_file import file_sha256
 
 from core_system.auto_repair_chain_decision import RepairObjectiveAssigner
 from core_system.auto_repair_chain_executor import GovernedExecutor

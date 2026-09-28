@@ -16,14 +16,15 @@
     "sql": {
       "engine": "postgresql",
       "role": "structured-mutable-official-data",
-      "stores": ["official-business-records", "relations", "status", "audit", "rag-document-chunk-mapping"],
-      "authority": "official-structured-data-source-of-truth"
+      "stores": ["official-business-records", "relations", "status", "audit", "rag-document-chunk-mapping", "canonical-chunk-embeddings"],
+      "authority": "official-structured-data-source-of-truth-and-canonical-vector-values"
     },
     "rag": {
       "engine": "vectord",
       "role": "semantic-knowledge-index",
-      "stores": ["embeddings", "semantic-index", "opaque-resource-identities"],
+      "stores": ["derived-embedding-projections", "semantic-index", "opaque-resource-identities"],
       "authority": "retrieval-candidate-only",
+      "rebuild": "copy-canonical-embeddings-from-postgresql",
       "official_data_verification": "mandatory-through-local-governed-executor"
     },
     "llm": {

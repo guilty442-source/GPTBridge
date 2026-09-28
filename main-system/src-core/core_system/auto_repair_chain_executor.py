@@ -6,13 +6,14 @@ FORBID: overwrite, reset, replacement, restore-default, checkout, clean, revert,
 
 from __future__ import annotations
 
-import hashlib
 import shutil
 import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+
+from shared_layer.workflow.atomic_file import file_sha256
 
 from core_system.auto_repair_chain_types import (
     GovernanceAudit,
