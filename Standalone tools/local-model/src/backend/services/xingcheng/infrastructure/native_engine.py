@@ -851,7 +851,16 @@ def native_engine_for(
             try:
                 from .native_transformer.execution.auto_release import get_manager
                 residency = get_manager()
+                budget_mb = float(settings.get("vram_budget_mb") or 0)
+                required_mb = max(
+                    256.0,
+                    path.stat().st_size * 1.5 / (1024.0 * 1024.0),
+                )
+                if not residency.ensure_budget(key, required_mb, budget_mb):
+                    raise RuntimeError("NATIVE_RESIDENCY_BUDGET_EXHAUSTED")
                 residency.begin_load(key)
+            except RuntimeError:
+                raise
             except Exception:
                 residency = None
             try:

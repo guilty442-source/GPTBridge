@@ -83,6 +83,35 @@ class AutoReleaseManager:
         with self._lock:
             return self._states.get(key)
 
+    def ensure_budget(self, key: str, required_mb: float, budget_mb: float) -> bool:
+        """Evict least-recently-used cold resources before a model load."""
+        budget = float(budget_mb or 0)
+        required = max(0.0, float(required_mb))
+        if budget <= 0 or required <= 0:
+            return True
+        while True:
+            with self._lock:
+                total = sum(
+                    float(info.get("size_mb") or 0)
+                    for resource_key, info in self._resources.items()
+                    if resource_key != key
+                )
+                if total + required <= budget:
+                    return True
+                candidates = sorted(
+                    (
+                        (str(resource_key), float(info.get("last_used") or 0))
+                        for resource_key, info in self._resources.items()
+                        if resource_key != key
+                        and self._states.get(resource_key)
+                        in {ResidencyState.COLD, ResidencyState.WARM}
+                    ),
+                    key=lambda item: item[1],
+                )
+            if not candidates:
+                return False
+            self.release(candidates[0][0])
+
     def touch(self, key: str) -> None:
         """Mark a resource HOT when it is actively requested."""
         with self._lock:

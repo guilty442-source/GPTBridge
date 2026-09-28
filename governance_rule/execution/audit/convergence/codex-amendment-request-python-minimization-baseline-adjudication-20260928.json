@@ -1,0 +1,46 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "python-minimization-baseline-adjudication-20260928",
+  "supersedes": "python-minimization-consolidated-reanchor-20260928-r2",
+  "title": "Governor adjudication: interim re-anchor of python-minimization baselines to measured live state",
+  "summary": "Adjudicates python-minimization-consolidated-reanchor-request-20260928-r2. Governor directive (2026-09-28): resolve the remaining gate failures per the codified adjudication path. Per-bucket drift is legitimate codex-mandated growth (PERF-07 engine-side embedding, bounded-executor concurrency layer, residency boundary guards, amendment/audit machinery) — not scope creep. Disposition: authorized interim re-anchor; the ratchet resumes from the adjudicated values and continues to only tighten.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive 2026-09-28; evidence: python-minimization-consolidated-reanchor-request-20260928-r2.json",
+  "change_class": "operational-configuration",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T10:07:01Z",
+    "version_identity": "E2:2026-09-28T10:07:01Z",
+    "version_epoch": 2,
+    "history_head": "45dbff5de2d4c5b15dfcda06208eda98e69a9ba5cfdc0d21b599792e2c27bbd8",
+    "revision_sequence": 136
+  },
+  "problem": {
+    "summary": "test_zero_targets_only_shrink + test_allowed_zones_frozen fail on baseline growth attributed to codex-mandated multi-worker feature work; adjudication request r2 documented the drift and awaited governor disposition."
+  },
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "note": "governor disposition + adjudication record for the python-minimization baseline re-anchor; downstream baseline file update references this disposition",
+      "rows": [
+        {
+          "key": "governor_disposition_python_minimization_baselines",
+          "value": "authorized-interim-reanchor|request=python-minimization-consolidated-reanchor-20260928-r2|governor-directive=20260928|ratchet-resumes-from-adjudicated-values|direction=only-tighten"
+        },
+        {
+          "key": "adjudications_rev3",
+          "value": "[\"INFERENCE loc 13453->13600: adjudicated interim re-anchor; residency/boundary guard additions under human-governor directive 2026-09-28\", \"RAG loc 24840->25407: adjudicated interim re-anchor; PERF-07 engine-side embed path (index_document_text/embed_bytes/text queries) mandated by B157 compute-at-owner\", \"VECTOR loc 506->535: adjudicated interim re-anchor; canonical f64-le record intake in local vector store (PERF-07)\", \"PROC_MGMT loc 15731->15773: adjudicated interim re-anchor; bounded-executor/lifecycle wiring\", \"FILE_IO loc 18209->18222: adjudicated interim re-anchor\", \"BUSINESS loc 41819->42016: adjudicated interim re-anchor; xingcheng command/intent growth\", \"GENERAL_APP files 557->565 loc 112829->114858: adjudicated interim re-anchor; bounded admission executor + budget_source + thread_budget concurrency-budget layer, net of store.py split shrinkage\", \"GOVERNANCE files 203->204 loc 56985->57457: adjudicated interim re-anchor; amendment pipeline + audit convergence growth\", \"NETWORK loc 4287->4285: ratchet tightened to measured\", \"VERIFICATION row kept (inert: classifiers measure 0); re-key decision deferred to next phase adjudication\"]"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T18:30:00Z",
+    "expected_audit_result": "audit_runtime_governance() 0 findings; main-system/tests/test_python_minimization_gates.py 3/3 PASS after baseline.json is re-anchored under this disposition"
+  }
+}
